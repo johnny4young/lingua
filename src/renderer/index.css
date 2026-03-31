@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-gray-950: #0a0a0f;
+  --color-gray-900: #111118;
+  --color-gray-800: #1e1e2e;
+  --color-gray-700: #2a2a3c;
+  --color-gray-600: #3a3a4e;
+  --color-gray-500: #5a5a72;
+  --color-gray-400: #8888a0;
+  --color-gray-300: #b0b0c4;
+  --color-gray-200: #d0d0de;
+  --color-gray-100: #e8e8f0;
+  --color-gray-50: #f4f4f8;
+
+  --color-primary-500: #7c3aed;
+  --color-primary-400: #a78bfa;
+  --color-primary-600: #6d28d9;
+
+  --color-success-500: #22c55e;
+  --color-warning-500: #eab308;
+  --color-error-500: #ef4444;
+  --color-info-500: #3b82f6;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+
+@layer base {
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-sans);
+    background-color: var(--color-gray-950);
+    color: var(--color-gray-100);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-gray-700);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gray-600);
+  }
+}
