@@ -64,7 +64,12 @@ export function ConsolePanel() {
               <span className={`shrink-0 font-bold ${TYPE_STYLES[entry.type]}`}>
                 [{TYPE_LABELS[entry.type]}]
               </span>
-              <span className={TYPE_STYLES[entry.type]}>{entry.content}</span>
+              {entry.line !== undefined && (
+                <span className="shrink-0 text-gray-600">L{entry.line}</span>
+              )}
+              <span className={`whitespace-pre-wrap ${TYPE_STYLES[entry.type]}`}>
+                {entry.content}
+              </span>
             </div>
           ))
         )}

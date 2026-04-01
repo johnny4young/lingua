@@ -1,5 +1,6 @@
-import { Play, Square, Plus, Settings } from 'lucide-react';
+import { Play, Square, Plus, Settings, Loader2 } from 'lucide-react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { useRunner } from '../../hooks/useRunner';
 import type { Language } from '../../types';
 
 const LANGUAGES: { id: Language; label: string }[] = [
@@ -12,6 +13,7 @@ const LANGUAGES: { id: Language; label: string }[] = [
 
 export function Toolbar() {
   const { tabs, activeTabId, addTab } = useEditorStore();
+  const { run, stop, isRunning, isInitializing } = useRunner();
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   const handleNewFile = (language: Language) => {
@@ -19,30 +21,26 @@ export function Toolbar() {
     addTab(tab);
   };
 
-  const handleRun = () => {
-    // Will be implemented in Phase 2
-    console.log('Run clicked');
-  };
-
-  const handleStop = () => {
-    // Will be implemented in Phase 2
-    console.log('Stop clicked');
-  };
-
   return (
     <div className="flex h-10 items-center justify-between border-b border-gray-800 bg-gray-900 px-3">
       <div className="flex items-center gap-2">
         <button
-          onClick={handleRun}
-          className="flex items-center gap-1.5 rounded bg-success-500/20 px-3 py-1 text-xs font-medium text-success-500 transition-colors hover:bg-success-500/30"
+          onClick={run}
+          disabled={isRunning}
+          className="flex items-center gap-1.5 rounded bg-success-500/20 px-3 py-1 text-xs font-medium text-success-500 transition-colors hover:bg-success-500/30 disabled:cursor-not-allowed disabled:opacity-50"
           title="Run (Cmd+Enter)"
         >
-          <Play size={14} />
-          Run
+          {isInitializing ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Play size={14} />
+          )}
+          {isInitializing ? 'Loading...' : 'Run'}
         </button>
         <button
-          onClick={handleStop}
-          className="flex items-center gap-1.5 rounded bg-error-500/20 px-3 py-1 text-xs font-medium text-error-500 transition-colors hover:bg-error-500/30"
+          onClick={stop}
+          disabled={!isRunning}
+          className="flex items-center gap-1.5 rounded bg-error-500/20 px-3 py-1 text-xs font-medium text-error-500 transition-colors hover:bg-error-500/30 disabled:cursor-not-allowed disabled:opacity-50"
           title="Stop"
         >
           <Square size={14} />

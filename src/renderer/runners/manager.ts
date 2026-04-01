@@ -1,0 +1,89 @@
+import type { Language, LanguageRunner, ExecutionContext, ExecutionResult } from '../types';
+import { JavaScriptRunner } from './javascript';
+import { TypeScriptRunner } from './typescript';
+
+/**
+ * RunnerManager orchestrates language runners.
+ * Selects the appropriate runner based on language, manages lifecycle,
+ * and provides a unified execution API.
+ */
+export class RunnerManager {
+  private runners: Map<Language, LanguageRunner> = new Map();
+  private initializing: Map<Language, Promise<void>> = new Map();
+
+  constructor() {
+    this.runners.set('javascript', new JavaScriptRunner());
+    this.runners.set('typescript', new TypeScriptRunner());
+    // Go, Python, Rust runners will be added in later phases
+  }
+
+  /** Get the runner for a given language, initializing if needed */
+  async getRunner(language: Language): Promise<LanguageRunner | null> {
+    const runner = this.runners.get(language);
+    if (!runner) return null;
+
+    if (!runner.isReady()) {
+      // Avoid double-initialization
+      if (!this.initializing.has(language)) {
+        const initPromise = runner.init().then(() => {
+          this.initializing.delete(language);
+        });
+        this.initializing.set(language, initPromise);
+      }
+      await this.initializing.get(language);
+    }
+
+    return runner;
+  }
+
+  /** Execute code in the appropriate language runner */
+  async execute(
+    language: Language,
+    code: string,
+    context?: ExecutionContext
+  ): Promise<ExecutionResult> {
+    const runner = await this.getRunner(language);
+
+    if (!runner) {
+      return {
+        stdout: [],
+        stderr: [],
+        result: undefined,
+        executionTime: 0,
+        error: {
+          message: `No runner available for ${language}. It will be added in a future update.`,
+        },
+      };
+    }
+
+    return runner.execute(code, context);
+  }
+
+  /** Stop execution for a given language */
+  stop(language: Language): void {
+    const runner = this.runners.get(language);
+    if (runner) {
+      runner.stop();
+    }
+  }
+
+  /** Stop all runners */
+  stopAll(): void {
+    for (const runner of this.runners.values()) {
+      runner.stop();
+    }
+  }
+
+  /** Check if a language is supported */
+  isSupported(language: Language): boolean {
+    return this.runners.has(language);
+  }
+
+  /** Get list of supported languages */
+  getSupportedLanguages(): Language[] {
+    return Array.from(this.runners.keys());
+  }
+}
+
+/** Singleton instance */
+export const runnerManager = new RunnerManager();

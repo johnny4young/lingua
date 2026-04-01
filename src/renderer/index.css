@@ -53,4 +53,16 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--color-gray-600);
   }
+
+  /* Inline result decorations for Monaco editor */
+  .inline-result-text {
+    color: var(--color-gray-500);
+    font-style: italic;
+    opacity: 0.8;
+    padding-left: 1rem;
+  }
+
+  .inline-result-decoration {
+    /* subtle background highlight for lines with results */
+  }
 }
