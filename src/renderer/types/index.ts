@@ -6,6 +6,8 @@ export interface FileTab {
   language: Language;
   content: string;
   isDirty: boolean;
+  /** Absolute path on disk. Undefined for in-memory (unsaved) files. */
+  filePath?: string;
 }
 
 export interface EditorState {
@@ -16,6 +18,10 @@ export interface EditorState {
   setActiveTab: (id: string) => void;
   updateContent: (id: string, content: string) => void;
   markSaved: (id: string) => void;
+  /** Open a file from disk. If already open, activates that tab. */
+  openFile: (filePath: string, name: string, language: Language) => Promise<void>;
+  /** Save the active tab's content to disk (only if it has a filePath). */
+  saveActiveTab: () => Promise<void>;
 }
 
 export interface ConsoleEntry {

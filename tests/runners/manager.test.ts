@@ -6,7 +6,7 @@ vi.mock('esbuild-wasm', () => ({
   transform: vi.fn(),
 }));
 
-// Mock window.runlang for Go runner (IPC calls)
+// Mock window.runlang for Go and Rust runner (IPC calls)
 Object.defineProperty(globalThis, 'window', {
   value: {
     ...globalThis.window,
@@ -15,6 +15,10 @@ Object.defineProperty(globalThis, 'window', {
       go: {
         detect: vi.fn().mockResolvedValue({ installed: true, version: 'go1.22.0', goRoot: '/usr/local/go' }),
         compile: vi.fn().mockResolvedValue({ success: false, error: 'mock compile' }),
+      },
+      rust: {
+        detect: vi.fn().mockResolvedValue({ installed: true, version: 'rustc 1.75.0' }),
+        run: vi.fn().mockResolvedValue({ success: true, stdout: '', stderr: '', exitCode: 0, executionTime: 0 }),
       },
     },
   },
@@ -30,35 +34,30 @@ describe('RunnerManager', () => {
     manager = new RunnerManager();
   });
 
-  it('should support javascript, typescript, go, and python', () => {
+  it('should support javascript, typescript, go, python, and rust', () => {
     expect(manager.isSupported('javascript')).toBe(true);
     expect(manager.isSupported('typescript')).toBe(true);
     expect(manager.isSupported('go')).toBe(true);
     expect(manager.isSupported('python')).toBe(true);
+    expect(manager.isSupported('rust')).toBe(true);
   });
 
-  it('should not support rust yet', () => {
-    expect(manager.isSupported('rust')).toBe(false);
-  });
-
-  it('should list all supported languages', () => {
+  it('should list all 5 supported languages', () => {
     const supported = manager.getSupportedLanguages();
     expect(supported).toContain('javascript');
     expect(supported).toContain('typescript');
     expect(supported).toContain('go');
     expect(supported).toContain('python');
-    expect(supported).toHaveLength(4);
+    expect(supported).toContain('rust');
+    expect(supported).toHaveLength(5);
   });
 
-  it('should return null runner for unsupported language', async () => {
+  it('should get rust runner (initializes with detect)', async () => {
     const runner = await manager.getRunner('rust');
-    expect(runner).toBeNull();
-  });
-
-  it('should return error result for unsupported language', async () => {
-    const result = await manager.execute('rust', 'fn main() {}');
-    expect(result.error).toBeDefined();
-    expect(result.error?.message).toContain('No runner available');
+    expect(runner).not.toBeNull();
+    expect(runner?.id).toBe('rust');
+    expect(runner?.language).toBe('rust');
+    expect(runner?.isReady()).toBe(true);
   });
 
   it('should get javascript runner', async () => {
@@ -93,6 +92,6 @@ describe('RunnerManager', () => {
     expect(() => manager.stop('javascript')).not.toThrow();
     expect(() => manager.stop('go')).not.toThrow();
     expect(() => manager.stop('python')).not.toThrow();
-    expect(() => manager.stop('rust')).not.toThrow(); // no-op for unsupported
+    expect(() => manager.stop('rust')).not.toThrow(); // no-op (native runner)
   });
 });

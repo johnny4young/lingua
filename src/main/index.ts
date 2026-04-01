@@ -2,6 +2,8 @@ import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { registerGoHandlers } from './go-compiler';
+import { registerRustHandlers } from './rust-compiler';
+import { registerFileSystemHandlers } from './ipc/fileSystem';
 
 if (started) {
   app.quit();
@@ -9,6 +11,8 @@ if (started) {
 
 // Register IPC handlers
 registerGoHandlers();
+registerRustHandlers();
+registerFileSystemHandlers();
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({

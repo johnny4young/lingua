@@ -3,6 +3,7 @@ import { JavaScriptRunner } from './javascript';
 import { TypeScriptRunner } from './typescript';
 import { GoRunner } from './go';
 import { PythonRunner } from './python';
+import { RustRunner } from './rust';
 
 /**
  * RunnerManager orchestrates language runners.
@@ -18,7 +19,7 @@ export class RunnerManager {
     this.runners.set('typescript', new TypeScriptRunner());
     this.runners.set('go', new GoRunner());
     this.runners.set('python', new PythonRunner());
-    // Rust runner will be added in Phase 4
+    this.runners.set('rust', new RustRunner());
   }
 
   /** Get the runner for a given language, initializing if needed */

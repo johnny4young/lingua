@@ -11,27 +11,39 @@ const DEFAULT_CONTENT: Record<Language, string> = {
 
 let tabCounter = 0;
 
-const createDefaultTab = (language: Language = 'javascript'): FileTab => {
+const EXT: Record<Language, string> = {
+  javascript: 'js',
+  typescript: 'ts',
+  go: 'go',
+  python: 'py',
+  rust: 'rs',
+};
+
+export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   tabCounter++;
-  const ext: Record<Language, string> = {
-    javascript: 'js',
-    typescript: 'ts',
-    go: 'go',
-    python: 'py',
-    rust: 'rs',
-  };
   return {
     id: `tab-${tabCounter}`,
-    name: `untitled-${tabCounter}.${ext[language]}`,
+    name: `untitled-${tabCounter}.${EXT[language]}`,
     language,
     content: DEFAULT_CONTENT[language],
     isDirty: false,
   };
 };
 
+/** Detect language from file extension */
+export function languageFromPath(filePath: string): Language {
+  if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) return 'typescript';
+  if (filePath.endsWith('.js') || filePath.endsWith('.jsx') || filePath.endsWith('.mjs'))
+    return 'javascript';
+  if (filePath.endsWith('.go')) return 'go';
+  if (filePath.endsWith('.py')) return 'python';
+  if (filePath.endsWith('.rs')) return 'rust';
+  return 'javascript';
+}
+
 const initialTab = createDefaultTab('javascript');
 
-export const useEditorStore = create<EditorState>((set) => ({
+export const useEditorStore = create<EditorState>((set, get) => ({
   tabs: [initialTab],
   activeTabId: initialTab.id,
 
@@ -68,6 +80,46 @@ export const useEditorStore = create<EditorState>((set) => ({
         t.id === id ? { ...t, isDirty: false } : t
       ),
     })),
-}));
 
-export { createDefaultTab };
+  openFile: async (filePath, name, language) => {
+    const { tabs } = get();
+
+    // If already open, just activate the tab
+    const existing = tabs.find((t) => t.filePath === filePath);
+    if (existing) {
+      set({ activeTabId: existing.id });
+      return;
+    }
+
+    // Read file content from disk
+    const content = await window.runlang.fs.read(filePath);
+
+    tabCounter++;
+    const newTab: FileTab = {
+      id: `tab-${tabCounter}`,
+      name,
+      language,
+      content,
+      isDirty: false,
+      filePath,
+    };
+
+    set((state) => ({
+      tabs: [...state.tabs, newTab],
+      activeTabId: newTab.id,
+    }));
+  },
+
+  saveActiveTab: async () => {
+    const { tabs, activeTabId } = get();
+    const tab = tabs.find((t) => t.id === activeTabId);
+    if (!tab || !tab.filePath) return;
+
+    await window.runlang.fs.write(tab.filePath, tab.content);
+    set((state) => ({
+      tabs: state.tabs.map((t) =>
+        t.id === tab.id ? { ...t, isDirty: false } : t
+      ),
+    }));
+  },
+}));

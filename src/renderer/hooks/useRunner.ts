@@ -43,11 +43,12 @@ export function useRunner() {
       return;
     }
 
-    if (!runner.isReady()) {
+      if (!runner.isReady()) {
       setIsInitializing(true);
       const initMessages: Record<string, string> = {
         go: 'Detecting Go installation...',
         python: 'Loading Python runtime (Pyodide)...',
+        rust: 'Detecting Rust installation...',
       };
       const msg = initMessages[language] ?? `Initializing ${language} runner...`;
       setLoadingMessage(msg);
@@ -69,10 +70,13 @@ export function useRunner() {
     }
 
     try {
-      // Show compilation stage for Go
+      // Show compilation stage for Go and Rust
       if (language === 'go') {
         setLoadingMessage('Compiling Go to WASM...');
         addEntry({ type: 'info', content: 'Compiling Go to WebAssembly...' });
+      } else if (language === 'rust') {
+        setLoadingMessage('Compiling Rust...');
+        addEntry({ type: 'info', content: 'Compiling Rust binary...' });
       }
 
       const result = await runnerManager.execute(language, content);
