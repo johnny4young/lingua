@@ -1,6 +1,8 @@
 import type { Language, LanguageRunner, ExecutionContext, ExecutionResult } from '../types';
 import { JavaScriptRunner } from './javascript';
 import { TypeScriptRunner } from './typescript';
+import { GoRunner } from './go';
+import { PythonRunner } from './python';
 
 /**
  * RunnerManager orchestrates language runners.
@@ -14,7 +16,9 @@ export class RunnerManager {
   constructor() {
     this.runners.set('javascript', new JavaScriptRunner());
     this.runners.set('typescript', new TypeScriptRunner());
-    // Go, Python, Rust runners will be added in later phases
+    this.runners.set('go', new GoRunner());
+    this.runners.set('python', new PythonRunner());
+    // Rust runner will be added in Phase 4
   }
 
   /** Get the runner for a given language, initializing if needed */

@@ -13,7 +13,7 @@ const LANGUAGES: { id: Language; label: string }[] = [
 
 export function Toolbar() {
   const { tabs, activeTabId, addTab } = useEditorStore();
-  const { run, stop, isRunning, isInitializing } = useRunner();
+  const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   const handleNewFile = (language: Language) => {
@@ -35,7 +35,7 @@ export function Toolbar() {
           ) : (
             <Play size={14} />
           )}
-          {isInitializing ? 'Loading...' : 'Run'}
+          {loadingMessage ?? (isRunning ? 'Running...' : 'Run')}
         </button>
         <button
           onClick={stop}

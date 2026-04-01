@@ -5,6 +5,9 @@
  * Communication via structured messages (WorkerRequest / WorkerResponse).
  */
 
+// Make this file a module so TS doesn't merge its scope with other workers
+export {};
+
 // Type-safe message posting (Worker context has no DOM types)
 const ctx = self as unknown as Worker;
 

@@ -98,4 +98,6 @@ export type WorkerResponse =
   | { type: 'console'; method: ConsoleOutput['type']; args: string[] }
   | { type: 'result'; value?: unknown }
   | { type: 'error'; error: ExecutionError }
-  | { type: 'done'; executionTime: number };
+  | { type: 'done'; executionTime: number }
+  | { type: 'loading'; stage: string }
+  | { type: 'ready' };

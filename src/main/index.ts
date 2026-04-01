@@ -1,10 +1,14 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import { registerGoHandlers } from './go-compiler';
 
 if (started) {
   app.quit();
 }
+
+// Register IPC handlers
+registerGoHandlers();
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({

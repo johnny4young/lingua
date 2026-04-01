@@ -7,6 +7,7 @@ import type { Language } from '../types';
 export function useRunner() {
   const [isRunning, setIsRunning] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const currentLanguageRef = useRef<Language | null>(null);
 
   const run = useCallback(async () => {
@@ -44,6 +45,13 @@ export function useRunner() {
 
     if (!runner.isReady()) {
       setIsInitializing(true);
+      const initMessages: Record<string, string> = {
+        go: 'Detecting Go installation...',
+        python: 'Loading Python runtime (Pyodide)...',
+      };
+      const msg = initMessages[language] ?? `Initializing ${language} runner...`;
+      setLoadingMessage(msg);
+      addEntry({ type: 'info', content: msg });
       try {
         await runner.init();
       } catch (err) {
@@ -53,13 +61,22 @@ export function useRunner() {
         });
         setIsRunning(false);
         setIsInitializing(false);
+        setLoadingMessage(null);
         return;
       }
       setIsInitializing(false);
+      setLoadingMessage(null);
     }
 
     try {
+      // Show compilation stage for Go
+      if (language === 'go') {
+        setLoadingMessage('Compiling Go to WASM...');
+        addEntry({ type: 'info', content: 'Compiling Go to WebAssembly...' });
+      }
+
       const result = await runnerManager.execute(language, content);
+      setLoadingMessage(null);
 
       // Add stdout entries
       for (const output of result.stdout) {
@@ -111,6 +128,7 @@ export function useRunner() {
       });
     } finally {
       setIsRunning(false);
+      setLoadingMessage(null);
       currentLanguageRef.current = null;
     }
   }, []);
@@ -120,11 +138,12 @@ export function useRunner() {
       runnerManager.stop(currentLanguageRef.current);
     }
     setIsRunning(false);
+    setLoadingMessage(null);
     useConsoleStore.getState().addEntry({
       type: 'warn',
       content: 'Execution stopped by user.',
     });
   }, []);
 
-  return { run, stop, isRunning, isInitializing };
+  return { run, stop, isRunning, isInitializing, loadingMessage };
 }
