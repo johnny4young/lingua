@@ -24,19 +24,30 @@ export interface EditorState {
   saveActiveTab: () => Promise<void>;
 }
 
+export type ConsoleEntryType = 'log' | 'warn' | 'error' | 'info' | 'result';
+
 export interface ConsoleEntry {
   id: string;
-  type: 'log' | 'warn' | 'error' | 'info' | 'result';
+  type: ConsoleEntryType;
   content: string;
   timestamp: number;
   line?: number;
+  /** Execution time in ms — shown as a badge when set (only on the last entry) */
+  executionTime?: number;
 }
 
 export interface ConsoleState {
   entries: ConsoleEntry[];
+  /** Which entry types are currently visible */
+  activeFilters: Set<ConsoleEntryType>;
+  showTimestamps: boolean;
   addEntry: (entry: Omit<ConsoleEntry, 'id' | 'timestamp'>) => void;
   clear: () => void;
+  toggleFilter: (type: ConsoleEntryType) => void;
+  toggleTimestamps: () => void;
 }
+
+export type LayoutPreset = 'horizontal' | 'vertical' | 'editor-only';
 
 export interface SettingsState {
   theme: 'dark' | 'light';
@@ -46,6 +57,7 @@ export interface SettingsState {
   showLineNumbers: boolean;
   wordWrap: boolean;
   minimap: boolean;
+  layoutPreset: LayoutPreset;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -53,6 +65,7 @@ export interface SettingsState {
   toggleLineNumbers: () => void;
   toggleWordWrap: () => void;
   toggleMinimap: () => void;
+  setLayoutPreset: (preset: LayoutPreset) => void;
 }
 
 // --- Runner Types ---

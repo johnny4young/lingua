@@ -1,4 +1,4 @@
-import { Play, Square, Plus, Settings, Loader2 } from 'lucide-react';
+import { Play, Square, Plus, Settings, Loader2, Terminal, Search } from 'lucide-react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
 import type { Language } from '../../types';
@@ -11,7 +11,13 @@ const LANGUAGES: { id: Language; label: string }[] = [
   { id: 'rust', label: 'Rust' },
 ];
 
-export function Toolbar() {
+interface ToolbarProps {
+  onOpenSettings?: () => void;
+  onOpenPalette?: () => void;
+  onOpenQuickOpen?: () => void;
+}
+
+export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: ToolbarProps) {
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -61,6 +67,20 @@ export function Toolbar() {
       </div>
       <div className="flex items-center gap-1">
         <button
+          onClick={onOpenQuickOpen}
+          className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+          title="Go to file (Cmd+P)"
+        >
+          <Search size={16} />
+        </button>
+        <button
+          onClick={onOpenPalette}
+          className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+          title="Command palette (Cmd+Shift+P)"
+        >
+          <Terminal size={16} />
+        </button>
+        <button
           onClick={() => handleNewFile(activeTab?.language ?? 'javascript')}
           className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
           title="New file"
@@ -68,6 +88,7 @@ export function Toolbar() {
           <Plus size={16} />
         </button>
         <button
+          onClick={onOpenSettings}
           className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
           title="Settings (Cmd+,)"
         >

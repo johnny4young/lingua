@@ -3,6 +3,8 @@ import { FileTree } from '../FileTree';
 import { CodeEditor, EditorTabs } from '../Editor';
 import { ConsolePanel } from '../Console';
 import { Toolbar } from '../Toolbar';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useUIStore } from '../../stores/uiStore';
 
 function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const isVertical = orientation === 'vertical';
@@ -21,40 +23,85 @@ function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' |
   );
 }
 
-export function AppLayout() {
+function EditorArea() {
   return (
-    <div className="flex h-screen w-screen flex-col bg-gray-950 text-gray-100">
-      <Toolbar />
-      <Group orientation="horizontal" className="flex-1">
-        {/* Sidebar */}
-        <Panel defaultSize={15} minSize={10} maxSize={30}>
-          <FileTree />
+    <div className="flex h-full flex-col">
+      <EditorTabs />
+      <div className="flex-1">
+        <CodeEditor />
+      </div>
+    </div>
+  );
+}
+
+interface AppLayoutProps {
+  onOpenSettings?: () => void;
+  onOpenPalette?: () => void;
+  onOpenQuickOpen?: () => void;
+}
+
+export function AppLayout({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: AppLayoutProps) {
+  const { layoutPreset } = useSettingsStore();
+  const { sidebarVisible, consoleVisible } = useUIStore();
+
+  // Effective console shown: hidden if sidebarVisible toggled off OR if editor-only preset
+  const showConsole = consoleVisible && layoutPreset !== 'editor-only';
+
+  const MainContent = () => {
+    if (!showConsole) return <EditorArea />;
+
+    if (layoutPreset === 'vertical') {
+      return (
+        <Group orientation="horizontal">
+          <Panel defaultSize={60} minSize={30}>
+            <EditorArea />
+          </Panel>
+          <ResizeHandle orientation="vertical" />
+          <Panel defaultSize={40} minSize={20}>
+            <ConsolePanel />
+          </Panel>
+        </Group>
+      );
+    }
+
+    // horizontal (default)
+    return (
+      <Group orientation="vertical">
+        <Panel defaultSize={70} minSize={30}>
+          <EditorArea />
         </Panel>
-
-        <ResizeHandle orientation="vertical" />
-
-        {/* Editor + Console */}
-        <Panel defaultSize={85} minSize={50}>
-          <Group orientation="vertical">
-            {/* Editor Area */}
-            <Panel defaultSize={70} minSize={30}>
-              <div className="flex h-full flex-col">
-                <EditorTabs />
-                <div className="flex-1">
-                  <CodeEditor />
-                </div>
-              </div>
-            </Panel>
-
-            <ResizeHandle orientation="horizontal" />
-
-            {/* Console */}
-            <Panel defaultSize={30} minSize={15}>
-              <ConsolePanel />
-            </Panel>
-          </Group>
+        <ResizeHandle orientation="horizontal" />
+        <Panel defaultSize={30} minSize={15}>
+          <ConsolePanel />
         </Panel>
       </Group>
+    );
+  };
+
+  return (
+    <div className="flex h-screen w-screen flex-col bg-gray-950 text-gray-100">
+      <Toolbar
+        onOpenSettings={onOpenSettings}
+        onOpenPalette={onOpenPalette}
+        onOpenQuickOpen={onOpenQuickOpen}
+      />
+      {sidebarVisible ? (
+        <Group orientation="horizontal" className="flex-1">
+          {/* Sidebar */}
+          <Panel defaultSize={15} minSize={10} maxSize={30}>
+            <FileTree />
+          </Panel>
+          <ResizeHandle orientation="vertical" />
+          {/* Main area */}
+          <Panel defaultSize={85} minSize={50}>
+            <MainContent />
+          </Panel>
+        </Group>
+      ) : (
+        <div className="flex-1">
+          <MainContent />
+        </div>
+      )}
     </div>
   );
 }

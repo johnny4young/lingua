@@ -5,23 +5,25 @@ describe('settingsStore', () => {
   beforeEach(() => {
     useSettingsStore.setState({
       theme: 'dark',
-      editorTheme: 'vs-dark',
+      editorTheme: 'runlang-dark',
       fontSize: 14,
       fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
       showLineNumbers: true,
       wordWrap: false,
       minimap: false,
+      layoutPreset: 'horizontal',
     });
   });
 
   it('should have correct defaults', () => {
     const state = useSettingsStore.getState();
     expect(state.theme).toBe('dark');
-    expect(state.editorTheme).toBe('vs-dark');
+    expect(state.editorTheme).toBe('runlang-dark');
     expect(state.fontSize).toBe(14);
     expect(state.showLineNumbers).toBe(true);
     expect(state.wordWrap).toBe(false);
     expect(state.minimap).toBe(false);
+    expect(state.layoutPreset).toBe('horizontal');
   });
 
   it('should set theme', () => {
@@ -30,8 +32,8 @@ describe('settingsStore', () => {
   });
 
   it('should set editor theme', () => {
-    useSettingsStore.getState().setEditorTheme('hc-black');
-    expect(useSettingsStore.getState().editorTheme).toBe('hc-black');
+    useSettingsStore.getState().setEditorTheme('dracula');
+    expect(useSettingsStore.getState().editorTheme).toBe('dracula');
   });
 
   it('should set font size', () => {
@@ -62,5 +64,16 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().minimap).toBe(false);
     useSettingsStore.getState().toggleMinimap();
     expect(useSettingsStore.getState().minimap).toBe(true);
+  });
+
+  it('should set layout preset', () => {
+    useSettingsStore.getState().setLayoutPreset('vertical');
+    expect(useSettingsStore.getState().layoutPreset).toBe('vertical');
+
+    useSettingsStore.getState().setLayoutPreset('editor-only');
+    expect(useSettingsStore.getState().layoutPreset).toBe('editor-only');
+
+    useSettingsStore.getState().setLayoutPreset('horizontal');
+    expect(useSettingsStore.getState().layoutPreset).toBe('horizontal');
   });
 });

@@ -4,6 +4,11 @@ import { useEditorStore } from '../stores/editorStore';
 import { useConsoleStore } from '../stores/consoleStore';
 import type { Language } from '../types';
 
+function formatExecTime(ms: number): string {
+  if (ms < 1000) return `${ms.toFixed(1)} ms`;
+  return `${(ms / 1000).toFixed(2)} s`;
+}
+
 export function useRunner() {
   const [isRunning, setIsRunning] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -120,10 +125,11 @@ export function useRunner() {
         });
       }
 
-      // Add execution time
+      // Add execution time badge on a dedicated entry
       addEntry({
         type: 'info',
-        content: `Completed in ${result.executionTime.toFixed(1)}ms`,
+        content: `Completed in ${formatExecTime(result.executionTime)}`,
+        executionTime: result.executionTime,
       });
     } catch (err) {
       addEntry({
