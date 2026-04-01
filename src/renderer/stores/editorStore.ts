@@ -9,8 +9,6 @@ const DEFAULT_CONTENT: Record<Language, string> = {
   rust: '// Welcome to RunLang\nfn main() {\n    println!("Hello, World!");\n}\n',
 };
 
-let tabCounter = 0;
-
 const EXT: Record<Language, string> = {
   javascript: 'js',
   typescript: 'ts',
@@ -20,26 +18,18 @@ const EXT: Record<Language, string> = {
 };
 
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
-  tabCounter++;
+  const id = crypto.randomUUID();
+  const short = id.slice(0, 8);
   return {
-    id: `tab-${tabCounter}`,
-    name: `untitled-${tabCounter}.${EXT[language]}`,
+    id,
+    name: `untitled-${short}.${EXT[language]}`,
     language,
     content: DEFAULT_CONTENT[language],
     isDirty: false,
   };
 };
 
-/** Detect language from file extension */
-export function languageFromPath(filePath: string): Language {
-  if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) return 'typescript';
-  if (filePath.endsWith('.js') || filePath.endsWith('.jsx') || filePath.endsWith('.mjs'))
-    return 'javascript';
-  if (filePath.endsWith('.go')) return 'go';
-  if (filePath.endsWith('.py')) return 'python';
-  if (filePath.endsWith('.rs')) return 'rust';
-  return 'javascript';
-}
+export { languageFromPath } from '../utils/language';
 
 const initialTab = createDefaultTab('javascript');
 
@@ -94,9 +84,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     // Read file content from disk
     const content = await window.runlang.fs.read(filePath);
 
-    tabCounter++;
     const newTab: FileTab = {
-      id: `tab-${tabCounter}`,
+      id: crypto.randomUUID(),
       name,
       language,
       content,

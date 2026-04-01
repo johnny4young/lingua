@@ -26,7 +26,6 @@ ctx.addEventListener('message', async (event) => {
       importScripts(blobUrl);
       URL.revokeObjectURL(blobUrl);
 
-      // @ts-expect-error Go is injected by wasm_exec.js
       const go = new Go();
 
       // Capture stdout/stderr via the Go fs write polyfill
@@ -35,9 +34,7 @@ ctx.addEventListener('message', async (event) => {
       let stderrBuffer = '';
 
       // Override the writeSync used by Go's wasm_exec.js
-      // @ts-expect-error accessing globalThis.fs polyfill from wasm_exec.js
       const originalWriteSync = globalThis.fs.writeSync;
-      // @ts-expect-error patching globalThis.fs
       globalThis.fs.writeSync = (fd: number, buf: Uint8Array) => {
         const text = decoder.decode(buf);
         if (fd === 1) {
@@ -68,8 +65,10 @@ ctx.addEventListener('message', async (event) => {
       };
 
       // Compile and instantiate the WASM module
+      // Two-step avoids the BufferSource vs Module overload ambiguity in TypeScript
       const wasmBuffer = new Uint8Array(wasmBytes);
-      const result = await WebAssembly.instantiate(wasmBuffer, go.importObject);
+      const wasmModule = await WebAssembly.compile(wasmBuffer);
+      const wasmInstance = await WebAssembly.instantiate(wasmModule, go.importObject);
 
       // Set up timeout
       let timedOut = false;
@@ -86,7 +85,7 @@ ctx.addEventListener('message', async (event) => {
       }, timeout);
 
       // Run the Go program
-      await go.run(result.instance);
+      await go.run(wasmInstance);
 
       clearTimeout(timeoutId);
 

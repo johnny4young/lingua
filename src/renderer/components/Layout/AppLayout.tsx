@@ -5,6 +5,7 @@ import { ConsolePanel } from '../Console';
 import { Toolbar } from '../Toolbar';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
+import type { LayoutPreset } from '../../types';
 
 function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const isVertical = orientation === 'vertical';
@@ -34,6 +35,42 @@ function EditorArea() {
   );
 }
 
+interface MainContentProps {
+  showConsole: boolean;
+  layoutPreset: LayoutPreset;
+}
+
+function MainContent({ showConsole, layoutPreset }: MainContentProps) {
+  if (!showConsole) return <EditorArea />;
+
+  if (layoutPreset === 'vertical') {
+    return (
+      <Group orientation="horizontal">
+        <Panel defaultSize={60} minSize={30}>
+          <EditorArea />
+        </Panel>
+        <ResizeHandle orientation="vertical" />
+        <Panel defaultSize={40} minSize={20}>
+          <ConsolePanel />
+        </Panel>
+      </Group>
+    );
+  }
+
+  // horizontal (default)
+  return (
+    <Group orientation="vertical">
+      <Panel defaultSize={70} minSize={30}>
+        <EditorArea />
+      </Panel>
+      <ResizeHandle orientation="horizontal" />
+      <Panel defaultSize={30} minSize={15}>
+        <ConsolePanel />
+      </Panel>
+    </Group>
+  );
+}
+
 interface AppLayoutProps {
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
@@ -44,39 +81,7 @@ export function AppLayout({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Ap
   const { layoutPreset } = useSettingsStore();
   const { sidebarVisible, consoleVisible } = useUIStore();
 
-  // Effective console shown: hidden if sidebarVisible toggled off OR if editor-only preset
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
-
-  const MainContent = () => {
-    if (!showConsole) return <EditorArea />;
-
-    if (layoutPreset === 'vertical') {
-      return (
-        <Group orientation="horizontal">
-          <Panel defaultSize={60} minSize={30}>
-            <EditorArea />
-          </Panel>
-          <ResizeHandle orientation="vertical" />
-          <Panel defaultSize={40} minSize={20}>
-            <ConsolePanel />
-          </Panel>
-        </Group>
-      );
-    }
-
-    // horizontal (default)
-    return (
-      <Group orientation="vertical">
-        <Panel defaultSize={70} minSize={30}>
-          <EditorArea />
-        </Panel>
-        <ResizeHandle orientation="horizontal" />
-        <Panel defaultSize={30} minSize={15}>
-          <ConsolePanel />
-        </Panel>
-      </Group>
-    );
-  };
 
   return (
     <div className="flex h-screen w-screen flex-col bg-gray-950 text-gray-100">
@@ -94,12 +99,12 @@ export function AppLayout({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Ap
           <ResizeHandle orientation="vertical" />
           {/* Main area */}
           <Panel defaultSize={85} minSize={50}>
-            <MainContent />
+            <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
           </Panel>
         </Group>
       ) : (
         <div className="flex-1">
-          <MainContent />
+          <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
         </div>
       )}
     </div>

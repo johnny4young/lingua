@@ -8,7 +8,7 @@
  *  - fs namespace is present (delegation tested separately in fs-adapter.test.ts)
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // The web FS adapter uses browser File System Access API which is not available
 // in jsdom. We mock it out so importing adapter.ts doesn't crash.

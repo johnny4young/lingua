@@ -12,6 +12,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
+import { languageFromPath } from '../utils/language';
 
 /** Join path segments using the OS separator detected from the base path */
 function joinPath(base: string, name: string): string {
@@ -64,22 +65,6 @@ interface ProjectState {
 
 // ----------------------------------------------------------------- helpers
 
-/** Infer Language from file extension */
-function languageFromName(name: string): Language {
-  if (name.endsWith('.ts') || name.endsWith('.tsx')) return 'typescript';
-  if (
-    name.endsWith('.js') ||
-    name.endsWith('.jsx') ||
-    name.endsWith('.mjs') ||
-    name.endsWith('.cjs')
-  )
-    return 'javascript';
-  if (name.endsWith('.go')) return 'go';
-  if (name.endsWith('.py')) return 'python';
-  if (name.endsWith('.rs')) return 'rust';
-  return 'javascript';
-}
-
 /** Convert raw FsDirEntry list into FileTreeNode list */
 function entriesToNodes(
   entries: { name: string; isDirectory: boolean; path: string }[]
@@ -88,14 +73,14 @@ function entriesToNodes(
     name: e.name,
     path: e.path,
     isDirectory: e.isDirectory,
-    language: e.isDirectory ? undefined : languageFromName(e.name),
+    language: e.isDirectory ? undefined : languageFromPath(e.name),
     children: e.isDirectory ? undefined : undefined, // will be lazy-loaded
     isExpanded: false,
   }));
 }
 
 /** Immutable helper: set children of the node matching targetPath */
-function setNodeChildren(
+export function setNodeChildren(
   nodes: FileTreeNode[],
   targetPath: string,
   children: FileTreeNode[],
@@ -116,7 +101,7 @@ function setNodeChildren(
 }
 
 /** Immutable helper: toggle isExpanded flag for a directory node */
-function toggleExpanded(
+export function toggleExpanded(
   nodes: FileTreeNode[],
   targetPath: string,
   expanded: boolean
@@ -136,7 +121,7 @@ function toggleExpanded(
 }
 
 /** Immutable helper: remove a node by path anywhere in the tree */
-function removeNode(nodes: FileTreeNode[], targetPath: string): FileTreeNode[] {
+export function removeNode(nodes: FileTreeNode[], targetPath: string): FileTreeNode[] {
   return nodes
     .filter((n) => n.path !== targetPath)
     .map((n) =>
@@ -147,7 +132,7 @@ function removeNode(nodes: FileTreeNode[], targetPath: string): FileTreeNode[] {
 }
 
 /** Immutable helper: rename a node by path anywhere in the tree */
-function renameNode(
+export function renameNode(
   nodes: FileTreeNode[],
   oldPath: string,
   newPath: string,
@@ -168,7 +153,7 @@ function renameNode(
 }
 
 /** Immutable helper: add a new node as child of parentPath */
-function addNodeToParent(
+export function addNodeToParent(
   nodes: FileTreeNode[],
   parentPath: string,
   newNode: FileTreeNode
@@ -295,7 +280,7 @@ export const useProjectStore = create<ProjectState>()(
           name,
           path: filePath,
           isDirectory: false,
-          language: languageFromName(name),
+          language: languageFromPath(name),
         };
 
         set((s) => ({

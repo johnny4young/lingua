@@ -26,6 +26,7 @@ const ANSI_FG: Record<number, string> = {
 function parseAnsi(raw: string): AnsiSpan[] {
   const spans: AnsiSpan[] = [];
   // Matches ESC[ ... m sequences
+  // eslint-disable-next-line no-control-regex
   const re = /\x1b\[([0-9;]*)m/g;
   let last = 0;
   let color: string | undefined;
@@ -54,6 +55,7 @@ function parseAnsi(raw: string): AnsiSpan[] {
 }
 
 function hasAnsi(s: string): boolean {
+  // eslint-disable-next-line no-control-regex
   return /\x1b\[/.test(s);
 }
 

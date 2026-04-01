@@ -4,6 +4,7 @@ import { TypeScriptRunner } from './typescript';
 import { GoRunner } from './go';
 import { PythonRunner } from './python';
 import { RustRunner } from './rust';
+import { pluginRegistry } from '../plugins';
 
 /**
  * RunnerManager orchestrates language runners.
@@ -49,19 +50,30 @@ export class RunnerManager {
   ): Promise<ExecutionResult> {
     const runner = await this.getRunner(language);
 
-    if (!runner) {
-      return {
-        stdout: [],
-        stderr: [],
-        result: undefined,
-        executionTime: 0,
-        error: {
-          message: `No runner available for ${language}. It will be added in a future update.`,
-        },
-      };
+    if (runner) {
+      return runner.execute(code, context);
     }
 
-    return runner.execute(code, context);
+    // Fall back to plugin registry for languages not built in
+    const plugin = pluginRegistry.getByLanguage(language);
+    if (plugin) {
+      // Create and cache the plugin runner so it's initialized only once
+      const pluginRunner = await plugin.createRunner();
+      await pluginRunner.init();
+      // Store under the language key for future calls
+      this.runners.set(language as Language, pluginRunner as unknown as import('../types').LanguageRunner);
+      return pluginRunner.execute(code, context);
+    }
+
+    return {
+      stdout: [],
+      stderr: [],
+      result: undefined,
+      executionTime: 0,
+      error: {
+        message: `No runner available for ${language}. It will be added in a future update.`,
+      },
+    };
   }
 
   /** Stop execution for a given language */
