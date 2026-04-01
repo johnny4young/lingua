@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      CSP for the web build:
+      - Pyodide is fetched from cdn.jsdelivr.net at runtime
+      - blob: workers are needed for Monaco and JS/TS/Python web workers
+      - 'unsafe-eval' is required by esbuild-wasm and Monaco language workers
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net;"
+    />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1e1e2e" />
+    <title>RunLang</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/web/main.tsx"></script>
+  </body>
+</html>

@@ -9,11 +9,20 @@
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
+    "make:mac": "electron-forge make --platform darwin",
+    "make:linux": "electron-forge make --platform linux",
+    "make:win": "electron-forge make --platform win32",
     "publish": "electron-forge publish",
+    "build:web": "vite build --config vite.web.config.ts",
+    "preview:web": "vite preview --config vite.web.config.ts",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "test": "vitest run",
     "test:watch": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/johnny4young/run-lang"
   },
   "keywords": [
     "code-runner",
@@ -30,6 +39,7 @@
   "devDependencies": {
     "@electron-forge/cli": "^7.11.1",
     "@electron-forge/maker-deb": "^7.11.1",
+    "@electron-forge/maker-dmg": "^7.11.1",
     "@electron-forge/maker-rpm": "^7.11.1",
     "@electron-forge/maker-squirrel": "^7.11.1",
     "@electron-forge/maker-zip": "^7.11.1",
@@ -65,6 +75,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-resizable-panels": "^4.8.0",
+    "update-electron-app": "^3.1.2",
     "zustand": "^5.0.12"
   },
   "engines": {
