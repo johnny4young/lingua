@@ -8,6 +8,8 @@
 // Make this file a module so TS doesn't merge its scope with other workers
 export {};
 
+declare function importScripts(...urls: string[]): void;
+
 const ctx = self as unknown as Worker;
 
 ctx.addEventListener('message', async (event) => {
@@ -18,8 +20,11 @@ ctx.addEventListener('message', async (event) => {
     const startTime = performance.now();
 
     try {
-      // Load wasm_exec.js by evaluating it (provides the Go class)
-      (0, eval)(wasmExecJs);
+      // Load wasm_exec.js via a Blob URL (avoids direct eval)
+      const blob = new Blob([wasmExecJs], { type: 'application/javascript' });
+      const blobUrl = URL.createObjectURL(blob);
+      importScripts(blobUrl);
+      URL.revokeObjectURL(blobUrl);
 
       // @ts-expect-error Go is injected by wasm_exec.js
       const go = new Go();

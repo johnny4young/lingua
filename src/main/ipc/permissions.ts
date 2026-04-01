@@ -38,14 +38,12 @@ const BLOCKED_PATHS: string[] = [
 
 /**
  * Returns true if the given path is blocked for the given operation.
- * Reads are generally allowed; writes and deletes are restricted.
+ * All operations (read, write, delete) are checked against BLOCKED_PATHS.
  */
 export function isPathBlocked(
   filePath: string,
-  operation: 'read' | 'write' | 'delete'
+  _operation: 'read' | 'write' | 'delete'
 ): boolean {
-  if (operation === 'read') return false; // reads are unrestricted
-
   const normalizedTarget = path.normalize(path.resolve(filePath));
 
   return BLOCKED_PATHS.some((blocked) => {

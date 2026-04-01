@@ -110,6 +110,11 @@ export function registerFileSystemHandlers(): void {
   // ------------------------------------------------------------------ read
 
   ipcMain.handle('fs:read', async (_event, filePath: string) => {
+    if (isPathBlocked(filePath, 'read')) {
+      throw new Error(
+        `Access denied: Cannot read protected path: ${filePath}`
+      );
+    }
     return readFile(filePath, 'utf-8');
   });
 
@@ -169,6 +174,11 @@ export function registerFileSystemHandlers(): void {
     'fs:rename',
     async (_event, oldPath: string, newName: string) => {
       const newPath = path.join(path.dirname(oldPath), newName);
+      if (isPathBlocked(oldPath, 'write')) {
+        throw new Error(
+          `Access denied: Cannot rename protected path: ${oldPath}`
+        );
+      }
       if (isPathBlocked(newPath, 'write')) {
         throw new Error(
           `Access denied: Cannot write to protected path: ${newPath}`
@@ -206,6 +216,11 @@ export function registerFileSystemHandlers(): void {
   // --------------------------------------------------------------- watch
 
   ipcMain.handle('fs:watch-start', (event, dirPath: string) => {
+    if (isPathBlocked(dirPath, 'read')) {
+      throw new Error(
+        `Access denied: Cannot watch protected path: ${dirPath}`
+      );
+    }
     // Stop any existing watcher on this path
     const existingStop = watchers.get(dirPath);
     if (existingStop) existingStop();
