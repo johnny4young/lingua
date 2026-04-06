@@ -4,38 +4,35 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node 22+](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
 
-A desktop code runner for **JavaScript, TypeScript, Go, Python, and Rust** — powered by Monaco Editor and WebAssembly.
+RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python, and Rust. It combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds.
 
-![RunLang screenshot](docs/screenshot.png)
+## Current capabilities
 
----
+- Desktop app built with Electron Forge, Vite, React 19, and TypeScript
+- Monaco-powered editor with tabs, templates, and inline execution results
+- Built-in runners for JavaScript, TypeScript, Go, Python, and Rust
+- Project explorer with file open, save, rename, create, delete, and watch support
+- Command palette, quick open, settings, and resizable editor/console layouts
+- Web build for browser-based usage, with JavaScript, TypeScript, and Python support
+- CI, GitHub Pages deployment, and tagged release workflows
 
-## Features
+## Runtime model
 
-- **5 languages** — JS, TS, Go (compiled to WASM), Python (Pyodide), Rust (compiled natively)
-- **Monaco Editor** — same engine as VS Code, with syntax highlighting and IntelliSense
-- **Rich console** — ANSI colours, filter by log level, inline result display
-- **Project explorer** — open any local directory, live file-watch, full CRUD
-- **Themes** — Dark (default), Light, High Contrast
-- **Command palette** — `Cmd/Ctrl+Shift+P`
-- **Quick open** — `Cmd/Ctrl+P`
-- **Templates** — starter code for every language
-- **Web version** — runs entirely in-browser (JS/TS/Python only)
-- **Auto-updates** — packaged app updates silently via GitHub Releases
-
----
+- JavaScript and TypeScript run in renderer workers
+- Go is compiled to WebAssembly through the desktop IPC bridge and a local Go toolchain
+- Python runs through Pyodide
+- Rust is compiled and executed natively through the desktop IPC bridge and a local Rust toolchain
+- The web build stubs Go and Rust execution because local toolchains are not available in the browser
 
 ## Requirements
 
 | Dependency | Version | Notes |
-|------------|---------|-------|
-| Node.js | ≥ 22 | Required to build and run |
-| Go | ≥ 1.21 | Only needed to run Go code |
-| Rust + Cargo | stable | Only needed to run Rust code |
+| --- | --- | --- |
+| Node.js | >= 22 | Required for local development, tests, and builds |
+| Go | >= 1.21 | Required only for desktop Go execution |
+| Rust (`rustc`) | stable | Required only for desktop Rust execution |
 
----
-
-## Quick start
+## Local development
 
 ```bash
 git clone https://github.com/johnny4young/run-lang.git
@@ -44,79 +41,63 @@ npm install
 npm start
 ```
 
----
-
-## Build
-
-### Desktop (Electron)
+## Quality checks
 
 ```bash
-# macOS — produces a universal DMG (arm64 + x64)
+npm run lint
+npm test
+```
+
+These are the repository quality scripts. CI also runs a no-emit TypeScript type check.
+
+## Build commands
+
+### Desktop packages
+
+```bash
 npm run make:mac
-
-# Linux — produces .deb and .rpm
 npm run make:linux
-
-# Windows — produces a Squirrel installer
 npm run make:win
 ```
 
 Artifacts are written to `out/make/`.
 
-### Web version
+### Web build
 
 ```bash
-npm run build:web      # builds to dist/web/
-npm run preview:web    # serve locally for testing
+npm run build:web
+npm run preview:web
 ```
 
-The web build is automatically deployed to GitHub Pages on every push to `main`.
-
----
+The GitHub Pages deployment workflow builds `dist/web` after a successful `main` branch CI run.
 
 ## Keyboard shortcuts
 
 | Action | macOS | Windows / Linux |
-|--------|-------|-----------------|
-| Run code | `Cmd+Enter` | `Ctrl+Enter` |
-| Stop execution | `Cmd+.` | `Ctrl+.` |
-| Command palette | `Cmd+Shift+P` | `Ctrl+Shift+P` |
-| Quick open | `Cmd+P` | `Ctrl+P` |
-| New tab | `Cmd+T` | `Ctrl+T` |
-| Close tab | `Cmd+W` | `Ctrl+W` |
+| --- | --- | --- |
+| Run or stop active file | `Cmd+Enter` | `Ctrl+Enter` |
+| Save active tab | `Cmd+S` | `Ctrl+S` |
+| Close active tab | `Cmd+W` | `Ctrl+W` |
 | Toggle sidebar | `Cmd+B` | `Ctrl+B` |
-| Toggle console | `Cmd+J` | `Ctrl+J` |
+| Toggle console | `Cmd+\` | `Ctrl+\` |
+| Quick open | `Cmd+P` | `Ctrl+P` |
+| Command palette | `Cmd+Shift+P` | `Ctrl+Shift+P` |
 | Settings | `Cmd+,` | `Ctrl+,` |
+| Close open overlay | `Escape` | `Escape` |
 
----
+## Automation and delivery
 
-## Project structure
+- CI runs type checking, linting, tests, and a non-blocking `npm audit`
+- The web build is deployed to GitHub Pages from `main` after a successful CI workflow
+- Pushing a tag that matches `v*.*.*` triggers cross-platform packaging and GitHub Release publishing
+- Packaged desktop builds enable `update-electron-app`, which checks GitHub Releases for updates
 
-```
-src/
-  main/          Electron main process (IPC, Go/Rust compilers, file system)
-  preload/       Context bridge — exposes safe IPC API to renderer
-  renderer/      React app (Monaco, stores, runners, workers)
-    runners/     Language runner implementations
-    workers/     Web Workers for JS/TS/Go/Python execution
-    stores/      Zustand state (editor, console, project, settings, UI)
-    plugins/     Plugin registry for extending language support
-  web/           Web-only entry point and FS adapter
-tests/           Vitest unit + integration tests
-```
+## Notes for contributors
 
----
-
-## Contributing
-
-1. Fork the repo and create a feature branch: `git checkout -b feat/my-feature`
-2. Make your changes — `npm test` and `npx tsc --noEmit` must pass
-3. Open a pull request against `main`
-
-Please follow [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
-
----
+- The repository currently documents product status in `PLAN.md`, not as a historical implementation roadmap
+- Plugin infrastructure exists in the codebase, but it is not yet fully productized as a generalized user-facing extension system
+- If you change shortcuts, runner behavior, or workflow behavior, update the documentation in the same change
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
