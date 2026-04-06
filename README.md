@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/johnny4young/run-lang/actions/workflows/ci.yml/badge.svg)](https://github.com/johnny4young/run-lang/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Node 22+](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
+[![Node 24+](https://img.shields.io/badge/node-%3E%3D24-brightgreen)](https://nodejs.org)
 
 RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python, and Rust. It combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds.
 
@@ -28,7 +28,7 @@ RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python,
 
 | Dependency | Version | Notes |
 | --- | --- | --- |
-| Node.js | >= 22 | Required for local development, tests, and builds |
+| Node.js | >= 24 | Required for local development, tests, and builds |
 | Go | >= 1.21 | Required only for desktop Go execution |
 | Rust (`rustc`) | stable | Required only for desktop Rust execution |
 

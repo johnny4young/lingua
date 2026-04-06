@@ -8,7 +8,7 @@ export default defineConfig({
       external: ['electron', 'electron-squirrel-startup'],
       output: {
         format: 'cjs',
-        entryFileNames: '[name].js',
+        entryFileNames: 'main.js',
       },
     },
   },

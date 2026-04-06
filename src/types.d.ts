@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 declare module 'electron-squirrel-startup' {
   const started: boolean;
   export default started;
@@ -94,4 +96,12 @@ interface RunLangAPI {
 // Augment Window with RunLang API
 interface Window {
   runlang: RunLangAPI;
+}
+
+interface MonacoEnvironmentShape {
+  getWorker: (workerId: string, label: string) => Worker;
+}
+
+declare global {
+  var MonacoEnvironment: MonacoEnvironmentShape;
 }
