@@ -1,23 +1,10 @@
 /**
- * Example Plugin: Lua Runner
+ * Bundled Lua plugin runtime
  *
- * This is a stub/template that shows how to add a new language to RunLang.
- * It is NOT wired into the RunnerManager by default — it exists purely as
- * documentation and a starting point for plugin authors.
- *
- * ## How to activate this plugin
- *
- * 1. Import and register it early in your app entry point:
- *
- *    ```ts
- *    // src/renderer/main.tsx  (or src/web/main.tsx)
- *    import { pluginRegistry } from '@/plugins';
- *    import { luaPlugin } from '@/plugins/lua-runner';
- *    pluginRegistry.register(luaPlugin);
- *    ```
- *
- * 2. Extend `RunnerManager.constructor()` to query the plugin registry
- *    and add runners for any registered plugins.
+ * This runtime is bundled with the app, but it is only activated when the
+ * local plugin manifest loader discovers a matching `pluginId` entry.
+ * The execution path is still a stub and should be treated as example-only
+ * until a real Lua backend is implemented.
  *
  * ## Real Lua execution approaches
  *

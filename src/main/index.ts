@@ -4,6 +4,7 @@ import started from 'electron-squirrel-startup';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
 import { registerFileSystemHandlers } from './ipc/fileSystem';
+import { registerPluginHandlers } from './plugins';
 import { registerUpdater } from './updater';
 
 if (started) {
@@ -14,6 +15,7 @@ if (started) {
 registerGoHandlers();
 registerRustHandlers();
 registerFileSystemHandlers();
+registerPluginHandlers();
 registerUpdater();
 
 const createWindow = () => {

@@ -83,6 +83,33 @@ interface UpdateState {
   lastCheckedAt?: string;
 }
 
+// ------------------------------------------------------------- Plugin types
+
+type PluginInstallStatus =
+  | 'loaded'
+  | 'disabled'
+  | 'invalid'
+  | 'incompatible'
+  | 'unavailable';
+
+interface InstalledPluginManifest {
+  pluginId: string;
+  apiVersion: 1;
+  enabled?: boolean;
+  minAppVersion?: string;
+  maxAppVersion?: string;
+}
+
+interface InstalledPluginRecord {
+  pluginId: string;
+  manifestPath: string;
+  installDirectory: string;
+  apiVersion: number | null;
+  enabled: boolean;
+  status: PluginInstallStatus;
+  message: string;
+}
+
 // --------------------------------------------------------------- Main API
 
 interface RunLangAPI {
@@ -119,6 +146,11 @@ interface RunLangAPI {
     check: () => Promise<UpdateState>;
     restartToApply: () => Promise<boolean>;
     onStateChanged: (callback: (state: UpdateState) => void) => () => void;
+  };
+
+  plugins: {
+    getInstallDirectory: () => Promise<string | null>;
+    list: () => Promise<InstalledPluginRecord[]>;
   };
 }
 

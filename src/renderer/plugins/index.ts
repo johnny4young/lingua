@@ -1,9 +1,11 @@
 /**
  * RunLang Plugin Interface
  *
- * A plugin adds support for a new language (or extends an existing one).
- * Implement this interface and register your plugin with `pluginRegistry`
- * to make your language available in the editor.
+ * A plugin adds support for a local language integration.
+ * In the current app model, plugin manifests are discovered from the local
+ * plugin directory and mapped to runtimes that are already bundled with the
+ * application. Arbitrary third-party code loading is intentionally out of
+ * scope for now.
  *
  * ## Minimal example
  *
@@ -33,6 +35,10 @@
  *
  * pluginRegistry.register(myPlugin);
  * ```
+ *
+ * The app normally performs this registration through the plugin store after
+ * it validates installed manifests, so most plugins should not self-register
+ * directly from the app entry point.
  */
 
 import type { ExecutionContext, ExecutionResult } from '../types';

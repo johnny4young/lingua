@@ -149,23 +149,23 @@ Acceptance criteria:
 ### Plugin productization
 
 Objective:
-Turn plugins from internal/example infrastructure into a real extension model, or explicitly keep them example-only.
+Support a conservative local plugin model for language integrations without pretending arbitrary third-party runtime loading is production-ready.
 
 Current state:
 - The plugin registry and plugin runner interfaces exist.
-- The bundled Lua example is registered at startup and can flow through the current UI.
+- Plugin manifests are discovered from the local plugin install directory through main/preload IPC.
+- The Settings UI exposes installed plugin status, diagnostics, and the active install directory.
+- The renderer only activates bundled runtimes that correspond to valid installed manifests.
 - Language detection and some editor affordances now tolerate plugin-provided language ids.
 
 Gaps:
-- Plugins are not loaded from disk or from an installable package format.
-- There is no manifest format for external plugins.
-- There is no trust or sandbox model for third-party plugins.
-- There is no compatibility/versioning layer.
-- There is no plugin management UI.
+- Plugins still rely on bundled runtimes, not arbitrary third-party code loading.
 - The bundled Lua plugin is still a stub, not a real execution backend.
 
 Requirements:
-- Decide whether plugins are a product goal or only example infrastructure
+- Keep plugin scope intentionally narrow:
+  - local language manifests are supported
+  - arbitrary remote install and arbitrary code loading are out of scope
 - Define plugin scope:
   - language runners only, or
   - broader editor/runtime extensions later
@@ -175,11 +175,11 @@ Requirements:
 
 Planned approach:
 1. Formalize a manifest for local language plugins.
-2. Add plugin discovery/loading from a fixed local plugin directory.
+2. Discover manifests from a fixed local plugin directory.
 3. Add compatibility checks and safe failure modes.
 4. Generalize any remaining built-in-only editor assumptions.
 5. Add a basic plugin management surface in the app.
-6. Replace the Lua stub with either a documented example-only posture or a real backend.
+6. Decide whether the Lua stub stays example-only or gets a real backend.
 
 Likely files:
 - [src/renderer/plugins/index.ts](/Users/johnny4young/Personal/github/run-lang/src/renderer/plugins/index.ts)
@@ -284,15 +284,15 @@ Exit gate:
 
 ### Milestone 4: Plugin system productization
 
-- [ ] Decide whether plugins are a product goal or remain example-only infrastructure
-- [ ] Define the plugin manifest format
-- [ ] Define plugin API versioning and compatibility rules
-- [ ] Define the trust model for local plugins
-- [ ] Implement plugin discovery from a fixed local plugin directory
-- [ ] Add compatibility validation and explicit failure diagnostics for bad plugins
-- [ ] Generalize any remaining built-in-only UI and editor assumptions
-- [ ] Add a basic installed-plugins management view
-- [ ] Add tests for plugin discovery, compatibility failures, and execution routing
+- [x] Decide whether plugins are a product goal or remain example-only infrastructure
+- [x] Define the plugin manifest format
+- [x] Define plugin API versioning and compatibility rules
+- [x] Define the trust model for local plugins
+- [x] Implement plugin discovery from a fixed local plugin directory
+- [x] Add compatibility validation and explicit failure diagnostics for bad plugins
+- [x] Generalize any remaining built-in-only UI and editor assumptions
+- [x] Add a basic installed-plugins management view
+- [x] Add tests for plugin discovery, compatibility failures, and execution routing
 - [ ] Decide whether the bundled Lua plugin remains a stub or becomes a real backend
 
 Exit gate:

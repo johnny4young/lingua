@@ -139,6 +139,23 @@ describe('web adapter — updates namespace', () => {
   });
 });
 
+describe('web adapter — plugins namespace', () => {
+  const pluginStub = {
+    getInstallDirectory: async () => null,
+    list: async (): Promise<InstalledPluginRecord[]> => [],
+  };
+
+  it('reports no local install directory in the browser build', async () => {
+    const installDirectory = await pluginStub.getInstallDirectory();
+    expect(installDirectory).toBeNull();
+  });
+
+  it('reports no installed plugins in the browser build', async () => {
+    const plugins = await pluginStub.list();
+    expect(plugins).toEqual([]);
+  });
+});
+
 describe('web adapter — platform', () => {
   it('platform is "web"', () => {
     // Simulate what adapter.ts does

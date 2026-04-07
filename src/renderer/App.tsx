@@ -5,6 +5,7 @@ import { CommandPalette } from './components/CommandPalette/CommandPalette';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { useRunner } from './hooks/useRunner';
 import { useEditorStore } from './stores/editorStore';
+import { usePluginStore } from './stores/pluginStore';
 import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
 
@@ -14,6 +15,7 @@ export function App() {
   const removeTab = useEditorStore((s) => s.removeTab);
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const { toggleSidebar, toggleConsole } = useUIStore();
+  const initializePlugins = usePluginStore((s) => s.initialize);
   const initializeUpdates = useUpdateStore((s) => s.initialize);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -21,6 +23,10 @@ export function App() {
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
 
   const anyOverlayOpen = settingsOpen || paletteOpen || quickOpenOpen;
+
+  useEffect(() => {
+    void initializePlugins();
+  }, [initializePlugins]);
 
   useEffect(() => {
     void initializeUpdates();

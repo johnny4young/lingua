@@ -2,8 +2,8 @@ import { Play, Square, Plus, Settings, Loader2, Terminal, Search } from 'lucide-
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
 import type { Language } from '../../types';
-import { pluginRegistry } from '../../plugins';
 import { languageLabel } from '../../utils/languageMeta';
+import { usePluginStore } from '../../stores/pluginStore';
 
 const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
   { id: 'javascript', label: 'JavaScript' },
@@ -22,13 +22,16 @@ interface ToolbarProps {
 export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: ToolbarProps) {
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
+  const plugins = usePluginStore((s) => s.plugins);
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const languages = [
     ...BUILT_IN_LANGUAGES,
-    ...pluginRegistry.getAll().map((plugin) => ({
-      id: plugin.language,
-      label: languageLabel(plugin.language),
-    })),
+    ...plugins
+      .filter((plugin) => plugin.status === 'loaded' && plugin.language)
+      .map((plugin) => ({
+        id: plugin.language as Language,
+        label: languageLabel(plugin.language as Language),
+      })),
   ];
 
   const handleNewFile = (language: Language) => {

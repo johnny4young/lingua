@@ -101,6 +101,40 @@ The GitHub Pages deployment workflow builds `dist/web` after a successful `main`
 - Restart-to-apply is only enabled after the main process reports that an update has been downloaded
 - The updater currently targets the stable GitHub Release channel only
 
+## Local plugins
+
+RunLang now supports a conservative local plugin model for language integrations:
+
+- Plugin manifests are discovered from the app-local plugin directory at runtime
+- A manifest only enables runtimes that are already bundled with the current build
+- Arbitrary third-party code loading is intentionally out of scope today
+- Invalid, disabled, incompatible, or unsupported plugins are surfaced in Settings with explicit diagnostics
+
+Current plugin scope:
+- Local language plugins are a supported product goal
+- The bundled Lua runtime remains example-only because its execution backend is still a stub
+
+Current install directory:
+- Desktop builds discover plugins from `<app userData>/plugins`
+- Web builds expose the plugin UI as unavailable and do not load local manifests
+
+Minimal manifest:
+
+```json
+{
+  "pluginId": "lua",
+  "apiVersion": 1,
+  "enabled": true,
+  "minAppVersion": "0.1.0"
+}
+```
+
+Manifest rules:
+- `pluginId` must be a string and must match a bundled plugin runtime known to this build
+- `apiVersion` is currently `1`
+- `enabled: false` keeps the plugin installed but inactive
+- `minAppVersion` and `maxAppVersion` gate compatibility against the running app version
+
 ## Release requirements
 
 Tagged releases are intended to publish a draft GitHub Release after platform builds succeed.
@@ -147,7 +181,7 @@ Stable channel policy:
 ## Notes for contributors
 
 - The repository currently documents product status in `PLAN.md`, not as a historical implementation roadmap
-- Plugin infrastructure exists in the codebase, but it is not yet fully productized as a generalized user-facing extension system
+- Plugin support is currently limited to local language manifests that resolve to bundled runtimes
 - If you change shortcuts, runner behavior, or workflow behavior, update the documentation in the same change
 
 ## License

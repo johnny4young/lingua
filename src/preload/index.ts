@@ -61,4 +61,9 @@ contextBridge.exposeInMainWorld('runlang', {
       return () => ipcRenderer.removeListener('updates:state-changed', handler);
     },
   },
+
+  plugins: {
+    getInstallDirectory: () => ipcRenderer.invoke('plugins:get-install-directory'),
+    list: () => ipcRenderer.invoke('plugins:list'),
+  },
 });

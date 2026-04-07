@@ -59,6 +59,13 @@ const updateStub: RunLangAPI['updates'] = {
   onStateChanged: () => () => {},
 };
 
+// -------------------------------------------------- Plugin stub
+
+const pluginStub: RunLangAPI['plugins'] = {
+  getInstallDirectory: async () => null,
+  list: async () => [],
+};
+
 // ----------------------------------------------------- Install adapter
 
 const webRunlang: RunLangAPI = {
@@ -67,6 +74,7 @@ const webRunlang: RunLangAPI = {
   rust: rustStub,
   fs: webFsAdapter,
   updates: updateStub,
+  plugins: pluginStub,
 };
 
 // Expose on window — mirrors what the Electron preload does via contextBridge
