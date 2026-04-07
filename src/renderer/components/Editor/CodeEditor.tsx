@@ -2,6 +2,7 @@ import MonacoEditor, { type Monaco } from '@monaco-editor/react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
+import type { Language } from '../../types';
 import { extensionForLanguage, languageBadgeClass, monacoLanguageFor } from '../../utils/languageMeta';
 import { configureMonaco } from '../../monaco';
 
@@ -124,7 +125,8 @@ function defineCustomThemes(monaco: Monaco) {
 // Empty state — example gallery
 // ---------------------------------------------------------------------------
 
-const FEATURED_TEMPLATES = BUILT_IN_TEMPLATES.slice(0, 6); // show first 6 across languages
+// Group templates by language for the welcome screen
+const LANGUAGE_ORDER: Language[] = ['javascript', 'typescript', 'go', 'python', 'rust'];
 
 function EmptyState() {
   const { addTab } = useEditorStore();
@@ -136,30 +138,72 @@ function EmptyState() {
     addTab({ ...tab, content: tpl.code, name: `${tpl.label}.${extensionForLanguage(tpl.language)}` });
   };
 
+  const quickStart = (language: Language) => {
+    const tab = createDefaultTab(language);
+    addTab(tab);
+  };
+
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 px-8 text-center">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-300">Start coding</h2>
-        <p className="mt-1 text-sm text-gray-600">
-          Open a file from the sidebar, or pick a template below.
-          <br />
-          Press <kbd className="rounded bg-gray-800 px-1 py-0.5 text-xs text-gray-400">Cmd+Shift+P</kbd> for more templates.
+    <div className="flex h-full flex-col items-center justify-center gap-8 px-8 text-center">
+      {/* Logo / brand */}
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-500/15">
+            <span className="text-lg font-bold text-primary-400">R</span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-100">RunLang</h1>
+        </div>
+        <p className="max-w-sm text-sm text-gray-500">
+          Write, run, and experiment with code instantly.
         </p>
       </div>
-      <div className="grid w-full max-w-lg grid-cols-2 gap-2 sm:grid-cols-3">
-        {FEATURED_TEMPLATES.map((tpl) => (
+
+      {/* Quick-start language buttons */}
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {LANGUAGE_ORDER.map((lang) => (
           <button
-            key={tpl.id}
-            onClick={() => openTemplate(tpl.id)}
-            className="flex flex-col gap-1 rounded-lg border border-gray-800 bg-gray-900 p-3 text-left transition-colors hover:border-gray-600 hover:bg-gray-800"
+            key={lang}
+            onClick={() => quickStart(lang)}
+            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all hover:scale-105 ${languageBadgeClass(lang)}`}
           >
-            <span className={`self-start rounded px-1.5 py-0.5 text-[10px] font-bold ${languageBadgeClass(tpl.language)}`}>
-              {tpl.language}
-            </span>
-            <span className="text-xs font-medium text-gray-300">{tpl.label}</span>
-            <span className="text-[11px] text-gray-600 leading-tight">{tpl.description}</span>
+            {lang === 'javascript' ? 'JavaScript' : lang === 'typescript' ? 'TypeScript' : lang.charAt(0).toUpperCase() + lang.slice(1)}
           </button>
         ))}
+      </div>
+
+      {/* Template grid */}
+      <div className="w-full max-w-2xl">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-600">
+          Or start from a template
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {BUILT_IN_TEMPLATES.slice(0, 9).map((tpl) => (
+            <button
+              key={tpl.id}
+              onClick={() => openTemplate(tpl.id)}
+              className="group flex flex-col gap-1.5 rounded-lg border border-gray-800/60 bg-gray-900/50 p-3 text-left transition-all hover:border-gray-700 hover:bg-gray-800/60"
+            >
+              <span className={`self-start rounded px-1.5 py-0.5 text-[10px] font-bold ${languageBadgeClass(tpl.language)}`}>
+                {tpl.language}
+              </span>
+              <span className="text-xs font-medium text-gray-300 group-hover:text-gray-100">{tpl.label}</span>
+              <span className="text-[11px] leading-tight text-gray-600">{tpl.description}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Shortcuts hint */}
+      <div className="flex items-center gap-4 text-[11px] text-gray-600">
+        <span>
+          <kbd className="rounded bg-gray-800/80 px-1.5 py-0.5 text-gray-500">Cmd+Shift+P</kbd> Commands
+        </span>
+        <span>
+          <kbd className="rounded bg-gray-800/80 px-1.5 py-0.5 text-gray-500">Cmd+B</kbd> Sidebar
+        </span>
+        <span>
+          <kbd className="rounded bg-gray-800/80 px-1.5 py-0.5 text-gray-500">Cmd+Enter</kbd> Run
+        </span>
       </div>
     </div>
   );

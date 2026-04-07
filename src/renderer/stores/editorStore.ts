@@ -16,11 +16,9 @@ export const createDefaultTab = (language: Language = 'javascript'): FileTab => 
 
 export { languageFromPath } from '../utils/language';
 
-const initialTab = createDefaultTab('javascript');
-
 export const useEditorStore = create<EditorState>((set, get) => ({
-  tabs: [initialTab],
-  activeTabId: initialTab.id,
+  tabs: [],
+  activeTabId: null,
 
   addTab: (tab) => {
     const newTab: FileTab = { ...tab, isDirty: false };

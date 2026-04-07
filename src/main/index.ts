@@ -26,6 +26,8 @@ const createWindow = () => {
     minHeight: 768,
     title: 'RunLang',
     titleBarStyle: 'hiddenInset',
+    show: false, // Show only when content is ready to avoid white flash
+    backgroundColor: '#0a0a0f',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -34,17 +36,31 @@ const createWindow = () => {
     },
   });
 
+  // Show window once the renderer is ready
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
+
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    // Retry loading the dev server URL — Vite may not be ready yet
+    const loadWithRetry = (retries = 30, delay = 1000) => {
+      mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL).catch(() => {
+        if (retries > 0) {
+          setTimeout(() => loadWithRetry(retries - 1, delay), delay);
+        } else {
+          // Fallback: show the window even if loading failed
+          mainWindow.show();
+        }
+      });
+    };
+    loadWithRetry();
   } else {
     mainWindow.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
     );
   }
 
-  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
-    mainWindow.webContents.openDevTools();
-  }
+  // DevTools available via Cmd+Option+I but not opened automatically
 };
 
 app.on('ready', createWindow);

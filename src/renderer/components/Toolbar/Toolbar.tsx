@@ -1,6 +1,17 @@
-import { Play, Square, Plus, Settings, Loader2, Terminal, Search } from 'lucide-react';
+import {
+  Play,
+  Square,
+  Plus,
+  Settings,
+  Loader2,
+  Terminal,
+  Search,
+  PanelLeft,
+  PanelBottom,
+} from 'lucide-react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
+import { useUIStore } from '../../stores/uiStore';
 import type { Language } from '../../types';
 import { languageLabel } from '../../utils/languageMeta';
 import { usePluginStore } from '../../stores/pluginStore';
@@ -22,8 +33,10 @@ interface ToolbarProps {
 export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: ToolbarProps) {
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
+  const { sidebarVisible, consoleVisible, toggleSidebar, toggleConsole } = useUIStore();
   const plugins = usePluginStore((s) => s.plugins);
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  const hasTabs = tabs.length > 0;
   const languages = [
     ...BUILT_IN_LANGUAGES,
     ...plugins
@@ -40,71 +53,102 @@ export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Tool
   };
 
   return (
-    <div className="flex h-10 items-center justify-between border-b border-gray-800 bg-gray-900 px-3">
-      <div className="flex items-center gap-2">
+    <div className="toolbar-drag-region flex h-11 items-center justify-between border-b border-gray-800/60 bg-gray-900/80 backdrop-blur-sm px-3">
+      {/* Left: macOS traffic-light spacer + actions */}
+      <div className="flex items-center gap-2 pl-[70px]">
+        <button
+          onClick={toggleSidebar}
+          className={`rounded p-1.5 transition-colors ${
+            sidebarVisible
+              ? 'text-primary-400 bg-primary-500/10'
+              : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
+          }`}
+          title="Toggle sidebar (Cmd+B)"
+        >
+          <PanelLeft size={15} />
+        </button>
+        <div className="mx-1 h-4 w-px bg-gray-800/60" />
         <button
           onClick={run}
-          disabled={isRunning}
-          className="flex items-center gap-1.5 rounded bg-success-500/20 px-3 py-1 text-xs font-medium text-success-500 transition-colors hover:bg-success-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isRunning || !hasTabs}
+          className="flex items-center gap-1.5 rounded-md bg-success-500/15 px-3 py-1.5 text-xs font-medium text-success-500 transition-all hover:bg-success-500/25 disabled:cursor-not-allowed disabled:opacity-40"
           title="Run (Cmd+Enter)"
         >
           {isInitializing ? (
-            <Loader2 size={14} className="animate-spin" />
+            <Loader2 size={13} className="animate-spin" />
           ) : (
-            <Play size={14} />
+            <Play size={13} fill="currentColor" />
           )}
           {loadingMessage ?? (isRunning ? 'Running...' : 'Run')}
         </button>
-        <button
-          onClick={stop}
-          disabled={!isRunning}
-          className="flex items-center gap-1.5 rounded bg-error-500/20 px-3 py-1 text-xs font-medium text-error-500 transition-colors hover:bg-error-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-          title="Stop"
-        >
-          <Square size={14} />
-          Stop
-        </button>
-        <div className="mx-2 h-5 w-px bg-gray-800" />
-        <select
-          value={activeTab?.language ?? 'javascript'}
-          onChange={(e) => handleNewFile(e.target.value as Language)}
-          className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 outline-none focus:border-primary-500"
-        >
-          {languages.map((lang) => (
-            <option key={lang.id} value={lang.id}>
-              {lang.label}
-            </option>
-          ))}
-        </select>
+        {isRunning && (
+          <button
+            onClick={stop}
+            className="flex items-center gap-1.5 rounded-md bg-error-500/15 px-3 py-1.5 text-xs font-medium text-error-500 transition-all hover:bg-error-500/25"
+            title="Stop"
+          >
+            <Square size={11} fill="currentColor" />
+            Stop
+          </button>
+        )}
+        {hasTabs && (
+          <>
+            <div className="mx-1 h-4 w-px bg-gray-800/60" />
+            <select
+              value={activeTab?.language ?? 'javascript'}
+              onChange={(e) => handleNewFile(e.target.value as Language)}
+              className="rounded-md border border-gray-700/50 bg-gray-800/60 px-2 py-1 text-xs text-gray-400 outline-none transition-colors focus:border-primary-500/50 hover:bg-gray-800"
+            >
+              {languages.map((lang) => (
+                <option key={lang.id} value={lang.id}>
+                  {lang.label}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
       </div>
-      <div className="flex items-center gap-1">
+
+      {/* Right: utility buttons */}
+      <div className="flex items-center gap-0.5">
         <button
           onClick={onOpenQuickOpen}
-          className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
           title="Go to file (Cmd+P)"
         >
-          <Search size={16} />
+          <Search size={15} />
         </button>
         <button
           onClick={onOpenPalette}
-          className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
           title="Command palette (Cmd+Shift+P)"
         >
-          <Terminal size={16} />
+          <Terminal size={15} />
         </button>
         <button
           onClick={() => handleNewFile(activeTab?.language ?? 'javascript')}
-          className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
           title="New file"
         >
-          <Plus size={16} />
+          <Plus size={15} />
+        </button>
+        <button
+          onClick={toggleConsole}
+          className={`rounded-md p-1.5 transition-colors ${
+            consoleVisible
+              ? 'text-primary-400 bg-primary-500/10'
+              : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
+          }`}
+          title="Toggle console (Cmd+\)"
+        >
+          <PanelBottom size={15} />
         </button>
         <button
           onClick={onOpenSettings}
-          className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
           title="Settings (Cmd+,)"
         >
-          <Settings size={16} />
+          <Settings size={15} />
         </button>
       </div>
     </div>

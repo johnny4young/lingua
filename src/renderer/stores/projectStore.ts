@@ -328,14 +328,8 @@ export const useProjectStore = create<ProjectState>()(
       // Only persist the project registry; runtime state (nodes, watchId) is always re-derived
       partialize: (state) => ({
         recentProjects: state.recentProjects,
-        currentProject: state.currentProject
-          ? {
-              id: state.currentProject.id,
-              name: state.currentProject.name,
-              rootPath: state.currentProject.rootPath,
-              openedAt: state.currentProject.openedAt,
-            }
-          : null,
+        // Don't persist currentProject — app starts fresh without a project open
+        currentProject: null,
       }),
     }
   )

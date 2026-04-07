@@ -17,12 +17,14 @@ function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' |
   const isVertical = orientation === 'vertical';
   return (
     <Separator
-      className={`group relative flex items-center justify-center ${
-        isVertical ? 'w-1 cursor-col-resize' : 'h-1 cursor-row-resize'
+      className={`group relative flex items-center justify-center transition-colors ${
+        isVertical
+          ? 'w-[3px] cursor-col-resize hover:bg-primary-500/20'
+          : 'h-[3px] cursor-row-resize hover:bg-primary-500/20'
       }`}
     >
       <div
-        className={`bg-gray-800 transition-colors group-hover:bg-primary-500 group-data-[separator]:bg-primary-500 ${
+        className={`bg-gray-800/60 transition-colors group-hover:bg-primary-500 group-data-[separator]:bg-primary-500 ${
           isVertical ? 'h-full w-px' : 'h-px w-full'
         }`}
       />
