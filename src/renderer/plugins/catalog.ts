@@ -1,14 +1,19 @@
 import type { RunLangPlugin } from './index';
-import { luaPlugin } from './lua-runner';
 
-const bundledPlugins: Record<string, RunLangPlugin> = {
-  [luaPlugin.id]: luaPlugin,
+const bundledPluginLoaders: Record<string, () => Promise<RunLangPlugin>> = {
+  lua: async () => (await import('./lua-runner')).luaPlugin,
 };
 
-export function getBundledPlugin(pluginId: string): RunLangPlugin | undefined {
-  return bundledPlugins[pluginId];
+export async function loadBundledPlugin(pluginId: string): Promise<RunLangPlugin | undefined> {
+  const load = bundledPluginLoaders[pluginId];
+  if (!load) return undefined;
+  return load();
+}
+
+export function hasBundledPlugin(pluginId: string): boolean {
+  return pluginId in bundledPluginLoaders;
 }
 
 export function getBundledPluginIds(): string[] {
-  return Object.keys(bundledPlugins);
+  return Object.keys(bundledPluginLoaders);
 }

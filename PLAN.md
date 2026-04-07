@@ -43,7 +43,7 @@ The repository had a large mismatch between the previous planning document and t
    - Base scaffolding, editor integration, resizable layout, settings, runners, IPC filesystem support, tests, web build, and release workflows are already present.
 
 6. Plugin support exists as infrastructure, but not as a fully generalized product feature.
-   - There is a plugin registry and a Lua example runner stub.
+   - There is a plugin registry and a bundled Lua runtime.
    - The main type system and editor flow still center on the built-in language union.
    - This means plugin support should be described as partial infrastructure, not as finished extensibility.
 
@@ -160,7 +160,6 @@ Current state:
 
 Gaps:
 - Plugins still rely on bundled runtimes, not arbitrary third-party code loading.
-- The bundled Lua plugin is still a stub, not a real execution backend.
 
 Requirements:
 - Keep plugin scope intentionally narrow:
@@ -179,7 +178,7 @@ Planned approach:
 3. Add compatibility checks and safe failure modes.
 4. Generalize any remaining built-in-only editor assumptions.
 5. Add a basic plugin management surface in the app.
-6. Decide whether the Lua stub stays example-only or gets a real backend.
+6. Keep bundled runtimes documented conservatively even when they are executable.
 
 Likely files:
 - [src/renderer/plugins/index.ts](/Users/johnny4young/Personal/github/run-lang/src/renderer/plugins/index.ts)
@@ -293,7 +292,7 @@ Exit gate:
 - [x] Generalize any remaining built-in-only UI and editor assumptions
 - [x] Add a basic installed-plugins management view
 - [x] Add tests for plugin discovery, compatibility failures, and execution routing
-- [ ] Decide whether the bundled Lua plugin remains a stub or becomes a real backend
+- [x] Decide whether the bundled Lua plugin remains a stub or becomes a real backend
 
 Exit gate:
 - A documented local plugin can be installed, discovered, shown in the UI, and executed through the supported plugin lifecycle without relying on built-in-only assumptions.

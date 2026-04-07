@@ -21,6 +21,7 @@ export default defineConfig({
   publicDir: path.resolve(__dirname, 'public'),
   resolve: {
     alias: {
+      '@/plugins/catalog': path.resolve(__dirname, './src/web/plugin-catalog.ts'),
       '@': path.resolve(__dirname, './src/renderer'),
     },
   },

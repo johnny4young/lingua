@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { pluginRegistry } from '../plugins';
-import { getBundledPlugin } from '../plugins/catalog';
+import { hasBundledPlugin, loadBundledPlugin } from '@/plugins/catalog';
 
 interface PluginStoreRecord extends InstalledPluginRecord {
   displayName: string;
@@ -25,10 +25,8 @@ function unregisterManagedPlugins(): void {
   managedPluginIds.clear();
 }
 
-function normalizePluginRecord(record: InstalledPluginRecord): PluginStoreRecord {
-  const bundledPlugin = getBundledPlugin(record.pluginId);
-
-  if (record.status === 'loaded' && !bundledPlugin) {
+async function normalizePluginRecord(record: InstalledPluginRecord): Promise<PluginStoreRecord> {
+  if (record.status === 'loaded' && !hasBundledPlugin(record.pluginId)) {
     return {
       ...record,
       status: 'unavailable',
@@ -37,6 +35,11 @@ function normalizePluginRecord(record: InstalledPluginRecord): PluginStoreRecord
       managedByApp: false,
     };
   }
+
+  const bundledPlugin =
+    record.status === 'loaded' || hasBundledPlugin(record.pluginId)
+      ? await loadBundledPlugin(record.pluginId)
+      : undefined;
 
   if (record.status === 'loaded' && bundledPlugin) {
     if (!pluginRegistry.get(bundledPlugin.id)) {
@@ -71,7 +74,7 @@ async function loadPluginsIntoState(): Promise<{
 
   return {
     installDirectory,
-    plugins: installed.map(normalizePluginRecord),
+    plugins: await Promise.all(installed.map(normalizePluginRecord)),
   };
 }
 

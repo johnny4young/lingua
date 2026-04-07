@@ -141,20 +141,32 @@ describe('LuaRunner', () => {
     expect(runner.isReady()).toBe(true);
   });
 
-  it('execute returns a stub warning', async () => {
+  it('executes Lua and captures print output', async () => {
     const runner = new LuaRunner();
     await runner.init();
-    const result = await runner.execute('print("hello")');
-    expect(result.stdout.length).toBeGreaterThan(0);
-    expect(result.stdout[0].type).toBe('warn');
-    expect(result.stdout[0].args[0]).toMatch(/stub/i);
+    const result = await runner.execute('print("hello", "world")');
+    expect(result.stdout).toEqual([
+      {
+        type: 'log',
+        args: ['hello', 'world'],
+      },
+    ]);
+    expect(result.error).toBeUndefined();
   });
 
-  it('execute returns executionTime 0 (stub)', async () => {
+  it('returns Lua values from the executed chunk', async () => {
     const runner = new LuaRunner();
     await runner.init();
-    const result = await runner.execute('print("x")');
-    expect(result.executionTime).toBe(0);
+    const result = await runner.execute('return 21 * 2');
+    expect(result.result).toBe(42);
+    expect(result.executionTime).toBeGreaterThanOrEqual(0);
+  });
+
+  it('surfaces Lua runtime errors', async () => {
+    const runner = new LuaRunner();
+    await runner.init();
+    const result = await runner.execute('error("boom")');
+    expect(result.error?.message).toMatch(/boom/);
   });
 });
 

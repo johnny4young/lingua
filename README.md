@@ -114,7 +114,7 @@ RunLang now supports a conservative local plugin model for language integrations
 
 Current plugin scope:
 - Local language plugins are a supported product goal
-- The bundled Lua runtime remains example-only because its execution backend is still a stub
+- The bundled Lua runtime is now executable through Fengari once a local `lua` plugin manifest is installed
 
 Current install directory:
 - Desktop builds discover plugins from `<app userData>/plugins`
