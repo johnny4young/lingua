@@ -43,6 +43,22 @@ const rustStub: RunLangAPI['rust'] = {
   }),
 };
 
+// -------------------------------------------------- Update stub
+
+const updateStubState: UpdateState = {
+  status: 'unavailable',
+  supported: false,
+  enabled: false,
+  message: 'Automatic updates are not available in the web version.',
+};
+
+const updateStub: RunLangAPI['updates'] = {
+  getState: async () => updateStubState,
+  check: async () => updateStubState,
+  restartToApply: async () => false,
+  onStateChanged: () => () => {},
+};
+
 // ----------------------------------------------------- Install adapter
 
 const webRunlang: RunLangAPI = {
@@ -50,6 +66,7 @@ const webRunlang: RunLangAPI = {
   go: goStub,
   rust: rustStub,
   fs: webFsAdapter,
+  updates: updateStub,
 };
 
 // Expose on window — mirrors what the Electron preload does via contextBridge

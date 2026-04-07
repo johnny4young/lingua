@@ -4,6 +4,7 @@ import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useUpdateStore } from '../../stores/updateStore';
 import type { Language } from '../../types';
 import { extensionForLanguage, languageBadgeClass, languageShortLabel } from '../../utils/languageMeta';
 
@@ -48,6 +49,7 @@ export function CommandPalette({ onClose, onOpenSettings }: CommandPaletteProps)
   const { addTab } = useEditorStore();
   const { snippets } = useSnippetsStore();
   const { setLayoutPreset } = useSettingsStore();
+  const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
 
   // Build full command list
   const allCommands = useMemo((): Command[] => {
@@ -129,10 +131,38 @@ export function CommandPalette({ onClose, onOpenSettings }: CommandPaletteProps)
         keywords: ['settings', 'preferences', 'theme', 'font'],
         action: () => { onClose(); onOpenSettings(); },
       },
+      {
+        id: 'action-check-updates',
+        category: 'action',
+        label: 'Check for Updates',
+        description: 'Query the configured desktop update feed',
+        keywords: ['updates', 'update', 'release', 'version'],
+        action: () => { void checkForUpdates(); onClose(); },
+      },
+      {
+        id: 'action-restart-update',
+        category: 'action',
+        label: 'Restart to Apply Update',
+        description:
+          updateStatus === 'downloaded'
+            ? 'Restart now to install the downloaded update'
+            : 'Available once an update has been downloaded',
+        keywords: ['updates', 'restart', 'apply', 'install'],
+        action: () => { void restartToApply(); onClose(); },
+      },
     );
 
     return cmds;
-  }, [snippets, addTab, setLayoutPreset, onClose, onOpenSettings]);
+  }, [
+    snippets,
+    addTab,
+    setLayoutPreset,
+    onClose,
+    onOpenSettings,
+    checkForUpdates,
+    restartToApply,
+    updateStatus,
+  ]);
 
   // Filter by query
   const filtered = useMemo(() => {

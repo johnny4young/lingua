@@ -1,24 +1,20 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-import { updateElectronApp } from 'update-electron-app';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
 import { registerFileSystemHandlers } from './ipc/fileSystem';
+import { registerUpdater } from './updater';
 
 if (started) {
   app.quit();
-}
-
-// Enable auto-updates only in packaged builds (not dev)
-if (app.isPackaged) {
-  updateElectronApp({ updateInterval: '1 hour' });
 }
 
 // Register IPC handlers
 registerGoHandlers();
 registerRustHandlers();
 registerFileSystemHandlers();
+registerUpdater();
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({

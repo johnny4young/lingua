@@ -6,6 +6,7 @@ import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { useRunner } from './hooks/useRunner';
 import { useEditorStore } from './stores/editorStore';
 import { useUIStore } from './stores/uiStore';
+import { useUpdateStore } from './stores/updateStore';
 
 export function App() {
   const { run, stop, isRunning } = useRunner();
@@ -13,12 +14,17 @@ export function App() {
   const removeTab = useEditorStore((s) => s.removeTab);
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const { toggleSidebar, toggleConsole } = useUIStore();
+  const initializeUpdates = useUpdateStore((s) => s.initialize);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [quickOpenOpen, setQuickOpenOpen] = useState(false);
 
   const anyOverlayOpen = settingsOpen || paletteOpen || quickOpenOpen;
+
+  useEffect(() => {
+    void initializeUpdates();
+  }, [initializeUpdates]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

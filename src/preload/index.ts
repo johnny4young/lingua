@@ -49,4 +49,16 @@ contextBridge.exposeInMainWorld('runlang', {
       return () => ipcRenderer.removeListener('fs:changed', handler);
     },
   },
+
+  updates: {
+    getState: () => ipcRenderer.invoke('updates:get-state'),
+    check: () => ipcRenderer.invoke('updates:check'),
+    restartToApply: () => ipcRenderer.invoke('updates:restart'),
+    onStateChanged: (callback: (state: UpdateState) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: unknown) =>
+        callback(data as UpdateState);
+      ipcRenderer.on('updates:state-changed', handler);
+      return () => ipcRenderer.removeListener('updates:state-changed', handler);
+    },
+  },
 });

@@ -257,14 +257,14 @@ Exit gate:
 
 ### Milestone 2: Auto-update foundation
 
-- [ ] Decide which platforms officially support auto-update in the first production version
+- [x] Decide which platforms officially support auto-update in the first production version
 - [ ] Decide stable/prerelease channel policy
-- [ ] Extract updater behavior from [src/main/index.ts](/Users/johnny4young/Personal/github/run-lang/src/main/index.ts) into a dedicated main-process module
-- [ ] Add preload-exposed updater IPC events and commands
-- [ ] Add renderer-visible update lifecycle state
-- [ ] Add a minimal manual “check for updates” action
-- [ ] Add a minimal “restart to apply update” flow
-- [ ] Document supported updater platforms conservatively in the README
+- [x] Extract updater behavior from [src/main/index.ts](/Users/johnny4young/Personal/github/run-lang/src/main/index.ts) into a dedicated main-process module
+- [x] Add preload-exposed updater IPC events and commands
+- [x] Add renderer-visible update lifecycle state
+- [x] Add a minimal manual “check for updates” action
+- [x] Add a minimal “restart to apply update” flow
+- [x] Document supported updater platforms conservatively in the README
 - [ ] Validate packaged update behavior against the chosen release channel
 
 Exit gate:

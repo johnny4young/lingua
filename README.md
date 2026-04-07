@@ -90,7 +90,14 @@ The GitHub Pages deployment workflow builds `dist/web` after a successful `main`
 - CI runs type checking, linting, tests, and a non-blocking `npm audit`
 - The web build is deployed to GitHub Pages from `main` after a successful CI workflow
 - Pushing a tag that matches `v*.*.*` triggers cross-platform packaging and GitHub Release publishing
-- Packaged desktop builds enable `update-electron-app`, which checks GitHub Releases for updates
+- Packaged macOS and Windows builds enable `update-electron-app`, which checks GitHub Releases for updates
+
+## Update behavior
+
+- Automatic updates are only active in packaged desktop builds on macOS and Windows
+- Linux and web builds report updates as unavailable
+- The renderer now exposes update state in Settings and a manual "Check for Updates" command in the command palette
+- Restart-to-apply is only enabled after the main process reports that an update has been downloaded
 
 ## Release requirements
 

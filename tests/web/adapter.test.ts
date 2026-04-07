@@ -109,6 +109,36 @@ describe('web adapter — fs namespace', () => {
   });
 });
 
+describe('web adapter — updates namespace', () => {
+  const updatesStub = {
+    getState: async (): Promise<UpdateState> => ({
+      status: 'unavailable',
+      supported: false,
+      enabled: false,
+      message: 'Automatic updates are not available in the web version.',
+    }),
+    check: async (): Promise<UpdateState> => ({
+      status: 'unavailable',
+      supported: false,
+      enabled: false,
+      message: 'Automatic updates are not available in the web version.',
+    }),
+    restartToApply: async () => false,
+    onStateChanged: () => () => {},
+  };
+
+  it('returns an unavailable state in the browser build', async () => {
+    const result = await updatesStub.getState();
+    expect(result.status).toBe('unavailable');
+    expect(result.supported).toBe(false);
+  });
+
+  it('does not allow restart in the browser build', async () => {
+    const restarted = await updatesStub.restartToApply();
+    expect(restarted).toBe(false);
+  });
+});
+
 describe('web adapter — platform', () => {
   it('platform is "web"', () => {
     // Simulate what adapter.ts does

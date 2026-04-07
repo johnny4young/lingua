@@ -61,6 +61,28 @@ interface FsChangedEvent {
   filename: string | null;
 }
 
+// ------------------------------------------------------------ Updater types
+
+type UpdateStatus =
+  | 'unavailable'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloaded'
+  | 'error';
+
+interface UpdateState {
+  status: UpdateStatus;
+  supported: boolean;
+  enabled: boolean;
+  message: string;
+  releaseName?: string;
+  releaseNotes?: string;
+  updateURL?: string;
+  lastCheckedAt?: string;
+}
+
 // --------------------------------------------------------------- Main API
 
 interface RunLangAPI {
@@ -90,6 +112,13 @@ interface RunLangAPI {
     watchStart: (dirPath: string) => Promise<string>;
     watchStop: (watchId: string) => Promise<boolean>;
     onChanged: (callback: (event: FsChangedEvent) => void) => () => void;
+  };
+
+  updates: {
+    getState: () => Promise<UpdateState>;
+    check: () => Promise<UpdateState>;
+    restartToApply: () => Promise<boolean>;
+    onStateChanged: (callback: (state: UpdateState) => void) => () => void;
   };
 }
 
