@@ -1,4 +1,5 @@
-import MonacoEditor, { type Monaco } from '@monaco-editor/react';
+import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
+import { useCallback } from 'react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
@@ -220,6 +221,17 @@ export function CodeEditor() {
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
+  // Sync scroll with ResultPanel
+  const handleEditorMount: OnMount = useCallback((editor) => {
+    editor.onDidScrollChange((e) => {
+      window.dispatchEvent(
+        new CustomEvent('runlang:editor-scroll', {
+          detail: { scrollTop: e.scrollTop },
+        })
+      );
+    });
+  }, []);
+
   if (!activeTab) {
     return <EmptyState />;
   }
@@ -231,6 +243,7 @@ export function CodeEditor() {
       value={activeTab.content}
       theme={editorTheme}
       beforeMount={defineCustomThemes}
+      onMount={handleEditorMount}
       onChange={(value) => {
         if (value !== undefined) {
           updateContent(activeTab.id, value);

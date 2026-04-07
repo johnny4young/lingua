@@ -38,10 +38,26 @@ function createConsoleProxy() {
   const methods = ['log', 'warn', 'error', 'info'] as const;
   for (const method of methods) {
     console[method] = (...args: unknown[]) => {
+      // Extract calling line number from the stack trace.
+      // The AsyncFunction constructor wraps user code, adding 2 lines of offset.
+      let line: number | undefined;
+      try {
+        const stack = new Error().stack ?? '';
+        const match = stack.match(/<anonymous>:(\d+):(\d+)/);
+        if (match?.[1]) {
+          const rawLine = parseInt(match[1], 10);
+          // Subtract the 2-line offset from the async function wrapper
+          line = rawLine > 2 ? rawLine - 2 : rawLine;
+        }
+      } catch {
+        // ignore
+      }
+
       ctx.postMessage({
         type: 'console',
         method,
         args: serialize(args),
+        line,
       });
     };
   }

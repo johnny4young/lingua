@@ -2,10 +2,12 @@ import { lazy, Suspense } from 'react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
 import { EditorTabs } from '../Editor/EditorTabs';
+import { ResultPanel } from '../Editor/ResultPanel';
 import { ConsolePanel } from '../Console';
 import { Toolbar } from '../Toolbar';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useEditorStore } from '../../stores/editorStore';
 import type { LayoutPreset } from '../../types';
 
 const CodeEditor = lazy(async () => {
@@ -33,13 +35,29 @@ function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' |
 }
 
 function EditorArea() {
+  const hasTabs = useEditorStore((s) => s.tabs.length > 0);
+
   return (
     <div className="flex h-full flex-col">
       <EditorTabs />
       <div className="flex-1">
-        <Suspense fallback={<EditorLoadingState />}>
-          <CodeEditor />
-        </Suspense>
+        {hasTabs ? (
+          <Group orientation="horizontal">
+            <Panel defaultSize={55} minSize={30}>
+              <Suspense fallback={<EditorLoadingState />}>
+                <CodeEditor />
+              </Suspense>
+            </Panel>
+            <ResizeHandle orientation="vertical" />
+            <Panel defaultSize={45} minSize={15}>
+              <ResultPanel />
+            </Panel>
+          </Group>
+        ) : (
+          <Suspense fallback={<EditorLoadingState />}>
+            <CodeEditor />
+          </Suspense>
+        )}
       </div>
     </div>
   );

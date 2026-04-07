@@ -51,6 +51,7 @@ export class JavaScriptRunner implements LanguageRunner {
             const output: ConsoleOutput = {
               type: msg.method,
               args: msg.args,
+              line: msg.line,
             };
             if (msg.method === 'error') {
               stderr.push(output);
