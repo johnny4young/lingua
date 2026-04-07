@@ -6,6 +6,11 @@ import { PythonRunner } from './python';
 import { RustRunner } from './rust';
 import { pluginRegistry } from '../plugins';
 
+export interface RunnerPreparationResult {
+  runner: LanguageRunner | null;
+  initialized: boolean;
+}
+
 /**
  * RunnerManager orchestrates language runners.
  * Selects the appropriate runner based on language, manages lifecycle,
@@ -23,8 +28,7 @@ export class RunnerManager {
     this.runners.set('rust', new RustRunner());
   }
 
-  /** Get the runner for a given language, initializing if needed */
-  async getRunner(language: string): Promise<LanguageRunner | null> {
+  private async ensureRunner(language: string): Promise<LanguageRunner | null> {
     const plugin = pluginRegistry.getByLanguage(language);
 
     if (!this.runners.has(language) && plugin) {
@@ -32,20 +36,55 @@ export class RunnerManager {
       this.runners.set(language, pluginRunner as unknown as LanguageRunner);
     }
 
-    const runner = this.runners.get(language);
-    if (!runner) return null;
+    return this.runners.get(language) ?? null;
+  }
 
-    if (!runner.isReady()) {
-      // Avoid double-initialization
-      if (!this.initializing.has(language)) {
-        const initPromise = runner.init().then(() => {
-          this.initializing.delete(language);
-        });
-        this.initializing.set(language, initPromise);
-      }
-      await this.initializing.get(language);
+  private async initializeRunner(language: string, runner: LanguageRunner): Promise<void> {
+    if (!this.initializing.has(language)) {
+      const initPromise = runner.init().finally(() => {
+        this.initializing.delete(language);
+      });
+      this.initializing.set(language, initPromise);
     }
 
+    const pendingInitialization = this.initializing.get(language);
+    if (pendingInitialization) {
+      await pendingInitialization;
+    }
+  }
+
+  /** Check whether preparing a language will trigger initialization */
+  needsInitialization(language: string): boolean {
+    if (this.initializing.has(language)) {
+      return true;
+    }
+
+    const runner = this.runners.get(language);
+    if (runner) {
+      return !runner.isReady();
+    }
+
+    return pluginRegistry.hasLanguage(language);
+  }
+
+  /** Prepare the runner for execution, initializing it if needed */
+  async prepareRunner(language: string): Promise<RunnerPreparationResult> {
+    const runner = await this.ensureRunner(language);
+    if (!runner) {
+      return { runner: null, initialized: false };
+    }
+
+    const initialized = !runner.isReady();
+    if (initialized) {
+      await this.initializeRunner(language, runner);
+    }
+
+    return { runner, initialized };
+  }
+
+  /** Get the runner for a given language, initializing if needed */
+  async getRunner(language: string): Promise<LanguageRunner | null> {
+    const { runner } = await this.prepareRunner(language);
     return runner;
   }
 

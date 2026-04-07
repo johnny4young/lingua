@@ -140,10 +140,12 @@ function parseGoError(errorMsg?: string): { line?: number; column?: number } {
 
   // Go errors format: "./main.go:LINE:COL: error message"
   const match = errorMsg.match(/main\.go:(\d+):(\d+):/);
-  if (match) {
+  const lineValue = match?.[1];
+  const columnValue = match?.[2];
+  if (lineValue && columnValue) {
     return {
-      line: parseInt(match[1], 10),
-      column: parseInt(match[2], 10),
+      line: parseInt(lineValue, 10),
+      column: parseInt(columnValue, 10),
     };
   }
   return {};

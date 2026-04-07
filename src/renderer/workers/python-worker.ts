@@ -55,10 +55,11 @@ function parsePythonError(errorText: string): { line?: number; message: string }
   const lineMatch = errorText.match(/File\s+"<exec>",\s+line\s+(\d+)/);
   // Get the last line as the actual error message
   const lines = errorText.trim().split('\n');
-  const message = lines[lines.length - 1] || errorText;
+  const message = lines.at(-1) || errorText;
+  const lineValue = lineMatch?.[1];
 
   return {
-    line: lineMatch ? parseInt(lineMatch[1], 10) : undefined,
+    line: lineValue ? parseInt(lineValue, 10) : undefined,
     message,
   };
 }

@@ -42,7 +42,8 @@ function parseAnsi(raw: string): AnsiSpan[] {
     push(raw.slice(last, m.index));
     last = m.index + m[0].length;
 
-    const codes = m[1] === '' ? [0] : m[1].split(';').map(Number);
+    const controlSequence = m[1] ?? '';
+    const codes = controlSequence === '' ? [0] : controlSequence.split(';').map(Number);
     for (const code of codes) {
       if (code === 0) { color = undefined; bold = false; dim = false; }
       else if (code === 1) bold = true;

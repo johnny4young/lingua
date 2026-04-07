@@ -43,21 +43,23 @@ ctx.addEventListener('message', async (event) => {
           // Flush on newlines
           const lines = stdoutBuffer.split('\n');
           for (let i = 0; i < lines.length - 1; i++) {
-            if (lines[i].length > 0) {
-              ctx.postMessage({ type: 'console', method: 'log', args: [lines[i]] });
+            const line = lines[i];
+            if (line && line.length > 0) {
+              ctx.postMessage({ type: 'console', method: 'log', args: [line] });
             }
           }
-          stdoutBuffer = lines[lines.length - 1];
+          stdoutBuffer = lines.at(-1) ?? '';
         } else if (fd === 2) {
           // stderr
           stderrBuffer += text;
           const lines = stderrBuffer.split('\n');
           for (let i = 0; i < lines.length - 1; i++) {
-            if (lines[i].length > 0) {
-              ctx.postMessage({ type: 'console', method: 'error', args: [lines[i]] });
+            const line = lines[i];
+            if (line && line.length > 0) {
+              ctx.postMessage({ type: 'console', method: 'error', args: [line] });
             }
           }
-          stderrBuffer = lines[lines.length - 1];
+          stderrBuffer = lines.at(-1) ?? '';
         } else {
           return originalWriteSync(fd, buf);
         }

@@ -58,12 +58,14 @@ export class TypeScriptRunner implements LanguageRunner {
 
       // Try to parse esbuild error for line/column info
       const lineMatch = message.match(/(\d+):(\d+)/);
+      const lineValue = lineMatch?.[1];
+      const columnValue = lineMatch?.[2];
       return {
         js: '',
         error: {
           message: `TypeScript transpilation error: ${message}`,
-          line: lineMatch ? parseInt(lineMatch[1], 10) : undefined,
-          column: lineMatch ? parseInt(lineMatch[2], 10) : undefined,
+          line: lineValue ? parseInt(lineValue, 10) : undefined,
+          column: columnValue ? parseInt(columnValue, 10) : undefined,
         },
       };
     }

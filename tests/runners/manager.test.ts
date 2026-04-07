@@ -45,12 +45,35 @@ class SmokePluginRunner extends BasePluginRunner {
   }
 }
 
+class CountingPluginRunner extends BasePluginRunner {
+  id = 'counting';
+  name = 'Counting';
+  language = 'counting';
+  extensions = ['.count'];
+  initCalls = 0;
+
+  override async init(): Promise<void> {
+    this.initCalls += 1;
+    await super.init();
+  }
+
+  async execute(_code: string, _context?: ExecutionContext): Promise<ExecutionResult> {
+    return {
+      stdout: [],
+      stderr: [],
+      result: undefined,
+      executionTime: 1,
+    };
+  }
+}
+
 describe('RunnerManager', () => {
   let manager: RunnerManager;
 
   beforeEach(() => {
     manager = new RunnerManager();
     pluginRegistry.unregister('lua-smoke');
+    pluginRegistry.unregister('counting-smoke');
   });
 
   it('should support javascript, typescript, go, python, and rust', () => {
@@ -130,5 +153,32 @@ describe('RunnerManager', () => {
 
     const result = await manager.execute('lua', 'print("hi")');
     expect(result.stdout[0]?.args[0]).toBe('plugin ok');
+  });
+
+  it('prepares a plugin runner only once after it becomes ready', async () => {
+    const countingRunner = new CountingPluginRunner();
+
+    pluginRegistry.register({
+      id: 'counting-smoke',
+      name: 'Counting',
+      version: '0.1.0',
+      language: 'counting',
+      extensions: ['.count'],
+      async createRunner() {
+        return countingRunner;
+      },
+    });
+
+    expect(manager.needsInitialization('counting')).toBe(true);
+
+    const firstPreparation = await manager.prepareRunner('counting');
+    expect(firstPreparation.runner).toBe(countingRunner);
+    expect(firstPreparation.initialized).toBe(true);
+    expect(countingRunner.initCalls).toBe(1);
+
+    const secondPreparation = await manager.prepareRunner('counting');
+    expect(secondPreparation.runner).toBe(countingRunner);
+    expect(secondPreparation.initialized).toBe(false);
+    expect(countingRunner.initCalls).toBe(1);
   });
 });

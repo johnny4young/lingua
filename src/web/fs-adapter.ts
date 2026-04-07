@@ -66,6 +66,9 @@ async function resolveHandle(
   let current: FileSystemDirectoryHandle = rootHandle;
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i];
+    if (!part) {
+      return null;
+    }
     const isLast = i === parts.length - 1;
     try {
       if (isLast) {
@@ -113,6 +116,9 @@ export const webFsAdapter: RunLangAPI['fs'] = {
     try {
       const picker = window as unknown as FileSystemPickerWindow;
       const [fh] = await picker.showOpenFilePicker({ multiple: false });
+      if (!fh) {
+        return null;
+      }
       const virtPath = rootPath
         ? joinPath(rootPath, fh.name)
         : '/' + fh.name;

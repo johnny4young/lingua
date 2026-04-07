@@ -3,11 +3,12 @@ import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
 import { useConsoleStore } from '../stores/consoleStore';
 import type { Language } from '../types';
-
-function formatExecTime(ms: number): string {
-  if (ms < 1000) return `${ms.toFixed(1)} ms`;
-  return `${(ms / 1000).toFixed(2)} s`;
-}
+import {
+  getCompilationLoadingMessage,
+  getCompilationMessage,
+  getInitializationMessage,
+  toConsoleEntries,
+} from './runnerOutput';
 
 export function useRunner() {
   const [isRunning, setIsRunning] = useState(false);
@@ -40,104 +41,56 @@ export function useRunner() {
     addEntry({ type: 'info', content: `Running ${name}...` });
     setIsRunning(true);
 
-    // Initialize runner if needed
-    const runner = await runnerManager.getRunner(language);
-    if (!runner) {
-      addEntry({ type: 'error', content: `Failed to initialize ${language} runner.` });
-      setIsRunning(false);
-      return;
-    }
-
-      if (!runner.isReady()) {
+    const shouldShowInitialization = runnerManager.needsInitialization(language);
+    if (shouldShowInitialization) {
       setIsInitializing(true);
-      const initMessages: Record<string, string> = {
-        go: 'Detecting Go installation...',
-        python: 'Loading Python runtime (Pyodide)...',
-        rust: 'Detecting Rust installation...',
-      };
-      const msg = initMessages[language] ?? `Initializing ${language} runner...`;
+      const msg = getInitializationMessage(language);
       setLoadingMessage(msg);
       addEntry({ type: 'info', content: msg });
-      try {
-        await runner.init();
-      } catch (err) {
+    }
+
+    let runnerPrepared = false;
+
+    try {
+      const { runner } = await runnerManager.prepareRunner(language);
+      if (!runner) {
+        addEntry({ type: 'error', content: `Failed to initialize ${language} runner.` });
+        return;
+      }
+      runnerPrepared = true;
+
+      if (shouldShowInitialization) {
+        setIsInitializing(false);
+        setLoadingMessage(null);
+      }
+
+      const compilationLoadingMessage = getCompilationLoadingMessage(language);
+      const compilationMessage = getCompilationMessage(language);
+      if (compilationLoadingMessage && compilationMessage) {
+        setLoadingMessage(compilationLoadingMessage);
+        addEntry(compilationMessage);
+      }
+
+      const result = await runner.execute(content);
+
+      for (const entry of toConsoleEntries(result)) {
+        addEntry(entry);
+      }
+    } catch (err) {
+      if (!runnerPrepared) {
         addEntry({
           type: 'error',
           content: `Failed to initialize ${language} runner: ${err instanceof Error ? err.message : String(err)}`,
         });
-        setIsRunning(false);
-        setIsInitializing(false);
-        setLoadingMessage(null);
         return;
       }
-      setIsInitializing(false);
-      setLoadingMessage(null);
-    }
-
-    try {
-      // Show compilation stage for Go and Rust
-      if (language === 'go') {
-        setLoadingMessage('Compiling Go to WASM...');
-        addEntry({ type: 'info', content: 'Compiling Go to WebAssembly...' });
-      } else if (language === 'rust') {
-        setLoadingMessage('Compiling Rust...');
-        addEntry({ type: 'info', content: 'Compiling Rust binary...' });
-      }
-
-      const result = await runnerManager.execute(language, content);
-      setLoadingMessage(null);
-
-      // Add stdout entries
-      for (const output of result.stdout) {
-        addEntry({
-          type: output.type,
-          content: output.args.join(' '),
-          line: output.line,
-        });
-      }
-
-      // Add stderr entries
-      for (const output of result.stderr) {
-        addEntry({
-          type: output.type,
-          content: output.args.join(' '),
-          line: output.line,
-        });
-      }
-
-      // Add return value if present
-      if (result.result !== undefined) {
-        addEntry({
-          type: 'result',
-          content: String(result.result),
-        });
-      }
-
-      // Add error if present
-      if (result.error) {
-        const location =
-          result.error.line !== undefined
-            ? ` (line ${result.error.line}${result.error.column !== undefined ? `:${result.error.column}` : ''})`
-            : '';
-        addEntry({
-          type: 'error',
-          content: `${result.error.message}${location}`,
-        });
-      }
-
-      // Add execution time badge on a dedicated entry
-      addEntry({
-        type: 'info',
-        content: `Completed in ${formatExecTime(result.executionTime)}`,
-        executionTime: result.executionTime,
-      });
-    } catch (err) {
       addEntry({
         type: 'error',
         content: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
       });
     } finally {
       setIsRunning(false);
+      setIsInitializing(false);
       setLoadingMessage(null);
       currentLanguageRef.current = null;
     }

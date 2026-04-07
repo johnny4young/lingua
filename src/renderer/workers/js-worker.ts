@@ -70,9 +70,11 @@ function parseError(err: unknown): { message: string; line?: number; column?: nu
   // or:     "at <anonymous>:LINE:COL"
   if (err.stack) {
     const match = err.stack.match(/<anonymous>:(\d+):(\d+)/);
-    if (match) {
-      result.line = parseInt(match[1], 10);
-      result.column = parseInt(match[2], 10);
+    const lineValue = match?.[1];
+    const columnValue = match?.[2];
+    if (lineValue && columnValue) {
+      result.line = parseInt(lineValue, 10);
+      result.column = parseInt(columnValue, 10);
     }
   }
 
