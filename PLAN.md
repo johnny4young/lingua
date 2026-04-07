@@ -258,7 +258,7 @@ Exit gate:
 ### Milestone 2: Auto-update foundation
 
 - [x] Decide which platforms officially support auto-update in the first production version
-- [ ] Decide stable/prerelease channel policy
+- [x] Decide stable/prerelease channel policy
 - [x] Extract updater behavior from [src/main/index.ts](/Users/johnny4young/Personal/github/run-lang/src/main/index.ts) into a dedicated main-process module
 - [x] Add preload-exposed updater IPC events and commands
 - [x] Add renderer-visible update lifecycle state
@@ -274,10 +274,10 @@ Exit gate:
 
 - [ ] Verify macOS signing identity and notarization flow in CI
 - [ ] Verify Windows signing flow in CI
-- [ ] Add post-build reporting that makes signing/notarization status explicit in workflow logs
-- [ ] Add checksum generation for release artifacts
-- [ ] Decide whether release publication should remain draft-only or include a promotion step
-- [ ] Document the human release checklist for version tagging, validation, and publishing
+- [x] Add post-build reporting that makes signing/notarization status explicit in workflow logs
+- [x] Add checksum generation for release artifacts
+- [x] Decide whether release publication should remain draft-only or include a promotion step
+- [x] Document the human release checklist for version tagging, validation, and publishing
 
 Exit gate:
 - macOS and Windows signing state is explicit, reproducible, and documented for operators.

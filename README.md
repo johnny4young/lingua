@@ -91,6 +91,7 @@ The GitHub Pages deployment workflow builds `dist/web` after a successful `main`
 - The web build is deployed to GitHub Pages from `main` after a successful CI workflow
 - Pushing a tag that matches `v*.*.*` triggers cross-platform packaging and GitHub Release publishing
 - Packaged macOS and Windows builds enable `update-electron-app`, which checks GitHub Releases for updates
+- The active release/update channel policy is stable-only; prerelease tags are rejected by the release workflow
 
 ## Update behavior
 
@@ -98,10 +99,15 @@ The GitHub Pages deployment workflow builds `dist/web` after a successful `main`
 - Linux and web builds report updates as unavailable
 - The renderer now exposes update state in Settings and a manual "Check for Updates" command in the command palette
 - Restart-to-apply is only enabled after the main process reports that an update has been downloaded
+- The updater currently targets the stable GitHub Release channel only
 
 ## Release requirements
 
 Tagged releases are intended to publish a draft GitHub Release after platform builds succeed.
+
+Stable channel policy:
+- Only stable tags in the form `vX.Y.Z` are valid for the active release workflow
+- Prerelease tags with suffixes such as `-beta` or `-rc.1` are intentionally rejected by the workflow today
 
 ### Required secrets
 
@@ -131,6 +137,12 @@ Tagged releases are intended to publish a draft GitHub Release after platform bu
 - Windows uses Squirrel packaging, which is also the most update-friendly target in the current setup.
 - Linux publishes package artifacts built by the Debian and RPM makers.
 - GitHub Release publication remains draft-first until signing and verification are proven stable in CI.
+- The release workflow generates a `SHA256SUMS.txt` manifest before publishing.
+
+### Release operations
+
+- The repository currently stays on a draft-first release policy. Promotion to a non-draft release is a human step after validation.
+- Use [RELEASE.md](/Users/johnny4young/Personal/github/run-lang/RELEASE.md) as the operator checklist for version tags, signing prerequisites, verification, and promotion.
 
 ## Notes for contributors
 
