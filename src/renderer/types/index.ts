@@ -1,4 +1,15 @@
-export type Language = 'javascript' | 'typescript' | 'go' | 'python' | 'rust';
+export type BuiltInLanguage =
+  | 'javascript'
+  | 'typescript'
+  | 'go'
+  | 'python'
+  | 'rust';
+
+/**
+ * Language ids used across the editor.
+ * Plugins may introduce additional string identifiers beyond the built-ins.
+ */
+export type Language = BuiltInLanguage | (string & {});
 
 export interface FileTab {
   id: string;

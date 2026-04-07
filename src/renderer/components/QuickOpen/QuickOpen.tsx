@@ -3,14 +3,7 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useProjectStore, type FileTreeNode } from '../../stores/projectStore';
 import type { Language } from '../../types';
-
-const LANG_BADGE: Record<Language, string> = {
-  javascript: 'bg-yellow-500/15 text-yellow-400',
-  typescript: 'bg-blue-500/15 text-blue-400',
-  go:         'bg-cyan-500/15 text-cyan-400',
-  python:     'bg-green-500/15 text-green-400',
-  rust:       'bg-orange-500/15 text-orange-400',
-};
+import { languageBadgeClass } from '../../utils/languageMeta';
 
 interface FileResult {
   name: string;
@@ -160,7 +153,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
                     <span className="text-[10px] text-gray-600">open</span>
                   )}
                   {file.language && (
-                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${LANG_BADGE[file.language]}`}>
+                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${languageBadgeClass(file.language)}`}>
                       {file.language}
                     </span>
                   )}

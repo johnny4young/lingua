@@ -1,22 +1,6 @@
 import { X } from 'lucide-react';
 import { useEditorStore } from '../../stores/editorStore';
-import type { Language } from '../../types';
-
-const LANGUAGE_ICONS: Record<Language, string> = {
-  javascript: 'JS',
-  typescript: 'TS',
-  go: 'Go',
-  python: 'Py',
-  rust: 'Rs',
-};
-
-const LANGUAGE_COLORS: Record<Language, string> = {
-  javascript: 'text-yellow-400',
-  typescript: 'text-blue-400',
-  go: 'text-cyan-400',
-  python: 'text-green-400',
-  rust: 'text-orange-400',
-};
+import { languageShortLabel, languageTextColorClass } from '../../utils/languageMeta';
 
 export function EditorTabs() {
   const { tabs, activeTabId, setActiveTab, removeTab } = useEditorStore();
@@ -33,8 +17,8 @@ export function EditorTabs() {
               : 'bg-gray-900 text-gray-500 hover:bg-gray-800 hover:text-gray-300'
           }`}
         >
-          <span className={`text-[10px] font-bold ${LANGUAGE_COLORS[tab.language]}`}>
-            {LANGUAGE_ICONS[tab.language]}
+          <span className={`text-[10px] font-bold ${languageTextColorClass(tab.language)}`}>
+            {languageShortLabel(tab.language)}
           </span>
           <span>{tab.name}</span>
           {tab.isDirty && (

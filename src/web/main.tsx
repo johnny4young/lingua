@@ -9,7 +9,13 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '../renderer/App';
 import { configureMonaco } from '../renderer/monaco';
+import { pluginRegistry } from '../renderer/plugins';
+import { luaPlugin } from '../renderer/plugins/lua-runner';
 import '../renderer/index.css';
+
+if (!pluginRegistry.get(luaPlugin.id)) {
+  pluginRegistry.register(luaPlugin);
+}
 
 configureMonaco();
 

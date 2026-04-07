@@ -26,12 +26,31 @@ Object.defineProperty(globalThis, 'window', {
 });
 
 import { RunnerManager } from '@/runners/manager';
+import { pluginRegistry, BasePluginRunner } from '@/plugins';
+import type { ExecutionContext, ExecutionResult } from '@/types';
+
+class SmokePluginRunner extends BasePluginRunner {
+  id = 'lua';
+  name = 'Lua';
+  language = 'lua';
+  extensions = ['.lua'];
+
+  async execute(_code: string, _context?: ExecutionContext): Promise<ExecutionResult> {
+    return {
+      stdout: [{ type: 'log', args: ['plugin ok'] }],
+      stderr: [],
+      result: undefined,
+      executionTime: 1,
+    };
+  }
+}
 
 describe('RunnerManager', () => {
   let manager: RunnerManager;
 
   beforeEach(() => {
     manager = new RunnerManager();
+    pluginRegistry.unregister('lua-smoke');
   });
 
   it('should support javascript, typescript, go, python, and rust', () => {
@@ -93,5 +112,23 @@ describe('RunnerManager', () => {
     expect(() => manager.stop('go')).not.toThrow();
     expect(() => manager.stop('python')).not.toThrow();
     expect(() => manager.stop('rust')).not.toThrow(); // no-op (native runner)
+  });
+
+  it('should execute a registered plugin runner', async () => {
+    pluginRegistry.register({
+      id: 'lua-smoke',
+      name: 'Lua',
+      version: '0.1.0',
+      language: 'lua',
+      extensions: ['.lua'],
+      async createRunner() {
+        return new SmokePluginRunner();
+      },
+    });
+
+    expect(manager.isSupported('lua')).toBe(true);
+
+    const result = await manager.execute('lua', 'print("hi")');
+    expect(result.stdout[0]?.args[0]).toBe('plugin ok');
   });
 });

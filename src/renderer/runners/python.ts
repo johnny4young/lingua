@@ -39,7 +39,7 @@ export class PythonRunner implements LanguageRunner {
     if (!this.worker) {
       this.worker = new Worker(
         new URL('../workers/python-worker.ts', import.meta.url),
-        { type: 'module' }
+        { type: 'classic' }
       );
     }
 

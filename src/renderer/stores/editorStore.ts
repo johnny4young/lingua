@@ -1,30 +1,15 @@
 import { create } from 'zustand';
 import type { EditorState, FileTab, Language } from '../types';
-
-const DEFAULT_CONTENT: Record<Language, string> = {
-  javascript: '// Welcome to RunLang\nconsole.log("Hello, World!");\n',
-  typescript: '// Welcome to RunLang\nconst greeting: string = "Hello, World!";\nconsole.log(greeting);\n',
-  go: '// Welcome to RunLang\npackage main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, World!")\n}\n',
-  python: '# Welcome to RunLang\nprint("Hello, World!")\n',
-  rust: '// Welcome to RunLang\nfn main() {\n    println!("Hello, World!");\n}\n',
-};
-
-const EXT: Record<Language, string> = {
-  javascript: 'js',
-  typescript: 'ts',
-  go: 'go',
-  python: 'py',
-  rust: 'rs',
-};
+import { defaultCodeForLanguage, extensionForLanguage } from '../utils/languageMeta';
 
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
   const short = id.slice(0, 8);
   return {
     id,
-    name: `untitled-${short}.${EXT[language]}`,
+    name: `untitled-${short}.${extensionForLanguage(language)}`,
     language,
-    content: DEFAULT_CONTENT[language],
+    content: defaultCodeForLanguage(language),
     isDirty: false,
   };
 };

@@ -13,15 +13,7 @@ import {
 } from 'lucide-react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useProjectStore, type FileTreeNode } from '../../stores/projectStore';
-import type { Language } from '../../types';
-
-const LANGUAGE_COLORS: Record<Language, string> = {
-  javascript: 'text-yellow-400',
-  typescript: 'text-blue-400',
-  go: 'text-cyan-400',
-  python: 'text-green-400',
-  rust: 'text-orange-400',
-};
+import { languageTextColorClass } from '../../utils/languageMeta';
 
 // ------------------------------------------------------------------ sub-components
 
@@ -136,7 +128,7 @@ function TreeNode({
         ) : (
           <FileCode
             size={13}
-            className={LANGUAGE_COLORS[node.language ?? 'javascript']}
+            className={languageTextColorClass(node.language ?? 'javascript')}
           />
         )}
 
@@ -352,7 +344,7 @@ export function FileTree() {
                       : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-300'
                   }`}
                 >
-                  <FileCode size={13} className={LANGUAGE_COLORS[tab.language]} />
+                  <FileCode size={13} className={languageTextColorClass(tab.language)} />
                   <span className="truncate">{tab.name}</span>
                   {tab.isDirty && (
                     <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-primary-400" />

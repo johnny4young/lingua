@@ -5,6 +5,9 @@ node_modules/
 out/
 dist/
 .vite/
+output/
+.playwright-cli/
+Library/
 
 # Logs
 *.log

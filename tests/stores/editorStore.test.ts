@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useEditorStore, createDefaultTab } from '@/stores/editorStore';
+import { pluginRegistry } from '@/plugins';
+import { luaPlugin } from '@/plugins/lua-runner';
 
 describe('editorStore', () => {
   beforeEach(() => {
@@ -8,6 +10,9 @@ describe('editorStore', () => {
       tabs: [],
       activeTabId: null,
     });
+    if (!pluginRegistry.get(luaPlugin.id)) {
+      pluginRegistry.register(luaPlugin);
+    }
   });
 
   it('should start with no tabs', () => {
@@ -101,5 +106,12 @@ describe('editorStore', () => {
       expect(tab.language).toBe(lang);
       expect(tab.content.length).toBeGreaterThan(0);
     }
+  });
+
+  it('should create a default tab for a registered plugin language', () => {
+    const tab = createDefaultTab('lua');
+    expect(tab.language).toBe('lua');
+    expect(tab.name).toMatch(/\.lua$/);
+    expect(tab.content).toContain('Lua example');
   });
 });

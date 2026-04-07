@@ -2,15 +2,7 @@ import MonacoEditor, { type Monaco } from '@monaco-editor/react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
-import type { Language } from '../../types';
-
-const LANGUAGE_MAP: Record<Language, string> = {
-  javascript: 'javascript',
-  typescript: 'typescript',
-  go: 'go',
-  python: 'python',
-  rust: 'rust',
-};
+import { extensionForLanguage, languageBadgeClass, monacoLanguageFor } from '../../utils/languageMeta';
 
 // ---------------------------------------------------------------------------
 // Custom theme definitions
@@ -131,14 +123,6 @@ function defineCustomThemes(monaco: Monaco) {
 
 const FEATURED_TEMPLATES = BUILT_IN_TEMPLATES.slice(0, 6); // show first 6 across languages
 
-const LANG_BADGE: Record<Language, string> = {
-  javascript: 'bg-yellow-500/15 text-yellow-400',
-  typescript: 'bg-blue-500/15 text-blue-400',
-  go:         'bg-cyan-500/15 text-cyan-400',
-  python:     'bg-green-500/15 text-green-400',
-  rust:       'bg-orange-500/15 text-orange-400',
-};
-
 function EmptyState() {
   const { addTab } = useEditorStore();
 
@@ -146,7 +130,7 @@ function EmptyState() {
     const tpl = BUILT_IN_TEMPLATES.find((t) => t.id === tplId);
     if (!tpl) return;
     const tab = createDefaultTab(tpl.language);
-    addTab({ ...tab, content: tpl.code, name: `${tpl.label}.${extForLang(tpl.language)}` });
+    addTab({ ...tab, content: tpl.code, name: `${tpl.label}.${extensionForLanguage(tpl.language)}` });
   };
 
   return (
@@ -166,7 +150,7 @@ function EmptyState() {
             onClick={() => openTemplate(tpl.id)}
             className="flex flex-col gap-1 rounded-lg border border-gray-800 bg-gray-900 p-3 text-left transition-colors hover:border-gray-600 hover:bg-gray-800"
           >
-            <span className={`self-start rounded px-1.5 py-0.5 text-[10px] font-bold ${LANG_BADGE[tpl.language]}`}>
+            <span className={`self-start rounded px-1.5 py-0.5 text-[10px] font-bold ${languageBadgeClass(tpl.language)}`}>
               {tpl.language}
             </span>
             <span className="text-xs font-medium text-gray-300">{tpl.label}</span>
@@ -176,13 +160,6 @@ function EmptyState() {
       </div>
     </div>
   );
-}
-
-function extForLang(lang: Language): string {
-  const map: Record<Language, string> = {
-    javascript: 'js', typescript: 'ts', go: 'go', python: 'py', rust: 'rs',
-  };
-  return map[lang];
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +180,7 @@ export function CodeEditor() {
   return (
     <MonacoEditor
       height="100%"
-      language={LANGUAGE_MAP[activeTab.language]}
+      language={monacoLanguageFor(activeTab.language)}
       value={activeTab.content}
       theme={editorTheme}
       beforeMount={defineCustomThemes}

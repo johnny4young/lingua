@@ -5,6 +5,7 @@ import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { Language } from '../../types';
+import { extensionForLanguage, languageBadgeClass, languageShortLabel } from '../../utils/languageMeta';
 
 // ---------------------------------------------------------------------------
 // Command types
@@ -23,22 +24,6 @@ interface Command {
 }
 
 // Language badge colors
-const LANG_BADGE: Record<Language, string> = {
-  javascript: 'bg-yellow-500/20 text-yellow-400',
-  typescript: 'bg-blue-500/20 text-blue-400',
-  go:         'bg-cyan-500/20 text-cyan-400',
-  python:     'bg-green-500/20 text-green-400',
-  rust:       'bg-orange-500/20 text-orange-400',
-};
-
-const LANG_SHORT: Record<Language, string> = {
-  javascript: 'JS',
-  typescript: 'TS',
-  go: 'Go',
-  python: 'Py',
-  rust: 'Rs',
-};
-
 const CATEGORY_ICON: Record<CommandCategory, React.ReactNode> = {
   template: <FileCode size={13} className="shrink-0 text-violet-400" />,
   snippet:  <Code size={13} className="shrink-0 text-blue-400" />,
@@ -79,7 +64,11 @@ export function CommandPalette({ onClose, onOpenSettings }: CommandPaletteProps)
         keywords: [tpl.label, tpl.language, tpl.description].map((s) => s.toLowerCase()),
         action: () => {
           const tab = createDefaultTab(tpl.language);
-          addTab({ ...tab, content: tpl.code, name: `${tpl.label}.${extForLang(tpl.language)}` });
+          addTab({
+            ...tab,
+            content: tpl.code,
+            name: `${tpl.label}.${extensionForLanguage(tpl.language)}`,
+          });
           onClose();
         },
       });
@@ -96,7 +85,11 @@ export function CommandPalette({ onClose, onOpenSettings }: CommandPaletteProps)
         keywords: [sn.label, sn.language, sn.description].map((s) => s.toLowerCase()),
         action: () => {
           const tab = createDefaultTab(sn.language);
-          addTab({ ...tab, content: sn.code, name: `${sn.label}.${extForLang(sn.language)}` });
+          addTab({
+            ...tab,
+            content: sn.code,
+            name: `${sn.label}.${extensionForLanguage(sn.language)}`,
+          });
           onClose();
         },
       });
@@ -232,8 +225,8 @@ export function CommandPalette({ onClose, onOpenSettings }: CommandPaletteProps)
                   <span className="truncate text-xs text-gray-500">{cmd.description}</span>
                 </div>
                 {cmd.language && (
-                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${LANG_BADGE[cmd.language]}`}>
-                    {LANG_SHORT[cmd.language]}
+                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${languageBadgeClass(cmd.language)}`}>
+                    {languageShortLabel(cmd.language)}
                   </span>
                 )}
               </button>
@@ -256,19 +249,4 @@ export function CommandPalette({ onClose, onOpenSettings }: CommandPaletteProps)
       </div>
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function extForLang(lang: Language): string {
-  const map: Record<Language, string> = {
-    javascript: 'js',
-    typescript: 'ts',
-    go: 'go',
-    python: 'py',
-    rust: 'rs',
-  };
-  return map[lang];
 }

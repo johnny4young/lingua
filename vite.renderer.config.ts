@@ -4,6 +4,17 @@ import path from 'node:path';
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    watch: {
+      ignored: [
+        '**/.playwright-cli/**',
+        '**/Library/**',
+        '**/dist/**',
+        '**/out/**',
+        '**/output/**',
+      ],
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src/renderer'),

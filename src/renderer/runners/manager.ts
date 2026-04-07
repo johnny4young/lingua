@@ -1,4 +1,4 @@
-import type { Language, LanguageRunner, ExecutionContext, ExecutionResult } from '../types';
+import type { LanguageRunner, ExecutionContext, ExecutionResult } from '../types';
 import { JavaScriptRunner } from './javascript';
 import { TypeScriptRunner } from './typescript';
 import { GoRunner } from './go';
@@ -12,8 +12,8 @@ import { pluginRegistry } from '../plugins';
  * and provides a unified execution API.
  */
 export class RunnerManager {
-  private runners: Map<Language, LanguageRunner> = new Map();
-  private initializing: Map<Language, Promise<void>> = new Map();
+  private runners: Map<string, LanguageRunner> = new Map();
+  private initializing: Map<string, Promise<void>> = new Map();
 
   constructor() {
     this.runners.set('javascript', new JavaScriptRunner());
@@ -24,7 +24,14 @@ export class RunnerManager {
   }
 
   /** Get the runner for a given language, initializing if needed */
-  async getRunner(language: Language): Promise<LanguageRunner | null> {
+  async getRunner(language: string): Promise<LanguageRunner | null> {
+    const plugin = pluginRegistry.getByLanguage(language);
+
+    if (!this.runners.has(language) && plugin) {
+      const pluginRunner = await plugin.createRunner();
+      this.runners.set(language, pluginRunner as unknown as LanguageRunner);
+    }
+
     const runner = this.runners.get(language);
     if (!runner) return null;
 
@@ -44,7 +51,7 @@ export class RunnerManager {
 
   /** Execute code in the appropriate language runner */
   async execute(
-    language: Language,
+    language: string,
     code: string,
     context?: ExecutionContext
   ): Promise<ExecutionResult> {
@@ -52,17 +59,6 @@ export class RunnerManager {
 
     if (runner) {
       return runner.execute(code, context);
-    }
-
-    // Fall back to plugin registry for languages not built in
-    const plugin = pluginRegistry.getByLanguage(language);
-    if (plugin) {
-      // Create and cache the plugin runner so it's initialized only once
-      const pluginRunner = await plugin.createRunner();
-      await pluginRunner.init();
-      // Store under the language key for future calls
-      this.runners.set(language as Language, pluginRunner as unknown as import('../types').LanguageRunner);
-      return pluginRunner.execute(code, context);
     }
 
     return {
@@ -77,7 +73,7 @@ export class RunnerManager {
   }
 
   /** Stop execution for a given language */
-  stop(language: Language): void {
+  stop(language: string): void {
     const runner = this.runners.get(language);
     if (runner) {
       runner.stop();
@@ -92,13 +88,16 @@ export class RunnerManager {
   }
 
   /** Check if a language is supported */
-  isSupported(language: Language): boolean {
-    return this.runners.has(language);
+  isSupported(language: string): boolean {
+    return this.runners.has(language) || pluginRegistry.hasLanguage(language);
   }
 
   /** Get list of supported languages */
-  getSupportedLanguages(): Language[] {
-    return Array.from(this.runners.keys());
+  getSupportedLanguages(): string[] {
+    return Array.from(new Set([
+      ...this.runners.keys(),
+      ...pluginRegistry.getAll().map((plugin) => plugin.language),
+    ]));
   }
 }
 

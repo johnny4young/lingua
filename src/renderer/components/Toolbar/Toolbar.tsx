@@ -2,8 +2,10 @@ import { Play, Square, Plus, Settings, Loader2, Terminal, Search } from 'lucide-
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
 import type { Language } from '../../types';
+import { pluginRegistry } from '../../plugins';
+import { languageLabel } from '../../utils/languageMeta';
 
-const LANGUAGES: { id: Language; label: string }[] = [
+const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
   { id: 'javascript', label: 'JavaScript' },
   { id: 'typescript', label: 'TypeScript' },
   { id: 'go', label: 'Go' },
@@ -21,6 +23,13 @@ export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Tool
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  const languages = [
+    ...BUILT_IN_LANGUAGES,
+    ...pluginRegistry.getAll().map((plugin) => ({
+      id: plugin.language,
+      label: languageLabel(plugin.language),
+    })),
+  ];
 
   const handleNewFile = (language: Language) => {
     const tab = createDefaultTab(language);
@@ -58,7 +67,7 @@ export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Tool
           onChange={(e) => handleNewFile(e.target.value as Language)}
           className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 outline-none focus:border-primary-500"
         >
-          {LANGUAGES.map((lang) => (
+          {languages.map((lang) => (
             <option key={lang.id} value={lang.id}>
               {lang.label}
             </option>

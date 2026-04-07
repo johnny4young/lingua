@@ -55,5 +55,14 @@ export default defineConfig({
       'Cross-Origin-Embedder-Policy': 'require-corp',
       'Cross-Origin-Opener-Policy': 'same-origin',
     },
+    watch: {
+      ignored: [
+        '**/.playwright-cli/**',
+        '**/Library/**',
+        '**/dist/**',
+        '**/out/**',
+        '**/output/**',
+      ],
+    },
   },
 });
