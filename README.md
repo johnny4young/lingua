@@ -92,6 +92,39 @@ The GitHub Pages deployment workflow builds `dist/web` after a successful `main`
 - Pushing a tag that matches `v*.*.*` triggers cross-platform packaging and GitHub Release publishing
 - Packaged desktop builds enable `update-electron-app`, which checks GitHub Releases for updates
 
+## Release requirements
+
+Tagged releases are intended to publish a draft GitHub Release after platform builds succeed.
+
+### Required secrets
+
+- macOS:
+  - `APPLE_ID`
+  - `APPLE_ID_PASSWORD`
+  - `APPLE_TEAM_ID`
+  - `APPLE_SIGNING_IDENTITY`
+  - `APPLE_CERT_P12_BASE64`
+  - `APPLE_CERT_PASSWORD`
+- Windows:
+  - `WIN_CERT_FILE`
+  - `WIN_CERT_PASSWORD`
+- GitHub publishing:
+  - `GITHUB_TOKEN`
+
+### Secret formats
+
+- `APPLE_CERT_P12_BASE64` must be the base64-encoded contents of the exported macOS signing `.p12` file.
+- `APPLE_CERT_PASSWORD` must be the password used when exporting that `.p12` file.
+- `WIN_CERT_FILE` must be the base64-encoded contents of the Windows signing `.pfx` or `.p12` file.
+- `WIN_CERT_PASSWORD` must be the password for that Windows certificate export.
+
+### Current artifact policy
+
+- macOS currently ships ZIP artifacts in the active release path.
+- Windows uses Squirrel packaging, which is also the most update-friendly target in the current setup.
+- Linux publishes package artifacts built by the Debian and RPM makers.
+- GitHub Release publication remains draft-first until signing and verification are proven stable in CI.
+
 ## Notes for contributors
 
 - The repository currently documents product status in `PLAN.md`, not as a historical implementation roadmap
