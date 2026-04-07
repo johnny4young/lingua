@@ -125,7 +125,7 @@ export type WorkerRequest =
 
 /** Messages sent from the worker to the main thread */
 export type WorkerResponse =
-  | { type: 'console'; method: ConsoleOutput['type']; args: string[] }
+  | { type: 'console'; method: ConsoleOutput['type']; args: string[]; line?: number }
   | { type: 'result'; value?: unknown }
   | { type: 'error'; error: ExecutionError }
   | { type: 'done'; executionTime: number }
