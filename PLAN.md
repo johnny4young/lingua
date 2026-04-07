@@ -64,10 +64,8 @@ Current state:
 - GitHub publishing is configured through `@electron-forge/publisher-github`.
 
 Gaps:
-- The workflow assumes secrets are configured, but does not validate them explicitly before build steps.
-- There is no post-build signature or notarization verification step.
-- There is no operator-facing release checklist in the repository.
 - The macOS artifact path is currently ZIP-only because the DMG toolchain was not stable under the current local toolchain.
+- The final tagged-release path still needs to be exercised in GitHub Actions with real secrets and certificates.
 
 Requirements:
 - Apple Developer account and notarization setup
@@ -83,10 +81,9 @@ Requirements:
 - GitHub token with release publishing permissions
 
 Planned approach:
-1. Add workflow preflight validation for required release secrets.
-2. Add artifact verification steps after each platform build.
-3. Keep GitHub Releases as draft-first until signing and verification are reliable.
-4. Document the release operator flow and required secrets.
+1. Keep the workflow preflight validation and artifact verification steps in place.
+2. Keep GitHub Releases as draft-first until signing and verification are proven stable with live CI credentials.
+3. Validate the full tagged-release path in GitHub Actions with real secrets.
 
 Likely files:
 - [release.yml](/Users/johnny4young/Personal/github/run-lang/.github/workflows/release.yml)
@@ -111,11 +108,8 @@ Current state:
 - Windows packaging uses Squirrel, which is the most update-friendly target in the current setup.
 
 Gaps:
-- There is no update service abstraction or app-level status reporting.
-- There is no renderer UI for checking, downloading, or restarting into updates.
-- The supported update platforms are not explicitly documented.
-- There is no release-channel strategy for stable vs prerelease updates.
 - There is no explicit verification step for update behavior in CI or release validation.
+- Packaged update behavior still needs to be validated against real GitHub Release artifacts.
 
 Requirements:
 - Decide supported update platforms, with Windows as the likely first production target
@@ -127,11 +121,9 @@ Requirements:
 - Confirm GitHub Releases remain the intended update source
 
 Planned approach:
-1. Extract updater behavior into a dedicated main-process module.
-2. Emit updater lifecycle events over IPC to the renderer.
-3. Add minimal UI for update status and restart prompts.
-4. Document which platforms officially support auto-update.
-5. Add a release validation checklist for updater behavior.
+1. Keep the main-process updater module and IPC bridge as the stable implementation path.
+2. Keep the renderer update UI limited to the current supported packaged desktop platforms.
+3. Validate packaged update behavior against the chosen stable release channel.
 
 Likely files:
 - [src/main/index.ts](/Users/johnny4young/Personal/github/run-lang/src/main/index.ts)
@@ -156,6 +148,7 @@ Current state:
 - Plugin manifests are discovered from the local plugin install directory through main/preload IPC.
 - The Settings UI exposes installed plugin status, diagnostics, and the active install directory.
 - The renderer only activates bundled runtimes that correspond to valid installed manifests.
+- The bundled Lua runtime is executable through Fengari when a matching local manifest is installed.
 - Language detection and some editor affordances now tolerate plugin-provided language ids.
 
 Gaps:
@@ -173,12 +166,9 @@ Requirements:
 - Define trust and execution boundaries
 
 Planned approach:
-1. Formalize a manifest for local language plugins.
-2. Discover manifests from a fixed local plugin directory.
-3. Add compatibility checks and safe failure modes.
-4. Generalize any remaining built-in-only editor assumptions.
-5. Add a basic plugin management surface in the app.
-6. Keep bundled runtimes documented conservatively even when they are executable.
+1. Keep the manifest-driven local plugin model as the supported scope.
+2. Keep bundled runtimes documented conservatively even when they are executable.
+3. Revisit broader extension loading only if product requirements expand beyond bundled runtimes.
 
 Likely files:
 - [src/renderer/plugins/index.ts](/Users/johnny4young/Personal/github/run-lang/src/renderer/plugins/index.ts)
@@ -205,8 +195,7 @@ Current state:
 - Go and Rust are intentionally stubbed in the browser adapter.
 
 Gaps:
-- Asset/base-path behavior should continue to be validated against GitHub Pages hosting.
-- Desktop-only execution modes should remain clearly surfaced in the browser UX.
+- No in-repo implementation gaps remain in this track.
 
 Likely files:
 - [deploy-web.yml](/Users/johnny4young/Personal/github/run-lang/.github/workflows/deploy-web.yml)
@@ -229,6 +218,7 @@ Planned approach:
 
 Acceptance criteria:
 - README claims about builds, releases, and updates match code and workflows.
+- RELEASE checklist claims match the release workflow and current artifact policy.
 - This document remains a status-and-backlog file, not a historical roadmap.
 
 ## Suggested delivery order

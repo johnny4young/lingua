@@ -46,9 +46,10 @@ npm start
 ```bash
 npm run lint
 npm test
+npx tsc --noEmit
 ```
 
-These are the repository quality scripts. CI also runs a no-emit TypeScript type check.
+These are the main local verification commands. CI also runs a non-blocking `npm audit`.
 
 ## Build commands
 
