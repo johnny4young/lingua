@@ -8,15 +8,14 @@ import './adapter';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '../renderer/App';
-import { configureMonaco } from '../renderer/monaco';
 import '../renderer/index.css';
-
-configureMonaco();
 
 // Register the Service Worker for offline / PWA support
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((err) => {
+    const serviceWorkerUrl = `${import.meta.env.BASE_URL}sw.js`;
+
+    navigator.serviceWorker.register(serviceWorkerUrl).catch((err) => {
       console.warn('Service Worker registration failed:', err);
     });
   });

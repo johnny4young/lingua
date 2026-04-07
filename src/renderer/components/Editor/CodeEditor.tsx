@@ -3,6 +3,9 @@ import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import { extensionForLanguage, languageBadgeClass, monacoLanguageFor } from '../../utils/languageMeta';
+import { configureMonaco } from '../../monaco';
+
+configureMonaco();
 
 // ---------------------------------------------------------------------------
 // Custom theme definitions

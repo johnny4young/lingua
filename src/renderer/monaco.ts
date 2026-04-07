@@ -1,5 +1,5 @@
 import { loader } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
 
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
 import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
@@ -25,7 +25,12 @@ function getWorkerFactory(label: string): MonacoWorkerFactory {
   return workerFactories[label] ?? EditorWorker;
 }
 
+let configured = false;
+
 export function configureMonaco(): void {
+  if (configured) return;
+  configured = true;
+
   loader.config({ monaco });
 
   globalThis.MonacoEnvironment = {

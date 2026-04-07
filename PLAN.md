@@ -300,11 +300,11 @@ Exit gate:
 
 ### Milestone 5: Web and delivery cleanup
 
-- [ ] Re-validate GitHub Pages deployment after the release/update changes
-- [ ] Re-check web base-path and asset behavior
-- [ ] Keep Go and Rust browser behavior explicitly stubbed with clear messaging
-- [ ] Reconcile README release/update claims with the final implementation
-- [ ] Reconcile this plan with the final implementation state
+- [x] Re-validate GitHub Pages deployment after the release/update changes
+- [x] Re-check web base-path and asset behavior
+- [x] Keep Go and Rust browser behavior explicitly stubbed with clear messaging
+- [x] Reconcile README release/update claims with the final implementation
+- [x] Reconcile this plan with the final implementation state
 
 Exit gate:
 - Documentation, web deployment, and delivery claims all match the implemented system.

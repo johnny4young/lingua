@@ -69,7 +69,8 @@ npm run build:web
 npm run preview:web
 ```
 
-The GitHub Pages deployment workflow builds `dist/web` after a successful `main` branch CI run.
+The local web build defaults to `/` as its base path.
+The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/run-lang/` after a successful `main` branch CI run.
 
 ## Keyboard shortcuts
 
@@ -89,6 +90,7 @@ The GitHub Pages deployment workflow builds `dist/web` after a successful `main`
 
 - CI runs type checking, linting, tests, and a non-blocking `npm audit`
 - The web build is deployed to GitHub Pages from `main` after a successful CI workflow
+- The Pages build uses `/run-lang/` as the web base path so static assets, the manifest, and the service worker resolve correctly under the repository subpath
 - Pushing a tag that matches `v*.*.*` triggers cross-platform packaging and GitHub Release publishing
 - Packaged macOS and Windows builds enable `update-electron-app`, which checks GitHub Releases for updates
 - The active release/update channel policy is stable-only; prerelease tags are rejected by the release workflow
@@ -116,7 +118,14 @@ Current plugin scope:
 
 Current install directory:
 - Desktop builds discover plugins from `<app userData>/plugins`
-- Web builds expose the plugin UI as unavailable and do not load local manifests
+- Web builds keep the plugin surface read-only and do not load local manifests
+
+## Browser-only limitations
+
+- Go compilation stays unavailable in the browser build and returns an explicit desktop-only message
+- Rust compilation stays unavailable in the browser build and returns an explicit desktop-only message
+- Automatic updates stay unavailable in the browser build
+- Local plugin discovery stays unavailable in the browser build
 
 Minimal manifest:
 

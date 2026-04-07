@@ -5,14 +5,17 @@
  *  - Entry point is src/web/main.tsx (not src/renderer/main.tsx)
  *  - Output goes to dist/web/ (served as a static site / PWA)
  *  - No Electron externals — everything must be bundled or CDN-loaded
- *  - Public base is '/' (adjust to '/run-lang/' for GitHub Pages sub-path)
+ *  - Public base defaults to '/' and can be overridden for GitHub Pages
  */
 
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
+const base = process.env.VITE_BASE_PATH ?? '/';
+
 export default defineConfig({
+  base,
   plugins: [react()],
   root: path.resolve(__dirname, 'src/web'),
   publicDir: path.resolve(__dirname, 'public'),
@@ -24,6 +27,10 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, 'dist/web'),
     emptyOutDir: true,
+    // Monaco ships large language workers even after the editor itself is
+    // split behind a lazy boundary, so keep the warning threshold aligned
+    // with the intentional web runtime shape.
+    chunkSizeWarningLimit: 8000,
     rollupOptions: {
       output: {
         manualChunks: (id) => {

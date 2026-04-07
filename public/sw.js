@@ -12,11 +12,12 @@
 
 const CACHE_VERSION = 'v1';
 const CACHE_NAME = `runlang-${CACHE_VERSION}`;
+const BASE_PATH = new URL(self.registration.scope).pathname;
 
 // Resources to pre-cache on install (app shell)
 const APP_SHELL = [
-  '/',
-  '/index.html',
+  BASE_PATH,
+  `${BASE_PATH}index.html`,
 ];
 
 // CDN origins that should use Network-First (always try network, fall back to cache)
@@ -87,8 +88,10 @@ async function cacheFirst(request) {
   } catch {
     // Offline and not cached — return a simple offline page for navigation
     if (request.mode === 'navigate') {
-      const cached = await caches.match('/');
-      if (cached) return cached;
+      const shell = await caches.match(BASE_PATH);
+      if (shell) return shell;
+      const rootCached = await caches.match('/');
+      if (rootCached) return rootCached;
     }
     return new Response('Offline — RunLang could not load this resource.', {
       status: 503,

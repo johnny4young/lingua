@@ -34,6 +34,8 @@ jobs:
       - run: npm ci
 
       - name: Build web version
+        env:
+          VITE_BASE_PATH: /run-lang/
         run: npm run build:web
 
       - name: Upload Pages artifact

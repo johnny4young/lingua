@@ -1,11 +1,17 @@
+import { lazy, Suspense } from 'react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
-import { CodeEditor, EditorTabs } from '../Editor';
+import { EditorTabs } from '../Editor/EditorTabs';
 import { ConsolePanel } from '../Console';
 import { Toolbar } from '../Toolbar';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { LayoutPreset } from '../../types';
+
+const CodeEditor = lazy(async () => {
+  const module = await import('../Editor/CodeEditor');
+  return { default: module.CodeEditor };
+});
 
 function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const isVertical = orientation === 'vertical';
@@ -29,8 +35,18 @@ function EditorArea() {
     <div className="flex h-full flex-col">
       <EditorTabs />
       <div className="flex-1">
-        <CodeEditor />
+        <Suspense fallback={<EditorLoadingState />}>
+          <CodeEditor />
+        </Suspense>
       </div>
+    </div>
+  );
+}
+
+function EditorLoadingState() {
+  return (
+    <div className="flex h-full items-center justify-center bg-gray-950 text-sm text-gray-500">
+      Loading editor...
     </div>
   );
 }
