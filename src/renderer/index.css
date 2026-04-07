@@ -54,6 +54,17 @@
     background: var(--color-gray-600);
   }
 
+  /* macOS window drag region for custom titlebar */
+  .toolbar-drag-region {
+    -webkit-app-region: drag;
+  }
+  .toolbar-drag-region button,
+  .toolbar-drag-region select,
+  .toolbar-drag-region input,
+  .toolbar-drag-region a {
+    -webkit-app-region: no-drag;
+  }
+
   /* Inline result decorations for Monaco editor */
   .inline-result-text {
     color: var(--color-gray-500);
@@ -64,5 +75,14 @@
 
   .inline-result-decoration {
     /* subtle background highlight for lines with results */
+  }
+
+  /* Smooth transitions for panel visibility */
+  .panel-enter {
+    animation: panel-slide-in 0.15s ease-out;
+  }
+  @keyframes panel-slide-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 }

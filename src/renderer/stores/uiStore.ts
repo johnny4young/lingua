@@ -10,8 +10,8 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  sidebarVisible: true,
-  consoleVisible: true,
+  sidebarVisible: false,
+  consoleVisible: false,
   toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
   toggleConsole: () => set((s) => ({ consoleVisible: !s.consoleVisible })),
   setSidebarVisible: (sidebarVisible) => set({ sidebarVisible }),
