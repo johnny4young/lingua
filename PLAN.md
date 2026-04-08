@@ -1,302 +1,347 @@
-# RunLang Project Status
+# RunLang — Product Plan
 
-This document tracks the current state of the repository, the main documentation and architecture drift that has accumulated, and the backlog that still matters. It is not the original implementation roadmap anymore.
+This document tracks the current state of RunLang, the feature roadmap, and the delivery backlog. It serves as the single source of truth for what is built, what is next, and what the product aspires to become.
 
-## Current state
+---
 
-RunLang is already a working multi-language code runner with both desktop and web entry points.
+## Vision
 
-- Desktop shell: Electron Forge with Vite-based main, preload, and renderer builds
-- Renderer: React 19, TypeScript, Monaco Editor, Zustand stores, command palette, quick open, settings, and resizable layouts
-- Language execution:
-  - JavaScript and TypeScript via renderer workers
-  - Go via desktop IPC compilation to WebAssembly using a local Go toolchain
-  - Python via Pyodide
-  - Rust via desktop IPC native compilation and execution using `rustc`
-- File system support: open directory, browse tree, read, write, create, rename, delete, and file watching through the preload bridge
-- Web support: separate browser entry point with a web filesystem adapter and desktop-only stubs for Go and Rust
-- Verification status: the repository currently passes linting, tests, and TypeScript type checking
-- Delivery:
-  - CI runs type check, lint, tests, and a non-blocking audit
-  - GitHub Pages deploys the web build after successful `main` branch CI
-  - Tagged releases build desktop packages and publish to GitHub Releases
+RunLang is a multi-language desktop code runner inspired by RunJS, PlayCode, and CodeSandbox. The goal is a unified, offline-capable code playground that goes beyond JS/TS to support systems languages (Go, Rust) via WebAssembly and scripting languages (Python) via in-browser runtimes — all with an elegant, instant-feedback UX.
 
-## Documentation and architecture drift
+**Core principles:**
+- Instant feedback — results appear as you type, not after you click Run
+- Multi-language — first-class support for JS, TS, Go, Python, Rust, and extensible via plugins
+- Desktop-first — full filesystem, native compilation, real Node.js APIs — with a web fallback
+- Beautiful — clean, focused UI that gets out of the way
 
-The repository had a large mismatch between the previous planning document and the implemented code. The main confirmed issues were:
+---
 
-1. Stack versions in the old plan no longer matched `package.json`.
-   - The prior document described Electron 40, TypeScript 5.9, Vite 7, and Vitest 4.
-   - The current repository uses Electron 41.1.0, TypeScript 5.7.x, Vite 5.4.x, and Vitest 3.x.
+## Current state (what is built)
 
-2. The old folder structure description was partially stale.
-   - Some listed files no longer exist exactly as described.
-   - Some implemented areas, such as the web adapter split and plugin example support, were missing or underspecified.
+### Infrastructure
+- Desktop shell: Electron Forge + Vite (main, preload, renderer)
+- Renderer: React 19, TypeScript, Monaco Editor, Zustand stores
+- UI: Command palette, quick open, settings modal, resizable panels, macOS-native titlebar
+- CI/CD: GitHub Pages web deploy, tagged release builds for macOS/Windows/Linux
 
-3. Keyboard shortcut documentation was wrong.
-   - The previous docs listed `Cmd/Ctrl+J` for toggling the console.
-   - The current implementation uses `Cmd/Ctrl+\`.
+### Language execution
+- **JavaScript** — Web Worker, instant execution, per-line results via stack trace capture
+- **TypeScript** — esbuild-wasm transpilation, then JS worker execution
+- **Go** — IPC to main process, Go toolchain compiles to WASM, executed in worker
+- **Python** — Pyodide (WASM CPython), persistent worker
+- **Rust** — IPC to main process, native `rustc` compilation and execution
+- **Lua** — Bundled plugin via Fengari (partial)
 
-4. The README referenced a screenshot asset that does not exist in the repository.
+### Editor features (implemented)
+- [x] Monaco Editor with custom themes (RunLang Dark, Dracula, One Dark Pro, Monokai, Solarized Light)
+- [x] Split-panel layout: code (left) + results (right)
+- [x] Per-line result alignment for dynamic languages (JS, TS, Python)
+- [x] Full output view for compiled languages (Go, Rust)
+- [x] Auto-run with 2-second debounce after typing stops
+- [x] Scroll sync between editor and result panel
+- [x] Tab system with language badges and dirty indicators
+- [x] File tree with project management (open, create, rename, delete)
+- [x] Console panel with log/info/warn/error filtering and ANSI color support
+- [x] Template gallery (welcome screen with quick-start by language)
 
-5. The old phase-based roadmap still marked large portions of the implemented application as pending.
-   - Base scaffolding, editor integration, resizable layout, settings, runners, IPC filesystem support, tests, web build, and release workflows are already present.
+### Delivery (implemented)
+- [x] Release pipeline with signing placeholders (macOS notarization, Windows Authenticode)
+- [x] Auto-update module with IPC bridge and renderer UI
+- [x] Plugin system (manifest-driven local plugins with Lua as reference implementation)
+- [x] Web build with Go/Rust gracefully stubbed
 
-6. Plugin support exists as infrastructure, but not as a fully generalized product feature.
-   - There is a plugin registry and a bundled Lua runtime.
-   - The main type system and editor flow still center on the built-in language union.
-   - This means plugin support should be described as partial infrastructure, not as finished extensibility.
+---
 
-## Real backlog
+## Feature roadmap
 
-These are the meaningful pending areas that still deserve engineering attention.
+Features are grouped into phases. Each phase builds on the previous and can ship independently. Phases are ordered by user impact and technical dependency.
 
-### Release and delivery
+### Phase 1: Live coding experience _(current focus)_
 
-#### Release pipeline hardening
+The core value proposition — making RunLang feel like a live coding scratchpad where you see what your code does instantly.
 
-Objective:
-Make tagged releases reproducible, signed where applicable, and operationally auditable.
+| Feature | Description | Languages | Priority | Status |
+|---------|-------------|-----------|----------|--------|
+| **Per-line results** | Show the value of each expression/statement next to the code line that produced it | JS, TS, Python | P0 | Done |
+| **Auto-run** | Re-execute code automatically after 2s of no typing | All | P0 | Done |
+| **Magic comments** | `//=> expression` comments that evaluate and display inline results for any expression | JS, TS | P0 | Planned |
+| **Inline error indicators** | Show errors/warnings inline in the editor (red squiggly + gutter icon) with hover details | All | P0 | Planned |
+| **Type checking (live)** | TypeScript language service runs continuously, surfacing type errors as diagnostics | JS, TS | P0 | Planned |
+| **Expression results** | Show the result of top-level expressions even without `console.log` | JS, TS, Python | P1 | Planned |
+| **Loop protection** | Halt infinite loops after configurable iteration count (default: 2000) | JS, TS, Python | P1 | Planned |
+| **Show/hide undefined** | Toggle whether `undefined` results appear in the output panel | JS, TS | P2 | Planned |
 
-Current state:
-- [release.yml](/Users/johnny4young/Personal/github/run-lang/.github/workflows/release.yml) builds macOS, Windows, and Linux artifacts on tag push.
-- [forge.config.ts](/Users/johnny4young/Personal/github/run-lang/forge.config.ts) already wires macOS notarization and Windows signing inputs through environment variables.
-- GitHub publishing is configured through `@electron-forge/publisher-github`.
+#### Magic comments — design notes
 
-Gaps:
-- The macOS artifact path is currently ZIP-only because the DMG toolchain was not stable under the current local toolchain.
-- The final tagged-release path still needs to be exercised in GitHub Actions with real secrets and certificates.
+Inspired by RunJS's magic comments. When a comment starts with a special marker, the expression after it is evaluated and the result is displayed inline.
 
-Requirements:
-- Apple Developer account and notarization setup
-- `APPLE_ID`
-- `APPLE_ID_PASSWORD`
-- `APPLE_TEAM_ID`
-- `APPLE_SIGNING_IDENTITY`
-- `APPLE_CERT_P12_BASE64`
-- `APPLE_CERT_PASSWORD`
-- Windows signing certificate and password
-- `WIN_CERT_FILE`
-- `WIN_CERT_PASSWORD`
-- GitHub token with release publishing permissions
+```javascript
+const name = "RunLang";
+name; //=> "RunLang"
 
-Planned approach:
-1. Keep the workflow preflight validation and artifact verification steps in place.
-2. Keep GitHub Releases as draft-first until signing and verification are proven stable with live CI credentials.
-3. Validate the full tagged-release path in GitHub Actions with real secrets.
+[1, 2, 3].map(x => x * 2); //=> [2, 4, 6]
 
-Likely files:
-- [release.yml](/Users/johnny4young/Personal/github/run-lang/.github/workflows/release.yml)
-- [forge.config.ts](/Users/johnny4young/Personal/github/run-lang/forge.config.ts)
-- [README.md](/Users/johnny4young/Personal/github/run-lang/README.md)
-- a new release operations document if the checklist outgrows the README
+Math.PI; //=> 3.141592653589793
+```
 
-Acceptance criteria:
-- A tagged release fails fast when signing secrets are missing or malformed.
-- macOS and Windows jobs report whether signing/notarization actually ran.
-- Release artifacts are attached to a draft GitHub Release only after successful platform builds.
-- The repository documents the required secrets and operator expectations.
+**Syntax:** `//=>` at the end of a line (or `#=>` for Python)
+**Implementation:** Parse comments before execution, wrap target expressions to capture their values, map results back to source lines.
+**Extensibility:** Each language runner defines its own magic comment prefix and expression-wrapping strategy.
 
-#### Auto-update
+#### Inline error indicators — design notes
 
-Objective:
-Move from “update checks are enabled in packaged builds” to a documented, testable update system.
+Errors and warnings should appear:
+1. **In the editor gutter** — red circle for errors, yellow triangle for warnings
+2. **As underline decorations** — red squiggly under the offending code
+3. **In the result panel** — error message aligned to the error line
+4. **In the tab** — error/warning count badge
 
-Current state:
-- [src/main/index.ts](/Users/johnny4young/Personal/github/run-lang/src/main/index.ts) calls `update-electron-app` only in packaged builds.
-- The release workflow already publishes to GitHub Releases, which is a plausible update source.
-- Windows packaging uses Squirrel, which is the most update-friendly target in the current setup.
+Sources of diagnostics:
+- **TypeScript language service** — type errors, unused variables, unreachable code (JS/TS)
+- **Runtime errors** — exceptions with line numbers from execution (all languages)
+- **Compilation errors** — Go/Rust compiler output parsed for line:col (Go, Rust)
+- **Linter output** — future integration point
 
-Gaps:
-- There is no explicit verification step for update behavior in CI or release validation.
-- Packaged update behavior still needs to be validated against real GitHub Release artifacts.
+---
 
-Requirements:
-- Decide supported update platforms, with Windows as the likely first production target
-- Decide release channels: stable only, or stable plus prerelease
-- Decide user experience for:
-  - automatic periodic checks
-  - manual “check for updates”
-  - “restart to apply update”
-- Confirm GitHub Releases remain the intended update source
+### Phase 2: Developer experience
 
-Planned approach:
-1. Keep the main-process updater module and IPC bridge as the stable implementation path.
-2. Keep the renderer update UI limited to the current supported packaged desktop platforms.
-3. Validate packaged update behavior against the chosen stable release channel.
+Features that make RunLang feel like a real development environment, not just a toy.
 
-Likely files:
-- [src/main/index.ts](/Users/johnny4young/Personal/github/run-lang/src/main/index.ts)
-- a new `src/main/updater.ts`
-- [src/preload/index.ts](/Users/johnny4young/Personal/github/run-lang/src/preload/index.ts)
-- renderer stores or UI for update status
-- [README.md](/Users/johnny4young/Personal/github/run-lang/README.md)
+| Feature | Description | Languages | Priority | Status |
+|---------|-------------|-----------|----------|--------|
+| **Autocomplete** | Code suggestions while typing, powered by Monaco's IntelliSense + TypeScript language service | JS, TS | P0 | Partial (Monaco built-in) |
+| **Hover info** | Show type information and documentation on symbol hover | JS, TS | P0 | Partial (Monaco built-in) |
+| **Function signatures** | Show parameter hints while typing function calls | JS, TS | P1 | Partial (Monaco built-in) |
+| **Go to definition** | Navigate to symbol definitions | JS, TS | P1 | Partial (Monaco built-in) |
+| **Bracket colorization** | Color-matched brackets for readability | All | P2 | Done |
+| **Format on save** | Auto-format code using Prettier (JS/TS), `gofmt` (Go), `rustfmt` (Rust), `black` (Python) | All | P1 | Planned |
+| **Linting** | Live linting with ESLint (JS/TS), configurable rules | JS, TS | P2 | Planned |
+| **Environment variables** | Define env vars accessible via `process.env` in execution context | JS, TS, Python | P2 | Planned |
 
-Acceptance criteria:
-- Packaged builds expose update lifecycle state to the renderer.
-- The UI can surface update-available, downloading, ready-to-restart, and failure states.
-- Supported updater platforms are documented conservatively.
-- The release process produces artifacts in a format compatible with the chosen updater path.
+#### Autocomplete and IntelliSense — design notes
 
-### Plugin productization
+Monaco already provides basic autocomplete for JS/TS via its built-in TypeScript worker. To make this production-quality:
+1. **Configure Monaco's TypeScript worker** with `compilerOptions` matching our execution environment (ES2022, top-level await, DOM types)
+2. **Add type definitions** for Node.js built-ins and browser APIs available in our worker context
+3. **Integrate snippet completions** — user-saved snippets appear in the autocomplete list
+4. **For non-JS languages** — provide keyword completions and (future) LSP integration
 
-Objective:
-Support a conservative local plugin model for language integrations without pretending arbitrary third-party runtime loading is production-ready.
+---
 
-Current state:
-- The plugin registry and plugin runner interfaces exist.
-- Plugin manifests are discovered from the local plugin install directory through main/preload IPC.
-- The Settings UI exposes installed plugin status, diagnostics, and the active install directory.
-- The renderer only activates bundled runtimes that correspond to valid installed manifests.
-- The bundled Lua runtime is executable through Fengari when a matching local manifest is installed.
-- Language detection and some editor affordances now tolerate plugin-provided language ids.
+### Phase 3: Package management
 
-Gaps:
-- Plugins still rely on bundled runtimes, not arbitrary third-party code loading.
+The ability to install and use third-party packages makes RunLang useful for real experimentation.
 
-Requirements:
-- Keep plugin scope intentionally narrow:
-  - local language manifests are supported
-  - arbitrary remote install and arbitrary code loading are out of scope
-- Define plugin scope:
-  - language runners only, or
-  - broader editor/runtime extensions later
-- Define plugin package format and loading model
-- Define API versioning and compatibility rules
-- Define trust and execution boundaries
+| Feature | Description | Languages | Priority | Status |
+|---------|-------------|-----------|----------|--------|
+| **NPM package install** | Search, install, and import npm packages | JS, TS | P0 | Planned |
+| **Package resolution** | Resolve and bundle imported packages for worker execution | JS, TS | P0 | Planned |
+| **pip packages** | Install Python packages via Pyodide's micropip | Python | P1 | Planned |
+| **Go modules** | `go get` integration for Go package imports | Go | P2 | Planned |
+| **Cargo crates** | `cargo add` integration for Rust dependencies | Rust | P2 | Planned |
+| **Package manager UI** | Dedicated panel for searching, installing, and managing packages | All | P1 | Planned |
 
-Planned approach:
-1. Keep the manifest-driven local plugin model as the supported scope.
-2. Keep bundled runtimes documented conservatively even when they are executable.
-3. Revisit broader extension loading only if product requirements expand beyond bundled runtimes.
+#### NPM packages — design notes
 
-Likely files:
-- [src/renderer/plugins/index.ts](/Users/johnny4young/Personal/github/run-lang/src/renderer/plugins/index.ts)
-- [src/renderer/runners/manager.ts](/Users/johnny4young/Personal/github/run-lang/src/renderer/runners/manager.ts)
-- [src/renderer/utils/language.ts](/Users/johnny4young/Personal/github/run-lang/src/renderer/utils/language.ts)
-- [src/renderer/utils/languageMeta.ts](/Users/johnny4young/Personal/github/run-lang/src/renderer/utils/languageMeta.ts)
-- main/preload plugin loading surfaces if plugins are loaded outside the renderer bundle
-- tests for plugin loading, compatibility, and failure states
+**Approach (JS/TS):**
+1. User opens package manager UI (Tools > Packages or Cmd+Shift+N)
+2. Search npm registry API for packages
+3. Install to a project-local `node_modules` or a shared RunLang package cache
+4. For worker execution: use esbuild to bundle the import into the execution payload
+5. For Electron context: packages are available via Node.js `require`
 
-Acceptance criteria:
-- A plugin can be installed from a documented local plugin directory and discovered on app start.
-- Unsupported or incompatible plugins fail with explicit diagnostics instead of silent breakage.
-- The UI can show installed plugins and their enabled/disabled state.
-- Plugin language ids flow through tab creation, file detection, editor rendering, and execution without built-in-only assumptions.
+**Approach (Python):**
+- Pyodide's `micropip.install("package")` handles pure-Python packages
+- Pre-bundled packages available from Pyodide's package index
 
-### Web build hardening
+**Extensibility:** Each language defines a `PackageManager` interface:
+```typescript
+interface PackageManager {
+  search(query: string): Promise<PackageInfo[]>;
+  install(name: string, version?: string): Promise<void>;
+  uninstall(name: string): Promise<void>;
+  list(): Promise<InstalledPackage[]>;
+}
+```
 
-Objective:
-Keep the browser build accurate for GitHub Pages deployment and explicit about desktop-only features.
+---
 
-Current state:
-- [deploy-web.yml](/Users/johnny4young/Personal/github/run-lang/.github/workflows/deploy-web.yml) builds and deploys `dist/web`.
-- The web build supports JavaScript, TypeScript, Python, and the current bundled plugin UI path.
-- Go and Rust are intentionally stubbed in the browser adapter.
+### Phase 4: Snippets and productivity
 
-Gaps:
-- No in-repo implementation gaps remain in this track.
+| Feature | Description | Priority | Status |
+|---------|-------------|----------|--------|
+| **Snippet library** | Save, organize, and reuse code snippets with name + description + body | P0 | Planned |
+| **Snippet autocomplete** | Snippets appear in autocomplete suggestions matched by name | P1 | Planned |
+| **Snippet import/export** | Import and export snippets as JSON for sharing | P2 | Planned |
+| **Snippet context menu** | Right-click selected code > "Save as snippet" | P1 | Planned |
+| **Tab title from code** | First line of code becomes the tab title (editable via right-click) | P2 | Planned |
+| **Recent tabs** | Restore recently closed tabs | P2 | Planned |
+| **Multi-cursor editing** | Edit multiple locations simultaneously | P2 | Done (Monaco built-in) |
 
-Likely files:
-- [deploy-web.yml](/Users/johnny4young/Personal/github/run-lang/.github/workflows/deploy-web.yml)
-- [vite.web.config.ts](/Users/johnny4young/Personal/github/run-lang/vite.web.config.ts)
-- [src/web/adapter.ts](/Users/johnny4young/Personal/github/run-lang/src/web/adapter.ts)
+#### Snippet library — design notes
 
-Acceptance criteria:
-- GitHub Pages deploys a working `dist/web` artifact from `main`.
-- Go and Rust remain clearly unavailable in browser mode, with intentional messaging instead of broken flows.
+**Storage:** Snippets persisted in Zustand store with `persist` middleware (localStorage for web, electron-store for desktop).
 
-### Documentation and maintenance
+**Schema:**
+```typescript
+interface Snippet {
+  id: string;
+  name: string;
+  description: string;
+  language: Language;
+  body: string;
+  createdAt: number;
+  updatedAt: number;
+  tags?: string[];
+}
+```
 
-Objective:
-Keep operational documentation synchronized with code and workflows.
+**UI:** Dedicated snippets panel accessible from sidebar or Tools menu. Snippets can be inserted into the current tab or opened in a new tab.
 
-Planned approach:
-- Keep README shortcuts, commands, and workflow descriptions synchronized with code and GitHub Actions.
-- Preserve this file as current state plus backlog rather than letting it drift back into speculative roadmap writing.
-- Add documentation checks or a maintenance checklist if drift becomes recurrent.
+---
 
-Acceptance criteria:
-- README claims about builds, releases, and updates match code and workflows.
-- RELEASE checklist claims match the release workflow and current artifact policy.
-- This document remains a status-and-backlog file, not a historical roadmap.
+### Phase 5: AI integration
 
-## Suggested delivery order
+| Feature | Description | Priority | Status |
+|---------|-------------|----------|--------|
+| **AI chat sidebar** | Context-aware coding assistant (knows current tab content) | P1 | Planned |
+| **Code generation** | Generate code from natural language description | P1 | Planned |
+| **Code explanation** | Select code > "Explain this" | P2 | Planned |
+| **Error fix suggestions** | AI suggests fixes for runtime and type errors | P2 | Planned |
+| **AI provider selection** | Support OpenAI, Anthropic, local models (Ollama) | P1 | Planned |
 
-1. Release pipeline hardening
-2. Auto-update
-3. Plugin productization
-4. Web build hardening and documentation cleanup as supporting work
+#### AI chat — design notes
 
-## Milestone checklist
+**Architecture:** The AI sidebar is a React component that communicates with an AI provider via API. The current tab's code is included as context in every message.
 
-### Milestone 1: Release pipeline hardening
+**Provider abstraction:**
+```typescript
+interface AIProvider {
+  id: string;
+  name: string;
+  chat(messages: ChatMessage[], context: CodeContext): AsyncIterable<string>;
+  isConfigured(): boolean;
+}
+```
 
-- [x] Add release workflow preflight checks for required secrets on macOS and Windows
-- [x] Make release jobs fail early with clear diagnostics when signing inputs are missing
-- [x] Add artifact verification steps after platform builds
-- [x] Confirm macOS ZIP artifacts are the intended short-term release format
-- [x] Document the current macOS packaging limitation and why DMG is not in the active path
-- [x] Keep GitHub Releases draft-first until signing and verification are proven stable
-- [x] Document release operator requirements and secrets in repository docs
+**Privacy:** API keys stored locally only. No code is sent to any service without explicit user action. Local model support (Ollama) provides a fully offline option.
+
+---
+
+### Phase 6: Appearance and accessibility
+
+| Feature | Description | Priority | Status |
+|---------|-------------|----------|--------|
+| **Theme system** | Multiple editor themes with live preview | P0 | Done (5 themes) |
+| **Custom themes** | Import custom Monaco themes | P2 | Planned |
+| **Font selection** | Choose from pre-loaded fonts + custom font path | P1 | Partial (font family setting exists) |
+| **Output syntax highlighting** | Syntax-highlight results in the output panel | P2 | Planned |
+| **i18n / translation support** | Internationalized UI strings | P2 | Planned |
+| **Keyboard shortcuts customization** | Rebindable keyboard shortcuts | P2 | Planned |
+| **Activity bar** | Vertical sidebar with quick-access icons (run, snippets, settings, AI) | P1 | Planned |
+
+#### i18n — design notes
+
+**Approach:** Use `react-i18next` with JSON translation files. Start with English as the default locale. UI strings are extracted into `src/renderer/i18n/en.json`. Language selector in settings.
+
+**Priority locales:** English, Spanish, Chinese (Simplified), Japanese, Korean, Portuguese.
+
+---
+
+### Phase 7: Node.js and Browser API access
+
+RunLang should provide a hybrid execution environment that combines Node.js APIs with browser APIs — similar to RunJS but extended to all supported languages.
+
+| Feature | Description | Languages | Priority | Status |
+|---------|-------------|-----------|----------|--------|
+| **DOM access** | Full DOM manipulation via `document`, `window` in a sandboxed iframe | JS, TS | P1 | Planned |
+| **Node.js built-ins** | `fs`, `path`, `http`, `crypto`, etc. available in execution context | JS, TS | P1 | Planned |
+| **Web APIs** | `fetch`, `WebSocket`, `Web Audio`, `Canvas`, `localStorage` | JS, TS | P1 | Partial (fetch works) |
+| **Preview pane** | Live HTML/CSS preview for DOM manipulation results | JS, TS | P2 | Planned |
+| **Python stdlib** | Python standard library available via Pyodide | Python | P1 | Done |
+
+#### Hybrid runtime — design notes
+
+**JS/TS execution modes:**
+1. **Worker mode** (current) — isolated Web Worker, no DOM, limited APIs. Fast and safe.
+2. **Iframe mode** (planned) — sandboxed iframe with full DOM and browser APIs. Needed for visual output.
+3. **Node mode** (planned, desktop only) — execution via Electron's Node.js context. Full Node.js API access.
+
+The user can select the execution mode per tab or let RunLang auto-detect based on imports.
+
+---
+
+## Infrastructure backlog (unchanged from prior plan)
+
+### Release pipeline hardening
 - [ ] Validate the full tagged-release path in GitHub Actions with real secrets
 
-Exit gate:
-- Tagged releases produce verified artifacts and publish a draft GitHub Release without ambiguous signing state.
-
-### Milestone 2: Auto-update foundation
-
-- [x] Decide which platforms officially support auto-update in the first production version
-- [x] Decide stable/prerelease channel policy
-- [x] Extract updater behavior from [src/main/index.ts](/Users/johnny4young/Personal/github/run-lang/src/main/index.ts) into a dedicated main-process module
-- [x] Add preload-exposed updater IPC events and commands
-- [x] Add renderer-visible update lifecycle state
-- [x] Add a minimal manual “check for updates” action
-- [x] Add a minimal “restart to apply update” flow
-- [x] Document supported updater platforms conservatively in the README
+### Auto-update
 - [ ] Validate packaged update behavior against the chosen release channel
 
-Exit gate:
-- Supported packaged builds can report update state to the UI and complete the intended update flow against real release artifacts.
-
-### Milestone 3: Signed publishing readiness
-
+### Signed publishing readiness
 - [ ] Verify macOS signing identity and notarization flow in CI
 - [ ] Verify Windows signing flow in CI
-- [x] Add post-build reporting that makes signing/notarization status explicit in workflow logs
-- [x] Add checksum generation for release artifacts
-- [x] Decide whether release publication should remain draft-only or include a promotion step
-- [x] Document the human release checklist for version tagging, validation, and publishing
 
-Exit gate:
-- macOS and Windows signing state is explicit, reproducible, and documented for operators.
+### Plugin productization
+- [x] Plugin registry, manifest format, API versioning, local discovery — all complete
+- Future: Broader extension model if product requirements expand
 
-### Milestone 4: Plugin system productization
+### Web build
+- [x] GitHub Pages deployment working
+- [x] Go/Rust stubbed with clear messaging
 
-- [x] Decide whether plugins are a product goal or remain example-only infrastructure
-- [x] Define the plugin manifest format
-- [x] Define plugin API versioning and compatibility rules
-- [x] Define the trust model for local plugins
-- [x] Implement plugin discovery from a fixed local plugin directory
-- [x] Add compatibility validation and explicit failure diagnostics for bad plugins
-- [x] Generalize any remaining built-in-only UI and editor assumptions
-- [x] Add a basic installed-plugins management view
-- [x] Add tests for plugin discovery, compatibility failures, and execution routing
-- [x] Decide whether the bundled Lua plugin remains a stub or becomes a real backend
+---
 
-Exit gate:
-- A documented local plugin can be installed, discovered, shown in the UI, and executed through the supported plugin lifecycle without relying on built-in-only assumptions.
+## Milestone schedule
 
-### Milestone 5: Web and delivery cleanup
+### Milestone 6: Live coding polish (Phase 1 completion)
+- [ ] Magic comments (`//=>`) for JS/TS
+- [ ] Magic comments (`#=>`) for Python
+- [ ] Inline error indicators (gutter icons + squiggly underlines)
+- [ ] Live TypeScript type checking via Monaco's TS worker
+- [ ] Expression result display (top-level expressions without console.log)
+- [ ] Loop protection (configurable iteration limit)
+- [ ] Error line highlighting in result panel
 
-- [x] Re-validate GitHub Pages deployment after the release/update changes
-- [x] Re-check web base-path and asset behavior
-- [x] Keep Go and Rust browser behavior explicitly stubbed with clear messaging
-- [x] Reconcile README release/update claims with the final implementation
-- [x] Reconcile this plan with the final implementation state
+### Milestone 7: Developer experience (Phase 2)
+- [ ] Configure Monaco TypeScript worker with proper compiler options
+- [ ] Add Node.js and DOM type definitions to TypeScript context
+- [ ] Format on save (Prettier for JS/TS)
+- [ ] Environment variables panel
 
-Exit gate:
-- Documentation, web deployment, and delivery claims all match the implemented system.
+### Milestone 8: Package management (Phase 3)
+- [ ] NPM package search UI
+- [ ] NPM package install + esbuild bundling for worker
+- [ ] Python micropip integration
+- [ ] Package manager panel in sidebar
+
+### Milestone 9: Snippets (Phase 4)
+- [ ] Snippet store with CRUD operations
+- [ ] Snippet library panel
+- [ ] Snippet autocomplete integration
+- [ ] Snippet import/export
+
+### Milestone 10: AI integration (Phase 5)
+- [ ] AI provider abstraction
+- [ ] AI chat sidebar with code context
+- [ ] OpenAI and Anthropic provider implementations
+- [ ] Local model support (Ollama)
+
+### Milestone 11: Appearance and i18n (Phase 6)
+- [ ] Custom theme import
+- [ ] i18n framework setup
+- [ ] Initial translations (ES, ZH, JA, KO, PT)
+- [ ] Keyboard shortcuts customization
+
+### Milestone 12: Hybrid runtime (Phase 7)
+- [ ] Sandboxed iframe execution mode for DOM access
+- [ ] Node.js execution mode (desktop only)
+- [ ] Execution mode selector per tab
+- [ ] HTML/CSS preview pane
+
+---
 
 ## Operating defaults
 
@@ -304,3 +349,5 @@ Exit gate:
 - Describe only implemented behavior as current capability
 - Record speculative ideas only when they are concrete backlog items
 - Keep product claims conservative when a feature is only partially wired
+- Every feature must be designed with multi-language extensibility in mind — not just JS/TS
+- Each language runner can implement a subset of features (e.g., magic comments for JS but not Go)
