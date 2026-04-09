@@ -69,6 +69,8 @@ export interface SettingsState {
   wordWrap: boolean;
   minimap: boolean;
   layoutPreset: LayoutPreset;
+  loopProtection: boolean;
+  maxLoopIterations: number;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -77,6 +79,8 @@ export interface SettingsState {
   toggleWordWrap: () => void;
   toggleMinimap: () => void;
   setLayoutPreset: (preset: LayoutPreset) => void;
+  toggleLoopProtection: () => void;
+  setMaxLoopIterations: (max: number) => void;
 }
 
 // --- Runner Types ---

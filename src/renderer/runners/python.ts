@@ -8,6 +8,8 @@ import type {
   WorkerResponse,
 } from '../types';
 import { transformPythonMagicComments, detectPythonMagicComments } from '../utils/magicComments';
+import { injectPythonLoopProtection } from '../utils/loopProtection';
+import { useSettingsStore } from '../stores/settingsStore';
 
 const DEFAULT_TIMEOUT = 60_000; // Python needs more time for initial load
 
@@ -90,9 +92,13 @@ export class PythonRunner implements LanguageRunner {
       };
     }
 
+    // Apply loop protection if enabled
+    const { loopProtection, maxLoopIterations } = useSettingsStore.getState();
+    let processedCode = loopProtection ? injectPythonLoopProtection(code, maxLoopIterations) : code;
+
     // Transform magic comments before execution
-    const hasMagic = detectPythonMagicComments(code).length > 0;
-    const transformedCode = hasMagic ? transformPythonMagicComments(code) : code;
+    const hasMagic = detectPythonMagicComments(processedCode).length > 0;
+    const transformedCode = hasMagic ? transformPythonMagicComments(processedCode) : processedCode;
 
     return new Promise<ExecutionResult>((resolve) => {
       const handler = (event: MessageEvent<WorkerResponse>) => {

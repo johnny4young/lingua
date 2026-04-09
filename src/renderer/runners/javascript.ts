@@ -8,6 +8,8 @@ import type {
   WorkerResponse,
 } from '../types';
 import { transformJSMagicComments, detectJSMagicComments } from '../utils/magicComments';
+import { injectJSLoopProtection } from '../utils/loopProtection';
+import { useSettingsStore } from '../stores/settingsStore';
 
 const DEFAULT_TIMEOUT = 30_000; // 30 seconds
 
@@ -36,9 +38,13 @@ export class JavaScriptRunner implements LanguageRunner {
     let result: unknown;
     let error: ExecutionError | undefined;
 
+    // Apply loop protection if enabled
+    const { loopProtection, maxLoopIterations } = useSettingsStore.getState();
+    let processedCode = loopProtection ? injectJSLoopProtection(code, maxLoopIterations) : code;
+
     // Transform magic comments before execution
-    const hasMagic = detectJSMagicComments(code).length > 0;
-    const transformedCode = hasMagic ? transformJSMagicComments(code) : code;
+    const hasMagic = detectJSMagicComments(processedCode).length > 0;
+    const transformedCode = hasMagic ? transformJSMagicComments(processedCode) : processedCode;
 
     // Terminate any previous worker
     this.stop();
