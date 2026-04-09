@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "runlang-dev",
+      "name": "runlang-web",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--config", "vite.renderer.config.ts"],
-      "port": 5173
+      "runtimeArgs": ["vite", "--config", "vite.web.config.ts", "--port", "5174"],
+      "port": 5174
     }
   ]
 }
