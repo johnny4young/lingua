@@ -5,8 +5,10 @@ import type {
   ExecutionResult,
   ConsoleOutput,
   ExecutionError,
+  MagicCommentResult,
   WorkerResponse,
 } from '../types';
+import { transformJSMagicComments, detectJSMagicComments } from '../utils/magicComments';
 
 const DEFAULT_TIMEOUT = 30_000;
 
@@ -74,8 +76,13 @@ export class TypeScriptRunner implements LanguageRunner {
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
     const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
 
-    // Step 1: Transpile TS -> JS
-    const { js, error: transpileError } = await this.transpile(code);
+    // Step 1: Transform magic comments before transpilation
+    // (esbuild would strip the //=> comments during transpilation)
+    const hasMagic = detectJSMagicComments(code).length > 0;
+    const codeForTranspile = hasMagic ? transformJSMagicComments(code) : code;
+
+    // Step 2: Transpile TS -> JS
+    const { js, error: transpileError } = await this.transpile(codeForTranspile);
 
     if (transpileError) {
       return {
@@ -87,9 +94,10 @@ export class TypeScriptRunner implements LanguageRunner {
       };
     }
 
-    // Step 2: Execute the transpiled JS using the same JS worker
+    // Step 3: Execute the transpiled JS using the same JS worker
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
+    const magicResults: MagicCommentResult[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
 
@@ -114,6 +122,9 @@ export class TypeScriptRunner implements LanguageRunner {
             }
             break;
           }
+          case 'magic-comment':
+            magicResults.push({ line: msg.line, value: msg.value });
+            break;
           case 'result':
             result = msg.value;
             break;
@@ -127,6 +138,7 @@ export class TypeScriptRunner implements LanguageRunner {
               result,
               executionTime: msg.executionTime,
               error,
+              magicResults: magicResults.length > 0 ? magicResults : undefined,
             });
             break;
         }

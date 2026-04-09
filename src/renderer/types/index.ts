@@ -93,12 +93,18 @@ export interface ExecutionError {
   stack?: string;
 }
 
+export interface MagicCommentResult {
+  line: number;
+  value: string;
+}
+
 export interface ExecutionResult {
   stdout: ConsoleOutput[];
   stderr: ConsoleOutput[];
   result?: unknown;
   executionTime: number;
   error?: ExecutionError;
+  magicResults?: MagicCommentResult[];
 }
 
 export interface ConsoleOutput {
@@ -130,4 +136,5 @@ export type WorkerResponse =
   | { type: 'error'; error: ExecutionError }
   | { type: 'done'; executionTime: number }
   | { type: 'loading'; stage: string }
-  | { type: 'ready' };
+  | { type: 'ready' }
+  | { type: 'magic-comment'; line: number; value: string };

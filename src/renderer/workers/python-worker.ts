@@ -99,12 +99,23 @@ ctx.addEventListener('message', async (event) => {
       await py.runPythonAsync(`
 import io
 import sys
+import json as __runlang_json
 __runlang_stdout = io.StringIO()
 __runlang_stderr = io.StringIO()
 __runlang_prev_stdout = sys.stdout
 __runlang_prev_stderr = sys.stderr
 sys.stdout = __runlang_stdout
 sys.stderr = __runlang_stderr
+
+__runlang_magic_results = []
+def __mc(line, expr_fn):
+    try:
+        val = expr_fn()
+        __runlang_magic_results.append({"line": line, "value": repr(val)})
+        return val
+    except Exception as e:
+        __runlang_magic_results.append({"line": line, "value": str(e)})
+        return None
       `);
 
       // Set up timeout
@@ -132,20 +143,21 @@ sys.stderr = __runlang_stderr
       }
 
       const streamState = await py.runPythonAsync(`
-import json
 import sys
-_runlang_state = json.dumps({
+_runlang_state = __runlang_json.dumps({
     "stdout": __runlang_stdout.getvalue(),
     "stderr": __runlang_stderr.getvalue(),
+    "magic": __runlang_magic_results,
 })
 sys.stdout = __runlang_prev_stdout
 sys.stderr = __runlang_prev_stderr
+__runlang_magic_results = []
 _runlang_state
       `);
 
       const streams =
         typeof streamState === 'string'
-          ? (JSON.parse(streamState) as { stdout: string; stderr: string })
+          ? (JSON.parse(streamState) as { stdout: string; stderr: string; magic?: Array<{ line: number; value: string }> })
           : { stdout: '', stderr: '' };
 
       clearTimeout(timeoutId);
@@ -153,6 +165,17 @@ _runlang_state
 
       postBufferedOutput('log', streams.stdout);
       postBufferedOutput('error', streams.stderr);
+
+      // Send magic comment results
+      if (streams.magic) {
+        for (const entry of streams.magic) {
+          ctx.postMessage({
+            type: 'magic-comment',
+            line: entry.line,
+            value: entry.value,
+          });
+        }
+      }
 
       // Send result if non-None
       if (result !== undefined && result !== null) {

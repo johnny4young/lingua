@@ -4,7 +4,7 @@ import type { ExecutionError } from '../types';
 export interface LineResult {
   line: number;
   value: string;
-  type: 'log' | 'warn' | 'error' | 'info' | 'result';
+  type: 'log' | 'warn' | 'error' | 'info' | 'result' | 'magic';
 }
 
 interface ResultState {

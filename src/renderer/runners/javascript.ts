@@ -4,8 +4,10 @@ import type {
   ExecutionResult,
   ConsoleOutput,
   ExecutionError,
+  MagicCommentResult,
   WorkerResponse,
 } from '../types';
+import { transformJSMagicComments, detectJSMagicComments } from '../utils/magicComments';
 
 const DEFAULT_TIMEOUT = 30_000; // 30 seconds
 
@@ -30,8 +32,13 @@ export class JavaScriptRunner implements LanguageRunner {
     const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
+    const magicResults: MagicCommentResult[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
+
+    // Transform magic comments before execution
+    const hasMagic = detectJSMagicComments(code).length > 0;
+    const transformedCode = hasMagic ? transformJSMagicComments(code) : code;
 
     // Terminate any previous worker
     this.stop();
@@ -60,6 +67,9 @@ export class JavaScriptRunner implements LanguageRunner {
             }
             break;
           }
+          case 'magic-comment':
+            magicResults.push({ line: msg.line, value: msg.value });
+            break;
           case 'result':
             result = msg.value;
             break;
@@ -73,6 +83,7 @@ export class JavaScriptRunner implements LanguageRunner {
               result,
               executionTime: msg.executionTime,
               error,
+              magicResults: magicResults.length > 0 ? magicResults : undefined,
             });
             break;
         }
@@ -91,7 +102,7 @@ export class JavaScriptRunner implements LanguageRunner {
       });
 
       // Send execution request
-      this.worker.postMessage({ type: 'execute', code, timeout });
+      this.worker.postMessage({ type: 'execute', code: transformedCode, timeout });
     });
   }
 
