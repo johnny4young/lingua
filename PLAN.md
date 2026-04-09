@@ -22,6 +22,7 @@ RunLang is a multi-language desktop code runner inspired by RunJS, PlayCode, and
 - Desktop shell: Electron Forge + Vite (main, preload, renderer)
 - Renderer: React 19, TypeScript, Monaco Editor, Zustand stores
 - UI: Command palette, quick open, settings modal, resizable panels, macOS-native titlebar
+- Web shell: browser adapter, File System Access API integration, service worker registration
 - CI/CD: GitHub Pages web deploy, tagged release builds for macOS/Windows/Linux
 
 ### Language execution
@@ -38,17 +39,26 @@ RunLang is a multi-language desktop code runner inspired by RunJS, PlayCode, and
 - [x] Per-line result alignment for dynamic languages (JS, TS, Python)
 - [x] Full output view for compiled languages (Go, Rust)
 - [x] Auto-run with 2-second debounce after typing stops
+- [x] Magic comments for JS/TS and Python
+- [x] Loop protection with configurable iteration limits for JS/TS and Python
+- [x] Show/hide undefined toggle for dynamic language result panes
 - [x] Scroll sync between editor and result panel
 - [x] Tab system with language badges and dirty indicators
 - [x] File tree with project management (open, create, rename, delete)
 - [x] Console panel with log/info/warn/error filtering and ANSI color support
 - [x] Template gallery (welcome screen with quick-start by language)
+- [x] Snippet persistence with command-palette insertion hooks
 
 ### Delivery (implemented)
 - [x] Release pipeline with signing placeholders (macOS notarization, Windows Authenticode)
 - [x] Auto-update module with IPC bridge and renderer UI
 - [x] Plugin system (manifest-driven local plugins with Lua as reference implementation)
 - [x] Web build with Go/Rust gracefully stubbed
+
+### Operational notes
+- File-system watch IPC exists in main/preload, but the renderer does not yet subscribe to change events; external edits are not reflected automatically
+- Monaco's TypeScript worker is loaded, but compiler options and richer diagnostics are not yet tuned to the execution environment
+- The snippet data layer exists, but there is no dedicated snippet management UI yet
 
 ---
 
@@ -64,12 +74,12 @@ The core value proposition — making RunLang feel like a live coding scratchpad
 |---------|-------------|-----------|----------|--------|
 | **Per-line results** | Show the value of each expression/statement next to the code line that produced it | JS, TS, Python | P0 | Done |
 | **Auto-run** | Re-execute code automatically after 2s of no typing | All | P0 | Done |
-| **Magic comments** | `//=> expression` comments that evaluate and display inline results for any expression | JS, TS | P0 | Planned |
+| **Magic comments** | `//=>` / `#=>` comments that evaluate and display inline results | JS, TS, Python | P0 | Done |
 | **Inline error indicators** | Show errors/warnings inline in the editor (red squiggly + gutter icon) with hover details | All | P0 | Planned |
 | **Type checking (live)** | TypeScript language service runs continuously, surfacing type errors as diagnostics | JS, TS | P0 | Planned |
-| **Expression results** | Show the result of top-level expressions even without `console.log` | JS, TS, Python | P1 | Planned |
-| **Loop protection** | Halt infinite loops after configurable iteration count (default: 2000) | JS, TS, Python | P1 | Planned |
-| **Show/hide undefined** | Toggle whether `undefined` results appear in the output panel | JS, TS | P2 | Planned |
+| **Expression results** | Show expression results without `console.log` | JS, TS, Python | P1 | Partial (final result path is implemented) |
+| **Loop protection** | Halt infinite loops after configurable iteration count | JS, TS, Python | P1 | Done |
+| **Show/hide undefined** | Toggle whether `undefined` results appear in the output panel | JS, TS | P2 | Done |
 
 #### Magic comments — design notes
 
@@ -171,7 +181,7 @@ interface PackageManager {
 
 | Feature | Description | Priority | Status |
 |---------|-------------|----------|--------|
-| **Snippet library** | Save, organize, and reuse code snippets with name + description + body | P0 | Planned |
+| **Snippet library** | Save, organize, and reuse code snippets with name + description + body | P0 | Partial (store exists, dedicated UI is missing) |
 | **Snippet autocomplete** | Snippets appear in autocomplete suggestions matched by name | P1 | Planned |
 | **Snippet import/export** | Import and export snippets as JSON for sharing | P2 | Planned |
 | **Snippet context menu** | Right-click selected code > "Save as snippet" | P1 | Planned |
@@ -181,23 +191,21 @@ interface PackageManager {
 
 #### Snippet library — design notes
 
-**Storage:** Snippets persisted in Zustand store with `persist` middleware (localStorage for web, electron-store for desktop).
+**Storage:** Snippets are already persisted in a Zustand store with `persist` middleware.
 
 **Schema:**
 ```typescript
 interface Snippet {
   id: string;
-  name: string;
-  description: string;
   language: Language;
-  body: string;
+  label: string;
+  description: string;
+  code: string;
   createdAt: number;
-  updatedAt: number;
-  tags?: string[];
 }
 ```
 
-**UI:** Dedicated snippets panel accessible from sidebar or Tools menu. Snippets can be inserted into the current tab or opened in a new tab.
+**Current UI surface:** snippets are consumable from the command palette, but there is no dedicated library/editor panel yet.
 
 ---
 
@@ -292,18 +300,35 @@ The user can select the execution mode per tab or let RunLang auto-detect based 
 - [x] GitHub Pages deployment working
 - [x] Go/Rust stubbed with clear messaging
 
+## Recommended engineering workstreams
+
+### P0
+- [ ] Wire file watching end-to-end in the renderer, or remove the remaining watch expectations from product language until it is real
+- [ ] Configure Monaco's TypeScript/JavaScript defaults to surface diagnostics that match the runtime model
+- [ ] Add a documented UI smoke-test path to contributor workflows and keep it green alongside lint/typecheck/tests
+
+### P1
+- [ ] Split oversized renderer modules (`FileTree`, `CodeEditor`, `CommandPalette`, `projectStore`) into smaller units with narrower responsibilities
+- [ ] Turn snippet persistence into a complete feature with creation, editing, and browsing UI
+- [ ] Rework the toolbar language selector so "create file in language X" is explicit instead of piggybacking on a dropdown change
+
+### P2
+- [ ] Migrate Vite-facing Node config usage away from the deprecated CJS Node API path
+- [ ] Revisit settings surface area and hide or defer controls that are not yet visibly wired
+
 ---
 
 ## Milestone schedule
 
 ### Milestone 6: Live coding polish (Phase 1 completion)
-- [ ] Magic comments (`//=>`) for JS/TS
-- [ ] Magic comments (`#=>`) for Python
+- [x] Magic comments (`//=>`) for JS/TS
+- [x] Magic comments (`#=>`) for Python
 - [ ] Inline error indicators (gutter icons + squiggly underlines)
 - [ ] Live TypeScript type checking via Monaco's TS worker
-- [ ] Expression result display (top-level expressions without console.log)
-- [ ] Loop protection (configurable iteration limit)
-- [ ] Error line highlighting in result panel
+- [ ] Broaden expression result display beyond the current final-result path
+- [x] Loop protection (configurable iteration limit)
+- [x] Error details in result panel
+- [ ] Error line highlighting in the editor/result gutter
 
 ### Milestone 7: Developer experience (Phase 2)
 - [ ] Configure Monaco TypeScript worker with proper compiler options
@@ -318,7 +343,7 @@ The user can select the execution mode per tab or let RunLang auto-detect based 
 - [ ] Package manager panel in sidebar
 
 ### Milestone 9: Snippets (Phase 4)
-- [ ] Snippet store with CRUD operations
+- [x] Snippet store with CRUD operations
 - [ ] Snippet library panel
 - [ ] Snippet autocomplete integration
 - [ ] Snippet import/export
