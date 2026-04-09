@@ -21,3 +21,5 @@
 - For direct renderer/UI validation, prefer the web build: `npm run build:web`, then `npm exec vite preview -- --config vite.web.config.ts --host 127.0.0.1 --port 4173`.
 - Drive that preview with the Playwright CLI wrapper at `/Users/johnny4young/.codex/skills/playwright/scripts/playwright_cli.sh`, reuse a named session, and save artifacts under `output/playwright/`.
 - Treat that flow as coverage for renderer behavior only; desktop-only paths such as native Go/Rust execution, packaged auto-updates, and local plugin discovery still require targeted desktop validation.
+- For Electron desktop validation, the current compiled main process expects the renderer dev server at `http://localhost:5173/`; start it with `npm exec vite -- --host localhost --port 5173 --config vite.renderer.config.ts` before launching Electron under automation.
+- A working desktop automation path is Playwright Electron: launch the app from the repo root with `_electron.launch({ args: ['.'] })`, then validate visible controls and save screenshots under `output/playwright/`.
