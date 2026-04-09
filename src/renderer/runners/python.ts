@@ -4,8 +4,10 @@ import type {
   ExecutionResult,
   ConsoleOutput,
   ExecutionError,
+  MagicCommentResult,
   WorkerResponse,
 } from '../types';
+import { transformPythonMagicComments, detectPythonMagicComments } from '../utils/magicComments';
 
 const DEFAULT_TIMEOUT = 60_000; // Python needs more time for initial load
 
@@ -69,6 +71,7 @@ export class PythonRunner implements LanguageRunner {
     const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
+    const magicResults: MagicCommentResult[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
 
@@ -87,6 +90,10 @@ export class PythonRunner implements LanguageRunner {
       };
     }
 
+    // Transform magic comments before execution
+    const hasMagic = detectPythonMagicComments(code).length > 0;
+    const transformedCode = hasMagic ? transformPythonMagicComments(code) : code;
+
     return new Promise<ExecutionResult>((resolve) => {
       const handler = (event: MessageEvent<WorkerResponse>) => {
         const msg = event.data;
@@ -101,6 +108,9 @@ export class PythonRunner implements LanguageRunner {
             }
             break;
           }
+          case 'magic-comment':
+            magicResults.push({ line: msg.line, value: msg.value });
+            break;
           case 'result':
             result = msg.value;
             break;
@@ -115,13 +125,14 @@ export class PythonRunner implements LanguageRunner {
               result,
               executionTime: msg.executionTime,
               error,
+              magicResults: magicResults.length > 0 ? magicResults : undefined,
             });
             break;
         }
       };
 
       worker.addEventListener('message', handler);
-      worker.postMessage({ type: 'execute', code, timeout });
+      worker.postMessage({ type: 'execute', code: transformedCode, timeout });
     });
   }
 

@@ -16,6 +16,14 @@ function isDynamic(language: string): boolean {
 // ---------------------------------------------------------------------------
 
 function LineResultRow({ result }: { result: LineResult }) {
+  if (result.type === 'magic') {
+    return (
+      <span className="whitespace-nowrap text-emerald-400 font-medium">
+        {'=> '}{result.value}
+      </span>
+    );
+  }
+
   const colorClass =
     result.type === 'error'
       ? 'text-red-400'
