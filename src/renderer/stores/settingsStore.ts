@@ -13,6 +13,8 @@ export const useSettingsStore = create<SettingsState>()(
       wordWrap: false,
       minimap: false,
       layoutPreset: 'horizontal',
+      loopProtection: true,
+      maxLoopIterations: 10_000,
 
       setTheme: (theme) => set({ theme }),
       setEditorTheme: (editorTheme) => set({ editorTheme }),
@@ -22,6 +24,8 @@ export const useSettingsStore = create<SettingsState>()(
       toggleWordWrap: () => set((s) => ({ wordWrap: !s.wordWrap })),
       toggleMinimap: () => set((s) => ({ minimap: !s.minimap })),
       setLayoutPreset: (layoutPreset) => set({ layoutPreset }),
+      toggleLoopProtection: () => set((s) => ({ loopProtection: !s.loopProtection })),
+      setMaxLoopIterations: (maxLoopIterations) => set({ maxLoopIterations }),
     }),
     {
       name: 'runlang-settings',
@@ -35,6 +39,8 @@ export const useSettingsStore = create<SettingsState>()(
         wordWrap: state.wordWrap,
         minimap: state.minimap,
         layoutPreset: state.layoutPreset,
+        loopProtection: state.loopProtection,
+        maxLoopIterations: state.maxLoopIterations,
       }),
     }
   )

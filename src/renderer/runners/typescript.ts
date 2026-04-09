@@ -9,6 +9,8 @@ import type {
   WorkerResponse,
 } from '../types';
 import { transformJSMagicComments, detectJSMagicComments } from '../utils/magicComments';
+import { injectJSLoopProtection } from '../utils/loopProtection';
+import { useSettingsStore } from '../stores/settingsStore';
 
 const DEFAULT_TIMEOUT = 30_000;
 
@@ -76,10 +78,14 @@ export class TypeScriptRunner implements LanguageRunner {
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
     const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
 
-    // Step 1: Transform magic comments before transpilation
+    // Step 1: Apply loop protection if enabled
+    const { loopProtection, maxLoopIterations } = useSettingsStore.getState();
+    let processedCode = loopProtection ? injectJSLoopProtection(code, maxLoopIterations) : code;
+
+    // Step 1b: Transform magic comments before transpilation
     // (esbuild would strip the //=> comments during transpilation)
-    const hasMagic = detectJSMagicComments(code).length > 0;
-    const codeForTranspile = hasMagic ? transformJSMagicComments(code) : code;
+    const hasMagic = detectJSMagicComments(processedCode).length > 0;
+    const codeForTranspile = hasMagic ? transformJSMagicComments(processedCode) : processedCode;
 
     // Step 2: Transpile TS -> JS
     const { js, error: transpileError } = await this.transpile(codeForTranspile);

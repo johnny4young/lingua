@@ -15,6 +15,10 @@ export function EditorSection() {
   const toggleWordWrap = useSettingsStore((state) => state.toggleWordWrap);
   const minimap = useSettingsStore((state) => state.minimap);
   const toggleMinimap = useSettingsStore((state) => state.toggleMinimap);
+  const loopProtection = useSettingsStore((state) => state.loopProtection);
+  const toggleLoopProtection = useSettingsStore((state) => state.toggleLoopProtection);
+  const maxLoopIterations = useSettingsStore((state) => state.maxLoopIterations);
+  const setMaxLoopIterations = useSettingsStore((state) => state.setMaxLoopIterations);
 
   return (
     <Section title="Editor">
@@ -80,6 +84,24 @@ export function EditorSection() {
       <Row label="Minimap">
         <Toggle value={minimap} onChange={toggleMinimap} />
       </Row>
+      <Row label="Loop protection">
+        <Toggle value={loopProtection} onChange={toggleLoopProtection} />
+      </Row>
+      {loopProtection && (
+        <Row label="Max iterations">
+          <select
+            value={maxLoopIterations}
+            onChange={(event) => setMaxLoopIterations(Number(event.target.value))}
+            className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 outline-none focus:border-primary-500"
+          >
+            {[1000, 5000, 10000, 50000, 100000].map((n) => (
+              <option key={n} value={n}>
+                {n.toLocaleString()}
+              </option>
+            ))}
+          </select>
+        </Row>
+      )}
     </Section>
   );
 }
