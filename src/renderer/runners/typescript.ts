@@ -80,7 +80,7 @@ export class TypeScriptRunner implements LanguageRunner {
 
     // Step 1: Apply loop protection if enabled
     const { loopProtection, maxLoopIterations } = useSettingsStore.getState();
-    let processedCode = loopProtection ? injectJSLoopProtection(code, maxLoopIterations) : code;
+    const processedCode = loopProtection ? injectJSLoopProtection(code, maxLoopIterations) : code;
 
     // Step 1b: Transform magic comments before transpilation
     // (esbuild would strip the //=> comments during transpilation)

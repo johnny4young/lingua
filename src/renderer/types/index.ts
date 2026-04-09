@@ -71,6 +71,7 @@ export interface SettingsState {
   layoutPreset: LayoutPreset;
   loopProtection: boolean;
   maxLoopIterations: number;
+  hideUndefined: boolean;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -81,6 +82,7 @@ export interface SettingsState {
   setLayoutPreset: (preset: LayoutPreset) => void;
   toggleLoopProtection: () => void;
   setMaxLoopIterations: (max: number) => void;
+  toggleHideUndefined: () => void;
 }
 
 // --- Runner Types ---

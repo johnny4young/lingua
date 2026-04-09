@@ -119,10 +119,16 @@ export function ResultPanel() {
     return tab ?? null;
   });
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hideUndefined = useSettingsStore((s) => s.hideUndefined);
+  const toggleHideUndefined = useSettingsStore((s) => s.toggleHideUndefined);
 
   const language = activeTab?.language ?? 'javascript';
   const dynamic = isDynamic(language);
   const lineCount = (activeTab?.content ?? '').split('\n').length;
+
+  const visibleLineResults = hideUndefined
+    ? lineResults.filter((r) => r.value !== 'undefined')
+    : lineResults;
 
   // Sync scroll with Monaco editor
   useEffect(() => {
@@ -143,7 +149,7 @@ export function ResultPanel() {
   const settingsFontSize = useSettingsStore((s) => s.fontSize);
 
   const hasContent = dynamic
-    ? lineResults.length > 0
+    ? visibleLineResults.length > 0
     : fullOutput.length > 0 || error !== null;
 
   // Match Monaco's line metrics: default lineHeight is ~1.35x fontSize, padding 12px
@@ -167,6 +173,19 @@ export function ResultPanel() {
               {formatExecTime(executionTime)}
             </span>
           )}
+          {dynamic && (
+            <button
+              onClick={toggleHideUndefined}
+              title={hideUndefined ? 'Show undefined' : 'Hide undefined'}
+              className={`rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors ${
+                hideUndefined
+                  ? 'bg-gray-700 text-gray-300'
+                  : 'text-gray-600 hover:text-gray-400'
+              }`}
+            >
+              undef
+            </button>
+          )}
         </div>
       </div>
 
@@ -186,7 +205,7 @@ export function ResultPanel() {
         ) : dynamic ? (
           <>
             <LineAlignedResults
-              lineResults={lineResults}
+              lineResults={visibleLineResults}
               lineCount={lineCount}
               fontSize={fontSize}
               lineHeight={lineHeight}
