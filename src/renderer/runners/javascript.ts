@@ -40,7 +40,7 @@ export class JavaScriptRunner implements LanguageRunner {
 
     // Apply loop protection if enabled
     const { loopProtection, maxLoopIterations } = useSettingsStore.getState();
-    let processedCode = loopProtection ? injectJSLoopProtection(code, maxLoopIterations) : code;
+    const processedCode = loopProtection ? injectJSLoopProtection(code, maxLoopIterations) : code;
 
     // Transform magic comments before execution
     const hasMagic = detectJSMagicComments(processedCode).length > 0;

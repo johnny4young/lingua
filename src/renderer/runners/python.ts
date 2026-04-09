@@ -94,7 +94,7 @@ export class PythonRunner implements LanguageRunner {
 
     // Apply loop protection if enabled
     const { loopProtection, maxLoopIterations } = useSettingsStore.getState();
-    let processedCode = loopProtection ? injectPythonLoopProtection(code, maxLoopIterations) : code;
+    const processedCode = loopProtection ? injectPythonLoopProtection(code, maxLoopIterations) : code;
 
     // Transform magic comments before execution
     const hasMagic = detectPythonMagicComments(processedCode).length > 0;

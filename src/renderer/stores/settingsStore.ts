@@ -15,6 +15,7 @@ export const useSettingsStore = create<SettingsState>()(
       layoutPreset: 'horizontal',
       loopProtection: true,
       maxLoopIterations: 10_000,
+      hideUndefined: false,
 
       setTheme: (theme) => set({ theme }),
       setEditorTheme: (editorTheme) => set({ editorTheme }),
@@ -26,6 +27,7 @@ export const useSettingsStore = create<SettingsState>()(
       setLayoutPreset: (layoutPreset) => set({ layoutPreset }),
       toggleLoopProtection: () => set((s) => ({ loopProtection: !s.loopProtection })),
       setMaxLoopIterations: (maxLoopIterations) => set({ maxLoopIterations }),
+      toggleHideUndefined: () => set((s) => ({ hideUndefined: !s.hideUndefined })),
     }),
     {
       name: 'runlang-settings',
@@ -41,6 +43,7 @@ export const useSettingsStore = create<SettingsState>()(
         layoutPreset: state.layoutPreset,
         loopProtection: state.loopProtection,
         maxLoopIterations: state.maxLoopIterations,
+        hideUndefined: state.hideUndefined,
       }),
     }
   )

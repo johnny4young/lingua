@@ -22,6 +22,8 @@ vi.mock('../../src/renderer/hooks/useRunner', () => ({
 }));
 
 const mockAddTab = vi.fn();
+const mockToggleSidebar = vi.fn();
+const mockToggleConsole = vi.fn();
 
 vi.mock('../../src/renderer/stores/editorStore', () => {
   const tab = {
@@ -48,6 +50,22 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
   };
 });
 
+vi.mock('../../src/renderer/stores/uiStore', () => ({
+  useUIStore: () => ({
+    sidebarVisible: true,
+    consoleVisible: true,
+    toggleSidebar: mockToggleSidebar,
+    toggleConsole: mockToggleConsole,
+  }),
+}));
+
+vi.mock('../../src/renderer/stores/pluginStore', () => ({
+  usePluginStore: (selector?: (state: { plugins: unknown[] }) => unknown) => {
+    const state = { plugins: [] };
+    return selector ? selector(state) : state;
+  },
+}));
+
 // Mock lucide-react icons
 vi.mock('lucide-react', () => ({
   Play: () => <span data-testid="icon-play">▶</span>,
@@ -57,6 +75,8 @@ vi.mock('lucide-react', () => ({
   Loader2: () => <span data-testid="icon-loader">…</span>,
   Terminal: () => null,
   Search: () => null,
+  PanelLeft: () => null,
+  PanelBottom: () => null,
 }));
 
 import { Toolbar } from '../../src/renderer/components/Toolbar/Toolbar';
@@ -107,15 +127,14 @@ describe('Toolbar', () => {
   });
 
   it('shows the Stop button at all times', () => {
+    resetRunnerState({ isRunning: true });
     render(<Toolbar />);
-    const stopBtn = screen.getByTitle('Stop');
-    expect(stopBtn).toBeTruthy();
+    expect(screen.getByTitle('Stop')).toBeTruthy();
   });
 
-  it('disables the Stop button when not running', () => {
+  it('does not render the Stop button when not running', () => {
     render(<Toolbar />);
-    const stopBtn = screen.getByTitle('Stop');
-    expect((stopBtn as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByTitle('Stop')).toBeNull();
   });
 
   it('enables the Stop button when running', () => {
