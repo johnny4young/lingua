@@ -116,6 +116,17 @@ export function useAutoRun() {
             });
           }
 
+          // Merge magic comment results into line results
+          if (result.magicResults) {
+            for (const mc of result.magicResults) {
+              lineResults.push({
+                line: mc.line,
+                value: mc.value,
+                type: 'magic',
+              });
+            }
+          }
+
           setLineResults(lineResults);
         } else {
           // Compiled language: collect full output

@@ -117,10 +117,25 @@ ctx.addEventListener('message', async (event) => {
 
       // Execute user code using async Function constructor for top-level await support
       const executionPromise = (async () => {
+        // Magic comment helper: captures expression value and sends to main thread
+        const __mc = (line: number, value: unknown) => {
+          let serialized: string;
+          try {
+            serialized = serialize([value])[0]!;
+          } catch {
+            serialized = String(value);
+          }
+          ctx.postMessage({
+            type: 'magic-comment',
+            line,
+            value: serialized,
+          });
+        };
+
         // Wrap in async Function to support top-level await
         const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-        const fn = new AsyncFunction(code);
-        return await fn();
+        const fn = new AsyncFunction('__mc', code);
+        return await fn(__mc);
       })();
 
       const result = await Promise.race([executionPromise, timeoutPromise]);
