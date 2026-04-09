@@ -11,9 +11,10 @@ RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python,
 - Desktop app built with Electron Forge, Vite, React 19, and TypeScript
 - Monaco-powered editor with tabs, templates, and inline execution results
 - Built-in runners for JavaScript, TypeScript, Go, Python, and Rust
-- Project explorer with file open, save, rename, create, delete, and watch support
+- Project explorer with file open, save, rename, create, delete, and recent projects
 - Command palette, quick open, settings, and resizable editor/console layouts
-- Web build for browser-based usage, with JavaScript, TypeScript, and Python support
+- Auto-run, magic comments, loop protection, and hide-undefined controls for dynamic languages
+- Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
 - CI, GitHub Pages deployment, and tagged release workflows
 
 ## Runtime model
@@ -47,9 +48,30 @@ npm start
 npm run lint
 npm test
 npx tsc --noEmit
+npm run build:web
 ```
 
 These are the main local verification commands. CI also runs a non-blocking `npm audit`.
+
+## UI smoke test
+
+The most reliable interactive validation path today is the web build:
+
+```bash
+npm run build:web
+npm exec vite preview -- --config vite.web.config.ts --host 127.0.0.1 --port 4173
+```
+
+Then drive the preview with the Playwright CLI wrapper:
+
+```bash
+export PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh"
+"$PWCLI" --session runlang open http://127.0.0.1:4173/
+"$PWCLI" --session runlang snapshot
+"$PWCLI" --session runlang screenshot --full-page --filename output/playwright/runlang-web-validation.png
+```
+
+This is currently the best end-to-end check for renderer behavior. Desktop-only paths such as native Go/Rust execution, packaged auto-updates, and local plugin discovery still need targeted desktop validation.
 
 ## Build commands
 
@@ -127,6 +149,13 @@ Current install directory:
 - Rust compilation stays unavailable in the browser build and returns an explicit desktop-only message
 - Automatic updates stay unavailable in the browser build
 - Local plugin discovery stays unavailable in the browser build
+- External file watching stays unavailable in the browser build
+
+## Browser file access
+
+- The web build can open local folders through the File System Access API in supported browsers
+- Browser file access supports open, read, write, rename, create, and delete flows
+- Browser file watching is not available, so external edits are not reflected automatically
 
 Minimal manifest:
 
