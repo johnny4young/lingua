@@ -1,378 +1,416 @@
-# RunLang — Product Plan
+# RunLang — Unified Delivery Plan
 
-This document tracks the current state of RunLang, the feature roadmap, and the delivery backlog. It serves as the single source of truth for what is built, what is next, and what the product aspires to become.
+This document is the operational source of truth for RunLang. It replaces the old split between "roadmap", "workstreams", and "milestones" with one ordered backlog based on verified product state, desktop validation, and implementation readiness.
 
----
-
-## Vision
-
-RunLang is a multi-language desktop code runner inspired by RunJS, PlayCode, and CodeSandbox. The goal is a unified, offline-capable code playground that goes beyond JS/TS to support systems languages (Go, Rust) via WebAssembly and scripting languages (Python) via in-browser runtimes — all with an elegant, instant-feedback UX.
-
-**Core principles:**
-- Instant feedback — results appear as you type, not after you click Run
-- Multi-language — first-class support for JS, TS, Go, Python, Rust, and extensible via plugins
-- Desktop-first — full filesystem, native compilation, real Node.js APIs — with a web fallback
-- Beautiful — clean, focused UI that gets out of the way
+The order of items below is the execution order. If a task is not in this plan, it is not currently committed work.
 
 ---
 
-## Current state (what is built)
+## Current verified state
 
-### Infrastructure
-- Desktop shell: Electron Forge + Vite (main, preload, renderer)
-- Renderer: React 19, TypeScript, Monaco Editor, Zustand stores
-- UI: Command palette, quick open, settings modal, resizable panels, macOS-native titlebar
-- Web shell: browser adapter, File System Access API integration, service worker registration
-- CI/CD: GitHub Pages web deploy, tagged release builds for macOS/Windows/Linux
+### Platform
+- Electron Forge + Vite for desktop
+- React 19 + TypeScript + Monaco + Zustand in renderer
+- Web build exists as a limited fallback
+- Auto-update bridge, release pipeline skeleton, and local plugin manifest loading are implemented
 
-### Language execution
-- **JavaScript** — Web Worker, instant execution, per-line results via stack trace capture
-- **TypeScript** — esbuild-wasm transpilation, then JS worker execution
-- **Go** — IPC to main process, Go toolchain compiles to WASM, executed in worker
-- **Python** — Pyodide (WASM CPython), persistent worker
-- **Rust** — IPC to main process, native `rustc` compilation and execution
-- **Lua** — Bundled plugin via Fengari (partial)
+### Editor and workflow
+- Tabs, file tree, project open/create, command palette, quick open, settings modal, resizable layout, and console panel are implemented
+- Auto-run with debounce is implemented
+- Magic comments are implemented for JS/TS and Python
+- Loop protection is implemented for JS/TS and Python
+- Result panel supports per-line style output for dynamic languages and full output for compiled languages
+- Snippet persistence exists and command palette can consume snippets
 
-### Editor features (implemented)
-- [x] Monaco Editor with custom themes (RunLang Dark, Dracula, One Dark Pro, Monokai, Solarized Light)
-- [x] Split-panel layout: code (left) + results (right)
-- [x] Per-line result alignment for dynamic languages (JS, TS, Python)
-- [x] Full output view for compiled languages (Go, Rust)
-- [x] Auto-run with 2-second debounce after typing stops
-- [x] Magic comments for JS/TS and Python
-- [x] Loop protection with configurable iteration limits for JS/TS and Python
-- [x] Show/hide undefined toggle for dynamic language result panes
-- [x] Scroll sync between editor and result panel
-- [x] Tab system with language badges and dirty indicators
-- [x] File tree with project management (open, create, rename, delete)
-- [x] Console panel with log/info/warn/error filtering and ANSI color support
-- [x] Template gallery (welcome screen with quick-start by language)
-- [x] Snippet persistence with command-palette insertion hooks
-
-### Delivery (implemented)
-- [x] Release pipeline with signing placeholders (macOS notarization, Windows Authenticode)
-- [x] Auto-update module with IPC bridge and renderer UI
-- [x] Plugin system (manifest-driven local plugins with Lua as reference implementation)
-- [x] Web build with Go/Rust gracefully stubbed
-
-### Operational notes
-- File-system watch IPC exists in main/preload, but the renderer does not yet subscribe to change events; external edits are not reflected automatically
-- Monaco's TypeScript worker is loaded, but compiler options and richer diagnostics are not yet tuned to the execution environment
-- The snippet data layer exists, but there is no dedicated snippet management UI yet
+### Execution model
+- JavaScript runs in a worker
+- TypeScript transpiles with `esbuild-wasm` and then runs through the JS path
+- Python runs through Pyodide
+- Go compiles through Electron main to WASM and then runs in renderer
+- Rust compiles and executes through Electron main
+- Web mode intentionally stubs desktop-only behavior such as Go and Rust execution
 
 ---
 
-## Feature roadmap
+## Desktop validation snapshot
 
-Features are grouped into phases. Each phase builds on the previous and can ship independently. Phases are ordered by user impact and technical dependency.
+Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev server and driving the app through Playwright Electron.
 
-### Phase 1: Live coding experience _(current focus)_
+| Language | Result | Notes |
+|----------|--------|-------|
+| JavaScript | Pass | Template executed and produced `Hello, World!` |
+| TypeScript | Pass | Template executed and produced `Hello, World!` |
+| Python | Pass | Pyodide loaded and template executed successfully |
+| Rust | Pass | Native compile-and-run path executed successfully |
+| Go | Fail | Desktop runner could not load `wasm_exec.js` from the assumed path |
 
-The core value proposition — making RunLang feel like a live coding scratchpad where you see what your code does instantly.
+### Verified desktop bug
 
-| Feature | Description | Languages | Priority | Status |
-|---------|-------------|-----------|----------|--------|
-| **Per-line results** | Show the value of each expression/statement next to the code line that produced it | JS, TS, Python | P0 | Done |
-| **Auto-run** | Re-execute code automatically after 2s of no typing | All | P0 | Done |
-| **Magic comments** | `//=>` / `#=>` comments that evaluate and display inline results | JS, TS, Python | P0 | Done |
-| **Inline error indicators** | Show errors/warnings inline in the editor (red squiggly + gutter icon) with hover details | All | P0 | Planned |
-| **Type checking (live)** | TypeScript language service runs continuously, surfacing type errors as diagnostics | JS, TS | P0 | Planned |
-| **Expression results** | Show expression results without `console.log` | JS, TS, Python | P1 | Partial (final result path is implemented) |
-| **Loop protection** | Halt infinite loops after configurable iteration count | JS, TS, Python | P1 | Done |
-| **Show/hide undefined** | Toggle whether `undefined` results appear in the output panel | JS, TS | P2 | Done |
+**Go desktop execution is currently broken on this machine.**
 
-#### Magic comments — design notes
+- Current implementation in `src/main/go-compiler.ts` assumes `wasm_exec.js` lives at `${GOROOT}/misc/wasm/wasm_exec.js`
+- On the validated Go installation (`go1.26.1`, `GOROOT=/usr/local/go`), the file actually exists at:
+  - `/usr/local/go/lib/wasm/wasm_exec.js`
+  - `/usr/local/go/lib/wasm/wasm_exec_node.js`
+- The current error is:
+  - `ENOENT: no such file or directory, open '/usr/local/go/misc/wasm/wasm_exec.js'`
 
-Inspired by RunJS's magic comments. When a comment starts with a special marker, the expression after it is evaluated and the result is displayed inline.
-
-```javascript
-const name = "RunLang";
-name; //=> "RunLang"
-
-[1, 2, 3].map(x => x * 2); //=> [2, 4, 6]
-
-Math.PI; //=> 3.141592653589793
-```
-
-**Syntax:** `//=>` at the end of a line (or `#=>` for Python)
-**Implementation:** Parse comments before execution, wrap target expressions to capture their values, map results back to source lines.
-**Extensibility:** Each language runner defines its own magic comment prefix and expression-wrapping strategy.
-
-#### Inline error indicators — design notes
-
-Errors and warnings should appear:
-1. **In the editor gutter** — red circle for errors, yellow triangle for warnings
-2. **As underline decorations** — red squiggly under the offending code
-3. **In the result panel** — error message aligned to the error line
-4. **In the tab** — error/warning count badge
-
-Sources of diagnostics:
-- **TypeScript language service** — type errors, unused variables, unreachable code (JS/TS)
-- **Runtime errors** — exceptions with line numbers from execution (all languages)
-- **Compilation errors** — Go/Rust compiler output parsed for line:col (Go, Rust)
-- **Linter output** — future integration point
+This is a real product bug, not a documentation gap.
 
 ---
 
-### Phase 2: Developer experience
+## Delivery rules
 
-Features that make RunLang feel like a real development environment, not just a toy.
-
-| Feature | Description | Languages | Priority | Status |
-|---------|-------------|-----------|----------|--------|
-| **Autocomplete** | Code suggestions while typing, powered by Monaco's IntelliSense + TypeScript language service | JS, TS | P0 | Partial (Monaco built-in) |
-| **Hover info** | Show type information and documentation on symbol hover | JS, TS | P0 | Partial (Monaco built-in) |
-| **Function signatures** | Show parameter hints while typing function calls | JS, TS | P1 | Partial (Monaco built-in) |
-| **Go to definition** | Navigate to symbol definitions | JS, TS | P1 | Partial (Monaco built-in) |
-| **Bracket colorization** | Color-matched brackets for readability | All | P2 | Done |
-| **Format on save** | Auto-format code using Prettier (JS/TS), `gofmt` (Go), `rustfmt` (Rust), `black` (Python) | All | P1 | Planned |
-| **Linting** | Live linting with ESLint (JS/TS), configurable rules | JS, TS | P2 | Planned |
-| **Environment variables** | Define env vars accessible via `process.env` in execution context | JS, TS, Python | P2 | Planned |
-
-#### Autocomplete and IntelliSense — design notes
-
-Monaco already provides basic autocomplete for JS/TS via its built-in TypeScript worker. To make this production-quality:
-1. **Configure Monaco's TypeScript worker** with `compilerOptions` matching our execution environment (ES2022, top-level await, DOM types)
-2. **Add type definitions** for Node.js built-ins and browser APIs available in our worker context
-3. **Integrate snippet completions** — user-saved snippets appear in the autocomplete list
-4. **For non-JS languages** — provide keyword completions and (future) LSP integration
+- Treat this plan as both backlog and milestone tracker
+- Keep product claims conservative; only describe behavior that is implemented or explicitly marked partial
+- Prefer implementation-ready tasks over speculative roadmap items
+- Split broad ideas into smaller tasks with explicit acceptance criteria before starting them
+- Desktop validation is the source of truth for native language support and Electron-only behavior
+- Web preview remains the default for general renderer checks, but native language validation must run through Electron
 
 ---
 
-### Phase 3: Package management
+## Ordered delivery backlog
 
-The ability to install and use third-party packages makes RunLang useful for real experimentation.
+## 1. Desktop execution correctness
 
-| Feature | Description | Languages | Priority | Status |
-|---------|-------------|-----------|----------|--------|
-| **NPM package install** | Search, install, and import npm packages | JS, TS | P0 | Planned |
-| **Package resolution** | Resolve and bundle imported packages for worker execution | JS, TS | P0 | Planned |
-| **pip packages** | Install Python packages via Pyodide's micropip | Python | P1 | Planned |
-| **Go modules** | `go get` integration for Go package imports | Go | P2 | Planned |
-| **Cargo crates** | `cargo add` integration for Rust dependencies | Rust | P2 | Planned |
-| **Package manager UI** | Dedicated panel for searching, installing, and managing packages | All | P1 | Planned |
+### RL-001 Fix Go desktop execution
 
-#### NPM packages — design notes
+- Priority: `P0`
+- Status: `Verified bug`
+- Readiness: `Ready to implement`
+- Why this comes first:
+  - Go is a shipped language target
+  - The desktop test matrix already shows it failing
+  - This blocks confidence in Electron as the primary validation path for compiled languages
+- Scope:
+  - Update `src/main/go-compiler.ts` to resolve `wasm_exec.js` from supported Go layouts
+  - Check candidate paths in this order:
+    - `${GOROOT}/lib/wasm/wasm_exec.js`
+    - `${GOROOT}/misc/wasm/wasm_exec.js`
+  - If neither exists, return an actionable error that includes `GOROOT` and the checked paths
+  - Keep the returned payload compatible with the current renderer Go runner
+- Acceptance criteria:
+  - Running the default Go template in Electron produces `Hello, World!`
+  - The runner works on the validated local Go installation
+  - Failure mode is explicit if Go exists but the runtime assets cannot be found
+- Dependencies:
+  - None
 
-**Approach (JS/TS):**
-1. User opens package manager UI (Tools > Packages or Cmd+Shift+N)
-2. Search npm registry API for packages
-3. Install to a project-local `node_modules` or a shared RunLang package cache
-4. For worker execution: use esbuild to bundle the import into the execution payload
-5. For Electron context: packages are available via Node.js `require`
+### RL-002 Make project file watching real in renderer
 
-**Approach (Python):**
-- Pyodide's `micropip.install("package")` handles pure-Python packages
-- Pre-bundled packages available from Pyodide's package index
+- Priority: `P0`
+- Status: `Partially wired`
+- Readiness: `Ready to implement as MVP`
+- Current gap:
+  - Main and preload expose `fs:watch-start`, `fs:watch-stop`, and `fs:onChanged`
+  - `projectStore` starts a watcher
+  - Renderer never subscribes to `window.runlang.fs.onChanged`
+  - External file changes do not refresh the tree
+- Scope for MVP:
+  - Subscribe once to `window.runlang.fs.onChanged`
+  - Refresh the current project tree when events arrive for the active project
+  - Debounce refreshes so bulk file changes do not thrash the UI
+  - Tear down subscriptions cleanly when project closes or the app unmounts
+- Explicitly out of scope for MVP:
+  - Merge logic for dirty open tabs
+  - Incremental tree patching
+  - Conflict resolution UI
+- Acceptance criteria:
+  - Creating, renaming, and deleting files externally refreshes the tree
+  - Closing a project stops updates
+  - No duplicate subscriptions or repeated refresh storms after reopening projects
+- Dependencies:
+  - None
 
-**Extensibility:** Each language defines a `PackageManager` interface:
-```typescript
-interface PackageManager {
-  search(query: string): Promise<PackageInfo[]>;
-  install(name: string, version?: string): Promise<void>;
-  uninstall(name: string): Promise<void>;
-  list(): Promise<InstalledPackage[]>;
-}
-```
+### RL-003 Align Monaco diagnostics with the real JS/TS runtime
 
----
+- Priority: `P0`
+- Status: `Planned`
+- Readiness: `Ready for baseline implementation`
+- Current gap:
+  - Monaco TS worker is loaded
+  - Compiler options are not configured to match the current execution model
+  - The editor does not clearly communicate what is available in runtime versus what is not
+- Baseline runtime contract to implement now:
+  - Supported editor/runtime assumptions:
+    - ECMAScript 2022
+    - top-level await
+    - worker-style globals
+    - `fetch` and standard web platform primitives already available in worker context
+  - Explicitly unavailable in the baseline JS/TS contract:
+    - `document` / DOM APIs
+    - Node built-ins such as `fs`, `path`, `net`
+- Scope:
+  - Configure Monaco `javascriptDefaults` and `typescriptDefaults`
+  - Set `target`, `module`, `moduleResolution`, `noEmit`, and related diagnostics options to match the worker-based execution model
+  - Choose `lib` values that reflect the current runtime instead of a future hybrid runtime
+  - Do not add Node or DOM typings in this phase
+- Acceptance criteria:
+  - Valid JS/TS examples in the app are not flagged incorrectly
+  - Unsupported APIs such as `document` and `fs` are surfaced as errors in the editor
+  - TypeScript diagnostics appear without requiring the user to run code
+- Dependencies:
+  - None
 
-### Phase 4: Snippets and productivity
+### RL-004 Unify editor error surfacing across runtime, compilation, and type diagnostics
 
-| Feature | Description | Priority | Status |
-|---------|-------------|----------|--------|
-| **Snippet library** | Save, organize, and reuse code snippets with name + description + body | P0 | Partial (store exists, dedicated UI is missing) |
-| **Snippet autocomplete** | Snippets appear in autocomplete suggestions matched by name | P1 | Planned |
-| **Snippet import/export** | Import and export snippets as JSON for sharing | P2 | Planned |
-| **Snippet context menu** | Right-click selected code > "Save as snippet" | P1 | Planned |
-| **Tab title from code** | First line of code becomes the tab title (editable via right-click) | P2 | Planned |
-| **Recent tabs** | Restore recently closed tabs | P2 | Planned |
-| **Multi-cursor editing** | Edit multiple locations simultaneously | P2 | Done (Monaco built-in) |
+- Priority: `P0`
+- Status: `Planned`
+- Readiness: `Ready after RL-003`
+- Current gap:
+  - Errors appear in console/result surfaces, but the editor does not yet provide a complete inline diagnostic experience
+- Scope:
+  - Show inline editor markers for:
+    - TypeScript diagnostics
+    - JS/TS/Python runtime errors with mapped line numbers where available
+    - Go/Rust compile errors with parsed line and column information
+  - Add gutter markers and inline decorations
+  - Keep result panel and editor markers synchronized
+- Acceptance criteria:
+  - A type error in TS is visible in the editor without running
+  - A runtime error in JS/TS/Python highlights the relevant source line
+  - A Go or Rust compiler error highlights the reported source location when line data is available
+- Dependencies:
+  - RL-003
 
-#### Snippet library — design notes
+### RL-005 Keep desktop UI validation as a maintained workflow
 
-**Storage:** Snippets are already persisted in a Zustand store with `persist` middleware.
-
-**Schema:**
-```typescript
-interface Snippet {
-  id: string;
-  language: Language;
-  label: string;
-  description: string;
-  code: string;
-  createdAt: number;
-}
-```
-
-**Current UI surface:** snippets are consumable from the command palette, but there is no dedicated library/editor panel yet.
-
----
-
-### Phase 5: AI integration
-
-| Feature | Description | Priority | Status |
-|---------|-------------|----------|--------|
-| **AI chat sidebar** | Context-aware coding assistant (knows current tab content) | P1 | Planned |
-| **Code generation** | Generate code from natural language description | P1 | Planned |
-| **Code explanation** | Select code > "Explain this" | P2 | Planned |
-| **Error fix suggestions** | AI suggests fixes for runtime and type errors | P2 | Planned |
-| **AI provider selection** | Support OpenAI, Anthropic, local models (Ollama) | P1 | Planned |
-
-#### AI chat — design notes
-
-**Architecture:** The AI sidebar is a React component that communicates with an AI provider via API. The current tab's code is included as context in every message.
-
-**Provider abstraction:**
-```typescript
-interface AIProvider {
-  id: string;
-  name: string;
-  chat(messages: ChatMessage[], context: CodeContext): AsyncIterable<string>;
-  isConfigured(): boolean;
-}
-```
-
-**Privacy:** API keys stored locally only. No code is sent to any service without explicit user action. Local model support (Ollama) provides a fully offline option.
-
----
-
-### Phase 6: Appearance and accessibility
-
-| Feature | Description | Priority | Status |
-|---------|-------------|----------|--------|
-| **Theme system** | Multiple editor themes with live preview | P0 | Done (5 themes) |
-| **Custom themes** | Import custom Monaco themes | P2 | Planned |
-| **Font selection** | Choose from pre-loaded fonts + custom font path | P1 | Partial (font family setting exists) |
-| **Output syntax highlighting** | Syntax-highlight results in the output panel | P2 | Planned |
-| **i18n / translation support** | Internationalized UI strings | P2 | Planned |
-| **Keyboard shortcuts customization** | Rebindable keyboard shortcuts | P2 | Planned |
-| **Activity bar** | Vertical sidebar with quick-access icons (run, snippets, settings, AI) | P1 | Planned |
-
-#### i18n — design notes
-
-**Approach:** Use `react-i18next` with JSON translation files. Start with English as the default locale. UI strings are extracted into `src/renderer/i18n/en.json`. Language selector in settings.
-
-**Priority locales:** English, Spanish, Chinese (Simplified), Japanese, Korean, Portuguese.
-
----
-
-### Phase 7: Node.js and Browser API access
-
-RunLang should provide a hybrid execution environment that combines Node.js APIs with browser APIs — similar to RunJS but extended to all supported languages.
-
-| Feature | Description | Languages | Priority | Status |
-|---------|-------------|-----------|----------|--------|
-| **DOM access** | Full DOM manipulation via `document`, `window` in a sandboxed iframe | JS, TS | P1 | Planned |
-| **Node.js built-ins** | `fs`, `path`, `http`, `crypto`, etc. available in execution context | JS, TS | P1 | Planned |
-| **Web APIs** | `fetch`, `WebSocket`, `Web Audio`, `Canvas`, `localStorage` | JS, TS | P1 | Partial (fetch works) |
-| **Preview pane** | Live HTML/CSS preview for DOM manipulation results | JS, TS | P2 | Planned |
-| **Python stdlib** | Python standard library available via Pyodide | Python | P1 | Done |
-
-#### Hybrid runtime — design notes
-
-**JS/TS execution modes:**
-1. **Worker mode** (current) — isolated Web Worker, no DOM, limited APIs. Fast and safe.
-2. **Iframe mode** (planned) — sandboxed iframe with full DOM and browser APIs. Needed for visual output.
-3. **Node mode** (planned, desktop only) — execution via Electron's Node.js context. Full Node.js API access.
-
-The user can select the execution mode per tab or let RunLang auto-detect based on imports.
+- Priority: `P0`
+- Status: `Partially documented`
+- Readiness: `Ready to implement`
+- Scope:
+  - Preserve the documented Electron validation flow in `AGENTS.md`
+  - Add repo-level scripts for repeatable validation instead of ad hoc commands
+  - Minimum target scripts:
+    - renderer dev server for Electron automation
+    - Electron smoke test entrypoint
+    - artifact output under `output/playwright/`
+- Acceptance criteria:
+  - A contributor can run one documented command sequence and validate Electron UI behavior
+  - The language smoke test includes JS, TS, Python, Go, and Rust
+  - The workflow saves artifacts for failures
+- Dependencies:
+  - RL-001 for a clean all-language pass
 
 ---
 
-## Infrastructure backlog (unchanged from prior plan)
+## 2. Core editor and workflow completeness
 
-### Release pipeline hardening
-- [ ] Validate the full tagged-release path in GitHub Actions with real secrets
+### RL-006 Make "new file in language X" explicit in the toolbar
 
-### Auto-update
-- [ ] Validate packaged update behavior against the chosen release channel
+- Priority: `P1`
+- Status: `Verified UX issue`
+- Readiness: `Ready to implement`
+- Current gap:
+  - The toolbar language dropdown creates a new file on `onChange`
+  - The control reads like "change active language" but behaves like "create new file"
+- Scope:
+  - Replace the implicit behavior with an explicit creation flow
+  - Recommended approach:
+    - keep the `New file` button
+    - add a clear menu or split-button for "New JavaScript", "New TypeScript", "New Go", and so on
+  - Do not overload the active tab language display with creation side effects
+- Acceptance criteria:
+  - Users can create a file in a specific language without accidental creation from exploring a dropdown
+  - The toolbar makes the action semantics obvious without prior knowledge
+- Dependencies:
+  - None
 
-### Signed publishing readiness
-- [ ] Verify macOS signing identity and notarization flow in CI
-- [ ] Verify Windows signing flow in CI
+### RL-007 Turn snippets into a complete feature
 
-### Plugin productization
-- [x] Plugin registry, manifest format, API versioning, local discovery — all complete
-- Future: Broader extension model if product requirements expand
+- Priority: `P1`
+- Status: `Partial`
+- Readiness: `Ready for MVP scope`
+- Current gap:
+  - Persistence exists
+  - Command palette can consume snippets
+  - There is no dedicated creation, editing, or browsing UI
+- MVP scope:
+  - Save current tab as snippet
+  - Browse saved snippets in a dedicated list or modal
+  - Edit snippet label, description, language, and code
+  - Delete snippets
+  - Insert a selected snippet into the active tab
+- Explicitly deferred:
+  - Import/export
+  - sharing
+  - snippet autocomplete ranking
+- Acceptance criteria:
+  - A user can save a snippet from the current tab and reuse it later without leaving the app
+  - Snippet metadata can be edited after creation
+  - The feature is discoverable without relying only on command palette knowledge
+- Dependencies:
+  - None
 
-### Web build
-- [x] GitHub Pages deployment working
-- [x] Go/Rust stubbed with clear messaging
+### RL-008 Clean up the settings surface and make app theme behavior truthful
 
-## Recommended engineering workstreams
+- Priority: `P1`
+- Status: `Verified inconsistency`
+- Readiness: `Needs one product decision, then implement`
+- Current gap:
+  - Settings exposes `App theme`
+  - The renderer clearly wires editor theme and editor font settings
+  - The general app shell does not appear to switch between dark and light modes in a visible, complete way
+- Required decision before implementation:
+  - Either wire a real shell-level dark/light theme now
+  - Or remove/defer the `App theme` control until that capability exists
+- Recommended direction:
+  - Wire a real shell-level theme and keep editor theme as a separate setting
+- If implemented now, scope should include:
+  - root theme state application
+  - toolbar, sidebar, panels, settings modal, and result surfaces
+  - clear separation between "App theme" and "Editor theme"
+- Acceptance criteria:
+  - Changing `App theme` visibly changes the application shell
+  - Editor theme remains independently selectable
+  - No setting is shown if it has no visible effect
+- Dependencies:
+  - Product decision: keep or defer shell theming
 
-### P0
-- [ ] Wire file watching end-to-end in the renderer, or remove the remaining watch expectations from product language until it is real
-- [ ] Configure Monaco's TypeScript/JavaScript defaults to surface diagnostics that match the runtime model
-- [ ] Add a documented UI smoke-test path to contributor workflows and keep it green alongside lint/typecheck/tests
+### RL-009 Split oversized renderer modules
 
-### P1
-- [ ] Split oversized renderer modules (`FileTree`, `CodeEditor`, `CommandPalette`, `projectStore`) into smaller units with narrower responsibilities
-- [ ] Turn snippet persistence into a complete feature with creation, editing, and browsing UI
-- [ ] Rework the toolbar language selector so "create file in language X" is explicit instead of piggybacking on a dropdown change
-
-### P2
-- [ ] Migrate Vite-facing Node config usage away from the deprecated CJS Node API path
-- [ ] Revisit settings surface area and hide or defer controls that are not yet visibly wired
+- Priority: `P1`
+- Status: `Needed for maintainability`
+- Readiness: `Ready to implement incrementally`
+- Target files:
+  - `src/renderer/components/FileTree/FileTree.tsx`
+  - `src/renderer/components/Editor/CodeEditor.tsx`
+  - `src/renderer/components/CommandPalette/CommandPalette.tsx`
+  - `src/renderer/stores/projectStore.ts`
+- Scope:
+  - Extract pure helpers from UI components
+  - Separate view concerns from store mutation logic
+  - Keep behavior unchanged
+- Acceptance criteria:
+  - Each extracted module has a narrower responsibility
+  - Existing tests continue to pass
+  - Refactor does not ship bundled behavior changes
+- Dependencies:
+  - Prefer after RL-001 through RL-008 so refactors do not obscure bug-fix work
 
 ---
 
-## Milestone schedule
+## 3. Developer experience after core correctness
 
-### Milestone 6: Live coding polish (Phase 1 completion)
-- [x] Magic comments (`//=>`) for JS/TS
-- [x] Magic comments (`#=>`) for Python
-- [ ] Inline error indicators (gutter icons + squiggly underlines)
-- [ ] Live TypeScript type checking via Monaco's TS worker
-- [ ] Broaden expression result display beyond the current final-result path
-- [x] Loop protection (configurable iteration limit)
-- [x] Error details in result panel
-- [ ] Error line highlighting in the editor/result gutter
+### RL-010 Add format-on-save
 
-### Milestone 7: Developer experience (Phase 2)
-- [ ] Configure Monaco TypeScript worker with proper compiler options
-- [ ] Add Node.js and DOM type definitions to TypeScript context
-- [ ] Format on save (Prettier for JS/TS)
-- [ ] Environment variables panel
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Mostly ready, but should start with desktop-capable languages`
+- Recommended rollout:
+  - Phase A:
+    - JS/TS via Prettier
+    - Go via `gofmt`
+    - Rust via `rustfmt`
+  - Phase B:
+    - Python formatting once the desktop/web execution story is defined clearly for tooling
+- Acceptance criteria:
+  - Save formatting is deterministic
+  - Missing formatter binaries are handled with actionable user feedback
+- Dependencies:
+  - Desktop tooling conventions
 
-### Milestone 8: Package management (Phase 3)
-- [ ] NPM package search UI
-- [ ] NPM package install + esbuild bundling for worker
-- [ ] Python micropip integration
-- [ ] Package manager panel in sidebar
+### RL-011 Add an environment variables panel for execution contexts
 
-### Milestone 9: Snippets (Phase 4)
-- [x] Snippet store with CRUD operations
-- [ ] Snippet library panel
-- [ ] Snippet autocomplete integration
-- [ ] Snippet import/export
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Needs execution-model scoping before implementation`
+- Decisions needed:
+  - Which runtimes receive env vars in desktop mode
+  - Which env vars, if any, should exist in web mode
+  - Whether env vars are tab-scoped, project-scoped, or global
+- This item should not start until those decisions are written down
 
-### Milestone 10: AI integration (Phase 5)
-- [ ] AI provider abstraction
-- [ ] AI chat sidebar with code context
-- [ ] OpenAI and Anthropic provider implementations
-- [ ] Local model support (Ollama)
+### RL-012 Package management
 
-### Milestone 11: Appearance and i18n (Phase 6)
-- [ ] Custom theme import
-- [ ] i18n framework setup
-- [ ] Initial translations (ES, ZH, JA, KO, PT)
-- [ ] Keyboard shortcuts customization
-
-### Milestone 12: Hybrid runtime (Phase 7)
-- [ ] Sandboxed iframe execution mode for DOM access
-- [ ] Node.js execution mode (desktop only)
-- [ ] Execution mode selector per tab
-- [ ] HTML/CSS preview pane
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Not implementation-ready`
+- Reason:
+  - The execution model for dependencies differs significantly across JS/TS, Python, Go, and Rust
+  - This should not begin before desktop correctness, diagnostics, and basic workflow UX are stable
+- Pre-work required:
+  - decide per-language package model
+  - decide cache ownership and project isolation
+  - define web-mode limitations clearly
 
 ---
 
-## Operating defaults
+## 4. Future platform expansion
 
-- Treat this document as an operational status file
-- Describe only implemented behavior as current capability
-- Record speculative ideas only when they are concrete backlog items
-- Keep product claims conservative when a feature is only partially wired
-- Every feature must be designed with multi-language extensibility in mind — not just JS/TS
-- Each language runner can implement a subset of features (e.g., magic comments for JS but not Go)
+These items remain valid product directions, but they are intentionally behind the current backlog because they depend on the stability work above.
+
+### RL-013 Hybrid JS/TS runtime modes
+
+- Priority: `Future`
+- Includes:
+  - DOM/iframe execution mode
+  - desktop Node execution mode
+  - per-tab runtime mode selection
+  - preview pane for visual output
+- Not ready to implement until RL-003 and RL-004 define the current runtime contract cleanly
+
+### RL-014 AI assistance
+
+- Priority: `Future`
+- Includes:
+  - provider abstraction
+  - chat sidebar
+  - code explanation and fix suggestions
+  - local model option
+- Not ready to implement until editor diagnostics and snippet/productivity features are stable
+
+### RL-015 i18n, custom theming, and shortcut customization
+
+- Priority: `Future`
+- Includes:
+  - translation framework
+  - locale packs
+  - custom theme import
+  - user-defined shortcuts
+- These are valid enhancements, but they should follow after workflow correctness and settings cleanup
+
+---
+
+## 5. Operational hardening
+
+### RL-016 Release validation and update readiness
+
+- Priority: `P2`
+- Status: `Partial`
+- Scope:
+  - validate tagged release flow in CI with real secrets
+  - validate packaged update behavior against the chosen release channel
+  - verify signing and notarization paths in CI
+- This remains important, but it does not come before the current product correctness backlog
+
+### RL-017 Migrate away from deprecated Vite CJS Node API usage
+
+- Priority: `P2`
+- Status: `Known maintenance item`
+- Readiness: `Ready to investigate`
+- Scope:
+  - identify which config path is still invoking Vite through the deprecated CJS API
+  - move affected config usage to the supported path without breaking Forge integration
+- Acceptance criteria:
+  - the deprecation warning no longer appears during the standard dev/build flow
+
+---
+
+## Execution order summary
+
+Implement in this order unless a newly discovered regression changes severity:
+
+1. RL-001 Go desktop execution
+2. RL-002 File watching MVP
+3. RL-003 Monaco runtime-aligned diagnostics
+4. RL-004 Unified editor error surfacing
+5. RL-005 Repeatable Electron validation scripts
+6. RL-006 Explicit new-file UX
+7. RL-007 Snippets MVP
+8. RL-008 Settings truthfulness and app theme decision
+9. RL-009 Renderer module splits
+10. RL-010 through RL-017 as follow-on work
+
+This ordered list is the milestone sequence. No separate milestone section should be maintained elsewhere.
