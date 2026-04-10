@@ -111,12 +111,10 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-003 Align Monaco diagnostics with the real JS/TS runtime
 
 - Priority: `P0`
-- Status: `Planned`
-- Readiness: `Ready for baseline implementation`
+- Status: `Done`
+- Readiness: `Implemented on 2026-04-10`
 - Current gap:
-  - Monaco TS worker is loaded
-  - Compiler options are not configured to match the current execution model
-  - The editor does not clearly communicate what is available in runtime versus what is not
+  - Resolved by configuring Monaco JavaScript and TypeScript defaults against the actual worker runtime contract
 - Baseline runtime contract to implement now:
   - Supported editor/runtime assumptions:
     - ECMAScript 2022
@@ -128,9 +126,9 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
     - Node built-ins such as `fs`, `path`, `net`
 - Scope:
   - Configure Monaco `javascriptDefaults` and `typescriptDefaults`
-  - Set `target`, `module`, `moduleResolution`, `noEmit`, and related diagnostics options to match the worker-based execution model
-  - Choose `lib` values that reflect the current runtime instead of a future hybrid runtime
-  - Do not add Node or DOM typings in this phase
+  - Set `target`, `module`, `moduleResolution`, `moduleDetection`, `noEmit`, and diagnostics options to match the worker-based execution model
+  - Use `es2022` + `webworker` libs so worker globals are typed without enabling DOM or Node built-ins
+  - Keep Node and DOM typings out of the baseline contract
 - Acceptance criteria:
   - Valid JS/TS examples in the app are not flagged incorrectly
   - Unsupported APIs such as `document` and `fs` are surfaced as errors in the editor
