@@ -5,9 +5,13 @@ node_modules/
 out/
 dist/
 .vite/
-output/
 .playwright-cli/
 Library/
+
+# Local artifacts
+output/
+PLAN.md
+TEST_PLAN.md
 
 # Logs
 *.log
