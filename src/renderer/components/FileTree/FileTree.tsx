@@ -57,6 +57,9 @@ function InlineInput({ placeholder, onConfirm, onCancel }: InlineInputProps) {
 interface TreeNodeProps {
   node: FileTreeNode;
   depth: number;
+  creating: CreationTarget;
+  onCreateConfirm: (value: string) => void;
+  onCancelCreate: () => void;
   onFileClick: (node: FileTreeNode) => void;
   onDelete: (node: FileTreeNode) => void;
   onNewFileIn?: (node: FileTreeNode) => void;
@@ -66,6 +69,9 @@ interface TreeNodeProps {
 function TreeNode({
   node,
   depth,
+  creating,
+  onCreateConfirm,
+  onCancelCreate,
   onFileClick,
   onDelete,
   onNewFileIn,
@@ -195,11 +201,26 @@ function TreeNode({
       {/* Children */}
       {node.isDirectory && node.isExpanded && node.children && (
         <div>
+          {creating && creating.parentPath === node.path && (
+            <div
+              className="px-2 py-0.5"
+              style={{ paddingLeft: `${(depth + 2) * 12 + 4}px` }}
+            >
+              <InlineInput
+                placeholder={creating.kind === 'file' ? 'filename.rs' : 'folder-name'}
+                onConfirm={onCreateConfirm}
+                onCancel={onCancelCreate}
+              />
+            </div>
+          )}
           {node.children.map((child) => (
             <TreeNode
               key={child.path}
               node={child}
               depth={depth + 1}
+              creating={creating}
+              onCreateConfirm={onCreateConfirm}
+              onCancelCreate={onCancelCreate}
               onFileClick={onFileClick}
               onDelete={onDelete}
               onNewFileIn={onNewFileIn}
@@ -412,6 +433,9 @@ export function FileTree() {
             key={node.path}
             node={node}
             depth={0}
+            creating={creating}
+            onCreateConfirm={handleCreateConfirm}
+            onCancelCreate={() => setCreating(null)}
             onFileClick={handleFileClick}
             onDelete={handleDelete}
             onNewFileIn={(n) => {
