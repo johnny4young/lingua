@@ -261,4 +261,40 @@ describe('AppLayout responsive shell', () => {
     await user.tab({ shift: true });
     expect(document.activeElement).toBe(treeAction);
   });
+
+  it('moves focus back into the persistent explorer and clears modal state when the shell widens', async () => {
+    const user = userEvent.setup();
+    setCompactShell(true);
+
+    await renderLayout();
+
+    const shellUnderlay = screen.getByTestId('shell-underlay');
+    const treeAction = screen.getByTestId('file-tree-action');
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByTitle('Close sidebar'));
+    });
+
+    await user.tab();
+    expect(document.activeElement).toBe(treeAction);
+    expect(shellUnderlay.hasAttribute('inert')).toBe(true);
+    expect(document.body.style.overflow).toBe('hidden');
+
+    act(() => {
+      setCompactShell(false);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Project explorer' })).toBeNull();
+    });
+    await waitFor(() => {
+      expect(document.querySelector('[data-panel="sidebar-panel"]')).toBeTruthy();
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByTestId('file-tree-action'));
+    });
+    expect(shellUnderlay.hasAttribute('inert')).toBe(false);
+    expect(shellUnderlay.getAttribute('aria-hidden')).toBeNull();
+    expect(document.body.style.overflow).toBe('');
+  });
 });
