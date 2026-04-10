@@ -7,6 +7,7 @@ import {
   Loader2,
   Terminal,
   Search,
+  BookCopy,
   PanelLeft,
   PanelBottom,
 } from 'lucide-react';
@@ -30,9 +31,15 @@ interface ToolbarProps {
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
   onOpenQuickOpen?: () => void;
+  onOpenSnippets?: () => void;
 }
 
-export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: ToolbarProps) {
+export function Toolbar({
+  onOpenSettings,
+  onOpenPalette,
+  onOpenQuickOpen,
+  onOpenSnippets,
+}: ToolbarProps) {
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   const { sidebarVisible, consoleVisible, toggleSidebar, toggleConsole } = useUIStore();
@@ -194,6 +201,13 @@ export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Tool
           title="Command palette (Cmd+Shift+P)"
         >
           <Terminal size={15} />
+        </button>
+        <button
+          onClick={onOpenSnippets}
+          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+          title="Snippets"
+        >
+          <BookCopy size={15} />
         </button>
         <button
           onClick={toggleConsole}

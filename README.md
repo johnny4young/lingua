@@ -12,7 +12,7 @@ RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python,
 - Monaco-powered editor with tabs, templates, and inline execution results
 - Built-in runners for JavaScript, TypeScript, Go, Python, and Rust
 - Project explorer with file open, save, rename, create, delete, and recent projects
-- Command palette, quick open, settings, and resizable editor/console layouts
+- Command palette, quick open, snippet library, settings, and resizable editor/console layouts
 - Auto-run, magic comments, loop protection, and hide-undefined controls for dynamic languages
 - Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
 - CI, GitHub Pages deployment, and tagged release workflows
