@@ -56,6 +56,9 @@ npm install
 npm start
 ```
 
+Renderer architecture note:
+- The editor shell is now split so Monaco theme registration, editor option construction, and the empty-state surface live in focused modules instead of one oversized `CodeEditor` file.
+
 ## Quality checks
 
 ```bash

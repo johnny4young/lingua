@@ -256,7 +256,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-009 Split oversized renderer modules
 
 - Priority: `P1`
-- Status: `Needed for maintainability`
+- Status: `Partial`
 - Readiness: `Ready to implement incrementally`
 - Target files:
   - `src/renderer/components/FileTree/FileTree.tsx`
@@ -271,6 +271,8 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
   - Each extracted module has a narrower responsibility
   - Existing tests continue to pass
   - Refactor does not ship bundled behavior changes
+- Current progress:
+  - `CodeEditor.tsx` now delegates the empty state, Monaco theme definitions, and editor option construction to focused modules instead of holding all editor responsibilities directly
 - Dependencies:
   - Prefer after RL-001 through RL-008 so refactors do not obscure bug-fix work
 
