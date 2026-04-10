@@ -3,6 +3,7 @@ import { AppLayout } from './components/Layout';
 import { SettingsModal } from './components/Settings/SettingsModal';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
+import { SnippetsModal } from './components/Snippets';
 import { useRunner } from './hooks/useRunner';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
@@ -71,15 +72,18 @@ export function App() {
         onOpenSettings={() => openOverlay('settings')}
         onOpenPalette={() => openOverlay('palette')}
         onOpenQuickOpen={() => openOverlay('quick-open')}
+        onOpenSnippets={() => openOverlay('snippets')}
       />
       {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
       {overlay === 'palette' && (
         <CommandPalette
           onClose={closeOverlay}
           onOpenSettings={() => openOverlay('settings')}
+          onOpenSnippets={() => openOverlay('snippets')}
         />
       )}
       {overlay === 'settings' && <SettingsModal onClose={closeOverlay} />}
+      {overlay === 'snippets' && <SnippetsModal onClose={closeOverlay} />}
     </>
   );
 }

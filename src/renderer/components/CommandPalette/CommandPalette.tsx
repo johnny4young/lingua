@@ -38,9 +38,14 @@ const CATEGORY_ICON: Record<CommandCategory, React.ReactNode> = {
 interface CommandPaletteProps {
   onClose: () => void;
   onOpenSettings: () => void;
+  onOpenSnippets: () => void;
 }
 
-export function CommandPalette({ onClose, onOpenSettings }: CommandPaletteProps) {
+export function CommandPalette({
+  onClose,
+  onOpenSettings,
+  onOpenSnippets,
+}: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -124,6 +129,17 @@ export function CommandPalette({ onClose, onOpenSettings }: CommandPaletteProps)
         action: () => { setLayoutPreset('editor-only'); onClose(); },
       },
       {
+        id: 'action-snippets',
+        category: 'action',
+        label: 'Open Snippets',
+        description: 'Browse, save, edit, and reuse snippets',
+        keywords: ['snippets', 'snippet', 'library', 'save snippet'],
+        action: () => {
+          onClose();
+          onOpenSnippets();
+        },
+      },
+      {
         id: 'action-settings',
         category: 'action',
         label: 'Open Settings',
@@ -159,6 +175,7 @@ export function CommandPalette({ onClose, onOpenSettings }: CommandPaletteProps)
     setLayoutPreset,
     onClose,
     onOpenSettings,
+    onOpenSnippets,
     checkForUpdates,
     restartToApply,
     updateStatus,

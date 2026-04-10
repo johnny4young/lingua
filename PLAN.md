@@ -20,7 +20,7 @@ The order of items below is the execution order. If a task is not in this plan, 
 - Magic comments are implemented for JS/TS and Python
 - Loop protection is implemented for JS/TS and Python
 - Result panel supports per-line style output for dynamic languages and full output for compiled languages
-- Snippet persistence exists and command palette can consume snippets
+- Snippet library exists with in-app save, browse, edit, delete, and reuse flows
 
 ### Execution model
 - JavaScript runs in a worker
@@ -209,12 +209,10 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-007 Turn snippets into a complete feature
 
 - Priority: `P1`
-- Status: `Partial`
-- Readiness: `Ready for MVP scope`
+- Status: `Done`
+- Readiness: `Implemented`
 - Current gap:
-  - Persistence exists
-  - Command palette can consume snippets
-  - There is no dedicated creation, editing, or browsing UI
+  - Resolved with a dedicated snippets modal, toolbar entry point, command-palette entry point, active-tab save flow, editing UI, delete action, and insertion/open actions
 - MVP scope:
   - Save current tab as snippet
   - Browse saved snippets in a dedicated list or modal
