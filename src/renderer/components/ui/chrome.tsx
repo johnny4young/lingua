@@ -1,8 +1,5 @@
-import type {
-  ButtonHTMLAttributes,
-  HTMLAttributes,
-  ReactNode,
-} from 'react';
+import { forwardRef } from 'react';
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
 import { cn } from '../../utils/cn';
 
 interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -10,14 +7,13 @@ interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   tone?: 'neutral' | 'danger';
 }
 
-export function IconButton({
-  active = false,
-  tone = 'neutral',
-  className,
-  ...props
-}: IconButtonProps) {
+export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
+  { active = false, tone = 'neutral', className, ...props },
+  ref
+) {
   return (
     <button
+      ref={ref}
       className={cn(
         'icon-button size-9',
         active && 'icon-button-active',
@@ -27,7 +23,7 @@ export function IconButton({
       {...props}
     />
   );
-}
+});
 
 export function Kbd({
   className,

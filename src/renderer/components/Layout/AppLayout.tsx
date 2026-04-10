@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
@@ -165,6 +165,8 @@ export function AppLayout({
   const { layoutPreset } = useSettingsStore();
   const { sidebarVisible, consoleVisible, setSidebarVisible } = useUIStore();
   const isCompactShell = useCompactShellLayout();
+  const compactDrawerCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const compactDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
@@ -183,6 +185,29 @@ export function AppLayout({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isCompactShell, setSidebarVisible, sidebarVisible]);
+
+  useEffect(() => {
+    if (!sidebarVisible || !isCompactShell) {
+      return;
+    }
+
+    compactDrawerReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    const frameId = window.requestAnimationFrame(() => {
+      compactDrawerCloseButtonRef.current?.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      const previousFocus = compactDrawerReturnFocusRef.current;
+      compactDrawerReturnFocusRef.current = null;
+
+      if (previousFocus?.isConnected) {
+        previousFocus.focus();
+      }
+    };
+  }, [isCompactShell, sidebarVisible]);
 
   return (
     <div className="app-shell">
@@ -237,6 +262,7 @@ export function AppLayout({
             onClick={(event) => event.stopPropagation()}
           >
             <IconButton
+              ref={compactDrawerCloseButtonRef}
               onClick={() => setSidebarVisible(false)}
               title="Close sidebar"
               className="absolute right-3 top-3 z-10 bg-surface/92"

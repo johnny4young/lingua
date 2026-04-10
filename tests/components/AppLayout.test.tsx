@@ -59,7 +59,11 @@ vi.mock('react-resizable-panels', () => ({
 }));
 
 vi.mock('../../src/renderer/components/Toolbar', () => ({
-  Toolbar: () => <div data-testid="toolbar">Toolbar</div>,
+  Toolbar: () => (
+    <button type="button" data-testid="toolbar-toggle" title="Toggle sidebar (Cmd+B)">
+      Toolbar
+    </button>
+  ),
 }));
 
 vi.mock('../../src/renderer/components/FileTree', () => ({
@@ -187,6 +191,37 @@ describe('AppLayout responsive shell', () => {
     await user.click(screen.getByTitle('Close sidebar'));
     await waitFor(() => {
       expect(useUIStore.getState().sidebarVisible).toBe(false);
+    });
+  });
+
+  it('focuses the close button when the compact drawer opens and restores focus after backdrop close', async () => {
+    const user = userEvent.setup();
+    setCompactShell(true);
+    useUIStore.setState({ sidebarVisible: false, consoleVisible: false });
+
+    await renderLayout();
+
+    const toggleButton = screen.getByTestId('toolbar-toggle');
+    toggleButton.focus();
+    expect(document.activeElement).toBe(toggleButton);
+
+    act(() => {
+      useUIStore.setState({ sidebarVisible: true });
+    });
+
+    const dialog = await screen.findByRole('dialog', { name: 'Project explorer' });
+    const closeButton = screen.getByTitle('Close sidebar');
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(closeButton);
+    });
+
+    await user.click(dialog.parentElement as HTMLElement);
+    await waitFor(() => {
+      expect(useUIStore.getState().sidebarVisible).toBe(false);
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(toggleButton);
     });
   });
 });
