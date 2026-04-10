@@ -21,8 +21,8 @@ function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' |
     <Separator
       className={`group relative flex items-center justify-center transition-colors ${
         isVertical
-          ? 'w-[5px] cursor-col-resize hover:bg-primary/8'
-          : 'h-[5px] cursor-row-resize hover:bg-primary/8'
+          ? '-mx-1 w-3 cursor-col-resize hover:bg-primary/8'
+          : '-my-1 h-3 cursor-row-resize hover:bg-primary/8'
       }`}
     >
       <div
@@ -42,14 +42,18 @@ function EditorArea() {
       <EditorTabs />
       <div className="flex-1">
         {hasTabs ? (
-          <Group orientation="horizontal">
-            <Panel defaultSize={55} minSize={30}>
+          <Group
+            orientation="horizontal"
+            autoSaveId="runlang-editor-results-layout"
+            resizeTargetMinimumSize={24}
+          >
+            <Panel id="editor-panel" defaultSize="55%" minSize={320}>
               <Suspense fallback={<EditorLoadingState />}>
                 <CodeEditor />
               </Suspense>
             </Panel>
             <ResizeHandle orientation="vertical" />
-            <Panel defaultSize={45} minSize={15}>
+            <Panel id="results-panel" defaultSize="45%" minSize={220}>
               <ResultPanel />
             </Panel>
           </Group>
@@ -81,12 +85,16 @@ function MainContent({ showConsole, layoutPreset }: MainContentProps) {
 
   if (layoutPreset === 'vertical') {
     return (
-      <Group orientation="horizontal">
-        <Panel defaultSize={60} minSize={30}>
+      <Group
+        orientation="horizontal"
+        autoSaveId="runlang-main-vertical-layout"
+        resizeTargetMinimumSize={24}
+      >
+        <Panel id="workspace-panel" defaultSize="60%" minSize={420}>
           <EditorArea />
         </Panel>
         <ResizeHandle orientation="vertical" />
-        <Panel defaultSize={40} minSize={20}>
+        <Panel id="console-panel" defaultSize="40%" minSize={260}>
           <ConsolePanel />
         </Panel>
       </Group>
@@ -95,12 +103,16 @@ function MainContent({ showConsole, layoutPreset }: MainContentProps) {
 
   // horizontal (default)
   return (
-    <Group orientation="vertical">
-      <Panel defaultSize={70} minSize={30}>
+    <Group
+      orientation="vertical"
+      autoSaveId="runlang-main-horizontal-layout"
+      resizeTargetMinimumSize={24}
+    >
+      <Panel id="workspace-panel" defaultSize="70%" minSize={260}>
         <EditorArea />
       </Panel>
       <ResizeHandle orientation="horizontal" />
-      <Panel defaultSize={30} minSize={15}>
+      <Panel id="console-panel" defaultSize="30%" minSize={160}>
         <ConsolePanel />
       </Panel>
     </Group>
@@ -134,24 +146,35 @@ export function AppLayout({
         onOpenSnippets={onOpenSnippets}
       />
       {sidebarVisible ? (
-        <Group orientation="horizontal" className="min-h-0 flex-1 p-2 pb-3 sm:p-3">
+        <Group
+          orientation="horizontal"
+          autoSaveId="runlang-shell-layout"
+          resizeTargetMinimumSize={24}
+          className="min-h-0 flex-1 p-2 pb-3 sm:p-3"
+        >
           {/* Sidebar */}
-          <Panel defaultSize={15} minSize={10} maxSize={30}>
-            <div className="surface-panel h-full overflow-hidden">
+          <Panel
+            id="sidebar-panel"
+            defaultSize={280}
+            minSize={220}
+            maxSize={420}
+            groupResizeBehavior="preserve-pixel-size"
+          >
+            <div className="surface-panel h-full min-w-0 overflow-hidden">
               <FileTree />
             </div>
           </Panel>
           <ResizeHandle orientation="vertical" />
           {/* Main area */}
-          <Panel defaultSize={85} minSize={50}>
-            <div className="surface-panel h-full overflow-hidden">
+          <Panel id="content-panel" minSize={360}>
+            <div className="surface-panel h-full min-w-0 overflow-hidden">
               <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
             </div>
           </Panel>
         </Group>
       ) : (
         <div className="min-h-0 flex-1 p-2 pb-3 sm:p-3">
-          <div className="surface-panel h-full overflow-hidden">
+          <div className="surface-panel h-full min-w-0 overflow-hidden">
             <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
           </div>
         </div>
