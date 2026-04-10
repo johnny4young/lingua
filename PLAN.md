@@ -155,6 +155,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
   - Monaco markers now use a dedicated execution owner so runtime/compile highlights coexist with TS diagnostics
   - Manual run and auto-run now both populate the same result-store view model
   - Dynamic-language line results are now available to the editor as inline decorations
+  - Location-aware execution failures now reveal the source line in Monaco and can surface through glyph-margin diagnostics
 - Acceptance criteria:
   - A type error in TS is visible in the editor without running
   - A runtime error in JS/TS/Python highlights the relevant source line
