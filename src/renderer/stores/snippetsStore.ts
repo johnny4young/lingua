@@ -13,9 +13,12 @@ export interface Snippet {
 
 interface SnippetsState {
   snippets: Snippet[];
-  addSnippet: (snippet: Omit<Snippet, 'id' | 'createdAt'>) => void;
+  addSnippet: (snippet: Omit<Snippet, 'id' | 'createdAt'>) => string;
   removeSnippet: (id: string) => void;
-  updateSnippet: (id: string, updates: Partial<Pick<Snippet, 'label' | 'description' | 'code'>>) => void;
+  updateSnippet: (
+    id: string,
+    updates: Partial<Pick<Snippet, 'label' | 'description' | 'code' | 'language'>>
+  ) => void;
 }
 
 let counter = 0;
@@ -33,6 +36,7 @@ export const useSnippetsStore = create<SnippetsState>()(
           createdAt: Date.now(),
         };
         set((state) => ({ snippets: [...state.snippets, newSnippet] }));
+        return newSnippet.id;
       },
 
       removeSnippet: (id) =>

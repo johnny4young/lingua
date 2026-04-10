@@ -56,11 +56,36 @@ describe('snippetsStore', () => {
     expect(updated.description).toBe('Original desc'); // unchanged
   });
 
+  it('should update snippet language when requested', () => {
+    useSnippetsStore.getState().addSnippet({
+      language: 'javascript',
+      label: 'Original',
+      description: '',
+      code: 'console.log("test")',
+    });
+
+    const id = useSnippetsStore.getState().snippets[0].id;
+    useSnippetsStore.getState().updateSnippet(id, { language: 'typescript' });
+
+    expect(useSnippetsStore.getState().snippets[0].language).toBe('typescript');
+  });
+
   it('should assign unique IDs to each snippet', () => {
     useSnippetsStore.getState().addSnippet({ language: 'go', label: 'A', description: '', code: '' });
     useSnippetsStore.getState().addSnippet({ language: 'go', label: 'B', description: '', code: '' });
 
     const { snippets } = useSnippetsStore.getState();
     expect(snippets[0].id).not.toBe(snippets[1].id);
+  });
+
+  it('should return the new snippet id from addSnippet', () => {
+    const snippetId = useSnippetsStore.getState().addSnippet({
+      language: 'go',
+      label: 'Return ID',
+      description: '',
+      code: 'package main',
+    });
+
+    expect(snippetId).toBe(useSnippetsStore.getState().snippets[0].id);
   });
 });

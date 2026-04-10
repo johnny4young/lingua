@@ -111,9 +111,15 @@ interface AppLayoutProps {
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
   onOpenQuickOpen?: () => void;
+  onOpenSnippets?: () => void;
 }
 
-export function AppLayout({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: AppLayoutProps) {
+export function AppLayout({
+  onOpenSettings,
+  onOpenPalette,
+  onOpenQuickOpen,
+  onOpenSnippets,
+}: AppLayoutProps) {
   const { layoutPreset } = useSettingsStore();
   const { sidebarVisible, consoleVisible } = useUIStore();
 
@@ -125,6 +131,7 @@ export function AppLayout({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Ap
         onOpenSettings={onOpenSettings}
         onOpenPalette={onOpenPalette}
         onOpenQuickOpen={onOpenQuickOpen}
+        onOpenSnippets={onOpenSnippets}
       />
       {sidebarVisible ? (
         <Group orientation="horizontal" className="flex-1">

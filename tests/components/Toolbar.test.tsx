@@ -72,6 +72,7 @@ vi.mock('lucide-react', () => ({
   Square: () => <span data-testid="icon-stop">■</span>,
   Plus: () => null,
   ChevronDown: () => null,
+  BookCopy: () => null,
   Settings: () => null,
   Loader2: () => <span data-testid="icon-loader">…</span>,
   Terminal: () => null,
