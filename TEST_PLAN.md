@@ -37,7 +37,10 @@ Use this section to prevent rerunning already-validated cases. Each execution re
 | `2026-04-10` | electron | `TC-002`, `TC-004`-`TC-020` | `✅ passed` | `output/playwright/electron-shell-suite.png`, `output/playwright/electron-shell-tabs-a11y.png` | `📝` Shell, welcome state, new-file flow, tab semantics, and dirty-state visibility validated after improving `EditorTabs` accessibility. |
 | `2026-04-10` | electron | `TC-021`-`TC-026`, `TC-031`-`TC-056` | `✅ passed` | `output/playwright/electron-overlays-settings-snippets.png`, `output/playwright/electron-settings-updates-plugins.png`, `output/playwright/electron-snippets-crud.png` | `📝` Command palette, settings, updates/plugins dev-state, and snippets CRUD validated. `TC-053` passed as a dev-build disabled-state check. After `Insert into Active Tab`, the snippet must be reselected before `Delete` becomes available again. |
 | `2026-04-10` | electron | `TC-027`-`TC-030`, `TC-057`-`TC-059` | `✅ passed` | `output/playwright/electron-explorer-quickopen.png` | `📝` Project fixture opened inside the desktop app, directory expansion worked, files opened into tabs, and quick open filtered by name/path correctly. |
-| `2026-04-10` | electron | `TC-060`-`TC-066` | `⛔ blocked` | `output/playwright/electron-explorer-crud-watch.png` | `📝` Partial validation only. Root/file-tree CRUD and watch sync reached the real desktop explorer, but exact automation of hover-only controls and long-running Electron sessions became unstable due repeated REPL resets and brittle hover interactions. Resume from this range only. |
+| `2026-04-10` | electron | `TC-060`-`TC-066` | `✅ passed` | `output/playwright/electron-explorer-crud-watch-validated.png` | `📝` Root file/folder create, nested file create, rename/delete flows, refresh, and external watch sync all validated in the real desktop explorer. Fixed a real renderer bug so inline create controls now render inside expanded subdirectories rather than root only. |
+| `2026-04-10` | electron | `TC-067`-`TC-075` | `✅ passed` | `output/playwright/electron-console-results-validated.png` | `📝` Console log filtering, timestamp toggle, clear flow, inline magic-comment results, compiled output rendering, undefined visibility toggle, runtime error surfacing, and execution timing all validated from real desktop fixture files. |
+| `2026-04-10` | electron | `TC-085`-`TC-091` | `✅ passed` | `output/playwright/electron-languages-validated.png` | `📝` JavaScript, TypeScript, Python, Go, and Rust execution validated from fixture files in the desktop app, including native Go/Rust compile error surfacing with line information. |
+| `2026-04-10` | electron | `TC-095`-`TC-100` | `✅ passed` | `output/playwright/electron-persistence-shutdown-validated.png` | `📝` Desktop shortcuts, settings/snippet persistence, empty-state recovery, shutdown, and reopen flows all validated in Electron. No browser console errors were emitted and both Electron instances exited cleanly without orphaned processes. |
 
 ## Test Surfaces
 
@@ -214,27 +217,27 @@ Use this order when automating:
 | ✅ | `TC-057` | `ELEC` | `developer` | Open fixture project | Explorer shows expected tree |
 | ✅ | `TC-058` | `ELEC` | `developer` | Expand/collapse directories | Directory state changes correctly |
 | ✅ | `TC-059` | `ELEC` | `developer` | Open file from explorer | Tab opens with correct content |
-| ⛔ | `TC-060` | `ELEC` | `developer` | Create root file | File appears in tree |
-| ⛔ | `TC-061` | `ELEC` | `developer` | Create root folder | Folder appears in tree |
-| ⛔ | `TC-062` | `ELEC` | `developer` | Create file inside folder | File appears in correct directory |
-| ⛔ | `TC-063` | `ELEC` | `developer` | Rename file/folder | Tree updates with new name |
-| ⛔ | `TC-064` | `ELEC` | `developer` | Delete file/folder | Entry disappears |
-| ⛔ | `TC-065` | `ELEC` | `developer` | Click refresh tree | Tree reloads and expansion remains coherent |
-| ⛔ | `TC-066` | `ELEC` | `developer` | Modify filesystem outside app | Watch sync updates tree automatically |
+| ✅ | `TC-060` | `ELEC` | `developer` | Create root file | File appears in tree |
+| ✅ | `TC-061` | `ELEC` | `developer` | Create root folder | Folder appears in tree |
+| ✅ | `TC-062` | `ELEC` | `developer` | Create file inside folder | File appears in correct directory |
+| ✅ | `TC-063` | `ELEC` | `developer` | Rename file/folder | Tree updates with new name |
+| ✅ | `TC-064` | `ELEC` | `developer` | Delete file/folder | Entry disappears |
+| ✅ | `TC-065` | `ELEC` | `developer` | Click refresh tree | Tree reloads and expansion remains coherent |
+| ✅ | `TC-066` | `ELEC` | `developer` | Modify filesystem outside app | Watch sync updates tree automatically |
 
 ## Console / Results
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| 🕒 | `TC-067` | `BOTH` | `developer` | Run code and inspect console | Console shows logs |
-| 🕒 | `TC-068` | `BOTH` | `developer` | Toggle log/info/warn/error filters | Visible entries change correctly |
-| 🕒 | `TC-069` | `BOTH` | `developer` | Toggle timestamps | Timestamps show/hide |
-| 🕒 | `TC-070` | `BOTH` | `developer` | Click clear console | Console becomes empty |
-| 🕒 | `TC-071` | `BOTH` | `developer` | Inspect result panel | Inline results align with editor lines |
-| 🕒 | `TC-072` | `BOTH` | `developer` | Inspect result panel | Full output view renders |
-| 🕒 | `TC-073` | `BOTH` | `developer` | Toggle `undef` | Undefined results hide/show |
-| 🕒 | `TC-074` | `BOTH` | `developer` | Run failing code | Error is visible with line info if available |
-| 🕒 | `TC-075` | `BOTH` | `developer` | Run code | Execution time appears |
+| ✅ | `TC-067` | `BOTH` | `developer` | Run code and inspect console | Console shows logs |
+| ✅ | `TC-068` | `BOTH` | `developer` | Toggle log/info/warn/error filters | Visible entries change correctly |
+| ✅ | `TC-069` | `BOTH` | `developer` | Toggle timestamps | Timestamps show/hide |
+| ✅ | `TC-070` | `BOTH` | `developer` | Click clear console | Console becomes empty |
+| ✅ | `TC-071` | `BOTH` | `developer` | Inspect result panel | Inline results align with editor lines |
+| ✅ | `TC-072` | `BOTH` | `developer` | Inspect result panel | Full output view renders |
+| ✅ | `TC-073` | `BOTH` | `developer` | Toggle `undef` | Undefined results hide/show |
+| ✅ | `TC-074` | `BOTH` | `developer` | Run failing code | Error is visible with line info if available |
+| ✅ | `TC-075` | `BOTH` | `developer` | Run code | Execution time appears |
 
 ## Languages
 
@@ -249,13 +252,13 @@ Use this order when automating:
 | ⏭ | `TC-082` | `WEB` | `developer` | Run Python print | Output is correct |
 | ⏭ | `TC-083` | `WEB` | `developer` | Run Python syntax/runtime error | Error renders correctly |
 | ⏭ | `TC-084` | `WEB` | `developer` | Open Go/Rust in web | Explicit limitation or supported behavior is shown correctly |
-| 🕒 | `TC-085` | `ELEC` | `developer` | Run JS hello world | Output is correct |
-| 🕒 | `TC-086` | `ELEC` | `developer` | Run TS hello world | Output is correct |
-| 🕒 | `TC-087` | `ELEC` | `developer` | Run Python hello world | Output is correct |
-| 🕒 | `TC-088` | `ELEC` | `developer` | Run Go hello world | Compile and execution succeed |
-| 🕒 | `TC-089` | `ELEC` | `developer` | Run Go compile error case | Compile error is visible |
-| 🕒 | `TC-090` | `ELEC` | `developer` | Run Rust hello world | Compile and execution succeed |
-| 🕒 | `TC-091` | `ELEC` | `developer` | Run Rust compile error case | Compile error is visible |
+| ✅ | `TC-085` | `ELEC` | `developer` | Run JS hello world | Output is correct |
+| ✅ | `TC-086` | `ELEC` | `developer` | Run TS hello world | Output is correct |
+| ✅ | `TC-087` | `ELEC` | `developer` | Run Python hello world | Output is correct |
+| ✅ | `TC-088` | `ELEC` | `developer` | Run Go hello world | Compile and execution succeed |
+| ✅ | `TC-089` | `ELEC` | `developer` | Run Go compile error case | Compile error is visible |
+| ✅ | `TC-090` | `ELEC` | `developer` | Run Rust hello world | Compile and execution succeed |
+| ✅ | `TC-091` | `ELEC` | `developer` | Run Rust compile error case | Compile error is visible |
 
 ## Responsive / Persistence / Shutdown
 
@@ -264,12 +267,12 @@ Use this order when automating:
 | ⏭ | `TC-092` | `WEB` | `developer` | Run on mobile viewport | Toolbar and overlays remain usable, no critical overflow |
 | ⏭ | `TC-093` | `WEB` | `developer` | Run on tablet viewport | Settings and snippets adapt layout correctly |
 | ⏭ | `TC-094` | `WEB` | `developer` | Run on wide desktop viewport | Shell and welcome state render without clipping |
-| 🕒 | `TC-095` | `ELEC` | `developer` | Open then close app | No orphaned processes remain |
-| 🕒 | `TC-096` | `ELEC` | `developer` | Reopen app after close | App starts cleanly again |
-| 🕒 | `TC-097` | `ELEC` | `developer` | Trigger shortcuts `Cmd+B`, `Cmd+\\`, `Cmd+P`, `Cmd+Shift+P`, `Cmd+,`, `Cmd+Enter` | Correct shell actions run |
-| 🕒 | `TC-098` | `BOTH` | `developer` | Reload app | Theme, layout, snippets, and editor settings persist |
-| 🕒 | `TC-099` | `BOTH` | `developer` | No project and no tabs | Empty state and CTAs are correct |
-| 🕒 | `TC-100` | `BOTH` | `developer` | End of suite cleanup | No blocking console errors and no zombie process left |
+| ✅ | `TC-095` | `ELEC` | `developer` | Open then close app | No orphaned processes remain |
+| ✅ | `TC-096` | `ELEC` | `developer` | Reopen app after close | App starts cleanly again |
+| ✅ | `TC-097` | `ELEC` | `developer` | Trigger shortcuts `Cmd+B`, `Cmd+\\`, `Cmd+P`, `Cmd+Shift+P`, `Cmd+,`, `Cmd+Enter` | Correct shell actions run |
+| ✅ | `TC-098` | `BOTH` | `developer` | Reload app | Theme, layout, snippets, and editor settings persist |
+| ✅ | `TC-099` | `BOTH` | `developer` | No project and no tabs | Empty state and CTAs are correct |
+| ✅ | `TC-100` | `BOTH` | `developer` | End of suite cleanup | No blocking console errors and no zombie process left |
 
 ## Suite Grouping
 
