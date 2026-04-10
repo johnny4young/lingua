@@ -3,12 +3,59 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0c1017" />
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net;"
     />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>RunLang</title>
+    <script>
+      (() => {
+        const storedState = window.localStorage.getItem('runlang-settings');
+        const themeColors = {
+          dark: '#0c1017',
+          light: '#f4efe7',
+        };
+
+        const readStoredTheme = () => {
+          if (!storedState) {
+            return 'dark';
+          }
+
+          try {
+            const parsed = JSON.parse(storedState);
+            const directTheme = parsed?.theme;
+            if (directTheme === 'dark' || directTheme === 'light') {
+              return directTheme;
+            }
+
+            const persistedTheme = parsed?.state?.theme;
+            if (persistedTheme === 'dark' || persistedTheme === 'light') {
+              return persistedTheme;
+            }
+          } catch {}
+
+          return 'dark';
+        };
+
+        const theme = readStoredTheme();
+        const root = document.documentElement;
+        root.classList.remove('dark', 'light');
+        root.classList.add(theme);
+        root.dataset.theme = theme;
+        root.style.colorScheme = theme;
+
+        let themeColorMeta = document.querySelector('meta[name="theme-color"]');
+        if (!themeColorMeta) {
+          themeColorMeta = document.createElement('meta');
+          themeColorMeta.name = 'theme-color';
+          document.head.appendChild(themeColorMeta);
+        }
+
+        themeColorMeta.setAttribute('content', themeColors[theme]);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -17,6 +17,12 @@ RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python,
 - Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
 - CI, GitHub Pages deployment, and tagged release workflows
 
+## Theme behavior
+
+- App theme and editor theme stay independent: the shell uses the saved dark/light setting while Monaco uses its own editor theme selection
+- The saved app theme is applied before React mounts, so reloads reopen directly into the previous shell theme instead of flashing the wrong palette first
+- The renderer keeps `theme-color` in sync with the active shell theme for browser chrome and packaged-window surfaces that read it
+
 ## Runtime model
 
 - JavaScript and TypeScript run in renderer workers

@@ -250,7 +250,7 @@ Use this order when automating:
 | ✅ | `TC-095` | `ELEC` | `developer` | Open then close app | No orphaned processes remain |
 | ✅ | `TC-096` | `ELEC` | `developer` | Reopen app after close | App starts cleanly again |
 | ✅ | `TC-097` | `ELEC` | `developer` | Trigger shortcuts `Cmd+B`, `Cmd+\\`, `Cmd+P`, `Cmd+Shift+P`, `Cmd+,`, `Cmd+Enter` | Correct shell actions run |
-| ✅ | `TC-098` | `BOTH` | `developer` | Reload app | Theme, layout, snippets, and editor settings persist |
+| ✅ | `TC-098` | `BOTH` | `developer` | Reload app | Theme, layout, snippets, and editor settings persist, and the saved shell theme reapplies immediately on reload |
 | ✅ | `TC-099` | `BOTH` | `developer` | No project and no tabs | Empty state and CTAs are correct |
 | ✅ | `TC-100` | `BOTH` | `developer` | End of suite cleanup | No blocking console errors and no zombie process left |
 
