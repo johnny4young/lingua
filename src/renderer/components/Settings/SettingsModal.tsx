@@ -4,10 +4,7 @@ import { EditorSection } from './EditorSection';
 import { LayoutSection } from './LayoutSection';
 import { PluginsSection } from './PluginsSection';
 import { UpdatesSection } from './UpdatesSection';
-
-// ---------------------------------------------------------------------------
-// Main component
-// ---------------------------------------------------------------------------
+import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -15,38 +12,45 @@ interface SettingsModalProps {
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
   return (
-    // Backdrop
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      {/* Dialog */}
-      <div className="relative w-full max-w-lg rounded-xl border border-gray-800 bg-gray-900 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-800 px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-gray-100">Settings</h2>
-          <button
-            onClick={onClose}
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
-          >
+    <OverlayBackdrop onClose={onClose}>
+      <OverlayCard className="relative w-full max-w-4xl">
+        <div className="surface-header flex items-start justify-between gap-4 px-6 py-5">
+          <div>
+            <p className="panel-title">Workspace Settings</p>
+            <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
+              Tune the shell, editor, and runtime defaults
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+              The interface supports both dark and light shells, while Monaco keeps its own theme
+              pipeline for code editing. Changes are saved automatically.
+            </p>
+          </div>
+          <IconButton onClick={onClose} title="Close settings">
             <X size={16} />
-          </button>
+          </IconButton>
         </div>
 
-        {/* Body */}
-        <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
-          <AppearanceSection />
-          <EditorSection />
-          <LayoutSection />
-          <UpdatesSection />
-          <PluginsSection />
+        <div className="max-h-[78vh] overflow-y-auto px-6 py-5">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="space-y-8">
+              <AppearanceSection />
+              <LayoutSection />
+              <UpdatesSection />
+            </div>
+            <div className="space-y-8">
+              <EditorSection />
+              <PluginsSection />
+            </div>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end border-t border-gray-800 px-5 py-3">
-          <p className="text-xs text-gray-600">Settings are saved automatically</p>
+        <div className="surface-header flex items-center justify-between px-6 py-3">
+          <p className="text-xs text-muted">
+            Settings persist locally across desktop and web sessions.
+          </p>
+          <span className="status-pill">Autosave enabled</span>
         </div>
-      </div>
-    </div>
+      </OverlayCard>
+    </OverlayBackdrop>
   );
 }

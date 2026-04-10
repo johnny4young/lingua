@@ -21,13 +21,13 @@ function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' |
     <Separator
       className={`group relative flex items-center justify-center transition-colors ${
         isVertical
-          ? 'w-[3px] cursor-col-resize hover:bg-primary-500/20'
-          : 'h-[3px] cursor-row-resize hover:bg-primary-500/20'
+          ? 'w-[5px] cursor-col-resize hover:bg-primary/8'
+          : 'h-[5px] cursor-row-resize hover:bg-primary/8'
       }`}
     >
       <div
-        className={`bg-gray-800/60 transition-colors group-hover:bg-primary-500 group-data-[separator]:bg-primary-500 ${
-          isVertical ? 'h-full w-px' : 'h-px w-full'
+        className={`rounded-full bg-border transition-colors group-hover:bg-primary group-data-[separator]:bg-primary ${
+          isVertical ? 'h-[78%] w-px' : 'h-px w-[78%]'
         }`}
       />
     </Separator>
@@ -65,7 +65,7 @@ function EditorArea() {
 
 function EditorLoadingState() {
   return (
-    <div className="flex h-full items-center justify-center bg-gray-950 text-sm text-gray-500">
+    <div className="flex h-full items-center justify-center bg-background text-sm text-muted">
       Loading editor...
     </div>
   );
@@ -126,7 +126,7 @@ export function AppLayout({
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-gray-950 text-gray-100">
+    <div className="app-shell">
       <Toolbar
         onOpenSettings={onOpenSettings}
         onOpenPalette={onOpenPalette}
@@ -134,20 +134,26 @@ export function AppLayout({
         onOpenSnippets={onOpenSnippets}
       />
       {sidebarVisible ? (
-        <Group orientation="horizontal" className="flex-1">
+        <Group orientation="horizontal" className="min-h-0 flex-1 p-2 pb-3 sm:p-3">
           {/* Sidebar */}
           <Panel defaultSize={15} minSize={10} maxSize={30}>
-            <FileTree />
+            <div className="surface-panel h-full overflow-hidden">
+              <FileTree />
+            </div>
           </Panel>
           <ResizeHandle orientation="vertical" />
           {/* Main area */}
           <Panel defaultSize={85} minSize={50}>
-            <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
+            <div className="surface-panel h-full overflow-hidden">
+              <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
+            </div>
           </Panel>
         </Group>
       ) : (
-        <div className="flex-1">
-          <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
+        <div className="min-h-0 flex-1 p-2 pb-3 sm:p-3">
+          <div className="surface-panel h-full overflow-hidden">
+            <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
+          </div>
         </div>
       )}
     </div>

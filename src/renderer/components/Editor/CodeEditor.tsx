@@ -6,6 +6,7 @@ import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { Language } from '../../types';
 import { extensionForLanguage, languageBadgeClass, monacoLanguageFor } from '../../utils/languageMeta';
 import { configureMonaco } from '../../monaco';
+import { Kbd } from '../ui/chrome';
 
 configureMonaco();
 
@@ -145,66 +146,95 @@ function EmptyState() {
   };
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-8 px-8 text-center">
-      {/* Logo / brand */}
-      <div className="flex flex-col items-center gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-500/15">
-            <span className="text-lg font-bold text-primary-400">R</span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-100">RunLang</h1>
-        </div>
-        <p className="max-w-sm text-sm text-gray-500">
-          Write, run, and experiment with code instantly.
-        </p>
-      </div>
+    <div className="relative flex h-full flex-col overflow-auto">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top,rgba(144,103,255,0.18),transparent_68%)]" />
 
-      {/* Quick-start language buttons */}
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {LANGUAGE_ORDER.map((lang) => (
-          <button
-            key={lang}
-            onClick={() => quickStart(lang)}
-            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all hover:scale-105 ${languageBadgeClass(lang)}`}
-          >
-            {lang === 'javascript' ? 'JavaScript' : lang === 'typescript' ? 'TypeScript' : lang.charAt(0).toUpperCase() + lang.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Template grid */}
-      <div className="w-full max-w-2xl">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-600">
-          Or start from a template
-        </p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {BUILT_IN_TEMPLATES.slice(0, 9).map((tpl) => (
-            <button
-              key={tpl.id}
-              onClick={() => openTemplate(tpl.id)}
-              className="group flex flex-col gap-1.5 rounded-lg border border-gray-800/60 bg-gray-900/50 p-3 text-left transition-all hover:border-gray-700 hover:bg-gray-800/60"
-            >
-              <span className={`self-start rounded px-1.5 py-0.5 text-[10px] font-bold ${languageBadgeClass(tpl.language)}`}>
-                {tpl.language}
+      <div className="relative mx-auto flex h-full w-full max-w-6xl flex-col justify-center gap-8 px-5 py-8 sm:px-8 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
+        <section className="animate-rise-in space-y-7">
+          <div className="inline-flex items-center gap-3">
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-[1.4rem] border border-border-strong/80 bg-surface-strong/90 shadow-[0_18px_60px_rgba(12,14,24,0.18)]">
+              <span className="font-display text-xl font-semibold tracking-[0.14em] text-primary">
+                RL
               </span>
-              <span className="text-xs font-medium text-gray-300 group-hover:text-gray-100">{tpl.label}</span>
-              <span className="text-[11px] leading-tight text-gray-600">{tpl.description}</span>
-            </button>
-          ))}
-        </div>
-      </div>
+              <span className="absolute inset-1 rounded-[1.1rem] border border-white/6" />
+            </div>
+            <div>
+              <p className="panel-title">Developer Workbench</p>
+              <h1 className="font-display text-4xl font-semibold tracking-[-0.04em] text-foreground sm:text-5xl">
+                RunLang
+              </h1>
+            </div>
+          </div>
 
-      {/* Shortcuts hint */}
-      <div className="flex items-center gap-4 text-[11px] text-gray-600">
-        <span>
-          <kbd className="rounded bg-gray-800/80 px-1.5 py-0.5 text-gray-500">Cmd+Shift+P</kbd> Commands
-        </span>
-        <span>
-          <kbd className="rounded bg-gray-800/80 px-1.5 py-0.5 text-gray-500">Cmd+B</kbd> Sidebar
-        </span>
-        <span>
-          <kbd className="rounded bg-gray-800/80 px-1.5 py-0.5 text-gray-500">Cmd+Enter</kbd> Run
-        </span>
+          <div className="max-w-2xl space-y-3">
+            <p className="max-w-xl text-balance font-display text-[1.95rem] font-semibold leading-tight tracking-[-0.04em] text-foreground sm:text-[2.45rem]">
+              Run experiments fast, keep the workspace calm, and stay inside one editor.
+            </p>
+            <p className="max-w-xl text-sm leading-7 text-muted sm:text-base">
+              Start a blank file, open a language template, or jump straight to a snippet.
+              The shell is tuned for tight feedback loops and native desktop execution when
+              you need it.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {LANGUAGE_ORDER.map((language) => (
+              <button
+                key={language}
+                onClick={() => quickStart(language)}
+                className={`rounded-full px-4 py-2 text-xs font-semibold transition-transform hover:-translate-y-0.5 ${languageBadgeClass(language)}`}
+              >
+                {language === 'javascript'
+                  ? 'JavaScript'
+                  : language === 'typescript'
+                    ? 'TypeScript'
+                    : language.charAt(0).toUpperCase() + language.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted">
+            <span>
+              <Kbd>Cmd+Shift+P</Kbd> Commands
+            </span>
+            <span>
+              <Kbd>Cmd+B</Kbd> Sidebar
+            </span>
+            <span>
+              <Kbd>Cmd+Enter</Kbd> Run
+            </span>
+          </div>
+        </section>
+
+        <section className="surface-panel-strong animate-rise-in overflow-hidden">
+          <div className="surface-header flex items-center justify-between px-5 py-4">
+            <div>
+              <p className="panel-title">Starting Points</p>
+              <p className="mt-1 text-sm text-muted">Open a proven template and iterate.</p>
+            </div>
+            <div className="status-pill">9 templates</div>
+          </div>
+
+          <div className="grid gap-2 p-3 sm:grid-cols-2">
+            {BUILT_IN_TEMPLATES.slice(0, 6).map((template) => (
+              <button
+                key={template.id}
+                onClick={() => openTemplate(template.id)}
+                className="group flex flex-col gap-2 rounded-[1.35rem] border border-border/80 bg-background-elevated/74 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-border-strong/90 hover:bg-background-elevated"
+              >
+                <span
+                  className={`self-start rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] ${languageBadgeClass(template.language)}`}
+                >
+                  {template.language}
+                </span>
+                <span className="font-display text-lg font-semibold tracking-[-0.03em] text-foreground">
+                  {template.label}
+                </span>
+                <span className="text-xs leading-6 text-muted">{template.description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
     </div>
   );

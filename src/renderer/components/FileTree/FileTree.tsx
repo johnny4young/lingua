@@ -14,6 +14,7 @@ import {
 import { useEditorStore } from '../../stores/editorStore';
 import { useProjectStore, type FileTreeNode } from '../../stores/projectStore';
 import { languageTextColorClass } from '../../utils/languageMeta';
+import { IconButton } from '../ui/chrome';
 
 // ------------------------------------------------------------------ sub-components
 
@@ -41,7 +42,7 @@ function InlineInput({ placeholder, onConfirm, onCancel }: InlineInputProps) {
     <input
       ref={ref}
       placeholder={placeholder}
-      className="w-full rounded border border-primary-500 bg-gray-800 px-1.5 py-0.5 text-xs text-gray-100 outline-none"
+      className="field-shell rounded-xl px-2.5 py-1.5 text-xs"
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') commit();
@@ -93,8 +94,8 @@ function TreeNode({
   return (
     <div>
       <div
-        className={`group flex items-center gap-1 rounded px-1 py-0.5 text-xs transition-colors ${
-          hovered ? 'bg-gray-800/60' : 'hover:bg-gray-800/40'
+        className={`group flex items-center gap-1 rounded-xl px-1.5 py-1 text-xs transition-colors ${
+          hovered ? 'bg-surface-strong/78' : 'hover:bg-surface-strong/58'
         }`}
         style={{ paddingLeft: `${indent + 4}px` }}
         onMouseEnter={() => setHovered(true)}
@@ -104,7 +105,7 @@ function TreeNode({
         {node.isDirectory ? (
           <button
             onClick={handleToggle}
-            className="shrink-0 text-gray-500 hover:text-gray-300"
+            className="shrink-0 text-muted hover:text-foreground"
           >
             {node.isExpanded ? (
               <ChevronDown size={12} />
@@ -120,9 +121,9 @@ function TreeNode({
         {node.isDirectory ? (
           <button onClick={handleToggle} className="shrink-0">
             {node.isExpanded ? (
-              <FolderOpen size={13} className="text-yellow-500" />
+              <FolderOpen size={13} className="text-warning" />
             ) : (
-              <Folder size={13} className="text-yellow-600" />
+              <Folder size={13} className="text-warning" />
             )}
           </button>
         ) : (
@@ -141,7 +142,7 @@ function TreeNode({
           />
         ) : (
           <button
-            className="flex-1 truncate text-left text-gray-300 hover:text-gray-100"
+            className="flex-1 truncate text-left text-foreground/88 hover:text-foreground"
             onClick={() => (node.isDirectory ? handleToggle() : onFileClick(node))}
             onDoubleClick={() => setRenaming(true)}
             title={node.path}
@@ -159,7 +160,7 @@ function TreeNode({
                   e.stopPropagation();
                   onNewFileIn(node);
                 }}
-                className="rounded p-0.5 text-gray-500 hover:bg-gray-700 hover:text-gray-300"
+                className="rounded-lg p-1 text-muted hover:bg-surface hover:text-foreground"
                 title="New file"
               >
                 <FilePlus size={11} />
@@ -171,7 +172,7 @@ function TreeNode({
                   e.stopPropagation();
                   onNewDirIn(node);
                 }}
-                className="rounded p-0.5 text-gray-500 hover:bg-gray-700 hover:text-gray-300"
+                className="rounded-lg p-1 text-muted hover:bg-surface hover:text-foreground"
                 title="New folder"
               >
                 <FolderPlus size={11} />
@@ -182,7 +183,7 @@ function TreeNode({
                 e.stopPropagation();
                 onDelete(node);
               }}
-              className="rounded p-0.5 text-gray-500 hover:bg-red-900/50 hover:text-red-400"
+              className="rounded-lg p-1 text-muted hover:bg-error/10 hover:text-error"
               title="Delete"
             >
               <Trash2 size={11} />
@@ -207,7 +208,7 @@ function TreeNode({
           ))}
           {node.children.length === 0 && (
             <p
-              className="py-0.5 text-xs text-gray-600 italic"
+              className="py-0.5 text-xs italic text-muted"
               style={{ paddingLeft: `${(depth + 2) * 12 + 4}px` }}
             >
               empty
@@ -290,36 +291,36 @@ export function FileTree() {
 
   if (!currentProject) {
     return (
-      <div className="flex h-full flex-col bg-gray-900">
-        <div className="flex h-8 items-center gap-1.5 border-b border-gray-800 px-3">
-          <OpenFolderIcon size={14} className="text-gray-500" />
-          <span className="text-xs font-medium text-gray-400">Explorer</span>
+      <div className="flex h-full flex-col bg-background/65">
+        <div className="surface-header flex h-12 items-center gap-2 px-4">
+          <OpenFolderIcon size={14} className="text-muted" />
+          <span className="panel-title">Explorer</span>
         </div>
-        <div className="flex flex-1 flex-col items-center justify-start gap-2 p-3 pt-6">
-          <p className="text-center text-xs text-gray-500">No project open</p>
+        <div className="flex flex-1 flex-col items-center justify-start gap-3 p-4 pt-8">
+          <p className="text-center text-xs text-muted">No project open</p>
           <button
             onClick={createProject}
-            className="w-full rounded bg-primary-600/20 px-2 py-1.5 text-xs font-medium text-primary-400 transition-colors hover:bg-primary-600/30"
+            className="button-primary w-full"
           >
             Create Project
           </button>
           <button
             onClick={() => openProject()}
-            className="w-full rounded bg-gray-800 px-2 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700"
+            className="button-secondary w-full"
           >
             Open Folder
           </button>
           {recentProjects.length > 0 && (
             <div className="mt-3 w-full">
-              <p className="mb-1.5 text-xs font-medium text-gray-500">Recent</p>
+              <p className="mb-2 panel-title">Recent</p>
               {recentProjects.slice(0, 5).map((p) => (
                 <button
                   key={p.id}
                   onClick={() => openProject(p.rootPath)}
-                  className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left text-xs text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-300"
+                  className="flex w-full items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-xs text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
                   title={p.rootPath}
                 >
-                  <Folder size={12} className="shrink-0 text-yellow-600" />
+                  <Folder size={12} className="shrink-0 text-warning" />
                   <span className="truncate">{p.name}</span>
                 </button>
               ))}
@@ -329,25 +330,25 @@ export function FileTree() {
 
         {/* Fallback: in-memory tabs */}
         {tabs.length > 0 && (
-          <div className="border-t border-gray-800">
-            <div className="flex h-7 items-center gap-1.5 px-3">
-              <span className="text-xs font-medium text-gray-500">Open Tabs</span>
+          <div className="border-t border-border/70">
+            <div className="flex h-9 items-center gap-1.5 px-4">
+              <span className="panel-title">Open Tabs</span>
             </div>
             <div className="p-1">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors ${
+                  className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs transition-colors ${
                     tab.id === activeTabId
-                      ? 'bg-gray-800 text-gray-100'
-                      : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-300'
+                      ? 'bg-surface-strong/88 text-foreground'
+                      : 'text-muted hover:bg-surface-strong/62 hover:text-foreground'
                   }`}
                 >
                   <FileCode size={13} className={languageTextColorClass(tab.language)} />
                   <span className="truncate">{tab.name}</span>
                   {tab.isDirty && (
-                    <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-primary-400" />
+                    <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                   )}
                 </button>
               ))}
@@ -361,38 +362,35 @@ export function FileTree() {
   // --------------------------------------------------------- project view
 
   return (
-    <div className="flex h-full flex-col bg-gray-900">
+    <div className="flex h-full flex-col bg-background/65">
       {/* Header */}
-      <div className="flex h-8 items-center gap-1.5 border-b border-gray-800 px-2">
-        <FolderOpen size={14} className="shrink-0 text-yellow-500" />
+      <div className="surface-header flex h-12 items-center gap-2 px-3">
+        <FolderOpen size={14} className="shrink-0 text-warning" />
         <span
-          className="flex-1 truncate text-xs font-medium text-gray-300"
+          className="flex-1 truncate font-display text-sm font-semibold tracking-[0.08em] text-foreground"
           title={currentProject.rootPath}
         >
-          {currentProject.name.toUpperCase()}
+          {currentProject.name}
         </span>
         <div className="flex items-center gap-0.5">
-          <button
+          <IconButton
             onClick={() => handleNewFile()}
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
             title="New file"
           >
             <FilePlus size={13} />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={() => handleNewDir()}
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
             title="New folder"
           >
             <FolderPlus size={13} />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             onClick={refreshTree}
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
             title="Refresh"
           >
             <RefreshCw size={13} />
-          </button>
+          </IconButton>
         </div>
       </div>
 
@@ -429,17 +427,17 @@ export function FileTree() {
         ))}
 
         {nodes.length === 0 && (
-          <p className="px-3 py-4 text-center text-xs text-gray-600 italic">
+          <p className="px-3 py-4 text-center text-xs italic text-muted">
             Empty project
           </p>
         )}
       </div>
 
       {/* Open folder link */}
-      <div className="border-t border-gray-800 p-1">
+      <div className="border-t border-border/70 p-2">
         <button
           onClick={() => openProject()}
-          className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-400"
+          className="flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
         >
           <OpenFolderIcon size={12} />
           Open different folder

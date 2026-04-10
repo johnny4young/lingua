@@ -1,16 +1,18 @@
-import { X, Search, Code, Zap, FileCode } from 'lucide-react';
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { Code, FileCode, Search, X, Zap } from 'lucide-react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
-import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUpdateStore } from '../../stores/updateStore';
 import type { Language } from '../../types';
-import { extensionForLanguage, languageBadgeClass, languageShortLabel } from '../../utils/languageMeta';
-
-// ---------------------------------------------------------------------------
-// Command types
-// ---------------------------------------------------------------------------
+import {
+  extensionForLanguage,
+  languageBadgeClass,
+  languageShortLabel,
+} from '../../utils/languageMeta';
+import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { handleCloseOnEscape } from '../ui/keyboard';
 
 type CommandCategory = 'template' | 'snippet' | 'action';
 
@@ -24,16 +26,11 @@ interface Command {
   action: () => void;
 }
 
-// Language badge colors
-const CATEGORY_ICON: Record<CommandCategory, React.ReactNode> = {
-  template: <FileCode size={13} className="shrink-0 text-violet-400" />,
-  snippet:  <Code size={13} className="shrink-0 text-blue-400" />,
-  action:   <Zap size={13} className="shrink-0 text-yellow-400" />,
+const CATEGORY_ICON: Record<CommandCategory, ReactNode> = {
+  template: <FileCode size={13} className="shrink-0 text-primary" />,
+  snippet: <Code size={13} className="shrink-0 text-info" />,
+  action: <Zap size={13} className="shrink-0 text-warning" />,
 };
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 interface CommandPaletteProps {
   onClose: () => void;
@@ -56,61 +53,64 @@ export function CommandPalette({
   const { setLayoutPreset } = useSettingsStore();
   const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
 
-  // Build full command list
   const allCommands = useMemo((): Command[] => {
-    const cmds: Command[] = [];
+    const commands: Command[] = [];
 
-    // Built-in templates
-    for (const tpl of BUILT_IN_TEMPLATES) {
-      cmds.push({
-        id: `tpl-${tpl.id}`,
+    for (const template of BUILT_IN_TEMPLATES) {
+      commands.push({
+        id: `tpl-${template.id}`,
         category: 'template',
-        label: tpl.label,
-        description: tpl.description,
-        language: tpl.language,
-        keywords: [tpl.label, tpl.language, tpl.description].map((s) => s.toLowerCase()),
+        label: template.label,
+        description: template.description,
+        language: template.language,
+        keywords: [template.label, template.language, template.description].map((value) =>
+          value.toLowerCase()
+        ),
         action: () => {
-          const tab = createDefaultTab(tpl.language);
+          const tab = createDefaultTab(template.language);
           addTab({
             ...tab,
-            content: tpl.code,
-            name: `${tpl.label}.${extensionForLanguage(tpl.language)}`,
+            content: template.code,
+            name: `${template.label}.${extensionForLanguage(template.language)}`,
           });
           onClose();
         },
       });
     }
 
-    // Custom snippets
-    for (const sn of snippets) {
-      cmds.push({
-        id: `sn-${sn.id}`,
+    for (const snippet of snippets) {
+      commands.push({
+        id: `sn-${snippet.id}`,
         category: 'snippet',
-        label: sn.label,
-        description: sn.description || 'Custom snippet',
-        language: sn.language,
-        keywords: [sn.label, sn.language, sn.description].map((s) => s.toLowerCase()),
+        label: snippet.label,
+        description: snippet.description || 'Custom snippet',
+        language: snippet.language,
+        keywords: [snippet.label, snippet.language, snippet.description].map((value) =>
+          value.toLowerCase()
+        ),
         action: () => {
-          const tab = createDefaultTab(sn.language);
+          const tab = createDefaultTab(snippet.language);
           addTab({
             ...tab,
-            content: sn.code,
-            name: `${sn.label}.${extensionForLanguage(sn.language)}`,
+            content: snippet.code,
+            name: `${snippet.label}.${extensionForLanguage(snippet.language)}`,
           });
           onClose();
         },
       });
     }
 
-    // General actions
-    cmds.push(
+    commands.push(
       {
         id: 'action-layout-horizontal',
         category: 'action',
         label: 'Layout: Horizontal Split',
         description: 'Editor on top, console below',
         keywords: ['layout', 'horizontal', 'split', 'console'],
-        action: () => { setLayoutPreset('horizontal'); onClose(); },
+        action: () => {
+          setLayoutPreset('horizontal');
+          onClose();
+        },
       },
       {
         id: 'action-layout-vertical',
@@ -118,7 +118,10 @@ export function CommandPalette({
         label: 'Layout: Vertical Split',
         description: 'Editor left, console right',
         keywords: ['layout', 'vertical', 'split'],
-        action: () => { setLayoutPreset('vertical'); onClose(); },
+        action: () => {
+          setLayoutPreset('vertical');
+          onClose();
+        },
       },
       {
         id: 'action-layout-editor',
@@ -126,7 +129,10 @@ export function CommandPalette({
         label: 'Layout: Editor Only',
         description: 'Hide the console panel',
         keywords: ['layout', 'editor', 'only', 'hide', 'console'],
-        action: () => { setLayoutPreset('editor-only'); onClose(); },
+        action: () => {
+          setLayoutPreset('editor-only');
+          onClose();
+        },
       },
       {
         id: 'action-snippets',
@@ -145,7 +151,10 @@ export function CommandPalette({
         label: 'Open Settings',
         description: 'Themes, fonts, and preferences',
         keywords: ['settings', 'preferences', 'theme', 'font'],
-        action: () => { onClose(); onOpenSettings(); },
+        action: () => {
+          onClose();
+          onOpenSettings();
+        },
       },
       {
         id: 'action-check-updates',
@@ -153,7 +162,10 @@ export function CommandPalette({
         label: 'Check for Updates',
         description: 'Query the configured desktop update feed',
         keywords: ['updates', 'update', 'release', 'version'],
-        action: () => { void checkForUpdates(); onClose(); },
+        action: () => {
+          void checkForUpdates();
+          onClose();
+        },
       },
       {
         id: 'action-restart-update',
@@ -164,11 +176,14 @@ export function CommandPalette({
             ? 'Restart now to install the downloaded update'
             : 'Available once an update has been downloaded',
         keywords: ['updates', 'restart', 'apply', 'install'],
-        action: () => { void restartToApply(); onClose(); },
-      },
+        action: () => {
+          void restartToApply();
+          onClose();
+        },
+      }
     );
 
-    return cmds;
+    return commands;
   }, [
     snippets,
     addTab,
@@ -181,99 +196,103 @@ export function CommandPalette({
     updateStatus,
   ]);
 
-  // Filter by query
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return allCommands;
-    return allCommands.filter((c) =>
-      c.keywords.some((kw) => kw.includes(q)) ||
-      c.label.toLowerCase().includes(q) ||
-      c.description.toLowerCase().includes(q)
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return allCommands;
+
+    return allCommands.filter(
+      (command) =>
+        command.keywords.some((keyword) => keyword.includes(normalizedQuery)) ||
+        command.label.toLowerCase().includes(normalizedQuery) ||
+        command.description.toLowerCase().includes(normalizedQuery)
     );
   }, [allCommands, query]);
 
-  // Reset selection when filtered list changes
   useEffect(() => {
     setSelectedIndex(0);
   }, [filtered.length]);
 
-  // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  // Keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      filtered[selectedIndex]?.action();
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      onClose();
-    }
-  };
-
-  // Scroll selected item into view
   useEffect(() => {
-    const el = listRef.current?.children[selectedIndex] as HTMLElement | undefined;
-    el?.scrollIntoView({ block: 'nearest' });
+    const element = listRef.current?.children[selectedIndex] as HTMLElement | undefined;
+    element?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setSelectedIndex((currentIndex) => Math.min(currentIndex + 1, filtered.length - 1));
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setSelectedIndex((currentIndex) => Math.max(currentIndex - 1, 0));
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      filtered[selectedIndex]?.action();
+      return;
+    }
+
+    handleCloseOnEscape(event, onClose);
+  };
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="w-full max-w-xl overflow-hidden rounded-xl border border-gray-700 bg-gray-900 shadow-2xl">
-        {/* Search input */}
-        <div className="flex items-center gap-2 border-b border-gray-800 px-3 py-2.5">
-          <Search size={15} className="shrink-0 text-gray-500" />
+    <OverlayBackdrop align="top" onClose={onClose}>
+      <OverlayCard className="w-full max-w-2xl">
+        <div className="surface-header flex items-center gap-3 px-4 py-3">
+          <Search size={16} className="shrink-0 text-muted" />
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search templates, snippets, commands..."
-            className="flex-1 bg-transparent text-sm text-gray-100 placeholder-gray-600 outline-none"
+            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="text-gray-600 hover:text-gray-400">
+            <button onClick={() => setQuery('')} className="button-ghost p-1.5">
               <X size={14} />
             </button>
           )}
-          <kbd className="shrink-0 rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-500">
-            esc
-          </kbd>
+          <Kbd>esc</Kbd>
         </div>
 
-        {/* Results */}
-        <div ref={listRef} className="max-h-80 overflow-y-auto py-1">
+        <div ref={listRef} className="max-h-[26rem] overflow-y-auto px-2 py-2">
           {filtered.length === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-gray-600">No results for "{query}"</p>
+            <p className="px-4 py-10 text-center text-sm text-muted">No results for "{query}"</p>
           ) : (
-            filtered.map((cmd, i) => (
+            filtered.map((command, index) => (
               <button
-                key={cmd.id}
-                onClick={cmd.action}
-                onMouseEnter={() => setSelectedIndex(i)}
-                className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
-                  i === selectedIndex ? 'bg-primary-500/15' : 'hover:bg-gray-800/60'
+                key={command.id}
+                onClick={command.action}
+                onMouseEnter={() => setSelectedIndex(index)}
+                className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors ${
+                  index === selectedIndex
+                    ? 'bg-primary-soft'
+                    : 'hover:bg-surface-strong/68'
                 }`}
               >
-                {CATEGORY_ICON[cmd.category]}
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm text-gray-200">{cmd.label}</span>
-                  <span className="truncate text-xs text-gray-500">{cmd.description}</span>
+                <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-surface-strong/82">
+                  {CATEGORY_ICON[command.category]}
                 </div>
-                {cmd.language && (
-                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${languageBadgeClass(cmd.language)}`}>
-                    {languageShortLabel(cmd.language)}
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-medium text-foreground">
+                    {command.label}
+                  </span>
+                  <span className="truncate text-xs text-muted">{command.description}</span>
+                </div>
+                {command.language && (
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${languageBadgeClass(command.language)}`}
+                  >
+                    {languageShortLabel(command.language)}
                   </span>
                 )}
               </button>
@@ -281,19 +300,18 @@ export function CommandPalette({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center gap-4 border-t border-gray-800 px-3 py-2">
-          <span className="text-[10px] text-gray-600">
-            <kbd className="rounded bg-gray-800 px-1 py-0.5">↑↓</kbd> navigate
+        <div className="surface-header flex items-center gap-4 px-4 py-3 text-[11px] text-muted">
+          <span>
+            <Kbd>↑↓</Kbd> navigate
           </span>
-          <span className="text-[10px] text-gray-600">
-            <kbd className="rounded bg-gray-800 px-1 py-0.5">↵</kbd> select
+          <span>
+            <Kbd>↵</Kbd> select
           </span>
-          <span className="text-[10px] text-gray-600">
+          <span className="ml-auto">
             {filtered.length} result{filtered.length !== 1 ? 's' : ''}
           </span>
         </div>
-      </div>
-    </div>
+      </OverlayCard>
+    </OverlayBackdrop>
   );
 }

@@ -7,41 +7,48 @@ export function PluginsSection() {
   const refresh = usePluginStore((state) => state.refresh);
 
   return (
-    <Section title="Plugins">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-300">Local plugin directory</p>
-          <p className="mt-1 break-all text-xs text-gray-500">
-            {installDirectory ?? 'Not available in this build'}
-          </p>
+    <Section
+      title="Plugins"
+      description="Local plugin discovery is surfaced as an operational panel rather than a marketplace promise."
+    >
+      <div className="rounded-[1.35rem] border border-border/80 bg-background-elevated/72 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">Local plugin directory</p>
+            <p className="mt-1 break-all text-xs leading-6 text-muted">
+              {installDirectory ?? 'Not available in this build'}
+            </p>
+          </div>
+          <button onClick={() => void refresh()} className="button-secondary shrink-0">
+            Refresh
+          </button>
         </div>
-        <button
-          onClick={() => void refresh()}
-          className="rounded bg-gray-800 px-3 py-1 text-xs text-gray-300 transition-colors hover:bg-gray-700"
-        >
-          Refresh
-        </button>
       </div>
+
       {plugins.length === 0 ? (
-        <p className="text-xs text-gray-500">No local plugins are installed.</p>
+        <p className="rounded-[1.35rem] border border-dashed border-border/80 px-4 py-5 text-sm text-muted">
+          No local plugins are installed.
+        </p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {plugins.map((plugin) => (
             <div
               key={plugin.manifestPath}
-              className="rounded-lg border border-gray-800 bg-gray-950/60 p-3"
+              className="rounded-[1.35rem] border border-border/80 bg-background-elevated/72 p-4"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm text-gray-200">{plugin.displayName}</p>
-                  <p className="mt-1 text-[11px] uppercase tracking-wide text-gray-500">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">{plugin.displayName}</p>
+                  <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted">
                     {plugin.status}
                   </p>
                 </div>
-                <p className="text-[11px] text-gray-500">{plugin.pluginId}</p>
+                <p className="text-[11px] text-muted">{plugin.pluginId}</p>
               </div>
-              <p className="mt-2 text-xs text-gray-400">{plugin.message}</p>
-              <p className="mt-2 break-all text-[11px] text-gray-600">{plugin.manifestPath}</p>
+              <p className="mt-3 text-sm leading-6 text-muted">{plugin.message}</p>
+              <p className="mt-3 break-all text-[11px] leading-5 text-muted">
+                {plugin.manifestPath}
+              </p>
             </div>
           ))}
         </div>

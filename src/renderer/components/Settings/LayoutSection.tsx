@@ -4,30 +4,30 @@ import { LAYOUT_PRESETS } from './settingsOptions';
 import { Section } from './shared';
 
 function LayoutIcon({ preset, active }: { preset: LayoutPreset; active: boolean }) {
-  const base = active ? 'bg-primary-400' : 'bg-gray-600';
-  const dim = active ? 'bg-primary-800' : 'bg-gray-700';
+  const main = active ? 'bg-primary' : 'bg-border-strong/75';
+  const sub = active ? 'bg-primary/45' : 'bg-surface-strong';
 
   if (preset === 'horizontal') {
     return (
-      <div className="flex h-8 w-full flex-col gap-0.5 overflow-hidden rounded">
-        <div className={`flex-[2] rounded-sm ${base}`} />
-        <div className={`flex-1 rounded-sm ${dim}`} />
+      <div className="flex h-12 w-full flex-col gap-1 overflow-hidden rounded-2xl">
+        <div className={`flex-[2] rounded-xl ${main}`} />
+        <div className={`flex-1 rounded-xl ${sub}`} />
       </div>
     );
   }
 
   if (preset === 'vertical') {
     return (
-      <div className="flex h-8 w-full flex-row gap-0.5 overflow-hidden rounded">
-        <div className={`flex-[2] rounded-sm ${base}`} />
-        <div className={`flex-1 rounded-sm ${dim}`} />
+      <div className="flex h-12 w-full flex-row gap-1 overflow-hidden rounded-2xl">
+        <div className={`flex-[2] rounded-xl ${main}`} />
+        <div className={`flex-1 rounded-xl ${sub}`} />
       </div>
     );
   }
 
   return (
-    <div className="flex h-8 w-full overflow-hidden rounded">
-      <div className={`flex-1 rounded-sm ${base}`} />
+    <div className="flex h-12 w-full overflow-hidden rounded-2xl">
+      <div className={`flex-1 rounded-xl ${main}`} />
     </div>
   );
 }
@@ -37,29 +37,33 @@ export function LayoutSection() {
   const setLayoutPreset = useSettingsStore((state) => state.setLayoutPreset);
 
   return (
-    <Section title="Layout">
-      <div className="grid grid-cols-3 gap-2">
-        {LAYOUT_PRESETS.map((preset) => (
-          <button
-            key={preset.id}
-            onClick={() => setLayoutPreset(preset.id)}
-            title={preset.description}
-            className={`flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors ${
-              layoutPreset === preset.id
-                ? 'border-primary-500 bg-primary-500/10'
-                : 'border-gray-700 bg-gray-800/50 hover:border-gray-600'
-            }`}
-          >
-            <LayoutIcon preset={preset.id} active={layoutPreset === preset.id} />
-            <span
-              className={`text-xs font-medium leading-tight ${
-                layoutPreset === preset.id ? 'text-primary-400' : 'text-gray-400'
+    <Section
+      title="Layout"
+      description="Choose how the editor and console share space inside the main workstation."
+    >
+      <div className="grid gap-3 sm:grid-cols-3">
+        {LAYOUT_PRESETS.map((preset) => {
+          const selected = layoutPreset === preset.id;
+
+          return (
+            <button
+              key={preset.id}
+              onClick={() => setLayoutPreset(preset.id)}
+              title={preset.description}
+              className={`flex flex-col gap-3 rounded-[1.35rem] border p-4 text-left transition-all ${
+                selected
+                  ? 'border-primary/35 bg-primary-soft'
+                  : 'border-border/80 bg-background-elevated/72 hover:border-border-strong/90 hover:bg-surface/88'
               }`}
             >
-              {preset.label}
-            </span>
-          </button>
-        ))}
+              <LayoutIcon preset={preset.id} active={selected} />
+              <div>
+                <p className="text-sm font-medium text-foreground">{preset.label}</p>
+                <p className="mt-1 text-xs leading-5 text-muted">{preset.description}</p>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </Section>
   );
