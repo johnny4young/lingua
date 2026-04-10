@@ -5,6 +5,7 @@ import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
 import { registerFileSystemHandlers } from './ipc/fileSystem';
 import { registerPluginHandlers } from './plugins';
+import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
 
 if (started) {
@@ -19,8 +20,9 @@ registerPluginHandlers();
 registerUpdater();
 
 const createWindow = () => {
-  const rendererUrl =
-    process.env.RUNLANG_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL;
+  const rendererUrl = getTrustedRendererUrl(
+    process.env.RUNLANG_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL
+  );
   const mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -41,6 +43,16 @@ const createWindow = () => {
   // Show window once the renderer is ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
+  mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
+    if (!isAllowedNavigationTarget(targetUrl, rendererUrl)) {
+      event.preventDefault();
+    }
   });
 
   if (rendererUrl) {

@@ -135,6 +135,15 @@ describe('fs:rename security guard (newPath)', () => {
     // oldPath is inside /etc, so both old and new are blocked
     await expect(invoke('fs:rename', '/etc/somefile', 'otherfile')).rejects.toThrow('Access denied');
   });
+
+  it('rejects traversal or nested rename targets', async () => {
+    await expect(invoke('fs:rename', '/tmp/somefile', '../escape')).rejects.toThrow(
+      'Invalid name for rename'
+    );
+    await expect(invoke('fs:rename', '/tmp/somefile', 'nested/file')).rejects.toThrow(
+      'Invalid name for rename'
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

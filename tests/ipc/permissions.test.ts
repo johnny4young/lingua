@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import os from 'node:os';
-import { isPathBlocked, isPathWithinProject } from '#src/main/ipc/permissions';
+import {
+  isPathBlocked,
+  isPathWithinProject,
+  isSafeEntryName,
+} from '#src/main/ipc/permissions';
 
 describe('isPathBlocked', () => {
   it('returns false for a normal home directory path not in BLOCKED_PATHS', () => {
@@ -62,5 +66,24 @@ describe('isPathWithinProject', () => {
   it('returns false for a path that starts with the project root string but is not inside it', () => {
     // /home/user/projextra/file starts with /home/user/proj but is NOT inside /home/user/proj
     expect(isPathWithinProject('/home/user/projextra/file', projectRoot)).toBe(false);
+  });
+});
+
+describe('isSafeEntryName', () => {
+  it('allows simple filenames and folder names', () => {
+    expect(isSafeEntryName('main.go')).toBe(true);
+    expect(isSafeEntryName('src')).toBe(true);
+  });
+
+  it('rejects empty and traversal names', () => {
+    expect(isSafeEntryName('')).toBe(false);
+    expect(isSafeEntryName('.')).toBe(false);
+    expect(isSafeEntryName('..')).toBe(false);
+  });
+
+  it('rejects path separators', () => {
+    expect(isSafeEntryName('../escape')).toBe(false);
+    expect(isSafeEntryName('nested/file.ts')).toBe(false);
+    expect(isSafeEntryName('nested\\file.ts')).toBe(false);
   });
 });
