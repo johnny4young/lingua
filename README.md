@@ -12,7 +12,7 @@ RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python,
 - Monaco-powered editor with tabs, templates, and inline execution results
 - Built-in runners for JavaScript, TypeScript, Go, Python, and Rust
 - Project explorer with file open, save, rename, create, delete, and recent projects
-- Command palette, quick open, snippet library, settings, and resizable editor/console layouts
+- Command palette, quick open, snippet library, settings, persisted resizable panels, and a compact sidebar drawer for narrow widths
 - Auto-run, magic comments, loop protection, and hide-undefined controls for dynamic languages
 - Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
 - CI, GitHub Pages deployment, and tagged release workflows
@@ -105,6 +105,14 @@ npm run desktop:dev -- --exit-after-ms 4000
 
 The launcher avoids rebuilds during normal renderer-focused desktop testing. A resync is only needed when `main` or `preload` code changes, or when `.vite/build` is missing.
 The Vite configs use `.mts` so the standard dev/build flow stays on Vite's supported ESM config path and avoids the deprecated CJS Node API warning.
+
+## Shell layout behavior
+
+- The desktop shell persists the resized widths for the sidebar, editor/results split, and editor/console split
+- The explorer sidebar keeps a practical desktop width and uses a larger drag target so the separator remains easy to grab
+- Below the compact shell breakpoint, the sidebar stops compressing the editor and opens as an overlay drawer instead
+- `Cmd+B` / `Ctrl+B` still toggles the same sidebar state; in compact mode that means open or close the drawer
+- The compact drawer can also be dismissed by clicking the backdrop, pressing `Escape`, or using the close button
 
 ## Build commands
 

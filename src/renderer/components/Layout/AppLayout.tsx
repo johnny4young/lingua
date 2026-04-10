@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
 import { EditorTabs } from '../Editor/EditorTabs';
 import { ResultPanel } from '../Editor/ResultPanel';
 import { ConsolePanel } from '../Console';
 import { Toolbar } from '../Toolbar';
+import { IconButton } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -167,6 +169,21 @@ export function AppLayout({
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
 
+  useEffect(() => {
+    if (!sidebarVisible || !isCompactShell) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSidebarVisible(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isCompactShell, setSidebarVisible, sidebarVisible]);
+
   return (
     <div className="app-shell">
       <Toolbar
@@ -213,9 +230,19 @@ export function AppLayout({
           onClick={() => setSidebarVisible(false)}
         >
           <div
-            className="h-full w-[min(24rem,calc(100vw-1rem))] max-w-full"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Project explorer"
+            className="relative h-full w-[min(24rem,calc(100vw-1rem))] max-w-full"
             onClick={(event) => event.stopPropagation()}
           >
+            <IconButton
+              onClick={() => setSidebarVisible(false)}
+              title="Close sidebar"
+              className="absolute right-3 top-3 z-10 bg-surface/92"
+            >
+              <X size={14} />
+            </IconButton>
             <SidebarPanel />
           </div>
         </div>
