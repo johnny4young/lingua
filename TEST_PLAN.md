@@ -81,6 +81,7 @@ Desktop baseline must guarantee:
 - renderer dev server is reachable
 - Electron window opens without `chrome-error://chromewebdata/`
 - closing Electron does not leave orphaned renderer/server processes
+- compact-width shell behavior keeps the editor usable, with the sidebar switching to an overlay drawer instead of collapsing into an unusable split
 
 ## Fixtures
 
@@ -243,9 +244,9 @@ Use this order when automating:
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| 🕒 | `TC-092` | `WEB` | `developer` | Run on mobile viewport | Toolbar and overlays remain usable, no critical overflow |
-| 🕒 | `TC-093` | `WEB` | `developer` | Run on tablet viewport | Settings and snippets adapt layout correctly |
-| 🕒 | `TC-094` | `WEB` | `developer` | Run on wide desktop viewport | Shell and welcome state render without clipping |
+| 🕒 | `TC-092` | `WEB` | `developer` | Run on mobile viewport | Toolbar, overlays, and compact sidebar drawer remain usable, no critical overflow, and the drawer closes via backdrop or `Escape` |
+| 🕒 | `TC-093` | `WEB` | `developer` | Run on tablet viewport | Settings, snippets, and compact shell transitions adapt layout correctly |
+| 🕒 | `TC-094` | `WEB` | `developer` | Run on wide desktop viewport | Shell, persisted sidebar width, and welcome state render without clipping |
 | ✅ | `TC-095` | `ELEC` | `developer` | Open then close app | No orphaned processes remain |
 | ✅ | `TC-096` | `ELEC` | `developer` | Reopen app after close | App starts cleanly again |
 | ✅ | `TC-097` | `ELEC` | `developer` | Trigger shortcuts `Cmd+B`, `Cmd+\\`, `Cmd+P`, `Cmd+Shift+P`, `Cmd+,`, `Cmd+Enter` | Correct shell actions run |
