@@ -15,6 +15,10 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
+const WASM_EXEC_RELATIVE_PATHS = [
+  ['lib', 'wasm', 'wasm_exec.js'],
+  ['misc', 'wasm', 'wasm_exec.js'],
+] as const;
 
 interface GoCompileResult {
   success: boolean;
@@ -29,6 +33,37 @@ interface GoDetectResult {
   version?: string;
   goRoot?: string;
   error?: string;
+}
+
+export function getWasmExecCandidatePaths(goRoot: string): string[] {
+  return WASM_EXEC_RELATIVE_PATHS.map((segments) => path.join(goRoot, ...segments));
+}
+
+export async function readWasmExecJs(
+  goRoot: string
+): Promise<{ path: string; source: string }> {
+  const checkedPaths: string[] = [];
+
+  for (const candidatePath of getWasmExecCandidatePaths(goRoot)) {
+    checkedPaths.push(candidatePath);
+
+    try {
+      const source = await readFile(candidatePath, 'utf-8');
+      return { path: candidatePath, source };
+    } catch (error) {
+      const errorCode = (error as NodeJS.ErrnoException).code;
+      if (errorCode === 'ENOENT') {
+        continue;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to read Go WASM runtime at "${candidatePath}": ${message}`);
+    }
+  }
+
+  throw new Error(
+    `Go WASM runtime not found for GOROOT "${goRoot}". Checked: ${checkedPaths.join(', ')}`
+  );
 }
 
 /** Detect if Go is installed and return version info */
@@ -96,9 +131,7 @@ async function compileGoToWasm(sourceCode: string): Promise<GoCompileResult> {
     const wasmBuffer = await readFile(wasmFile);
     const wasmBytes = Array.from(new Uint8Array(wasmBuffer));
 
-    // Read wasm_exec.js from Go installation
-    const wasmExecPath = path.join(goInfo.goRoot, 'misc', 'wasm', 'wasm_exec.js');
-    const wasmExecJs = await readFile(wasmExecPath, 'utf-8');
+    const { source: wasmExecJs } = await readWasmExecJs(goInfo.goRoot);
 
     return {
       success: true,
