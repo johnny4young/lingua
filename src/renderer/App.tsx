@@ -11,6 +11,7 @@ import { usePluginStore } from './stores/pluginStore';
 import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
 import { useAutoRun } from './hooks/useAutoRun';
+import { useProjectWatchSync } from './hooks/useProjectWatchSync';
 
 export function App() {
   const { run, stop, isRunning } = useRunner();
@@ -33,6 +34,7 @@ export function App() {
 
   // Auto-run code after 2 seconds of no typing
   useAutoRun();
+  useProjectWatchSync();
 
   const openOverlay = (nextOverlay: Exclude<AppOverlay, 'none'>) => {
     setOverlay(nextOverlay);

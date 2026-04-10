@@ -79,6 +79,40 @@ function entriesToNodes(
   }));
 }
 
+/** Collect expanded directory paths so refreshes can preserve the visible tree shape */
+export function collectExpandedPaths(nodes: FileTreeNode[]): string[] {
+  return nodes.flatMap((node) => {
+    if (!node.isDirectory) {
+      return [];
+    }
+
+    const childPaths = node.children ? collectExpandedPaths(node.children) : [];
+    return node.isExpanded ? [node.path, ...childPaths] : childPaths;
+  });
+}
+
+async function loadNodesForDirectory(
+  dirPath: string,
+  expandedPaths: ReadonlySet<string>
+): Promise<FileTreeNode[]> {
+  const entries = await window.runlang.fs.readdir(dirPath);
+  const nodes = entriesToNodes(entries);
+
+  return Promise.all(
+    nodes.map(async (node) => {
+      if (!node.isDirectory || !expandedPaths.has(node.path)) {
+        return node;
+      }
+
+      return {
+        ...node,
+        children: await loadNodesForDirectory(node.path, expandedPaths),
+        isExpanded: true,
+      };
+    })
+  );
+}
+
 /** Immutable helper: set children of the node matching targetPath */
 export function setNodeChildren(
   nodes: FileTreeNode[],
@@ -247,10 +281,14 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       refreshTree: async () => {
-        const { currentProject } = get();
+        const { currentProject, nodes } = get();
         if (!currentProject) return;
-        const entries = await window.runlang.fs.readdir(currentProject.rootPath);
-        set({ nodes: entriesToNodes(entries) });
+        const expandedPaths = new Set(collectExpandedPaths(nodes));
+        const nextNodes = await loadNodesForDirectory(
+          currentProject.rootPath,
+          expandedPaths
+        );
+        set({ nodes: nextNodes });
       },
 
       // ---------------------------------------------------- tree navigation

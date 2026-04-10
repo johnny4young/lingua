@@ -1,11 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  collectExpandedPaths,
   setNodeChildren,
   toggleExpanded,
   removeNode,
   renameNode,
   addNodeToParent,
   type FileTreeNode,
+  useProjectStore,
 } from '@/stores/projectStore';
 
 // ---------------------------------------------------------------------------
@@ -19,6 +21,31 @@ function makeDir(name: string, path: string, children?: FileTreeNode[]): FileTre
 function makeFile(name: string, path: string): FileTreeNode {
   return { name, path, isDirectory: false };
 }
+
+const initialState = useProjectStore.getState();
+
+beforeEach(() => {
+  Object.defineProperty(globalThis, 'window', {
+    value: {
+      ...globalThis.window,
+      runlang: {
+        ...(globalThis.window?.runlang ?? {}),
+        fs: {
+          ...(globalThis.window?.runlang?.fs ?? {}),
+          readdir: vi.fn(),
+        },
+      },
+    },
+    writable: true,
+    configurable: true,
+  });
+});
+
+afterEach(() => {
+  useProjectStore.setState(initialState, true);
+  vi.clearAllMocks();
+  localStorage.clear();
+});
 
 // ---------------------------------------------------------------------------
 // setNodeChildren
@@ -178,5 +205,85 @@ describe('addNodeToParent', () => {
     const result = addNodeToParent(nodes, '/proj/lib', newFile);
     // /proj/lib doesn't exist in the tree, so nothing changes
     expect(result[0].children).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// collectExpandedPaths
+// ---------------------------------------------------------------------------
+
+describe('collectExpandedPaths', () => {
+  it('returns expanded directory paths recursively', () => {
+    const nested = { ...makeDir('utils', '/proj/src/utils', []), isExpanded: true };
+    const nodes = [
+      { ...makeDir('src', '/proj/src', [nested]), isExpanded: true },
+      makeDir('docs', '/proj/docs'),
+    ];
+
+    expect(collectExpandedPaths(nodes)).toEqual(['/proj/src', '/proj/src/utils']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// refreshTree
+// ---------------------------------------------------------------------------
+
+describe('projectStore refreshTree', () => {
+  it('preserves expanded directories while refreshing children from disk', async () => {
+    const mockReaddir = vi.mocked(window.runlang.fs.readdir);
+
+    mockReaddir.mockImplementation(async (dirPath: string) => {
+      if (dirPath === '/proj') {
+        return [
+          { name: 'src', isDirectory: true, path: '/proj/src' },
+          { name: 'README.md', isDirectory: false, path: '/proj/README.md' },
+        ];
+      }
+
+      if (dirPath === '/proj/src') {
+        return [{ name: 'main.ts', isDirectory: false, path: '/proj/src/main.ts' }];
+      }
+
+      return [];
+    });
+
+    useProjectStore.setState({
+      currentProject: {
+        id: '/proj',
+        name: 'proj',
+        rootPath: '/proj',
+        openedAt: Date.now(),
+      },
+      nodes: [
+        {
+          name: 'src',
+          path: '/proj/src',
+          isDirectory: true,
+          isExpanded: true,
+          children: [],
+        },
+      ],
+      watchId: '/proj',
+      recentProjects: [],
+    });
+
+    await useProjectStore.getState().refreshTree();
+
+    const [srcNode, readmeNode] = useProjectStore.getState().nodes;
+    expect(mockReaddir).toHaveBeenCalledWith('/proj');
+    expect(mockReaddir).toHaveBeenCalledWith('/proj/src');
+    expect(srcNode?.path).toBe('/proj/src');
+    expect(srcNode?.isExpanded).toBe(true);
+    expect(srcNode?.children).toEqual([
+      {
+        name: 'main.ts',
+        path: '/proj/src/main.ts',
+        isDirectory: false,
+        language: 'typescript',
+        children: undefined,
+        isExpanded: false,
+      },
+    ]);
+    expect(readmeNode?.path).toBe('/proj/README.md');
   });
 });
