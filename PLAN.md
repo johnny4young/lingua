@@ -274,6 +274,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 - Current progress:
   - `CodeEditor.tsx` now delegates the empty state, Monaco theme definitions, and editor option construction to focused modules instead of holding all editor responsibilities directly
   - `FileTree.tsx` now delegates recursive node rendering, inline creation input, and the no-project explorer surface to focused modules so the container stays responsible for store wiring instead of view details
+  - `CommandPalette.tsx` now delegates command construction/filtering and result-list rendering to focused modules so the modal container only owns query, selection, and keyboard interaction state
 - Dependencies:
   - Prefer after RL-001 through RL-008 so refactors do not obscure bug-fix work
 
