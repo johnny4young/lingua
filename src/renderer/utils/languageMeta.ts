@@ -65,8 +65,8 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
 const FALLBACK_META: LanguageMeta = {
   label: 'Text',
   shortLabel: 'TXT',
-  badgeClass: 'bg-gray-500/20 text-gray-300',
-  textColorClass: 'text-gray-400',
+  badgeClass: 'bg-surface-strong text-muted-strong',
+  textColorClass: 'text-muted',
   extension: 'txt',
   monacoLanguage: 'plaintext',
   defaultCode: '',

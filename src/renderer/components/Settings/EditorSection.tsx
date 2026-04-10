@@ -1,6 +1,6 @@
 import { useSettingsStore } from '../../stores/settingsStore';
-import { FONT_FAMILIES, FONT_SIZES, EDITOR_THEMES } from './settingsOptions';
-import { Row, Section, Toggle } from './shared';
+import { EDITOR_THEMES, FONT_FAMILIES, FONT_SIZES } from './settingsOptions';
+import { Row, Section, Select, StepperButton, Toggle } from './shared';
 
 export function EditorSection() {
   const editorTheme = useSettingsStore((state) => state.editorTheme);
@@ -21,85 +21,83 @@ export function EditorSection() {
   const setMaxLoopIterations = useSettingsStore((state) => state.setMaxLoopIterations);
 
   return (
-    <Section title="Editor">
-      <Row label="Theme">
-        <select
-          value={editorTheme}
-          onChange={(event) => setEditorTheme(event.target.value)}
-          className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 outline-none focus:border-primary-500"
-        >
+    <Section
+      title="Editor"
+      description="Keep the Monaco surface aligned with how you read code and how aggressively you want automatic safeguards."
+    >
+      <Row label="Editor theme" hint="Controls Monaco only. App shell theme stays independent.">
+        <Select value={editorTheme} onChange={(event) => setEditorTheme(event.target.value)}>
           {EDITOR_THEMES.map((theme) => (
             <option key={theme.id} value={theme.id}>
               {theme.label}
             </option>
           ))}
-        </select>
+        </Select>
       </Row>
-      <Row label="Font family">
-        <select
-          value={fontFamily}
-          onChange={(event) => setFontFamily(event.target.value)}
-          className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 outline-none focus:border-primary-500"
-        >
+
+      <Row label="Font family" hint="Use a coding typeface that matches your workflow.">
+        <Select value={fontFamily} onChange={(event) => setFontFamily(event.target.value)}>
           {FONT_FAMILIES.map((font) => (
             <option key={font.value} value={font.value}>
               {font.label}
             </option>
           ))}
-        </select>
+        </Select>
       </Row>
-      <Row label="Font size">
+
+      <Row label="Font size" hint="Adjust the editor scale without touching the shell density.">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setFontSize(Math.max(10, fontSize - 1))}
-            className="flex h-6 w-6 items-center justify-center rounded bg-gray-800 text-gray-300 transition-colors hover:bg-gray-700"
-          >
+          <StepperButton onClick={() => setFontSize(Math.max(10, fontSize - 1))}>
             -
-          </button>
-          <select
+          </StepperButton>
+          <Select
             value={fontSize}
             onChange={(event) => setFontSize(Number(event.target.value))}
-            className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 outline-none focus:border-primary-500"
+            className="min-w-[7rem]"
           >
             {FONT_SIZES.map((size) => (
               <option key={size} value={size}>
                 {size}px
               </option>
             ))}
-          </select>
-          <button
-            onClick={() => setFontSize(Math.min(32, fontSize + 1))}
-            className="flex h-6 w-6 items-center justify-center rounded bg-gray-800 text-gray-300 transition-colors hover:bg-gray-700"
-          >
+          </Select>
+          <StepperButton onClick={() => setFontSize(Math.min(32, fontSize + 1))}>
             +
-          </button>
+          </StepperButton>
         </div>
       </Row>
-      <Row label="Line numbers">
+
+      <Row label="Line numbers" hint="Keep gutter references visible while editing.">
         <Toggle value={showLineNumbers} onChange={toggleLineNumbers} />
       </Row>
-      <Row label="Word wrap">
+
+      <Row label="Word wrap" hint="Wrap long lines inside the viewport.">
         <Toggle value={wordWrap} onChange={toggleWordWrap} />
       </Row>
-      <Row label="Minimap">
+
+      <Row label="Minimap" hint="Show the code overview strip on the right edge.">
         <Toggle value={minimap} onChange={toggleMinimap} />
       </Row>
-      <Row label="Loop protection">
+
+      <Row
+        label="Loop protection"
+        hint="Stops runaway JS and TS loops before they lock the renderer."
+      >
         <Toggle value={loopProtection} onChange={toggleLoopProtection} />
       </Row>
+
       {loopProtection && (
-        <Row label="Max iterations">
-          <select
+        <Row label="Max iterations" hint="Applies to the inline dynamic language runners.">
+          <Select
             value={maxLoopIterations}
             onChange={(event) => setMaxLoopIterations(Number(event.target.value))}
-            className="rounded border border-gray-700 bg-gray-800 px-2 py-1 text-xs text-gray-300 outline-none focus:border-primary-500"
           >
-            {[1000, 5000, 10000, 50000, 100000].map((n) => (
-              <option key={n} value={n}>
-                {n.toLocaleString()}
+            {[1000, 5000, 10000, 50000, 100000].map((count) => (
+              <option key={count} value={count}>
+                {count.toLocaleString()}
               </option>
             ))}
-          </select>
+          </Select>
         </Row>
       )}
     </Section>

@@ -1,21 +1,49 @@
-import type { ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
+import { cn } from '../../utils/cn';
 
-export function Section({ title, children }: { title: string; children: ReactNode }) {
+export function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className="mb-6">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">
-        {title}
-      </h3>
-      {children}
-    </div>
+    <section className="space-y-3">
+      <div className="space-y-1">
+        <h3 className="panel-title">{title}</h3>
+        {description && <p className="text-sm leading-6 text-muted">{description}</p>}
+      </div>
+      <div className="space-y-2">{children}</div>
+    </section>
   );
 }
 
-export function Row({ label, children }: { label: string; children: ReactNode }) {
+export function Row({
+  label,
+  hint,
+  children,
+  className,
+}: {
+  label: string;
+  hint?: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex items-center justify-between gap-4 py-1.5">
-      <span className="text-sm text-gray-300">{label}</span>
-      {children}
+    <div
+      className={cn(
+        'flex flex-col gap-3 rounded-[1.35rem] border border-border/80 bg-background-elevated/72 px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+        className
+      )}
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {hint && <p className="mt-1 text-xs leading-5 text-muted">{hint}</p>}
+      </div>
+      <div className="sm:max-w-[58%]">{children}</div>
     </div>
   );
 }
@@ -26,15 +54,35 @@ export function Toggle({ value, onChange }: { value: boolean; onChange: () => vo
       role="switch"
       aria-checked={value}
       onClick={onChange}
-      className={`relative h-5 w-9 rounded-full transition-colors focus:outline-none ${
-        value ? 'bg-primary-500' : 'bg-gray-700'
-      }`}
+      className={cn(
+        'relative h-7 w-12 rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        value
+          ? 'border-primary/30 bg-primary'
+          : 'border-border/80 bg-surface-strong/80'
+      )}
     >
       <span
-        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-          value ? 'translate-x-4' : 'translate-x-0'
-        }`}
+        className={cn(
+          'absolute top-0.5 h-[1.375rem] w-[1.375rem] rounded-full bg-white shadow transition-transform',
+          value ? 'translate-x-[1.35rem]' : 'translate-x-0.5'
+        )}
       />
+    </button>
+  );
+}
+
+export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select className={cn('field-shell pr-9 text-sm', props.className)} {...props} />;
+}
+
+export function StepperButton({
+  children,
+  className,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button className={cn('button-secondary h-10 w-10 px-0 text-sm', className)} {...props}>
+      {children}
     </button>
   );
 }

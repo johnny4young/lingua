@@ -12,32 +12,35 @@ export function UpdatesSection() {
   const restartToApply = useUpdateStore((state) => state.restartToApply);
 
   return (
-    <Section title="Updates">
-      <Row label="Status">
-        <div className="max-w-[60%] text-right">
-          <p className="text-xs text-gray-300">{message}</p>
-          <p className="mt-1 text-[11px] uppercase tracking-wide text-gray-500">{status}</p>
-          {releaseName && <p className="mt-1 text-[11px] text-gray-500">{releaseName}</p>}
+    <Section
+      title="Updates"
+      description="Desktop update status is surfaced here; web builds show capability limits explicitly."
+    >
+      <Row label="Status" hint={message}>
+        <div className="space-y-1 text-right">
+          <p className="status-pill">{status}</p>
+          {releaseName && <p className="text-xs text-muted">{releaseName}</p>}
           {lastCheckedAt && (
-            <p className="mt-1 text-[11px] text-gray-600">
+            <p className="text-[11px] text-muted">
               Last check: {new Date(lastCheckedAt).toLocaleString()}
             </p>
           )}
         </div>
       </Row>
-      <Row label="Actions">
-        <div className="flex gap-2">
+
+      <Row label="Actions" hint="These controls stay disabled when updates are not supported.">
+        <div className="flex flex-wrap justify-end gap-2">
           <button
             onClick={() => void checkForUpdates()}
             disabled={!supported || !enabled || status === 'checking'}
-            className="rounded bg-gray-800 px-3 py-1 text-xs text-gray-300 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="button-secondary"
           >
             {status === 'checking' ? 'Checking...' : 'Check now'}
           </button>
           <button
             onClick={() => void restartToApply()}
             disabled={status !== 'downloaded'}
-            className="rounded bg-primary-500/20 px-3 py-1 text-xs text-primary-400 transition-colors hover:bg-primary-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+            className="button-primary"
           >
             Restart to update
           </button>
