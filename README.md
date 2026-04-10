@@ -113,6 +113,7 @@ The Vite configs use `.mts` so the standard dev/build flow stays on Vite's suppo
 - Below the compact shell breakpoint, the sidebar stops compressing the editor and opens as an overlay drawer instead
 - `Cmd+B` / `Ctrl+B` still toggles the same sidebar state; in compact mode that means open or close the drawer
 - The compact drawer can also be dismissed by clicking the backdrop, pressing `Escape`, or using the close button
+- When the compact drawer opens, focus moves to the close button and returns to the previous control after dismissal
 
 ## Build commands
 
