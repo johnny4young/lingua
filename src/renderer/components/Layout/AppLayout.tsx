@@ -159,9 +159,10 @@ interface AppLayoutProps {
 
 interface SidebarPanelProps {
   panelRef?: RefObject<HTMLDivElement | null>;
+  onNavigate?: () => void;
 }
 
-function SidebarPanel({ panelRef }: SidebarPanelProps) {
+function SidebarPanel({ panelRef, onNavigate }: SidebarPanelProps) {
   return (
     <div
       id="project-explorer"
@@ -169,7 +170,7 @@ function SidebarPanel({ panelRef }: SidebarPanelProps) {
       tabIndex={-1}
       className="surface-panel h-full min-w-0 overflow-hidden"
     >
-      <FileTree />
+      <FileTree onNavigate={onNavigate} />
     </div>
   );
 }
@@ -193,6 +194,7 @@ export function AppLayout({
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
   const isCompactDrawerOpen = sidebarVisible && isCompactShell;
+  const handleExplorerNavigate = isCompactShell ? () => setSidebarVisible(false) : undefined;
 
   useEffect(() => {
     const shellUnderlay = shellUnderlayRef.current;
@@ -343,7 +345,7 @@ export function AppLayout({
               maxSize={420}
               groupResizeBehavior="preserve-pixel-size"
             >
-              <SidebarPanel panelRef={persistentSidebarRef} />
+              <SidebarPanel panelRef={persistentSidebarRef} onNavigate={handleExplorerNavigate} />
             </Panel>
             <ResizeHandle orientation="vertical" />
             {/* Main area */}
@@ -383,7 +385,7 @@ export function AppLayout({
             >
               <X size={14} />
             </IconButton>
-            <SidebarPanel />
+            <SidebarPanel onNavigate={handleExplorerNavigate} />
           </div>
         </OverlayBackdrop>
       )}

@@ -67,11 +67,14 @@ vi.mock('../../src/renderer/components/Toolbar', () => ({
 }));
 
 vi.mock('../../src/renderer/components/FileTree', () => ({
-  FileTree: () => (
+  FileTree: ({ onNavigate }: { onNavigate?: () => void }) => (
     <div data-testid="file-tree">
       File tree
       <button type="button" data-testid="file-tree-action">
         Tree action
+      </button>
+      <button type="button" data-testid="file-tree-navigate" onClick={() => onNavigate?.()}>
+        Navigate
       </button>
     </div>
   ),
@@ -247,6 +250,7 @@ describe('AppLayout responsive shell', () => {
 
     const closeButton = screen.getByTitle('Close sidebar');
     const treeAction = screen.getByTestId('file-tree-action');
+    const navigateAction = screen.getByTestId('file-tree-navigate');
 
     await waitFor(() => {
       expect(document.activeElement).toBe(closeButton);
@@ -256,7 +260,13 @@ describe('AppLayout responsive shell', () => {
     expect(document.activeElement).toBe(treeAction);
 
     await user.tab();
+    expect(document.activeElement).toBe(navigateAction);
+
+    await user.tab();
     expect(document.activeElement).toBe(closeButton);
+
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(navigateAction);
 
     await user.tab({ shift: true });
     expect(document.activeElement).toBe(treeAction);
@@ -295,6 +305,24 @@ describe('AppLayout responsive shell', () => {
     });
     expect(shellUnderlay.hasAttribute('inert')).toBe(false);
     expect(shellUnderlay.getAttribute('aria-hidden')).toBeNull();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('closes the compact drawer when the explorer triggers navigation', async () => {
+    const user = userEvent.setup();
+    setCompactShell(true);
+
+    await renderLayout();
+
+    expect(screen.getByRole('dialog', { name: 'Project explorer' })).toBeTruthy();
+    expect(document.body.style.overflow).toBe('hidden');
+
+    await user.click(screen.getByTestId('file-tree-navigate'));
+
+    await waitFor(() => {
+      expect(useUIStore.getState().sidebarVisible).toBe(false);
+    });
+    expect(screen.queryByRole('dialog', { name: 'Project explorer' })).toBeNull();
     expect(document.body.style.overflow).toBe('');
   });
 });
