@@ -14,33 +14,12 @@ The goal is to make future automation straightforward with:
 
 This file is intentionally implementation-oriented. It is not a roadmap; it is the source of truth for future E2E coverage planning.
 
-## Execution Tracking
-
-> [!NOTE]
-> Execute `TEST_PLAN.md` by comparing what is already executed versus what is still pending, and run only the pending portion. Use Electron desktop UI for this pass. If any issue, warning, or error appears, fix it immediately, leave evidence in chat, capture evidence after each module, and update this plan so a later execution does not repeat completed coverage.
-
-Use this section to prevent rerunning already-validated cases. Each execution record must capture the exact case range, date, surface, status, and evidence path.
-
-### Status Legend
+## Status Legend
 
 - `✅ passed`
 - `❌ failed`
 - `⛔ blocked`
 - `🕒 pending`
-- `⏭ not-run-in-this-surface`
-
-### Execution Records
-
-| Date | Surface | Cases | Status | Evidence | Notes |
-|---|---|---|---|---|---|
-| `2026-04-10` | electron | `TC-001`, `TC-003`, `TC-051`, `TC-054`, `TC-076`-`TC-084`, `TC-092`-`TC-094` | `⏭ not-run-in-this-surface` | n/a | `📝` Web-only cases intentionally skipped during the desktop execution pass. |
-| `2026-04-10` | electron | `TC-002`, `TC-004`-`TC-020` | `✅ passed` | `output/playwright/electron-shell-suite.png`, `output/playwright/electron-shell-tabs-a11y.png` | `📝` Shell, welcome state, new-file flow, tab semantics, and dirty-state visibility validated after improving `EditorTabs` accessibility. |
-| `2026-04-10` | electron | `TC-021`-`TC-026`, `TC-031`-`TC-056` | `✅ passed` | `output/playwright/electron-overlays-settings-snippets.png`, `output/playwright/electron-settings-updates-plugins.png`, `output/playwright/electron-snippets-crud.png` | `📝` Command palette, settings, updates/plugins dev-state, and snippets CRUD validated. `TC-053` passed as a dev-build disabled-state check. After `Insert into Active Tab`, the snippet must be reselected before `Delete` becomes available again. |
-| `2026-04-10` | electron | `TC-027`-`TC-030`, `TC-057`-`TC-059` | `✅ passed` | `output/playwright/electron-explorer-quickopen.png` | `📝` Project fixture opened inside the desktop app, directory expansion worked, files opened into tabs, and quick open filtered by name/path correctly. |
-| `2026-04-10` | electron | `TC-060`-`TC-066` | `✅ passed` | `output/playwright/electron-explorer-crud-watch-validated.png` | `📝` Root file/folder create, nested file create, rename/delete flows, refresh, and external watch sync all validated in the real desktop explorer. Fixed a real renderer bug so inline create controls now render inside expanded subdirectories rather than root only. |
-| `2026-04-10` | electron | `TC-067`-`TC-075` | `✅ passed` | `output/playwright/electron-console-results-validated.png` | `📝` Console log filtering, timestamp toggle, clear flow, inline magic-comment results, compiled output rendering, undefined visibility toggle, runtime error surfacing, and execution timing all validated from real desktop fixture files. |
-| `2026-04-10` | electron | `TC-085`-`TC-091` | `✅ passed` | `output/playwright/electron-languages-validated.png` | `📝` JavaScript, TypeScript, Python, Go, and Rust execution validated from fixture files in the desktop app, including native Go/Rust compile error surfacing with line information. |
-| `2026-04-10` | electron | `TC-095`-`TC-100` | `✅ passed` | `output/playwright/electron-persistence-shutdown-validated.png` | `📝` Desktop shortcuts, settings/snippet persistence, empty-state recovery, shutdown, and reopen flows all validated in Electron. No browser console errors were emitted and both Electron instances exited cleanly without orphaned processes. |
 
 ## Test Surfaces
 
@@ -138,75 +117,75 @@ Use this order when automating:
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| ⏭ | `TC-001` | `WEB` | `developer` | Open app | Toolbar, shell, and welcome state render without fatal error |
+| 🕒 | `TC-001` | `WEB` | `developer` | Open app | Toolbar, shell, and welcome state render without fatal error |
 | ✅ | `TC-002` | `ELEC` | `developer` | Open app | Main window opens and shell renders without `chrome-error` |
-| ⏭ | `TC-003` | `WEB` | `developer` | Inspect toolbar | Buttons exist: sidebar, run, new file, quick open, command palette, snippets, console, settings |
+| 🕒 | `TC-003` | `WEB` | `developer` | Inspect toolbar | Buttons exist: sidebar, run, new file, quick open, command palette, snippets, console, settings |
 | ✅ | `TC-004` | `ELEC` | `developer` | Inspect toolbar | Same controls exist in desktop shell |
-| ⏸ | `TC-005` | `BOTH` | `developer` | Click `Settings` | Settings modal opens |
-| ⏸ | `TC-006` | `BOTH` | `developer` | Close settings by close button and backdrop | Settings modal closes both ways |
-| ⏸ | `TC-007` | `BOTH` | `developer` | Click `Snippets` | Snippets modal opens |
-| ⏸ | `TC-008` | `BOTH` | `developer` | Open command palette | Palette opens and focus lands in search input |
-| ⏸ | `TC-009` | `BOTH` | `developer` | Toggle sidebar | Sidebar changes visible/hidden |
-| ⏸ | `TC-010` | `BOTH` | `developer` | Toggle console | Console panel changes visible/hidden |
-| ⏸ | `TC-011` | `BOTH` | `developer` | With no tabs, inspect `Run` | Run is disabled |
-| ⏸ | `TC-012` | `BOTH` | `developer` | Create JS file from primary new-file action | JS tab is created and becomes active |
-| ⏸ | `TC-013` | `BOTH` | `developer` | Open new-file menu and create Go file | Go tab is created |
-| ⏸ | `TC-014` | `BOTH` | `developer` | Open multiple tabs and switch active tab | Active tab changes correctly |
-| ⏸ | `TC-015` | `BOTH` | `developer` | Edit tab content | Dirty indicator appears |
-| ⏸ | `TC-016` | `BOTH` | `developer` | Close inactive tab | Tab disappears without breaking selection |
-| ⏸ | `TC-017` | `BOTH` | `developer` | Close active tab | Focus moves to another tab or empty state |
-| ⏸ | `TC-018` | `BOTH` | `developer` | Open template from welcome state | Tab opens with expected code |
-| ⏸ | `TC-019` | `BOTH` | `developer` | Use quick-start language button | Tab opens in selected language |
-| ⏸ | `TC-020` | `BOTH` | `developer` | Inspect empty-state shortcut hints | `Cmd+Shift+P`, `Cmd+B`, `Cmd+Enter` hints are visible |
+| ✅ | `TC-005` | `BOTH` | `developer` | Click `Settings` | Settings modal opens |
+| ✅ | `TC-006` | `BOTH` | `developer` | Close settings by close button and backdrop | Settings modal closes both ways |
+| ✅ | `TC-007` | `BOTH` | `developer` | Click `Snippets` | Snippets modal opens |
+| ✅ | `TC-008` | `BOTH` | `developer` | Open command palette | Palette opens and focus lands in search input |
+| ✅ | `TC-009` | `BOTH` | `developer` | Toggle sidebar | Sidebar changes visible/hidden |
+| ✅ | `TC-010` | `BOTH` | `developer` | Toggle console | Console panel changes visible/hidden |
+| ✅ | `TC-011` | `BOTH` | `developer` | With no tabs, inspect `Run` | Run is disabled |
+| ✅ | `TC-012` | `BOTH` | `developer` | Create JS file from primary new-file action | JS tab is created and becomes active |
+| ✅ | `TC-013` | `BOTH` | `developer` | Open new-file menu and create Go file | Go tab is created |
+| ✅ | `TC-014` | `BOTH` | `developer` | Open multiple tabs and switch active tab | Active tab changes correctly |
+| ✅ | `TC-015` | `BOTH` | `developer` | Edit tab content | Dirty indicator appears |
+| ✅ | `TC-016` | `BOTH` | `developer` | Close inactive tab | Tab disappears without breaking selection |
+| ✅ | `TC-017` | `BOTH` | `developer` | Close active tab | Focus moves to another tab or empty state |
+| ✅ | `TC-018` | `BOTH` | `developer` | Open template from welcome state | Tab opens with expected code |
+| ✅ | `TC-019` | `BOTH` | `developer` | Use quick-start language button | Tab opens in selected language |
+| ✅ | `TC-020` | `BOTH` | `developer` | Inspect empty-state shortcut hints | `Cmd+Shift+P`, `Cmd+B`, `Cmd+Enter` hints are visible |
 
 ## Command Palette / Quick Open
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| ⏸ | `TC-021` | `BOTH` | `developer` | Open command palette, search template | Matching results are shown |
-| ⏸ | `TC-022` | `BOTH` | `developer` | Use `ArrowDown/ArrowUp` in palette | Selection changes |
-| ⏸ | `TC-023` | `BOTH` | `developer` | Press `Enter` on template in palette | Template opens in tab |
-| ⏸ | `TC-024` | `BOTH` | `developer` | Search action `Open Settings` | Correct action runs |
-| ⏸ | `TC-025` | `BOTH` | `developer` | Search snippets in palette | Saved snippets appear |
-| ⏸ | `TC-026` | `BOTH` | `developer` | Press `Escape` in palette | Palette closes |
-| ⏸ | `TC-027` | `BOTH` | `developer` | Open quick open with tabs/project | Open tabs and project files are listed |
-| ⏸ | `TC-028` | `BOTH` | `developer` | Search by file name in quick open | Results filter by name |
-| ⏸ | `TC-029` | `BOTH` | `developer` | Search by path in quick open | Results filter by path |
-| ⏸ | `TC-030` | `BOTH` | `developer` | Press `Enter` on quick open result | Existing tab activates or file opens |
+| ✅ | `TC-021` | `BOTH` | `developer` | Open command palette, search template | Matching results are shown |
+| ✅ | `TC-022` | `BOTH` | `developer` | Use `ArrowDown/ArrowUp` in palette | Selection changes |
+| ✅ | `TC-023` | `BOTH` | `developer` | Press `Enter` on template in palette | Template opens in tab |
+| ✅ | `TC-024` | `BOTH` | `developer` | Search action `Open Settings` | Correct action runs |
+| ✅ | `TC-025` | `BOTH` | `developer` | Search snippets in palette | Saved snippets appear |
+| ✅ | `TC-026` | `BOTH` | `developer` | Press `Escape` in palette | Palette closes |
+| ✅ | `TC-027` | `BOTH` | `developer` | Open quick open with tabs/project | Open tabs and project files are listed |
+| ✅ | `TC-028` | `BOTH` | `developer` | Search by file name in quick open | Results filter by name |
+| ✅ | `TC-029` | `BOTH` | `developer` | Search by path in quick open | Results filter by path |
+| ✅ | `TC-030` | `BOTH` | `developer` | Press `Enter` on quick open result | Existing tab activates or file opens |
 
 ## Snippets
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| ⏸ | `TC-031` | `BOTH` | `developer` | Open snippets when empty | Empty state is shown |
-| ⏸ | `TC-032` | `BOTH` | `developer` | Click `Save Active Tab` | Snippet form is prefilled from active tab |
-| ⏸ | `TC-033` | `BOTH` | `developer` | Save a new snippet | Snippet appears in the list |
-| ⏸ | `TC-034` | `BOTH` | `developer` | Edit existing snippet | Changes persist in UI/store |
-| ⏸ | `TC-035` | `BOTH` | `developer` | Click `Open in New Tab` from snippet | New tab opens with snippet code |
-| ⏸ | `TC-036` | `BOTH` | `developer` | Click `Insert into Active Tab` | Snippet code is inserted into current tab |
-| ⏸ | `TC-037` | `BOTH` | `developer` | Delete snippet | Snippet disappears |
-| ⏸ | `TC-038` | `BOTH` | `developer` | Open snippets from command palette | Snippets modal opens |
-| ⏸ | `TC-039` | `BOTH` | `developer` | Close snippets by button and backdrop | Snippets modal closes |
-| ⏸ | `TC-040` | `BOTH` | `developer` | Reload app | Snippets persist |
+| ✅ | `TC-031` | `BOTH` | `developer` | Open snippets when empty | Empty state is shown |
+| ✅ | `TC-032` | `BOTH` | `developer` | Click `Save Active Tab` | Snippet form is prefilled from active tab |
+| ✅ | `TC-033` | `BOTH` | `developer` | Save a new snippet | Snippet appears in the list |
+| ✅ | `TC-034` | `BOTH` | `developer` | Edit existing snippet | Changes persist in UI/store |
+| ✅ | `TC-035` | `BOTH` | `developer` | Click `Open in New Tab` from snippet | New tab opens with snippet code |
+| ✅ | `TC-036` | `BOTH` | `developer` | Click `Insert into Active Tab` | Snippet code is inserted into current tab |
+| ✅ | `TC-037` | `BOTH` | `developer` | Delete snippet | Snippet disappears |
+| ✅ | `TC-038` | `BOTH` | `developer` | Open snippets from command palette | Snippets modal opens |
+| ✅ | `TC-039` | `BOTH` | `developer` | Close snippets by button and backdrop | Snippets modal closes |
+| ✅ | `TC-040` | `BOTH` | `developer` | Reload app | Snippets persist |
 
 ## Settings / Updates / Plugins
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| ⏸ | `TC-041` | `BOTH` | `developer` | Open settings > appearance | Dark and light shell options are visible |
-| ⏸ | `TC-042` | `BOTH` | `developer` | Switch to light mode | Shell changes to light theme and persists |
-| ⏸ | `TC-043` | `BOTH` | `developer` | Switch to dark mode | Shell changes to dark theme and persists |
-| ⏸ | `TC-044` | `BOTH` | `developer` | Change editor theme | Monaco theme changes |
-| ⏸ | `TC-045` | `BOTH` | `developer` | Change font family | Monaco uses selected font |
-| ⏸ | `TC-046` | `BOTH` | `developer` | Change font size | Monaco font size changes |
-| ⏸ | `TC-047` | `BOTH` | `developer` | Toggle line numbers | Monaco gutter updates |
-| ⏸ | `TC-048` | `BOTH` | `developer` | Toggle word wrap | Monaco wrapping updates |
-| ⏸ | `TC-049` | `BOTH` | `developer` | Toggle minimap | Monaco minimap updates |
-| ⏸ | `TC-050` | `BOTH` | `developer` | Change layout horizontal/vertical/editor-only | Shell panels rearrange correctly |
-| ⏭ | `TC-051` | `WEB` | `developer` | Open settings > updates | Unsupported web update message is shown and controls are disabled |
+| ✅ | `TC-041` | `BOTH` | `developer` | Open settings > appearance | Dark and light shell options are visible |
+| ✅ | `TC-042` | `BOTH` | `developer` | Switch to light mode | Shell changes to light theme and persists |
+| ✅ | `TC-043` | `BOTH` | `developer` | Switch to dark mode | Shell changes to dark theme and persists |
+| ✅ | `TC-044` | `BOTH` | `developer` | Change editor theme | Monaco theme changes |
+| ✅ | `TC-045` | `BOTH` | `developer` | Change font family | Monaco uses selected font |
+| ✅ | `TC-046` | `BOTH` | `developer` | Change font size | Monaco font size changes |
+| ✅ | `TC-047` | `BOTH` | `developer` | Toggle line numbers | Monaco gutter updates |
+| ✅ | `TC-048` | `BOTH` | `developer` | Toggle word wrap | Monaco wrapping updates |
+| ✅ | `TC-049` | `BOTH` | `developer` | Toggle minimap | Monaco minimap updates |
+| ✅ | `TC-050` | `BOTH` | `developer` | Change layout horizontal/vertical/editor-only | Shell panels rearrange correctly |
+| 🕒 | `TC-051` | `WEB` | `developer` | Open settings > updates | Unsupported web update message is shown and controls are disabled |
 | ✅ | `TC-052` | `ELEC` | `developer` | Open settings > updates | Desktop update state renders correctly |
 | ✅ | `TC-053` | `ELEC` | `developer` | Click `Check now` | Update flow starts without crash |
-| ⏭ | `TC-054` | `WEB` | `developer` | Open settings > plugins | Web shows unavailable/not-supported plugin state |
+| 🕒 | `TC-054` | `WEB` | `developer` | Open settings > plugins | Web shows unavailable/not-supported plugin state |
 | ✅ | `TC-055` | `ELEC` | `developer` | Click `Refresh` in plugins | Refresh runs without crash |
 | ✅ | `TC-056` | `ELEC` | `developer` | Inspect plugin list | Installed plugins show name, status, and message |
 
@@ -243,15 +222,15 @@ Use this order when automating:
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| ⏭ | `TC-076` | `WEB` | `developer` | Run JS hello world | Output is correct |
-| ⏭ | `TC-077` | `WEB` | `developer` | Run JS with multiple logs | Console shows all logs in order |
-| ⏭ | `TC-078` | `WEB` | `developer` | Run JS runtime error | Error renders without crashing shell |
-| ⏭ | `TC-079` | `WEB` | `developer` | Run JS infinite loop candidate | Loop protection stops execution as expected |
-| ⏭ | `TC-080` | `WEB` | `developer` | Run TS hello world | Output is correct |
-| ⏭ | `TC-081` | `WEB` | `developer` | Run TS type error case | Type/compile error is shown |
-| ⏭ | `TC-082` | `WEB` | `developer` | Run Python print | Output is correct |
-| ⏭ | `TC-083` | `WEB` | `developer` | Run Python syntax/runtime error | Error renders correctly |
-| ⏭ | `TC-084` | `WEB` | `developer` | Open Go/Rust in web | Explicit limitation or supported behavior is shown correctly |
+| 🕒 | `TC-076` | `WEB` | `developer` | Run JS hello world | Output is correct |
+| 🕒 | `TC-077` | `WEB` | `developer` | Run JS with multiple logs | Console shows all logs in order |
+| 🕒 | `TC-078` | `WEB` | `developer` | Run JS runtime error | Error renders without crashing shell |
+| 🕒 | `TC-079` | `WEB` | `developer` | Run JS infinite loop candidate | Loop protection stops execution as expected |
+| 🕒 | `TC-080` | `WEB` | `developer` | Run TS hello world | Output is correct |
+| 🕒 | `TC-081` | `WEB` | `developer` | Run TS type error case | Type/compile error is shown |
+| 🕒 | `TC-082` | `WEB` | `developer` | Run Python print | Output is correct |
+| 🕒 | `TC-083` | `WEB` | `developer` | Run Python syntax/runtime error | Error renders correctly |
+| 🕒 | `TC-084` | `WEB` | `developer` | Open Go/Rust in web | Explicit limitation or supported behavior is shown correctly |
 | ✅ | `TC-085` | `ELEC` | `developer` | Run JS hello world | Output is correct |
 | ✅ | `TC-086` | `ELEC` | `developer` | Run TS hello world | Output is correct |
 | ✅ | `TC-087` | `ELEC` | `developer` | Run Python hello world | Output is correct |
@@ -264,9 +243,9 @@ Use this order when automating:
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| ⏭ | `TC-092` | `WEB` | `developer` | Run on mobile viewport | Toolbar and overlays remain usable, no critical overflow |
-| ⏭ | `TC-093` | `WEB` | `developer` | Run on tablet viewport | Settings and snippets adapt layout correctly |
-| ⏭ | `TC-094` | `WEB` | `developer` | Run on wide desktop viewport | Shell and welcome state render without clipping |
+| 🕒 | `TC-092` | `WEB` | `developer` | Run on mobile viewport | Toolbar and overlays remain usable, no critical overflow |
+| 🕒 | `TC-093` | `WEB` | `developer` | Run on tablet viewport | Settings and snippets adapt layout correctly |
+| 🕒 | `TC-094` | `WEB` | `developer` | Run on wide desktop viewport | Shell and welcome state render without clipping |
 | ✅ | `TC-095` | `ELEC` | `developer` | Open then close app | No orphaned processes remain |
 | ✅ | `TC-096` | `ELEC` | `developer` | Reopen app after close | App starts cleanly again |
 | ✅ | `TC-097` | `ELEC` | `developer` | Trigger shortcuts `Cmd+B`, `Cmd+\\`, `Cmd+P`, `Cmd+Shift+P`, `Cmd+,`, `Cmd+Enter` | Correct shell actions run |
