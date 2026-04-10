@@ -250,7 +250,11 @@ type CreationTarget = {
 
 // ------------------------------------------------------------------ main FileTree
 
-export function FileTree() {
+interface FileTreeProps {
+  onNavigate?: () => void;
+}
+
+export function FileTree({ onNavigate }: FileTreeProps) {
   const { tabs, activeTabId, setActiveTab, openFile } = useEditorStore();
   const {
     currentProject,
@@ -278,6 +282,7 @@ export function FileTree() {
 
   const handleFileClick = async (node: FileTreeNode) => {
     await openFile(node.path, node.name, node.language ?? 'javascript');
+    onNavigate?.();
   };
 
   const handleDelete = async (node: FileTreeNode) => {
@@ -337,7 +342,10 @@ export function FileTree() {
               {recentProjects.slice(0, 5).map((p) => (
                 <button
                   key={p.id}
-                  onClick={() => openProject(p.rootPath)}
+                  onClick={async () => {
+                    await openProject(p.rootPath);
+                    onNavigate?.();
+                  }}
                   className="flex w-full items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-xs text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
                   title={p.rootPath}
                 >
@@ -359,7 +367,10 @@ export function FileTree() {
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    onNavigate?.();
+                  }}
                   className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs transition-colors ${
                     tab.id === activeTabId
                       ? 'bg-surface-strong/88 text-foreground'
