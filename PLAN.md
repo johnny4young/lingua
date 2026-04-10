@@ -231,27 +231,21 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-008 Clean up the settings surface and make app theme behavior truthful
 
 - Priority: `P1`
-- Status: `Verified inconsistency`
-- Readiness: `Needs one product decision, then implement`
+- Status: `Done`
+- Readiness: `Implemented on 2026-04-10`
 - Current gap:
-  - Settings exposes `App theme`
-  - The renderer clearly wires editor theme and editor font settings
-  - The general app shell does not appear to switch between dark and light modes in a visible, complete way
-- Required decision before implementation:
-  - Either wire a real shell-level dark/light theme now
-  - Or remove/defer the `App theme` control until that capability exists
-- Recommended direction:
-  - Wire a real shell-level theme and keep editor theme as a separate setting
-- If implemented now, scope should include:
+  - Resolved by wiring shell theme tokens through the renderer, keeping editor theme independent, and bootstrapping the saved app theme before React mounts
+- Implemented scope:
   - root theme state application
   - toolbar, sidebar, panels, settings modal, and result surfaces
   - clear separation between "App theme" and "Editor theme"
+  - early `theme-color` and shell theme bootstrap from persisted settings
 - Acceptance criteria:
   - Changing `App theme` visibly changes the application shell
   - Editor theme remains independently selectable
   - No setting is shown if it has no visible effect
 - Dependencies:
-  - Product decision: keep or defer shell theming
+  - None
 
 ### RL-009 Split oversized renderer modules
 
