@@ -20,6 +20,7 @@ RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python,
 ## Runtime model
 
 - JavaScript and TypeScript run in renderer workers
+- Monaco JavaScript and TypeScript diagnostics now target the same ES2022 + Web Worker runtime contract, including top-level await and worker globals such as `fetch`
 - Go is compiled to WebAssembly through the desktop IPC bridge and a local Go toolchain
 - Python runs through Pyodide
 - Rust is compiled and executed natively through the desktop IPC bridge and a local Rust toolchain
