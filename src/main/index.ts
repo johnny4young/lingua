@@ -77,6 +77,20 @@ const createWindow = () => {
   // DevTools available via Cmd+Option+I but not opened automatically
 };
 
+const requestAppQuit = () => {
+  if (app.isReady()) {
+    app.quit();
+    return;
+  }
+
+  app.once('ready', () => {
+    app.quit();
+  });
+};
+
+process.once('SIGINT', requestAppQuit);
+process.once('SIGTERM', requestAppQuit);
+
 app.on('ready', createWindow);
 
 app.on('window-all-closed', () => {
