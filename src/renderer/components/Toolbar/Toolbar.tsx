@@ -2,6 +2,7 @@ import {
   Play,
   Square,
   Plus,
+  ChevronDown,
   Settings,
   Loader2,
   Terminal,
@@ -9,6 +10,7 @@ import {
   PanelLeft,
   PanelBottom,
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
@@ -35,6 +37,8 @@ export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Tool
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   const { sidebarVisible, consoleVisible, toggleSidebar, toggleConsole } = useUIStore();
   const plugins = usePluginStore((s) => s.plugins);
+  const [isNewFileMenuOpen, setIsNewFileMenuOpen] = useState(false);
+  const newFileMenuRef = useRef<HTMLDivElement | null>(null);
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const hasTabs = tabs.length > 0;
   const languages = [
@@ -46,11 +50,43 @@ export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Tool
         label: languageLabel(plugin.language as Language),
       })),
   ];
+  const defaultNewFileLanguage = activeTab?.language ?? 'javascript';
+  const defaultNewFileLabel = languageLabel(defaultNewFileLanguage);
 
   const handleNewFile = (language: Language) => {
     const tab = createDefaultTab(language);
     addTab(tab);
+    setIsNewFileMenuOpen(false);
   };
+
+  useEffect(() => {
+    if (!isNewFileMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const menuElement = newFileMenuRef.current;
+      if (!menuElement || menuElement.contains(event.target as Node)) {
+        return;
+      }
+
+      setIsNewFileMenuOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsNewFileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isNewFileMenuOpen]);
 
   return (
     <div className="toolbar-drag-region flex h-11 items-center justify-between border-b border-gray-800/60 bg-gray-900/80 backdrop-blur-sm px-3">
@@ -91,22 +127,56 @@ export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Tool
             Stop
           </button>
         )}
-        {hasTabs && (
-          <>
-            <div className="mx-1 h-4 w-px bg-gray-800/60" />
-            <select
-              value={activeTab?.language ?? 'javascript'}
-              onChange={(e) => handleNewFile(e.target.value as Language)}
-              className="rounded-md border border-gray-700/50 bg-gray-800/60 px-2 py-1 text-xs text-gray-400 outline-none transition-colors focus:border-primary-500/50 hover:bg-gray-800"
+        <div className="mx-1 h-4 w-px bg-gray-800/60" />
+        <div ref={newFileMenuRef} className="relative flex items-center">
+          <button
+            onClick={() => handleNewFile(defaultNewFileLanguage)}
+            className="flex items-center gap-1.5 rounded-l-md border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-800"
+            title={`New ${defaultNewFileLabel} file`}
+          >
+            <Plus size={13} />
+            {`New ${defaultNewFileLabel}`}
+          </button>
+          <button
+            onClick={() => setIsNewFileMenuOpen((currentValue) => !currentValue)}
+            className={`rounded-r-md border border-l-0 border-gray-700/50 bg-gray-800/60 px-2 py-1.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-300 ${
+              isNewFileMenuOpen ? 'text-primary-400' : ''
+            }`}
+            title="Choose language for new file"
+            aria-haspopup="menu"
+            aria-expanded={isNewFileMenuOpen}
+          >
+            <ChevronDown size={13} />
+          </button>
+
+          {isNewFileMenuOpen && (
+            <div
+              role="menu"
+              aria-label="New file language menu"
+              className="absolute top-[calc(100%+0.35rem)] left-0 z-20 min-w-44 rounded-md border border-gray-800/80 bg-gray-900/95 p-1 shadow-2xl backdrop-blur-sm"
             >
               {languages.map((lang) => (
-                <option key={lang.id} value={lang.id}>
-                  {lang.label}
-                </option>
+                <button
+                  key={lang.id}
+                  role="menuitem"
+                  onClick={() => handleNewFile(lang.id)}
+                  className={`flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-xs transition-colors ${
+                    lang.id === defaultNewFileLanguage
+                      ? 'bg-primary-500/10 text-primary-300'
+                      : 'text-gray-300 hover:bg-gray-800 hover:text-gray-100'
+                  }`}
+                >
+                  <span>{lang.label}</span>
+                  {lang.id === defaultNewFileLanguage && (
+                    <span className="text-[10px] uppercase tracking-wide text-primary-400">
+                      Current
+                    </span>
+                  )}
+                </button>
               ))}
-            </select>
-          </>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right: utility buttons */}
@@ -124,13 +194,6 @@ export function Toolbar({ onOpenSettings, onOpenPalette, onOpenQuickOpen }: Tool
           title="Command palette (Cmd+Shift+P)"
         >
           <Terminal size={15} />
-        </button>
-        <button
-          onClick={() => handleNewFile(activeTab?.language ?? 'javascript')}
-          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
-          title="New file"
-        >
-          <Plus size={15} />
         </button>
         <button
           onClick={toggleConsole}

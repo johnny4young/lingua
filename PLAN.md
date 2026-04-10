@@ -188,11 +188,12 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-006 Make "new file in language X" explicit in the toolbar
 
 - Priority: `P1`
-- Status: `Verified UX issue`
-- Readiness: `Ready to implement`
+- Status: `Done`
+- Readiness: `Implemented`
 - Current gap:
-  - The toolbar language dropdown creates a new file on `onChange`
-  - The control reads like "change active language" but behaves like "create new file"
+  - Resolved by replacing the implicit language dropdown with an explicit split action:
+    - primary button creates a new file in the active tab language
+    - secondary menu lists supported languages for direct creation
 - Scope:
   - Replace the implicit behavior with an explicit creation flow
   - Recommended approach:
