@@ -71,6 +71,7 @@ vi.mock('lucide-react', () => ({
   Play: () => <span data-testid="icon-play">▶</span>,
   Square: () => <span data-testid="icon-stop">■</span>,
   Plus: () => null,
+  ChevronDown: () => null,
   Settings: () => null,
   Loader2: () => <span data-testid="icon-loader">…</span>,
   Terminal: () => null,
@@ -144,11 +145,10 @@ describe('Toolbar', () => {
     expect((stopBtn as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('language selector is present and shows current language', () => {
+  it('renders an explicit new-file action for the active language', () => {
     render(<Toolbar />);
-    const select = screen.getByRole('combobox');
-    expect(select).toBeTruthy();
-    expect((select as HTMLSelectElement).value).toBe('javascript');
+    expect(screen.getByTitle('New JavaScript file')).toBeTruthy();
+    expect(screen.getByTitle('Choose language for new file')).toBeTruthy();
   });
 
   it('clicking Run button calls the run handler', async () => {
@@ -157,5 +157,28 @@ describe('Toolbar', () => {
     const runBtn = screen.getByTitle('Run (Cmd+Enter)');
     await user.click(runBtn);
     expect(mockRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('clicking the primary new-file action creates a file in the active language', async () => {
+    const user = userEvent.setup();
+    render(<Toolbar />);
+
+    await user.click(screen.getByTitle('New JavaScript file'));
+
+    expect(mockAddTab).toHaveBeenCalledWith(
+      expect.objectContaining({ language: 'javascript' })
+    );
+  });
+
+  it('opening the language menu lets the user create a file in a specific language', async () => {
+    const user = userEvent.setup();
+    render(<Toolbar />);
+
+    await user.click(screen.getByTitle('Choose language for new file'));
+    await user.click(screen.getByRole('menuitem', { name: 'Go' }));
+
+    expect(mockAddTab).toHaveBeenCalledWith(
+      expect.objectContaining({ language: 'go' })
+    );
   });
 });
