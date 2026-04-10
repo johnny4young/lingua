@@ -17,6 +17,12 @@ RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python,
 - Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
 - CI, GitHub Pages deployment, and tagged release workflows
 
+## Editor diagnostics and results
+
+- Monaco JavaScript and TypeScript diagnostics target the same ES2022 + Web Worker runtime contract used by execution
+- Auto-run and manual run now feed the same result state, so the result panel and editor stay synchronized instead of diverging by execution path
+- Dynamic-language runs render inline line decorations in the editor, and runtime or compile errors with source locations are surfaced as Monaco markers without overwriting TypeScript diagnostics
+
 ## Theme behavior
 
 - App theme and editor theme stay independent: the shell uses the saved dark/light setting while Monaco uses its own editor theme selection

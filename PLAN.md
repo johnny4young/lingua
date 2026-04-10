@@ -139,10 +139,11 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-004 Unify editor error surfacing across runtime, compilation, and type diagnostics
 
 - Priority: `P0`
-- Status: `Planned`
-- Readiness: `Ready after RL-003`
+- Status: `Partial`
+- Readiness: `Incrementally implemented on 2026-04-10`
 - Current gap:
-  - Errors appear in console/result surfaces, but the editor does not yet provide a complete inline diagnostic experience
+  - Baseline editor markers and inline decorations are now wired for manual and auto-run execution results
+  - Full cross-language diagnostic richness is still incomplete
 - Scope:
   - Show inline editor markers for:
     - TypeScript diagnostics
@@ -150,6 +151,10 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
     - Go/Rust compile errors with parsed line and column information
   - Add gutter markers and inline decorations
   - Keep result panel and editor markers synchronized
+- Current progress:
+  - Monaco markers now use a dedicated execution owner so runtime/compile highlights coexist with TS diagnostics
+  - Manual run and auto-run now both populate the same result-store view model
+  - Dynamic-language line results are now available to the editor as inline decorations
 - Acceptance criteria:
   - A type error in TS is visible in the editor without running
   - A runtime error in JS/TS/Python highlights the relevant source line

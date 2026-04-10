@@ -1,6 +1,19 @@
 import { useCallback, useRef } from 'react';
 import type * as monacoTypes from 'monaco-editor';
-import type { ConsoleOutput } from '../types';
+import type { LineResult } from '../stores/resultStore';
+import type { ExecutionError } from '../types';
+
+const RUNLANG_EXECUTION_MARKER_OWNER = 'runlang-execution';
+
+function toInlineContent(result: LineResult): string {
+  switch (result.type) {
+    case 'magic':
+    case 'result':
+      return `  // => ${result.value}`;
+    default:
+      return `  // ${result.value}`;
+  }
+}
 
 /**
  * Hook for managing inline result decorations in Monaco Editor.
@@ -34,11 +47,26 @@ export function useInlineResults() {
     []
   );
 
+  const clearMarkers = useCallback(
+    (
+      editor: monacoTypes.editor.IStandaloneCodeEditor | null,
+      monaco: typeof monacoTypes | null
+    ) => {
+      const model = editor?.getModel();
+      if (!model || !monaco) {
+        return;
+      }
+
+      monaco.editor.setModelMarkers(model, RUNLANG_EXECUTION_MARKER_OWNER, []);
+    },
+    []
+  );
+
   /** Apply inline decorations from console outputs */
   const applyDecorations = useCallback(
     (
       editor: monacoTypes.editor.IStandaloneCodeEditor | null,
-      outputs: ConsoleOutput[],
+      lineResults: LineResult[],
       monaco: typeof monacoTypes
     ) => {
       if (!editor || !monaco) return;
@@ -47,12 +75,10 @@ export function useInlineResults() {
 
       // Group outputs by line
       const lineOutputs = new Map<number, string[]>();
-      for (const output of outputs) {
-        if (output.line !== undefined) {
-          const existing = lineOutputs.get(output.line) ?? [];
-          existing.push(output.args.join(' '));
-          lineOutputs.set(output.line, existing);
-        }
+      for (const lineResult of lineResults) {
+        const existing = lineOutputs.get(lineResult.line) ?? [];
+        existing.push(toInlineContent(lineResult));
+        lineOutputs.set(lineResult.line, existing);
       }
 
       if (lineOutputs.size === 0) return;
@@ -60,14 +86,14 @@ export function useInlineResults() {
       const decorations: monacoTypes.editor.IModelDeltaDecoration[] = [];
 
       for (const [line, values] of lineOutputs) {
-        const text = values.join(', ');
+        const text = values.join(' ');
         decorations.push({
           range: new monaco.Range(line, 1, line, 1),
           options: {
             isWholeLine: true,
             className: 'inline-result-decoration',
             after: {
-              content: `  // => ${text}`,
+              content: text,
               inlineClassName: 'inline-result-text',
             },
           },
@@ -79,5 +105,44 @@ export function useInlineResults() {
     [clearDecorations]
   );
 
-  return { applyDecorations, clearDecorations };
+  const applyErrorMarker = useCallback(
+    (
+      editor: monacoTypes.editor.IStandaloneCodeEditor | null,
+      error: ExecutionError | null,
+      monaco: typeof monacoTypes | null
+    ) => {
+      if (!editor || !monaco) {
+        return;
+      }
+
+      const model = editor.getModel();
+      if (!model) {
+        return;
+      }
+
+      if (error?.line === undefined) {
+        clearMarkers(editor, monaco);
+        return;
+      }
+
+      const startLineNumber = Math.min(Math.max(error.line, 1), model.getLineCount());
+      const maxColumn = Math.max(model.getLineMaxColumn(startLineNumber), 1);
+      const startColumn = Math.min(Math.max(error.column ?? 1, 1), maxColumn);
+      const endColumn = error.column !== undefined ? Math.min(startColumn + 1, maxColumn) : maxColumn;
+
+      monaco.editor.setModelMarkers(model, RUNLANG_EXECUTION_MARKER_OWNER, [
+        {
+          startLineNumber,
+          endLineNumber: startLineNumber,
+          startColumn,
+          endColumn,
+          severity: monaco.MarkerSeverity.Error,
+          message: error.message,
+        },
+      ]);
+    },
+    [clearMarkers]
+  );
+
+  return { applyDecorations, clearDecorations, applyErrorMarker, clearMarkers };
 }
