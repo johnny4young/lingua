@@ -106,6 +106,8 @@ export function Toolbar({
           onClick={toggleSidebar}
           active={sidebarVisible}
           title="Toggle sidebar (Cmd+B)"
+          aria-controls="project-explorer"
+          aria-expanded={sidebarVisible}
         >
           <PanelLeft size={15} />
         </IconButton>

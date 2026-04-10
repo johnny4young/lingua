@@ -114,6 +114,7 @@ The Vite configs use `.mts` so the standard dev/build flow stays on Vite's suppo
 - `Cmd+B` / `Ctrl+B` still toggles the same sidebar state; in compact mode that means open or close the drawer
 - The compact drawer can also be dismissed by clicking the backdrop, pressing `Escape`, or using the close button
 - When the compact drawer opens, focus moves to the close button and returns to the previous control after dismissal
+- While the compact drawer is open, keyboard focus stays trapped inside the drawer until it is dismissed
 
 ## Build commands
 
