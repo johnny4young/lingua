@@ -115,6 +115,7 @@ The Vite configs use `.mts` so the standard dev/build flow stays on Vite's suppo
 - The compact drawer can also be dismissed by clicking the backdrop, pressing `Escape`, or using the close button
 - When the compact drawer opens, focus moves to the close button and returns to the previous control after dismissal
 - While the compact drawer is open, keyboard focus stays trapped inside the drawer until it is dismissed
+- While the compact drawer is open, the rest of the shell becomes inert and page scrolling stays locked until the drawer closes
 
 ## Build commands
 

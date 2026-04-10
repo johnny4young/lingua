@@ -6,7 +6,7 @@ import { EditorTabs } from '../Editor/EditorTabs';
 import { ResultPanel } from '../Editor/ResultPanel';
 import { ConsolePanel } from '../Console';
 import { Toolbar } from '../Toolbar';
-import { IconButton } from '../ui/chrome';
+import { IconButton, OverlayBackdrop } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -176,12 +176,40 @@ export function AppLayout({
   const compactDrawerCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const compactDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const compactDrawerRef = useRef<HTMLDivElement | null>(null);
+  const shellUnderlayRef = useRef<HTMLDivElement | null>(null);
 
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
+  const isCompactDrawerOpen = sidebarVisible && isCompactShell;
 
   useEffect(() => {
-    if (!sidebarVisible || !isCompactShell) {
+    const shellUnderlay = shellUnderlayRef.current;
+    if (!shellUnderlay) {
+      return;
+    }
+
+    shellUnderlay.toggleAttribute('inert', isCompactDrawerOpen);
+
+    return () => {
+      shellUnderlay.removeAttribute('inert');
+    };
+  }, [isCompactDrawerOpen]);
+
+  useEffect(() => {
+    if (!isCompactDrawerOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isCompactDrawerOpen]);
+
+  useEffect(() => {
+    if (!isCompactDrawerOpen) {
       return;
     }
 
@@ -226,10 +254,10 @@ export function AppLayout({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isCompactShell, setSidebarVisible, sidebarVisible]);
+  }, [isCompactDrawerOpen, setSidebarVisible]);
 
   useEffect(() => {
-    if (!sidebarVisible || !isCompactShell) {
+    if (!isCompactDrawerOpen) {
       return;
     }
 
@@ -249,52 +277,60 @@ export function AppLayout({
         previousFocus.focus();
       }
     };
-  }, [isCompactShell, sidebarVisible]);
+  }, [isCompactDrawerOpen]);
 
   return (
     <div className="app-shell">
-      <Toolbar
-        onOpenSettings={onOpenSettings}
-        onOpenPalette={onOpenPalette}
-        onOpenQuickOpen={onOpenQuickOpen}
-        onOpenSnippets={onOpenSnippets}
-      />
-      {showPersistentSidebar ? (
-        <Group
-          orientation="horizontal"
-          autoSaveId="runlang-shell-layout"
-          resizeTargetMinimumSize={24}
-          className="min-h-0 flex-1 p-2 pb-3 sm:p-3"
-        >
-          {/* Sidebar */}
-          <Panel
-            id="sidebar-panel"
-            defaultSize={280}
-            minSize={220}
-            maxSize={420}
-            groupResizeBehavior="preserve-pixel-size"
+      <div
+        ref={shellUnderlayRef}
+        data-testid="shell-underlay"
+        aria-hidden={isCompactDrawerOpen ? 'true' : undefined}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <Toolbar
+          onOpenSettings={onOpenSettings}
+          onOpenPalette={onOpenPalette}
+          onOpenQuickOpen={onOpenQuickOpen}
+          onOpenSnippets={onOpenSnippets}
+        />
+        {showPersistentSidebar ? (
+          <Group
+            orientation="horizontal"
+            autoSaveId="runlang-shell-layout"
+            resizeTargetMinimumSize={24}
+            className="min-h-0 flex-1 p-2 pb-3 sm:p-3"
           >
-            <SidebarPanel />
-          </Panel>
-          <ResizeHandle orientation="vertical" />
-          {/* Main area */}
-          <Panel id="content-panel" minSize={360}>
+            {/* Sidebar */}
+            <Panel
+              id="sidebar-panel"
+              defaultSize={280}
+              minSize={220}
+              maxSize={420}
+              groupResizeBehavior="preserve-pixel-size"
+            >
+              <SidebarPanel />
+            </Panel>
+            <ResizeHandle orientation="vertical" />
+            {/* Main area */}
+            <Panel id="content-panel" minSize={360}>
+              <div className="surface-panel h-full min-w-0 overflow-hidden">
+                <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
+              </div>
+            </Panel>
+          </Group>
+        ) : (
+          <div className="min-h-0 flex-1 p-2 pb-3 sm:p-3">
             <div className="surface-panel h-full min-w-0 overflow-hidden">
               <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
             </div>
-          </Panel>
-        </Group>
-      ) : (
-        <div className="min-h-0 flex-1 p-2 pb-3 sm:p-3">
-          <div className="surface-panel h-full min-w-0 overflow-hidden">
-            <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
           </div>
-        </div>
-      )}
-      {sidebarVisible && isCompactShell && (
-        <div
-          className="fixed inset-0 z-40 bg-black/46 p-2 pt-18 backdrop-blur-sm sm:p-3 sm:pt-20"
-          onClick={() => setSidebarVisible(false)}
+        )}
+      </div>
+      {isCompactDrawerOpen && (
+        <OverlayBackdrop
+          align="top"
+          onClose={() => setSidebarVisible(false)}
+          className="justify-start bg-black/46 p-2 pt-18 backdrop-blur-sm sm:p-3 sm:pt-20"
         >
           <div
             ref={compactDrawerRef}
@@ -314,7 +350,7 @@ export function AppLayout({
             </IconButton>
             <SidebarPanel />
           </div>
-        </div>
+        </OverlayBackdrop>
       )}
     </div>
   );

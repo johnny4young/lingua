@@ -218,10 +218,14 @@ describe('AppLayout responsive shell', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'Project explorer' });
     const closeButton = screen.getByTitle('Close sidebar');
+    const shellUnderlay = screen.getByTestId('shell-underlay');
 
     await waitFor(() => {
       expect(document.activeElement).toBe(closeButton);
     });
+    expect(shellUnderlay.getAttribute('aria-hidden')).toBe('true');
+    expect(shellUnderlay.hasAttribute('inert')).toBe(true);
+    expect(document.body.style.overflow).toBe('hidden');
 
     await user.click(dialog.parentElement as HTMLElement);
     await waitFor(() => {
@@ -230,6 +234,9 @@ describe('AppLayout responsive shell', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(toggleButton);
     });
+    expect(shellUnderlay.hasAttribute('inert')).toBe(false);
+    expect(shellUnderlay.getAttribute('aria-hidden')).toBeNull();
+    expect(document.body.style.overflow).toBe('');
   });
 
   it('traps keyboard focus inside the compact drawer while it is open', async () => {
