@@ -14,6 +14,14 @@ import type { LayoutPreset } from '../../types';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
 
+function getFocusableElements(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((element) => !element.hasAttribute('disabled') && element.tabIndex !== -1);
+}
+
 const CodeEditor = lazy(async () => {
   const module = await import('../Editor/CodeEditor');
   return { default: module.CodeEditor };
@@ -150,7 +158,7 @@ interface AppLayoutProps {
 
 function SidebarPanel() {
   return (
-    <div className="surface-panel h-full min-w-0 overflow-hidden">
+    <div id="project-explorer" className="surface-panel h-full min-w-0 overflow-hidden">
       <FileTree />
     </div>
   );
@@ -167,6 +175,7 @@ export function AppLayout({
   const isCompactShell = useCompactShellLayout();
   const compactDrawerCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const compactDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
+  const compactDrawerRef = useRef<HTMLDivElement | null>(null);
 
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
@@ -179,6 +188,39 @@ export function AppLayout({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setSidebarVisible(false);
+        return;
+      }
+
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const drawer = compactDrawerRef.current;
+      if (!drawer) {
+        return;
+      }
+
+      const focusableElements = getFocusableElements(drawer);
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const [firstFocusable] = focusableElements;
+      const lastFocusable = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+      if (event.shiftKey) {
+        if (activeElement === firstFocusable || !drawer.contains(activeElement)) {
+          event.preventDefault();
+          lastFocusable?.focus();
+        }
+        return;
+      }
+
+      if (activeElement === lastFocusable) {
+        event.preventDefault();
+        firstFocusable?.focus();
       }
     };
 
@@ -255,6 +297,7 @@ export function AppLayout({
           onClick={() => setSidebarVisible(false)}
         >
           <div
+            ref={compactDrawerRef}
             role="dialog"
             aria-modal="true"
             aria-label="Project explorer"

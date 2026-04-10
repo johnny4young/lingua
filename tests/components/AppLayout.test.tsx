@@ -67,7 +67,14 @@ vi.mock('../../src/renderer/components/Toolbar', () => ({
 }));
 
 vi.mock('../../src/renderer/components/FileTree', () => ({
-  FileTree: () => <div data-testid="file-tree">File tree</div>,
+  FileTree: () => (
+    <div data-testid="file-tree">
+      File tree
+      <button type="button" data-testid="file-tree-action">
+        Tree action
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('../../src/renderer/components/Editor/EditorTabs', () => ({
@@ -223,5 +230,28 @@ describe('AppLayout responsive shell', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(toggleButton);
     });
+  });
+
+  it('traps keyboard focus inside the compact drawer while it is open', async () => {
+    const user = userEvent.setup();
+    setCompactShell(true);
+
+    await renderLayout();
+
+    const closeButton = screen.getByTitle('Close sidebar');
+    const treeAction = screen.getByTestId('file-tree-action');
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(closeButton);
+    });
+
+    await user.tab();
+    expect(document.activeElement).toBe(treeAction);
+
+    await user.tab();
+    expect(document.activeElement).toBe(closeButton);
+
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(treeAction);
   });
 });
