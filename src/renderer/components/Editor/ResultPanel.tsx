@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
-import { useResultStore, type LineResult } from '../../stores/resultStore';
-import { useEditorStore } from '../../stores/editorStore';
-import { useSettingsStore } from '../../stores/settingsStore';
-import { formatExecTime } from '../../hooks/runnerOutput';
 import { Loader2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { formatExecTime } from '../../hooks/runnerOutput';
+import { useEditorStore } from '../../stores/editorStore';
+import { useResultStore, type LineResult } from '../../stores/resultStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 
 const DYNAMIC_LANGUAGES = new Set(['javascript', 'typescript', 'python']);
 
@@ -11,31 +11,21 @@ function isDynamic(language: string): boolean {
   return DYNAMIC_LANGUAGES.has(language);
 }
 
-// ---------------------------------------------------------------------------
-// Per-line result view (dynamic languages)
-// ---------------------------------------------------------------------------
-
 function LineResultRow({ result }: { result: LineResult }) {
   if (result.type === 'magic') {
-    return (
-      <span className="whitespace-nowrap text-emerald-400 font-medium">
-        {'=> '}{result.value}
-      </span>
-    );
+    return <span className="whitespace-nowrap font-medium text-success">{'=> '}{result.value}</span>;
   }
 
   const colorClass =
     result.type === 'error'
-      ? 'text-red-400'
+      ? 'text-error'
       : result.type === 'warn'
-        ? 'text-yellow-400'
+        ? 'text-warning'
         : result.type === 'info'
-          ? 'text-blue-400'
-          : 'text-gray-400';
+          ? 'text-info'
+          : 'text-muted';
 
-  return (
-    <span className={`whitespace-nowrap ${colorClass}`}>{result.value}</span>
-  );
+  return <span className={`whitespace-nowrap ${colorClass}`}>{result.value}</span>;
 }
 
 interface LineAlignedResultsProps {
@@ -53,33 +43,28 @@ function LineAlignedResults({
   lineHeight,
   paddingTop,
 }: LineAlignedResultsProps) {
-  // Group results by line number
   const resultsByLine = new Map<number, LineResult[]>();
-  for (const r of lineResults) {
-    const existing = resultsByLine.get(r.line) ?? [];
-    existing.push(r);
-    resultsByLine.set(r.line, existing);
+  for (const result of lineResults) {
+    const existing = resultsByLine.get(result.line) ?? [];
+    existing.push(result);
+    resultsByLine.set(result.line, existing);
   }
 
   return (
-    <div
-      className="font-mono"
-      style={{ fontSize, paddingTop }}
-    >
-      {Array.from({ length: lineCount }, (_, i) => {
-        const lineNum = i + 1;
-        const results = resultsByLine.get(lineNum);
+    <div className="font-mono" style={{ fontSize, paddingTop }}>
+      {Array.from({ length: lineCount }, (_, index) => {
+        const lineNumber = index + 1;
+        const results = resultsByLine.get(lineNumber);
+
         return (
           <div
-            key={lineNum}
+            key={lineNumber}
             style={{ height: lineHeight, lineHeight: `${lineHeight}px` }}
-            className="flex items-center overflow-x-auto px-3"
+            className="flex items-center overflow-x-auto px-4"
           >
-            {results ? (
-              results.map((r, j) => (
-                <LineResultRow key={j} result={r} />
-              ))
-            ) : null}
+            {results?.map((result, resultIndex) => (
+              <LineResultRow key={resultIndex} result={result} />
+            )) ?? null}
           </div>
         );
       })}
@@ -87,100 +72,78 @@ function LineAlignedResults({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Full output view (compiled languages)
-// ---------------------------------------------------------------------------
-
 function FullOutputView({ output, error }: { output: string; error: string | null }) {
   return (
-    <div className="p-3 font-mono text-xs leading-5">
-      {output && (
-        <pre className="whitespace-pre-wrap text-gray-300">{output}</pre>
-      )}
-      {error && (
-        <pre className="mt-2 whitespace-pre-wrap text-red-400">{error}</pre>
-      )}
-      {!output && !error && (
-        <span className="text-gray-600 italic">Run to see output...</span>
-      )}
+    <div className="p-4 font-mono text-xs leading-6">
+      {output && <pre className="whitespace-pre-wrap text-foreground">{output}</pre>}
+      {error && <pre className="mt-3 whitespace-pre-wrap text-error">{error}</pre>}
+      {!output && !error && <span className="italic text-muted">Run to see output...</span>}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main ResultPanel
-// ---------------------------------------------------------------------------
-
 export function ResultPanel() {
-  const { lineResults, fullOutput, error, executionTime, isAutoRunning } =
-    useResultStore();
-  const activeTab = useEditorStore((s) => {
-    const tab = s.tabs.find((t) => t.id === s.activeTabId);
+  const { lineResults, fullOutput, error, executionTime, isAutoRunning } = useResultStore();
+  const activeTab = useEditorStore((state) => {
+    const tab = state.tabs.find((item) => item.id === state.activeTabId);
     return tab ?? null;
   });
   const scrollRef = useRef<HTMLDivElement>(null);
-  const hideUndefined = useSettingsStore((s) => s.hideUndefined);
-  const toggleHideUndefined = useSettingsStore((s) => s.toggleHideUndefined);
+  const hideUndefined = useSettingsStore((state) => state.hideUndefined);
+  const toggleHideUndefined = useSettingsStore((state) => state.toggleHideUndefined);
+  const settingsFontSize = useSettingsStore((state) => state.fontSize);
 
   const language = activeTab?.language ?? 'javascript';
   const dynamic = isDynamic(language);
   const lineCount = (activeTab?.content ?? '').split('\n').length;
-
   const visibleLineResults = hideUndefined
-    ? lineResults.filter((r) => r.value !== 'undefined')
+    ? lineResults.filter((result) => result.value !== 'undefined')
     : lineResults;
 
-  // Sync scroll with Monaco editor
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
+    const element = scrollRef.current;
+    if (!element) return;
 
-    // Listen for Monaco scroll events via a custom event
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
+    const handleScrollSync = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
       if (detail?.scrollTop !== undefined) {
-        el.scrollTop = detail.scrollTop;
+        element.scrollTop = detail.scrollTop;
       }
     };
-    window.addEventListener('runlang:editor-scroll', handler);
-    return () => window.removeEventListener('runlang:editor-scroll', handler);
-  }, []);
 
-  const settingsFontSize = useSettingsStore((s) => s.fontSize);
+    window.addEventListener('runlang:editor-scroll', handleScrollSync);
+    return () => window.removeEventListener('runlang:editor-scroll', handleScrollSync);
+  }, []);
 
   const hasContent = dynamic
     ? visibleLineResults.length > 0
     : fullOutput.length > 0 || error !== null;
 
-  // Match Monaco's line metrics: default lineHeight is ~1.35x fontSize, padding 12px
   const fontSize = settingsFontSize;
   const lineHeight = Math.round(fontSize * 1.35);
   const paddingTop = 12;
 
   return (
-    <div className="flex h-full flex-col bg-gray-950 border-l border-gray-800/40">
-      {/* Header */}
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-gray-800/60 px-3">
-        <span className="text-xs font-medium text-gray-500">
-          {dynamic ? 'Result' : 'Output'}
-        </span>
+    <div className="flex h-full flex-col bg-background/65">
+      <div className="surface-header flex h-12 shrink-0 items-center justify-between px-4">
+        <div>
+          <span className="panel-title">{dynamic ? 'Inline Result' : 'Program Output'}</span>
+          <p className="mt-0.5 text-[11px] text-muted">
+            {dynamic ? 'Synced to editor lines' : 'Captured after execution'}
+          </p>
+        </div>
+
         <div className="flex items-center gap-2">
-          {isAutoRunning && (
-            <Loader2 size={12} className="animate-spin text-primary-400" />
-          )}
+          {isAutoRunning && <Loader2 size={13} className="animate-spin text-primary" />}
           {executionTime !== null && (
-            <span className="text-[10px] tabular-nums text-gray-600">
-              {formatExecTime(executionTime)}
-            </span>
+            <span className="status-pill tabular-nums">{formatExecTime(executionTime)}</span>
           )}
           {dynamic && (
             <button
               onClick={toggleHideUndefined}
               title={hideUndefined ? 'Show undefined' : 'Hide undefined'}
-              className={`rounded px-1.5 py-0.5 text-[10px] font-mono transition-colors ${
-                hideUndefined
-                  ? 'bg-gray-700 text-gray-300'
-                  : 'text-gray-600 hover:text-gray-400'
+              className={`button-secondary px-2.5 py-1 font-mono text-[10px] ${
+                hideUndefined ? 'border-primary/25 bg-primary-soft text-primary' : ''
               }`}
             >
               undef
@@ -189,17 +152,13 @@ export function ResultPanel() {
         </div>
       </div>
 
-      {/* Results */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
         {!hasContent && !isAutoRunning ? (
-          <div className="flex h-full items-center justify-center">
-            <span className="text-xs text-gray-700 italic">
+          <div className="flex h-full items-center justify-center px-6 text-center">
+            <span className="text-xs italic text-muted">
               {dynamic
-                ? 'Results appear here as you type...'
-                : 'Output will appear after execution...'}
+                ? 'Results appear here as you type.'
+                : 'Output appears after the current program finishes.'}
             </span>
           </div>
         ) : dynamic ? (
@@ -212,8 +171,8 @@ export function ResultPanel() {
               paddingTop={paddingTop}
             />
             {error && (
-              <div className="border-t border-red-500/20 bg-red-500/5 px-3 py-2">
-                <pre className="whitespace-pre-wrap font-mono text-xs text-red-400">
+              <div className="border-t border-error/20 bg-error/10 px-4 py-3">
+                <pre className="whitespace-pre-wrap font-mono text-xs text-error">
                   {error.message}
                   {error.line !== undefined && ` (line ${error.line})`}
                 </pre>
@@ -221,10 +180,7 @@ export function ResultPanel() {
             )}
           </>
         ) : (
-          <FullOutputView
-            output={fullOutput}
-            error={error?.message ?? null}
-          />
+          <FullOutputView output={fullOutput} error={error?.message ?? null} />
         )}
       </div>
     </div>

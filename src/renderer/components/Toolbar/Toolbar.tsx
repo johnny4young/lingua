@@ -1,15 +1,15 @@
 import {
-  Play,
-  Square,
-  Plus,
-  ChevronDown,
-  Settings,
-  Loader2,
-  Terminal,
-  Search,
   BookCopy,
-  PanelLeft,
+  ChevronDown,
+  Loader2,
   PanelBottom,
+  PanelLeft,
+  Play,
+  Plus,
+  Search,
+  Settings,
+  Square,
+  Terminal,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
@@ -18,6 +18,7 @@ import { useUIStore } from '../../stores/uiStore';
 import type { Language } from '../../types';
 import { languageLabel } from '../../utils/languageMeta';
 import { usePluginStore } from '../../stores/pluginStore';
+import { IconButton } from '../ui/chrome';
 
 const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
   { id: 'javascript', label: 'JavaScript' },
@@ -43,10 +44,11 @@ export function Toolbar({
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   const { sidebarVisible, consoleVisible, toggleSidebar, toggleConsole } = useUIStore();
-  const plugins = usePluginStore((s) => s.plugins);
+  const plugins = usePluginStore((state) => state.plugins);
   const [isNewFileMenuOpen, setIsNewFileMenuOpen] = useState(false);
   const newFileMenuRef = useRef<HTMLDivElement | null>(null);
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const hasTabs = tabs.length > 0;
   const languages = [
     ...BUILT_IN_LANGUAGES,
@@ -96,25 +98,24 @@ export function Toolbar({
   }, [isNewFileMenuOpen]);
 
   return (
-    <div className="toolbar-drag-region flex h-11 items-center justify-between border-b border-gray-800/60 bg-gray-900/80 backdrop-blur-sm px-3">
-      {/* Left: macOS traffic-light spacer + actions */}
-      <div className="flex items-center gap-2 pl-[70px]">
-        <button
+    <div className="toolbar-drag-region surface-header relative z-10 flex min-h-16 flex-wrap items-center justify-between gap-3 px-3 py-2 sm:min-h-14 sm:flex-nowrap sm:px-4">
+      <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-32 bg-gradient-to-r from-primary-soft/55 via-transparent to-transparent sm:block" />
+
+      <div className="flex min-w-0 items-center gap-2 pl-[70px] sm:pl-[78px]">
+        <IconButton
           onClick={toggleSidebar}
-          className={`rounded p-1.5 transition-colors ${
-            sidebarVisible
-              ? 'text-primary-400 bg-primary-500/10'
-              : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
-          }`}
+          active={sidebarVisible}
           title="Toggle sidebar (Cmd+B)"
         >
           <PanelLeft size={15} />
-        </button>
-        <div className="mx-1 h-4 w-px bg-gray-800/60" />
+        </IconButton>
+
+        <div className="toolbar-divider" />
+
         <button
           onClick={run}
           disabled={isRunning || !hasTabs}
-          className="flex items-center gap-1.5 rounded-md bg-success-500/15 px-3 py-1.5 text-xs font-medium text-success-500 transition-all hover:bg-success-500/25 disabled:cursor-not-allowed disabled:opacity-40"
+          className="button-primary min-w-[7.4rem] justify-center bg-success text-background hover:bg-success/92"
           title="Run (Cmd+Enter)"
         >
           {isInitializing ? (
@@ -124,21 +125,20 @@ export function Toolbar({
           )}
           {loadingMessage ?? (isRunning ? 'Running...' : 'Run')}
         </button>
+
         {isRunning && (
-          <button
-            onClick={stop}
-            className="flex items-center gap-1.5 rounded-md bg-error-500/15 px-3 py-1.5 text-xs font-medium text-error-500 transition-all hover:bg-error-500/25"
-            title="Stop"
-          >
+          <button onClick={stop} className="button-danger" title="Stop">
             <Square size={11} fill="currentColor" />
             Stop
           </button>
         )}
-        <div className="mx-1 h-4 w-px bg-gray-800/60" />
+
+        <div className="toolbar-divider" />
+
         <div ref={newFileMenuRef} className="relative flex items-center">
           <button
             onClick={() => handleNewFile(defaultNewFileLanguage)}
-            className="flex items-center gap-1.5 rounded-l-md border border-gray-700/50 bg-gray-800/60 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-800"
+            className="button-secondary rounded-r-none border-r-0 pr-3.5"
             title={`New ${defaultNewFileLabel} file`}
           >
             <Plus size={13} />
@@ -146,8 +146,8 @@ export function Toolbar({
           </button>
           <button
             onClick={() => setIsNewFileMenuOpen((currentValue) => !currentValue)}
-            className={`rounded-r-md border border-l-0 border-gray-700/50 bg-gray-800/60 px-2 py-1.5 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-300 ${
-              isNewFileMenuOpen ? 'text-primary-400' : ''
+            className={`button-secondary rounded-l-none px-2.5 ${
+              isNewFileMenuOpen ? 'text-primary' : ''
             }`}
             title="Choose language for new file"
             aria-haspopup="menu"
@@ -160,22 +160,22 @@ export function Toolbar({
             <div
               role="menu"
               aria-label="New file language menu"
-              className="absolute top-[calc(100%+0.35rem)] left-0 z-20 min-w-44 rounded-md border border-gray-800/80 bg-gray-900/95 p-1 shadow-2xl backdrop-blur-sm"
+              className="surface-panel-strong absolute left-0 top-[calc(100%+0.55rem)] z-20 min-w-52 p-1.5"
             >
-              {languages.map((lang) => (
+              {languages.map((language) => (
                 <button
-                  key={lang.id}
+                  key={language.id}
                   role="menuitem"
-                  onClick={() => handleNewFile(lang.id)}
-                  className={`flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-xs transition-colors ${
-                    lang.id === defaultNewFileLanguage
-                      ? 'bg-primary-500/10 text-primary-300'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-gray-100'
+                  onClick={() => handleNewFile(language.id)}
+                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs font-medium transition-colors ${
+                    language.id === defaultNewFileLanguage
+                      ? 'bg-primary-soft text-primary'
+                      : 'text-foreground hover:bg-surface-strong/78'
                   }`}
                 >
-                  <span>{lang.label}</span>
-                  {lang.id === defaultNewFileLanguage && (
-                    <span className="text-[10px] uppercase tracking-wide text-primary-400">
+                  <span>{language.label}</span>
+                  {language.id === defaultNewFileLanguage && (
+                    <span className="status-pill border-primary/20 bg-transparent px-0 text-primary">
                       Current
                     </span>
                   )}
@@ -186,47 +186,32 @@ export function Toolbar({
         </div>
       </div>
 
-      {/* Right: utility buttons */}
-      <div className="flex items-center gap-0.5">
-        <button
-          onClick={onOpenQuickOpen}
-          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
-          title="Go to file (Cmd+P)"
-        >
+      <div className="flex min-w-0 items-center gap-1">
+        {activeTab && (
+          <div className="status-pill hidden max-w-[14rem] truncate sm:flex">
+            {defaultNewFileLabel} active
+          </div>
+        )}
+
+        <IconButton onClick={onOpenQuickOpen} title="Go to file (Cmd+P)">
           <Search size={15} />
-        </button>
-        <button
-          onClick={onOpenPalette}
-          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
-          title="Command palette (Cmd+Shift+P)"
-        >
+        </IconButton>
+        <IconButton onClick={onOpenPalette} title="Command palette (Cmd+Shift+P)">
           <Terminal size={15} />
-        </button>
-        <button
-          onClick={onOpenSnippets}
-          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
-          title="Snippets"
-        >
+        </IconButton>
+        <IconButton onClick={onOpenSnippets} title="Snippets">
           <BookCopy size={15} />
-        </button>
-        <button
+        </IconButton>
+        <IconButton
           onClick={toggleConsole}
-          className={`rounded-md p-1.5 transition-colors ${
-            consoleVisible
-              ? 'text-primary-400 bg-primary-500/10'
-              : 'text-gray-500 hover:bg-gray-800 hover:text-gray-300'
-          }`}
-          title="Toggle console (Cmd+\)"
+          active={consoleVisible}
+          title="Toggle console (Cmd+\\)"
         >
           <PanelBottom size={15} />
-        </button>
-        <button
-          onClick={onOpenSettings}
-          className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
-          title="Settings (Cmd+,)"
-        >
+        </IconButton>
+        <IconButton onClick={onOpenSettings} title="Settings (Cmd+,)">
           <Settings size={15} />
-        </button>
+        </IconButton>
       </div>
     </div>
   );
