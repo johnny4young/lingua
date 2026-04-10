@@ -42,20 +42,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 | TypeScript | Pass | Template executed and produced `Hello, World!` |
 | Python | Pass | Pyodide loaded and template executed successfully |
 | Rust | Pass | Native compile-and-run path executed successfully |
-| Go | Fail | Desktop runner could not load `wasm_exec.js` from the assumed path |
-
-### Verified desktop bug
-
-**Go desktop execution is currently broken on this machine.**
-
-- Current implementation in `src/main/go-compiler.ts` assumes `wasm_exec.js` lives at `${GOROOT}/misc/wasm/wasm_exec.js`
-- On the validated Go installation (`go1.26.1`, `GOROOT=/usr/local/go`), the file actually exists at:
-  - `/usr/local/go/lib/wasm/wasm_exec.js`
-  - `/usr/local/go/lib/wasm/wasm_exec_node.js`
-- The current error is:
-  - `ENOENT: no such file or directory, open '/usr/local/go/misc/wasm/wasm_exec.js'`
-
-This is a real product bug, not a documentation gap.
+| Go | Pass | Desktop runner executed successfully after fixing `wasm_exec.js` lookup and worker mode |
 
 ---
 
@@ -77,19 +64,17 @@ This is a real product bug, not a documentation gap.
 ### RL-001 Fix Go desktop execution
 
 - Priority: `P0`
-- Status: `Verified bug`
-- Readiness: `Ready to implement`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-09`
 - Why this comes first:
   - Go is a shipped language target
   - The desktop test matrix already shows it failing
   - This blocks confidence in Electron as the primary validation path for compiled languages
 - Scope:
-  - Update `src/main/go-compiler.ts` to resolve `wasm_exec.js` from supported Go layouts
-  - Check candidate paths in this order:
-    - `${GOROOT}/lib/wasm/wasm_exec.js`
-    - `${GOROOT}/misc/wasm/wasm_exec.js`
-  - If neither exists, return an actionable error that includes `GOROOT` and the checked paths
-  - Keep the returned payload compatible with the current renderer Go runner
+  - Resolve `wasm_exec.js` from supported Go layouts
+  - Prefer `${GOROOT}/lib/wasm/wasm_exec.js` and fall back to `${GOROOT}/misc/wasm/wasm_exec.js`
+  - Return an actionable error that includes `GOROOT` and the checked paths when the runtime is missing
+  - Execute Go in a classic worker so `wasm_exec.js` can load correctly with `importScripts`
 - Acceptance criteria:
   - Running the default Go template in Electron produces `Hello, World!`
   - The runner works on the validated local Go installation
@@ -402,15 +387,14 @@ These items remain valid product directions, but they are intentionally behind t
 
 Implement in this order unless a newly discovered regression changes severity:
 
-1. RL-001 Go desktop execution
-2. RL-002 File watching MVP
-3. RL-003 Monaco runtime-aligned diagnostics
-4. RL-004 Unified editor error surfacing
-5. RL-005 Repeatable Electron validation scripts
-6. RL-006 Explicit new-file UX
-7. RL-007 Snippets MVP
-8. RL-008 Settings truthfulness and app theme decision
-9. RL-009 Renderer module splits
-10. RL-010 through RL-017 as follow-on work
+1. RL-002 File watching MVP
+2. RL-003 Monaco runtime-aligned diagnostics
+3. RL-004 Unified editor error surfacing
+4. RL-005 Repeatable Electron validation scripts
+5. RL-006 Explicit new-file UX
+6. RL-007 Snippets MVP
+7. RL-008 Settings truthfulness and app theme decision
+8. RL-009 Renderer module splits
+9. RL-010 through RL-017 as follow-on work
 
 This ordered list is the milestone sequence. No separate milestone section should be maintained elsewhere.

@@ -81,6 +81,58 @@ describe('GoRunner', () => {
     expect(result.error?.message).toContain('fmt');
   });
 
+  it('should use a classic worker for Go WASM execution', async () => {
+    mockDetect.mockResolvedValue({ installed: true, version: 'go1.22.0', goRoot: '/usr/local/go' });
+    mockCompile.mockResolvedValue({
+      success: true,
+      wasmBytes: [0],
+      wasmExecJs: 'self.Go = class { constructor() { this.importObject = {}; } async run() {} }; self.fs = { writeSync() { return 0; } };',
+    });
+
+    const originalWorker = globalThis.Worker;
+    const createdOptions: WorkerOptions[] = [];
+
+    class MockWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+
+      constructor(_url: URL | string, options?: WorkerOptions) {
+        createdOptions.push(options ?? {});
+      }
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+
+      postMessage(): void {
+        const handler = this.listeners.get('message');
+        handler?.({ data: { type: 'done', executionTime: 1 } } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new GoRunner();
+      await runner.init();
+      const result = await runner.execute('package main\nfunc main() {}');
+
+      expect(createdOptions).toEqual([{ type: 'classic' }]);
+      expect(result.error).toBeUndefined();
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
   it('should stop without error when no worker is running', () => {
     const runner = new GoRunner();
     expect(() => runner.stop()).not.toThrow();
