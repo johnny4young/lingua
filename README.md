@@ -73,6 +73,38 @@ export PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh"
 
 This is currently the best end-to-end check for renderer behavior. Desktop-only paths such as native Go/Rust execution, packaged auto-updates, and local plugin discovery still need targeted desktop validation.
 
+## Desktop dev and validation
+
+Use the desktop launcher when you need the real Electron app without going through a full `electron-forge start` cycle:
+
+```bash
+npm run desktop:dev
+```
+
+What it does:
+
+- starts the renderer dev server on the URL expected by the current desktop bundle
+- launches the Electron app from the repository root
+- shuts the local renderer server down automatically when Electron exits
+
+If `src/main` or `src/preload` changed and the existing `.vite/build` bundle may be stale, resync those artifacts once before launch:
+
+```bash
+npm run desktop:dev:sync
+```
+
+Useful flags:
+
+```bash
+# Reuse an already-running matching renderer server instead of owning it
+npm run desktop:dev -- --reuse-server
+
+# Auto-close Electron after a few seconds (useful for smoke automation)
+npm run desktop:dev -- --exit-after-ms 4000
+```
+
+The launcher avoids rebuilds during normal renderer-focused desktop testing. A resync is only needed when `main` or `preload` code changes, or when `.vite/build` is missing.
+
 ## Build commands
 
 ### Desktop packages

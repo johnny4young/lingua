@@ -13,6 +13,8 @@
     "make:linux": "electron-forge make --platform linux",
     "make:win": "electron-forge make --platform win32",
     "publish": "electron-forge publish",
+    "desktop:dev": "node ./scripts/run-electron-desktop.mjs",
+    "desktop:dev:sync": "node ./scripts/run-electron-desktop.mjs --sync-main",
     "build:web": "vite build --config vite.web.config.ts",
     "preview:web": "vite preview --config vite.web.config.ts",
     "lint": "eslint .",
