@@ -21,7 +21,7 @@ import {
 } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import path from 'node:path';
-import { isPathBlocked } from './permissions';
+import { isPathBlocked, isSafeEntryName } from './permissions';
 
 /** Active file system watchers keyed by directory path */
 const watchers = new Map<string, () => void>();
@@ -58,6 +58,12 @@ function shouldHide(name: string): boolean {
 }
 
 export function registerFileSystemHandlers(): void {
+  const assertSafeEntryName = (name: string, operation: string) => {
+    if (!isSafeEntryName(name)) {
+      throw new Error(`Invalid ${operation}: "${name}"`);
+    }
+  };
+
   // ---------------------------------------------------------------- dialogs
 
   ipcMain.handle('fs:select-directory', async () => {
@@ -173,6 +179,7 @@ export function registerFileSystemHandlers(): void {
   ipcMain.handle(
     'fs:rename',
     async (_event, oldPath: string, newName: string) => {
+      assertSafeEntryName(newName, 'name for rename');
       const newPath = path.join(path.dirname(oldPath), newName);
       if (isPathBlocked(oldPath, 'write')) {
         throw new Error(

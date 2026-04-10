@@ -70,3 +70,17 @@ export function isPathWithinProject(
     normalizedFile.startsWith(normalizedRoot + path.sep)
   );
 }
+
+export function isSafeEntryName(name: string): boolean {
+  const trimmed = name.trim();
+
+  if (!trimmed || trimmed === '.' || trimmed === '..') {
+    return false;
+  }
+
+  if (path.basename(trimmed) !== trimmed) {
+    return false;
+  }
+
+  return !/[\\/\\0]/.test(trimmed);
+}
