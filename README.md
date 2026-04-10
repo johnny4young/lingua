@@ -59,7 +59,7 @@ The most reliable interactive validation path today is the web build:
 
 ```bash
 npm run build:web
-npm exec vite preview -- --config vite.web.config.ts --host 127.0.0.1 --port 4173
+npm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4173
 ```
 
 Then drive the preview with the Playwright CLI wrapper:
@@ -104,6 +104,7 @@ npm run desktop:dev -- --exit-after-ms 4000
 ```
 
 The launcher avoids rebuilds during normal renderer-focused desktop testing. A resync is only needed when `main` or `preload` code changes, or when `.vite/build` is missing.
+The Vite configs use `.mts` so the standard dev/build flow stays on Vite's supported ESM config path and avoids the deprecated CJS Node API warning.
 
 ## Build commands
 
