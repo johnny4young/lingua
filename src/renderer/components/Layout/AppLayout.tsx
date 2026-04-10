@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
 import { EditorTabs } from '../Editor/EditorTabs';
@@ -10,10 +10,30 @@ import { useUIStore } from '../../stores/uiStore';
 import { useEditorStore } from '../../stores/editorStore';
 import type { LayoutPreset } from '../../types';
 
+const COMPACT_SHELL_BREAKPOINT = 1180;
+
 const CodeEditor = lazy(async () => {
   const module = await import('../Editor/CodeEditor');
   return { default: module.CodeEditor };
 });
+
+function useCompactShellLayout() {
+  const [isCompact, setIsCompact] = useState(() => window.innerWidth < COMPACT_SHELL_BREAKPOINT);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(`(max-width: ${COMPACT_SHELL_BREAKPOINT - 1}px)`);
+    const update = () => setIsCompact(mediaQuery.matches);
+
+    update();
+    mediaQuery.addEventListener('change', update);
+
+    return () => {
+      mediaQuery.removeEventListener('change', update);
+    };
+  }, []);
+
+  return isCompact;
+}
 
 function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const isVertical = orientation === 'vertical';
@@ -126,6 +146,14 @@ interface AppLayoutProps {
   onOpenSnippets?: () => void;
 }
 
+function SidebarPanel() {
+  return (
+    <div className="surface-panel h-full min-w-0 overflow-hidden">
+      <FileTree />
+    </div>
+  );
+}
+
 export function AppLayout({
   onOpenSettings,
   onOpenPalette,
@@ -133,9 +161,11 @@ export function AppLayout({
   onOpenSnippets,
 }: AppLayoutProps) {
   const { layoutPreset } = useSettingsStore();
-  const { sidebarVisible, consoleVisible } = useUIStore();
+  const { sidebarVisible, consoleVisible, setSidebarVisible } = useUIStore();
+  const isCompactShell = useCompactShellLayout();
 
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
+  const showPersistentSidebar = sidebarVisible && !isCompactShell;
 
   return (
     <div className="app-shell">
@@ -145,7 +175,7 @@ export function AppLayout({
         onOpenQuickOpen={onOpenQuickOpen}
         onOpenSnippets={onOpenSnippets}
       />
-      {sidebarVisible ? (
+      {showPersistentSidebar ? (
         <Group
           orientation="horizontal"
           autoSaveId="runlang-shell-layout"
@@ -160,9 +190,7 @@ export function AppLayout({
             maxSize={420}
             groupResizeBehavior="preserve-pixel-size"
           >
-            <div className="surface-panel h-full min-w-0 overflow-hidden">
-              <FileTree />
-            </div>
+            <SidebarPanel />
           </Panel>
           <ResizeHandle orientation="vertical" />
           {/* Main area */}
@@ -176,6 +204,19 @@ export function AppLayout({
         <div className="min-h-0 flex-1 p-2 pb-3 sm:p-3">
           <div className="surface-panel h-full min-w-0 overflow-hidden">
             <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
+          </div>
+        </div>
+      )}
+      {sidebarVisible && isCompactShell && (
+        <div
+          className="fixed inset-0 z-40 bg-black/46 p-2 pt-18 backdrop-blur-sm sm:p-3 sm:pt-20"
+          onClick={() => setSidebarVisible(false)}
+        >
+          <div
+            className="h-full w-[min(24rem,calc(100vw-1rem))] max-w-full"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <SidebarPanel />
           </div>
         </div>
       )}
