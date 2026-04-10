@@ -19,7 +19,7 @@ const viteBin = path.join(repoRoot, 'node_modules', 'vite', 'bin', 'vite.js');
 const esbuildBin = path.join(repoRoot, 'node_modules', 'esbuild', 'bin', 'esbuild');
 const builtMainPath = path.join(repoRoot, '.vite', 'build', 'main.js');
 const builtPreloadPath = path.join(repoRoot, '.vite', 'build', 'preload.js');
-const rendererConfigPath = path.join(repoRoot, 'vite.renderer.config.ts');
+const rendererConfigPath = path.join(repoRoot, 'vite.renderer.config.mts');
 const defaultRendererUrl = 'http://localhost:5174';
 const serverReadyTimeoutMs = 30_000;
 const shutdownTimeoutMs = 5_000;
@@ -122,7 +122,7 @@ async function waitForServer(url, timeoutMs) {
 function spawnManagedProcess(command, args, options = {}) {
   return spawn(command, args, {
     cwd: repoRoot,
-    stdio: 'inherit',
+    stdio: options.stdio ?? 'inherit',
     env: {
       ...process.env,
       ...options.env,
@@ -139,10 +139,12 @@ function waitForExit(child) {
   });
 }
 
-async function terminateChild(label, child) {
+async function terminateChild(label, child, options = {}) {
   if (!child || child.exitCode !== null || child.signalCode !== null) {
     return;
   }
+
+  const { graceful = false } = options;
 
   if (process.platform === 'win32') {
     await new Promise((resolve) => {
@@ -155,7 +157,11 @@ async function terminateChild(label, child) {
   }
 
   try {
-    process.kill(-child.pid, 'SIGTERM');
+    if (graceful) {
+      child.kill('SIGTERM');
+    } else {
+      process.kill(-child.pid, 'SIGTERM');
+    }
   } catch {
     try {
       child.kill('SIGTERM');
@@ -260,7 +266,7 @@ async function main() {
     }
 
     await Promise.all([
-      terminateChild('electron', electronProcess),
+      terminateChild('electron', electronProcess, { graceful: true }),
       serverOwned ? terminateChild('renderer dev server', serverProcess) : Promise.resolve(),
     ]);
 
@@ -321,6 +327,7 @@ async function main() {
       env: {
         RUNLANG_RENDERER_URL: parsedRendererUrl.toString(),
       },
+      stdio: 'inherit',
     });
 
     electronProcess.once('exit', (code, signal) => {
@@ -336,7 +343,7 @@ async function main() {
         console.log(
           `[desktop] exit-after-ms reached (${options.exitAfterMs}ms); closing Electron`
         );
-        void terminateChild('electron', electronProcess);
+        void terminateChild('electron', electronProcess, { graceful: true });
       }, options.exitAfterMs);
     }
   } catch (error) {

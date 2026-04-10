@@ -375,11 +375,9 @@ These items remain valid product directions, but they are intentionally behind t
 ### RL-017 Migrate away from deprecated Vite CJS Node API usage
 
 - Priority: `P2`
-- Status: `Known maintenance item`
-- Readiness: `Ready to investigate`
+- Status: `Done`
 - Scope:
-  - identify which config path is still invoking Vite through the deprecated CJS API
-  - move affected config usage to the supported path without breaking Forge integration
+  - move Vite config entry points to the supported ESM config path without breaking Forge integration
 - Acceptance criteria:
   - the deprecation warning no longer appears during the standard dev/build flow
 

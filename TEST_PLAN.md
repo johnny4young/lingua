@@ -77,7 +77,7 @@ Use the desktop flow for:
 
 ```bash
 npm run build:web
-npm exec vite preview -- --config vite.web.config.ts --host 127.0.0.1 --port 4173
+npm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4173
 ```
 
 ### Electron Base
