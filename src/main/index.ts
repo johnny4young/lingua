@@ -19,6 +19,8 @@ registerPluginHandlers();
 registerUpdater();
 
 const createWindow = () => {
+  const rendererUrl =
+    process.env.RUNLANG_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL;
   const mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -41,10 +43,10 @@ const createWindow = () => {
     mainWindow.show();
   });
 
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+  if (rendererUrl) {
     // Retry loading the dev server URL — Vite may not be ready yet
     const loadWithRetry = (retries = 30, delay = 1000) => {
-      mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL).catch(() => {
+      mainWindow.loadURL(rendererUrl).catch(() => {
         if (retries > 0) {
           setTimeout(() => loadWithRetry(retries - 1, delay), delay);
         } else {
