@@ -58,6 +58,7 @@ npm start
 
 Renderer architecture note:
 - The editor shell is now split so Monaco theme registration, editor option construction, and the empty-state surface live in focused modules instead of one oversized `CodeEditor` file.
+- The explorer shell is now split so recursive tree rendering, inline creation input, and the no-project surface live in focused `FileTree` modules instead of one monolithic component file.
 
 ## Quality checks
 
