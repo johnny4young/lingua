@@ -76,7 +76,7 @@ export class GoRunner implements LanguageRunner {
     return new Promise<ExecutionResult>((resolve) => {
       this.worker = new Worker(
         new URL('../workers/go-worker.ts', import.meta.url),
-        { type: 'module' }
+        { type: 'classic' }
       );
 
       this.worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
