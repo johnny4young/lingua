@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import { X } from 'lucide-react';
 import { Panel, Group, Separator } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
@@ -156,9 +157,18 @@ interface AppLayoutProps {
   onOpenSnippets?: () => void;
 }
 
-function SidebarPanel() {
+interface SidebarPanelProps {
+  panelRef?: RefObject<HTMLDivElement | null>;
+}
+
+function SidebarPanel({ panelRef }: SidebarPanelProps) {
   return (
-    <div id="project-explorer" className="surface-panel h-full min-w-0 overflow-hidden">
+    <div
+      id="project-explorer"
+      ref={panelRef}
+      tabIndex={-1}
+      className="surface-panel h-full min-w-0 overflow-hidden"
+    >
       <FileTree />
     </div>
   );
@@ -176,7 +186,9 @@ export function AppLayout({
   const compactDrawerCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const compactDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const compactDrawerRef = useRef<HTMLDivElement | null>(null);
+  const persistentSidebarRef = useRef<HTMLDivElement | null>(null);
   const shellUnderlayRef = useRef<HTMLDivElement | null>(null);
+  const wasCompactDrawerOpenRef = useRef(false);
 
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
@@ -279,6 +291,29 @@ export function AppLayout({
     };
   }, [isCompactDrawerOpen]);
 
+  useEffect(() => {
+    const movedFromCompactDrawerToPersistentSidebar =
+      wasCompactDrawerOpenRef.current && showPersistentSidebar;
+
+    wasCompactDrawerOpenRef.current = isCompactDrawerOpen;
+
+    if (!movedFromCompactDrawerToPersistentSidebar) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      const persistentSidebar = persistentSidebarRef.current;
+      if (!persistentSidebar) {
+        return;
+      }
+
+      const [firstFocusable] = getFocusableElements(persistentSidebar);
+      (firstFocusable ?? persistentSidebar).focus();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isCompactDrawerOpen, showPersistentSidebar]);
+
   return (
     <div className="app-shell">
       <div
@@ -308,7 +343,7 @@ export function AppLayout({
               maxSize={420}
               groupResizeBehavior="preserve-pixel-size"
             >
-              <SidebarPanel />
+              <SidebarPanel panelRef={persistentSidebarRef} />
             </Panel>
             <ResizeHandle orientation="vertical" />
             {/* Main area */}
