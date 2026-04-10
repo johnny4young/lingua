@@ -1,11 +1,13 @@
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { Language } from '../../types';
 import { extensionForLanguage, languageBadgeClass, monacoLanguageFor } from '../../utils/languageMeta';
 import { configureMonaco } from '../../monaco';
+import { useInlineResults } from '../../hooks/useInlineResults';
 import { Kbd } from '../ui/chrome';
 
 configureMonaco();
@@ -248,11 +250,20 @@ export function CodeEditor() {
   const { tabs, activeTabId, updateContent } = useEditorStore();
   const { editorTheme, fontSize, fontFamily, showLineNumbers, wordWrap, minimap } =
     useSettingsStore();
+  const lineResults = useResultStore((state) => state.lineResults);
+  const error = useResultStore((state) => state.error);
+  const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
+  const { applyDecorations, clearDecorations, applyErrorMarker, clearMarkers } =
+    useInlineResults();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   // Sync scroll with ResultPanel
-  const handleEditorMount: OnMount = useCallback((editor) => {
+  const handleEditorMount: OnMount = useCallback((editor, monaco) => {
+    editorRef.current = editor;
+    monacoRef.current = monaco;
+
     editor.onDidScrollChange((e) => {
       window.dispatchEvent(
         new CustomEvent('runlang:editor-scroll', {
@@ -261,6 +272,21 @@ export function CodeEditor() {
       );
     });
   }, []);
+
+  useEffect(() => {
+    applyDecorations(editorRef.current, lineResults, monacoRef.current as Monaco);
+  }, [applyDecorations, lineResults]);
+
+  useEffect(() => {
+    applyErrorMarker(editorRef.current, error, monacoRef.current);
+  }, [applyErrorMarker, error]);
+
+  useEffect(() => {
+    return () => {
+      clearDecorations(editorRef.current);
+      clearMarkers(editorRef.current, monacoRef.current);
+    };
+  }, [clearDecorations, clearMarkers]);
 
   if (!activeTab) {
     return <EmptyState />;

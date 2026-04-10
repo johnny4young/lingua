@@ -1,12 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../stores/editorStore';
-import { useResultStore, type LineResult } from '../stores/resultStore';
+import { useResultStore } from '../stores/resultStore';
 import { runnerManager } from '../runners';
 import type { ExecutionResult } from '../types';
+import { toExecutionPresentation } from '../utils/executionPresentation';
 
 const DEBOUNCE_MS = 2000;
-const DYNAMIC_LANGUAGES = new Set(['javascript', 'typescript', 'python']);
-
 /**
  * Auto-run the active tab's code after a 2-second pause in typing.
  * For dynamic languages: captures per-line results.
@@ -72,73 +71,9 @@ export function useAutoRun() {
           return;
         }
 
-        const isDynamic = DYNAMIC_LANGUAGES.has(language);
-
-        if (isDynamic) {
-          // Build per-line results from stdout + stderr
-          const lineResults: LineResult[] = [];
-
-          for (const output of result.stdout) {
-            if (output.line !== undefined) {
-              lineResults.push({
-                line: output.line,
-                value: output.args.join(' '),
-                type: output.type,
-              });
-            }
-          }
-
-          for (const output of result.stderr) {
-            if (output.line !== undefined) {
-              lineResults.push({
-                line: output.line,
-                value: output.args.join(' '),
-                type: output.type,
-              });
-            }
-          }
-
-          // Also capture the return value of the last expression
-          if (result.result !== undefined) {
-            // Attribute the result to the last non-empty line
-            const lines = code.split('\n');
-            let lastLine = lines.length;
-            for (let i = lines.length - 1; i >= 0; i--) {
-              if (lines[i]!.trim()) {
-                lastLine = i + 1;
-                break;
-              }
-            }
-            lineResults.push({
-              line: lastLine,
-              value: String(result.result),
-              type: 'result',
-            });
-          }
-
-          // Merge magic comment results into line results
-          if (result.magicResults) {
-            for (const mc of result.magicResults) {
-              lineResults.push({
-                line: mc.line,
-                value: mc.value,
-                type: 'magic',
-              });
-            }
-          }
-
-          setLineResults(lineResults);
-        } else {
-          // Compiled language: collect full output
-          const lines: string[] = [];
-          for (const output of result.stdout) {
-            lines.push(output.args.join(' '));
-          }
-          for (const output of result.stderr) {
-            lines.push(output.args.join(' '));
-          }
-          setFullOutput(lines.join('\n'));
-        }
+        const presentation = toExecutionPresentation(language, code, result);
+        setLineResults(presentation.lineResults);
+        setFullOutput(presentation.fullOutput);
 
         if (result.error) {
           setError(result.error);

@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
 import { useConsoleStore } from '../stores/consoleStore';
+import { useResultStore } from '../stores/resultStore';
 import type { Language } from '../types';
 import {
   getCompilationLoadingMessage,
@@ -9,6 +10,7 @@ import {
   getInitializationMessage,
   toConsoleEntries,
 } from './runnerOutput';
+import { toExecutionPresentation } from '../utils/executionPresentation';
 
 export function useRunner() {
   const [isRunning, setIsRunning] = useState(false);
@@ -19,6 +21,14 @@ export function useRunner() {
   const run = useCallback(async () => {
     const { tabs, activeTabId } = useEditorStore.getState();
     const { addEntry, clear } = useConsoleStore.getState();
+    const {
+      clear: clearResults,
+      setError,
+      setExecutionTime,
+      setFullOutput,
+      setIsAutoRunning,
+      setLineResults,
+    } = useResultStore.getState();
 
     const activeTab = tabs.find((t) => t.id === activeTabId);
     if (!activeTab) {
@@ -38,6 +48,8 @@ export function useRunner() {
     }
 
     clear();
+    clearResults();
+    setIsAutoRunning(false);
     addEntry({ type: 'info', content: `Running ${name}...` });
     setIsRunning(true);
 
@@ -73,17 +85,29 @@ export function useRunner() {
 
       const result = await runner.execute(content);
 
+      const presentation = toExecutionPresentation(language, content, result);
+      setLineResults(presentation.lineResults);
+      setFullOutput(presentation.fullOutput);
+      setError(result.error ?? null);
+      setExecutionTime(result.executionTime);
+
       for (const entry of toConsoleEntries(result)) {
         addEntry(entry);
       }
     } catch (err) {
       if (!runnerPrepared) {
+        setError({
+          message: `Failed to initialize ${language} runner: ${err instanceof Error ? err.message : String(err)}`,
+        });
         addEntry({
           type: 'error',
           content: `Failed to initialize ${language} runner: ${err instanceof Error ? err.message : String(err)}`,
         });
         return;
       }
+      setError({
+        message: err instanceof Error ? err.message : String(err),
+      });
       addEntry({
         type: 'error',
         content: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
