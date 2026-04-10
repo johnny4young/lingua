@@ -244,7 +244,7 @@ Use this order when automating:
 
 | Status | ID | Runner | Role | Flow | Expected validation |
 |---|---|---|---|---|---|
-| 🕒 | `TC-092` | `WEB` | `developer` | Run on mobile viewport | Toolbar, overlays, and compact sidebar drawer remain usable, no critical overflow, the drawer closes via backdrop, close button, or `Escape`, focus returns cleanly after dismissal, and keyboard focus stays trapped inside while open |
+| 🕒 | `TC-092` | `WEB` | `developer` | Run on mobile viewport | Toolbar, overlays, and compact sidebar drawer remain usable, no critical overflow, the drawer closes via backdrop, close button, or `Escape`, focus returns cleanly after dismissal, keyboard focus stays trapped inside while open, and the background shell stays inert with scrolling locked until close |
 | 🕒 | `TC-093` | `WEB` | `developer` | Run on tablet viewport | Settings, snippets, and compact shell transitions adapt layout correctly |
 | 🕒 | `TC-094` | `WEB` | `developer` | Run on wide desktop viewport | Shell, persisted sidebar width, and welcome state render without clipping |
 | ✅ | `TC-095` | `ELEC` | `developer` | Open then close app | No orphaned processes remain |
