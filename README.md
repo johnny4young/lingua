@@ -116,6 +116,7 @@ The Vite configs use `.mts` so the standard dev/build flow stays on Vite's suppo
 - When the compact drawer opens, focus moves to the close button and returns to the previous control after dismissal
 - While the compact drawer is open, keyboard focus stays trapped inside the drawer until it is dismissed
 - While the compact drawer is open, the rest of the shell becomes inert and page scrolling stays locked until the drawer closes
+- If the shell widens while the compact drawer is open, the explorer hands focus back into the persistent sidebar and clears the temporary modal state automatically
 
 ## Build commands
 
