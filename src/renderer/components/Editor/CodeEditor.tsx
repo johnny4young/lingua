@@ -7,6 +7,7 @@ import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { Language } from '../../types';
 import { extensionForLanguage, languageBadgeClass, monacoLanguageFor } from '../../utils/languageMeta';
 import { configureMonaco } from '../../monaco';
+import { getExecutionErrorKey } from '../../utils/editorExecutionDecorations';
 import { useInlineResults } from '../../hooks/useInlineResults';
 import { Kbd } from '../ui/chrome';
 
@@ -254,6 +255,7 @@ export function CodeEditor() {
   const error = useResultStore((state) => state.error);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
+  const lastRevealedErrorKeyRef = useRef<string | null>(null);
   const { applyDecorations, clearDecorations, applyErrorMarker, clearMarkers } =
     useInlineResults();
 
@@ -279,6 +281,22 @@ export function CodeEditor() {
 
   useEffect(() => {
     applyErrorMarker(editorRef.current, error, monacoRef.current);
+    const editor = editorRef.current;
+    const nextErrorKey = getExecutionErrorKey(error);
+
+    if (!editor || !nextErrorKey || nextErrorKey === lastRevealedErrorKeyRef.current) {
+      if (!nextErrorKey) {
+        lastRevealedErrorKeyRef.current = null;
+      }
+      return;
+    }
+
+    editor.revealLineInCenter(error.line!);
+    editor.setPosition({
+      lineNumber: error.line!,
+      column: error.column ?? 1,
+    });
+    lastRevealedErrorKeyRef.current = nextErrorKey;
   }, [applyErrorMarker, error]);
 
   useEffect(() => {
@@ -308,6 +326,7 @@ export function CodeEditor() {
       options={{
         fontSize,
         fontFamily,
+        glyphMargin: true,
         lineNumbers: showLineNumbers ? 'on' : 'off',
         wordWrap: wordWrap ? 'on' : 'off',
         minimap: { enabled: minimap },
