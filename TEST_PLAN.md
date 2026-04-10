@@ -225,20 +225,20 @@ Use this order when automating:
 |---|---|---|---|---|---|
 | 🕒 | `TC-076` | `WEB` | `developer` | Run JS hello world | Output is correct |
 | 🕒 | `TC-077` | `WEB` | `developer` | Run JS with multiple logs | Console shows all logs in order |
-| 🕒 | `TC-078` | `WEB` | `developer` | Run JS runtime error | Error renders without crashing shell and the editor highlights the reported source line |
+| 🕒 | `TC-078` | `WEB` | `developer` | Run JS runtime error | Error renders without crashing shell, the editor highlights the reported source line, and the failing location is revealed automatically |
 | 🕒 | `TC-079` | `WEB` | `developer` | Run JS infinite loop candidate | Loop protection stops execution as expected |
 | 🕒 | `TC-080` | `WEB` | `developer` | Run TS hello world | Output is correct |
 | 🕒 | `TC-081` | `WEB` | `developer` | Run TS type error case | Type/compile error is shown and does not get overwritten by runtime execution markers |
 | 🕒 | `TC-082` | `WEB` | `developer` | Run Python print | Output is correct |
-| 🕒 | `TC-083` | `WEB` | `developer` | Run Python syntax/runtime error | Error renders correctly and the editor highlights the reported source line when available |
+| 🕒 | `TC-083` | `WEB` | `developer` | Run Python syntax/runtime error | Error renders correctly, the editor highlights the reported source line when available, and the failing location is revealed automatically |
 | 🕒 | `TC-084` | `WEB` | `developer` | Open Go/Rust in web | Explicit limitation or supported behavior is shown correctly |
 | ✅ | `TC-085` | `ELEC` | `developer` | Run JS hello world | Output is correct |
 | ✅ | `TC-086` | `ELEC` | `developer` | Run TS hello world | Output is correct |
 | ✅ | `TC-087` | `ELEC` | `developer` | Run Python hello world | Output is correct |
 | ✅ | `TC-088` | `ELEC` | `developer` | Run Go hello world | Compile and execution succeed |
-| ✅ | `TC-089` | `ELEC` | `developer` | Run Go compile error case | Compile error is visible and the editor can highlight the reported source location |
+| ✅ | `TC-089` | `ELEC` | `developer` | Run Go compile error case | Compile error is visible, the editor can highlight the reported source location, and the failing line is revealed automatically |
 | ✅ | `TC-090` | `ELEC` | `developer` | Run Rust hello world | Compile and execution succeed |
-| ✅ | `TC-091` | `ELEC` | `developer` | Run Rust compile error case | Compile error is visible and the editor can highlight the reported source location |
+| ✅ | `TC-091` | `ELEC` | `developer` | Run Rust compile error case | Compile error is visible, the editor can highlight the reported source location, and the failing line is revealed automatically |
 
 ## Responsive / Persistence / Shutdown
 
