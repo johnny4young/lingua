@@ -499,25 +499,120 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Readiness: `Ready for phased implementation`
 - Why this is now concrete:
   - Benchmark apps and websites already use multilingual product messaging and maintainable locale structures
-  - RunLang currently hardcodes most user-facing copy in the renderer and has no locale pipeline
-- Scope:
-  - Adopt `i18next` with React bindings across desktop renderer, web build, and the future marketing website
-  - Move user-facing strings into versioned locale namespaces:
-    - `app`
-    - `settings`
-    - `commands`
-    - `errors`
-    - `website`
-  - Add locale detection, manual language switcher, fallback locale, pluralization, and date/number formatting helpers
-  - Add CI checks for:
+  - RunLang currently hardcodes most user-facing copy in the renderer, Electron `main`, and web adapters
+  - A future website should reuse the same glossary and locale model instead of inventing a second translation stack
+- Technical decisions locked for implementation:
+  - Use `i18next` as the shared translation core
+  - Use `react-i18next` only in React surfaces
+  - Keep locale assets repo-managed for MVP; do not introduce a translation SaaS yet
+  - Start with `en` as source locale and `es` as the first additional locale
+  - Support `system` as the default language preference
+  - Use locale fallback order:
+    - exact locale
+    - base language
+    - `en`
+  - Do not localize code samples, generated file names, language ids, plugin ids, or other internal identifiers in the first rollout
+- Required architecture:
+  - Add a shared i18n package/module usable by:
+    - Electron renderer
+    - Electron main
+    - web build
+    - future website
+  - Keep translation keys stable and semantic; do not use visible English sentences as keys
+  - Organize locale files by namespace, not by one global file
+  - Resolve user-facing text at render/use sites rather than storing translated labels in domain constants
+- Required namespaces for MVP:
+  - `common`
+  - `toolbar`
+  - `settings`
+  - `editor`
+  - `commandPalette`
+  - `snippets`
+  - `dialogs`
+  - `errors`
+  - `website`
+- Data-model changes required:
+  - Add `language: 'system' | 'en' | 'es'` to persisted settings
+  - Add a resolved-locale helper that maps:
+    - Electron desktop -> `app.getPreferredSystemLanguages()`
+    - web build -> `navigator.languages`
+  - Add formatting helpers for date/time/number output so formatting does not drift by surface
+- Refactor rules for maintainability:
+  - Replace hardcoded UI copy in components with translation keys
+  - Replace `label` / `description` literals in config modules with `labelKey` / `descriptionKey` style fields where the value is UI-facing
+  - Keep search/discovery features language-aware:
+    - command palette labels and descriptions must localize
+    - command palette keywords may keep English aliases for discoverability
+  - Keep plugin-provided runtime names as plugin-owned strings until a language-pack model exists
+- Phase 1: Foundation and bootstrap
+  - Add `i18next` and `react-i18next`
+  - Create shared i18n bootstrap under a new module such as:
+    - `src/shared/i18n/`
+  - Add base resource structure for `en` and `es`
+  - Add renderer bootstrap in:
+    - `src/renderer/main.tsx`
+  - Add desktop/web locale resolution bridge through:
+    - `src/main/index.ts`
+    - `src/preload/index.ts`
+    - `src/web/main.tsx`
+  - Add persisted language setting in:
+    - `src/renderer/stores/settingsStore.ts`
+  - Acceptance criteria for Phase 1:
+    - App can boot with `system`, `en`, or `es`
+    - Renderer language can be switched without reload regressions
+    - Desktop and web resolve the same fallback behavior
+- Phase 2: Convert highest-visibility app surfaces
+  - Convert toolbar, settings modal/sections, empty states, command palette, snippets modal, and core dialogs
+  - Target files include:
+    - `src/renderer/components/Toolbar/Toolbar.tsx`
+    - `src/renderer/components/Settings/**`
+    - `src/renderer/components/Editor/EditorEmptyState.tsx`
+    - `src/renderer/components/CommandPalette/**`
+    - `src/renderer/components/Snippets/SnippetsModal.tsx`
+    - `src/main/ipc/fileSystem.ts`
+    - `src/web/adapter.ts`
+  - Acceptance criteria for Phase 2:
+    - Main user flows are readable in both `en` and `es`
+    - Electron confirmation dialogs are localized
+    - No new hardcoded copy is introduced in converted surfaces
+- Phase 3: Convert config-driven and reusable text sources
+  - Refactor config/data modules so UI-facing labels come from translation keys:
+    - `src/renderer/components/Settings/settingsOptions.ts`
+    - `src/renderer/utils/languageMeta.ts`
+    - `src/renderer/components/CommandPalette/commandPaletteModel.ts`
+    - `src/renderer/data/templates.ts`
+  - Decide per item whether content is:
+    - product UI copy -> localize now
+    - educational/example content -> leave source text unchanged for MVP
+  - Acceptance criteria for Phase 3:
+    - Config-driven menus and labels do not embed user-facing English literals
+    - Language/template metadata remains stable without storing translated strings in the state layer
+- Phase 4: Enforcement and contributor workflow
+  - Add CI or repo checks for:
     - missing keys
-    - unused keys
-    - accidental hardcoded strings in touched surfaces
-  - Keep locale assets repo-managed for MVP rather than introducing a translation SaaS dependency
-- Acceptance criteria:
-  - Desktop app, web build, and website can all switch language without code duplication
-  - New renderer and website surfaces do not introduce fresh hardcoded UI strings
-  - Missing locale keys fail CI with actionable output
+    - orphaned keys
+    - invalid locale JSON structure
+  - Add a lightweight hardcoded-string guard for touched renderer files
+  - Document contributor rules in repo docs:
+    - where locale files live
+    - how to add a key
+    - what must not be localized
+    - how to preserve command palette discoverability
+  - Acceptance criteria for Phase 4:
+    - Missing locale keys fail CI with actionable output
+    - Contributors have one documented path for adding new strings
+- Explicitly out of scope for MVP:
+  - third-party translation management services
+  - community language packs
+  - runtime download of locale bundles
+  - plugin-translatable manifests
+  - full localization of code templates/snippet bodies
+  - localized keyboard shortcut glyph differences beyond existing platform logic
+- Final acceptance criteria:
+  - Desktop app, web build, and future website can share one i18n foundation without duplicating translation logic
+  - New user-facing surfaces have a clear path to land without hardcoded copy
+  - Language preference persists cleanly and `system` mode behaves predictably
+  - The app remains maintainable as locale coverage grows beyond `en` and `es`
 - Dependencies:
   - None
 
@@ -814,20 +909,260 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Priority: `P1`
 - Status: `Planned`
 - Readiness: `Ready for an offline-first MVP`
+- Product position:
+  - This is not a general-purpose chat feature in the first rollout
+  - The MVP is a constrained offline assistant for simple programming tasks only
+  - The primary user value is:
+    - generate a small algorithm in the selected language
+    - explain the current code briefly
+    - translate a simple algorithmic idea into the selected language
+  - Do not market this as a full coding copilot or autonomous editing system
 - Scope:
-  - Introduce a provider abstraction with local-first support via Ollama or a compatible local HTTP model server
+  - Introduce a local-only AI assistant for desktop builds
+  - Support Ollama over loopback only as the first and only provider in the MVP
+  - Keep the internal design compatible with future provider abstraction, but do not expose provider switching in the first user-facing iteration
   - Start with lightweight code models such as:
-    - `qwen2.5-coder:1.5b`
-    - `qwen2.5-coder:3b`
+    - `qwen2.5-coder:3b` as the recommended default
+    - `qwen2.5-coder:1.5b` as the lower-resource fallback
   - Use constrained prompt templates for:
     - algorithm generation
     - code explanation
     - translate this idea into the selected language
   - Add streaming responses and explicit insert/copy actions
   - Keep automatic file editing out of MVP
+  - Keep the feature fully optional and disableable
+- Explicit non-goals for MVP:
+  - no cloud providers
+  - no arbitrary external API URLs
+  - no autonomous code modification
+  - no repo-wide agent behavior
+  - no shell command execution
+  - no background indexing or retrieval over the whole project
+  - no plugin-facing AI API surface yet
+- Exact execution boundary:
+  - Desktop only
+  - Web build must surface the feature as unavailable rather than partially emulated
+  - All requests must stay on the local machine through Ollama on loopback
+  - The feature must continue to work with internet access disabled as long as the local model is already installed
+- Why this shape is preferred:
+  - The app is already strongest as a local code runner and scratchpad
+  - A constrained assistant aligns with the existing language/template/snippet workflow better than a free-form chat pane
+  - Small local models are sufficient for "Fibonacci in the selected language" and similar tasks, while reducing latency and memory compared to large local models
+- Detailed implementation blueprint:
+
+#### RL-031.1 Introduce a desktop-only local AI bridge in main/preload
+
+- Readiness: `Ready`
+- Scope:
+  - Add `ai:*` IPC handlers in the Electron main process
+  - Expose a minimal `window.runlang.ai` bridge from preload
+  - Start with these operations only:
+    - `getStatus`
+    - `listModels`
+    - `generate`
+    - `cancel`
+  - The main process owns all HTTP communication with Ollama
+  - The renderer must not call Ollama directly
+- Exact contract direction:
+  - `getStatus`
+    - checks whether the feature is enabled in settings
+    - checks whether desktop build is active
+    - checks whether Ollama responds on loopback
+    - returns supported/unavailable/error state with a short reason
+  - `listModels`
+    - reads local models from Ollama
+    - returns only local model metadata needed by the UI
+  - `generate`
+    - accepts a structured request with task type, current language, source code or user prompt, and selected model
+    - streams partial text chunks back to the renderer
+  - `cancel`
+    - aborts the in-flight local request cleanly
+- Security and networking constraints:
+  - Allow only `127.0.0.1` and `localhost`
+  - Default base URL to `http://127.0.0.1:11434`
+  - Reject arbitrary remote hosts in the MVP
+  - Do not persist auth tokens because none are needed for the local-only MVP
+- Suggested file touch points when implementation starts:
+  - `src/main/index.ts`
+  - a new main-side module such as `src/main/ai.ts`
+  - `src/preload/index.ts`
+  - `src/types.d.ts`
 - Acceptance criteria:
-  - A prompt such as "Dame el algoritmo de Fibonacci" can return code for the currently selected language entirely offline on a supported machine
+  - Renderer can query local AI availability through preload without direct network access
+  - An in-flight response can be cancelled
+  - Web mode reports the feature as unavailable with an explicit reason
+
+#### RL-031.2 Add persisted settings for the local assistant
+
+- Readiness: `Ready`
+- Scope:
+  - Extend settings persistence with AI-specific local preferences
+  - Keep defaults conservative so the app behaves exactly as today until the user turns the feature on
+- Settings to add:
+  - `aiEnabled: boolean`
+  - `aiBaseUrl: string`
+  - `aiModel: string`
+  - `aiTaskMode: 'algorithm' | 'explain' | 'translate'`
+  - `aiMaxContextChars: number`
+  - `aiTemperature: number`
+- Recommended defaults:
+  - `aiEnabled = false`
+  - `aiBaseUrl = http://127.0.0.1:11434`
+  - `aiModel = qwen2.5-coder:3b`
+  - `aiMaxContextChars` capped to a modest value for simple tasks
+  - low temperature for deterministic output
+- UI guidance:
+  - Add a dedicated AI subsection inside Settings rather than overloading Editor settings
+  - Show status:
+    - disabled
+    - local server unavailable
+    - model missing
+    - ready
+  - Allow a model refresh button
+- Suggested file touch points:
+  - `src/renderer/stores/settingsStore.ts`
+  - `src/renderer/components/Settings/SettingsModal.tsx`
+  - a new section such as `src/renderer/components/Settings/AISection.tsx`
+- Acceptance criteria:
+  - Users can enable or disable the assistant without affecting the rest of the editor
+  - The selected model persists locally
+  - Broken local server/model states are visible in Settings
+
+#### RL-031.3 Ship only three constrained user tasks
+
+- Readiness: `Ready`
+- Scope:
+  - Expose exactly three actions in MVP:
+    - `Generate Algorithm`
+    - `Explain Current Code`
+    - `Translate Idea to Current Language`
+  - Keep these actions language-aware
+  - Feed them from:
+    - active tab language
+    - active tab content when relevant
+    - optional short user prompt
+- UX entry points:
+  - command palette actions
+  - a compact toolbar action or overflow action
+  - optional empty-state shortcut later if usage validates it
+- UX constraints:
+  - Do not open a permanent chat sidebar in the MVP
+  - Prefer a focused modal or panel with one active request at a time
+  - Show explicit `Insert` and `Copy` actions after generation
+  - Do not auto-insert output
+- Suggested file touch points:
+  - `src/renderer/components/Toolbar/Toolbar.tsx`
+  - `src/renderer/components/CommandPalette/commandPaletteModel.ts`
+  - a new UI surface such as `src/renderer/components/AI/AIAssistantModal.tsx`
+- Acceptance criteria:
+  - A user can trigger one of the three actions without leaving the editing flow
+  - The selected language is visible in the request UI
+  - Output is never applied silently to the file
+
+#### RL-031.4 Constrain prompts aggressively for simple algorithm work
+
+- Readiness: `Ready`
+- Scope:
+  - Build task-specific prompt templates on the main side
+  - Use structured instructions instead of free-form chat history
+  - Keep prompts small and deterministic
+- Prompt rules:
+  - Always include the selected language
+  - Always state that the target is a simple standalone algorithm
+  - Prefer a single-file answer
+  - Prefer standard library only
+  - Ask for a brief explanation plus complexity only when relevant
+  - Refuse or narrow the task if it drifts into non-algorithmic or environment-specific requests
+- Structured response target:
+  - Prefer a predictable textual layout such as:
+    - short title
+    - code block
+    - short explanation
+    - time complexity
+    - space complexity
+  - Keep the MVP tolerant of imperfect model formatting, but normalize obvious wrapper text before rendering
+- Context rules:
+  - For `Explain Current Code`, send only the current tab content and language
+  - For `Generate Algorithm`, send only the user request, language, and template constraints
+  - For `Translate Idea`, send only the source text and target language
+  - Do not send the whole project tree or unrelated tabs
+- Acceptance criteria:
+  - The model reliably returns short algorithm-focused answers for common prompts
+  - Prompts such as "Dame Fibonacci en Go" and "Explícame este binary search en Rust" stay within scope
+
+#### RL-031.5 Stream local responses with interruption support
+
+- Readiness: `Ready`
+- Scope:
+  - Stream token or chunk updates into the renderer
+  - Support a visible cancel button
+  - Preserve partial output if the user cancels manually
+  - Surface transport/model errors without crashing the editing flow
+- Error states to handle explicitly:
+  - Ollama not installed or not running
+  - configured model not found locally
+  - local request timeout
+  - user cancellation
+  - malformed response from the local server
+- UX expectations:
+  - show a small active generation state
+  - keep the editor usable while streaming
+  - map errors to actionable text such as:
+    - "Ollama no responde en 127.0.0.1:11434"
+    - "El modelo seleccionado no está instalado localmente"
+- Acceptance criteria:
+  - Streaming works for a normal generation flow
+  - Cancel leaves the app responsive and does not poison the next request
+  - Failure messages are actionable and local-first
+
+#### RL-031.6 Keep capability boundaries truthful in docs and UI
+
+- Readiness: `Ready`
+- Scope:
+  - Update product text so local AI is described conservatively
+  - State clearly that the MVP is:
+    - desktop only
+    - local only
+    - constrained to simple programming help
+  - Avoid describing it as a general extension or autonomous coding agent
+- Docs to update when implementation lands:
+  - `README.md`
+  - any shortcut/workflow docs touched by the new entry points
+- Acceptance criteria:
+  - Product copy matches the actual MVP behavior
+  - Browser limitations remain explicit
+
+#### RL-031.7 Verification plan for the future implementation
+
+- Readiness: `Ready`
+- Manual validation matrix:
+  - disabled state:
+    - confirm the app behaves exactly as before when AI is off
+  - local server unavailable:
+    - confirm Settings and request UI show a clear unavailable state
+  - model missing:
+    - confirm the user gets an actionable error before generation starts or immediately on request
+  - happy path:
+    - generate Fibonacci in JavaScript, TypeScript, Go, Python, and Rust
+    - explain the current active file for a short algorithm sample
+    - translate one simple idea into the active language
+  - cancellation:
+    - start a request and cancel mid-stream
+  - web build:
+    - confirm the feature is explicitly unavailable
+- Suggested automated coverage after implementation:
+  - unit tests for prompt builders and AI request normalization
+  - renderer tests for disabled/unavailable/ready states
+  - main-side tests for availability parsing and response/error mapping
+- Acceptance criteria:
+  - The implementation can be validated against a finite checklist instead of exploratory testing only
+
+- Final MVP acceptance criteria:
+  - A prompt such as "Dame Fibonacci en el lenguaje seleccionado" can return code entirely offline on a supported desktop machine
+  - The assistant works only through a local Ollama endpoint on loopback
   - The assistant can be disabled completely and leaves the base editor flow intact
+  - Web builds remain honest and show the feature as unavailable
+  - Output is always user-mediated through explicit insert/copy actions
 - Dependencies:
   - RL-021
 
