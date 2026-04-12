@@ -324,6 +324,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
   - decide per-language package model
   - decide cache ownership and project isolation
   - define web-mode limitations clearly
+- Detailed implementation is now split into RL-025 and RL-029 below so this item can remain an umbrella product goal rather than a single oversized task.
 
 ---
 
@@ -340,6 +341,7 @@ These items remain valid product directions, but they are intentionally behind t
   - per-tab runtime mode selection
   - preview pane for visual output
 - Not ready to implement until RL-003 and RL-004 define the current runtime contract cleanly
+- Detailed implementation is now split into RL-019, RL-020, and RL-029 below.
 
 ### RL-014 AI assistance
 
@@ -350,6 +352,7 @@ These items remain valid product directions, but they are intentionally behind t
   - code explanation and fix suggestions
   - local model option
 - Not ready to implement until editor diagnostics and snippet/productivity features are stable
+- Detailed implementation is now split into RL-031 below.
 
 ### RL-015 i18n, custom theming, and shortcut customization
 
@@ -360,6 +363,7 @@ These items remain valid product directions, but they are intentionally behind t
   - custom theme import
   - user-defined shortcuts
 - These are valid enhancements, but they should follow after workflow correctness and settings cleanup
+- Detailed implementation is now split into RL-018 and RL-037 below.
 
 ---
 
@@ -386,6 +390,646 @@ These items remain valid product directions, but they are intentionally behind t
 
 ---
 
+## 6. Competitive benchmark snapshot
+
+Research pass completed on `2026-04-11` against the current repo plus the following reference products and platform docs:
+
+- RunJS
+- WizardJS
+- OpenRunner
+- PlayJS / JS Blitz
+- PlayCode JavaScript Playground
+- PlayCode Go Compiler
+- Swift Playground
+- Python IDLE
+- WebContainers
+- Electron Forge
+- Vite
+- Tauri 2
+- Monaco Editor and alternatives
+
+### Benchmark signals that matter for RunLang
+
+- RunJS, WizardJS, OpenRunner, and PlayJS confirm that the core scratchpad expectation for developers is:
+  - instant execution
+  - smart auto-run
+  - clean inline results
+  - runtime flexibility
+  - strong JS/TS editing ergonomics
+  - snippet reuse
+  - low-friction package usage
+- PlayCode confirms that web-first value is no longer just "run code online":
+  - multi-file projects
+  - package installation
+  - offline-capable browser execution
+  - shareability
+  - guided examples
+  - collaboration-ready surfaces
+- Swift Playground confirms that student usefulness requires more than execution:
+  - guided lessons
+  - challenge packs
+  - starter galleries
+  - assets and multi-file projects
+  - shareability
+  - rich documentation
+- IDLE confirms that long-term daily utility still depends on classic dev-tool features:
+  - debugger
+  - breakpoints
+  - configurable keys and themes
+  - help integration
+  - better output handling
+- WebContainers strongly fit JS/TS/web package workflows, but they do not automatically replace:
+  - native desktop file-system access
+  - native file watching
+  - updater flows
+  - local toolchain-dependent Go/Rust flows
+  - desktop-only plugin discovery
+- Electron Forge remains a strong default shell/build choice for Electron apps, but its Vite path is still the part of this stack most likely to introduce upgrade friction.
+- Tauri 2 is viable only as a deliberate rewrite/spike, not as a near-zero-cost migration.
+- Monaco remains the best fit for a desktop-heavy "developer-grade IDE surface" today, while CodeMirror 6 is the most credible alternative worth evaluating for lighter-weight, mobile-sensitive, and collaboration-heavy surfaces.
+
+### Current strengths relative to the benchmark
+
+- RunLang is already ahead of the JS-only scratchpads on breadth of language support
+- The current app already has a real project tree, recent projects, tabs, resizable layout, snippets, quick open, command palette, updates, and a web build
+- The current app already supports desktop-specific compiled-language workflows that the web-first competitors do not match
+- The current app already has a conservative plugin direction, a release pipeline, and a PWA/web build instead of only a desktop binary
+
+### Confirmed gaps worth productizing
+
+- Maintainable i18n for app and future website
+- Loose-file workflow quality:
+  - Open File
+  - Save As
+  - session restore
+  - recent files
+- JS/TS runtime flexibility:
+  - worker scratchpad
+  - desktop Node runtime
+  - browser/DOM preview runtime
+- Better REPL UX:
+  - smart complete-code detection
+  - stdin/input support
+  - execution history
+  - replay and benchmarking
+- Indexed quick open and project-wide search
+- Package management that is explicit and language-aware
+- Multi-file playgrounds, assets, and starter galleries
+- Guided lessons and practice/challenge mode for students
+- LSP-grade editor intelligence beyond JS/TS
+- Debugging support
+- WebContainers pilot for JS/TS/web only
+- Explicit WASM-first decision record instead of an all-at-once migration
+- Dedicated marketing/download/docs website separate from the app web build
+- Local AI assistance oriented to algorithm explanation and code generation by selected language
+- Deeper editor personalization:
+  - themes
+  - keymaps
+  - Vim mode
+  - shortcut editor
+
+---
+
+## 7. Research-backed expansion backlog
+
+### RL-018 Build a maintainable i18n system for the app and future website
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready for phased implementation`
+- Why this is now concrete:
+  - Benchmark apps and websites already use multilingual product messaging and maintainable locale structures
+  - RunLang currently hardcodes most user-facing copy in the renderer and has no locale pipeline
+- Scope:
+  - Adopt `i18next` with React bindings across desktop renderer, web build, and the future marketing website
+  - Move user-facing strings into versioned locale namespaces:
+    - `app`
+    - `settings`
+    - `commands`
+    - `errors`
+    - `website`
+  - Add locale detection, manual language switcher, fallback locale, pluralization, and date/number formatting helpers
+  - Add CI checks for:
+    - missing keys
+    - unused keys
+    - accidental hardcoded strings in touched surfaces
+  - Keep locale assets repo-managed for MVP rather than introducing a translation SaaS dependency
+- Acceptance criteria:
+  - Desktop app, web build, and website can all switch language without code duplication
+  - New renderer and website surfaces do not introduce fresh hardcoded UI strings
+  - Missing locale keys fail CI with actionable output
+- Dependencies:
+  - None
+
+### RL-019 Add explicit JS/TS runtime modes: worker scratchpad, desktop Node, and browser preview
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready once loose-file flow and runtime capability UI are defined`
+- Why this is high leverage:
+  - RunJS wins partly because it combines Node.js and Browser APIs in a scratchpad-oriented product
+  - The current app exposes only the worker-style JS/TS contract
+- Scope:
+  - Add per-tab runtime mode selection for JS/TS:
+    - `Worker`
+    - `Node (desktop only)`
+    - `Browser Preview`
+  - Keep the existing worker runner as the fast default scratchpad
+  - Add a desktop Node runner via child process or utility process with explicit timeouts and sandbox boundaries
+  - Add a browser-preview runtime backed by an iframe/webview-style isolated preview surface for DOM-oriented examples
+  - Switch Monaco diagnostics/libs by runtime mode so the editor contract stays truthful
+- Acceptance criteria:
+  - A JS/TS tab can switch runtime mode without opening Settings
+  - Desktop Node mode can use Node built-ins explicitly
+  - Browser Preview mode can render DOM output in a dedicated preview surface
+  - Worker mode remains the fastest default for pure language experimentation
+- Dependencies:
+  - RL-021
+
+### RL-020 Make the scratchpad and REPL experience best-in-class
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready to implement incrementally after RL-019 starts`
+- Scope:
+  - Add smart auto-run with complete-code detection so incomplete edits do not execute too early
+  - Expand magic comments into a richer inline-watch system that can pin and preserve selected expressions
+  - Add stdin / input support for supported runtimes
+  - Add timeout presets and clearer abort state for long-running code
+  - Preserve the last successful run so users can compare current output against the previous stable result
+  - Add per-tab execution history with timestamps and rerun support
+- Acceptance criteria:
+  - Auto-run skips obviously incomplete code states
+  - Users can rerun a previous execution from history
+  - Supported runtimes can accept simple stdin text without custom code changes
+- Dependencies:
+  - RL-019
+
+### RL-021 Fix loose-file workflow and session continuity
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready now`
+- Current gap:
+  - The app handles project folders well, but loose-file workflows remain incomplete
+  - Tabs created from the toolbar are in-memory unless attached to a project path
+- Scope:
+  - Add `Open File`
+  - Add `Save As`
+  - Add duplicate tab / save copy
+  - Add recent files separate from recent projects
+  - Add dirty-close prompts and unsaved-session recovery
+  - Add reopen-last-session on app restart behind a setting
+- Acceptance criteria:
+  - Users can work without opening a project folder first
+  - Unsaved tabs can be named and persisted through `Save As`
+  - Recent file access works independently from recent project access
+- Dependencies:
+  - None
+
+### RL-022 Add indexed Quick Open, project search, and symbol navigation
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready after RL-021`
+- Current gap:
+  - Quick Open only sees tabs and the already-loaded part of the current file tree
+- Scope:
+  - Build a background index for the active project
+  - Add fuzzy search across all files, not only expanded directories
+  - Add project-wide text search with match previews
+  - Add symbol outline and symbol jump for supported languages
+  - Reuse the same index for command palette actions such as "open symbol" and "reveal in tree"
+- Acceptance criteria:
+  - Quick Open can find unopened files anywhere in the active project
+  - Search results remain responsive on medium-size projects
+  - Symbol navigation works at least for JS/TS from the first rollout
+- Dependencies:
+  - RL-021
+
+### RL-023 Build Snippet Lab and algorithm practice mode
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready for product design`
+- Why this matters:
+  - Several reference apps are used specifically for practicing snippets, algorithms, and interview-style problems
+  - RunLang already has the right building blocks:
+    - snippets
+    - templates
+    - inline results
+    - multiple runtimes
+- Scope:
+  - Group snippets into collections and tags
+  - Add practice challenges with:
+    - starter code
+    - hidden tests
+    - expected output
+    - explanation
+    - difficulty
+  - Add import/export for snippet collections and challenge packs
+  - Track local progress for students without requiring accounts
+- Acceptance criteria:
+  - A user can open a challenge, run tests, and save their solution locally
+  - Snippets and practice packs can be exported/imported as files
+  - At least one starter pack ships for algorithms and one for language basics
+- Dependencies:
+  - RL-021
+
+### RL-024 Support multi-file playgrounds, assets, and starter galleries
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready after loose-file and indexing work`
+- Why this matters:
+  - Swift Playground and PlayCode both show that multi-file starter projects and assets make the product much more useful for learning and prototyping
+- Scope:
+  - Add starter project galleries by language/use case
+  - Add multi-file templates for:
+    - JS/TS web examples
+    - Python exercises
+    - Go examples
+    - Rust examples
+  - Add basic asset support:
+    - images
+    - JSON
+    - text fixtures
+    - sample data files
+  - Add zip import/export for runnable project bundles
+- Acceptance criteria:
+  - Users can create a project from a starter gallery instead of only from blank files
+  - Multi-file examples open correctly and preserve supporting assets
+  - Exported bundles can be re-imported without manual repair
+- Dependencies:
+  - RL-021
+  - RL-022
+
+### RL-025 Add package and dependency management in a language-aware way
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Research-backed but requires phased rollout`
+- Scope:
+  - JS/TS desktop:
+    - manage `package.json`
+    - install dependencies with `npm`
+    - cache by project
+    - expose trust prompts for first install/run
+  - JS/TS web:
+    - use CDN imports first
+    - then layer in WebContainers where supported
+  - Python:
+    - evaluate `micropip` / Pyodide subset support separately from desktop virtualenv support
+  - Go and Rust:
+    - keep the first rollout standard-library-first until a safe module story is defined
+  - Surface dependency state, install errors, and unsupported paths clearly in the UI
+- Acceptance criteria:
+  - A desktop JS/TS project can add a simple dependency and execute it
+  - Unsupported dependency scenarios are explicit rather than failing silently
+  - The implementation keeps project isolation and does not leak installs across unrelated workspaces
+- Dependencies:
+  - RL-019
+  - RL-029
+
+### RL-026 Add language intelligence beyond Monaco's built-in JS/TS services
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Needs the language-pack model and runtime capability matrix first`
+- Scope:
+  - Introduce an adapter layer for richer diagnostics/completion/hover/signature help
+  - Start with one non-JS language from:
+    - Python
+    - Go
+    - Rust
+  - Support desktop-side language servers first when the web story is weaker
+  - Keep capability flags explicit so web mode degrades honestly
+- Acceptance criteria:
+  - At least one non-JS language gets real completion and diagnostics beyond syntax highlighting
+  - Editor error surfacing and result markers stay consistent with the richer language service
+- Dependencies:
+  - RL-030
+  - RL-038
+
+### RL-027 Add debugger MVP
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Blocked on runtime-mode work`
+- Scope:
+  - Breakpoints
+  - Step over / step into / step out
+  - Watch expressions
+  - Variable inspector
+  - Call stack panel
+  - Console integration for paused sessions
+  - Start with JS/TS Node mode
+- Acceptance criteria:
+  - A user can pause execution at a breakpoint in JS/TS Node mode and inspect variables
+  - Breakpoint state persists for reopened files in a project
+- Dependencies:
+  - RL-019
+
+### RL-028 Add execution history, replay, and benchmarking tools
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready after REPL state/history exists`
+- Scope:
+  - Save execution snapshots
+  - Replay previous inputs
+  - Compare output deltas between runs
+  - Add timing summaries and a simple micro-benchmark mode for algorithm practice
+  - Export run logs and output as text/JSON
+- Acceptance criteria:
+  - Users can compare at least two executions of the same tab
+  - Benchmark runs use a repeatable warmup/iteration model instead of ad hoc timing
+- Dependencies:
+  - RL-020
+
+### RL-029 Pilot WebContainers for JS/TS/web projects only
+
+- Priority: `P2`
+- Status: `Research-backed spike`
+- Readiness: `Ready only as an isolated experiment`
+- Recommendation boundary:
+  - Worth evaluating for JS/TS/web package workflows
+  - Not worth treating as a blanket replacement for the whole desktop architecture
+- Scope:
+  - Build a capability-gated adapter for supported browsers
+  - Mount project files into a WebContainer
+  - Support `npm install` and one preview/dev command
+  - Expose a preview URL inside the app web surface
+  - Detect and message unsupported browsers/platforms clearly
+- Explicitly out of scope:
+  - Replacing desktop auto-updates
+  - Replacing native file watching
+  - Replacing Go/Rust native toolchains
+  - Replacing local plugin discovery
+- Acceptance criteria:
+  - One JS/TS starter project can install dependencies and run in-browser
+  - Unsupported environments degrade cleanly to the current non-WebContainer path
+- Dependencies:
+  - RL-025
+
+### RL-030 Write a WASM-first capability matrix and migrate only where it wins
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready now as an architecture task`
+- Why this task exists:
+  - A full "WASM-first for everything" rewrite is not viable today for the current feature set
+  - The product needs a capability matrix before committing to a migration slogan
+- Scope:
+  - Document each current capability against these execution classes:
+    - browser WASM
+    - browser interpreter
+    - WebContainer
+    - desktop native
+    - hybrid
+  - Create a decision record for:
+    - JS/TS
+    - Python
+    - Go
+    - Rust
+    - file-system access
+    - file watching
+    - updates
+    - plugins
+    - local AI inference
+  - Promote only the flows that gain portability, privacy, or maintainability
+- Expected near-term outcome:
+  - JS/TS/Python remain the strongest web/WASM candidates
+  - Go may gain partial browser parity through interpreter/WASM experiments
+  - Rust compile-and-run remains desktop-native for now
+  - Filesystem watching, local plugin loading, and updater flows remain shell-specific
+- Acceptance criteria:
+  - No "WASM-first everywhere" migration starts before this matrix is approved
+  - Each runtime and shell feature has a documented recommended execution class
+- Dependencies:
+  - None
+
+### RL-031 Add a local AI code assistant focused on algorithms and cross-language generation
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready for an offline-first MVP`
+- Scope:
+  - Introduce a provider abstraction with local-first support via Ollama or a compatible local HTTP model server
+  - Start with lightweight code models such as:
+    - `qwen2.5-coder:1.5b`
+    - `qwen2.5-coder:3b`
+  - Use constrained prompt templates for:
+    - algorithm generation
+    - code explanation
+    - translate this idea into the selected language
+  - Add streaming responses and explicit insert/copy actions
+  - Keep automatic file editing out of MVP
+- Acceptance criteria:
+  - A prompt such as "Dame el algoritmo de Fibonacci" can return code for the currently selected language entirely offline on a supported machine
+  - The assistant can be disabled completely and leaves the base editor flow intact
+- Dependencies:
+  - RL-021
+
+### RL-032 Build a dedicated marketing website and docs/download hub
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready after i18n foundation is chosen`
+- Current gap:
+  - The project has a web app build, but not a distinct marketing website
+- Scope:
+  - Create a separate website entry/build from the app web build
+  - Add:
+    - product pitch
+    - screenshots
+    - language support matrix
+    - download matrix by platform/architecture
+    - changelog/release feed
+    - docs hub
+    - FAQ
+    - roadmap summary
+  - Reuse visual tokens and branding, but keep website routing/content separate from the app runtime
+  - Pull release metadata from GitHub releases so the downloads page stays current
+- Acceptance criteria:
+  - Website and app web build are two separate deploy artifacts
+  - The website can explain the product without loading the app itself
+  - Users can discover downloads, docs, and limitations from one place
+- Dependencies:
+  - RL-018
+
+### RL-033 Upgrade to the latest Vite major and harden the bundling surface
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Positive but gated`
+- Why this looks viable:
+  - The repo already uses `.mts` Vite configs
+  - The repo already targets Node 24
+  - Main, preload, renderer, and web are already separated cleanly
+- Main risks:
+  - Electron Forge's Vite path remains the most fragile integration point
+  - The local desktop launcher depends on Forge/Vite output conventions
+  - Modern Vite changes around bundling may surface incompatibilities in custom chunking and helper scripts
+- Scope:
+  - Upgrade `vite`
+  - Upgrade `@vitejs/plugin-react`
+  - Upgrade `vitest` and related config only as needed for compatibility
+  - Verify:
+    - renderer dev
+    - Electron Forge dev
+    - packaged desktop build
+    - `desktop:dev`
+    - web build
+  - Remove or replace deprecated config patterns found during migration
+- Acceptance criteria:
+  - Electron and web builds both succeed on the target Node version
+  - The local launcher still works or is replaced with a simpler supported path
+  - No functional regressions are introduced in Monaco worker loading or the web build
+- Dependencies:
+  - RL-005
+
+### RL-034 Record the desktop build-system choice: stay on Forge, or move to electron-vite / electron-builder
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready after the Vite-major spike`
+- Current recommendation:
+  - Stay on Electron Forge unless Vite-major upgrades or packager limitations become recurring blockers
+- Scope:
+  - Create an ADR comparing:
+    - current Electron Forge setup
+    - a custom `electron-vite` path
+    - an `electron-builder` packaging path
+  - Score each option against:
+    - Vite-major agility
+    - packaging/signing complexity
+    - update ecosystem
+    - CI portability
+    - ecosystem maturity
+    - migration effort from the current repo
+- Acceptance criteria:
+  - The repo has a written "stay" or "migrate" decision
+  - If inconclusive, a single thin prototype resolves the uncertainty instead of a full migration
+- Dependencies:
+  - RL-033
+
+### RL-035 Run a Tauri 2 feasibility spike without committing to migration
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Useful only as a bounded spike`
+- Scope:
+  - Port one thin slice of the current product to Tauri 2:
+    - editor shell
+    - JS runner
+    - filesystem open/save
+  - Measure:
+    - cold start
+    - bundle size
+    - update/signing path
+    - permission model
+    - maintenance cost of the Rust shell
+    - impact on current Go/Rust runner architecture
+- Decision bar:
+  - Migrate only if the measured distribution/security benefits clearly outweigh the migration and maintenance cost
+- Acceptance criteria:
+  - A proof-of-concept exists
+  - The repo contains a go / no-go decision
+  - No full migration work starts before that decision
+- Dependencies:
+  - RL-021
+  - RL-030
+
+### RL-036 Add sharing, collaboration, and publish flows
+
+- Priority: `Future`
+- Status: `Planned`
+- Readiness: `Not MVP-ready`
+- Scope:
+  - Phase A:
+    - local export/import of runnable project bundles
+    - read-only share artifacts
+  - Phase B:
+    - shareable links
+    - interview mode
+    - collaborative editing
+    - one-click publish for web projects
+  - Keep cloud/account scope out of the first rollout until a backend design is explicit
+- Acceptance criteria:
+  - Phase A ships without requiring a cloud backend
+  - Cloud sharing does not start until there is a concrete storage/auth design
+- Dependencies:
+  - RL-024
+  - RL-032
+
+### RL-037 Add deep editor personalization
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready after i18n and loose-file work`
+- Scope:
+  - Shortcut editor
+  - custom keymaps
+  - theme import/export
+  - Vim mode
+  - alternate font packs
+  - result/console theme alignment
+- Acceptance criteria:
+  - Users can customize shortcuts without editing source files
+  - At least one custom theme pack and one alternate keymap ship from the first rollout
+- Dependencies:
+  - RL-018
+
+### RL-038 Build a conservative language-pack architecture before expanding plugins
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready for design`
+- Why this matters:
+  - The current built-in language support is functional but still somewhat scattered across templates, runners, toolbar metadata, and settings
+  - Plugin support should stay conservative until the built-in architecture is cleaner
+- Scope:
+  - Move built-in language metadata into declarative language packs:
+    - label
+    - icon
+    - file extensions
+    - Monaco mode
+    - runner capabilities
+    - formatter/debugger/LSP support flags
+    - docs links
+    - starter templates
+  - Refactor built-in languages and Lua to use the same capability descriptor system
+  - Keep arbitrary third-party code loading out of scope
+- Acceptance criteria:
+  - Adding a new bundled language no longer requires scattered edits across the app
+  - The app can render capability-aware UI per language without hardcoded switch statements everywhere
+- Constraint:
+  - Do not market this as a finished extension marketplace
+- Dependencies:
+  - None
+
+### RL-039 Add guided lessons, docs, and app galleries for students
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready after Snippet Lab and starter projects exist`
+- Scope:
+  - Guided lessons with checkpoints
+  - app gallery / starter gallery
+  - inline docs/help panel
+  - curated examples per language
+  - teacher/demo mode for screen sharing and workshops
+  - error-to-doc linking for common beginner mistakes
+- Acceptance criteria:
+  - At least one guided path ships for JS/TS and one for a second language
+  - Lessons include starter code, validation, and explanation instead of only static markdown
+- Dependencies:
+  - RL-023
+  - RL-024
+
+---
+
 ## Execution order summary
 
 Implement in this order unless a newly discovered regression changes severity:
@@ -399,5 +1043,14 @@ Implement in this order unless a newly discovered regression changes severity:
 7. RL-008 Settings truthfulness and app theme decision
 8. RL-009 Renderer module splits
 9. RL-010 through RL-017 as follow-on work
+10. RL-018 i18n foundation
+11. RL-021 loose-file workflow and session continuity
+12. RL-019, RL-020, and RL-022 to deepen the REPL and navigation model
+13. RL-023, RL-024, and RL-025 to turn RunLang into a stronger practice/prototyping environment
+14. RL-030 and RL-029 before any large "webassembly first" or WebContainer claims
+15. RL-026, RL-027, and RL-028 as advanced language and debugging follow-ons
+16. RL-031 and RL-032 once the core app/product surface is stable enough to support them
+17. RL-033, RL-034, and RL-035 as platform/tooling decision work
+18. RL-036 through RL-039 as broader ecosystem, learning, and personalization work
 
 This ordered list is the milestone sequence. No separate milestone section should be maintained elsewhere.
