@@ -62,6 +62,9 @@ Renderer architecture note:
 - The command palette now delegates command construction/filtering and result-list rendering to focused modules, keeping the modal container centered on interaction state instead of catalog assembly.
 - The project store now delegates pure file-tree shaping and mutation helpers to a dedicated module, leaving the Zustand store focused on project lifecycle, file-system IPC, and watch-state transitions.
 
+Architecture deep dive:
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) explains the project lifecycle, Electron IPC file-system bridge, and watch-state flow with diagrams and extension guidance.
+
 ## Quality checks
 
 ```bash
