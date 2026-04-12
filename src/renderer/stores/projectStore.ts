@@ -4,7 +4,7 @@
  * Handles:
  * - Creating and opening projects (directories on disk)
  * - Lazy-loaded file tree with expand/collapse
- * - File CRUD operations delegated to window.runlang.fs IPC
+ * - File CRUD operations delegated to window.lingua.fs IPC
  * - Recent projects list (persisted)
  * - Watch mode to detect external file changes
  */
@@ -70,7 +70,7 @@ export const useProjectStore = create<ProjectState>()(
       // --------------------------------------------------------- lifecycle
 
       createProject: async () => {
-        const dirPath = await window.runlang.fs.selectDirectory();
+        const dirPath = await window.lingua.fs.selectDirectory();
         if (!dirPath) return;
 
         const name = dirPath.split('/').pop() ?? dirPath.split('\\').pop() ?? 'project';
@@ -82,13 +82,13 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       openProject: async (dirPath?: string) => {
-        const targetPath = dirPath ?? (await window.runlang.fs.selectDirectory());
+        const targetPath = dirPath ?? (await window.lingua.fs.selectDirectory());
         if (!targetPath) return;
 
         // Stop existing watcher
         const { watchId } = get();
         if (watchId) {
-          await window.runlang.fs.watchStop(watchId);
+          await window.lingua.fs.watchStop(watchId);
         }
 
         const name =
@@ -102,11 +102,11 @@ export const useProjectStore = create<ProjectState>()(
         };
 
         // Read root entries
-        const entries = await window.runlang.fs.readdir(targetPath);
+        const entries = await window.lingua.fs.readdir(targetPath);
         const nodes = entriesToNodes(entries);
 
         // Start watching
-        const newWatchId = await window.runlang.fs.watchStart(targetPath);
+        const newWatchId = await window.lingua.fs.watchStart(targetPath);
 
         set((s) => ({
           currentProject: project,
@@ -124,7 +124,7 @@ export const useProjectStore = create<ProjectState>()(
       closeProject: () => {
         const { watchId } = get();
         if (watchId) {
-          window.runlang.fs.watchStop(watchId).catch(() => {});
+          window.lingua.fs.watchStop(watchId).catch(() => {});
         }
         set({ currentProject: null, nodes: [], watchId: null });
       },
@@ -144,7 +144,7 @@ export const useProjectStore = create<ProjectState>()(
 
       expandDirectory: async (dirPath: string) => {
         // Load children if not yet loaded
-        const entries = await window.runlang.fs.readdir(dirPath);
+        const entries = await window.lingua.fs.readdir(dirPath);
         const children = entriesToNodes(entries);
         set((s) => ({
           nodes: setNodeChildren(s.nodes, dirPath, children, true),
@@ -161,7 +161,7 @@ export const useProjectStore = create<ProjectState>()(
 
       createFile: async (parentPath: string, name: string) => {
         const filePath = joinPath(parentPath, name);
-        await window.runlang.fs.touch(filePath);
+        await window.lingua.fs.touch(filePath);
 
         const node: FileTreeNode = {
           name,
@@ -179,7 +179,7 @@ export const useProjectStore = create<ProjectState>()(
 
       createDirectory: async (parentPath: string, name: string) => {
         const dirPath = joinPath(parentPath, name);
-        await window.runlang.fs.mkdir(dirPath);
+        await window.lingua.fs.mkdir(dirPath);
 
         const node: FileTreeNode = {
           name,
@@ -195,7 +195,7 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       deleteEntry: async (entryPath: string, isDirectory: boolean) => {
-        const deleted = await window.runlang.fs.delete(entryPath, isDirectory);
+        const deleted = await window.lingua.fs.delete(entryPath, isDirectory);
         if (deleted) {
           set((s) => ({ nodes: removeNode(s.nodes, entryPath) }));
         }
@@ -203,7 +203,7 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       renameEntry: async (oldPath: string, newName: string) => {
-        const newPath = await window.runlang.fs.rename(oldPath, newName);
+        const newPath = await window.lingua.fs.rename(oldPath, newName);
         set((s) => ({
           nodes: renameNode(s.nodes, oldPath, newPath, newName),
         }));
@@ -211,7 +211,7 @@ export const useProjectStore = create<ProjectState>()(
       },
     }),
     {
-      name: 'runlang-project-store',
+      name: 'lingua-project-store',
       // Only persist the project registry; runtime state (nodes, watchId) is always re-derived
       partialize: (state) => ({
         recentProjects: state.recentProjects,

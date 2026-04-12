@@ -6,7 +6,7 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       theme: 'dark',
-      editorTheme: 'runlang-dark',
+      editorTheme: 'lingua-dark',
       fontSize: 14,
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
       showLineNumbers: true,
@@ -30,7 +30,7 @@ export const useSettingsStore = create<SettingsState>()(
       toggleHideUndefined: () => set((s) => ({ hideUndefined: !s.hideUndefined })),
     }),
     {
-      name: 'runlang-settings',
+      name: 'lingua-settings',
       // Omit functions from persistence
       partialize: (state) => ({
         theme: state.theme,

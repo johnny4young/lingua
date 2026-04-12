@@ -1,7 +1,7 @@
 import type { LayoutPreset } from '../../types';
 
 export const EDITOR_THEMES: { id: string; label: string; dark: boolean }[] = [
-  { id: 'runlang-dark', label: 'RunLang Dark', dark: true },
+  { id: 'lingua-dark', label: 'Lingua Dark', dark: true },
   { id: 'dracula', label: 'Dracula', dark: true },
   { id: 'one-dark-pro', label: 'One Dark Pro', dark: true },
   { id: 'monokai', label: 'Monokai', dark: true },

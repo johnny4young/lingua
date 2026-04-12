@@ -1,6 +1,6 @@
-import type { RunLangPlugin } from '../renderer/plugins';
+import type { LinguaPlugin } from '../renderer/plugins';
 
-export async function loadBundledPlugin(_pluginId: string): Promise<RunLangPlugin | undefined> {
+export async function loadBundledPlugin(_pluginId: string): Promise<LinguaPlugin | undefined> {
   return undefined;
 }
 

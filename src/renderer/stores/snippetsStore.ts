@@ -48,7 +48,7 @@ export const useSnippetsStore = create<SnippetsState>()(
         })),
     }),
     {
-      name: 'runlang-snippets',
+      name: 'lingua-snippets',
       partialize: (state) => ({ snippets: state.snippets }),
     }
   )

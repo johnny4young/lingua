@@ -99,22 +99,22 @@ ctx.addEventListener('message', async (event) => {
       await py.runPythonAsync(`
 import io
 import sys
-import json as __runlang_json
-__runlang_stdout = io.StringIO()
-__runlang_stderr = io.StringIO()
-__runlang_prev_stdout = sys.stdout
-__runlang_prev_stderr = sys.stderr
-sys.stdout = __runlang_stdout
-sys.stderr = __runlang_stderr
+import json as __lingua_json
+__lingua_stdout = io.StringIO()
+__lingua_stderr = io.StringIO()
+__lingua_prev_stdout = sys.stdout
+__lingua_prev_stderr = sys.stderr
+sys.stdout = __lingua_stdout
+sys.stderr = __lingua_stderr
 
-__runlang_magic_results = []
+__lingua_magic_results = []
 def __mc(line, expr_fn):
     try:
         val = expr_fn()
-        __runlang_magic_results.append({"line": line, "value": repr(val)})
+        __lingua_magic_results.append({"line": line, "value": repr(val)})
         return val
     except Exception as e:
-        __runlang_magic_results.append({"line": line, "value": str(e)})
+        __lingua_magic_results.append({"line": line, "value": str(e)})
         return None
       `);
 
@@ -144,15 +144,15 @@ def __mc(line, expr_fn):
 
       const streamState = await py.runPythonAsync(`
 import sys
-_runlang_state = __runlang_json.dumps({
-    "stdout": __runlang_stdout.getvalue(),
-    "stderr": __runlang_stderr.getvalue(),
-    "magic": __runlang_magic_results,
+_lingua_state = __lingua_json.dumps({
+    "stdout": __lingua_stdout.getvalue(),
+    "stderr": __lingua_stderr.getvalue(),
+    "magic": __lingua_magic_results,
 })
-sys.stdout = __runlang_prev_stdout
-sys.stderr = __runlang_prev_stderr
-__runlang_magic_results = []
-_runlang_state
+sys.stdout = __lingua_prev_stdout
+sys.stderr = __lingua_prev_stderr
+__lingua_magic_results = []
+_lingua_state
       `);
 
       const streams =

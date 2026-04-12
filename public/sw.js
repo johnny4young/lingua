@@ -1,5 +1,5 @@
 /**
- * RunLang Service Worker
+ * Lingua Service Worker
  *
  * Strategy: Cache-First for app shell (HTML, CSS, JS chunks, WASM).
  * Network-First for CDN resources (Pyodide) to pick up updates.
@@ -11,7 +11,7 @@
  */
 
 const CACHE_VERSION = 'v1';
-const CACHE_NAME = `runlang-${CACHE_VERSION}`;
+const CACHE_NAME = `lingua-${CACHE_VERSION}`;
 const BASE_PATH = new URL(self.registration.scope).pathname;
 
 // Resources to pre-cache on install (app shell)
@@ -93,7 +93,7 @@ async function cacheFirst(request) {
       const rootCached = await caches.match('/');
       if (rootCached) return rootCached;
     }
-    return new Response('Offline — RunLang could not load this resource.', {
+    return new Response('Offline — Lingua could not load this resource.', {
       status: 503,
       statusText: 'Service Unavailable',
     });
@@ -111,7 +111,7 @@ async function networkFirst(request) {
   } catch {
     const cached = await caches.match(request);
     if (cached) return cached;
-    return new Response('Offline — RunLang could not load this resource.', {
+    return new Response('Offline — Lingua could not load this resource.', {
       status: 503,
       statusText: 'Service Unavailable',
     });

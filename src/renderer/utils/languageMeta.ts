@@ -19,7 +19,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     textColorClass: 'text-yellow-400',
     extension: 'js',
     monacoLanguage: 'javascript',
-    defaultCode: '// Welcome to RunLang\nconsole.log("Hello, World!");\n',
+    defaultCode: '// Welcome to Lingua\nconsole.log("Hello, World!");\n',
   },
   typescript: {
     label: 'TypeScript',
@@ -29,7 +29,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     extension: 'ts',
     monacoLanguage: 'typescript',
     defaultCode:
-      '// Welcome to RunLang\nconst greeting: string = "Hello, World!";\nconsole.log(greeting);\n',
+      '// Welcome to Lingua\nconst greeting: string = "Hello, World!";\nconsole.log(greeting);\n',
   },
   go: {
     label: 'Go',
@@ -39,7 +39,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     extension: 'go',
     monacoLanguage: 'go',
     defaultCode:
-      '// Welcome to RunLang\npackage main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, World!")\n}\n',
+      '// Welcome to Lingua\npackage main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, World!")\n}\n',
   },
   python: {
     label: 'Python',
@@ -48,7 +48,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     textColorClass: 'text-green-400',
     extension: 'py',
     monacoLanguage: 'python',
-    defaultCode: '# Welcome to RunLang\nprint("Hello, World!")\n',
+    defaultCode: '# Welcome to Lingua\nprint("Hello, World!")\n',
   },
   rust: {
     label: 'Rust',
@@ -58,7 +58,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     extension: 'rs',
     monacoLanguage: 'rust',
     defaultCode:
-      '// Welcome to RunLang\nfn main() {\n    println!("Hello, World!");\n}\n',
+      '// Welcome to Lingua\nfn main() {\n    println!("Hello, World!");\n}\n',
   },
 };
 

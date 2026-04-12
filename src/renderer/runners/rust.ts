@@ -15,7 +15,7 @@ export class RustRunner implements LanguageRunner {
   private rustInstalled = false;
 
   async init(): Promise<void> {
-    const result = await window.runlang.rust.detect();
+    const result = await window.lingua.rust.detect();
     this.rustInstalled = result.installed;
     this.ready = true;
 
@@ -37,12 +37,12 @@ export class RustRunner implements LanguageRunner {
         executionTime: 0,
         error: {
           message:
-            'Rust is not installed on this system. Install it from https://rustup.rs and restart RunLang.',
+            'Rust is not installed on this system. Install it from https://rustup.rs and restart Lingua.',
         },
       };
     }
 
-    const runResult = await window.runlang.rust.run(code);
+    const runResult = await window.lingua.rust.run(code);
 
     const stdout: ConsoleOutput[] = runResult.stdout
       .split('\n')

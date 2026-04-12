@@ -1,5 +1,5 @@
 /**
- * RunLang Plugin Interface
+ * Lingua Plugin Interface
  *
  * A plugin adds support for a local language integration.
  * In the current app model, plugin manifests are discovered from the local
@@ -10,9 +10,9 @@
  * ## Minimal example
  *
  * ```ts
- * import type { RunLangPlugin } from '@/plugins';
+ * import type { LinguaPlugin } from '@/plugins';
  *
- * export const myPlugin: RunLangPlugin = {
+ * export const myPlugin: LinguaPlugin = {
  *   id: 'my-language',
  *   name: 'My Language',
  *   version: '0.1.0',
@@ -64,10 +64,10 @@ export interface PluginRunner {
 export type PluginLanguageId = string;
 
 /**
- * Metadata + factory for a RunLang language plugin.
+ * Metadata + factory for a Lingua language plugin.
  * All fields are required unless marked optional.
  */
-export interface RunLangPlugin {
+export interface LinguaPlugin {
   /** Unique identifier — must be stable across versions (used as a key) */
   id: string;
 
@@ -111,16 +111,16 @@ export interface RunLangPlugin {
  * The RunnerManager queries this to extend the set of supported languages.
  */
 export class PluginRegistry {
-  private plugins: Map<string, RunLangPlugin> = new Map();
+  private plugins: Map<string, LinguaPlugin> = new Map();
 
   /**
    * Register a plugin. Throws if a plugin with the same `id` is already
    * registered (prevents accidental double-registration).
    */
-  register(plugin: RunLangPlugin): void {
+  register(plugin: LinguaPlugin): void {
     if (this.plugins.has(plugin.id)) {
       throw new Error(
-        `RunLang plugin "${plugin.id}" is already registered. ` +
+        `Lingua plugin "${plugin.id}" is already registered. ` +
           'Use a unique id or call unregister() first.'
       );
     }
@@ -133,12 +133,12 @@ export class PluginRegistry {
   }
 
   /** Get plugin by id */
-  get(id: string): RunLangPlugin | undefined {
+  get(id: string): LinguaPlugin | undefined {
     return this.plugins.get(id);
   }
 
   /** Get plugin by language identifier */
-  getByLanguage(language: PluginLanguageId): RunLangPlugin | undefined {
+  getByLanguage(language: PluginLanguageId): LinguaPlugin | undefined {
     for (const plugin of this.plugins.values()) {
       if (plugin.language === language) return plugin;
     }
@@ -146,7 +146,7 @@ export class PluginRegistry {
   }
 
   /** All registered plugins */
-  getAll(): RunLangPlugin[] {
+  getAll(): LinguaPlugin[] {
     return Array.from(this.plugins.values());
   }
 

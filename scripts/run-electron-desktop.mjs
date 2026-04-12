@@ -26,7 +26,7 @@ const shutdownTimeoutMs = 5_000;
 
 function parseArgs(argv) {
   const options = {
-    rendererUrl: process.env.RUNLANG_RENDERER_URL ?? null,
+    rendererUrl: process.env.LINGUA_RENDERER_URL ?? null,
     syncMain: false,
     reuseServer: false,
     exitAfterMs: null,
@@ -325,7 +325,7 @@ async function main() {
     console.log(`[desktop] Launching Electron against ${parsedRendererUrl.toString()}`);
     electronProcess = spawnManagedProcess(electronBinary, ['.'], {
       env: {
-        RUNLANG_RENDERER_URL: parsedRendererUrl.toString(),
+        LINGUA_RENDERER_URL: parsedRendererUrl.toString(),
       },
       stdio: 'inherit',
     });

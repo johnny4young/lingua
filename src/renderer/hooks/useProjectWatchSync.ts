@@ -7,7 +7,7 @@ export function useProjectWatchSync(): void {
   const refreshTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const unsubscribe = window.runlang.fs.onChanged((event) => {
+    const unsubscribe = window.lingua.fs.onChanged((event) => {
       const { currentProject } = useProjectStore.getState();
       if (!currentProject || event.dirPath !== currentProject.rootPath) {
         return;

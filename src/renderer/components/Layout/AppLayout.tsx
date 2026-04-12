@@ -75,7 +75,7 @@ function EditorArea() {
         {hasTabs ? (
           <Group
             orientation="horizontal"
-            autoSaveId="runlang-editor-results-layout"
+            autoSaveId="lingua-editor-results-layout"
             resizeTargetMinimumSize={24}
           >
             <Panel id="editor-panel" defaultSize="55%" minSize={320}>
@@ -118,7 +118,7 @@ function MainContent({ showConsole, layoutPreset }: MainContentProps) {
     return (
       <Group
         orientation="horizontal"
-        autoSaveId="runlang-main-vertical-layout"
+        autoSaveId="lingua-main-vertical-layout"
         resizeTargetMinimumSize={24}
       >
         <Panel id="workspace-panel" defaultSize="60%" minSize={420}>
@@ -136,7 +136,7 @@ function MainContent({ showConsole, layoutPreset }: MainContentProps) {
   return (
     <Group
       orientation="vertical"
-      autoSaveId="runlang-main-horizontal-layout"
+      autoSaveId="lingua-main-horizontal-layout"
       resizeTargetMinimumSize={24}
     >
       <Panel id="workspace-panel" defaultSize="70%" minSize={260}>
@@ -333,7 +333,7 @@ export function AppLayout({
         {showPersistentSidebar ? (
           <Group
             orientation="horizontal"
-            autoSaveId="runlang-shell-layout"
+            autoSaveId="lingua-shell-layout"
             resizeTargetMinimumSize={24}
             className="min-h-0 flex-1 p-2 pb-3 sm:p-3"
           >

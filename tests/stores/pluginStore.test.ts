@@ -17,24 +17,24 @@ describe('pluginStore', () => {
     mockGetInstallDirectory.mockReset();
     mockList.mockReset();
 
-    const currentRunlang = (window.runlang ?? {}) as Partial<RunLangAPI>;
+    const currentLingua = (window.lingua ?? {}) as Partial<LinguaAPI>;
 
-    window.runlang = {
-      ...currentRunlang,
+    window.lingua = {
+      ...currentLingua,
       plugins: {
         getInstallDirectory: mockGetInstallDirectory,
         list: mockList,
       },
-    } as RunLangAPI;
+    } as LinguaAPI;
   });
 
   it('loads installed plugins and registers bundled runtimes', async () => {
-    mockGetInstallDirectory.mockResolvedValue('/tmp/runlang/plugins');
+    mockGetInstallDirectory.mockResolvedValue('/tmp/lingua/plugins');
     mockList.mockResolvedValue([
       {
         pluginId: 'lua',
-        manifestPath: '/tmp/runlang/plugins/lua/plugin.json',
-        installDirectory: '/tmp/runlang/plugins/lua',
+        manifestPath: '/tmp/lingua/plugins/lua/plugin.json',
+        installDirectory: '/tmp/lingua/plugins/lua',
         apiVersion: 1,
         enabled: true,
         status: 'loaded',
@@ -46,19 +46,19 @@ describe('pluginStore', () => {
 
     const state = usePluginStore.getState();
     expect(state.initialized).toBe(true);
-    expect(state.installDirectory).toBe('/tmp/runlang/plugins');
+    expect(state.installDirectory).toBe('/tmp/lingua/plugins');
     expect(state.plugins[0]?.displayName).toBe('Lua');
     expect(state.plugins[0]?.managedByApp).toBe(true);
     expect(pluginRegistry.get('lua')).toBeDefined();
   });
 
   it('marks installed manifests without bundled runtimes as unavailable', async () => {
-    mockGetInstallDirectory.mockResolvedValue('/tmp/runlang/plugins');
+    mockGetInstallDirectory.mockResolvedValue('/tmp/lingua/plugins');
     mockList.mockResolvedValue([
       {
         pluginId: 'ruby',
-        manifestPath: '/tmp/runlang/plugins/ruby/plugin.json',
-        installDirectory: '/tmp/runlang/plugins/ruby',
+        manifestPath: '/tmp/lingua/plugins/ruby/plugin.json',
+        installDirectory: '/tmp/lingua/plugins/ruby',
         apiVersion: 1,
         enabled: true,
         status: 'loaded',
@@ -75,13 +75,13 @@ describe('pluginStore', () => {
   });
 
   it('unregisters previously managed plugins during refresh', async () => {
-    mockGetInstallDirectory.mockResolvedValue('/tmp/runlang/plugins');
+    mockGetInstallDirectory.mockResolvedValue('/tmp/lingua/plugins');
     mockList
       .mockResolvedValueOnce([
         {
           pluginId: 'lua',
-          manifestPath: '/tmp/runlang/plugins/lua/plugin.json',
-          installDirectory: '/tmp/runlang/plugins/lua',
+          manifestPath: '/tmp/lingua/plugins/lua/plugin.json',
+          installDirectory: '/tmp/lingua/plugins/lua',
           apiVersion: 1,
           enabled: true,
           status: 'loaded',

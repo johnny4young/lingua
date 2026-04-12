@@ -67,8 +67,8 @@ jobs:
           APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
         run: |
           set -euo pipefail
-          KEYCHAIN_PATH="$RUNNER_TEMP/runlang-signing.keychain-db"
-          CERT_PATH="$RUNNER_TEMP/runlang-signing.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/lingua-signing.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/lingua-signing.p12"
           KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
 
           echo "$APPLE_CERT_P12_BASE64" | base64 --decode > "$CERT_PATH"
@@ -110,14 +110,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          app_bundle="$(find out -type d -name 'RunLang.app' -print -quit)"
+          app_bundle="$(find out -type d -name 'Lingua.app' -print -quit)"
           if [[ -z "${app_bundle:-}" ]]; then
-            echo "::error::Could not find RunLang.app for macOS signing verification"
+            echo "::error::Could not find Lingua.app for macOS signing verification"
             exit 1
           fi
 
           codesign --verify --deep --strict --verbose=2 "$app_bundle"
-          codesign -dv --verbose=4 "$app_bundle" 2>&1 | tee /tmp/runlang-codesign.txt
+          codesign -dv --verbose=4 "$app_bundle" 2>&1 | tee /tmp/lingua-codesign.txt
 
           echo "macOS signing verification: passed"
           {
@@ -126,7 +126,7 @@ jobs:
             echo "- Verification: passed"
             echo "- Identity:"
             echo '```'
-            grep '^Authority=' /tmp/runlang-codesign.txt || true
+            grep '^Authority=' /tmp/lingua-codesign.txt || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -177,7 +177,7 @@ jobs:
         env:
           WIN_CERT_FILE: ${{ secrets.WIN_CERT_FILE }}
         run: |
-          $certPath = Join-Path $env:RUNNER_TEMP 'runlang-signing.pfx'
+          $certPath = Join-Path $env:RUNNER_TEMP 'lingua-signing.pfx'
           [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WIN_CERT_FILE))
           "WIN_CERT_FILE=$certPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "Windows signing certificate written to runner temp path"

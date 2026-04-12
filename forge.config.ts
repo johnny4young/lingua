@@ -46,11 +46,11 @@ const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     overwrite: true,
-    name: 'RunLang',
-    executableName: 'run-lang',
-    appBundleId: 'com.runlang.app',
+    name: 'Lingua',
+    executableName: 'lingua',
+    appBundleId: 'com.lingua.app',
     appVersion: process.env.npm_package_version ?? '0.1.0',
-    appCopyright: `Copyright © ${new Date().getFullYear()} RunLang contributors`,
+    appCopyright: `Copyright © ${new Date().getFullYear()} Lingua contributors`,
     // Icon (without extension — Forge picks .icns/.ico/.png per platform)
     icon: './assets/icon',
     // macOS: Universal binary (arm64 + x64 merged via lipo)
@@ -65,8 +65,8 @@ const config: ForgeConfig = {
     ...(isWin
       ? {
           win32metadata: {
-            CompanyName: 'RunLang',
-            ProductName: 'RunLang',
+            CompanyName: 'Lingua',
+            ProductName: 'Lingua',
             FileDescription: 'Multi-language code runner with WASM support',
           },
         }
@@ -79,8 +79,8 @@ const config: ForgeConfig = {
     // Windows: Squirrel (auto-update aware, no UAC elevation required)
     new MakerSquirrel({
       ...winCert,
-      name: 'RunLang',
-      setupExe: 'RunLangSetup.exe',
+      name: 'Lingua',
+      setupExe: 'LinguaSetup.exe',
       setupIcon: './assets/icon.ico',
     }),
 
@@ -90,8 +90,8 @@ const config: ForgeConfig = {
     // Linux
     new MakerDeb({
       options: {
-        name: 'run-lang',
-        productName: 'RunLang',
+        name: 'lingua',
+        productName: 'Lingua',
         description: 'Multi-language code runner with WASM support',
         categories: ['Development'],
         icon: './assets/icon.png',
@@ -99,8 +99,8 @@ const config: ForgeConfig = {
     }),
     new MakerRpm({
       options: {
-        name: 'run-lang',
-        productName: 'RunLang',
+        name: 'lingua',
+        productName: 'Lingua',
         description: 'Multi-language code runner with WASM support',
         categories: ['Development'],
         icon: './assets/icon.png',
@@ -147,7 +147,7 @@ const config: ForgeConfig = {
       config: {
         repository: {
           owner: process.env.GITHUB_REPOSITORY_OWNER ?? 'johnny4young',
-          name: 'run-lang',
+          name: 'lingua',
         },
         prerelease: false,
         draft: true,

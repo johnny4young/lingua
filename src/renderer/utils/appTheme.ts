@@ -2,7 +2,7 @@ import type { SettingsState } from '../types';
 
 export type AppTheme = SettingsState['theme'];
 
-export const APP_THEME_STORAGE_KEY = 'runlang-settings';
+export const APP_THEME_STORAGE_KEY = 'lingua-settings';
 export const DEFAULT_APP_THEME: AppTheme = 'dark';
 export const APP_THEME_COLOR: Record<AppTheme, string> = {
   dark: '#0c1017',

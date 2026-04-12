@@ -1,7 +1,7 @@
 /**
  * Web Adapter
  *
- * Sets up `window.runlang` for the browser (non-Electron) build.
+ * Sets up `window.lingua` for the browser (non-Electron) build.
  *
  * JS / TS / Python runners work natively because they use Web Workers
  * and the browser already supports those. Go and Rust require native
@@ -15,7 +15,7 @@ import { webFsAdapter } from './fs-adapter';
 
 // ----------------------------------------------------- Go stub
 
-const goStub: RunLangAPI['go'] = {
+const goStub: LinguaAPI['go'] = {
   detect: async (): Promise<GoDetectResult> => ({
     installed: false,
     error: 'Go compilation is not available in the web version. Download the desktop app to compile Go code.',
@@ -28,7 +28,7 @@ const goStub: RunLangAPI['go'] = {
 
 // ----------------------------------------------------- Rust stub
 
-const rustStub: RunLangAPI['rust'] = {
+const rustStub: LinguaAPI['rust'] = {
   detect: async (): Promise<RustDetectResult> => ({
     installed: false,
     error: 'Rust compilation is not available in the web version. Download the desktop app to compile Rust code.',
@@ -52,7 +52,7 @@ const updateStubState: UpdateState = {
   message: 'Automatic updates are not available in the web version.',
 };
 
-const updateStub: RunLangAPI['updates'] = {
+const updateStub: LinguaAPI['updates'] = {
   getState: async () => updateStubState,
   check: async () => updateStubState,
   restartToApply: async () => false,
@@ -61,14 +61,14 @@ const updateStub: RunLangAPI['updates'] = {
 
 // -------------------------------------------------- Plugin stub
 
-const pluginStub: RunLangAPI['plugins'] = {
+const pluginStub: LinguaAPI['plugins'] = {
   getInstallDirectory: async () => null,
   list: async () => [],
 };
 
 // ----------------------------------------------------- Install adapter
 
-const webRunlang: RunLangAPI = {
+const webLingua: LinguaAPI = {
   platform: 'web',
   go: goStub,
   rust: rustStub,
@@ -78,4 +78,4 @@ const webRunlang: RunLangAPI = {
 };
 
 // Expose on window — mirrors what the Electron preload does via contextBridge
-(window as Window & typeof globalThis).runlang = webRunlang;
+(window as Window & typeof globalThis).lingua = webLingua;

@@ -65,7 +65,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
 
     // Read file content from disk
-    const content = await window.runlang.fs.read(filePath);
+    const content = await window.lingua.fs.read(filePath);
 
     const newTab: FileTab = {
       id: crypto.randomUUID(),
@@ -87,7 +87,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const tab = tabs.find((t) => t.id === activeTabId);
     if (!tab || !tab.filePath) return;
 
-    await window.runlang.fs.write(tab.filePath, tab.content);
+    await window.lingua.fs.write(tab.filePath, tab.content);
     set((state) => ({
       tabs: state.tabs.map((t) =>
         t.id === tab.id ? { ...t, isDirty: false } : t

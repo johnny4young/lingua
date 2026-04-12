@@ -14,7 +14,7 @@ function WatchSyncHarness() {
 const initialState = useProjectStore.getState();
 
 describe('useProjectWatchSync', () => {
-  const mockOnChanged = vi.fn<RunLangAPI['fs']['onChanged']>();
+  const mockOnChanged = vi.fn<LinguaAPI['fs']['onChanged']>();
   const mockRefreshTree = vi.fn<() => Promise<void>>();
   let emitChange: ((event: FsChangedEvent) => void) | null = null;
   let unsubscribe: ReturnType<typeof vi.fn>;
@@ -31,10 +31,10 @@ describe('useProjectWatchSync', () => {
     Object.defineProperty(globalThis, 'window', {
       value: {
         ...globalThis.window,
-        runlang: {
-          ...(globalThis.window?.runlang ?? {}),
+        lingua: {
+          ...(globalThis.window?.lingua ?? {}),
           fs: {
-            ...(globalThis.window?.runlang?.fs ?? {}),
+            ...(globalThis.window?.lingua?.fs ?? {}),
             onChanged: mockOnChanged,
           },
         },

@@ -6,11 +6,11 @@ vi.mock('esbuild-wasm', () => ({
   transform: vi.fn(),
 }));
 
-// Mock window.runlang for Go and Rust runner (IPC calls)
+// Mock window.lingua for Go and Rust runner (IPC calls)
 Object.defineProperty(globalThis, 'window', {
   value: {
     ...globalThis.window,
-    runlang: {
+    lingua: {
       platform: 'darwin',
       go: {
         detect: vi.fn().mockResolvedValue({ installed: true, version: 'go1.22.0', goRoot: '/usr/local/go' }),

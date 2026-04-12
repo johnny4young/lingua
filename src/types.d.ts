@@ -162,7 +162,7 @@ interface InstalledPluginRecord {
 
 // --------------------------------------------------------------- Main API
 
-interface RunLangAPI {
+interface LinguaAPI {
   platform: string;
 
   go: {
@@ -204,9 +204,9 @@ interface RunLangAPI {
   };
 }
 
-// Augment Window with RunLang API
+// Augment Window with Lingua API
 interface Window {
-  runlang: RunLangAPI;
+  lingua: LinguaAPI;
 }
 
 interface MonacoEnvironmentShape {

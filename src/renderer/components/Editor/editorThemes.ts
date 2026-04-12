@@ -1,7 +1,7 @@
 import type { Monaco } from '@monaco-editor/react';
 
 export function defineCustomThemes(monaco: Monaco) {
-  monaco.editor.defineTheme('runlang-dark', {
+  monaco.editor.defineTheme('lingua-dark', {
     base: 'vs-dark',
     inherit: true,
     rules: [],

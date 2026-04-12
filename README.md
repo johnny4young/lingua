@@ -1,10 +1,10 @@
-# RunLang
+# Lingua
 
-[![CI](https://github.com/johnny4young/run-lang/actions/workflows/ci.yml/badge.svg)](https://github.com/johnny4young/run-lang/actions/workflows/ci.yml)
+[![CI](https://github.com/johnny4young/lingua/actions/workflows/ci.yml/badge.svg)](https://github.com/johnny4young/lingua/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node 24+](https://img.shields.io/badge/node-%3E%3D24-brightgreen)](https://nodejs.org)
 
-RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python, and Rust. It combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds.
+Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, and Rust. It combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds.
 
 ## Current capabilities
 
@@ -50,8 +50,8 @@ RunLang is an Electron-based code runner for JavaScript, TypeScript, Go, Python,
 ## Local development
 
 ```bash
-git clone https://github.com/johnny4young/run-lang.git
-cd run-lang
+git clone https://github.com/johnny4young/lingua.git
+cd lingua
 npm install
 npm start
 ```
@@ -89,9 +89,9 @@ Then drive the preview with the Playwright CLI wrapper:
 
 ```bash
 export PWCLI="$HOME/.codex/skills/playwright/scripts/playwright_cli.sh"
-"$PWCLI" --session runlang open http://127.0.0.1:4173/
-"$PWCLI" --session runlang snapshot
-"$PWCLI" --session runlang screenshot --full-page --filename output/playwright/runlang-web-validation.png
+"$PWCLI" --session lingua open http://127.0.0.1:4173/
+"$PWCLI" --session lingua snapshot
+"$PWCLI" --session lingua screenshot --full-page --filename output/playwright/lingua-web-validation.png
 ```
 
 This is currently the best end-to-end check for renderer behavior. Desktop-only paths such as native Go/Rust execution, packaged auto-updates, and local plugin discovery still need targeted desktop validation.
@@ -162,7 +162,7 @@ npm run preview:web
 ```
 
 The local web build defaults to `/` as its base path.
-The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/run-lang/` after a successful `main` branch CI run.
+The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/lingua/` after a successful `main` branch CI run.
 
 ## Keyboard shortcuts
 
@@ -182,7 +182,7 @@ The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/run
 
 - CI runs type checking, linting, tests, and a non-blocking `npm audit`
 - The web build is deployed to GitHub Pages from `main` after a successful CI workflow
-- The Pages build uses `/run-lang/` as the web base path so static assets, the manifest, and the service worker resolve correctly under the repository subpath
+- The Pages build uses `/lingua/` as the web base path so static assets, the manifest, and the service worker resolve correctly under the repository subpath
 - Pushing a tag that matches `v*.*.*` triggers cross-platform packaging and GitHub Release publishing
 - Packaged macOS and Windows builds enable `update-electron-app`, which checks GitHub Releases for updates
 - The active release/update channel policy is stable-only; prerelease tags are rejected by the release workflow
@@ -197,7 +197,7 @@ The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/run
 
 ## Local plugins
 
-RunLang now supports a conservative local plugin model for language integrations:
+Lingua now supports a conservative local plugin model for language integrations:
 
 - Plugin manifests are discovered from the app-local plugin directory at runtime
 - A manifest only enables runtimes that are already bundled with the current build
@@ -284,7 +284,7 @@ Stable channel policy:
 ### Release operations
 
 - The repository currently stays on a draft-first release policy. Promotion to a non-draft release is a human step after validation.
-- Use [RELEASE.md](/Users/johnny4young/Personal/github/run-lang/RELEASE.md) as the operator checklist for version tags, signing prerequisites, verification, and promotion.
+- Use [RELEASE.md](/Users/johnny4young/Personal/github/lingua/RELEASE.md) as the operator checklist for version tags, signing prerequisites, verification, and promotion.
 
 ## Notes for contributors
 
