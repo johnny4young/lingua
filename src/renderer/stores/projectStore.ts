@@ -11,27 +11,21 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Language } from '../types';
 import { languageFromPath } from '../utils/language';
+import {
+  addNodeToParent,
+  collectExpandedPaths,
+  entriesToNodes,
+  joinPath,
+  loadNodesForDirectory,
+  removeNode,
+  renameNode,
+  setNodeChildren,
+  toggleExpanded,
+  type FileTreeNode,
+} from './projectTree';
 
-/** Join path segments using the OS separator detected from the base path */
-function joinPath(base: string, name: string): string {
-  const sep = base.includes('\\') ? '\\' : '/';
-  return base.endsWith(sep) ? `${base}${name}` : `${base}${sep}${name}`;
-}
-
-// ----------------------------------------------------------------- types
-
-export interface FileTreeNode {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-  /** Language inferred from extension (files only) */
-  language?: Language;
-  /** Children: undefined = not yet loaded; null is not used */
-  children?: FileTreeNode[];
-  isExpanded?: boolean;
-}
+export type { FileTreeNode } from './projectTree';
 
 export interface RecentProject {
   id: string;
@@ -61,151 +55,6 @@ interface ProjectState {
   createDirectory: (parentPath: string, name: string) => Promise<void>;
   deleteEntry: (entryPath: string, isDirectory: boolean) => Promise<boolean>;
   renameEntry: (oldPath: string, newName: string) => Promise<string | null>;
-}
-
-// ----------------------------------------------------------------- helpers
-
-/** Convert raw FsDirEntry list into FileTreeNode list */
-function entriesToNodes(
-  entries: { name: string; isDirectory: boolean; path: string }[]
-): FileTreeNode[] {
-  return entries.map((e) => ({
-    name: e.name,
-    path: e.path,
-    isDirectory: e.isDirectory,
-    language: e.isDirectory ? undefined : languageFromPath(e.name),
-    children: e.isDirectory ? undefined : undefined, // will be lazy-loaded
-    isExpanded: false,
-  }));
-}
-
-/** Collect expanded directory paths so refreshes can preserve the visible tree shape */
-export function collectExpandedPaths(nodes: FileTreeNode[]): string[] {
-  return nodes.flatMap((node) => {
-    if (!node.isDirectory) {
-      return [];
-    }
-
-    const childPaths = node.children ? collectExpandedPaths(node.children) : [];
-    return node.isExpanded ? [node.path, ...childPaths] : childPaths;
-  });
-}
-
-async function loadNodesForDirectory(
-  dirPath: string,
-  expandedPaths: ReadonlySet<string>
-): Promise<FileTreeNode[]> {
-  const entries = await window.runlang.fs.readdir(dirPath);
-  const nodes = entriesToNodes(entries);
-
-  return Promise.all(
-    nodes.map(async (node) => {
-      if (!node.isDirectory || !expandedPaths.has(node.path)) {
-        return node;
-      }
-
-      return {
-        ...node,
-        children: await loadNodesForDirectory(node.path, expandedPaths),
-        isExpanded: true,
-      };
-    })
-  );
-}
-
-/** Immutable helper: set children of the node matching targetPath */
-export function setNodeChildren(
-  nodes: FileTreeNode[],
-  targetPath: string,
-  children: FileTreeNode[],
-  expanded: boolean
-): FileTreeNode[] {
-  return nodes.map((node) => {
-    if (node.path === targetPath && node.isDirectory) {
-      return { ...node, children, isExpanded: expanded };
-    }
-    if (node.isDirectory && node.children) {
-      return {
-        ...node,
-        children: setNodeChildren(node.children, targetPath, children, expanded),
-      };
-    }
-    return node;
-  });
-}
-
-/** Immutable helper: toggle isExpanded flag for a directory node */
-export function toggleExpanded(
-  nodes: FileTreeNode[],
-  targetPath: string,
-  expanded: boolean
-): FileTreeNode[] {
-  return nodes.map((node) => {
-    if (node.path === targetPath && node.isDirectory) {
-      return { ...node, isExpanded: expanded };
-    }
-    if (node.isDirectory && node.children) {
-      return {
-        ...node,
-        children: toggleExpanded(node.children, targetPath, expanded),
-      };
-    }
-    return node;
-  });
-}
-
-/** Immutable helper: remove a node by path anywhere in the tree */
-export function removeNode(nodes: FileTreeNode[], targetPath: string): FileTreeNode[] {
-  return nodes
-    .filter((n) => n.path !== targetPath)
-    .map((n) =>
-      n.isDirectory && n.children
-        ? { ...n, children: removeNode(n.children, targetPath) }
-        : n
-    );
-}
-
-/** Immutable helper: rename a node by path anywhere in the tree */
-export function renameNode(
-  nodes: FileTreeNode[],
-  oldPath: string,
-  newPath: string,
-  newName: string
-): FileTreeNode[] {
-  return nodes.map((n) => {
-    if (n.path === oldPath) {
-      return { ...n, path: newPath, name: newName };
-    }
-    if (n.isDirectory && n.children) {
-      return {
-        ...n,
-        children: renameNode(n.children, oldPath, newPath, newName),
-      };
-    }
-    return n;
-  });
-}
-
-/** Immutable helper: add a new node as child of parentPath */
-export function addNodeToParent(
-  nodes: FileTreeNode[],
-  parentPath: string,
-  newNode: FileTreeNode
-): FileTreeNode[] {
-  return nodes.map((n) => {
-    if (n.path === parentPath && n.isDirectory && n.isExpanded && n.children) {
-      // Insert directories first, then files, alphabetically
-      const children = [...n.children, newNode].sort((a, b) => {
-        if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      });
-      return { ...n, children };
-    }
-    if (n.isDirectory && n.children) {
-      return { ...n, children: addNodeToParent(n.children, parentPath, newNode) };
-    }
-    return n;
-  });
 }
 
 // ----------------------------------------------------------------- store
