@@ -99,7 +99,7 @@ async function compileGoToWasm(sourceCode: string): Promise<GoCompileResult> {
   }
 
   // Create a temp directory for compilation
-  const tempDir = path.join(tmpdir(), `runlang-go-${Date.now()}`);
+  const tempDir = path.join(tmpdir(), `lingua-go-${Date.now()}`);
   const sourceFile = path.join(tempDir, 'main.go');
   const wasmFile = path.join(tempDir, 'main.wasm');
 
@@ -112,7 +112,7 @@ async function compileGoToWasm(sourceCode: string): Promise<GoCompileResult> {
     // Initialize a temp go module
     await writeFile(
       path.join(tempDir, 'go.mod'),
-      'module runlang_temp\n\ngo 1.21\n',
+      'module lingua_temp\n\ngo 1.21\n',
       'utf-8'
     );
 

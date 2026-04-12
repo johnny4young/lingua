@@ -1,7 +1,7 @@
 /**
  * Tests for the web adapter (src/web/adapter.ts)
  *
- * The adapter sets window.runlang before React renders. We test that:
+ * The adapter sets window.lingua before React renders. We test that:
  *  - platform is 'web'
  *  - go.detect() and go.compile() return "not available" stubs
  *  - rust.detect() and rust.run() return "not available" stubs
@@ -29,7 +29,7 @@ const mockFsAdapter = {
 };
 
 // We test the stubs directly rather than going through the module side-effect
-// (which would clobber window.runlang in the test environment).
+// (which would clobber window.lingua in the test environment).
 
 describe('web adapter — Go stub', () => {
   const goStub = {
@@ -159,12 +159,12 @@ describe('web adapter — plugins namespace', () => {
 describe('web adapter — platform', () => {
   it('platform is "web"', () => {
     // Simulate what adapter.ts does
-    const webRunlang = {
+    const webLingua = {
       platform: 'web',
       go: {},
       rust: {},
       fs: mockFsAdapter,
     };
-    expect(webRunlang.platform).toBe('web');
+    expect(webLingua.platform).toBe('web');
   });
 });

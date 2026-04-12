@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PluginRegistry, BasePluginRunner } from '@/plugins/index';
-import type { RunLangPlugin } from '@/plugins/index';
+import type { LinguaPlugin } from '@/plugins/index';
 import type { ExecutionContext, ExecutionResult } from '@/types';
 import { LuaRunner, luaPlugin } from '@/plugins/lua-runner';
 
@@ -14,7 +14,7 @@ import { LuaRunner, luaPlugin } from '@/plugins/lua-runner';
 describe('PluginRegistry', () => {
   let registry: PluginRegistry;
 
-  const makePlugin = (id: string, language = id): RunLangPlugin => ({
+  const makePlugin = (id: string, language = id): LinguaPlugin => ({
     id,
     name: id,
     version: '0.1.0',

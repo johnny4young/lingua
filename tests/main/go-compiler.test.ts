@@ -23,7 +23,7 @@ describe('main go compiler helpers', () => {
   let tempRoot: string;
 
   beforeEach(async () => {
-    tempRoot = await mkdtemp(path.join(os.tmpdir(), 'runlang-go-root-'));
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), 'lingua-go-root-'));
   });
 
   afterEach(async () => {

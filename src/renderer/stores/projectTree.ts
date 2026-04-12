@@ -43,7 +43,7 @@ export async function loadNodesForDirectory(
   dirPath: string,
   expandedPaths: ReadonlySet<string>
 ): Promise<FileTreeNode[]> {
-  const entries = await window.runlang.fs.readdir(dirPath);
+  const entries = await window.lingua.fs.readdir(dirPath);
   const nodes = entriesToNodes(entries);
 
   return Promise.all(

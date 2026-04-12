@@ -1,6 +1,6 @@
 /**
  * Web entry point — imports the browser adapter BEFORE React renders
- * so that window.runlang is available when App and its stores initialise.
+ * so that window.lingua is available when App and its stores initialise.
  */
 
 import './adapter';

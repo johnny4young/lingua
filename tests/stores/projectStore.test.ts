@@ -30,10 +30,10 @@ beforeEach(() => {
   Object.defineProperty(globalThis, 'window', {
     value: {
       ...globalThis.window,
-      runlang: {
-        ...(globalThis.window?.runlang ?? {}),
+      lingua: {
+        ...(globalThis.window?.lingua ?? {}),
         fs: {
-          ...(globalThis.window?.runlang?.fs ?? {}),
+          ...(globalThis.window?.lingua?.fs ?? {}),
           readdir: vi.fn(),
         },
       },
@@ -232,7 +232,7 @@ describe('collectExpandedPaths', () => {
 
 describe('projectStore refreshTree', () => {
   it('preserves expanded directories while refreshing children from disk', async () => {
-    const mockReaddir = vi.mocked(window.runlang.fs.readdir);
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
 
     mockReaddir.mockImplementation(async (dirPath: string) => {
       if (dirPath === '/proj') {

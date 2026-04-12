@@ -21,7 +21,7 @@ export class GoRunner implements LanguageRunner {
 
   async init(): Promise<void> {
     // Check if Go is installed via IPC
-    const result = await window.runlang.go.detect();
+    const result = await window.lingua.go.detect();
     this.goInstalled = result.installed;
     this.ready = true;
 
@@ -45,13 +45,13 @@ export class GoRunner implements LanguageRunner {
         executionTime: 0,
         error: {
           message:
-            'Go is not installed on this system. Install Go from https://go.dev/dl/ and restart RunLang.',
+            'Go is not installed on this system. Install Go from https://go.dev/dl/ and restart Lingua.',
         },
       };
     }
 
     // Step 1: Compile Go to WASM via IPC (main process)
-    const compileResult = await window.runlang.go.compile(code);
+    const compileResult = await window.lingua.go.compile(code);
 
     if (!compileResult.success || !compileResult.wasmBytes || !compileResult.wasmExecJs) {
       return {

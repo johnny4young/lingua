@@ -22,8 +22,8 @@ describe('updateStore', () => {
       message: 'Automatic updates are enabled for this packaged build.',
     };
 
-    window.runlang = {
-      ...window.runlang,
+    window.lingua = {
+      ...window.lingua,
       updates: {
         getState: vi.fn(async () => idleState),
         check: vi.fn(async () => ({
@@ -42,7 +42,7 @@ describe('updateStore', () => {
           return () => {};
         }),
       },
-    } as RunLangAPI;
+    } as LinguaAPI;
   });
 
   it('initializes from the preload update API and subscribes to changes', async () => {

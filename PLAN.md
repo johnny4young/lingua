@@ -1,6 +1,6 @@
-# RunLang — Unified Delivery Plan
+# Lingua — Unified Delivery Plan
 
-This document is the operational source of truth for RunLang. It replaces the old split between "roadmap", "workstreams", and "milestones" with one ordered backlog based on verified product state, desktop validation, and implementation readiness.
+This document is the operational source of truth for Lingua. It replaces the old split between "roadmap", "workstreams", and "milestones" with one ordered backlog based on verified product state, desktop validation, and implementation readiness.
 
 The order of items below is the execution order. If a task is not in this plan, it is not currently committed work.
 
@@ -408,7 +408,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Tauri 2
 - Monaco Editor and alternatives
 
-### Benchmark signals that matter for RunLang
+### Benchmark signals that matter for Lingua
 
 - RunJS, WizardJS, OpenRunner, and PlayJS confirm that the core scratchpad expectation for developers is:
   - instant execution
@@ -450,7 +450,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 ### Current strengths relative to the benchmark
 
-- RunLang is already ahead of the JS-only scratchpads on breadth of language support
+- Lingua is already ahead of the JS-only scratchpads on breadth of language support
 - The current app already has a real project tree, recent projects, tabs, resizable layout, snippets, quick open, command palette, updates, and a web build
 - The current app already supports desktop-specific compiled-language workflows that the web-first competitors do not match
 - The current app already has a conservative plugin direction, a release pipeline, and a PWA/web build instead of only a desktop binary
@@ -499,7 +499,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Readiness: `Ready for phased implementation`
 - Why this is now concrete:
   - Benchmark apps and websites already use multilingual product messaging and maintainable locale structures
-  - RunLang currently hardcodes most user-facing copy in the renderer, Electron `main`, and web adapters
+  - Lingua currently hardcodes most user-facing copy in the renderer, Electron `main`, and web adapters
   - A future website should reuse the same glossary and locale model instead of inventing a second translation stack
 - Technical decisions locked for implementation:
   - Use `i18next` as the shared translation core
@@ -653,10 +653,17 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Add timeout presets and clearer abort state for long-running code
   - Preserve the last successful run so users can compare current output against the previous stable result
   - Add per-tab execution history with timestamps and rerun support
+  - Add a lightweight variable inspector panel that shows current variable state after execution:
+    - Variable name, type, and value for the current runtime scope
+    - Expandable objects and arrays with tree view
+    - Auto-refresh after each execution
+    - Available for JS/TS and Python from the first rollout
+    - Inspired by IPython `%whos`, Jupyter variable explorer, and marimo reactive state
 - Acceptance criteria:
   - Auto-run skips obviously incomplete code states
   - Users can rerun a previous execution from history
   - Supported runtimes can accept simple stdin text without custom code changes
+  - Variable inspector shows current scope state after execution for JS/TS and Python
 - Dependencies:
   - RL-019
 
@@ -709,7 +716,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Readiness: `Ready for product design`
 - Why this matters:
   - Several reference apps are used specifically for practicing snippets, algorithms, and interview-style problems
-  - RunLang already has the right building blocks:
+  - Lingua already has the right building blocks:
     - snippets
     - templates
     - inline results
@@ -1397,8 +1404,14 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - custom keymaps
   - theme import/export
   - Vim mode
+  - Font selection panel with curated developer fonts:
+    - JetBrains Mono, Fira Code, Cascadia Code, Source Code Pro, Consolas, Menlo, Monaco, IBM Plex Mono
+    - Font ligature toggle
+    - Configurable font size with live preview
+    - Inspired by WizardJS (5 font choices) and CodeRunner (customizable fonts)
   - alternate font packs
   - result/console theme alignment
+  - macro recording and playback (simple sequences) — see also RL-049 for advanced macros
 - Acceptance criteria:
   - Users can customize shortcuts without editing source files
   - At least one custom theme pack and one alternate keymap ship from the first rollout
@@ -1454,6 +1467,656 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 ---
 
+## 8. Extended competitive benchmark (2026-04-12)
+
+Second research pass expanding the original benchmark with deeper competitor analysis, additional products, and feature extraction from WizardJS, marimo, Zed, CodeRunner, CodeSandbox, Replit, and Jupyter/Observable.
+
+### New reference products analyzed
+
+- WizardJS (open-source RunJS alternative)
+- RunJS (commercial JS/TS scratchpad)
+- PlayCode (web playground with AI)
+- CodeRunner 4 (macOS multi-language editor)
+- Replit (cloud IDE with AI Agent)
+- CodeSandbox (cloud dev environments)
+- Zed (Rust-based high-performance editor)
+- marimo (reactive Python notebook)
+- Jupyter / Observable (notebook ecosystems)
+- StackBlitz / WebContainers (browser-based Node.js)
+
+### WizardJS feature extraction and comparison
+
+WizardJS is a direct peer: Electron + Monaco + Vite + Forge, JS/TS only. Relevant signals:
+
+| WizardJS feature | Lingua status | Action needed |
+|-----------------|----------------|---------------|
+| Smart auto-run with code-completeness detection | Partial (debounce only) | RL-020 covers this |
+| Bilingual UI (en/es) with i18n service | Not implemented | RL-018 covers this |
+| Custom protocol scheme (`wizardjs://`) | Not implemented | New: RL-040 |
+| Five font choices (JetBrains Mono, Fira Code, etc.) | Not implemented | New: RL-037 expansion |
+| Sandbox execution with security timeouts | Partial (loop protection) | RL-020 covers timeout presets |
+| Multi-platform CI build matrix (macOS Intel/ARM, Windows, Linux) | Already better — Lingua has signing + notarization + checksums | No action |
+| Fuses security hardening | Already implemented identically | No action |
+| No publishers configured (manual release) | Lingua already uses @electron-forge/publisher-github | Lingua is ahead |
+
+### WizardJS CI/CD comparison
+
+| Aspect | WizardJS | Lingua | Verdict |
+|--------|----------|---------|---------|
+| Trigger | Tag push `v*` + manual dispatch | Tag push `v*.*.*` | Lingua is stricter (validates stable-only) |
+| Build matrix | 4 jobs (macOS-Intel, macOS-ARM, Windows, Linux) | 3 jobs (macOS universal, Windows, Linux) | Lingua universal binary is cleaner |
+| Node version | 22 | 24 | Lingua is more current |
+| Signing | None | macOS + Windows code signing + notarization + verification | Lingua is significantly ahead |
+| Checksums | None | SHA256SUMS.txt generated | Lingua is ahead |
+| Publish | Manual GitHub release from artifacts | Automated via publisher-github | Lingua is ahead |
+| Artifact retention | 7 days | Default | Comparable |
+
+**Conclusion**: Lingua's release pipeline is already more mature than WizardJS. No migration needed.
+
+### WizardJS .gitignore comparison
+
+Lingua's .gitignore is already more focused and cleaner. WizardJS includes many irrelevant patterns (parcel, nuxt, vuepress, serverless, FuseBox, DynamoDB). Lingua's is properly scoped to the actual stack. No changes needed.
+
+### WizardJS forge.config comparison
+
+| Aspect | WizardJS | Lingua | Verdict |
+|--------|----------|---------|---------|
+| Custom protocol | `wizardjs://` registered | None | Worth adding (RL-040) |
+| App category | `developer-tools` | Not set | Worth adding |
+| ASAR | Enabled | Enabled | Same |
+| Fuses | All security fuses set | Identical config | Same |
+| macOS signing | No (lacks dev ID) | Full signing + notarization | Lingua ahead |
+| Windows signing | None | Full Authenticode | Lingua ahead |
+| Publishers | None | GitHub publisher | Lingua ahead |
+
+### Broader competitive signals not yet covered in PLAN.md
+
+| Feature area | Source competitors | Lingua gap |
+|-------------|-------------------|-------------|
+| Real-time collaboration / multiplayer editing | PlayCode, Replit, CodeSandbox, Zed | RL-036 partially covers; needs live cursor sync |
+| AI code generation with project context | PlayCode AI, Replit Agent, CodeSandbox Boxy | RL-031 covers local AI; cloud AI is future |
+| One-click deploy / publish to web | PlayCode, Replit, CodeSandbox | New: RL-041 |
+| Custom protocol / deep links (`app://open?file=...`) | WizardJS | New: RL-040 |
+| 25+ language support out-of-the-box | CodeRunner 4 (25 languages) | New: RL-042 expands language count |
+| Built-in web inspector / DOM debugger | CodeRunner 4 | RL-019 browser preview covers part; DOM inspector is new |
+| Reactive notebook cells / dataflow | marimo, Jupyter, Observable | New: RL-043 notebook mode |
+| Rich data visualization inline | Jupyter, marimo, Observable | New: RL-044 inline visualization |
+| Built-in developer utilities (regex, JSON, diff) | DevToys, VS Code extensions, cod-ai.com | New: RL-045 dev utilities |
+| Gamification / achievements / progress tracking | Codecademy, Duolingo-style apps | New: RL-046 gamification |
+| Algorithm visualization / step-through animation | VisuAlgo, Programiz, DSA Visualizer | New: RL-047 algorithm visualization |
+| GPU-accelerated rendering (120fps) | Zed | Aspirational; not blocking |
+| Cloud dev environments / VM sandboxes | CodeSandbox, Replit | Out of scope for desktop-first product |
+| Mobile app / cross-device sync | PlayCode, Replit | Future consideration after web build matures |
+| Spaced repetition for code learning | Duolingo-style apps, Qstream | New: RL-046 covers this |
+| Macro recording / custom keybindings | CodeRunner 4 | RL-037 covers keymaps; macros are new |
+
+---
+
+## 9. Research-backed expansion backlog (continued)
+
+### RL-040 Register a custom protocol and support deep links
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready to implement`
+- Why this matters:
+  - WizardJS registers `wizardjs://` for deep linking
+  - Deep links enable: open files from terminal, open from browser, share snippets via URL
+  - This is a standard Electron capability with minimal implementation cost
+- Scope:
+  - Register `lingua://` custom protocol in Electron main and in forge packagerConfig
+  - Support deep link actions:
+    - `lingua://open?file=/path/to/file.js`
+    - `lingua://snippet?id=xxx`
+    - `lingua://new?lang=python`
+  - Handle deep links on app cold start and when app is already running
+  - Add `app.setAsDefaultProtocolClient('runlang')` on first launch
+  - Add forge config: `protocols: [{ name: 'Lingua', schemes: ['runlang'] }]`
+- Acceptance criteria:
+  - Clicking a `lingua://` link from a browser or terminal opens the app with the correct context
+  - Deep links work on macOS, Windows, and Linux
+- Dependencies:
+  - RL-021
+
+### RL-041 Add static site export and one-click publish for web projects
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready after multi-file playgrounds exist`
+- Why this matters:
+  - PlayCode, Replit, and CodeSandbox all offer one-click publish to a live URL
+  - For student and prototyping use cases, publishing a working demo is high value
+- Scope:
+  - Phase A: Export JS/TS/HTML projects as self-contained static ZIP
+  - Phase B: One-click publish to GitHub Pages from the app
+  - Phase C: Optional custom subdomain via a lightweight deploy service (future)
+  - Keep Phase A local-only and offline-capable
+- Acceptance criteria:
+  - A multi-file web project can be exported as a runnable static site
+  - GitHub Pages publish works with a configured GitHub token
+- Dependencies:
+  - RL-024
+  - RL-036
+
+### RL-042 Expand language support toward 15+ languages
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready after language-pack architecture exists`
+- Why this matters:
+  - CodeRunner supports 25 languages out of the box
+  - The current 5-language limit is a competitive disadvantage for students and polyglot developers
+  - WASM 3.0 (September 2025) added GC types, enabling Java, Kotlin, Dart, Scala compilation
+- Research-backed expansion candidates:
+
+  | Language | Execution strategy | Viability |
+  |----------|-------------------|-----------|
+  | C/C++ | Emscripten WASM (browser) + native gcc/clang (desktop) | High |
+  | Java | CheerpJ / TeaVM WASM (browser) + JDK (desktop) | Medium-High (WASM 3.0 GC) |
+  | Ruby | MRuby WASM (browser) + native Ruby (desktop) | Medium |
+  | PHP | php-wasm (browser) + native PHP (desktop) | Medium |
+  | Lua | Already bundled via Fengari plugin | Expand to first-class |
+  | Swift | Desktop-only via native toolchain | Desktop only |
+  | Kotlin | WASM via Kotlin/Wasm (GC types) | Medium-High |
+  | Dart | WASM compilation target | Medium |
+  | Haskell | Asterius WASM or GHC WASM backend | Low-Medium |
+  | Perl | WebPerl WASM | Low |
+  | Shell/Bash | Desktop-only child process | Desktop only |
+
+- Scope:
+  - Use the RL-038 language-pack architecture to add languages incrementally
+  - Prioritize C/C++, Java, Ruby, PHP, and Lua as the first expansion wave
+  - Keep each language addition as a self-contained language pack with:
+    - runner, templates, syntax mode, file extensions, formatter flag, docs link
+  - Desktop languages (Swift, Shell) are explicitly desktop-only in capability flags
+- Acceptance criteria:
+  - At least 10 languages are executable by the end of this task
+  - Each new language has at least one starter template
+  - Web mode honestly reports which languages are unavailable
+- Dependencies:
+  - RL-038
+
+### RL-043 Add notebook / cell-based execution mode
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready for design after REPL and multi-file work`
+- Why this matters:
+  - Jupyter, marimo, and Observable prove that cell-based execution is the preferred mode for:
+    - data exploration
+    - step-by-step learning
+    - documentation with live code
+  - marimo's reactive model (auto-rerun dependent cells) is particularly powerful
+  - This would differentiate Lingua from every other desktop code runner
+- Scope:
+  - Add a notebook view alongside the standard editor view
+  - Support code cells and markdown cells
+  - Cell execution preserves state across cells within the same runtime
+  - Reactive mode: editing a cell auto-reruns downstream cells (marimo-style)
+  - Support inline output below each cell:
+    - text/console output
+    - tables
+    - charts (basic)
+    - images
+  - Export notebook as:
+    - standalone script (concatenated cells)
+    - markdown with code blocks
+    - HTML report
+  - Start with JS/TS and Python as the first notebook-supported languages
+- Acceptance criteria:
+  - Users can create a multi-cell notebook and execute cells independently
+  - Cell outputs render inline below each cell
+  - Reactive mode auto-reruns dependent cells when upstream cells change
+  - Notebooks can be exported as scripts or reports
+- Dependencies:
+  - RL-020
+  - RL-024
+
+### RL-044 Add inline data visualization and rich output rendering
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready for design`
+- Why this matters:
+  - Jupyter, marimo, and Observable excel at inline visualization
+  - Students and data-oriented developers expect charts, tables, and images in output
+  - This makes the console panel dramatically more useful
+- Scope:
+  - Detect structured output and render it richly:
+    - Arrays of objects → auto-table
+    - `{ type: 'chart', data: [...] }` → inline chart via a lightweight chart library
+    - Image URLs or base64 → inline image preview
+    - HTML strings → sandboxed HTML preview
+  - Add a `console.table()` equivalent that renders as an interactive table
+  - Add magic comment variants for visualization:
+    - `//=> table` renders as table
+    - `//=> chart` renders as chart
+  - Keep visualization lightweight — use a small embedded library, not a full notebook framework
+- Acceptance criteria:
+  - An array of objects logged to console renders as a sortable table
+  - Basic chart rendering works for JS/TS and Python
+  - Image output renders inline in the console panel
+- Dependencies:
+  - RL-020
+  - RL-019
+
+### RL-045 Add built-in developer utilities panel
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready to implement incrementally`
+- Why this matters:
+  - DevToys (Swiss Army knife for developers) proves there is strong demand for built-in utilities
+  - Developers constantly context-switch to external tools for regex, JSON, encoding, etc.
+  - Having these built into the code runner makes it a daily-use tool
+- Scope:
+  - Add a utilities panel or modal accessible from the command palette and toolbar
+  - MVP utilities:
+    - Regex tester with live matching, capture group highlighting, and explanation
+    - JSON formatter / validator / viewer with tree mode
+    - Base64 encode/decode
+    - URL encode/decode
+    - UUID generator
+    - Hash generator (MD5, SHA-1, SHA-256)
+    - Color picker with CSS/hex/rgb conversion
+    - Unix timestamp converter
+    - Diff viewer (compare two text inputs)
+    - JWT decoder
+  - Each utility is a lightweight panel, not a full app
+  - Utilities are available in both desktop and web mode
+  - Command palette integration: "Open Regex Tester", "Open JSON Formatter", etc.
+- Acceptance criteria:
+  - At least 6 utilities are available from the command palette
+  - Utilities work in both desktop and web builds
+  - Utilities do not bloat the main editor bundle (lazy-loaded)
+- Dependencies:
+  - None
+
+### RL-046 Add gamification, achievements, and progress tracking for students
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready for product design after Snippet Lab exists`
+- Why this matters:
+  - Codecademy, Duolingo, and similar platforms prove gamification drives engagement
+  - Students learning to code need motivation beyond just "run and see output"
+  - Lingua already has snippets and practice challenges (RL-023); gamification amplifies them
+- Scope:
+  - Achievement system:
+    - Unlock badges for milestones: first run, first 10 runs, first snippet saved, first challenge completed, etc.
+    - Language-specific achievements: "Ran code in 5 languages", "Completed Python basics pack"
+    - Streak tracking: consecutive days of coding
+  - Progress dashboard:
+    - Total runs, total time coding, languages used, challenges completed
+    - Visual progress bars per language
+    - Weekly activity heatmap (GitHub contribution graph style)
+  - Spaced repetition for code concepts:
+    - After completing a challenge, schedule review reminders
+    - Use SM-2 or similar algorithm for optimal review timing
+  - All data stored locally — no accounts required
+  - Optional reset for privacy
+- Acceptance criteria:
+  - At least 10 achievements are unlockable
+  - Progress dashboard shows meaningful statistics
+  - Streak tracking works across app sessions
+  - All data is local and resettable
+- Dependencies:
+  - RL-023
+
+### RL-047 Add algorithm visualization and step-through animation
+
+- Priority: `Future`
+- Status: `Planned`
+- Readiness: `Ready for design after debugger and notebook work`
+- Why this matters:
+  - VisuAlgo and similar tools are among the most popular resources for CS students
+  - Visualizing data structure changes during algorithm execution is extremely valuable for learning
+  - No desktop code runner currently offers built-in algorithm visualization
+- Scope:
+  - Step-through execution mode that pauses at each major operation
+  - Visualization panels for common data structures:
+    - Arrays (with swap/compare highlighting)
+    - Linked lists
+    - Trees (binary, BST, AVL)
+    - Graphs (adjacency representation)
+    - Stacks and queues
+    - Hash tables
+  - Playback controls: play, pause, step forward, step back, speed control
+  - Highlight which line of code corresponds to the current visualization step
+  - Start with JS/TS as the first language
+  - Use a declarative visualization API that the user can call from their code:
+    - `visualize.array([3,1,4,1,5])` to register a watched array
+    - `visualize.step()` to mark a visualization checkpoint
+- Acceptance criteria:
+  - At least sorting algorithm visualization works end-to-end
+  - Users can step through execution and see data structure changes
+  - Visualization syncs with source code line highlighting
+- Dependencies:
+  - RL-027
+  - RL-043
+
+### RL-048 Add integrated terminal for desktop mode
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready to implement`
+- Why this matters:
+  - CodeRunner 4, Replit, CodeSandbox, and Zed all include integrated terminals
+  - Developers often need to run shell commands alongside their code
+  - An integrated terminal reduces context-switching for package installation, git, file operations
+- Scope:
+  - Embed a terminal panel (xterm.js + node-pty) in the desktop build
+  - Terminal opens in the current project directory
+  - Support multiple terminal tabs
+  - Toggle terminal with a keyboard shortcut
+  - Desktop only — web mode shows terminal as unavailable
+  - Do not replace the console/output panel; terminal is a separate panel
+- Acceptance criteria:
+  - Users can open a terminal and run shell commands from within the app
+  - Terminal respects the current project directory
+  - Terminal panel can be toggled and resized
+- Dependencies:
+  - RL-021
+
+### RL-049 Add macro recording and playback
+
+- Priority: `Future`
+- Status: `Planned`
+- Readiness: `Ready after shortcut editor exists`
+- Why this matters:
+  - CodeRunner 4 supports custom macros
+  - Power users automate repetitive editing tasks with macros
+- Scope:
+  - Record a sequence of editor actions as a macro
+  - Save, name, and replay macros
+  - Bind macros to custom keyboard shortcuts
+  - Keep macro scope to editor actions (not shell commands)
+- Acceptance criteria:
+  - Users can record and replay at least basic editing macros
+  - Macros persist across sessions
+- Dependencies:
+  - RL-037
+
+### RL-050 Add real-time collaboration for shared sessions
+
+- Priority: `Future`
+- Status: `Planned`
+- Readiness: `Not MVP-ready; requires backend infrastructure`
+- Why this matters:
+  - PlayCode, Replit, CodeSandbox, and Zed all offer real-time multiplayer editing
+  - Pair programming, live interviews, and teaching workshops are strong use cases
+  - Zed uses CRDTs for conflict-free collaborative editing
+- Scope:
+  - Phase A: Local P2P collaboration via WebRTC (no server needed for LAN)
+  - Phase B: Cloud-mediated collaboration with session sharing via link
+  - Live cursor positions and selections for all participants
+  - Shared execution results
+  - Voice/video is explicitly out of scope (use external tools)
+- Acceptance criteria:
+  - Two users on a LAN can edit the same file with live cursors (Phase A)
+  - Session sharing via link works with a relay server (Phase B)
+- Dependencies:
+  - RL-036
+  - RL-032
+
+### RL-051 Harden packagerConfig with app category and protocol registration
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready now — trivial config change`
+- Why this matters:
+  - WizardJS sets `appCategory: 'developer-tools'` in forge config
+  - macOS uses this for Finder and Spotlight categorization
+  - Missing category may affect discoverability on macOS
+- Scope:
+  - Add `appCategory: 'public.app-category.developer-tools'` to packagerConfig (macOS LSApplicationCategoryType)
+  - Register `lingua://` protocol in packagerConfig via `protocols` field
+  - These are one-line config additions with zero runtime cost
+- Acceptance criteria:
+  - macOS build shows correct app category in Finder info
+  - Protocol registration is included in packaged builds
+- Dependencies:
+  - None
+
+---
+
+## 10. Product identity, release notes, and guided tour (2026-04-12)
+
+### RL-052 Add About view with product name and version
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready to implement`
+- Scope:
+  - Add a new `AboutSection.tsx` to the existing `SettingsModal` as a sixth section alongside Appearance, Editor, Layout, Plugins, and Updates
+  - Display product name ("Lingua"), version (read from `app.getVersion()` in Electron, fallback to `package.json` for web), build date, and license type
+  - Show a minimal product logo or icon placeholder
+  - Include links to GitHub repository, website (when it exists), and license
+  - Read version from Electron's `app.getVersion()` via IPC in desktop mode; fall back to `import.meta.env` or `package.json` in web mode
+  - Add a "Check for updates" button that ties into the existing `UpdatesSection` logic
+  - Add the About section to the Command Palette as "About Lingua"
+- Acceptance criteria:
+  - Settings modal shows an "About" section with accurate product name and version
+  - Version matches what `package.json` declares
+  - The section is accessible from both the Settings modal tab and the Command Palette
+- Dependencies:
+  - None (uses existing SettingsModal infrastructure)
+
+### RL-053 Add Release Notes / What's New view
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Ready to implement after CHANGELOG.md exists`
+- Scope:
+  - Create a `CHANGELOG.md` at the project root following Keep a Changelog format (semver, grouped by Added/Changed/Fixed/Removed)
+  - Create a `WhatsNewSection.tsx` component (either as a tab in SettingsModal or a standalone overlay)
+  - Parse `CHANGELOG.md` at build time and bundle it as a JSON asset so the renderer can display it without file-system access
+  - Show the most recent version's changes prominently, with older versions collapsible below
+  - Optionally show the What's New overlay automatically on first launch after an update (use a `lastSeenVersion` key in `settingsStore` to detect)
+  - Render markdown content with minimal styling consistent with the app's design system (oklch color tokens, surface classes)
+  - Add "What's New" as a Command Palette action
+- Acceptance criteria:
+  - `CHANGELOG.md` exists at the project root with at least one version entry (0.1.0)
+  - The What's New view renders the changelog grouped by version
+  - The view is accessible from Command Palette and optionally from the About section
+  - After an update, the user is shown new changes on first launch
+- Dependencies:
+  - RL-052 (About view provides the natural anchor for a "What's New" link)
+
+### RL-054 Add interactive guided tour with Shepherd.js
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready to implement — requires Shepherd.js commercial license purchase before shipping`
+- Licensing note:
+  - Shepherd.js is free for open-source, personal, and non-commercial projects
+  - **Lingua is closed-source commercial software** — a paid license is required
+  - Business license: $50 lifetime (up to 5 projects, 1 month support)
+  - Enterprise license: $300 lifetime (unlimited projects, 6 months support)
+  - Purchase at https://www.shepherdjs.dev/pricing before any public release
+  - Development and prototyping can proceed; license must be acquired before distribution
+- Scope:
+  - Install `shepherd.js` and `react-shepherd` as dependencies
+  - Create a `GuidedTour` module under `src/renderer/components/GuidedTour/`
+  - Implement a `TourProvider` wrapper using `react-shepherd`'s context provider
+  - Define tour steps for core features:
+    - Step 1: Editor area — explain code editing, language selection
+    - Step 2: Run button — `advanceOn` click event so the user actually runs code to proceed
+    - Step 3: Console panel — explain output, errors, timing
+    - Step 4: File tree — explain project structure, creating files
+    - Step 5: Toolbar — explain layout options, settings access
+    - Step 6: Snippets — show how to save and reuse code
+    - Step 7: Command Palette — demonstrate keyboard-driven navigation
+  - Use `canClickTarget: true` so users interact with real UI elements during the tour
+  - Use `advanceOn` to auto-advance when the user completes an interactive action (e.g., clicking Run, opening a file, saving a snippet)
+  - Use `beforeShowPromise` for steps that need async setup (e.g., ensuring a tab is open before highlighting it)
+  - Style the tour modal/backdrop to match Lingua's design system (oklch colors, surface tokens, rounded corners)
+  - Use SVG backdrop with spotlight cutout for visually highlighting the target element
+  - Add "Start guided tour" to the Command Palette
+  - Add a "Take a tour" button in the About section (RL-052)
+  - Store tour completion status in `settingsStore` so it is not shown repeatedly
+  - Optionally trigger the tour on first launch (gated by a `hasCompletedTour` flag)
+  - Support multiple tour tracks in the future (beginner tour, advanced features tour, language-specific tours)
+- Acceptance criteria:
+  - A multi-step interactive tour walks the user through Lingua's core features
+  - At least one step uses `advanceOn` to require user interaction before proceeding
+  - The tour highlights UI elements with a visible spotlight/backdrop
+  - Users can skip, go back, or exit the tour at any step
+  - Tour completion is persisted so it does not repeat on every launch
+  - The tour is launchable from Command Palette and from the About section
+  - Shepherd.js commercial license is purchased before any public release of Lingua
+- Related tasks:
+  - RL-039 (guided lessons for students) is a separate educational content system; this tour is product onboarding
+  - The tour infrastructure could later be reused by RL-039 for lesson walkthroughs
+- Dependencies:
+  - RL-052 (About section provides the "Take a tour" entry point)
+  - Shepherd.js commercial license (Business $50 or Enterprise $300)
+
+---
+
+## 11. Updated WebContainers analysis (2026-04-12)
+
+### Viability assessment for Lingua
+
+**What WebContainers offer:**
+- Full Node.js runtime in the browser (no server needed)
+- npm install and package execution in-browser
+- Virtualized TCP networking via ServiceWorker
+- Offline-capable after initial load
+
+**Critical limitations:**
+- Requires SharedArrayBuffer + cross-origin isolation (COOP/COEP headers)
+- Only fully supported in Chromium-based browsers; Firefox and Safari have beta/alpha support with restrictions
+- Cannot run C/C++ native addons (no native bindings)
+- Not relevant for Go, Rust, Python, or any non-JS/TS language
+- Firefox Private Browsing blocks ServiceWorkers entirely
+- Brave's aggressive third-party blocking can break WebContainers
+
+**Recommendation for Lingua (unchanged from RL-029):**
+- WebContainers are worth piloting **only for JS/TS web package workflows** in the web build
+- They are **not a replacement** for desktop Node.js, native toolchains, or WASM runtimes
+- The Electron desktop app gains **zero benefit** from WebContainers since it already has direct Node.js access
+- RL-029 correctly scopes this as an isolated experiment
+
+### WebContainers API licensing note
+- The WebContainer API is available as `@webcontainer/api` on npm
+- Commercial use requires reviewing StackBlitz's licensing terms
+- The API is not fully open-source — it's a proprietary runtime with an npm-distributed client
+
+---
+
+## 11. Updated WASM-first feasibility analysis (2026-04-12)
+
+### Current state of WASM language support (as of April 2026)
+
+| Language | WASM target maturity | Browser viability | Notes |
+|----------|---------------------|-------------------|-------|
+| JS/TS | N/A (native browser) | Full | Not a WASM target; runs natively |
+| Python | High (Pyodide) | Good | Already used in Lingua; ~15MB initial load |
+| Go | Medium (TinyGo) | Fair | Standard Go compiler produces large WASM; TinyGo is viable for simpler code |
+| Rust | High (rustc --target wasm32) | Good | First-class WASM support; cargo-component + wit-bindgen |
+| C/C++ | High (Emscripten) | Good | Mature tooling; most WASM libraries originate from C/C++ |
+| Java | Medium-High | Improving | WASM 3.0 GC types (Sept 2025) enable Java/Kotlin/Scala/Dart |
+| Ruby | Medium (MRuby) | Fair | ruby.wasm project exists but limited stdlib |
+| PHP | Medium (php-wasm) | Fair | Works for basic scripts |
+
+### WASM 3.0 breakthrough (September 2025)
+WebAssembly 3.0 added: 64-bit address space, multiple address spaces, exception handling, and **garbage-collected struct/array types**. This is the key enabler for Java, Kotlin, Scala, Dart, and OCaml compilation to WASM without embedding a full GC runtime.
+
+### Recommendation for Lingua (unchanged from RL-030)
+- **Do not commit to "WASM-first everywhere"** — the capability matrix must come first
+- JS/TS/Python are already the strongest WASM/browser candidates
+- Go works better via TinyGo than standard Go for WASM
+- Rust WASM is excellent but the desktop native path is faster for compilation
+- C/C++ via Emscripten is the strongest new WASM candidate
+- Java via WASM 3.0 GC is promising but tooling is still maturing
+- File watching, auto-updates, plugin loading, and local AI remain shell-specific (non-WASM)
+
+---
+
+## 12. Best-in-class REPL research synthesis (2026-04-12)
+
+### What makes a world-class REPL (distilled from Clojure, IPython, Jupyter, Swift Playgrounds, marimo)
+
+| Feature | Source | RL-020 coverage |
+|---------|--------|-----------------|
+| Live code modification with instant feedback | Clojure REPL | Partially (auto-run exists) |
+| Smart complete-code detection (don't run incomplete statements) | Clojure, RunJS | Explicitly in RL-020 scope |
+| Inline results without leaving the editor | IPython, Swift Playgrounds | Magic comments exist; expansion in RL-020 |
+| Execution history with rerun/replay | IPython, all REPLs | Explicitly in RL-020 and RL-028 |
+| Rich output (tables, charts, images) | Jupyter, marimo, Observable | New: RL-044 |
+| Reactive execution (edit one thing, dependents auto-update) | marimo | New: RL-043 |
+| Variable inspector / state explorer | IPython, Jupyter | New: should be added to RL-020 |
+| stdin/input support | All REPLs | Explicitly in RL-020 |
+| Multi-line editing with smart indentation | Clojure, IPython | Already exists via Monaco |
+| Persistent REPL state across interactions | Clojure, IPython | Needs explicit state management per runtime |
+| Expression pinning (watch expressions) | Swift Playgrounds | Expand magic comments to pin system in RL-020 |
+| Time-travel debugging (step back) | Elm, some Clojure tools | Future: RL-047 |
+
+### Gap: Variable inspector panel
+
+RL-020 should be expanded to include a lightweight variable inspector that shows the current state of variables after execution. This is a core REPL feature in IPython (`%whos`), Jupyter (variable explorer), and marimo (reactive state).
+
+---
+
+## 13. Brand, domain, and pricing strategy (2026-04-12)
+
+### Brand rename
+
+The product has been renamed from "RunLang" to "Lingua" across the entire codebase. "Lingua" means "language" in Latin and evokes multi-language support, internationality, and elegance. No significant brand conflicts exist in the code editor/IDE space.
+
+### Source code status
+
+Lingua is **closed-source commercial software**. The repository is private and the code is not publicly available. This affects:
+- Third-party library licensing: any dependency with copyleft or AGPL terms must be replaced or commercially licensed
+- Shepherd.js requires a commercial license ($50 Business or $300 Enterprise) — see RL-054
+- Intro.js (AGPL) is explicitly excluded from consideration
+- All MIT / Apache 2.0 / BSD dependencies are safe for closed-source use
+
+### Domain strategy
+
+| Domain | Priority | Rationale |
+|--------|----------|-----------|
+| `lingua.run` | Primary | Perfect fit: "Lingua" + "run" = execute languages. Cheap (~$3-5/year). `.run` TLD is underused |
+| `lingua.dev` | Secondary | Premium developer TLD. Verify availability — may be registered |
+| `getlingua.dev` | Fallback | Classic SaaS landing pattern if `lingua.dev` is unavailable |
+| `lingua.app` | Alternative | Good for desktop app marketing. Google-managed TLD |
+
+### Pricing model (research-backed recommendation)
+
+**Strategy: Freemium with perpetual one-time purchase (RunJS model)**
+
+Rationale:
+- Product is desktop-first with no cloud infrastructure costs
+- Developers prefer one-time purchases for local tools
+- RunJS validated this model successfully at $26 perpetual
+- Students need generous free access for adoption
+
+| Tier | Price | Includes |
+|------|-------|----------|
+| **Lingua Free** | $0 | Editor completo, 5 lenguajes base (JS/TS/Python/Go/Rust), auto-run, magic comments, 1 tab, dark/light theme, ejecución ilimitada |
+| **Lingua Pro** | $29 one-time (perpetuo) | Todo Free + tabs ilimitados, snippets, npm packages, 15+ lenguajes, dev utilities, variable inspector, temas extra, custom fonts, deep links, execution history, benchmarking. Updates 1 año |
+| **Lingua Pro Lifetime** | $49 one-time | Todo Pro + actualizaciones de por vida incluyendo major versions |
+| **Lingua Education** | $0 (verificado) | Todo Pro gratis para estudiantes y educadores (.edu email, GitHub Education) |
+
+Premium-only features:
+- Unlimited tabs (Free: 1 tab)
+- npm/package management
+- Full snippet library (Free: 5 snippets)
+- Dev utilities panel (regex, JSON, diff, etc.)
+- 15+ languages (Free: JS/TS/Python only)
+- Extra themes and font selection
+- Local AI assistant
+- Notebook mode
+- Execution history and benchmarking
+
+Future monetization channels:
+- Premium challenge/lesson packs
+- Team licenses (per-seat)
+- Cloud sync subscription ($2-3/month, optional)
+
+---
+
 ## Execution order summary
 
 Implement in this order unless a newly discovered regression changes severity:
@@ -1467,14 +2130,25 @@ Implement in this order unless a newly discovered regression changes severity:
 7. RL-008 Settings truthfulness and app theme decision
 8. RL-009 Renderer module splits
 9. RL-010 through RL-017 as follow-on work
-10. RL-018 i18n foundation
-11. RL-021 loose-file workflow and session continuity
-12. RL-019, RL-020, and RL-022 to deepen the REPL and navigation model
-13. RL-023, RL-024, and RL-025 to turn RunLang into a stronger practice/prototyping environment
-14. RL-030 and RL-029 before any large "webassembly first" or WebContainer claims
-15. RL-026, RL-027, and RL-028 as advanced language and debugging follow-ons
-16. RL-031 and RL-032 once the core app/product surface is stable enough to support them
-17. RL-033, RL-034, and RL-035 as platform/tooling decision work
-18. RL-036 through RL-039 as broader ecosystem, learning, and personalization work
+10. RL-051 Harden packagerConfig (trivial, do alongside next release work)
+11. RL-052 About view with product name and version (small, can pair with RL-008 settings work)
+12. RL-053 Release Notes / What's New (requires CHANGELOG.md, depends on RL-052)
+13. RL-018 i18n foundation
+14. RL-021 loose-file workflow and session continuity
+15. RL-040 Custom protocol and deep links (small, do alongside RL-021)
+16. RL-019, RL-020 (with variable inspector expansion), and RL-022 to deepen the REPL and navigation model
+17. RL-023, RL-024, and RL-025 to turn Lingua into a stronger practice/prototyping environment
+18. RL-045 Built-in developer utilities (can start in parallel with practice environment)
+19. RL-030 and RL-029 before any large "webassembly first" or WebContainer claims
+20. RL-026, RL-027, and RL-028 as advanced language and debugging follow-ons
+21. RL-038, then RL-042 to expand language support using the language-pack architecture
+22. RL-031 and RL-032 once the core app/product surface is stable enough to support them
+23. RL-033, RL-034, and RL-035 as platform/tooling decision work
+24. RL-036, RL-041 as sharing and publishing follow-ons
+25. RL-037 (with font expansion) and RL-048 integrated terminal
+26. RL-054 Interactive guided tour with Shepherd.js (requires commercial license before release — $50 Business or $300 Enterprise)
+27. RL-039 and RL-046 guided lessons + gamification + progress tracking (RL-039 can reuse RL-054 tour infrastructure)
+28. RL-043 and RL-044 notebook mode and rich output visualization
+29. RL-047, RL-049, and RL-050 as long-horizon features (algorithm visualization, macros, real-time collaboration)
 
 This ordered list is the milestone sequence. No separate milestone section should be maintained elsewhere.

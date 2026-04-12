@@ -7,7 +7,7 @@ import {
   buildInlineDecorationEntries,
 } from '../utils/editorExecutionDecorations';
 
-const RUNLANG_EXECUTION_MARKER_OWNER = 'runlang-execution';
+const LINGUA_EXECUTION_MARKER_OWNER = 'lingua-execution';
 
 /**
  * Hook for managing inline result decorations in Monaco Editor.
@@ -51,7 +51,7 @@ export function useInlineResults() {
         return;
       }
 
-      monaco.editor.setModelMarkers(model, RUNLANG_EXECUTION_MARKER_OWNER, []);
+      monaco.editor.setModelMarkers(model, LINGUA_EXECUTION_MARKER_OWNER, []);
     },
     []
   );
@@ -117,7 +117,7 @@ export function useInlineResults() {
         return;
       }
 
-      monaco.editor.setModelMarkers(model, RUNLANG_EXECUTION_MARKER_OWNER, [
+      monaco.editor.setModelMarkers(model, LINGUA_EXECUTION_MARKER_OWNER, [
         {
           ...markerEntry,
           severity: monaco.MarkerSeverity.Error,

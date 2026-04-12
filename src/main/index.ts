@@ -21,14 +21,14 @@ registerUpdater();
 
 const createWindow = () => {
   const rendererUrl = getTrustedRendererUrl(
-    process.env.RUNLANG_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL
+    process.env.LINGUA_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL
   );
   const mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
     minHeight: 768,
-    title: 'RunLang',
+    title: 'Lingua',
     titleBarStyle: 'hiddenInset',
     show: false, // Show only when content is ready to avoid white flash
     backgroundColor: '#0a0a0f',

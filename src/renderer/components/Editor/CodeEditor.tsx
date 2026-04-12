@@ -38,7 +38,7 @@ export function CodeEditor() {
 
     editor.onDidScrollChange((e) => {
       window.dispatchEvent(
-        new CustomEvent('runlang:editor-scroll', {
+        new CustomEvent('lingua:editor-scroll', {
           detail: { scrollTop: e.scrollTop },
         })
       );

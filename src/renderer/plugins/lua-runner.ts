@@ -17,7 +17,7 @@
 
 import type { ExecutionContext, ExecutionResult, ConsoleOutput } from '../types';
 import { BasePluginRunner } from './index';
-import type { RunLangPlugin, PluginRunner } from './index';
+import type { LinguaPlugin, PluginRunner } from './index';
 
 interface FengariModule {
   lua: typeof import('fengari').lua;
@@ -187,7 +187,7 @@ export class LuaRunner extends BasePluginRunner {
 
 // ---------------------------------------------------------------- Plugin descriptor
 
-export const luaPlugin: RunLangPlugin = {
+export const luaPlugin: LinguaPlugin = {
   id: 'lua',
   name: 'Lua',
   version: '0.1.0',
@@ -200,7 +200,7 @@ export const luaPlugin: RunLangPlugin = {
     '  print("Hello, " .. name .. "!")',
     'end',
     '',
-    'greet("RunLang")',
+    'greet("Lingua")',
   ].join('\n'),
 
   async createRunner(): Promise<PluginRunner> {
