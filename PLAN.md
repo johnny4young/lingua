@@ -919,8 +919,8 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Do not market this as a full coding copilot or autonomous editing system
 - Scope:
   - Introduce a local-only AI assistant for desktop builds
-  - Support Ollama over loopback only as the first and only provider in the MVP
-  - Keep the internal design compatible with future provider abstraction, but do not expose provider switching in the first user-facing iteration
+  - Use Ollama over loopback as the explicit MVP backend
+  - Keep the internal design compatible with future local backend abstraction, but do not expose provider switching in the first user-facing iteration
   - Start with lightweight code models such as:
     - `qwen2.5-coder:3b` as the recommended default
     - `qwen2.5-coder:1.5b` as the lower-resource fallback
@@ -944,11 +944,83 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Web build must surface the feature as unavailable rather than partially emulated
   - All requests must stay on the local machine through Ollama on loopback
   - The feature must continue to work with internet access disabled as long as the local model is already installed
+- Explicit implementation decision for the MVP:
+  - The first implementation must target `Ollama` only
+  - This is a product and delivery decision, not a claim that Ollama is the only viable backend forever
+  - Alternative local backends such as LM Studio or `llama.cpp` remain future options, but they are intentionally out of scope for the first implementation
+  - The implementation must avoid Ollama-specific assumptions leaking into renderer state, prompt building, or user-facing action semantics so a second backend can be added later without reworking the whole feature
 - Why this shape is preferred:
   - The app is already strongest as a local code runner and scratchpad
   - A constrained assistant aligns with the existing language/template/snippet workflow better than a free-form chat pane
   - Small local models are sufficient for "Fibonacci in the selected language" and similar tasks, while reducing latency and memory compared to large local models
+- Architecture recommendations:
+  - Prefer one narrow vertical slice that is excellent over a broad AI surface that is vague
+  - Keep the feature local-first, task-scoped, and user-mediated
+  - Put all backend communication and prompt assembly behind main-process boundaries
+  - Treat the renderer as a consumer of structured AI states and structured AI outputs, not as a client that understands backend HTTP details
+  - Normalize model/server errors in one place instead of scattering backend-specific checks across UI components
+  - Preserve a clean seam for future local backend adapters even though the MVP ships only with Ollama
+- Recommended layered design:
+  - `Renderer UI layer`
+    - modal/panel surface
+    - command palette actions
+    - settings/status presentation
+    - explicit insert/copy actions
+  - `Renderer state layer`
+    - request lifecycle
+    - current stream text
+    - availability state
+    - last error
+    - selected task + selected model
+  - `Preload contract layer`
+    - narrow typed bridge
+    - no backend-specific parsing logic
+  - `Main application service layer`
+    - availability checks
+    - request validation
+    - prompt building
+    - response normalization
+    - cancellation
+  - `Local backend adapter layer`
+    - Ollama adapter in MVP
+    - future adapters possible for LM Studio or `llama.cpp`
+  - `Prompt policy layer`
+    - task templates
+    - language-aware constraints
+    - response-shape requirements
+- Explicit separation-of-concerns rules:
+  - The renderer must not know raw Ollama endpoints
+  - The preload layer must stay thin and typed
+  - Prompt templates must live in main-side code, not embedded in React components
+  - Backend response normalization must happen before data reaches UI rendering
+  - Settings persistence must store product choices such as `enabled`, `model`, and safe local endpoint, not transport internals beyond what is necessary
+  - Feature gating for desktop/web availability must happen before any request starts
+- Future evolution guidance:
+  - If a second backend is added later, it should implement the same internal adapter contract used by Ollama
+  - Future backend support must not change the three MVP user tasks or their semantics
+  - If provider switching is ever exposed in the UI, it should happen only after the adapter boundary proves stable and after error handling remains equally actionable across backends
+  - Do not add cloud backends until the local-only product story is proven and still desirable
+- Recommendation summary:
+  - Best MVP backend: `Ollama`
+  - Best MVP product surface: constrained algorithm helper, not free-form chat
+  - Best MVP UI: focused modal/panel, not permanent sidebar
+  - Best MVP output model: explicit `Insert` / `Copy`, never silent edits
+  - Best MVP scope control: current tab + selected language only
 - Detailed implementation blueprint:
+
+#### RL-031.0 Record the architectural decision before coding starts
+
+- Readiness: `Ready`
+- Scope:
+  - Create a short implementation note or ADR before starting code
+  - Capture these decisions explicitly:
+    - MVP backend is Ollama
+    - MVP feature is desktop-only and local-only
+    - renderer never talks to backend HTTP directly
+    - backend abstraction exists internally but is not a user-facing selector yet
+    - task scope is limited to simple algorithms and current-language assistance
+- Acceptance criteria:
+  - The implementation starts from a written decision record rather than assumptions carried in code comments only
 
 #### RL-031.1 Introduce a desktop-only local AI bridge in main/preload
 
@@ -963,6 +1035,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
     - `cancel`
   - The main process owns all HTTP communication with Ollama
   - The renderer must not call Ollama directly
+  - The main process should delegate HTTP details to an internal backend adapter instead of hard-coding all request/response behavior inside IPC handlers
 - Exact contract direction:
   - `getStatus`
     - checks whether the feature is enabled in settings
@@ -985,12 +1058,15 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Suggested file touch points when implementation starts:
   - `src/main/index.ts`
   - a new main-side module such as `src/main/ai.ts`
+  - a backend adapter module such as `src/main/ai/ollamaAdapter.ts`
+  - prompt and normalization modules such as `src/main/ai/prompts.ts` and `src/main/ai/normalize.ts`
   - `src/preload/index.ts`
   - `src/types.d.ts`
 - Acceptance criteria:
   - Renderer can query local AI availability through preload without direct network access
   - An in-flight response can be cancelled
   - Web mode reports the feature as unavailable with an explicit reason
+  - Ollama-specific HTTP behavior remains isolated from renderer-facing contracts
 
 #### RL-031.2 Add persisted settings for the local assistant
 
@@ -1050,10 +1126,12 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Prefer a focused modal or panel with one active request at a time
   - Show explicit `Insert` and `Copy` actions after generation
   - Do not auto-insert output
+  - Keep the interaction model aligned with editor productivity, not conversation history
 - Suggested file touch points:
   - `src/renderer/components/Toolbar/Toolbar.tsx`
   - `src/renderer/components/CommandPalette/commandPaletteModel.ts`
   - a new UI surface such as `src/renderer/components/AI/AIAssistantModal.tsx`
+  - a renderer store such as `src/renderer/stores/aiStore.ts`
 - Acceptance criteria:
   - A user can trigger one of the three actions without leaving the editing flow
   - The selected language is visible in the request UI
@@ -1066,6 +1144,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Build task-specific prompt templates on the main side
   - Use structured instructions instead of free-form chat history
   - Keep prompts small and deterministic
+  - Design prompt builders behind an interface that returns task-specific request bodies independent of the underlying local backend
 - Prompt rules:
   - Always include the selected language
   - Always state that the target is a simple standalone algorithm
@@ -1089,6 +1168,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Acceptance criteria:
   - The model reliably returns short algorithm-focused answers for common prompts
   - Prompts such as "Dame Fibonacci en Go" and "Explícame este binary search en Rust" stay within scope
+  - Prompt-building logic can be reused if a future local backend other than Ollama is added
 
 #### RL-031.5 Stream local responses with interruption support
 
@@ -1110,6 +1190,14 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - map errors to actionable text such as:
     - "Ollama no responde en 127.0.0.1:11434"
     - "El modelo seleccionado no está instalado localmente"
+- Error normalization recommendation:
+  - Define one internal normalized error shape for:
+    - unavailable backend
+    - unavailable model
+    - cancelled request
+    - invalid response
+    - timeout
+  - UI components should render that normalized shape rather than branching on transport details
 - Acceptance criteria:
   - Streaming works for a normal generation flow
   - Cancel leaves the app responsive and does not poison the next request
@@ -1152,6 +1240,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
     - confirm the feature is explicitly unavailable
 - Suggested automated coverage after implementation:
   - unit tests for prompt builders and AI request normalization
+  - unit tests for the Ollama adapter and main-side availability checks
   - renderer tests for disabled/unavailable/ready states
   - main-side tests for availability parsing and response/error mapping
 - Acceptance criteria:
