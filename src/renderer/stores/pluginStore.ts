@@ -67,8 +67,8 @@ async function loadPluginsIntoState(): Promise<{
   installDirectory: string | null;
   plugins: PluginStoreRecord[];
 }> {
-  const installDirectory = await window.runlang.plugins.getInstallDirectory();
-  const installed = await window.runlang.plugins.list();
+  const installDirectory = await window.lingua.plugins.getInstallDirectory();
+  const installed = await window.lingua.plugins.list();
 
   unregisterManagedPlugins();
 

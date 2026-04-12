@@ -58,7 +58,7 @@ async function runRustCode(sourceCode: string): Promise<RustRunResult> {
     };
   }
 
-  const tempDir = path.join(tmpdir(), `runlang-rust-${Date.now()}`);
+  const tempDir = path.join(tmpdir(), `lingua-rust-${Date.now()}`);
   const sourceFile = path.join(tempDir, 'main.rs');
   const binaryFile = path.join(
     tempDir,

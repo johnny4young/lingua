@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock window.runlang for IPC calls
+// Mock window.lingua for IPC calls
 const mockDetect = vi.fn();
 const mockCompile = vi.fn();
 
 Object.defineProperty(globalThis, 'window', {
   value: {
     ...globalThis.window,
-    runlang: {
+    lingua: {
       platform: 'darwin',
       go: {
         detect: mockDetect,

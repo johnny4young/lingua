@@ -46,7 +46,7 @@ export function EditorEmptyState() {
             <div>
               <p className="panel-title">Developer Workbench</p>
               <h1 className="font-display text-4xl font-semibold tracking-[-0.04em] text-foreground sm:text-5xl">
-                RunLang
+                Lingua
               </h1>
             </div>
           </div>

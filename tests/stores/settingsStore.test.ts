@@ -5,7 +5,7 @@ describe('settingsStore', () => {
   beforeEach(() => {
     useSettingsStore.setState({
       theme: 'dark',
-      editorTheme: 'runlang-dark',
+      editorTheme: 'lingua-dark',
       fontSize: 14,
       fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
       showLineNumbers: true,
@@ -18,7 +18,7 @@ describe('settingsStore', () => {
   it('should have correct defaults', () => {
     const state = useSettingsStore.getState();
     expect(state.theme).toBe('dark');
-    expect(state.editorTheme).toBe('runlang-dark');
+    expect(state.editorTheme).toBe('lingua-dark');
     expect(state.fontSize).toBe(14);
     expect(state.showLineNumbers).toBe(true);
     expect(state.wordWrap).toBe(false);

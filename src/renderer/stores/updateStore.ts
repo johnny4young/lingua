@@ -26,10 +26,10 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
       return teardownUpdatesListener;
     }
 
-    const state = await window.runlang.updates.getState();
+    const state = await window.lingua.updates.getState();
     set({ ...state, initialized: true });
 
-    teardownUpdatesListener = window.runlang.updates.onStateChanged((nextState) => {
+    teardownUpdatesListener = window.lingua.updates.onStateChanged((nextState) => {
       set(nextState);
     });
 
@@ -37,14 +37,14 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   },
 
   refresh: async () => {
-    const state = await window.runlang.updates.getState();
+    const state = await window.lingua.updates.getState();
     set(state);
   },
 
   checkForUpdates: async () => {
-    const state = await window.runlang.updates.check();
+    const state = await window.lingua.updates.check();
     set(state);
   },
 
-  restartToApply: async () => window.runlang.updates.restartToApply(),
+  restartToApply: async () => window.lingua.updates.restartToApply(),
 }));

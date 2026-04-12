@@ -35,7 +35,7 @@ jobs:
 
       - name: Build web version
         env:
-          VITE_BASE_PATH: /run-lang/
+          VITE_BASE_PATH: /lingua/
         run: npm run build:web
 
       - name: Upload Pages artifact

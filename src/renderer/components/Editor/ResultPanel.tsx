@@ -111,8 +111,8 @@ export function ResultPanel() {
       }
     };
 
-    window.addEventListener('runlang:editor-scroll', handleScrollSync);
-    return () => window.removeEventListener('runlang:editor-scroll', handleScrollSync);
+    window.addEventListener('lingua:editor-scroll', handleScrollSync);
+    return () => window.removeEventListener('lingua:editor-scroll', handleScrollSync);
   }, []);
 
   const hasContent = dynamic

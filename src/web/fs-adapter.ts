@@ -1,7 +1,7 @@
 /**
  * Web File System Adapter
  *
- * Implements the RunLangAPI `fs` namespace using the browser's
+ * Implements the LinguaAPI `fs` namespace using the browser's
  * File System Access API (showDirectoryPicker / showOpenFilePicker).
  *
  * Limitations vs. the Electron version:
@@ -94,7 +94,7 @@ async function resolveHandle(
 
 // ----------------------------------------------------- fs adapter
 
-export const webFsAdapter: RunLangAPI['fs'] = {
+export const webFsAdapter: LinguaAPI['fs'] = {
   // Open a directory picker and set it as root
   selectDirectory: async (): Promise<string | null> => {
     try {

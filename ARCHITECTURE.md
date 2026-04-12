@@ -1,6 +1,6 @@
 # Architecture
 
-This page explains the part of RunLang that manages an opened project on disk:
+This page explains the part of Lingua that manages an opened project on disk:
 
 - the **project lifecycle**
 - the **Electron IPC file-system bridge**
@@ -10,17 +10,17 @@ This is an **explanation** document. It focuses on how the architecture works, w
 
 ## At a glance
 
-RunLang separates this feature into four layers:
+Lingua separates this feature into four layers:
 
 1. The **renderer store and hooks** decide what the UI should show.
-2. The **preload bridge** exposes a narrow `window.runlang.fs` API.
+2. The **preload bridge** exposes a narrow `window.lingua.fs` API.
 3. The **main process IPC handlers** perform trusted file-system work.
 4. The **native platform** provides dialogs, file reads/writes, and watchers.
 
 ```mermaid
 flowchart LR
     A["Renderer UI<br/>AppLayout, FileTree, QuickOpen"] --> B["Renderer state<br/>useProjectStore<br/>useProjectWatchSync"]
-    B --> C["Preload bridge<br/>window.runlang.fs"]
+    B --> C["Preload bridge<br/>window.lingua.fs"]
     C --> D["Main process IPC<br/>fs:* handlers"]
     D --> E["Node + Electron APIs<br/>fs/promises, fs.watch, dialog"]
     E --> D
@@ -55,7 +55,7 @@ Why:
 
 ### What “project lifecycle” means in this codebase
 
-In RunLang, project lifecycle does **not** mean package management, workspace bootstrapping, or background indexing.
+In Lingua, project lifecycle does **not** mean package management, workspace bootstrapping, or background indexing.
 
 It means this narrower lifecycle:
 
@@ -77,7 +77,7 @@ The happy path for opening a project looks like this:
 sequenceDiagram
     participant UI as Renderer UI
     participant Store as useProjectStore
-    participant Preload as window.runlang.fs
+    participant Preload as window.lingua.fs
     participant Main as fs IPC handlers
     participant Native as Node/Electron
 
@@ -225,7 +225,7 @@ Technical reasons:
 - the renderer stays closer to a browser execution model
 - the file system becomes a single trust boundary in the main process
 - path validation and destructive-operation safeguards live in one place
-- desktop and web can share the same `RunLangAPI['fs']` shape even though the implementations differ
+- desktop and web can share the same `LinguaAPI['fs']` shape even though the implementations differ
 
 ### Request/response operations
 
@@ -256,7 +256,7 @@ Flow:
 
 1. The main process listens with `fs.watch(...)`.
 2. When Node emits an event, the main process sends `fs:changed` back to the originating renderer.
-3. The preload bridge exposes that as `window.runlang.fs.onChanged(callback)`.
+3. The preload bridge exposes that as `window.lingua.fs.onChanged(callback)`.
 4. The renderer hook decides whether to refresh the active project tree.
 
 This split is important:

@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const electronMocks = vi.hoisted(() => ({
   mockHandle: vi.fn(),
-  mockGetPath: vi.fn(() => '/tmp/runlang-user-data'),
+  mockGetPath: vi.fn(() => '/tmp/lingua-user-data'),
   mockGetVersion: vi.fn(() => '0.1.0'),
 }));
 
@@ -72,7 +72,7 @@ describe('main plugin discovery', () => {
   let tempRoot: string;
 
   beforeEach(async () => {
-    tempRoot = await mkdtemp(path.join(os.tmpdir(), 'runlang-plugins-'));
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), 'lingua-plugins-'));
   });
 
   afterEach(async () => {
@@ -136,6 +136,6 @@ describe('main plugin IPC registration', () => {
   });
 
   it('builds the install directory from userData', () => {
-    expect(getPluginInstallDirectory()).toBe('/tmp/runlang-user-data/plugins');
+    expect(getPluginInstallDirectory()).toBe('/tmp/lingua-user-data/plugins');
   });
 });

@@ -26,7 +26,7 @@ export function AppearanceSection() {
   return (
     <Section
       title="Appearance"
-      description="RunLang supports a dark-first shell and a refined light mode without changing your editor runtime settings."
+      description="Lingua supports a dark-first shell and a refined light mode without changing your editor runtime settings."
     >
       <div className="grid gap-3 sm:grid-cols-2">
         {APP_THEMES.map((option) => {

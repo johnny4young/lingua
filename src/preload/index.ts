@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-contextBridge.exposeInMainWorld('runlang', {
+contextBridge.exposeInMainWorld('lingua', {
   platform: process.platform,
 
   // Go runner IPC
