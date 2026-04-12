@@ -60,6 +60,7 @@ Renderer architecture note:
 - The editor shell is now split so Monaco theme registration, editor option construction, and the empty-state surface live in focused modules instead of one oversized `CodeEditor` file.
 - The explorer shell is now split so recursive tree rendering, inline creation input, and the no-project surface live in focused `FileTree` modules instead of one monolithic component file.
 - The command palette now delegates command construction/filtering and result-list rendering to focused modules, keeping the modal container centered on interaction state instead of catalog assembly.
+- The project store now delegates pure file-tree shaping and mutation helpers to a dedicated module, leaving the Zustand store focused on project lifecycle, file-system IPC, and watch-state transitions.
 
 ## Quality checks
 

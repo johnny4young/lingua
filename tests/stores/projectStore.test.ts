@@ -1,14 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  type FileTreeNode,
+  useProjectStore,
+} from '@/stores/projectStore';
+import {
   collectExpandedPaths,
   setNodeChildren,
   toggleExpanded,
   removeNode,
   renameNode,
   addNodeToParent,
-  type FileTreeNode,
-  useProjectStore,
-} from '@/stores/projectStore';
+} from '@/stores/projectTree';
 
 // ---------------------------------------------------------------------------
 // Fixtures
