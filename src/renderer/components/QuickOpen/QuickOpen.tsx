@@ -2,6 +2,7 @@ import { Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useProjectStore, type FileTreeNode } from '../../stores/projectStore';
+import { useRecentFilesStore } from '../../stores/recentFilesStore';
 import type { Language } from '../../types';
 import { languageBadgeClass } from '../../utils/languageMeta';
 import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
@@ -11,7 +12,7 @@ interface FileResult {
   name: string;
   path: string;
   language?: Language;
-  source: 'open-tab' | 'project';
+  source: 'open-tab' | 'recent' | 'project';
 }
 
 interface QuickOpenProps {
@@ -26,6 +27,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
 
   const { tabs, setActiveTab, openFile } = useEditorStore();
   const { nodes } = useProjectStore();
+  const { recentFiles } = useRecentFilesStore();
 
   const projectFiles = useMemo<FileResult[]>(() => {
     const results: FileResult[] = [];
@@ -59,9 +61,19 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
       source: 'open-tab',
     }));
 
-    const projectOnly = projectFiles.filter((file) => !openPaths.has(file.path));
-    return [...openTabs, ...projectOnly];
-  }, [tabs, projectFiles]);
+    const recentOnly: FileResult[] = recentFiles
+      .filter((f) => !openPaths.has(f.filePath))
+      .map((f) => ({
+        name: f.name,
+        path: f.filePath,
+        language: f.language,
+        source: 'recent',
+      }));
+
+    const seenPaths = new Set([...openPaths, ...recentOnly.map((f) => f.path)]);
+    const projectOnly = projectFiles.filter((file) => !seenPaths.has(file.path));
+    return [...openTabs, ...recentOnly, ...projectOnly];
+  }, [tabs, projectFiles, recentFiles]);
 
   const filtered = useMemo<FileResult[]>(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -166,6 +178,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {file.source === 'open-tab' && <span className="status-pill">Open</span>}
+                  {file.source === 'recent' && <span className="status-pill">Recent</span>}
                   {file.language && (
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${languageBadgeClass(file.language)}`}

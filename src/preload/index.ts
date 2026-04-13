@@ -15,10 +15,24 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (sourceCode: string) => ipcRenderer.invoke('rust:run', sourceCode),
   },
 
+  // App lifecycle IPC
+  confirmClose: (dirtyFileNames: string[]) =>
+    ipcRenderer.invoke('app:confirm-close', dirtyFileNames) as Promise<number>,
+  confirmCloseTab: (fileName: string) =>
+    ipcRenderer.invoke('app:confirm-close-tab', fileName) as Promise<number>,
+  onBeforeClose: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('app:before-close', handler);
+    return () => ipcRenderer.removeListener('app:before-close', handler);
+  },
+  forceClose: () => ipcRenderer.send('app:force-close'),
+
   // File system IPC
   fs: {
     selectDirectory: () => ipcRenderer.invoke('fs:select-directory'),
     selectFile: () => ipcRenderer.invoke('fs:select-file'),
+    saveDialog: (defaultName: string, defaultDir?: string) =>
+      ipcRenderer.invoke('fs:save-dialog', defaultName, defaultDir) as Promise<string | null>,
     readdir: (dirPath: string) => ipcRenderer.invoke('fs:readdir', dirPath),
     stat: (filePath: string) => ipcRenderer.invoke('fs:stat', filePath),
     read: (filePath: string) => ipcRenderer.invoke('fs:read', filePath),

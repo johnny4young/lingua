@@ -1,6 +1,7 @@
 import {
   BookCopy,
   ChevronDown,
+  FolderOpen,
   Loader2,
   PanelBottom,
   PanelLeft,
@@ -134,6 +135,13 @@ export function Toolbar({
             Stop
           </button>
         )}
+
+        <IconButton
+          onClick={() => void useEditorStore.getState().openFileFromDisk()}
+          title="Open file (Cmd+O)"
+        >
+          <FolderOpen size={15} />
+        </IconButton>
 
         <div className="toolbar-divider" />
 

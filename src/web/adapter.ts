@@ -70,6 +70,10 @@ const pluginStub: LinguaAPI['plugins'] = {
 
 const webLingua: LinguaAPI = {
   platform: 'web',
+  confirmClose: async () => 2, // Cancel by default to avoid silent data loss in web mode.
+  confirmCloseTab: async () => 2,
+  onBeforeClose: () => () => {},
+  forceClose: () => {},
   go: goStub,
   rust: rustStub,
   fs: webFsAdapter,

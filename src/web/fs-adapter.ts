@@ -17,6 +17,7 @@
 interface FileSystemPickerWindow {
   showDirectoryPicker(opts?: { mode?: 'read' | 'readwrite' }): Promise<FileSystemDirectoryHandle>;
   showOpenFilePicker(opts?: { multiple?: boolean }): Promise<FileSystemFileHandle[]>;
+  showSaveFilePicker(opts?: { suggestedName?: string }): Promise<FileSystemFileHandle>;
 }
 
 interface IterableFileSystemDirectoryHandle extends FileSystemDirectoryHandle {
@@ -107,6 +108,21 @@ export const webFsAdapter: LinguaAPI['fs'] = {
       return rootPath;
     } catch {
       // User cancelled
+      return null;
+    }
+  },
+
+  // Save-dialog using File System Access API
+  saveDialog: async (defaultName: string): Promise<string | null> => {
+    try {
+      const picker = window as unknown as FileSystemPickerWindow;
+      const fh = await picker.showSaveFilePicker({ suggestedName: defaultName });
+      const virtPath = rootPath
+        ? joinPath(rootPath, fh.name)
+        : '/' + fh.name;
+      handleRegistry.set(virtPath, fh);
+      return virtPath;
+    } catch {
       return null;
     }
   },

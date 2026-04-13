@@ -50,6 +50,7 @@ vi.mock('electron', () => ({
   dialog: {
     showMessageBox: vi.fn().mockResolvedValue({ response: 0 }),
     showOpenDialog: vi.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
+    showSaveDialog: vi.fn().mockResolvedValue({ canceled: true, filePath: undefined }),
   },
   BrowserWindow: { fromWebContents: vi.fn() },
 }));
@@ -157,5 +158,67 @@ describe('fs:watch-start security guard', () => {
 
   it('does not throw for /tmp/myproject', async () => {
     await expect(invoke('fs:watch-start', '/tmp/myproject')).resolves.not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fs:save-dialog
+// ---------------------------------------------------------------------------
+
+describe('fs:save-dialog', () => {
+  it('registers the handler', () => {
+    expect(handlers.has('fs:save-dialog')).toBe(true);
+  });
+
+  it('returns null when user cancels', async () => {
+    const { dialog } = await import('electron');
+    (dialog.showSaveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+      canceled: true,
+      filePath: undefined,
+    });
+
+    const result = await invoke('fs:save-dialog', 'untitled.js');
+    expect(result).toBeNull();
+  });
+
+  it('returns the chosen path when user confirms', async () => {
+    const { dialog } = await import('electron');
+    (dialog.showSaveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+      canceled: false,
+      filePath: '/tmp/saved.js',
+    });
+
+    const result = await invoke('fs:save-dialog', 'untitled.js');
+    expect(result).toBe('/tmp/saved.js');
+  });
+
+  it('throws on blocked path', async () => {
+    const { dialog } = await import('electron');
+    (dialog.showSaveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+      canceled: false,
+      filePath: '/etc/evil.js',
+    });
+
+    await expect(invoke('fs:save-dialog', 'evil.js')).rejects.toThrow('Access denied');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// app:confirm-close
+// ---------------------------------------------------------------------------
+
+describe('app:confirm-close', () => {
+  it('registers the handler', () => {
+    expect(handlers.has('app:confirm-close')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// app:confirm-close-tab
+// ---------------------------------------------------------------------------
+
+describe('app:confirm-close-tab', () => {
+  it('registers the handler', () => {
+    expect(handlers.has('app:confirm-close-tab')).toBe(true);
   });
 });

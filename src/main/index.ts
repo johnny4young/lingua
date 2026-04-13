@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { registerGoHandlers } from './go-compiler';
@@ -19,6 +19,13 @@ registerFileSystemHandlers();
 registerPluginHandlers();
 registerUpdater();
 
+let forceQuit = false;
+
+ipcMain.on('app:force-close', () => {
+  forceQuit = true;
+  app.quit();
+});
+
 const createWindow = () => {
   const rendererUrl = getTrustedRendererUrl(
     process.env.LINGUA_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL
@@ -38,6 +45,13 @@ const createWindow = () => {
       nodeIntegration: false,
       sandbox: true,
     },
+  });
+
+  // Dirty-close intercept: ask the renderer to check for unsaved tabs
+  mainWindow.on('close', (event) => {
+    if (forceQuit) return;
+    event.preventDefault();
+    mainWindow.webContents.send('app:before-close');
   });
 
   // Show window once the renderer is ready

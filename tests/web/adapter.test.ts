@@ -161,10 +161,27 @@ describe('web adapter — platform', () => {
     // Simulate what adapter.ts does
     const webLingua = {
       platform: 'web',
+      confirmClose: async () => 2,
+      confirmCloseTab: async () => 2,
       go: {},
       rust: {},
       fs: mockFsAdapter,
     };
     expect(webLingua.platform).toBe('web');
+  });
+});
+
+describe('web adapter — safe close defaults', () => {
+  const webLingua = {
+    confirmClose: async () => 2,
+    confirmCloseTab: async () => 2,
+  };
+
+  it('cancels app-close confirmation by default in the browser build', async () => {
+    await expect(webLingua.confirmClose()).resolves.toBe(2);
+  });
+
+  it('cancels dirty-tab closure by default in the browser build', async () => {
+    await expect(webLingua.confirmCloseTab()).resolves.toBe(2);
   });
 });

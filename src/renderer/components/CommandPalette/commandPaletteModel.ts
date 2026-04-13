@@ -29,6 +29,9 @@ interface BuildCommandPaletteModelArgs {
   onOpenSnippets: () => void;
   checkForUpdates: () => Promise<void>;
   restartToApply: () => Promise<boolean>;
+  openFileFromDisk: () => Promise<void>;
+  saveActiveTabAs: () => Promise<void>;
+  duplicateActiveTab: () => void;
 }
 
 function normalizeKeywords(values: Array<string | undefined>) {
@@ -114,6 +117,9 @@ export function buildCommandPaletteModel({
   onOpenSnippets,
   checkForUpdates,
   restartToApply,
+  openFileFromDisk,
+  saveActiveTabAs,
+  duplicateActiveTab,
 }: BuildCommandPaletteModelArgs): CommandEntry[] {
   const commands = [
     ...templates.map((template) =>
@@ -194,6 +200,36 @@ export function buildCommandPaletteModel({
       ['updates', 'restart', 'apply', 'install'],
       () => {
         void restartToApply();
+        onClose();
+      }
+    ),
+    buildActionCommand(
+      'action-open-file',
+      'Open File',
+      'Open a file from disk (Cmd+O)',
+      ['open', 'file', 'disk', 'browse'],
+      () => {
+        void openFileFromDisk();
+        onClose();
+      }
+    ),
+    buildActionCommand(
+      'action-save-as',
+      'Save As',
+      'Save the active tab to a new location (Cmd+Shift+S)',
+      ['save as', 'save copy', 'export'],
+      () => {
+        void saveActiveTabAs();
+        onClose();
+      }
+    ),
+    buildActionCommand(
+      'action-duplicate-tab',
+      'Duplicate Tab',
+      'Create a copy of the active tab',
+      ['duplicate', 'copy', 'tab', 'clone'],
+      () => {
+        duplicateActiveTab();
         onClose();
       }
     )

@@ -16,6 +16,7 @@ export const useSettingsStore = create<SettingsState>()(
       loopProtection: true,
       maxLoopIterations: 10_000,
       hideUndefined: false,
+      restoreSession: false,
 
       setTheme: (theme) => set({ theme }),
       setEditorTheme: (editorTheme) => set({ editorTheme }),
@@ -28,6 +29,7 @@ export const useSettingsStore = create<SettingsState>()(
       toggleLoopProtection: () => set((s) => ({ loopProtection: !s.loopProtection })),
       setMaxLoopIterations: (maxLoopIterations) => set({ maxLoopIterations }),
       toggleHideUndefined: () => set((s) => ({ hideUndefined: !s.hideUndefined })),
+      toggleRestoreSession: () => set((s) => ({ restoreSession: !s.restoreSession })),
     }),
     {
       name: 'lingua-settings',
@@ -44,6 +46,7 @@ export const useSettingsStore = create<SettingsState>()(
         loopProtection: state.loopProtection,
         maxLoopIterations: state.maxLoopIterations,
         hideUndefined: state.hideUndefined,
+        restoreSession: state.restoreSession,
       }),
     }
   )

@@ -19,6 +19,8 @@ export function EditorSection() {
   const toggleLoopProtection = useSettingsStore((state) => state.toggleLoopProtection);
   const maxLoopIterations = useSettingsStore((state) => state.maxLoopIterations);
   const setMaxLoopIterations = useSettingsStore((state) => state.setMaxLoopIterations);
+  const restoreSession = useSettingsStore((state) => state.restoreSession);
+  const toggleRestoreSession = useSettingsStore((state) => state.toggleRestoreSession);
 
   return (
     <Section
@@ -100,6 +102,13 @@ export function EditorSection() {
           </Select>
         </Row>
       )}
+
+      <Row
+        label="Reopen last session"
+        hint="Restore tabs from the previous session on restart."
+      >
+        <Toggle value={restoreSession} onChange={toggleRestoreSession} />
+      </Row>
     </Section>
   );
 }
