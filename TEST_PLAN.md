@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines the executable end-to-end test matrix for RunLang across both supported surfaces:
+This document defines the executable end-to-end test matrix for Lingua across both supported surfaces:
 
 - `web`: fast renderer/UI validation through local preview
 - `electron`: full desktop validation including local filesystem access, native/compiled language support, and Electron-specific behavior
@@ -335,3 +335,28 @@ Do not treat the app as E2E-stable unless the following minimum suites pass:
 - `suite-languages-web`
 - `suite-languages-electron`
 - `suite-persistence-shutdown`
+
+---
+
+## Known Issues and Testing Notes
+
+### TC-026 — Escape key from command palette input
+
+The code path is correct (`handleCloseOnEscape` in `CommandPalette` + global `useGlobalShortcuts` Escape handler), but when testing via `mcp__computer-use` the `key "escape"` action does not reliably reach the Electron renderer's focused input — it appears to be consumed at the macOS system level. Manual verification with a real keyboard is needed to confirm this case. Backdrop click (TC-026 fallback) closes the palette correctly.
+
+**Reproduce**: `Cmd+Shift+P` → type text → press `Esc`. Expect palette closes.
+
+### TC-100 — No blocking console errors (Electron)
+
+Console output route for Python and Rust runs via the bottom console panel (INF/LOG/WRN/ERR). TypeScript/JavaScript output appears both in the console panel and as a timing header in the INLINE RESULT panel. The right-side panel shows:
+- **INLINE RESULT** — for JS/TS/Python: per-line expression values (not stdout)
+- **PROGRAM OUTPUT** — for Go/Rust: full stdout captured after compilation
+
+### Fixes applied during 2026-04-12 testing session
+
+| Area | Fix |
+|---|---|
+| Monaco crash | Split `configureMonaco()` from `applyTypeScriptDefaults()` — TS config now in `beforeMount` callback |
+| Electron modal drag blocking | Added `-webkit-app-region: no-drag` to `.overlay-backdrop` in `index.css` |
+| Dev launcher update URL | Added `__LINGUA_UPDATE_URL__` define to esbuild command in `run-electron-desktop.mjs` |
+| Unit test alignment | Updated `monaco.test.ts` to match refactored two-function API (296 tests passing) |

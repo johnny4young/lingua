@@ -226,6 +226,7 @@ async function ensureMainArtifacts(rendererUrl, syncMain) {
     '--external:electron-squirrel-startup',
     '--define:MAIN_WINDOW_VITE_DEV_SERVER_URL=' + JSON.stringify(rendererUrl),
     '--define:MAIN_WINDOW_VITE_NAME=' + JSON.stringify('main_window'),
+    '--define:__LINGUA_UPDATE_URL__=' + JSON.stringify(process.env.LINGUA_UPDATE_URL ?? 'https://lingua-update-server.johnny4young.workers.dev'),
   ]);
 
   await runEsbuild([

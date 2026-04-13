@@ -4,7 +4,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
-import { configureMonaco } from '../../monaco';
+import { configureMonaco, applyTypeScriptDefaults } from '../../monaco';
 import { getExecutionErrorKey } from '../../utils/editorExecutionDecorations';
 import { useInlineResults } from '../../hooks/useInlineResults';
 import { EditorEmptyState } from './EditorEmptyState';
@@ -86,7 +86,7 @@ export function CodeEditor() {
       language={monacoLanguageFor(activeTab.language)}
       value={activeTab.content}
       theme={editorTheme}
-      beforeMount={defineCustomThemes}
+      beforeMount={(m) => { defineCustomThemes(m); applyTypeScriptDefaults(m); }}
       onMount={handleEditorMount}
       onChange={(value) => {
         if (value !== undefined) {
