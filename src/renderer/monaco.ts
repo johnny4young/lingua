@@ -1,4 +1,4 @@
-import { loader } from '@monaco-editor/react';
+import { loader, type Monaco } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js';
 
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
@@ -29,19 +29,48 @@ function getWorkerFactory(label: string): MonacoWorkerFactory {
 
 let configured = false;
 
-function configureTypeScriptDefaults() {
+/**
+ * Set up the worker environment and loader. Must be called once before any
+ * MonacoEditor component renders. TypeScript language defaults are intentionally
+ * NOT configured here because monaco.languages.typescript is only guaranteed to
+ * exist after the editor's beforeMount callback fires. Call
+ * applyTypeScriptDefaults(monaco) in the beforeMount prop instead.
+ */
+export function configureMonaco(): void {
+  if (configured) return;
+  configured = true;
+
+  loader.config({ monaco });
+
+  globalThis.MonacoEnvironment = {
+    getWorker(_workerId: string, label: string) {
+      const WorkerFactory = getWorkerFactory(label);
+      return new WorkerFactory();
+    },
+  };
+}
+
+/**
+ * Configure TypeScript/JavaScript language defaults. Must be called inside a
+ * MonacoEditor beforeMount callback where the monaco instance is fully
+ * initialised and monaco.languages.typescript is guaranteed to exist.
+ */
+export function applyTypeScriptDefaults(m: Monaco): void {
+  const ts = m.languages.typescript;
+  if (!ts) return;
+
   const compilerOptions = {
     allowJs: true,
     allowNonTsExtensions: true,
     allowSyntheticDefaultImports: true,
     checkJs: true,
     lib: WORKER_RUNTIME_LIBS,
-    module: monaco.languages.typescript.ModuleKind.ESNext,
-    moduleDetection: monaco.languages.typescript.ModuleDetectionKind.Force,
-    moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+    module: ts.ModuleKind.ESNext,
+    moduleDetection: ts.ModuleDetectionKind.Force,
+    moduleResolution: ts.ModuleResolutionKind.NodeJs,
     noEmit: true,
     strict: true,
-    target: monaco.languages.typescript.ScriptTarget.ES2022,
+    target: ts.ScriptTarget.ES2022,
   };
 
   const diagnosticsOptions = {
@@ -50,26 +79,11 @@ function configureTypeScriptDefaults() {
     onlyVisible: false,
   };
 
-  monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true);
-  monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
-  monaco.languages.typescript.javascriptDefaults.setCompilerOptions(compilerOptions);
+  ts.javascriptDefaults.setEagerModelSync(true);
+  ts.javascriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
+  ts.javascriptDefaults.setCompilerOptions(compilerOptions);
 
-  monaco.languages.typescript.typescriptDefaults.setEagerModelSync(true);
-  monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
-  monaco.languages.typescript.typescriptDefaults.setCompilerOptions(compilerOptions);
-}
-
-export function configureMonaco(): void {
-  if (configured) return;
-  configured = true;
-
-  loader.config({ monaco });
-  configureTypeScriptDefaults();
-
-  globalThis.MonacoEnvironment = {
-    getWorker(_workerId: string, label: string) {
-      const WorkerFactory = getWorkerFactory(label);
-      return new WorkerFactory();
-    },
-  };
+  ts.typescriptDefaults.setEagerModelSync(true);
+  ts.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
+  ts.typescriptDefaults.setCompilerOptions(compilerOptions);
 }

@@ -249,6 +249,8 @@
 
   .overlay-backdrop {
     @apply fixed inset-0 z-50 flex bg-black/52 backdrop-blur-xl;
+    /* Prevent Electron's -webkit-app-region:drag from intercepting clicks over modals */
+    -webkit-app-region: no-drag;
   }
 
   .overlay-card {
