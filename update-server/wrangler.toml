@@ -1,0 +1,9 @@
+name = "lingua-update-server"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+
+# GITHUB_TOKEN is set via `npx wrangler secret put GITHUB_TOKEN`
+# GITHUB_OWNER and GITHUB_REPO can be overridden as secrets or left as defaults in code
+
+[observability]
+enabled = true
