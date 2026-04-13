@@ -85,8 +85,8 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-002 Make project file watching real in renderer
 
 - Priority: `P0`
-- Status: `Partially wired`
-- Readiness: `Ready to implement as MVP`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-13`
 - Current gap:
   - Main and preload expose `fs:watch-start`, `fs:watch-stop`, and `fs:onChanged`
   - `projectStore` starts a watcher
@@ -256,8 +256,8 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-009 Split oversized renderer modules
 
 - Priority: `P1`
-- Status: `Partial`
-- Readiness: `Ready to implement incrementally`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-13`
 - Target files:
   - `src/renderer/components/FileTree/FileTree.tsx`
   - `src/renderer/components/Editor/CodeEditor.tsx`
@@ -670,8 +670,8 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-021 Fix loose-file workflow and session continuity
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Ready now`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-13`
 - Current gap:
   - The app handles project folders well, but loose-file workflows remain incomplete
   - Tabs created from the toolbar are in-memory unless attached to a project path
@@ -2173,40 +2173,130 @@ Future monetization channels:
 
 ---
 
-## Execution order summary
+## Execution order summary (updated 2026-04-13)
 
-Implement in this order unless a newly discovered regression changes severity:
+### Status legend
 
-1. RL-002 File watching MVP
-2. RL-003 Monaco runtime-aligned diagnostics
-3. RL-004 Unified editor error surfacing
-4. RL-005 Repeatable Electron validation scripts
-5. RL-006 Explicit new-file UX
-6. RL-007 Snippets MVP
-7. RL-008 Settings truthfulness and app theme decision
-8. RL-009 Renderer module splits
-9. RL-010 through RL-017 as follow-on work
-10. RL-051 Harden packagerConfig (trivial, do alongside next release work)
-11. RL-052 About view with product name and version (small, can pair with RL-008 settings work)
-12. RL-053 Release Notes / What's New (requires CHANGELOG.md, depends on RL-052)
-13. **RL-055 File-extension-based language detection** (immediate — no deps, unblocks correct language routing for all file opens)
-14. **RL-056 Immediate Monaco keyword completions for Go/Python/Rust/Lua** (immediate — after RL-055 so language IDs are correct; no LSP required)
-15. RL-018 i18n foundation
-16. RL-021 loose-file workflow and session continuity
-17. RL-040 Custom protocol and deep links (small, do alongside RL-021)
-18. RL-019, RL-020 (with variable inspector expansion), and RL-022 to deepen the REPL and navigation model
-19. RL-023, RL-024, and RL-025 to turn Lingua into a stronger practice/prototyping environment
-20. RL-045 Built-in developer utilities (can start in parallel with practice environment)
-21. RL-030 and RL-029 before any large "webassembly first" or WebContainer claims
-22. RL-026, RL-027, and RL-028 as advanced language and debugging follow-ons (RL-056 is the quick-wins phase; RL-026 adds full LSP)
-23. RL-038, then RL-042 to expand language support using the language-pack architecture
-24. RL-031 and RL-032 once the core app/product surface is stable enough to support them
-25. RL-033, RL-034, and RL-035 as platform/tooling decision work
-26. RL-036, RL-041 as sharing and publishing follow-ons
-27. RL-037 (with font expansion) and RL-048 integrated terminal
-28. RL-054 Interactive guided tour with Shepherd.js (requires commercial license before release — $50 Business or $300 Enterprise)
-29. RL-039 and RL-046 guided lessons + gamification + progress tracking (RL-039 can reuse RL-054 tour infrastructure)
-30. RL-043 and RL-044 notebook mode and rich output visualization
-31. RL-047, RL-049, and RL-050 as long-horizon features (algorithm visualization, macros, real-time collaboration)
+| Symbol | Meaning |
+|--------|---------|
+| Done | Shipped and verified |
+| Next | First in queue — start now |
+| Ready | No blockers, pick up in order |
+| Blocked | Waiting on a dependency |
+| Future | Deferred until prerequisites are done |
+
+---
+
+### Done (shipped)
+
+| # | Task | Priority |
+|---|------|----------|
+| RL-001 | Fix Go desktop execution | P0 |
+| RL-002 | File watching in renderer | P0 |
+| RL-003 | Monaco diagnostics aligned to runtime | P0 |
+| RL-006 | Explicit new-file UX | P1 |
+| RL-007 | Snippets complete feature | P1 |
+| RL-008 | Settings/theme truthfulness | P1 |
+| RL-009 | Split oversized renderer modules | P1 |
+| RL-017 | Migrate Vite CJS → ESM | P2 |
+| RL-021 | Loose-file workflow & session restore | P1 |
+
+---
+
+### Tier 1 — Finish remaining P0 (correctness)
+
+| # | Task | Deps | Effort |
+|---|------|------|--------|
+| RL-004 | Unify error surfacing (Go/Rust line parsing) | RL-003 ✅ | Small |
+| RL-005 | Desktop validation scripts & smoke test | RL-001 ✅ | Medium |
+
+---
+
+### Tier 2 — Quick wins with zero dependencies (do next)
+
+| # | Task | Deps | Effort |
+|---|------|------|--------|
+| RL-055 | File-extension language detection | None | Small |
+| RL-056 | Monaco keyword completions (Go/Py/Rust/Lua) | RL-055 | Small |
+| RL-051 | Harden packagerConfig (app category + protocol) | None | Trivial |
+| RL-052 | About view with version | None | Small |
+| RL-030 | WASM capability matrix (architecture ADR) | None | Medium |
+| RL-038 | Language-pack architecture | None | Medium |
+| RL-045 | Built-in dev utilities panel | None | Medium |
+
+---
+
+### Tier 3 — Core product differentiation (unblocked by RL-021 ✅)
+
+| # | Task | Deps | Effort |
+|---|------|------|--------|
+| RL-018 | i18n system (en + es) | None | Large |
+| RL-019 | JS/TS runtime modes (Worker/Node/Browser) | RL-021 ✅ | Large |
+| RL-022 | Indexed Quick Open & project search | RL-021 ✅ | Medium |
+| RL-023 | Snippet Lab & practice mode | RL-021 ✅ | Large |
+| RL-024 | Multi-file playgrounds & starter galleries | RL-021 ✅, RL-022 | Large |
+| RL-040 | Custom protocol & deep links | RL-021 ✅ | Small |
+| RL-053 | Release Notes / What's New | RL-052 | Small |
+| RL-048 | Integrated terminal (desktop) | RL-021 ✅ | Medium |
+
+---
+
+### Tier 4 — REPL & runtime depth (unblocked by Tier 3)
+
+| # | Task | Deps | Effort |
+|---|------|------|--------|
+| RL-020 | Best-in-class REPL + variable inspector | RL-019 | Large |
+| RL-025 | Package & dependency management | RL-019, RL-029 | Large |
+| RL-010 | Format-on-save | Desktop tooling | Medium |
+| RL-011 | Env variables panel | Scoping decisions | Medium |
+| RL-031 | Local AI assistant (Ollama) | RL-021 ✅ | XL |
+
+---
+
+### Tier 5 — Platform hardening & expansion
+
+| # | Task | Deps | Effort |
+|---|------|------|--------|
+| RL-033 | Vite major upgrade | RL-005 | Medium |
+| RL-034 | Build-system ADR (Forge vs alternatives) | RL-033 | Small |
+| RL-032 | Marketing website & docs hub | RL-018 | Large |
+| RL-016 | Release validation & signing CI | — | Medium |
+| RL-042 | 15+ languages | RL-038 | Large |
+| RL-026 | Language intelligence beyond JS/TS (LSP) | RL-030, RL-038 | Large |
+| RL-029 | WebContainers pilot (JS/TS web only) | RL-025 | Medium |
+| RL-037 | Deep editor personalization (keys, fonts, vim) | RL-018 | Medium |
+
+---
+
+### Tier 6 — Advanced features & learning platform
+
+| # | Task | Deps | Effort |
+|---|------|------|--------|
+| RL-027 | Debugger MVP | RL-019 | XL |
+| RL-028 | Execution history & benchmarking | RL-020 | Medium |
+| RL-043 | Notebook / cell-based mode | RL-020, RL-024 | XL |
+| RL-044 | Inline data visualization | RL-020, RL-019 | Large |
+| RL-039 | Guided lessons & galleries | RL-023, RL-024 | Large |
+| RL-046 | Gamification & progress tracking | RL-023 | Medium |
+| RL-054 | Guided tour (Shepherd.js, needs license) | RL-052 | Medium |
+| RL-035 | Tauri 2 feasibility spike | RL-021 ✅, RL-030 | Medium |
+
+---
+
+### Tier 7 — Long horizon
+
+| # | Task | Deps | Effort |
+|---|------|------|--------|
+| RL-036 | Sharing & collaboration | RL-024, RL-032 | XL |
+| RL-041 | Static site export & publish | RL-024, RL-036 | Large |
+| RL-047 | Algorithm visualization | RL-027, RL-043 | XL |
+| RL-049 | Macro recording & playback | RL-037 | Medium |
+| RL-050 | Real-time collaboration | RL-036, RL-032 | XL |
+
+---
+
+### What to implement next
+
+**Start with Tier 1** (RL-004, RL-005) to close remaining P0 gaps, then **Tier 2 quick wins** (RL-055 → RL-056 → RL-051 → RL-052) for immediate user value with zero risk. After that, pick from **Tier 3** based on strategic priority — RL-019 (runtime modes) and RL-018 (i18n) are the highest-leverage items.
 
 This ordered list is the milestone sequence. No separate milestone section should be maintained elsewhere.

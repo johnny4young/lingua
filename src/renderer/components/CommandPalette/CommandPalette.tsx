@@ -29,7 +29,7 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const { addTab } = useEditorStore();
+  const { addTab, openFileFromDisk, saveActiveTabAs, duplicateActiveTab } = useEditorStore();
   const { snippets } = useSnippetsStore();
   const { setLayoutPreset } = useSettingsStore();
   const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
@@ -47,6 +47,9 @@ export function CommandPalette({
       onOpenSnippets,
       checkForUpdates,
       restartToApply,
+      openFileFromDisk,
+      saveActiveTabAs,
+      duplicateActiveTab,
     });
   }, [
     snippets,
@@ -58,6 +61,9 @@ export function CommandPalette({
     checkForUpdates,
     restartToApply,
     updateStatus,
+    openFileFromDisk,
+    saveActiveTabAs,
+    duplicateActiveTab,
   ]);
 
   const filtered = useMemo(() => {

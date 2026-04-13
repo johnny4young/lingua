@@ -31,8 +31,16 @@ export interface EditorState {
   markSaved: (id: string) => void;
   /** Open a file from disk. If already open, activates that tab. */
   openFile: (filePath: string, name: string, language: Language) => Promise<void>;
+  /** Open a native file picker and open the selected file in a new tab. */
+  openFileFromDisk: () => Promise<void>;
   /** Save the active tab's content to disk (only if it has a filePath). */
   saveActiveTab: () => Promise<void>;
+  /** Show a Save As dialog and save the active tab to the chosen path. */
+  saveActiveTabAs: () => Promise<void>;
+  /** Close a tab with dirty-check prompt. Returns true if closed. */
+  closeTab: (id: string) => Promise<boolean>;
+  /** Duplicate the active tab into a new unsaved tab. */
+  duplicateActiveTab: () => void;
 }
 
 export type ConsoleEntryType = 'log' | 'warn' | 'error' | 'info' | 'result';
@@ -72,6 +80,7 @@ export interface SettingsState {
   loopProtection: boolean;
   maxLoopIterations: number;
   hideUndefined: boolean;
+  restoreSession: boolean;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -83,6 +92,7 @@ export interface SettingsState {
   toggleLoopProtection: () => void;
   setMaxLoopIterations: (max: number) => void;
   toggleHideUndefined: () => void;
+  toggleRestoreSession: () => void;
 }
 
 // --- Runner Types ---

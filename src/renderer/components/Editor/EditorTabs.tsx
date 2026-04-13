@@ -3,7 +3,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { languageShortLabel, languageTextColorClass } from '../../utils/languageMeta';
 
 export function EditorTabs() {
-  const { tabs, activeTabId, setActiveTab, removeTab } = useEditorStore();
+  const { tabs, activeTabId, setActiveTab, closeTab } = useEditorStore();
 
   if (tabs.length === 0) return null;
 
@@ -50,7 +50,7 @@ export function EditorTabs() {
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                removeTab(tab.id);
+                void closeTab(tab.id);
               }}
               className="ml-1 inline-flex size-6 items-center justify-center rounded-lg text-muted opacity-0 transition-all hover:bg-surface-strong/82 hover:text-foreground group-hover:opacity-100"
               title={`Close ${tab.name}`}

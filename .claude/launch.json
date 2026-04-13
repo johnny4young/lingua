@@ -4,7 +4,7 @@
     {
       "name": "lingua-web",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--config", "vite.web.config.ts", "--port", "5174"],
+      "runtimeArgs": ["vite", "--config", "vite.web.config.mts", "--port", "5174"],
       "port": 5174
     }
   ]

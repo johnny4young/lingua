@@ -21,9 +21,12 @@ vi.mock('../../src/renderer/hooks/useRunner', () => ({
   useRunner: () => mockRunnerState,
 }));
 
-const mockAddTab = vi.fn();
-const mockToggleSidebar = vi.fn();
-const mockToggleConsole = vi.fn();
+const { mockAddTab, mockToggleSidebar, mockToggleConsole, mockOpenFileFromDisk } = vi.hoisted(() => ({
+  mockAddTab: vi.fn(),
+  mockToggleSidebar: vi.fn(),
+  mockToggleConsole: vi.fn(),
+  mockOpenFileFromDisk: vi.fn().mockResolvedValue(undefined),
+}));
 
 vi.mock('../../src/renderer/stores/editorStore', () => {
   const tab = {
@@ -33,12 +36,16 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     content: '',
     isDirty: false,
   };
+  const storeState = {
+    tabs: [tab],
+    activeTabId: 'tab-1',
+    addTab: mockAddTab,
+    openFileFromDisk: mockOpenFileFromDisk,
+  };
+  const useEditorStore = () => storeState;
+  useEditorStore.getState = () => storeState;
   return {
-    useEditorStore: () => ({
-      tabs: [tab],
-      activeTabId: 'tab-1',
-      addTab: mockAddTab,
-    }),
+    useEditorStore,
     createDefaultTab: (language: string) => ({
       id: 'new-tab',
       name: `untitled.${language === 'typescript' ? 'ts' : 'js'}`,
@@ -79,6 +86,7 @@ vi.mock('lucide-react', () => ({
   Search: () => null,
   PanelLeft: () => null,
   PanelBottom: () => null,
+  FolderOpen: () => <span data-testid="icon-folder-open">📂</span>,
 }));
 
 import { Toolbar } from '../../src/renderer/components/Toolbar/Toolbar';

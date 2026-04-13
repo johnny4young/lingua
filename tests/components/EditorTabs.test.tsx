@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 
 const mockSetActiveTab = vi.fn();
 const mockRemoveTab = vi.fn();
+const mockCloseTab = vi.fn().mockResolvedValue(true);
 
 const mockTabs = [
   {
@@ -28,6 +29,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
     activeTabId: 'tab-go',
     setActiveTab: mockSetActiveTab,
     removeTab: mockRemoveTab,
+    closeTab: mockCloseTab,
   }),
 }));
 
@@ -68,6 +70,6 @@ describe('EditorTabs', () => {
     expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
 
     await user.click(screen.getByTitle('Close untitled.js'));
-    expect(mockRemoveTab).toHaveBeenCalledWith('tab-js');
+    expect(mockCloseTab).toHaveBeenCalledWith('tab-js');
   });
 });
