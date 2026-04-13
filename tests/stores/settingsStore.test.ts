@@ -76,4 +76,15 @@ describe('settingsStore', () => {
     useSettingsStore.getState().setLayoutPreset('horizontal');
     expect(useSettingsStore.getState().layoutPreset).toBe('horizontal');
   });
+
+  it('should default restoreSession to false', () => {
+    expect(useSettingsStore.getState().restoreSession).toBe(false);
+  });
+
+  it('should toggle restoreSession', () => {
+    useSettingsStore.getState().toggleRestoreSession();
+    expect(useSettingsStore.getState().restoreSession).toBe(true);
+    useSettingsStore.getState().toggleRestoreSession();
+    expect(useSettingsStore.getState().restoreSession).toBe(false);
+  });
 });

@@ -80,6 +80,58 @@ export function registerFileSystemHandlers(): void {
     return result.canceled ? null : result.filePaths[0];
   });
 
+  ipcMain.handle(
+    'fs:save-dialog',
+    async (_event, defaultName: string, defaultDir?: string) => {
+      const result = await dialog.showSaveDialog({
+        defaultPath: defaultDir
+          ? path.join(defaultDir, defaultName)
+          : defaultName,
+      });
+      if (result.canceled || !result.filePath) return null;
+      if (isPathBlocked(result.filePath, 'write')) {
+        throw new Error(
+          `Access denied: Cannot save to protected path: ${result.filePath}`
+        );
+      }
+      return result.filePath;
+    }
+  );
+
+  ipcMain.handle(
+    'app:confirm-close',
+    async (event, dirtyFileNames: string[]) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const { response } = await dialog.showMessageBox(win!, {
+        type: 'question',
+        buttons: ['Save All', 'Discard', 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+        title: 'Unsaved Changes',
+        message: `You have unsaved changes in ${dirtyFileNames.length} file(s).`,
+        detail: dirtyFileNames.join(', '),
+      });
+      return response;
+    }
+  );
+
+  ipcMain.handle(
+    'app:confirm-close-tab',
+    async (event, fileName: string) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const { response } = await dialog.showMessageBox(win!, {
+        type: 'question',
+        buttons: ['Save', 'Discard', 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+        title: 'Unsaved Changes',
+        message: `"${fileName}" has unsaved changes.`,
+        detail: 'Do you want to save before closing?',
+      });
+      return response;
+    }
+  );
+
   // --------------------------------------------------------------- readdir
 
   ipcMain.handle('fs:readdir', async (_event, dirPath: string) => {

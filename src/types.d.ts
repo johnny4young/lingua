@@ -165,6 +165,11 @@ interface InstalledPluginRecord {
 interface LinguaAPI {
   platform: string;
 
+  confirmClose: (dirtyFileNames: string[]) => Promise<number>;
+  confirmCloseTab: (fileName: string) => Promise<number>;
+  onBeforeClose: (callback: () => void) => () => void;
+  forceClose: () => void;
+
   go: {
     detect: () => Promise<GoDetectResult>;
     compile: (sourceCode: string) => Promise<GoCompileResult>;
@@ -178,6 +183,7 @@ interface LinguaAPI {
   fs: {
     selectDirectory: () => Promise<string | null>;
     selectFile: () => Promise<string | null>;
+    saveDialog: (defaultName: string, defaultDir?: string) => Promise<string | null>;
     readdir: (dirPath: string) => Promise<FsDirEntry[]>;
     stat: (filePath: string) => Promise<FsStatResult>;
     read: (filePath: string) => Promise<string>;

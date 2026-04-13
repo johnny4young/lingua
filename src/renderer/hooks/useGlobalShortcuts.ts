@@ -7,7 +7,9 @@ interface UseGlobalShortcutsOptions {
   run: () => void | Promise<void>;
   stop: () => void;
   saveActiveTab: () => void | Promise<void>;
-  closeActiveTab: () => void;
+  saveActiveTabAs: () => void | Promise<void>;
+  openFileFromDisk: () => void | Promise<void>;
+  closeActiveTab: () => void | Promise<void>;
   toggleSidebar: () => void;
   toggleConsole: () => void;
   overlay: AppOverlay;
@@ -20,6 +22,8 @@ export function useGlobalShortcuts({
   run,
   stop,
   saveActiveTab,
+  saveActiveTabAs,
+  openFileFromDisk,
   closeActiveTab,
   toggleSidebar,
   toggleConsole,
@@ -41,15 +45,27 @@ export function useGlobalShortcuts({
       return;
     }
 
+    if (mod && event.shiftKey && key === 's') {
+      event.preventDefault();
+      void saveActiveTabAs();
+      return;
+    }
+
     if (mod && !event.shiftKey && key === 's') {
       event.preventDefault();
       void saveActiveTab();
       return;
     }
 
+    if (mod && !event.shiftKey && key === 'o') {
+      event.preventDefault();
+      void openFileFromDisk();
+      return;
+    }
+
     if (mod && !event.shiftKey && key === 'w') {
       event.preventDefault();
-      closeActiveTab();
+      void closeActiveTab();
       return;
     }
 
