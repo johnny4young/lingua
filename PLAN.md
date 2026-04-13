@@ -1972,6 +1972,62 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
   - RL-052 (About section provides the "Take a tour" entry point)
   - Shepherd.js commercial license (Business $50 or Enterprise $300)
 
+### RL-055 Add file-extension-based language detection when opening files
+
+- Priority: `P1`
+- Status: `Ready to implement`
+- Readiness: `Immediate — no architectural dependencies`
+- Current gap:
+  - `extensionForLanguage()` in `src/renderer/utils/languageMeta.ts` provides a forward mapping (language → extension) but there is no reverse `languageForExtension()` utility
+  - When users open arbitrary files from the file system (e.g., `main.go`, `script.py`, `lib.rs`), the editor cannot auto-select the correct language from the file extension alone
+  - New tabs opened via file tree or Quick Open fall back to `plaintext` if the language is not explicitly set
+- Scope:
+  - Add `languageForExtension(ext: string): Language | undefined` to `src/renderer/utils/languageMeta.ts`
+  - Build the reverse map from `BUILT_IN_LANGUAGE_META` at module init (no duplication — derived from the forward map)
+  - Call it in the file-open path so Monaco models receive the correct language ID on load
+  - Normalize the extension input: strip the leading `.`, lowercase, trim
+  - Handle ambiguous extensions gracefully (e.g., `.ts` is TypeScript, not "test"; `.js` is JavaScript)
+  - Export the function for use in runner path selection and file-tree icon logic
+- Acceptance criteria:
+  - Opening `main.go` sets language to Go and renders Go syntax highlighting immediately
+  - Opening `script.py` sets language to Python
+  - Opening `lib.rs` sets language to Rust
+  - Opening a `.txt` or unknown extension returns `undefined` and the editor stays in `plaintext`
+  - No duplication in the language→extension mapping; the reverse map derives from the same source of truth
+- Dependencies:
+  - None
+
+### RL-056 Add immediate Monaco keyword completion providers for Go, Python, Rust, and Lua
+
+- Priority: `P1`
+- Status: `Ready to implement`
+- Readiness: `Immediate — does not require LSP, RL-038, or RL-030`
+- Current gap:
+  - Monaco TypeScript language service provides full IntelliSense (completion, hover, diagnostics) for JS and TS
+  - Go, Python, Rust, and Lua have zero custom completion providers — users get only Monaco's generic word-based autocomplete
+  - RL-026 covers full LSP integration but is blocked on RL-030 and RL-038; those are months away
+  - Keyword snippets require no language server and can be registered today with `monaco.languages.registerCompletionItemProvider`
+- Scope:
+  - Create `src/renderer/components/Editor/completionProviders/` with one file per language:
+    - `goCompletions.ts` — Go keywords, built-in functions (`fmt.Println`, `make`, `len`, etc.), common control flow snippets (`if err != nil`, `for range`, `func` signature)
+    - `pythonCompletions.ts` — Python keywords, built-ins (`print`, `len`, `range`, `enumerate`, etc.), common patterns (`if __name__ == '__main__'`, `def`, `class`)
+    - `rustCompletions.ts` — Rust keywords, common macros (`println!`, `vec!`, `assert_eq!`), common patterns (`fn main`, `match`, `impl`, `use std::`)
+    - `luaCompletions.ts` — Lua keywords, standard library (`table.insert`, `string.format`, `io.write`, etc.), common patterns
+  - Register all providers in the Monaco `beforeMount` or in `applyTypeScriptDefaults`-equivalent setup
+  - Each provider returns `CompletionItemKind.Keyword` for keywords and `CompletionItemKind.Snippet` for multi-line patterns
+  - Include `insertTextRules: InsertAsSnippet` for tab-stop templates (e.g., `for ${1:i}, ${2:v} := range ${3:collection}`)
+  - Do not duplicate JS/TS completions — those are already handled by Monaco's TypeScript service
+- Acceptance criteria:
+  - In a Go file, typing `fmt.` triggers completions including `fmt.Println` and `fmt.Sprintf`
+  - In a Python file, typing `def ` triggers a function snippet with tab stops for name and body
+  - In a Rust file, typing `println` triggers `println!("{}", ...)` snippet
+  - In a Lua file, typing `for` triggers a `for i = 1, n do ... end` snippet
+  - Completions do not appear in wrong-language files (each provider is scoped by language ID)
+  - Unit tests cover that each provider is registered for the correct Monaco language ID
+- Dependencies:
+  - RL-055 (language IDs must be set correctly for providers to fire on the right files)
+  - None blocking — can be done in parallel with RL-055
+
 ---
 
 ## 11. Updated WebContainers analysis (2026-04-12)
@@ -2133,22 +2189,24 @@ Implement in this order unless a newly discovered regression changes severity:
 10. RL-051 Harden packagerConfig (trivial, do alongside next release work)
 11. RL-052 About view with product name and version (small, can pair with RL-008 settings work)
 12. RL-053 Release Notes / What's New (requires CHANGELOG.md, depends on RL-052)
-13. RL-018 i18n foundation
-14. RL-021 loose-file workflow and session continuity
-15. RL-040 Custom protocol and deep links (small, do alongside RL-021)
-16. RL-019, RL-020 (with variable inspector expansion), and RL-022 to deepen the REPL and navigation model
-17. RL-023, RL-024, and RL-025 to turn Lingua into a stronger practice/prototyping environment
-18. RL-045 Built-in developer utilities (can start in parallel with practice environment)
-19. RL-030 and RL-029 before any large "webassembly first" or WebContainer claims
-20. RL-026, RL-027, and RL-028 as advanced language and debugging follow-ons
-21. RL-038, then RL-042 to expand language support using the language-pack architecture
-22. RL-031 and RL-032 once the core app/product surface is stable enough to support them
-23. RL-033, RL-034, and RL-035 as platform/tooling decision work
-24. RL-036, RL-041 as sharing and publishing follow-ons
-25. RL-037 (with font expansion) and RL-048 integrated terminal
-26. RL-054 Interactive guided tour with Shepherd.js (requires commercial license before release — $50 Business or $300 Enterprise)
-27. RL-039 and RL-046 guided lessons + gamification + progress tracking (RL-039 can reuse RL-054 tour infrastructure)
-28. RL-043 and RL-044 notebook mode and rich output visualization
-29. RL-047, RL-049, and RL-050 as long-horizon features (algorithm visualization, macros, real-time collaboration)
+13. **RL-055 File-extension-based language detection** (immediate — no deps, unblocks correct language routing for all file opens)
+14. **RL-056 Immediate Monaco keyword completions for Go/Python/Rust/Lua** (immediate — after RL-055 so language IDs are correct; no LSP required)
+15. RL-018 i18n foundation
+16. RL-021 loose-file workflow and session continuity
+17. RL-040 Custom protocol and deep links (small, do alongside RL-021)
+18. RL-019, RL-020 (with variable inspector expansion), and RL-022 to deepen the REPL and navigation model
+19. RL-023, RL-024, and RL-025 to turn Lingua into a stronger practice/prototyping environment
+20. RL-045 Built-in developer utilities (can start in parallel with practice environment)
+21. RL-030 and RL-029 before any large "webassembly first" or WebContainer claims
+22. RL-026, RL-027, and RL-028 as advanced language and debugging follow-ons (RL-056 is the quick-wins phase; RL-026 adds full LSP)
+23. RL-038, then RL-042 to expand language support using the language-pack architecture
+24. RL-031 and RL-032 once the core app/product surface is stable enough to support them
+25. RL-033, RL-034, and RL-035 as platform/tooling decision work
+26. RL-036, RL-041 as sharing and publishing follow-ons
+27. RL-037 (with font expansion) and RL-048 integrated terminal
+28. RL-054 Interactive guided tour with Shepherd.js (requires commercial license before release — $50 Business or $300 Enterprise)
+29. RL-039 and RL-046 guided lessons + gamification + progress tracking (RL-039 can reuse RL-054 tour infrastructure)
+30. RL-043 and RL-044 notebook mode and rich output visualization
+31. RL-047, RL-049, and RL-050 as long-horizon features (algorithm visualization, macros, real-time collaboration)
 
 This ordered list is the milestone sequence. No separate milestone section should be maintained elsewhere.
