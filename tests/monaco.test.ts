@@ -74,12 +74,49 @@ describe('configureMonaco', () => {
     delete globalThis.MonacoEnvironment;
   });
 
-  it('configures Monaco once with worker-runtime JS and TS defaults', async () => {
+  it('configures loader and worker environment without applying TS defaults', async () => {
     const { configureMonaco } = await import('@/monaco');
 
     configureMonaco();
 
     expect(loaderConfig).toHaveBeenCalledOnce();
+    // TS defaults are NOT applied by configureMonaco — they require a fully-initialized
+    // monaco instance and are applied via applyTypeScriptDefaults(m) in beforeMount.
+    expect(jsSetEagerModelSync).not.toHaveBeenCalled();
+    expect(tsSetEagerModelSync).not.toHaveBeenCalled();
+    expect(jsSetCompilerOptions).not.toHaveBeenCalled();
+    expect(tsSetCompilerOptions).not.toHaveBeenCalled();
+
+    expect(globalThis.MonacoEnvironment.getWorker('worker', 'json')).toBeInstanceOf(MockJsonWorker);
+    expect(globalThis.MonacoEnvironment.getWorker('worker', 'typescript')).toBeInstanceOf(MockTsWorker);
+    expect(globalThis.MonacoEnvironment.getWorker('worker', 'unknown')).toBeInstanceOf(MockEditorWorker);
+  });
+
+  it('reuses the configured worker mapping when called multiple times', async () => {
+    const { configureMonaco } = await import('@/monaco');
+
+    configureMonaco();
+    configureMonaco();
+
+    expect(loaderConfig).toHaveBeenCalledOnce();
+
+    expect(globalThis.MonacoEnvironment.getWorker('worker', 'json')).toBeInstanceOf(MockJsonWorker);
+    expect(globalThis.MonacoEnvironment.getWorker('worker', 'typescript')).toBeInstanceOf(MockTsWorker);
+    expect(globalThis.MonacoEnvironment.getWorker('worker', 'unknown')).toBeInstanceOf(MockEditorWorker);
+  });
+});
+
+describe('applyTypeScriptDefaults', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
+  it('applies worker-runtime JS and TS compiler defaults to the given Monaco instance', async () => {
+    const { applyTypeScriptDefaults } = await import('@/monaco');
+
+    applyTypeScriptDefaults(monacoMock as never);
+
     expect(jsSetEagerModelSync).toHaveBeenCalledWith(true);
     expect(tsSetEagerModelSync).toHaveBeenCalledWith(true);
     expect(jsSetDiagnosticsOptions).toHaveBeenCalledWith({
@@ -117,27 +154,6 @@ describe('configureMonaco', () => {
         strict: true,
         target: 9,
       })
-    );
-  });
-
-  it('reuses the configured worker mapping without reapplying defaults', async () => {
-    const { configureMonaco } = await import('@/monaco');
-
-    configureMonaco();
-    configureMonaco();
-
-    expect(loaderConfig).toHaveBeenCalledOnce();
-    expect(jsSetCompilerOptions).toHaveBeenCalledOnce();
-    expect(tsSetCompilerOptions).toHaveBeenCalledOnce();
-
-    expect(globalThis.MonacoEnvironment.getWorker('worker', 'json')).toBeInstanceOf(
-      MockJsonWorker
-    );
-    expect(globalThis.MonacoEnvironment.getWorker('worker', 'typescript')).toBeInstanceOf(
-      MockTsWorker
-    );
-    expect(globalThis.MonacoEnvironment.getWorker('worker', 'unknown')).toBeInstanceOf(
-      MockEditorWorker
     );
   });
 });
