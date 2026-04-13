@@ -1,7 +1,9 @@
 import { app, autoUpdater, BrowserWindow, ipcMain } from 'electron';
-import { updateElectronApp } from 'update-electron-app';
 
 const SUPPORTED_PLATFORMS = new Set(['darwin', 'win32']);
+const UPDATE_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
+declare const __LINGUA_UPDATE_URL__: string;
 
 let updateState: UpdateState = {
   status: 'unavailable',
@@ -100,11 +102,12 @@ function startUpdater(): void {
     });
   });
 
-  updateElectronApp({
-    updateInterval: '1 hour',
-    notifyUser: false,
-    logger: console,
-  });
+  const feedURL = `${__LINGUA_UPDATE_URL__}/update/${process.platform}/${app.getVersion()}`;
+  autoUpdater.setFeedURL({ url: feedURL });
+
+  // Initial check shortly after launch, then every hour
+  setTimeout(() => autoUpdater.checkForUpdates(), 10_000);
+  setInterval(() => autoUpdater.checkForUpdates(), UPDATE_INTERVAL_MS);
 }
 
 export function registerUpdater(): void {
