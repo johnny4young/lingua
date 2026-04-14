@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { SettingsState } from '../types';
 
+const APP_LANGUAGES = ['system', 'en', 'es'] as const;
+
+function isAppLanguage(value: unknown): value is SettingsState['language'] {
+  return typeof value === 'string' && (APP_LANGUAGES as readonly string[]).includes(value);
+}
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
@@ -51,6 +57,17 @@ export const useSettingsStore = create<SettingsState>()(
         restoreSession: state.restoreSession,
         language: state.language,
       }),
+      merge: (persistedState, currentState) => {
+        const merged = {
+          ...currentState,
+          ...(persistedState as Partial<SettingsState> | undefined),
+        };
+
+        return {
+          ...merged,
+          language: isAppLanguage(merged.language) ? merged.language : currentState.language,
+        };
+      },
     }
   )
 );

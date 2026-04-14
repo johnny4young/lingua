@@ -6,6 +6,14 @@ import es from './locales/es/common.json';
 
 const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
 
+function isSupportedLanguage(language: string): language is (typeof SUPPORTED_LANGUAGES)[number] {
+  return (SUPPORTED_LANGUAGES as readonly string[]).includes(language);
+}
+
+function coerceSupportedLanguage(language: string): (typeof SUPPORTED_LANGUAGES)[number] {
+  return isSupportedLanguage(language) ? language : 'en';
+}
+
 function updateDocumentLanguage(language: string): void {
   if (typeof document !== 'undefined') {
     document.documentElement.lang = language;
@@ -58,17 +66,19 @@ let initialized = false;
  * works in any component without an explicit provider.
  */
 export function initI18n(language: string): typeof i18next {
+  const resolvedLanguage = coerceSupportedLanguage(language);
+
   if (initialized) {
     // Already initialised — just switch the language.
-    void i18next.changeLanguage(language);
-    updateDocumentLanguage(language);
+    void i18next.changeLanguage(resolvedLanguage);
+    updateDocumentLanguage(resolvedLanguage);
     return i18next;
   }
 
   initialized = true;
 
   i18next.use(initReactI18next).init({
-    lng: language,
+    lng: resolvedLanguage,
     fallbackLng: 'en',
     defaultNS: 'common',
     ns: ['common'],
@@ -81,7 +91,7 @@ export function initI18n(language: string): typeof i18next {
     react: { useSuspense: false },
   });
 
-  updateDocumentLanguage(language);
+  updateDocumentLanguage(resolvedLanguage);
 
   return i18next;
 }

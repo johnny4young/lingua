@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useUpdateStore } from '../../stores/updateStore';
 import { Row, Section } from './shared';
 
@@ -10,39 +11,47 @@ export function UpdatesSection() {
   const lastCheckedAt = useUpdateStore((state) => state.lastCheckedAt);
   const checkForUpdates = useUpdateStore((state) => state.checkForUpdates);
   const restartToApply = useUpdateStore((state) => state.restartToApply);
+  const { t } = useTranslation();
+
+  const statusLabel = t(`updates.state.${status === 'not-available' ? 'notAvailable' : status}`);
 
   return (
     <Section
-      title="Updates"
-      description="Desktop update status is surfaced here; web builds show capability limits explicitly."
+      title={t('updates.title')}
+      description={t('updates.description')}
     >
-      <Row label="Status" hint={message}>
+      <Row label={t('updates.status.label')} hint={t('updates.status.hint')}>
         <div className="space-y-1 text-right">
-          <p className="status-pill">{status}</p>
+          <p className="status-pill">{statusLabel}</p>
           {releaseName && <p className="text-xs text-muted">{releaseName}</p>}
+          {message && <p className="max-w-[18rem] text-xs leading-5 text-muted">{message}</p>}
           {lastCheckedAt && (
             <p className="text-[11px] text-muted">
-              Last check: {new Date(lastCheckedAt).toLocaleString()}
+              {t('updates.lastChecked')}: {new Date(lastCheckedAt).toLocaleString()}
             </p>
           )}
         </div>
       </Row>
 
-      <Row label="Actions" hint="These controls stay disabled when updates are not supported.">
+      <Row label={t('updates.actions.label')} hint={t('updates.actions.hint')}>
         <div className="flex flex-wrap justify-end gap-2">
           <button
+            type="button"
             onClick={() => void checkForUpdates()}
             disabled={!supported || !enabled || status === 'checking'}
             className="button-secondary"
           >
-            {status === 'checking' ? 'Checking...' : 'Check now'}
+            {status === 'checking'
+              ? t('updates.actions.checking')
+              : t('updates.actions.check')}
           </button>
           <button
+            type="button"
             onClick={() => void restartToApply()}
             disabled={status !== 'downloaded'}
             className="button-primary"
           >
-            Restart to update
+            {t('updates.actions.restart')}
           </button>
         </div>
       </Row>

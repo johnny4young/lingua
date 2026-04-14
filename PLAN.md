@@ -496,7 +496,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P1`
 - Status: `Partial`
-- Readiness: `Phase 1 completed on 2026-04-13`
+- Readiness: `Phase 1 completed on 2026-04-13; settings surface extended further the same day`
 - Current progress:
   - Phase 1 (Foundation and Bootstrap) is complete
   - `i18next` and `react-i18next` installed and wired
@@ -508,10 +508,12 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Synchronous init with bundled resources, no Suspense needed
   - Settings modal title, subtitle, description, footer, and language dropdown localized
   - Appearance section title, description, theme cards, and language dropdown localized
+  - Layout, Editor, Updates, and Plugins sections now use locale-driven copy inside the same settings surface
   - `document.documentElement.lang` now tracks the active app language
   - Runtime language switching falls back safely to `en` if system-locale resolution fails
+  - Persisted invalid language values are sanitized during settings rehydration and i18n bootstrap
   - `npx tsc --noEmit` is clean again after aligning shared UI code with current library APIs
-  - 18 focused i18n/settings tests added or updated (350 total passing)
+  - 20 focused i18n/settings tests added or updated (352 total passing)
   - Phases 2-4 remain planned
 - Why this is now concrete:
   - Benchmark apps and websites already use multilingual product messaging and maintainable locale structures

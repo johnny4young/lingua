@@ -22,6 +22,12 @@ const APP_THEMES = [
   },
 ];
 
+const VALID_LANGUAGES: readonly AppLanguage[] = ['system', 'en', 'es'];
+
+function isAppLanguage(value: string): value is AppLanguage {
+  return (VALID_LANGUAGES as readonly string[]).includes(value);
+}
+
 export function AppearanceSection() {
   const theme = useSettingsStore((state) => state.theme);
   const setTheme = useSettingsStore((state) => state.setTheme);
@@ -30,11 +36,9 @@ export function AppearanceSection() {
   const { t } = useTranslation();
 
   const handleLanguageChange = (value: string) => {
-    const valid: readonly string[] = ['system', 'en', 'es'];
-    if (!valid.includes(value)) return;
-    const next = value as AppLanguage;
-    setLanguage(next);
-    void changeAppLanguage(next, () => window.lingua.getSystemLanguages());
+    if (!isAppLanguage(value)) return;
+    setLanguage(value);
+    void changeAppLanguage(value, () => window.lingua.getSystemLanguages());
   };
 
   return (
@@ -50,6 +54,7 @@ export function AppearanceSection() {
           return (
             <button
               key={option.id}
+              type="button"
               onClick={() => setTheme(option.id)}
               className={`rounded-[1.45rem] border p-4 text-left transition-all ${
                 selected
