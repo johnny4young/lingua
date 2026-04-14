@@ -1,187 +1,59 @@
-/**
- * Tests for the web adapter (src/web/adapter.ts)
- *
- * The adapter sets window.lingua before React renders. We test that:
- *  - platform is 'web'
- *  - go.detect() and go.compile() return "not available" stubs
- *  - rust.detect() and rust.run() return "not available" stubs
- *  - fs namespace is present (delegation tested separately in fs-adapter.test.ts)
- */
+import i18next from 'i18next';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { initI18n } from '../../src/renderer/i18n';
 
-import { describe, it, expect } from 'vitest';
-
-// The web FS adapter uses browser File System Access API which is not available
-// in jsdom. We mock it out so importing adapter.ts doesn't crash.
-const mockFsAdapter = {
-  selectDirectory: async () => null,
-  selectFile: async () => null,
-  readdir: async () => [],
-  stat: async () => ({ size: 0, isDirectory: false, isFile: true, mtime: '', ctime: '' }),
-  read: async () => '',
-  write: async () => true,
-  delete: async () => true,
-  rename: async (_: string, newName: string) => '/' + newName,
-  mkdir: async () => true,
-  touch: async () => true,
-  watchStart: async () => 'noop',
-  watchStop: async () => true,
-  onChanged: () => () => {},
-};
-
-// We test the stubs directly rather than going through the module side-effect
-// (which would clobber window.lingua in the test environment).
-
-describe('web adapter — Go stub', () => {
-  const goStub = {
-    detect: async (): Promise<GoDetectResult> => ({
-      installed: false,
-      error: 'Go compilation is not available in the web version. Download the desktop app to compile Go code.',
-    }),
-    compile: async (_sourceCode: string): Promise<GoCompileResult> => ({
-      success: false,
-      error: 'Go compilation is not available in the web version. Download the desktop app to compile Go code.',
-    }),
-  };
-
-  it('detect returns installed: false', async () => {
-    const result = await goStub.detect();
-    expect(result.installed).toBe(false);
-    expect(result.error).toMatch(/not available in the web version/);
+describe('web adapter', () => {
+  beforeAll(async () => {
+    initI18n('en');
+    await import('../../src/web/adapter');
   });
 
-  it('compile returns success: false', async () => {
-    const result = await goStub.compile('package main\nfunc main() {}');
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/not available in the web version/);
-  });
-});
-
-describe('web adapter — Rust stub', () => {
-  const rustStub = {
-    detect: async (): Promise<RustDetectResult> => ({
-      installed: false,
-      error: 'Rust compilation is not available in the web version. Download the desktop app to compile Rust code.',
-    }),
-    run: async (_sourceCode: string): Promise<RustRunResult> => ({
-      success: false,
-      stdout: '',
-      stderr: 'Rust compilation is not available in the web version. Download the desktop app to compile Rust code.',
-      exitCode: 1,
-      executionTime: 0,
-      error: 'Rust compilation is not available in the web version.',
-    }),
-  };
-
-  it('detect returns installed: false', async () => {
-    const result = await rustStub.detect();
-    expect(result.installed).toBe(false);
-    expect(result.error).toMatch(/not available in the web version/);
+  beforeEach(async () => {
+    await i18next.changeLanguage('en');
   });
 
-  it('run returns success: false with non-zero exitCode', async () => {
-    const result = await rustStub.run('fn main() {}');
-    expect(result.success).toBe(false);
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toMatch(/not available in the web version/);
+  it('exposes the web platform and a file-system namespace', () => {
+    expect(window.lingua.platform).toBe('web');
+    expect(typeof window.lingua.fs.read).toBe('function');
+    expect(typeof window.lingua.fs.write).toBe('function');
   });
-});
 
-describe('web adapter — fs namespace', () => {
-  it('fs adapter is an object with the expected methods', () => {
-    const methods: Array<keyof typeof mockFsAdapter> = [
-      'selectDirectory',
-      'selectFile',
-      'readdir',
-      'stat',
-      'read',
-      'write',
-      'delete',
-      'rename',
-      'mkdir',
-      'touch',
-      'watchStart',
-      'watchStop',
-      'onChanged',
-    ];
-    for (const method of methods) {
-      expect(typeof mockFsAdapter[method]).toBe('function');
-    }
+  it('returns localized Go and Rust availability errors in Spanish', async () => {
+    await i18next.changeLanguage('es');
+
+    const goResult = await window.lingua.go.detect();
+    const rustResult = await window.lingua.rust.run('fn main() {}');
+
+    expect(goResult.error).toBe(
+      'La compilación de Go no está disponible en la versión web. Descarga la app de escritorio para compilar código Go.'
+    );
+    expect(rustResult.stderr).toBe(
+      'La compilación de Rust no está disponible en la versión web. Descarga la app de escritorio para compilar código Rust.'
+    );
+    expect(rustResult.error).toBe(
+      'La compilación de Rust no está disponible en la versión web.'
+    );
   });
-});
 
-describe('web adapter — updates namespace', () => {
-  const updatesStub = {
-    getState: async (): Promise<UpdateState> => ({
-      status: 'unavailable',
-      supported: false,
-      enabled: false,
-      message: 'Automatic updates are not available in the web version.',
-    }),
-    check: async (): Promise<UpdateState> => ({
-      status: 'unavailable',
-      supported: false,
-      enabled: false,
-      message: 'Automatic updates are not available in the web version.',
-    }),
-    restartToApply: async () => false,
-    onStateChanged: () => () => {},
-  };
+  it('returns a localized unavailable updates state in Spanish', async () => {
+    await i18next.changeLanguage('es');
 
-  it('returns an unavailable state in the browser build', async () => {
-    const result = await updatesStub.getState();
+    const result = await window.lingua.updates.getState();
+
     expect(result.status).toBe('unavailable');
     expect(result.supported).toBe(false);
+    expect(result.message).toBe(
+      'Las actualizaciones automáticas no están disponibles en la versión web.'
+    );
   });
 
-  it('does not allow restart in the browser build', async () => {
-    const restarted = await updatesStub.restartToApply();
-    expect(restarted).toBe(false);
-  });
-});
-
-describe('web adapter — plugins namespace', () => {
-  const pluginStub = {
-    getInstallDirectory: async () => null,
-    list: async (): Promise<InstalledPluginRecord[]> => [],
-  };
-
-  it('reports no local install directory in the browser build', async () => {
-    const installDirectory = await pluginStub.getInstallDirectory();
-    expect(installDirectory).toBeNull();
+  it('cancels close flows by default in the browser build', async () => {
+    await expect(window.lingua.confirmClose([], 'es')).resolves.toBe(2);
+    await expect(window.lingua.confirmCloseTab('draft.ts', 'es')).resolves.toBe(2);
   });
 
   it('reports no installed plugins in the browser build', async () => {
-    const plugins = await pluginStub.list();
-    expect(plugins).toEqual([]);
-  });
-});
-
-describe('web adapter — platform', () => {
-  it('platform is "web"', () => {
-    // Simulate what adapter.ts does
-    const webLingua = {
-      platform: 'web',
-      confirmClose: async () => 2,
-      confirmCloseTab: async () => 2,
-      go: {},
-      rust: {},
-      fs: mockFsAdapter,
-    };
-    expect(webLingua.platform).toBe('web');
-  });
-});
-
-describe('web adapter — safe close defaults', () => {
-  const webLingua = {
-    confirmClose: async () => 2,
-    confirmCloseTab: async () => 2,
-  };
-
-  it('cancels app-close confirmation by default in the browser build', async () => {
-    await expect(webLingua.confirmClose()).resolves.toBe(2);
-  });
-
-  it('cancels dirty-tab closure by default in the browser build', async () => {
-    await expect(webLingua.confirmCloseTab()).resolves.toBe(2);
+    await expect(window.lingua.plugins.getInstallDirectory()).resolves.toBeNull();
+    await expect(window.lingua.plugins.list()).resolves.toEqual([]);
   });
 });

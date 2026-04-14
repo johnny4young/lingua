@@ -19,10 +19,10 @@ contextBridge.exposeInMainWorld('lingua', {
   },
 
   // App lifecycle IPC
-  confirmClose: (dirtyFileNames: string[]) =>
-    ipcRenderer.invoke('app:confirm-close', dirtyFileNames) as Promise<number>,
-  confirmCloseTab: (fileName: string) =>
-    ipcRenderer.invoke('app:confirm-close-tab', fileName) as Promise<number>,
+  confirmClose: (dirtyFileNames: string[], language?: string) =>
+    ipcRenderer.invoke('app:confirm-close', dirtyFileNames, language) as Promise<number>,
+  confirmCloseTab: (fileName: string, language?: string) =>
+    ipcRenderer.invoke('app:confirm-close-tab', fileName, language) as Promise<number>,
   onBeforeClose: (callback: () => void) => {
     const handler = () => callback();
     ipcRenderer.on('app:before-close', handler);
@@ -41,8 +41,8 @@ contextBridge.exposeInMainWorld('lingua', {
     read: (filePath: string) => ipcRenderer.invoke('fs:read', filePath),
     write: (filePath: string, content: string) =>
       ipcRenderer.invoke('fs:write', filePath, content),
-    delete: (filePath: string, isDirectory?: boolean) =>
-      ipcRenderer.invoke('fs:delete', filePath, isDirectory),
+    delete: (filePath: string, isDirectory?: boolean, language?: string) =>
+      ipcRenderer.invoke('fs:delete', filePath, isDirectory, language),
     rename: (oldPath: string, newName: string) =>
       ipcRenderer.invoke('fs:rename', oldPath, newName),
     mkdir: (dirPath: string) => ipcRenderer.invoke('fs:mkdir', dirPath),

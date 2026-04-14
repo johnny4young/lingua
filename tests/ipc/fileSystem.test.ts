@@ -211,6 +211,22 @@ describe('app:confirm-close', () => {
   it('registers the handler', () => {
     expect(handlers.has('app:confirm-close')).toBe(true);
   });
+
+  it('localizes the app-close dialog in Spanish', async () => {
+    const { dialog } = await import('electron');
+
+    await invoke('app:confirm-close', ['alpha.ts', 'beta.ts'], 'es');
+
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({
+        buttons: ['Guardar todo', 'Descartar', 'Cancelar'],
+        title: 'Cambios sin guardar',
+        message: 'Tienes cambios sin guardar en 2 archivos.',
+        detail: 'alpha.ts, beta.ts',
+      })
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -220,5 +236,44 @@ describe('app:confirm-close', () => {
 describe('app:confirm-close-tab', () => {
   it('registers the handler', () => {
     expect(handlers.has('app:confirm-close-tab')).toBe(true);
+  });
+
+  it('localizes the dirty-tab dialog in English', async () => {
+    const { dialog } = await import('electron');
+
+    await invoke('app:confirm-close-tab', 'draft.ts', 'en');
+
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({
+        buttons: ['Save', 'Discard', 'Cancel'],
+        title: 'Unsaved Changes',
+        message: '"draft.ts" has unsaved changes.',
+        detail: 'Do you want to save before closing?',
+      })
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// fs:delete
+// ---------------------------------------------------------------------------
+
+describe('fs:delete confirmation dialog', () => {
+  it('localizes folder deletion copy in Spanish', async () => {
+    const { dialog } = await import('electron');
+
+    await invoke('fs:delete', '/tmp/demo-folder', true, 'es');
+
+    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({
+        buttons: ['Eliminar', 'Cancelar'],
+        title: 'Confirmar eliminación',
+        message: '¿Eliminar "demo-folder"?',
+        detail:
+          'Esto eliminará permanentemente la carpeta y todo su contenido. Esta acción no se puede deshacer.',
+      })
+    );
   });
 });
