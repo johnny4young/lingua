@@ -1,3 +1,5 @@
+export type AppLanguage = 'system' | 'en' | 'es';
+
 export type BuiltInLanguage =
   | 'javascript'
   | 'typescript'
@@ -81,6 +83,7 @@ export interface SettingsState {
   maxLoopIterations: number;
   hideUndefined: boolean;
   restoreSession: boolean;
+  language: AppLanguage;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -93,6 +96,7 @@ export interface SettingsState {
   setMaxLoopIterations: (max: number) => void;
   toggleHideUndefined: () => void;
   toggleRestoreSession: () => void;
+  setLanguage: (language: AppLanguage) => void;
 }
 
 // --- Runner Types ---

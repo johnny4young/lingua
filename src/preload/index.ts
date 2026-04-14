@@ -3,6 +3,9 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('lingua', {
   platform: process.platform,
 
+  getSystemLanguages: () =>
+    ipcRenderer.invoke('app:get-system-languages') as Promise<string[]>,
+
   // Go runner IPC
   go: {
     detect: () => ipcRenderer.invoke('go:detect'),

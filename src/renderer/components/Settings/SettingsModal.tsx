@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
 import { LayoutSection } from './LayoutSection';
@@ -11,21 +12,22 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
+  const { t } = useTranslation();
+
   return (
     <OverlayBackdrop onClose={onClose}>
       <OverlayCard className="relative w-full max-w-4xl">
         <div className="surface-header flex items-start justify-between gap-4 px-6 py-5">
           <div>
-            <p className="panel-title">Workspace Settings</p>
+            <p className="panel-title">{t('settings.title')}</p>
             <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
-              Tune the shell, editor, and runtime defaults
+              {t('settings.subtitle')}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-              The interface supports both dark and light shells, while Monaco keeps its own theme
-              pipeline for code editing. Changes are saved automatically.
+              {t('settings.description')}
             </p>
           </div>
-          <IconButton onClick={onClose} title="Close settings">
+          <IconButton onClick={onClose} title={t('settings.close')}>
             <X size={16} />
           </IconButton>
         </div>
@@ -46,9 +48,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
         <div className="surface-header flex items-center justify-between px-6 py-3">
           <p className="text-xs text-muted">
-            Settings persist locally across desktop and web sessions.
+            {t('settings.footer')}
           </p>
-          <span className="status-pill">Autosave enabled</span>
+          <span className="status-pill">{t('settings.autosave')}</span>
         </div>
       </OverlayCard>
     </OverlayBackdrop>
