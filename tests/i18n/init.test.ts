@@ -34,7 +34,9 @@ describe('initI18n', () => {
 
   it('should fall back to English for unsupported locales', () => {
     initI18n('fr');
+    expect(i18next.language).toBe('en');
     expect(i18next.t('settings.title')).toBe('Workspace Settings');
+    expect(document.documentElement.lang).toBe('en');
   });
 });
 

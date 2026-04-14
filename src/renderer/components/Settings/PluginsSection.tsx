@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { usePluginStore } from '../../stores/pluginStore';
 import { Section } from './shared';
 
@@ -5,29 +6,34 @@ export function PluginsSection() {
   const installDirectory = usePluginStore((state) => state.installDirectory);
   const plugins = usePluginStore((state) => state.plugins);
   const refresh = usePluginStore((state) => state.refresh);
+  const { t } = useTranslation();
 
   return (
     <Section
-      title="Plugins"
-      description="Local plugin discovery is surfaced as an operational panel rather than a marketplace promise."
+      title={t('plugins.title')}
+      description={t('plugins.description')}
     >
       <div className="rounded-[1.35rem] border border-border/80 bg-background-elevated/72 p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">Local plugin directory</p>
+            <p className="text-sm font-medium text-foreground">{t('plugins.directory.label')}</p>
             <p className="mt-1 break-all text-xs leading-6 text-muted">
-              {installDirectory ?? 'Not available in this build'}
+              {installDirectory ?? t('plugins.directory.unavailable')}
             </p>
           </div>
-          <button onClick={() => void refresh()} className="button-secondary shrink-0">
-            Refresh
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="button-secondary shrink-0"
+          >
+            {t('plugins.actions.refresh')}
           </button>
         </div>
       </div>
 
       {plugins.length === 0 ? (
         <p className="rounded-[1.35rem] border border-dashed border-border/80 px-4 py-5 text-sm text-muted">
-          No local plugins are installed.
+          {t('plugins.empty')}
         </p>
       ) : (
         <div className="space-y-3">
@@ -40,7 +46,7 @@ export function PluginsSection() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">{plugin.displayName}</p>
                   <p className="mt-1 text-[11px] uppercase tracking-[0.16em] text-muted">
-                    {plugin.status}
+                    {t(`plugins.state.${plugin.status}`)}
                   </p>
                 </div>
                 <p className="text-[11px] text-muted">{plugin.pluginId}</p>

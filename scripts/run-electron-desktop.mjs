@@ -268,7 +268,9 @@ async function main() {
 
     await Promise.all([
       terminateChild('electron', electronProcess, { graceful: true }),
-      serverOwned ? terminateChild('renderer dev server', serverProcess) : Promise.resolve(),
+      serverOwned
+        ? terminateChild('renderer dev server', serverProcess, { graceful: true })
+        : Promise.resolve(),
     ]);
 
     process.exit(exitCode);

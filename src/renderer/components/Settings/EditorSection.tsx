@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { EDITOR_THEMES, FONT_FAMILIES, FONT_SIZES } from './settingsOptions';
 import { Row, Section, Select, StepperButton, Toggle } from './shared';
@@ -21,13 +22,14 @@ export function EditorSection() {
   const setMaxLoopIterations = useSettingsStore((state) => state.setMaxLoopIterations);
   const restoreSession = useSettingsStore((state) => state.restoreSession);
   const toggleRestoreSession = useSettingsStore((state) => state.toggleRestoreSession);
+  const { t } = useTranslation();
 
   return (
     <Section
-      title="Editor"
-      description="Keep the Monaco surface aligned with how you read code and how aggressively you want automatic safeguards."
+      title={t('editor.title')}
+      description={t('editor.description')}
     >
-      <Row label="Editor theme" hint="Controls Monaco only. App shell theme stays independent.">
+      <Row label={t('editor.theme.label')} hint={t('editor.theme.hint')}>
         <Select value={editorTheme} onChange={(event) => setEditorTheme(event.target.value)}>
           {EDITOR_THEMES.map((theme) => (
             <option key={theme.id} value={theme.id}>
@@ -37,7 +39,7 @@ export function EditorSection() {
         </Select>
       </Row>
 
-      <Row label="Font family" hint="Use a coding typeface that matches your workflow.">
+      <Row label={t('editor.fontFamily.label')} hint={t('editor.fontFamily.hint')}>
         <Select value={fontFamily} onChange={(event) => setFontFamily(event.target.value)}>
           {FONT_FAMILIES.map((font) => (
             <option key={font.value} value={font.value}>
@@ -47,9 +49,9 @@ export function EditorSection() {
         </Select>
       </Row>
 
-      <Row label="Font size" hint="Adjust the editor scale without touching the shell density.">
+      <Row label={t('editor.fontSize.label')} hint={t('editor.fontSize.hint')}>
         <div className="flex items-center gap-2">
-          <StepperButton onClick={() => setFontSize(Math.max(10, fontSize - 1))}>
+          <StepperButton type="button" onClick={() => setFontSize(Math.max(10, fontSize - 1))}>
             -
           </StepperButton>
           <Select
@@ -63,33 +65,33 @@ export function EditorSection() {
               </option>
             ))}
           </Select>
-          <StepperButton onClick={() => setFontSize(Math.min(32, fontSize + 1))}>
+          <StepperButton type="button" onClick={() => setFontSize(Math.min(32, fontSize + 1))}>
             +
           </StepperButton>
         </div>
       </Row>
 
-      <Row label="Line numbers" hint="Keep gutter references visible while editing.">
+      <Row label={t('editor.lineNumbers.label')} hint={t('editor.lineNumbers.hint')}>
         <Toggle value={showLineNumbers} onChange={toggleLineNumbers} />
       </Row>
 
-      <Row label="Word wrap" hint="Wrap long lines inside the viewport.">
+      <Row label={t('editor.wordWrap.label')} hint={t('editor.wordWrap.hint')}>
         <Toggle value={wordWrap} onChange={toggleWordWrap} />
       </Row>
 
-      <Row label="Minimap" hint="Show the code overview strip on the right edge.">
+      <Row label={t('editor.minimap.label')} hint={t('editor.minimap.hint')}>
         <Toggle value={minimap} onChange={toggleMinimap} />
       </Row>
 
       <Row
-        label="Loop protection"
-        hint="Stops runaway JS and TS loops before they lock the renderer."
+        label={t('editor.loopProtection.label')}
+        hint={t('editor.loopProtection.hint')}
       >
         <Toggle value={loopProtection} onChange={toggleLoopProtection} />
       </Row>
 
       {loopProtection && (
-        <Row label="Max iterations" hint="Applies to the inline dynamic language runners.">
+        <Row label={t('editor.maxIterations.label')} hint={t('editor.maxIterations.hint')}>
           <Select
             value={maxLoopIterations}
             onChange={(event) => setMaxLoopIterations(Number(event.target.value))}
@@ -104,8 +106,8 @@ export function EditorSection() {
       )}
 
       <Row
-        label="Reopen last session"
-        hint="Restore tabs from the previous session on restart."
+        label={t('editor.restoreSession.label')}
+        hint={t('editor.restoreSession.hint')}
       >
         <Toggle value={restoreSession} onChange={toggleRestoreSession} />
       </Row>
