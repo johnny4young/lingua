@@ -51,6 +51,7 @@ export function Row({
 export function Toggle({ value, onChange }: { value: boolean; onChange: () => void }) {
   return (
     <button
+      type="button"
       role="switch"
       aria-checked={value}
       onClick={onChange}
@@ -81,7 +82,11 @@ export function StepperButton({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
-    <button className={cn('button-secondary h-10 w-10 px-0 text-sm', className)} {...props}>
+    <button
+      type={props.type ?? 'button'}
+      className={cn('button-secondary h-10 w-10 px-0 text-sm', className)}
+      {...props}
+    >
       {children}
     </button>
   );

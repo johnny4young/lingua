@@ -1,4 +1,5 @@
 import type { LayoutPreset } from '../../types';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { LAYOUT_PRESETS } from './settingsOptions';
 import { Section } from './shared';
@@ -35,21 +36,25 @@ function LayoutIcon({ preset, active }: { preset: LayoutPreset; active: boolean 
 export function LayoutSection() {
   const layoutPreset = useSettingsStore((state) => state.layoutPreset);
   const setLayoutPreset = useSettingsStore((state) => state.setLayoutPreset);
+  const { t } = useTranslation();
 
   return (
     <Section
-      title="Layout"
-      description="Choose how the editor and console share space inside the main workstation."
+      title={t('layout.title')}
+      description={t('layout.description')}
     >
       <div className="grid gap-3 sm:grid-cols-3">
         {LAYOUT_PRESETS.map((preset) => {
           const selected = layoutPreset === preset.id;
+          const label = t(preset.labelKey);
+          const description = t(preset.descriptionKey);
 
           return (
             <button
               key={preset.id}
+              type="button"
               onClick={() => setLayoutPreset(preset.id)}
-              title={preset.description}
+              title={description}
               className={`flex flex-col gap-3 rounded-[1.35rem] border p-4 text-left transition-all ${
                 selected
                   ? 'border-primary/35 bg-primary-soft'
@@ -58,8 +63,8 @@ export function LayoutSection() {
             >
               <LayoutIcon preset={preset.id} active={selected} />
               <div>
-                <p className="text-sm font-medium text-foreground">{preset.label}</p>
-                <p className="mt-1 text-xs leading-5 text-muted">{preset.description}</p>
+                <p className="text-sm font-medium text-foreground">{label}</p>
+                <p className="mt-1 text-xs leading-5 text-muted">{description}</p>
               </div>
             </button>
           );

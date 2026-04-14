@@ -22,8 +22,24 @@ export const FONT_FAMILIES: { value: string; label: string }[] = [
 
 export const FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20, 24];
 
-export const LAYOUT_PRESETS: { id: LayoutPreset; label: string; description: string }[] = [
-  { id: 'horizontal', label: 'Horizontal Split', description: 'Editor on top, console below' },
-  { id: 'vertical', label: 'Vertical Split', description: 'Editor left, console right' },
-  { id: 'editor-only', label: 'Editor Only', description: 'Hide console panel' },
+export const LAYOUT_PRESETS: {
+  id: LayoutPreset;
+  labelKey: string;
+  descriptionKey: string;
+}[] = [
+  {
+    id: 'horizontal',
+    labelKey: 'layout.preset.horizontal.label',
+    descriptionKey: 'layout.preset.horizontal.description',
+  },
+  {
+    id: 'vertical',
+    labelKey: 'layout.preset.vertical.label',
+    descriptionKey: 'layout.preset.vertical.description',
+  },
+  {
+    id: 'editor-only',
+    labelKey: 'layout.preset.editorOnly.label',
+    descriptionKey: 'layout.preset.editorOnly.description',
+  },
 ];

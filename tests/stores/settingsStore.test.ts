@@ -5,6 +5,7 @@ describe('settingsStore', () => {
   const initialState = useSettingsStore.getState();
 
   beforeEach(() => {
+    localStorage.clear();
     useSettingsStore.setState(initialState, true);
   });
 
@@ -98,6 +99,26 @@ describe('settingsStore', () => {
   it('should set language back to system', () => {
     useSettingsStore.getState().setLanguage('en');
     useSettingsStore.getState().setLanguage('system');
+    expect(useSettingsStore.getState().language).toBe('system');
+  });
+
+  it('should ignore an invalid persisted language during rehydration', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: {
+          language: 'fr',
+        },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
     expect(useSettingsStore.getState().language).toBe('system');
   });
 });
