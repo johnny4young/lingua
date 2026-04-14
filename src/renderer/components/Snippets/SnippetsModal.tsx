@@ -1,5 +1,7 @@
 import { BookCopy, Plus, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import type { Language } from '../../types';
@@ -32,21 +34,26 @@ const BUILT_IN_LANGUAGES: Language[] = [
   'rust',
 ];
 
-function trimTabName(tabName: string): string {
+/**
+ * Strip a file extension from a tab name and fall back to a localized
+ * default when the remainder is empty.
+ */
+function trimTabName(tabName: string, fallback: string): string {
   const trimmedName = tabName.replace(/\.[^.]+$/, '').trim();
-  return trimmedName.length > 0 ? trimmedName : 'Snippet';
+  return trimmedName.length > 0 ? trimmedName : fallback;
 }
 
 function createDraftFromActiveTab(
-  activeTab: { name: string; language: Language; content: string } | undefined
+  activeTab: { name: string; language: Language; content: string } | undefined,
+  t: TFunction
 ): SnippetDraft {
   if (!activeTab) {
     return EMPTY_SNIPPET_DRAFT;
   }
 
   return {
-    label: trimTabName(activeTab.name),
-    description: `Saved from ${activeTab.name}`,
+    label: trimTabName(activeTab.name, t('snippets.draft.defaultName')),
+    description: t('snippets.draft.descriptionFromTab', { name: activeTab.name }),
     language: activeTab.language,
     code: activeTab.content,
   };
@@ -55,6 +62,7 @@ function createDraftFromActiveTab(
 export function SnippetsModal({ onClose }: SnippetsModalProps) {
   const { snippets, addSnippet, removeSnippet, updateSnippet } = useSnippetsStore();
   const { tabs, activeTabId, addTab, updateContent } = useEditorStore();
+  const { t } = useTranslation();
   const [selectedSnippetId, setSelectedSnippetId] = useState<string | null>(
     snippets[0]?.id ?? null
   );
@@ -108,7 +116,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
 
     setIsCreatingNew(true);
     setSelectedSnippetId(null);
-    setDraft(createDraftFromActiveTab(activeTab));
+    setDraft(createDraftFromActiveTab(activeTab, t));
   };
 
   const handleSaveSnippet = () => {
@@ -155,10 +163,11 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
       return;
     }
 
+    const fallbackFilename = t('snippets.draft.defaultFilename');
     const newTab = createDefaultTab(sourceSnippet.language);
     addTab({
       ...newTab,
-      name: `${sourceSnippet.label.trim() || 'snippet'}.${extensionForLanguage(sourceSnippet.language)}`,
+      name: `${sourceSnippet.label.trim() || fallbackFilename}.${extensionForLanguage(sourceSnippet.language)}`,
       content: sourceSnippet.code,
     });
     onClose();
@@ -177,6 +186,10 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
     onClose();
   };
 
+  const detailHeading = isCreatingNew
+    ? t('snippets.detail.newHeading')
+    : selectedSnippet?.label ?? t('snippets.detail.fallbackHeading');
+
   return (
     <OverlayBackdrop onClose={onClose}>
       <OverlayCard className="relative flex h-[min(82vh,760px)] w-full max-w-6xl flex-col overflow-hidden lg:flex-row">
@@ -185,39 +198,51 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
             <div className="flex items-center gap-2">
               <BookCopy size={16} className="text-primary" />
               <div>
-                <p className="panel-title">Snippet Library</p>
-                <h2 className="text-sm font-semibold text-foreground">Snippets</h2>
+                <p className="panel-title">{t('snippets.panelTitle')}</p>
+                <h2 className="text-sm font-semibold text-foreground">
+                  {t('snippets.header')}
+                </h2>
               </div>
             </div>
-            <IconButton onClick={onClose} title="Close snippets">
+            <IconButton
+              onClick={onClose}
+              title={t('snippets.close')}
+              aria-label={t('snippets.close')}
+            >
               <X size={16} />
             </IconButton>
           </div>
 
           <div className="grid gap-2 border-b border-border/80 px-4 py-4">
-            <button onClick={handleStartNewSnippet} className="button-secondary w-full">
+            <button
+              type="button"
+              onClick={handleStartNewSnippet}
+              className="button-secondary w-full"
+            >
               <Plus size={13} />
-              New
+              {t('snippets.actions.new')}
             </button>
             <button
+              type="button"
               onClick={handleSaveActiveTab}
               disabled={!activeTab}
               className="button-primary w-full"
             >
               <Save size={13} />
-              Save Active Tab
+              {t('snippets.actions.saveActiveTab')}
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">
             {sortedSnippets.length === 0 ? (
               <div className="rounded-[1.25rem] border border-dashed border-border/80 px-4 py-6 text-center text-xs text-muted">
-                No snippets saved yet.
+                {t('snippets.empty')}
               </div>
             ) : (
               sortedSnippets.map((snippet) => (
                 <button
                   key={snippet.id}
+                  type="button"
                   onClick={() => {
                     setSelectedSnippetId(snippet.id);
                     setIsCreatingNew(false);
@@ -243,29 +268,30 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="surface-header flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="panel-title">Workspace Snippet</p>
+              <p className="panel-title">{t('snippets.detail.title')}</p>
               <h3 className="mt-1 font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
-                {isCreatingNew ? 'New snippet' : selectedSnippet?.label ?? 'Snippet'}
+                {detailHeading}
               </h3>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-                Save reusable code, edit it, then reopen it later from the command palette or this
-                library.
+                {t('snippets.detail.description')}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
+                type="button"
                 onClick={handleOpenInNewTab}
                 disabled={!canSaveSnippet && !selectedSnippet}
                 className="button-secondary"
               >
-                Open in New Tab
+                {t('snippets.actions.openInNewTab')}
               </button>
               <button
+                type="button"
                 onClick={handleInsertIntoActiveTab}
                 disabled={!activeTabId || (!canSaveSnippet && !selectedSnippet)}
                 className="button-primary"
               >
-                Insert into Active Tab
+                {t('snippets.actions.insertIntoActiveTab')}
               </button>
             </div>
           </div>
@@ -273,7 +299,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
           <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
               <label className="flex min-w-0 flex-col gap-2">
-                <span className="field-label">Name</span>
+                <span className="field-label">{t('snippets.fields.name.label')}</span>
                 <input
                   value={draft.label}
                   onChange={(event) =>
@@ -282,13 +308,13 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                       label: event.target.value,
                     }))
                   }
-                  placeholder="Snippet name"
+                  placeholder={t('snippets.fields.name.placeholder')}
                   className="field-shell"
                 />
               </label>
 
               <label className="flex min-w-0 flex-col gap-2">
-                <span className="field-label">Language</span>
+                <span className="field-label">{t('snippets.fields.language.label')}</span>
                 <select
                   value={draft.language}
                   onChange={(event) =>
@@ -309,7 +335,9 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
             </div>
 
             <label className="flex min-w-0 flex-col gap-2">
-              <span className="field-label">Description</span>
+              <span className="field-label">
+                {t('snippets.fields.description.label')}
+              </span>
               <input
                 value={draft.description}
                 onChange={(event) =>
@@ -318,13 +346,13 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                     description: event.target.value,
                   }))
                 }
-                placeholder="Short note about when to use this snippet"
+                placeholder={t('snippets.fields.description.placeholder')}
                 className="field-shell"
               />
             </label>
 
             <label className="flex min-h-0 flex-1 flex-col gap-2">
-              <span className="field-label">Code</span>
+              <span className="field-label">{t('snippets.fields.code.label')}</span>
               <textarea
                 value={draft.code}
                 onChange={(event) =>
@@ -333,7 +361,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                     code: event.target.value,
                   }))
                 }
-                placeholder="Paste or write the snippet code"
+                placeholder={t('snippets.fields.code.placeholder')}
                 className="field-shell min-h-[280px] flex-1 font-mono text-sm leading-6"
                 spellCheck={false}
               />
@@ -343,24 +371,31 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
           <div className="surface-header flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted">
               {activeTab
-                ? `Active tab: ${activeTab.name}`
-                : 'Open a tab to enable “Save Active Tab” and “Insert into Active Tab”.'}
+                ? t('snippets.activeTab.label', { name: activeTab.name })
+                : t('snippets.activeTab.hint')}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
               {!isCreatingNew && selectedSnippet && (
-                <button onClick={handleDeleteSnippet} className="button-danger">
+                <button
+                  type="button"
+                  onClick={handleDeleteSnippet}
+                  className="button-danger"
+                >
                   <Trash2 size={13} />
-                  Delete
+                  {t('snippets.actions.delete')}
                 </button>
               )}
               <button
+                type="button"
                 onClick={handleSaveSnippet}
                 disabled={!canSaveSnippet}
                 className="button-primary"
               >
                 <Save size={13} />
-                {isCreatingNew ? 'Save Snippet' : 'Save Changes'}
+                {isCreatingNew
+                  ? t('snippets.actions.saveNew')
+                  : t('snippets.actions.saveExisting')}
               </button>
             </div>
           </div>

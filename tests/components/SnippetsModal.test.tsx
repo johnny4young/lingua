@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import i18next from 'i18next';
 import { SnippetsModal } from '../../src/renderer/components/Snippets';
 import { useEditorStore } from '@/stores/editorStore';
 import { useSnippetsStore } from '@/stores/snippetsStore';
 
 describe('SnippetsModal', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await act(async () => {
+      await i18next.changeLanguage('en');
+    });
     useSnippetsStore.setState({ snippets: [] });
     useEditorStore.setState({
       tabs: [],
@@ -112,5 +116,88 @@ describe('SnippetsModal', () => {
 
     expect(useSnippetsStore.getState().snippets).toHaveLength(0);
     expect(screen.getByText('No snippets saved yet.')).toBeTruthy();
+  });
+
+  it('uses localized draft copy and fallback filename in Spanish', async () => {
+    const user = userEvent.setup();
+
+    useEditorStore.setState({
+      ...useEditorStore.getState(),
+      tabs: [
+        {
+          id: 'tab-1',
+          name: '.ts',
+          language: 'typescript',
+          content: 'export const total = 1 + 2;',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-1',
+    });
+
+    useSnippetsStore.setState({
+      ...useSnippetsStore.getState(),
+      snippets: [
+        {
+          id: 'snippet-blank',
+          label: '   ',
+          description: '',
+          language: 'typescript',
+          code: 'export const total = 1 + 2;',
+          createdAt: Date.now(),
+        },
+      ],
+    });
+
+    await act(async () => {
+      await i18next.changeLanguage('es');
+    });
+
+    try {
+      render(<SnippetsModal onClose={vi.fn()} />);
+
+      await user.click(screen.getByRole('button', { name: 'Guardar pesta\u00f1a activa' }));
+
+      expect((screen.getByLabelText('Nombre') as HTMLInputElement).value).toBe('Fragmento');
+      expect((screen.getByLabelText('Descripci\u00f3n') as HTMLInputElement).value).toBe(
+        'Guardado desde .ts'
+      );
+      expect(screen.getByRole('button', { name: 'Cerrar fragmentos' })).toBeTruthy();
+
+      const snippetListItem = screen.getAllByText('TypeScript')[0]?.closest('button');
+      expect(snippetListItem).toBeTruthy();
+      await user.click(snippetListItem as HTMLButtonElement);
+      await user.click(screen.getByRole('button', { name: 'Abrir en nueva pesta\u00f1a' }));
+
+      const openedTab = useEditorStore.getState().tabs.find((tab) => tab.id !== 'tab-1');
+      expect(openedTab?.name).toBe('fragmento.ts');
+    } finally {
+      await act(async () => {
+        await i18next.changeLanguage('en');
+      });
+    }
+  });
+
+  it('renders localized labels and actions in Spanish', async () => {
+    await act(async () => {
+      await i18next.changeLanguage('es');
+    });
+    try {
+      render(<SnippetsModal onClose={vi.fn()} />);
+
+      expect(screen.getByText('Biblioteca de fragmentos')).toBeTruthy();
+      expect(screen.getByText('Fragmentos')).toBeTruthy();
+      expect(screen.getByText('A\u00fan no hay fragmentos guardados.')).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Guardar pesta\u00f1a activa' })
+      ).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: 'Abrir en nueva pesta\u00f1a' })
+      ).toBeTruthy();
+    } finally {
+      await act(async () => {
+        await i18next.changeLanguage('en');
+      });
+    }
   });
 });
