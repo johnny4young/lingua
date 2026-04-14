@@ -1,5 +1,6 @@
 import { Code, FileCode, Zap } from 'lucide-react';
 import type { ReactNode, RefObject } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   languageBadgeClass,
   languageShortLabel,
@@ -27,14 +28,18 @@ export function CommandPaletteResults({
   listRef,
   onHoverIndex,
 }: CommandPaletteResultsProps) {
+  const { t } = useTranslation();
   return (
     <div ref={listRef} className="max-h-[26rem] overflow-y-auto px-2 py-2">
       {commands.length === 0 ? (
-        <p className="px-4 py-10 text-center text-sm text-muted">No results for "{query}"</p>
+        <p className="px-4 py-10 text-center text-sm text-muted">
+          {t('commandPalette.results.empty', { query })}
+        </p>
       ) : (
         commands.map((command, index) => (
           <button
             key={command.id}
+            type="button"
             onClick={command.action}
             onMouseEnter={() => onHoverIndex(index)}
             className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors ${

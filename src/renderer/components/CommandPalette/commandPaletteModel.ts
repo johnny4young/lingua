@@ -1,9 +1,8 @@
+import type { TFunction } from 'i18next';
 import type { Template } from '../../data/templates';
 import type { Snippet } from '../../stores/snippetsStore';
 import type { FileTab, Language, LayoutPreset } from '../../types';
-import {
-  extensionForLanguage,
-} from '../../utils/languageMeta';
+import { extensionForLanguage } from '../../utils/languageMeta';
 
 export type CommandCategory = 'template' | 'snippet' | 'action';
 
@@ -29,9 +28,15 @@ interface BuildCommandPaletteModelArgs {
   onOpenSnippets: () => void;
   checkForUpdates: () => Promise<void>;
   restartToApply: () => Promise<boolean>;
-  openFileFromDisk: () => Promise<void>;
-  saveActiveTabAs: () => Promise<void>;
-  duplicateActiveTab: () => void;
+  openFileFromDisk?: () => Promise<void>;
+  saveActiveTabAs?: () => Promise<void>;
+  duplicateActiveTab?: () => void;
+  /**
+   * Translation function. Optional so legacy callers keep working without
+   * wiring i18next; when omitted, built-in action labels and descriptions
+   * fall back to their English keys.
+   */
+  t?: TFunction;
 }
 
 function normalizeKeywords(values: Array<string | undefined>) {
@@ -67,13 +72,14 @@ function buildSnippetCommand(
   snippet: Snippet,
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void,
   createDefaultTab: (language: Language) => FileTab,
-  onClose: () => void
+  onClose: () => void,
+  translate: (key: string) => string
 ): CommandEntry {
   return {
     id: `sn-${snippet.id}`,
     category: 'snippet',
     label: snippet.label,
-    description: snippet.description || 'Custom snippet',
+    description: snippet.description || translate('commandPalette.snippet.fallbackDescription'),
     language: snippet.language,
     keywords: normalizeKeywords([snippet.label, snippet.language, snippet.description]),
     action: () => {
@@ -105,6 +111,16 @@ function buildActionCommand(
   };
 }
 
+/**
+ * Minimal fallback when no TFunction is supplied — returns the last segment
+ * of the key in Title Case so legacy callers still render something readable
+ * rather than a raw dot-notation string.
+ */
+function identityTranslate(key: string): string {
+  const segment = key.split('.').pop() ?? key;
+  return segment.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+}
+
 export function buildCommandPaletteModel({
   templates,
   snippets,
@@ -120,21 +136,29 @@ export function buildCommandPaletteModel({
   openFileFromDisk,
   saveActiveTabAs,
   duplicateActiveTab,
+  t,
 }: BuildCommandPaletteModelArgs): CommandEntry[] {
-  const commands = [
+  const translate: (key: string, options?: Record<string, unknown>) => string = t
+    ? (key, options) => t(key, options) as unknown as string
+    : (key) => identityTranslate(key);
+
+  const restartDescription = translate(
+    updateStatus === 'downloaded'
+      ? 'commandPalette.action.restartUpdate.descriptionReady'
+      : 'commandPalette.action.restartUpdate.descriptionPending'
+  );
+
+  const commands: CommandEntry[] = [
     ...templates.map((template) =>
       buildTemplateCommand(template, createTab, createDefaultTab, onClose)
     ),
     ...snippets.map((snippet) =>
-      buildSnippetCommand(snippet, createTab, createDefaultTab, onClose)
+      buildSnippetCommand(snippet, createTab, createDefaultTab, onClose, translate)
     ),
-  ];
-
-  commands.push(
     buildActionCommand(
       'action-layout-horizontal',
-      'Layout: Horizontal Split',
-      'Editor on top, console below',
+      translate('commandPalette.action.layout.horizontal.label'),
+      translate('commandPalette.action.layout.horizontal.description'),
       ['layout', 'horizontal', 'split', 'console'],
       () => {
         setLayoutPreset('horizontal');
@@ -143,8 +167,8 @@ export function buildCommandPaletteModel({
     ),
     buildActionCommand(
       'action-layout-vertical',
-      'Layout: Vertical Split',
-      'Editor left, console right',
+      translate('commandPalette.action.layout.vertical.label'),
+      translate('commandPalette.action.layout.vertical.description'),
       ['layout', 'vertical', 'split'],
       () => {
         setLayoutPreset('vertical');
@@ -153,8 +177,8 @@ export function buildCommandPaletteModel({
     ),
     buildActionCommand(
       'action-layout-editor',
-      'Layout: Editor Only',
-      'Hide the console panel',
+      translate('commandPalette.action.layout.editorOnly.label'),
+      translate('commandPalette.action.layout.editorOnly.description'),
       ['layout', 'editor', 'only', 'hide', 'console'],
       () => {
         setLayoutPreset('editor-only');
@@ -163,8 +187,8 @@ export function buildCommandPaletteModel({
     ),
     buildActionCommand(
       'action-snippets',
-      'Open Snippets',
-      'Browse, save, edit, and reuse snippets',
+      translate('commandPalette.action.snippets.label'),
+      translate('commandPalette.action.snippets.description'),
       ['snippets', 'snippet', 'library', 'save snippet'],
       () => {
         onClose();
@@ -173,8 +197,8 @@ export function buildCommandPaletteModel({
     ),
     buildActionCommand(
       'action-settings',
-      'Open Settings',
-      'Themes, fonts, and preferences',
+      translate('commandPalette.action.settings.label'),
+      translate('commandPalette.action.settings.description'),
       ['settings', 'preferences', 'theme', 'font'],
       () => {
         onClose();
@@ -183,8 +207,8 @@ export function buildCommandPaletteModel({
     ),
     buildActionCommand(
       'action-check-updates',
-      'Check for Updates',
-      'Query the configured desktop update feed',
+      translate('commandPalette.action.checkUpdates.label'),
+      translate('commandPalette.action.checkUpdates.description'),
       ['updates', 'update', 'release', 'version'],
       () => {
         void checkForUpdates();
@@ -193,47 +217,60 @@ export function buildCommandPaletteModel({
     ),
     buildActionCommand(
       'action-restart-update',
-      'Restart to Apply Update',
-      updateStatus === 'downloaded'
-        ? 'Restart now to install the downloaded update'
-        : 'Available once an update has been downloaded',
+      translate('commandPalette.action.restartUpdate.label'),
+      restartDescription,
       ['updates', 'restart', 'apply', 'install'],
       () => {
         void restartToApply();
         onClose();
       }
     ),
-    buildActionCommand(
-      'action-open-file',
-      'Open File',
-      'Open a file from disk (Cmd+O)',
-      ['open', 'file', 'disk', 'browse'],
-      () => {
-        void openFileFromDisk();
-        onClose();
-      }
-    ),
-    buildActionCommand(
-      'action-save-as',
-      'Save As',
-      'Save the active tab to a new location (Cmd+Shift+S)',
-      ['save as', 'save copy', 'export'],
-      () => {
-        void saveActiveTabAs();
-        onClose();
-      }
-    ),
-    buildActionCommand(
-      'action-duplicate-tab',
-      'Duplicate Tab',
-      'Create a copy of the active tab',
-      ['duplicate', 'copy', 'tab', 'clone'],
-      () => {
-        duplicateActiveTab();
-        onClose();
-      }
-    )
-  );
+  ];
+
+  if (openFileFromDisk) {
+    commands.push(
+      buildActionCommand(
+        'action-open-file',
+        translate('commandPalette.action.openFile.label'),
+        translate('commandPalette.action.openFile.description'),
+        ['open', 'file', 'disk', 'browse'],
+        () => {
+          void openFileFromDisk();
+          onClose();
+        }
+      )
+    );
+  }
+
+  if (saveActiveTabAs) {
+    commands.push(
+      buildActionCommand(
+        'action-save-as',
+        translate('commandPalette.action.saveAs.label'),
+        translate('commandPalette.action.saveAs.description'),
+        ['save as', 'save copy', 'export'],
+        () => {
+          void saveActiveTabAs();
+          onClose();
+        }
+      )
+    );
+  }
+
+  if (duplicateActiveTab) {
+    commands.push(
+      buildActionCommand(
+        'action-duplicate-tab',
+        translate('commandPalette.action.duplicateTab.label'),
+        translate('commandPalette.action.duplicateTab.description'),
+        ['duplicate', 'copy', 'tab', 'clone'],
+        () => {
+          duplicateActiveTab();
+          onClose();
+        }
+      )
+    );
+  }
 
   return commands;
 }

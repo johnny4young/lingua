@@ -1,5 +1,6 @@
 import { Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -33,6 +34,7 @@ export function CommandPalette({
   const { snippets } = useSnippetsStore();
   const { setLayoutPreset } = useSettingsStore();
   const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
+  const { t, i18n } = useTranslation();
 
   const allCommands = useMemo(() => {
     return buildCommandPaletteModel({
@@ -50,7 +52,12 @@ export function CommandPalette({
       openFileFromDisk,
       saveActiveTabAs,
       duplicateActiveTab,
+      t,
     });
+    // Re-build when the active language changes so labels/descriptions
+    // follow i18next. `t` itself has a stable identity in react-i18next,
+    // so depend on `i18n.language` instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     snippets,
     addTab,
@@ -64,6 +71,7 @@ export function CommandPalette({
     openFileFromDisk,
     saveActiveTabAs,
     duplicateActiveTab,
+    i18n.language,
   ]);
 
   const filtered = useMemo(() => {
@@ -115,11 +123,15 @@ export function CommandPalette({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search templates, snippets, commands..."
+            placeholder={t('commandPalette.search.placeholder')}
             className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="button-ghost p-1.5">
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="button-ghost p-1.5"
+            >
               <X size={14} />
             </button>
           )}
@@ -135,13 +147,13 @@ export function CommandPalette({
 
         <div className="surface-header flex items-center gap-4 px-4 py-3 text-[11px] text-muted">
           <span>
-            <Kbd>↑↓</Kbd> navigate
+            <Kbd>↑↓</Kbd> {t('commandPalette.hint.navigate')}
           </span>
           <span>
-            <Kbd>↵</Kbd> select
+            <Kbd>↵</Kbd> {t('commandPalette.hint.select')}
           </span>
           <span className="ml-auto">
-            {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+            {t('commandPalette.results.count', { count: filtered.length })}
           </span>
         </div>
       </OverlayCard>
