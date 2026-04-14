@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import i18next from 'i18next';
 import { BUILT_IN_TEMPLATES } from '../../src/renderer/data/templates';
 import type { Snippet } from '../../src/renderer/stores/snippetsStore';
 import {
@@ -45,6 +46,7 @@ describe('buildCommandPaletteModel', () => {
       onOpenSnippets,
       checkForUpdates,
       restartToApply,
+      t: i18next.t.bind(i18next),
     });
 
     expect(commands.some((command) => command.category === 'template')).toBe(true);
@@ -60,6 +62,37 @@ describe('buildCommandPaletteModel', () => {
     expect(templateCommand?.keywords).toContain(templateCommand?.label.toLowerCase());
     expect(snippetCommand?.keywords).toContain('reusable fetch wrapper');
     expect(restartCommand?.description).toContain('Restart now');
+  });
+
+  it('translates action labels through the provided t function', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const commands = buildCommandPaletteModel({
+        templates: [],
+        snippets: [],
+        updateStatus: 'idle',
+        createTab: vi.fn(),
+        createDefaultTab: (language) => ({
+          id: `tab-${language}`,
+          name: `untitled-${language}`,
+          language,
+          content: '',
+          isDirty: false,
+        }),
+        setLayoutPreset: vi.fn(),
+        onClose: vi.fn(),
+        onOpenSettings: vi.fn(),
+        onOpenSnippets: vi.fn(),
+        checkForUpdates: vi.fn().mockResolvedValue(undefined),
+        restartToApply: vi.fn().mockResolvedValue(true),
+        t: i18next.t.bind(i18next),
+      });
+
+      const settingsCommand = commands.find((c) => c.id === 'action-settings');
+      expect(settingsCommand?.label).toBe('Abrir configuración');
+    } finally {
+      await i18next.changeLanguage('en');
+    }
   });
 
   it('keeps matching commands when filtering by keywords, label, or description', () => {
