@@ -56,6 +56,10 @@ vi.mock('react-resizable-panels', () => ({
   Group: MockGroup,
   Panel: MockPanel,
   Separator: MockSeparator,
+  useDefaultLayout: () => ({
+    defaultLayout: undefined,
+    onLayoutChanged: vi.fn(),
+  }),
 }));
 
 vi.mock('../../src/renderer/components/Toolbar', () => ({

@@ -8,6 +8,8 @@ import './adapter';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '../renderer/App';
+import { getBrowserSystemLanguages, initI18n, resolveSystemLanguage } from '../renderer/i18n';
+import { useSettingsStore } from '../renderer/stores/settingsStore';
 import '../renderer/index.css';
 
 // Register the Service Worker for offline / PWA support
@@ -20,6 +22,14 @@ if ('serviceWorker' in navigator) {
     });
   });
 }
+
+// Resolve language and initialise i18n synchronously (web path)
+const { language } = useSettingsStore.getState();
+const resolved =
+  language === 'system'
+    ? resolveSystemLanguage(getBrowserSystemLanguages())
+    : language;
+initI18n(resolved);
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');

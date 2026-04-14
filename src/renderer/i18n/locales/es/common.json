@@ -1,0 +1,19 @@
+{
+  "settings.title": "Configuraci\u00f3n del espacio de trabajo",
+  "settings.subtitle": "Ajusta el shell, el editor y los valores predeterminados del entorno",
+  "settings.description": "La interfaz admite shells oscuros y claros, mientras que Monaco mantiene su propia configuraci\u00f3n de temas para la edici\u00f3n de c\u00f3digo. Los cambios se guardan autom\u00e1ticamente.",
+  "settings.footer": "La configuraci\u00f3n se conserva localmente entre sesiones de escritorio y web.",
+  "settings.autosave": "Guardado autom\u00e1tico activado",
+  "settings.close": "Cerrar configuraci\u00f3n",
+  "appearance.title": "Apariencia",
+  "appearance.description": "Lingua ofrece un shell orientado al modo oscuro y un modo claro refinado sin cambiar la configuraci\u00f3n del editor ni del entorno.",
+  "appearance.theme.dark.label": "Oscuro",
+  "appearance.theme.dark.description": "Shell grafito de alto contraste para sesiones de programaci\u00f3n enfocadas.",
+  "appearance.theme.light.label": "Claro",
+  "appearance.theme.light.description": "Espacio de trabajo tipo papel c\u00e1lido con contraste m\u00e1s suave y mejor legibilidad a plena luz.",
+  "language.label": "Idioma",
+  "language.hint": "Elige el idioma de la interfaz de Lingua.",
+  "language.system": "Sistema",
+  "language.en": "Ingl\u00e9s",
+  "language.es": "Espa\u00f1ol"
+}

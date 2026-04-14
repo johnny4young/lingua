@@ -26,6 +26,7 @@ export default defineConfig({
       '@/plugins/catalog': path.resolve(__dirname, './src/web/plugin-catalog.ts'),
       '@': path.resolve(__dirname, './src/renderer'),
     },
+    dedupe: ['react', 'react-dom', 'i18next', 'react-i18next'],
   },
   build: {
     outDir: path.resolve(__dirname, 'dist/web'),

@@ -11,6 +11,7 @@
  * This module must be imported BEFORE the React application renders.
  */
 
+import { getBrowserSystemLanguages } from '../renderer/i18n';
 import { webFsAdapter } from './fs-adapter';
 
 // ----------------------------------------------------- Go stub
@@ -70,6 +71,7 @@ const pluginStub: LinguaAPI['plugins'] = {
 
 const webLingua: LinguaAPI = {
   platform: 'web',
+  getSystemLanguages: async () => getBrowserSystemLanguages(),
   confirmClose: async () => 2, // Cancel by default to avoid silent data loss in web mode.
   confirmCloseTab: async () => 2,
   onBeforeClose: () => () => {},

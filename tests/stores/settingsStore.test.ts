@@ -2,17 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 describe('settingsStore', () => {
+  const initialState = useSettingsStore.getState();
+
   beforeEach(() => {
-    useSettingsStore.setState({
-      theme: 'dark',
-      editorTheme: 'lingua-dark',
-      fontSize: 14,
-      fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-      showLineNumbers: true,
-      wordWrap: false,
-      minimap: false,
-      layoutPreset: 'horizontal',
-    });
+    useSettingsStore.setState(initialState, true);
   });
 
   it('should have correct defaults', () => {
@@ -86,5 +79,25 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().restoreSession).toBe(true);
     useSettingsStore.getState().toggleRestoreSession();
     expect(useSettingsStore.getState().restoreSession).toBe(false);
+  });
+
+  it('should default language to system', () => {
+    expect(useSettingsStore.getState().language).toBe('system');
+  });
+
+  it('should set language to es', () => {
+    useSettingsStore.getState().setLanguage('es');
+    expect(useSettingsStore.getState().language).toBe('es');
+  });
+
+  it('should set language to en', () => {
+    useSettingsStore.getState().setLanguage('en');
+    expect(useSettingsStore.getState().language).toBe('en');
+  });
+
+  it('should set language back to system', () => {
+    useSettingsStore.getState().setLanguage('en');
+    useSettingsStore.getState().setLanguage('system');
+    expect(useSettingsStore.getState().language).toBe('system');
   });
 });
