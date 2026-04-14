@@ -61,9 +61,14 @@ export function CodeEditor() {
       return;
     }
 
-    editor.revealLineInCenter(error.line!);
+    if (error?.line == null) {
+      lastRevealedErrorKeyRef.current = nextErrorKey;
+      return;
+    }
+
+    editor.revealLineInCenter(error.line);
     editor.setPosition({
-      lineNumber: error.line!,
+      lineNumber: error.line,
       column: error.column ?? 1,
     });
     lastRevealedErrorKeyRef.current = nextErrorKey;

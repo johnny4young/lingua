@@ -4,6 +4,7 @@ import started from 'electron-squirrel-startup';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
 import { registerFileSystemHandlers } from './ipc/fileSystem';
+import { registerLocaleHandlers } from './ipc/locale';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -16,6 +17,7 @@ if (started) {
 registerGoHandlers();
 registerRustHandlers();
 registerFileSystemHandlers();
+registerLocaleHandlers();
 registerPluginHandlers();
 registerUpdater();
 

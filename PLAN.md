@@ -495,8 +495,24 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-018 Build a maintainable i18n system for the app and future website
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Ready for phased implementation`
+- Status: `Partial`
+- Readiness: `Phase 1 completed on 2026-04-13`
+- Current progress:
+  - Phase 1 (Foundation and Bootstrap) is complete
+  - `i18next` and `react-i18next` installed and wired
+  - Locale resources for `en` and `es` with `common` namespace
+  - `language` setting persisted in settingsStore with `system`, `en`, `es` options
+  - Manual language selector implemented in Settings -> Appearance
+  - IPC bridge for `app:get-system-languages` in Electron main/preload
+  - Web adapter uses a guarded browser-locale helper instead of assuming `navigator.languages`
+  - Synchronous init with bundled resources, no Suspense needed
+  - Settings modal title, subtitle, description, footer, and language dropdown localized
+  - Appearance section title, description, theme cards, and language dropdown localized
+  - `document.documentElement.lang` now tracks the active app language
+  - Runtime language switching falls back safely to `en` if system-locale resolution fails
+  - `npx tsc --noEmit` is clean again after aligning shared UI code with current library APIs
+  - 18 focused i18n/settings tests added or updated (350 total passing)
+  - Phases 2-4 remain planned
 - Why this is now concrete:
   - Benchmark apps and websites already use multilingual product messaging and maintainable locale structures
   - Lingua currently hardcodes most user-facing copy in the renderer, Electron `main`, and web adapters

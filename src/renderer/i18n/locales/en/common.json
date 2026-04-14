@@ -1,0 +1,19 @@
+{
+  "settings.title": "Workspace Settings",
+  "settings.subtitle": "Tune the shell, editor, and runtime defaults",
+  "settings.description": "The interface supports both dark and light shells, while Monaco keeps its own theme pipeline for code editing. Changes are saved automatically.",
+  "settings.footer": "Settings persist locally across desktop and web sessions.",
+  "settings.autosave": "Autosave enabled",
+  "settings.close": "Close settings",
+  "appearance.title": "Appearance",
+  "appearance.description": "Lingua supports a dark-first shell and a refined light mode without changing your editor runtime settings.",
+  "appearance.theme.dark.label": "Dark",
+  "appearance.theme.dark.description": "High-contrast graphite shell for focused coding sessions.",
+  "appearance.theme.light.label": "Light",
+  "appearance.theme.light.description": "Warm paper workspace with calmer contrast and stronger daylight readability.",
+  "language.label": "Language",
+  "language.hint": "Choose the display language for the Lingua interface.",
+  "language.system": "System",
+  "language.en": "English",
+  "language.es": "Spanish"
+}

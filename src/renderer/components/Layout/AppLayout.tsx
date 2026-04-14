@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { X } from 'lucide-react';
-import { Panel, Group, Separator } from 'react-resizable-panels';
+import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
 import { EditorTabs } from '../Editor/EditorTabs';
 import { ResultPanel } from '../Editor/ResultPanel';
@@ -14,6 +14,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import type { LayoutPreset } from '../../types';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
+const RESIZE_TARGET_MINIMUM_SIZE = { coarse: 24, fine: 24 } as const;
 
 function getFocusableElements(container: HTMLElement) {
   return Array.from(
@@ -67,6 +68,11 @@ function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' |
 
 function EditorArea() {
   const hasTabs = useEditorStore((s) => s.tabs.length > 0);
+  const editorResultsLayout = useDefaultLayout({
+    id: 'lingua-editor-results-layout',
+    panelIds: ['editor-panel', 'results-panel'],
+    storage: localStorage,
+  });
 
   return (
     <div className="flex h-full flex-col">
@@ -75,8 +81,9 @@ function EditorArea() {
         {hasTabs ? (
           <Group
             orientation="horizontal"
-            autoSaveId="lingua-editor-results-layout"
-            resizeTargetMinimumSize={24}
+            defaultLayout={editorResultsLayout.defaultLayout}
+            onLayoutChanged={editorResultsLayout.onLayoutChanged}
+            resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
           >
             <Panel id="editor-panel" defaultSize="55%" minSize={320}>
               <Suspense fallback={<EditorLoadingState />}>
@@ -112,14 +119,26 @@ interface MainContentProps {
 }
 
 function MainContent({ showConsole, layoutPreset }: MainContentProps) {
+  const verticalLayout = useDefaultLayout({
+    id: 'lingua-main-vertical-layout',
+    panelIds: ['workspace-panel', 'console-panel'],
+    storage: localStorage,
+  });
+  const horizontalLayout = useDefaultLayout({
+    id: 'lingua-main-horizontal-layout',
+    panelIds: ['workspace-panel', 'console-panel'],
+    storage: localStorage,
+  });
+
   if (!showConsole) return <EditorArea />;
 
   if (layoutPreset === 'vertical') {
     return (
       <Group
         orientation="horizontal"
-        autoSaveId="lingua-main-vertical-layout"
-        resizeTargetMinimumSize={24}
+        defaultLayout={verticalLayout.defaultLayout}
+        onLayoutChanged={verticalLayout.onLayoutChanged}
+        resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
       >
         <Panel id="workspace-panel" defaultSize="60%" minSize={420}>
           <EditorArea />
@@ -136,8 +155,9 @@ function MainContent({ showConsole, layoutPreset }: MainContentProps) {
   return (
     <Group
       orientation="vertical"
-      autoSaveId="lingua-main-horizontal-layout"
-      resizeTargetMinimumSize={24}
+      defaultLayout={horizontalLayout.defaultLayout}
+      onLayoutChanged={horizontalLayout.onLayoutChanged}
+      resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
     >
       <Panel id="workspace-panel" defaultSize="70%" minSize={260}>
         <EditorArea />
@@ -190,6 +210,11 @@ export function AppLayout({
   const persistentSidebarRef = useRef<HTMLDivElement | null>(null);
   const shellUnderlayRef = useRef<HTMLDivElement | null>(null);
   const wasCompactDrawerOpenRef = useRef(false);
+  const shellLayout = useDefaultLayout({
+    id: 'lingua-shell-layout',
+    panelIds: ['sidebar-panel', 'content-panel'],
+    storage: localStorage,
+  });
 
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
@@ -333,8 +358,9 @@ export function AppLayout({
         {showPersistentSidebar ? (
           <Group
             orientation="horizontal"
-            autoSaveId="lingua-shell-layout"
-            resizeTargetMinimumSize={24}
+            defaultLayout={shellLayout.defaultLayout}
+            onLayoutChanged={shellLayout.onLayoutChanged}
+            resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
             className="min-h-0 flex-1 p-2 pb-3 sm:p-3"
           >
             {/* Sidebar */}

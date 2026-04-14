@@ -15,3 +15,8 @@ Object.defineProperty(globalThis, 'localStorage', {
   },
   writable: true,
 });
+
+// Initialise i18next with English resources so component tests that use
+// useTranslation() find a valid instance without extra setup.
+import { initI18n } from '../src/renderer/i18n';
+initI18n('en');

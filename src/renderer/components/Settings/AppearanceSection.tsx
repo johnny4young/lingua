@@ -1,19 +1,22 @@
 import { MoonStar, SunMedium } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { Section } from './shared';
+import { changeAppLanguage } from '../../i18n';
+import type { AppLanguage } from '../../types';
+import { Row, Section, Select } from './shared';
 
 const APP_THEMES = [
   {
     id: 'dark' as const,
-    label: 'Dark',
-    description: 'High-contrast graphite shell for focused coding sessions.',
+    labelKey: 'appearance.theme.dark.label',
+    descriptionKey: 'appearance.theme.dark.description',
     icon: MoonStar,
     previewClass: 'from-[#10141c] via-[#1b2130] to-[#11161f]',
   },
   {
     id: 'light' as const,
-    label: 'Light',
-    description: 'Warm paper workspace with calmer contrast and stronger daylight readability.',
+    labelKey: 'appearance.theme.light.label',
+    descriptionKey: 'appearance.theme.light.description',
     icon: SunMedium,
     previewClass: 'from-[#f6f1e9] via-[#fbf7f1] to-[#ece5da]',
   },
@@ -22,11 +25,22 @@ const APP_THEMES = [
 export function AppearanceSection() {
   const theme = useSettingsStore((state) => state.theme);
   const setTheme = useSettingsStore((state) => state.setTheme);
+  const language = useSettingsStore((state) => state.language);
+  const setLanguage = useSettingsStore((state) => state.setLanguage);
+  const { t } = useTranslation();
+
+  const handleLanguageChange = (value: string) => {
+    const valid: readonly string[] = ['system', 'en', 'es'];
+    if (!valid.includes(value)) return;
+    const next = value as AppLanguage;
+    setLanguage(next);
+    void changeAppLanguage(next, () => window.lingua.getSystemLanguages());
+  };
 
   return (
     <Section
-      title="Appearance"
-      description="Lingua supports a dark-first shell and a refined light mode without changing your editor runtime settings."
+      title={t('appearance.title')}
+      description={t('appearance.description')}
     >
       <div className="grid gap-3 sm:grid-cols-2">
         {APP_THEMES.map((option) => {
@@ -46,9 +60,11 @@ export function AppearanceSection() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-display text-xl font-semibold tracking-[-0.03em] text-foreground">
-                    {option.label}
+                    {t(option.labelKey)}
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-muted">{option.description}</p>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    {t(option.descriptionKey)}
+                  </p>
                 </div>
                 <div
                   className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${
@@ -71,6 +87,14 @@ export function AppearanceSection() {
           );
         })}
       </div>
+
+      <Row label={t('language.label')} hint={t('language.hint')}>
+        <Select value={language} onChange={(e) => handleLanguageChange(e.currentTarget.value)}>
+          <option value="system">{t('language.system')}</option>
+          <option value="en">{t('language.en')}</option>
+          <option value="es">{t('language.es')}</option>
+        </Select>
+      </Row>
     </Section>
   );
 }

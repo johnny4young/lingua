@@ -165,6 +165,8 @@ interface InstalledPluginRecord {
 interface LinguaAPI {
   platform: string;
 
+  getSystemLanguages: () => Promise<string[]>;
+
   confirmClose: (dirtyFileNames: string[]) => Promise<number>;
   confirmCloseTab: (fileName: string) => Promise<number>;
   onBeforeClose: (callback: () => void) => () => void;
