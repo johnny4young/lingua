@@ -13,6 +13,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
@@ -48,6 +49,7 @@ export function Toolbar({
   const plugins = usePluginStore((state) => state.plugins);
   const [isNewFileMenuOpen, setIsNewFileMenuOpen] = useState(false);
   const newFileMenuRef = useRef<HTMLDivElement | null>(null);
+  const { t } = useTranslation();
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const hasTabs = tabs.length > 0;
@@ -106,7 +108,7 @@ export function Toolbar({
         <IconButton
           onClick={toggleSidebar}
           active={sidebarVisible}
-          title="Toggle sidebar (Cmd+B)"
+          title={t('toolbar.sidebar.toggle')}
           aria-controls="project-explorer"
           aria-expanded={sidebarVisible}
         >
@@ -119,26 +121,26 @@ export function Toolbar({
           onClick={run}
           disabled={isRunning || !hasTabs}
           className="button-primary min-w-[7.4rem] justify-center bg-success text-background hover:bg-success/92"
-          title="Run (Cmd+Enter)"
+          title={t('toolbar.run.title')}
         >
           {isInitializing ? (
             <Loader2 size={13} className="animate-spin" />
           ) : (
             <Play size={13} fill="currentColor" />
           )}
-          {loadingMessage ?? (isRunning ? 'Running...' : 'Run')}
+          {loadingMessage ?? (isRunning ? t('toolbar.run.running') : t('toolbar.run.label'))}
         </button>
 
         {isRunning && (
-          <button onClick={stop} className="button-danger" title="Stop">
+          <button onClick={stop} className="button-danger" title={t('toolbar.run.stop')}>
             <Square size={11} fill="currentColor" />
-            Stop
+            {t('toolbar.run.stop')}
           </button>
         )}
 
         <IconButton
           onClick={() => void useEditorStore.getState().openFileFromDisk()}
-          title="Open file (Cmd+O)"
+          title={t('toolbar.openFile')}
         >
           <FolderOpen size={15} />
         </IconButton>
@@ -149,17 +151,17 @@ export function Toolbar({
           <button
             onClick={() => handleNewFile(defaultNewFileLanguage)}
             className="button-secondary rounded-r-none border-r-0 pr-3.5"
-            title={`New ${defaultNewFileLabel} file`}
+            title={t('toolbar.newFile.primaryTitle', { language: defaultNewFileLabel })}
           >
             <Plus size={13} />
-            {`New ${defaultNewFileLabel}`}
+            {t('toolbar.newFile.primary', { language: defaultNewFileLabel })}
           </button>
           <button
             onClick={() => setIsNewFileMenuOpen((currentValue) => !currentValue)}
             className={`button-secondary rounded-l-none px-2.5 ${
               isNewFileMenuOpen ? 'text-primary' : ''
             }`}
-            title="Choose language for new file"
+            title={t('toolbar.newFile.menuTitle')}
             aria-haspopup="menu"
             aria-expanded={isNewFileMenuOpen}
           >
@@ -169,7 +171,7 @@ export function Toolbar({
           {isNewFileMenuOpen && (
             <div
               role="menu"
-              aria-label="New file language menu"
+              aria-label={t('toolbar.newFile.menuAriaLabel')}
               className="surface-panel-strong absolute left-0 top-[calc(100%+0.55rem)] z-20 min-w-52 p-1.5"
             >
               {languages.map((language) => (
@@ -186,7 +188,7 @@ export function Toolbar({
                   <span>{language.label}</span>
                   {language.id === defaultNewFileLanguage && (
                     <span className="status-pill border-primary/20 bg-transparent px-0 text-primary">
-                      Current
+                      {t('toolbar.newFile.current')}
                     </span>
                   )}
                 </button>
@@ -199,27 +201,27 @@ export function Toolbar({
       <div className="flex min-w-0 items-center gap-1">
         {activeTab && (
           <div className="status-pill hidden max-w-[14rem] truncate sm:flex">
-            {defaultNewFileLabel} active
+            {t('toolbar.languageActive', { language: defaultNewFileLabel })}
           </div>
         )}
 
-        <IconButton onClick={onOpenQuickOpen} title="Go to file (Cmd+P)">
+        <IconButton onClick={onOpenQuickOpen} title={t('toolbar.quickOpen')}>
           <Search size={15} />
         </IconButton>
-        <IconButton onClick={onOpenPalette} title="Command palette (Cmd+Shift+P)">
+        <IconButton onClick={onOpenPalette} title={t('toolbar.commandPalette')}>
           <Terminal size={15} />
         </IconButton>
-        <IconButton onClick={onOpenSnippets} title="Snippets">
+        <IconButton onClick={onOpenSnippets} title={t('toolbar.snippets')}>
           <BookCopy size={15} />
         </IconButton>
         <IconButton
           onClick={toggleConsole}
           active={consoleVisible}
-          title="Toggle console (Cmd+\\)"
+          title={t('toolbar.console.toggle')}
         >
           <PanelBottom size={15} />
         </IconButton>
-        <IconButton onClick={onOpenSettings} title="Settings (Cmd+,)">
+        <IconButton onClick={onOpenSettings} title={t('toolbar.settings')}>
           <Settings size={15} />
         </IconButton>
       </div>
