@@ -511,11 +511,12 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Appearance section title, description, theme cards, and language dropdown localized
   - Layout, Editor, Updates, and Plugins sections now use locale-driven copy inside the same settings surface
   - Toolbar actions, menu labels, and accessibility text now use locale-driven copy
+  - Editor empty state headline, descriptions, shortcuts, and template count now use locale-driven copy
   - `document.documentElement.lang` now tracks the active app language
   - Runtime language switching falls back safely to `en` if system-locale resolution fails
   - Persisted invalid language values are sanitized during settings rehydration and i18n bootstrap
   - `npx tsc --noEmit` is clean again after aligning shared UI code with current library APIs
-  - 21 focused i18n/settings tests added or updated (353 total passing)
+  - 22 focused i18n/settings and empty-state tests added or updated (357 total passing)
   - Phases 2-4 remain planned
 - Why this is now concrete:
   - Benchmark apps and websites already use multilingual product messaging and maintainable locale structures
