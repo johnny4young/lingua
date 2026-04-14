@@ -1,16 +1,22 @@
+import { useTranslation } from 'react-i18next';
 import { createDefaultTab, useEditorStore } from '../../stores/editorStore';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { Language } from '../../types';
 import {
   extensionForLanguage,
   languageBadgeClass,
+  languageLabel,
 } from '../../utils/languageMeta';
 import { Kbd } from '../ui/chrome';
 
 const LANGUAGE_ORDER: Language[] = ['javascript', 'typescript', 'go', 'python', 'rust'];
 
+const FEATURED_TEMPLATES = BUILT_IN_TEMPLATES.slice(0, 6);
+const TOTAL_TEMPLATE_COUNT = BUILT_IN_TEMPLATES.length;
+
 export function EditorEmptyState() {
   const { addTab } = useEditorStore();
+  const { t } = useTranslation();
 
   const openTemplate = (templateId: string) => {
     const template = BUILT_IN_TEMPLATES.find((item) => item.id === templateId);
@@ -44,7 +50,7 @@ export function EditorEmptyState() {
               <span className="absolute inset-1 rounded-[1.1rem] border border-white/6" />
             </div>
             <div>
-              <p className="panel-title">Developer Workbench</p>
+              <p className="panel-title">{t('emptyState.brandLabel')}</p>
               <h1 className="font-display text-4xl font-semibold tracking-[-0.04em] text-foreground sm:text-5xl">
                 Lingua
               </h1>
@@ -53,12 +59,10 @@ export function EditorEmptyState() {
 
           <div className="max-w-2xl space-y-3">
             <p className="max-w-xl text-balance font-display text-[1.95rem] font-semibold leading-tight tracking-[-0.04em] text-foreground sm:text-[2.45rem]">
-              Run experiments fast, keep the workspace calm, and stay inside one editor.
+              {t('emptyState.headline')}
             </p>
             <p className="max-w-xl text-sm leading-7 text-muted sm:text-base">
-              Start a blank file, open a language template, or jump straight to a snippet.
-              The shell is tuned for tight feedback loops and native desktop execution when
-              you need it.
+              {t('emptyState.description')}
             </p>
           </div>
 
@@ -66,27 +70,24 @@ export function EditorEmptyState() {
             {LANGUAGE_ORDER.map((language) => (
               <button
                 key={language}
+                type="button"
                 onClick={() => quickStart(language)}
                 className={`rounded-full px-4 py-2 text-xs font-semibold transition-transform hover:-translate-y-0.5 ${languageBadgeClass(language)}`}
               >
-                {language === 'javascript'
-                  ? 'JavaScript'
-                  : language === 'typescript'
-                    ? 'TypeScript'
-                    : language.charAt(0).toUpperCase() + language.slice(1)}
+                {languageLabel(language)}
               </button>
             ))}
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted">
             <span>
-              <Kbd>Cmd+Shift+P</Kbd> Commands
+              <Kbd>Cmd+Shift+P</Kbd> {t('emptyState.shortcut.commands')}
             </span>
             <span>
-              <Kbd>Cmd+B</Kbd> Sidebar
+              <Kbd>Cmd+B</Kbd> {t('emptyState.shortcut.sidebar')}
             </span>
             <span>
-              <Kbd>Cmd+Enter</Kbd> Run
+              <Kbd>Cmd+Enter</Kbd> {t('emptyState.shortcut.run')}
             </span>
           </div>
         </section>
@@ -94,16 +95,21 @@ export function EditorEmptyState() {
         <section className="surface-panel-strong animate-rise-in overflow-hidden">
           <div className="surface-header flex items-center justify-between px-5 py-4">
             <div>
-              <p className="panel-title">Starting Points</p>
-              <p className="mt-1 text-sm text-muted">Open a proven template and iterate.</p>
+              <p className="panel-title">{t('emptyState.startingPoints.title')}</p>
+              <p className="mt-1 text-sm text-muted">
+                {t('emptyState.startingPoints.description')}
+              </p>
             </div>
-            <div className="status-pill">9 templates</div>
+            <div className="status-pill">
+              {t('emptyState.templatesCount', { count: TOTAL_TEMPLATE_COUNT })}
+            </div>
           </div>
 
           <div className="grid gap-2 p-3 sm:grid-cols-2">
-            {BUILT_IN_TEMPLATES.slice(0, 6).map((template) => (
+            {FEATURED_TEMPLATES.map((template) => (
               <button
                 key={template.id}
+                type="button"
                 onClick={() => openTemplate(template.id)}
                 className="group flex flex-col gap-2 rounded-[1.35rem] border border-border/80 bg-background-elevated/74 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-border-strong/90 hover:bg-background-elevated"
               >

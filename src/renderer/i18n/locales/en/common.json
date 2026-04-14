@@ -88,5 +88,15 @@
   "toolbar.commandPalette": "Command palette (Cmd+Shift+P)",
   "toolbar.snippets": "Snippets",
   "toolbar.console.toggle": "Toggle console (Cmd+\\)",
-  "toolbar.settings": "Settings (Cmd+,)"
+  "toolbar.settings": "Settings (Cmd+,)",
+  "emptyState.brandLabel": "Developer Workbench",
+  "emptyState.headline": "Run experiments fast, keep the workspace calm, and stay inside one editor.",
+  "emptyState.description": "Start a blank file, open a language template, or jump straight to a snippet. The shell is tuned for tight feedback loops and native desktop execution when you need it.",
+  "emptyState.shortcut.commands": "Commands",
+  "emptyState.shortcut.sidebar": "Sidebar",
+  "emptyState.shortcut.run": "Run",
+  "emptyState.startingPoints.title": "Starting Points",
+  "emptyState.startingPoints.description": "Open a proven template and iterate.",
+  "emptyState.templatesCount_one": "{{count}} template",
+  "emptyState.templatesCount_other": "{{count}} templates"
 }
