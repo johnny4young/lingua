@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import i18next from 'i18next';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be hoisted before component imports
@@ -111,9 +112,10 @@ function resetRunnerState(partial: Partial<typeof mockRunnerState> = {}) {
 // ---------------------------------------------------------------------------
 
 describe('Toolbar', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetRunnerState();
     vi.clearAllMocks();
+    await i18next.changeLanguage('en');
   });
 
   it('renders without crashing', () => {
@@ -189,5 +191,17 @@ describe('Toolbar', () => {
     expect(mockAddTab).toHaveBeenCalledWith(
       expect.objectContaining({ language: 'go' })
     );
+  });
+
+  it('renders localized toolbar copy in Spanish', async () => {
+    await i18next.changeLanguage('es');
+
+    render(<Toolbar />);
+
+    expect(screen.getByTitle('Ejecutar (Cmd+Enter)')).toBeTruthy();
+    expect(screen.getByTitle('Abrir archivo (Cmd+O)')).toBeTruthy();
+    expect(screen.getByTitle('Nuevo archivo JavaScript')).toBeTruthy();
+    expect(screen.getByTitle('Elige el lenguaje del nuevo archivo')).toBeTruthy();
+    expect(screen.getByTitle('Configuración (Cmd+,)')).toBeTruthy();
   });
 });
