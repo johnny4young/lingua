@@ -71,5 +71,22 @@
   "language.hint": "Elige el idioma de la interfaz de Lingua.",
   "language.system": "Sistema",
   "language.en": "Ingl\u00e9s",
-  "language.es": "Espa\u00f1ol"
+  "language.es": "Espa\u00f1ol",
+  "toolbar.sidebar.toggle": "Alternar barra lateral (Cmd+B)",
+  "toolbar.run.title": "Ejecutar (Cmd+Enter)",
+  "toolbar.run.label": "Ejecutar",
+  "toolbar.run.running": "Ejecutando...",
+  "toolbar.run.stop": "Detener",
+  "toolbar.openFile": "Abrir archivo (Cmd+O)",
+  "toolbar.newFile.primary": "Nuevo {{language}}",
+  "toolbar.newFile.primaryTitle": "Nuevo archivo {{language}}",
+  "toolbar.newFile.menuTitle": "Elige el lenguaje del nuevo archivo",
+  "toolbar.newFile.menuAriaLabel": "Men\u00fa de lenguaje para nuevo archivo",
+  "toolbar.newFile.current": "Actual",
+  "toolbar.languageActive": "{{language}} activo",
+  "toolbar.quickOpen": "Ir al archivo (Cmd+P)",
+  "toolbar.commandPalette": "Paleta de comandos (Cmd+Shift+P)",
+  "toolbar.snippets": "Fragmentos",
+  "toolbar.console.toggle": "Alternar consola (Cmd+\\)",
+  "toolbar.settings": "Configuraci\u00f3n (Cmd+,)"
 }

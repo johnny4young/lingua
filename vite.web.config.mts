@@ -28,6 +28,9 @@ export default defineConfig({
     },
     dedupe: ['react', 'react-dom', 'i18next', 'react-i18next'],
   },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-i18next', 'i18next'],
+  },
   build: {
     outDir: path.resolve(__dirname, 'dist/web'),
     emptyOutDir: true,

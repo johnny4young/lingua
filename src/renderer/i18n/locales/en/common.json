@@ -71,5 +71,22 @@
   "language.hint": "Choose the display language for the Lingua interface.",
   "language.system": "System",
   "language.en": "English",
-  "language.es": "Spanish"
+  "language.es": "Spanish",
+  "toolbar.sidebar.toggle": "Toggle sidebar (Cmd+B)",
+  "toolbar.run.title": "Run (Cmd+Enter)",
+  "toolbar.run.label": "Run",
+  "toolbar.run.running": "Running...",
+  "toolbar.run.stop": "Stop",
+  "toolbar.openFile": "Open file (Cmd+O)",
+  "toolbar.newFile.primary": "New {{language}}",
+  "toolbar.newFile.primaryTitle": "New {{language}} file",
+  "toolbar.newFile.menuTitle": "Choose language for new file",
+  "toolbar.newFile.menuAriaLabel": "New file language menu",
+  "toolbar.newFile.current": "Current",
+  "toolbar.languageActive": "{{language}} active",
+  "toolbar.quickOpen": "Go to file (Cmd+P)",
+  "toolbar.commandPalette": "Command palette (Cmd+Shift+P)",
+  "toolbar.snippets": "Snippets",
+  "toolbar.console.toggle": "Toggle console (Cmd+\\)",
+  "toolbar.settings": "Settings (Cmd+,)"
 }
