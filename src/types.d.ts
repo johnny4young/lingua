@@ -167,8 +167,8 @@ interface LinguaAPI {
 
   getSystemLanguages: () => Promise<string[]>;
 
-  confirmClose: (dirtyFileNames: string[]) => Promise<number>;
-  confirmCloseTab: (fileName: string) => Promise<number>;
+  confirmClose: (dirtyFileNames: string[], language?: string) => Promise<number>;
+  confirmCloseTab: (fileName: string, language?: string) => Promise<number>;
   onBeforeClose: (callback: () => void) => () => void;
   forceClose: () => void;
 
@@ -190,7 +190,7 @@ interface LinguaAPI {
     stat: (filePath: string) => Promise<FsStatResult>;
     read: (filePath: string) => Promise<string>;
     write: (filePath: string, content: string) => Promise<boolean>;
-    delete: (filePath: string, isDirectory?: boolean) => Promise<boolean>;
+    delete: (filePath: string, isDirectory?: boolean, language?: string) => Promise<boolean>;
     rename: (oldPath: string, newName: string) => Promise<string>;
     mkdir: (dirPath: string) => Promise<boolean>;
     touch: (filePath: string) => Promise<boolean>;

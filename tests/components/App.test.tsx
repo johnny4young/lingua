@@ -195,7 +195,7 @@ describe('App', () => {
     beforeCloseHandler?.();
 
     await waitFor(() => {
-      expect(mockConfirmClose).toHaveBeenCalledWith(['untitled.js']);
+      expect(mockConfirmClose).toHaveBeenCalledWith(['untitled.js'], 'en');
       expect(mockSaveDialog).toHaveBeenCalledWith('untitled.js');
       expect(mockWrite).toHaveBeenCalledWith('/saved/untitled.js', 'console.log("dirty")');
       expect(mockForceClose).toHaveBeenCalledTimes(1);

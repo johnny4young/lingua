@@ -21,6 +21,7 @@ import {
 } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import path from 'node:path';
+import { translateCommon } from '../../shared/i18n/runtime';
 import { isPathBlocked, isSafeEntryName } from './permissions';
 
 /** Active file system watchers keyed by directory path */
@@ -58,6 +59,12 @@ function shouldHide(name: string): boolean {
 }
 
 export function registerFileSystemHandlers(): void {
+  const t = (
+    language: string | undefined,
+    key: string,
+    options?: Record<string, unknown>
+  ) => translateCommon(language ?? 'en', key, options);
+
   const assertSafeEntryName = (name: string, operation: string) => {
     if (!isSafeEntryName(name)) {
       throw new Error(`Invalid ${operation}: "${name}"`);
@@ -100,15 +107,19 @@ export function registerFileSystemHandlers(): void {
 
   ipcMain.handle(
     'app:confirm-close',
-    async (event, dirtyFileNames: string[]) => {
+    async (event, dirtyFileNames: string[], language?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       const { response } = await dialog.showMessageBox(win!, {
         type: 'question',
-        buttons: ['Save All', 'Discard', 'Cancel'],
+        buttons: [
+          t(language, 'dialogs.actions.saveAll'),
+          t(language, 'dialogs.actions.discard'),
+          t(language, 'dialogs.actions.cancel'),
+        ],
         defaultId: 0,
         cancelId: 2,
-        title: 'Unsaved Changes',
-        message: `You have unsaved changes in ${dirtyFileNames.length} file(s).`,
+        title: t(language, 'dialogs.closeApp.title'),
+        message: t(language, 'dialogs.closeApp.message', { count: dirtyFileNames.length }),
         detail: dirtyFileNames.join(', '),
       });
       return response;
@@ -117,16 +128,20 @@ export function registerFileSystemHandlers(): void {
 
   ipcMain.handle(
     'app:confirm-close-tab',
-    async (event, fileName: string) => {
+    async (event, fileName: string, language?: string) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       const { response } = await dialog.showMessageBox(win!, {
         type: 'question',
-        buttons: ['Save', 'Discard', 'Cancel'],
+        buttons: [
+          t(language, 'dialogs.actions.save'),
+          t(language, 'dialogs.actions.discard'),
+          t(language, 'dialogs.actions.cancel'),
+        ],
         defaultId: 0,
         cancelId: 2,
-        title: 'Unsaved Changes',
-        message: `"${fileName}" has unsaved changes.`,
-        detail: 'Do you want to save before closing?',
+        title: t(language, 'dialogs.closeTab.title'),
+        message: t(language, 'dialogs.closeTab.message', { name: fileName }),
+        detail: t(language, 'dialogs.closeTab.detail'),
       });
       return response;
     }
@@ -195,7 +210,7 @@ export function registerFileSystemHandlers(): void {
 
   ipcMain.handle(
     'fs:delete',
-    async (event, filePath: string, isDirectory = false) => {
+    async (event, filePath: string, isDirectory = false, language?: string) => {
       if (isPathBlocked(filePath, 'delete')) {
         throw new Error(
           `Access denied: Cannot delete protected path: ${filePath}`
@@ -205,14 +220,19 @@ export function registerFileSystemHandlers(): void {
       const win = BrowserWindow.fromWebContents(event.sender);
       const { response } = await dialog.showMessageBox(win!, {
         type: 'warning',
-        buttons: ['Delete', 'Cancel'],
+        buttons: [
+          t(language, 'dialogs.actions.delete'),
+          t(language, 'dialogs.actions.cancel'),
+        ],
         defaultId: 1,
         cancelId: 1,
-        title: 'Confirm Delete',
-        message: `Delete "${path.basename(filePath)}"?`,
+        title: t(language, 'dialogs.delete.title'),
+        message: t(language, 'dialogs.delete.message', {
+          name: path.basename(filePath),
+        }),
         detail: isDirectory
-          ? 'This will permanently delete the folder and all its contents. This action cannot be undone.'
-          : 'This action cannot be undone.',
+          ? t(language, 'dialogs.delete.detail.directory')
+          : t(language, 'dialogs.delete.detail.file'),
       });
 
       if (response !== 0) return false; // user cancelled

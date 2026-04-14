@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { EditorState, FileTab, Language } from '../types';
+import { getActiveAppLanguage } from '../i18n';
 import { defaultCodeForLanguage, extensionForLanguage } from '../utils/languageMeta';
 import { languageFromPath } from '../utils/language';
 import { useRecentFilesStore } from './recentFilesStore';
@@ -144,7 +145,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
 
     // Show confirmation dialog
-    const response = await window.lingua.confirmCloseTab(tab.name);
+    const response = await window.lingua.confirmCloseTab(
+      tab.name,
+      getActiveAppLanguage()
+    );
     if (response === 0) {
       // Save first
       if (tab.filePath) {

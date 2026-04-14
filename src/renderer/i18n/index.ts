@@ -1,23 +1,29 @@
 import i18next from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import type { AppLanguage } from '../types';
-import en from './locales/en/common.json';
-import es from './locales/es/common.json';
-
-const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
-
-function isSupportedLanguage(language: string): language is (typeof SUPPORTED_LANGUAGES)[number] {
-  return (SUPPORTED_LANGUAGES as readonly string[]).includes(language);
-}
-
-function coerceSupportedLanguage(language: string): (typeof SUPPORTED_LANGUAGES)[number] {
-  return isSupportedLanguage(language) ? language : 'en';
-}
+import {
+  COMMON_NAMESPACE,
+  COMMON_RESOURCES,
+  coerceSupportedLanguage,
+  resolveSystemLanguage,
+} from '../../shared/i18n/resources';
 
 function updateDocumentLanguage(language: string): void {
   if (typeof document !== 'undefined') {
     document.documentElement.lang = language;
   }
+}
+
+/**
+ * Returns the current active app language, tolerating the case where
+ * i18next has not been initialized yet (e.g. during early bootstrap or
+ * isolated unit tests). Always resolves to a supported language string
+ * that can safely be forwarded to `translateCommon` or sent over IPC.
+ */
+export function getActiveAppLanguage(): string {
+  return coerceSupportedLanguage(
+    i18next.resolvedLanguage ?? i18next.language ?? 'en'
+  );
 }
 
 export function getBrowserSystemLanguages(
@@ -37,23 +43,6 @@ export function getBrowserSystemLanguages(
   }
 
   return ['en'];
-}
-
-/**
- * Resolve a list of BCP 47 locale strings to the best supported language.
- * Strips region codes (e.g. `es-MX` -> `es`) and returns the first match,
- * or `'en'` when nothing matches.
- */
-export function resolveSystemLanguage(
-  systemLanguages: readonly string[]
-): string {
-  for (const tag of systemLanguages) {
-    const base = tag.split('-')[0]?.toLowerCase();
-    if (base && (SUPPORTED_LANGUAGES as readonly string[]).includes(base)) {
-      return base;
-    }
-  }
-  return 'en';
 }
 
 let initialized = false;
@@ -80,13 +69,10 @@ export function initI18n(language: string): typeof i18next {
   i18next.use(initReactI18next).init({
     lng: resolvedLanguage,
     fallbackLng: 'en',
-    defaultNS: 'common',
-    ns: ['common'],
+    defaultNS: COMMON_NAMESPACE,
+    ns: [COMMON_NAMESPACE],
     initAsync: false,
-    resources: {
-      en: { common: en },
-      es: { common: es },
-    },
+    resources: COMMON_RESOURCES,
     interpolation: { escapeValue: false },
     react: { useSuspense: false },
   });
@@ -116,3 +102,5 @@ export async function changeAppLanguage(
   await i18next.changeLanguage(resolved);
   updateDocumentLanguage(resolved);
 }
+
+export { resolveSystemLanguage };

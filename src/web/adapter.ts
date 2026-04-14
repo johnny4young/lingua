@@ -11,19 +11,22 @@
  * This module must be imported BEFORE the React application renders.
  */
 
-import { getBrowserSystemLanguages } from '../renderer/i18n';
+import { getActiveAppLanguage, getBrowserSystemLanguages } from '../renderer/i18n';
+import { translateCommon } from '../shared/i18n/runtime';
 import { webFsAdapter } from './fs-adapter';
 
-// ----------------------------------------------------- Go stub
+function t(key: string): string {
+  return translateCommon(getActiveAppLanguage(), key);
+}
 
 const goStub: LinguaAPI['go'] = {
   detect: async (): Promise<GoDetectResult> => ({
     installed: false,
-    error: 'Go compilation is not available in the web version. Download the desktop app to compile Go code.',
+    error: t('errors.go.webUnavailable'),
   }),
   compile: async (_sourceCode: string): Promise<GoCompileResult> => ({
     success: false,
-    error: 'Go compilation is not available in the web version. Download the desktop app to compile Go code.',
+    error: t('errors.go.webUnavailable'),
   }),
 };
 
@@ -32,30 +35,32 @@ const goStub: LinguaAPI['go'] = {
 const rustStub: LinguaAPI['rust'] = {
   detect: async (): Promise<RustDetectResult> => ({
     installed: false,
-    error: 'Rust compilation is not available in the web version. Download the desktop app to compile Rust code.',
+    error: t('errors.rust.webUnavailable'),
   }),
   run: async (_sourceCode: string): Promise<RustRunResult> => ({
     success: false,
     stdout: '',
-    stderr: 'Rust compilation is not available in the web version. Download the desktop app to compile Rust code.',
+    stderr: t('errors.rust.webUnavailable'),
     exitCode: 1,
     executionTime: 0,
-    error: 'Rust compilation is not available in the web version.',
+    error: t('errors.rust.webUnavailableShort'),
   }),
 };
 
 // -------------------------------------------------- Update stub
 
-const updateStubState: UpdateState = {
-  status: 'unavailable',
-  supported: false,
-  enabled: false,
-  message: 'Automatic updates are not available in the web version.',
-};
+function createUnavailableUpdateState(): UpdateState {
+  return {
+    status: 'unavailable',
+    supported: false,
+    enabled: false,
+    message: t('updates.message.webUnavailable'),
+  };
+}
 
 const updateStub: LinguaAPI['updates'] = {
-  getState: async () => updateStubState,
-  check: async () => updateStubState,
+  getState: async () => createUnavailableUpdateState(),
+  check: async () => createUnavailableUpdateState(),
   restartToApply: async () => false,
   onStateChanged: () => () => {},
 };
