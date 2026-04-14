@@ -496,11 +496,12 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P1`
 - Status: `Partial`
-- Readiness: `Phase 1 completed on 2026-04-13; settings surface extended further the same day`
+- Readiness: `Phases 1-2 completed on 2026-04-14`
 - Current progress:
   - Phase 1 (Foundation and Bootstrap) is complete
-  - Phase 2 has started with toolbar localization
+  - Phase 2 (highest-visibility surfaces) is complete
   - `i18next` and `react-i18next` installed and wired
+  - Shared i18n resources and a non-React translator now live under `src/shared/i18n/`
   - Locale resources for `en` and `es` with `common` namespace
   - `language` setting persisted in settingsStore with `system`, `en`, `es` options
   - Manual language selector implemented in Settings -> Appearance
@@ -514,12 +515,13 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Editor empty state headline, descriptions, shortcuts, and template count now use locale-driven copy
   - Command palette search placeholder, empty state, result count, hints, and built-in action labels now use locale-driven copy
   - Snippets modal library, detail panel, field labels, placeholders, action buttons, and active-tab hint now use locale-driven copy
+  - Electron `main` close/delete confirmation dialogs now use locale-driven copy
+  - Web adapter Go/Rust/update stub messages now resolve from the active locale instead of hardcoded English strings
   - `document.documentElement.lang` now tracks the active app language
   - Runtime language switching falls back safely to `en` if system-locale resolution fails
   - Persisted invalid language values are sanitized during settings rehydration and i18n bootstrap
   - `npx tsc --noEmit` is clean again after aligning shared UI code with current library APIs
-  - 25 focused i18n/settings, empty-state, command-palette, and snippets tests added or updated (361 total passing)
-  - Phase 2 remaining targets: Electron `main` confirm dialogs and web adapter stub messages
+  - Focused i18n coverage now includes renderer surfaces, Electron IPC dialog copy, and web adapter stub messaging (357 total passing)
   - Phases 3-4 remain planned
 - Why this is now concrete:
   - Benchmark apps and websites already use multilingual product messaging and maintainable locale structures

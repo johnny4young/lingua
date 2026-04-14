@@ -4,6 +4,7 @@ import { SettingsModal } from './components/Settings/SettingsModal';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { SnippetsModal } from './components/Snippets';
+import { getActiveAppLanguage } from './i18n';
 import { useRunner } from './hooks/useRunner';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
@@ -86,7 +87,8 @@ export function App() {
       }
       void (async () => {
         const response = await window.lingua.confirmClose(
-          dirtyTabs.map((t) => t.name)
+          dirtyTabs.map((t) => t.name),
+          getActiveAppLanguage()
         );
         if (response === 0) {
           // Save all dirty tabs, including untitled tabs that still need a path.

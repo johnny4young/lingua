@@ -11,6 +11,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { getActiveAppLanguage } from '../i18n';
 import { languageFromPath } from '../utils/language';
 import {
   addNodeToParent,
@@ -195,7 +196,11 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       deleteEntry: async (entryPath: string, isDirectory: boolean) => {
-        const deleted = await window.lingua.fs.delete(entryPath, isDirectory);
+        const deleted = await window.lingua.fs.delete(
+          entryPath,
+          isDirectory,
+          getActiveAppLanguage()
+        );
         if (deleted) {
           set((s) => ({ nodes: removeNode(s.nodes, entryPath) }));
         }
