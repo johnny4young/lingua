@@ -88,5 +88,15 @@
   "toolbar.commandPalette": "Paleta de comandos (Cmd+Shift+P)",
   "toolbar.snippets": "Fragmentos",
   "toolbar.console.toggle": "Alternar consola (Cmd+\\)",
-  "toolbar.settings": "Configuraci\u00f3n (Cmd+,)"
+  "toolbar.settings": "Configuraci\u00f3n (Cmd+,)",
+  "emptyState.brandLabel": "Estaci\u00f3n de desarrollo",
+  "emptyState.headline": "Ejecuta experimentos r\u00e1pido, mant\u00e9n el espacio de trabajo en calma y qu\u00e9date dentro de un solo editor.",
+  "emptyState.description": "Abre un archivo en blanco, parte de una plantilla de lenguaje o salta directamente a un fragmento. El shell est\u00e1 afinado para ciclos de retroalimentaci\u00f3n r\u00e1pidos y ejecuci\u00f3n nativa de escritorio cuando la necesites.",
+  "emptyState.shortcut.commands": "Comandos",
+  "emptyState.shortcut.sidebar": "Barra lateral",
+  "emptyState.shortcut.run": "Ejecutar",
+  "emptyState.startingPoints.title": "Puntos de partida",
+  "emptyState.startingPoints.description": "Abre una plantilla probada e it\u00e9rala.",
+  "emptyState.templatesCount_one": "{{count}} plantilla",
+  "emptyState.templatesCount_other": "{{count}} plantillas"
 }
