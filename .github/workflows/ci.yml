@@ -31,6 +31,21 @@ jobs:
       - run: npm ci
       - run: npm run lint
 
+  i18n:
+    name: i18n checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check:i18n
+      - run: npm run check:i18n:copy
+
   test:
     name: Test
     runs-on: ubuntu-latest

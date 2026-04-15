@@ -69,12 +69,34 @@ Architecture deep dive:
 
 ```bash
 npm run lint
+npm run check:i18n
+npm run check:i18n:copy
 npm test
 npx tsc --noEmit
 npm run build:web
 ```
 
 These are the main local verification commands. CI also runs a non-blocking `npm audit`.
+
+## i18n contributor workflow
+
+- Locale files live in `src/renderer/i18n/locales/<language>/`. The current source locale is `src/renderer/i18n/locales/en/common.json`.
+- Add new user-facing copy with stable semantic keys such as `settings.title`; do not use raw English sentences as keys.
+- Resolve translated text at render/use sites with `t(...)` or shared i18n helpers instead of storing translated labels in config/state objects.
+- Keep these values non-localized in the current MVP: code samples, generated file names, language ids, plugin ids, and similar internal identifiers.
+- Command palette discoverability should stay language-aware: localize labels/descriptions, but keep English aliases in keyword lists when they help search.
+
+Verification commands:
+
+```bash
+npm run check:i18n
+npm run check:i18n:copy
+```
+
+What they enforce:
+
+- `check:i18n` fails on invalid locale JSON, missing translation keys, and orphaned keys relative to the English source locale.
+- `check:i18n:copy` inspects touched `src/renderer/**/*.ts(x)` files and flags obvious hardcoded JSX copy or literal UI attributes such as `title`, `aria-label`, and `placeholder`.
 
 ## UI smoke test
 

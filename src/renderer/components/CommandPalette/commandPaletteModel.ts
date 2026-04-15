@@ -53,7 +53,7 @@ function buildTemplateCommand(
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void,
   createDefaultTab: (language: Language) => FileTab,
   onClose: () => void,
-  t: TFunction | undefined
+  t?: TFunction
 ): CommandEntry {
   const label = resolveTemplateLabel(template, t);
   const description = resolveTemplateDescription(template, t);
@@ -65,7 +65,10 @@ function buildTemplateCommand(
     label,
     description,
     language: template.language,
-    keywords: normalizeKeywords([label, template.language, description]),
+    // Keep the English `fileStem` in the keyword index so the command palette
+    // stays bilingually searchable even when the active locale is not `en`
+    // (see RL-018 Phase 3: discoverability aliases must survive localization).
+    keywords: normalizeKeywords([label, fileStem, template.language, description]),
     action: () => {
       const tab = createDefaultTab(template.language);
       createTab({

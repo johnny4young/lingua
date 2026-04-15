@@ -133,6 +133,40 @@ describe('buildCommandPaletteModel', () => {
     }
   });
 
+  it('indexes templates by the English file stem so they stay findable across locales', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const commands = buildCommandPaletteModel({
+        templates: BUILT_IN_TEMPLATES.slice(0, 1),
+        snippets: [],
+        updateStatus: 'idle',
+        createTab: vi.fn(),
+        createDefaultTab: (language) => ({
+          id: `tab-${language}`,
+          name: `untitled-${language}`,
+          language,
+          content: '',
+          isDirty: false,
+        }),
+        setLayoutPreset: vi.fn(),
+        onClose: vi.fn(),
+        onOpenSettings: vi.fn(),
+        onOpenSnippets: vi.fn(),
+        checkForUpdates: vi.fn().mockResolvedValue(undefined),
+        restartToApply: vi.fn().mockResolvedValue(true),
+        t: i18next.t.bind(i18next),
+      });
+
+      const [templateCommand] = commands;
+      expect(templateCommand?.keywords).toContain('hello world');
+      expect(templateCommand?.keywords).toContain('hola mundo');
+      expect(filterCommandPaletteCommands(commands, 'hello')).toContain(templateCommand);
+      expect(filterCommandPaletteCommands(commands, 'hola')).toContain(templateCommand);
+    } finally {
+      await i18next.changeLanguage('en');
+    }
+  });
+
   it('keeps matching commands when filtering by keywords, label, or description', () => {
     const commands = [
       {
