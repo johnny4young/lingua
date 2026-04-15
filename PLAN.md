@@ -2005,8 +2005,12 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-055 Add file-extension-based language detection when opening files
 
 - Priority: `P1`
-- Status: `Ready to implement`
-- Readiness: `Immediate — no architectural dependencies`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-15`
+- Current progress:
+  - `languageForExtension()` now derives a normalized reverse map from the built-in language metadata
+  - Open-file, Save As, session restore, and file-tree rename flows now resolve known extensions to the correct language and unknown extensions to `plaintext`
+  - Focused tests cover extension mapping plus editor/session/project-tree integration paths
 - Current gap:
   - `extensionForLanguage()` in `src/renderer/utils/languageMeta.ts` provides a forward mapping (language → extension) but there is no reverse `languageForExtension()` utility
   - When users open arbitrary files from the file system (e.g., `main.go`, `script.py`, `lib.rs`), the editor cannot auto-select the correct language from the file extension alone
@@ -2030,8 +2034,13 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-056 Add immediate Monaco keyword completion providers for Go, Python, Rust, and Lua
 
 - Priority: `P1`
-- Status: `Ready to implement`
-- Readiness: `Immediate — does not require LSP, RL-038, or RL-030`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-15`
+- Current progress:
+  - Monaco now registers scoped completion providers for Go, Python, Rust, and Lua during editor bootstrap
+  - Providers are registered idempotently so repeated `beforeMount` calls do not duplicate suggestions
+  - Each language ships keyword completions plus snippet templates for the most common patterns and entrypoints
+  - Focused unit tests cover provider registration and representative suggestions per language
 - Current gap:
   - Monaco TypeScript language service provides full IntelliSense (completion, hover, diagnostics) for JS and TS
   - Go, Python, Rust, and Lua have zero custom completion providers — users get only Monaco's generic word-based autocomplete

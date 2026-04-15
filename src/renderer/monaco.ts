@@ -6,6 +6,10 @@ import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import { createGoCompletionProvider } from './components/Editor/completionProviders/goCompletions';
+import { createPythonCompletionProvider } from './components/Editor/completionProviders/pythonCompletions';
+import { createRustCompletionProvider } from './components/Editor/completionProviders/rustCompletions';
+import { createLuaCompletionProvider } from './components/Editor/completionProviders/luaCompletions';
 
 type MonacoWorkerFactory = new () => Worker;
 
@@ -28,6 +32,14 @@ function getWorkerFactory(label: string): MonacoWorkerFactory {
 }
 
 let configured = false;
+let completionProvidersRegistered = false;
+
+const completionProviderFactories = [
+  ['go', createGoCompletionProvider],
+  ['python', createPythonCompletionProvider],
+  ['rust', createRustCompletionProvider],
+  ['lua', createLuaCompletionProvider],
+] as const;
 
 /**
  * Set up the worker environment and loader. Must be called once before any
@@ -86,4 +98,13 @@ export function applyTypeScriptDefaults(m: Monaco): void {
   ts.typescriptDefaults.setEagerModelSync(true);
   ts.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
   ts.typescriptDefaults.setCompilerOptions(compilerOptions);
+}
+
+export function registerLanguageCompletionProviders(m: Monaco): void {
+  if (completionProvidersRegistered) return;
+  completionProvidersRegistered = true;
+
+  for (const [languageId, createProvider] of completionProviderFactories) {
+    m.languages.registerCompletionItemProvider(languageId, createProvider(m));
+  }
 }
