@@ -4,6 +4,7 @@ const loaderConfig = vi.fn();
 const jsSetCompilerOptions = vi.fn();
 const jsSetDiagnosticsOptions = vi.fn();
 const jsSetEagerModelSync = vi.fn();
+const registerCompletionItemProvider = vi.fn();
 const tsSetCompilerOptions = vi.fn();
 const tsSetDiagnosticsOptions = vi.fn();
 const tsSetEagerModelSync = vi.fn();
@@ -17,6 +18,14 @@ class MockTsWorker {}
 const monacoMock = {
   editor: {},
   languages: {
+    CompletionItemKind: {
+      Keyword: 17,
+      Snippet: 27,
+    },
+    CompletionItemInsertTextRule: {
+      InsertAsSnippet: 4,
+    },
+    registerCompletionItemProvider,
     typescript: {
       javascriptDefaults: {
         setCompilerOptions: jsSetCompilerOptions,
@@ -154,6 +163,42 @@ describe('applyTypeScriptDefaults', () => {
         strict: true,
         target: 9,
       })
+    );
+  });
+});
+
+describe('registerLanguageCompletionProviders', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
+  it('registers completion providers for Go, Python, Rust, and Lua once', async () => {
+    const { registerLanguageCompletionProviders } = await import('@/monaco');
+
+    registerLanguageCompletionProviders(monacoMock as never);
+    registerLanguageCompletionProviders(monacoMock as never);
+
+    expect(registerCompletionItemProvider).toHaveBeenCalledTimes(4);
+    expect(registerCompletionItemProvider).toHaveBeenNthCalledWith(
+      1,
+      'go',
+      expect.any(Object)
+    );
+    expect(registerCompletionItemProvider).toHaveBeenNthCalledWith(
+      2,
+      'python',
+      expect.any(Object)
+    );
+    expect(registerCompletionItemProvider).toHaveBeenNthCalledWith(
+      3,
+      'rust',
+      expect.any(Object)
+    );
+    expect(registerCompletionItemProvider).toHaveBeenNthCalledWith(
+      4,
+      'lua',
+      expect.any(Object)
     );
   });
 });

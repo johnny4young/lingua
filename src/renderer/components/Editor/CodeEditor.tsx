@@ -4,7 +4,11 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
-import { configureMonaco, applyTypeScriptDefaults } from '../../monaco';
+import {
+  configureMonaco,
+  applyTypeScriptDefaults,
+  registerLanguageCompletionProviders,
+} from '../../monaco';
 import { getExecutionErrorKey } from '../../utils/editorExecutionDecorations';
 import { useInlineResults } from '../../hooks/useInlineResults';
 import { EditorEmptyState } from './EditorEmptyState';
@@ -30,6 +34,12 @@ export function CodeEditor() {
     useInlineResults();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  const handleBeforeMount = useCallback((monaco: Monaco) => {
+    defineCustomThemes(monaco);
+    applyTypeScriptDefaults(monaco);
+    registerLanguageCompletionProviders(monaco);
+  }, []);
 
   // Sync scroll with ResultPanel
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
@@ -91,7 +101,7 @@ export function CodeEditor() {
       language={monacoLanguageFor(activeTab.language)}
       value={activeTab.content}
       theme={editorTheme}
-      beforeMount={(m) => { defineCustomThemes(m); applyTypeScriptDefaults(m); }}
+      beforeMount={handleBeforeMount}
       onMount={handleEditorMount}
       onChange={(value) => {
         if (value !== undefined) {

@@ -20,6 +20,7 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 ## Editor diagnostics and results
 
 - Monaco JavaScript and TypeScript diagnostics target the same ES2022 + Web Worker runtime contract used by execution
+- Go, Python, Rust, and Lua now ship immediate Monaco keyword/snippet completions so non-JS files get editor assistance before full LSP support exists
 - Auto-run and manual run now feed the same result state, so the result panel and editor stay synchronized instead of diverging by execution path
 - Dynamic-language runs render inline line decorations in the editor, and runtime or compile errors with source locations are surfaced as Monaco markers without overwriting TypeScript diagnostics
 - Location-aware execution errors now reveal their source line in the editor, and Monaco glyph-margin diagnostics are enabled so runtime and compile failures are easier to scan
