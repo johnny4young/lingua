@@ -134,6 +134,27 @@ describe('sessionStore', () => {
     expect(tabs[0].content).toContain('File not found');
   });
 
+  it('restores unknown file extensions as plaintext tabs', async () => {
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          name: 'notes.txt',
+          language: 'javascript',
+          content: '',
+          filePath: '/docs/notes.txt',
+        },
+      ],
+      savedActiveIndex: 0,
+    });
+
+    await useSessionStore.getState().restoreSession();
+
+    const { tabs } = useEditorStore.getState();
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].name).toBe('notes.txt');
+    expect(tabs[0].language).toBe('plaintext');
+  });
+
   it('should not restore when there are no saved tabs', async () => {
     await useSessionStore.getState().restoreSession();
     expect(useEditorStore.getState().tabs).toHaveLength(0);

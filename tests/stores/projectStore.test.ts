@@ -4,6 +4,7 @@ import {
   useProjectStore,
 } from '@/stores/projectStore';
 import {
+  entriesToNodes,
   collectExpandedPaths,
   setNodeChildren,
   toggleExpanded,
@@ -163,6 +164,21 @@ describe('renameNode', () => {
     const result = renameNode(nodes, '/proj/src/old.ts', '/proj/src/new.ts', 'new.ts');
     expect(result[0].children![0].path).toBe('/proj/src/new.ts');
     expect(result[0].children![0].name).toBe('new.ts');
+    expect(result[0].children![0].language).toBe('typescript');
+  });
+
+  it('recomputes language metadata when a file extension changes', () => {
+    const nodes = [
+      {
+        name: 'draft.rs',
+        path: '/proj/draft.rs',
+        isDirectory: false,
+        language: 'rust' as const,
+      },
+    ];
+
+    const result = renameNode(nodes, '/proj/draft.rs', '/proj/draft.txt', 'draft.txt');
+    expect(result[0].language).toBeUndefined();
   });
 });
 
@@ -223,6 +239,25 @@ describe('collectExpandedPaths', () => {
     ];
 
     expect(collectExpandedPaths(nodes)).toEqual(['/proj/src', '/proj/src/utils']);
+  });
+});
+
+describe('entriesToNodes', () => {
+  it('leaves unknown file extensions without a language instead of forcing javascript', () => {
+    const result = entriesToNodes([
+      { name: 'notes.txt', isDirectory: false, path: '/proj/notes.txt' },
+    ]);
+
+    expect(result).toEqual([
+      {
+        name: 'notes.txt',
+        path: '/proj/notes.txt',
+        isDirectory: false,
+        language: undefined,
+        children: undefined,
+        isExpanded: false,
+      },
+    ]);
   });
 });
 
