@@ -18,6 +18,8 @@
     "build:web": "vite build --config vite.web.config.mts",
     "preview:web": "vite preview --config vite.web.config.mts",
     "lint": "eslint .",
+    "check:i18n": "node ./scripts/check-i18n.mjs",
+    "check:i18n:copy": "node ./scripts/check-renderer-copy.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "test": "vitest run",
     "test:watch": "vitest"

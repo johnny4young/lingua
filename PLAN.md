@@ -495,11 +495,13 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-018 Build a maintainable i18n system for the app and future website
 
 - Priority: `P1`
-- Status: `Partial`
-- Readiness: `Phases 1-2 completed on 2026-04-14`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-14`
 - Current progress:
   - Phase 1 (Foundation and Bootstrap) is complete
   - Phase 2 (highest-visibility surfaces) is complete
+  - Phase 3 (config-driven and reusable text sources) is complete
+  - Phase 4 (enforcement and contributor workflow) is complete
   - `i18next` and `react-i18next` installed and wired
   - Shared i18n resources and a non-React translator now live under `src/shared/i18n/`
   - Locale resources for `en` and `es` with `common` namespace
@@ -521,8 +523,10 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Runtime language switching falls back safely to `en` if system-locale resolution fails
   - Persisted invalid language values are sanitized during settings rehydration and i18n bootstrap
   - `npx tsc --noEmit` is clean again after aligning shared UI code with current library APIs
-  - Focused i18n coverage now includes renderer surfaces, Electron IPC dialog copy, and web adapter stub messaging (357 total passing)
-  - Phases 3-4 remain planned
+  - Focused i18n coverage now includes renderer surfaces, Electron IPC dialog copy, and web adapter stub messaging
+  - Repo checks now validate missing locale keys, orphaned locale keys, and invalid locale JSON structure against the English source locale
+  - A renderer copy guard now scans touched `src/renderer/**/*.ts(x)` files for obvious hardcoded user-facing JSX copy and literal UI attributes
+  - Contributor documentation now covers locale file layout, key authoring rules, non-localized identifiers, and command-palette discoverability guidance
 - Why this is now concrete:
   - Benchmark apps and websites already use multilingual product messaging and maintainable locale structures
   - Lingua currently hardcodes most user-facing copy in the renderer, Electron `main`, and web adapters
