@@ -30,4 +30,24 @@ describe('SettingsModal', () => {
     expect(screen.getByText('No hay plugins locales instalados.')).toBeTruthy();
     expect(screen.getByTitle('Cerrar configuración')).toBeTruthy();
   });
+
+  it('re-translates the web unavailable updates message after changing locale', () => {
+    window.lingua = {
+      ...window.lingua,
+      platform: 'web',
+    } as LinguaAPI;
+
+    useUpdateStore.setState({
+      status: 'unavailable',
+      supported: false,
+      enabled: false,
+      message: 'Automatic updates are not available in the web version.',
+    });
+
+    render(<SettingsModal onClose={() => {}} />);
+
+    expect(
+      screen.getByText('Las actualizaciones automáticas no están disponibles en la versión web.')
+    ).toBeTruthy();
+  });
 });

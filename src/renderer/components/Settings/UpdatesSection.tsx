@@ -14,6 +14,10 @@ export function UpdatesSection() {
   const { t } = useTranslation();
 
   const statusLabel = t(`updates.state.${status === 'not-available' ? 'notAvailable' : status}`);
+  const displayMessage =
+    window.lingua?.platform === 'web' && status === 'unavailable' && !supported && !enabled
+      ? t('updates.message.webUnavailable')
+      : message;
 
   return (
     <Section
@@ -24,7 +28,9 @@ export function UpdatesSection() {
         <div className="space-y-1 text-right">
           <p className="status-pill">{statusLabel}</p>
           {releaseName && <p className="text-xs text-muted">{releaseName}</p>}
-          {message && <p className="max-w-[18rem] text-xs leading-5 text-muted">{message}</p>}
+          {displayMessage && (
+            <p className="max-w-[18rem] text-xs leading-5 text-muted">{displayMessage}</p>
+          )}
           {lastCheckedAt && (
             <p className="text-[11px] text-muted">
               {t('updates.lastChecked')}: {new Date(lastCheckedAt).toLocaleString()}

@@ -1,28 +1,38 @@
+import type { TFunction } from 'i18next';
 import type { Language } from '../types';
 
+/**
+ * Built-in templates keep their UI-facing copy in translation catalogs so
+ * labels and descriptions stay aligned with the active locale. Template
+ * code bodies remain source-language content and are intentionally not
+ * localized for the MVP (see RL-018 Phase 3).
+ */
 export interface Template {
   id: string;
   language: Language;
-  label: string;
-  description: string;
+  fileStem: string;
+  labelKey: string;
+  descriptionKey: string;
   code: string;
 }
 
-export const BUILT_IN_TEMPLATES: Template[] = [
+export const BUILT_IN_TEMPLATES: readonly Template[] = [
   // ── JavaScript ────────────────────────────────────────────────────────────
   {
     id: 'js-hello',
     language: 'javascript',
-    label: 'Hello World',
-    description: 'Print a greeting to the console',
+    fileStem: 'Hello World',
+    labelKey: 'templates.js-hello.label',
+    descriptionKey: 'templates.js-hello.description',
     code: `console.log("Hello, World!");
 `,
   },
   {
     id: 'js-fetch',
     language: 'javascript',
-    label: 'Fetch HTTP',
-    description: 'Fetch data from a public API',
+    fileStem: 'Fetch HTTP',
+    labelKey: 'templates.js-fetch.label',
+    descriptionKey: 'templates.js-fetch.description',
     code: `const res = await fetch("https://jsonplaceholder.typicode.com/todos/1");
 const todo = await res.json();
 console.log(todo);
@@ -31,8 +41,9 @@ console.log(todo);
   {
     id: 'js-sort',
     language: 'javascript',
-    label: 'Sorting Algorithms',
-    description: 'QuickSort and MergeSort implementations',
+    fileStem: 'Sorting Algorithms',
+    labelKey: 'templates.js-sort.label',
+    descriptionKey: 'templates.js-sort.description',
     code: `function quickSort(arr) {
   if (arr.length <= 1) return arr;
   const pivot = arr[Math.floor(arr.length / 2)];
@@ -49,8 +60,9 @@ console.log("QuickSort:", quickSort(nums));
   {
     id: 'js-class',
     language: 'javascript',
-    label: 'Class & OOP',
-    description: 'ES2022 class with private fields',
+    fileStem: 'Class & OOP',
+    labelKey: 'templates.js-class.label',
+    descriptionKey: 'templates.js-class.description',
     code: `class Counter {
   #count = 0;
 
@@ -71,8 +83,9 @@ console.log("Count:", c.value); // 1
   {
     id: 'ts-hello',
     language: 'typescript',
-    label: 'Hello World',
-    description: 'Typed greeting function',
+    fileStem: 'Hello World',
+    labelKey: 'templates.ts-hello.label',
+    descriptionKey: 'templates.ts-hello.description',
     code: `function greet(name: string): string {
   return \`Hello, \${name}!\`;
 }
@@ -83,8 +96,9 @@ console.log(greet("World"));
   {
     id: 'ts-generic',
     language: 'typescript',
-    label: 'Generic Stack',
-    description: 'Type-safe stack data structure',
+    fileStem: 'Generic Stack',
+    labelKey: 'templates.ts-generic.label',
+    descriptionKey: 'templates.ts-generic.description',
     code: `class Stack<T> {
   private items: T[] = [];
 
@@ -106,8 +120,9 @@ console.log("Size:", s.size);   // 2
   {
     id: 'ts-sort',
     language: 'typescript',
-    label: 'Sorting Algorithms',
-    description: 'Generic QuickSort in TypeScript',
+    fileStem: 'Sorting Algorithms',
+    labelKey: 'templates.ts-sort.label',
+    descriptionKey: 'templates.ts-sort.description',
     code: `function quickSort<T>(arr: T[], compare = (a: T, b: T) => (a < b ? -1 : a > b ? 1 : 0)): T[] {
   if (arr.length <= 1) return arr;
   const pivot = arr[Math.floor(arr.length / 2)];
@@ -125,8 +140,9 @@ console.log(quickSort(["banana", "apple", "cherry"]));
   {
     id: 'ts-async',
     language: 'typescript',
-    label: 'Async / Await',
-    description: 'Typed async functions with error handling',
+    fileStem: 'Async / Await',
+    labelKey: 'templates.ts-async.label',
+    descriptionKey: 'templates.ts-async.description',
     code: `interface Post {
   id: number;
   title: string;
@@ -148,8 +164,9 @@ console.log(post.title);
   {
     id: 'go-hello',
     language: 'go',
-    label: 'Hello World',
-    description: 'Classic Go hello world',
+    fileStem: 'Hello World',
+    labelKey: 'templates.go-hello.label',
+    descriptionKey: 'templates.go-hello.description',
     code: `package main
 
 import "fmt"
@@ -162,8 +179,9 @@ func main() {
   {
     id: 'go-goroutine',
     language: 'go',
-    label: 'Goroutines & Channels',
-    description: 'Concurrent fan-out with channels',
+    fileStem: 'Goroutines & Channels',
+    labelKey: 'templates.go-goroutine.label',
+    descriptionKey: 'templates.go-goroutine.description',
     code: `package main
 
 import (
@@ -192,8 +210,9 @@ func main() {
   {
     id: 'go-sort',
     language: 'go',
-    label: 'Sorting',
-    description: 'Sort a slice with the standard library',
+    fileStem: 'Sorting',
+    labelKey: 'templates.go-sort.label',
+    descriptionKey: 'templates.go-sort.description',
     code: `package main
 
 import (
@@ -217,16 +236,18 @@ func main() {
   {
     id: 'py-hello',
     language: 'python',
-    label: 'Hello World',
-    description: 'Print a greeting',
+    fileStem: 'Hello World',
+    labelKey: 'templates.py-hello.label',
+    descriptionKey: 'templates.py-hello.description',
     code: `print("Hello, World!")
 `,
   },
   {
     id: 'py-list',
     language: 'python',
-    label: 'List Comprehensions',
-    description: 'Pythonic list processing',
+    fileStem: 'List Comprehensions',
+    labelKey: 'templates.py-list.label',
+    descriptionKey: 'templates.py-list.description',
     code: `numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 evens = [n for n in numbers if n % 2 == 0]
@@ -241,8 +262,9 @@ print("Even squares:", even_squares)
   {
     id: 'py-sort',
     language: 'python',
-    label: 'Sorting Algorithms',
-    description: 'MergeSort implementation in Python',
+    fileStem: 'Sorting Algorithms',
+    labelKey: 'templates.py-sort.label',
+    descriptionKey: 'templates.py-sort.description',
     code: `def merge_sort(arr):
     if len(arr) <= 1:
         return arr
@@ -268,8 +290,9 @@ print(merge_sort(nums))
   {
     id: 'py-class',
     language: 'python',
-    label: 'Dataclass',
-    description: 'Python dataclass with type hints',
+    fileStem: 'Dataclass',
+    labelKey: 'templates.py-class.label',
+    descriptionKey: 'templates.py-class.description',
     code: `from dataclasses import dataclass, field
 from typing import List
 
@@ -295,8 +318,9 @@ print(f"Courses: {', '.join(alice.courses)}")
   {
     id: 'rs-hello',
     language: 'rust',
-    label: 'Hello World',
-    description: 'Classic Rust hello world',
+    fileStem: 'Hello World',
+    labelKey: 'templates.rs-hello.label',
+    descriptionKey: 'templates.rs-hello.description',
     code: `fn main() {
     println!("Hello, World!");
 }
@@ -305,8 +329,9 @@ print(f"Courses: {', '.join(alice.courses)}")
   {
     id: 'rs-ownership',
     language: 'rust',
-    label: 'Ownership & Borrowing',
-    description: 'Demonstrates Rust ownership rules',
+    fileStem: 'Ownership & Borrowing',
+    labelKey: 'templates.rs-ownership.label',
+    descriptionKey: 'templates.rs-ownership.description',
     code: `fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
     if x.len() > y.len() { x } else { y }
 }
@@ -325,8 +350,9 @@ fn main() {
   {
     id: 'rs-sort',
     language: 'rust',
-    label: 'Sorting',
-    description: 'Sort a vector with the standard library',
+    fileStem: 'Sorting',
+    labelKey: 'templates.rs-sort.label',
+    descriptionKey: 'templates.rs-sort.description',
     code: `fn main() {
     let mut nums = vec![3, 1, 4, 1, 5, 9, 2, 6];
     nums.sort();
@@ -341,8 +367,9 @@ fn main() {
   {
     id: 'rs-struct',
     language: 'rust',
-    label: 'Structs & Traits',
-    description: 'Implement Display trait on a struct',
+    fileStem: 'Structs & Traits',
+    labelKey: 'templates.rs-struct.label',
+    descriptionKey: 'templates.rs-struct.description',
     code: `use std::fmt;
 
 struct Point {
@@ -375,7 +402,30 @@ fn main() {
   },
 ];
 
-/** Get templates for a specific language */
 export function getTemplatesForLanguage(language: Language): Template[] {
-  return BUILT_IN_TEMPLATES.filter((t) => t.language === language);
+  return BUILT_IN_TEMPLATES.filter((template) => template.language === language);
+}
+
+/**
+ * Generated file names intentionally stay stable and source-language based.
+ * Phase 3 localizes visible UI copy, but filenames remain non-localized per
+ * the delivery rules in PLAN.md.
+ */
+export function resolveTemplateFileStem(template: Template): string {
+  return template.fileStem;
+}
+
+/**
+ * Resolve a template's user-facing label through the active i18n catalog.
+ * Falls back to the template id when no translator is provided so legacy
+ * surfaces that have not yet wired i18next still render a sensible string.
+ */
+export function resolveTemplateLabel(template: Template, t?: TFunction): string {
+  if (!t) return template.fileStem;
+  return t(template.labelKey) as unknown as string;
+}
+
+export function resolveTemplateDescription(template: Template, t?: TFunction): string {
+  if (!t) return '';
+  return t(template.descriptionKey) as unknown as string;
 }

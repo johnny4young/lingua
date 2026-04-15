@@ -1,5 +1,10 @@
 import type { TFunction } from 'i18next';
-import type { Template } from '../../data/templates';
+import {
+  resolveTemplateFileStem,
+  resolveTemplateDescription,
+  resolveTemplateLabel,
+  type Template,
+} from '../../data/templates';
 import type { Snippet } from '../../stores/snippetsStore';
 import type { FileTab, Language, LayoutPreset } from '../../types';
 import { extensionForLanguage } from '../../utils/languageMeta';
@@ -17,7 +22,7 @@ export interface CommandEntry {
 }
 
 interface BuildCommandPaletteModelArgs {
-  templates: Template[];
+  templates: readonly Template[];
   snippets: Snippet[];
   updateStatus: UpdateStatus;
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void;
@@ -47,21 +52,26 @@ function buildTemplateCommand(
   template: Template,
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void,
   createDefaultTab: (language: Language) => FileTab,
-  onClose: () => void
+  onClose: () => void,
+  t: TFunction | undefined
 ): CommandEntry {
+  const label = resolveTemplateLabel(template, t);
+  const description = resolveTemplateDescription(template, t);
+  const fileStem = resolveTemplateFileStem(template);
+
   return {
     id: `tpl-${template.id}`,
     category: 'template',
-    label: template.label,
-    description: template.description,
+    label,
+    description,
     language: template.language,
-    keywords: normalizeKeywords([template.label, template.language, template.description]),
+    keywords: normalizeKeywords([label, template.language, description]),
     action: () => {
       const tab = createDefaultTab(template.language);
       createTab({
         ...tab,
         content: template.code,
-        name: `${template.label}.${extensionForLanguage(template.language)}`,
+        name: `${fileStem}.${extensionForLanguage(template.language)}`,
       });
       onClose();
     },
@@ -150,7 +160,7 @@ export function buildCommandPaletteModel({
 
   const commands: CommandEntry[] = [
     ...templates.map((template) =>
-      buildTemplateCommand(template, createTab, createDefaultTab, onClose)
+      buildTemplateCommand(template, createTab, createDefaultTab, onClose, t)
     ),
     ...snippets.map((snippet) =>
       buildSnippetCommand(snippet, createTab, createDefaultTab, onClose, translate)

@@ -29,9 +29,26 @@ vi.mock('../../src/renderer/utils/languageMeta', () => ({
 
 vi.mock('../../src/renderer/data/templates', () => ({
   BUILT_IN_TEMPLATES: [
-    { id: 'tpl-1', label: 'Hello', description: 'desc', language: 'javascript', code: '' },
-    { id: 'tpl-2', label: 'World', description: 'desc', language: 'typescript', code: '' },
+    {
+      id: 'tpl-1',
+      fileStem: 'Hello',
+      labelKey: 'templates.tpl-1.label',
+      descriptionKey: 'templates.tpl-1.description',
+      language: 'javascript',
+      code: '',
+    },
+    {
+      id: 'tpl-2',
+      fileStem: 'World',
+      labelKey: 'templates.tpl-2.label',
+      descriptionKey: 'templates.tpl-2.description',
+      language: 'typescript',
+      code: '',
+    },
   ],
+  resolveTemplateFileStem: (tpl: { fileStem: string }) => tpl.fileStem,
+  resolveTemplateLabel: (tpl: { id: string }) => (tpl.id === 'tpl-1' ? 'Hola' : 'Mundo'),
+  resolveTemplateDescription: () => 'desc',
 }));
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
@@ -66,6 +83,17 @@ describe('EditorEmptyState', () => {
     await user.click(screen.getByRole('button', { name: 'Go' }));
     expect(mockAddTab).toHaveBeenCalledWith(
       expect.objectContaining({ language: 'go' })
+    );
+  });
+
+  it('keeps template-generated filenames stable when labels are localized', async () => {
+    const user = userEvent.setup();
+    render(<EditorEmptyState />);
+
+    await user.click(screen.getByRole('button', { name: /Hola/i }));
+
+    expect(mockAddTab).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Hello.js', language: 'javascript' })
     );
   });
 
