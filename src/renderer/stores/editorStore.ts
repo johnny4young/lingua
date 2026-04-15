@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { EditorState, FileTab, Language } from '../types';
 import { getActiveAppLanguage } from '../i18n';
 import { defaultCodeForLanguage, extensionForLanguage } from '../utils/languageMeta';
-import { languageFromPath } from '../utils/language';
+import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { useRecentFilesStore } from './recentFilesStore';
 
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
@@ -89,7 +89,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const filePath = await window.lingua.fs.selectFile();
     if (!filePath) return;
     const name = filePath.split('/').pop() ?? filePath.split('\\').pop() ?? 'file';
-    const language = languageFromPath(name);
+    const language = resolveFileLanguageOrPlaintext(name);
     await get().openFile(filePath, name, language);
   },
 
@@ -122,7 +122,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     await window.lingua.fs.write(chosenPath, tab.content);
     const name = chosenPath.split('/').pop() ?? chosenPath.split('\\').pop() ?? tab.name;
-    const language = languageFromPath(name);
+    const language = resolveFileLanguageOrPlaintext(name);
     set((state) => ({
       tabs: state.tabs.map((t) =>
         t.id === tab.id
@@ -158,7 +158,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         if (!chosenPath) return false; // User cancelled Save As
         await window.lingua.fs.write(chosenPath, tab.content);
         const name = chosenPath.split('/').pop() ?? chosenPath.split('\\').pop() ?? tab.name;
-        const language = languageFromPath(name);
+        const language = resolveFileLanguageOrPlaintext(name);
         useRecentFilesStore.getState().addRecentFile({
           filePath: chosenPath,
           name,
