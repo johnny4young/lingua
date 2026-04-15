@@ -13,6 +13,11 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
+const appCategoryType = 'public.app-category.developer-tools';
+const desktopProtocol = {
+  name: 'Lingua',
+  schemes: ['lingua'],
+} as const;
 
 /** macOS notarization requires APPLE_ID, APPLE_ID_PASSWORD, APPLE_TEAM_ID */
 const osxNotarize =
@@ -49,10 +54,13 @@ const config: ForgeConfig = {
     name: 'Lingua',
     executableName: 'lingua',
     appBundleId: 'com.lingua.app',
+    appCategoryType,
     appVersion: process.env.npm_package_version ?? '0.1.0',
     appCopyright: `Copyright © ${new Date().getFullYear()} Lingua contributors`,
     // Icon (without extension — Forge picks .icns/.ico/.png per platform)
     icon: './assets/icon',
+    // Packaging metadata only; runtime deep-link handling is tracked separately in RL-040.
+    protocols: [desktopProtocol],
     // macOS: Universal binary (arm64 + x64 merged via lipo)
     ...(isMac
       ? {
