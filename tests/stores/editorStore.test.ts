@@ -156,6 +156,17 @@ describe('editorStore', () => {
       expect(tabs[0].language).toBe('typescript');
       expect(tabs[0].content).toBe('file content');
     });
+
+    it('should open unknown extensions in plaintext instead of forcing javascript', async () => {
+      (window.lingua.fs.selectFile as ReturnType<typeof vi.fn>).mockResolvedValue('/test/notes.txt');
+
+      await useEditorStore.getState().openFileFromDisk();
+
+      const { tabs } = useEditorStore.getState();
+      expect(tabs).toHaveLength(1);
+      expect(tabs[0].name).toBe('notes.txt');
+      expect(tabs[0].language).toBe('plaintext');
+    });
   });
 
   describe('saveActiveTabAs', () => {
@@ -186,6 +197,22 @@ describe('editorStore', () => {
       expect(tabs[0].language).toBe('python');
       expect(tabs[0].isDirty).toBe(false);
       expect(window.lingua.fs.write).toHaveBeenCalledWith('/saved/script.py', 'print("saved")');
+    });
+
+    it('should keep unknown Save As targets in plaintext', async () => {
+      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue('/saved/notes.txt');
+
+      const tab = createDefaultTab('javascript');
+      useEditorStore.getState().addTab(tab);
+      useEditorStore.getState().updateContent(tab.id, 'plain text');
+
+      await useEditorStore.getState().saveActiveTabAs();
+
+      const { tabs } = useEditorStore.getState();
+      expect(tabs[0].filePath).toBe('/saved/notes.txt');
+      expect(tabs[0].name).toBe('notes.txt');
+      expect(tabs[0].language).toBe('plaintext');
+      expect(tabs[0].isDirty).toBe(false);
     });
   });
 

@@ -6,8 +6,10 @@ import {
   RefreshCw,
   FolderOpen as OpenFolderIcon,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useProjectStore, type FileTreeNode as ProjectFileTreeNode } from '../../stores/projectStore';
+import { PLAINTEXT_LANGUAGE } from '../../utils/language';
 import { IconButton } from '../ui/chrome';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
@@ -21,6 +23,7 @@ interface FileTreeProps {
 }
 
 export function FileTree({ onNavigate }: FileTreeProps) {
+  const { t } = useTranslation();
   const { tabs, activeTabId, setActiveTab, openFile } = useEditorStore();
   const {
     currentProject,
@@ -47,7 +50,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
   // --------------------------------------------------------- handlers
 
   const handleFileClick = async (node: ProjectFileTreeNode) => {
-    await openFile(node.path, node.name, node.language ?? 'javascript');
+    await openFile(node.path, node.name, node.language ?? PLAINTEXT_LANGUAGE);
     onNavigate?.();
   };
 
@@ -117,19 +120,19 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         <div className="flex items-center gap-0.5">
           <IconButton
             onClick={() => handleNewFile()}
-            title="New file"
+            title={t('fileTree.actions.newFile')}
           >
             <FilePlus size={13} />
           </IconButton>
           <IconButton
             onClick={() => handleNewDir()}
-            title="New folder"
+            title={t('fileTree.actions.newFolder')}
           >
             <FolderPlus size={13} />
           </IconButton>
           <IconButton
             onClick={refreshTree}
-            title="Refresh"
+            title={t('fileTree.actions.refresh')}
           >
             <RefreshCw size={13} />
           </IconButton>
@@ -142,7 +145,11 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         {creating && creating.parentPath === currentProject.rootPath && (
           <div className="px-2 py-0.5">
             <FileTreeInlineInput
-              placeholder={creating.kind === 'file' ? 'filename.rs' : 'folder-name'}
+              placeholder={
+                creating.kind === 'file'
+                  ? t('fileTree.placeholder.file')
+                  : t('fileTree.placeholder.folder')
+              }
               onConfirm={handleCreateConfirm}
               onCancel={() => setCreating(null)}
             />
@@ -173,7 +180,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
 
         {nodes.length === 0 && (
           <p className="px-3 py-4 text-center text-xs italic text-muted">
-            Empty project
+            {t('fileTree.empty')}
           </p>
         )}
       </div>
@@ -185,7 +192,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           className="flex w-full items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
         >
           <OpenFolderIcon size={12} />
-          Open different folder
+          {t('fileTree.openDifferent')}
         </button>
       </div>
     </div>

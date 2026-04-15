@@ -210,5 +210,12 @@
   "templates.rs-sort.label": "Sorting",
   "templates.rs-sort.description": "Sort a vector with the standard library",
   "templates.rs-struct.label": "Structs & Traits",
-  "templates.rs-struct.description": "Implement Display trait on a struct"
+  "templates.rs-struct.description": "Implement Display trait on a struct",
+  "fileTree.actions.newFile": "New file",
+  "fileTree.actions.newFolder": "New folder",
+  "fileTree.actions.refresh": "Refresh",
+  "fileTree.placeholder.file": "filename.rs",
+  "fileTree.placeholder.folder": "folder-name",
+  "fileTree.empty": "Empty project",
+  "fileTree.openDifferent": "Open different folder"
 }

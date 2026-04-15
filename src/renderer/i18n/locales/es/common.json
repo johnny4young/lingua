@@ -210,5 +210,12 @@
   "templates.rs-sort.label": "Ordenamiento",
   "templates.rs-sort.description": "Ordena un vector con la librería estándar",
   "templates.rs-struct.label": "Structs y traits",
-  "templates.rs-struct.description": "Implementa el trait Display en un struct"
+  "templates.rs-struct.description": "Implementa el trait Display en un struct",
+  "fileTree.actions.newFile": "Nuevo archivo",
+  "fileTree.actions.newFolder": "Nueva carpeta",
+  "fileTree.actions.refresh": "Actualizar",
+  "fileTree.placeholder.file": "nombre-archivo.rs",
+  "fileTree.placeholder.folder": "nombre-carpeta",
+  "fileTree.empty": "Proyecto vacío",
+  "fileTree.openDifferent": "Abrir otra carpeta"
 }

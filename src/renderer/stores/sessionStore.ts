@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
 import { useEditorStore } from './editorStore';
-import { languageFromPath } from '../utils/language';
+import { resolveFileLanguageOrPlaintext } from '../utils/language';
 
 interface SessionTab {
   name: string;
@@ -57,7 +57,7 @@ export const useSessionStore = create<SessionState>()(
 
           const id = crypto.randomUUID();
           const language = saved.filePath
-            ? languageFromPath(saved.filePath)
+            ? resolveFileLanguageOrPlaintext(saved.filePath)
             : saved.language;
 
           addTab({

@@ -122,7 +122,14 @@ export function renameNode(
 ): FileTreeNode[] {
   return nodes.map((node) => {
     if (node.path === oldPath) {
-      return { ...node, path: newPath, name: newName };
+      return node.isDirectory
+        ? { ...node, path: newPath, name: newName }
+        : {
+            ...node,
+            path: newPath,
+            name: newName,
+            language: languageFromPath(newName),
+          };
     }
 
     if (node.isDirectory && node.children) {
