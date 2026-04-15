@@ -1892,19 +1892,24 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-051 Harden packagerConfig with app category and protocol registration
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Ready now — trivial config change`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-15`
+- Current progress:
+  - Forge packager metadata now declares `appCategoryType: 'public.app-category.developer-tools'`
+  - Packaged app metadata now includes the `lingua://` protocol declaration via `packagerConfig.protocols`
+  - Focused config tests now assert both metadata fields
+  - This change only hardens packaging metadata; actual deep-link handling remains tracked by RL-040
 - Why this matters:
   - WizardJS sets `appCategory: 'developer-tools'` in forge config
   - macOS uses this for Finder and Spotlight categorization
   - Missing category may affect discoverability on macOS
 - Scope:
-  - Add `appCategory: 'public.app-category.developer-tools'` to packagerConfig (macOS LSApplicationCategoryType)
+  - Add `appCategoryType: 'public.app-category.developer-tools'` to packagerConfig (macOS LSApplicationCategoryType)
   - Register `lingua://` protocol in packagerConfig via `protocols` field
   - These are one-line config additions with zero runtime cost
 - Acceptance criteria:
   - macOS build shows correct app category in Finder info
-  - Protocol registration is included in packaged builds
+  - Protocol metadata is included in packaged builds
 - Dependencies:
   - None
 

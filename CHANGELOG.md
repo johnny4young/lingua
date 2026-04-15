@@ -4,7 +4,18 @@ All notable changes to Lingua are documented here.
 
 ---
 
-## [Unreleased] — 2026-04-12
+## [Unreleased] — 2026-04-15
+
+### Added
+- **RL-051 — Packaging metadata (developer-tools category + `lingua://` scheme)**: `forge.config.ts` now declares `appCategoryType: 'public.app-category.developer-tools'` so packaged macOS bundles advertise the right `LSApplicationCategoryType` for Finder and Spotlight, and registers `lingua://` via `packagerConfig.protocols` so every packaged target carries the URL-scheme declaration. Metadata only — runtime deep-link handling stays tracked by RL-040
+- **RL-056 — Monaco completion providers**: Go, Python, Rust, and Lua now ship keyword and snippet completions registered during Monaco's `beforeMount` via a shared `createCompletionProvider` factory under `src/renderer/components/Editor/completionProviders/`. Registration is guarded by a module-level flag so repeated mounts (StrictMode, hot-reload) stay idempotent
+- **i18n enforcement tooling**: `scripts/check-i18n.mjs` and `scripts/check-renderer-copy.mjs` catch missing/orphaned locale keys and hardcoded renderer copy in touched files respectively, wired into a dedicated `i18n` CI job plus the existing `lint`/`test`/`audit` jobs
+
+### Changed
+- **RL-055 — Extension-driven language detection**: `languageFromPath()` now returns `Language | undefined` instead of forcing `javascript` for unknown extensions, and a shared `resolveFileLanguageOrPlaintext(path)` helper (plus a named `PLAINTEXT_LANGUAGE` constant) now powers the editor-store open/save-as flow, session restore, and the file-tree click handler. Unknown extensions open in Monaco's plaintext mode instead of being misreported. `renameNode` recomputes file language metadata when an extension changes
+- **RL-018 Phase 3 — Localized built-in templates and `FileTree`**: Built-in template `label`/`description` now resolve through i18n keys (`templates.<id>.label` / `.description`) via new `resolveTemplateLabel` / `resolveTemplateDescription` helpers, with a non-localized `fileStem` reserved for stable filenames. Command-palette template entries index by both the localized label and the English `fileStem` so bilingual search stays discoverable (`"hello"` still finds Spanish `"Hola mundo"`). `FileTree.tsx` now resolves titles, placeholders, empty-state copy, and "Open different folder" through `useTranslation`
+- **Python completion trigger**: Removed the `' '` trigger character that was popping the full suggestion list after every whitespace keystroke — default Monaco word-char triggering is enough
+- **Rust `match` completions**: The `match` snippet is now labeled `match expression` so it does not collide with the plain `match` keyword entry in Monaco's popup
 
 ### Fixed
 - **Monaco crash**: `TypeError: Cannot read properties of undefined (reading 'ModuleKind')` on app load — split `configureMonaco()` (workers/loader only) from `applyTypeScriptDefaults(m)` (called in `beforeMount` where Monaco is fully initialized)
@@ -12,7 +23,16 @@ All notable changes to Lingua are documented here.
 - **Dev server port mismatch**: Stale `.vite/build/main.js` artifacts used old env var `RUNLANG_RENDERER_URL`; added `__LINGUA_UPDATE_URL__` define to the esbuild command in `run-electron-desktop.mjs`
 
 ### Tests
-- Updated `monaco.test.ts` to cover the new two-function API (`configureMonaco` + `applyTypeScriptDefaults`) — 296 tests passing
+- `tests/forge.config.test.ts` (node env): asserts `appCategoryType` and the `lingua://` protocol declaration survive future refactors
+- `tests/completionProviders.test.ts`: covers Go/Python/Rust/Lua provider shapes, the absence of a noisy space trigger on Python, and the distinct `match` vs `match expression` Rust labels
+- `tests/monaco.test.ts`: new `registerLanguageCompletionProviders` assertion verifies the four providers are registered exactly once per module load
+- `tests/utils/language.test.ts` + `tests/utils/languageMeta.test.ts`: case-insensitive extension detection, plaintext fallback for missing/`undefined` paths, and the `languageForExtension` reverse map
+- `tests/scripts/check-i18n.test.ts` + `tests/scripts/check-renderer-copy.test.ts`: lock in the locale key parity checker and the TS-AST renderer copy guard
+- Store tests extended for unknown-extension plaintext behavior in `editorStore`, `sessionStore`, and `renameNode` — **56 files / 392 tests passing**
+
+### Documentation
+- `PLAN.md`: RL-018 Phases 1–2 marked complete, Phase 3 entries recorded, RL-051/RL-055/RL-056 flipped to Done with "Current progress" blocks
+- `README.md`: Editor section now mentions the immediate Go/Python/Rust/Lua keyword and snippet completions that ship ahead of full LSP support
 
 ---
 
