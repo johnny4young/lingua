@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-/* global URL, clearTimeout, console, fetch, setTimeout */
 
 import { spawn } from 'node:child_process';
 import { constants } from 'node:fs';
