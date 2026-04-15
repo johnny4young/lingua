@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { createDefaultTab, useEditorStore } from '../../stores/editorStore';
-import { BUILT_IN_TEMPLATES } from '../../data/templates';
+import {
+  BUILT_IN_TEMPLATES,
+  resolveTemplateDescription,
+  resolveTemplateFileStem,
+  resolveTemplateLabel,
+} from '../../data/templates';
 import type { Language } from '../../types';
 import {
   extensionForLanguage,
@@ -28,7 +33,7 @@ export function EditorEmptyState() {
     addTab({
       ...tab,
       content: template.code,
-      name: `${template.label}.${extensionForLanguage(template.language)}`,
+      name: `${resolveTemplateFileStem(template)}.${extensionForLanguage(template.language)}`,
     });
   };
 
@@ -119,9 +124,11 @@ export function EditorEmptyState() {
                   {template.language}
                 </span>
                 <span className="font-display text-lg font-semibold tracking-[-0.03em] text-foreground">
-                  {template.label}
+                  {resolveTemplateLabel(template, t)}
                 </span>
-                <span className="text-xs leading-6 text-muted">{template.description}</span>
+                <span className="text-xs leading-6 text-muted">
+                  {resolveTemplateDescription(template, t)}
+                </span>
               </button>
             ))}
           </div>

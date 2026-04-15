@@ -95,6 +95,44 @@ describe('buildCommandPaletteModel', () => {
     }
   });
 
+  it('keeps template command filenames stable while localizing visible labels', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const createTab = vi.fn();
+      const commands = buildCommandPaletteModel({
+        templates: BUILT_IN_TEMPLATES.slice(0, 1),
+        snippets: [],
+        updateStatus: 'idle',
+        createTab,
+        createDefaultTab: (language) => ({
+          id: `tab-${language}`,
+          name: `untitled-${language}`,
+          language,
+          content: '',
+          isDirty: false,
+        }),
+        setLayoutPreset: vi.fn(),
+        onClose: vi.fn(),
+        onOpenSettings: vi.fn(),
+        onOpenSnippets: vi.fn(),
+        checkForUpdates: vi.fn().mockResolvedValue(undefined),
+        restartToApply: vi.fn().mockResolvedValue(true),
+        t: i18next.t.bind(i18next),
+      });
+
+      const templateCommand = commands.find((command) => command.category === 'template');
+      expect(templateCommand?.label).toBe('Hola mundo');
+
+      templateCommand?.action();
+
+      expect(createTab).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Hello World.js', language: 'javascript' })
+      );
+    } finally {
+      await i18next.changeLanguage('en');
+    }
+  });
+
   it('keeps matching commands when filtering by keywords, label, or description', () => {
     const commands = [
       {
