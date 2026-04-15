@@ -5,6 +5,9 @@ import { CommandPalette } from '../../src/renderer/components/CommandPalette/Com
 
 vi.mock('../../src/renderer/data/templates', () => ({
   BUILT_IN_TEMPLATES: [],
+  resolveTemplateFileStem: () => '',
+  resolveTemplateLabel: () => '',
+  resolveTemplateDescription: () => '',
 }));
 
 vi.mock('../../src/renderer/stores/editorStore', () => ({
