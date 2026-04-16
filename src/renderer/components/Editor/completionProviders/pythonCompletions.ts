@@ -43,8 +43,10 @@ const PYTHON_COMPLETIONS = [
 ] as const;
 
 export function createPythonCompletionProvider(monaco: Monaco) {
-  // No explicit trigger characters — Monaco already requests suggestions on
-  // alphanumeric input, and triggering on space would surface the entire
-  // keyword list after every whitespace keystroke which is noisy in practice.
-  return createCompletionProvider(monaco, PYTHON_COMPLETIONS);
+  // Python users often complete snippets immediately after `def ` or `class `.
+  // A space trigger makes that path discoverable while Monaco still handles
+  // normal alphanumeric quick suggestions for keyword prefixes.
+  return createCompletionProvider(monaco, PYTHON_COMPLETIONS, {
+    triggerCharacters: [' '],
+  });
 }

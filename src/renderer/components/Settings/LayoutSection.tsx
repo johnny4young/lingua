@@ -55,7 +55,7 @@ export function LayoutSection() {
               type="button"
               onClick={() => setLayoutPreset(preset.id)}
               title={description}
-              className={`flex flex-col gap-3 rounded-[1.35rem] border p-4 text-left transition-all ${
+              className={`flex flex-col gap-2.5 rounded-[1.15rem] border p-3.5 text-left transition-all ${
                 selected
                   ? 'border-primary/35 bg-primary-soft'
                   : 'border-border/80 bg-background-elevated/72 hover:border-border-strong/90 hover:bg-surface/88'
@@ -64,7 +64,7 @@ export function LayoutSection() {
               <LayoutIcon preset={preset.id} active={selected} />
               <div>
                 <p className="text-sm font-medium text-foreground">{label}</p>
-                <p className="mt-1 text-xs leading-5 text-muted">{description}</p>
+                <p className="mt-1 text-[13px] leading-5 text-muted">{description}</p>
               </div>
             </button>
           );

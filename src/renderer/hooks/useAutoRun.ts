@@ -5,9 +5,9 @@ import { runnerManager } from '../runners';
 import type { ExecutionResult } from '../types';
 import { toExecutionPresentation } from '../utils/executionPresentation';
 
-const DEBOUNCE_MS = 2000;
+export const AUTO_RUN_DEBOUNCE_MS = 1200;
 /**
- * Auto-run the active tab's code after a 2-second pause in typing.
+ * Auto-run the active tab's code after a short pause in typing.
  * For dynamic languages: captures per-line results.
  * For compiled languages: captures full output.
  */
@@ -44,8 +44,15 @@ export function useAutoRun() {
       lastCodeRef.current = code;
       abortRef.current = false;
 
-      const { clear, setLineResults, setFullOutput, setError, setExecutionTime, setIsAutoRunning } =
-        useResultStore.getState();
+      const {
+        clear,
+        setLineResults,
+        setFullOutput,
+        setError,
+        setExecutionTime,
+        setExecutionSource,
+        setIsAutoRunning,
+      } = useResultStore.getState();
 
       // Check if language is supported
       if (!runnerManager.isSupported(language)) {
@@ -55,6 +62,7 @@ export function useAutoRun() {
 
       setIsAutoRunning(true);
       clear();
+      setExecutionSource('auto');
 
       try {
         const { runner } = await runnerManager.prepareRunner(language);
@@ -90,7 +98,7 @@ export function useAutoRun() {
           setIsAutoRunning(false);
         }
       }
-    }, DEBOUNCE_MS);
+    }, AUTO_RUN_DEBOUNCE_MS);
 
     return () => {
       if (timerRef.current) {

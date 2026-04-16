@@ -131,6 +131,7 @@ export function CommandPalette({
               type="button"
               onClick={() => setQuery('')}
               className="button-ghost p-1.5"
+              title={t('commandPalette.search.clear')}
             >
               <X size={14} />
             </button>

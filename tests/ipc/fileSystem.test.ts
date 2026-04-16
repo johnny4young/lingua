@@ -203,6 +203,26 @@ describe('fs:save-dialog', () => {
   });
 });
 
+describe('fs:select-file', () => {
+  it('limits the native picker to code and text file extensions', async () => {
+    const { dialog } = await import('electron');
+
+    await invoke('fs:select-file');
+
+    expect(dialog.showOpenDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: ['openFile'],
+        filters: [
+          expect.objectContaining({
+            name: 'Code and text files',
+            extensions: expect.arrayContaining(['ts', 'py', 'go', 'rs', 'lua', 'md']),
+          }),
+        ],
+      })
+    );
+  });
+});
+
 // ---------------------------------------------------------------------------
 // app:confirm-close
 // ---------------------------------------------------------------------------

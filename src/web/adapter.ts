@@ -60,7 +60,10 @@ function createUnavailableUpdateState(): UpdateState {
 
 const updateStub: LinguaAPI['updates'] = {
   getState: async () => createUnavailableUpdateState(),
-  check: async () => createUnavailableUpdateState(),
+  check: async () => ({
+    ...createUnavailableUpdateState(),
+    lastCheckedAt: new Date().toISOString(),
+  }),
   restartToApply: async () => false,
   onStateChanged: () => () => {},
 };

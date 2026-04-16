@@ -147,26 +147,29 @@ export function Toolbar({
 
         <div className="toolbar-divider" />
 
-        <div ref={newFileMenuRef} className="relative flex items-center">
-          <button
-            onClick={() => handleNewFile(defaultNewFileLanguage)}
-            className="button-secondary rounded-r-none border-r-0 pr-3.5"
-            title={t('toolbar.newFile.primaryTitle', { language: defaultNewFileLabel })}
-          >
-            <Plus size={13} />
-            {t('toolbar.newFile.primary', { language: defaultNewFileLabel })}
-          </button>
-          <button
-            onClick={() => setIsNewFileMenuOpen((currentValue) => !currentValue)}
-            className={`button-secondary rounded-l-none px-2.5 ${
-              isNewFileMenuOpen ? 'text-primary' : ''
-            }`}
-            title={t('toolbar.newFile.menuTitle')}
-            aria-haspopup="menu"
-            aria-expanded={isNewFileMenuOpen}
-          >
-            <ChevronDown size={13} />
-          </button>
+        <div ref={newFileMenuRef} className="relative shrink-0">
+          <div className="inline-flex overflow-hidden rounded-[1.35rem] border border-border/80 bg-surface-strong/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <button
+              onClick={() => handleNewFile(defaultNewFileLanguage)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold tracking-[0.02em] text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              title={t('toolbar.newFile.primaryTitle', { language: defaultNewFileLabel })}
+            >
+              <Plus size={13} />
+              {t('toolbar.newFile.primary', { language: defaultNewFileLabel })}
+            </button>
+            <div className="my-1 w-px bg-border/80" aria-hidden="true" />
+            <button
+              onClick={() => setIsNewFileMenuOpen((currentValue) => !currentValue)}
+              className={`inline-flex items-center justify-center px-3 text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                isNewFileMenuOpen ? 'text-primary' : ''
+              }`}
+              title={t('toolbar.newFile.menuTitle')}
+              aria-haspopup="menu"
+              aria-expanded={isNewFileMenuOpen}
+            >
+              <ChevronDown size={13} />
+            </button>
+          </div>
 
           {isNewFileMenuOpen && (
             <div

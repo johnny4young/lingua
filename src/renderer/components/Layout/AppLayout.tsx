@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
 import { EditorTabs } from '../Editor/EditorTabs';
@@ -85,13 +86,13 @@ function EditorArea() {
             onLayoutChanged={editorResultsLayout.onLayoutChanged}
             resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
           >
-            <Panel id="editor-panel" defaultSize="55%" minSize={320}>
+            <Panel id="editor-panel" defaultSize="60%" minSize={320}>
               <Suspense fallback={<EditorLoadingState />}>
                 <CodeEditor />
               </Suspense>
             </Panel>
             <ResizeHandle orientation="vertical" />
-            <Panel id="results-panel" defaultSize="45%" minSize={220}>
+            <Panel id="results-panel" defaultSize="40%" minSize={220}>
               <ResultPanel />
             </Panel>
           </Group>
@@ -106,9 +107,11 @@ function EditorArea() {
 }
 
 function EditorLoadingState() {
+  const { t } = useTranslation();
+
   return (
     <div className="flex h-full items-center justify-center bg-background text-sm text-muted">
-      Loading editor...
+      {t('layout.loadingEditor')}
     </div>
   );
 }
@@ -201,6 +204,7 @@ export function AppLayout({
   onOpenQuickOpen,
   onOpenSnippets,
 }: AppLayoutProps) {
+  const { t } = useTranslation();
   const { layoutPreset } = useSettingsStore();
   const { sidebarVisible, consoleVisible, setSidebarVisible } = useUIStore();
   const isCompactShell = useCompactShellLayout();
@@ -399,14 +403,14 @@ export function AppLayout({
             ref={compactDrawerRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Project explorer"
+            aria-label={t('layout.projectExplorer')}
             className="relative h-full w-[min(24rem,calc(100vw-1rem))] max-w-full"
             onClick={(event) => event.stopPropagation()}
           >
             <IconButton
               ref={compactDrawerCloseButtonRef}
               onClick={() => setSidebarVisible(false)}
-              title="Close sidebar"
+              title={t('layout.closeSidebar')}
               className="absolute right-3 top-3 z-10 bg-surface/92"
             >
               <X size={14} />

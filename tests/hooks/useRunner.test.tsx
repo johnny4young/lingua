@@ -121,7 +121,10 @@ describe('useRunner', () => {
     });
 
     expect(useResultStore.getState().lineResults).toEqual([]);
-    expect(useResultStore.getState().fullOutput).toBe('compiled ok\nline 3 compile issue');
+    // stderr entries of type 'error' are excluded from fullOutput when
+    // result.error is set, so the error doesn't appear twice (once inline
+    // and once in the dedicated error display).
+    expect(useResultStore.getState().fullOutput).toBe('compiled ok');
     expect(useResultStore.getState().error).toEqual({
       message: 'Compile failed',
       line: 3,
