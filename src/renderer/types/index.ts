@@ -5,7 +5,13 @@ export type BuiltInLanguage =
   | 'typescript'
   | 'go'
   | 'python'
-  | 'rust';
+  | 'rust'
+  | 'json'
+  | 'yaml'
+  | 'dotenv'
+  | 'toml'
+  | 'ini'
+  | 'csv';
 
 /**
  * Language ids used across the editor.
@@ -115,6 +121,16 @@ export interface ExecutionError {
   line?: number;
   column?: number;
   stack?: string;
+}
+
+export interface EditorDiagnostic {
+  message: string;
+  line: number;
+  column?: number;
+  endLine?: number;
+  endColumn?: number;
+  severity: 'error' | 'warning' | 'info';
+  source?: string;
 }
 
 export interface MagicCommentResult {

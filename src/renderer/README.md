@@ -26,6 +26,7 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`stores/`](/Users/johnny4young/Personal/github/lingua/src/renderer/stores)         | Zustand stores and pure helpers that own renderer state                   |
 | [`hooks/`](/Users/johnny4young/Personal/github/lingua/src/renderer/hooks)           | React hooks that coordinate stores, runners, shortcuts, and shell effects |
 | [`runners/`](/Users/johnny4young/Personal/github/lingua/src/renderer/runners)       | Language-specific execution adapters and result shaping                   |
+| [`validation/`](/Users/johnny4young/Personal/github/lingua/src/renderer/validation) | Validate-only document checks for non-runnable development files          |
 | [`workers/`](/Users/johnny4young/Personal/github/lingua/src/renderer/workers)       | Web Worker entry points for JS/TS/Python/Go browser execution             |
 | [`utils/`](/Users/johnny4young/Personal/github/lingua/src/renderer/utils)           | Framework-agnostic helpers and renderer-specific utilities                |
 | [`data/`](/Users/johnny4young/Personal/github/lingua/src/renderer/data)             | Static templates and catalog data                                         |
@@ -57,7 +58,7 @@ Use the closest store that already owns the product concept instead of adding cr
 | Store                                                                                               | Owns                                                              |
 | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [editorStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/editorStore.ts)     | tabs, active editor session, file/language metadata               |
-| [resultStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/resultStore.ts)     | inline results, markers, result timing, execution reveal behavior |
+| [resultStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/resultStore.ts)     | inline results, validation markers, result timing, reveal behavior |
 | [consoleStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/consoleStore.ts)   | console entries and runtime output filters                        |
 | [projectStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
 | [settingsStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/settingsStore.ts) | persisted renderer preferences                                    |

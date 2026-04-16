@@ -5,20 +5,22 @@ import { ResultPanel } from '../../src/renderer/components/Editor/ResultPanel';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
+const editorState = {
+  tabs: [
+    {
+      id: 'tab-ts',
+      name: 'main.ts',
+      language: 'typescript',
+      content: 'console.log("hello")\nvalue',
+      isDirty: false,
+    },
+  ],
+  activeTabId: 'tab-ts',
+};
+
 vi.mock('../../src/renderer/stores/editorStore', () => ({
   useEditorStore: (selector?: (state: unknown) => unknown) => {
-    const state = {
-      tabs: [
-        {
-          id: 'tab-ts',
-          name: 'main.ts',
-          language: 'typescript',
-          content: 'console.log("hello")\nvalue',
-          isDirty: false,
-        },
-      ],
-      activeTabId: 'tab-ts',
-    };
+    const state = editorState;
 
     return selector ? selector(state) : state;
   },
@@ -31,6 +33,16 @@ describe('ResultPanel', () => {
   beforeEach(() => {
     useResultStore.setState(initialResultState, true);
     useSettingsStore.setState(initialSettingsState, true);
+    editorState.tabs = [
+      {
+        id: 'tab-ts',
+        name: 'main.ts',
+        language: 'typescript',
+        content: 'console.log("hello")\nvalue',
+        isDirty: false,
+      },
+    ];
+    editorState.activeTabId = 'tab-ts';
   });
 
   it('does not show the undefined toggle when there is no undefined result to filter', () => {
@@ -70,5 +82,59 @@ describe('ResultPanel', () => {
 
     expect(screen.getByTitle('Hide undefined values')).toBeTruthy();
     expect(screen.getAllByText('undefined')).toHaveLength(2);
+  });
+
+  it('shows diagnostics-oriented copy for validate-only files', () => {
+    editorState.tabs = [
+      {
+        id: 'tab-json',
+        name: 'package.json',
+        language: 'json',
+        content: '{ "name": "lingua" }',
+        isDirty: false,
+      },
+    ];
+    editorState.activeTabId = 'tab-json';
+    useResultStore.setState({
+      lineResults: [],
+      diagnostics: [],
+      error: null,
+      fullOutput: 'JSON validation passed. No syntax issues found.',
+      executionTime: 4,
+      isAutoRunning: false,
+      executionSource: 'auto',
+    });
+
+    render(<ResultPanel />);
+
+    expect(screen.getByText('Diagnostics')).toBeTruthy();
+    expect(screen.getByText('Validation only, never executed')).toBeTruthy();
+  });
+
+  it('shows view-only copy for editable formats without run or lint support', () => {
+    editorState.tabs = [
+      {
+        id: 'tab-toml',
+        name: 'Cargo.toml',
+        language: 'toml',
+        content: 'name = "lingua"',
+        isDirty: false,
+      },
+    ];
+    editorState.activeTabId = 'tab-toml';
+    useResultStore.setState({
+      lineResults: [],
+      diagnostics: [],
+      error: null,
+      fullOutput: '',
+      executionTime: null,
+      isAutoRunning: false,
+      executionSource: null,
+    });
+
+    render(<ResultPanel />);
+
+    expect(screen.getByText('File Status')).toBeTruthy();
+    expect(screen.getByText('Editable without run or lint support')).toBeTruthy();
   });
 });

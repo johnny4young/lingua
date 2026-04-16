@@ -2115,12 +2115,12 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-058 Support common development files in view/lint mode without execution
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Needs design pass`
+- Status: `Partial`
+- Readiness: `Incrementally implemented on 2026-04-16`
 - Current gap:
-  - The editor can now open arbitrary text files, but the product model still assumes a file should either execute or compile
-  - Common development assets such as `json`, `yaml`, `.env`, `toml`, `csv`, and config files need syntax treatment without implying runtime execution
-  - There is no explicit UX contract yet for files that should surface validation only
+  - `json`, `yaml`/`yml`, `.env`, and `csv` now open with language-aware validate-only semantics plus lightweight diagnostics
+  - `toml` and `ini` now open with dedicated highlighting and explicit view-only status instead of misleading run semantics
+  - Follow-up work can extend file-name coverage and deeper validators for additional config formats
 - Scope:
   - Add syntax highlighting and language detection for common non-runnable development files
   - Introduce a view/lint execution mode that never offers inline execution for these file types

@@ -7,8 +7,10 @@ type LanguageMeta = {
   badgeClass: string;
   textColorClass: string;
   extensions: readonly string[];
+  fileNames?: readonly string[];
   monacoLanguage: string;
   defaultCode: string;
+  executionMode: 'run' | 'validate' | 'view';
 };
 
 const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
@@ -20,6 +22,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     extensions: ['js', 'jsx', 'mjs', 'cjs'],
     monacoLanguage: 'javascript',
     defaultCode: '// Welcome to Lingua\nconsole.log("Hello, World!");\n',
+    executionMode: 'run',
   },
   typescript: {
     label: 'TypeScript',
@@ -30,6 +33,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     monacoLanguage: 'typescript',
     defaultCode:
       '// Welcome to Lingua\nconst greeting: string = "Hello, World!";\nconsole.log(greeting);\n',
+    executionMode: 'run',
   },
   go: {
     label: 'Go',
@@ -40,6 +44,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     monacoLanguage: 'go',
     defaultCode:
       '// Welcome to Lingua\npackage main\n\nimport "fmt"\n\nfunc main() {\n\tfmt.Println("Hello, World!")\n}\n',
+    executionMode: 'run',
   },
   python: {
     label: 'Python',
@@ -49,6 +54,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     extensions: ['py'],
     monacoLanguage: 'python',
     defaultCode: '# Welcome to Lingua\nprint("Hello, World!")\n',
+    executionMode: 'run',
   },
   rust: {
     label: 'Rust',
@@ -59,6 +65,68 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     monacoLanguage: 'rust',
     defaultCode:
       '// Welcome to Lingua\nfn main() {\n    println!("Hello, World!");\n}\n',
+    executionMode: 'run',
+  },
+  json: {
+    label: 'JSON',
+    shortLabel: 'JSON',
+    badgeClass: 'bg-emerald-500/15 text-emerald-300',
+    textColorClass: 'text-emerald-300',
+    extensions: ['json'],
+    monacoLanguage: 'json',
+    defaultCode: '{\n  "name": "lingua"\n}\n',
+    executionMode: 'validate',
+  },
+  yaml: {
+    label: 'YAML',
+    shortLabel: 'YML',
+    badgeClass: 'bg-teal-500/15 text-teal-300',
+    textColorClass: 'text-teal-300',
+    extensions: ['yaml', 'yml'],
+    monacoLanguage: 'yaml',
+    defaultCode: 'name: lingua\n',
+    executionMode: 'validate',
+  },
+  dotenv: {
+    label: '.env',
+    shortLabel: 'ENV',
+    badgeClass: 'bg-lime-500/15 text-lime-300',
+    textColorClass: 'text-lime-300',
+    extensions: ['env'],
+    fileNames: ['.env'],
+    monacoLanguage: 'dotenv',
+    defaultCode: 'NODE_ENV=development\n',
+    executionMode: 'validate',
+  },
+  toml: {
+    label: 'TOML',
+    shortLabel: 'TOML',
+    badgeClass: 'bg-amber-500/15 text-amber-300',
+    textColorClass: 'text-amber-300',
+    extensions: ['toml'],
+    monacoLanguage: 'toml',
+    defaultCode: 'title = "Lingua"\n',
+    executionMode: 'view',
+  },
+  ini: {
+    label: 'INI',
+    shortLabel: 'INI',
+    badgeClass: 'bg-sky-500/15 text-sky-300',
+    textColorClass: 'text-sky-300',
+    extensions: ['ini', 'cfg', 'conf'],
+    monacoLanguage: 'ini',
+    defaultCode: '[section]\nkey=value\n',
+    executionMode: 'view',
+  },
+  csv: {
+    label: 'CSV',
+    shortLabel: 'CSV',
+    badgeClass: 'bg-rose-500/15 text-rose-300',
+    textColorClass: 'text-rose-300',
+    extensions: ['csv'],
+    monacoLanguage: 'csv',
+    defaultCode: 'name,value\nexample,1\n',
+    executionMode: 'validate',
   },
 };
 
@@ -70,6 +138,7 @@ const FALLBACK_META: LanguageMeta = {
   extensions: ['txt'],
   monacoLanguage: 'plaintext',
   defaultCode: '',
+  executionMode: 'view',
 };
 const FALLBACK_EXTENSION = 'txt';
 
@@ -102,6 +171,7 @@ export function getLanguageMeta(language: Language): LanguageMeta {
     extensions: [extension],
     monacoLanguage: plugin.monacoLanguage ?? 'plaintext',
     defaultCode: plugin.defaultCode ?? '',
+    executionMode: 'run',
   };
 }
 
@@ -135,4 +205,15 @@ export function monacoLanguageFor(language: Language): string {
 
 export function defaultCodeForLanguage(language: Language): string {
   return getLanguageMeta(language).defaultCode;
+}
+
+export function executionModeForLanguage(language: Language): 'run' | 'validate' | 'view' {
+  return getLanguageMeta(language).executionMode;
+}
+
+export function languageSupportsFileName(language: Language, fileName: string): boolean {
+  const normalized = fileName.toLowerCase();
+  const fileNames = getLanguageMeta(language).fileNames ?? [];
+
+  return fileNames.some((candidate) => candidate.toLowerCase() === normalized);
 }
