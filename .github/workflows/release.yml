@@ -1,31 +1,82 @@
 name: Release
+run-name: Release ${{ inputs.release_tag }}
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Stable tag to publish (vX.Y.Z)
+        required: true
+        type: string
+
+env:
+  RELEASE_TAG: ${{ inputs.release_tag }}
+  RELEASE_REF: refs/tags/${{ inputs.release_tag }}
+  TARGET_REF: refs/heads/main
 
 jobs:
-  validate-channel:
-    name: Validate release channel
+  prepare-release-tag:
+    name: Prepare release tag
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Enforce stable-only tags
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_REF }}
+          fetch-depth: 0
+
+      - name: Validate release input
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
-            echo "::error::Prerelease tags are not published by this workflow. Use stable tags in the form vX.Y.Z."
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Manual releases only accept stable tags in the form vX.Y.Z."
             exit 1
           fi
+
+          if ! git rev-parse HEAD >/dev/null 2>&1; then
+            echo "::error::Target ref ${TARGET_REF} could not be resolved."
+            exit 1
+          fi
+
           echo "Release channel: stable"
+          echo "Release tag: ${RELEASE_TAG}"
+          echo "Release target ref: main"
+
+      - name: Create or reuse release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags origin
+
+          target_sha="$(git rev-parse HEAD)"
+
+          if git rev-parse "${RELEASE_REF}" >/dev/null 2>&1; then
+            existing_sha="$(git rev-list -n 1 "${RELEASE_REF}")"
+            if [[ "${existing_sha}" != "${target_sha}" ]]; then
+              echo "::error::Tag ${RELEASE_TAG} already exists and points to ${existing_sha}, not ${target_sha} from main."
+              exit 1
+            fi
+
+            echo "Reusing existing tag ${RELEASE_TAG} at ${existing_sha}"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "${RELEASE_TAG}" -m "Release ${RELEASE_TAG}" "${target_sha}"
+            git push origin "${RELEASE_REF}"
+            echo "Created tag ${RELEASE_TAG} at ${target_sha}"
+          fi
 
   build-macos:
     name: Build macOS
     runs-on: macos-latest
-    needs: validate-channel
+    needs: prepare-release-tag
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -140,9 +191,12 @@ jobs:
   build-windows:
     name: Build Windows
     runs-on: windows-latest
-    needs: validate-channel
+    needs: prepare-release-tag
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -231,9 +285,12 @@ jobs:
   build-linux:
     name: Build Linux
     runs-on: ubuntu-latest
-    needs: validate-channel
+    needs: prepare-release-tag
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -248,7 +305,8 @@ jobs:
           sudo apt-get install -y rpm fakeroot
 
       - name: Report Linux signing state
-        run: echo "Linux signing: not configured"
+        run: |
+          echo "Linux signing: not configured"
 
       - name: Build Linux artifacts
         run: npm run make:linux
@@ -278,6 +336,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -322,3 +383,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GITHUB_REF: ${{ env.RELEASE_REF }}
+          GITHUB_REF_NAME: ${{ env.RELEASE_TAG }}
+          GITHUB_REF_TYPE: tag
