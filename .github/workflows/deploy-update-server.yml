@@ -1,11 +1,7 @@
 name: Deploy Update Server
 
 on:
-  push:
-    paths:
-      - 'update-server/**'
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   deploy:
