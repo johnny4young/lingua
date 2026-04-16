@@ -1,7 +1,7 @@
 import { runnerManager } from '../runners';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useResultStore } from '../stores/resultStore';
-import type { EditorDiagnostic, FileTab, Language } from '../types';
+import type { FileTab, Language } from '../types';
 import {
   getCompilationLoadingMessage,
   getCompilationMessage,
@@ -9,6 +9,7 @@ import {
   toConsoleEntries,
 } from '../hooks/runnerOutput';
 import { toExecutionPresentation } from '../utils/executionPresentation';
+import { toExecutionDiagnostics } from '../utils/executionDiagnostics';
 import { executionModeForLanguage } from '../utils/languageMeta';
 import { validateDocument } from '../validation';
 
@@ -25,25 +26,6 @@ export interface ManualExecutionSummary {
   executionTime: number | null;
   diagnosticsCount: number;
   message: string;
-}
-
-function toExecutionDiagnostics(
-  language: Language,
-  error: { message: string; line?: number; column?: number } | null
-): EditorDiagnostic[] {
-  if (!error?.line) {
-    return [];
-  }
-
-  return [
-    {
-      message: error.message,
-      line: error.line,
-      column: error.column,
-      severity: 'error',
-      source: language,
-    },
-  ];
 }
 
 export async function executeTabManually(

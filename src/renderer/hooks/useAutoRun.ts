@@ -2,28 +2,13 @@ import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { runnerManager } from '../runners';
-import type { EditorDiagnostic, ExecutionResult, Language } from '../types';
+import type { ExecutionResult } from '../types';
 import { toExecutionPresentation } from '../utils/executionPresentation';
+import { toExecutionDiagnostics } from '../utils/executionDiagnostics';
 import { executionModeForLanguage } from '../utils/languageMeta';
 import { validateDocument } from '../validation';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
-
-function toExecutionDiagnostics(language: Language, error: { message: string; line?: number; column?: number } | null): EditorDiagnostic[] {
-  if (!error?.line) {
-    return [];
-  }
-
-  return [
-    {
-      message: error.message,
-      line: error.line,
-      column: error.column,
-      severity: 'error',
-      source: language,
-    },
-  ];
-}
 /**
  * Auto-run the active tab's code after a short pause in typing.
  * For dynamic languages: captures per-line results.

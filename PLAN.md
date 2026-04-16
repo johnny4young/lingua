@@ -139,8 +139,8 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-004 Unify editor error surfacing across runtime, compilation, and type diagnostics
 
 - Priority: `P0`
-- Status: `Partial`
-- Readiness: `Incrementally implemented on 2026-04-10`
+- Status: `Done`
+- Readiness: `Implemented on 2026-04-16`
 - Current gap:
   - Baseline editor markers and inline decorations are now wired for manual and auto-run execution results
   - Full cross-language diagnostic richness is still incomplete
@@ -156,6 +156,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
   - Manual run and auto-run now both populate the same result-store view model
   - Dynamic-language line results are now available to the editor as inline decorations
   - Location-aware execution failures now reveal the source line in Monaco and can surface through glyph-margin diagnostics
+  - Go and Rust compiler failures now normalize their primary messages and parsed source locations into the same execution-diagnostic pipeline used by the editor and result panel
 - Acceptance criteria:
   - A type error in TS is visible in the editor without running
   - A runtime error in JS/TS/Python highlights the relevant source line
