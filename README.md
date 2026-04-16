@@ -29,6 +29,7 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Common development files now advertise honest editor modes: JSON/YAML/`.env`/CSV validate in-place with diagnostics, while TOML/INI stay editable without fake run semantics
 - Auto-run and manual run now feed the same result state, so the result panel and editor stay synchronized instead of diverging by execution path
 - Dynamic-language runs render inline line decorations in the editor, and runtime or compile errors with source locations are surfaced as Monaco markers without overwriting TypeScript diagnostics
+- Go and Rust compile failures now normalize their primary compiler messages and parsed source locations before they reach Monaco markers, so editor highlights stay focused on the real failing span instead of a raw stderr blob
 - Manual runs reveal location-aware execution errors in the editor, while auto-run keeps the current caret position stable so background checks do not steal focus mid-typing
 
 ## Release notes and onboarding surfaces

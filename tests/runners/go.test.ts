@@ -78,7 +78,11 @@ describe('GoRunner', () => {
     const result = await runner.execute('package main\nfunc main() { fmt.Println("hi") }');
 
     expect(result.error).toBeDefined();
-    expect(result.error?.message).toContain('fmt');
+    expect(result.error).toMatchObject({
+      message: 'undefined: fmt',
+      line: 3,
+      column: 5,
+    });
   });
 
   it('should use a classic worker for Go WASM execution', async () => {

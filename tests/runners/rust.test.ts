@@ -111,9 +111,11 @@ describe('RustRunner', () => {
     await runner.init();
     const result = await runner.execute('fn main() { println!("{}", x); }');
 
-    expect(result.error).toBeDefined();
-    expect(result.error?.line).toBe(3);
-    expect(result.error?.column).toBe(20);
+    expect(result.error).toEqual({
+      message: 'error[E0425]: cannot find value `x` in this scope',
+      line: 3,
+      column: 20,
+    });
   });
 
   it('should stop without error (no-op for native runner)', () => {
