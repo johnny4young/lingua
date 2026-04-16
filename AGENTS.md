@@ -11,3 +11,4 @@
 - Do not describe plugin support as a finished user-facing extension system until the typing and UI flows go beyond the built-in language set.
 - If a change touches shortcuts, execution behavior, or workflow behavior, update the related docs in the same change.
 - Treat `PLAN.md` as the local current-state/backlog document, not as a speculative roadmap.
+- For maintained Electron UI validation, prefer `npm run desktop:smoke`; it writes failure artifacts under `output/playwright/desktop-smoke` and exercises JS, TS, Python, Go, and Rust in the real desktop shell.

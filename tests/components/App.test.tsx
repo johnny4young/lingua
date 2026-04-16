@@ -16,6 +16,7 @@ const {
   mockSetLastSeenVersion,
   mockSetHasCompletedTour,
   mockStartTour,
+  mockUseDesktopSmoke,
 } = vi.hoisted(() => ({
   mockRestoreSession: vi.fn().mockResolvedValue(undefined),
   mockSaveSession: vi.fn(),
@@ -38,6 +39,7 @@ const {
   mockSetLastSeenVersion: vi.fn(),
   mockSetHasCompletedTour: vi.fn(),
   mockStartTour: vi.fn(),
+  mockUseDesktopSmoke: vi.fn(),
 }));
 
 let beforeCloseHandler: (() => void) | undefined;
@@ -65,6 +67,8 @@ const mockSettingsState = {
   setLastSeenVersion: mockSetLastSeenVersion,
   setHasCompletedTour: mockSetHasCompletedTour,
 };
+
+let smokeEnabled = false;
 
 vi.mock('../../src/renderer/components/Layout', () => ({
   AppLayout: () => <div data-testid="app-layout">layout</div>,
@@ -126,6 +130,14 @@ vi.mock('../../src/renderer/hooks/useAppTheme', () => ({
   useAppTheme: () => undefined,
 }));
 
+vi.mock('../../src/renderer/hooks/useDesktopSmoke', () => ({
+  useDesktopSmoke: mockUseDesktopSmoke,
+}));
+
+vi.mock('../../src/renderer/utils/desktopSmoke', () => ({
+  desktopSmokeEnabled: () => smokeEnabled,
+}));
+
 vi.mock('../../src/renderer/stores/editorStore', () => {
   const useEditorStore = (selector?: (state: typeof mockEditorState) => unknown) =>
     selector ? selector(mockEditorState) : mockEditorState;
@@ -180,6 +192,7 @@ describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     beforeCloseHandler = undefined;
+    smokeEnabled = false;
     mockSettingsState.restoreSession = true;
     mockSettingsState.lastSeenVersion = null;
     mockSettingsState.hasCompletedTour = false;
@@ -218,6 +231,23 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(mockRestoreSession).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('skips session restore and whats-new auto-open during desktop smoke mode', async () => {
+    smokeEnabled = true;
+
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>
+    );
+
+    await waitFor(() => {
+      expect(mockUseDesktopSmoke).toHaveBeenCalledWith(true);
+      expect(mockRestoreSession).not.toHaveBeenCalled();
+      expect(mockSetLastSeenVersion).not.toHaveBeenCalled();
+      expect(document.body.textContent).not.toContain('whats-new');
     });
   });
 

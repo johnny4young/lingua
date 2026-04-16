@@ -85,4 +85,13 @@ contextBridge.exposeInMainWorld('lingua', {
     getInstallDirectory: () => ipcRenderer.invoke('plugins:get-install-directory'),
     list: () => ipcRenderer.invoke('plugins:list'),
   },
+
+  desktopSmoke: {
+    enabled: process.env.LINGUA_DESKTOP_SMOKE === '1',
+    getConfig: () => ipcRenderer.invoke('desktop-smoke:get-config') as Promise<DesktopSmokeConfig | null>,
+    capture: (name: string) => ipcRenderer.invoke('desktop-smoke:capture', name) as Promise<string | null>,
+    writeJsonArtifact: (name: string, payload: unknown) =>
+      ipcRenderer.invoke('desktop-smoke:write-json-artifact', name, payload) as Promise<string | null>,
+    finish: (success: boolean) => ipcRenderer.send('desktop-smoke:finish', success),
+  },
 });

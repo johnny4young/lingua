@@ -166,8 +166,8 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-005 Keep desktop UI validation as a maintained workflow
 
 - Priority: `P0`
-- Status: `Partial`
-- Readiness: `In progress`
+- Status: `Done`
+- Readiness: `Implemented on 2026-04-16`
 - Scope:
   - Preserve the documented Electron validation flow in `AGENTS.md`
   - Add repo-level scripts for repeatable validation instead of ad hoc commands
@@ -178,6 +178,8 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 - Current progress:
   - `npm run desktop:dev` now launches the renderer server and Electron together and tears the owned server down when Electron exits
   - `npm run desktop:dev:sync` can resync `.vite/build/main.js` and `.vite/build/preload.js` without going through `electron-forge start`
+  - `npm run desktop:smoke` now exercises JS, TS, Python, Go, and Rust in a real Electron window and writes bootstrap, progress, screenshots, and summary artifacts under `output/playwright/desktop-smoke`
+  - The smoke flow has explicit timeout/failure reporting so contributors get a terminating command with actionable artifact output instead of a silent hang
 - Acceptance criteria:
   - A contributor can run one documented command sequence and validate Electron UI behavior
   - The language smoke test includes JS, TS, Python, Go, and Rust

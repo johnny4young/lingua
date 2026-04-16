@@ -11,6 +11,7 @@ import { CHANGELOG_ENTRIES } from './data/changelog';
 import { getActiveAppLanguage } from './i18n';
 import { useAppInfo } from './hooks/useAppInfo';
 import { useRunner } from './hooks/useRunner';
+import { useDesktopSmoke } from './hooks/useDesktopSmoke';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useAutoRun } from './hooks/useAutoRun';
@@ -22,6 +23,7 @@ import { useSessionStore } from './stores/sessionStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
+import { desktopSmokeEnabled } from './utils/desktopSmoke';
 
 function AppChrome({
   overlay,
@@ -47,13 +49,14 @@ function AppChrome({
   const initializeUpdates = useUpdateStore((s) => s.initialize);
   const appInfo = useAppInfo();
   const { hasCompletedTour, startTour } = useGuidedTour();
+  const smokeEnabled = desktopSmokeEnabled();
   const hasRestoredSessionRef = useRef(false);
   const hasHandledWhatsNewRef = useRef(false);
   const hasHandledAutoTourRef = useRef(false);
 
   // Restore session on first mount if setting is enabled
   useEffect(() => {
-    if (hasRestoredSessionRef.current) {
+    if (hasRestoredSessionRef.current || smokeEnabled) {
       return;
     }
     hasRestoredSessionRef.current = true;
@@ -62,10 +65,14 @@ function AppChrome({
     if (restoreSession) {
       void useSessionStore.getState().restoreSession();
     }
-  }, []);
+  }, [smokeEnabled]);
 
   // Auto-save session when tabs change (debounced)
   useEffect(() => {
+    if (smokeEnabled) {
+      return;
+    }
+
     let timeout: ReturnType<typeof setTimeout>;
     const unsubscribe = useEditorStore.subscribe(() => {
       const { restoreSession } = useSettingsStore.getState();
@@ -83,7 +90,7 @@ function AppChrome({
       unsubscribe();
       clearTimeout(timeout);
     };
-  }, []);
+  }, [smokeEnabled]);
 
   useEffect(() => {
     void initializePlugins();
@@ -94,7 +101,7 @@ function AppChrome({
   }, [initializeUpdates]);
 
   useEffect(() => {
-    if (hasHandledWhatsNewRef.current) {
+    if (hasHandledWhatsNewRef.current || smokeEnabled) {
       return;
     }
 
@@ -115,10 +122,10 @@ function AppChrome({
     hasHandledWhatsNewRef.current = true;
     setLastSeenVersion(currentVersion);
     openOverlay('whats-new');
-  }, [appInfo?.version, lastSeenVersion, openOverlay, overlay, setLastSeenVersion]);
+  }, [appInfo?.version, lastSeenVersion, openOverlay, overlay, setLastSeenVersion, smokeEnabled]);
 
   useEffect(() => {
-    if (hasHandledAutoTourRef.current) {
+    if (hasHandledAutoTourRef.current || smokeEnabled) {
       return;
     }
 
@@ -134,12 +141,13 @@ function AppChrome({
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [appInfo?.version, hasCompletedTour, overlay, startTour]);
+  }, [appInfo?.version, hasCompletedTour, overlay, startTour, smokeEnabled]);
 
   // Auto-run code after the configured idle debounce
   useAutoRun();
   useProjectWatchSync();
   useAppTheme();
+  useDesktopSmoke(smokeEnabled);
 
   // Dirty-close handler: check for unsaved tabs before app close
   useEffect(() => {
