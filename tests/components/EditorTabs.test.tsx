@@ -69,7 +69,16 @@ describe('EditorTabs', () => {
     await user.click(screen.getByRole('tab', { name: 'JS untitled.js' }));
     expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
 
-    await user.click(screen.getByTitle('Close untitled.js'));
+    await user.click(screen.getByRole('button', { name: 'Close untitled.js' }));
     expect(mockCloseTab).toHaveBeenCalledWith('tab-js');
+  });
+
+  it('shows the tab filename in the shared tooltip layer', async () => {
+    const user = userEvent.setup();
+    render(<EditorTabs />);
+
+    await user.hover(screen.getByRole('tab', { name: 'Go main.go' }));
+
+    expect(screen.getByRole('tooltip').textContent).toContain('main.go');
   });
 });

@@ -205,7 +205,6 @@ describe('AppLayout responsive shell', () => {
   });
 
   it('lets the compact drawer close with Escape and the close button', async () => {
-    const user = userEvent.setup();
     setCompactShell(true);
 
     await renderLayout();
@@ -223,7 +222,7 @@ describe('AppLayout responsive shell', () => {
       expect(screen.getByRole('dialog', { name: 'Project explorer' })).toBeTruthy();
     });
 
-    await user.click(screen.getByTitle('Close sidebar'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close sidebar' }));
     await waitFor(() => {
       expect(useUIStore.getState().sidebarVisible).toBe(false);
     });
@@ -245,7 +244,7 @@ describe('AppLayout responsive shell', () => {
     });
 
     const dialog = await screen.findByRole('dialog', { name: 'Project explorer' });
-    const closeButton = screen.getByTitle('Close sidebar');
+    const closeButton = screen.getByRole('button', { name: 'Close sidebar' });
     const shellUnderlay = screen.getByTestId('shell-underlay');
 
     await waitFor(() => {
@@ -273,7 +272,7 @@ describe('AppLayout responsive shell', () => {
 
     await renderLayout();
 
-    const closeButton = screen.getByTitle('Close sidebar');
+    const closeButton = screen.getByRole('button', { name: 'Close sidebar' });
     const treeAction = screen.getByTestId('file-tree-action');
     const navigateAction = screen.getByTestId('file-tree-navigate');
 
@@ -307,7 +306,7 @@ describe('AppLayout responsive shell', () => {
     const treeAction = screen.getByTestId('file-tree-action');
 
     await waitFor(() => {
-      expect(document.activeElement).toBe(screen.getByTitle('Close sidebar'));
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close sidebar' }));
     });
 
     await user.tab();

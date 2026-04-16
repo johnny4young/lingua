@@ -423,7 +423,7 @@ export function AppLayout({
             <IconButton
               ref={compactDrawerCloseButtonRef}
               onClick={() => setSidebarVisible(false)}
-              title={t('layout.closeSidebar')}
+              tooltip={t('layout.closeSidebar')}
               className="absolute right-3 top-3 z-10 bg-surface/92"
             >
               <X size={14} />

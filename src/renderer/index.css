@@ -328,6 +328,55 @@
     @apply inline-flex items-center rounded-full border border-border/80 bg-surface-strong/75 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted;
   }
 
+  .tooltip-content {
+    @apply fixed z-[12000] max-w-[22rem] rounded-xl border px-3 py-2 text-[11px] font-medium leading-5 transition-opacity duration-150;
+    background: color-mix(in srgb, var(--app-surface) 94%, transparent) !important;
+    border-color: color-mix(in srgb, var(--app-border-strong) 82%, transparent) !important;
+    color: var(--app-foreground) !important;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--app-ring) 18%, transparent),
+      0 16px 44px color-mix(in srgb, var(--app-background) 34%, black) !important;
+    backdrop-filter: blur(16px);
+    pointer-events: none;
+  }
+
+  .tooltip-label {
+    display: block;
+    overflow-wrap: anywhere;
+  }
+
+  .tooltip-arrow {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: inherit;
+    border-left: inherit;
+    border-top: inherit;
+    transform: rotate(45deg);
+  }
+
+  .tooltip-content[data-side='top'] .tooltip-arrow {
+    bottom: -5px;
+    left: calc(var(--tooltip-arrow-offset, 24px) - 5px);
+  }
+
+  .tooltip-content[data-side='bottom'] .tooltip-arrow {
+    top: -5px;
+    left: calc(var(--tooltip-arrow-offset, 24px) - 5px);
+  }
+
+  .tooltip-content[data-side='left'] .tooltip-arrow {
+    right: -5px;
+    top: calc(var(--tooltip-arrow-offset, 24px) - 5px);
+    transform: rotate(135deg);
+  }
+
+  .tooltip-content[data-side='right'] .tooltip-arrow {
+    left: -5px;
+    top: calc(var(--tooltip-arrow-offset, 24px) - 5px);
+    transform: rotate(-45deg);
+  }
+
   /* Guided tour */
   .guided-tour-step.shepherd-element {
     --tour-surface: color-mix(in srgb, var(--app-surface) 90%, transparent);
