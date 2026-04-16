@@ -1,5 +1,5 @@
 import type { LineResult } from '../stores/resultStore';
-import type { ExecutionError } from '../types';
+import type { EditorDiagnostic, ExecutionError } from '../types';
 
 export interface InlineDecorationEntry {
   line: number;
@@ -12,6 +12,7 @@ export interface ExecutionMarkerEntry {
   startColumn: number;
   endColumn: number;
   message: string;
+  severity?: 'error' | 'warning' | 'info';
 }
 
 function toInlineContent(result: LineResult): string {
@@ -61,7 +62,36 @@ export function buildExecutionMarkerEntry(
     startColumn,
     endColumn,
     message: error.message,
+    severity: 'error',
   };
+}
+
+export function buildDiagnosticMarkerEntries(
+  diagnostics: EditorDiagnostic[],
+  lineCount: number,
+  getLineMaxColumn: (lineNumber: number) => number
+): ExecutionMarkerEntry[] {
+  return diagnostics.map((diagnostic) => {
+    const startLineNumber = Math.min(Math.max(diagnostic.line, 1), lineCount);
+    const maxColumn = Math.max(getLineMaxColumn(startLineNumber), 1);
+    const startColumn = Math.min(Math.max(diagnostic.column ?? 1, 1), maxColumn);
+    const endLineNumber = Math.min(
+      Math.max(diagnostic.endLine ?? startLineNumber, startLineNumber),
+      lineCount
+    );
+    const endColumn = diagnostic.endColumn
+      ? Math.min(Math.max(diagnostic.endColumn, startColumn), getLineMaxColumn(endLineNumber))
+      : Math.min(startColumn + 1, maxColumn);
+
+    return {
+      startLineNumber,
+      endLineNumber,
+      startColumn,
+      endColumn,
+      message: diagnostic.message,
+      severity: diagnostic.severity,
+    };
+  });
 }
 
 export function getExecutionErrorKey(error: ExecutionError | null): string | null {
@@ -70,4 +100,13 @@ export function getExecutionErrorKey(error: ExecutionError | null): string | nul
   }
 
   return `${error.message}:${error.line}:${error.column ?? 1}`;
+}
+
+export function getDiagnosticKey(diagnostics: EditorDiagnostic[]): string | null {
+  const primary = diagnostics[0];
+  if (!primary) {
+    return null;
+  }
+
+  return `${primary.message}:${primary.line}:${primary.column ?? 1}:${primary.severity}`;
 }

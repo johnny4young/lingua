@@ -2,10 +2,28 @@ import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { runnerManager } from '../runners';
-import type { ExecutionResult } from '../types';
+import type { EditorDiagnostic, ExecutionResult, Language } from '../types';
 import { toExecutionPresentation } from '../utils/executionPresentation';
+import { executionModeForLanguage } from '../utils/languageMeta';
+import { validateDocument } from '../validation';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
+
+function toExecutionDiagnostics(language: Language, error: { message: string; line?: number; column?: number } | null): EditorDiagnostic[] {
+  if (!error?.line) {
+    return [];
+  }
+
+  return [
+    {
+      message: error.message,
+      line: error.line,
+      column: error.column,
+      severity: 'error',
+      source: language,
+    },
+  ];
+}
 /**
  * Auto-run the active tab's code after a short pause in typing.
  * For dynamic languages: captures per-line results.
@@ -49,10 +67,49 @@ export function useAutoRun() {
         setLineResults,
         setFullOutput,
         setError,
+        setDiagnostics,
         setExecutionTime,
         setExecutionSource,
         setIsAutoRunning,
       } = useResultStore.getState();
+      const executionMode = executionModeForLanguage(language);
+
+      if (executionMode === 'view') {
+        clear();
+        return;
+      }
+
+      if (executionMode === 'validate') {
+        setIsAutoRunning(true);
+        clear();
+        setExecutionSource('auto');
+
+        try {
+          const validation = validateDocument(language, code);
+          if (abortRef.current) {
+            setIsAutoRunning(false);
+            return;
+          }
+
+          setLineResults([]);
+          setFullOutput(validation.fullOutput);
+          setError(null);
+          setDiagnostics(validation.diagnostics);
+          setExecutionTime(validation.executionTime);
+        } catch (err) {
+          if (!abortRef.current) {
+            setError({
+              message: err instanceof Error ? err.message : String(err),
+            });
+            setDiagnostics([]);
+          }
+        } finally {
+          if (!abortRef.current) {
+            setIsAutoRunning(false);
+          }
+        }
+        return;
+      }
 
       // Check if language is supported
       if (!runnerManager.isSupported(language)) {
@@ -82,9 +139,12 @@ export function useAutoRun() {
         const presentation = toExecutionPresentation(language, code, result);
         setLineResults(presentation.lineResults);
         setFullOutput(presentation.fullOutput);
+        setDiagnostics(toExecutionDiagnostics(language, result.error ?? null));
 
         if (result.error) {
           setError(result.error);
+        } else {
+          setError(null);
         }
         setExecutionTime(result.executionTime);
       } catch (err) {
@@ -92,6 +152,7 @@ export function useAutoRun() {
           setError({
             message: err instanceof Error ? err.message : String(err),
           });
+          setDiagnostics([]);
         }
       } finally {
         if (!abortRef.current) {

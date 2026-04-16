@@ -66,6 +66,7 @@ vi.mock('@monaco-editor/react', () => ({
 vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => monacoMock);
 vi.mock('monaco-editor/esm/vs/editor/editor.all.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/language/typescript/monaco.contribution.js', () => ({}));
+vi.mock('monaco-editor/esm/vs/language/json/monaco.contribution.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/editor/editor.worker?worker', () => ({
   default: MockEditorWorker,
 }));
@@ -205,6 +206,22 @@ describe('registerLanguageCompletionProviders', () => {
       4,
       'lua',
       expect.any(Object)
+    );
+  });
+
+  it('registers validate-only language tokenizers once alongside completion providers', async () => {
+    const { registerLanguageCompletionProviders } = await import('@/monaco');
+
+    registerLanguageCompletionProviders(monacoMock as never);
+
+    expect(monacoMock.languages.register).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'yaml' })
+    );
+    expect(monacoMock.languages.register).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'dotenv' })
+    );
+    expect(monacoMock.languages.register).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'csv' })
     );
   });
 });

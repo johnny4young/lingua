@@ -19,6 +19,12 @@ describe('languageMeta', () => {
     expect(languageForExtension(' rs ')).toBe('rust');
     expect(languageForExtension('tsx')).toBe('typescript');
     expect(languageForExtension('.mjs')).toBe('javascript');
+    expect(languageForExtension('.json')).toBe('json');
+    expect(languageForExtension('yaml')).toBe('yaml');
+    expect(languageForExtension('env')).toBe('dotenv');
+    expect(languageForExtension('csv')).toBe('csv');
+    expect(languageForExtension('toml')).toBe('toml');
+    expect(languageForExtension('ini')).toBe('ini');
   });
 
   it('returns undefined for unknown extensions so callers can fall back to plaintext', () => {

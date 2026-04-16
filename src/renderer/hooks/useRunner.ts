@@ -3,7 +3,7 @@ import { runnerManager } from '../runners';
 import { useEditorStore } from '../stores/editorStore';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useResultStore } from '../stores/resultStore';
-import type { Language } from '../types';
+import type { EditorDiagnostic, Language } from '../types';
 import {
   getCompilationLoadingMessage,
   getCompilationMessage,
@@ -11,6 +11,24 @@ import {
   toConsoleEntries,
 } from './runnerOutput';
 import { toExecutionPresentation } from '../utils/executionPresentation';
+import { executionModeForLanguage } from '../utils/languageMeta';
+import { validateDocument } from '../validation';
+
+function toExecutionDiagnostics(language: Language, error: { message: string; line?: number; column?: number } | null): EditorDiagnostic[] {
+  if (!error?.line) {
+    return [];
+  }
+
+  return [
+    {
+      message: error.message,
+      line: error.line,
+      column: error.column,
+      severity: 'error',
+      source: language,
+    },
+  ];
+}
 
 export function useRunner() {
   const [isRunning, setIsRunning] = useState(false);
@@ -29,6 +47,7 @@ export function useRunner() {
       setFullOutput,
       setIsAutoRunning,
       setLineResults,
+      setDiagnostics,
     } = useResultStore.getState();
 
     const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -39,6 +58,49 @@ export function useRunner() {
 
     const { language, content, name } = activeTab;
     currentLanguageRef.current = language;
+    const executionMode = executionModeForLanguage(language);
+
+    if (executionMode === 'view') {
+      clear();
+      setExecutionSource('manual');
+      setIsAutoRunning(false);
+      addEntry({
+        type: 'info',
+        content: `${name} is editable, but Lingua does not run or lint this file type yet.`,
+      });
+      setFullOutput('This file type is editable only. Lingua will not execute or validate it yet.');
+      return;
+    }
+
+    if (executionMode === 'validate') {
+      clear();
+      clearResults();
+      setExecutionSource('manual');
+      setIsAutoRunning(false);
+      setIsRunning(true);
+      addEntry({ type: 'info', content: `Validating ${name}...` });
+
+      try {
+        const validation = validateDocument(language, content);
+        setDiagnostics(validation.diagnostics);
+        setLineResults([]);
+        setFullOutput(validation.fullOutput);
+        setError(null);
+        setExecutionTime(validation.executionTime);
+        addEntry({
+          type: validation.diagnostics.some((item) => item.severity === 'error') ? 'error' : 'info',
+          content:
+            validation.diagnostics.length === 0
+              ? `Validation passed for ${name}.`
+              : `Validation found ${validation.diagnostics.length} issue${validation.diagnostics.length === 1 ? '' : 's'} in ${name}.`,
+          executionTime: validation.executionTime,
+        });
+      } finally {
+        setIsRunning(false);
+        currentLanguageRef.current = null;
+      }
+      return;
+    }
 
     if (!runnerManager.isSupported(language)) {
       addEntry({
@@ -52,6 +114,7 @@ export function useRunner() {
     clearResults();
     setExecutionSource('manual');
     setIsAutoRunning(false);
+    setDiagnostics([]);
     addEntry({ type: 'info', content: `Running ${name}...` });
     setIsRunning(true);
 
@@ -91,6 +154,7 @@ export function useRunner() {
       setLineResults(presentation.lineResults);
       setFullOutput(presentation.fullOutput);
       setError(result.error ?? null);
+      setDiagnostics(toExecutionDiagnostics(language, result.error ?? null));
       setExecutionTime(result.executionTime);
 
       for (const entry of toConsoleEntries(result)) {
@@ -98,6 +162,7 @@ export function useRunner() {
       }
     } catch (err) {
       if (!runnerPrepared) {
+        setDiagnostics([]);
         setError({
           message: `Failed to initialize ${language} runner: ${err instanceof Error ? err.message : String(err)}`,
         });
@@ -107,6 +172,7 @@ export function useRunner() {
         });
         return;
       }
+      setDiagnostics([]);
       setError({
         message: err instanceof Error ? err.message : String(err),
       });

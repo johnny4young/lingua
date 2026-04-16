@@ -5,12 +5,8 @@ import { formatExecTime } from '../../hooks/runnerOutput';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore, type LineResult } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
-
-const DYNAMIC_LANGUAGES = new Set(['javascript', 'typescript', 'python']);
-
-function isDynamic(language: string): boolean {
-  return DYNAMIC_LANGUAGES.has(language);
-}
+import { executionModeForLanguage } from '../../utils/languageMeta';
+import { isInlineResultLanguage } from '../../utils/languageCapabilities';
 
 function LineResultRow({ result }: { result: LineResult }) {
   if (result.type === 'magic') {
@@ -115,7 +111,8 @@ export function ResultPanel() {
   const settingsFontSize = useSettingsStore((state) => state.fontSize);
 
   const language = activeTab?.language ?? 'javascript';
-  const dynamic = isDynamic(language);
+  const dynamic = isInlineResultLanguage(language);
+  const executionMode = executionModeForLanguage(language);
   const lineCount = (activeTab?.content ?? '').split('\n').length;
   const undefinedResultCount = lineResults.filter(isUndefinedResult).length;
   const visibleLineResults = hideUndefined
@@ -146,15 +143,35 @@ export function ResultPanel() {
   const lineHeight = Math.round(fontSize * 1.35);
   const paddingTop = 12;
 
+  const titleKey = dynamic
+    ? 'results.inline.title'
+    : executionMode === 'validate'
+      ? 'results.validation.title'
+      : executionMode === 'view'
+        ? 'results.view.title'
+        : 'results.output.title';
+  const descriptionKey = dynamic
+    ? 'results.inline.description'
+    : executionMode === 'validate'
+      ? 'results.validation.description'
+      : executionMode === 'view'
+        ? 'results.view.description'
+        : 'results.output.description';
+  const emptyKey = dynamic
+    ? 'results.empty.inline'
+    : executionMode === 'validate'
+      ? 'results.empty.validation'
+      : executionMode === 'view'
+        ? 'results.empty.view'
+        : 'results.empty.manual';
+
   return (
     <div className="flex h-full flex-col bg-background/65">
       <div className="surface-header flex h-12 shrink-0 items-center justify-between px-4">
         <div>
-          <span className="panel-title">
-            {dynamic ? t('results.inline.title') : t('results.output.title')}
-          </span>
+          <span className="panel-title">{t(titleKey)}</span>
           <p className="mt-0.5 text-[11px] text-muted">
-            {dynamic ? t('results.inline.description') : t('results.output.description')}
+            {t(descriptionKey)}
           </p>
         </div>
 
@@ -182,11 +199,7 @@ export function ResultPanel() {
       <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
         {!hasContent && !isAutoRunning ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
-            <span className="text-xs italic text-muted">
-              {dynamic
-                ? t('results.empty.inline')
-                : t('results.empty.output')}
-            </span>
+            <span className="text-xs italic text-muted">{t(emptyKey)}</span>
           </div>
         ) : dynamic ? (
           <>
@@ -210,7 +223,7 @@ export function ResultPanel() {
           <FullOutputView
             output={fullOutput}
             error={error?.message ?? null}
-            emptyText={t('results.empty.manual')}
+            emptyText={t(emptyKey)}
           />
         )}
       </div>

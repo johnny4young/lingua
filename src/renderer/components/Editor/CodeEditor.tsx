@@ -9,7 +9,7 @@ import {
   applyTypeScriptDefaults,
   registerLanguageCompletionProviders,
 } from '../../monaco';
-import { getExecutionErrorKey } from '../../utils/editorExecutionDecorations';
+import { getDiagnosticKey } from '../../utils/editorExecutionDecorations';
 import { useInlineResults } from '../../hooks/useInlineResults';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
@@ -26,12 +26,12 @@ export function CodeEditor() {
   const { editorTheme, fontSize, fontFamily, showLineNumbers, wordWrap, minimap } =
     useSettingsStore();
   const lineResults = useResultStore((state) => state.lineResults);
-  const error = useResultStore((state) => state.error);
+  const diagnostics = useResultStore((state) => state.diagnostics);
   const executionSource = useResultStore((state) => state.executionSource);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
-  const lastRevealedErrorKeyRef = useRef<string | null>(null);
-  const { applyDecorations, clearDecorations, applyErrorMarker, clearMarkers } =
+  const lastRevealedDiagnosticKeyRef = useRef<string | null>(null);
+  const { applyDecorations, clearDecorations, applyDiagnostics, clearMarkers } =
     useInlineResults();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -61,35 +61,36 @@ export function CodeEditor() {
   }, [applyDecorations, lineResults]);
 
   useEffect(() => {
-    applyErrorMarker(editorRef.current, error, monacoRef.current);
+    applyDiagnostics(editorRef.current, diagnostics, monacoRef.current);
     const editor = editorRef.current;
-    const nextErrorKey = getExecutionErrorKey(error);
+    const nextDiagnosticKey = getDiagnosticKey(diagnostics);
+    const primaryDiagnostic = diagnostics[0];
 
-    if (!nextErrorKey) {
-      lastRevealedErrorKeyRef.current = null;
+    if (!nextDiagnosticKey) {
+      lastRevealedDiagnosticKeyRef.current = null;
       return;
     }
 
     if (
       !editor ||
       executionSource !== 'manual' ||
-      nextErrorKey === lastRevealedErrorKeyRef.current
+      nextDiagnosticKey === lastRevealedDiagnosticKeyRef.current
     ) {
       return;
     }
 
-    if (error?.line == null) {
-      lastRevealedErrorKeyRef.current = nextErrorKey;
+    if (!primaryDiagnostic) {
+      lastRevealedDiagnosticKeyRef.current = nextDiagnosticKey;
       return;
     }
 
-    editor.revealLineInCenter(error.line);
+    editor.revealLineInCenter(primaryDiagnostic.line);
     editor.setPosition({
-      lineNumber: error.line,
-      column: error.column ?? 1,
+      lineNumber: primaryDiagnostic.line,
+      column: primaryDiagnostic.column ?? 1,
     });
-    lastRevealedErrorKeyRef.current = nextErrorKey;
-  }, [applyErrorMarker, error, executionSource]);
+    lastRevealedDiagnosticKeyRef.current = nextDiagnosticKey;
+  }, [applyDiagnostics, diagnostics, executionSource]);
 
   useEffect(() => {
     return () => {

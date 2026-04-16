@@ -1,9 +1,8 @@
 import { useCallback, useRef } from 'react';
 import type * as monacoTypes from 'monaco-editor';
 import type { LineResult } from '../stores/resultStore';
-import type { ExecutionError } from '../types';
 import {
-  buildExecutionMarkerEntry,
+  buildDiagnosticMarkerEntries,
   buildInlineDecorationEntries,
 } from '../utils/editorExecutionDecorations';
 
@@ -91,10 +90,17 @@ export function useInlineResults() {
     [clearDecorations]
   );
 
-  const applyErrorMarker = useCallback(
+  const applyDiagnostics = useCallback(
     (
       editor: monacoTypes.editor.IStandaloneCodeEditor | null,
-      error: ExecutionError | null,
+      diagnostics: Array<{
+        message: string;
+        line: number;
+        column?: number;
+        endLine?: number;
+        endColumn?: number;
+        severity: 'error' | 'warning' | 'info';
+      }>,
       monaco: typeof monacoTypes | null
     ) => {
       if (!editor || !monaco) {
@@ -106,26 +112,33 @@ export function useInlineResults() {
         return;
       }
 
-      const markerEntry = buildExecutionMarkerEntry(
-        error,
+      const markerEntries = buildDiagnosticMarkerEntries(
+        diagnostics,
         model.getLineCount(),
         (lineNumber) => model.getLineMaxColumn(lineNumber)
       );
 
-      if (!markerEntry) {
+      if (markerEntries.length === 0) {
         clearMarkers(editor, monaco);
         return;
       }
 
-      monaco.editor.setModelMarkers(model, LINGUA_EXECUTION_MARKER_OWNER, [
-        {
+      monaco.editor.setModelMarkers(
+        model,
+        LINGUA_EXECUTION_MARKER_OWNER,
+        markerEntries.map((markerEntry) => ({
           ...markerEntry,
-          severity: monaco.MarkerSeverity.Error,
-        },
-      ]);
+          severity:
+            markerEntry.severity === 'warning'
+              ? monaco.MarkerSeverity.Warning
+              : markerEntry.severity === 'info'
+                ? monaco.MarkerSeverity.Info
+                : monaco.MarkerSeverity.Error,
+        }))
+      );
     },
     [clearMarkers]
   );
 
-  return { applyDecorations, clearDecorations, applyErrorMarker, clearMarkers };
+  return { applyDecorations, clearDecorations, applyDiagnostics, clearMarkers };
 }

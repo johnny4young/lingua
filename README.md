@@ -11,6 +11,7 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Desktop app built with Electron Forge, Vite, React 19, and TypeScript
 - Monaco-powered editor with tabs, templates, and inline execution results
 - Built-in runners for JavaScript, TypeScript, Go, Python, and Rust
+- Validate-only editor modes for JSON, YAML, `.env`, and CSV, plus explicit view-only handling for TOML and INI/config-style files
 - Project explorer with file open, save, rename, create, delete, and recent projects
 - Command palette, quick open, snippet library, settings, persisted resizable panels, and a compact sidebar drawer for narrow widths
 - Shared hover/focus tooltips across toolbar, editor tabs, console controls, command palette utilities, and file tree actions
@@ -24,6 +25,7 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 
 - Monaco JavaScript and TypeScript diagnostics target the same ES2022 + Web Worker runtime contract used by execution
 - Go, Python, Rust, and Lua now ship immediate Monaco keyword/snippet completions so non-JS files get editor assistance before full LSP support exists, and Monaco suggestions are configured to surface while you type instead of waiting for manual invocation
+- Common development files now advertise honest editor modes: JSON/YAML/`.env`/CSV validate in-place with diagnostics, while TOML/INI stay editable without fake run semantics
 - Auto-run and manual run now feed the same result state, so the result panel and editor stay synchronized instead of diverging by execution path
 - Dynamic-language runs render inline line decorations in the editor, and runtime or compile errors with source locations are surfaced as Monaco markers without overwriting TypeScript diagnostics
 - Manual runs reveal location-aware execution errors in the editor, while auto-run keeps the current caret position stable so background checks do not steal focus mid-typing
@@ -50,6 +52,8 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Python runs through Pyodide
 - Rust is compiled and executed natively through the desktop IPC bridge and a local Rust toolchain
 - The web build stubs Go and Rust execution because local toolchains are not available in the browser
+- JSON, YAML, `.env`, and CSV never execute; they surface validation diagnostics only
+- TOML, INI, and unknown plaintext-style files stay editable but do not expose fake run/lint affordances
 
 ## Requirements
 

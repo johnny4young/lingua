@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ExecutionError } from '../types';
+import type { EditorDiagnostic, ExecutionError } from '../types';
 
 export interface LineResult {
   line: number;
@@ -14,6 +14,8 @@ interface ResultState {
   fullOutput: string;
   /** Execution error if any */
   error: ExecutionError | null;
+  /** Monaco markers for execution or validation diagnostics */
+  diagnostics: EditorDiagnostic[];
   /** Execution time in ms */
   executionTime: number | null;
   /** Whether auto-run is currently executing */
@@ -24,6 +26,7 @@ interface ResultState {
   setLineResults: (results: LineResult[]) => void;
   setFullOutput: (output: string) => void;
   setError: (error: ExecutionError | null) => void;
+  setDiagnostics: (diagnostics: EditorDiagnostic[]) => void;
   setExecutionTime: (time: number | null) => void;
   setIsAutoRunning: (running: boolean) => void;
   setExecutionSource: (source: 'manual' | 'auto' | null) => void;
@@ -34,6 +37,7 @@ export const useResultStore = create<ResultState>((set) => ({
   lineResults: [],
   fullOutput: '',
   error: null,
+  diagnostics: [],
   executionTime: null,
   isAutoRunning: false,
   executionSource: null,
@@ -41,6 +45,7 @@ export const useResultStore = create<ResultState>((set) => ({
   setLineResults: (lineResults) => set({ lineResults }),
   setFullOutput: (fullOutput) => set({ fullOutput }),
   setError: (error) => set({ error }),
+  setDiagnostics: (diagnostics) => set({ diagnostics }),
   setExecutionTime: (executionTime) => set({ executionTime }),
   setIsAutoRunning: (isAutoRunning) => set({ isAutoRunning }),
   setExecutionSource: (executionSource) => set({ executionSource }),
@@ -49,6 +54,7 @@ export const useResultStore = create<ResultState>((set) => ({
       lineResults: [],
       fullOutput: '',
       error: null,
+      diagnostics: [],
       executionTime: null,
       executionSource: null,
     }),

@@ -82,6 +82,9 @@ describe('webFsAdapter — selectFile constraints', async () => {
         types: [
           expect.objectContaining({
             description: 'Code and text files',
+            accept: expect.objectContaining({
+              'text/plain': expect.arrayContaining(['.env', '.csv', '.toml', '.ini']),
+            }),
           }),
         ],
       })

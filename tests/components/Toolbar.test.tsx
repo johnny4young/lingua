@@ -9,6 +9,18 @@ import i18next from 'i18next';
 
 const mockRun = vi.fn();
 const mockStop = vi.fn();
+const editorStoreState = {
+  tabs: [
+    {
+      id: 'tab-1',
+      name: 'untitled.js',
+      language: 'javascript',
+      content: '',
+      isDirty: false,
+    },
+  ],
+  activeTabId: 'tab-1',
+};
 
 let mockRunnerState = {
   run: mockRun,
@@ -30,21 +42,14 @@ const { mockAddTab, mockToggleSidebar, mockToggleConsole, mockOpenFileFromDisk }
 }));
 
 vi.mock('../../src/renderer/stores/editorStore', () => {
-  const tab = {
-    id: 'tab-1',
-    name: 'untitled.js',
-    language: 'javascript',
-    content: '',
-    isDirty: false,
-  };
-  const storeState = {
-    tabs: [tab],
-    activeTabId: 'tab-1',
+  const buildState = () => ({
+    tabs: editorStoreState.tabs,
+    activeTabId: editorStoreState.activeTabId,
     addTab: mockAddTab,
     openFileFromDisk: mockOpenFileFromDisk,
-  };
-  const useEditorStore = () => storeState;
-  useEditorStore.getState = () => storeState;
+  });
+  const useEditorStore = () => buildState();
+  useEditorStore.getState = () => buildState();
   return {
     useEditorStore,
     createDefaultTab: (language: string) => ({
@@ -115,6 +120,16 @@ describe('Toolbar', () => {
   beforeEach(async () => {
     resetRunnerState();
     vi.clearAllMocks();
+    editorStoreState.tabs = [
+      {
+        id: 'tab-1',
+        name: 'untitled.js',
+        language: 'javascript',
+        content: '',
+        isDirty: false,
+      },
+    ];
+    editorStoreState.activeTabId = 'tab-1';
     await i18next.changeLanguage('en');
   });
 
@@ -169,6 +184,40 @@ describe('Toolbar', () => {
     await user.hover(screen.getByRole('button', { name: /Run/ }));
 
     expect(screen.getByRole('tooltip').textContent).toContain('Run (Cmd+Enter)');
+  });
+
+  it('switches the primary action to Validate for non-runnable config files', () => {
+    editorStoreState.tabs = [
+      {
+        id: 'tab-json',
+        name: 'package.json',
+        language: 'json',
+        content: '{ "name": "lingua" }',
+        isDirty: false,
+      },
+    ];
+    editorStoreState.activeTabId = 'tab-json';
+
+    render(<Toolbar />);
+
+    expect(screen.getByRole('button', { name: /Validate/ })).toBeTruthy();
+  });
+
+  it('disables the primary action for view-only file types', () => {
+    editorStoreState.tabs = [
+      {
+        id: 'tab-toml',
+        name: 'Cargo.toml',
+        language: 'toml',
+        content: 'name = "lingua"',
+        isDirty: false,
+      },
+    ];
+    editorStoreState.activeTabId = 'tab-toml';
+
+    render(<Toolbar />);
+
+    expect(screen.getByRole('button', { name: /View only/ })).toHaveProperty('disabled', true);
   });
 
   it('clicking Run button calls the run handler', async () => {
