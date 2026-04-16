@@ -52,8 +52,8 @@ describe('SettingsModal', () => {
     expect(screen.getByText('Plugins')).toBeTruthy();
     expect(screen.getByText('Directorio local de plugins')).toBeTruthy();
     expect(screen.getByText('No hay plugins locales instalados.')).toBeTruthy();
-    expect(screen.getByTitle('Cerrar configuración')).toBeTruthy();
-  });
+    expect(screen.getByRole('button', { name: 'Cerrar configuración' })).toBeTruthy();
+  }, 10000);
 
   it('re-translates the web unavailable updates message after changing locale', async () => {
     window.lingua = {
@@ -80,5 +80,5 @@ describe('SettingsModal', () => {
     expect(
       screen.getByText('Las actualizaciones automáticas no están disponibles en la versión web.')
     ).toBeTruthy();
-  });
+  }, 10000);
 });

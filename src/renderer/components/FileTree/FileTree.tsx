@@ -120,19 +120,19 @@ export function FileTree({ onNavigate }: FileTreeProps) {
         <div className="flex items-center gap-0.5">
           <IconButton
             onClick={() => handleNewFile()}
-            title={t('fileTree.actions.newFile')}
+            tooltip={t('fileTree.actions.newFile')}
           >
             <FilePlus size={13} />
           </IconButton>
           <IconButton
             onClick={() => handleNewDir()}
-            title={t('fileTree.actions.newFolder')}
+            tooltip={t('fileTree.actions.newFolder')}
           >
             <FolderPlus size={13} />
           </IconButton>
           <IconButton
             onClick={refreshTree}
-            title={t('fileTree.actions.refresh')}
+            tooltip={t('fileTree.actions.refresh')}
           >
             <RefreshCw size={13} />
           </IconButton>

@@ -9,8 +9,10 @@ import {
   FolderPlus,
   Trash2,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useProjectStore, type FileTreeNode as ProjectFileTreeNode } from '../../stores/projectStore';
 import { languageTextColorClass } from '../../utils/languageMeta';
+import { Tooltip } from '../ui/chrome';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
 import type { CreationTarget } from './fileTreeTypes';
 
@@ -37,6 +39,7 @@ export function FileTreeNode({
   onNewFileIn,
   onNewDirIn,
 }: FileTreeNodeProps) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const { expandDirectory, collapseDirectory, renameEntry } = useProjectStore();
@@ -104,52 +107,59 @@ export function FileTreeNode({
             onCancel={() => setRenaming(false)}
           />
         ) : (
-          <button
-            className="flex-1 truncate text-left text-foreground/88 hover:text-foreground"
-            onClick={() => (node.isDirectory ? handleToggle() : onFileClick(node))}
-            onDoubleClick={() => setRenaming(true)}
-            title={node.path}
-          >
-            {node.name}
-          </button>
+          <Tooltip content={node.path}>
+            <button
+              className="flex-1 truncate text-left text-foreground/88 hover:text-foreground"
+              onClick={() => (node.isDirectory ? handleToggle() : onFileClick(node))}
+              onDoubleClick={() => setRenaming(true)}
+            >
+              {node.name}
+            </button>
+          </Tooltip>
         )}
 
         {hovered && !renaming && (
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
             {node.isDirectory && onNewFileIn && (
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onNewFileIn(node);
-                }}
-                className="rounded-lg p-1 text-muted hover:bg-surface hover:text-foreground"
-                title="New file"
-              >
-                <FilePlus size={11} />
-              </button>
+              <Tooltip content={t('fileTree.actions.newFile')}>
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onNewFileIn(node);
+                  }}
+                  className="rounded-lg p-1 text-muted hover:bg-surface hover:text-foreground"
+                  aria-label={t('fileTree.actions.newFile')}
+                >
+                  <FilePlus size={11} />
+                </button>
+              </Tooltip>
             )}
             {node.isDirectory && onNewDirIn && (
+              <Tooltip content={t('fileTree.actions.newFolder')}>
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onNewDirIn(node);
+                  }}
+                  className="rounded-lg p-1 text-muted hover:bg-surface hover:text-foreground"
+                  aria-label={t('fileTree.actions.newFolder')}
+                >
+                  <FolderPlus size={11} />
+                </button>
+              </Tooltip>
+            )}
+            <Tooltip content={t('dialogs.actions.delete')}>
               <button
                 onClick={(event) => {
                   event.stopPropagation();
-                  onNewDirIn(node);
+                  onDelete(node);
                 }}
-                className="rounded-lg p-1 text-muted hover:bg-surface hover:text-foreground"
-                title="New folder"
+                className="rounded-lg p-1 text-muted hover:bg-error/10 hover:text-error"
+                aria-label={t('dialogs.actions.delete')}
               >
-                <FolderPlus size={11} />
+                <Trash2 size={11} />
               </button>
-            )}
-            <button
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelete(node);
-              }}
-              className="rounded-lg p-1 text-muted hover:bg-error/10 hover:text-error"
-              title="Delete"
-            >
-              <Trash2 size={11} />
-            </button>
+            </Tooltip>
           </div>
         )}
       </div>
@@ -187,7 +197,7 @@ export function FileTreeNode({
               className="py-0.5 text-xs italic text-muted"
               style={{ paddingLeft: `${(depth + 2) * 12 + 4}px` }}
             >
-              empty
+              {t('fileTree.emptyDirectory')}
             </p>
           )}
         </div>

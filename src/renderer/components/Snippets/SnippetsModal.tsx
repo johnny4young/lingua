@@ -209,7 +209,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
             </div>
             <IconButton
               onClick={onClose}
-              title={t('snippets.close')}
+              tooltip={t('snippets.close')}
               aria-label={t('snippets.close')}
             >
               <X size={16} />

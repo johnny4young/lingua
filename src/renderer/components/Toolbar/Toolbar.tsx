@@ -20,7 +20,7 @@ import { useUIStore } from '../../stores/uiStore';
 import type { Language } from '../../types';
 import { languageLabel } from '../../utils/languageMeta';
 import { usePluginStore } from '../../stores/pluginStore';
-import { IconButton } from '../ui/chrome';
+import { IconButton, Tooltip } from '../ui/chrome';
 
 const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
   { id: 'javascript', label: 'JavaScript' },
@@ -111,7 +111,7 @@ export function Toolbar({
         <IconButton
           onClick={toggleSidebar}
           active={sidebarVisible}
-          title={t('toolbar.sidebar.toggle')}
+          tooltip={t('toolbar.sidebar.toggle')}
           aria-controls="project-explorer"
           aria-expanded={sidebarVisible}
         >
@@ -120,31 +120,34 @@ export function Toolbar({
 
         <div className="toolbar-divider" />
 
-        <button
-          onClick={run}
-          disabled={isRunning || !hasTabs}
-          data-tour-id="run-button"
-          className="button-primary min-w-[7.4rem] justify-center bg-success text-background hover:bg-success/92"
-          title={t('toolbar.run.title')}
-        >
-          {isInitializing ? (
-            <Loader2 size={13} className="animate-spin" />
-          ) : (
-            <Play size={13} fill="currentColor" />
-          )}
-          {loadingMessage ?? (isRunning ? t('toolbar.run.running') : t('toolbar.run.label'))}
-        </button>
+        <Tooltip content={t('toolbar.run.title')} disabled={isRunning || !hasTabs}>
+          <button
+            onClick={run}
+            disabled={isRunning || !hasTabs}
+            data-tour-id="run-button"
+            className="button-primary min-w-[7.4rem] justify-center bg-success text-background hover:bg-success/92"
+          >
+            {isInitializing ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <Play size={13} fill="currentColor" />
+            )}
+            {loadingMessage ?? (isRunning ? t('toolbar.run.running') : t('toolbar.run.label'))}
+          </button>
+        </Tooltip>
 
         {isRunning && (
-          <button onClick={stop} className="button-danger" title={t('toolbar.run.stop')}>
-            <Square size={11} fill="currentColor" />
-            {t('toolbar.run.stop')}
-          </button>
+          <Tooltip content={t('toolbar.run.stop')}>
+            <button onClick={stop} className="button-danger">
+              <Square size={11} fill="currentColor" />
+              {t('toolbar.run.stop')}
+            </button>
+          </Tooltip>
         )}
 
         <IconButton
           onClick={() => void useEditorStore.getState().openFileFromDisk()}
-          title={t('toolbar.openFile')}
+          tooltip={t('toolbar.openFile')}
         >
           <FolderOpen size={15} />
         </IconButton>
@@ -153,26 +156,29 @@ export function Toolbar({
 
         <div ref={newFileMenuRef} className="relative shrink-0">
           <div className="inline-flex overflow-hidden rounded-[1.35rem] border border-border/80 bg-surface-strong/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-            <button
-              onClick={() => handleNewFile(defaultNewFileLanguage)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold tracking-[0.02em] text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              title={t('toolbar.newFile.primaryTitle', { language: defaultNewFileLabel })}
-            >
-              <Plus size={13} />
-              {t('toolbar.newFile.primary', { language: defaultNewFileLabel })}
-            </button>
+            <Tooltip content={t('toolbar.newFile.primaryTitle', { language: defaultNewFileLabel })}>
+              <button
+                onClick={() => handleNewFile(defaultNewFileLanguage)}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold tracking-[0.02em] text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <Plus size={13} />
+                {t('toolbar.newFile.primary', { language: defaultNewFileLabel })}
+              </button>
+            </Tooltip>
             <div className="my-1 w-px bg-border/80" aria-hidden="true" />
-            <button
-              onClick={() => setIsNewFileMenuOpen((currentValue) => !currentValue)}
-              className={`inline-flex items-center justify-center px-3 text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                isNewFileMenuOpen ? 'text-primary' : ''
-              }`}
-              title={t('toolbar.newFile.menuTitle')}
-              aria-haspopup="menu"
-              aria-expanded={isNewFileMenuOpen}
-            >
-              <ChevronDown size={13} />
-            </button>
+            <Tooltip content={t('toolbar.newFile.menuTitle')}>
+              <button
+                onClick={() => setIsNewFileMenuOpen((currentValue) => !currentValue)}
+                className={`inline-flex items-center justify-center px-3 text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                  isNewFileMenuOpen ? 'text-primary' : ''
+                }`}
+                aria-label={t('toolbar.newFile.menuAriaLabel')}
+                aria-haspopup="menu"
+                aria-expanded={isNewFileMenuOpen}
+              >
+                <ChevronDown size={13} />
+              </button>
+            </Tooltip>
           </div>
 
           {isNewFileMenuOpen && (
@@ -212,23 +218,23 @@ export function Toolbar({
           </div>
         )}
 
-        <IconButton onClick={onOpenQuickOpen} title={t('toolbar.quickOpen')}>
+        <IconButton onClick={onOpenQuickOpen} tooltip={t('toolbar.quickOpen')}>
           <Search size={15} />
         </IconButton>
-        <IconButton onClick={onOpenPalette} title={t('toolbar.commandPalette')}>
+        <IconButton onClick={onOpenPalette} tooltip={t('toolbar.commandPalette')}>
           <Terminal size={15} />
         </IconButton>
-        <IconButton onClick={onOpenSnippets} title={t('toolbar.snippets')}>
+        <IconButton onClick={onOpenSnippets} tooltip={t('toolbar.snippets')}>
           <BookCopy size={15} />
         </IconButton>
         <IconButton
           onClick={toggleConsole}
           active={consoleVisible}
-          title={t('toolbar.console.toggle')}
+          tooltip={t('toolbar.console.toggle')}
         >
           <PanelBottom size={15} />
         </IconButton>
-        <IconButton onClick={onOpenSettings} title={t('toolbar.settings')}>
+        <IconButton onClick={onOpenSettings} tooltip={t('toolbar.settings')}>
           <Settings size={15} />
         </IconButton>
       </div>

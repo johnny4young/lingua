@@ -34,7 +34,7 @@ export function SettingsModal({
               {t('settings.description')}
             </p>
           </div>
-          <IconButton onClick={onClose} title={t('settings.close')}>
+          <IconButton onClick={onClose} tooltip={t('settings.close')}>
             <X size={16} />
           </IconButton>
         </div>

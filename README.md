@@ -13,6 +13,7 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Built-in runners for JavaScript, TypeScript, Go, Python, and Rust
 - Project explorer with file open, save, rename, create, delete, and recent projects
 - Command palette, quick open, snippet library, settings, persisted resizable panels, and a compact sidebar drawer for narrow widths
+- Shared hover/focus tooltips across toolbar, editor tabs, console controls, command palette utilities, and file tree actions
 - About section in Settings with bundled product metadata, GitHub/license links, update entry points, and a linked What's New surface
 - Interactive guided tour for editor, console, explorer, snippets, and command palette onboarding, launchable from About or the Command Palette
 - Auto-run, magic comments, loop protection, and hide-undefined controls for dynamic languages

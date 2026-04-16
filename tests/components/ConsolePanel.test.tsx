@@ -104,7 +104,9 @@ describe('ConsolePanel', () => {
   it('clicking a filter pill calls toggleFilter with its type', async () => {
     const user = userEvent.setup();
     render(<ConsolePanel />);
-    const logButton = screen.getByTitle('Toggle log output');
+    const logButton = screen.getByRole('button', { name: 'LOG' });
+    await user.hover(logButton);
+    expect(screen.getByRole('tooltip').textContent).toContain('Toggle log output');
     await user.click(logButton);
     expect(mockToggleFilter).toHaveBeenCalledWith('log');
   });
@@ -112,7 +114,7 @@ describe('ConsolePanel', () => {
   it('clicking clear button calls the clear action', async () => {
     const user = userEvent.setup();
     render(<ConsolePanel />);
-    const clearButton = screen.getByTitle('Clear console');
+    const clearButton = screen.getByRole('button', { name: 'Clear console' });
     await user.click(clearButton);
     expect(mockClear).toHaveBeenCalledTimes(1);
   });

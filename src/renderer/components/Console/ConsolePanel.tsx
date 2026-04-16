@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ConsoleEntry, ConsoleEntryType } from '../../types';
 import { useConsoleStore } from '../../stores/consoleStore';
-import { IconButton } from '../ui/chrome';
+import { IconButton, Tooltip } from '../ui/chrome';
 
 interface AnsiSpan {
   text: string;
@@ -205,31 +205,38 @@ export function ConsolePanel() {
             const count = entries.filter((entry) => entry.type === type).length;
 
             return (
-              <button
+              <Tooltip
                 key={type}
-                onClick={() => toggleFilter(type)}
-                title={t('console.filters.toggle', {
+                content={t('console.filters.toggle', {
                   type: t(`console.filters.type.${type}`).toLowerCase(),
                 })}
-                className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${
-                  active
-                    ? `border-border-strong/90 bg-surface-strong/90 ${TYPE_BADGE[type]}`
-                    : 'border-transparent text-muted hover:border-border/70 hover:bg-surface-strong/72'
-                }`}
               >
-                {typeLabel[type]}
-                {count > 0 && <span className="ml-1 opacity-70">{count}</span>}
-              </button>
+                <button
+                  onClick={() => toggleFilter(type)}
+                  className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${
+                    active
+                      ? `border-border-strong/90 bg-surface-strong/90 ${TYPE_BADGE[type]}`
+                      : 'border-transparent text-muted hover:border-border/70 hover:bg-surface-strong/72'
+                  }`}
+                >
+                  {typeLabel[type]}
+                  {count > 0 && <span className="ml-1 opacity-70">{count}</span>}
+                </button>
+              </Tooltip>
             );
           })}
           <IconButton
             onClick={toggleTimestamps}
             active={showTimestamps}
-            title={showTimestamps ? t('console.actions.hideTimestamps') : t('console.actions.showTimestamps')}
+            tooltip={
+              showTimestamps
+                ? t('console.actions.hideTimestamps')
+                : t('console.actions.showTimestamps')
+            }
           >
             <Clock size={13} />
           </IconButton>
-          <IconButton onClick={clear} title={t('console.actions.clear')} tone="danger">
+          <IconButton onClick={clear} tooltip={t('console.actions.clear')} tone="danger">
             <Trash2 size={13} />
           </IconButton>
         </div>
