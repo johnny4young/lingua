@@ -151,6 +151,13 @@ interface AppInfo {
   licenseUrl: string | null;
 }
 
+// -------------------------------------------------------- Desktop smoke
+
+interface DesktopSmokeConfig {
+  enabled: boolean;
+  artifactDir: string | null;
+}
+
 // ------------------------------------------------------------- Plugin types
 
 type PluginInstallStatus =
@@ -229,6 +236,14 @@ interface LinguaAPI {
   plugins: {
     getInstallDirectory: () => Promise<string | null>;
     list: () => Promise<InstalledPluginRecord[]>;
+  };
+
+  desktopSmoke?: {
+    enabled: boolean;
+    getConfig: () => Promise<DesktopSmokeConfig | null>;
+    capture: (name: string) => Promise<string | null>;
+    writeJsonArtifact: (name: string, payload: unknown) => Promise<string | null>;
+    finish: (success: boolean) => void;
   };
 }
 

@@ -15,6 +15,7 @@
     "publish": "electron-forge publish",
     "desktop:dev": "node ./scripts/run-electron-desktop.mjs",
     "desktop:dev:sync": "node ./scripts/run-electron-desktop.mjs --sync-main",
+    "desktop:smoke": "node ./scripts/run-desktop-smoke.mjs",
     "build:web": "vite build --config vite.web.config.mts",
     "preview:web": "vite preview --config vite.web.config.mts",
     "lint": "eslint .",
