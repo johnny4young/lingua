@@ -15,7 +15,7 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Command palette, quick open, snippet library, settings, persisted resizable panels, and a compact sidebar drawer for narrow widths
 - Auto-run, magic comments, loop protection, and hide-undefined controls for dynamic languages
 - Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
-- CI, GitHub Pages deployment, and tagged release workflows
+- CI plus manual deploy/release workflows
 
 ## Editor diagnostics and results
 
@@ -188,7 +188,7 @@ npm run preview:web
 ```
 
 The local web build defaults to `/` as its base path.
-The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/lingua/` after a successful `main` branch CI run.
+The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/lingua/` when the manual deploy workflow is run.
 
 ## Keyboard shortcuts
 
@@ -206,10 +206,11 @@ The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/lin
 
 ## Automation and delivery
 
-- CI runs type checking, linting, tests, and a non-blocking `npm audit`
-- The web build is deployed to GitHub Pages from `main` after a successful CI workflow
+- CI runs web build, type checking, linting, tests, and a non-blocking `npm audit`
+- GitHub Pages deploy is manual via the `Deploy web version to GitHub Pages` workflow
 - The Pages build uses `/lingua/` as the web base path so static assets, the manifest, and the service worker resolve correctly under the repository subpath
 - GitHub Release publishing is manual via the `Release` workflow, which accepts a single stable tag input in the form `vX.Y.Z`, creates that tag from `main`, and publishes from it
+- Update server deployment is manual via the `Deploy Update Server` workflow
 - Packaged macOS and Windows builds enable `update-electron-app`, which checks GitHub Releases for updates
 - The active release/update channel policy is stable-only; prerelease tags are rejected by the release workflow
 
