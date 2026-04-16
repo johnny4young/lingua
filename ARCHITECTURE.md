@@ -8,6 +8,10 @@ This page explains the part of Lingua that manages an opened project on disk:
 
 This is an **explanation** document. It focuses on how the architecture works, why it was designed this way, and how to extend it safely.
 
+Related reference:
+
+- [`src/renderer/README.md`](./src/renderer/README.md) documents the renderer folder map, state ownership, shared styling rules, and common UI change paths.
+
 ## At a glance
 
 Lingua separates this feature into four layers:
@@ -33,12 +37,12 @@ flowchart LR
 
 The current project architecture revolves around four pieces of state in the renderer store:
 
-| State | Meaning | Why it exists |
-| --- | --- | --- |
-| `currentProject` | Metadata for the currently opened root directory | Gives the renderer a single active project root |
-| `recentProjects` | The recent-project list | Lets the app reopen known roots quickly without persisting the whole tree |
-| `nodes` | The current in-memory file tree | Drives explorer rendering and quick-open traversal |
-| `watchId` | The active desktop watcher handle | Lets the renderer stop the watcher when the active project changes |
+| State            | Meaning                                          | Why it exists                                                             |
+| ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------- |
+| `currentProject` | Metadata for the currently opened root directory | Gives the renderer a single active project root                           |
+| `recentProjects` | The recent-project list                          | Lets the app reopen known roots quickly without persisting the whole tree |
+| `nodes`          | The current in-memory file tree                  | Drives explorer rendering and quick-open traversal                        |
+| `watchId`        | The active desktop watcher handle                | Lets the renderer stop the watcher when the active project changes        |
 
 Important design choice:
 
@@ -231,20 +235,20 @@ Technical reasons:
 
 Most file operations use `invoke/handle` because they are command-like and need a result:
 
-| Preload method | IPC channel | Main responsibility |
-| --- | --- | --- |
-| `selectDirectory()` | `fs:select-directory` | open native directory picker |
-| `selectFile()` | `fs:select-file` | open native file picker |
-| `readdir(dirPath)` | `fs:readdir` | list entries, filter hidden items, sort dirs first |
-| `stat(filePath)` | `fs:stat` | return metadata |
-| `read(filePath)` | `fs:read` | safe read with path checks |
-| `write(filePath, content)` | `fs:write` | safe write |
-| `delete(filePath, isDirectory)` | `fs:delete` | guarded delete with confirmation dialog |
-| `rename(oldPath, newName)` | `fs:rename` | validated rename inside the same parent |
-| `mkdir(dirPath)` | `fs:mkdir` | safe directory creation |
-| `touch(filePath)` | `fs:touch` | create empty file |
-| `watchStart(dirPath)` | `fs:watch-start` | create native watcher |
-| `watchStop(watchId)` | `fs:watch-stop` | close native watcher |
+| Preload method                  | IPC channel           | Main responsibility                                |
+| ------------------------------- | --------------------- | -------------------------------------------------- |
+| `selectDirectory()`             | `fs:select-directory` | open native directory picker                       |
+| `selectFile()`                  | `fs:select-file`      | open native file picker                            |
+| `readdir(dirPath)`              | `fs:readdir`          | list entries, filter hidden items, sort dirs first |
+| `stat(filePath)`                | `fs:stat`             | return metadata                                    |
+| `read(filePath)`                | `fs:read`             | safe read with path checks                         |
+| `write(filePath, content)`      | `fs:write`            | safe write                                         |
+| `delete(filePath, isDirectory)` | `fs:delete`           | guarded delete with confirmation dialog            |
+| `rename(oldPath, newName)`      | `fs:rename`           | validated rename inside the same parent            |
+| `mkdir(dirPath)`                | `fs:mkdir`            | safe directory creation                            |
+| `touch(filePath)`               | `fs:touch`            | create empty file                                  |
+| `watchStart(dirPath)`           | `fs:watch-start`      | create native watcher                              |
+| `watchStop(watchId)`            | `fs:watch-stop`       | close native watcher                               |
 
 ### Event-style IPC
 
@@ -374,12 +378,12 @@ The `fs` API is intentionally shaped so the renderer can call the same surface i
 
 However the watch semantics are different:
 
-| Capability | Desktop | Web |
-| --- | --- | --- |
-| Real directory picker | Yes | Yes, via File System Access API |
-| Read/write/create/delete | Yes | Yes, adapter-backed |
-| Native recursive watcher | Yes | No |
-| `onChanged` events | Yes | No-op |
+| Capability               | Desktop | Web                             |
+| ------------------------ | ------- | ------------------------------- |
+| Real directory picker    | Yes     | Yes, via File System Access API |
+| Read/write/create/delete | Yes     | Yes, adapter-backed             |
+| Native recursive watcher | Yes     | No                              |
+| `onChanged` events       | Yes     | No-op                           |
 
 The web implementation is in [`src/web/fs-adapter.ts`](./src/web/fs-adapter.ts).
 
