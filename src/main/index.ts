@@ -6,6 +6,7 @@ import { registerRustHandlers } from './rust-compiler';
 import { registerAppInfoHandlers } from './ipc/appInfo';
 import { registerFileSystemHandlers } from './ipc/fileSystem';
 import { registerLocaleHandlers } from './ipc/locale';
+import { registerDesktopSmokeHandlers } from './ipc/desktopSmoke';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -18,12 +19,14 @@ if (started) {
 registerGoHandlers();
 registerRustHandlers();
 registerAppInfoHandlers();
+registerDesktopSmokeHandlers();
 registerFileSystemHandlers();
 registerLocaleHandlers();
 registerPluginHandlers();
 registerUpdater();
 
 let forceQuit = false;
+let mainWindow: BrowserWindow | null = null;
 
 ipcMain.on('app:force-close', () => {
   forceQuit = true;
@@ -34,7 +37,7 @@ const createWindow = () => {
   const rendererUrl = getTrustedRendererUrl(
     process.env.LINGUA_RENDERER_URL ?? MAIN_WINDOW_VITE_DEV_SERVER_URL
   );
-  const mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
@@ -50,24 +53,29 @@ const createWindow = () => {
       sandbox: true,
     },
   });
+  mainWindow = window;
 
   // Dirty-close intercept: ask the renderer to check for unsaved tabs
-  mainWindow.on('close', (event) => {
+  window.on('close', (event) => {
     if (forceQuit) return;
     event.preventDefault();
-    mainWindow.webContents.send('app:before-close');
+    window.webContents.send('app:before-close');
   });
 
   // Show window once the renderer is ready
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+  window.once('ready-to-show', () => {
+    window.show();
   });
 
-  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  mainWindow.webContents.on('will-attach-webview', (event) => {
+  window.on('closed', () => {
+    mainWindow = null;
+  });
+
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.on('will-attach-webview', (event) => {
     event.preventDefault();
   });
-  mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
+  window.webContents.on('will-navigate', (event, targetUrl) => {
     if (!isAllowedNavigationTarget(targetUrl, rendererUrl)) {
       event.preventDefault();
     }
@@ -76,18 +84,18 @@ const createWindow = () => {
   if (rendererUrl) {
     // Retry loading the dev server URL — Vite may not be ready yet
     const loadWithRetry = (retries = 30, delay = 1000) => {
-      mainWindow.loadURL(rendererUrl).catch(() => {
+      window.loadURL(rendererUrl).catch(() => {
         if (retries > 0) {
           setTimeout(() => loadWithRetry(retries - 1, delay), delay);
         } else {
           // Fallback: show the window even if loading failed
-          mainWindow.show();
+          window.show();
         }
       });
     };
     loadWithRetry();
   } else {
-    mainWindow.loadFile(
+    window.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
     );
   }
@@ -118,6 +126,14 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) {
+      mainWindow.restore();
+    }
+    mainWindow.focus();
+    return;
+  }
+
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }

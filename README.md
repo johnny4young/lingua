@@ -20,6 +20,7 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Auto-run, magic comments, loop protection, and hide-undefined controls for dynamic languages
 - Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
 - CI plus manual deploy/release workflows
+- Repeatable desktop smoke validation with artifact output under `output/playwright/desktop-smoke`
 
 ## Editor diagnostics and results
 
@@ -93,9 +94,19 @@ npm run check:i18n:copy
 npm test
 npx tsc --noEmit
 npm run build:web
+npm run desktop:smoke
 ```
 
 These are the main local verification commands. CI also runs a non-blocking `npm audit`.
+
+Desktop smoke notes:
+
+- `npm run desktop:smoke` launches a real Electron window against a local renderer server, exercises JavaScript, TypeScript, Python, Go, and Rust, and exits with a failing status if any language smoke case fails.
+- Artifacts land in `output/playwright/desktop-smoke/`:
+  - `desktop-smoke-bootstrap.json`
+  - `desktop-smoke-progress.json`
+  - `desktop-smoke-summary.json`
+  - one screenshot per language case
 
 ## i18n contributor workflow
 
@@ -169,6 +180,28 @@ npm run desktop:dev -- --exit-after-ms 4000
 
 The launcher avoids rebuilds during normal renderer-focused desktop testing. A resync is only needed when `main` or `preload` code changes, or when `.vite/build` is missing.
 The Vite configs use `.mts` so the standard dev/build flow stays on Vite's supported ESM config path and avoids the deprecated CJS Node API warning.
+
+## Desktop smoke validation
+
+Use the repeatable Electron smoke workflow when you need a contributor-friendly UI pass instead of ad hoc manual clicks:
+
+```bash
+npm run desktop:smoke
+```
+
+What it does:
+
+- resyncs `main` and `preload`
+- launches the real Electron app against the renderer dev server
+- runs a built-in smoke flow across JavaScript, TypeScript, Python, Go, and Rust
+- captures per-language screenshots and a JSON summary under `output/playwright/desktop-smoke`
+
+Failure artifacts:
+
+- `output/playwright/desktop-smoke/desktop-smoke-summary.json`
+- one screenshot per exercised language
+
+If Go or Rust toolchains are missing locally, the smoke run fails with captured artifacts instead of silently skipping those languages.
 
 ## Shell layout behavior
 
