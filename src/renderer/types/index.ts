@@ -84,6 +84,8 @@ export interface SettingsState {
   hideUndefined: boolean;
   restoreSession: boolean;
   language: AppLanguage;
+  lastSeenVersion: string | null;
+  hasCompletedTour: boolean;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -97,6 +99,8 @@ export interface SettingsState {
   toggleHideUndefined: () => void;
   toggleRestoreSession: () => void;
   setLanguage: (language: AppLanguage) => void;
+  setLastSeenVersion: (version: string | null) => void;
+  setHasCompletedTour: (value: boolean) => void;
 }
 
 // --- Runner Types ---

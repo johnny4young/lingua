@@ -24,6 +24,8 @@ export const useSettingsStore = create<SettingsState>()(
       hideUndefined: true,
       restoreSession: false,
       language: 'system',
+      lastSeenVersion: null,
+      hasCompletedTour: false,
 
       setTheme: (theme) => set({ theme }),
       setEditorTheme: (editorTheme) => set({ editorTheme }),
@@ -38,6 +40,8 @@ export const useSettingsStore = create<SettingsState>()(
       toggleHideUndefined: () => set((s) => ({ hideUndefined: !s.hideUndefined })),
       toggleRestoreSession: () => set((s) => ({ restoreSession: !s.restoreSession })),
       setLanguage: (language) => set({ language }),
+      setLastSeenVersion: (lastSeenVersion) => set({ lastSeenVersion }),
+      setHasCompletedTour: (hasCompletedTour) => set({ hasCompletedTour }),
     }),
     {
       name: 'lingua-settings',
@@ -56,6 +60,8 @@ export const useSettingsStore = create<SettingsState>()(
         hideUndefined: state.hideUndefined,
         restoreSession: state.restoreSession,
         language: state.language,
+        lastSeenVersion: state.lastSeenVersion,
+        hasCompletedTour: state.hasCompletedTour,
       }),
       merge: (persistedState, currentState) => {
         const merged = {

@@ -13,6 +13,8 @@ describe('buildCommandPaletteModel', () => {
     const setLayoutPreset = vi.fn();
     const onClose = vi.fn();
     const onOpenSettings = vi.fn();
+    const onOpenWhatsNew = vi.fn();
+    const onStartGuidedTour = vi.fn();
     const onOpenSnippets = vi.fn();
     const checkForUpdates = vi.fn().mockResolvedValue(undefined);
     const restartToApply = vi.fn().mockResolvedValue(true);
@@ -43,6 +45,8 @@ describe('buildCommandPaletteModel', () => {
       setLayoutPreset,
       onClose,
       onOpenSettings,
+      onOpenWhatsNew,
+      onStartGuidedTour,
       onOpenSnippets,
       checkForUpdates,
       restartToApply,
@@ -51,6 +55,9 @@ describe('buildCommandPaletteModel', () => {
 
     expect(commands.some((command) => command.category === 'template')).toBe(true);
     expect(commands.some((command) => command.category === 'snippet')).toBe(true);
+    expect(commands.some((command) => command.id === 'action-about')).toBe(true);
+    expect(commands.some((command) => command.id === 'action-whats-new')).toBe(true);
+    expect(commands.some((command) => command.id === 'action-guided-tour')).toBe(true);
     expect(commands.some((command) => command.id === 'action-settings')).toBe(true);
 
     const templateCommand = commands.find((command) => command.category === 'template');
@@ -82,6 +89,8 @@ describe('buildCommandPaletteModel', () => {
         setLayoutPreset: vi.fn(),
         onClose: vi.fn(),
         onOpenSettings: vi.fn(),
+        onOpenWhatsNew: vi.fn(),
+        onStartGuidedTour: vi.fn(),
         onOpenSnippets: vi.fn(),
         checkForUpdates: vi.fn().mockResolvedValue(undefined),
         restartToApply: vi.fn().mockResolvedValue(true),
@@ -89,6 +98,12 @@ describe('buildCommandPaletteModel', () => {
       });
 
       const settingsCommand = commands.find((c) => c.id === 'action-settings');
+      const aboutCommand = commands.find((c) => c.id === 'action-about');
+      const whatsNewCommand = commands.find((c) => c.id === 'action-whats-new');
+      const guidedTourCommand = commands.find((c) => c.id === 'action-guided-tour');
+      expect(aboutCommand?.label).toBe('Acerca de Lingua');
+      expect(whatsNewCommand?.label).toBe('Novedades');
+      expect(guidedTourCommand?.label).toBe('Iniciar tour guiado');
       expect(settingsCommand?.label).toBe('Abrir configuración');
     } finally {
       await i18next.changeLanguage('en');
@@ -114,6 +129,8 @@ describe('buildCommandPaletteModel', () => {
         setLayoutPreset: vi.fn(),
         onClose: vi.fn(),
         onOpenSettings: vi.fn(),
+        onOpenWhatsNew: vi.fn(),
+        onStartGuidedTour: vi.fn(),
         onOpenSnippets: vi.fn(),
         checkForUpdates: vi.fn().mockResolvedValue(undefined),
         restartToApply: vi.fn().mockResolvedValue(true),
@@ -151,6 +168,8 @@ describe('buildCommandPaletteModel', () => {
         setLayoutPreset: vi.fn(),
         onClose: vi.fn(),
         onOpenSettings: vi.fn(),
+        onOpenWhatsNew: vi.fn(),
+        onStartGuidedTour: vi.fn(),
         onOpenSnippets: vi.fn(),
         checkForUpdates: vi.fn().mockResolvedValue(undefined),
         restartToApply: vi.fn().mockResolvedValue(true),

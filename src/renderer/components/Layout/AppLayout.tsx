@@ -76,7 +76,7 @@ function EditorArea() {
   });
 
   return (
-    <div className="flex h-full flex-col">
+    <div id="guided-tour-editor" className="flex h-full flex-col">
       <EditorTabs />
       <div className="flex-1">
         {hasTabs ? (

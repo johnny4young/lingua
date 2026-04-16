@@ -1920,8 +1920,14 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-052 Add About view with product name and version
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Ready to implement`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-16`
+- Current progress:
+  - Settings now includes a dedicated About section alongside the existing Appearance, Layout, Editor, Plugins, and Updates sections
+  - Desktop mode reads version/build metadata via a new `window.lingua.getAppInfo()` IPC bridge backed by `app.getVersion()`
+  - Web mode returns the same metadata shape from bundled package metadata, so the About surface stays cross-runtime consistent
+  - The section now exposes GitHub/license links through a safe `openExternal()` bridge instead of blocked in-window navigation
+  - Command Palette now includes an "About Lingua" action that opens the identity/update surface from anywhere in the app
 - Scope:
   - Add a new `AboutSection.tsx` to the existing `SettingsModal` as a sixth section alongside Appearance, Editor, Layout, Plugins, and Updates
   - Display product name ("Lingua"), version (read from `app.getVersion()` in Electron, fallback to `package.json` for web), build date, and license type
@@ -1940,8 +1946,13 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-053 Add Release Notes / What's New view
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Ready to implement after CHANGELOG.md exists`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-16`
+- Current progress:
+  - `CHANGELOG.md` now uses a Keep a Changelog-style semver structure with `0.1.0` as the first shipped entry and an `Unreleased` bucket for ongoing work
+  - The renderer reads changelog data from a build-time injected JSON payload instead of parsing markdown inside the browser/Electron runtime
+  - A standalone What's New overlay now highlights the current version first, keeps older versions collapsible, and renders minimal inline markdown for emphasis/code spans
+  - The overlay is reachable from both the Command Palette and the About section, and first-launch-after-update detection is persisted through `settingsStore.lastSeenVersion`
 - Scope:
   - Create a `CHANGELOG.md` at the project root following Keep a Changelog format (semver, grouped by Added/Changed/Fixed/Removed)
   - Create a `WhatsNewSection.tsx` component (either as a tab in SettingsModal or a standalone overlay)
@@ -1961,8 +1972,14 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-054 Add interactive guided tour with Shepherd.js
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready to implement — requires Shepherd.js commercial license purchase before shipping`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-16 — Shepherd commercial license still required before public release`
+- Current progress:
+  - Lingua now wraps the renderer in a dedicated guided-tour provider backed by Shepherd.js (vanilla API, no `react-shepherd` wrapper)
+  - The onboarding flow now covers the editor, Run button, console, project explorer, toolbar, snippet library, and command palette in a seven-step sequence
+  - The Run step uses a real `advanceOn` click so the tour waits for a genuine execution instead of advancing on a fake next button
+  - Launch points now exist in both the About section and the Command Palette, and first-launch auto-start is gated by persisted `settingsStore.hasCompletedTour`
+  - Shepherd styling is now bridged into Lingua's surface tokens so the modal, spotlight, and controls match the app shell instead of shipping the stock library look
 - Licensing note:
   - Shepherd.js is free for open-source, personal, and non-commercial projects
   - **Lingua is closed-source commercial software** — a paid license is required

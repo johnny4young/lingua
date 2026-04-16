@@ -86,6 +86,14 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().language).toBe('system');
   });
 
+  it('should default lastSeenVersion to null', () => {
+    expect(useSettingsStore.getState().lastSeenVersion).toBeNull();
+  });
+
+  it('should default hasCompletedTour to false', () => {
+    expect(useSettingsStore.getState().hasCompletedTour).toBe(false);
+  });
+
   it('should set language to es', () => {
     useSettingsStore.getState().setLanguage('es');
     expect(useSettingsStore.getState().language).toBe('es');
@@ -100,6 +108,16 @@ describe('settingsStore', () => {
     useSettingsStore.getState().setLanguage('en');
     useSettingsStore.getState().setLanguage('system');
     expect(useSettingsStore.getState().language).toBe('system');
+  });
+
+  it('should persist the last seen release version', () => {
+    useSettingsStore.getState().setLastSeenVersion('0.1.0');
+    expect(useSettingsStore.getState().lastSeenVersion).toBe('0.1.0');
+  });
+
+  it('should persist guided tour completion', () => {
+    useSettingsStore.getState().setHasCompletedTour(true);
+    expect(useSettingsStore.getState().hasCompletedTour).toBe(true);
   });
 
   it('should ignore an invalid persisted language during rehydration', async () => {

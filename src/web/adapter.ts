@@ -12,6 +12,7 @@
  */
 
 import { getActiveAppLanguage, getBrowserSystemLanguages } from '../renderer/i18n';
+import { canOpenExternalUrl, getBundledAppInfo } from '../shared/appInfo';
 import { translateCommon } from '../shared/i18n/runtime';
 import { webFsAdapter } from './fs-adapter';
 
@@ -80,6 +81,15 @@ const pluginStub: LinguaAPI['plugins'] = {
 const webLingua: LinguaAPI = {
   platform: 'web',
   getSystemLanguages: async () => getBrowserSystemLanguages(),
+  getAppInfo: async () => getBundledAppInfo(),
+  openExternal: async (url: string) => {
+    if (!canOpenExternalUrl(url)) {
+      return false;
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return true;
+  },
   confirmClose: async () => 2, // Cancel by default to avoid silent data loss in web mode.
   confirmCloseTab: async () => 2,
   onBeforeClose: () => () => {},
