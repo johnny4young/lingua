@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 
 describe('web adapter', () => {
@@ -45,6 +45,32 @@ describe('web adapter', () => {
     expect(result.message).toBe(
       'Las actualizaciones automáticas no están disponibles en la versión web.'
     );
+  });
+
+  it('returns bundled app metadata in the browser build', async () => {
+    const info = await window.lingua.getAppInfo();
+
+    expect(info.productName).toBe('Lingua');
+    expect(info.version).toBe('0.1.0');
+    expect(info.licenseType).toBe('MIT');
+    expect(info.repositoryUrl).toBe('https://github.com/johnny4young/lingua');
+    expect(info.licenseUrl).toBe('https://github.com/johnny4young/lingua/blob/main/LICENSE');
+  });
+
+  it('only opens safe external URLs in the browser build', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    await expect(window.lingua.openExternal('javascript:alert(1)')).resolves.toBe(false);
+    await expect(window.lingua.openExternal('https://github.com/johnny4young/lingua')).resolves.toBe(
+      true
+    );
+
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://github.com/johnny4young/lingua',
+      '_blank',
+      'noopener,noreferrer'
+    );
+    openSpy.mockRestore();
   });
 
   it('cancels close flows by default in the browser build', async () => {

@@ -13,6 +13,8 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Built-in runners for JavaScript, TypeScript, Go, Python, and Rust
 - Project explorer with file open, save, rename, create, delete, and recent projects
 - Command palette, quick open, snippet library, settings, persisted resizable panels, and a compact sidebar drawer for narrow widths
+- About section in Settings with bundled product metadata, GitHub/license links, update entry points, and a linked What's New surface
+- Interactive guided tour for editor, console, explorer, snippets, and command palette onboarding, launchable from About or the Command Palette
 - Auto-run, magic comments, loop protection, and hide-undefined controls for dynamic languages
 - Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
 - CI plus manual deploy/release workflows
@@ -24,6 +26,14 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Auto-run and manual run now feed the same result state, so the result panel and editor stay synchronized instead of diverging by execution path
 - Dynamic-language runs render inline line decorations in the editor, and runtime or compile errors with source locations are surfaced as Monaco markers without overwriting TypeScript diagnostics
 - Manual runs reveal location-aware execution errors in the editor, while auto-run keeps the current caret position stable so background checks do not steal focus mid-typing
+
+## Release notes and onboarding surfaces
+
+- `CHANGELOG.md` now follows a Keep a Changelog-style semver structure so release notes stay readable in git and in-product
+- The renderer bundles parsed changelog data at build time, so the desktop and web shells can show release notes without direct file-system access
+- A dedicated What's New overlay is available from both the Command Palette and the About section, and it auto-opens once when the app sees a newer version than the last one stored locally
+- A Shepherd-based guided tour now opens from the About section, the Command Palette, or automatically after first-launch gating when the user has not completed onboarding yet
+- Lingua is a closed-source commercial product, so Shepherd's commercial license still must be purchased before public distribution even though the tour is already integrated in development builds
 
 ## Theme behavior
 

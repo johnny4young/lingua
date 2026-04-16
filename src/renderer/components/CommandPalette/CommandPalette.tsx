@@ -17,12 +17,16 @@ import {
 interface CommandPaletteProps {
   onClose: () => void;
   onOpenSettings: () => void;
+  onOpenWhatsNew: () => void;
+  onStartGuidedTour: () => void;
   onOpenSnippets: () => void;
 }
 
 export function CommandPalette({
   onClose,
   onOpenSettings,
+  onOpenWhatsNew,
+  onStartGuidedTour,
   onOpenSnippets,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
@@ -46,6 +50,8 @@ export function CommandPalette({
       setLayoutPreset,
       onClose,
       onOpenSettings,
+      onOpenWhatsNew,
+      onStartGuidedTour,
       onOpenSnippets,
       checkForUpdates,
       restartToApply,
@@ -120,6 +126,7 @@ export function CommandPalette({
           <Search size={16} className="shrink-0 text-muted" />
           <input
             ref={inputRef}
+            data-tour-id="command-palette-search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyDown}

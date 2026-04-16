@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('lingua', {
 
   getSystemLanguages: () =>
     ipcRenderer.invoke('app:get-system-languages') as Promise<string[]>,
+  getAppInfo: () => ipcRenderer.invoke('app:get-info') as Promise<AppInfo>,
+  openExternal: (url: string) => ipcRenderer.invoke('app:open-external', url) as Promise<boolean>,
 
   // Go runner IPC
   go: {

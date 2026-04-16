@@ -192,7 +192,10 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
 
   return (
     <OverlayBackdrop onClose={onClose}>
-      <OverlayCard className="relative flex h-[min(82vh,760px)] w-full max-w-6xl flex-col overflow-hidden lg:flex-row">
+      <OverlayCard
+        data-tour-id="snippets-modal"
+        className="relative flex h-[min(82vh,760px)] w-full max-w-6xl flex-col overflow-hidden lg:flex-row"
+      >
         <aside className="flex w-full shrink-0 flex-col border-b border-border/80 bg-background/55 lg:w-80 lg:border-b-0 lg:border-r">
           <div className="surface-header flex items-center justify-between px-5 py-4">
             <div className="flex items-center gap-2">
@@ -226,6 +229,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
               type="button"
               onClick={handleSaveActiveTab}
               disabled={!activeTab}
+              data-tour-id="snippets-save-active-tab"
               className="button-primary w-full"
             >
               <Save size={13} />

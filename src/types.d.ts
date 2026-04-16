@@ -1,5 +1,7 @@
 /// <reference types="vite/client" />
 
+declare const __LINGUA_CHANGELOG_JSON__: string;
+
 declare module 'electron-squirrel-startup' {
   const started: boolean;
   export default started;
@@ -133,6 +135,18 @@ interface UpdateState {
   lastCheckedAt?: string;
 }
 
+// -------------------------------------------------------------- App info
+
+interface AppInfo {
+  productName: string;
+  version: string;
+  buildDate: string | null;
+  licenseType: string;
+  repositoryUrl: string | null;
+  websiteUrl: string | null;
+  licenseUrl: string | null;
+}
+
 // ------------------------------------------------------------- Plugin types
 
 type PluginInstallStatus =
@@ -166,6 +180,8 @@ interface LinguaAPI {
   platform: string;
 
   getSystemLanguages: () => Promise<string[]>;
+  getAppInfo: () => Promise<AppInfo>;
+  openExternal: (url: string) => Promise<boolean>;
 
   confirmClose: (dirtyFileNames: string[], language?: string) => Promise<number>;
   confirmCloseTab: (fileName: string, language?: string) => Promise<number>;
@@ -224,3 +240,6 @@ interface MonacoEnvironmentShape {
 declare global {
   var MonacoEnvironment: MonacoEnvironmentShape;
 }
+
+declare const __LINGUA_BUILD_DATE__: string | undefined;
+declare const __LINGUA_WEBSITE_URL__: string | undefined;

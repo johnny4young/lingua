@@ -3,6 +3,7 @@ import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
+import { registerAppInfoHandlers } from './ipc/appInfo';
 import { registerFileSystemHandlers } from './ipc/fileSystem';
 import { registerLocaleHandlers } from './ipc/locale';
 import { registerPluginHandlers } from './plugins';
@@ -16,6 +17,7 @@ if (started) {
 // Register IPC handlers
 registerGoHandlers();
 registerRustHandlers();
+registerAppInfoHandlers();
 registerFileSystemHandlers();
 registerLocaleHandlers();
 registerPluginHandlers();

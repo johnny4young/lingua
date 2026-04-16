@@ -101,7 +101,10 @@ export function Toolbar({
   }, [isNewFileMenuOpen]);
 
   return (
-    <div className="toolbar-drag-region surface-header relative z-10 flex min-h-16 flex-wrap items-center justify-between gap-3 px-3 py-2 sm:min-h-14 sm:flex-nowrap sm:px-4">
+    <div
+      data-tour-id="toolbar-shell"
+      className="toolbar-drag-region surface-header relative z-10 flex min-h-16 flex-wrap items-center justify-between gap-3 px-3 py-2 sm:min-h-14 sm:flex-nowrap sm:px-4"
+    >
       <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-32 bg-gradient-to-r from-primary-soft/55 via-transparent to-transparent sm:block" />
 
       <div className="flex min-w-0 items-center gap-2 pl-[70px] sm:pl-[78px]">
@@ -120,6 +123,7 @@ export function Toolbar({
         <button
           onClick={run}
           disabled={isRunning || !hasTabs}
+          data-tour-id="run-button"
           className="button-primary min-w-[7.4rem] justify-center bg-success text-background hover:bg-success/92"
           title={t('toolbar.run.title')}
         >
@@ -201,7 +205,7 @@ export function Toolbar({
         </div>
       </div>
 
-      <div className="flex min-w-0 items-center gap-1">
+      <div data-tour-id="toolbar-actions" className="flex min-w-0 items-center gap-1">
         {activeTab && (
           <div className="status-pill hidden max-w-[14rem] truncate sm:flex">
             {t('toolbar.languageActive', { language: defaultNewFileLabel })}
