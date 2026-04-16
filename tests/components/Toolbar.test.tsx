@@ -120,12 +120,12 @@ describe('Toolbar', () => {
 
   it('renders without crashing', () => {
     render(<Toolbar />);
-    expect(screen.getByTitle('Run (Cmd+Enter)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Run/ })).toBeTruthy();
   });
 
   it('shows the Run button with "Run" label when not running', () => {
     render(<Toolbar />);
-    const runBtn = screen.getByTitle('Run (Cmd+Enter)');
+    const runBtn = screen.getByRole('button', { name: /Run/ });
     expect(runBtn).toBeTruthy();
     expect(runBtn.textContent).toContain('Run');
   });
@@ -133,7 +133,7 @@ describe('Toolbar', () => {
   it('shows "Running..." label and disables Run button when running', () => {
     resetRunnerState({ isRunning: true });
     render(<Toolbar />);
-    const runBtn = screen.getByTitle('Run (Cmd+Enter)');
+    const runBtn = screen.getByRole('button', { name: /Running/ });
     expect(runBtn.textContent).toContain('Running...');
     expect(runBtn).toHaveProperty('disabled', true);
   });
@@ -141,31 +141,40 @@ describe('Toolbar', () => {
   it('shows the Stop button at all times', () => {
     resetRunnerState({ isRunning: true });
     render(<Toolbar />);
-    expect(screen.getByTitle('Stop')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Stop/ })).toBeTruthy();
   });
 
   it('does not render the Stop button when not running', () => {
     render(<Toolbar />);
-    expect(screen.queryByTitle('Stop')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
   });
 
   it('enables the Stop button when running', () => {
     resetRunnerState({ isRunning: true });
     render(<Toolbar />);
-    const stopBtn = screen.getByTitle('Stop');
+    const stopBtn = screen.getByRole('button', { name: /Stop/ });
     expect((stopBtn as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('renders an explicit new-file action for the active language', () => {
     render(<Toolbar />);
-    expect(screen.getByTitle('New JavaScript file')).toBeTruthy();
-    expect(screen.getByTitle('Choose language for new file')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New JavaScript' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'New file language menu' })).toBeTruthy();
+  });
+
+  it('shows the shared tooltip for the Run action on hover', async () => {
+    const user = userEvent.setup();
+    render(<Toolbar />);
+
+    await user.hover(screen.getByRole('button', { name: /Run/ }));
+
+    expect(screen.getByRole('tooltip').textContent).toContain('Run (Cmd+Enter)');
   });
 
   it('clicking Run button calls the run handler', async () => {
     const user = userEvent.setup();
     render(<Toolbar />);
-    const runBtn = screen.getByTitle('Run (Cmd+Enter)');
+    const runBtn = screen.getByRole('button', { name: /Run/ });
     await user.click(runBtn);
     expect(mockRun).toHaveBeenCalledTimes(1);
   });
@@ -174,7 +183,7 @@ describe('Toolbar', () => {
     const user = userEvent.setup();
     render(<Toolbar />);
 
-    await user.click(screen.getByTitle('New JavaScript file'));
+    await user.click(screen.getByRole('button', { name: 'New JavaScript' }));
 
     expect(mockAddTab).toHaveBeenCalledWith(
       expect.objectContaining({ language: 'javascript' })
@@ -185,7 +194,7 @@ describe('Toolbar', () => {
     const user = userEvent.setup();
     render(<Toolbar />);
 
-    await user.click(screen.getByTitle('Choose language for new file'));
+    await user.click(screen.getByRole('button', { name: 'New file language menu' }));
     await user.click(screen.getByRole('menuitem', { name: 'Go' }));
 
     expect(mockAddTab).toHaveBeenCalledWith(
@@ -198,10 +207,9 @@ describe('Toolbar', () => {
 
     render(<Toolbar />);
 
-    expect(screen.getByTitle('Ejecutar (Cmd+Enter)')).toBeTruthy();
-    expect(screen.getByTitle('Abrir archivo (Cmd+O)')).toBeTruthy();
-    expect(screen.getByTitle('Nuevo archivo JavaScript')).toBeTruthy();
-    expect(screen.getByTitle('Elige el lenguaje del nuevo archivo')).toBeTruthy();
-    expect(screen.getByTitle('Configuración (Cmd+,)')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Abrir archivo (Cmd+O)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Nuevo JavaScript' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Menú de lenguaje para nuevo archivo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Configuración (Cmd+,)' })).toBeTruthy();
   });
 });

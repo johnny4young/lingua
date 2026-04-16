@@ -2092,8 +2092,8 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-057 Add a consistent tooltip layer for shell actions and dense controls
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready to implement`
+- Status: `Done`
+- Readiness: `Completed 2026-04-16`
 - Current gap:
   - High-frequency UI controls still rely on a mix of browser `title` attributes and unlabeled icon-only affordances
   - Dense surfaces such as the toolbar, editor tabs, console actions, quick open, and command palette lack a single tooltip contract

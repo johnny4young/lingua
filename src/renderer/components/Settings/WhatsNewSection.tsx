@@ -123,7 +123,7 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
               {t('whatsNew.description')}
             </p>
           </div>
-          <IconButton onClick={onClose} title={t('whatsNew.close')}>
+          <IconButton onClick={onClose} tooltip={t('whatsNew.close')}>
             <X size={16} />
           </IconButton>
         </div>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import i18next from 'i18next';
 import { CommandPalette } from '../../src/renderer/components/CommandPalette/CommandPalette';
 
@@ -60,6 +60,7 @@ vi.mock('../../src/renderer/components/ui/chrome', () => ({
     </div>
   ),
   OverlayCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock('../../src/renderer/components/ui/keyboard', () => ({
@@ -103,5 +104,23 @@ describe('CommandPalette', () => {
     expect(screen.getByText('navegar')).toBeTruthy();
     expect(screen.getByText('seleccionar')).toBeTruthy();
     expect(screen.getByText('13 resultados')).toBeTruthy();
+  });
+
+  it('exposes the clear search action with an accessible label', async () => {
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+
+    fireEvent.change(input, { target: { value: 'set' } });
+
+    expect(screen.getByRole('button', { name: 'Clear search' })).toBeTruthy();
   });
 });

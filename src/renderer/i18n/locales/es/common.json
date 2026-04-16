@@ -301,5 +301,6 @@
   "fileTree.placeholder.file": "nombre-archivo.rs",
   "fileTree.placeholder.folder": "nombre-carpeta",
   "fileTree.empty": "Proyecto vacío",
+  "fileTree.emptyDirectory": "Vacío",
   "fileTree.openDifferent": "Abrir otra carpeta"
 }

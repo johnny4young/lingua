@@ -6,7 +6,7 @@ import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUpdateStore } from '../../stores/updateStore';
-import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { Kbd, OverlayBackdrop, OverlayCard, Tooltip } from '../ui/chrome';
 import { handleCloseOnEscape } from '../ui/keyboard';
 import { CommandPaletteResults } from './CommandPaletteResults';
 import {
@@ -134,14 +134,16 @@ export function CommandPalette({
             className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
           />
           {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="button-ghost p-1.5"
-              title={t('commandPalette.search.clear')}
-            >
-              <X size={14} />
-            </button>
+            <Tooltip content={t('commandPalette.search.clear')}>
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="button-ghost p-1.5"
+                aria-label={t('commandPalette.search.clear')}
+              >
+                <X size={14} />
+              </button>
+            </Tooltip>
           )}
           <Kbd>esc</Kbd>
         </div>
