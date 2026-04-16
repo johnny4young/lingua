@@ -1,7 +1,6 @@
 import type { LineResult } from '../stores/resultStore';
 import type { ExecutionResult, Language } from '../types';
-
-const DYNAMIC_RESULT_LANGUAGES = new Set(['javascript', 'typescript', 'python']);
+import { isInlineResultLanguage } from './languageCapabilities';
 
 function getLastNonEmptyLine(code: string): number {
   const lines = code.split('\n');
@@ -16,7 +15,7 @@ function getLastNonEmptyLine(code: string): number {
 }
 
 export function isDynamicResultLanguage(language: Language): boolean {
-  return DYNAMIC_RESULT_LANGUAGES.has(language);
+  return isInlineResultLanguage(language);
 }
 
 export function toLineResults(result: ExecutionResult, code: string): LineResult[] {

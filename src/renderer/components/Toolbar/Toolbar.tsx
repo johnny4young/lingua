@@ -18,7 +18,7 @@ import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
 import type { Language } from '../../types';
-import { languageLabel } from '../../utils/languageMeta';
+import { executionModeForLanguage, languageLabel } from '../../utils/languageMeta';
 import { usePluginStore } from '../../stores/pluginStore';
 import { IconButton, Tooltip } from '../ui/chrome';
 
@@ -64,6 +64,21 @@ export function Toolbar({
   ];
   const defaultNewFileLanguage = activeTab?.language ?? 'javascript';
   const defaultNewFileLabel = languageLabel(defaultNewFileLanguage);
+  const activeLanguage = activeTab?.language ?? 'javascript';
+  const executionMode = executionModeForLanguage(activeLanguage);
+  const actionDisabled = !hasTabs || isRunning || executionMode === 'view';
+  const actionLabel =
+    executionMode === 'validate'
+      ? loadingMessage ?? (isRunning ? t('toolbar.validate.running') : t('toolbar.validate.label'))
+      : executionMode === 'view'
+        ? t('toolbar.viewOnly.label')
+        : loadingMessage ?? (isRunning ? t('toolbar.run.running') : t('toolbar.run.label'));
+  const actionTooltip =
+    executionMode === 'validate'
+      ? t('toolbar.validate.title')
+      : executionMode === 'view'
+        ? t('toolbar.viewOnly.title')
+        : t('toolbar.run.title');
 
   const handleNewFile = (language: Language) => {
     const tab = createDefaultTab(language);
@@ -120,10 +135,10 @@ export function Toolbar({
 
         <div className="toolbar-divider" />
 
-        <Tooltip content={t('toolbar.run.title')} disabled={isRunning || !hasTabs}>
+        <Tooltip content={actionTooltip} disabled={actionDisabled}>
           <button
             onClick={run}
-            disabled={isRunning || !hasTabs}
+            disabled={actionDisabled}
             data-tour-id="run-button"
             className="button-primary min-w-[7.4rem] justify-center bg-success text-background hover:bg-success/92"
           >
@@ -132,7 +147,7 @@ export function Toolbar({
             ) : (
               <Play size={13} fill="currentColor" />
             )}
-            {loadingMessage ?? (isRunning ? t('toolbar.run.running') : t('toolbar.run.label'))}
+            {actionLabel}
           </button>
         </Tooltip>
 

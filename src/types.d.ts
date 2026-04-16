@@ -57,6 +57,10 @@ declare module 'fengari' {
   export function to_luastring(value: string, cache?: boolean): Uint8Array;
 }
 
+declare module 'js-yaml' {
+  export function load(source: string): unknown;
+}
+
 // ---------------------------------------------------------------- Go types
 
 interface GoDetectResult {

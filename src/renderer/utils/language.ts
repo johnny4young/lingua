@@ -5,7 +5,7 @@
 
 import type { Language } from '../types';
 import { pluginRegistry } from '../plugins';
-import { languageForExtension } from './languageMeta';
+import { languageForExtension, languageSupportsFileName } from './languageMeta';
 
 /**
  * Fallback language used whenever a file has no recognizable extension.
@@ -24,12 +24,31 @@ function extensionFromPath(filePath: string): string | undefined {
   return fileName.slice(dotIndex + 1);
 }
 
+function fileNameFromPath(filePath: string): string {
+  return filePath.split('/').pop() ?? filePath.split('\\').pop() ?? filePath;
+}
+
+function languageFromSpecialFileName(fileName: string): Language | undefined {
+  if (fileName.startsWith('.env')) {
+    return 'dotenv';
+  }
+
+  const builtInCandidates: Language[] = ['dotenv'];
+  return builtInCandidates.find((candidate) => languageSupportsFileName(candidate, fileName));
+}
+
 /**
  * Infer a Language from a full file path or filename.
  * Returns undefined for unknown extensions so callers can choose an
  * appropriate fallback such as Monaco plaintext mode.
  */
 export function languageFromPath(filePath: string): Language | undefined {
+  const fileName = fileNameFromPath(filePath);
+  const specialCaseLanguage = languageFromSpecialFileName(fileName);
+  if (specialCaseLanguage) {
+    return specialCaseLanguage;
+  }
+
   const extension = extensionFromPath(filePath);
   if (!extension) {
     return undefined;

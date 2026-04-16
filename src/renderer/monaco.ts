@@ -10,6 +10,7 @@ import 'monaco-editor/esm/vs/editor/editor.all.js';
 // JS/TS syntax coloring and language services are registered by Monaco's
 // TypeScript contribution, not by the raw editor API surface.
 import 'monaco-editor/esm/vs/language/typescript/monaco.contribution.js';
+import 'monaco-editor/esm/vs/language/json/monaco.contribution.js';
 
 // ── Workers ────────────────────────────────────────────────────────────────
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
@@ -21,6 +22,14 @@ import { createGoCompletionProvider } from './components/Editor/completionProvid
 import { createPythonCompletionProvider } from './components/Editor/completionProviders/pythonCompletions';
 import { createRustCompletionProvider } from './components/Editor/completionProviders/rustCompletions';
 import { createLuaCompletionProvider } from './components/Editor/completionProviders/luaCompletions';
+import {
+  csvConfiguration,
+  csvLanguage,
+  dotenvConfiguration,
+  dotenvLanguage,
+  tomlConfiguration,
+  tomlLanguage,
+} from './monacoCustomLanguages';
 
 type MonacoWorkerFactory = new () => Worker;
 
@@ -59,6 +68,11 @@ const LANGUAGE_CONTRIBUTIONS = [
   { id: 'python', extensions: ['.py'], aliases: ['Python'], loader: () => import('monaco-editor/esm/vs/basic-languages/python/python.js') },
   { id: 'rust', extensions: ['.rs'], aliases: ['Rust'], loader: () => import('monaco-editor/esm/vs/basic-languages/rust/rust.js') },
   { id: 'lua', extensions: ['.lua'], aliases: ['Lua'], loader: () => import('monaco-editor/esm/vs/basic-languages/lua/lua.js') },
+  { id: 'yaml', extensions: ['.yaml', '.yml'], aliases: ['YAML', 'yaml'], loader: () => import('monaco-editor/esm/vs/basic-languages/yaml/yaml.js') },
+  { id: 'ini', extensions: ['.ini', '.cfg', '.conf'], aliases: ['INI', 'ini'], loader: () => import('monaco-editor/esm/vs/basic-languages/ini/ini.js') },
+  { id: 'dotenv', extensions: ['.env'], aliases: ['dotenv', '.env'], config: dotenvConfiguration, language: dotenvLanguage },
+  { id: 'toml', extensions: ['.toml'], aliases: ['TOML', 'toml'], config: tomlConfiguration, language: tomlLanguage },
+  { id: 'csv', extensions: ['.csv'], aliases: ['CSV', 'csv'], config: csvConfiguration, language: csvLanguage },
 ] as const;
 
 const completionProviderFactories = [
@@ -106,10 +120,16 @@ function ensureLanguageContributions(m: Monaco): void {
       });
     }
 
-    void lang.loader().then((mod) => {
-      m.languages.setMonarchTokensProvider(lang.id, mod.language);
-      m.languages.setLanguageConfiguration(lang.id, mod.conf);
-    });
+    if ('loader' in lang) {
+      void lang.loader().then((mod) => {
+        m.languages.setMonarchTokensProvider(lang.id, mod.language);
+        m.languages.setLanguageConfiguration(lang.id, mod.conf);
+      });
+      continue;
+    }
+
+    m.languages.setMonarchTokensProvider(lang.id, lang.language);
+    m.languages.setLanguageConfiguration(lang.id, lang.config);
   }
 }
 

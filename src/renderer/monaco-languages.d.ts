@@ -39,3 +39,15 @@ declare module 'monaco-editor/esm/vs/basic-languages/lua/lua.js' {
   export const conf: languages.LanguageConfiguration;
   export const language: languages.IMonarchLanguage;
 }
+
+declare module 'monaco-editor/esm/vs/basic-languages/yaml/yaml.js' {
+  import type { languages } from 'monaco-editor';
+  export const conf: languages.LanguageConfiguration;
+  export const language: languages.IMonarchLanguage;
+}
+
+declare module 'monaco-editor/esm/vs/basic-languages/ini/ini.js' {
+  import type { languages } from 'monaco-editor';
+  export const conf: languages.LanguageConfiguration;
+  export const language: languages.IMonarchLanguage;
+}

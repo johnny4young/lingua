@@ -215,7 +215,18 @@ describe('fs:select-file', () => {
         filters: [
           expect.objectContaining({
             name: 'Code and text files',
-            extensions: expect.arrayContaining(['ts', 'py', 'go', 'rs', 'lua', 'md']),
+            extensions: expect.arrayContaining([
+              'ts',
+              'py',
+              'go',
+              'rs',
+              'lua',
+              'md',
+              'env',
+              'csv',
+              'toml',
+              'ini',
+            ]),
           }),
         ],
       })

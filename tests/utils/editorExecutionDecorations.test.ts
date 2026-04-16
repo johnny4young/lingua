@@ -33,6 +33,7 @@ describe('editorExecutionDecorations helpers', () => {
       startColumn: 8,
       endColumn: 8,
       message: 'Boom',
+      severity: 'error',
     });
 
     expect(
@@ -47,6 +48,7 @@ describe('editorExecutionDecorations helpers', () => {
       startColumn: 1,
       endColumn: 12,
       message: 'Compile failed',
+      severity: 'error',
     });
   });
 

@@ -15,6 +15,11 @@ describe('language', () => {
     it('detects built-in extensions regardless of case', () => {
       expect(languageFromPath('/abs/path/Main.TS')).toBe('typescript');
       expect(languageFromPath('src\\index.MJS')).toBe('javascript');
+      expect(languageFromPath('/workspace/package.json')).toBe('json');
+      expect(languageFromPath('/workspace/docker-compose.yml')).toBe('yaml');
+      expect(languageFromPath('/workspace/.env')).toBe('dotenv');
+      expect(languageFromPath('/workspace/.env.local')).toBe('dotenv');
+      expect(languageFromPath('/workspace/data.csv')).toBe('csv');
       expect(languageFromPath('notes.md')).toBeUndefined();
     });
 
