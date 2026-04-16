@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
 import { LayoutSection } from './LayoutSection';
@@ -9,9 +10,15 @@ import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 
 interface SettingsModalProps {
   onClose: () => void;
+  onOpenWhatsNew: () => void;
+  onStartGuidedTour: () => void;
 }
 
-export function SettingsModal({ onClose }: SettingsModalProps) {
+export function SettingsModal({
+  onClose,
+  onOpenWhatsNew,
+  onStartGuidedTour,
+}: SettingsModalProps) {
   const { t } = useTranslation();
 
   return (
@@ -35,6 +42,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         <div className="max-h-[78vh] overflow-y-auto px-5 py-4">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div className="space-y-6">
+              <AboutSection
+                onOpenWhatsNew={onOpenWhatsNew}
+                onStartGuidedTour={onStartGuidedTour}
+              />
               <AppearanceSection />
               <LayoutSection />
               <UpdatesSection />

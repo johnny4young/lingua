@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent } from 'react';
 
-export type AppOverlay = 'none' | 'settings' | 'palette' | 'quick-open' | 'snippets';
+export type AppOverlay = 'none' | 'settings' | 'palette' | 'quick-open' | 'snippets' | 'whats-new';
 
 interface UseGlobalShortcutsOptions {
   isRunning: boolean;

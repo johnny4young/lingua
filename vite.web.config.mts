@@ -12,6 +12,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getSharedBuildDefines } from './build/appBuildMetadata.mts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const base = process.env.VITE_BASE_PATH ?? '/';
@@ -19,6 +20,7 @@ const base = process.env.VITE_BASE_PATH ?? '/';
 export default defineConfig({
   base,
   plugins: [react()],
+  define: getSharedBuildDefines(),
   root: path.resolve(__dirname, 'src/web'),
   publicDir: path.resolve(__dirname, 'public'),
   resolve: {

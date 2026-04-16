@@ -91,6 +91,8 @@ describe('CommandPalette', () => {
       <CommandPalette
         onClose={vi.fn()}
         onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
         onOpenSnippets={vi.fn()}
       />
     );
@@ -100,6 +102,6 @@ describe('CommandPalette', () => {
     ).toBeTruthy();
     expect(screen.getByText('navegar')).toBeTruthy();
     expect(screen.getByText('seleccionar')).toBeTruthy();
-    expect(screen.getByText('10 resultados')).toBeTruthy();
+    expect(screen.getByText('13 resultados')).toBeTruthy();
   });
 });

@@ -30,6 +30,8 @@ interface BuildCommandPaletteModelArgs {
   setLayoutPreset: (preset: LayoutPreset) => void;
   onClose: () => void;
   onOpenSettings: () => void;
+  onOpenWhatsNew: () => void;
+  onStartGuidedTour: () => void;
   onOpenSnippets: () => void;
   checkForUpdates: () => Promise<void>;
   restartToApply: () => Promise<boolean>;
@@ -143,6 +145,8 @@ export function buildCommandPaletteModel({
   setLayoutPreset,
   onClose,
   onOpenSettings,
+  onOpenWhatsNew,
+  onStartGuidedTour,
   onOpenSnippets,
   checkForUpdates,
   restartToApply,
@@ -206,6 +210,36 @@ export function buildCommandPaletteModel({
       () => {
         onClose();
         onOpenSnippets();
+      }
+    ),
+    buildActionCommand(
+      'action-about',
+      translate('commandPalette.action.about.label'),
+      translate('commandPalette.action.about.description'),
+      ['about', 'lingua', 'version', 'license', 'github'],
+      () => {
+        onClose();
+        onOpenSettings();
+      }
+    ),
+    buildActionCommand(
+      'action-whats-new',
+      translate('commandPalette.action.whatsNew.label'),
+      translate('commandPalette.action.whatsNew.description'),
+      ['whats new', 'release notes', 'changelog', 'updates'],
+      () => {
+        onClose();
+        onOpenWhatsNew();
+      }
+    ),
+    buildActionCommand(
+      'action-guided-tour',
+      translate('commandPalette.action.guidedTour.label'),
+      translate('commandPalette.action.guidedTour.description'),
+      ['tour', 'guided', 'onboarding', 'help'],
+      () => {
+        onClose();
+        onStartGuidedTour();
       }
     ),
     buildActionCommand(

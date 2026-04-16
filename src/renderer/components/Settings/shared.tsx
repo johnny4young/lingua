@@ -2,16 +2,18 @@ import type { ButtonHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'reac
 import { cn } from '../../utils/cn';
 
 export function Section({
+  id,
   title,
   description,
   children,
 }: {
+  id?: string;
   title: string;
   description?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-2.5">
+    <section id={id} className="space-y-2.5">
       <div className="space-y-1">
         <h3 className="panel-title">{title}</h3>
         {description && <p className="text-sm leading-6 text-muted">{description}</p>}
