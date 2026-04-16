@@ -4,6 +4,7 @@ import type {
   ExecutionResult,
   ConsoleOutput,
 } from '../types';
+import { parseRustExecutionError } from '../utils/executionDiagnostics';
 
 export class RustRunner implements LanguageRunner {
   id = 'rust';
@@ -60,40 +61,11 @@ export class RustRunner implements LanguageRunner {
       result: undefined,
       executionTime: runResult.executionTime,
       error: runResult.error
-        ? { message: runResult.error, ...parseRustError(runResult.stderr) }
+        ? parseRustExecutionError(runResult.stderr, runResult.error)
         : undefined,
     };
   }
 
   /** Rust processes are managed entirely in the main process; stop is a no-op */
   stop(): void {}
-}
-
-/** Extract line/column from rustc error output */
-function parseRustError(stderr: string): { line?: number; column?: number } {
-  if (!stderr) return {};
-
-  // rustc errors:   " --> main.rs:LINE:COL"
-  const compileMatch = stderr.match(/-->\s+\S+:(\d+):(\d+)/);
-  const compileLine = compileMatch?.[1];
-  const compileColumn = compileMatch?.[2];
-  if (compileLine && compileColumn) {
-    return {
-      line: parseInt(compileLine, 10),
-      column: parseInt(compileColumn, 10),
-    };
-  }
-
-  // Runtime panics: "panicked at '...', src/main.rs:LINE:COL"
-  const panicMatch = stderr.match(/,\s+\S+:(\d+):(\d+)/);
-  const panicLine = panicMatch?.[1];
-  const panicColumn = panicMatch?.[2];
-  if (panicLine && panicColumn) {
-    return {
-      line: parseInt(panicLine, 10),
-      column: parseInt(panicColumn, 10),
-    };
-  }
-
-  return {};
 }

@@ -73,6 +73,36 @@ describe('EditorTabs', () => {
     expect(mockCloseTab).toHaveBeenCalledWith('tab-js');
   });
 
+  it('activates a tab when clicking anywhere on the card, not only the label', async () => {
+    const user = userEvent.setup();
+    render(<EditorTabs />);
+
+    // Click the padding area on the right side of the tab (between the
+    // label and the close button). Before this fix only the label text
+    // triggered activation — the surrounding rounded surface was dead
+    // space.
+    const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
+    await user.pointer({ target: tab, coords: { clientX: 1, clientY: 1 } });
+    await user.click(tab);
+
+    expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
+  });
+
+  it('activates a tab from the keyboard via Enter and Space', async () => {
+    const user = userEvent.setup();
+    render(<EditorTabs />);
+
+    const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
+    tab.focus();
+
+    await user.keyboard('{Enter}');
+    expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
+
+    mockSetActiveTab.mockClear();
+    await user.keyboard(' ');
+    expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
+  });
+
   it('shows the tab filename in the shared tooltip layer', async () => {
     const user = userEvent.setup();
     render(<EditorTabs />);

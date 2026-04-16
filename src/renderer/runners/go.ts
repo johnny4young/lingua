@@ -6,6 +6,7 @@ import type {
   ExecutionError,
   WorkerResponse,
 } from '../types';
+import { parseGoExecutionError } from '../utils/executionDiagnostics';
 
 const DEFAULT_TIMEOUT = 30_000;
 
@@ -59,10 +60,10 @@ export class GoRunner implements LanguageRunner {
         stderr: [],
         result: undefined,
         executionTime: 0,
-        error: {
-          message: compileResult.error ?? 'Go compilation failed.',
-          ...parseGoError(compileResult.error),
-        },
+        error:
+          parseGoExecutionError(compileResult.error) ?? {
+            message: 'Go compilation failed.',
+          },
       };
     }
 
@@ -132,21 +133,4 @@ export class GoRunner implements LanguageRunner {
       this.worker = null;
     }
   }
-}
-
-/** Try to extract line/column from Go compiler error messages */
-function parseGoError(errorMsg?: string): { line?: number; column?: number } {
-  if (!errorMsg) return {};
-
-  // Go errors format: "./main.go:LINE:COL: error message"
-  const match = errorMsg.match(/main\.go:(\d+):(\d+):/);
-  const lineValue = match?.[1];
-  const columnValue = match?.[2];
-  if (lineValue && columnValue) {
-    return {
-      line: parseInt(lineValue, 10),
-      column: parseInt(columnValue, 10),
-    };
-  }
-  return {};
 }

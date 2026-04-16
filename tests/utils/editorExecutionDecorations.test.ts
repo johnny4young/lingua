@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildDiagnosticMarkerEntries,
   buildExecutionMarkerEntry,
   buildInlineDecorationEntries,
   getExecutionErrorKey,
@@ -56,5 +57,32 @@ describe('editorExecutionDecorations helpers', () => {
     expect(getExecutionErrorKey(null)).toBeNull();
     expect(getExecutionErrorKey({ message: 'Boom' })).toBeNull();
     expect(getExecutionErrorKey({ message: 'Boom', line: 4, column: 2 })).toBe('Boom:4:2');
+  });
+
+  it('preserves diagnostic ranges when end columns are available', () => {
+    expect(
+      buildDiagnosticMarkerEntries(
+        [
+          {
+            message: 'cannot find value `x` in this scope',
+            line: 3,
+            column: 20,
+            endColumn: 24,
+            severity: 'error',
+          },
+        ],
+        6,
+        () => 40
+      )
+    ).toEqual([
+      {
+        startLineNumber: 3,
+        endLineNumber: 3,
+        startColumn: 20,
+        endColumn: 24,
+        message: 'cannot find value `x` in this scope',
+        severity: 'error',
+      },
+    ]);
   });
 });
