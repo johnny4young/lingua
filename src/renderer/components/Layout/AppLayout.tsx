@@ -85,14 +85,27 @@ function EditorArea() {
             defaultLayout={editorResultsLayout.defaultLayout}
             onLayoutChanged={editorResultsLayout.onLayoutChanged}
             resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
+            className="relative overflow-visible"
           >
-            <Panel id="editor-panel" defaultSize="60%" minSize={320}>
-              <Suspense fallback={<EditorLoadingState />}>
-                <CodeEditor />
-              </Suspense>
+            <Panel
+              id="editor-panel"
+              defaultSize="60%"
+              minSize={320}
+              className="relative z-20 overflow-visible"
+            >
+              <div className="relative h-full overflow-visible">
+                <Suspense fallback={<EditorLoadingState />}>
+                  <CodeEditor />
+                </Suspense>
+              </div>
             </Panel>
             <ResizeHandle orientation="vertical" />
-            <Panel id="results-panel" defaultSize="40%" minSize={220}>
+            <Panel
+              id="results-panel"
+              defaultSize="40%"
+              minSize={220}
+              className="relative z-10 overflow-hidden"
+            >
               <ResultPanel />
             </Panel>
           </Group>

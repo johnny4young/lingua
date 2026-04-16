@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 
 let compactShell = false;
+let editorTabs: unknown[] = [];
 const matchMediaListeners = new Set<(event: MediaQueryListEvent) => void>();
 
 function setCompactShell(nextValue: boolean) {
@@ -102,7 +103,7 @@ vi.mock('../../src/renderer/components/Editor/CodeEditor', () => ({
 
 vi.mock('../../src/renderer/stores/editorStore', () => ({
   useEditorStore: (selector?: (state: { tabs: unknown[] }) => unknown) => {
-    const state = { tabs: [] };
+    const state = { tabs: editorTabs };
     return selector ? selector(state) : state;
   },
 }));
@@ -119,6 +120,7 @@ describe('AppLayout responsive shell', () => {
   beforeEach(() => {
     localStorage.clear();
     compactShell = false;
+    editorTabs = [];
     matchMediaListeners.clear();
 
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -155,6 +157,25 @@ describe('AppLayout responsive shell', () => {
     expect(screen.queryByRole('dialog', { name: 'Project explorer' })).toBeNull();
     expect(document.querySelector('[data-panel="sidebar-panel"]')).toBeTruthy();
     expect(screen.getByTestId('file-tree')).toBeTruthy();
+  });
+
+  it('keeps the editor panel above the results panel for Monaco overlays', async () => {
+    editorTabs = [{ id: 'tab-1' }];
+
+    await renderLayout();
+
+    const editorPanel = document.querySelector<HTMLElement>('[data-panel="editor-panel"]');
+    const resultsPanel = document.querySelector<HTMLElement>('[data-panel="results-panel"]');
+    const editorResultsGroup = editorPanel?.parentElement;
+
+    expect(editorResultsGroup?.className).toContain('relative');
+    expect(editorResultsGroup?.className).toContain('overflow-visible');
+    expect(editorPanel?.className).toContain('relative');
+    expect(editorPanel?.className).toContain('z-20');
+    expect(editorPanel?.className).toContain('overflow-visible');
+    expect(resultsPanel?.className).toContain('relative');
+    expect(resultsPanel?.className).toContain('z-10');
+    expect(resultsPanel?.className).toContain('overflow-hidden');
   });
 
   it('renders the explorer as a compact drawer on narrow shells', async () => {
