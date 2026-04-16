@@ -42,11 +42,11 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 
 ## Requirements
 
-| Dependency | Version | Notes |
-| --- | --- | --- |
-| Node.js | >= 24 | Required for local development, tests, and builds |
-| Go | >= 1.21 | Required only for desktop Go execution |
-| Rust (`rustc`) | stable | Required only for desktop Rust execution |
+| Dependency     | Version | Notes                                             |
+| -------------- | ------- | ------------------------------------------------- |
+| Node.js        | >= 24   | Required for local development, tests, and builds |
+| Go             | >= 1.21 | Required only for desktop Go execution            |
+| Rust (`rustc`) | stable  | Required only for desktop Rust execution          |
 
 ## Local development
 
@@ -58,12 +58,14 @@ npm start
 ```
 
 Renderer architecture note:
+
 - The editor shell is now split so Monaco theme registration, editor option construction, and the empty-state surface live in focused modules instead of one oversized `CodeEditor` file.
 - The explorer shell is now split so recursive tree rendering, inline creation input, and the no-project surface live in focused `FileTree` modules instead of one monolithic component file.
 - The command palette now delegates command construction/filtering and result-list rendering to focused modules, keeping the modal container centered on interaction state instead of catalog assembly.
 - The project store now delegates pure file-tree shaping and mutation helpers to a dedicated module, leaving the Zustand store focused on project lifecycle, file-system IPC, and watch-state transitions.
 
 Architecture deep dive:
+
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) explains the project lifecycle, Electron IPC file-system bridge, and watch-state flow with diagrams and extension guidance.
 
 ## Quality checks
@@ -189,24 +191,24 @@ The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/lin
 
 ## Keyboard shortcuts
 
-| Action | macOS | Windows / Linux |
-| --- | --- | --- |
-| Run or stop active file | `Cmd+Enter` | `Ctrl+Enter` |
-| Save active tab | `Cmd+S` | `Ctrl+S` |
-| Close active tab | `Cmd+W` | `Ctrl+W` |
-| Toggle sidebar | `Cmd+B` | `Ctrl+B` |
-| Toggle console | `Cmd+\` | `Ctrl+\` |
-| Quick open | `Cmd+P` | `Ctrl+P` |
-| Command palette | `Cmd+Shift+P` | `Ctrl+Shift+P` |
-| Settings | `Cmd+,` | `Ctrl+,` |
-| Close open overlay | `Escape` | `Escape` |
+| Action                  | macOS         | Windows / Linux |
+| ----------------------- | ------------- | --------------- |
+| Run or stop active file | `Cmd+Enter`   | `Ctrl+Enter`    |
+| Save active tab         | `Cmd+S`       | `Ctrl+S`        |
+| Close active tab        | `Cmd+W`       | `Ctrl+W`        |
+| Toggle sidebar          | `Cmd+B`       | `Ctrl+B`        |
+| Toggle console          | `Cmd+\`       | `Ctrl+\`        |
+| Quick open              | `Cmd+P`       | `Ctrl+P`        |
+| Command palette         | `Cmd+Shift+P` | `Ctrl+Shift+P`  |
+| Settings                | `Cmd+,`       | `Ctrl+,`        |
+| Close open overlay      | `Escape`      | `Escape`        |
 
 ## Automation and delivery
 
 - CI runs type checking, linting, tests, and a non-blocking `npm audit`
 - The web build is deployed to GitHub Pages from `main` after a successful CI workflow
 - The Pages build uses `/lingua/` as the web base path so static assets, the manifest, and the service worker resolve correctly under the repository subpath
-- Pushing a tag that matches `v*.*.*` triggers cross-platform packaging and GitHub Release publishing
+- GitHub Release publishing is manual via the `Release` workflow, which accepts a single stable tag input in the form `vX.Y.Z`, creates that tag from `main`, and publishes from it
 - Packaged macOS and Windows builds enable `update-electron-app`, which checks GitHub Releases for updates
 - The active release/update channel policy is stable-only; prerelease tags are rejected by the release workflow
 
@@ -228,10 +230,12 @@ Lingua now supports a conservative local plugin model for language integrations:
 - Invalid, disabled, incompatible, or unsupported plugins are surfaced in Settings with explicit diagnostics
 
 Current plugin scope:
+
 - Local language plugins are a supported product goal
 - The bundled Lua runtime is now executable through Fengari once a local `lua` plugin manifest is installed
 
 Current install directory:
+
 - Desktop builds discover plugins from `<app userData>/plugins`
 - Web builds keep the plugin surface read-only and do not load local manifests
 
@@ -262,6 +266,7 @@ Minimal manifest:
 ```
 
 Manifest rules:
+
 - `pluginId` must be a string and must match a bundled plugin runtime known to this build
 - `apiVersion` is currently `1`
 - `enabled: false` keeps the plugin installed but inactive
@@ -269,10 +274,11 @@ Manifest rules:
 
 ## Release requirements
 
-Tagged releases are intended to publish a draft GitHub Release after platform builds succeed.
+Manual release runs are intended to publish a draft GitHub Release after platform builds succeed.
 
 Stable channel policy:
-- Only stable tags in the form `vX.Y.Z` are valid for the active release workflow
+
+- Only stable tags in the form `vX.Y.Z` are valid for the active release workflow input
 - Prerelease tags with suffixes such as `-beta` or `-rc.1` are intentionally rejected by the workflow today
 
 ### Required secrets
@@ -308,6 +314,7 @@ Stable channel policy:
 ### Release operations
 
 - The repository currently stays on a draft-first release policy. Promotion to a non-draft release is a human step after validation.
+- To publish, open GitHub Actions, run the `Release` workflow manually, and provide the stable tag/version to create from `main` and publish.
 - Use [RELEASE.md](/Users/johnny4young/Personal/github/lingua/RELEASE.md) as the operator checklist for version tags, signing prerequisites, verification, and promotion.
 
 ## Notes for contributors
