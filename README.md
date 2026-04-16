@@ -67,6 +67,7 @@ Renderer architecture note:
 Architecture deep dive:
 
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) explains the project lifecycle, Electron IPC file-system bridge, and watch-state flow with diagrams and extension guidance.
+- [`src/renderer/README.md`](./src/renderer/README.md) maps the renderer folders, state ownership, styling rules, extraction conventions, and common change/test paths.
 
 ## Quality checks
 
