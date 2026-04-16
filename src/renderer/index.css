@@ -2,6 +2,10 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* -------------------------------------------------------------------------- */
+/* Theme tokens                                                                */
+/* -------------------------------------------------------------------------- */
+
 :root,
 .light {
   --font-ui: 'IBM Plex Sans', 'Aptos', 'Segoe UI', sans-serif;
@@ -56,6 +60,10 @@
   --app-gradient-b: radial-gradient(circle at 84% 10%, rgba(24, 188, 184, 0.12), transparent 30%);
   --app-grid: rgba(122, 116, 179, 0.11);
 }
+
+/* -------------------------------------------------------------------------- */
+/* Tailwind inline theme bridge                                                */
+/* -------------------------------------------------------------------------- */
 
 @theme inline {
   --font-sans: var(--font-ui);
@@ -127,6 +135,7 @@
 }
 
 @layer base {
+  /* App root sizing */
   html,
   body,
   #root {
@@ -137,6 +146,7 @@
     background: var(--app-background);
   }
 
+  /* Shell defaults */
   body {
     margin: 0;
     padding: 0;
@@ -158,8 +168,7 @@
 
   body::before {
     background:
-      var(--app-gradient-a),
-      var(--app-gradient-b),
+      var(--app-gradient-a), var(--app-gradient-b),
       linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 35%);
     opacity: 1;
   }
@@ -177,6 +186,7 @@
     box-sizing: border-box;
   }
 
+  /* Form control inheritance */
   button,
   input,
   select,
@@ -209,6 +219,7 @@
     background-clip: content-box;
   }
 
+  /* Electron drag regions */
   .toolbar-drag-region {
     -webkit-app-region: drag;
   }
@@ -219,16 +230,10 @@
   .toolbar-drag-region a {
     -webkit-app-region: no-drag;
   }
-
-  .inline-result-text {
-    color: color-mix(in srgb, var(--app-muted) 92%, transparent);
-    font-style: italic;
-    opacity: 0.82;
-    padding-left: 1rem;
-  }
 }
 
 @layer components {
+  /* Layout shells */
   .app-shell {
     @apply relative flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground;
   }
@@ -247,6 +252,7 @@
     @apply border-b border-border/80 bg-surface-strong/72;
   }
 
+  /* Overlays */
   .overlay-backdrop {
     @apply fixed inset-0 z-50 flex bg-black/52 backdrop-blur-xl;
     /* Prevent Electron's -webkit-app-region:drag from intercepting clicks over modals */
@@ -258,6 +264,7 @@
     box-shadow: var(--app-shadow);
   }
 
+  /* Icon buttons */
   .icon-button {
     @apply inline-flex items-center justify-center rounded-xl border border-transparent bg-transparent text-muted transition-all duration-200 hover:border-border/80 hover:bg-surface-strong/88 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background;
   }
@@ -270,6 +277,7 @@
     @apply hover:border-error/35 hover:bg-error/10 hover:text-error;
   }
 
+  /* Primary button families */
   .button-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary px-3.5 py-2 text-xs font-semibold tracking-[0.02em] text-primary-foreground transition-all duration-200 hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-45;
     box-shadow: 0 14px 35px color-mix(in srgb, var(--app-primary) 28%, transparent);
@@ -287,6 +295,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-xl border border-error/25 bg-error/12 px-3.5 py-2 text-xs font-semibold tracking-[0.02em] text-error transition-all duration-200 hover:bg-error/18 disabled:cursor-not-allowed disabled:opacity-45;
   }
 
+  /* Form primitives */
   .field-shell {
     @apply w-full rounded-2xl border border-border/80 bg-background-elevated/88 px-3.5 py-2.5 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted focus:border-border-strong/90 focus:bg-background-elevated focus:ring-2 focus:ring-ring/50;
   }
@@ -303,6 +312,7 @@
     @apply text-sm leading-6 text-muted;
   }
 
+  /* Toolbar and keyboard affordances */
   .toolbar-divider {
     @apply mx-1 hidden h-5 w-px bg-border/80 sm:block;
   }
@@ -313,5 +323,13 @@
 
   .status-pill {
     @apply inline-flex items-center rounded-full border border-border/80 bg-surface-strong/75 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted;
+  }
+
+  /* Editor/result copy helpers */
+  .inline-result-text {
+    color: color-mix(in srgb, var(--app-muted) 92%, transparent);
+    font-style: italic;
+    opacity: 0.82;
+    padding-left: 1rem;
   }
 }
