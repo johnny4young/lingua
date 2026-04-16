@@ -59,6 +59,40 @@ describe('updateStore', () => {
     expect(useUpdateStore.getState().status).toBe('checking');
   });
 
+  it('surfaces a checking state immediately before the bridge resolves', async () => {
+    let resolveCheck: ((state: UpdateState) => void) | null = null;
+
+    window.lingua = {
+      ...window.lingua,
+      updates: {
+        ...window.lingua.updates,
+        check: vi.fn(
+          () =>
+            new Promise<UpdateState>((resolve) => {
+              resolveCheck = resolve;
+            })
+        ),
+      },
+    } as LinguaAPI;
+
+    const pendingCheck = useUpdateStore.getState().checkForUpdates();
+
+    expect(useUpdateStore.getState().status).toBe('checking');
+    expect(useUpdateStore.getState().lastCheckedAt).toBeTruthy();
+
+    resolveCheck?.({
+      status: 'not-available',
+      supported: true,
+      enabled: true,
+      message: 'You are up to date.',
+      lastCheckedAt: '2026-04-15T21:15:00.000Z',
+    });
+
+    await pendingCheck;
+
+    expect(useUpdateStore.getState().status).toBe('not-available');
+  });
+
   it('restarts through the preload bridge', async () => {
     const restarted = await useUpdateStore.getState().restartToApply();
     expect(restarted).toBe(true);

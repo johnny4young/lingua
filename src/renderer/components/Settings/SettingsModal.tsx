@@ -16,11 +16,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
   return (
     <OverlayBackdrop onClose={onClose}>
-      <OverlayCard className="relative w-full max-w-4xl">
-        <div className="surface-header flex items-start justify-between gap-4 px-6 py-5">
+      <OverlayCard className="relative w-[min(96vw,1480px)] max-w-none">
+        <div className="surface-header flex items-start justify-between gap-4 px-5 py-4">
           <div>
             <p className="panel-title">{t('settings.title')}</p>
-            <h2 className="mt-2 font-display text-3xl font-semibold tracking-[-0.04em] text-foreground">
+            <h2 className="mt-2 font-display text-[2rem] font-semibold tracking-[-0.04em] text-foreground">
               {t('settings.subtitle')}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
@@ -32,21 +32,21 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
           </IconButton>
         </div>
 
-        <div className="max-h-[78vh] overflow-y-auto px-6 py-5">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="space-y-8">
+        <div className="max-h-[78vh] overflow-y-auto px-5 py-4">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="space-y-6">
               <AppearanceSection />
               <LayoutSection />
               <UpdatesSection />
             </div>
-            <div className="space-y-8">
+            <div className="space-y-6">
               <EditorSection />
               <PluginsSection />
             </div>
           </div>
         </div>
 
-        <div className="surface-header flex items-center justify-between px-6 py-3">
+        <div className="surface-header flex items-center justify-between px-5 py-3">
           <p className="text-xs text-muted">
             {t('settings.footer')}
           </p>

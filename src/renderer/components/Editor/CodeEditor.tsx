@@ -27,6 +27,7 @@ export function CodeEditor() {
     useSettingsStore();
   const lineResults = useResultStore((state) => state.lineResults);
   const error = useResultStore((state) => state.error);
+  const executionSource = useResultStore((state) => state.executionSource);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const lastRevealedErrorKeyRef = useRef<string | null>(null);
@@ -64,10 +65,16 @@ export function CodeEditor() {
     const editor = editorRef.current;
     const nextErrorKey = getExecutionErrorKey(error);
 
-    if (!editor || !nextErrorKey || nextErrorKey === lastRevealedErrorKeyRef.current) {
-      if (!nextErrorKey) {
-        lastRevealedErrorKeyRef.current = null;
-      }
+    if (!nextErrorKey) {
+      lastRevealedErrorKeyRef.current = null;
+      return;
+    }
+
+    if (
+      !editor ||
+      executionSource !== 'manual' ||
+      nextErrorKey === lastRevealedErrorKeyRef.current
+    ) {
       return;
     }
 
@@ -82,7 +89,7 @@ export function CodeEditor() {
       column: error.column ?? 1,
     });
     lastRevealedErrorKeyRef.current = nextErrorKey;
-  }, [applyErrorMarker, error]);
+  }, [applyErrorMarker, error, executionSource]);
 
   useEffect(() => {
     return () => {

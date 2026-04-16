@@ -21,30 +21,31 @@ export function isDynamicResultLanguage(language: Language): boolean {
 
 export function toLineResults(result: ExecutionResult, code: string): LineResult[] {
   const lineResults: LineResult[] = [];
+  const fallbackLine = getLastNonEmptyLine(code);
 
   for (const output of result.stdout) {
-    if (output.line !== undefined) {
-      lineResults.push({
-        line: output.line,
-        value: output.args.join(' '),
-        type: output.type,
-      });
-    }
+    lineResults.push({
+      line: output.line ?? fallbackLine,
+      value: output.args.join(' '),
+      type: output.type,
+    });
   }
 
   for (const output of result.stderr) {
-    if (output.line !== undefined) {
-      lineResults.push({
-        line: output.line,
-        value: output.args.join(' '),
-        type: output.type,
-      });
+    if (result.error && output.type === 'error') {
+      continue;
     }
+
+    lineResults.push({
+      line: output.line ?? fallbackLine,
+      value: output.args.join(' '),
+      type: output.type,
+    });
   }
 
   if (result.result !== undefined) {
     lineResults.push({
-      line: getLastNonEmptyLine(code),
+      line: fallbackLine,
       value: String(result.result),
       type: 'result',
     });
@@ -71,6 +72,10 @@ export function toFullOutput(result: ExecutionResult): string {
   }
 
   for (const output of result.stderr) {
+    if (result.error && output.type === 'error') {
+      continue;
+    }
+
     lines.push(output.args.join(' '));
   }
 

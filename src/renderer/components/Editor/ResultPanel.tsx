@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { formatExecTime } from '../../hooks/runnerOutput';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore, type LineResult } from '../../stores/resultStore';
@@ -13,7 +14,12 @@ function isDynamic(language: string): boolean {
 
 function LineResultRow({ result }: { result: LineResult }) {
   if (result.type === 'magic') {
-    return <span className="whitespace-nowrap font-medium text-success">{'=> '}{result.value}</span>;
+    return (
+      <span className="shrink-0 whitespace-nowrap font-medium text-success">
+        {'=> '}
+        {result.value}
+      </span>
+    );
   }
 
   const colorClass =
@@ -23,9 +29,11 @@ function LineResultRow({ result }: { result: LineResult }) {
         ? 'text-warning'
         : result.type === 'info'
           ? 'text-info'
+          : result.type === 'result'
+            ? 'font-medium text-foreground'
           : 'text-muted';
 
-  return <span className={`whitespace-nowrap ${colorClass}`}>{result.value}</span>;
+  return <span className={`shrink-0 whitespace-nowrap ${colorClass}`}>{result.value}</span>;
 }
 
 interface LineAlignedResultsProps {
@@ -60,7 +68,7 @@ function LineAlignedResults({
           <div
             key={lineNumber}
             style={{ height: lineHeight, lineHeight: `${lineHeight}px` }}
-            className="flex items-center overflow-x-auto px-4"
+            className="flex min-w-0 items-center gap-3 overflow-x-auto px-4"
           >
             {results?.map((result, resultIndex) => (
               <LineResultRow key={resultIndex} result={result} />
@@ -72,17 +80,30 @@ function LineAlignedResults({
   );
 }
 
-function FullOutputView({ output, error }: { output: string; error: string | null }) {
+function FullOutputView({
+  output,
+  error,
+  emptyText,
+}: {
+  output: string;
+  error: string | null;
+  emptyText: string;
+}) {
   return (
     <div className="p-4 font-mono text-xs leading-6">
       {output && <pre className="whitespace-pre-wrap text-foreground">{output}</pre>}
       {error && <pre className="mt-3 whitespace-pre-wrap text-error">{error}</pre>}
-      {!output && !error && <span className="italic text-muted">Run to see output...</span>}
+      {!output && !error && <span className="italic text-muted">{emptyText}</span>}
     </div>
   );
 }
 
+function isUndefinedResult(result: LineResult): boolean {
+  return result.type === 'result' && result.value === 'undefined';
+}
+
 export function ResultPanel() {
+  const { t } = useTranslation();
   const { lineResults, fullOutput, error, executionTime, isAutoRunning } = useResultStore();
   const activeTab = useEditorStore((state) => {
     const tab = state.tabs.find((item) => item.id === state.activeTabId);
@@ -96,9 +117,11 @@ export function ResultPanel() {
   const language = activeTab?.language ?? 'javascript';
   const dynamic = isDynamic(language);
   const lineCount = (activeTab?.content ?? '').split('\n').length;
+  const undefinedResultCount = lineResults.filter(isUndefinedResult).length;
   const visibleLineResults = hideUndefined
-    ? lineResults.filter((result) => result.value !== 'undefined')
+    ? lineResults.filter((result) => !isUndefinedResult(result))
     : lineResults;
+  const showUndefinedToggle = dynamic && undefinedResultCount > 0;
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -127,9 +150,11 @@ export function ResultPanel() {
     <div className="flex h-full flex-col bg-background/65">
       <div className="surface-header flex h-12 shrink-0 items-center justify-between px-4">
         <div>
-          <span className="panel-title">{dynamic ? 'Inline Result' : 'Program Output'}</span>
+          <span className="panel-title">
+            {dynamic ? t('results.inline.title') : t('results.output.title')}
+          </span>
           <p className="mt-0.5 text-[11px] text-muted">
-            {dynamic ? 'Synced to editor lines' : 'Captured after execution'}
+            {dynamic ? t('results.inline.description') : t('results.output.description')}
           </p>
         </div>
 
@@ -138,15 +163,17 @@ export function ResultPanel() {
           {executionTime !== null && (
             <span className="status-pill tabular-nums">{formatExecTime(executionTime)}</span>
           )}
-          {dynamic && (
+          {showUndefinedToggle && (
             <button
               onClick={toggleHideUndefined}
-              title={hideUndefined ? 'Show undefined' : 'Hide undefined'}
+              title={
+                hideUndefined ? t('results.actions.showUndefined') : t('results.actions.hideUndefined')
+              }
               className={`button-secondary px-2.5 py-1 font-mono text-[10px] ${
                 hideUndefined ? 'border-primary/25 bg-primary-soft text-primary' : ''
               }`}
             >
-              undef
+              {t('results.actions.undefined')}
             </button>
           )}
         </div>
@@ -157,8 +184,8 @@ export function ResultPanel() {
           <div className="flex h-full items-center justify-center px-6 text-center">
             <span className="text-xs italic text-muted">
               {dynamic
-                ? 'Results appear here as you type.'
-                : 'Output appears after the current program finishes.'}
+                ? t('results.empty.inline')
+                : t('results.empty.output')}
             </span>
           </div>
         ) : dynamic ? (
@@ -180,7 +207,11 @@ export function ResultPanel() {
             )}
           </>
         ) : (
-          <FullOutputView output={fullOutput} error={error?.message ?? null} />
+          <FullOutputView
+            output={fullOutput}
+            error={error?.message ?? null}
+            emptyText={t('results.empty.manual')}
+          />
         )}
       </div>
     </div>

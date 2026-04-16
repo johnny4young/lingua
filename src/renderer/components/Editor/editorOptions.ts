@@ -30,6 +30,16 @@ export function getEditorOptions({
     autoClosingBrackets: 'always',
     autoClosingQuotes: 'always',
     formatOnPaste: true,
+    quickSuggestions: {
+      other: true,
+      comments: false,
+      strings: true,
+    },
+    quickSuggestionsDelay: 0,
+    snippetSuggestions: 'inline',
+    suggestOnTriggerCharacters: true,
+    tabCompletion: 'on',
+    wordBasedSuggestions: 'currentDocument' as const,
     tabSize: 2,
   } as const;
 }

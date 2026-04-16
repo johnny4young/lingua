@@ -32,6 +32,36 @@ describe('executionPresentation helpers', () => {
     ]);
   });
 
+  it('falls back to the last non-empty line when output has no explicit source line', () => {
+    expect(
+      toLineResults(
+        {
+          stdout: [{ type: 'log', args: ['printed from runtime'] }],
+          stderr: [{ type: 'error', args: ['runtime warning'] }],
+          executionTime: 7,
+        },
+        'value = 1\nprint(value)\n'
+      )
+    ).toEqual([
+      { line: 2, value: 'printed from runtime', type: 'log' },
+      { line: 2, value: 'runtime warning', type: 'error' },
+    ]);
+  });
+
+  it('keeps structured runtime errors out of inline stderr duplication', () => {
+    expect(
+      toLineResults(
+        {
+          stdout: [{ type: 'log', args: ['Hello, World 2!'], line: 2 }],
+          stderr: [{ type: 'error', args: ['Traceback...'], line: 3 }],
+          executionTime: 18,
+          error: { message: 'Traceback...', line: 3 },
+        },
+        'print("Hello, World 2!")\ndde + 2'
+      )
+    ).toEqual([{ line: 2, value: 'Hello, World 2!', type: 'log' }]);
+  });
+
   it('builds full output for compiled languages', () => {
     expect(
       toFullOutput({

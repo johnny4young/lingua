@@ -25,6 +25,7 @@ export function useRunner() {
       clear: clearResults,
       setError,
       setExecutionTime,
+      setExecutionSource,
       setFullOutput,
       setIsAutoRunning,
       setLineResults,
@@ -49,6 +50,7 @@ export function useRunner() {
 
     clear();
     clearResults();
+    setExecutionSource('manual');
     setIsAutoRunning(false);
     addEntry({ type: 'info', content: `Running ${name}...` });
     setIsRunning(true);
