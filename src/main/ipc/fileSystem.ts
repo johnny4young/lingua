@@ -21,6 +21,7 @@ import {
 } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import path from 'node:path';
+import { OPEN_FILE_FILTERS } from '../../shared/filePickerTypes';
 import { translateCommon } from '../../shared/i18n/runtime';
 import { isPathBlocked, isSafeEntryName } from './permissions';
 
@@ -83,6 +84,10 @@ export function registerFileSystemHandlers(): void {
   ipcMain.handle('fs:select-file', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
+      filters: OPEN_FILE_FILTERS.map((filter) => ({
+        name: filter.name,
+        extensions: [...filter.extensions],
+      })),
     });
     return result.canceled ? null : result.filePaths[0];
   });

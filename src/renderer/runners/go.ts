@@ -84,7 +84,7 @@ export class GoRunner implements LanguageRunner {
 
         switch (msg.type) {
           case 'console': {
-            const output: ConsoleOutput = { type: msg.method, args: msg.args };
+            const output: ConsoleOutput = { type: msg.method, args: msg.args, line: msg.line };
             if (msg.method === 'error') {
               stderr.push(output);
             } else {

@@ -224,8 +224,9 @@ export function buildCommandPaletteModel({
       translate('commandPalette.action.checkUpdates.description'),
       ['updates', 'update', 'release', 'version'],
       () => {
-        void checkForUpdates();
         onClose();
+        onOpenSettings();
+        void checkForUpdates();
       }
     ),
     buildActionCommand(

@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { getActiveAppLanguage } from '../i18n';
+import { translateCommon } from '../../shared/i18n/runtime';
 
 type UpdateStore = UpdateState & {
   initialized: boolean;
@@ -16,6 +18,14 @@ const defaultState: UpdateState = {
 };
 
 let teardownUpdatesListener: (() => void) | null = null;
+
+function checkingState(): Pick<UpdateState, 'status' | 'message' | 'lastCheckedAt'> {
+  return {
+    status: 'checking',
+    message: translateCommon(getActiveAppLanguage(), 'updates.actions.checking'),
+    lastCheckedAt: new Date().toISOString(),
+  };
+}
 
 export const useUpdateStore = create<UpdateStore>((set) => ({
   ...defaultState,
@@ -42,6 +52,7 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
   },
 
   checkForUpdates: async () => {
+    set(checkingState());
     const state = await window.lingua.updates.check();
     set(state);
   },

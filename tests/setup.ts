@@ -1,5 +1,12 @@
 // Vitest global setup — runs before each test file
 
+// Monaco's basic-language contributions trigger `document.queryCommandSupported`
+// via the clipboard module. jsdom does not implement this — polyfill it so
+// language-contribution imports resolve without throwing at module load.
+if (typeof document !== 'undefined' && typeof document.queryCommandSupported !== 'function') {
+  document.queryCommandSupported = () => false;
+}
+
 // Provide a working localStorage mock for environments (jsdom) that
 // don't fully implement the Web Storage API.
 const storage = new Map<string, string>();

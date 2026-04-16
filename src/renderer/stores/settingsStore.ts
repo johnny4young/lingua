@@ -21,7 +21,7 @@ export const useSettingsStore = create<SettingsState>()(
       layoutPreset: 'horizontal',
       loopProtection: true,
       maxLoopIterations: 10_000,
-      hideUndefined: false,
+      hideUndefined: true,
       restoreSession: false,
       language: 'system',
 

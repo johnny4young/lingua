@@ -56,7 +56,7 @@ export function AppearanceSection() {
               key={option.id}
               type="button"
               onClick={() => setTheme(option.id)}
-              className={`rounded-[1.45rem] border p-4 text-left transition-all ${
+              className={`rounded-[1.2rem] border p-3.5 text-left transition-all ${
                 selected
                   ? 'border-primary/35 bg-primary-soft shadow-[0_16px_55px_rgba(77,54,156,0.16)]'
                   : 'border-border/80 bg-background-elevated/72 hover:border-border-strong/90 hover:bg-surface/88'
@@ -64,15 +64,15 @@ export function AppearanceSection() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="font-display text-xl font-semibold tracking-[-0.03em] text-foreground">
+                  <p className="font-display text-lg font-semibold tracking-[-0.03em] text-foreground">
                     {t(option.labelKey)}
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-muted">
+                  <p className="mt-1.5 text-[13px] leading-5 text-muted">
                     {t(option.descriptionKey)}
                   </p>
                 </div>
                 <div
-                  className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${
                     selected ? 'bg-primary text-primary-foreground' : 'bg-surface-strong text-muted'
                   }`}
                 >
@@ -81,11 +81,11 @@ export function AppearanceSection() {
               </div>
 
               <div
-                className={`mt-4 h-20 rounded-[1.2rem] border border-white/6 bg-gradient-to-br ${option.previewClass} p-3`}
+                className={`mt-3 h-16 rounded-[1rem] border border-white/6 bg-gradient-to-br ${option.previewClass} p-2.5`}
               >
                 <div className="flex h-full gap-2">
-                  <div className="w-[28%] rounded-2xl border border-white/10 bg-black/10" />
-                  <div className="flex-1 rounded-2xl border border-white/10 bg-black/6" />
+                  <div className="w-[28%] rounded-[0.9rem] border border-white/10 bg-black/10" />
+                  <div className="flex-1 rounded-[0.9rem] border border-white/10 bg-black/6" />
                 </div>
               </div>
             </button>

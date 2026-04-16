@@ -28,6 +28,16 @@ describe('getEditorOptions', () => {
       autoClosingBrackets: 'always',
       autoClosingQuotes: 'always',
       formatOnPaste: true,
+      quickSuggestions: {
+        other: true,
+        comments: false,
+        strings: true,
+      },
+      quickSuggestionsDelay: 0,
+      snippetSuggestions: 'inline',
+      suggestOnTriggerCharacters: true,
+      tabCompletion: 'on',
+      wordBasedSuggestions: 'currentDocument',
       tabSize: 2,
     });
   });

@@ -20,10 +20,10 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 ## Editor diagnostics and results
 
 - Monaco JavaScript and TypeScript diagnostics target the same ES2022 + Web Worker runtime contract used by execution
-- Go, Python, Rust, and Lua now ship immediate Monaco keyword/snippet completions so non-JS files get editor assistance before full LSP support exists
+- Go, Python, Rust, and Lua now ship immediate Monaco keyword/snippet completions so non-JS files get editor assistance before full LSP support exists, and Monaco suggestions are configured to surface while you type instead of waiting for manual invocation
 - Auto-run and manual run now feed the same result state, so the result panel and editor stay synchronized instead of diverging by execution path
 - Dynamic-language runs render inline line decorations in the editor, and runtime or compile errors with source locations are surfaced as Monaco markers without overwriting TypeScript diagnostics
-- Location-aware execution errors now reveal their source line in the editor, and Monaco glyph-margin diagnostics are enabled so runtime and compile failures are easier to scan
+- Manual runs reveal location-aware execution errors in the editor, while auto-run keeps the current caret position stable so background checks do not steal focus mid-typing
 
 ## Theme behavior
 
@@ -214,7 +214,7 @@ The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/lin
 
 - Automatic updates are only active in packaged desktop builds on macOS and Windows
 - Linux and web builds report updates as unavailable
-- The renderer now exposes update state in Settings and a manual "Check for Updates" command in the command palette
+- The renderer now exposes update state in Settings and a manual "Check for Updates" command in the command palette, which opens Settings so the current state and message are visible immediately
 - Restart-to-apply is only enabled after the main process reports that an update has been downloaded
 - The updater currently targets the stable GitHub Release channel only
 
@@ -247,6 +247,7 @@ Current install directory:
 
 - The web build can open local folders through the File System Access API in supported browsers
 - Browser file access supports open, read, write, rename, create, and delete flows
+- File pickers now stay scoped to code/text-oriented files so binary formats such as PDFs are not accidentally opened into the editor surface
 - Browser file watching is not available, so external edits are not reflected automatically
 
 Minimal manifest:

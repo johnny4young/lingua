@@ -2072,6 +2072,58 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
   - RL-055 (language IDs must be set correctly for providers to fire on the right files)
   - None blocking — can be done in parallel with RL-055
 
+### RL-057 Add a consistent tooltip layer for shell actions and dense controls
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready to implement`
+- Current gap:
+  - High-frequency UI controls still rely on a mix of browser `title` attributes and unlabeled icon-only affordances
+  - Dense surfaces such as the toolbar, editor tabs, console actions, quick open, and command palette lack a single tooltip contract
+  - Discoverability is uneven in compact layouts where labels collapse or truncate
+- Scope:
+  - Introduce a small shared tooltip primitive for renderer controls
+  - Standardize tooltip copy for icon buttons, split-button affordances, tab close actions, and console/result toggles
+  - Ensure keyboard focus and hover both surface the same tooltip content
+  - Use the same tooltip primitive in command palette utility actions and future onboarding/UI polish work
+  - Audit existing `title` usage and migrate the inconsistent cases to the shared primitive
+- Acceptance criteria:
+  - Core toolbar actions expose consistent hover/focus tooltips in both desktop and web builds
+  - Truncated file tabs keep the full filename discoverable without relying on visual guesswork
+  - Dense icon-only actions no longer depend on missing or inconsistent native browser titles
+  - Tooltip copy is localizable through the existing i18n pipeline
+- Dependencies:
+  - None
+
+### RL-058 Support common development files in view/lint mode without execution
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Needs design pass`
+- Current gap:
+  - The editor can now open arbitrary text files, but the product model still assumes a file should either execute or compile
+  - Common development assets such as `json`, `yaml`, `.env`, `toml`, `csv`, and config files need syntax treatment without implying runtime execution
+  - There is no explicit UX contract yet for files that should surface validation only
+- Scope:
+  - Add syntax highlighting and language detection for common non-runnable development files
+  - Introduce a view/lint execution mode that never offers inline execution for these file types
+  - Start with `json`, `yaml`/`yml`, `.env`, `toml`, `ini`, `csv`, and common lock/config files
+  - Surface lightweight validation/lint diagnostics where feasible:
+    - JSON parse errors
+    - YAML structural errors
+    - `.env` duplicate-key and malformed-line checks
+    - CSV shape inconsistencies
+  - Keep the result/console surfaces honest by replacing run affordances with validation-oriented status copy for non-runnable files
+  - Document which file types are editable-only, lintable, runnable, or compilable
+- Acceptance criteria:
+  - Opening `package.json`, `.env`, `docker-compose.yml`, and `data.csv` applies the correct editor language immediately
+  - Non-runnable files do not show misleading run semantics
+  - Validation errors appear as diagnostics/markers without pretending the file was executed
+  - The UI communicates the distinction between runnable code and lint-only assets
+- Dependencies:
+  - RL-055 for extension-based language detection
+  - RL-004 for shared editor diagnostics plumbing
+
 ---
 
 ## 11. Updated WebContainers analysis (2026-04-12)

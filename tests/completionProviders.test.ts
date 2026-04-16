@@ -55,11 +55,11 @@ describe('language completion providers', () => {
     });
   });
 
-  it('returns Python function and module snippets without a noisy space trigger', () => {
+  it('returns Python function and module snippets with an explicit space trigger', () => {
     const provider = createPythonCompletionProvider(monacoStub as never);
     const suggestions = getSuggestions(provider);
 
-    expect(provider.triggerCharacters).toBeUndefined();
+    expect(provider.triggerCharacters).toEqual([' ']);
     expect(suggestions.map((item) => item.label)).toEqual(
       expect.arrayContaining(['def', "if __name__ == '__main__'", 'print'])
     );

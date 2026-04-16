@@ -10,13 +10,22 @@
  *  - Paths are virtual "/" separated strings that map to FileSystem handles
  */
 
+import { OPEN_FILE_PICKER_TYPES } from '../shared/filePickerTypes';
+
 // -------------------------------- Minimal File System Access API types
 // TypeScript's built-in lib.dom.d.ts may not include these — we define
 // a minimal subset to avoid runtime casting.
 
 interface FileSystemPickerWindow {
   showDirectoryPicker(opts?: { mode?: 'read' | 'readwrite' }): Promise<FileSystemDirectoryHandle>;
-  showOpenFilePicker(opts?: { multiple?: boolean }): Promise<FileSystemFileHandle[]>;
+  showOpenFilePicker(opts?: {
+    multiple?: boolean;
+    excludeAcceptAllOption?: boolean;
+    types?: Array<{
+      description?: string;
+      accept?: Record<string, string[]>;
+    }>;
+  }): Promise<FileSystemFileHandle[]>;
   showSaveFilePicker(opts?: { suggestedName?: string }): Promise<FileSystemFileHandle>;
 }
 
@@ -131,7 +140,16 @@ export const webFsAdapter: LinguaAPI['fs'] = {
   selectFile: async (): Promise<string | null> => {
     try {
       const picker = window as unknown as FileSystemPickerWindow;
-      const [fh] = await picker.showOpenFilePicker({ multiple: false });
+      const [fh] = await picker.showOpenFilePicker({
+        multiple: false,
+        excludeAcceptAllOption: true,
+        types: OPEN_FILE_PICKER_TYPES.map((type) => ({
+          description: type.description,
+          accept: Object.fromEntries(
+            Object.entries(type.accept).map(([mimeType, extensions]) => [mimeType, [...extensions]])
+          ),
+        })),
+      });
       if (!fh) {
         return null;
       }

@@ -25,6 +25,10 @@ const monacoMock = {
     CompletionItemInsertTextRule: {
       InsertAsSnippet: 4,
     },
+    getLanguages: vi.fn().mockReturnValue([]),
+    register: vi.fn(),
+    setMonarchTokensProvider: vi.fn(),
+    setLanguageConfiguration: vi.fn(),
     registerCompletionItemProvider,
     typescript: {
       javascriptDefaults: {
@@ -60,6 +64,8 @@ vi.mock('@monaco-editor/react', () => ({
 }));
 
 vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => monacoMock);
+vi.mock('monaco-editor/esm/vs/editor/editor.all.js', () => ({}));
+vi.mock('monaco-editor/esm/vs/language/typescript/monaco.contribution.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/editor/editor.worker?worker', () => ({
   default: MockEditorWorker,
 }));

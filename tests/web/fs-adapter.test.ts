@@ -8,7 +8,7 @@
  * We test the no-op paths and the adapter logic independently.
  */
 
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // ---- Mock File helpers (not exercising real browser FS) ----------------
 
@@ -51,6 +51,41 @@ describe('webFsAdapter — selectFile cancellation', async () => {
   it('returns null when picker throws (user cancelled)', async () => {
     const result = await webFsAdapter.selectFile();
     expect(result).toBeNull();
+  });
+});
+
+describe('webFsAdapter — selectFile constraints', async () => {
+  const { webFsAdapter } = await import('../../src/web/fs-adapter');
+  const originalShowOpenFilePicker = window.showOpenFilePicker;
+
+  afterEach(() => {
+    if (originalShowOpenFilePicker) {
+      window.showOpenFilePicker = originalShowOpenFilePicker;
+      return;
+    }
+
+    delete (window as Window & typeof globalThis & { showOpenFilePicker?: unknown })
+      .showOpenFilePicker;
+  });
+
+  it('requests a filtered picker that excludes arbitrary binary files', async () => {
+    const showOpenFilePicker = vi.fn().mockResolvedValue([{ name: 'script.ts' }]);
+    window.showOpenFilePicker = showOpenFilePicker as typeof window.showOpenFilePicker;
+
+    const selectedPath = await webFsAdapter.selectFile();
+
+    expect(selectedPath).toBe('/script.ts');
+    expect(showOpenFilePicker).toHaveBeenCalledWith(
+      expect.objectContaining({
+        multiple: false,
+        excludeAcceptAllOption: true,
+        types: [
+          expect.objectContaining({
+            description: 'Code and text files',
+          }),
+        ],
+      })
+    );
   });
 });
 
