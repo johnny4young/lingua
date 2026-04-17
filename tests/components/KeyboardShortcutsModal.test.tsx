@@ -125,6 +125,17 @@ describe('KeyboardShortcutsModal', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('shortcuts.editor.invalidCombo');
   });
 
+  it('changing the preset selector applies the preset overrides to the store', async () => {
+    const user = userEvent.setup();
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+
+    await user.selectOptions(screen.getByTestId('shortcut-preset-select'), 'sublime');
+
+    const state = useSettingsStore.getState();
+    expect(state.keymapPreset).toBe('sublime');
+    expect(state.shortcutOverrides['nav-go-to-symbol']?.[0].tokens).toEqual(['Mod', 'R']);
+  });
+
   it('reset-all clears every override', async () => {
     useSettingsStore
       .getState()

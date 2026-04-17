@@ -199,6 +199,89 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().shortcutOverrides).toEqual({});
   });
 
+  it('defaults keymapPreset to "default" and applies a preset by id', () => {
+    expect(useSettingsStore.getState().keymapPreset).toBe('default');
+    useSettingsStore.getState().applyKeymapPreset('sublime');
+    const state = useSettingsStore.getState();
+    expect(state.keymapPreset).toBe('sublime');
+    expect(state.shortcutOverrides['nav-go-to-symbol']?.[0].tokens).toEqual(['Mod', 'R']);
+  });
+
+  it('applyKeymapPreset with an unknown id is a no-op', () => {
+    useSettingsStore.getState().applyKeymapPreset('sublime');
+    useSettingsStore.getState().applyKeymapPreset('does-not-exist');
+    expect(useSettingsStore.getState().keymapPreset).toBe('sublime');
+  });
+
+  it('keeps a persisted keymap preset only when the stored overrides still match it', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: {
+          keymapPreset: 'sublime',
+          shortcutOverrides: {
+            'nav-go-to-symbol': [{ tokens: ['Mod', 'R'] }],
+            'view-toggle-console': [{ tokens: ['Mod', 'Backtick'] }],
+          },
+        },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState().keymapPreset).toBe('sublime');
+  });
+
+  it('drops a persisted keymap preset back to default when stored overrides no longer match it', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: {
+          keymapPreset: 'sublime',
+          shortcutOverrides: {
+            'view-toggle-sidebar': [{ tokens: ['Mod', 'Shift', 'B'] }],
+          },
+        },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    const state = useSettingsStore.getState();
+    expect(state.keymapPreset).toBe('default');
+    expect(state.shortcutOverrides['view-toggle-sidebar']?.[0].tokens).toEqual([
+      'Mod',
+      'Shift',
+      'B',
+    ]);
+  });
+
+  it('manual override flips keymapPreset back to default', () => {
+    useSettingsStore.getState().applyKeymapPreset('sublime');
+    useSettingsStore.getState().setShortcutOverride('view-toggle-sidebar', [
+      { tokens: ['Mod', 'Shift', 'B'] },
+    ]);
+    expect(useSettingsStore.getState().keymapPreset).toBe('default');
+  });
+
+  it('resetShortcutOverrides clears preset back to default', () => {
+    useSettingsStore.getState().applyKeymapPreset('sublime');
+    useSettingsStore.getState().resetShortcutOverrides();
+    const state = useSettingsStore.getState();
+    expect(state.keymapPreset).toBe('default');
+    expect(state.shortcutOverrides).toEqual({});
+  });
+
   it('setShortcutOverride stores combos keyed by shortcut id', () => {
     useSettingsStore.getState().setShortcutOverride('view-toggle-sidebar', [
       { tokens: ['Mod', 'Shift', 'B'] },

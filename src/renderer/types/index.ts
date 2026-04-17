@@ -153,6 +153,12 @@ export interface SettingsState {
    * same rationale that keeps loopProtection/restoreSession out of presets.
    */
   shortcutOverrides: ShortcutOverrideMap;
+  /**
+   * Currently-applied keymap preset id. `default` means "no preset", i.e. the
+   * catalog defaults (plus any ad-hoc overrides the user recorded). Selecting
+   * a non-default preset REPLACES ad-hoc overrides with the preset's bundle.
+   */
+  keymapPreset: string;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -190,6 +196,12 @@ export interface SettingsState {
   setShortcutOverride: (id: string, combos: readonly ShortcutCombo[]) => void;
   clearShortcutOverride: (id: string) => void;
   resetShortcutOverrides: () => void;
+  /**
+   * Apply a named keymap preset. Replaces `shortcutOverrides` with the
+   * preset's bundle and stores the preset id. Unknown ids are ignored so
+   * a malformed persisted preset can't leave the store in a bad shape.
+   */
+  applyKeymapPreset: (presetId: string) => void;
 }
 
 // --- Runner Types ---
