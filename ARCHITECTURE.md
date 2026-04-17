@@ -11,6 +11,7 @@ This is an **explanation** document. It focuses on how the architecture works, w
 Related reference:
 
 - [`src/renderer/README.md`](./src/renderer/README.md) documents the renderer folder map, state ownership, shared styling rules, and common UI change paths.
+- [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) records which execution class (browser WASM, browser interpreter, desktop native, or hybrid) owns each capability and the promotion rules for moving between classes.
 
 ## At a glance
 
