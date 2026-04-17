@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  analyzeColor,
   analyzeJson,
+  analyzeRegex,
   analyzeTimestamp,
+  computeLineDiff,
   decodeBase64,
   decodeJwt,
   decodeUrlComponentValue,
@@ -87,5 +90,85 @@ describe('developerUtilities', () => {
     expect(analyzeTimestamp('not-a-date').errorKey).toBe(
       'utilities.tool.timestamp.error'
     );
+  });
+
+  it('finds all regex matches with capture groups for global patterns', () => {
+    const result = analyzeRegex('(\\w+)@(\\w+\\.\\w+)', 'g', 'a@x.io b@y.io');
+    expect(result.errorKey).toBeNull();
+    expect(result.matches).toHaveLength(2);
+    expect(result.matches[0]?.match).toBe('a@x.io');
+    expect(result.matches[0]?.groups.map((g) => g.value)).toEqual(['a', 'x.io']);
+    expect(result.matches[1]?.index).toBe(7);
+  });
+
+  it('returns only the first match for non-global regex and empty for no pattern', () => {
+    const result = analyzeRegex('foo', '', 'foo bar foo');
+    expect(result.matches).toHaveLength(1);
+
+    const empty = analyzeRegex('', '', 'anything');
+    expect(empty.matches).toHaveLength(0);
+    expect(empty.errorKey).toBeNull();
+  });
+
+  it('reports invalid regex patterns via errorKey without throwing', () => {
+    expect(analyzeRegex('(unbalanced', 'g', 'x').errorKey).toBe(
+      'utilities.tool.regex.errorPattern'
+    );
+  });
+
+  it('converts colors between hex, rgb, and hsl representations', () => {
+    const analysis = analyzeColor('#ff0000');
+    expect(analysis.errorKey).toBeNull();
+    expect(analysis.hex).toBe('#ff0000');
+    expect(analysis.rgb).toEqual({ r: 255, g: 0, b: 0 });
+    expect(analysis.hsl?.h).toBe(0);
+    expect(analysis.hsl?.s).toBe(100);
+
+    expect(analyzeColor('  #0f0  ').hex).toBe('#00ff00');
+    expect(analyzeColor('rgb(0, 0, 255)').hex).toBe('#0000ff');
+    expect(analyzeColor('hsl(120, 100%, 50%)').rgb).toEqual({ r: 0, g: 255, b: 0 });
+  });
+
+  it('reports invalid colors with a stable error key', () => {
+    expect(analyzeColor('not-a-color').errorKey).toBe('utilities.tool.color.error');
+    expect(analyzeColor('#abcd').errorKey).toBe('utilities.tool.color.error');
+    expect(analyzeColor('rgb(300, 0, 0)').errorKey).toBe('utilities.tool.color.error');
+  });
+
+  it('returns an empty color analysis for blank input', () => {
+    expect(analyzeColor('   ')).toEqual({
+      hex: null,
+      rgb: null,
+      hsl: null,
+      errorKey: null,
+    });
+  });
+
+  it('computes a line diff with add and remove markers', () => {
+    const diff = computeLineDiff('a\nb\nc', 'a\nb2\nc\nd');
+    expect(diff.lines.map((entry) => entry.kind)).toEqual([
+      'same',
+      'remove',
+      'add',
+      'same',
+      'add',
+    ]);
+    expect(diff.addCount).toBe(2);
+    expect(diff.removeCount).toBe(1);
+    expect(diff.sameCount).toBe(2);
+    expect(diff.truncated).toBe(false);
+  });
+
+  it('reports identical inputs as all-same lines', () => {
+    const diff = computeLineDiff('same\nlines', 'same\nlines');
+    expect(diff.addCount).toBe(0);
+    expect(diff.removeCount).toBe(0);
+    expect(diff.lines.every((entry) => entry.kind === 'same')).toBe(true);
+  });
+
+  it('flags diff truncation when inputs exceed the character cap', () => {
+    const huge = 'x'.repeat(50_000);
+    const diff = computeLineDiff(huge, `${huge}y`);
+    expect(diff.truncated).toBe(true);
   });
 });

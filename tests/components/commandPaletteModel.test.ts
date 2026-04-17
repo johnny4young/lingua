@@ -295,11 +295,24 @@ describe('buildCommandPaletteModel', () => {
     });
     const jsonAction = withUtilities.find((c) => c.id === 'action-developer-utility-json');
 
-    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(7);
+    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(10);
     expect(jsonAction?.label).toBe('Open JSON Formatter');
 
     jsonAction?.action();
     expect(onOpenDeveloperUtility).toHaveBeenCalledWith('json');
+
+    const regexAction = withUtilities.find(
+      (c) => c.id === 'action-developer-utility-regex'
+    );
+    const colorAction = withUtilities.find(
+      (c) => c.id === 'action-developer-utility-color'
+    );
+    const diffAction = withUtilities.find(
+      (c) => c.id === 'action-developer-utility-diff'
+    );
+    expect(regexAction?.label).toBe('Open Regex Tester');
+    expect(colorAction?.label).toBe('Open Color Converter');
+    expect(diffAction?.label).toBe('Open Diff Viewer');
   });
 
   it('keeps matching commands when filtering by keywords, label, or description', () => {

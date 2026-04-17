@@ -5,7 +5,10 @@ export type DeveloperUtilityId =
   | 'uuid'
   | 'hash'
   | 'timestamp'
-  | 'jwt';
+  | 'jwt'
+  | 'regex'
+  | 'color'
+  | 'diff';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -66,6 +69,27 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.jwt.label',
     descriptionKey: 'utilities.tool.jwt.description',
     keywords: ['jwt', 'token', 'decode', 'claims'],
+  },
+  {
+    id: 'regex',
+    titleKey: 'utilities.tool.regex.titleLabel',
+    actionLabelKey: 'utilities.tool.regex.label',
+    descriptionKey: 'utilities.tool.regex.description',
+    keywords: ['regex', 'regexp', 'pattern', 'match', 'capture'],
+  },
+  {
+    id: 'color',
+    titleKey: 'utilities.tool.color.titleLabel',
+    actionLabelKey: 'utilities.tool.color.label',
+    descriptionKey: 'utilities.tool.color.description',
+    keywords: ['color', 'hex', 'rgb', 'hsl', 'palette', 'convert'],
+  },
+  {
+    id: 'diff',
+    titleKey: 'utilities.tool.diff.titleLabel',
+    actionLabelKey: 'utilities.tool.diff.label',
+    descriptionKey: 'utilities.tool.diff.description',
+    keywords: ['diff', 'compare', 'text', 'changes'],
   },
 ] as const;
 
