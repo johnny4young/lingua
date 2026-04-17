@@ -1440,11 +1440,11 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Font panel slice completed on 2026-04-17; shortcut editor, Vim, macros, and theme import/export still pending`
+- Readiness: `Font panel and theme preset import/export slices completed on 2026-04-17; shortcut editor, Vim, macros, and alternate keymaps still pending`
 - Scope:
   - Shortcut editor
   - custom keymaps
-  - theme import/export
+  - theme import/export ✅
   - Vim mode
   - Font selection panel with curated developer fonts ✅
     - JetBrains Mono, Fira Code, Cascadia Code, Source Code Pro, Consolas, Menlo, Monaco, IBM Plex Mono ✅
@@ -1456,9 +1456,10 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - macro recording and playback (simple sequences) — see also RL-049 for advanced macros
 - Current progress:
   - Curated font list now covers the eight developer fonts named in the plan, each tagged with whether it ships programmer ligatures
-  - New `fontLigatures` setting (defaults to on) gates Monaco's `fontLigatures` option; the settings toggle is automatically disabled and explained when the active font stack has no ligatures
+  - New `fontLigatures` setting (defaults to on) gates Monaco's `fontLigatures` option; the settings toggle is automatically disabled and explained when the active font stack has no ligatures, and `CodeEditor` additionally guards the Monaco option through `fontStackSupportsLigatures` so the option stays honest even if a persisted preference pre-dates the toggle
   - Settings now renders a live font preview card that mirrors `fontFamily`, `fontSize`, and the ligature state so users see the effect before editing code
   - Dropdown entries surface ligature-capable fonts with a `(ligatures)` tag so the honest capability is discoverable at selection time
+  - Theme preset import/export ships under a new row in Settings: export writes a versioned JSON document (appearance, typography, layout) via the existing `fs.saveDialog` bridge, and import validates the schema with discriminated failures (`invalid-json`, `invalid-shape`, `unsupported-version`) surfaced through the shared status-notice pipeline. A new `applyThemePreset` settings action intentionally leaves safety prefs (loopProtection, formatOnSave, restoreSession) untouched so shared presets cannot override local workflow preferences
 - Acceptance criteria:
   - Users can customize shortcuts without editing source files (pending shortcut-editor slice)
   - At least one custom theme pack and one alternate keymap ship from the first rollout (pending)
