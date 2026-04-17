@@ -206,6 +206,126 @@ export function formatShortcutCombo(combo: ShortcutCombo, platform: string): str
   return combo.tokens.map((token) => formatShortcutToken(token, platform)).join(separator);
 }
 
+/**
+ * Override map keyed by shortcut id. Missing entries fall back to the
+ * catalog's default combos. Exported as a readonly shape so the settings
+ * store can hand it out without defensive cloning on every read.
+ */
+export type ShortcutOverrideMap = Readonly<Record<string, readonly ShortcutCombo[]>>;
+
+/** Canonical string representation for combo equality + conflict lookups. */
+export function comboKey(combo: ShortcutCombo): string {
+  return combo.tokens.map((token) => (token.length === 1 ? token.toUpperCase() : token)).join('+');
+}
+
+/**
+ * Editable shortcuts must keep at least one non-text modifier so the global
+ * listener never steals ordinary typing from the editor or from overlay
+ * search fields. `Escape` remains non-editable and is handled separately.
+ */
+export function isEditableShortcutCombo(combo: ShortcutCombo): boolean {
+  return combo.tokens.includes('Mod') || combo.tokens.includes('Alt');
+}
+
+function normalizeMainKey(rawKey: string): string | null {
+  if (!rawKey) return null;
+  if (rawKey === 'Enter') return 'Enter';
+  if (rawKey === 'Escape' || rawKey === 'Esc') return 'Escape';
+  if (rawKey === ' ' || rawKey === 'Space' || rawKey === 'Spacebar') return 'Space';
+  if (rawKey === 'Tab') return 'Tab';
+  if (rawKey === '\\') return 'Backslash';
+  if (rawKey === ',') return 'Comma';
+  if (rawKey === '.') return 'Period';
+  if (rawKey === '/') return 'Slash';
+  if (rawKey === ';') return 'Semicolon';
+  if (rawKey === "'") return 'Quote';
+  if (rawKey === '`') return 'Backtick';
+  if (rawKey === '[') return 'BracketLeft';
+  if (rawKey === ']') return 'BracketRight';
+  if (rawKey === '-') return 'Minus';
+  if (rawKey === '=') return 'Equal';
+  if (rawKey === 'ArrowUp' || rawKey === 'ArrowDown' || rawKey === 'ArrowLeft' || rawKey === 'ArrowRight') {
+    return rawKey;
+  }
+  if (/^F\d{1,2}$/.test(rawKey)) return rawKey;
+  if (rawKey.length === 1) return rawKey.toUpperCase();
+  return null;
+}
+
+const MODIFIER_KEYS = new Set([
+  'Control',
+  'Shift',
+  'Alt',
+  'Meta',
+  'OS',
+  'Hyper',
+  'Super',
+  'AltGraph',
+  'CapsLock',
+]);
+
+/**
+ * Normalize a keydown event into a ShortcutCombo matching the catalog's
+ * token vocabulary. Returns null for modifier-only keydowns and for keys
+ * that don't map cleanly — callers treat that as "still recording".
+ */
+export function keyboardEventToCombo(
+  event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>
+): ShortcutCombo | null {
+  if (MODIFIER_KEYS.has(event.key)) return null;
+  const mainKey = normalizeMainKey(event.key);
+  if (!mainKey) return null;
+
+  const tokens: ShortcutKeyToken[] = [];
+  if (event.metaKey || event.ctrlKey) tokens.push('Mod');
+  if (event.altKey) tokens.push('Alt');
+  if (event.shiftKey) tokens.push('Shift');
+  tokens.push(mainKey);
+  return { tokens };
+}
+
+/** True when the keydown matches the combo's tokens exactly. */
+export function matchesCombo(
+  event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'shiftKey' | 'altKey'>,
+  combo: ShortcutCombo
+): boolean {
+  const produced = keyboardEventToCombo(event);
+  if (!produced) return false;
+  return comboKey(produced) === comboKey(combo);
+}
+
+/** Overrides (when non-empty) win over the catalog's defaults. */
+export function resolveCombos(
+  definition: ShortcutDefinition,
+  overrides: ShortcutOverrideMap
+): readonly ShortcutCombo[] {
+  const override = overrides[definition.id];
+  if (override && override.length > 0) return override;
+  return definition.combos;
+}
+
+/**
+ * Return the id of the shortcut that already owns `candidate`, or null if
+ * no conflict exists. `selfId` is skipped so a user can rebind a shortcut
+ * to one of its own existing combos without tripping the check.
+ */
+export function findComboConflict(
+  catalog: readonly ShortcutDefinition[],
+  overrides: ShortcutOverrideMap,
+  candidate: ShortcutCombo,
+  selfId: string
+): string | null {
+  const candidateKey = comboKey(candidate);
+  for (const definition of catalog) {
+    if (definition.id === selfId) continue;
+    const combos = resolveCombos(definition, overrides);
+    if (combos.some((combo) => comboKey(combo) === candidateKey)) {
+      return definition.id;
+    }
+  }
+  return null;
+}
+
 /** Case-insensitive match against label keywords and token labels. */
 export function filterShortcuts(
   shortcuts: readonly ShortcutDefinition[],
