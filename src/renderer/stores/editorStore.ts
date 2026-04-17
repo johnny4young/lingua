@@ -26,14 +26,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   requestReveal: (target) => {
     // `line` must be at least 1 — Monaco rejects 0-indexed positions. We clamp
-    // defensively so upstream surfaces (Project Search, future Go to Symbol)
-    // can stay agnostic about Monaco's 1-indexed contract.
+    // defensively so upstream surfaces (Project Search, Go to Symbol) can stay
+    // agnostic about Monaco's 1-indexed contract.
+    if (!target.filePath && !target.tabId) {
+      throw new Error('requestReveal requires either filePath or tabId');
+    }
     const safeLine = Math.max(1, Math.floor(target.line));
     const safeColumn =
       target.column === undefined ? undefined : Math.max(1, Math.floor(target.column));
     set({
       pendingReveal: {
         filePath: target.filePath,
+        tabId: target.tabId,
         line: safeLine,
         column: safeColumn,
       },

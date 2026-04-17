@@ -30,13 +30,19 @@ export interface FileTab {
 }
 
 /**
- * Keyed by absolute file path (not tab id) so requests can be queued before
- * the target tab actually exists — e.g. Project Search asks for a reveal,
- * then the editor store opens the file, and the CodeEditor's effect applies
- * the reveal when both the model and the pending request are available.
+ * Either `filePath` OR `tabId` pins the request to a target tab:
+ *
+ *   - `filePath` mode — used by Project Search and future open-from-link
+ *     flows. The reveal is queued BEFORE the tab exists; CodeEditor applies
+ *     it when the tab with that file path becomes active.
+ *   - `tabId` mode — used by same-tab surfaces such as Go to Symbol, where
+ *     the target tab is already mounted but may be unsaved (no filePath).
+ *
+ * When both are supplied, `tabId` wins since it's the tighter identity.
  */
 export interface EditorRevealRequest {
-  filePath: string;
+  filePath?: string;
+  tabId?: string;
   line: number;
   column?: number;
 }

@@ -34,6 +34,7 @@ interface BuildCommandPaletteModelArgs {
   onStartGuidedTour: () => void;
   onOpenSnippets: () => void;
   onOpenProjectSearch?: () => void;
+  onOpenGoToSymbol?: () => void;
   checkForUpdates: () => Promise<void>;
   restartToApply: () => Promise<boolean>;
   openFileFromDisk?: () => Promise<void>;
@@ -150,6 +151,7 @@ export function buildCommandPaletteModel({
   onStartGuidedTour,
   onOpenSnippets,
   onOpenProjectSearch,
+  onOpenGoToSymbol,
   checkForUpdates,
   restartToApply,
   openFileFromDisk,
@@ -287,6 +289,21 @@ export function buildCommandPaletteModel({
         () => {
           onClose();
           onOpenProjectSearch();
+        }
+      )
+    );
+  }
+
+  if (onOpenGoToSymbol) {
+    commands.push(
+      buildActionCommand(
+        'action-go-to-symbol',
+        translate('commandPalette.action.goToSymbol.label'),
+        translate('commandPalette.action.goToSymbol.description'),
+        ['symbol', 'outline', 'function', 'class', 'method', 'navigate'],
+        () => {
+          onClose();
+          onOpenGoToSymbol();
         }
       )
     );

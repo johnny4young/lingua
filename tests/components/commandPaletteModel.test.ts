@@ -186,6 +186,42 @@ describe('buildCommandPaletteModel', () => {
     }
   });
 
+  it('exposes the go-to-symbol action only when the opener is wired in', () => {
+    const onOpenGoToSymbol = vi.fn();
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    expect(
+      buildCommandPaletteModel(baseArgs).find((c) => c.id === 'action-go-to-symbol')
+    ).toBeUndefined();
+
+    const withSymbol = buildCommandPaletteModel({ ...baseArgs, onOpenGoToSymbol });
+    const action = withSymbol.find((c) => c.id === 'action-go-to-symbol');
+    expect(action).toBeDefined();
+    action?.action();
+    expect(onOpenGoToSymbol).toHaveBeenCalledOnce();
+  });
+
   it('exposes the project search action only when the opener is wired in', () => {
     const onOpenProjectSearch = vi.fn();
     const baseArgs = {

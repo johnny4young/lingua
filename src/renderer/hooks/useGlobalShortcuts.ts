@@ -6,6 +6,7 @@ export type AppOverlay =
   | 'palette'
   | 'quick-open'
   | 'search'
+  | 'go-to-symbol'
   | 'snippets'
   | 'whats-new';
 
@@ -103,6 +104,12 @@ export function useGlobalShortcuts({
     if (mod && event.shiftKey && key === 'f') {
       event.preventDefault();
       toggleOverlay('search');
+      return;
+    }
+
+    if (mod && event.shiftKey && key === 'o') {
+      event.preventDefault();
+      toggleOverlay('go-to-symbol');
       return;
     }
 
