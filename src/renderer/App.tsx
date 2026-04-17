@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { AppLayout } from './components/Layout';
 import { GuidedTourProvider } from './components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from './components/GuidedTour/guidedTourContext';
@@ -10,6 +10,10 @@ import { ProjectSearch } from './components/ProjectSearch/ProjectSearch';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { SnippetsModal } from './components/Snippets';
 import { CHANGELOG_ENTRIES } from './data/changelog';
+import {
+  DEFAULT_DEVELOPER_UTILITY_ID,
+  type DeveloperUtilityId,
+} from './data/developerUtilities';
 import { getActiveAppLanguage } from './i18n';
 import { useAppInfo } from './hooks/useAppInfo';
 import { useRunner } from './hooks/useRunner';
@@ -29,16 +33,26 @@ import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
 import { desktopSmokeEnabled } from './utils/desktopSmoke';
 
+const DeveloperUtilitiesModal = lazy(async () => {
+  const module = await import('./components/DeveloperUtilities');
+  return { default: module.DeveloperUtilitiesModal };
+});
+
 function AppChrome({
   overlay,
   openOverlay,
   toggleOverlay,
   closeOverlay,
+  selectedUtilityId,
 }: {
   overlay: AppOverlay;
-  openOverlay: (overlay: Exclude<AppOverlay, 'none'>) => void;
+  openOverlay: (
+    overlay: Exclude<AppOverlay, 'none'>,
+    utilityId?: DeveloperUtilityId
+  ) => void;
   toggleOverlay: (overlay: Exclude<AppOverlay, 'none'>) => void;
   closeOverlay: () => void;
+  selectedUtilityId: DeveloperUtilityId;
 }) {
   const { run, stop, isRunning } = useRunner();
   const saveActiveTab = useEditorStore((s) => s.saveActiveTab);
@@ -238,6 +252,7 @@ function AppChrome({
         onOpenPalette={() => openOverlay('palette')}
         onOpenQuickOpen={() => openOverlay('quick-open')}
         onOpenSnippets={() => openOverlay('snippets')}
+        onOpenUtilities={() => openOverlay('utilities')}
       />
       {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
       {overlay === 'search' && <ProjectSearch onClose={closeOverlay} />}
@@ -251,6 +266,7 @@ function AppChrome({
           onOpenSnippets={() => openOverlay('snippets')}
           onOpenProjectSearch={() => openOverlay('search')}
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
+          onOpenDeveloperUtility={(utilityId) => openOverlay('utilities', utilityId)}
         />
       )}
       {overlay === 'settings' && (
@@ -264,14 +280,31 @@ function AppChrome({
         <WhatsNewSection entries={CHANGELOG_ENTRIES} onClose={closeOverlay} />
       )}
       {overlay === 'snippets' && <SnippetsModal onClose={closeOverlay} />}
+      {overlay === 'utilities' && (
+        <Suspense fallback={null}>
+          <DeveloperUtilitiesModal
+            onClose={closeOverlay}
+            initialUtilityId={selectedUtilityId}
+          />
+        </Suspense>
+      )}
     </>
   );
 }
 
 export function App() {
   const [overlay, setOverlay] = useState<AppOverlay>('none');
+  const [selectedUtilityId, setSelectedUtilityId] = useState<DeveloperUtilityId>(
+    DEFAULT_DEVELOPER_UTILITY_ID
+  );
 
-  const openOverlay = (nextOverlay: Exclude<AppOverlay, 'none'>) => {
+  const openOverlay = (
+    nextOverlay: Exclude<AppOverlay, 'none'>,
+    utilityId?: DeveloperUtilityId
+  ) => {
+    if (nextOverlay === 'utilities') {
+      setSelectedUtilityId(utilityId ?? DEFAULT_DEVELOPER_UTILITY_ID);
+    }
     setOverlay(nextOverlay);
   };
 
@@ -296,6 +329,7 @@ export function App() {
         openOverlay={openOverlay}
         toggleOverlay={toggleOverlay}
         closeOverlay={closeOverlay}
+        selectedUtilityId={selectedUtilityId}
       />
     </GuidedTourProvider>
   );

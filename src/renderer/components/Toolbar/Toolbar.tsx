@@ -11,6 +11,7 @@ import {
   Settings,
   Square,
   Terminal,
+  Wrench,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +36,7 @@ interface ToolbarProps {
   onOpenPalette?: () => void;
   onOpenQuickOpen?: () => void;
   onOpenSnippets?: () => void;
+  onOpenUtilities?: () => void;
 }
 
 export function Toolbar({
@@ -42,6 +44,7 @@ export function Toolbar({
   onOpenPalette,
   onOpenQuickOpen,
   onOpenSnippets,
+  onOpenUtilities,
 }: ToolbarProps) {
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
@@ -241,6 +244,9 @@ export function Toolbar({
         </IconButton>
         <IconButton onClick={onOpenSnippets} tooltip={t('toolbar.snippets')}>
           <BookCopy size={15} />
+        </IconButton>
+        <IconButton onClick={onOpenUtilities} tooltip={t('toolbar.utilities')}>
+          <Wrench size={15} />
         </IconButton>
         <IconButton
           onClick={toggleConsole}

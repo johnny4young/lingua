@@ -1,5 +1,9 @@
 import type { TFunction } from 'i18next';
 import {
+  DEVELOPER_UTILITIES,
+  type DeveloperUtilityId,
+} from '../../data/developerUtilities';
+import {
   resolveTemplateFileStem,
   resolveTemplateDescription,
   resolveTemplateLabel,
@@ -35,6 +39,7 @@ interface BuildCommandPaletteModelArgs {
   onOpenSnippets: () => void;
   onOpenProjectSearch?: () => void;
   onOpenGoToSymbol?: () => void;
+  onOpenDeveloperUtility?: (id: DeveloperUtilityId) => void;
   checkForUpdates: () => Promise<void>;
   restartToApply: () => Promise<boolean>;
   openFileFromDisk?: () => Promise<void>;
@@ -152,6 +157,7 @@ export function buildCommandPaletteModel({
   onOpenSnippets,
   onOpenProjectSearch,
   onOpenGoToSymbol,
+  onOpenDeveloperUtility,
   checkForUpdates,
   restartToApply,
   openFileFromDisk,
@@ -305,6 +311,23 @@ export function buildCommandPaletteModel({
           onClose();
           onOpenGoToSymbol();
         }
+      )
+    );
+  }
+
+  if (onOpenDeveloperUtility) {
+    commands.push(
+      ...DEVELOPER_UTILITIES.map((utility) =>
+        buildActionCommand(
+          `action-developer-utility-${utility.id}`,
+          translate(utility.actionLabelKey),
+          translate(utility.descriptionKey),
+          [...utility.keywords, 'utility', 'developer', 'tool'],
+          () => {
+            onClose();
+            onOpenDeveloperUtility(utility.id);
+          }
+        )
       )
     );
   }
