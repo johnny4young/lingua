@@ -10,6 +10,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **About view (`RL-052`)**: Settings now includes a dedicated About surface with product metadata, repository/license links, and a direct entry point into the update flow.
 - **What's New view (`RL-053`)**: Lingua now bundles structured release notes from this changelog, exposes them through a dedicated overlay, links them from the About view, and adds a Command Palette action for quick access.
 - **Editable keyboard shortcuts (`RL-037`)**: The keyboard-shortcuts overlay now lets users rebind any catalogued shortcut inline, with conflict detection against existing bindings, per-row and global reset, and persistence across sessions. The global dispatcher consumes the override map directly instead of a hand-rolled combo ladder, so defaults and user bindings follow the same path. Escape (close overlay) stays non-editable.
+- **Keymap presets (`RL-037`)**: The keyboard-shortcuts overlay ships a preset selector with a Sublime Text-inspired bundle alongside the default. Applying a preset replaces per-shortcut overrides in one move; any manual edit afterwards flips the selector back to "Default" so the UI stays honest.
 
 ### Changed
 - **Release workflows**: Pushes to `main` now validate CI only; web deploy, update-server deploy, and desktop release creation stay manual workflows.
