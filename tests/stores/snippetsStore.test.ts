@@ -3,7 +3,7 @@ import { useSnippetsStore } from '@/stores/snippetsStore';
 
 describe('snippetsStore', () => {
   beforeEach(() => {
-    useSnippetsStore.setState({ snippets: [] });
+    useSnippetsStore.setState({ snippets: [], pendingLinkedSnippetId: null });
   });
 
   it('should start with no snippets', () => {
@@ -87,5 +87,13 @@ describe('snippetsStore', () => {
     });
 
     expect(snippetId).toBe(useSnippetsStore.getState().snippets[0].id);
+  });
+
+  it('tracks pending deep-link snippet selection outside persisted snippets', () => {
+    useSnippetsStore.getState().setPendingLinkedSnippetId('snippet-1');
+    expect(useSnippetsStore.getState().pendingLinkedSnippetId).toBe('snippet-1');
+
+    useSnippetsStore.getState().setPendingLinkedSnippetId(null);
+    expect(useSnippetsStore.getState().pendingLinkedSnippetId).toBeNull();
   });
 });

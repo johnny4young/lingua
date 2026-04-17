@@ -13,12 +13,14 @@ export interface Snippet {
 
 interface SnippetsState {
   snippets: Snippet[];
+  pendingLinkedSnippetId: string | null;
   addSnippet: (snippet: Omit<Snippet, 'id' | 'createdAt'>) => string;
   removeSnippet: (id: string) => void;
   updateSnippet: (
     id: string,
     updates: Partial<Pick<Snippet, 'label' | 'description' | 'code' | 'language'>>
   ) => void;
+  setPendingLinkedSnippetId: (id: string | null) => void;
 }
 
 let counter = 0;
@@ -27,6 +29,7 @@ export const useSnippetsStore = create<SnippetsState>()(
   persist(
     (set) => ({
       snippets: [],
+      pendingLinkedSnippetId: null,
 
       addSnippet: (snippet) => {
         counter++;
@@ -46,6 +49,8 @@ export const useSnippetsStore = create<SnippetsState>()(
         set((state) => ({
           snippets: state.snippets.map((s) => (s.id === id ? { ...s, ...updates } : s)),
         })),
+
+      setPendingLinkedSnippetId: (id) => set({ pendingLinkedSnippetId: id }),
     }),
     {
       name: 'lingua-snippets',

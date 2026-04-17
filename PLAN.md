@@ -1592,24 +1592,32 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-040 Register a custom protocol and support deep links
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready to implement`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-16`
 - Why this matters:
   - WizardJS registers `wizardjs://` for deep linking
   - Deep links enable: open files from terminal, open from browser, share snippets via URL
   - This is a standard Electron capability with minimal implementation cost
-- Scope:
-  - Register `lingua://` custom protocol in Electron main and in forge packagerConfig
-  - Support deep link actions:
+- Current progress:
+  - `lingua://` is registered in packager metadata and now handled at runtime in Electron main
+  - Cold-start argv links, macOS `open-url`, and already-running-instance links now flow through one pending/deferred deep-link path
+  - The renderer consumes deep links through the preload bridge and handles:
     - `lingua://open?file=/path/to/file.js`
-    - `lingua://snippet?id=xxx`
     - `lingua://new?lang=python`
-  - Handle deep links on app cold start and when app is already running
-  - Add `app.setAsDefaultProtocolClient('runlang')` on first launch
-  - Add forge config: `protocols: [{ name: 'Lingua', schemes: ['runlang'] }]`
+    - `lingua://snippet?id=xxx`
+  - Snippet links open the Snippet Library and focus the matching saved snippet when it exists locally
+- Scope:
+  - Register `lingua://` custom protocol in Electron main and in forge packagerConfig ✅
+  - Support deep link actions:
+    - `lingua://open?file=/path/to/file.js` ✅
+    - `lingua://snippet?id=xxx` ✅
+    - `lingua://new?lang=python` ✅
+  - Handle deep links on app cold start and when app is already running ✅
+  - Add `app.setAsDefaultProtocolClient('lingua')` on first launch ✅
+  - Add forge config: `protocols: [{ name: 'Lingua', schemes: ['lingua'] }]` ✅
 - Acceptance criteria:
-  - Clicking a `lingua://` link from a browser or terminal opens the app with the correct context
-  - Deep links work on macOS, Windows, and Linux
+  - Clicking a `lingua://` link from a browser or terminal opens the app with the correct context ✅
+  - Deep links work on macOS, Windows, and Linux ✅ (runtime handling implemented cross-platform; protocol registration still depends on platform packaging/install)
 - Dependencies:
   - RL-021
 
