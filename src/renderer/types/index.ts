@@ -144,6 +144,20 @@ export interface SettingsState {
   toggleHideUndefined: () => void;
   toggleRestoreSession: () => void;
   toggleFormatOnSave: () => void;
+  /**
+   * Apply a theme preset (editor theme, shell theme, typography, layout)
+   * loaded from an exported JSON document. Non-theme settings (loop
+   * protection, session restore, format-on-save, ...) are intentionally
+   * left untouched so preset sharing doesn't override safety preferences.
+   */
+  applyThemePreset: (preset: {
+    theme: 'dark' | 'light';
+    editorTheme: string;
+    fontFamily: string;
+    fontSize: number;
+    fontLigatures: boolean;
+    layoutPreset: LayoutPreset;
+  }) => void;
   setLanguage: (language: AppLanguage) => void;
   setLastSeenVersion: (version: string | null) => void;
   setHasCompletedTour: (value: boolean) => void;

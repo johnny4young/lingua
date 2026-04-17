@@ -7,6 +7,7 @@ import {
   fontStackSupportsLigatures,
 } from './settingsOptions';
 import { Row, Section, Select, StepperButton, Toggle } from './shared';
+import { ThemePresetControls } from './ThemePresetControls';
 
 export function EditorSection() {
   const editorTheme = useSettingsStore((state) => state.editorTheme);
@@ -159,6 +160,8 @@ export function EditorSection() {
       >
         <Toggle value={formatOnSave} onChange={toggleFormatOnSave} />
       </Row>
+
+      <ThemePresetControls />
     </Section>
   );
 }
