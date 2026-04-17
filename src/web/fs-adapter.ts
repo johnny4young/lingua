@@ -232,6 +232,94 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return results;
   },
 
+  searchInFiles: async (
+    rootPath: string,
+    query: string,
+    options: FsSearchOptions = {}
+  ): Promise<FsSearchResult[]> => {
+    const trimmedQuery = query ?? '';
+    if (trimmedQuery.length === 0) return [];
+
+    const caseSensitive = options.caseSensitive ?? false;
+    const maxMatchesPerFile = Math.max(1, options.maxMatchesPerFile ?? 20);
+    const maxTotalMatches = Math.max(1, options.maxTotalMatches ?? 500);
+    const maxFileSize = Math.max(1, options.maxFileSize ?? 1_000_000);
+    const maxFilesScanned = Math.max(1, options.maxFilesScanned ?? 5_000);
+
+    const needle = caseSensitive ? trimmedQuery : trimmedQuery.toLowerCase();
+    const files = await webFsAdapter.listAllFiles(rootPath);
+    const results: FsSearchResult[] = [];
+    let totalMatches = 0;
+    let filesScanned = 0;
+
+    for (const file of files) {
+      if (totalMatches >= maxTotalMatches || filesScanned >= maxFilesScanned) {
+        break;
+      }
+      filesScanned += 1;
+
+      let handle;
+      try {
+        handle = await resolveHandle(file.path);
+      } catch {
+        continue;
+      }
+      if (!handle || handle.kind !== 'file') continue;
+
+      let blob: File;
+      try {
+        blob = await (handle as FileSystemFileHandle).getFile();
+      } catch {
+        continue;
+      }
+      if (blob.size > maxFileSize) continue;
+
+      let content: string;
+      try {
+        content = await blob.text();
+      } catch {
+        continue;
+      }
+
+      // Skip binary files — same NUL-byte heuristic as the Electron walker.
+      if (content.slice(0, 1024).includes('\u0000')) continue;
+
+      const matches: FsSearchMatch[] = [];
+      const lines = content.split(/\r?\n/);
+
+      for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+        if (matches.length >= maxMatchesPerFile) break;
+        if (totalMatches + matches.length >= maxTotalMatches) break;
+        const rawLine = lines[lineIndex] ?? '';
+        const haystack = caseSensitive ? rawLine : rawLine.toLowerCase();
+        const column = haystack.indexOf(needle);
+        if (column === -1) continue;
+
+        const PREVIEW_BUDGET = 240;
+        const previewStart = Math.max(0, column - 80);
+        const previewEnd = Math.min(rawLine.length, previewStart + PREVIEW_BUDGET);
+        matches.push({
+          line: lineIndex + 1,
+          column: column + 1,
+          preview: rawLine.slice(previewStart, previewEnd),
+          matchStart: column - previewStart,
+          matchEnd: column - previewStart + trimmedQuery.length,
+        });
+      }
+
+      if (matches.length > 0) {
+        results.push({
+          filePath: file.path,
+          relativePath: file.relativePath,
+          matches,
+        });
+        totalMatches += matches.length;
+      }
+    }
+
+    return results;
+  },
+
   stat: async (filePath: string): Promise<FsStatResult> => {
     const handle = await resolveHandle(filePath);
     if (!handle) {

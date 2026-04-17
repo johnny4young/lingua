@@ -726,25 +726,25 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P1`
 - Status: `Partial`
-- Readiness: `Phase 1 completed on 2026-04-16`
+- Readiness: `Phase 1 + Phase 2 completed on 2026-04-16`
 - Current progress:
-  - A project-wide file index now runs in the renderer backed by a new `fs:listAllFiles` main-process walker that respects the same hidden-entry filter as `fs:readdir` and caps at 20k files
-  - `useProjectIndexSync` rebuilds the index when the active project changes and debounces rebuilds on file-watch events
-  - Quick Open prefers the index over the tree walk and now finds files inside unexpanded directories; falls back to the tree walk on runtimes without `listAllFiles`
-  - Unknown-extension results open in plaintext mode instead of being silently skipped
-  - Web adapter ships a parallel `listAllFiles` walker so the feature stays cross-runtime consistent
-  - Phase 2 (project-wide text search) and Phase 3 (symbol navigation) remain planned
+  - Phase 1 — A project-wide file index runs in the renderer backed by `fs:listAllFiles`; `useProjectIndexSync` rebuilds it when the active project changes and debounces rebuilds on file-watch events; Quick Open prefers the index over the tree walk and finds unopened files anywhere in the project; unknown-extension results open in plaintext mode instead of being silently skipped; the web adapter ships a parallel walker
+  - Phase 2 — Project-wide text search lands behind Cmd+Shift+F and a new "Search in Files" command-palette action. A shared `fs:searchInFiles` IPC walks the same hidden-entry filter as the index, skips binary files via a NUL-byte heuristic, caps per-file and total matches, and respects a per-file size budget so stray minified artifacts cannot hang the walk
+  - A new `projectSearchStore` debounces queries (220 ms) and drops stale responses via a monotonically increasing request id so fast typing cannot commit an older result set
+  - The web adapter ships a parallel `searchInFiles` that reuses the same file index so the feature stays cross-runtime consistent
+  - Phase 3 (symbol outline + symbol jump) remains planned
 - Current gap:
-  - Quick Open now finds unopened files anywhere in the active project, but there is still no project-wide text search and no symbol outline/jump
+  - Text search lands on the right file but does not yet reveal the exact match line in Monaco — hooking `revealLine` + column selection is a small follow-up
+  - Symbol navigation (outline + symbol jump) is still pending
 - Scope:
   - Build a background index for the active project ✅
   - Add fuzzy search across all files, not only expanded directories ✅
-  - Add project-wide text search with match previews
+  - Add project-wide text search with match previews ✅
   - Add symbol outline and symbol jump for supported languages
-  - Reuse the same index for command palette actions such as "open symbol" and "reveal in tree"
+  - Reuse the same index for command palette actions such as "open symbol" and "reveal in tree" ✅ (partial — "Search in Files" action shipped)
 - Acceptance criteria:
   - Quick Open can find unopened files anywhere in the active project ✅
-  - Search results remain responsive on medium-size projects ✅ (bounded to 20k files, decoration via `languageFromPath`)
+  - Search results remain responsive on medium-size projects ✅ (per-file + total match caps, 5k file scan limit, debounced queries)
   - Symbol navigation works at least for JS/TS from the first rollout — pending Phase 3
 - Dependencies:
   - RL-021 ✅

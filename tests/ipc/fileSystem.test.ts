@@ -251,6 +251,107 @@ describe('fs:listAllFiles', () => {
   });
 });
 
+describe('fs:searchInFiles', () => {
+  function dirent(name: string, isDir: boolean) {
+    return {
+      name,
+      isDirectory: () => isDir,
+      isFile: () => !isDir,
+    };
+  }
+
+  function configureFileTree(
+    tree: Record<string, Array<{ name: string; isDir: boolean }>>
+  ) {
+    mockReaddir.mockImplementation(async (dirPath: string) => {
+      return (tree[dirPath] ?? []).map((entry) => dirent(entry.name, entry.isDir));
+    });
+  }
+
+  function configureFileContents(contents: Record<string, string>) {
+    mockReadFile.mockImplementation(async (filePath: string) => {
+      if (filePath in contents) {
+        return contents[filePath] as string;
+      }
+      throw new Error(`unexpected readFile: ${filePath}`);
+    });
+    mockStat.mockImplementation(async (filePath: string) => ({
+      size: contents[filePath]?.length ?? 0,
+      isDirectory: () => false,
+      isFile: () => true,
+      mtime: new Date(),
+      ctime: new Date(),
+    }));
+  }
+
+  it('returns no results for an empty query without walking the filesystem', async () => {
+    mockReaddir.mockClear();
+    const result = await invoke('fs:searchInFiles', '/project', '');
+    expect(result).toEqual([]);
+    expect(mockReaddir).not.toHaveBeenCalled();
+  });
+
+  it('finds case-insensitive substring matches with preview windows', async () => {
+    configureFileTree({
+      '/project': [
+        { name: 'main.ts', isDir: false },
+        { name: 'README.md', isDir: false },
+      ],
+    });
+    configureFileContents({
+      '/project/main.ts': "const TODO = 'fix this later';\nconsole.log(todo);\n",
+      '/project/README.md': 'Nothing here yet.\n',
+    });
+
+    const result = (await invoke('fs:searchInFiles', '/project', 'todo')) as FsSearchResult[];
+    expect(result).toHaveLength(1);
+    expect(result[0]!.relativePath).toBe('main.ts');
+    expect(result[0]!.matches).toHaveLength(2);
+    expect(result[0]!.matches[0]).toMatchObject({ line: 1, matchEnd: expect.any(Number) });
+    expect(result[0]!.matches[1]).toMatchObject({ line: 2 });
+  });
+
+  it('skips binary files via the NUL-byte heuristic', async () => {
+    configureFileTree({
+      '/project': [
+        { name: 'asset.bin', isDir: false },
+        { name: 'code.ts', isDir: false },
+      ],
+    });
+    configureFileContents({
+      '/project/asset.bin': `${'needle'}\u0000\u0000binary payload\u0000`,
+      '/project/code.ts': 'const needle = 1;\n',
+    });
+
+    const result = (await invoke('fs:searchInFiles', '/project', 'needle')) as FsSearchResult[];
+    expect(result.map((entry) => entry.relativePath)).toEqual(['code.ts']);
+  });
+
+  it('rejects blocked roots before walking', async () => {
+    mockReaddir.mockClear();
+    await expect(invoke('fs:searchInFiles', '/etc', 'secret')).rejects.toThrow(
+      'Access denied'
+    );
+    expect(mockReaddir).not.toHaveBeenCalled();
+  });
+
+  it('caps total matches so a pathological project cannot flood the IPC channel', async () => {
+    configureFileTree({
+      '/project': [{ name: 'big.ts', isDir: false }],
+    });
+    configureFileContents({
+      '/project/big.ts': 'needle\n'.repeat(500),
+    });
+
+    const result = (await invoke('fs:searchInFiles', '/project', 'needle', {
+      maxTotalMatches: 3,
+      maxMatchesPerFile: 10,
+    })) as FsSearchResult[];
+    const totalMatches = result.reduce((sum, item) => sum + item.matches.length, 0);
+    expect(totalMatches).toBeLessThanOrEqual(3);
+  });
+});
+
 describe('fs:save-dialog', () => {
   it('registers the handler', () => {
     expect(handlers.has('fs:save-dialog')).toBe(true);

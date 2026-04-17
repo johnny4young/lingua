@@ -33,6 +33,7 @@ interface BuildCommandPaletteModelArgs {
   onOpenWhatsNew: () => void;
   onStartGuidedTour: () => void;
   onOpenSnippets: () => void;
+  onOpenProjectSearch?: () => void;
   checkForUpdates: () => Promise<void>;
   restartToApply: () => Promise<boolean>;
   openFileFromDisk?: () => Promise<void>;
@@ -148,6 +149,7 @@ export function buildCommandPaletteModel({
   onOpenWhatsNew,
   onStartGuidedTour,
   onOpenSnippets,
+  onOpenProjectSearch,
   checkForUpdates,
   restartToApply,
   openFileFromDisk,
@@ -274,6 +276,21 @@ export function buildCommandPaletteModel({
       }
     ),
   ];
+
+  if (onOpenProjectSearch) {
+    commands.push(
+      buildActionCommand(
+        'action-project-search',
+        translate('commandPalette.action.projectSearch.label'),
+        translate('commandPalette.action.projectSearch.description'),
+        ['search', 'find', 'in files', 'grep', 'text'],
+        () => {
+          onClose();
+          onOpenProjectSearch();
+        }
+      )
+    );
+  }
 
   if (openFileFromDisk) {
     commands.push(

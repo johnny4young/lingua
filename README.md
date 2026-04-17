@@ -250,6 +250,7 @@ The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/lin
 | Toggle console          | `Cmd+\`       | `Ctrl+\`        |
 | Quick open              | `Cmd+P`       | `Ctrl+P`        |
 | Command palette         | `Cmd+Shift+P` | `Ctrl+Shift+P`  |
+| Search in files         | `Cmd+Shift+F` | `Ctrl+Shift+F`  |
 | Settings                | `Cmd+,`       | `Ctrl+,`        |
 | Close open overlay      | `Escape`      | `Escape`        |
 
