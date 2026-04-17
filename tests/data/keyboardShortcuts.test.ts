@@ -2,9 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   KEYBOARD_SHORTCUTS,
   SHORTCUT_GROUPS,
+  comboKey,
   filterShortcuts,
+  findComboConflict,
   formatShortcutCombo,
   formatShortcutToken,
+  isEditableShortcutCombo,
+  keyboardEventToCombo,
+  matchesCombo,
+  resolveCombos,
   resolveShortcutDisplayPlatform,
   resolveModLabel,
 } from '@/data/keyboardShortcuts';
@@ -123,5 +129,137 @@ describe('filterShortcuts', () => {
 
     const macResult = filterShortcuts(KEYBOARD_SHORTCUTS, '⌘B', 'darwin', identity);
     expect(macResult.some((entry) => entry.id === 'view-toggle-sidebar')).toBe(true);
+  });
+});
+
+function keyEvent(init: Partial<KeyboardEvent> & { key: string }) {
+  return {
+    key: init.key,
+    metaKey: init.metaKey ?? false,
+    ctrlKey: init.ctrlKey ?? false,
+    shiftKey: init.shiftKey ?? false,
+    altKey: init.altKey ?? false,
+  } as KeyboardEvent;
+}
+
+describe('keyboardEventToCombo', () => {
+  it('maps Cmd+Shift+S to Mod+Shift+S', () => {
+    const combo = keyboardEventToCombo(keyEvent({ key: 's', metaKey: true, shiftKey: true }));
+    expect(combo?.tokens).toEqual(['Mod', 'Shift', 'S']);
+  });
+
+  it('collapses Cmd and Ctrl into the Mod token', () => {
+    const mac = keyboardEventToCombo(keyEvent({ key: 'p', metaKey: true }));
+    const linux = keyboardEventToCombo(keyEvent({ key: 'p', ctrlKey: true }));
+    expect(mac?.tokens).toEqual(linux?.tokens);
+  });
+
+  it('normalizes named keys to catalog tokens', () => {
+    expect(keyboardEventToCombo(keyEvent({ key: 'Enter' }))?.tokens).toEqual(['Enter']);
+    expect(keyboardEventToCombo(keyEvent({ key: 'Escape' }))?.tokens).toEqual(['Escape']);
+    expect(keyboardEventToCombo(keyEvent({ key: '\\', ctrlKey: true }))?.tokens).toEqual([
+      'Mod',
+      'Backslash',
+    ]);
+    expect(keyboardEventToCombo(keyEvent({ key: ',', metaKey: true }))?.tokens).toEqual([
+      'Mod',
+      'Comma',
+    ]);
+  });
+
+  it('returns null for pure modifier keydowns', () => {
+    expect(keyboardEventToCombo(keyEvent({ key: 'Shift', shiftKey: true }))).toBeNull();
+    expect(keyboardEventToCombo(keyEvent({ key: 'Control', ctrlKey: true }))).toBeNull();
+    expect(keyboardEventToCombo(keyEvent({ key: 'Meta', metaKey: true }))).toBeNull();
+  });
+});
+
+describe('matchesCombo', () => {
+  it('returns true when the event produces the same canonical combo', () => {
+    expect(
+      matchesCombo(keyEvent({ key: 'b', metaKey: true }), { tokens: ['Mod', 'B'] })
+    ).toBe(true);
+  });
+
+  it('returns false when modifiers or key differ', () => {
+    expect(matchesCombo(keyEvent({ key: 'b' }), { tokens: ['Mod', 'B'] })).toBe(false);
+    expect(
+      matchesCombo(keyEvent({ key: 'b', metaKey: true, shiftKey: true }), {
+        tokens: ['Mod', 'B'],
+      })
+    ).toBe(false);
+  });
+});
+
+describe('resolveCombos', () => {
+  const definition = KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'view-toggle-sidebar')!;
+
+  it('falls back to the catalog when no override is present', () => {
+    expect(resolveCombos(definition, {})).toEqual(definition.combos);
+  });
+
+  it('uses the override when present and non-empty', () => {
+    const overrides = {
+      'view-toggle-sidebar': [{ tokens: ['Mod', 'Shift', 'B'] }],
+    };
+    expect(resolveCombos(definition, overrides)[0].tokens).toEqual(['Mod', 'Shift', 'B']);
+  });
+
+  it('falls back when the override is an empty array', () => {
+    expect(resolveCombos(definition, { 'view-toggle-sidebar': [] })).toEqual(definition.combos);
+  });
+});
+
+describe('findComboConflict', () => {
+  it('detects a conflict with another catalog default', () => {
+    const id = findComboConflict(
+      KEYBOARD_SHORTCUTS,
+      {},
+      { tokens: ['Mod', 'S'] },
+      'view-toggle-sidebar'
+    );
+    expect(id).toBe('file-save');
+  });
+
+  it('skips the shortcut being edited so self-reassignment is fine', () => {
+    const id = findComboConflict(
+      KEYBOARD_SHORTCUTS,
+      {},
+      { tokens: ['Mod', 'B'] },
+      'view-toggle-sidebar'
+    );
+    expect(id).toBeNull();
+  });
+
+  it('honors overrides when resolving the conflict map', () => {
+    const overrides = {
+      'file-save': [{ tokens: ['Mod', 'Alt', 'S'] }],
+    };
+    // file-save's default (Mod+S) is now free
+    const id = findComboConflict(
+      KEYBOARD_SHORTCUTS,
+      overrides,
+      { tokens: ['Mod', 'S'] },
+      'view-toggle-sidebar'
+    );
+    expect(id).toBeNull();
+  });
+});
+
+describe('comboKey', () => {
+  it('produces a stable string independent of casing', () => {
+    expect(comboKey({ tokens: ['Mod', 'S'] })).toBe(comboKey({ tokens: ['Mod', 's'] }));
+  });
+});
+
+describe('isEditableShortcutCombo', () => {
+  it('accepts combos that keep a non-text modifier', () => {
+    expect(isEditableShortcutCombo({ tokens: ['Mod', 'S'] })).toBe(true);
+    expect(isEditableShortcutCombo({ tokens: ['Alt', 'Enter'] })).toBe(true);
+  });
+
+  it('rejects plain keys and shift-only combos so typing is not stolen globally', () => {
+    expect(isEditableShortcutCombo({ tokens: ['J'] })).toBe(false);
+    expect(isEditableShortcutCombo({ tokens: ['Shift', 'J'] })).toBe(false);
   });
 });

@@ -1,11 +1,45 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+  KEYBOARD_SHORTCUTS,
+  isEditableShortcutCombo,
+  type ShortcutCombo,
+  type ShortcutOverrideMap,
+} from '../data/keyboardShortcuts';
 import type { SettingsState } from '../types';
 
 const APP_LANGUAGES = ['system', 'en', 'es'] as const;
 
 function isAppLanguage(value: unknown): value is SettingsState['language'] {
   return typeof value === 'string' && (APP_LANGUAGES as readonly string[]).includes(value);
+}
+
+const MAX_TOKENS_PER_COMBO = 5;
+const MAX_COMBOS_PER_SHORTCUT = 4;
+
+function sanitizeShortcutOverrides(value: unknown): ShortcutOverrideMap {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const knownIds = new Set(KEYBOARD_SHORTCUTS.map((entry) => entry.id));
+  const out: Record<string, readonly ShortcutCombo[]> = {};
+  for (const [key, rawCombos] of Object.entries(value as Record<string, unknown>)) {
+    if (!knownIds.has(key)) continue;
+    if (!Array.isArray(rawCombos)) continue;
+    const combos: ShortcutCombo[] = [];
+    for (const raw of rawCombos.slice(0, MAX_COMBOS_PER_SHORTCUT)) {
+      if (!raw || typeof raw !== 'object') continue;
+      const tokens = (raw as { tokens?: unknown }).tokens;
+      if (!Array.isArray(tokens)) continue;
+      if (tokens.length === 0 || tokens.length > MAX_TOKENS_PER_COMBO) continue;
+      if (!tokens.every((token) => typeof token === 'string' && token.length > 0 && token.length <= 32)) {
+        continue;
+      }
+      const combo = { tokens: tokens as readonly string[] };
+      if (!isEditableShortcutCombo(combo)) continue;
+      combos.push(combo);
+    }
+    if (combos.length > 0) out[key] = combos;
+  }
+  return out;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -29,6 +63,7 @@ export const useSettingsStore = create<SettingsState>()(
       language: 'system',
       lastSeenVersion: null,
       hasCompletedTour: false,
+      shortcutOverrides: {},
 
       setTheme: (theme) => set({ theme }),
       setEditorTheme: (editorTheme) => set({ editorTheme }),
@@ -60,6 +95,18 @@ export const useSettingsStore = create<SettingsState>()(
       setLanguage: (language) => set({ language }),
       setLastSeenVersion: (lastSeenVersion) => set({ lastSeenVersion }),
       setHasCompletedTour: (hasCompletedTour) => set({ hasCompletedTour }),
+      setShortcutOverride: (id, combos) =>
+        set((state) => ({
+          shortcutOverrides: { ...state.shortcutOverrides, [id]: combos },
+        })),
+      clearShortcutOverride: (id) =>
+        set((state) => {
+          if (!(id in state.shortcutOverrides)) return state;
+          const next = { ...state.shortcutOverrides };
+          delete next[id];
+          return { shortcutOverrides: next };
+        }),
+      resetShortcutOverrides: () => set({ shortcutOverrides: {} }),
     }),
     {
       name: 'lingua-settings',
@@ -83,6 +130,7 @@ export const useSettingsStore = create<SettingsState>()(
         language: state.language,
         lastSeenVersion: state.lastSeenVersion,
         hasCompletedTour: state.hasCompletedTour,
+        shortcutOverrides: state.shortcutOverrides,
       }),
       merge: (persistedState, currentState) => {
         const merged = {
@@ -93,6 +141,7 @@ export const useSettingsStore = create<SettingsState>()(
         return {
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
+          shortcutOverrides: sanitizeShortcutOverrides(merged.shortcutOverrides),
         };
       },
     }
