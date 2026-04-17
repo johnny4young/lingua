@@ -101,6 +101,31 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().fontLigatures).toBe(true);
   });
 
+  it('applyThemePreset updates theming fields and leaves safety prefs alone', () => {
+    useSettingsStore.setState({ loopProtection: true, formatOnSave: true, restoreSession: true });
+
+    useSettingsStore.getState().applyThemePreset({
+      theme: 'light',
+      editorTheme: 'solarized-light',
+      fontFamily: 'Menlo, monospace',
+      fontSize: 18,
+      fontLigatures: false,
+      layoutPreset: 'vertical',
+    });
+
+    const state = useSettingsStore.getState();
+    expect(state.theme).toBe('light');
+    expect(state.editorTheme).toBe('solarized-light');
+    expect(state.fontFamily).toBe('Menlo, monospace');
+    expect(state.fontSize).toBe(18);
+    expect(state.fontLigatures).toBe(false);
+    expect(state.layoutPreset).toBe('vertical');
+    // Preset must not override safety/workflow preferences
+    expect(state.loopProtection).toBe(true);
+    expect(state.formatOnSave).toBe(true);
+    expect(state.restoreSession).toBe(true);
+  });
+
   it('should default language to system', () => {
     expect(useSettingsStore.getState().language).toBe('system');
   });

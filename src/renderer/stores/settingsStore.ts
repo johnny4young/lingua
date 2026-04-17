@@ -43,6 +43,15 @@ export const useSettingsStore = create<SettingsState>()(
       toggleHideUndefined: () => set((s) => ({ hideUndefined: !s.hideUndefined })),
       toggleRestoreSession: () => set((s) => ({ restoreSession: !s.restoreSession })),
       toggleFormatOnSave: () => set((s) => ({ formatOnSave: !s.formatOnSave })),
+      applyThemePreset: (preset) =>
+        set({
+          theme: preset.theme,
+          editorTheme: preset.editorTheme,
+          fontFamily: preset.fontFamily,
+          fontSize: preset.fontSize,
+          fontLigatures: preset.fontLigatures,
+          layoutPreset: preset.layoutPreset,
+        }),
       setLanguage: (language) => set({ language }),
       setLastSeenVersion: (lastSeenVersion) => set({ lastSeenVersion }),
       setHasCompletedTour: (hasCompletedTour) => set({ hasCompletedTour }),
