@@ -98,7 +98,7 @@
   "editor.restoreSession.label": "Reabrir la \u00faltima sesi\u00f3n",
   "editor.restoreSession.hint": "Restaura las pesta\u00f1as de la sesi\u00f3n anterior al reiniciar.",
   "editor.formatOnSave.label": "Formatear al guardar",
-  "editor.formatOnSave.hint": "Ejecuta Prettier para JavaScript, TypeScript, JSON y CSS, y gofmt / rustfmt para Go y Rust, antes de escribir el archivo.",
+  "editor.formatOnSave.hint": "Ejecuta Prettier para JavaScript, TypeScript, JSON y CSS, gofmt / rustfmt para Go y Rust, y ruff (con black como respaldo) para Python antes de escribir el archivo.",
   "editor.formatOnSave.parseError": "No se pudo formatear {{name}} — se guardó el contenido original.",
   "editor.formatOnSave.binaryMissing": "Falta el binario de formato para {{name}} — se guardó el contenido original.",
   "editor.formatOnSave.webUnavailable": "Formatear {{name}} es exclusivo de escritorio — se guardó el contenido original.",

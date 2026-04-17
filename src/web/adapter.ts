@@ -44,6 +44,11 @@ const formatStub: LinguaAPI['format'] = {
     reason: 'web-unavailable',
     error: t('errors.format.webUnavailable'),
   }),
+  python: async () => ({
+    available: false,
+    reason: 'web-unavailable',
+    error: t('errors.format.webUnavailable'),
+  }),
 };
 
 const rustStub: LinguaAPI['rust'] = {

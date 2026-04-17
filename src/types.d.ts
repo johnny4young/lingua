@@ -258,6 +258,7 @@ interface LinguaAPI {
   format: {
     gofmt: (source: string) => Promise<FormatIpcResult>;
     rustfmt: (source: string) => Promise<FormatIpcResult>;
+    python: (source: string) => Promise<FormatIpcResult>;
   };
 
   fs: {

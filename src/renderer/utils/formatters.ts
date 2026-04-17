@@ -38,7 +38,8 @@ export function isFormatterSupported(language: Language): boolean {
   return (
     PRETTIER_PARSER_BY_LANGUAGE[language] !== undefined ||
     language === 'go' ||
-    language === 'rust'
+    language === 'rust' ||
+    language === 'python'
   );
 }
 
@@ -78,7 +79,7 @@ async function formatWithPrettier(
 }
 
 async function formatViaIpc(
-  language: 'go' | 'rust',
+  language: 'go' | 'rust' | 'python',
   source: string
 ): Promise<FormatterResult> {
   const bridge = window.lingua?.format;
@@ -86,10 +87,13 @@ async function formatViaIpc(
     return { ok: false, failure: 'web-unavailable' };
   }
 
-  const result =
+  const invoke =
     language === 'go'
-      ? await bridge.gofmt(source)
-      : await bridge.rustfmt(source);
+      ? bridge.gofmt
+      : language === 'rust'
+        ? bridge.rustfmt
+        : bridge.python;
+  const result = await invoke(source);
 
   if (result.available === false) {
     return {
@@ -137,6 +141,10 @@ export async function formatSource(
 
   if (language === 'rust') {
     return formatViaIpc('rust', source);
+  }
+
+  if (language === 'python') {
+    return formatViaIpc('python', source);
   }
 
   return { ok: false, failure: 'unsupported' };

@@ -19,7 +19,7 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Interactive guided tour for editor, console, explorer, snippets, and command palette onboarding, launchable from About or the Command Palette
 - Built-in developer utilities, available from the toolbar and Command Palette, covering JSON formatting, Base64/URL transforms, UUID generation, hashing, timestamp conversion, JWT decoding, regex testing, hex/rgb/hsl color conversion, and line-level diffing
 - Auto-run, magic comments, loop protection, and hide-undefined controls for dynamic languages
-- Optional format-on-save using Prettier (JS, TS, JSON, CSS) and desktop-only gofmt / rustfmt, with a dismissable status banner for parse errors and missing binaries
+- Optional format-on-save using Prettier (JS, TS, JSON, CSS) and desktop-only gofmt, rustfmt, and Python formatters (ruff preferred, black fallback), with a dismissable status banner for parse errors and missing binaries
 - Curated developer fonts (JetBrains Mono, Fira Code, Cascadia Code, Source Code Pro, IBM Plex Mono, Consolas, Menlo, Monaco, Courier New, System Monospace) with a ligature toggle that self-disables for stacks without programmer ligatures, plus a live preview card in Settings
 - Theme preset export/import: save your editor theme, fonts, and layout as a versioned JSON file and share it between machines, with validation errors surfaced through the status banner (appearance/typography/layout only — safety prefs are never overridden by an imported preset)
 - Shell polarity follows the editor theme by default, so picking a light Monaco theme flips the console and run-result panels to light without a separate click; a Settings toggle keeps the legacy independent behavior one click away

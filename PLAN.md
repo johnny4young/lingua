@@ -289,8 +289,8 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-010 Add format-on-save
 
 - Priority: `P2`
-- Status: `Partial`
-- Readiness: `Phase A completed on 2026-04-17; Phase B (Python) pending`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-17 (Phase A + Phase B)`
 - Recommended rollout:
   - Phase A:
     - JS/TS via Prettier ✅
@@ -298,18 +298,20 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
     - Go via `gofmt` ✅ (desktop-only)
     - Rust via `rustfmt` ✅ (desktop-only)
   - Phase B:
-    - Python formatting once the desktop/web execution story is defined clearly for tooling
+    - Python formatting ✅ (desktop-only; `ruff format` with a `black` fallback). Unblocked after RL-030 locked the capability matrix and confirmed desktop-native is the recommended class for Python formatter binaries
 - Current progress:
   - `formatOnSave` settings toggle persists alongside other editor preferences and defaults to off
-  - Renderer formatter utility dispatches to Prettier standalone (dynamic-imported so the parsers/plugins stay out of the main bundle) for JS/TS/JSON/CSS; Go and Rust route through new `format:gofmt` / `format:rustfmt` IPC handlers that pipe source via stdin and cache the binary probe
+  - Renderer formatter utility dispatches to Prettier standalone (dynamic-imported so the parsers/plugins stay out of the main bundle) for JS/TS/JSON/CSS; Go, Rust, and Python route through `format:gofmt` / `format:rustfmt` / `format:python` IPC handlers that pipe source via stdin and cache the binary probe
+  - Python formatting prefers `ruff format -` and falls back to `black --quiet -` when ruff is not installed; the `binary-missing` error includes install links for both so the status banner is directly actionable
   - All save flows (`saveActiveTab`, `saveActiveTabAs`, dirty-tab close, and app-close save) run the formatter before the filesystem write and fall back to the original content on failure so persistence is never blocked
-  - A dismissable bottom-right status notice (new `uiStore.statusNotice` + `StatusNoticeBanner`) surfaces parse errors and missing-binary messages with actionable copy — localized in `en` and `es`
-  - Web builds report gofmt/rustfmt as desktop-only via the existing web adapter stub pattern
+  - A dismissable bottom-right status notice (`uiStore.statusNotice` + `StatusNoticeBanner`) surfaces parse errors and missing-binary messages with actionable copy — localized in `en` and `es`
+  - Web builds report gofmt / rustfmt / python as desktop-only via the existing web adapter stub pattern
 - Acceptance criteria:
   - Save formatting is deterministic ✅ (Prettier output is idempotent — regression-tested)
-  - Missing formatter binaries are handled with actionable user feedback ✅ (status banner carries the install hint from the IPC error string)
+  - Missing formatter binaries are handled with actionable user feedback ✅ (status banner carries the install hint from the IPC error string, now including ruff/black for Python)
 - Dependencies:
   - Desktop tooling conventions
+  - RL-030 (capability matrix confirmed desktop-native is the recommended class for Python formatter binaries)
 
 ### RL-011 Add an environment variables panel for execution contexts
 
