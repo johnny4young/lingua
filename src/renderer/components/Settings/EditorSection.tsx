@@ -32,6 +32,12 @@ export function EditorSection() {
   const toggleRestoreSession = useSettingsStore((state) => state.toggleRestoreSession);
   const formatOnSave = useSettingsStore((state) => state.formatOnSave);
   const toggleFormatOnSave = useSettingsStore((state) => state.toggleFormatOnSave);
+  const syncShellWithEditorTheme = useSettingsStore(
+    (state) => state.syncShellWithEditorTheme
+  );
+  const toggleSyncShellWithEditorTheme = useSettingsStore(
+    (state) => state.toggleSyncShellWithEditorTheme
+  );
   const { t } = useTranslation();
   const ligaturesAvailable = fontStackSupportsLigatures(fontFamily);
 
@@ -48,6 +54,16 @@ export function EditorSection() {
             </option>
           ))}
         </Select>
+      </Row>
+
+      <Row
+        label={t('editor.syncShellWithEditorTheme.label')}
+        hint={t('editor.syncShellWithEditorTheme.hint')}
+      >
+        <Toggle
+          value={syncShellWithEditorTheme}
+          onChange={toggleSyncShellWithEditorTheme}
+        />
       </Row>
 
       <Row label={t('editor.fontFamily.label')} hint={t('editor.fontFamily.hint')}>

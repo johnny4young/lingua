@@ -1,6 +1,12 @@
 import type { LayoutPreset } from '../../types';
 
-export const EDITOR_THEMES: { id: string; label: string; dark: boolean }[] = [
+export interface EditorThemeOption {
+  id: string;
+  label: string;
+  dark: boolean;
+}
+
+export const EDITOR_THEMES: readonly EditorThemeOption[] = [
   { id: 'lingua-dark', label: 'Lingua Dark', dark: true },
   { id: 'dracula', label: 'Dracula', dark: true },
   { id: 'one-dark-pro', label: 'One Dark Pro', dark: true },
@@ -10,6 +16,19 @@ export const EDITOR_THEMES: { id: string; label: string; dark: boolean }[] = [
   { id: 'solarized-light', label: 'Solarized Light', dark: false },
   { id: 'hc-black', label: 'High Contrast Dark', dark: true },
 ];
+
+/**
+ * Canonical list of Monaco editor theme ids this build knows how to render.
+ * Consumers that need to validate untrusted input (imported presets, URL
+ * params) should reference this rather than hard-coding a parallel array.
+ */
+export const EDITOR_THEME_IDS: readonly string[] = EDITOR_THEMES.map((entry) => entry.id);
+
+/** Whether a given theme id maps to a dark Monaco theme. Unknown ids fall back to dark. */
+export function isDarkEditorTheme(themeId: string): boolean {
+  const match = EDITOR_THEMES.find((entry) => entry.id === themeId);
+  return match ? match.dark : true;
+}
 
 export interface FontFamilyOption {
   value: string;
