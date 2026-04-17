@@ -1,6 +1,7 @@
 interface EditorOptionInput {
   fontSize: number;
   fontFamily: string;
+  fontLigatures: boolean;
   showLineNumbers: boolean;
   wordWrap: boolean;
   minimap: boolean;
@@ -9,6 +10,7 @@ interface EditorOptionInput {
 export function getEditorOptions({
   fontSize,
   fontFamily,
+  fontLigatures,
   showLineNumbers,
   wordWrap,
   minimap,
@@ -16,6 +18,7 @@ export function getEditorOptions({
   return {
     fontSize,
     fontFamily,
+    fontLigatures,
     glyphMargin: true,
     lineNumbers: showLineNumbers ? 'on' : 'off',
     wordWrap: wordWrap ? 'on' : 'off',

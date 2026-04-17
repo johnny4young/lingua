@@ -95,6 +95,13 @@ interface RustRunResult {
   error?: string;
 }
 
+// ---------------------------------------------------------- Formatter types
+
+type FormatIpcResult =
+  | { available: false; reason: 'binary-missing' | 'web-unavailable'; error: string }
+  | { available: true; success: true; formatted: string }
+  | { available: true; success: false; error: string };
+
 // ------------------------------------------------------- File system types
 
 interface FsDirEntry {
@@ -246,6 +253,11 @@ interface LinguaAPI {
   rust: {
     detect: () => Promise<RustDetectResult>;
     run: (sourceCode: string) => Promise<RustRunResult>;
+  };
+
+  format: {
+    gofmt: (source: string) => Promise<FormatIpcResult>;
+    rustfmt: (source: string) => Promise<FormatIpcResult>;
   };
 
   fs: {

@@ -4,15 +4,18 @@ import i18next from 'i18next';
 import { SettingsModal } from '../../src/renderer/components/Settings/SettingsModal';
 import { initI18n } from '../../src/renderer/i18n';
 import { usePluginStore } from '../../src/renderer/stores/pluginStore';
+import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUpdateStore } from '../../src/renderer/stores/updateStore';
 
 describe('SettingsModal', () => {
   const initialPluginState = usePluginStore.getState();
   const initialUpdateState = useUpdateStore.getState();
+  const initialSettingsState = useSettingsStore.getState();
 
   beforeEach(async () => {
     usePluginStore.setState(initialPluginState, true);
     useUpdateStore.setState(initialUpdateState, true);
+    useSettingsStore.setState(initialSettingsState, true);
     initI18n('en');
     await i18next.changeLanguage('es');
     window.lingua = {
@@ -80,5 +83,28 @@ describe('SettingsModal', () => {
     expect(
       screen.getByText('Las actualizaciones automáticas no están disponibles en la versión web.')
     ).toBeTruthy();
+  }, 10000);
+
+  it('disables the ligatures toggle and shows the unavailable hint for non-ligature fonts', async () => {
+    useSettingsStore.setState({
+      fontFamily: 'Menlo, monospace',
+      fontLigatures: true,
+    });
+
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    expect(await screen.findByText('MIT')).toBeTruthy();
+    expect(
+      screen.getByText('La fuente seleccionada no incluye ligaduras de programación.')
+    ).toBeTruthy();
+    expect(screen.getAllByRole('switch').some((element) => element.hasAttribute('disabled'))).toBe(
+      true
+    );
   }, 10000);
 });

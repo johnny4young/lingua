@@ -33,6 +33,19 @@ const goStub: LinguaAPI['go'] = {
 
 // ----------------------------------------------------- Rust stub
 
+const formatStub: LinguaAPI['format'] = {
+  gofmt: async () => ({
+    available: false,
+    reason: 'web-unavailable',
+    error: t('errors.format.webUnavailable'),
+  }),
+  rustfmt: async () => ({
+    available: false,
+    reason: 'web-unavailable',
+    error: t('errors.format.webUnavailable'),
+  }),
+};
+
 const rustStub: LinguaAPI['rust'] = {
   detect: async (): Promise<RustDetectResult> => ({
     installed: false,
@@ -96,6 +109,7 @@ const webLingua: LinguaAPI = {
   forceClose: () => {},
   go: goStub,
   rust: rustStub,
+  format: formatStub,
   fs: webFsAdapter,
   updates: updateStub,
   plugins: pluginStub,

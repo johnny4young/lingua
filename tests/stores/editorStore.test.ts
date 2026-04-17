@@ -230,6 +230,87 @@ describe('editorStore', () => {
     });
   });
 
+  describe('format-on-save', () => {
+    it('formats JS before writing when the setting is on', async () => {
+      const { useSettingsStore } = await import('@/stores/settingsStore');
+      useSettingsStore.setState({ formatOnSave: true });
+      try {
+        const tab: ReturnType<typeof createDefaultTab> = {
+          ...createDefaultTab('javascript'),
+          filePath: '/tmp/demo.js',
+        };
+        useEditorStore.getState().addTab(tab);
+        useEditorStore.getState().updateContent(tab.id, 'const  x=1\n');
+
+        await useEditorStore.getState().saveActiveTab();
+
+        expect(window.lingua.fs.write).toHaveBeenCalledWith('/tmp/demo.js', 'const x = 1;\n');
+        const { tabs } = useEditorStore.getState();
+        expect(tabs[0]?.content).toBe('const x = 1;\n');
+        expect(tabs[0]?.isDirty).toBe(false);
+      } finally {
+        useSettingsStore.setState({ formatOnSave: false });
+      }
+    });
+
+    it('skips formatting when the setting is off', async () => {
+      const tab: ReturnType<typeof createDefaultTab> = {
+        ...createDefaultTab('javascript'),
+        filePath: '/tmp/raw.js',
+      };
+      useEditorStore.getState().addTab(tab);
+      useEditorStore.getState().updateContent(tab.id, 'const  x=1\n');
+
+      await useEditorStore.getState().saveActiveTab();
+
+      expect(window.lingua.fs.write).toHaveBeenCalledWith('/tmp/raw.js', 'const  x=1\n');
+    });
+
+    it('falls back to the original content and pushes a status notice on parse errors', async () => {
+      const { useSettingsStore } = await import('@/stores/settingsStore');
+      const { useUIStore } = await import('@/stores/uiStore');
+      useSettingsStore.setState({ formatOnSave: true });
+      useUIStore.setState({ statusNotice: null });
+      try {
+        const tab: ReturnType<typeof createDefaultTab> = {
+          ...createDefaultTab('json'),
+          filePath: '/tmp/broken.json',
+        };
+        useEditorStore.getState().addTab(tab);
+        useEditorStore.getState().updateContent(tab.id, '{bad json');
+
+        await useEditorStore.getState().saveActiveTab();
+
+        expect(window.lingua.fs.write).toHaveBeenCalledWith('/tmp/broken.json', '{bad json');
+        const notice = useUIStore.getState().statusNotice;
+        expect(notice?.messageKey).toBe('editor.formatOnSave.parseError');
+        expect(notice?.tone).toBe('error');
+      } finally {
+        useSettingsStore.setState({ formatOnSave: false });
+        useUIStore.setState({ statusNotice: null });
+      }
+    });
+
+    it('does not touch unsupported languages even when the setting is on', async () => {
+      const { useSettingsStore } = await import('@/stores/settingsStore');
+      useSettingsStore.setState({ formatOnSave: true });
+      try {
+        const tab: ReturnType<typeof createDefaultTab> = {
+          ...createDefaultTab('yaml'),
+          filePath: '/tmp/data.yaml',
+        };
+        useEditorStore.getState().addTab(tab);
+        useEditorStore.getState().updateContent(tab.id, 'a:   1\nb:   2');
+
+        await useEditorStore.getState().saveActiveTab();
+
+        expect(window.lingua.fs.write).toHaveBeenCalledWith('/tmp/data.yaml', 'a:   1\nb:   2');
+      } finally {
+        useSettingsStore.setState({ formatOnSave: false });
+      }
+    });
+  });
+
   describe('closeTab', () => {
     it('should close a clean tab immediately', async () => {
       const tab = createDefaultTab('javascript');
@@ -262,6 +343,29 @@ describe('editorStore', () => {
       const closed = await useEditorStore.getState().closeTab(tab.id);
       expect(closed).toBe(true);
       expect(useEditorStore.getState().tabs).toHaveLength(0);
+    });
+
+    it('formats before closing a dirty tab when saving is requested', async () => {
+      const { useSettingsStore } = await import('@/stores/settingsStore');
+      useSettingsStore.setState({ formatOnSave: true });
+      try {
+        (window.lingua.confirmCloseTab as ReturnType<typeof vi.fn>).mockResolvedValue(0);
+
+        const tab: ReturnType<typeof createDefaultTab> = {
+          ...createDefaultTab('javascript'),
+          filePath: '/tmp/close-me.js',
+        };
+        useEditorStore.getState().addTab(tab);
+        useEditorStore.getState().updateContent(tab.id, 'const  x=1\n');
+
+        const closed = await useEditorStore.getState().closeTab(tab.id);
+
+        expect(closed).toBe(true);
+        expect(window.lingua.fs.write).toHaveBeenCalledWith('/tmp/close-me.js', 'const x = 1;\n');
+        expect(useEditorStore.getState().tabs).toHaveLength(0);
+      } finally {
+        useSettingsStore.setState({ formatOnSave: false });
+      }
     });
   });
 
