@@ -15,6 +15,7 @@ import {
   type ShortcutDefinition,
   type ShortcutGroupId,
 } from '../../data/keyboardShortcuts';
+import { KEYMAP_PRESETS } from '../../data/keymapPresets';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
@@ -138,6 +139,8 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
   const setShortcutOverride = useSettingsStore((state) => state.setShortcutOverride);
   const clearShortcutOverride = useSettingsStore((state) => state.clearShortcutOverride);
   const resetShortcutOverrides = useSettingsStore((state) => state.resetShortcutOverrides);
+  const keymapPreset = useSettingsStore((state) => state.keymapPreset);
+  const applyKeymapPreset = useSettingsStore((state) => state.applyKeymapPreset);
   const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
 
   const matching = useMemo(
@@ -229,17 +232,34 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
 
         <div className="border-b border-border/80 px-5 py-3">
           <p className="text-sm leading-6 text-muted">{t('shortcuts.description')}</p>
-          <label className="mt-3 flex items-center gap-2 rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5">
-            <Search size={14} className="text-muted" />
-            <input
-              type="search"
-              aria-label={t('shortcuts.searchLabel')}
-              placeholder={t('shortcuts.searchPlaceholder')}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
-            />
-          </label>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-muted">
+              <span>{t('shortcuts.preset.label')}</span>
+              <select
+                value={keymapPreset}
+                onChange={(event) => applyKeymapPreset(event.target.value)}
+                data-testid="shortcut-preset-select"
+                className="field-shell text-sm"
+              >
+                {KEYMAP_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {t(preset.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-[12rem] flex-1 items-center gap-2 rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5">
+              <Search size={14} className="text-muted" />
+              <input
+                type="search"
+                aria-label={t('shortcuts.searchLabel')}
+                placeholder={t('shortcuts.searchPlaceholder')}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
+              />
+            </label>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">

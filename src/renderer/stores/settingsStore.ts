@@ -6,6 +6,11 @@ import {
   type ShortcutCombo,
   type ShortcutOverrideMap,
 } from '../data/keyboardShortcuts';
+import {
+  DEFAULT_KEYMAP_PRESET_ID,
+  findKeymapPreset,
+  isKnownKeymapPresetId,
+} from '../data/keymapPresets';
 import type { SettingsState } from '../types';
 
 const APP_LANGUAGES = ['system', 'en', 'es'] as const;
@@ -16,6 +21,35 @@ function isAppLanguage(value: unknown): value is SettingsState['language'] {
 
 const MAX_TOKENS_PER_COMBO = 5;
 const MAX_COMBOS_PER_SHORTCUT = 4;
+
+function shortcutOverridesEqual(
+  left: ShortcutOverrideMap,
+  right: ShortcutOverrideMap
+): boolean {
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  if (leftKeys.length !== rightKeys.length) return false;
+  for (let index = 0; index < leftKeys.length; index += 1) {
+    const leftKey = leftKeys[index];
+    const rightKey = rightKeys[index];
+    if (!leftKey || !rightKey) return false;
+    if (leftKey !== rightKey) return false;
+    const leftCombos = left[leftKey] ?? [];
+    const rightCombos = right[rightKey] ?? [];
+    if (leftCombos.length !== rightCombos.length) return false;
+    for (let comboIndex = 0; comboIndex < leftCombos.length; comboIndex += 1) {
+      const leftTokens = leftCombos[comboIndex]?.tokens ?? [];
+      const rightTokens = rightCombos[comboIndex]?.tokens ?? [];
+      if (leftTokens.length !== rightTokens.length) return false;
+      for (let tokenIndex = 0; tokenIndex < leftTokens.length; tokenIndex += 1) {
+        if (leftTokens[tokenIndex] !== rightTokens[tokenIndex]) {
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+}
 
 function sanitizeShortcutOverrides(value: unknown): ShortcutOverrideMap {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -65,6 +99,7 @@ export const useSettingsStore = create<SettingsState>()(
       hasCompletedTour: false,
       suppressTourAutoStart: false,
       shortcutOverrides: {},
+      keymapPreset: DEFAULT_KEYMAP_PRESET_ID,
 
       setTheme: (theme) => set({ theme }),
       setEditorTheme: (editorTheme) => set({ editorTheme }),
@@ -100,15 +135,33 @@ export const useSettingsStore = create<SettingsState>()(
       setShortcutOverride: (id, combos) =>
         set((state) => ({
           shortcutOverrides: { ...state.shortcutOverrides, [id]: combos },
+          // Any manual edit peels the user out of a preset; the UI should
+          // honestly show "Custom" (== default id with non-empty overrides)
+          // so they don't think the preset is still in force.
+          keymapPreset: DEFAULT_KEYMAP_PRESET_ID,
         })),
       clearShortcutOverride: (id) =>
         set((state) => {
           if (!(id in state.shortcutOverrides)) return state;
           const next = { ...state.shortcutOverrides };
           delete next[id];
-          return { shortcutOverrides: next };
+          return {
+            shortcutOverrides: next,
+            keymapPreset: DEFAULT_KEYMAP_PRESET_ID,
+          };
         }),
-      resetShortcutOverrides: () => set({ shortcutOverrides: {} }),
+      resetShortcutOverrides: () =>
+        set({ shortcutOverrides: {}, keymapPreset: DEFAULT_KEYMAP_PRESET_ID }),
+      applyKeymapPreset: (presetId) => {
+        const preset = findKeymapPreset(presetId);
+        if (!preset) return;
+        set({
+          keymapPreset: preset.id,
+          // Clone so callers can't mutate the canonical preset map by
+          // editing the store value afterwards.
+          shortcutOverrides: { ...preset.overrides },
+        });
+      },
     }),
     {
       name: 'lingua-settings',
@@ -134,17 +187,32 @@ export const useSettingsStore = create<SettingsState>()(
         hasCompletedTour: state.hasCompletedTour,
         suppressTourAutoStart: state.suppressTourAutoStart,
         shortcutOverrides: state.shortcutOverrides,
+        keymapPreset: state.keymapPreset,
       }),
       merge: (persistedState, currentState) => {
         const merged = {
           ...currentState,
           ...(persistedState as Partial<SettingsState> | undefined),
         };
+        const shortcutOverrides = sanitizeShortcutOverrides(merged.shortcutOverrides);
+        const requestedKeymapPreset = isKnownKeymapPresetId(merged.keymapPreset)
+          ? merged.keymapPreset
+          : DEFAULT_KEYMAP_PRESET_ID;
+        const normalizedKeymapPreset =
+          requestedKeymapPreset === DEFAULT_KEYMAP_PRESET_ID
+            ? DEFAULT_KEYMAP_PRESET_ID
+            : shortcutOverridesEqual(
+                  shortcutOverrides,
+                  findKeymapPreset(requestedKeymapPreset)?.overrides ?? {}
+                )
+              ? requestedKeymapPreset
+              : DEFAULT_KEYMAP_PRESET_ID;
 
         return {
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
-          shortcutOverrides: sanitizeShortcutOverrides(merged.shortcutOverrides),
+          shortcutOverrides,
+          keymapPreset: normalizedKeymapPreset,
         };
       },
     }
