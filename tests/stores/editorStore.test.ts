@@ -281,4 +281,68 @@ describe('editorStore', () => {
       expect(tabs[1].filePath).toBeUndefined();
     });
   });
+
+  describe('requestReveal / clearPendingReveal', () => {
+    it('queues a reveal with sane defaults and lets callers clear it', () => {
+      useEditorStore.getState().requestReveal({
+        filePath: '/tmp/foo.ts',
+        line: 12,
+        column: 4,
+      });
+
+      expect(useEditorStore.getState().pendingReveal).toEqual({
+        filePath: '/tmp/foo.ts',
+        line: 12,
+        column: 4,
+      });
+
+      useEditorStore.getState().clearPendingReveal();
+      expect(useEditorStore.getState().pendingReveal).toBeNull();
+    });
+
+    it('clamps line/column to Monaco-safe 1-indexed positions', () => {
+      useEditorStore.getState().requestReveal({
+        filePath: '/tmp/bar.ts',
+        line: 0,
+        column: -5,
+      });
+
+      expect(useEditorStore.getState().pendingReveal).toEqual({
+        filePath: '/tmp/bar.ts',
+        line: 1,
+        column: 1,
+      });
+    });
+
+    it('keeps column undefined when no column is supplied', () => {
+      useEditorStore.getState().requestReveal({
+        filePath: '/tmp/baz.ts',
+        line: 3,
+      });
+
+      expect(useEditorStore.getState().pendingReveal).toEqual({
+        filePath: '/tmp/baz.ts',
+        line: 3,
+        column: undefined,
+      });
+    });
+
+    it('overwrites older pending reveals so the latest request wins', () => {
+      useEditorStore.getState().requestReveal({
+        filePath: '/tmp/first.ts',
+        line: 1,
+      });
+      useEditorStore.getState().requestReveal({
+        filePath: '/tmp/second.ts',
+        line: 20,
+        column: 5,
+      });
+
+      expect(useEditorStore.getState().pendingReveal).toEqual({
+        filePath: '/tmp/second.ts',
+        line: 20,
+        column: 5,
+      });
+    });
+  });
 });

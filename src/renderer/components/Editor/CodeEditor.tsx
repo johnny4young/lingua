@@ -23,6 +23,8 @@ configureMonaco();
 
 export function CodeEditor() {
   const { tabs, activeTabId, updateContent } = useEditorStore();
+  const pendingReveal = useEditorStore((state) => state.pendingReveal);
+  const clearPendingReveal = useEditorStore((state) => state.clearPendingReveal);
   const { editorTheme, fontSize, fontFamily, showLineNumbers, wordWrap, minimap } =
     useSettingsStore();
   const lineResults = useResultStore((state) => state.lineResults);
@@ -91,6 +93,27 @@ export function CodeEditor() {
     });
     lastRevealedDiagnosticKeyRef.current = nextDiagnosticKey;
   }, [applyDiagnostics, diagnostics, executionSource]);
+
+  // Apply pending reveals queued by other surfaces (Project Search today,
+  // future Go to Symbol). The effect depends on `pendingReveal`, `activeTab`,
+  // and `activeTab.content` so a reveal fires both when the file becomes
+  // active and when its content finishes loading from disk — otherwise
+  // revealLineInCenter on a newly-created tab can run before Monaco has the
+  // content populated and land on a clipped viewport.
+  useEffect(() => {
+    if (!pendingReveal) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (!activeTab?.filePath || activeTab.filePath !== pendingReveal.filePath) return;
+
+    editor.revealLineInCenter(pendingReveal.line);
+    editor.setPosition({
+      lineNumber: pendingReveal.line,
+      column: pendingReveal.column ?? 1,
+    });
+    editor.focus();
+    clearPendingReveal();
+  }, [pendingReveal, activeTab?.filePath, activeTab?.content, clearPendingReveal]);
 
   useEffect(() => {
     return () => {

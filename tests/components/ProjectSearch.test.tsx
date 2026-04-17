@@ -4,11 +4,18 @@ import userEvent from '@testing-library/user-event';
 import { useProjectSearchStore } from '../../src/renderer/stores/projectSearchStore';
 
 const mockOpenFile = vi.fn().mockResolvedValue(undefined);
+const mockRequestReveal = vi.fn();
+const mockClearPendingReveal = vi.fn();
 const mockSearchInFiles = vi.fn();
 
 vi.mock('../../src/renderer/stores/editorStore', () => ({
   useEditorStore: (selector?: (state: unknown) => unknown) => {
-    const state = { openFile: mockOpenFile };
+    const state = {
+      openFile: mockOpenFile,
+      requestReveal: mockRequestReveal,
+      clearPendingReveal: mockClearPendingReveal,
+      pendingReveal: null,
+    };
     return selector ? selector(state) : state;
   },
 }));
@@ -39,6 +46,8 @@ describe('ProjectSearch', () => {
       writable: true,
     });
     mockOpenFile.mockClear();
+    mockRequestReveal.mockClear();
+    mockClearPendingReveal.mockClear();
     mockSearchInFiles.mockReset();
     useProjectSearchStore.setState({
       query: '',
@@ -152,6 +161,69 @@ describe('ProjectSearch', () => {
 
     await user.click(screen.getByText('1:1'));
     expect(mockOpenFile).toHaveBeenCalledWith('/project/NOTES', 'NOTES', 'plaintext');
+  });
+
+  it('queues an editor reveal before opening so the cursor lands on the match', async () => {
+    mockSearchInFiles.mockResolvedValue([
+      {
+        filePath: '/project/src/main.ts',
+        relativePath: 'src/main.ts',
+        matches: [
+          { line: 42, column: 7, preview: 'hello', matchStart: 0, matchEnd: 5 },
+        ],
+      },
+    ]);
+
+    const user = userEvent.setup();
+    render(<ProjectSearch onClose={vi.fn()} />);
+
+    const input = screen.getByPlaceholderText('Search across the project...');
+    await user.type(input, 'hello');
+
+    await waitFor(() => {
+      expect(screen.getByText('42:7')).toBeTruthy();
+    });
+
+    await user.click(screen.getByText('42:7'));
+
+    expect(mockRequestReveal).toHaveBeenCalledWith({
+      filePath: '/project/src/main.ts',
+      line: 42,
+      column: 7,
+    });
+    // The reveal MUST be queued before openFile fires so the CodeEditor
+    // effect has the target ready when the model becomes active.
+    expect(mockRequestReveal.mock.invocationCallOrder[0]).toBeLessThan(
+      mockOpenFile.mock.invocationCallOrder[0]!
+    );
+  });
+
+  it('clears the pending reveal if opening the file fails', async () => {
+    mockOpenFile.mockRejectedValueOnce(new Error('read failed'));
+    mockSearchInFiles.mockResolvedValue([
+      {
+        filePath: '/project/src/main.ts',
+        relativePath: 'src/main.ts',
+        matches: [
+          { line: 9, column: 2, preview: 'needle', matchStart: 0, matchEnd: 6 },
+        ],
+      },
+    ]);
+
+    const user = userEvent.setup();
+    render(<ProjectSearch onClose={vi.fn()} />);
+
+    const input = screen.getByPlaceholderText('Search across the project...');
+    await user.type(input, 'needle');
+
+    await waitFor(() => {
+      expect(screen.getByText('9:2')).toBeTruthy();
+    });
+
+    await user.click(screen.getByText('9:2'));
+
+    expect(mockRequestReveal).toHaveBeenCalled();
+    expect(mockClearPendingReveal).toHaveBeenCalledOnce();
   });
 
   it('clears the global search state when the overlay unmounts', async () => {

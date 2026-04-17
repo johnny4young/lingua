@@ -22,6 +22,25 @@ export { languageFromPath } from '../utils/language';
 export const useEditorStore = create<EditorState>((set, get) => ({
   tabs: [],
   activeTabId: null,
+  pendingReveal: null,
+
+  requestReveal: (target) => {
+    // `line` must be at least 1 — Monaco rejects 0-indexed positions. We clamp
+    // defensively so upstream surfaces (Project Search, future Go to Symbol)
+    // can stay agnostic about Monaco's 1-indexed contract.
+    const safeLine = Math.max(1, Math.floor(target.line));
+    const safeColumn =
+      target.column === undefined ? undefined : Math.max(1, Math.floor(target.column));
+    set({
+      pendingReveal: {
+        filePath: target.filePath,
+        line: safeLine,
+        column: safeColumn,
+      },
+    });
+  },
+
+  clearPendingReveal: () => set({ pendingReveal: null }),
 
   addTab: (tab) => {
     const newTab: FileTab = { ...tab, isDirty: false };
