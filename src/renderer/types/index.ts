@@ -1,3 +1,5 @@
+import type { ShortcutCombo, ShortcutOverrideMap } from '../data/keyboardShortcuts';
+
 export type AppLanguage = 'system' | 'en' | 'es';
 
 export type BuiltInLanguage =
@@ -136,6 +138,13 @@ export interface SettingsState {
   language: AppLanguage;
   lastSeenVersion: string | null;
   hasCompletedTour: boolean;
+  /**
+   * User-defined keyboard shortcut overrides keyed by shortcut id. Missing
+   * entries fall back to the catalog defaults in `keyboardShortcuts.ts`.
+   * Theme preset import/export intentionally does NOT touch this map — the
+   * same rationale that keeps loopProtection/restoreSession out of presets.
+   */
+  shortcutOverrides: ShortcutOverrideMap;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -169,6 +178,9 @@ export interface SettingsState {
   setLanguage: (language: AppLanguage) => void;
   setLastSeenVersion: (version: string | null) => void;
   setHasCompletedTour: (value: boolean) => void;
+  setShortcutOverride: (id: string, combos: readonly ShortcutCombo[]) => void;
+  clearShortcutOverride: (id: string) => void;
+  resetShortcutOverrides: () => void;
 }
 
 // --- Runner Types ---

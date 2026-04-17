@@ -1,4 +1,11 @@
-import { useEffect, useEffectEvent } from 'react';
+import { useEffect, useEffectEvent, useMemo } from 'react';
+import {
+  KEYBOARD_SHORTCUTS,
+  matchesCombo,
+  resolveCombos,
+  type ShortcutDefinition,
+} from '../data/keyboardShortcuts';
+import { useSettingsStore } from '../stores/settingsStore';
 
 export type AppOverlay =
   | 'none'
@@ -27,103 +34,72 @@ interface UseGlobalShortcutsOptions {
   closeOverlay: () => void;
 }
 
-export function useGlobalShortcuts({
-  isRunning,
-  run,
-  stop,
-  saveActiveTab,
-  saveActiveTabAs,
-  openFileFromDisk,
-  closeActiveTab,
-  toggleSidebar,
-  toggleConsole,
-  overlay,
-  toggleOverlay,
-  closeOverlay,
-}: UseGlobalShortcutsOptions) {
-  const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
-    const mod = event.metaKey || event.ctrlKey;
-    const key = event.key.toLowerCase();
+type ShortcutHandler = (event: KeyboardEvent) => void;
 
-    if (mod && !event.shiftKey && event.key === 'Enter') {
-      event.preventDefault();
-      if (isRunning) {
-        stop();
-      } else {
-        void run();
+/**
+ * Actions dispatched when a catalogued shortcut matches. Keeping this keyed
+ * by the catalog's id (instead of hardcoded combo branches) is what lets
+ * per-user overrides work without a second rebinding path. The Escape /
+ * overlay-close case is handled separately because it has overlay-aware
+ * gating that the generic matcher doesn't need to know about.
+ */
+function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, ShortcutHandler> {
+  const { run, stop, isRunning } = options;
+  return {
+    'run-toggle': () => {
+      if (isRunning) stop();
+      else void run();
+    },
+    'file-save': () => {
+      void options.saveActiveTab();
+    },
+    'file-save-as': () => {
+      void options.saveActiveTabAs();
+    },
+    'file-open': () => {
+      void options.openFileFromDisk();
+    },
+    'file-close-tab': () => {
+      void options.closeActiveTab();
+    },
+    'nav-quick-open': () => options.toggleOverlay('quick-open'),
+    'nav-go-to-symbol': () => options.toggleOverlay('go-to-symbol'),
+    'nav-project-search': () => options.toggleOverlay('search'),
+    'overlay-command-palette': () => options.toggleOverlay('palette'),
+    'overlay-settings': () => options.toggleOverlay('settings'),
+    'view-toggle-sidebar': () => options.toggleSidebar(),
+    'view-toggle-console': () => options.toggleConsole(),
+  };
+}
+
+export function useGlobalShortcuts(options: UseGlobalShortcutsOptions) {
+  const overrides = useSettingsStore((state) => state.shortcutOverrides);
+
+  const dispatchable = useMemo<readonly ShortcutDefinition[]>(
+    () => KEYBOARD_SHORTCUTS.filter((entry) => entry.id !== 'overlay-close'),
+    []
+  );
+
+  const handleKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    // Escape is handled separately so it only fires when an overlay is open,
+    // which avoids stealing the key from text inputs elsewhere in the app.
+    if (event.key === 'Escape') {
+      if (options.overlay !== 'none') {
+        event.preventDefault();
+        options.closeOverlay();
       }
       return;
     }
 
-    if (mod && event.shiftKey && key === 's') {
+    const actions = buildActionMap(options);
+    for (const definition of dispatchable) {
+      const combos = resolveCombos(definition, overrides);
+      if (!combos.some((combo) => matchesCombo(event, combo))) continue;
+      const action = actions[definition.id];
+      if (!action) continue;
       event.preventDefault();
-      void saveActiveTabAs();
+      action(event);
       return;
-    }
-
-    if (mod && !event.shiftKey && key === 's') {
-      event.preventDefault();
-      void saveActiveTab();
-      return;
-    }
-
-    if (mod && !event.shiftKey && key === 'o') {
-      event.preventDefault();
-      void openFileFromDisk();
-      return;
-    }
-
-    if (mod && !event.shiftKey && key === 'w') {
-      event.preventDefault();
-      void closeActiveTab();
-      return;
-    }
-
-    if (mod && !event.shiftKey && key === 'b') {
-      event.preventDefault();
-      toggleSidebar();
-      return;
-    }
-
-    if (mod && !event.shiftKey && event.key === '\\') {
-      event.preventDefault();
-      toggleConsole();
-      return;
-    }
-
-    if (mod && !event.shiftKey && key === 'p') {
-      event.preventDefault();
-      toggleOverlay('quick-open');
-      return;
-    }
-
-    if (mod && event.shiftKey && key === 'p') {
-      event.preventDefault();
-      toggleOverlay('palette');
-      return;
-    }
-
-    if (mod && event.shiftKey && key === 'f') {
-      event.preventDefault();
-      toggleOverlay('search');
-      return;
-    }
-
-    if (mod && event.shiftKey && key === 'o') {
-      event.preventDefault();
-      toggleOverlay('go-to-symbol');
-      return;
-    }
-
-    if (mod && !event.shiftKey && event.key === ',') {
-      event.preventDefault();
-      toggleOverlay('settings');
-      return;
-    }
-
-    if (event.key === 'Escape' && overlay !== 'none') {
-      event.preventDefault();
-      closeOverlay();
     }
   });
 
@@ -131,7 +107,6 @@ export function useGlobalShortcuts({
     const listener = (event: KeyboardEvent) => {
       handleKeyDown(event);
     };
-
     window.addEventListener('keydown', listener);
     return () => window.removeEventListener('keydown', listener);
   }, [handleKeyDown]);

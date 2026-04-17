@@ -1,9 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcuts/KeyboardShortcutsModal';
+import { useSettingsStore } from '@/stores/settingsStore';
+import { useUIStore } from '@/stores/uiStore';
 
 vi.mock('@/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -24,16 +26,15 @@ vi.mock('@/components/ui/chrome', () => ({
 
 describe('KeyboardShortcutsModal', () => {
   beforeEach(async () => {
-    (globalThis as unknown as { window: { lingua?: { platform: string } } }).window = {
-      ...(globalThis as unknown as { window: Window }).window,
-      lingua: { platform: 'linux' },
-    } as unknown as Window;
+    (window as unknown as { lingua?: { platform: string } }).lingua = { platform: 'linux' };
     Object.defineProperty(window.navigator, 'platform', {
       configurable: true,
       value: 'Linux x86_64',
     });
     initI18n('en');
     await i18next.changeLanguage('en');
+    useSettingsStore.getState().resetShortcutOverrides();
+    useUIStore.getState().dismissStatusNotice();
   });
 
   it('renders the catalog grouped into sections with rendered combos', () => {
@@ -60,10 +61,7 @@ describe('KeyboardShortcutsModal', () => {
   });
 
   it('renders mac glyph combos in the web build when the browser runs on macOS', () => {
-    (globalThis as unknown as { window: { lingua?: { platform: string } } }).window = {
-      ...(globalThis as unknown as { window: Window }).window,
-      lingua: { platform: 'web' },
-    } as unknown as Window;
+    (window as unknown as { lingua?: { platform: string } }).lingua = { platform: 'web' };
     Object.defineProperty(window.navigator, 'platform', {
       configurable: true,
       value: 'MacIntel',
@@ -81,6 +79,71 @@ describe('KeyboardShortcutsModal', () => {
     await user.type(screen.getByLabelText('Search shortcuts'), 'zzzzzz');
 
     expect(screen.getByText('No shortcuts match "zzzzzz".')).toBeTruthy();
+  });
+
+  it('records a new combo when the user presses keys while editing a row', async () => {
+    const user = userEvent.setup();
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+
+    await user.click(screen.getByTestId('shortcut-edit-view-toggle-sidebar'));
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'j', ctrlKey: true, shiftKey: true });
+    });
+
+    const overrides = useSettingsStore.getState().shortcutOverrides;
+    expect(overrides['view-toggle-sidebar']?.[0].tokens).toEqual(['Mod', 'Shift', 'J']);
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('shortcuts.editor.rebound');
+  });
+
+  it('refuses to record a combo that is already bound and surfaces a notice', async () => {
+    const user = userEvent.setup();
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+
+    await user.click(screen.getByTestId('shortcut-edit-view-toggle-sidebar'));
+
+    await act(async () => {
+      // Mod+S is bound to file-save in the default catalog
+      fireEvent.keyDown(window, { key: 's', ctrlKey: true });
+    });
+
+    expect(useSettingsStore.getState().shortcutOverrides['view-toggle-sidebar']).toBeUndefined();
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('shortcuts.editor.conflict');
+  });
+
+  it('rejects plain typing keys so shortcuts do not steal editor input', async () => {
+    const user = userEvent.setup();
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+
+    await user.click(screen.getByTestId('shortcut-edit-view-toggle-sidebar'));
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'j' });
+    });
+
+    expect(useSettingsStore.getState().shortcutOverrides['view-toggle-sidebar']).toBeUndefined();
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('shortcuts.editor.invalidCombo');
+  });
+
+  it('reset-all clears every override', async () => {
+    useSettingsStore
+      .getState()
+      .setShortcutOverride('view-toggle-sidebar', [{ tokens: ['Mod', 'Shift', 'B'] }]);
+    useSettingsStore
+      .getState()
+      .setShortcutOverride('view-toggle-console', [{ tokens: ['Mod', 'Shift', 'Backslash'] }]);
+
+    const user = userEvent.setup();
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+
+    await user.click(screen.getByTestId('shortcut-reset-all'));
+
+    expect(useSettingsStore.getState().shortcutOverrides).toEqual({});
+  });
+
+  it('hides the Edit affordance for the Escape / close-overlay shortcut', () => {
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+    expect(screen.queryByTestId('shortcut-edit-overlay-close')).toBeNull();
   });
 
   it('fires onClose when the close affordance is clicked', async () => {

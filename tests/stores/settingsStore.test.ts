@@ -187,6 +187,67 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().hasCompletedTour).toBe(true);
   });
 
+  it('defaults shortcutOverrides to an empty map', () => {
+    expect(useSettingsStore.getState().shortcutOverrides).toEqual({});
+  });
+
+  it('setShortcutOverride stores combos keyed by shortcut id', () => {
+    useSettingsStore.getState().setShortcutOverride('view-toggle-sidebar', [
+      { tokens: ['Mod', 'Shift', 'B'] },
+    ]);
+    const overrides = useSettingsStore.getState().shortcutOverrides;
+    expect(overrides['view-toggle-sidebar']?.[0].tokens).toEqual(['Mod', 'Shift', 'B']);
+  });
+
+  it('clearShortcutOverride removes a single entry without touching the rest', () => {
+    useSettingsStore.getState().setShortcutOverride('view-toggle-sidebar', [
+      { tokens: ['Mod', 'Shift', 'B'] },
+    ]);
+    useSettingsStore.getState().setShortcutOverride('file-save', [
+      { tokens: ['Mod', 'Alt', 'S'] },
+    ]);
+    useSettingsStore.getState().clearShortcutOverride('file-save');
+    const overrides = useSettingsStore.getState().shortcutOverrides;
+    expect(overrides['file-save']).toBeUndefined();
+    expect(overrides['view-toggle-sidebar']).toBeDefined();
+  });
+
+  it('resetShortcutOverrides empties the map', () => {
+    useSettingsStore.getState().setShortcutOverride('file-save', [
+      { tokens: ['Mod', 'Alt', 'S'] },
+    ]);
+    useSettingsStore.getState().resetShortcutOverrides();
+    expect(useSettingsStore.getState().shortcutOverrides).toEqual({});
+  });
+
+  it('drops malformed shortcut overrides during rehydration', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: {
+          shortcutOverrides: {
+            'view-toggle-sidebar': [{ tokens: ['Mod', 'Shift', 'B'] }],
+            'unknown-id': [{ tokens: ['Mod', 'Q'] }],
+            'file-save': 'not-an-array',
+            'nav-quick-open': [{ tokens: [] }],
+            'view-toggle-console': [{ tokens: ['J'] }],
+          },
+        },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    const overrides = useSettingsStore.getState().shortcutOverrides;
+    expect(Object.keys(overrides)).toEqual(['view-toggle-sidebar']);
+    expect(overrides['view-toggle-sidebar']?.[0].tokens).toEqual(['Mod', 'Shift', 'B']);
+  });
+
   it('should ignore an invalid persisted language during rehydration', async () => {
     localStorage.setItem(
       'lingua-settings',

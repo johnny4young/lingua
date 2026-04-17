@@ -1447,9 +1447,9 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Font panel, theme preset import/export, result/console theme alignment, and a read-only keyboard-shortcut reference completed on 2026-04-17; editable shortcut editor, Vim, macros, and alternate keymaps still pending`
+- Readiness: `Font panel, theme preset import/export, result/console theme alignment, read-only reference, and an editable shortcut mapper completed on 2026-04-17; Vim mode, macros, and alternate keymap packs still pending`
 - Scope:
-  - Shortcut editor (read-only reference ✅ — editable shortcut mapper pending)
+  - Shortcut editor (read-only reference ✅ — editable shortcut mapper ✅)
   - custom keymaps
   - theme import/export ✅
   - Vim mode
@@ -1468,9 +1468,10 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Dropdown entries surface ligature-capable fonts with a `(ligatures)` tag so the honest capability is discoverable at selection time
   - Theme preset import/export ships under a new row in Settings: export writes a versioned JSON document (appearance, typography, layout) via the existing `fs.saveDialog` bridge, and import validates the schema with discriminated failures (`invalid-json`, `invalid-shape`, `unsupported-version`) surfaced through the shared status-notice pipeline. A new `applyThemePreset` settings action intentionally leaves safety prefs (loopProtection, formatOnSave, restoreSession) untouched so shared presets cannot override local workflow preferences
   - Shell polarity now follows the selected editor theme by default via a new `syncShellWithEditorTheme` setting: picking VS Light or Solarized Light auto-flips the console and run-result panels to light so the editor and surrounding surfaces stay visually consistent. Users who prefer the old mixed look can flip the toggle off and keep the explicit shell theme. The theme preset schema is now v2 with the new flag; v1 legacy exports continue to import cleanly and inherit the default-true sync behavior
-  - A read-only keyboard-shortcut reference ships under a new `keyboard-shortcuts` overlay reachable from the command palette (`Open Keyboard Shortcuts`). A declarative catalog in `src/renderer/data/keyboardShortcuts.ts` drives the modal — shortcuts are grouped (Run, File, Navigation, Overlays, View), render platform-aware combos (⌘ glyph on macOS, word-form `Ctrl+Shift+X` elsewhere), and are searchable by label, keyword, or keystroke. The modal is the foundation for the future editable shortcut editor; dispatch still lives in `useGlobalShortcuts` and is untouched by this slice
+  - A read-only keyboard-shortcut reference ships under a new `keyboard-shortcuts` overlay reachable from the command palette (`Open Keyboard Shortcuts`). A declarative catalog in `src/renderer/data/keyboardShortcuts.ts` drives the modal — shortcuts are grouped (Run, File, Navigation, Overlays, View), render platform-aware combos (⌘ glyph on macOS, word-form `Ctrl+Shift+X` elsewhere), and are searchable by label, keyword, or keystroke
+  - The reference is now an editor: each row has an inline Edit affordance that records the next non-modifier keydown, normalizes it to the catalog's token vocabulary, and writes it to a new `shortcutOverrides` map on the settings store. Overrides persist (sanitized on rehydrate to drop unknown ids / malformed entries), survive app relaunches, and leave theme-preset import/export untouched on purpose. Conflict detection checks the resolved combo set (defaults + overrides) and refuses duplicate bindings with a status notice, keeping the store untouched. Per-row and global reset affordances restore defaults. The Escape / close-overlay binding is intentionally non-editable so users can always dismiss modals. `useGlobalShortcuts` now iterates the catalog through a shared `resolveCombos`/`matchesCombo` pair, so defaults and user bindings follow the same dispatch path
 - Acceptance criteria:
-  - Users can customize shortcuts without editing source files (pending shortcut-editor slice)
+  - Users can customize shortcuts without editing source files ✅
   - At least one custom theme pack and one alternate keymap ship from the first rollout (pending)
 - Dependencies:
   - RL-018
