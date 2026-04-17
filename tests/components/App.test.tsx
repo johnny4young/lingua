@@ -1,5 +1,5 @@
 import { StrictMode } from 'react';
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -65,6 +65,7 @@ const mockSettingsState = {
   restoreSession: true,
   lastSeenVersion: null as string | null,
   hasCompletedTour: false,
+  suppressTourAutoStart: false,
   setLastSeenVersion: mockSetLastSeenVersion,
   setHasCompletedTour: mockSetHasCompletedTour,
 };
@@ -174,10 +175,20 @@ vi.mock('../../src/renderer/stores/settingsStore', () => ({
 }));
 
 vi.mock('../../src/renderer/stores/uiStore', () => ({
-  useUIStore: () => ({
-    toggleSidebar: vi.fn(),
-    toggleConsole: vi.fn(),
-  }),
+  useUIStore: (selector?: (state: {
+    toggleSidebar: ReturnType<typeof vi.fn>;
+    toggleConsole: ReturnType<typeof vi.fn>;
+    statusNotice: null;
+    dismissStatusNotice: ReturnType<typeof vi.fn>;
+  }) => unknown) => {
+    const state = {
+      toggleSidebar: vi.fn(),
+      toggleConsole: vi.fn(),
+      statusNotice: null,
+      dismissStatusNotice: vi.fn(),
+    };
+    return selector ? selector(state) : state;
+  },
 }));
 
 vi.mock('../../src/renderer/stores/updateStore', () => ({
@@ -197,6 +208,7 @@ describe('App', () => {
     mockSettingsState.restoreSession = true;
     mockSettingsState.lastSeenVersion = null;
     mockSettingsState.hasCompletedTour = false;
+    mockSettingsState.suppressTourAutoStart = false;
     mockEditorState.activeTabId = 'tab-1';
     mockEditorState.tabs = [];
     mockEditorState.saveTabById.mockResolvedValue(true);
@@ -280,6 +292,39 @@ describe('App', () => {
     await waitFor(() => {
       expect(mockStartTour).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('does not auto-start later in the same session after startup suppression was enabled', async () => {
+    vi.useFakeTimers();
+    try {
+      mockSettingsState.lastSeenVersion = '0.1.0';
+      mockSettingsState.suppressTourAutoStart = true;
+
+      const { rerender } = render(
+        <StrictMode>
+          <App />
+        </StrictMode>
+      );
+
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+      expect(mockStartTour).not.toHaveBeenCalled();
+
+      mockSettingsState.suppressTourAutoStart = false;
+      rerender(
+        <StrictMode>
+          <App />
+        </StrictMode>
+      );
+
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+      expect(mockStartTour).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('saves untitled dirty tabs before forcing close', async () => {

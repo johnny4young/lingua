@@ -64,6 +64,7 @@ function AppChrome({
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const lastSeenVersion = useSettingsStore((s) => s.lastSeenVersion);
   const setLastSeenVersion = useSettingsStore((s) => s.setLastSeenVersion);
+  const suppressTourAutoStart = useSettingsStore((s) => s.suppressTourAutoStart);
   const { toggleSidebar, toggleConsole } = useUIStore();
   const initializePlugins = usePluginStore((s) => s.initialize);
   const initializeUpdates = useUpdateStore((s) => s.initialize);
@@ -158,7 +159,16 @@ function AppChrome({
       return;
     }
 
-    if (!appInfo?.version || overlay !== 'none' || hasCompletedTour) {
+    if (!appInfo?.version) {
+      return;
+    }
+
+    if (suppressTourAutoStart) {
+      hasHandledAutoTourRef.current = true;
+      return;
+    }
+
+    if (overlay !== 'none' || hasCompletedTour) {
       return;
     }
 
@@ -170,7 +180,15 @@ function AppChrome({
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [appInfo?.version, hasCompletedTour, hasHandledDeepLink, overlay, startTour, smokeEnabled]);
+  }, [
+    appInfo?.version,
+    hasCompletedTour,
+    suppressTourAutoStart,
+    hasHandledDeepLink,
+    overlay,
+    startTour,
+    smokeEnabled,
+  ]);
 
   // Auto-run code after the configured idle debounce
   useAutoRun();

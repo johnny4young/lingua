@@ -459,6 +459,16 @@
     @apply border-transparent bg-transparent text-muted hover:border-border/70 hover:bg-surface-strong/72 hover:text-foreground;
   }
 
+  .guided-tour-dont-show-again {
+    @apply inline-flex cursor-pointer select-none items-center gap-2 text-xs text-muted;
+    margin-right: auto;
+  }
+
+  .guided-tour-dont-show-again-input {
+    @apply h-4 w-4 cursor-pointer rounded border bg-transparent accent-primary;
+    border-color: color-mix(in srgb, var(--app-border) 85%, transparent);
+  }
+
   .guided-tour-target {
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--app-primary) 82%, transparent),
