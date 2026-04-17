@@ -25,6 +25,7 @@ export const useSettingsStore = create<SettingsState>()(
       hideUndefined: true,
       restoreSession: false,
       formatOnSave: false,
+      syncShellWithEditorTheme: true,
       language: 'system',
       lastSeenVersion: null,
       hasCompletedTour: false,
@@ -43,15 +44,19 @@ export const useSettingsStore = create<SettingsState>()(
       toggleHideUndefined: () => set((s) => ({ hideUndefined: !s.hideUndefined })),
       toggleRestoreSession: () => set((s) => ({ restoreSession: !s.restoreSession })),
       toggleFormatOnSave: () => set((s) => ({ formatOnSave: !s.formatOnSave })),
+      toggleSyncShellWithEditorTheme: () =>
+        set((s) => ({ syncShellWithEditorTheme: !s.syncShellWithEditorTheme })),
       applyThemePreset: (preset) =>
-        set({
+        set((state) => ({
           theme: preset.theme,
           editorTheme: preset.editorTheme,
           fontFamily: preset.fontFamily,
           fontSize: preset.fontSize,
           fontLigatures: preset.fontLigatures,
           layoutPreset: preset.layoutPreset,
-        }),
+          syncShellWithEditorTheme:
+            preset.syncShellWithEditorTheme ?? state.syncShellWithEditorTheme,
+        })),
       setLanguage: (language) => set({ language }),
       setLastSeenVersion: (lastSeenVersion) => set({ lastSeenVersion }),
       setHasCompletedTour: (hasCompletedTour) => set({ hasCompletedTour }),
@@ -74,6 +79,7 @@ export const useSettingsStore = create<SettingsState>()(
         hideUndefined: state.hideUndefined,
         restoreSession: state.restoreSession,
         formatOnSave: state.formatOnSave,
+        syncShellWithEditorTheme: state.syncShellWithEditorTheme,
         language: state.language,
         lastSeenVersion: state.lastSeenVersion,
         hasCompletedTour: state.hasCompletedTour,

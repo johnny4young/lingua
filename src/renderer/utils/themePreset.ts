@@ -1,6 +1,13 @@
 import type { LayoutPreset, SettingsState } from '../types';
 
-export const THEME_PRESET_VERSION = 1;
+export const THEME_PRESET_VERSION = 2;
+
+/**
+ * Known schema versions this build can parse. Writing always targets
+ * `THEME_PRESET_VERSION`; reading accepts any version in this set and fills
+ * in defaults for fields added after the original shape shipped.
+ */
+const SUPPORTED_PRESET_VERSIONS: readonly number[] = [1, 2];
 
 export type ThemePresetParseFailure =
   | 'invalid-json'
@@ -12,6 +19,11 @@ export interface ThemePreset {
   appearance: {
     theme: SettingsState['theme'];
     editorTheme: string;
+    /**
+     * Added in v2. When importing a v1 preset we inject `true` so existing
+     * exports keep the new default behavior without users noticing drift.
+     */
+    syncShellWithEditorTheme: boolean;
   };
   typography: {
     fontFamily: string;
@@ -25,7 +37,13 @@ export interface ThemePreset {
 
 export type ThemePresetInputs = Pick<
   SettingsState,
-  'theme' | 'editorTheme' | 'fontFamily' | 'fontSize' | 'fontLigatures' | 'layoutPreset'
+  | 'theme'
+  | 'editorTheme'
+  | 'fontFamily'
+  | 'fontSize'
+  | 'fontLigatures'
+  | 'layoutPreset'
+  | 'syncShellWithEditorTheme'
 >;
 
 const LAYOUT_PRESETS: readonly LayoutPreset[] = ['horizontal', 'vertical', 'editor-only'];
@@ -48,6 +66,7 @@ export function buildThemePreset(input: ThemePresetInputs): ThemePreset {
     appearance: {
       theme: input.theme,
       editorTheme: input.editorTheme,
+      syncShellWithEditorTheme: input.syncShellWithEditorTheme,
     },
     typography: {
       fontFamily: input.fontFamily,
@@ -111,7 +130,10 @@ export function parseThemePreset(raw: string): ParseThemePresetResult {
   }
 
   const candidate = value as Record<string, unknown>;
-  if (candidate.version !== THEME_PRESET_VERSION) {
+  if (
+    typeof candidate.version !== 'number' ||
+    !SUPPORTED_PRESET_VERSIONS.includes(candidate.version)
+  ) {
     return {
       ok: false,
       reason: 'unsupported-version',
@@ -141,6 +163,14 @@ export function parseThemePreset(raw: string): ParseThemePresetResult {
     return { ok: false, reason: 'invalid-shape' };
   }
 
+  // `syncShellWithEditorTheme` was added in v2. v1 exports predate the
+  // setting entirely; defaulting to `true` matches the runtime default so
+  // a re-imported legacy preset behaves identically to a brand-new install.
+  const syncShellWithEditorTheme =
+    typeof appearance.syncShellWithEditorTheme === 'boolean'
+      ? appearance.syncShellWithEditorTheme
+      : true;
+
   return {
     ok: true,
     preset: {
@@ -148,6 +178,7 @@ export function parseThemePreset(raw: string): ParseThemePresetResult {
       appearance: {
         theme: appearance.theme,
         editorTheme: appearance.editorTheme,
+        syncShellWithEditorTheme,
       },
       typography: {
         fontFamily: typography.fontFamily,

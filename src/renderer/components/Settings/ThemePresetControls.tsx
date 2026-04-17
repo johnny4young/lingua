@@ -38,6 +38,7 @@ export function ThemePresetControls() {
       fontSize: settings.fontSize,
       fontLigatures: settings.fontLigatures,
       layoutPreset: settings.layoutPreset,
+      syncShellWithEditorTheme: settings.syncShellWithEditorTheme,
     });
     const serialized = serializeThemePreset(preset);
 
@@ -98,6 +99,7 @@ export function ThemePresetControls() {
       applyThemePreset({
         theme: result.preset.appearance.theme,
         editorTheme: result.preset.appearance.editorTheme,
+        syncShellWithEditorTheme: result.preset.appearance.syncShellWithEditorTheme,
         fontFamily: result.preset.typography.fontFamily,
         fontSize: result.preset.typography.fontSize,
         fontLigatures: result.preset.typography.fontLigatures,
