@@ -11,7 +11,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { GuidedTourContext } from './guidedTourContext';
 import { GUIDED_TOUR_SELECTORS, waitForGuidedTourSelector } from './guidedTourSelectors';
-import { buildGuidedTourSteps } from './guidedTourSteps';
+import { attachDontShowAgain, buildGuidedTourSteps } from './guidedTourSteps';
 
 interface GuidedTourControls {
   closeOverlay: () => void;
@@ -65,8 +65,34 @@ function GuidedTourRuntime({
         openSnippets: controls.openSnippets,
         ensureConsoleVisible: () => useUIStore.getState().setConsoleVisible(true),
         ensureSidebarVisible: () => useUIStore.getState().setSidebarVisible(true),
+        getSuppressTourAutoStart: () =>
+          useSettingsStore.getState().suppressTourAutoStart,
+        setSuppressTourAutoStart: (value) =>
+          useSettingsStore.getState().setSuppressTourAutoStart(value),
       })
     );
+
+    // Shepherd's step lifecycle hooks fire before the step DOM is actually
+    // mounted under some configurations, so we watch the document for any
+    // `.shepherd-footer` that appears and inject the "Don't show again"
+    // checkbox there. `attachDontShowAgain` is idempotent (skips if already
+    // present) so it stays safe to call multiple times per step.
+    const observer = new MutationObserver(() => {
+      const currentStep = tour.getCurrentStep();
+      if (currentStep) {
+        attachDontShowAgain(
+          currentStep,
+          t,
+          () => useSettingsStore.getState().suppressTourAutoStart,
+          (value) => useSettingsStore.getState().setSuppressTourAutoStart(value)
+        );
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    const disposeObserver = () => observer.disconnect();
+    tour.on('complete', disposeObserver);
+    tour.on('cancel', disposeObserver);
 
     tour.on('start', () => {
       setIsTourActive(true);

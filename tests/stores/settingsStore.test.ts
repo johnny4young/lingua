@@ -161,6 +161,14 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().hasCompletedTour).toBe(false);
   });
 
+  it('should default suppressTourAutoStart to false and persist toggles', () => {
+    expect(useSettingsStore.getState().suppressTourAutoStart).toBe(false);
+    useSettingsStore.getState().setSuppressTourAutoStart(true);
+    expect(useSettingsStore.getState().suppressTourAutoStart).toBe(true);
+    useSettingsStore.getState().setSuppressTourAutoStart(false);
+    expect(useSettingsStore.getState().suppressTourAutoStart).toBe(false);
+  });
+
   it('should set language to es', () => {
     useSettingsStore.getState().setLanguage('es');
     expect(useSettingsStore.getState().language).toBe('es');

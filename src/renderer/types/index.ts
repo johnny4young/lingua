@@ -139,6 +139,14 @@ export interface SettingsState {
   lastSeenVersion: string | null;
   hasCompletedTour: boolean;
   /**
+   * When true, the guided tour is never auto-started on app launch. Set when
+   * the user ticks "Don't show again" inside a tour step, or toggles the
+   * matching switch in Settings. `hasCompletedTour` still tracks whether the
+   * tour ran to the end — the two flags are intentionally independent so a
+   * user who skipped can re-enable auto-start later.
+   */
+  suppressTourAutoStart: boolean;
+  /**
    * User-defined keyboard shortcut overrides keyed by shortcut id. Missing
    * entries fall back to the catalog defaults in `keyboardShortcuts.ts`.
    * Theme preset import/export intentionally does NOT touch this map — the
@@ -178,6 +186,7 @@ export interface SettingsState {
   setLanguage: (language: AppLanguage) => void;
   setLastSeenVersion: (version: string | null) => void;
   setHasCompletedTour: (value: boolean) => void;
+  setSuppressTourAutoStart: (value: boolean) => void;
   setShortcutOverride: (id: string, combos: readonly ShortcutCombo[]) => void;
   clearShortcutOverride: (id: string) => void;
   resetShortcutOverrides: () => void;
