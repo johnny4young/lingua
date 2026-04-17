@@ -98,7 +98,7 @@
   "editor.restoreSession.label": "Reopen last session",
   "editor.restoreSession.hint": "Restore tabs from the previous session on restart.",
   "editor.formatOnSave.label": "Format on save",
-  "editor.formatOnSave.hint": "Run Prettier for JavaScript, TypeScript, JSON, and CSS, and gofmt / rustfmt for Go and Rust, before writing the file.",
+  "editor.formatOnSave.hint": "Run Prettier for JavaScript, TypeScript, JSON, and CSS, gofmt / rustfmt for Go and Rust, and ruff (falling back to black) for Python before writing the file.",
   "editor.formatOnSave.parseError": "Could not format {{name}} — saved the original content.",
   "editor.formatOnSave.binaryMissing": "Formatter binary missing for {{name}} — saved the original content.",
   "editor.formatOnSave.webUnavailable": "Formatting {{name}} is desktop-only — saved the original content.",

@@ -69,7 +69,7 @@ The matrix below rates each capability against these five classes:
 | Plugin discovery/load  | Stub         | Stub                | Research     | **Primary**    | —      | Desktop native with a bundled allowlist | `src/main/plugins.ts` loads from disk via IPC. Plugins from untrusted sources would need a sandbox story before any WebContainer migration |
 | Deep-link protocol     | Out          | Out                 | Out          | **Primary**    | —      | Desktop native | `lingua://` protocol (see RL-040). Browsers cannot register custom protocols for the PWA without OS-level install |
 | Local AI inference     | Research     | Out                 | Out          | Research       | Research | Hybrid (undecided) | Tracked in RL-031. Browser WASM via transformers.js or webllm is viable for tiny models; larger models need desktop native with a local runtime (Ollama, llama.cpp). Decision pending a dedicated spike |
-| Formatter binaries     | Out          | Out                 | Research     | **Primary**    | —      | Desktop native for gofmt / rustfmt; browser interpreter for Prettier | Desktop spawns gofmt and rustfmt via `src/main/formatters.ts`. Prettier runs in the renderer via `prettier/standalone` for JS / TS / JSON / CSS in both web and desktop |
+| Formatter binaries     | Out          | Out                 | Research     | **Primary**    | —      | Desktop native for gofmt / rustfmt / Python; browser interpreter for Prettier | Desktop spawns gofmt, rustfmt, and Python formatters (`ruff format -` preferred, `black --quiet -` fallback) via `src/main/formatters.ts`. Prettier runs in the renderer via `prettier/standalone` for JS / TS / JSON / CSS in both web and desktop |
 
 ## Per-capability decision record
 

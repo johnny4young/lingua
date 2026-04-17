@@ -4,6 +4,7 @@ import { formatSource, isFormatterSupported } from '../../src/renderer/utils/for
 type FormatIpcBridge = {
   gofmt: (source: string) => Promise<FormatIpcResult>;
   rustfmt: (source: string) => Promise<FormatIpcResult>;
+  python: (source: string) => Promise<FormatIpcResult>;
 };
 
 function installFormatBridge(bridge: Partial<FormatIpcBridge>): void {
@@ -30,7 +31,7 @@ describe('formatters', () => {
     expect(isFormatterSupported('css')).toBe(true);
     expect(isFormatterSupported('go')).toBe(true);
     expect(isFormatterSupported('rust')).toBe(true);
-    expect(isFormatterSupported('python')).toBe(false);
+    expect(isFormatterSupported('python')).toBe(true);
     expect(isFormatterSupported('yaml')).toBe(false);
   });
 
@@ -131,6 +132,57 @@ describe('formatters', () => {
     if (result.ok) {
       expect(result.formatted).toBe('package main\n');
       expect(result.changed).toBe(true);
+    }
+  });
+
+  it('routes Python through the IPC bridge and returns formatted output', async () => {
+    installFormatBridge({
+      python: async (source: string) => ({
+        available: true,
+        success: true,
+        formatted: source.replace(/\s*=\s*/g, ' = '),
+      }),
+    });
+
+    const result = await formatSource('python', 'x=1');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.formatted).toBe('x = 1');
+      expect(result.changed).toBe(true);
+    }
+  });
+
+  it('surfaces Python parse errors through the parse-error failure branch', async () => {
+    installFormatBridge({
+      python: async () => ({
+        available: true,
+        success: false,
+        error: 'error: invalid syntax on line 1',
+      }),
+    });
+
+    const result = await formatSource('python', 'def broken(');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure).toBe('parse-error');
+      expect(result.message).toContain('invalid syntax');
+    }
+  });
+
+  it('reports Python binary-missing when neither ruff nor black is installed', async () => {
+    installFormatBridge({
+      python: async () => ({
+        available: false,
+        reason: 'binary-missing',
+        error: 'No Python formatter available on PATH.',
+      }),
+    });
+
+    const result = await formatSource('python', 'print(1)');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure).toBe('binary-missing');
+      expect(result.message).toContain('PATH');
     }
   });
 });
