@@ -1,5 +1,5 @@
 /**
- * Format IPC handlers for gofmt and rustfmt.
+ * Format IPC handlers for gofmt, rustfmt, and Python (ruff with black fallback).
  *
  * - Detects the binary lazily and caches the result for the process lifetime
  * - Pipes source via stdin to avoid creating temp files on the filesystem
@@ -125,6 +125,26 @@ async function formatWithRustfmt(source: string): Promise<FormatIpcResult> {
   return runFormatter('rustfmt', ['--emit', 'stdout', '--edition', '2021'], source);
 }
 
+/**
+ * Python formatting prefers `ruff format` (single binary, no deps, fast) and
+ * falls back to `black` when ruff is not installed. Both binaries support
+ * stdin → stdout with `-` as the target, so the runner contract is identical.
+ */
+async function formatWithPython(source: string): Promise<FormatIpcResult> {
+  if (await isBinaryAvailable('ruff')) {
+    return runFormatter('ruff', ['format', '-'], source);
+  }
+  if (await isBinaryAvailable('black')) {
+    return runFormatter('black', ['--quiet', '-'], source);
+  }
+  return {
+    available: false,
+    reason: 'binary-missing',
+    error:
+      'No Python formatter available on PATH. Install ruff (https://docs.astral.sh/ruff/) or black (https://pypi.org/project/black/) to enable Python formatting.',
+  };
+}
+
 /** Primarily for tests — lets suites reset the cached binary probe between cases. */
 export function resetFormatterAvailabilityCache(): void {
   availabilityCache.clear();
@@ -136,5 +156,8 @@ export function registerFormatterHandlers(): void {
   );
   ipcMain.handle('format:rustfmt', async (_event, source: string) =>
     formatWithRustfmt(source)
+  );
+  ipcMain.handle('format:python', async (_event, source: string) =>
+    formatWithPython(source)
   );
 }
