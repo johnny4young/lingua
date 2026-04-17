@@ -23,6 +23,7 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Curated developer fonts (JetBrains Mono, Fira Code, Cascadia Code, Source Code Pro, IBM Plex Mono, Consolas, Menlo, Monaco, Courier New, System Monospace) with a ligature toggle that self-disables for stacks without programmer ligatures, plus a live preview card in Settings
 - Theme preset export/import: save your editor theme, fonts, and layout as a versioned JSON file and share it between machines, with validation errors surfaced through the status banner (appearance/typography/layout only — safety prefs are never overridden by an imported preset)
 - Shell polarity follows the editor theme by default, so picking a light Monaco theme flips the console and run-result panels to light without a separate click; a Settings toggle keeps the legacy independent behavior one click away
+- Keyboard shortcut reference viewer reachable via the Command Palette (`Open Keyboard Shortcuts`), with a search filter, platform-aware combo rendering (⌘ on macOS, `Ctrl+...` elsewhere), and groups for Run / File / Navigation / Overlays / View
 - Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
 - CI plus manual deploy/release workflows
 - Repeatable desktop smoke validation with artifact output under `output/playwright/desktop-smoke`

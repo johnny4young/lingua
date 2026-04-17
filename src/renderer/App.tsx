@@ -8,6 +8,7 @@ import { CommandPalette } from './components/CommandPalette/CommandPalette';
 import { GoToSymbol } from './components/GoToSymbol/GoToSymbol';
 import { ProjectSearch } from './components/ProjectSearch/ProjectSearch';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardShortcutsModal';
 import { SnippetsModal } from './components/Snippets';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
 import { CHANGELOG_ENTRIES } from './data/changelog';
@@ -261,6 +262,7 @@ function AppChrome({
           onOpenProjectSearch={() => openOverlay('search')}
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
           onOpenDeveloperUtility={(utilityId) => openOverlay('utilities', utilityId)}
+          onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
         />
       )}
       {overlay === 'settings' && (
@@ -281,6 +283,9 @@ function AppChrome({
             initialUtilityId={selectedUtilityId}
           />
         </Suspense>
+      )}
+      {overlay === 'keyboard-shortcuts' && (
+        <KeyboardShortcutsModal onClose={closeOverlay} />
       )}
       <StatusNoticeBanner />
     </>
