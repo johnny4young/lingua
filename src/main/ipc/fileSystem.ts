@@ -172,6 +172,69 @@ export function registerFileSystemHandlers(): void {
       }));
   });
 
+  // ------------------------------------------------------ listAllFiles (index)
+
+  /**
+   * Recursively walk `rootPath` and return every visible file entry. Used by
+   * Quick Open to index the whole project — not just the expanded portion of
+   * the file tree. Directories themselves are omitted; only file leaves are
+   * returned so the renderer can build a flat searchable list.
+   *
+   * The walk is bounded: honours the same `shouldHide` filter as `fs:readdir`,
+   * skips symlinks/non-regular entries (to avoid cycles), and caps the total
+   * result size so a pathological project cannot starve the IPC channel.
+   */
+  ipcMain.handle(
+    'fs:listAllFiles',
+    async (_event, rootPath: string): Promise<FsIndexedFile[]> => {
+      if (isPathBlocked(rootPath, 'read')) {
+        throw new Error(
+          `Access denied: Cannot index protected path: ${rootPath}`
+        );
+      }
+
+      const MAX_FILES = 20_000;
+      const results: FsIndexedFile[] = [];
+
+      async function walk(dirPath: string) {
+        if (results.length >= MAX_FILES) return;
+
+        let entries;
+        try {
+          entries = await readdir(dirPath, { withFileTypes: true });
+        } catch {
+          // Unreadable directories (permissions, races) are skipped silently —
+          // the index is best-effort and individual failures should not abort
+          // the whole walk.
+          return;
+        }
+
+        for (const entry of entries) {
+          if (results.length >= MAX_FILES) return;
+          if (shouldHide(entry.name)) continue;
+
+          const entryPath = path.join(dirPath, entry.name);
+
+          if (entry.isDirectory()) {
+            await walk(entryPath);
+            continue;
+          }
+
+          if (!entry.isFile()) continue; // skip symlinks, sockets, etc.
+
+          results.push({
+            name: entry.name,
+            path: entryPath,
+            relativePath: path.relative(rootPath, entryPath),
+          });
+        }
+      }
+
+      await walk(rootPath);
+      return results;
+    }
+  );
+
   // ------------------------------------------------------------------ stat
 
   ipcMain.handle('fs:stat', async (_event, filePath: string) => {

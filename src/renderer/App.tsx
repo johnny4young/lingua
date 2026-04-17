@@ -15,6 +15,7 @@ import { useDesktopSmoke } from './hooks/useDesktopSmoke';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useAutoRun } from './hooks/useAutoRun';
+import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useEditorStore } from './stores/editorStore';
@@ -146,6 +147,7 @@ function AppChrome({
   // Auto-run code after the configured idle debounce
   useAutoRun();
   useProjectWatchSync();
+  useProjectIndexSync();
   useAppTheme();
   useDesktopSmoke(smokeEnabled);
 
