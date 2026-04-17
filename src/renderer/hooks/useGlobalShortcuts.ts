@@ -7,6 +7,7 @@ export type AppOverlay =
   | 'quick-open'
   | 'search'
   | 'go-to-symbol'
+  | 'utilities'
   | 'snippets'
   | 'whats-new';
 

@@ -2,6 +2,7 @@ import { Search, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
+import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
@@ -22,6 +23,7 @@ interface CommandPaletteProps {
   onOpenSnippets: () => void;
   onOpenProjectSearch?: () => void;
   onOpenGoToSymbol?: () => void;
+  onOpenDeveloperUtility?: (id: DeveloperUtilityId) => void;
 }
 
 export function CommandPalette({
@@ -32,6 +34,7 @@ export function CommandPalette({
   onOpenSnippets,
   onOpenProjectSearch,
   onOpenGoToSymbol,
+  onOpenDeveloperUtility,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -59,6 +62,7 @@ export function CommandPalette({
       onOpenSnippets,
       onOpenProjectSearch,
       onOpenGoToSymbol,
+      onOpenDeveloperUtility,
       checkForUpdates,
       restartToApply,
       openFileFromDisk,
@@ -79,6 +83,7 @@ export function CommandPalette({
     onOpenSnippets,
     onOpenProjectSearch,
     onOpenGoToSymbol,
+    onOpenDeveloperUtility,
     checkForUpdates,
     restartToApply,
     updateStatus,

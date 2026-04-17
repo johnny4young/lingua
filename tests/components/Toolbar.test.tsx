@@ -93,6 +93,7 @@ vi.mock('lucide-react', () => ({
   PanelLeft: () => null,
   PanelBottom: () => null,
   FolderOpen: () => <span data-testid="icon-folder-open">📂</span>,
+  Wrench: () => null,
 }));
 
 import { Toolbar } from '../../src/renderer/components/Toolbar/Toolbar';
@@ -260,5 +261,16 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: 'Nuevo JavaScript' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Menú de lenguaje para nuevo archivo' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Configuración (Cmd+,)' })).toBeTruthy();
+  });
+
+  it('opens developer utilities from the toolbar button', async () => {
+    const user = userEvent.setup();
+    const onOpenUtilities = vi.fn();
+
+    render(<Toolbar onOpenUtilities={onOpenUtilities} />);
+
+    await user.click(screen.getByRole('button', { name: 'Developer utilities' }));
+
+    expect(onOpenUtilities).toHaveBeenCalledOnce();
   });
 });

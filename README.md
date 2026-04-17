@@ -17,6 +17,7 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - Shared hover/focus tooltips across toolbar, editor tabs, console controls, command palette utilities, and file tree actions
 - About section in Settings with bundled product metadata, GitHub/license links, update entry points, and a linked What's New surface
 - Interactive guided tour for editor, console, explorer, snippets, and command palette onboarding, launchable from About or the Command Palette
+- Built-in developer utilities, available from the toolbar and Command Palette, for JSON formatting, Base64/URL transforms, UUID generation, hashing, timestamp conversion, and JWT decoding
 - Auto-run, magic comments, loop protection, and hide-undefined controls for dynamic languages
 - Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
 - CI plus manual deploy/release workflows
@@ -45,6 +46,19 @@ Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, 
 - App theme and editor theme stay independent: the shell uses the saved dark/light setting while Monaco uses its own editor theme selection
 - The saved app theme is applied before React mounts, so reloads reopen directly into the previous shell theme instead of flashing the wrong palette first
 - The renderer keeps `theme-color` in sync with the active shell theme for browser chrome and packaged-window surfaces that read it
+
+## Developer utilities
+
+- Open the utilities workspace from the toolbar wrench button or via Command Palette actions such as `Open JSON Formatter`
+- The current slice is lazy-loaded so it does not inflate the main editor bundle before you open it
+- Current utilities:
+  - JSON formatter / validator / tree viewer
+  - Base64 encode/decode
+  - URL encode/decode
+  - UUID generator
+  - Hash generator (`SHA-1`, `SHA-256`)
+  - Unix timestamp converter
+  - JWT decoder
 
 ## Runtime model
 
