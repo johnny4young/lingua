@@ -4,6 +4,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
+import { fontStackSupportsLigatures } from '../Settings/settingsOptions';
 import {
   configureMonaco,
   applyTypeScriptDefaults,
@@ -25,8 +26,15 @@ export function CodeEditor() {
   const { tabs, activeTabId, updateContent } = useEditorStore();
   const pendingReveal = useEditorStore((state) => state.pendingReveal);
   const clearPendingReveal = useEditorStore((state) => state.clearPendingReveal);
-  const { editorTheme, fontSize, fontFamily, showLineNumbers, wordWrap, minimap } =
-    useSettingsStore();
+  const {
+    editorTheme,
+    fontSize,
+    fontFamily,
+    fontLigatures,
+    showLineNumbers,
+    wordWrap,
+    minimap,
+  } = useSettingsStore();
   const lineResults = useResultStore((state) => state.lineResults);
   const diagnostics = useResultStore((state) => state.diagnostics);
   const executionSource = useResultStore((state) => state.executionSource);
@@ -35,6 +43,7 @@ export function CodeEditor() {
   const lastRevealedDiagnosticKeyRef = useRef<string | null>(null);
   const { applyDecorations, clearDecorations, applyDiagnostics, clearMarkers } =
     useInlineResults();
+  const effectiveFontLigatures = fontLigatures && fontStackSupportsLigatures(fontFamily);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -154,6 +163,7 @@ export function CodeEditor() {
       options={getEditorOptions({
         fontSize,
         fontFamily,
+        fontLigatures: effectiveFontLigatures,
         showLineNumbers,
         wordWrap,
         minimap,

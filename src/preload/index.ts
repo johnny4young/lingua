@@ -32,6 +32,14 @@ contextBridge.exposeInMainWorld('lingua', {
     run: (sourceCode: string) => ipcRenderer.invoke('rust:run', sourceCode),
   },
 
+  // Formatter IPC — gofmt / rustfmt pipe source via stdin
+  format: {
+    gofmt: (source: string) =>
+      ipcRenderer.invoke('format:gofmt', source) as Promise<FormatIpcResult>,
+    rustfmt: (source: string) =>
+      ipcRenderer.invoke('format:rustfmt', source) as Promise<FormatIpcResult>,
+  },
+
   // App lifecycle IPC
   confirmClose: (dirtyFileNames: string[], language?: string) =>
     ipcRenderer.invoke('app:confirm-close', dirtyFileNames, language) as Promise<number>,

@@ -289,18 +289,25 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-010 Add format-on-save
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Mostly ready, but should start with desktop-capable languages`
+- Status: `Partial`
+- Readiness: `Phase A completed on 2026-04-17; Phase B (Python) pending`
 - Recommended rollout:
   - Phase A:
-    - JS/TS via Prettier
-    - Go via `gofmt`
-    - Rust via `rustfmt`
+    - JS/TS via Prettier ✅
+    - JSON and CSS via Prettier (bonus, same pipeline) ✅
+    - Go via `gofmt` ✅ (desktop-only)
+    - Rust via `rustfmt` ✅ (desktop-only)
   - Phase B:
     - Python formatting once the desktop/web execution story is defined clearly for tooling
+- Current progress:
+  - `formatOnSave` settings toggle persists alongside other editor preferences and defaults to off
+  - Renderer formatter utility dispatches to Prettier standalone (dynamic-imported so the parsers/plugins stay out of the main bundle) for JS/TS/JSON/CSS; Go and Rust route through new `format:gofmt` / `format:rustfmt` IPC handlers that pipe source via stdin and cache the binary probe
+  - All save flows (`saveActiveTab`, `saveActiveTabAs`, dirty-tab close, and app-close save) run the formatter before the filesystem write and fall back to the original content on failure so persistence is never blocked
+  - A dismissable bottom-right status notice (new `uiStore.statusNotice` + `StatusNoticeBanner`) surfaces parse errors and missing-binary messages with actionable copy — localized in `en` and `es`
+  - Web builds report gofmt/rustfmt as desktop-only via the existing web adapter stub pattern
 - Acceptance criteria:
-  - Save formatting is deterministic
-  - Missing formatter binaries are handled with actionable user feedback
+  - Save formatting is deterministic ✅ (Prettier output is idempotent — regression-tested)
+  - Missing formatter binaries are handled with actionable user feedback ✅ (status banner carries the install hint from the IPC error string)
 - Dependencies:
   - Desktop tooling conventions
 
@@ -1432,24 +1439,29 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-037 Add deep editor personalization
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready after i18n and loose-file work`
+- Status: `Partial`
+- Readiness: `Font panel slice completed on 2026-04-17; shortcut editor, Vim, macros, and theme import/export still pending`
 - Scope:
   - Shortcut editor
   - custom keymaps
   - theme import/export
   - Vim mode
-  - Font selection panel with curated developer fonts:
-    - JetBrains Mono, Fira Code, Cascadia Code, Source Code Pro, Consolas, Menlo, Monaco, IBM Plex Mono
-    - Font ligature toggle
-    - Configurable font size with live preview
+  - Font selection panel with curated developer fonts ✅
+    - JetBrains Mono, Fira Code, Cascadia Code, Source Code Pro, Consolas, Menlo, Monaco, IBM Plex Mono ✅
+    - Font ligature toggle ✅
+    - Configurable font size with live preview ✅
     - Inspired by WizardJS (5 font choices) and CodeRunner (customizable fonts)
   - alternate font packs
   - result/console theme alignment
   - macro recording and playback (simple sequences) — see also RL-049 for advanced macros
+- Current progress:
+  - Curated font list now covers the eight developer fonts named in the plan, each tagged with whether it ships programmer ligatures
+  - New `fontLigatures` setting (defaults to on) gates Monaco's `fontLigatures` option; the settings toggle is automatically disabled and explained when the active font stack has no ligatures
+  - Settings now renders a live font preview card that mirrors `fontFamily`, `fontSize`, and the ligature state so users see the effect before editing code
+  - Dropdown entries surface ligature-capable fonts with a `(ligatures)` tag so the honest capability is discoverable at selection time
 - Acceptance criteria:
-  - Users can customize shortcuts without editing source files
-  - At least one custom theme pack and one alternate keymap ship from the first rollout
+  - Users can customize shortcuts without editing source files (pending shortcut-editor slice)
+  - At least one custom theme pack and one alternate keymap ship from the first rollout (pending)
 - Dependencies:
   - RL-018
 

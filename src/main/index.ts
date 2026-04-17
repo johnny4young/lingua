@@ -9,6 +9,7 @@ import {
   markDeepLinkRendererReady,
   primeDeepLinkFromArgv,
 } from './deepLinkState';
+import { registerFormatterHandlers } from './formatters';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
 import { registerAppInfoHandlers } from './ipc/appInfo';
@@ -31,6 +32,7 @@ if (!hasSingleInstanceLock) {
 // Register IPC handlers
 registerGoHandlers();
 registerRustHandlers();
+registerFormatterHandlers();
 registerAppInfoHandlers();
 registerDesktopSmokeHandlers();
 registerFileSystemHandlers();

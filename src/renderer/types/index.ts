@@ -68,6 +68,11 @@ export interface EditorState {
   saveActiveTab: () => Promise<void>;
   /** Show a Save As dialog and save the active tab to the chosen path. */
   saveActiveTabAs: () => Promise<void>;
+  /**
+   * Persist a specific tab, optionally forcing a Save As dialog even when the
+   * tab already has a file path. Returns false when the user cancels Save As.
+   */
+  saveTabById: (id: string, forceSaveAs?: boolean) => Promise<boolean>;
   /** Close a tab with dirty-check prompt. Returns true if closed. */
   closeTab: (id: string) => Promise<boolean>;
   /** Duplicate the active tab into a new unsaved tab. */
@@ -112,6 +117,7 @@ export interface SettingsState {
   editorTheme: string;
   fontSize: number;
   fontFamily: string;
+  fontLigatures: boolean;
   showLineNumbers: boolean;
   wordWrap: boolean;
   minimap: boolean;
@@ -120,6 +126,7 @@ export interface SettingsState {
   maxLoopIterations: number;
   hideUndefined: boolean;
   restoreSession: boolean;
+  formatOnSave: boolean;
   language: AppLanguage;
   lastSeenVersion: string | null;
   hasCompletedTour: boolean;
@@ -127,6 +134,7 @@ export interface SettingsState {
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
   setFontFamily: (family: string) => void;
+  toggleFontLigatures: () => void;
   toggleLineNumbers: () => void;
   toggleWordWrap: () => void;
   toggleMinimap: () => void;
@@ -135,6 +143,7 @@ export interface SettingsState {
   setMaxLoopIterations: (max: number) => void;
   toggleHideUndefined: () => void;
   toggleRestoreSession: () => void;
+  toggleFormatOnSave: () => void;
   setLanguage: (language: AppLanguage) => void;
   setLastSeenVersion: (version: string | null) => void;
   setHasCompletedTour: (value: boolean) => void;
