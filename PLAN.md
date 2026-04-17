@@ -725,22 +725,29 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-022 Add indexed Quick Open, project search, and symbol navigation
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Ready after RL-021`
+- Status: `Partial`
+- Readiness: `Phase 1 completed on 2026-04-16`
+- Current progress:
+  - A project-wide file index now runs in the renderer backed by a new `fs:listAllFiles` main-process walker that respects the same hidden-entry filter as `fs:readdir` and caps at 20k files
+  - `useProjectIndexSync` rebuilds the index when the active project changes and debounces rebuilds on file-watch events
+  - Quick Open prefers the index over the tree walk and now finds files inside unexpanded directories; falls back to the tree walk on runtimes without `listAllFiles`
+  - Unknown-extension results open in plaintext mode instead of being silently skipped
+  - Web adapter ships a parallel `listAllFiles` walker so the feature stays cross-runtime consistent
+  - Phase 2 (project-wide text search) and Phase 3 (symbol navigation) remain planned
 - Current gap:
-  - Quick Open only sees tabs and the already-loaded part of the current file tree
+  - Quick Open now finds unopened files anywhere in the active project, but there is still no project-wide text search and no symbol outline/jump
 - Scope:
-  - Build a background index for the active project
-  - Add fuzzy search across all files, not only expanded directories
+  - Build a background index for the active project ✅
+  - Add fuzzy search across all files, not only expanded directories ✅
   - Add project-wide text search with match previews
   - Add symbol outline and symbol jump for supported languages
   - Reuse the same index for command palette actions such as "open symbol" and "reveal in tree"
 - Acceptance criteria:
-  - Quick Open can find unopened files anywhere in the active project
-  - Search results remain responsive on medium-size projects
-  - Symbol navigation works at least for JS/TS from the first rollout
+  - Quick Open can find unopened files anywhere in the active project ✅
+  - Search results remain responsive on medium-size projects ✅ (bounded to 20k files, decoration via `languageFromPath`)
+  - Symbol navigation works at least for JS/TS from the first rollout — pending Phase 3
 - Dependencies:
-  - RL-021
+  - RL-021 ✅
 
 ### RL-023 Build Snippet Lab and algorithm practice mode
 

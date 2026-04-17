@@ -1,8 +1,14 @@
 import { Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
+import {
+  useProjectIndexStore,
+  type ProjectIndexEntry,
+} from '../../stores/projectIndexStore';
 import { useProjectStore, type FileTreeNode } from '../../stores/projectStore';
 import { useRecentFilesStore } from '../../stores/recentFilesStore';
+import { PLAINTEXT_LANGUAGE } from '../../utils/language';
 import type { Language } from '../../types';
 import { languageBadgeClass } from '../../utils/languageMeta';
 import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
@@ -25,11 +31,28 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
+  const { t } = useTranslation();
   const { tabs, setActiveTab, openFile } = useEditorStore();
   const { nodes } = useProjectStore();
   const { recentFiles } = useRecentFilesStore();
+  const indexEntries = useProjectIndexStore((state) => state.entries);
+  const indexStatus = useProjectIndexStore((state) => state.status);
 
   const projectFiles = useMemo<FileResult[]>(() => {
+    // Prefer the project-wide index when it's ready — it covers every file in
+    // the project root, not only the expanded portion of the tree. We only
+    // fall back to the tree walk when the index hasn't produced results yet
+    // (first paint on project open, or runtimes without listAllFiles) so the
+    // feature never hard-fails, it just degrades.
+    if (indexStatus === 'ready' && indexEntries.length > 0) {
+      return indexEntries.map<FileResult>((entry: ProjectIndexEntry) => ({
+        name: entry.name,
+        path: entry.path,
+        language: entry.language,
+        source: 'project',
+      }));
+    }
+
     const results: FileResult[] = [];
 
     function walk(treeNodes: FileTreeNode[]) {
@@ -49,7 +72,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
 
     walk(nodes);
     return results;
-  }, [nodes]);
+  }, [indexEntries, indexStatus, nodes]);
 
   const allFiles = useMemo<FileResult[]>(() => {
     const openPaths = new Set(tabs.map((tab) => tab.filePath).filter(Boolean) as string[]);
@@ -103,8 +126,11 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     if (file.source === 'open-tab') {
       const tab = tabs.find((item) => (item.filePath ?? item.id) === file.path);
       if (tab) setActiveTab(tab.id);
-    } else if (file.language) {
-      await openFile(file.path, file.name, file.language);
+    } else {
+      // Unknown extensions open in plaintext mode instead of being silently
+      // ignored — RL-022 indexes every project file so the user should be
+      // able to open any result they see.
+      await openFile(file.path, file.name, file.language ?? PLAINTEXT_LANGUAGE);
     }
 
     onClose();
@@ -145,7 +171,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Go to file..."
+            placeholder={t('quickOpen.placeholder')}
             className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
           />
           <Kbd>esc</Kbd>
@@ -155,8 +181,8 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
           {filtered.length === 0 ? (
             <p className="px-4 py-10 text-center text-sm text-muted">
               {allFiles.length === 0
-                ? 'No files open. Open a project to browse files.'
-                : `No files match "${query}"`}
+                ? t('quickOpen.empty.noProject')
+                : t('quickOpen.empty.noMatch', { query })}
             </p>
           ) : (
             filtered.map((file, index) => (
@@ -177,8 +203,12 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {file.source === 'open-tab' && <span className="status-pill">Open</span>}
-                  {file.source === 'recent' && <span className="status-pill">Recent</span>}
+                  {file.source === 'open-tab' && (
+                    <span className="status-pill">{t('quickOpen.badge.open')}</span>
+                  )}
+                  {file.source === 'recent' && (
+                    <span className="status-pill">{t('quickOpen.badge.recent')}</span>
+                  )}
                   {file.language && (
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${languageBadgeClass(file.language)}`}
@@ -194,12 +224,14 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
 
         <div className="surface-header flex items-center gap-4 px-4 py-3 text-[11px] text-muted">
           <span>
-            <Kbd>↑↓</Kbd> navigate
+            <Kbd>↑↓</Kbd> {t('quickOpen.hint.navigate')}
           </span>
           <span>
-            <Kbd>↵</Kbd> open
+            <Kbd>↵</Kbd> {t('quickOpen.hint.open')}
           </span>
-          <span className="ml-auto">{filtered.length} files</span>
+          <span className="ml-auto">
+            {t('quickOpen.count', { count: filtered.length })}
+          </span>
         </div>
       </OverlayCard>
     </OverlayBackdrop>

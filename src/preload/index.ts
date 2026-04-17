@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('lingua', {
     saveDialog: (defaultName: string, defaultDir?: string) =>
       ipcRenderer.invoke('fs:save-dialog', defaultName, defaultDir) as Promise<string | null>,
     readdir: (dirPath: string) => ipcRenderer.invoke('fs:readdir', dirPath),
+    listAllFiles: (rootPath: string) => ipcRenderer.invoke('fs:listAllFiles', rootPath),
     stat: (filePath: string) => ipcRenderer.invoke('fs:stat', filePath),
     read: (filePath: string) => ipcRenderer.invoke('fs:read', filePath),
     write: (filePath: string, content: string) =>

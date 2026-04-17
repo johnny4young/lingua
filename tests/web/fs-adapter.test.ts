@@ -108,3 +108,12 @@ describe('webFsAdapter — stat with no root', async () => {
     await expect(webFsAdapter.stat('/nonexistent/file.ts')).rejects.toThrow();
   });
 });
+
+describe('webFsAdapter — listAllFiles with no root', async () => {
+  const { webFsAdapter } = await import('../../src/web/fs-adapter');
+
+  it('returns an empty index when no project is mounted', async () => {
+    const entries = await webFsAdapter.listAllFiles('/nonexistent');
+    expect(entries).toEqual([]);
+  });
+});

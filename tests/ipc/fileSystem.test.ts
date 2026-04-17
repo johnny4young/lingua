@@ -165,6 +165,92 @@ describe('fs:watch-start security guard', () => {
 // fs:save-dialog
 // ---------------------------------------------------------------------------
 
+describe('fs:listAllFiles', () => {
+  function dirent(name: string, isDir: boolean) {
+    return {
+      name,
+      isDirectory: () => isDir,
+      isFile: () => !isDir,
+    };
+  }
+
+  function configureFileTree(
+    tree: Record<string, Array<{ name: string; isDir: boolean }>>
+  ) {
+    mockReaddir.mockImplementation(async (dirPath: string) => {
+      return (tree[dirPath] ?? []).map((entry) => dirent(entry.name, entry.isDir));
+    });
+  }
+
+  it('walks the project recursively and returns only files with relative paths', async () => {
+    configureFileTree({
+      '/project': [
+        { name: 'README.md', isDir: false },
+        { name: 'src', isDir: true },
+        { name: 'node_modules', isDir: true }, // must be ignored
+      ],
+      '/project/src': [
+        { name: 'main.ts', isDir: false },
+        { name: 'utils', isDir: true },
+      ],
+      '/project/src/utils': [{ name: 'helpers.ts', isDir: false }],
+      '/project/node_modules': [{ name: 'should-not-appear.ts', isDir: false }],
+    });
+
+    const result = await invoke('fs:listAllFiles', '/project');
+    expect(result).toEqual([
+      { name: 'README.md', path: '/project/README.md', relativePath: 'README.md' },
+      { name: 'main.ts', path: '/project/src/main.ts', relativePath: 'src/main.ts' },
+      {
+        name: 'helpers.ts',
+        path: '/project/src/utils/helpers.ts',
+        relativePath: 'src/utils/helpers.ts',
+      },
+    ]);
+  });
+
+  it('rejects blocked root paths before starting the walk', async () => {
+    mockReaddir.mockClear();
+    await expect(invoke('fs:listAllFiles', '/etc')).rejects.toThrow('Access denied');
+    expect(mockReaddir).not.toHaveBeenCalled();
+  });
+
+  it('skips dotfiles that are not explicitly allowed', async () => {
+    configureFileTree({
+      '/project': [
+        { name: '.env', isDir: false },
+        { name: '.gitignore', isDir: false },
+        { name: '.secret', isDir: false },
+        { name: '.DS_Store', isDir: false },
+      ],
+    });
+
+    const result = await invoke('fs:listAllFiles', '/project');
+    const names = (result as FsIndexedFile[]).map((file) => file.name).sort();
+    expect(names).toEqual(['.env', '.gitignore']);
+  });
+
+  it('swallows unreadable directories instead of aborting the whole walk', async () => {
+    mockReaddir.mockImplementation(async (dirPath: string) => {
+      if (dirPath === '/project/forbidden') {
+        throw new Error('EACCES');
+      }
+      if (dirPath === '/project') {
+        return [
+          dirent('ok.ts', false),
+          dirent('forbidden', true),
+        ];
+      }
+      return [];
+    });
+
+    const result = await invoke('fs:listAllFiles', '/project');
+    expect(result).toEqual([
+      { name: 'ok.ts', path: '/project/ok.ts', relativePath: 'ok.ts' },
+    ]);
+  });
+});
+
 describe('fs:save-dialog', () => {
   it('registers the handler', () => {
     expect(handlers.has('fs:save-dialog')).toBe(true);

@@ -181,6 +181,57 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     });
   },
 
+  listAllFiles: async (rootPath: string): Promise<FsIndexedFile[]> => {
+    const rootHandle = await resolveHandle(rootPath);
+    if (!rootHandle || rootHandle.kind !== 'directory') return [];
+
+    const MAX_FILES = 20_000;
+    const results: FsIndexedFile[] = [];
+
+    async function walk(
+      dirHandle: IterableFileSystemDirectoryHandle,
+      currentPath: string
+    ): Promise<void> {
+      if (results.length >= MAX_FILES) return;
+      for await (const [name, entry] of dirHandle.entries()) {
+        if (results.length >= MAX_FILES) return;
+        // Keep parity with the Electron walker: skip the common noise set so
+        // the web index doesn't diverge in size or shape from the desktop one.
+        if (
+          name === '.git' ||
+          name === 'node_modules' ||
+          name === 'target' ||
+          name === '__pycache__' ||
+          name === 'dist' ||
+          name === 'build' ||
+          name === '.next' ||
+          name === '.nuxt' ||
+          name === '.turbo' ||
+          name === '.DS_Store' ||
+          name === 'Thumbs.db' ||
+          (name.startsWith('.') && name !== '.env' && name !== '.gitignore')
+        ) {
+          continue;
+        }
+        const nextPath = joinPath(currentPath, name);
+        if (entry.kind === 'directory') {
+          await walk(entry as IterableFileSystemDirectoryHandle, nextPath);
+          continue;
+        }
+        results.push({
+          name,
+          path: nextPath,
+          relativePath: nextPath.startsWith(`${rootPath}/`)
+            ? nextPath.slice(rootPath.length + 1)
+            : nextPath,
+        });
+      }
+    }
+
+    await walk(rootHandle as IterableFileSystemDirectoryHandle, rootPath);
+    return results;
+  },
+
   stat: async (filePath: string): Promise<FsStatResult> => {
     const handle = await resolveHandle(filePath);
     if (!handle) {
