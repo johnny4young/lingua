@@ -21,6 +21,7 @@ interface CommandPaletteProps {
   onStartGuidedTour: () => void;
   onOpenSnippets: () => void;
   onOpenProjectSearch?: () => void;
+  onOpenGoToSymbol?: () => void;
 }
 
 export function CommandPalette({
@@ -30,6 +31,7 @@ export function CommandPalette({
   onStartGuidedTour,
   onOpenSnippets,
   onOpenProjectSearch,
+  onOpenGoToSymbol,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -56,6 +58,7 @@ export function CommandPalette({
       onStartGuidedTour,
       onOpenSnippets,
       onOpenProjectSearch,
+      onOpenGoToSymbol,
       checkForUpdates,
       restartToApply,
       openFileFromDisk,
@@ -75,6 +78,7 @@ export function CommandPalette({
     onOpenSettings,
     onOpenSnippets,
     onOpenProjectSearch,
+    onOpenGoToSymbol,
     checkForUpdates,
     restartToApply,
     updateStatus,

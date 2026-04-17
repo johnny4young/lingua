@@ -725,27 +725,22 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-022 Add indexed Quick Open, project search, and symbol navigation
 
 - Priority: `P1`
-- Status: `Partial`
-- Readiness: `Phase 1 + Phase 2 completed on 2026-04-16`
+- Status: `Done`
+- Readiness: `All three phases completed on 2026-04-16`
 - Current progress:
   - Phase 1 — A project-wide file index runs in the renderer backed by `fs:listAllFiles`; `useProjectIndexSync` rebuilds it when the active project changes and debounces rebuilds on file-watch events; Quick Open prefers the index over the tree walk and finds unopened files anywhere in the project; unknown-extension results open in plaintext mode instead of being silently skipped; the web adapter ships a parallel walker
-  - Phase 2 — Project-wide text search lands behind Cmd+Shift+F and a new "Search in Files" command-palette action. A shared `fs:searchInFiles` IPC walks the same hidden-entry filter as the index, skips binary files via a NUL-byte heuristic, caps per-file and total matches, and respects a per-file size budget so stray minified artifacts cannot hang the walk
-  - A new `projectSearchStore` debounces queries (220 ms) and drops stale responses via a monotonically increasing request id so fast typing cannot commit an older result set
-  - Selecting a match now queues an editor-store reveal (`requestReveal`) before `openFile`, so CodeEditor scrolls to the exact line/column and focuses the caret when the target tab activates — whether it was already open or just created
-  - The web adapter ships a parallel `searchInFiles` that reuses the same file index so the feature stays cross-runtime consistent
-  - Phase 3 (symbol outline + symbol jump) remains planned
-- Current gap:
-  - Symbol navigation (outline + symbol jump) is still pending
+  - Phase 2 — Project-wide text search lands behind Cmd+Shift+F and a new "Search in Files" command-palette action. A shared `fs:searchInFiles` IPC walks the same hidden-entry filter as the index, skips binary files via a NUL-byte heuristic, caps per-file and total matches, and respects a per-file size budget so stray minified artifacts cannot hang the walk. A debounced `projectSearchStore` drops stale responses via a monotonic request id; selecting a match queues an editor-store reveal before `openFile`; the web adapter ships a parallel walker
+  - Phase 3 — Go to Symbol lands behind Cmd+Shift+O and a new "Go to Symbol in File" command-palette action for JS/TS files. A pure `symbolNavigation` utility flattens Monaco's TypeScript navigation-bar output (skipping the synthetic `<global>` wrapper, qualifying nested symbols with their parent path, preserving declaration order). `useDocumentSymbols` lazily loads the monaco singleton and calls the TS worker's `getNavigationBarItems` for the active tab. The editor-store `requestReveal` API now accepts an optional `tabId` so same-tab surfaces can target unsaved tabs that have no `filePath`
 - Scope:
   - Build a background index for the active project ✅
   - Add fuzzy search across all files, not only expanded directories ✅
   - Add project-wide text search with match previews ✅
-  - Add symbol outline and symbol jump for supported languages
+  - Add symbol outline and symbol jump for supported languages ✅ (JS/TS)
   - Reuse the same index for command palette actions such as "open symbol" and "reveal in tree" ✅ (partial — "Search in Files" action shipped)
 - Acceptance criteria:
   - Quick Open can find unopened files anywhere in the active project ✅
   - Search results remain responsive on medium-size projects ✅ (per-file + total match caps, 5k file scan limit, debounced queries)
-  - Symbol navigation works at least for JS/TS from the first rollout — pending Phase 3
+  - Symbol navigation works at least for JS/TS from the first rollout ✅
 - Dependencies:
   - RL-021 ✅
 
