@@ -1746,8 +1746,8 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-045 Add built-in developer utilities panel
 
 - Priority: `P2`
-- Status: `Partial`
-- Readiness: `Ready to implement incrementally`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-17`
 - Why this matters:
   - DevToys (Swiss Army knife for developers) proves there is strong demand for built-in utilities
   - Developers constantly context-switch to external tools for regex, JSON, encoding, etc.
@@ -1773,7 +1773,7 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
   - Utilities work in both desktop and web builds
   - Utilities do not bloat the main editor bundle (lazy-loaded)
 - Implementation notes:
-  - First shipped slice includes 7 lazy-loaded utilities exposed from the toolbar and command palette:
+  - 10 lazy-loaded utilities are exposed from the toolbar and command palette:
     - JSON formatter / validator / tree viewer
     - Base64 encode/decode
     - URL encode/decode
@@ -1781,7 +1781,10 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
     - Hash generator (SHA-1 / SHA-256)
     - Unix timestamp converter
     - JWT decoder
-  - Follow-up work still needed for regex testing, color conversion, and diff tooling before the broader DevToys-style utility set is complete
+    - Regex tester with live matches and capture groups
+    - Color converter (hex / rgb / hsl) with live swatch preview
+    - Line-level diff viewer with add/remove summary
+  - All utilities live in a shared pure module so desktop and web builds exercise the same code paths and the bundle stays out of the main editor chunk
 - Dependencies:
   - None
 

@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import {
+  analyzeColor,
   analyzeJson,
+  analyzeRegex,
   analyzeTimestamp,
+  computeLineDiff,
   decodeBase64,
   decodeJwt,
   decodeUrlComponentValue,
@@ -535,6 +538,266 @@ function JwtUtilityPanel() {
   );
 }
 
+function RegexUtilityPanel() {
+  const { t } = useTranslation();
+  const [pattern, setPattern] = useState('(\\w+)@(\\w+\\.\\w+)');
+  const [flags, setFlags] = useState('g');
+  const [input, setInput] = useState('hello@lingua.dev and support@example.com');
+  const analysis = useMemo(() => analyzeRegex(pattern, flags, input), [pattern, flags, input]);
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <PanelSection
+        title={t('utilities.tool.regex.title')}
+        description={t('utilities.tool.regex.panelDescription')}
+      >
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.regex.fieldPattern')}</FieldLabel>
+          <UtilityInput
+            aria-label={t('utilities.tool.regex.fieldPattern')}
+            value={pattern}
+            onChange={(event) => setPattern(event.target.value)}
+            spellCheck={false}
+          />
+        </div>
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.regex.fieldFlags')}</FieldLabel>
+          <UtilityInput
+            aria-label={t('utilities.tool.regex.fieldFlags')}
+            value={flags}
+            onChange={(event) => setFlags(event.target.value)}
+            spellCheck={false}
+            maxLength={10}
+          />
+        </div>
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.regex.fieldInput')}</FieldLabel>
+          <UtilityTextarea
+            aria-label={t('utilities.tool.regex.fieldInput')}
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+          />
+        </div>
+        {analysis.errorKey ? (
+          <StatusMessage message={t(analysis.errorKey)} tone="error" />
+        ) : null}
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.tool.regex.matchesTitle')}
+        description={t('utilities.tool.regex.matchesDescription')}
+      >
+        {analysis.errorKey ? (
+          <StatusMessage message={t(analysis.errorKey)} tone="error" />
+        ) : analysis.matches.length === 0 ? (
+          <StatusMessage message={t('utilities.tool.regex.empty')} />
+        ) : (
+          <div className="grid gap-2">
+            <StatusMessage
+              tone="success"
+              message={t('utilities.tool.regex.count', { count: analysis.matches.length })}
+            />
+            <div className="max-h-[24rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+              <ul className="grid gap-2">
+                {analysis.matches.map((entry, index) => (
+                  <li
+                    key={`${entry.index}-${index}`}
+                    className="grid gap-1 rounded-[0.9rem] border border-border/70 bg-surface/55 px-3 py-2"
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="font-mono text-sm text-foreground">{entry.match}</span>
+                      <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
+                        {t('utilities.tool.regex.indexLabel', { index: entry.index })}
+                      </span>
+                    </div>
+                    {entry.groups.length > 0 ? (
+                      <ul className="grid gap-1">
+                        {entry.groups.map((group, groupIndex) => (
+                          <li
+                            key={`${entry.index}-group-${groupIndex}`}
+                            className="flex items-baseline justify-between gap-2 font-mono text-xs text-muted"
+                          >
+                            <span>
+                              {group.name
+                                ? t('utilities.tool.regex.namedGroupLabel', { name: group.name })
+                                : t('utilities.tool.regex.groupLabel', { index: groupIndex + 1 })}
+                            </span>
+                            <span className="text-foreground">{group.value}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {analysis.truncated ? (
+              <StatusMessage message={t('utilities.tool.regex.truncated')} />
+            ) : null}
+          </div>
+        )}
+      </PanelSection>
+    </div>
+  );
+}
+
+function ColorUtilityPanel() {
+  const { t } = useTranslation();
+  const [input, setInput] = useState('#4f46e5');
+  const analysis = useMemo(() => analyzeColor(input), [input]);
+  const swatch = analysis.hex ?? 'transparent';
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <PanelSection
+        title={t('utilities.tool.color.title')}
+        description={t('utilities.tool.color.panelDescription')}
+      >
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.color.fieldInput')}</FieldLabel>
+          <UtilityInput
+            aria-label={t('utilities.tool.color.fieldInput')}
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+          />
+        </div>
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.color.fieldPicker')}</FieldLabel>
+          <input
+            type="color"
+            aria-label={t('utilities.tool.color.fieldPicker')}
+            value={analysis.hex ?? '#000000'}
+            onChange={(event) => setInput(event.target.value)}
+            className="h-10 w-20 cursor-pointer rounded-[0.9rem] border border-border/80 bg-background/88"
+          />
+        </div>
+        {analysis.errorKey ? (
+          <StatusMessage message={t(analysis.errorKey)} tone="error" />
+        ) : (
+          <StatusMessage tone="success" message={t('utilities.tool.color.valid')} />
+        )}
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.tool.color.outputsTitle')}
+        description={t('utilities.tool.color.outputsDescription')}
+      >
+        <div
+          aria-label={t('utilities.tool.color.swatchLabel')}
+          className="h-24 w-full rounded-[1.1rem] border border-border/80"
+          style={{ backgroundColor: swatch }}
+        />
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
+            <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
+              {t('utilities.tool.color.outputs.hex')}
+            </span>
+            <span className="font-mono text-sm text-foreground">{analysis.hex ?? '—'}</span>
+          </div>
+          <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
+            <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
+              {t('utilities.tool.color.outputs.rgb')}
+            </span>
+            <span className="font-mono text-sm text-foreground">
+              {analysis.rgb ? `rgb(${analysis.rgb.r}, ${analysis.rgb.g}, ${analysis.rgb.b})` : '—'}
+            </span>
+          </div>
+          <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3 md:col-span-2">
+            <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
+              {t('utilities.tool.color.outputs.hsl')}
+            </span>
+            <span className="font-mono text-sm text-foreground">
+              {analysis.hsl
+                ? `hsl(${analysis.hsl.h}, ${analysis.hsl.s}%, ${analysis.hsl.l}%)`
+                : '—'}
+            </span>
+          </div>
+        </div>
+      </PanelSection>
+    </div>
+  );
+}
+
+function DiffUtilityPanel() {
+  const { t } = useTranslation();
+  const [left, setLeft] = useState('line one\nline two\nline three');
+  const [right, setRight] = useState('line one\nline two updated\nline three\nline four');
+  const analysis = useMemo(() => computeLineDiff(left, right), [left, right]);
+
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-4 xl:grid-cols-2">
+        <PanelSection
+          title={t('utilities.tool.diff.leftTitle')}
+          description={t('utilities.tool.diff.leftDescription')}
+        >
+          <UtilityTextarea
+            aria-label={t('utilities.tool.diff.leftTitle')}
+            value={left}
+            onChange={(event) => setLeft(event.target.value)}
+            spellCheck={false}
+          />
+        </PanelSection>
+        <PanelSection
+          title={t('utilities.tool.diff.rightTitle')}
+          description={t('utilities.tool.diff.rightDescription')}
+        >
+          <UtilityTextarea
+            aria-label={t('utilities.tool.diff.rightTitle')}
+            value={right}
+            onChange={(event) => setRight(event.target.value)}
+            spellCheck={false}
+          />
+        </PanelSection>
+      </div>
+      <PanelSection
+        title={t('utilities.tool.diff.resultTitle')}
+        description={t('utilities.tool.diff.resultDescription')}
+      >
+        <StatusMessage
+          tone="muted"
+          message={t('utilities.tool.diff.summary', {
+            added: analysis.addCount,
+            removed: analysis.removeCount,
+            same: analysis.sameCount,
+          })}
+        />
+        {analysis.lines.length === 0 ? (
+          <StatusMessage message={t('utilities.tool.diff.empty')} />
+        ) : (
+          <div className="max-h-[26rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65">
+            <ul className="grid">
+              {analysis.lines.map((line, index) => {
+                const prefix = line.kind === 'add' ? '+' : line.kind === 'remove' ? '-' : ' ';
+                const toneClass =
+                  line.kind === 'add'
+                    ? 'bg-success/10 text-success'
+                    : line.kind === 'remove'
+                      ? 'bg-danger/10 text-danger'
+                      : 'text-foreground';
+                return (
+                  <li
+                    key={`${line.kind}-${index}`}
+                    className={`flex items-baseline gap-2 px-3 py-1 font-mono text-xs ${toneClass}`}
+                  >
+                    <span className="w-4 select-none text-muted">{prefix}</span>
+                    <span className="whitespace-pre-wrap break-words">{line.value || ' '}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+        {analysis.truncated ? (
+          <StatusMessage message={t('utilities.tool.diff.truncated')} />
+        ) : null}
+      </PanelSection>
+    </div>
+  );
+}
+
 export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }) {
   if (toolId === 'json') {
     return <JsonUtilityPanel />;
@@ -558,6 +821,18 @@ export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }
 
   if (toolId === 'timestamp') {
     return <TimestampUtilityPanel />;
+  }
+
+  if (toolId === 'regex') {
+    return <RegexUtilityPanel />;
+  }
+
+  if (toolId === 'color') {
+    return <ColorUtilityPanel />;
+  }
+
+  if (toolId === 'diff') {
+    return <DiffUtilityPanel />;
   }
 
   return <JwtUtilityPanel />;

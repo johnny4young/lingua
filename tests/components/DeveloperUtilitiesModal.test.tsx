@@ -61,6 +61,35 @@ describe('DeveloperUtilitiesModal', () => {
     expect((screen.getByLabelText('Output') as HTMLTextAreaElement).value).toBe('Lingua');
   });
 
+  it('shows regex matches with capture groups and a count label', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="regex" />);
+
+    expect(screen.getByRole('heading', { name: 'Regex Tester' })).toBeTruthy();
+    expect(screen.getByText('2 matches')).toBeTruthy();
+
+    await user.clear(screen.getByLabelText('Test string'));
+    await user.type(screen.getByLabelText('Test string'), 'none here');
+    expect(screen.getByText('No matches for the current pattern.')).toBeTruthy();
+  });
+
+  it('surfaces color conversions for the current input', () => {
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="color" />);
+
+    expect(screen.getByRole('heading', { name: 'Color Converter' })).toBeTruthy();
+    expect(screen.getByText('rgb(79, 70, 229)')).toBeTruthy();
+    expect(screen.getByText('Color parsed successfully.')).toBeTruthy();
+  });
+
+  it('reports a summary when comparing two different inputs in the diff viewer', () => {
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="diff" />);
+
+    expect(screen.getByRole('heading', { name: 'Diff Viewer' })).toBeTruthy();
+    expect(
+      screen.getByText((text) => text.startsWith('2 added,') && text.includes('1 removed'))
+    ).toBeTruthy();
+  });
+
   it('formats JSON input in place', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
