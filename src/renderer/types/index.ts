@@ -127,6 +127,12 @@ export interface SettingsState {
   hideUndefined: boolean;
   restoreSession: boolean;
   formatOnSave: boolean;
+  /**
+   * When on, the dark/light shell polarity follows the current editor
+   * theme's polarity (so picking VS Light auto-flips the console and result
+   * panels to light). When off, the explicit `theme` setting is honored.
+   */
+  syncShellWithEditorTheme: boolean;
   language: AppLanguage;
   lastSeenVersion: string | null;
   hasCompletedTour: boolean;
@@ -144,6 +150,7 @@ export interface SettingsState {
   toggleHideUndefined: () => void;
   toggleRestoreSession: () => void;
   toggleFormatOnSave: () => void;
+  toggleSyncShellWithEditorTheme: () => void;
   /**
    * Apply a theme preset (editor theme, shell theme, typography, layout)
    * loaded from an exported JSON document. Non-theme settings (loop
@@ -157,6 +164,7 @@ export interface SettingsState {
     fontSize: number;
     fontLigatures: boolean;
     layoutPreset: LayoutPreset;
+    syncShellWithEditorTheme?: boolean;
   }) => void;
   setLanguage: (language: AppLanguage) => void;
   setLastSeenVersion: (version: string | null) => void;

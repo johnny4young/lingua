@@ -111,6 +111,7 @@ describe('settingsStore', () => {
       fontSize: 18,
       fontLigatures: false,
       layoutPreset: 'vertical',
+      syncShellWithEditorTheme: false,
     });
 
     const state = useSettingsStore.getState();
@@ -120,10 +121,32 @@ describe('settingsStore', () => {
     expect(state.fontSize).toBe(18);
     expect(state.fontLigatures).toBe(false);
     expect(state.layoutPreset).toBe('vertical');
+    expect(state.syncShellWithEditorTheme).toBe(false);
     // Preset must not override safety/workflow preferences
     expect(state.loopProtection).toBe(true);
     expect(state.formatOnSave).toBe(true);
     expect(state.restoreSession).toBe(true);
+  });
+
+  it('applyThemePreset keeps the current sync flag when the preset omits it', () => {
+    useSettingsStore.setState({ syncShellWithEditorTheme: false });
+    useSettingsStore.getState().applyThemePreset({
+      theme: 'dark',
+      editorTheme: 'lingua-dark',
+      fontFamily: 'Menlo, monospace',
+      fontSize: 14,
+      fontLigatures: false,
+      layoutPreset: 'horizontal',
+    });
+    expect(useSettingsStore.getState().syncShellWithEditorTheme).toBe(false);
+  });
+
+  it('should default syncShellWithEditorTheme to true and toggle cleanly', () => {
+    expect(useSettingsStore.getState().syncShellWithEditorTheme).toBe(true);
+    useSettingsStore.getState().toggleSyncShellWithEditorTheme();
+    expect(useSettingsStore.getState().syncShellWithEditorTheme).toBe(false);
+    useSettingsStore.getState().toggleSyncShellWithEditorTheme();
+    expect(useSettingsStore.getState().syncShellWithEditorTheme).toBe(true);
   });
 
   it('should default language to system', () => {
