@@ -1,6 +1,13 @@
 import { useEffect, useEffectEvent } from 'react';
 
-export type AppOverlay = 'none' | 'settings' | 'palette' | 'quick-open' | 'snippets' | 'whats-new';
+export type AppOverlay =
+  | 'none'
+  | 'settings'
+  | 'palette'
+  | 'quick-open'
+  | 'search'
+  | 'snippets'
+  | 'whats-new';
 
 interface UseGlobalShortcutsOptions {
   isRunning: boolean;
@@ -90,6 +97,12 @@ export function useGlobalShortcuts({
     if (mod && event.shiftKey && key === 'p') {
       event.preventDefault();
       toggleOverlay('palette');
+      return;
+    }
+
+    if (mod && event.shiftKey && key === 'f') {
+      event.preventDefault();
+      toggleOverlay('search');
       return;
     }
 

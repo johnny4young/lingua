@@ -40,6 +40,10 @@ contextBridge.exposeInMainWorld('lingua', {
       ipcRenderer.invoke('fs:save-dialog', defaultName, defaultDir) as Promise<string | null>,
     readdir: (dirPath: string) => ipcRenderer.invoke('fs:readdir', dirPath),
     listAllFiles: (rootPath: string) => ipcRenderer.invoke('fs:listAllFiles', rootPath),
+    searchInFiles: (rootPath: string, query: string, options?: FsSearchOptions) =>
+      ipcRenderer.invoke('fs:searchInFiles', rootPath, query, options) as Promise<
+        FsSearchResult[]
+      >,
     stat: (filePath: string) => ipcRenderer.invoke('fs:stat', filePath),
     read: (filePath: string) => ipcRenderer.invoke('fs:read', filePath),
     write: (filePath: string, content: string) =>
