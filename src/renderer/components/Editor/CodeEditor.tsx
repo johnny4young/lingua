@@ -94,17 +94,26 @@ export function CodeEditor() {
     lastRevealedDiagnosticKeyRef.current = nextDiagnosticKey;
   }, [applyDiagnostics, diagnostics, executionSource]);
 
-  // Apply pending reveals queued by other surfaces (Project Search today,
-  // future Go to Symbol). The effect depends on `pendingReveal`, `activeTab`,
-  // and `activeTab.content` so a reveal fires both when the file becomes
-  // active and when its content finishes loading from disk — otherwise
-  // revealLineInCenter on a newly-created tab can run before Monaco has the
-  // content populated and land on a clipped viewport.
+  // Apply pending reveals queued by other surfaces (Project Search, Go to
+  // Symbol). The request is addressed by either tabId (same-tab surfaces like
+  // Go to Symbol that target the active unsaved tab) or filePath (open-file
+  // flows). When both are supplied, tabId wins since it's the tighter id.
+  //
+  // The effect depends on `activeTab?.id` and `activeTab?.content` so a
+  // reveal fires both when the target tab becomes active and when its content
+  // finishes loading from disk — otherwise revealLineInCenter on a freshly
+  // opened tab can run before Monaco has the content populated and land on a
+  // clipped viewport.
   useEffect(() => {
     if (!pendingReveal) return;
     const editor = editorRef.current;
-    if (!editor) return;
-    if (!activeTab?.filePath || activeTab.filePath !== pendingReveal.filePath) return;
+    if (!editor || !activeTab) return;
+
+    const matchesActiveTab = pendingReveal.tabId
+      ? pendingReveal.tabId === activeTab.id
+      : pendingReveal.filePath !== undefined &&
+        activeTab.filePath === pendingReveal.filePath;
+    if (!matchesActiveTab) return;
 
     editor.revealLineInCenter(pendingReveal.line);
     editor.setPosition({
@@ -113,7 +122,10 @@ export function CodeEditor() {
     });
     editor.focus();
     clearPendingReveal();
-  }, [pendingReveal, activeTab?.filePath, activeTab?.content, clearPendingReveal]);
+    // `activeTab` is the ref we branch on; eslint's exhaustive-deps rule
+    // correctly flags it. The `!pendingReveal` short-circuit on line 108
+    // makes re-runs cheap when no reveal is queued.
+  }, [pendingReveal, activeTab, clearPendingReveal]);
 
   useEffect(() => {
     return () => {

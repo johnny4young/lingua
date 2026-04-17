@@ -181,3 +181,51 @@ export function registerLanguageCompletionProviders(m: Monaco): void {
     m.languages.registerCompletionItemProvider(languageId, createProvider(m));
   }
 }
+
+// The TypeScript contribution augments the global `monaco.languages` object
+// with worker accessors at runtime, but `editor.api.d.ts` exports only a
+// deprecation stub (`{ deprecated: true }`) so the types don't reflect that
+// augmentation. This narrow shape is how we reach the real factories.
+interface MonacoTypeScriptRuntime {
+  getTypeScriptWorker?: () => Promise<(uri: monaco.Uri) => Promise<TypeScriptWorkerClient>>;
+  getJavaScriptWorker?: () => Promise<(uri: monaco.Uri) => Promise<TypeScriptWorkerClient>>;
+}
+
+interface TypeScriptWorkerClient {
+  getNavigationBarItems: (fileName: string) => Promise<unknown[]>;
+}
+
+/**
+ * Load every navigation-bar entry for a Monaco model through the TypeScript
+ * worker. Returns `null` when the model's language is not JS/TS (the caller
+ * should render an empty state) or the worker has not been spun up yet.
+ *
+ * We keep this in `monaco.ts` because it's the single file that already owns
+ * the monaco singleton — downstream components would otherwise have to
+ * re-import the heavy editor entry just to reach the worker factory.
+ */
+export async function loadNavigationBarItems(
+  model: { uri: monaco.Uri; getLanguageId: () => string }
+): Promise<unknown[] | null> {
+  const languageId = model.getLanguageId();
+  const runtime = monaco.languages.typescript as unknown as MonacoTypeScriptRuntime;
+  const getWorker =
+    languageId === 'typescript'
+      ? runtime.getTypeScriptWorker
+      : languageId === 'javascript'
+        ? runtime.getJavaScriptWorker
+        : null;
+
+  if (!getWorker) return null;
+
+  try {
+    const workerFactory = await getWorker();
+    const client = await workerFactory(model.uri);
+    return await client.getNavigationBarItems(model.uri.toString());
+  } catch {
+    // The TS worker intermittently rejects while spinning up on fresh tabs —
+    // surface a null so the overlay can degrade to an empty state instead of
+    // crashing.
+    return null;
+  }
+}
