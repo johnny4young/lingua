@@ -103,7 +103,7 @@ describe('CommandPalette', () => {
     ).toBeTruthy();
     expect(screen.getByText('navegar')).toBeTruthy();
     expect(screen.getByText('seleccionar')).toBeTruthy();
-    expect(screen.getByText('13 resultados')).toBeTruthy();
+    expect(screen.getByText(/\d+ resultados/)).toBeTruthy();
   });
 
   it('exposes the clear search action with an accessible label', async () => {

@@ -260,6 +260,48 @@ describe('buildCommandPaletteModel', () => {
     expect(onOpenProjectSearch).toHaveBeenCalledOnce();
   });
 
+  it('exposes developer utility actions only when the opener is wired in', () => {
+    const onOpenDeveloperUtility = vi.fn();
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    expect(
+      buildCommandPaletteModel(baseArgs).find((c) => c.id === 'action-developer-utility-json')
+    ).toBeUndefined();
+
+    const withUtilities = buildCommandPaletteModel({
+      ...baseArgs,
+      onOpenDeveloperUtility,
+    });
+    const jsonAction = withUtilities.find((c) => c.id === 'action-developer-utility-json');
+
+    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(7);
+    expect(jsonAction?.label).toBe('Open JSON Formatter');
+
+    jsonAction?.action();
+    expect(onOpenDeveloperUtility).toHaveBeenCalledWith('json');
+  });
+
   it('keeps matching commands when filtering by keywords, label, or description', () => {
     const commands = [
       {
