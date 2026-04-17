@@ -117,3 +117,17 @@ describe('webFsAdapter — listAllFiles with no root', async () => {
     expect(entries).toEqual([]);
   });
 });
+
+describe('webFsAdapter — searchInFiles', async () => {
+  const { webFsAdapter } = await import('../../src/web/fs-adapter');
+
+  it('short-circuits empty queries without walking the mounted tree', async () => {
+    const result = await webFsAdapter.searchInFiles('/nonexistent', '');
+    expect(result).toEqual([]);
+  });
+
+  it('returns an empty result set when no web root is mounted', async () => {
+    const result = await webFsAdapter.searchInFiles('/nonexistent', 'foo');
+    expect(result).toEqual([]);
+  });
+});

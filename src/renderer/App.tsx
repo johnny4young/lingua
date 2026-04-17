@@ -5,6 +5,7 @@ import { useGuidedTour } from './components/GuidedTour/guidedTourContext';
 import { SettingsModal } from './components/Settings/SettingsModal';
 import { WhatsNewSection } from './components/Settings/WhatsNewSection';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
+import { ProjectSearch } from './components/ProjectSearch/ProjectSearch';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { SnippetsModal } from './components/Snippets';
 import { CHANGELOG_ENTRIES } from './data/changelog';
@@ -228,6 +229,7 @@ function AppChrome({
         onOpenSnippets={() => openOverlay('snippets')}
       />
       {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
+      {overlay === 'search' && <ProjectSearch onClose={closeOverlay} />}
       {overlay === 'palette' && (
         <CommandPalette
           onClose={closeOverlay}
@@ -235,6 +237,7 @@ function AppChrome({
           onOpenWhatsNew={() => openOverlay('whats-new')}
           onStartGuidedTour={handleStartGuidedTour}
           onOpenSnippets={() => openOverlay('snippets')}
+          onOpenProjectSearch={() => openOverlay('search')}
         />
       )}
       {overlay === 'settings' && (

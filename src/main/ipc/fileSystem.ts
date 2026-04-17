@@ -235,6 +235,150 @@ export function registerFileSystemHandlers(): void {
     }
   );
 
+  // -------------------------------------------------- searchInFiles (text)
+
+  /**
+   * Plain-text substring search across every visible file in the project.
+   *
+   * Designed to be reusable for several UI surfaces (project search overlay,
+   * command palette "Find in files" action) and intentionally conservative:
+   *
+   *   - Honours the same hidden-entry filter as `fs:readdir` and
+   *     `fs:listAllFiles` so ignored directories never leak into results.
+   *   - Skips binary files by checking the first kilobyte for NUL bytes.
+   *   - Skips files above a generous size budget so a stray minified
+   *     artifact cannot hang the walk.
+   *   - Caps matches per file and the overall result count so the IPC
+   *     channel stays responsive on medium-size projects.
+   *   - Rejects blocked roots before the walk begins.
+   */
+  ipcMain.handle(
+    'fs:searchInFiles',
+    async (
+      _event,
+      rootPath: string,
+      query: string,
+      options: FsSearchOptions = {}
+    ): Promise<FsSearchResult[]> => {
+      if (isPathBlocked(rootPath, 'read')) {
+        throw new Error(
+          `Access denied: Cannot search protected path: ${rootPath}`
+        );
+      }
+
+      const trimmedQuery = query ?? '';
+      if (trimmedQuery.length === 0) return [];
+
+      const caseSensitive = options.caseSensitive ?? false;
+      const maxMatchesPerFile = Math.max(1, options.maxMatchesPerFile ?? 20);
+      const maxTotalMatches = Math.max(1, options.maxTotalMatches ?? 500);
+      const maxFileSize = Math.max(1, options.maxFileSize ?? 1_000_000);
+      const maxFilesScanned = Math.max(1, options.maxFilesScanned ?? 5_000);
+
+      const needle = caseSensitive ? trimmedQuery : trimmedQuery.toLowerCase();
+      const results: FsSearchResult[] = [];
+      let totalMatches = 0;
+      let filesScanned = 0;
+
+      function looksBinary(text: string): boolean {
+        const probe = text.slice(0, 1024);
+        return probe.includes('\u0000');
+      }
+
+      async function searchFile(filePath: string, relativePath: string) {
+        if (totalMatches >= maxTotalMatches) return;
+
+        let info;
+        try {
+          info = await stat(filePath);
+        } catch {
+          return; // missing/unreadable file — best-effort
+        }
+
+        if (!info.isFile() || info.size > maxFileSize) return;
+
+        let content: string;
+        try {
+          content = await readFile(filePath, 'utf8');
+        } catch {
+          return;
+        }
+
+        if (looksBinary(content)) return;
+
+        const fileMatches: FsSearchMatch[] = [];
+        const lines = content.split(/\r?\n/);
+
+        for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+          if (fileMatches.length >= maxMatchesPerFile) break;
+          if (totalMatches + fileMatches.length >= maxTotalMatches) break;
+
+          const rawLine = lines[lineIndex]!;
+          const haystack = caseSensitive ? rawLine : rawLine.toLowerCase();
+          const column = haystack.indexOf(needle);
+          if (column === -1) continue;
+
+          const PREVIEW_BUDGET = 240;
+          const previewStart = Math.max(0, column - 80);
+          const previewEnd = Math.min(rawLine.length, previewStart + PREVIEW_BUDGET);
+          const preview = rawLine.slice(previewStart, previewEnd);
+
+          fileMatches.push({
+            line: lineIndex + 1,
+            column: column + 1,
+            preview,
+            matchStart: column - previewStart,
+            matchEnd: column - previewStart + trimmedQuery.length,
+          });
+        }
+
+        if (fileMatches.length > 0) {
+          results.push({
+            filePath,
+            relativePath,
+            matches: fileMatches,
+          });
+          totalMatches += fileMatches.length;
+        }
+      }
+
+      async function walk(dirPath: string) {
+        if (totalMatches >= maxTotalMatches || filesScanned >= maxFilesScanned) {
+          return;
+        }
+
+        let entries;
+        try {
+          entries = await readdir(dirPath, { withFileTypes: true });
+        } catch {
+          return;
+        }
+
+        for (const entry of entries) {
+          if (totalMatches >= maxTotalMatches || filesScanned >= maxFilesScanned) {
+            return;
+          }
+          if (shouldHide(entry.name)) continue;
+
+          const entryPath = path.join(dirPath, entry.name);
+
+          if (entry.isDirectory()) {
+            await walk(entryPath);
+            continue;
+          }
+
+          if (!entry.isFile()) continue;
+
+          filesScanned += 1;
+          await searchFile(entryPath, path.relative(rootPath, entryPath));
+        }
+      }
+
+      await walk(rootPath);
+      return results;
+    }
+  );
+
   // ------------------------------------------------------------------ stat
 
   ipcMain.handle('fs:stat', async (_event, filePath: string) => {

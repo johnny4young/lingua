@@ -109,6 +109,32 @@ interface FsIndexedFile {
   relativePath: string;
 }
 
+interface FsSearchOptions {
+  caseSensitive?: boolean;
+  /** Maximum matches returned per file. Defaults to 20. */
+  maxMatchesPerFile?: number;
+  /** Hard cap on total matches across the search. Defaults to 500. */
+  maxTotalMatches?: number;
+  /** Skip files larger than this (bytes). Defaults to 1,000,000. */
+  maxFileSize?: number;
+  /** Abort once this many files have been opened. Defaults to 5,000. */
+  maxFilesScanned?: number;
+}
+
+interface FsSearchMatch {
+  line: number;
+  column: number;
+  preview: string;
+  matchStart: number;
+  matchEnd: number;
+}
+
+interface FsSearchResult {
+  filePath: string;
+  relativePath: string;
+  matches: FsSearchMatch[];
+}
+
 interface FsStatResult {
   size: number;
   isDirectory: boolean;
@@ -221,6 +247,11 @@ interface LinguaAPI {
     saveDialog: (defaultName: string, defaultDir?: string) => Promise<string | null>;
     readdir: (dirPath: string) => Promise<FsDirEntry[]>;
     listAllFiles: (rootPath: string) => Promise<FsIndexedFile[]>;
+    searchInFiles: (
+      rootPath: string,
+      query: string,
+      options?: FsSearchOptions
+    ) => Promise<FsSearchResult[]>;
     stat: (filePath: string) => Promise<FsStatResult>;
     read: (filePath: string) => Promise<string>;
     write: (filePath: string, content: string) => Promise<boolean>;

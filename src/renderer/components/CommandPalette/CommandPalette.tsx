@@ -20,6 +20,7 @@ interface CommandPaletteProps {
   onOpenWhatsNew: () => void;
   onStartGuidedTour: () => void;
   onOpenSnippets: () => void;
+  onOpenProjectSearch?: () => void;
 }
 
 export function CommandPalette({
@@ -28,6 +29,7 @@ export function CommandPalette({
   onOpenWhatsNew,
   onStartGuidedTour,
   onOpenSnippets,
+  onOpenProjectSearch,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -53,6 +55,7 @@ export function CommandPalette({
       onOpenWhatsNew,
       onStartGuidedTour,
       onOpenSnippets,
+      onOpenProjectSearch,
       checkForUpdates,
       restartToApply,
       openFileFromDisk,
@@ -71,6 +74,7 @@ export function CommandPalette({
     onClose,
     onOpenSettings,
     onOpenSnippets,
+    onOpenProjectSearch,
     checkForUpdates,
     restartToApply,
     updateStatus,
