@@ -105,6 +105,7 @@ Renderer architecture note:
 Architecture deep dive:
 
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) explains the project lifecycle, Electron IPC file-system bridge, and watch-state flow with diagrams and extension guidance.
+- [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) is the decision record for what runs where (browser WASM, browser interpreter, desktop native, hybrid) with the promotion rules for future WASM-first migrations.
 - [`src/renderer/README.md`](./src/renderer/README.md) maps the renderer folders, state ownership, styling rules, extraction conventions, and common change/test paths.
 
 ## Quality checks

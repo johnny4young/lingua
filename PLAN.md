@@ -919,8 +919,13 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-030 Write a WASM-first capability matrix and migrate only where it wins
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Ready now as an architecture task`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-17`
+- Current progress:
+  - `CAPABILITY_MATRIX.md` landed at the repo root with an execution-class matrix (browser WASM, browser interpreter, WebContainer, desktop native, hybrid) covering JS/TS, Python, Go, Rust, Lua, filesystem access, file watching, updates, plugins, deep links, local AI inference, and formatter binaries
+  - Each capability has a recommended class with a rationale that points back to the code path it lives in today
+  - The document ends with explicit promotion rules — a capability only moves to a WASM-first stance when there is a portability, privacy, or maintainability win — so future migration work has a clear bar
+  - RL-031 (local AI) is explicitly flagged as decision-deferred in the matrix and will write its outcome back into the document once the spike lands
 - Why this task exists:
   - A full "WASM-first for everything" rewrite is not viable today for the current feature set
   - The product needs a capability matrix before committing to a migration slogan
