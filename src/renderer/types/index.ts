@@ -29,9 +29,26 @@ export interface FileTab {
   filePath?: string;
 }
 
+/**
+ * Keyed by absolute file path (not tab id) so requests can be queued before
+ * the target tab actually exists — e.g. Project Search asks for a reveal,
+ * then the editor store opens the file, and the CodeEditor's effect applies
+ * the reveal when both the model and the pending request are available.
+ */
+export interface EditorRevealRequest {
+  filePath: string;
+  line: number;
+  column?: number;
+}
+
 export interface EditorState {
   tabs: FileTab[];
   activeTabId: string | null;
+  /**
+   * Pending request to scroll the editor to a specific line/column once the
+   * target file becomes the active tab. `null` when no reveal is queued.
+   */
+  pendingReveal: EditorRevealRequest | null;
   addTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
@@ -49,6 +66,14 @@ export interface EditorState {
   closeTab: (id: string) => Promise<boolean>;
   /** Duplicate the active tab into a new unsaved tab. */
   duplicateActiveTab: () => void;
+  /**
+   * Queue a scroll + caret move that the CodeEditor applies once the target
+   * file is the active tab. Latest request wins so rapid clicks in Project
+   * Search do not leave the editor ping-ponging between positions.
+   */
+  requestReveal: (target: EditorRevealRequest) => void;
+  /** Clear any pending reveal. The CodeEditor calls this after applying it. */
+  clearPendingReveal: () => void;
 }
 
 export type ConsoleEntryType = 'log' | 'warn' | 'error' | 'info' | 'result';

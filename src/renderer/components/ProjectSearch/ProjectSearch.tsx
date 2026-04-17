@@ -68,6 +68,8 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   const [selectedMatchKey, setSelectedMatchKey] = useState<string | null>(null);
 
   const openFile = useEditorStore((state) => state.openFile);
+  const requestReveal = useEditorStore((state) => state.requestReveal);
+  const clearPendingReveal = useEditorStore((state) => state.clearPendingReveal);
   const currentProject = useProjectStore((state) => state.currentProject);
 
   const query = useProjectSearchStore((state) => state.query);
@@ -135,11 +137,22 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   const openMatch = async (row: FlatRow) => {
     if (!row.match) return;
     const language = languageFromPath(row.result.filePath) ?? PLAINTEXT_LANGUAGE;
-    // openFile is idempotent — if the tab is already open it just activates
-    // it. Line reveal lives on a separate story; for now we at least land on
-    // the right file with the right language so the user can Cmd+G / Cmd+F
-    // from there.
-    await openFile(row.result.filePath, row.result.filePath.split(/[\\/]/).pop() ?? row.result.filePath, language);
+    const name = row.result.filePath.split(/[\\/]/).pop() ?? row.result.filePath;
+    // Queue the reveal BEFORE opening so CodeEditor's effect catches it
+    // whether the target file is already open (openFile just activates the
+    // existing tab) or a fresh tab is being created. openFile is idempotent,
+    // so this ordering is safe for both paths.
+    requestReveal({
+      filePath: row.result.filePath,
+      line: row.match.line,
+      column: row.match.column,
+    });
+    try {
+      await openFile(row.result.filePath, name, language);
+    } catch {
+      clearPendingReveal();
+      return;
+    }
     onClose();
   };
 
