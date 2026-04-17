@@ -3,7 +3,14 @@ import type { EditorState, FileTab, Language } from '../types';
 import { getActiveAppLanguage } from '../i18n';
 import { defaultCodeForLanguage, extensionForLanguage } from '../utils/languageMeta';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
+import {
+  formatSource,
+  isFormatterSupported,
+  type FormatterFailure,
+} from '../utils/formatters';
 import { useRecentFilesStore } from './recentFilesStore';
+import { useSettingsStore } from './settingsStore';
+import { useUIStore } from './uiStore';
 
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
@@ -18,6 +25,77 @@ export const createDefaultTab = (language: Language = 'javascript'): FileTab => 
 };
 
 export { languageFromPath } from '../utils/language';
+
+const FORMATTER_FAILURE_NOTICE: Record<FormatterFailure, { tone: 'error' | 'info'; messageKey: string } | null> = {
+  unsupported: null,
+  'parse-error': { tone: 'error', messageKey: 'editor.formatOnSave.parseError' },
+  'binary-missing': { tone: 'error', messageKey: 'editor.formatOnSave.binaryMissing' },
+  'web-unavailable': { tone: 'info', messageKey: 'editor.formatOnSave.webUnavailable' },
+  unknown: { tone: 'error', messageKey: 'editor.formatOnSave.unknownError' },
+};
+
+/**
+ * Try to format `content` when `formatOnSave` is enabled and the tab's
+ * language has a formatter strategy. Emits a dismissable status notice on
+ * failure but never throws — we always fall back to saving the original
+ * content so format issues never block persistence.
+ */
+async function resolveFormattedContent(
+  tab: FileTab
+): Promise<string> {
+  const { formatOnSave } = useSettingsStore.getState();
+  if (!formatOnSave) return tab.content;
+  if (!isFormatterSupported(tab.language)) return tab.content;
+
+  const result = await formatSource(tab.language, tab.content);
+  if (result.ok) return result.formatted;
+
+  const notice = FORMATTER_FAILURE_NOTICE[result.failure];
+  if (notice) {
+    useUIStore.getState().pushStatusNotice({
+      tone: notice.tone,
+      messageKey: notice.messageKey,
+      values: { name: tab.name },
+      detail: result.message,
+    });
+  }
+  return tab.content;
+}
+
+function basename(filePath: string): string {
+  return filePath.split('/').pop() ?? filePath.split('\\').pop() ?? filePath;
+}
+
+async function persistTab(
+  tab: FileTab,
+  forceSaveAs = false
+): Promise<(FileTab & { filePath: string }) | null> {
+  const targetPath =
+    forceSaveAs || !tab.filePath
+      ? await window.lingua.fs.saveDialog(tab.name)
+      : tab.filePath;
+
+  if (!targetPath) {
+    return null;
+  }
+
+  const name = basename(targetPath);
+  const language = resolveFileLanguageOrPlaintext(name);
+  const nextTab: FileTab & { filePath: string } = {
+    ...tab,
+    filePath: targetPath,
+    name,
+    language,
+  };
+  const content = await resolveFormattedContent(nextTab);
+  await window.lingua.fs.write(targetPath, content);
+
+  return {
+    ...nextTab,
+    content,
+    isDirty: false,
+  };
+}
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   tabs: [],
@@ -117,48 +195,43 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   saveActiveTab: async () => {
-    const { tabs, activeTabId, saveActiveTabAs } = get();
-    const tab = tabs.find((t) => t.id === activeTabId);
-    if (!tab) return;
-
-    // If no filePath, delegate to Save As
-    if (!tab.filePath) {
-      await saveActiveTabAs();
-      return;
-    }
-
-    await window.lingua.fs.write(tab.filePath, tab.content);
-    set((state) => ({
-      tabs: state.tabs.map((t) =>
-        t.id === tab.id ? { ...t, isDirty: false } : t
-      ),
-    }));
+    const { activeTabId, saveTabById } = get();
+    if (!activeTabId) return;
+    await saveTabById(activeTabId);
   },
 
   saveActiveTabAs: async () => {
-    const { tabs, activeTabId } = get();
-    const tab = tabs.find((t) => t.id === activeTabId);
-    if (!tab) return;
+    const { activeTabId, saveTabById } = get();
+    if (!activeTabId) return;
+    await saveTabById(activeTabId, true);
+  },
 
-    const chosenPath = await window.lingua.fs.saveDialog(tab.name);
-    if (!chosenPath) return;
+  saveTabById: async (id, forceSaveAs = false) => {
+    const { tabs } = get();
+    const tab = tabs.find((t) => t.id === id);
+    if (!tab) return false;
 
-    await window.lingua.fs.write(chosenPath, tab.content);
-    const name = chosenPath.split('/').pop() ?? chosenPath.split('\\').pop() ?? tab.name;
-    const language = resolveFileLanguageOrPlaintext(name);
+    const previousPath = tab.filePath;
+    const savedTab = await persistTab(tab, forceSaveAs);
+    if (!savedTab) return false;
+
     set((state) => ({
-      tabs: state.tabs.map((t) =>
-        t.id === tab.id
-          ? { ...t, filePath: chosenPath, name, language, isDirty: false }
-          : t
-      ),
+      tabs: state.tabs.map((t) => (t.id === id ? savedTab : t)),
     }));
 
-    useRecentFilesStore.getState().addRecentFile({ filePath: chosenPath, name, language });
+    if (forceSaveAs || previousPath !== savedTab.filePath) {
+      useRecentFilesStore.getState().addRecentFile({
+        filePath: savedTab.filePath,
+        name: savedTab.name,
+        language: savedTab.language,
+      });
+    }
+
+    return true;
   },
 
   closeTab: async (id) => {
-    const { tabs, removeTab } = get();
+    const { tabs, removeTab, saveTabById } = get();
     const tab = tabs.find((t) => t.id === id);
     if (!tab) return true;
 
@@ -173,21 +246,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       getActiveAppLanguage()
     );
     if (response === 0) {
-      // Save first
-      if (tab.filePath) {
-        await window.lingua.fs.write(tab.filePath, tab.content);
-      } else {
-        const chosenPath = await window.lingua.fs.saveDialog(tab.name);
-        if (!chosenPath) return false; // User cancelled Save As
-        await window.lingua.fs.write(chosenPath, tab.content);
-        const name = chosenPath.split('/').pop() ?? chosenPath.split('\\').pop() ?? tab.name;
-        const language = resolveFileLanguageOrPlaintext(name);
-        useRecentFilesStore.getState().addRecentFile({
-          filePath: chosenPath,
-          name,
-          language,
-        });
-      }
+      const saved = await saveTabById(id);
+      if (!saved) return false;
       removeTab(id);
       return true;
     } else if (response === 1) {

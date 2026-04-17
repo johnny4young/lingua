@@ -47,6 +47,7 @@ let beforeCloseHandler: (() => void) | undefined;
 const mockEditorState = {
   saveActiveTab: vi.fn().mockResolvedValue(undefined),
   saveActiveTabAs: vi.fn().mockResolvedValue(undefined),
+  saveTabById: vi.fn().mockResolvedValue(true),
   openFileFromDisk: vi.fn().mockResolvedValue(undefined),
   closeTab: vi.fn().mockResolvedValue(true),
   activeTabId: 'tab-1',
@@ -198,6 +199,7 @@ describe('App', () => {
     mockSettingsState.hasCompletedTour = false;
     mockEditorState.activeTabId = 'tab-1';
     mockEditorState.tabs = [];
+    mockEditorState.saveTabById.mockResolvedValue(true);
 
     Object.defineProperty(window, 'lingua', {
       value: {
@@ -298,8 +300,9 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(mockConfirmClose).toHaveBeenCalledWith(['untitled.js'], 'en');
-      expect(mockSaveDialog).toHaveBeenCalledWith('untitled.js');
-      expect(mockWrite).toHaveBeenCalledWith('/saved/untitled.js', 'console.log("dirty")');
+      expect(mockEditorState.saveTabById).toHaveBeenCalledWith('tab-1');
+      expect(mockSaveDialog).not.toHaveBeenCalled();
+      expect(mockWrite).not.toHaveBeenCalled();
       expect(mockForceClose).toHaveBeenCalledTimes(1);
     });
   });

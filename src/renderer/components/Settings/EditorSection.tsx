@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
-import { EDITOR_THEMES, FONT_FAMILIES, FONT_SIZES } from './settingsOptions';
+import {
+  EDITOR_THEMES,
+  FONT_FAMILIES,
+  FONT_SIZES,
+  fontStackSupportsLigatures,
+} from './settingsOptions';
 import { Row, Section, Select, StepperButton, Toggle } from './shared';
 
 export function EditorSection() {
@@ -8,6 +13,8 @@ export function EditorSection() {
   const setEditorTheme = useSettingsStore((state) => state.setEditorTheme);
   const fontFamily = useSettingsStore((state) => state.fontFamily);
   const setFontFamily = useSettingsStore((state) => state.setFontFamily);
+  const fontLigatures = useSettingsStore((state) => state.fontLigatures);
+  const toggleFontLigatures = useSettingsStore((state) => state.toggleFontLigatures);
   const fontSize = useSettingsStore((state) => state.fontSize);
   const setFontSize = useSettingsStore((state) => state.setFontSize);
   const showLineNumbers = useSettingsStore((state) => state.showLineNumbers);
@@ -22,7 +29,10 @@ export function EditorSection() {
   const setMaxLoopIterations = useSettingsStore((state) => state.setMaxLoopIterations);
   const restoreSession = useSettingsStore((state) => state.restoreSession);
   const toggleRestoreSession = useSettingsStore((state) => state.toggleRestoreSession);
+  const formatOnSave = useSettingsStore((state) => state.formatOnSave);
+  const toggleFormatOnSave = useSettingsStore((state) => state.toggleFormatOnSave);
   const { t } = useTranslation();
+  const ligaturesAvailable = fontStackSupportsLigatures(fontFamily);
 
   return (
     <Section
@@ -40,13 +50,44 @@ export function EditorSection() {
       </Row>
 
       <Row label={t('editor.fontFamily.label')} hint={t('editor.fontFamily.hint')}>
-        <Select value={fontFamily} onChange={(event) => setFontFamily(event.target.value)}>
-          {FONT_FAMILIES.map((font) => (
-            <option key={font.value} value={font.value}>
-              {font.label}
-            </option>
-          ))}
-        </Select>
+        <div className="grid w-full gap-2">
+          <Select value={fontFamily} onChange={(event) => setFontFamily(event.target.value)}>
+            {FONT_FAMILIES.map((font) => (
+              <option key={font.value} value={font.value}>
+                {font.supportsLigatures
+                  ? t('editor.fontFamily.optionWithLigatures', { name: font.label })
+                  : font.label}
+              </option>
+            ))}
+          </Select>
+          <div
+            data-testid="editor-font-preview"
+            aria-label={t('editor.fontFamily.previewLabel')}
+            className="rounded-[0.9rem] border border-border/80 bg-background/65 px-3 py-2 text-sm leading-6 text-foreground"
+            style={{
+              fontFamily,
+              fontVariantLigatures: ligaturesAvailable && fontLigatures ? 'contextual' : 'none',
+              fontFeatureSettings: ligaturesAvailable && fontLigatures ? undefined : '"liga" 0, "calt" 0',
+            }}
+          >
+            {t('editor.fontFamily.previewSample')}
+          </div>
+        </div>
+      </Row>
+
+      <Row
+        label={t('editor.fontLigatures.label')}
+        hint={
+          ligaturesAvailable
+            ? t('editor.fontLigatures.hint')
+            : t('editor.fontLigatures.unavailableHint')
+        }
+      >
+        <Toggle
+          value={fontLigatures && ligaturesAvailable}
+          onChange={toggleFontLigatures}
+          disabled={!ligaturesAvailable}
+        />
       </Row>
 
       <Row label={t('editor.fontSize.label')} hint={t('editor.fontSize.hint')}>
@@ -110,6 +151,13 @@ export function EditorSection() {
         hint={t('editor.restoreSession.hint')}
       >
         <Toggle value={restoreSession} onChange={toggleRestoreSession} />
+      </Row>
+
+      <Row
+        label={t('editor.formatOnSave.label')}
+        hint={t('editor.formatOnSave.hint')}
+      >
+        <Toggle value={formatOnSave} onChange={toggleFormatOnSave} />
       </Row>
     </Section>
   );

@@ -82,6 +82,25 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().restoreSession).toBe(false);
   });
 
+  it('should default formatOnSave to false', () => {
+    expect(useSettingsStore.getState().formatOnSave).toBe(false);
+  });
+
+  it('should toggle formatOnSave', () => {
+    useSettingsStore.getState().toggleFormatOnSave();
+    expect(useSettingsStore.getState().formatOnSave).toBe(true);
+    useSettingsStore.getState().toggleFormatOnSave();
+    expect(useSettingsStore.getState().formatOnSave).toBe(false);
+  });
+
+  it('should default fontLigatures to true and toggle cleanly', () => {
+    expect(useSettingsStore.getState().fontLigatures).toBe(true);
+    useSettingsStore.getState().toggleFontLigatures();
+    expect(useSettingsStore.getState().fontLigatures).toBe(false);
+    useSettingsStore.getState().toggleFontLigatures();
+    expect(useSettingsStore.getState().fontLigatures).toBe(true);
+  });
+
   it('should default language to system', () => {
     expect(useSettingsStore.getState().language).toBe('system');
   });

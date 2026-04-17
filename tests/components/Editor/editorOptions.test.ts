@@ -7,6 +7,7 @@ describe('getEditorOptions', () => {
       getEditorOptions({
         fontSize: 16,
         fontFamily: 'JetBrains Mono',
+        fontLigatures: true,
         showLineNumbers: false,
         wordWrap: true,
         minimap: false,
@@ -14,6 +15,7 @@ describe('getEditorOptions', () => {
     ).toEqual({
       fontSize: 16,
       fontFamily: 'JetBrains Mono',
+      fontLigatures: true,
       glyphMargin: true,
       lineNumbers: 'off',
       wordWrap: 'on',

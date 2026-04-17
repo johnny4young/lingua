@@ -50,18 +50,29 @@ export function Row({
   );
 }
 
-export function Toggle({ value, onChange }: { value: boolean; onChange: () => void }) {
+export function Toggle({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={value}
+      aria-disabled={disabled || undefined}
+      disabled={disabled}
       onClick={onChange}
       className={cn(
         'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         value
           ? 'border-primary/30 bg-primary'
-          : 'border-border/80 bg-surface-strong/80'
+          : 'border-border/80 bg-surface-strong/80',
+        disabled && 'cursor-not-allowed opacity-60'
       )}
     >
       <span

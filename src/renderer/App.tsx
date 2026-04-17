@@ -9,6 +9,7 @@ import { GoToSymbol } from './components/GoToSymbol/GoToSymbol';
 import { ProjectSearch } from './components/ProjectSearch/ProjectSearch';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { SnippetsModal } from './components/Snippets';
+import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
 import { CHANGELOG_ENTRIES } from './data/changelog';
 import {
   DEFAULT_DEVELOPER_UTILITY_ID,
@@ -200,17 +201,10 @@ function AppChrome({
 
         if (response === 0) {
           for (const tab of dirtyTabs) {
-            if (tab.filePath) {
-              await window.lingua.fs.write(tab.filePath, tab.content);
-              continue;
-            }
-
-            const chosenPath = await window.lingua.fs.saveDialog(tab.name);
-            if (!chosenPath) {
+            const saved = await useEditorStore.getState().saveTabById(tab.id);
+            if (!saved) {
               return;
             }
-
-            await window.lingua.fs.write(chosenPath, tab.content);
           }
 
           window.lingua.forceClose();
@@ -288,6 +282,7 @@ function AppChrome({
           />
         </Suspense>
       )}
+      <StatusNoticeBanner />
     </>
   );
 }
