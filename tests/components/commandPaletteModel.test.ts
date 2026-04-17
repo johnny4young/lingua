@@ -315,6 +315,46 @@ describe('buildCommandPaletteModel', () => {
     expect(diffAction?.label).toBe('Open Diff Viewer');
   });
 
+  it('exposes the keyboard shortcuts action only when the opener is wired in', () => {
+    const onOpenKeyboardShortcuts = vi.fn();
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    expect(
+      buildCommandPaletteModel(baseArgs).find((c) => c.id === 'action-keyboard-shortcuts')
+    ).toBeUndefined();
+
+    const withShortcuts = buildCommandPaletteModel({
+      ...baseArgs,
+      onOpenKeyboardShortcuts,
+    });
+    const action = withShortcuts.find((c) => c.id === 'action-keyboard-shortcuts');
+    expect(action).toBeDefined();
+    expect(action?.label).toBe('Open Keyboard Shortcuts');
+    action?.action();
+    expect(onOpenKeyboardShortcuts).toHaveBeenCalledOnce();
+  });
+
   it('keeps matching commands when filtering by keywords, label, or description', () => {
     const commands = [
       {

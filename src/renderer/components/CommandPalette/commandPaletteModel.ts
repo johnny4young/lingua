@@ -40,6 +40,7 @@ interface BuildCommandPaletteModelArgs {
   onOpenProjectSearch?: () => void;
   onOpenGoToSymbol?: () => void;
   onOpenDeveloperUtility?: (id: DeveloperUtilityId) => void;
+  onOpenKeyboardShortcuts?: () => void;
   checkForUpdates: () => Promise<void>;
   restartToApply: () => Promise<boolean>;
   openFileFromDisk?: () => Promise<void>;
@@ -158,6 +159,7 @@ export function buildCommandPaletteModel({
   onOpenProjectSearch,
   onOpenGoToSymbol,
   onOpenDeveloperUtility,
+  onOpenKeyboardShortcuts,
   checkForUpdates,
   restartToApply,
   openFileFromDisk,
@@ -328,6 +330,21 @@ export function buildCommandPaletteModel({
             onOpenDeveloperUtility(utility.id);
           }
         )
+      )
+    );
+  }
+
+  if (onOpenKeyboardShortcuts) {
+    commands.push(
+      buildActionCommand(
+        'action-keyboard-shortcuts',
+        translate('commandPalette.action.keyboardShortcuts.label'),
+        translate('commandPalette.action.keyboardShortcuts.description'),
+        ['keyboard', 'shortcuts', 'keybindings', 'hotkeys', 'help'],
+        () => {
+          onClose();
+          onOpenKeyboardShortcuts();
+        }
       )
     );
   }

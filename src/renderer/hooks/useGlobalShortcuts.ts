@@ -9,7 +9,8 @@ export type AppOverlay =
   | 'go-to-symbol'
   | 'utilities'
   | 'snippets'
-  | 'whats-new';
+  | 'whats-new'
+  | 'keyboard-shortcuts';
 
 interface UseGlobalShortcutsOptions {
   isRunning: boolean;
