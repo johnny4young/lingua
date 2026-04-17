@@ -60,7 +60,14 @@ function createDraftFromActiveTab(
 }
 
 export function SnippetsModal({ onClose }: SnippetsModalProps) {
-  const { snippets, addSnippet, removeSnippet, updateSnippet } = useSnippetsStore();
+  const {
+    snippets,
+    pendingLinkedSnippetId,
+    addSnippet,
+    removeSnippet,
+    updateSnippet,
+    setPendingLinkedSnippetId,
+  } = useSnippetsStore();
   const { tabs, activeTabId, addTab, updateContent } = useEditorStore();
   const { t } = useTranslation();
   const [selectedSnippetId, setSelectedSnippetId] = useState<string | null>(
@@ -102,6 +109,20 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
     setIsCreatingNew(true);
     setDraft(EMPTY_SNIPPET_DRAFT);
   }, [isCreatingNew, selectedSnippet, sortedSnippets]);
+
+  useEffect(() => {
+    if (!pendingLinkedSnippetId) {
+      return;
+    }
+
+    const matchingSnippet = sortedSnippets.find((snippet) => snippet.id === pendingLinkedSnippetId);
+    if (matchingSnippet) {
+      setSelectedSnippetId(matchingSnippet.id);
+      setIsCreatingNew(false);
+    }
+
+    setPendingLinkedSnippetId(null);
+  }, [pendingLinkedSnippetId, setPendingLinkedSnippetId, sortedSnippets]);
 
   const handleStartNewSnippet = () => {
     setIsCreatingNew(true);

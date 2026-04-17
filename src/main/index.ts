@@ -1,6 +1,14 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import { extractLinguaDeepLinkUrl, type DeepLinkTarget } from '../shared/deepLinks';
+import {
+  consumePendingDeepLink,
+  createDeepLinkRuntimeState,
+  handleIncomingDeepLink,
+  markDeepLinkRendererReady,
+  primeDeepLinkFromArgv,
+} from './deepLinkState';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
 import { registerAppInfoHandlers } from './ipc/appInfo';
@@ -12,6 +20,11 @@ import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
 
 if (started) {
+  app.quit();
+}
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
   app.quit();
 }
 
@@ -27,10 +40,65 @@ registerUpdater();
 
 let forceQuit = false;
 let mainWindow: BrowserWindow | null = null;
+const deepLinkState = createDeepLinkRuntimeState();
+
+function focusMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+
+  mainWindow.focus();
+}
+
+function dispatchDeepLinkToRenderer(target: DeepLinkTarget): boolean {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return false;
+  }
+
+  mainWindow.webContents.send('app:deep-link', target);
+  return true;
+}
+
+function handleDeepLink(rawUrl: string) {
+  const target = handleIncomingDeepLink(deepLinkState, rawUrl, dispatchDeepLinkToRenderer);
+  if (!target) {
+    return;
+  }
+
+  focusMainWindow();
+}
+
+function registerProtocolClient() {
+  if (!app.isPackaged && !process.defaultApp) {
+    return;
+  }
+
+  if (process.defaultApp && process.argv[1]) {
+    app.setAsDefaultProtocolClient('lingua', process.execPath, [
+      path.resolve(process.argv[1]),
+    ]);
+    return;
+  }
+
+  app.setAsDefaultProtocolClient('lingua');
+}
 
 ipcMain.on('app:force-close', () => {
   forceQuit = true;
   app.quit();
+});
+
+ipcMain.handle('app:consume-pending-deep-link', () => consumePendingDeepLink(deepLinkState));
+ipcMain.on('app:deep-link-renderer-ready', () => {
+  markDeepLinkRendererReady(deepLinkState, true);
 });
 
 const createWindow = () => {
@@ -54,6 +122,7 @@ const createWindow = () => {
     },
   });
   mainWindow = window;
+  markDeepLinkRendererReady(deepLinkState, false);
 
   // Dirty-close intercept: ask the renderer to check for unsaved tabs
   window.on('close', (event) => {
@@ -68,6 +137,7 @@ const createWindow = () => {
   });
 
   window.on('closed', () => {
+    markDeepLinkRendererReady(deepLinkState, false);
     mainWindow = null;
   });
 
@@ -117,7 +187,25 @@ const requestAppQuit = () => {
 process.once('SIGINT', requestAppQuit);
 process.once('SIGTERM', requestAppQuit);
 
-app.on('ready', createWindow);
+primeDeepLinkFromArgv(deepLinkState, process.argv);
+
+app.on('second-instance', (_event, argv) => {
+  focusMainWindow();
+  const deepLinkUrl = extractLinguaDeepLinkUrl(argv);
+  if (deepLinkUrl) {
+    handleDeepLink(deepLinkUrl);
+  }
+});
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  handleDeepLink(url);
+});
+
+app.on('ready', () => {
+  registerProtocolClient();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

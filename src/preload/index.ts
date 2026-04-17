@@ -8,6 +8,18 @@ contextBridge.exposeInMainWorld('lingua', {
   getAppInfo: () => ipcRenderer.invoke('app:get-info') as Promise<AppInfo>,
   openExternal: (url: string) => ipcRenderer.invoke('app:open-external', url) as Promise<boolean>,
 
+  deepLinks: {
+    consumePending: () =>
+      ipcRenderer.invoke('app:consume-pending-deep-link') as Promise<DeepLinkTarget | null>,
+    markReady: () => ipcRenderer.send('app:deep-link-renderer-ready'),
+    onLink: (callback: (target: DeepLinkTarget) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: unknown) =>
+        callback(data as DeepLinkTarget);
+      ipcRenderer.on('app:deep-link', handler);
+      return () => ipcRenderer.removeListener('app:deep-link', handler);
+    },
+  },
+
   // Go runner IPC
   go: {
     detect: () => ipcRenderer.invoke('go:detect'),

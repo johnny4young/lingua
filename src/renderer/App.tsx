@@ -16,6 +16,7 @@ import { useRunner } from './hooks/useRunner';
 import { useDesktopSmoke } from './hooks/useDesktopSmoke';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+import { useDeepLinks } from './hooks/useDeepLinks';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
@@ -53,6 +54,7 @@ function AppChrome({
   const appInfo = useAppInfo();
   const { hasCompletedTour, startTour } = useGuidedTour();
   const smokeEnabled = desktopSmokeEnabled();
+  const hasHandledDeepLink = useDeepLinks({ openOverlay });
   const hasRestoredSessionRef = useRef(false);
   const hasHandledWhatsNewRef = useRef(false);
   const hasHandledAutoTourRef = useRef(false);
@@ -104,7 +106,7 @@ function AppChrome({
   }, [initializeUpdates]);
 
   useEffect(() => {
-    if (hasHandledWhatsNewRef.current || smokeEnabled) {
+    if (hasHandledWhatsNewRef.current || smokeEnabled || hasHandledDeepLink) {
       return;
     }
 
@@ -125,10 +127,18 @@ function AppChrome({
     hasHandledWhatsNewRef.current = true;
     setLastSeenVersion(currentVersion);
     openOverlay('whats-new');
-  }, [appInfo?.version, lastSeenVersion, openOverlay, overlay, setLastSeenVersion, smokeEnabled]);
+  }, [
+    appInfo?.version,
+    hasHandledDeepLink,
+    lastSeenVersion,
+    openOverlay,
+    overlay,
+    setLastSeenVersion,
+    smokeEnabled,
+  ]);
 
   useEffect(() => {
-    if (hasHandledAutoTourRef.current || smokeEnabled) {
+    if (hasHandledAutoTourRef.current || smokeEnabled || hasHandledDeepLink) {
       return;
     }
 
@@ -144,7 +154,7 @@ function AppChrome({
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [appInfo?.version, hasCompletedTour, overlay, startTour, smokeEnabled]);
+  }, [appInfo?.version, hasCompletedTour, hasHandledDeepLink, overlay, startTour, smokeEnabled]);
 
   // Auto-run code after the configured idle debounce
   useAutoRun();
