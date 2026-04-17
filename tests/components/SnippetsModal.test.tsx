@@ -12,6 +12,11 @@ describe('SnippetsModal', () => {
       await i18next.changeLanguage('en');
     });
     useSnippetsStore.setState({ snippets: [] });
+    useSnippetsStore.setState({
+      ...useSnippetsStore.getState(),
+      snippets: [],
+      pendingLinkedSnippetId: null,
+    });
     useEditorStore.setState({
       tabs: [],
       activeTabId: null,
@@ -199,5 +204,27 @@ describe('SnippetsModal', () => {
         await i18next.changeLanguage('en');
       });
     }
+  });
+
+  it('selects a pending deep-linked snippet when the modal opens', async () => {
+    useSnippetsStore.setState({
+      ...useSnippetsStore.getState(),
+      snippets: [
+        {
+          id: 'snippet-target',
+          label: 'Target',
+          description: 'Deep link target',
+          language: 'javascript',
+          code: 'console.log("target")',
+          createdAt: Date.now(),
+        },
+      ],
+      pendingLinkedSnippetId: 'snippet-target',
+    });
+
+    render(<SnippetsModal onClose={vi.fn()} />);
+
+    expect(screen.getByDisplayValue('Target')).toBeTruthy();
+    expect(useSnippetsStore.getState().pendingLinkedSnippetId).toBeNull();
   });
 });

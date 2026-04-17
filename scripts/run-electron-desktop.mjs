@@ -29,11 +29,17 @@ function parseArgs(argv) {
     syncMain: false,
     reuseServer: false,
     exitAfterMs: null,
+    electronArgs: [],
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (!arg) continue;
+
+    if (arg === '--') {
+      options.electronArgs = argv.slice(index + 1);
+      break;
+    }
 
     if (arg === '--sync-main') {
       options.syncMain = true;
@@ -325,7 +331,7 @@ async function main() {
     }
 
     console.log(`[desktop] Launching Electron against ${parsedRendererUrl.toString()}`);
-    electronProcess = spawnManagedProcess(electronBinary, ['.'], {
+    electronProcess = spawnManagedProcess(electronBinary, ['.', ...options.electronArgs], {
       env: {
         LINGUA_RENDERER_URL: parsedRendererUrl.toString(),
       },

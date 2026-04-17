@@ -255,6 +255,21 @@ The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/lin
 | Settings                | `Cmd+,`       | `Ctrl+,`        |
 | Close open overlay      | `Escape`      | `Escape`        |
 
+## Desktop deep links
+
+Packaged desktop builds now register the `lingua://` protocol and handle these entry points:
+
+- `lingua://open?file=/absolute/path/to/file.ts`
+- `lingua://new?lang=python`
+- `lingua://snippet?id=snippet-123`
+
+Notes:
+
+- `open` reuses an already-open tab when the target file is open, otherwise it opens the file from disk
+- `new` creates a fresh tab using the same starter content as the toolbar language actions
+- `snippet` opens the Snippet Library and focuses the matching saved snippet when that id exists locally
+- Web builds expose the same bridge shape internally for consistency, but the OS-level protocol registration is desktop-only
+
 ## Automation and delivery
 
 - CI runs web build, type checking, linting, tests, and a non-blocking `npm audit`

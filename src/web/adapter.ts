@@ -99,6 +99,11 @@ const webLingua: LinguaAPI = {
   fs: webFsAdapter,
   updates: updateStub,
   plugins: pluginStub,
+  deepLinks: {
+    consumePending: async () => null,
+    markReady: () => {},
+    onLink: () => () => {},
+  },
 };
 
 // Expose on window — mirrors what the Electron preload does via contextBridge

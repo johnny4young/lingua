@@ -183,6 +183,13 @@ interface AppInfo {
   licenseUrl: string | null;
 }
 
+// ------------------------------------------------------------- Deep links
+
+type DeepLinkTarget =
+  | { kind: 'open-file'; filePath: string; rawUrl: string }
+  | { kind: 'open-snippet'; snippetId: string; rawUrl: string }
+  | { kind: 'new-file'; language: string; rawUrl: string };
+
 // -------------------------------------------------------- Desktop smoke
 
 interface DesktopSmokeConfig {
@@ -274,6 +281,12 @@ interface LinguaAPI {
   plugins: {
     getInstallDirectory: () => Promise<string | null>;
     list: () => Promise<InstalledPluginRecord[]>;
+  };
+
+  deepLinks: {
+    consumePending: () => Promise<DeepLinkTarget | null>;
+    markReady: () => void;
+    onLink: (callback: (target: DeepLinkTarget) => void) => () => void;
   };
 
   desktopSmoke?: {
