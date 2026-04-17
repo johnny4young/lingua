@@ -24,6 +24,7 @@ interface CommandPaletteProps {
   onOpenProjectSearch?: () => void;
   onOpenGoToSymbol?: () => void;
   onOpenDeveloperUtility?: (id: DeveloperUtilityId) => void;
+  onOpenKeyboardShortcuts?: () => void;
 }
 
 export function CommandPalette({
@@ -35,6 +36,7 @@ export function CommandPalette({
   onOpenProjectSearch,
   onOpenGoToSymbol,
   onOpenDeveloperUtility,
+  onOpenKeyboardShortcuts,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -63,6 +65,7 @@ export function CommandPalette({
       onOpenProjectSearch,
       onOpenGoToSymbol,
       onOpenDeveloperUtility,
+      onOpenKeyboardShortcuts,
       checkForUpdates,
       restartToApply,
       openFileFromDisk,
@@ -84,6 +87,7 @@ export function CommandPalette({
     onOpenProjectSearch,
     onOpenGoToSymbol,
     onOpenDeveloperUtility,
+    onOpenKeyboardShortcuts,
     checkForUpdates,
     restartToApply,
     updateStatus,
