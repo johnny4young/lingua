@@ -63,6 +63,7 @@ export const useSettingsStore = create<SettingsState>()(
       language: 'system',
       lastSeenVersion: null,
       hasCompletedTour: false,
+      suppressTourAutoStart: false,
       shortcutOverrides: {},
 
       setTheme: (theme) => set({ theme }),
@@ -95,6 +96,7 @@ export const useSettingsStore = create<SettingsState>()(
       setLanguage: (language) => set({ language }),
       setLastSeenVersion: (lastSeenVersion) => set({ lastSeenVersion }),
       setHasCompletedTour: (hasCompletedTour) => set({ hasCompletedTour }),
+      setSuppressTourAutoStart: (suppressTourAutoStart) => set({ suppressTourAutoStart }),
       setShortcutOverride: (id, combos) =>
         set((state) => ({
           shortcutOverrides: { ...state.shortcutOverrides, [id]: combos },
@@ -130,6 +132,7 @@ export const useSettingsStore = create<SettingsState>()(
         language: state.language,
         lastSeenVersion: state.lastSeenVersion,
         hasCompletedTour: state.hasCompletedTour,
+        suppressTourAutoStart: state.suppressTourAutoStart,
         shortcutOverrides: state.shortcutOverrides,
       }),
       merge: (persistedState, currentState) => {

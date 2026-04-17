@@ -1,8 +1,9 @@
 import { BookCopy, GitBranch, Info, ShieldCheck, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppInfo } from '../../hooks/useAppInfo';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { useUpdateStore } from '../../stores/updateStore';
-import { Row, Section } from './shared';
+import { Row, Section, Toggle } from './shared';
 
 function formatBuildDate(value: string | null, locale: string, unavailable: string): string {
   if (!value) {
@@ -51,6 +52,12 @@ export function AboutSection({
   const appInfo = useAppInfo();
   const checkForUpdates = useUpdateStore((state) => state.checkForUpdates);
   const updateStatus = useUpdateStore((state) => state.status);
+  const suppressTourAutoStart = useSettingsStore(
+    (state) => state.suppressTourAutoStart
+  );
+  const setSuppressTourAutoStart = useSettingsStore(
+    (state) => state.setSuppressTourAutoStart
+  );
   const { t, i18n } = useTranslation();
 
   const productName = appInfo?.productName ?? 'Lingua';
@@ -128,6 +135,7 @@ export function AboutSection({
             <button
               type="button"
               onClick={onStartGuidedTour}
+              data-testid="about-start-tour"
               className="button-secondary"
             >
               <BookCopy size={14} />
@@ -157,6 +165,20 @@ export function AboutSection({
                 : t('about.actions.checkUpdates')}
             </span>
           </button>
+        </div>
+      </Row>
+
+      <Row
+        label={t('about.actions.showTourOnStartup.label')}
+        hint={t('about.actions.showTourOnStartup.hint')}
+      >
+        <div className="flex justify-end">
+          <div data-testid="settings-show-tour-toggle">
+            <Toggle
+              value={!suppressTourAutoStart}
+              onChange={() => setSuppressTourAutoStart(!suppressTourAutoStart)}
+            />
+          </div>
         </div>
       </Row>
     </Section>
