@@ -103,6 +103,12 @@ interface FsDirEntry {
   path: string;
 }
 
+interface FsIndexedFile {
+  name: string;
+  path: string;
+  relativePath: string;
+}
+
 interface FsStatResult {
   size: number;
   isDirectory: boolean;
@@ -214,6 +220,7 @@ interface LinguaAPI {
     selectFile: () => Promise<string | null>;
     saveDialog: (defaultName: string, defaultDir?: string) => Promise<string | null>;
     readdir: (dirPath: string) => Promise<FsDirEntry[]>;
+    listAllFiles: (rootPath: string) => Promise<FsIndexedFile[]>;
     stat: (filePath: string) => Promise<FsStatResult>;
     read: (filePath: string) => Promise<string>;
     write: (filePath: string, content: string) => Promise<boolean>;
