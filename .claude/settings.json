@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm audit*)",
+      "Bash(npm view *)",
+      "Bash(npm ls*)",
+      "mcp__computer-use__screenshot",
+      "mcp__Claude_Preview__preview_screenshot",
+      "mcp__Claude_Preview__preview_snapshot",
+      "mcp__Claude_Preview__preview_console_logs",
+      "mcp__Claude_Preview__preview_logs",
+      "mcp__Claude_Preview__preview_list",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_wait_for",
+      "mcp__plugin_playwright_playwright__browser_console_messages",
+      "mcp__60e7df81-aeb9-43f6-a448-48f5841dc423__notion-fetch",
+      "mcp__60e7df81-aeb9-43f6-a448-48f5841dc423__notion-search"
+    ]
+  }
+}
