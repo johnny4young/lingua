@@ -1,4 +1,4 @@
-import { Keyboard, RotateCcw, Search, X } from 'lucide-react';
+import { Download, Keyboard, RotateCcw, Search, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,9 +19,29 @@ import {
 import { KEYMAP_PRESETS } from '../../data/keymapPresets';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
+import {
+  buildShortcutPreset,
+  parseShortcutPreset,
+  serializeShortcutPreset,
+  type ParseShortcutPresetResult,
+} from '../../utils/shortcutPreset';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 
 const NON_EDITABLE_SHORTCUTS: ReadonlySet<string> = new Set(['overlay-close']);
+
+function importFailureKey(
+  result: Extract<ParseShortcutPresetResult, { ok: false }>
+): string {
+  switch (result.reason) {
+    case 'invalid-json':
+      return 'shortcuts.editor.importInvalidJson';
+    case 'unsupported-version':
+      return 'shortcuts.editor.importUnsupportedVersion';
+    case 'invalid-shape':
+    default:
+      return 'shortcuts.editor.importInvalidShape';
+  }
+}
 
 function groupShortcuts(shortcuts: readonly ShortcutDefinition[]) {
   const byGroup = new Map<ShortcutGroupId, ShortcutDefinition[]>();
@@ -259,6 +279,81 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     pushStatusNotice({ tone: 'success', messageKey: 'shortcuts.editor.resetAllDone' });
   }, [pushStatusNotice, resetShortcutOverrides]);
 
+  const handleExport = useCallback(async () => {
+    const saveDialog = window.lingua?.fs?.saveDialog;
+    const write = window.lingua?.fs?.write;
+    if (!saveDialog || !write) {
+      pushStatusNotice({
+        tone: 'error',
+        messageKey: 'shortcuts.editor.exportBridgeMissing',
+      });
+      return;
+    }
+    try {
+      const chosen = await saveDialog('lingua-shortcuts.json');
+      if (!chosen) return;
+      const preset = buildShortcutPreset(overrides);
+      await write(chosen, serializeShortcutPreset(preset));
+      pushStatusNotice({
+        tone: 'success',
+        messageKey: 'shortcuts.editor.exported',
+        values: { path: chosen },
+      });
+    } catch (error) {
+      pushStatusNotice({
+        tone: 'error',
+        messageKey: 'shortcuts.editor.exportFailed',
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [overrides, pushStatusNotice]);
+
+  const handleImport = useCallback(async () => {
+    const selectFile = window.lingua?.fs?.selectFile;
+    const read = window.lingua?.fs?.read;
+    if (!selectFile || !read) {
+      pushStatusNotice({
+        tone: 'error',
+        messageKey: 'shortcuts.editor.exportBridgeMissing',
+      });
+      return;
+    }
+    try {
+      const filePath = await selectFile();
+      if (!filePath) return;
+      const raw = await read(filePath);
+      const result = parseShortcutPreset(raw);
+
+      if (!result.ok) {
+        pushStatusNotice({
+          tone: 'error',
+          messageKey: importFailureKey(result),
+          detail: result.message,
+        });
+        return;
+      }
+
+      // Apply import by clearing existing overrides and re-seeding from the
+      // preset. Flipping to the `default` keymap-preset id honestly reflects
+      // that the user is now running a hand-picked set rather than a built-in.
+      resetShortcutOverrides();
+      for (const [id, combos] of Object.entries(result.preset.overrides)) {
+        setShortcutOverride(id, combos);
+      }
+      pushStatusNotice({
+        tone: 'success',
+        messageKey: 'shortcuts.editor.imported',
+        values: { count: Object.keys(result.preset.overrides).length },
+      });
+    } catch (error) {
+      pushStatusNotice({
+        tone: 'error',
+        messageKey: 'shortcuts.editor.importFailed',
+        detail: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [pushStatusNotice, resetShortcutOverrides, setShortcutOverride]);
+
   return (
     <OverlayBackdrop onClose={onClose}>
       <OverlayCard
@@ -349,22 +444,43 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
           )}
         </div>
 
-        <footer className="flex items-center justify-between gap-3 border-t border-border/80 px-5 py-3">
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border/80 px-5 py-3">
           <p className="text-xs text-muted">
             {hasOverrides
               ? t('shortcuts.editor.overrideCount', { count: Object.keys(overrides).length })
               : t('shortcuts.editor.noOverrides')}
           </p>
-          <button
-            type="button"
-            onClick={handleResetAll}
-            disabled={!hasOverrides}
-            data-testid="shortcut-reset-all"
-            className="inline-flex items-center gap-1.5 rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RotateCcw size={12} />
-            {t('shortcuts.editor.resetAll')}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleExport()}
+              disabled={!hasOverrides}
+              data-testid="shortcut-export"
+              className="inline-flex items-center gap-1.5 rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download size={12} />
+              {t('shortcuts.editor.export')}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleImport()}
+              data-testid="shortcut-import"
+              className="inline-flex items-center gap-1.5 rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:text-foreground"
+            >
+              <Upload size={12} />
+              {t('shortcuts.editor.import')}
+            </button>
+            <button
+              type="button"
+              onClick={handleResetAll}
+              disabled={!hasOverrides}
+              data-testid="shortcut-reset-all"
+              className="inline-flex items-center gap-1.5 rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <RotateCcw size={12} />
+              {t('shortcuts.editor.resetAll')}
+            </button>
+          </div>
         </footer>
       </OverlayCard>
     </OverlayBackdrop>

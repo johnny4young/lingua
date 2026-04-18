@@ -139,7 +139,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     fileNames: ['Dockerfile', 'Containerfile'],
     monacoLanguage: 'dockerfile',
     defaultCode: 'FROM node:20\nWORKDIR /app\n',
-    executionMode: 'view',
+    executionMode: 'validate',
   },
   makefile: {
     label: 'Makefile',
@@ -176,7 +176,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     // EditorConfig's grammar is INI-compatible.
     monacoLanguage: 'ini',
     defaultCode: 'root = true\n\n[*]\nindent_style = space\nindent_size = 2\n',
-    executionMode: 'view',
+    executionMode: 'validate',
   },
 };
 

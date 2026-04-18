@@ -171,6 +171,23 @@ describe('KeyboardShortcutsModal', () => {
     expect(screen.queryByTestId('shortcut-edit-overlay-close')).toBeNull();
   });
 
+  it('renders export/import buttons and disables export when there are no overrides', () => {
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+    const exportBtn = screen.getByTestId('shortcut-export');
+    const importBtn = screen.getByTestId('shortcut-import');
+    expect(exportBtn.hasAttribute('disabled')).toBe(true);
+    expect(importBtn.hasAttribute('disabled')).toBe(false);
+  });
+
+  it('enables export once the user has customized at least one shortcut', () => {
+    useSettingsStore
+      .getState()
+      .setShortcutOverride('view-toggle-sidebar', [{ tokens: ['Mod', 'Shift', 'B'] }]);
+
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+    expect(screen.getByTestId('shortcut-export').hasAttribute('disabled')).toBe(false);
+  });
+
   it('fires onClose when the close affordance is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
