@@ -70,6 +70,8 @@ describe('validation', () => {
     expect(supportsValidation('csv')).toBe(true);
     expect(supportsValidation('editorconfig')).toBe(true);
     expect(supportsValidation('dockerfile')).toBe(true);
+    expect(supportsValidation('gitignore')).toBe(true);
+    expect(supportsValidation('makefile')).toBe(true);
     expect(supportsValidation('toml')).toBe(false);
   });
 
@@ -144,6 +146,100 @@ describe('validation', () => {
 
   it('accepts a minimal valid Dockerfile without diagnostics', () => {
     const result = validateDocument('dockerfile', 'FROM node:20\nWORKDIR /app\n');
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('warns on FROM :latest and on FROM without any tag', () => {
+    const latest = validateDocument('dockerfile', 'FROM node:latest\n');
+    expect(latest.diagnostics.some((d) => /:latest/i.test(d.message))).toBe(true);
+
+    const untagged = validateDocument('dockerfile', 'FROM ubuntu\nCMD ["sh"]\n');
+    expect(untagged.diagnostics.some((d) => /no tag/i.test(d.message))).toBe(true);
+  });
+
+  it('does not mistake a registry port for an image tag', () => {
+    const result = validateDocument(
+      'dockerfile',
+      'FROM localhost:5000/ubuntu\nCMD ["sh"]\n'
+    );
+    expect(result.diagnostics.some((d) => /no tag/i.test(d.message))).toBe(true);
+    expect(result.diagnostics.some((d) => /:latest/i.test(d.message))).toBe(false);
+  });
+
+  it('does not warn on FROM scratch or a pinned @sha256 digest', () => {
+    const scratch = validateDocument('dockerfile', 'FROM scratch\nCMD ["/app"]\n');
+    expect(scratch.diagnostics).toEqual([]);
+
+    const digested = validateDocument(
+      'dockerfile',
+      'FROM node@sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\nCMD ["node"]\n'
+    );
+    expect(digested.diagnostics).toEqual([]);
+  });
+
+  it('warns on RUN apt-get install without -y', () => {
+    const missingY = validateDocument(
+      'dockerfile',
+      'FROM ubuntu:22.04\nRUN apt-get install curl\n'
+    );
+    expect(missingY.diagnostics.some((d) => /apt-get install without/i.test(d.message))).toBe(true);
+
+    const hasY = validateDocument(
+      'dockerfile',
+      'FROM ubuntu:22.04\nRUN apt-get update && apt-get install -y curl\n'
+    );
+    expect(hasY.diagnostics.some((d) => /apt-get install without/i.test(d.message))).toBe(false);
+  });
+
+  it('flags suspicious .gitignore patterns without false-positives on comments', () => {
+    const result = validateDocument(
+      'gitignore',
+      [
+        '# build artefacts',
+        'node_modules/',
+        'dist/',
+        'node_modules/', // duplicate (info)
+        'src\\foo',       // backslash warning
+        '!',              // empty negation
+      ].join('\n')
+    );
+
+    expect(result.diagnostics.some((d) => d.line === 4 && d.severity === 'info')).toBe(true);
+    expect(
+      result.diagnostics.some((d) => d.line === 5 && /forward slashes/i.test(d.message))
+    ).toBe(true);
+    expect(result.diagnostics.some((d) => d.line === 6 && /does nothing/i.test(d.message))).toBe(true);
+  });
+
+  it('accepts a clean .gitignore without diagnostics', () => {
+    const result = validateDocument('gitignore', 'node_modules/\ndist/\n.env\n!.env.example\n');
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('flags space-indented Makefile recipes as errors', () => {
+    const result = validateDocument(
+      'makefile',
+      ['all:', '    echo "Hello"', ''].join('\n')
+    );
+    expect(
+      result.diagnostics.some(
+        (d) => d.line === 2 && d.severity === 'error' && /spaces/i.test(d.message)
+      )
+    ).toBe(true);
+  });
+
+  it('flags a tab-indented command with no target', () => {
+    const result = validateDocument('makefile', '\techo "orphan"\n');
+    expect(
+      result.diagnostics.some((d) => d.severity === 'error' && /no preceding target/i.test(d.message))
+    ).toBe(true);
+  });
+
+  it('accepts a canonical Makefile without diagnostics', () => {
+    const result = validateDocument(
+      'makefile',
+      ['CC = gcc', '', 'all: hello', '\t$(CC) -o hello hello.c', ''].join('\n')
+    );
     expect(result.diagnostics).toEqual([]);
   });
 });

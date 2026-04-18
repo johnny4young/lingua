@@ -44,13 +44,11 @@ describe('languageMeta', () => {
     expect(languageForExtension('mak')).toBe('makefile');
   });
 
-  it('marks the new infra file languages with the right non-run execution mode', () => {
-    // Dockerfile + .editorconfig get validator coverage so they run the
-    // validate path; Makefile and .gitignore stay view-only for now.
+  it('marks every infra file language as validate-only (never run)', () => {
     expect(executionModeForLanguage('dockerfile')).toBe('validate');
     expect(executionModeForLanguage('editorconfig')).toBe('validate');
-    expect(executionModeForLanguage('makefile')).toBe('view');
-    expect(executionModeForLanguage('gitignore')).toBe('view');
+    expect(executionModeForLanguage('makefile')).toBe('validate');
+    expect(executionModeForLanguage('gitignore')).toBe('validate');
   });
 
   it('recognizes canonical infra file names via languageSupportsFileName', () => {
