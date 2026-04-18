@@ -150,7 +150,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     fileNames: ['Makefile', 'GNUmakefile', 'makefile'],
     monacoLanguage: 'makefile',
     defaultCode: 'all:\n\t@echo "Hello"\n',
-    executionMode: 'view',
+    executionMode: 'validate',
   },
   gitignore: {
     label: 'Gitignore',
@@ -164,7 +164,7 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     // grammar.
     monacoLanguage: 'shell',
     defaultCode: 'node_modules/\ndist/\n',
-    executionMode: 'view',
+    executionMode: 'validate',
   },
   editorconfig: {
     label: 'EditorConfig',
