@@ -2167,11 +2167,12 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 
 - Priority: `P1`
 - Status: `Partial`
-- Readiness: `Incrementally implemented on 2026-04-16`
+- Readiness: `Incrementally implemented on 2026-04-16 / 2026-04-17`
 - Current gap:
   - `json`, `yaml`/`yml`, `.env`, and `csv` now open with language-aware validate-only semantics plus lightweight diagnostics
   - `toml` and `ini` now open with dedicated highlighting and explicit view-only status instead of misleading run semantics
-  - Follow-up work can extend file-name coverage and deeper validators for additional config formats
+  - `Dockerfile` / `Containerfile` / `Dockerfile.*`, `Makefile` / `GNUmakefile`, `.gitignore` / `.dockerignore` / `.npmignore`, and `.editorconfig` now open with appropriate Monaco grammars and explicit view-only execution mode on 2026-04-17
+  - Follow-up work can add deeper validators (Dockerfile syntax checks, EditorConfig key validation) on top of the detection layer
 - Scope:
   - Add syntax highlighting and language detection for common non-runnable development files
   - Introduce a view/lint execution mode that never offers inline execution for these file types

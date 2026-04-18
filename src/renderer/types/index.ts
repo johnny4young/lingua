@@ -13,7 +13,11 @@ export type BuiltInLanguage =
   | 'dotenv'
   | 'toml'
   | 'ini'
-  | 'csv';
+  | 'csv'
+  | 'dockerfile'
+  | 'makefile'
+  | 'gitignore'
+  | 'editorconfig';
 
 /**
  * Language ids used across the editor.

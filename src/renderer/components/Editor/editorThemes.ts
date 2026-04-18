@@ -82,6 +82,29 @@ export function defineCustomThemes(monaco: Monaco) {
     },
   });
 
+  monaco.editor.defineTheme('nord-night', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '616e88', fontStyle: 'italic' },
+      { token: 'keyword', foreground: '81a1c1' },
+      { token: 'string', foreground: 'a3be8c' },
+      { token: 'number', foreground: 'b48ead' },
+      { token: 'type', foreground: '8fbcbb' },
+      { token: 'function', foreground: '88c0d0' },
+      { token: 'variable', foreground: 'd8dee9' },
+    ],
+    colors: {
+      'editor.background': '#2e3440',
+      'editor.foreground': '#d8dee9',
+      'editorLineNumber.foreground': '#4c566a',
+      'editorLineNumber.activeForeground': '#d8dee9',
+      'editor.lineHighlightBackground': '#3b4252',
+      'editor.selectionBackground': '#434c5e',
+      'editorCursor.foreground': '#88c0d0',
+    },
+  });
+
   monaco.editor.defineTheme('solarized-light', {
     base: 'vs',
     inherit: true,

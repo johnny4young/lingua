@@ -46,7 +46,7 @@ describe('KeyboardShortcutsModal', () => {
     expect(screen.getByText('File')).toBeTruthy();
     expect(screen.getByText('Navigation')).toBeTruthy();
     // A concrete combo label for save
-    expect(screen.getByText('Ctrl+S')).toBeTruthy();
+    expect(screen.getByTestId('file-save-combo-0').getAttribute('aria-label')).toBe('Ctrl+S');
   });
 
   it('filters visible shortcuts as the user types in the search field', async () => {
@@ -69,7 +69,21 @@ describe('KeyboardShortcutsModal', () => {
 
     render(<KeyboardShortcutsModal onClose={vi.fn()} />);
 
-    expect(screen.getByText('⌘S')).toBeTruthy();
+    expect(screen.getByTestId('file-save-combo-0').getAttribute('aria-label')).toBe('⌘S');
+  });
+
+  it('renders each shortcut token as a separate visual segment so mac glyphs keep spacing', () => {
+    (window as unknown as { lingua?: { platform: string } }).lingua = { platform: 'web' };
+    Object.defineProperty(window.navigator, 'platform', {
+      configurable: true,
+      value: 'MacIntel',
+    });
+
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+
+    const combo = screen.getByTestId('file-save-as-combo-0');
+    expect(combo.getAttribute('aria-label')).toBe('⌘⇧S');
+    expect(combo.querySelectorAll('[data-shortcut-token]')).toHaveLength(3);
   });
 
   it('shows an empty state when nothing matches', async () => {

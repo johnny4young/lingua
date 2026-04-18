@@ -135,7 +135,15 @@ export const useSettingsStore = create<SettingsState>()(
       // Each field the theme pack covers resets `themePack` to `default` so
       // the selector never lies about the active pack. Line numbers, word
       // wrap, and minimap aren't part of the pack so they stay untouched.
-      setTheme: (theme) => set({ theme, themePack: DEFAULT_THEME_PACK_ID }),
+      setTheme: (theme) =>
+        set({
+          theme,
+          themePack: DEFAULT_THEME_PACK_ID,
+          // Explicit shell-polarity choice wins over sync. Without this, a
+          // click on Dark/Light would be silently overridden whenever the
+          // editor theme's polarity differs from the chosen shell.
+          syncShellWithEditorTheme: false,
+        }),
       setEditorTheme: (editorTheme) =>
         set({ editorTheme, themePack: DEFAULT_THEME_PACK_ID }),
       setFontSize: (fontSize) => set({ fontSize, themePack: DEFAULT_THEME_PACK_ID }),

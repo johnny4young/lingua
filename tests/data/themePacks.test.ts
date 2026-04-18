@@ -23,6 +23,14 @@ describe('themePacks catalog', () => {
     expect(alternates.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('ships the Nord Night pack with a dark nord editor theme', () => {
+    const pack = findThemePack('nord-night');
+    expect(pack).toBeDefined();
+    expect(pack?.appearance.theme).toBe('dark');
+    expect(pack?.appearance.editorTheme).toBe('nord-night');
+    expect(pack?.appearance.fontLigatures).toBe(true);
+  });
+
   it('every pack exposes the full appearance contract', () => {
     for (const pack of THEME_PACKS) {
       expect(['dark', 'light']).toContain(pack.appearance.theme);
