@@ -11,6 +11,12 @@ import {
   findKeymapPreset,
   isKnownKeymapPresetId,
 } from '../data/keymapPresets';
+import {
+  DEFAULT_THEME_PACK_ID,
+  findThemePack,
+  isKnownThemePackId,
+  type ThemePackAppearance,
+} from '../data/themePacks';
 import type { SettingsState } from '../types';
 
 const APP_LANGUAGES = ['system', 'en', 'es'] as const;
@@ -76,6 +82,30 @@ function sanitizeShortcutOverrides(value: unknown): ShortcutOverrideMap {
   return out;
 }
 
+function themePackAppearanceMatchesSettings(
+  settings: Pick<
+    SettingsState,
+    | 'theme'
+    | 'editorTheme'
+    | 'fontFamily'
+    | 'fontSize'
+    | 'fontLigatures'
+    | 'layoutPreset'
+    | 'syncShellWithEditorTheme'
+  >,
+  appearance: ThemePackAppearance
+): boolean {
+  return (
+    settings.theme === appearance.theme &&
+    settings.editorTheme === appearance.editorTheme &&
+    settings.fontFamily === appearance.fontFamily &&
+    settings.fontSize === appearance.fontSize &&
+    settings.fontLigatures === appearance.fontLigatures &&
+    settings.layoutPreset === appearance.layoutPreset &&
+    settings.syncShellWithEditorTheme === appearance.syncShellWithEditorTheme
+  );
+}
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
@@ -100,23 +130,37 @@ export const useSettingsStore = create<SettingsState>()(
       suppressTourAutoStart: false,
       shortcutOverrides: {},
       keymapPreset: DEFAULT_KEYMAP_PRESET_ID,
+      themePack: DEFAULT_THEME_PACK_ID,
 
-      setTheme: (theme) => set({ theme }),
-      setEditorTheme: (editorTheme) => set({ editorTheme }),
-      setFontSize: (fontSize) => set({ fontSize }),
-      setFontFamily: (fontFamily) => set({ fontFamily }),
-      toggleFontLigatures: () => set((s) => ({ fontLigatures: !s.fontLigatures })),
+      // Each field the theme pack covers resets `themePack` to `default` so
+      // the selector never lies about the active pack. Line numbers, word
+      // wrap, and minimap aren't part of the pack so they stay untouched.
+      setTheme: (theme) => set({ theme, themePack: DEFAULT_THEME_PACK_ID }),
+      setEditorTheme: (editorTheme) =>
+        set({ editorTheme, themePack: DEFAULT_THEME_PACK_ID }),
+      setFontSize: (fontSize) => set({ fontSize, themePack: DEFAULT_THEME_PACK_ID }),
+      setFontFamily: (fontFamily) =>
+        set({ fontFamily, themePack: DEFAULT_THEME_PACK_ID }),
+      toggleFontLigatures: () =>
+        set((s) => ({
+          fontLigatures: !s.fontLigatures,
+          themePack: DEFAULT_THEME_PACK_ID,
+        })),
       toggleLineNumbers: () => set((s) => ({ showLineNumbers: !s.showLineNumbers })),
       toggleWordWrap: () => set((s) => ({ wordWrap: !s.wordWrap })),
       toggleMinimap: () => set((s) => ({ minimap: !s.minimap })),
-      setLayoutPreset: (layoutPreset) => set({ layoutPreset }),
+      setLayoutPreset: (layoutPreset) =>
+        set({ layoutPreset, themePack: DEFAULT_THEME_PACK_ID }),
       toggleLoopProtection: () => set((s) => ({ loopProtection: !s.loopProtection })),
       setMaxLoopIterations: (maxLoopIterations) => set({ maxLoopIterations }),
       toggleHideUndefined: () => set((s) => ({ hideUndefined: !s.hideUndefined })),
       toggleRestoreSession: () => set((s) => ({ restoreSession: !s.restoreSession })),
       toggleFormatOnSave: () => set((s) => ({ formatOnSave: !s.formatOnSave })),
       toggleSyncShellWithEditorTheme: () =>
-        set((s) => ({ syncShellWithEditorTheme: !s.syncShellWithEditorTheme })),
+        set((s) => ({
+          syncShellWithEditorTheme: !s.syncShellWithEditorTheme,
+          themePack: DEFAULT_THEME_PACK_ID,
+        })),
       applyThemePreset: (preset) =>
         set((state) => ({
           theme: preset.theme,
@@ -127,6 +171,9 @@ export const useSettingsStore = create<SettingsState>()(
           layoutPreset: preset.layoutPreset,
           syncShellWithEditorTheme:
             preset.syncShellWithEditorTheme ?? state.syncShellWithEditorTheme,
+          // Imported presets are user-authored; the built-in pack selector
+          // should reset to default so it doesn't claim a bundle is in force.
+          themePack: DEFAULT_THEME_PACK_ID,
         })),
       setLanguage: (language) => set({ language }),
       setLastSeenVersion: (lastSeenVersion) => set({ lastSeenVersion }),
@@ -162,6 +209,20 @@ export const useSettingsStore = create<SettingsState>()(
           shortcutOverrides: { ...preset.overrides },
         });
       },
+      applyThemePack: (packId) => {
+        const pack = findThemePack(packId);
+        if (!pack) return;
+        set({
+          themePack: pack.id,
+          theme: pack.appearance.theme,
+          editorTheme: pack.appearance.editorTheme,
+          fontFamily: pack.appearance.fontFamily,
+          fontSize: pack.appearance.fontSize,
+          fontLigatures: pack.appearance.fontLigatures,
+          layoutPreset: pack.appearance.layoutPreset,
+          syncShellWithEditorTheme: pack.appearance.syncShellWithEditorTheme,
+        });
+      },
     }),
     {
       name: 'lingua-settings',
@@ -188,6 +249,7 @@ export const useSettingsStore = create<SettingsState>()(
         suppressTourAutoStart: state.suppressTourAutoStart,
         shortcutOverrides: state.shortcutOverrides,
         keymapPreset: state.keymapPreset,
+        themePack: state.themePack,
       }),
       merge: (persistedState, currentState) => {
         const merged = {
@@ -207,12 +269,41 @@ export const useSettingsStore = create<SettingsState>()(
                 )
               ? requestedKeymapPreset
               : DEFAULT_KEYMAP_PRESET_ID;
+        const requestedThemePack = isKnownThemePackId(merged.themePack)
+          ? merged.themePack
+          : DEFAULT_THEME_PACK_ID;
+        const normalizedThemePack =
+          requestedThemePack === DEFAULT_THEME_PACK_ID
+            ? DEFAULT_THEME_PACK_ID
+            : themePackAppearanceMatchesSettings(
+                  {
+                    theme: merged.theme,
+                    editorTheme: merged.editorTheme,
+                    fontFamily: merged.fontFamily,
+                    fontSize: merged.fontSize,
+                    fontLigatures: merged.fontLigatures,
+                    layoutPreset: merged.layoutPreset,
+                    syncShellWithEditorTheme: merged.syncShellWithEditorTheme,
+                  },
+                  findThemePack(requestedThemePack)?.appearance ?? {
+                    theme: currentState.theme,
+                    editorTheme: currentState.editorTheme,
+                    fontFamily: currentState.fontFamily,
+                    fontSize: currentState.fontSize,
+                    fontLigatures: currentState.fontLigatures,
+                    layoutPreset: currentState.layoutPreset,
+                    syncShellWithEditorTheme: currentState.syncShellWithEditorTheme,
+                  }
+                )
+              ? requestedThemePack
+              : DEFAULT_THEME_PACK_ID;
 
         return {
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
           shortcutOverrides,
           keymapPreset: normalizedKeymapPreset,
+          themePack: normalizedThemePack,
         };
       },
     }

@@ -1447,7 +1447,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Font panel, theme preset import/export, result/console theme alignment, read-only reference, editable shortcut mapper, and a first alternate keymap preset completed on 2026-04-17; Vim mode and macros still pending`
+- Readiness: `Font panel, theme preset import/export, result/console theme alignment, read-only reference, editable shortcut mapper, a first alternate keymap preset, and a first alternate theme pack completed on 2026-04-17; Vim mode and macros still pending`
 - Scope:
   - Shortcut editor (read-only reference ✅ — editable shortcut mapper ✅)
   - custom keymaps
@@ -1471,9 +1471,10 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - A read-only keyboard-shortcut reference ships under a new `keyboard-shortcuts` overlay reachable from the command palette (`Open Keyboard Shortcuts`). A declarative catalog in `src/renderer/data/keyboardShortcuts.ts` drives the modal — shortcuts are grouped (Run, File, Navigation, Overlays, View), render platform-aware combos (⌘ glyph on macOS, word-form `Ctrl+Shift+X` elsewhere), and are searchable by label, keyword, or keystroke
   - The reference is now an editor: each row has an inline Edit affordance that records the next non-modifier keydown, normalizes it to the catalog's token vocabulary, and writes it to a new `shortcutOverrides` map on the settings store. Overrides persist (sanitized on rehydrate to drop unknown ids / malformed entries), survive app relaunches, and leave theme-preset import/export untouched on purpose. Conflict detection checks the resolved combo set (defaults + overrides) and refuses duplicate bindings with a status notice, keeping the store untouched. Per-row and global reset affordances restore defaults. The Escape / close-overlay binding is intentionally non-editable so users can always dismiss modals. `useGlobalShortcuts` now iterates the catalog through a shared `resolveCombos`/`matchesCombo` pair, so defaults and user bindings follow the same dispatch path
   - A `keymapPreset` setting plus a new `src/renderer/data/keymapPresets.ts` catalog ship the first alternate keymap ("Sublime Text-inspired") alongside the default. The shortcuts overlay exposes the preset selector in its description header; applying a preset replaces user overrides wholesale, while any manual edit afterwards flips the active preset back to `default` so the UI stays honest. The store's merge hook validates the persisted preset id and falls back to `default` on unknown values — same defensive pattern used for `language`
+  - A `themePack` setting plus a new `src/renderer/data/themePacks.ts` catalog ship the first built-in theme pack ("Solarized Daylight") alongside the default. Settings → Appearance exposes the pack selector as the first row; applying a pack swaps theme, editorTheme, font, size, ligatures, layout, and shell sync in one call but intentionally leaves safety/workflow prefs (loopProtection, formatOnSave, restoreSession) alone. Any manual appearance edit flips the pack back to `default`; unknown persisted ids are sanitized in the merge hook
 - Acceptance criteria:
   - Users can customize shortcuts without editing source files ✅
-  - At least one custom theme pack and one alternate keymap ship from the first rollout — alternate keymap ✅, theme pack pending
+  - At least one custom theme pack and one alternate keymap ship from the first rollout — alternate keymap ✅, theme pack ✅
 - Dependencies:
   - RL-018
 

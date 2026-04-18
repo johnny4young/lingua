@@ -1,5 +1,6 @@
 import { MoonStar, SunMedium } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { THEME_PACKS } from '../../data/themePacks';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { changeAppLanguage } from '../../i18n';
 import type { AppLanguage } from '../../types';
@@ -33,7 +34,10 @@ export function AppearanceSection() {
   const setTheme = useSettingsStore((state) => state.setTheme);
   const language = useSettingsStore((state) => state.language);
   const setLanguage = useSettingsStore((state) => state.setLanguage);
+  const themePack = useSettingsStore((state) => state.themePack);
+  const applyThemePack = useSettingsStore((state) => state.applyThemePack);
   const { t } = useTranslation();
+  const activePack = THEME_PACKS.find((pack) => pack.id === themePack) ?? THEME_PACKS[0]!;
 
   const handleLanguageChange = (value: string) => {
     if (!isAppLanguage(value)) return;
@@ -46,6 +50,23 @@ export function AppearanceSection() {
       title={t('appearance.title')}
       description={t('appearance.description')}
     >
+      <Row
+        label={t('settings.themePack.label')}
+        hint={t(activePack.descriptionKey)}
+      >
+        <Select
+          value={themePack}
+          onChange={(event) => applyThemePack(event.currentTarget.value)}
+          data-testid="theme-pack-select"
+        >
+          {THEME_PACKS.map((pack) => (
+            <option key={pack.id} value={pack.id}>
+              {t(pack.labelKey)}
+            </option>
+          ))}
+        </Select>
+      </Row>
+
       <div className="grid gap-3 sm:grid-cols-2">
         {APP_THEMES.map((option) => {
           const Icon = option.icon;

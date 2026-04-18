@@ -42,11 +42,40 @@ describe('AppearanceSection', () => {
     const user = userEvent.setup();
     render(<AppearanceSection />);
 
-    await user.selectOptions(screen.getByRole('combobox'), 'es');
+    const [, languageSelect] = screen.getAllByRole('combobox');
+    await user.selectOptions(languageSelect, 'es');
 
     await waitFor(() => {
       expect(useSettingsStore.getState().language).toBe('es');
       expect(i18next.language).toBe('es');
     });
+  });
+
+  it('applies a theme pack wholesale when the selector changes', async () => {
+    const user = userEvent.setup();
+    render(<AppearanceSection />);
+
+    await user.selectOptions(
+      screen.getByTestId('theme-pack-select'),
+      'solarized-daylight'
+    );
+
+    const state = useSettingsStore.getState();
+    expect(state.themePack).toBe('solarized-daylight');
+    expect(state.theme).toBe('light');
+    expect(state.editorTheme).toBe('solarized-light');
+  });
+
+  it('flips theme pack back to default when the user edits an appearance field directly', async () => {
+    useSettingsStore.getState().applyThemePack('solarized-daylight');
+
+    render(<AppearanceSection />);
+
+    const darkButton = screen.getByRole('button', { name: /Dark/i });
+    const user = userEvent.setup();
+    await user.click(darkButton);
+
+    expect(useSettingsStore.getState().themePack).toBe('default');
+    expect(useSettingsStore.getState().theme).toBe('dark');
   });
 });

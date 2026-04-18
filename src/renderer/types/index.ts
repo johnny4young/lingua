@@ -159,6 +159,13 @@ export interface SettingsState {
    * a non-default preset REPLACES ad-hoc overrides with the preset's bundle.
    */
   keymapPreset: string;
+  /**
+   * Currently-applied theme pack id. `default` means "no pack", i.e. the
+   * Lingua ship defaults. Applying a pack replaces appearance/typography/
+   * layout fields wholesale; any manual edit afterwards flips this back
+   * to `default` so the selector doesn't lie about the active state.
+   */
+  themePack: string;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -202,6 +209,13 @@ export interface SettingsState {
    * a malformed persisted preset can't leave the store in a bad shape.
    */
   applyKeymapPreset: (presetId: string) => void;
+  /**
+   * Apply a named theme pack. Replaces appearance/typography/layout fields
+   * with the pack's bundle and stores the pack id. Unknown ids are ignored.
+   * Does not touch safety/workflow prefs (loopProtection, restoreSession,
+   * formatOnSave) — same rationale as `applyThemePreset`.
+   */
+  applyThemePack: (packId: string) => void;
 }
 
 // --- Runner Types ---
