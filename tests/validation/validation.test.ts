@@ -238,8 +238,84 @@ describe('validation', () => {
   it('accepts a canonical Makefile without diagnostics', () => {
     const result = validateDocument(
       'makefile',
-      ['CC = gcc', '', 'all: hello', '\t$(CC) -o hello hello.c', ''].join('\n')
+      [
+        'CC = gcc',
+        '',
+        '.PHONY: all',
+        'all: hello',
+        '\t$(CC) -o hello hello.c',
+        '',
+      ].join('\n')
     );
     expect(result.diagnostics).toEqual([]);
+  });
+
+  it('flags a duplicate Makefile target definition', () => {
+    const result = validateDocument(
+      'makefile',
+      ['build:', '\t@echo first', '', 'build:', '\t@echo second', ''].join('\n')
+    );
+    expect(
+      result.diagnostics.some(
+        (d) => d.line === 4 && d.severity === 'warning' && /already defined/i.test(d.message)
+      )
+    ).toBe(true);
+  });
+
+  it('detects duplicate targets even when combined on one line', () => {
+    const result = validateDocument(
+      'makefile',
+      ['all build:', '\t@echo combined', '', 'build:', '\t@echo again', ''].join('\n')
+    );
+    expect(
+      result.diagnostics.some((d) => /"build" is already defined/i.test(d.message))
+    ).toBe(true);
+  });
+
+  it('reminds the user to add common virtual targets to .PHONY', () => {
+    const result = validateDocument(
+      'makefile',
+      ['clean:', '\trm -rf dist', '', 'test:', '\t@echo test', ''].join('\n')
+    );
+    const phonyNotices = result.diagnostics.filter((d) => /\.PHONY/i.test(d.message));
+    expect(phonyNotices.some((d) => d.message.includes('"clean"'))).toBe(true);
+    expect(phonyNotices.some((d) => d.message.includes('"test"'))).toBe(true);
+    for (const notice of phonyNotices) {
+      expect(notice.severity).toBe('info');
+    }
+  });
+
+  it('does not nag when common virtual targets are already in .PHONY', () => {
+    const result = validateDocument(
+      'makefile',
+      ['.PHONY: clean test', 'clean:', '\trm -rf dist', '', 'test:', '\t@echo hi', ''].join('\n')
+    );
+    expect(result.diagnostics.some((d) => /\.PHONY/i.test(d.message))).toBe(false);
+  });
+
+  it('flags USER root and USER 0 in a Dockerfile as info', () => {
+    const asRoot = validateDocument(
+      'dockerfile',
+      'FROM node:20\nUSER root\nCMD ["node"]\n'
+    );
+    expect(
+      asRoot.diagnostics.some((d) => d.severity === 'info' && /non-root user/i.test(d.message))
+    ).toBe(true);
+
+    const asUid0 = validateDocument(
+      'dockerfile',
+      'FROM node:20\nUSER 0\nCMD ["node"]\n'
+    );
+    expect(
+      asUid0.diagnostics.some((d) => d.severity === 'info' && /non-root user/i.test(d.message))
+    ).toBe(true);
+  });
+
+  it('does not warn on a non-root USER declaration', () => {
+    const result = validateDocument(
+      'dockerfile',
+      'FROM node:20\nUSER node\nCMD ["node"]\n'
+    );
+    expect(result.diagnostics.some((d) => /non-root user/i.test(d.message))).toBe(false);
   });
 });

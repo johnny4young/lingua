@@ -2176,7 +2176,8 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
   - Dockerfile and `.editorconfig` graduated from view-only to validate mode on 2026-04-17, with lightweight Monaco-marker validators: EditorConfig flags unknown keys + invalid enum values; Dockerfile warns on deprecated `MAINTAINER`, `ADD <url>`, unknown instructions, and missing `FROM`
   - `.gitignore` and `Makefile` graduated to validate mode on 2026-04-17: gitignore flags duplicate patterns, backslash separators, and empty negations; Makefile flags space-indented recipes and orphan tab-commands
   - Dockerfile validator also covers `FROM image:latest` / untagged bases and `apt-get install` without `-y`
-  - Follow-up work can add deeper cross-rule checks (Dockerfile `USER root` after drop, `.gitignore` globstar sanity) on top of the detection layer
+  - Makefile validator now detects duplicate target definitions and reminds on missing `.PHONY` for common virtual targets; Dockerfile validator adds a soft info notice on `USER root` / `USER 0`
+  - Follow-up work can add deeper cross-rule checks (`.gitignore` globstar sanity, shell script validator for `.sh` files) on top of the detection layer
 - Scope:
   - Add syntax highlighting and language detection for common non-runnable development files
   - Introduce a view/lint execution mode that never offers inline execution for these file types

@@ -478,6 +478,23 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
         });
       }
     }
+
+    // `USER root` or `USER 0` signals the image runs as root at runtime —
+    // informational by default (build images often need it; runtime images
+    // shouldn't). Flag only the final resolved identity by matching at the
+    // instruction level; the user can still silence per-image via comments.
+    if (instruction === 'USER') {
+      const arg = (trimmed.slice(instruction.length).trim().split(/\s+/u)[0] ?? '').toLowerCase();
+      if (arg === 'root' || arg === '0' || arg === '0:0') {
+        diagnostics.push({
+          message: 'USER root (uid 0) runs the final container as root. Prefer a dedicated non-root user for runtime images.',
+          line: lineNumber,
+          column: 1,
+          severity: 'info',
+          source: 'dockerfile',
+        });
+      }
+    }
   }
 
   if (sawContent && !sawFrom) {
@@ -546,10 +563,34 @@ function validateGitignore(content: string): EditorDiagnostic[] {
   return diagnostics;
 }
 
+/**
+ * Makefile targets that are almost always virtual (no file produced). If we
+ * see them defined without being listed under a `.PHONY` directive, Make
+ * will happily skip them when a same-named file happens to exist — which is
+ * the bug the `.PHONY` reminder wants to prevent.
+ */
+const COMMON_PHONY_TARGETS: ReadonlySet<string> = new Set([
+  'all',
+  'build',
+  'clean',
+  'check',
+  'install',
+  'lint',
+  'release',
+  'run',
+  'test',
+  'uninstall',
+]);
+
 function validateMakefile(content: string): EditorDiagnostic[] {
   const diagnostics: EditorDiagnostic[] = [];
   const lines = content.split('\n');
   let activeTarget: string | null = null;
+
+  // Track definitions so we can flag duplicate target blocks and also know
+  // which common-phony targets lack a `.PHONY` declaration.
+  const definedTargets = new Map<string, number>();
+  const phonyTargets = new Set<string>();
 
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index] ?? '';
@@ -593,11 +634,58 @@ function validateMakefile(content: string): EditorDiagnostic[] {
     const equalsIndex = rawLine.indexOf('=');
     const isAssignment = equalsIndex >= 0 && (colonIndex < 0 || equalsIndex < colonIndex);
     if (!isAssignment && colonIndex > 0) {
-      activeTarget = rawLine.slice(0, colonIndex).trim().split(/\s+/u)[0] ?? null;
-      continue;
+      const lhs = rawLine.slice(0, colonIndex).trim();
+
+      // `.PHONY: clean test install` — absorb every name into the set so
+      // we can skip the reminder for targets the user already declared.
+      if (lhs === '.PHONY') {
+        const names = rawLine
+          .slice(colonIndex + 1)
+          .trim()
+          .split(/\s+/u)
+          .filter(Boolean);
+        for (const name of names) phonyTargets.add(name);
+        activeTarget = null;
+        continue;
+      }
+
+      // Target lines can declare multiple names at once (`a b c: deps`).
+      // Split on whitespace to catch duplicates across combined forms too.
+      const targetNames = lhs.split(/\s+/u).filter(Boolean);
+      const firstTarget = targetNames[0];
+      if (firstTarget) {
+        for (const name of targetNames) {
+          const previous = definedTargets.get(name);
+          if (previous !== undefined) {
+            diagnostics.push({
+              message: `Target "${name}" is already defined on line ${previous}.`,
+              line: lineNumber,
+              column: 1,
+              severity: 'warning',
+              source: 'makefile',
+            });
+          } else {
+            definedTargets.set(name, lineNumber);
+          }
+        }
+        activeTarget = firstTarget;
+        continue;
+      }
     }
 
     activeTarget = null;
+  }
+
+  for (const [target, line] of definedTargets) {
+    if (COMMON_PHONY_TARGETS.has(target) && !phonyTargets.has(target)) {
+      diagnostics.push({
+        message: `Target "${target}" is almost always virtual — add it to a \`.PHONY\` declaration so Make doesn't skip it when a file of the same name exists.`,
+        line,
+        column: 1,
+        severity: 'info',
+        source: 'makefile',
+      });
+    }
   }
 
   return diagnostics;
