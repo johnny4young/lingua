@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  executionModeForLanguage,
   extensionForLanguage,
   languageForExtension,
+  languageSupportsFileName,
   monacoLanguageFor,
 } from '@/utils/languageMeta';
 
@@ -34,5 +36,37 @@ describe('languageMeta', () => {
 
   it('maps unknown editor languages to the Monaco plaintext mode', () => {
     expect(monacoLanguageFor('plaintext')).toBe('plaintext');
+  });
+
+  it('maps Dockerfile and Makefile extensions to the new built-in languages', () => {
+    expect(languageForExtension('dockerfile')).toBe('dockerfile');
+    expect(languageForExtension('mk')).toBe('makefile');
+    expect(languageForExtension('mak')).toBe('makefile');
+  });
+
+  it('marks the new infra file languages as view-only (never runnable)', () => {
+    expect(executionModeForLanguage('dockerfile')).toBe('view');
+    expect(executionModeForLanguage('makefile')).toBe('view');
+    expect(executionModeForLanguage('gitignore')).toBe('view');
+    expect(executionModeForLanguage('editorconfig')).toBe('view');
+  });
+
+  it('recognizes canonical infra file names via languageSupportsFileName', () => {
+    expect(languageSupportsFileName('dockerfile', 'Dockerfile')).toBe(true);
+    expect(languageSupportsFileName('dockerfile', 'Containerfile')).toBe(true);
+    expect(languageSupportsFileName('makefile', 'Makefile')).toBe(true);
+    expect(languageSupportsFileName('makefile', 'GNUmakefile')).toBe(true);
+    expect(languageSupportsFileName('gitignore', '.gitignore')).toBe(true);
+    expect(languageSupportsFileName('gitignore', '.dockerignore')).toBe(true);
+    expect(languageSupportsFileName('editorconfig', '.editorconfig')).toBe(true);
+  });
+
+  it('routes infra files through plausible Monaco modes', () => {
+    expect(monacoLanguageFor('dockerfile')).toBe('dockerfile');
+    expect(monacoLanguageFor('makefile')).toBe('makefile');
+    // gitignore has no native Monaco grammar — shell is the honest fallback
+    expect(monacoLanguageFor('gitignore')).toBe('shell');
+    // editorconfig is INI-compatible
+    expect(monacoLanguageFor('editorconfig')).toBe('ini');
   });
 });

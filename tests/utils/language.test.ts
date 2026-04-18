@@ -28,6 +28,22 @@ describe('language', () => {
       expect(languageFromPath('README')).toBeUndefined();
       expect(languageFromPath('trailing.')).toBeUndefined();
     });
+
+    it('recognizes canonical infra files even without an extension', () => {
+      expect(languageFromPath('/repo/Dockerfile')).toBe('dockerfile');
+      expect(languageFromPath('/repo/Dockerfile.dev')).toBe('dockerfile');
+      expect(languageFromPath('/repo/Containerfile')).toBe('dockerfile');
+      expect(languageFromPath('/repo/Makefile')).toBe('makefile');
+      expect(languageFromPath('/repo/GNUmakefile')).toBe('makefile');
+      expect(languageFromPath('/repo/subdir/.gitignore')).toBe('gitignore');
+      expect(languageFromPath('.dockerignore')).toBe('gitignore');
+      expect(languageFromPath('/repo/.editorconfig')).toBe('editorconfig');
+    });
+
+    it('still picks up extension-based infra files', () => {
+      expect(languageFromPath('build.mk')).toBe('makefile');
+      expect(languageFromPath('deploy.dockerfile')).toBe('dockerfile');
+    });
   });
 
   describe('resolveFileLanguageOrPlaintext', () => {

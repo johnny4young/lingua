@@ -38,6 +38,13 @@ describe('keymapPresets catalog', () => {
     }
   });
 
+  it('ships the Classic IDE preset with JetBrains-style overrides', () => {
+    const preset = findKeymapPreset('classic-ide');
+    expect(preset).toBeDefined();
+    expect(preset?.overrides['nav-go-to-symbol']?.[0].tokens).toEqual(['Mod', 'Alt', 'O']);
+    expect(preset?.overrides['view-toggle-console']?.[0].tokens).toEqual(['Mod', 'J']);
+  });
+
   it('isKnownKeymapPresetId rejects unknown and non-string inputs', () => {
     expect(isKnownKeymapPresetId(DEFAULT_KEYMAP_PRESET_ID)).toBe(true);
     expect(isKnownKeymapPresetId('not-a-preset')).toBe(false);
