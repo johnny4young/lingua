@@ -49,6 +49,16 @@ describe('languageMeta', () => {
     expect(executionModeForLanguage('editorconfig')).toBe('validate');
     expect(executionModeForLanguage('makefile')).toBe('validate');
     expect(executionModeForLanguage('gitignore')).toBe('validate');
+    expect(executionModeForLanguage('shellscript')).toBe('validate');
+  });
+
+  it('maps shell-script extensions and common dotfiles to the shellscript language', () => {
+    expect(languageForExtension('sh')).toBe('shellscript');
+    expect(languageForExtension('bash')).toBe('shellscript');
+    expect(languageForExtension('zsh')).toBe('shellscript');
+    expect(languageSupportsFileName('shellscript', '.bashrc')).toBe(true);
+    expect(languageSupportsFileName('shellscript', '.zshrc')).toBe(true);
+    expect(monacoLanguageFor('shellscript')).toBe('shell');
   });
 
   it('recognizes canonical infra file names via languageSupportsFileName', () => {

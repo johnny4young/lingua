@@ -44,6 +44,15 @@ describe('language', () => {
       expect(languageFromPath('build.mk')).toBe('makefile');
       expect(languageFromPath('deploy.dockerfile')).toBe('dockerfile');
     });
+
+    it('detects shell scripts by extension and by dotfile name', () => {
+      expect(languageFromPath('scripts/deploy.sh')).toBe('shellscript');
+      expect(languageFromPath('run.bash')).toBe('shellscript');
+      expect(languageFromPath('init.zsh')).toBe('shellscript');
+      expect(languageFromPath('/home/me/.bashrc')).toBe('shellscript');
+      expect(languageFromPath('/home/me/.zshrc')).toBe('shellscript');
+      expect(languageFromPath('/home/me/.profile')).toBe('shellscript');
+    });
   });
 
   describe('resolveFileLanguageOrPlaintext', () => {
