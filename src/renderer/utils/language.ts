@@ -46,6 +46,7 @@ function languageFromSpecialFileName(fileName: string): Language | undefined {
     'makefile',
     'gitignore',
     'editorconfig',
+    'shellscript',
   ];
   return builtInCandidates.find((candidate) => languageSupportsFileName(candidate, fileName));
 }

@@ -42,6 +42,8 @@ function formatDiagnosticsOutput(language: Language, diagnostics: EditorDiagnost
         return 'Gitignore validation passed. No suspicious patterns detected.';
       case 'makefile':
         return 'Makefile validation passed. Recipe indentation looks consistent.';
+      case 'shellscript':
+        return 'Shell script validation passed. Shebang and safety-mode flags look fine.';
       default:
         return 'No validation issues found.';
     }
@@ -367,6 +369,12 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
   let sawContent = false;
   let sawInstruction = false;
   let sawFrom = false;
+  // Track EXPOSE / HEALTHCHECK presence so we can remind users that images
+  // advertising a port benefit from an orchestrator-readable health probe.
+  // Only the first EXPOSE line matters for the reminder location; we still
+  // walk the full file so a HEALTHCHECK appearing later silences it.
+  let exposeSeenAt: number | null = null;
+  let sawHealthcheck = false;
 
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index] ?? '';
@@ -479,6 +487,13 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
       }
     }
 
+    if (instruction === 'EXPOSE' && exposeSeenAt === null) {
+      exposeSeenAt = lineNumber;
+    }
+    if (instruction === 'HEALTHCHECK') {
+      sawHealthcheck = true;
+    }
+
     // `USER root` or `USER 0` signals the image runs as root at runtime —
     // informational by default (build images often need it; runtime images
     // shouldn't). Flag only the final resolved identity by matching at the
@@ -507,6 +522,17 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
     });
   }
 
+  if (exposeSeenAt !== null && !sawHealthcheck) {
+    diagnostics.push({
+      message:
+        'EXPOSE advertises a port but no HEALTHCHECK is defined. Orchestrators (Compose, Kubernetes, Swarm) read HEALTHCHECK to decide whether traffic should land.',
+      line: exposeSeenAt,
+      column: 1,
+      severity: 'info',
+      source: 'dockerfile',
+    });
+  }
+
   return diagnostics;
 }
 
@@ -520,6 +546,20 @@ function validateGitignore(content: string): EditorDiagnostic[] {
     const lineNumber = index + 1;
     const trimmed = rawLine.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
+
+    // Trailing whitespace changes pattern meaning in git (`foo ` != `foo`)
+    // unless explicitly escaped with a backslash. This is a classic
+    // copy/paste bug that silently makes a pattern ignore nothing.
+    if (/[ \t]+$/u.test(rawLine) && !/\\\s+$/u.test(rawLine)) {
+      diagnostics.push({
+        message:
+          'Trailing whitespace changes the pattern. If you meant to match a literal space, escape it with a backslash; otherwise strip the trailing spaces.',
+        line: lineNumber,
+        column: rawLine.trimEnd().length + 1,
+        severity: 'warning',
+        source: 'gitignore',
+      });
+    }
 
     // The actual pattern; `!` negates, we compare both with and without it
     // so `foo.log` and `!foo.log` count as the same duplicate key.
@@ -569,6 +609,49 @@ function validateGitignore(content: string): EditorDiagnostic[] {
  * will happily skip them when a same-named file happens to exist — which is
  * the bug the `.PHONY` reminder wants to prevent.
  */
+/**
+ * Variables Make, pattern rules, or common build recipes consume implicitly.
+ * A user setting CC=clang is not "unused" just because the file never spells
+ * `$(CC)` — implicit rules (%.o: %.c) expand it. Skip the unused-variable
+ * check for any name in this set.
+ */
+const IMPLICIT_MAKE_VARIABLES: ReadonlySet<string> = new Set([
+  'AR',
+  'AS',
+  'CC',
+  'CXX',
+  'CFLAGS',
+  'CXXFLAGS',
+  'CPPFLAGS',
+  'LDFLAGS',
+  'LDLIBS',
+  'LIBS',
+  'RANLIB',
+  'MAKE',
+  'MAKEFLAGS',
+  'SHELL',
+  'DESTDIR',
+  'PREFIX',
+  'TARGET',
+  'PROGRAM',
+  'VERSION',
+]);
+
+function collectReferencedMakefileVars(source: string, sink: Set<string>): void {
+  // `$(FOO)` / `${FOO}` / single-char `$X` — we deliberately accept both.
+  // The lookbehind avoids capturing `$$` literal dollars.
+  const patterns: readonly RegExp[] = [
+    /(?<!\$)\$\(([A-Za-z_][A-Za-z0-9_]*)\)/gu,
+    /(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)\}/gu,
+    /(?<!\$)\$([A-Za-z_])(?![A-Za-z0-9_])/gu,
+  ];
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) {
+      if (match[1]) sink.add(match[1]);
+    }
+  }
+}
+
 const COMMON_PHONY_TARGETS: ReadonlySet<string> = new Set([
   'all',
   'build',
@@ -591,6 +674,11 @@ function validateMakefile(content: string): EditorDiagnostic[] {
   // which common-phony targets lack a `.PHONY` declaration.
   const definedTargets = new Map<string, number>();
   const phonyTargets = new Set<string>();
+  // Track variable assignments so we can flag ones that are never expanded
+  // anywhere in the file. Implicit variables (CC/CXX/CFLAGS/...) are skipped
+  // because they're set by the user but consumed by Make's built-in rules.
+  const assignedVars = new Map<string, number>();
+  const referencedVars = new Set<string>();
 
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index] ?? '';
@@ -600,6 +688,11 @@ function validateMakefile(content: string): EditorDiagnostic[] {
       activeTarget = null;
       continue;
     }
+
+    // Capture variable references BEFORE any branch's `continue` so recipes
+    // (tab-indented lines) and assignment RHS both count toward the used
+    // set. This is what keeps `CC = gcc` followed by `\t$(CC) -o` honest.
+    collectReferencedMakefileVars(rawLine, referencedVars);
 
     // Recipe lines must start with a literal tab. Space-indented recipes are
     // the classic "missing separator" footgun; flag them specifically.
@@ -633,6 +726,18 @@ function validateMakefile(content: string): EditorDiagnostic[] {
     const colonIndex = rawLine.indexOf(':');
     const equalsIndex = rawLine.indexOf('=');
     const isAssignment = equalsIndex >= 0 && (colonIndex < 0 || equalsIndex < colonIndex);
+
+    if (isAssignment) {
+      // Support `:=` / `?=` / `+=` / `!=` by normalizing the LHS split.
+      const assignSplit = rawLine.split(/[:?+!]?=/u, 1)[0] ?? '';
+      const varName = assignSplit.trim();
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/u.test(varName) && !assignedVars.has(varName)) {
+        assignedVars.set(varName, lineNumber);
+      }
+      activeTarget = null;
+      continue;
+    }
+
     if (!isAssignment && colonIndex > 0) {
       const lhs = rawLine.slice(0, colonIndex).trim();
 
@@ -688,6 +793,70 @@ function validateMakefile(content: string): EditorDiagnostic[] {
     }
   }
 
+  for (const [name, line] of assignedVars) {
+    if (IMPLICIT_MAKE_VARIABLES.has(name)) continue;
+    if (referencedVars.has(name)) continue;
+    diagnostics.push({
+      message: `Variable "${name}" is assigned but never referenced. Remove it or use it via $(${name}).`,
+      line,
+      column: 1,
+      severity: 'info',
+      source: 'makefile',
+    });
+  }
+
+  return diagnostics;
+}
+
+/**
+ * Check a shell script for the two portability footguns that trip up almost
+ * every beginner bash file: a missing shebang (which makes the script's
+ * interpreter dependent on whatever invoked it) and no safety-mode flag
+ * (`set -e`, `set -u`, or `set -o pipefail`). We deliberately do NOT try to
+ * lint syntax — shellcheck is the right tool for that and an in-browser
+ * reimplementation is out of scope.
+ */
+function validateShellScript(content: string): EditorDiagnostic[] {
+  const diagnostics: EditorDiagnostic[] = [];
+  const lines = content.split('\n');
+  const firstLine = lines[0] ?? '';
+  const hasContent = lines.some((line) => line.trim().length > 0);
+  if (!hasContent) return diagnostics;
+
+  if (!firstLine.startsWith('#!')) {
+    diagnostics.push({
+      message:
+        'Shell script has no shebang. Add `#!/usr/bin/env bash` (or `#!/bin/sh`) as the first line so the file runs under a predictable interpreter.',
+      line: 1,
+      column: 1,
+      severity: 'warning',
+      source: 'shellscript',
+    });
+  }
+
+  const hasSafetyMode = lines.some((line) => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('set ')) return false;
+    return (
+      /\s-e\b|\s-u\b|\s-o\s+pipefail\b|\s-eu\b|\s-euo\s+pipefail\b|\s-eu\s+pipefail\b/u.test(
+        ' ' + trimmed
+      ) ||
+      // Compact forms: `set -eu`, `set -euo pipefail`
+      /\s-[eu]{1,3}o?\b/u.test(' ' + trimmed)
+    );
+  });
+
+  if (!hasSafetyMode) {
+    diagnostics.push({
+      message:
+        'No safety-mode flags detected. Add `set -euo pipefail` near the top so the script aborts on the first failure instead of silently chaining errors.',
+      line: firstLine.startsWith('#!') ? 2 : 1,
+      column: 1,
+      severity: 'info',
+      source: 'shellscript',
+    });
+  }
+
   return diagnostics;
 }
 
@@ -700,6 +869,7 @@ const validators: Partial<Record<Language, Validator>> = {
   dockerfile: validateDockerfile,
   gitignore: validateGitignore,
   makefile: validateMakefile,
+  shellscript: validateShellScript,
 };
 
 export function supportsValidation(language: Language): boolean {

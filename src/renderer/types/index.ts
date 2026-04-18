@@ -17,7 +17,8 @@ export type BuiltInLanguage =
   | 'dockerfile'
   | 'makefile'
   | 'gitignore'
-  | 'editorconfig';
+  | 'editorconfig'
+  | 'shellscript';
 
 /**
  * Language ids used across the editor.

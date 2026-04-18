@@ -72,6 +72,7 @@ describe('validation', () => {
     expect(supportsValidation('dockerfile')).toBe(true);
     expect(supportsValidation('gitignore')).toBe(true);
     expect(supportsValidation('makefile')).toBe(true);
+    expect(supportsValidation('shellscript')).toBe(true);
     expect(supportsValidation('toml')).toBe(false);
   });
 
@@ -317,5 +318,121 @@ describe('validation', () => {
       'FROM node:20\nUSER node\nCMD ["node"]\n'
     );
     expect(result.diagnostics.some((d) => /non-root user/i.test(d.message))).toBe(false);
+  });
+
+  it('reminds to add HEALTHCHECK when EXPOSE is present without one', () => {
+    const missing = validateDocument(
+      'dockerfile',
+      ['FROM node:20', 'EXPOSE 8080', 'CMD ["node"]', ''].join('\n')
+    );
+    expect(
+      missing.diagnostics.some(
+        (d) => d.line === 2 && d.severity === 'info' && /HEALTHCHECK/i.test(d.message)
+      )
+    ).toBe(true);
+  });
+
+  it('does not nag about HEALTHCHECK when one is present', () => {
+    const result = validateDocument(
+      'dockerfile',
+      [
+        'FROM node:20',
+        'EXPOSE 8080',
+        'HEALTHCHECK --interval=30s CMD curl -f http://localhost:8080/ || exit 1',
+        'CMD ["node"]',
+      ].join('\n')
+    );
+    expect(result.diagnostics.some((d) => /HEALTHCHECK/i.test(d.message))).toBe(false);
+  });
+
+  it('flags Makefile variables that are assigned but never referenced', () => {
+    const result = validateDocument(
+      'makefile',
+      [
+        'UNUSED = hello',
+        'USED = world',
+        '.PHONY: all',
+        'all:',
+        '\t@echo $(USED)',
+        '',
+      ].join('\n')
+    );
+    expect(
+      result.diagnostics.some(
+        (d) => d.line === 1 && d.severity === 'info' && /"UNUSED"/.test(d.message)
+      )
+    ).toBe(true);
+    expect(result.diagnostics.some((d) => /"USED"/.test(d.message))).toBe(false);
+  });
+
+  it('counts single-char $X references (not just $(X)) for Makefile vars', () => {
+    const result = validateDocument(
+      'makefile',
+      ['X = 1', '.PHONY: all', 'all:', '\t@echo $X', ''].join('\n')
+    );
+    expect(result.diagnostics.some((d) => /"X"/.test(d.message))).toBe(false);
+  });
+
+  it('skips the unused-variable nag for implicit Make variables like CC/CFLAGS', () => {
+    const result = validateDocument(
+      'makefile',
+      ['CC = gcc', 'CFLAGS = -O2', '.PHONY: all', 'all: hello.o', ''].join('\n')
+    );
+    expect(
+      result.diagnostics.some((d) => /assigned but never referenced/i.test(d.message))
+    ).toBe(false);
+  });
+
+  it('flags trailing whitespace in .gitignore patterns', () => {
+    const result = validateDocument(
+      'gitignore',
+      // The 'dist  ' line has two trailing spaces — exactly the bug the
+      // validator is meant to catch.
+      ['node_modules/', 'dist  ', '.env'].join('\n')
+    );
+    expect(
+      result.diagnostics.some(
+        (d) => d.line === 2 && d.severity === 'warning' && /trailing whitespace/i.test(d.message)
+      )
+    ).toBe(true);
+  });
+
+  it('does not flag trailing whitespace that is explicitly escaped', () => {
+    const result = validateDocument('gitignore', 'file\\ \n');
+    expect(result.diagnostics.some((d) => /trailing whitespace/i.test(d.message))).toBe(false);
+  });
+
+  it('warns when a shell script has no shebang', () => {
+    const result = validateDocument('shellscript', 'echo hi\nset -e\n');
+    expect(
+      result.diagnostics.some(
+        (d) => d.line === 1 && d.severity === 'warning' && /shebang/i.test(d.message)
+      )
+    ).toBe(true);
+  });
+
+  it('nudges a shell script without a set -e / pipefail line', () => {
+    const result = validateDocument(
+      'shellscript',
+      '#!/usr/bin/env bash\n\necho hi\n'
+    );
+    expect(
+      result.diagnostics.some(
+        (d) => d.severity === 'info' && /safety-mode/i.test(d.message)
+      )
+    ).toBe(true);
+  });
+
+  it('accepts a shell script with shebang and set -euo pipefail', () => {
+    const result = validateDocument(
+      'shellscript',
+      '#!/usr/bin/env bash\nset -euo pipefail\n\necho hi\n'
+    );
+    expect(result.diagnostics).toEqual([]);
+  });
+
+  it('returns zero diagnostics for an entirely empty shell file', () => {
+    const result = validateDocument('shellscript', '');
+    expect(result.diagnostics).toEqual([]);
   });
 });

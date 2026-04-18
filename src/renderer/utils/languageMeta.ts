@@ -178,6 +178,21 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     defaultCode: 'root = true\n\n[*]\nindent_style = space\nindent_size = 2\n',
     executionMode: 'validate',
   },
+  shellscript: {
+    label: 'Shell script',
+    shortLabel: 'SH',
+    badgeClass: 'bg-zinc-500/15 text-zinc-300',
+    textColorClass: 'text-zinc-300',
+    extensions: ['sh', 'bash', 'zsh'],
+    fileNames: ['.bashrc', '.zshrc', '.bash_profile', '.profile'],
+    // Monaco ships a `shell` grammar — we don't execute shell scripts from
+    // the renderer (no arbitrary child processes on the web build, and the
+    // desktop runner would need an explicit PTY contract for interactive
+    // programs), so this stays validate-only.
+    monacoLanguage: 'shell',
+    defaultCode: '#!/usr/bin/env bash\nset -euo pipefail\n\necho "Hello, World!"\n',
+    executionMode: 'validate',
+  },
 };
 
 const FALLBACK_META: LanguageMeta = {
