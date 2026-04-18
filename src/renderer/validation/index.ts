@@ -38,6 +38,10 @@ function formatDiagnosticsOutput(language: Language, diagnostics: EditorDiagnost
         return 'EditorConfig validation passed. Known keys and values only.';
       case 'dockerfile':
         return 'Dockerfile validation passed. No common issues detected.';
+      case 'gitignore':
+        return 'Gitignore validation passed. No suspicious patterns detected.';
+      case 'makefile':
+        return 'Makefile validation passed. Recipe indentation looks consistent.';
       default:
         return 'No validation issues found.';
     }
@@ -423,6 +427,57 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
         });
       }
     }
+
+    // `FROM image:latest` (or implicit `FROM image` with no tag) yields a
+    // non-reproducible build — flag both forms but only at warning severity
+    // since some base images legitimately omit the tag.
+    if (instruction === 'FROM') {
+      const args = trimmed.slice(instruction.length).trim();
+      const imageRef = args.split(/\s+/u)[0] ?? '';
+      if (imageRef && imageRef !== 'scratch' && !imageRef.startsWith('$')) {
+        const hasDigest = imageRef.includes('@sha256:');
+        if (!hasDigest) {
+          const refWithoutDigest = imageRef.split('@')[0] ?? imageRef;
+          const lastSlash = refWithoutDigest.lastIndexOf('/');
+          const lastColon = refWithoutDigest.lastIndexOf(':');
+          const tag = lastColon > lastSlash ? refWithoutDigest.slice(lastColon + 1) : null;
+
+          if (!tag) {
+            diagnostics.push({
+              message: `"${imageRef}" has no tag — pin a specific tag (or digest) for reproducible builds.`,
+              line: lineNumber,
+              column: 1,
+              severity: 'warning',
+              source: 'dockerfile',
+            });
+          } else if (tag === 'latest') {
+            diagnostics.push({
+              message: '`:latest` tags are not pinned. Use a specific tag or a digest for reproducible builds.',
+              line: lineNumber,
+              column: 1,
+              severity: 'warning',
+              source: 'dockerfile',
+            });
+          }
+        }
+      }
+    }
+
+    // `RUN apt-get install …` without `-y` hangs the build waiting for a
+    // prompt that will never come. `--no-install-recommends` avoids surprise
+    // dependency bloat — recommend the duo together.
+    if (instruction === 'RUN') {
+      const args = trimmed.slice(instruction.length);
+      if (/\bapt(-get)?\s+install\b/u.test(args) && !/\s-y\b|\s--yes\b|\s--assume-yes\b/u.test(args)) {
+        diagnostics.push({
+          message: 'apt-get install without `-y` will block the build. Add `-y --no-install-recommends` and clean up `rm -rf /var/lib/apt/lists/*`.',
+          line: lineNumber,
+          column: 1,
+          severity: 'warning',
+          source: 'dockerfile',
+        });
+      }
+    }
   }
 
   if (sawContent && !sawFrom) {
@@ -438,6 +493,116 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
   return diagnostics;
 }
 
+function validateGitignore(content: string): EditorDiagnostic[] {
+  const diagnostics: EditorDiagnostic[] = [];
+  const lines = content.split('\n');
+  const seenPatterns = new Map<string, number>();
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index] ?? '';
+    const lineNumber = index + 1;
+    const trimmed = rawLine.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    // The actual pattern; `!` negates, we compare both with and without it
+    // so `foo.log` and `!foo.log` count as the same duplicate key.
+    const pattern = trimmed.startsWith('!') ? trimmed.slice(1).trim() : trimmed;
+    if (!pattern) {
+      diagnostics.push({
+        message: '"!" with no pattern does nothing.',
+        line: lineNumber,
+        column: 1,
+        severity: 'warning',
+        source: 'gitignore',
+      });
+      continue;
+    }
+
+    if (/\\/u.test(trimmed) && !/\\[ #!]/u.test(trimmed)) {
+      // Backslash-as-separator is a Windows-path tell; gitignore is POSIX-only.
+      diagnostics.push({
+        message: 'gitignore patterns use forward slashes, not backslashes, even on Windows.',
+        line: lineNumber,
+        column: 1,
+        severity: 'warning',
+        source: 'gitignore',
+      });
+    }
+
+    const previous = seenPatterns.get(pattern);
+    if (previous !== undefined) {
+      diagnostics.push({
+        message: `Duplicate pattern "${pattern}" also appears on line ${previous}.`,
+        line: lineNumber,
+        column: 1,
+        severity: 'info',
+        source: 'gitignore',
+      });
+      continue;
+    }
+    seenPatterns.set(pattern, lineNumber);
+  }
+
+  return diagnostics;
+}
+
+function validateMakefile(content: string): EditorDiagnostic[] {
+  const diagnostics: EditorDiagnostic[] = [];
+  const lines = content.split('\n');
+  let activeTarget: string | null = null;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index] ?? '';
+    const lineNumber = index + 1;
+
+    if (!rawLine.trim() || rawLine.trim().startsWith('#')) {
+      activeTarget = null;
+      continue;
+    }
+
+    // Recipe lines must start with a literal tab. Space-indented recipes are
+    // the classic "missing separator" footgun; flag them specifically.
+    if (/^ +\S/u.test(rawLine)) {
+      if (activeTarget) {
+        diagnostics.push({
+          message: `Recipe for "${activeTarget}" is indented with spaces. Makefiles require a hard tab before each command.`,
+          line: lineNumber,
+          column: 1,
+          severity: 'error',
+          source: 'makefile',
+        });
+      }
+      continue;
+    }
+
+    if (rawLine.startsWith('\t')) {
+      if (!activeTarget) {
+        diagnostics.push({
+          message: 'Tab-indented command has no preceding target — Make will reject this.',
+          line: lineNumber,
+          column: 1,
+          severity: 'error',
+          source: 'makefile',
+        });
+      }
+      continue;
+    }
+
+    // Target line: `name: deps`. Anything with a colon before any `=`.
+    const colonIndex = rawLine.indexOf(':');
+    const equalsIndex = rawLine.indexOf('=');
+    const isAssignment = equalsIndex >= 0 && (colonIndex < 0 || equalsIndex < colonIndex);
+    if (!isAssignment && colonIndex > 0) {
+      activeTarget = rawLine.slice(0, colonIndex).trim().split(/\s+/u)[0] ?? null;
+      continue;
+    }
+
+    activeTarget = null;
+  }
+
+  return diagnostics;
+}
+
 const validators: Partial<Record<Language, Validator>> = {
   json: validateJson,
   yaml: validateYaml,
@@ -445,6 +610,8 @@ const validators: Partial<Record<Language, Validator>> = {
   csv: validateCsv,
   editorconfig: validateEditorConfig,
   dockerfile: validateDockerfile,
+  gitignore: validateGitignore,
+  makefile: validateMakefile,
 };
 
 export function supportsValidation(language: Language): boolean {
