@@ -199,6 +199,98 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().shortcutOverrides).toEqual({});
   });
 
+  it('defaults themePack to "default" and applies a pack wholesale', () => {
+    expect(useSettingsStore.getState().themePack).toBe('default');
+    useSettingsStore.getState().applyThemePack('solarized-daylight');
+    const state = useSettingsStore.getState();
+    expect(state.themePack).toBe('solarized-daylight');
+    expect(state.theme).toBe('light');
+    expect(state.editorTheme).toBe('solarized-light');
+    expect(state.fontLigatures).toBe(false);
+  });
+
+  it('applyThemePack with an unknown id is a no-op', () => {
+    useSettingsStore.getState().applyThemePack('solarized-daylight');
+    useSettingsStore.getState().applyThemePack('does-not-exist');
+    expect(useSettingsStore.getState().themePack).toBe('solarized-daylight');
+  });
+
+  it('keeps a persisted theme pack only when the stored appearance fields still match it', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: {
+          themePack: 'solarized-daylight',
+          theme: 'light',
+          editorTheme: 'solarized-light',
+          fontFamily: 'Menlo, monospace',
+          fontSize: 14,
+          fontLigatures: false,
+          layoutPreset: 'horizontal',
+          syncShellWithEditorTheme: true,
+        },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState().themePack).toBe('solarized-daylight');
+  });
+
+  it('drops a persisted theme pack back to default when the stored appearance no longer matches it', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: {
+          themePack: 'solarized-daylight',
+          theme: 'light',
+          editorTheme: 'solarized-light',
+          fontFamily: 'Menlo, monospace',
+          fontSize: 20,
+          fontLigatures: false,
+          layoutPreset: 'horizontal',
+          syncShellWithEditorTheme: true,
+        },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    const state = useSettingsStore.getState();
+    expect(state.themePack).toBe('default');
+    expect(state.fontSize).toBe(20);
+  });
+
+  it('manual appearance edit flips themePack back to default', () => {
+    useSettingsStore.getState().applyThemePack('solarized-daylight');
+    useSettingsStore.getState().setFontSize(20);
+    expect(useSettingsStore.getState().themePack).toBe('default');
+    expect(useSettingsStore.getState().fontSize).toBe(20);
+  });
+
+  it('applyThemePack does not touch safety/workflow prefs', () => {
+    useSettingsStore.setState({
+      loopProtection: true,
+      formatOnSave: true,
+      restoreSession: true,
+    });
+    useSettingsStore.getState().applyThemePack('solarized-daylight');
+    const state = useSettingsStore.getState();
+    expect(state.loopProtection).toBe(true);
+    expect(state.formatOnSave).toBe(true);
+    expect(state.restoreSession).toBe(true);
+  });
+
   it('defaults keymapPreset to "default" and applies a preset by id', () => {
     expect(useSettingsStore.getState().keymapPreset).toBe('default');
     useSettingsStore.getState().applyKeymapPreset('sublime');
