@@ -11,6 +11,7 @@ export const EDITOR_THEMES: readonly EditorThemeOption[] = [
   { id: 'dracula', label: 'Dracula', dark: true },
   { id: 'one-dark-pro', label: 'One Dark Pro', dark: true },
   { id: 'monokai', label: 'Monokai', dark: true },
+  { id: 'nord-night', label: 'Nord Night', dark: true },
   { id: 'vs-dark', label: 'VS Dark', dark: true },
   { id: 'vs', label: 'VS Light', dark: false },
   { id: 'solarized-light', label: 'Solarized Light', dark: false },

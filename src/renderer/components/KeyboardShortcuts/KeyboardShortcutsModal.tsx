@@ -7,6 +7,7 @@ import {
   filterShortcuts,
   findComboConflict,
   formatShortcutCombo,
+  formatShortcutToken,
   isEditableShortcutCombo,
   keyboardEventToCombo,
   resolveCombos,
@@ -47,6 +48,51 @@ interface ShortcutRowProps {
   onReset: () => void;
 }
 
+function ShortcutComboPill({
+  combo,
+  platform,
+  comboId,
+}: {
+  combo: ShortcutCombo;
+  platform: string;
+  comboId: string;
+}) {
+  const isMac = platform === 'darwin';
+
+  return (
+    <kbd
+      data-testid={comboId}
+      aria-label={formatShortcutCombo(combo, platform)}
+      className="inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-[0.8rem] border border-border/80 bg-surface-strong/85 px-2.5 py-1 font-sans text-[12px] font-medium text-foreground shadow-sm"
+      style={{
+        fontVariantLigatures: 'none',
+        fontFeatureSettings: '"liga" 0, "calt" 0',
+        letterSpacing: '0.01em',
+      }}
+    >
+      {combo.tokens.map((token, index) => (
+        <span key={`${comboId}-${token}-${index}`} className="inline-flex items-center">
+          {index > 0 && !isMac ? (
+            <span aria-hidden="true" className="mr-1 text-muted">
+              +
+            </span>
+          ) : null}
+          <span
+            data-shortcut-token
+            className={
+              isMac
+                ? 'inline-flex min-w-[0.72rem] justify-center leading-none'
+                : 'inline-flex leading-none'
+            }
+          >
+            {formatShortcutToken(token, platform)}
+          </span>
+        </span>
+      ))}
+    </kbd>
+  );
+}
+
 function ShortcutRow({
   shortcut,
   combos,
@@ -77,24 +123,28 @@ function ShortcutRow({
           </span>
         ) : null}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-4">
         <div className="flex items-center gap-1">
           {combos.map((combo, index) => (
-            <kbd
+            <ShortcutComboPill
               key={`${shortcut.id}-combo-${index}`}
-              className="rounded-[0.65rem] border border-border/80 bg-surface-strong/85 px-2 py-0.5 font-mono text-[11px] text-foreground shadow-sm"
-            >
-              {formatShortcutCombo(combo, platform)}
-            </kbd>
+              combo={combo}
+              platform={platform}
+              comboId={`${shortcut.id}-combo-${index}`}
+            />
           ))}
         </div>
         {editable ? (
-          <div className="flex items-center gap-1">
+          // Flat text-link styling (no pill background / static border) so the
+          // action cluster doesn't read as part of the kbd pill to its left.
+          // The hover border re-adds definition on intent without crowding the
+          // resting state.
+          <div className="flex items-center gap-2">
             {isRecording ? (
               <button
                 type="button"
                 onClick={onCancelRecording}
-                className="rounded-[0.65rem] border border-border/80 px-2 py-0.5 text-[11px] text-muted hover:text-foreground"
+                className="rounded-[0.55rem] border border-transparent px-1.5 py-0.5 text-[11px] text-muted hover:border-border/70 hover:text-foreground"
               >
                 {t('shortcuts.editor.cancel')}
               </button>
@@ -103,7 +153,7 @@ function ShortcutRow({
                 type="button"
                 onClick={onStartRecording}
                 data-testid={`shortcut-edit-${shortcut.id}`}
-                className="rounded-[0.65rem] border border-border/80 px-2 py-0.5 text-[11px] text-muted hover:text-foreground"
+                className="rounded-[0.55rem] border border-transparent px-1.5 py-0.5 text-[11px] text-muted hover:border-border/70 hover:text-foreground"
               >
                 {t('shortcuts.editor.edit')}
               </button>
@@ -113,7 +163,7 @@ function ShortcutRow({
                 type="button"
                 onClick={onReset}
                 data-testid={`shortcut-reset-${shortcut.id}`}
-                className="rounded-[0.65rem] border border-border/80 px-2 py-0.5 text-[11px] text-muted hover:text-foreground"
+                className="rounded-[0.55rem] border border-transparent px-1.5 py-0.5 text-[11px] text-muted hover:border-border/70 hover:text-foreground"
                 aria-label={t('shortcuts.editor.resetSingleAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.reset')}

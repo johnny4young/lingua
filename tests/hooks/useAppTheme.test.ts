@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { resolveEffectiveShellTheme } from '@/hooks/useAppTheme';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 describe('resolveEffectiveShellTheme', () => {
   it('follows the editor theme polarity when sync is on', () => {
@@ -17,5 +18,30 @@ describe('resolveEffectiveShellTheme', () => {
   it('falls back to dark for unknown editor themes when sync is on', () => {
     // Matches the unknown-theme contract in `isDarkEditorTheme`.
     expect(resolveEffectiveShellTheme('light', 'plugin-provided-mystery-theme', true)).toBe('dark');
+  });
+});
+
+describe('setTheme + resolveEffectiveShellTheme integration', () => {
+  const initialSettings = useSettingsStore.getState();
+
+  beforeEach(() => {
+    useSettingsStore.setState(initialSettings, true);
+  });
+
+  it('the explicit shell choice flips the effective shell even when the editor theme is dark', () => {
+    useSettingsStore.setState({
+      syncShellWithEditorTheme: true,
+      editorTheme: 'lingua-dark',
+      theme: 'dark',
+    });
+    useSettingsStore.getState().setTheme('light');
+
+    const state = useSettingsStore.getState();
+    const effective = resolveEffectiveShellTheme(
+      state.theme,
+      state.editorTheme,
+      state.syncShellWithEditorTheme
+    );
+    expect(effective).toBe('light');
   });
 });

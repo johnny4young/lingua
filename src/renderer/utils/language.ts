@@ -33,7 +33,20 @@ function languageFromSpecialFileName(fileName: string): Language | undefined {
     return 'dotenv';
   }
 
-  const builtInCandidates: Language[] = ['dotenv'];
+  // Dockerfile variants (Dockerfile, Dockerfile.dev, Dockerfile.prod, ...)
+  // share the same grammar — match on the base prefix rather than forcing
+  // every variant to live in `fileNames`.
+  if (fileName === 'Dockerfile' || fileName.startsWith('Dockerfile.')) {
+    return 'dockerfile';
+  }
+
+  const builtInCandidates: Language[] = [
+    'dotenv',
+    'dockerfile',
+    'makefile',
+    'gitignore',
+    'editorconfig',
+  ];
   return builtInCandidates.find((candidate) => languageSupportsFileName(candidate, fileName));
 }
 

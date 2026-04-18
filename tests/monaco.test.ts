@@ -209,7 +209,7 @@ describe('registerLanguageCompletionProviders', () => {
     );
   });
 
-  it('registers validate-only language tokenizers once alongside completion providers', async () => {
+  it('registers built-in non-runtime language tokenizers once alongside completion providers', async () => {
     const { registerLanguageCompletionProviders } = await import('@/monaco');
 
     registerLanguageCompletionProviders(monacoMock as never);
@@ -222,6 +222,15 @@ describe('registerLanguageCompletionProviders', () => {
     );
     expect(monacoMock.languages.register).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'csv' })
+    );
+    expect(monacoMock.languages.register).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'dockerfile' })
+    );
+    expect(monacoMock.languages.register).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'shell' })
+    );
+    expect(monacoMock.languages.register).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'makefile' })
     );
   });
 });

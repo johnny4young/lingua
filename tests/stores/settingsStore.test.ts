@@ -25,6 +25,14 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().theme).toBe('light');
   });
 
+  it('setTheme also disables syncShellWithEditorTheme so the explicit choice wins', () => {
+    useSettingsStore.setState({ syncShellWithEditorTheme: true, editorTheme: 'lingua-dark' });
+    useSettingsStore.getState().setTheme('light');
+    const state = useSettingsStore.getState();
+    expect(state.theme).toBe('light');
+    expect(state.syncShellWithEditorTheme).toBe(false);
+  });
+
   it('should set editor theme', () => {
     useSettingsStore.getState().setEditorTheme('dracula');
     expect(useSettingsStore.getState().editorTheme).toBe('dracula');

@@ -128,6 +128,56 @@ const BUILT_IN_LANGUAGE_META: Record<BuiltInLanguage, LanguageMeta> = {
     defaultCode: 'name,value\nexample,1\n',
     executionMode: 'validate',
   },
+  dockerfile: {
+    label: 'Dockerfile',
+    shortLabel: 'DKR',
+    badgeClass: 'bg-sky-500/15 text-sky-300',
+    textColorClass: 'text-sky-300',
+    // Dockerfiles commonly ship as `Dockerfile` or `Dockerfile.dev` and the
+    // `.dockerfile` extension also exists in the wild.
+    extensions: ['dockerfile'],
+    fileNames: ['Dockerfile', 'Containerfile'],
+    monacoLanguage: 'dockerfile',
+    defaultCode: 'FROM node:20\nWORKDIR /app\n',
+    executionMode: 'view',
+  },
+  makefile: {
+    label: 'Makefile',
+    shortLabel: 'MK',
+    badgeClass: 'bg-amber-500/15 text-amber-300',
+    textColorClass: 'text-amber-300',
+    extensions: ['mk', 'mak'],
+    fileNames: ['Makefile', 'GNUmakefile', 'makefile'],
+    monacoLanguage: 'makefile',
+    defaultCode: 'all:\n\t@echo "Hello"\n',
+    executionMode: 'view',
+  },
+  gitignore: {
+    label: 'Gitignore',
+    shortLabel: 'GI',
+    badgeClass: 'bg-stone-500/15 text-stone-300',
+    textColorClass: 'text-stone-300',
+    extensions: [],
+    fileNames: ['.gitignore', '.dockerignore', '.npmignore'],
+    // Monaco doesn't ship a dedicated gitignore mode; `shell` gives a passable
+    // comment+pattern highlight while staying honest about the lack of a real
+    // grammar.
+    monacoLanguage: 'shell',
+    defaultCode: 'node_modules/\ndist/\n',
+    executionMode: 'view',
+  },
+  editorconfig: {
+    label: 'EditorConfig',
+    shortLabel: 'EC',
+    badgeClass: 'bg-indigo-500/15 text-indigo-300',
+    textColorClass: 'text-indigo-300',
+    extensions: [],
+    fileNames: ['.editorconfig'],
+    // EditorConfig's grammar is INI-compatible.
+    monacoLanguage: 'ini',
+    defaultCode: 'root = true\n\n[*]\nindent_style = space\nindent_size = 2\n',
+    executionMode: 'view',
+  },
 };
 
 const FALLBACK_META: LanguageMeta = {

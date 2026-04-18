@@ -38,6 +38,21 @@ export const KEYMAP_PRESETS: readonly KeymapPreset[] = [
       'view-toggle-console': [{ tokens: ['Mod', 'Backtick'] }],
     },
   },
+  {
+    id: 'classic-ide',
+    labelKey: 'shortcuts.preset.classicIde.label',
+    descriptionKey: 'shortcuts.preset.classicIde.description',
+    overrides: {
+      // Classic IDE flows tend to put Go to Symbol on Alt+Shift+O and the
+      // full project search on Alt+Shift+F (Visual Studio, Eclipse, WebStorm
+      // under the IntelliJ-classic keymap). The `Mod` token still resolves
+      // to Ctrl/Cmd per platform — we only swap the auxiliary modifier.
+      'nav-go-to-symbol': [{ tokens: ['Mod', 'Alt', 'O'] }],
+      'nav-project-search': [{ tokens: ['Mod', 'Alt', 'F'] }],
+      // Terminal-style console toggle on Mod+J mirrors JetBrains/WebStorm.
+      'view-toggle-console': [{ tokens: ['Mod', 'J'] }],
+    },
+  },
 ];
 
 export function findKeymapPreset(id: string): KeymapPreset | undefined {

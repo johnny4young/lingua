@@ -59,6 +59,20 @@ export const THEME_PACKS: readonly ThemePack[] = [
       syncShellWithEditorTheme: true,
     },
   },
+  {
+    id: 'nord-night',
+    labelKey: 'settings.themePack.nordNight.label',
+    descriptionKey: 'settings.themePack.nordNight.description',
+    appearance: {
+      theme: 'dark',
+      editorTheme: 'nord-night',
+      fontFamily: "'Fira Code', monospace",
+      fontSize: 14,
+      fontLigatures: true,
+      layoutPreset: 'horizontal',
+      syncShellWithEditorTheme: true,
+    },
+  },
 ];
 
 export function findThemePack(id: string): ThemePack | undefined {
