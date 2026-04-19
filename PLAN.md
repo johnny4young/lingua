@@ -1423,14 +1423,17 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 ### RL-036 Add sharing, collaboration, and publish flows
 
-- Priority: `Future`
+- Priority: `P1` for Phase A (promoted 2026-04-18 by the go-to-market plan in Section 14). `Future` for Phase B.
 - Status: `Planned`
-- Readiness: `Not MVP-ready`
+- Readiness: `Phase A is MVP-ready; Phase B still gated on backend design`
 - Scope:
-  - Phase A:
-    - local export/import of runnable project bundles
-    - read-only share artifacts
-  - Phase B:
+  - Phase A (P1, Phase 3 of the strategic plan):
+    - local export/import of runnable project bundles as a portable `.linguashare` artifact (single JSON or tarball, read-only)
+    - a "Share current file/project" command that produces a `.linguashare` and copies it or saves to disk
+    - an "Open shared artifact" flow that imports a `.linguashare` into a scratch tab or a temporary project
+    - every exported artifact records the language, Lingua version, and entitlement level (so Free-tier users can still open Pro-exported shares in read-only mode)
+    - no cloud backend in Phase A — everything works offline from files
+  - Phase B (future):
     - shareable links
     - interview mode
     - collaborative editing
@@ -1438,10 +1441,12 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Keep cloud/account scope out of the first rollout until a backend design is explicit
 - Acceptance criteria:
   - Phase A ships without requiring a cloud backend
+  - Opening a `.linguashare` on a fresh install reproduces the shared file/project exactly
+  - Exported artifacts never embed the user's license key or identity
   - Cloud sharing does not start until there is a concrete storage/auth design
 - Dependencies:
-  - RL-024
-  - RL-032
+  - RL-024 (Phase A — multi-file bundling)
+  - RL-032 (Phase B only)
 
 ### RL-037 Add deep editor personalization
 
@@ -2308,6 +2313,9 @@ Lingua is **closed-source commercial software**. The repository is private and t
 | `lingua.dev` | Secondary | Premium developer TLD. Verify availability — may be registered |
 | `getlingua.dev` | Fallback | Classic SaaS landing pattern if `lingua.dev` is unavailable |
 | `lingua.app` | Alternative | Good for desktop app marketing. Google-managed TLD |
+| `linguacode.dev` | Legacy alias | Referenced in early strategy drafts (Phase 1 of the go-to-market plan). If registered, 301-redirects to the primary. Do not ship the download page under this host before a redirect rule is in place |
+
+Note on reconciliation: The go-to-market plan in Section 14 uses `lingua.run` as the single source of truth for the download/landing page so all Phase 1 / 2 / 3 assets (HN post, Product Hunt, ads, SEO landing pages) point to one canonical origin. `linguacode.dev` is accepted as a legacy alias only; new copy must link to `lingua.run`.
 
 ### Pricing model (research-backed recommendation)
 
@@ -2319,12 +2327,15 @@ Rationale:
 - RunJS validated this model successfully at $26 perpetual
 - Students need generous free access for adoption
 
-| Tier | Price | Includes |
-|------|-------|----------|
-| **Lingua Free** | $0 | Editor completo, 5 lenguajes base (JS/TS/Python/Go/Rust), auto-run, magic comments, 1 tab, dark/light theme, ejecución ilimitada |
-| **Lingua Pro** | $29 one-time (perpetuo) | Todo Free + tabs ilimitados, snippets, npm packages, 15+ lenguajes, dev utilities, variable inspector, temas extra, custom fonts, deep links, execution history, benchmarking. Updates 1 año |
-| **Lingua Pro Lifetime** | $49 one-time | Todo Pro + actualizaciones de por vida incluyendo major versions |
-| **Lingua Education** | $0 (verificado) | Todo Pro gratis para estudiantes y educadores (.edu email, GitHub Education) |
+The three go-to-market pricing tiers (matching the Phase 1 "3 tiers en Polar.sh" target) are **Free**, **Pro**, and **Pro Lifetime**. **Education** is an access program layered on top of Pro (verified students/educators receive a Pro license for free) — it is intentionally not a separate sellable tier, so Polar.sh still stocks 3 purchasable products and a single verification flow unlocks Pro for educators.
+
+| Tier | Price | Polar.sh product | Includes |
+|------|-------|------------------|----------|
+| **Lingua Free** | $0 | n/a (no purchase needed) | Editor completo, 5 lenguajes base (JS/TS/Python/Go/Rust), auto-run, magic comments, 1 tab, dark/light theme, ejecución ilimitada |
+| **Lingua Pro** | $29 one-time (perpetuo) | Yes (1 of 3) | Todo Free + tabs ilimitados, snippets, npm packages, 15+ lenguajes, dev utilities, variable inspector, temas extra, custom fonts, deep links, execution history, benchmarking. Updates 1 año |
+| **Lingua Pro Lifetime** | $49 one-time | Yes (2 of 3) | Todo Pro + actualizaciones de por vida incluyendo major versions |
+| **Lingua Team** (future) | per-seat (pilot) | Yes (3 of 3) | Todo Pro Lifetime + license management for N seats, team snippet library, priority support. Pilot with a small cohort before listing publicly |
+| **Lingua Education** | $0 (verified) | Access program on top of Pro | Todo Pro gratis para estudiantes y educadores (.edu email, GitHub Education) |
 
 Premium-only features:
 - Unlimited tabs (Free: 1 tab)
@@ -2339,8 +2350,242 @@ Premium-only features:
 
 Future monetization channels:
 - Premium challenge/lesson packs
-- Team licenses (per-seat)
+- Team licenses (per-seat) — piloted as **Lingua Team** in the table above
 - Cloud sync subscription ($2-3/month, optional)
+
+---
+
+## 14. Go-to-market execution plan (Phases 1-3)
+
+This section operationalizes the "Estrategia de Lanzamiento" (strategic alignment) into concrete, implementation-ready RL tasks. Each phase below maps to one or more new RL tasks (RL-059 … RL-067). The rest of the plan (RL-001 … RL-058) covers product surface; this section covers the business and distribution surface that the product needs to ship a paid release.
+
+### Phase 1 — Activate monetization (immediate)
+
+Goal: the product can accept money and gate Pro features behind a validated license without a cloud backend.
+
+Concrete deliverables:
+- Polar.sh storefront with 3 purchasable products (Free is free, Pro, Pro Lifetime; Education unlocks through verification, not a separate SKU).
+- License-key issuance on purchase, offline-verifiable inside the app.
+- Public GitHub presence with a README that states the pitch, pricing, licensing model, and download link honestly.
+- Landing/download page live on the primary domain (`lingua.run`).
+
+Mapping to tasks: **RL-059** (license infra), **RL-060** (feature-tier gating), **RL-061** (Polar.sh integration), **RL-062** (public README / license declaration cleanup), **RL-063** (download landing page).
+
+### Phase 2 — Distribution (month 1–2)
+
+Goal: the product reaches multi-language developer communities that RunJS does not serve.
+
+Concrete deliverables:
+- "Show HN" post with a pre-written narrative and honest claims (not a marketing blast).
+- Coordinated posts in `r/golang`, `r/rust`, `r/Python`, emphasizing the multi-language desktop angle.
+- Product Hunt launch with a 60-second demo video and gallery assets.
+- A reusable press kit (icons, screenshots, video, boilerplate description, pricing overview).
+
+Mapping to tasks: **RL-064** (launch asset kit), **RL-065** (privacy-respecting launch telemetry so we can measure Phase 2 conversion).
+
+### Phase 3 — Growth (month 2–4)
+
+Goal: turn early paid users into distribution. Share artifacts become organic discovery, and SEO starts capturing the specific searches that competitors ignore.
+
+Concrete deliverables:
+- Promote **RL-036 Phase A** (local share bundle / `.linguashare` read-only artifact) from `Future` → `P1`, because the strategic plan depends on it for viral distribution.
+- SEO landing pages targeting `"go playground desktop"`, `"rust code runner desktop"`, `"python repl desktop"`, `"typescript playground offline"`, `"multi language code runner"`.
+- Crash reporting and opt-in product analytics (feeds into retention metrics).
+
+Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-067** (crash reporting).
+
+### New tasks added by this section
+
+### RL-059 License-key infrastructure
+
+- Priority: `P0` for Phase 1
+- Status: `Planned`
+- Readiness: `Ready — no blockers`
+- Scope:
+  - Choose a signing strategy for license keys that works offline (recommended: Ed25519 signed JWT-like token; private key held by the issuer, public key embedded in the app).
+  - Add a `licenseStore` in the renderer that can import, validate, and persist a license payload.
+  - Expose `window.lingua.license.*` through preload so main can decide what ships activated.
+  - Main-side verifier in `src/main/license.ts` for packaged builds; renderer-side verifier in `src/renderer/license/` for web builds (same verify code, same public key, single source of truth in `src/shared/license.ts`).
+  - License payload fields: `productId`, `tier` (`pro` | `pro_lifetime` | `team`), `issuedTo`, `issuedAt`, `supportWindowEndsAt`, `entitlements[]`, `signature`.
+  - Grace-period and clock-skew tolerance are explicit: +/- 24h skew, 14-day grace window after `supportWindowEndsAt` for online re-check (offline keeps working indefinitely for perpetual tiers).
+- Acceptance criteria:
+  - A valid signed license unlocks Pro entitlements in both desktop and web builds.
+  - A tampered or mis-signed license is rejected with an actionable error.
+  - Uninstall/reset clears the license cleanly and returns the app to Free.
+  - Tests cover signature validity, clock skew, tampered payload, and grace-period behavior.
+- Dependencies:
+  - None (pure infra; can land before RL-060/RL-061).
+
+### RL-060 Feature-tier gating in the renderer
+
+- Priority: `P0` for Phase 1
+- Status: `Planned`
+- Readiness: `Ready after RL-059`
+- Scope:
+  - Define `Entitlement` as a typed enum so gating is searchable and static: `UNLIMITED_TABS`, `NPM_PACKAGES`, `SNIPPETS_UNLIMITED`, `DEV_UTILITIES`, `LANGUAGE_PACK_EXTENDED`, `THEME_PACK_EXTENDED`, `FONT_PACK_EXTENDED`, `LOCAL_AI`, `NOTEBOOK_MODE`, `EXECUTION_HISTORY`, `BENCHMARK`.
+  - Add `useEntitlement(entitlement)` hook backed by `licenseStore`.
+  - Centralize the Free-tier limits in one module (`src/shared/entitlements.ts`) so limits cannot drift across stores:
+    - Free: 1 tab, 5 snippets, 3 languages (JS/TS/Python), core theme, no dev utilities panel.
+  - Replace scattered checks with `useEntitlement()` where the Free ceiling applies.
+  - When a locked action is attempted, show a consistent upsell surface that links to the Polar.sh checkout URL resolved from RL-061.
+- Acceptance criteria:
+  - Without a license, the app reports `tier === 'free'` and all gated entitlements are denied.
+  - With a valid Pro license, all Pro entitlements are granted.
+  - Attempting a locked action surfaces one upsell UI pattern, not ad-hoc variants per store.
+  - Free-tier limits are visible and enforced in unit tests.
+- Dependencies:
+  - RL-059
+
+### RL-061 Polar.sh integration
+
+- Priority: `P0` for Phase 1
+- Status: `Planned`
+- Readiness: `Ready after RL-059`
+- Scope:
+  - Create three Polar.sh products: Lingua Pro (one-time), Lingua Pro Lifetime (one-time), Lingua Team (metered / pilot).
+  - Add a minimal webhook receiver (separate service under `update-server/` or a new `license-server/`) that:
+    - Listens to Polar `order.paid` / `order.refunded`.
+    - Signs an RL-059 license payload and emails it to the buyer.
+    - Records issuance in an append-only log (SQLite or flat JSONL for the pilot; no cloud dependency until volume justifies it).
+  - Add "Buy Pro" and "Enter license key" entry points in Settings → About, plus a command-palette command.
+  - Keep cloud identity out of scope for the first release — license keys are enough; accounts can come later.
+- Acceptance criteria:
+  - A successful test purchase in Polar's sandbox results in the buyer receiving a working license key.
+  - A refund invalidates the key the next time the app does a remote check (optional — offline use continues until the next online verify).
+  - The checkout URL is configurable via env so we can point at Polar sandbox vs production.
+- Dependencies:
+  - RL-059
+
+### RL-062 Public README, license declaration, and distribution posture
+
+- Priority: `P0` for Phase 1
+- Status: `Planned`
+- Readiness: `Ready immediately`
+- Current gap:
+  - The `README.md` carries an MIT badge that links to a `LICENSE` file that does not exist in the repo.
+  - The plan declares Lingua closed-source commercial. The public-facing README must match the real distribution posture before the repo is published.
+  - The README does not explicitly state the pricing model or the relationship between the GitHub repo and the paid product.
+- Scope:
+  - Decide and document one of the two consistent postures:
+    1. **Source-available / commercial (recommended for Phase 1):** ship a proprietary `LICENSE` file (e.g. "Lingua Commercial License — Personal & Evaluation Use"), remove the MIT badge, and add a short "Pricing and licensing" section near the top of the README.
+    2. **Open-core:** only if we intentionally split core vs paid addons, with a real `LICENSE` and a separate `LICENSE-commercial` describing paid entitlements.
+  - Land the chosen LICENSE file so the repo has a valid license at publication.
+  - Update the README intro so the value proposition is explicit: "Multi-language desktop code runner — JavaScript, TypeScript, Python, Go, and Rust in one offline-first Monaco-powered app." Match the HN positioning.
+  - Add a "Pricing and download" link pointing to `lingua.run`.
+- Acceptance criteria:
+  - The repo has no broken LICENSE reference.
+  - The README top section states: what Lingua is, who it is for, the 5 shipping languages, pricing posture, and the download URL.
+  - The README's license badge matches the actual LICENSE file.
+- Dependencies:
+  - None
+
+### RL-063 Download landing page at lingua.run
+
+- Priority: `P0` for Phase 1
+- Status: `Planned`
+- Readiness: `Ready — do not wait on RL-018 i18n for launch`
+- Current gap:
+  - RL-032 describes a fuller marketing site but is dependency-chained on i18n (RL-018). That blocks Phase 1.
+  - Phase 1 only needs a fast, honest download page.
+- Scope:
+  - Ship a minimal static landing page at `lingua.run` with:
+    - one-line pitch
+    - screenshot / 60-second demo embed (from RL-064)
+    - download links per platform (reads latest GitHub release assets)
+    - pricing table linked to Polar.sh checkout (from RL-061)
+    - FAQ covering: refund policy, offline behavior, education program, license transfer, system requirements.
+  - Page is English-only at first; localization is deferred to RL-032 / RL-018.
+  - Deploy pipeline: GitHub Pages on a `lingua-site` directory or a separate repo; TLS via Cloudflare.
+  - Redirect `linguacode.dev` to `lingua.run` if the legacy domain is registered.
+- Acceptance criteria:
+  - Visiting `lingua.run` shows the download page with a working checkout link.
+  - The latest release version is pulled from GitHub releases at build time, not hardcoded.
+  - A manual redeploy is documented in `RELEASE.md`.
+- Dependencies:
+  - RL-061 (checkout link)
+
+### RL-064 Launch asset kit (Phase 2)
+
+- Priority: `P1` for Phase 2
+- Status: `Planned`
+- Readiness: `Ready after Phase 1 tasks ship`
+- Scope:
+  - 60-second demo video: JS → TS → Python → Go → Rust in one unbroken desktop recording.
+  - Screenshots for the README, the landing page, Product Hunt gallery, and the HN post thumbnail.
+  - Draft copy for:
+    - Show HN: "Show HN: Multi-language desktop code runner — JS, TS, Go, Python, Rust"
+    - r/golang, r/rust, r/Python posts (each tailored to that community)
+    - Product Hunt: tagline, gallery, maker comment
+  - Press kit: logo, icon, colors, fonts, boilerplate description, pricing one-pager, founder bio.
+  - All assets live in `docs/press-kit/` so the repo is the single source of truth.
+- Acceptance criteria:
+  - Every Phase 2 channel has finalized copy reviewed for honesty (no claims that are not implemented).
+  - The press kit ZIP can be downloaded from `lingua.run/press`.
+- Dependencies:
+  - RL-062, RL-063
+
+### RL-065 Privacy-respecting launch telemetry
+
+- Priority: `P1` for Phase 2
+- Status: `Planned`
+- Readiness: `Ready, must ship opt-in`
+- Why this matters:
+  - Phase 2 distribution posts generate a short traffic window. Without any measurement, we cannot learn what converted.
+  - The app is local-first; telemetry must be explicitly opt-in and never record user code.
+- Scope:
+  - First-run prompt (once, in Settings) explaining what is collected and letting the user enable or decline. Default: disabled.
+  - Collected signals (only if opted in): app version, OS + version bucket, language of the active tab at run time (not the code), whether a license is present (but not its key), which high-level feature surfaces were opened (Command Palette, Snippets, etc.), crash identifiers. No user code, no file paths, no project names.
+  - Self-hosted endpoint (reuses the `update-server` infra if possible) so no third-party vendor has visibility.
+  - Kill switch: a single env flag disables all telemetry regardless of the user choice.
+- Acceptance criteria:
+  - Telemetry is off by default; the consent prompt is shown exactly once.
+  - No payload ever contains user code or file content — enforced by a unit test and a `grep`-style check in CI.
+  - The consent choice is persisted and easy to revoke from Settings.
+- Dependencies:
+  - None (can land independently of RL-059/RL-061)
+
+### RL-066 SEO landing pages for language-specific intents
+
+- Priority: `P1` for Phase 3
+- Status: `Planned`
+- Readiness: `Ready after RL-063`
+- Scope:
+  - Add dedicated static sub-pages under `lingua.run`:
+    - `/go-playground-desktop`
+    - `/rust-code-runner-desktop`
+    - `/python-repl-desktop`
+    - `/typescript-playground-offline`
+    - `/multi-language-code-runner`
+  - Each page has: unique pitch for that language, screenshot of that language running, setup notes, honest limitations (e.g. Go requires a local toolchain on desktop), link to download.
+  - Ship with `sitemap.xml`, canonical tags, OpenGraph image per page.
+  - Avoid content farming: every page must say something true about Lingua's real support for that language, or we do not ship the page.
+- Acceptance criteria:
+  - Each target page ranks at least for its exact head query within a reasonable crawl window after launch.
+  - All pages link back to the canonical download on `lingua.run`.
+  - Pages lint clean against HTML / schema.org validators.
+- Dependencies:
+  - RL-063
+
+### RL-067 Crash reporting
+
+- Priority: `P1` for Phase 2/3
+- Status: `Planned`
+- Readiness: `Ready, must ship opt-in`
+- Scope:
+  - Capture renderer and main crashes via Electron's `crashReporter`.
+  - Redact stack traces that include user file paths before upload.
+  - Reuse the RL-065 opt-in consent surface so the user is not double-prompted.
+  - Send to a self-hosted Sentry-compatible or equivalent endpoint.
+- Acceptance criteria:
+  - Opt-in is unified with RL-065 telemetry consent.
+  - Crash reports contain stack + app version + OS, never user code.
+  - The endpoint is configurable via env so the same build works in dev/staging/prod.
+- Dependencies:
+  - RL-065
+
+### Promotion of RL-036
+
+RL-036 is now re-prioritized for the execution order summary. Phase A (local share bundle, read-only artifacts) is the viral-distribution primitive the strategic plan depends on in Phase 3. See the summary tables below for the updated tier placement.
 
 ---
 
@@ -2380,6 +2625,20 @@ Future monetization channels:
 |---|------|------|--------|
 | RL-004 | Unify error surfacing (Go/Rust line parsing) | RL-003 ✅ | Small |
 | RL-005 | Desktop validation scripts & smoke test | RL-001 ✅ | Medium |
+
+---
+
+### Tier 1.5 — Monetization and launch (Phase 1 of the strategic plan)
+
+Ship these before Phase 2 distribution. Every item is a blocker for charging for the product.
+
+| # | Task | Deps | Effort |
+|---|------|------|--------|
+| RL-062 | Public README, license declaration, distribution posture | None | Small |
+| RL-059 | License-key infrastructure | None | Medium |
+| RL-060 | Feature-tier gating in the renderer | RL-059 | Medium |
+| RL-061 | Polar.sh integration (3 products + webhook issuance) | RL-059 | Medium |
+| RL-063 | Download landing page at lingua.run | RL-061 | Small |
 
 ---
 
@@ -2424,13 +2683,18 @@ Future monetization channels:
 
 ---
 
-### Tier 5 — Platform hardening & expansion
+### Tier 5 — Platform hardening, distribution, and growth (Phase 2 + Phase 3)
 
 | # | Task | Deps | Effort |
 |---|------|------|--------|
+| RL-064 | Launch asset kit (video, HN/PH/Reddit copy, press kit) | RL-062, RL-063 | Medium |
+| RL-065 | Privacy-respecting launch telemetry (opt-in) | — | Small |
+| RL-067 | Crash reporting (opt-in, unified consent with RL-065) | RL-065 | Small |
+| RL-036 (Phase A) | Local share bundles / read-only `.linguashare` artifacts | RL-024 | Medium |
+| RL-066 | SEO landing pages per language intent | RL-063 | Small |
 | RL-033 | Vite major upgrade | RL-005 | Medium |
 | RL-034 | Build-system ADR (Forge vs alternatives) | RL-033 | Small |
-| RL-032 | Marketing website & docs hub | RL-018 | Large |
+| RL-032 | Full marketing website & docs hub | RL-018 | Large |
 | RL-016 | Release validation & signing CI | — | Medium |
 | RL-042 | 15+ languages | RL-038 | Large |
 | RL-026 | Language intelligence beyond JS/TS (LSP) | RL-030, RL-038 | Large |
@@ -2458,16 +2722,23 @@ Future monetization channels:
 
 | # | Task | Deps | Effort |
 |---|------|------|--------|
-| RL-036 | Sharing & collaboration | RL-024, RL-032 | XL |
+| RL-036 (Phase B) | Collaborative editing, shareable links with backend | RL-036 Phase A, RL-032 | XL |
 | RL-041 | Static site export & publish | RL-024, RL-036 | Large |
 | RL-047 | Algorithm visualization | RL-027, RL-043 | XL |
 | RL-049 | Macro recording & playback | RL-037 | Medium |
-| RL-050 | Real-time collaboration | RL-036, RL-032 | XL |
+| RL-050 | Real-time collaboration | RL-036 Phase B, RL-032 | XL |
 
 ---
 
 ### What to implement next
 
-**Start with Tier 1** (RL-004, RL-005) to close remaining P0 gaps, then **Tier 2 quick wins** (RL-055 → RL-056 → RL-051 → RL-052) for immediate user value with zero risk. After that, pick from **Tier 3** based on strategic priority — RL-019 (runtime modes) and RL-018 (i18n) are the highest-leverage items.
+The order below reflects the strategic alignment (Phase 1 → Phase 2 → Phase 3):
+
+1. **Tier 1** — close remaining P0 correctness gaps (RL-004, RL-005).
+2. **Tier 1.5** — ship the monetization and launch foundation **before** any distribution push. Sequence: RL-062 → RL-059 → RL-060 → RL-061 → RL-063. This is Phase 1 of the strategic plan; shipping Phase 2 without this is promoting a free product by mistake.
+3. **Tier 2 quick wins** (RL-055 → RL-056 → RL-051 → RL-052) for zero-risk user value — many of these also make the press kit and landing page look good.
+4. **Phase 2 of the strategic plan (from Tier 5)** — RL-064 (assets), RL-065 (telemetry), then the HN / Reddit / Product Hunt launch itself.
+5. **Phase 3 of the strategic plan (from Tier 5)** — RL-036 Phase A (share bundles) for viral distribution, then RL-066 (SEO pages), then RL-067 (crash reporting).
+6. After Phase 3 stabilizes, pick from **Tier 3** — RL-019 (runtime modes) and RL-018 (i18n) remain the highest-leverage product items for long-term differentiation.
 
 This ordered list is the milestone sequence. No separate milestone section should be maintained elsewhere.
