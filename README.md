@@ -1,10 +1,15 @@
 # Lingua
 
 [![CI](https://github.com/johnny4young/lingua/actions/workflows/ci.yml/badge.svg)](https://github.com/johnny4young/lingua/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node 24+](https://img.shields.io/badge/node-%3E%3D24-brightgreen)](https://nodejs.org)
 
-Lingua is an Electron-based code runner for JavaScript, TypeScript, Go, Python, and Rust. It combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds.
+**Multi-language desktop code runner — JavaScript, TypeScript, Python, Go, and Rust in one offline-first Monaco-powered app.** Lingua combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds. It is the multi-language answer to RunJS: the same "open, write, run" ergonomics, but with Go, Rust, and Python as first-class citizens instead of JavaScript-only.
+
+> Licensing note: Lingua is a commercial product. The license declaration, pricing, and distribution posture are being finalized as part of the Phase 1 go-to-market plan tracked in [`PLAN.md`](./PLAN.md) (see tasks `RL-062` and `RL-059`). Until then, treat this repository as source-available for evaluation and contributor review only.
+
+## Pricing and download
+
+The paid tiers (Free, Pro one-time, Pro Lifetime) are documented in [`PLAN.md` Section 13](./PLAN.md). The download page and checkout will live at **`lingua.run`** once `RL-063` ships. Education access for verified students/educators is free — see the go-to-market plan in `PLAN.md` Section 14.
 
 ## Current capabilities
 
@@ -418,4 +423,4 @@ Stable channel policy:
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Lingua is a commercial product. The final license file is being landed as part of `RL-062` in [`PLAN.md`](./PLAN.md). Until that task ships, treat this repository as source-available for evaluation, contributor review, and security auditing — **not** as MIT-licensed. Redistributing packaged binaries is not permitted before the commercial license is published.
