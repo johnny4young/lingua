@@ -1,6 +1,6 @@
 # SEO landing pages (RL-066)
 
-Content scaffolds for the five language-intent landing pages that
+Content scaffolds for the language-intent landing pages that
 `linguacode.dev` (RL-063) will host:
 
 - `/go-playground-desktop/`
@@ -8,6 +8,7 @@ Content scaffolds for the five language-intent landing pages that
 - `/python-repl-desktop/`
 - `/typescript-playground-offline/`
 - `/multi-language-code-runner/`
+- `/lua-offline-playground/`
 
 The scaffolds live in this directory as Markdown + front-matter so the
 website build can pick them up directly. Shape is static-site friendly
@@ -42,6 +43,7 @@ plus YAML front-matter).
 - `python-repl-desktop.md`
 - `typescript-playground-offline.md`
 - `multi-language-code-runner.md`
+- `lua-offline-playground.md`
 
 Each file is its own page. The website build inherits a shared header,
 nav, and footer — pages own only `<main>`-level content and the

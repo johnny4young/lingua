@@ -126,7 +126,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     formatter: 'prettier',
     capabilities: { lsp: 'builtin', debugger: 'planned' },
     docsUrl: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript',
-    templateIds: [],
+    templateIds: ['js-hello', 'js-fetch', 'js-sort', 'js-class'],
   },
   {
     id: 'typescript',
@@ -143,7 +143,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     formatter: 'prettier',
     capabilities: { lsp: 'builtin', debugger: 'planned' },
     docsUrl: 'https://www.typescriptlang.org/docs/',
-    templateIds: [],
+    templateIds: ['ts-hello', 'ts-generic', 'ts-sort', 'ts-async'],
   },
   {
     id: 'go',
@@ -160,7 +160,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     formatter: 'ipc:gofmt',
     capabilities: { lsp: 'desktop', debugger: 'planned', runtimeDependencies: ['go'] },
     docsUrl: 'https://go.dev/doc/',
-    templateIds: [],
+    templateIds: ['go-hello', 'go-goroutine', 'go-sort'],
   },
   {
     id: 'python',
@@ -176,7 +176,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     formatter: 'ipc:python',
     capabilities: { lsp: 'desktop', debugger: 'planned' },
     docsUrl: 'https://docs.python.org/3/',
-    templateIds: [],
+    templateIds: ['py-hello', 'py-list', 'py-sort', 'py-class'],
   },
   {
     id: 'rust',
@@ -193,7 +193,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     formatter: 'ipc:rustfmt',
     capabilities: { lsp: 'desktop', debugger: 'planned', runtimeDependencies: ['rustc'] },
     docsUrl: 'https://doc.rust-lang.org/book/',
-    templateIds: [],
+    templateIds: ['rs-hello', 'rs-ownership', 'rs-sort', 'rs-struct'],
   },
   {
     id: 'lua',
@@ -444,4 +444,15 @@ export function formatterStrategyForPack(id: string): LanguagePackFormatter {
 
 export function runnerIdForPack(id: string): string | null {
   return getLanguagePackById(id)?.runnerId ?? null;
+}
+
+/**
+ * Starter-template ids declared by the language pack. The full template
+ * record (code, labelKey, fileStem) lives in
+ * `src/renderer/data/templates.ts` and is resolved at the call site so
+ * `src/shared/` stays React-free. Returns an empty array for unknown ids
+ * or for packs with no starter templates (validate / view-only).
+ */
+export function templateIdsForPack(id: string): readonly string[] {
+  return getLanguagePackById(id)?.templateIds ?? [];
 }

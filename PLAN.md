@@ -317,7 +317,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Scoping ADR, Slice A (pure merger), and Slice B (store plumbing + snapshot bridge shell) shipped on 2026-04-20; Slices C–D (Settings UI, main-side runner integration) still pending`
+- Readiness: `Scoping ADR, Slice A (pure merger), Slice B (store plumbing + snapshot bridge shell), and Slice C first increment (Settings panel for the global tier) shipped on 2026-04-20; remaining Slice C surfaces (project + tab tier editors) and Slice D (main-side runner integration) still pending`
 - Current progress:
   - `ENV_VARS_ADR.md` answers the three blocking questions: Go/Rust/Python receive env in desktop; JS/TS Workers and the web build do not; the merge order is tab > project > global with empty-string-as-real-value POSIX semantics
   - Secret-storage scope creep is explicitly blocked — env vars persist as plain JSON; secrets belong in the host shell or a vault
@@ -325,6 +325,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
   - Guard test `tests/docs/envVarsAdr.test.ts` pins the three decisions, the secret-storage block, the four slices, and adjacent ADR cross-links
   - Slice A (2026-04-20): `src/shared/envVarScopes.ts` ships the pure merger (`mergeEnvScopes`, `sanitizeScope`, `validateEnvVarKey`, `traceEnvScopes`). POSIX-style key validation (`[A-Za-z_][A-Za-z0-9_]*`), reserved-key deny list (PATH/HOME/USER/SHELL/LOGNAME/PWD/OLDPWD), per-scope 100-key cap, per-value 32k-char cap, frozen merged output so callers can't mutate downstream. 16 tests lock precedence, POSIX mask semantics, reserved-key block, invalid-key rejection at every tier
   - Slice B (2026-04-20): `src/renderer/stores/envVarsStore.ts` threads the three user-owned tiers (`global`, `project`, `tab`) through a persist-backed Zustand store. Writes enforce the Slice A validator + per-scope caps; rehydrate sanitizes every tier so a tampered localStorage can't smuggle reserved keys back in. `resolveEffectiveEnv(processEnv, projectId, tabId)` composes the tiers with a caller-supplied `processEnv` via the Slice A merger. `src/main/ipc/env.ts` + preload + web adapter ship the `env:snapshot` bridge shape, but it intentionally returns `{}` for now so host `process.env` stays in main until Slice D wires the final merge directly into the subprocess path. 15 new tests pin the write/remove/clear contracts, the resolver composition, the persistence sanitization, and the empty desktop snapshot guard. Runner integration (passing the merged env into Go / Rust / Python subprocesses) is Slice D
+  - Slice C first increment (2026-04-20): `src/renderer/components/Settings/EnvVarsSection.tsx` lands the Settings panel for the **global** tier. Add form + list + remove affordance + empty state + inline validator error (blank key, reserved/invalid POSIX name, over-cap value) + always-visible precedence hint so the user knows this is one tier of three. Wired into `SettingsModal` next to the Privacy section. Copy ships in en + es (`envVars.title/description/keyLabel/valueLabel/addButton/empty/emptyValueDisplay/removeAriaLabel/precedenceNote/error.keyRequired/error.rejected`). Seven new component tests pin empty state, successful add + draft reset, blank-key error, reserved-name rejection, empty-string sentinel, row removal, and the Spanish locale. Project + tab tier editors follow in Slice C's next increment
 - Decisions needed:
   - Which runtimes receive env vars in desktop mode ✅
   - Which env vars, if any, should exist in web mode ✅
@@ -1520,12 +1521,14 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Slice A (descriptor + thin shim migration) shipped on 2026-04-20; Slice B (runner dispatch + Lua first-class) shipped on 2026-04-20; Slice C (capability-aware UI) still pending`
+- Readiness: `Slice A (descriptor + thin shim migration) shipped on 2026-04-20; Slice B (runner dispatch + Lua first-class) shipped on 2026-04-20; Slice C first increment (capability badges in the New File menu) shipped on 2026-04-20; remaining Slice C surfaces (language selector elsewhere, capability-aware settings) still pending`
 - Current progress:
   - `LANGUAGE_PACK_ADR.md` records the accepted `LanguagePack` descriptor, the three-slice migration plan, and the no-marketplace constraint
   - Guard test `tests/docs/languagePackAdr.test.ts` pins the descriptor fields, migration slices, and adjacent ADR/RL cross-links
   - Slice A (2026-04-20): `src/shared/languagePacks.ts` lands the descriptor + the 16-pack array as the single source of truth, plus resolver helpers (`getLanguagePackById`, `getLanguagePackForExtension`, `getLanguagePackForFileName`, `monacoLanguageForPack`, `executionModeForPack`, `formatterStrategyForPack`, `runnerIdForPack`). `src/renderer/utils/languageMeta.ts` rewritten as a thin shim — every legacy helper now proxies to the pack array. Zero behavior change verified by the existing 836-test baseline plus 11 new pack-integrity tests covering descriptor shape, runnable-vs-validate runnerId contract, extension uniqueness, file-name same-pack-allowed cross-pack-banned rule, and resolver fallback semantics
   - Slice B (2026-04-20): `src/renderer/runners/manager.ts` replaces the hardcoded constructor with a `BUILT_IN_RUNNER_FACTORIES` map keyed by `LanguagePack.runnerId` and a `LANGUAGE_PACKS` walk. `pluginRegistry.getByLanguage` stays as the fallback so plugin-sourced runners still resolve. Lua joins `LANGUAGE_PACKS` as a first-class entry (`execution: 'run'`, `runnerId: 'lua'`) — its runner is still plugin-sourced, which proves the pack walk is additive. New assertions: the pack test pins the Lua entry shape, and the manager test asserts Lua does NOT resolve from `LANGUAGE_PACKS` alone (plugin registration still required). All 884 tests pass
+  - Slice C first increment (2026-04-20): `languageCapabilityBadgeKey(language)` reads `LanguagePack.capabilities.runtimeDependencies` and returns a stable i18n key (`language.capability.desktopOnly`) for host-toolchain languages (Go, Rust) or `null` for self-contained runtimes (JS, TS, Python, Lua). The Toolbar's New File menu renders the badge next to each language label when the helper returns a key. Copy ships in en + es (`Desktop only` / `Solo escritorio`). Tests pin the helper's per-language output and the Toolbar's badge rendering + localization
+  - Slice C polish (2026-04-20): the `templateIds` field on every runnable built-in pack now points at the real template ids in `src/renderer/data/templates.ts` (js × 4, ts × 4, go × 3, py × 4, rs × 4). New resolver helper `templateIdsForPack(id)` reads them with a safe fallback. Four new guard tests assert every runnable pack declares at least one starter template (Lua exempt until its first starter ships), every declared id resolves to a real template and matches the pack's language, no built-in template is orphaned, and the resolver falls back cleanly for unknown ids. This closes the Slice A "declared templates per language" todo that previously shipped as an empty array
 - Why this matters:
   - The current built-in language support is functional but still somewhat scattered across templates, runners, toolbar metadata, and settings
   - Plugin support should stay conservative until the built-in architecture is cleaner
@@ -1553,9 +1556,10 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Content scaffolds for the first two lessons landed on 2026-04-20; interactive lesson UI still depends on RL-023 + RL-024`
+- Readiness: `Content scaffolds for three lessons landed on 2026-04-20 (JS, TS, Python); interactive lesson UI still depends on RL-023 + RL-024`
 - Current progress:
-  - `docs/lessons/` ships `README.md` (lesson schema + content rules), `01-javascript-loops-and-arrays.md` (Free-tier JS), `02-typescript-generic-functions.md` (Free-tier TS, depends on lesson 01)
+  - `docs/lessons/` ships `README.md` (lesson schema + content rules), `01-javascript-loops-and-arrays.md` (Free-tier JS), `02-typescript-generic-functions.md` (Free-tier TS, depends on lesson 01), `03-python-fundamentals.md` (Free-tier Python, list comprehensions + `defaultdict` pattern)
+  - 2026-04-20 second slice: adds the Python lesson to close the "at least one guided path for a second language" acceptance line; `tests/docs/lessons.test.ts` now asserts the second-language presence explicitly so a future edit cannot regress it
   - Schema: front-matter (`id`, `language`, `title`, `estimatedMinutes`, `prerequisites`) + en + es sections with the canonical sub-headers (`What you will build` / `Lo que vas a construir`, `Starter code` / `Código inicial`, `Walkthrough` / `Paso a paso`, `Try it yourself` / `Inténtalo tú`, `What you learned` / `Lo que aprendiste`)
   - `language` front-matter validated against `LANGUAGE_PACKS` ids so a future lesson can't reference a language the runner doesn't ship
   - Guard test `tests/docs/lessons.test.ts` pins file presence, front-matter completeness, en + es section coverage, language-id legitimacy, and the no-MIT-claim rule
@@ -2643,9 +2647,10 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 
 - Priority: `P1` for Phase 3
 - Status: `Partial`
-- Readiness: `Content scaffolds landed on 2026-04-19; hosting at linguacode.dev/* still blocked on RL-063 shipping the domain`
+- Readiness: `Content scaffolds for six intents landed by 2026-04-20 (Go, Rust, Python, TypeScript, multi-language, Lua); hosting at linguacode.dev/* still blocked on RL-063 shipping the domain`
 - Current progress:
-  - `docs/seo-pages/` ships the five scaffolds the plan enumerates: `go-playground-desktop.md`, `rust-code-runner-desktop.md`, `python-repl-desktop.md`, `typescript-playground-offline.md`, `multi-language-code-runner.md`
+  - `docs/seo-pages/` ships six scaffolds: `go-playground-desktop.md`, `rust-code-runner-desktop.md`, `python-repl-desktop.md`, `typescript-playground-offline.md`, `multi-language-code-runner.md`, and (2026-04-20) `lua-offline-playground.md`
+  - The Lua page is intentionally honest about today's product boundary: the runtime is bundled, but execution still depends on the local-plugin path and is not exposed in the stock web shell yet
   - Each scaffold has front-matter (`title`, `description` ≤160 chars, `canonical`, `ogImage`, `language`), a "what actually runs" table, a "what doesn't work today" section (RL-066 acceptance: honest limitations), and a canonical link back to `https://linguacode.dev`
   - `docs/seo-pages/README.md` codifies the five shared rules (no claim outruns reality, strict front-matter, canonical CTA, required limits section, JSON-LD is owned by the site build)
   - Guard test `tests/docs/seoPages.test.ts` pins presence, no stray pages, front-matter completeness (incl. description-length bound), canonical link, honest-limitations section, and no-MIT-claim rule

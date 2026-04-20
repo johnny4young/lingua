@@ -16,6 +16,7 @@ const EXPECTED_PAGES = [
   'python-repl-desktop.md',
   'typescript-playground-offline.md',
   'multi-language-code-runner.md',
+  'lua-offline-playground.md',
 ];
 
 const REQUIRED_FRONT_MATTER_KEYS = ['title', 'description', 'canonical', 'ogImage', 'language'];
@@ -83,5 +84,12 @@ describe('docs/seo-pages (RL-066)', () => {
       expect(raw).not.toMatch(/MIT.?licens/i);
       expect(raw).not.toMatch(/Lingua is open[-\s]?source/i);
     }
+  });
+
+  it('keeps the Lua page honest about the current plugin-gated product path', () => {
+    const raw = readFileSync(resolve(PAGES_DIR, 'lua-offline-playground.md'), 'utf-8');
+    expect(raw).toMatch(/local-plugin path/i);
+    expect(raw).toMatch(/not .*default language/i);
+    expect(raw).toMatch(/web build does .* expose the Lua plugin path today/i);
   });
 });
