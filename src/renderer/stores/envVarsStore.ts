@@ -3,11 +3,11 @@
  *
  * Holds the three user-owned tiers (`global`, `project`, `tab`) behind a
  * `persist`-backed Zustand store and exposes a pure
- * `resolveEffectiveEnv()` helper that composes them with the main-process
- * `processEnv` snapshot via the Slice A merger.
+ * `resolveEffectiveEnv()` helper that composes them with a caller-supplied
+ * `processEnv` tier via the Slice A merger.
  *
  * Wiring contract (per `ENV_VARS_ADR.md`):
- *   processEnv  (lowest — main-process snapshot)
+ *   processEnv  (lowest — supplied by the eventual main-side runner path)
  *   < global    (renderer-owned, persisted, project-agnostic)
  *   < project   (renderer-owned, keyed by projectId)
  *   < tab       (renderer-owned, keyed by tabId — highest)
@@ -75,9 +75,9 @@ export interface EnvVarsStoreState {
   clearScope: (tier: 'global' | 'project' | 'tab', scopeKey?: string) => void;
 
   /**
-   * Resolve the merged env for a given runtime context. `processEnv` comes
-   * from `window.lingua.env.snapshot()` (desktop) or `{}` (web). The scope
-   * tiers are read from the store.
+   * Resolve the merged env for a given runtime context. The caller supplies
+   * the `processEnv` tier; Slice B intentionally keeps host env out of the
+   * renderer, so current desktop + web callers pass `{}`.
    */
   resolveEffectiveEnv: (
     processEnv: Record<string, string>,
