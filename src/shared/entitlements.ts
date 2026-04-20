@@ -1,0 +1,90 @@
+/**
+ * Entitlement + tier gating shared between renderer and main (RL-060).
+ *
+ * All tier policy lives in this module so limits cannot drift across stores.
+ * Callers that need to check "is this action allowed" should ask
+ * `isEntitled(tier, entitlement)`; callers that enforce numeric ceilings
+ * (tabs, snippets, languages) should read the `FREE_TIER_LIMITS` constant
+ * or, better, the helper that accepts a tier and returns the ceiling
+ * (Infinity for paid tiers).
+ */
+
+import type { LicenseTier } from './license';
+
+export const ENTITLEMENTS = [
+  'UNLIMITED_TABS',
+  'NPM_PACKAGES',
+  'SNIPPETS_UNLIMITED',
+  'DEV_UTILITIES',
+  'LANGUAGE_PACK_EXTENDED',
+  'THEME_PACK_EXTENDED',
+  'FONT_PACK_EXTENDED',
+  'LOCAL_AI',
+  'NOTEBOOK_MODE',
+  'EXECUTION_HISTORY',
+  'BENCHMARK',
+] as const;
+
+export type Entitlement = (typeof ENTITLEMENTS)[number];
+
+/**
+ * Canonical free-tier ceilings. Any UI that enforces a numeric limit MUST
+ * read from here so upgrading to Pro only has to flip a single source of
+ * truth. Paid tiers are treated as unlimited (`Infinity`) — not because
+ * they're truly infinite, but because the product does not currently ship a
+ * Pro ceiling different from Free that isn't already covered by an
+ * entitlement flag above.
+ */
+export const FREE_TIER_LIMITS = {
+  maxOpenTabs: 1,
+  maxSnippets: 5,
+  allowedLanguages: ['javascript', 'typescript', 'python'] as readonly string[],
+} as const;
+
+/** Convenience: ceiling for a concrete tier. Paid tiers collapse to Infinity. */
+export function tabCeilingForTier(tier: LicenseTier): number {
+  return tier === 'free' ? FREE_TIER_LIMITS.maxOpenTabs : Number.POSITIVE_INFINITY;
+}
+
+export function snippetCeilingForTier(tier: LicenseTier): number {
+  return tier === 'free' ? FREE_TIER_LIMITS.maxSnippets : Number.POSITIVE_INFINITY;
+}
+
+/**
+ * The Free tier entitlement matrix — everything enumerated here is
+ * explicitly denied for `free` and granted for every paid tier. Keep this
+ * aligned with the marketing tiers on `lingua.run` and the Polar.sh
+ * metadata (RL-061).
+ */
+const FREE_TIER_ENTITLEMENTS: ReadonlySet<Entitlement> = new Set([
+  // Free tier gets *some* access today so the product is useful before
+  // activation. Entries listed here are the ones Free users keep.
+]);
+
+const PAID_TIER_ENTITLEMENTS: ReadonlySet<Entitlement> = new Set(ENTITLEMENTS);
+
+export function entitlementsForTier(tier: LicenseTier): ReadonlySet<Entitlement> {
+  return tier === 'free' ? FREE_TIER_ENTITLEMENTS : PAID_TIER_ENTITLEMENTS;
+}
+
+export function isEntitled(tier: LicenseTier, entitlement: Entitlement): boolean {
+  return entitlementsForTier(tier).has(entitlement);
+}
+
+/**
+ * Numeric gates — same policy but shaped for counting callers (e.g. "am I
+ * allowed to open a new tab given I already have N?"). Returns true when
+ * the proposed new count is still within budget for the tier.
+ */
+export function withinTabBudget(tier: LicenseTier, proposedCount: number): boolean {
+  return proposedCount <= tabCeilingForTier(tier);
+}
+
+export function withinSnippetBudget(tier: LicenseTier, proposedCount: number): boolean {
+  return proposedCount <= snippetCeilingForTier(tier);
+}
+
+export function isLanguageAllowed(tier: LicenseTier, language: string): boolean {
+  if (tier !== 'free') return true;
+  return FREE_TIER_LIMITS.allowedLanguages.includes(language);
+}

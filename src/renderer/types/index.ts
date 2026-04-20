@@ -140,6 +140,12 @@ export interface SettingsState {
    * panels to light). When off, the explicit `theme` setting is honored.
    */
   syncShellWithEditorTheme: boolean;
+  /**
+   * Telemetry opt-in. Three states so we can distinguish "user explicitly
+   * declined" from "user has not seen the prompt yet", and keep the prompt
+   * from re-appearing after a decline.
+   */
+  telemetryConsent: 'unset' | 'granted' | 'declined';
   language: AppLanguage;
   lastSeenVersion: string | null;
   hasCompletedTour: boolean;
@@ -186,6 +192,7 @@ export interface SettingsState {
   toggleRestoreSession: () => void;
   toggleFormatOnSave: () => void;
   toggleSyncShellWithEditorTheme: () => void;
+  setTelemetryConsent: (next: 'granted' | 'declined') => void;
   /**
    * Apply a theme preset (editor theme, shell theme, typography, layout)
    * loaded from an exported JSON document. Non-theme settings (loop

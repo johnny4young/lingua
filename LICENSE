@@ -1,0 +1,85 @@
+Lingua Commercial License — Personal and Evaluation Use
+========================================================
+
+Copyright (c) 2026 johnny4young. All rights reserved.
+
+Lingua is a commercial desktop and web application. This repository is made
+available publicly to support evaluation, transparency, security review, and
+contributor collaboration. It is NOT distributed under an open-source license.
+
+1. Definitions
+
+   "Software" means the Lingua source code, compiled artifacts, assets, and
+   documentation contained in this repository and any build produced from it.
+
+   "Licensor" means the copyright holder named above.
+
+   "You" means the individual or entity exercising the rights granted by this
+   license.
+
+   "Evaluation" means personal, non-production use for the purpose of
+   understanding, reviewing, reporting bugs, or proposing changes to the
+   Software.
+
+2. Grant — evaluation and personal use
+
+   Subject to compliance with this license, Licensor grants You a worldwide,
+   royalty-free, non-exclusive, non-transferable license to:
+
+   a. read, copy, and modify the Software source for Evaluation;
+   b. build and run the Software locally for personal, non-commercial use;
+   c. submit patches, bug reports, and derivative improvements back to
+      Licensor through the repository's normal contribution channels.
+
+   Production, paid, educational-at-scale, or commercial use requires a
+   separate paid license purchased from Licensor (see `lingua.run`).
+
+3. Restrictions
+
+   You may NOT:
+
+   a. redistribute, host, sell, sublicense, or relicense the Software or any
+      substantial portion of it;
+   b. remove or obscure copyright notices, license text, or product branding;
+   c. use the Software to provide a hosted or managed service offering that
+      competes with Licensor's commercial product;
+   d. use the Licensor's name, logo, or trademarks except as required for
+      fair attribution of contributions.
+
+4. Contributions
+
+   By submitting a patch, pull request, or other contribution, You grant
+   Licensor a perpetual, worldwide, non-exclusive, royalty-free, irrevocable
+   license to use, reproduce, modify, publish, distribute, sublicense, and
+   incorporate Your contribution into the Software under this license or any
+   future license Licensor chooses for the Software.
+
+5. No warranty
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL
+   THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE,
+   ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+   OTHER DEALINGS IN THE SOFTWARE.
+
+6. Commercial licensing
+
+   Paid tiers (Free, Pro, Pro Lifetime, Team) and their entitlements are
+   documented at `lingua.run` and in `PLAN.md`. Commercial and production use
+   requires a valid commercial license.
+
+7. Termination
+
+   This license terminates automatically upon any breach. Upon termination You
+   must cease using and destroy all copies of the Software that You control.
+
+8. Jurisdiction
+
+   This license is governed by the laws of the Licensor's country of
+   residence, without reference to conflict-of-law principles.
+
+For commercial licensing, support, or enterprise inquiries contact the
+Licensor via the repository's issue tracker or the contact details published
+at `lingua.run`.
