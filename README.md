@@ -15,7 +15,7 @@ Lingua is a commercial product distributed under a source-available license — 
 - **Pro Lifetime** — the Pro entitlement set with lifetime updates.
 - **Team / Education** — seat-based licensing and free access for verified students and educators.
 
-The full tier matrix, entitlements, and pricing currently live in [`PLAN.md` Section 13](./PLAN.md). The download page and checkout will live at [`lingua.run`](https://lingua.run) once `RL-063` ships.
+The full tier matrix, entitlements, and pricing currently live in [`PLAN.md` Section 13](./PLAN.md). The download page and checkout will live at [`linguacode.dev`](https://linguacode.dev) once `RL-063` ships.
 
 ## Who it is for
 
@@ -138,6 +138,10 @@ Architecture deep dive:
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) explains the project lifecycle, Electron IPC file-system bridge, and watch-state flow with diagrams and extension guidance.
 - [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) is the decision record for what runs where (browser WASM, browser interpreter, desktop native, hybrid) with the promotion rules for future WASM-first migrations.
 - [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) is the ADR for the desktop build system (stay on Electron Forge vs. move to electron-vite or electron-builder) with the scoring matrix and when-to-revisit triggers.
+- [`TAURI_SPIKE_ADR.md`](./TAURI_SPIKE_ADR.md) is the written no-go decision on migrating to Tauri 2, with the architectural gap analysis and the triggers that would reopen the question.
+- [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) documents the declarative `LanguagePack` descriptor and the three-slice migration plan for built-in + Lua language support.
+- [`docs/press-kit/`](./docs/press-kit/) holds the Phase 2 launch asset boilerplate (en + es) — product descriptions, pricing one-pager, founder bio, Show HN / Product Hunt / subreddit drafts.
+- [`docs/seo-pages/`](./docs/seo-pages/) holds the RL-066 SEO landing page scaffolds (five language-intent pages) ready for `linguacode.dev` to consume once the domain ships.
 - [`src/renderer/README.md`](./src/renderer/README.md) maps the renderer folders, state ownership, styling rules, extraction conventions, and common change/test paths.
 
 ### Windows contributors: enable symlinks before cloning
@@ -458,4 +462,4 @@ Stable channel policy:
 
 ## License
 
-Lingua is a commercial product distributed under a source-available license. The full terms live in [`LICENSE`](./LICENSE); the short version is: the repository is public for evaluation, contributor review, and security auditing, but production, paid, or at-scale use requires a commercial license purchased via [`lingua.run`](https://lingua.run). Redistributing packaged binaries or competing hosted offerings is not permitted.
+Lingua is a commercial product distributed under a source-available license. The full terms live in [`LICENSE`](./LICENSE); the short version is: the repository is public for evaluation, contributor review, and security auditing, but production, paid, or at-scale use requires a commercial license purchased via [`linguacode.dev`](https://linguacode.dev). Redistributing packaged binaries or competing hosted offerings is not permitted.

@@ -53,7 +53,7 @@ export function snippetCeilingForTier(tier: LicenseTier): number {
 /**
  * The Free tier entitlement matrix — everything enumerated here is
  * explicitly denied for `free` and granted for every paid tier. Keep this
- * aligned with the marketing tiers on `lingua.run` and the Polar.sh
+ * aligned with the marketing tiers on `linguacode.dev` and the Polar.sh
  * metadata (RL-061).
  */
 const FREE_TIER_ENTITLEMENTS: ReadonlySet<Entitlement> = new Set([
