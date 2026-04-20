@@ -32,6 +32,8 @@ export function EditorSection() {
   const toggleRestoreSession = useSettingsStore((state) => state.toggleRestoreSession);
   const formatOnSave = useSettingsStore((state) => state.formatOnSave);
   const toggleFormatOnSave = useSettingsStore((state) => state.toggleFormatOnSave);
+  const vimMode = useSettingsStore((state) => state.vimMode);
+  const toggleVimMode = useSettingsStore((state) => state.toggleVimMode);
   const syncShellWithEditorTheme = useSettingsStore(
     (state) => state.syncShellWithEditorTheme
   );
@@ -175,6 +177,25 @@ export function EditorSection() {
         hint={t('editor.formatOnSave.hint')}
       >
         <Toggle value={formatOnSave} onChange={toggleFormatOnSave} />
+      </Row>
+
+      <Row
+        label={t('editor.vimMode.label')}
+        hint={t('editor.vimMode.hint')}
+      >
+        <div className="grid w-full gap-1 text-right">
+          <Toggle
+            value={vimMode}
+            onChange={toggleVimMode}
+            aria-label={t('editor.vimMode.label')}
+          />
+          <span
+            data-testid="editor-vim-mode-status"
+            className="text-xs text-muted"
+          >
+            {t('editor.vimMode.pendingNote')}
+          </span>
+        </div>
       </Row>
 
       <ThemePresetControls />

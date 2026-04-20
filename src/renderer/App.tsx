@@ -278,6 +278,7 @@ function AppChrome({
         onOpenQuickOpen={() => openOverlay('quick-open')}
         onOpenSnippets={() => openOverlay('snippets')}
         onOpenUtilities={() => openOverlay('utilities')}
+        utilitiesOpen={overlay === 'utilities'}
       />
       {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
       {overlay === 'search' && <ProjectSearch onClose={closeOverlay} />}

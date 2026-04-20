@@ -72,6 +72,14 @@ describe('languageMeta', () => {
     expect(languageSupportsFileName('editorconfig', '.editorconfig')).toBe(true);
   });
 
+  it('resolves Ruby through the LanguagePack descriptor (RL-042 first slice)', () => {
+    expect(languageForExtension('rb')?.toString()).toBe('ruby');
+    expect(extensionForLanguage('ruby')).toBe('rb');
+    expect(monacoLanguageFor('ruby')).toBe('ruby');
+    // Ruby is validate-only in this slice — no execution yet.
+    expect(executionModeForLanguage('ruby')).toBe('validate');
+  });
+
   it('flags languages that need a host toolchain with a capability badge key (RL-038 Slice C)', () => {
     // Go + Rust depend on host binaries declared in LANGUAGE_PACKS.
     expect(languageCapabilityBadgeKey('go')).toBe('language.capability.desktopOnly');

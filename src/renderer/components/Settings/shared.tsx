@@ -54,10 +54,12 @@ export function Toggle({
   value,
   onChange,
   disabled = false,
+  'aria-label': ariaLabel,
 }: {
   value: boolean;
   onChange: () => void;
   disabled?: boolean;
+  'aria-label'?: string;
 }) {
   return (
     <button
@@ -65,6 +67,7 @@ export function Toggle({
       role="switch"
       aria-checked={value}
       aria-disabled={disabled || undefined}
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={onChange}
       className={cn(

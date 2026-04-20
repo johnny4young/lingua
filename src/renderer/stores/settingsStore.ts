@@ -135,6 +135,7 @@ export const useSettingsStore = create<SettingsState>()(
       hideUndefined: true,
       restoreSession: false,
       formatOnSave: false,
+      vimMode: false,
       syncShellWithEditorTheme: true,
       telemetryConsent: 'unset',
       language: 'system',
@@ -177,6 +178,7 @@ export const useSettingsStore = create<SettingsState>()(
       toggleHideUndefined: () => set((s) => ({ hideUndefined: !s.hideUndefined })),
       toggleRestoreSession: () => set((s) => ({ restoreSession: !s.restoreSession })),
       toggleFormatOnSave: () => set((s) => ({ formatOnSave: !s.formatOnSave })),
+      toggleVimMode: () => set((s) => ({ vimMode: !s.vimMode })),
       toggleSyncShellWithEditorTheme: () =>
         set((s) => ({
           syncShellWithEditorTheme: !s.syncShellWithEditorTheme,
@@ -269,6 +271,7 @@ export const useSettingsStore = create<SettingsState>()(
         hideUndefined: state.hideUndefined,
         restoreSession: state.restoreSession,
         formatOnSave: state.formatOnSave,
+        vimMode: state.vimMode,
         syncShellWithEditorTheme: state.syncShellWithEditorTheme,
         telemetryConsent: state.telemetryConsent,
         language: state.language,
