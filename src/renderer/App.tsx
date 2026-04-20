@@ -10,6 +10,7 @@ import { ProjectSearch } from './components/ProjectSearch/ProjectSearch';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardShortcutsModal';
 import { SnippetsModal } from './components/Snippets';
+import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
 import { CHANGELOG_ENTRIES } from './data/changelog';
 import {
@@ -317,6 +318,7 @@ function AppChrome({
         <KeyboardShortcutsModal onClose={closeOverlay} />
       )}
       <StatusNoticeBanner />
+      <FirstRunConsentModal />
     </>
   );
 }
