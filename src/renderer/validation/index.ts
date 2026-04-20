@@ -1,5 +1,16 @@
+import i18next from 'i18next';
 import { load as parseYaml } from 'js-yaml';
 import type { EditorDiagnostic, Language } from '../types';
+
+/**
+ * RL-058 i18n: every diagnostic message and success-state copy below
+ * routes through `t()`. The keys live under `validation.<source>.<rule>`
+ * so they're discoverable per validator. New messages MUST add the key
+ * to both en and es locales — `npm run check:i18n` enforces that.
+ */
+function t(key: string, values?: Record<string, string | number>): string {
+  return i18next.t(key, { ...values, defaultValue: key });
+}
 
 export interface ValidationResult {
   diagnostics: EditorDiagnostic[];
@@ -25,36 +36,33 @@ function locationFromOffset(content: string, offset: number): Pick<EditorDiagnos
 
 function formatDiagnosticsOutput(language: Language, diagnostics: EditorDiagnostic[]): string {
   if (diagnostics.length === 0) {
-    switch (language) {
-      case 'json':
-        return 'JSON validation passed. No syntax issues found.';
-      case 'yaml':
-        return 'YAML validation passed. No structural issues found.';
-      case 'dotenv':
-        return '.env validation passed. No malformed or duplicate entries found.';
-      case 'csv':
-        return 'CSV validation passed. Column shapes are consistent.';
-      case 'editorconfig':
-        return 'EditorConfig validation passed. Known keys and values only.';
-      case 'dockerfile':
-        return 'Dockerfile validation passed. No common issues detected.';
-      case 'gitignore':
-        return 'Gitignore validation passed. No suspicious patterns detected.';
-      case 'makefile':
-        return 'Makefile validation passed. Recipe indentation looks consistent.';
-      case 'shellscript':
-        return 'Shell script validation passed. Shebang and safety-mode flags look fine.';
-      default:
-        return 'No validation issues found.';
-    }
+    const successKeyByLanguage: Partial<Record<Language, string>> = {
+      json: 'validation.success.json',
+      yaml: 'validation.success.yaml',
+      dotenv: 'validation.success.dotenv',
+      csv: 'validation.success.csv',
+      editorconfig: 'validation.success.editorconfig',
+      dockerfile: 'validation.success.dockerfile',
+      gitignore: 'validation.success.gitignore',
+      makefile: 'validation.success.makefile',
+      shellscript: 'validation.success.shellscript',
+    };
+    return t(successKeyByLanguage[language] ?? 'validation.success.fallback');
   }
 
   return diagnostics
     .map((diagnostic) => {
       const location = diagnostic.column
-        ? `line ${diagnostic.line}:${diagnostic.column}`
-        : `line ${diagnostic.line}`;
-      return `[${diagnostic.severity.toUpperCase()}] ${location} — ${diagnostic.message}`;
+        ? t('validation.format.locationLineColumn', {
+            line: diagnostic.line,
+            column: diagnostic.column,
+          })
+        : t('validation.format.locationLineOnly', { line: diagnostic.line });
+      return t('validation.format.line', {
+        severity: diagnostic.severity.toUpperCase(),
+        location,
+        message: diagnostic.message,
+      });
     })
     .join('\n');
 }
@@ -90,7 +98,7 @@ function validateYaml(content: string): EditorDiagnostic[] {
 
     return [
       {
-        message: yamlError.message ?? 'Invalid YAML document.',
+        message: yamlError.message ?? t('validation.yaml.invalidDocument'),
         line: (yamlError.mark?.line ?? 0) + 1,
         column: (yamlError.mark?.column ?? 0) + 1,
         severity: 'error',
@@ -115,7 +123,7 @@ function validateDotenv(content: string): EditorDiagnostic[] {
     const equalsIndex = normalized.indexOf('=');
     if (equalsIndex <= 0) {
       diagnostics.push({
-        message: 'Expected KEY=value syntax.',
+        message: t('validation.dotenv.expectedKeyValue'),
         line: lineNumber,
         column: 1,
         severity: 'error',
@@ -127,7 +135,7 @@ function validateDotenv(content: string): EditorDiagnostic[] {
     const key = normalized.slice(0, equalsIndex).trim();
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(key)) {
       diagnostics.push({
-        message: `Invalid environment key "${key}".`,
+        message: t('validation.dotenv.invalidKey', { key }),
         line: lineNumber,
         column: 1,
         severity: 'error',
@@ -139,7 +147,7 @@ function validateDotenv(content: string): EditorDiagnostic[] {
     const previousLine = seenKeys.get(key);
     if (previousLine !== undefined) {
       diagnostics.push({
-        message: `Duplicate key "${key}" also defined on line ${previousLine}.`,
+        message: t('validation.dotenv.duplicateKey', { key, previousLine }),
         line: lineNumber,
         column: 1,
         severity: 'warning',
@@ -192,7 +200,7 @@ function parseCsvLine(line: string, lineNumber: number): ParsedCsvRow {
     return {
       cells,
       error: {
-        message: 'Unclosed quoted value.',
+        message: t('validation.dotenv.unclosedQuote'),
         line: lineNumber,
         column: Math.max(line.length, 1),
         severity: 'error',
@@ -228,7 +236,10 @@ function validateCsv(content: string): EditorDiagnostic[] {
 
     if (parsed.cells.length !== expectedColumns) {
       diagnostics.push({
-        message: `Expected ${expectedColumns} columns but found ${parsed.cells.length}.`,
+        message: t('validation.csv.columnMismatch', {
+          expected: expectedColumns,
+          actual: parsed.cells.length,
+        }),
         line: lineNumber,
         column: 1,
         severity: 'warning',
@@ -273,7 +284,7 @@ function validateEditorConfig(content: string): EditorDiagnostic[] {
     const equalsIndex = rawLine.indexOf('=');
     if (equalsIndex < 0) {
       diagnostics.push({
-        message: 'Expected "key = value" or a section header like "[*]".',
+        message: t('validation.editorconfig.expectedKeyValueOrSection'),
         line: lineNumber,
         column: 1,
         severity: 'warning',
@@ -288,7 +299,7 @@ function validateEditorConfig(content: string): EditorDiagnostic[] {
 
     if (allowed === undefined) {
       diagnostics.push({
-        message: `Unknown EditorConfig key "${rawKey}".`,
+        message: t('validation.editorconfig.unknownKey', { key: rawKey }),
         line: lineNumber,
         column: 1,
         severity: 'info',
@@ -301,7 +312,7 @@ function validateEditorConfig(content: string): EditorDiagnostic[] {
     if (rawKey === 'indent_size') {
       if (rawValue !== 'tab' && !/^\d+$/.test(rawValue)) {
         diagnostics.push({
-          message: 'indent_size must be a positive integer or the literal "tab".',
+          message: t('validation.editorconfig.indentSizeInvalid'),
           line: lineNumber,
           column: equalsIndex + 2,
           severity: 'warning',
@@ -314,7 +325,7 @@ function validateEditorConfig(content: string): EditorDiagnostic[] {
     if (rawKey === 'tab_width' || rawKey === 'max_line_length') {
       if (!/^\d+$/.test(rawValue)) {
         diagnostics.push({
-          message: `${rawKey} must be a positive integer.`,
+          message: t('validation.editorconfig.mustBePositiveInteger', { key: rawKey }),
           line: lineNumber,
           column: equalsIndex + 2,
           severity: 'warning',
@@ -326,7 +337,11 @@ function validateEditorConfig(content: string): EditorDiagnostic[] {
 
     if (allowed && !allowed.includes(rawValue.toLowerCase())) {
       diagnostics.push({
-        message: `"${rawValue}" is not a valid value for ${rawKey}. Expected one of: ${allowed.join(', ')}.`,
+        message: t('validation.editorconfig.invalidEnumValue', {
+          value: rawValue,
+          key: rawKey,
+          allowed: allowed.join(', '),
+        }),
         line: lineNumber,
         column: equalsIndex + 2,
         severity: 'warning',
@@ -389,7 +404,7 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
 
     if (!DOCKERFILE_INSTRUCTIONS.has(instruction) && instruction !== 'MAINTAINER') {
       diagnostics.push({
-        message: `Unknown Dockerfile instruction "${instruction}".`,
+        message: t('validation.dockerfile.unknownInstruction', { instruction }),
         line: lineNumber,
         column: 1,
         severity: 'info',
@@ -400,7 +415,7 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
 
     if (instruction === 'MAINTAINER') {
       diagnostics.push({
-        message: 'MAINTAINER is deprecated. Use LABEL org.opencontainers.image.authors="..." instead.',
+        message: t('validation.dockerfile.maintainerDeprecated'),
         line: lineNumber,
         column: 1,
         severity: 'warning',
@@ -411,7 +426,7 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
 
     if (!sawInstruction && instruction !== 'FROM' && instruction !== 'ARG') {
       diagnostics.push({
-        message: 'The first instruction in a Dockerfile must be FROM (ARG is the only exception).',
+        message: t('validation.dockerfile.firstMustBeFrom'),
         line: lineNumber,
         column: 1,
         severity: 'error',
@@ -427,7 +442,7 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
       const args = trimmed.slice(instruction.length).trim();
       if (/^https?:\/\//u.test(args)) {
         diagnostics.push({
-          message: 'Prefer RUN with curl/wget + COPY over ADD <url>; ADD does not verify checksums.',
+          message: t('validation.dockerfile.preferRunOverAddUrl'),
           line: lineNumber,
           column: 1,
           severity: 'warning',
@@ -452,7 +467,7 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
 
           if (!tag) {
             diagnostics.push({
-              message: `"${imageRef}" has no tag — pin a specific tag (or digest) for reproducible builds.`,
+              message: t('validation.dockerfile.imageRefNoTag', { imageRef }),
               line: lineNumber,
               column: 1,
               severity: 'warning',
@@ -460,7 +475,7 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
             });
           } else if (tag === 'latest') {
             diagnostics.push({
-              message: '`:latest` tags are not pinned. Use a specific tag or a digest for reproducible builds.',
+              message: t('validation.dockerfile.latestTagUnpinned'),
               line: lineNumber,
               column: 1,
               severity: 'warning',
@@ -478,7 +493,7 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
       const args = trimmed.slice(instruction.length);
       if (/\bapt(-get)?\s+install\b/u.test(args) && !/\s-y\b|\s--yes\b|\s--assume-yes\b/u.test(args)) {
         diagnostics.push({
-          message: 'apt-get install without `-y` will block the build. Add `-y --no-install-recommends` and clean up `rm -rf /var/lib/apt/lists/*`.',
+          message: t('validation.dockerfile.aptGetMissingFlags'),
           line: lineNumber,
           column: 1,
           severity: 'warning',
@@ -502,7 +517,7 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
       const arg = (trimmed.slice(instruction.length).trim().split(/\s+/u)[0] ?? '').toLowerCase();
       if (arg === 'root' || arg === '0' || arg === '0:0') {
         diagnostics.push({
-          message: 'USER root (uid 0) runs the final container as root. Prefer a dedicated non-root user for runtime images.',
+          message: t('validation.dockerfile.userRoot'),
           line: lineNumber,
           column: 1,
           severity: 'info',
@@ -514,7 +529,7 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
 
   if (sawContent && !sawFrom) {
     diagnostics.push({
-      message: 'Dockerfile is missing a FROM instruction.',
+      message: t('validation.dockerfile.missingFrom'),
       line: 1,
       column: 1,
       severity: 'error',
@@ -524,8 +539,7 @@ function validateDockerfile(content: string): EditorDiagnostic[] {
 
   if (exposeSeenAt !== null && !sawHealthcheck) {
     diagnostics.push({
-      message:
-        'EXPOSE advertises a port but no HEALTHCHECK is defined. Orchestrators (Compose, Kubernetes, Swarm) read HEALTHCHECK to decide whether traffic should land.',
+      message: t('validation.dockerfile.exposeWithoutHealthcheck'),
       line: exposeSeenAt,
       column: 1,
       severity: 'info',
@@ -552,8 +566,7 @@ function validateGitignore(content: string): EditorDiagnostic[] {
     // copy/paste bug that silently makes a pattern ignore nothing.
     if (/[ \t]+$/u.test(rawLine) && !/\\\s+$/u.test(rawLine)) {
       diagnostics.push({
-        message:
-          'Trailing whitespace changes the pattern. If you meant to match a literal space, escape it with a backslash; otherwise strip the trailing spaces.',
+        message: t('validation.gitignore.trailingWhitespace'),
         line: lineNumber,
         column: rawLine.trimEnd().length + 1,
         severity: 'warning',
@@ -566,7 +579,7 @@ function validateGitignore(content: string): EditorDiagnostic[] {
     const pattern = trimmed.startsWith('!') ? trimmed.slice(1).trim() : trimmed;
     if (!pattern) {
       diagnostics.push({
-        message: '"!" with no pattern does nothing.',
+        message: t('validation.gitignore.emptyNegation'),
         line: lineNumber,
         column: 1,
         severity: 'warning',
@@ -578,7 +591,7 @@ function validateGitignore(content: string): EditorDiagnostic[] {
     if (/\\/u.test(trimmed) && !/\\[ #!]/u.test(trimmed)) {
       // Backslash-as-separator is a Windows-path tell; gitignore is POSIX-only.
       diagnostics.push({
-        message: 'gitignore patterns use forward slashes, not backslashes, even on Windows.',
+        message: t('validation.gitignore.backslashSeparator'),
         line: lineNumber,
         column: 1,
         severity: 'warning',
@@ -589,7 +602,7 @@ function validateGitignore(content: string): EditorDiagnostic[] {
     const previous = seenPatterns.get(pattern);
     if (previous !== undefined) {
       diagnostics.push({
-        message: `Duplicate pattern "${pattern}" also appears on line ${previous}.`,
+        message: t('validation.gitignore.duplicatePattern', { pattern, previous }),
         line: lineNumber,
         column: 1,
         severity: 'info',
@@ -699,7 +712,7 @@ function validateMakefile(content: string): EditorDiagnostic[] {
     if (/^ +\S/u.test(rawLine)) {
       if (activeTarget) {
         diagnostics.push({
-          message: `Recipe for "${activeTarget}" is indented with spaces. Makefiles require a hard tab before each command.`,
+          message: t('validation.makefile.spaceIndentedRecipe', { target: activeTarget }),
           line: lineNumber,
           column: 1,
           severity: 'error',
@@ -712,7 +725,7 @@ function validateMakefile(content: string): EditorDiagnostic[] {
     if (rawLine.startsWith('\t')) {
       if (!activeTarget) {
         diagnostics.push({
-          message: 'Tab-indented command has no preceding target — Make will reject this.',
+          message: t('validation.makefile.orphanTabCommand'),
           line: lineNumber,
           column: 1,
           severity: 'error',
@@ -763,7 +776,7 @@ function validateMakefile(content: string): EditorDiagnostic[] {
           const previous = definedTargets.get(name);
           if (previous !== undefined) {
             diagnostics.push({
-              message: `Target "${name}" is already defined on line ${previous}.`,
+              message: t('validation.makefile.duplicateTarget', { name, previous }),
               line: lineNumber,
               column: 1,
               severity: 'warning',
@@ -784,7 +797,7 @@ function validateMakefile(content: string): EditorDiagnostic[] {
   for (const [target, line] of definedTargets) {
     if (COMMON_PHONY_TARGETS.has(target) && !phonyTargets.has(target)) {
       diagnostics.push({
-        message: `Target "${target}" is almost always virtual — add it to a \`.PHONY\` declaration so Make doesn't skip it when a file of the same name exists.`,
+        message: t('validation.makefile.missingPhony', { target }),
         line,
         column: 1,
         severity: 'info',
@@ -797,7 +810,7 @@ function validateMakefile(content: string): EditorDiagnostic[] {
     if (IMPLICIT_MAKE_VARIABLES.has(name)) continue;
     if (referencedVars.has(name)) continue;
     diagnostics.push({
-      message: `Variable "${name}" is assigned but never referenced. Remove it or use it via $(${name}).`,
+      message: t('validation.makefile.unusedVariable', { name }),
       line,
       column: 1,
       severity: 'info',
@@ -825,8 +838,7 @@ function validateShellScript(content: string): EditorDiagnostic[] {
 
   if (!firstLine.startsWith('#!')) {
     diagnostics.push({
-      message:
-        'Shell script has no shebang. Add `#!/usr/bin/env bash` (or `#!/bin/sh`) as the first line so the file runs under a predictable interpreter.',
+      message: t('validation.shellscript.missingShebang'),
       line: 1,
       column: 1,
       severity: 'warning',
@@ -848,8 +860,7 @@ function validateShellScript(content: string): EditorDiagnostic[] {
 
   if (!hasSafetyMode) {
     diagnostics.push({
-      message:
-        'No safety-mode flags detected. Add `set -euo pipefail` near the top so the script aborts on the first failure instead of silently chaining errors.',
+      message: t('validation.shellscript.missingSafetyMode'),
       line: firstLine.startsWith('#!') ? 2 : 1,
       column: 1,
       severity: 'info',

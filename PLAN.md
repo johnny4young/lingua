@@ -316,13 +316,17 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-011 Add an environment variables panel for execution contexts
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Needs execution-model scoping before implementation`
+- Status: `Partial`
+- Readiness: `Scoping ADR landed on 2026-04-20; implementation slices A-D still pending`
+- Current progress:
+  - `ENV_VARS_ADR.md` answers the three blocking questions: Go/Rust/Python receive env in desktop; JS/TS Workers and the web build do not; the merge order is tab > project > global with empty-string-as-real-value POSIX semantics
+  - Secret-storage scope creep is explicitly blocked — env vars persist as plain JSON; secrets belong in the host shell or a vault
+  - Four-slice implementation roadmap (pure scope merger, store plumbing, Settings UI, web stub) ready to ship in follow-up sessions
+  - Guard test `tests/docs/envVarsAdr.test.ts` pins the three decisions, the secret-storage block, the four slices, and adjacent ADR cross-links
 - Decisions needed:
-  - Which runtimes receive env vars in desktop mode
-  - Which env vars, if any, should exist in web mode
-  - Whether env vars are tab-scoped, project-scoped, or global
-- This item should not start until those decisions are written down
+  - Which runtimes receive env vars in desktop mode ✅
+  - Which env vars, if any, should exist in web mode ✅
+  - Whether env vars are tab-scoped, project-scoped, or global ✅
 
 ### RL-012 Package management
 
@@ -1341,8 +1345,13 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-033 Upgrade to the latest Vite major and harden the bundling surface
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Positive but gated`
+- Status: `Partial`
+- Readiness: `Upgrade plan ADR landed on 2026-04-20; bump itself blocked on the four upstream peer-range checks the ADR enumerates`
+- Current progress:
+  - `VITE_UPGRADE_ADR.md` lands a Vite 5 → 7 plan with the impact matrix (esbuild/Rollup, esbuild-wasm transpiler, Sass/PostCSS, `import.meta.glob`, Node target, Vitest peer, plugin-react peer), the four blocker peer ranges (`@electron-forge/plugin-vite`, `@vitejs/plugin-react`, `vitest`, `tailwindcss`), the 9-step verification matrix (install → tsc → lint → tests → i18n → web build → desktop dev → desktop smoke → packaged make), and the rollback plan (pin `5.4.21` exactly via `overrides`)
+  - Vite 8 is intentionally skipped this round to avoid stacking the Rolldown-default churn; a follow-up ADR opens once Vite 7 is stable in this repo
+  - Decision today: wait. Run the four `npm view` blocker checks before the next session starts the bump
+  - Guard test `tests/docs/viteUpgradeAdr.test.ts` pins the impact axes, blocker checklist, verification matrix, rollback plan, and adjacent ADR cross-links
 - Why this looks viable:
   - The repo already uses `.mts` Vite configs
   - The repo already targets Node 24
@@ -1500,10 +1509,11 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Design ADR landed on 2026-04-19; implementation slices A/B/C still pending`
+- Readiness: `Slice A (descriptor + thin shim migration) shipped on 2026-04-20; Slice B (runner dispatch) and Slice C (capability-aware UI) still pending`
 - Current progress:
   - `LANGUAGE_PACK_ADR.md` records the accepted `LanguagePack` descriptor, the three-slice migration plan, and the no-marketplace constraint
   - Guard test `tests/docs/languagePackAdr.test.ts` pins the descriptor fields, migration slices, and adjacent ADR/RL cross-links
+  - Slice A (2026-04-20): `src/shared/languagePacks.ts` lands the descriptor + the 16-pack array as the single source of truth, plus resolver helpers (`getLanguagePackById`, `getLanguagePackForExtension`, `getLanguagePackForFileName`, `monacoLanguageForPack`, `executionModeForPack`, `formatterStrategyForPack`, `runnerIdForPack`). `src/renderer/utils/languageMeta.ts` rewritten as a thin shim — every legacy helper now proxies to the pack array. Zero behavior change verified by the existing 836-test baseline plus 11 new pack-integrity tests covering descriptor shape, runnable-vs-validate runnerId contract, extension uniqueness, file-name same-pack-allowed cross-pack-banned rule, and resolver fallback semantics
 - Why this matters:
   - The current built-in language support is functional but still somewhat scattered across templates, runners, toolbar metadata, and settings
   - Plugin support should stay conservative until the built-in architecture is cleaner
@@ -1530,8 +1540,13 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-039 Add guided lessons, docs, and app galleries for students
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready after Snippet Lab and starter projects exist`
+- Status: `Partial`
+- Readiness: `Content scaffolds for the first two lessons landed on 2026-04-20; interactive lesson UI still depends on RL-023 + RL-024`
+- Current progress:
+  - `docs/lessons/` ships `README.md` (lesson schema + content rules), `01-javascript-loops-and-arrays.md` (Free-tier JS), `02-typescript-generic-functions.md` (Free-tier TS, depends on lesson 01)
+  - Schema: front-matter (`id`, `language`, `title`, `estimatedMinutes`, `prerequisites`) + en + es sections with the canonical sub-headers (`What you will build` / `Lo que vas a construir`, `Starter code` / `Código inicial`, `Walkthrough` / `Paso a paso`, `Try it yourself` / `Inténtalo tú`, `What you learned` / `Lo que aprendiste`)
+  - `language` front-matter validated against `LANGUAGE_PACKS` ids so a future lesson can't reference a language the runner doesn't ship
+  - Guard test `tests/docs/lessons.test.ts` pins file presence, front-matter completeness, en + es section coverage, language-id legitimacy, and the no-MIT-claim rule
 - Scope:
   - Guided lessons with checkpoints
   - app gallery / starter gallery
@@ -2187,8 +2202,12 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-058 Support common development files in view/lint mode without execution
 
 - Priority: `P1`
-- Status: `Partial`
-- Readiness: `Language detection and diagnostics are in place, but validator messages still bypass i18n and need localization before this is fully closed`
+- Status: `Done`
+- Readiness: `Validator messages localized on 2026-04-20; full acceptance set met`
+- 2026-04-20 closure:
+  - `src/renderer/validation/index.ts` now routes every diagnostic message and every success-state copy through `i18next.t()`. Keys live under `validation.<source>.<rule>` (yaml, dotenv, csv, editorconfig, dockerfile, gitignore, makefile, shellscript) with interpolation values for line numbers, key names, image refs, target names
+  - 47 new keys added in `en` and `es` (success-state, format helpers, plus per-validator messages)
+  - `formatDiagnosticsOutput` now drives the `[SEVERITY] location — message` line through localized format keys so the run-result panel reads natively in both locales
 - 2026-04-19 audit:
   - ✅ `package.json` / `.env` / `docker-compose.yml` / `data.csv` all resolve to correct Monaco languages and validate-only execution modes via `languageMeta` + `languageCapabilities` + the extension resolver
   - ✅ No non-runnable file shows a Run affordance — `executionModeFor()` gates the toolbar Run button
