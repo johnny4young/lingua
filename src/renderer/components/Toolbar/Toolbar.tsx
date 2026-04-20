@@ -41,6 +41,7 @@ interface ToolbarProps {
   onOpenQuickOpen?: () => void;
   onOpenSnippets?: () => void;
   onOpenUtilities?: () => void;
+  utilitiesOpen?: boolean;
 }
 
 export function Toolbar({
@@ -49,6 +50,7 @@ export function Toolbar({
   onOpenQuickOpen,
   onOpenSnippets,
   onOpenUtilities,
+  utilitiesOpen = false,
 }: ToolbarProps) {
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
@@ -262,13 +264,21 @@ export function Toolbar({
         <IconButton onClick={onOpenSnippets} tooltip={t('toolbar.snippets')}>
           <BookCopy size={15} />
         </IconButton>
-        <IconButton onClick={onOpenUtilities} tooltip={t('toolbar.utilities')}>
+        <IconButton
+          onClick={onOpenUtilities}
+          tooltip={t('toolbar.utilities')}
+          active={utilitiesOpen}
+          aria-pressed={utilitiesOpen}
+          aria-haspopup="dialog"
+        >
           <Wrench size={15} />
         </IconButton>
+        <div className="toolbar-divider" />
         <IconButton
           onClick={toggleConsole}
           active={consoleVisible}
           tooltip={t('toolbar.console.toggle')}
+          aria-pressed={consoleVisible}
         >
           <PanelBottom size={15} />
         </IconButton>

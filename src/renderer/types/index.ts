@@ -8,6 +8,7 @@ export type BuiltInLanguage =
   | 'go'
   | 'python'
   | 'rust'
+  | 'ruby'
   | 'json'
   | 'yaml'
   | 'dotenv'
@@ -141,6 +142,14 @@ export interface SettingsState {
   restoreSession: boolean;
   formatOnSave: boolean;
   /**
+   * RL-037 Vim mode flag. When `true`, the next Vim-mode slice will
+   * lazy-load `monaco-vim` and attach it to the active Monaco editor.
+   * This slice only ships the persisted flag + the Settings toggle —
+   * flipping it on today does NOT change editor behavior yet. The
+   * follow-up slice wires the Monaco integration.
+   */
+  vimMode: boolean;
+  /**
    * When on, the dark/light shell polarity follows the current editor
    * theme's polarity (so picking VS Light auto-flips the console and result
    * panels to light). When off, the explicit `theme` setting is honored.
@@ -197,6 +206,7 @@ export interface SettingsState {
   toggleHideUndefined: () => void;
   toggleRestoreSession: () => void;
   toggleFormatOnSave: () => void;
+  toggleVimMode: () => void;
   toggleSyncShellWithEditorTheme: () => void;
   setTelemetryConsent: (next: 'granted' | 'declined') => void;
   /**

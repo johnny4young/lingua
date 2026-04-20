@@ -1,10 +1,10 @@
 # ADR — Vim mode integration (RL-037 personalization slice)
 
-| Status | Accepted — design |
+| Status | Accepted — design; first slice (settings toggle) shipped |
 | ------ | ----------------- |
 | Decision | Add an opt-in Vim keybindings layer via the `monaco-vim` package, lazy-loaded behind a single Settings toggle. Vim only hijacks keystrokes when the Monaco editor owns focus; global shortcuts (Quick Open, Command Palette) keep working elsewhere. |
 | Date | 2026-04-20 |
-| Implementation start | Unblocked by this ADR. The implementation slice is its own session — this ADR does not ship code. |
+| Implementation start | First slice landed on 2026-04-20 bis — `settings.vimMode` flag + Settings toggle. No `monaco-vim` integration yet; flipping the flag today does not change editor behavior. The Monaco-side lazy-load ships in the next slice. |
 
 ## Context
 

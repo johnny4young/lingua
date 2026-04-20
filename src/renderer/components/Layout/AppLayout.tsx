@@ -192,6 +192,7 @@ interface AppLayoutProps {
   onOpenQuickOpen?: () => void;
   onOpenSnippets?: () => void;
   onOpenUtilities?: () => void;
+  utilitiesOpen?: boolean;
 }
 
 interface SidebarPanelProps {
@@ -218,6 +219,7 @@ export function AppLayout({
   onOpenQuickOpen,
   onOpenSnippets,
   onOpenUtilities,
+  utilitiesOpen = false,
 }: AppLayoutProps) {
   const { t } = useTranslation();
   const { layoutPreset } = useSettingsStore();
@@ -374,6 +376,7 @@ export function AppLayout({
           onOpenQuickOpen={onOpenQuickOpen}
           onOpenSnippets={onOpenSnippets}
           onOpenUtilities={onOpenUtilities}
+          utilitiesOpen={utilitiesOpen}
         />
         {showPersistentSidebar ? (
           <Group

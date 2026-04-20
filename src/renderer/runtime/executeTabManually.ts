@@ -1,5 +1,6 @@
 import { runnerManager } from '../runners';
 import { useConsoleStore } from '../stores/consoleStore';
+import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
 import type { FileTab, Language } from '../types';
 import {
@@ -181,6 +182,14 @@ export async function executeTabManually(
       addEntry(entry);
     }
 
+    // RL-028 first slice — record metadata only (language + status +
+    // duration), never the code, stdout, stderr, or file path.
+    useExecutionHistoryStore.getState().record({
+      language,
+      status: result.error ? 'error' : 'ok',
+      durationMs: result.executionTime ?? null,
+    });
+
     return {
       mode: 'run',
       ok: !result.error,
@@ -190,6 +199,13 @@ export async function executeTabManually(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    // RL-028 — record the failure so "Recent runs" still reflects the
+    // error outcome. `durationMs: null` when timing never ran.
+    useExecutionHistoryStore.getState().record({
+      language,
+      status: 'error',
+      durationMs: null,
+    });
     if (!runnerPrepared) {
       setDiagnostics([]);
       setError({

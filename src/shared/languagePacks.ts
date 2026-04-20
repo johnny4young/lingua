@@ -25,6 +25,7 @@ export type LanguagePackId =
   | 'python'
   | 'rust'
   | 'lua'
+  | 'ruby'
   | 'json'
   | 'yaml'
   | 'dotenv'
@@ -216,6 +217,27 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     formatter: 'none',
     capabilities: { lsp: 'none', debugger: 'none' },
     docsUrl: 'https://www.lua.org/docs.html',
+    templateIds: [],
+  },
+  {
+    id: 'ruby',
+    labelKey: 'language.ruby.label',
+    shortLabelKey: 'language.ruby.shortLabel',
+    badgeClass: 'bg-red-500/15 text-red-300',
+    textColorClass: 'text-red-300',
+    extensions: ['rb'],
+    monacoLanguage: 'ruby',
+    defaultCode: "# Ruby example\nputs 'Hello, Lingua'\n",
+    // RL-042 first slice: Ruby ships as a validate-only pack so the
+    // file tree + language detection + language selector see it, but
+    // there's no runtime yet. Execution work belongs to a future
+    // slice that adds either a Ruby.wasm runtime or a desktop shell-
+    // out path.
+    execution: 'validate',
+    runnerId: null,
+    formatter: 'none',
+    capabilities: { lsp: 'none', debugger: 'none' },
+    docsUrl: 'https://www.ruby-lang.org/en/documentation/',
     templateIds: [],
   },
   {
