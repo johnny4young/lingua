@@ -22,7 +22,9 @@ export function FirstRunConsentModal() {
   const setTelemetryConsent = useSettingsStore((state) => state.setTelemetryConsent);
 
   const isDesktop =
-    typeof window !== 'undefined' && Boolean(window.lingua?.consent);
+    typeof window !== 'undefined' &&
+    Boolean(window.lingua) &&
+    window.lingua.platform !== 'web';
   if (!isDesktop) return null;
   if (telemetryConsent !== 'unset') return null;
 

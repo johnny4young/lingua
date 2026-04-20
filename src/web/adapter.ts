@@ -120,6 +120,12 @@ const webLingua: LinguaAPI = {
   consent: {
     set: async () => ({ ok: true }),
   },
+  // Web has no host process, so the env snapshot is always empty. Merging
+  // still works — `mergeEnvScopes({ processEnv: {} })` just reduces the
+  // result to the user-owned tiers.
+  env: {
+    snapshot: async () => ({}),
+  },
   fs: webFsAdapter,
   updates: updateStub,
   plugins: pluginStub,
