@@ -94,6 +94,7 @@ describe('LANGUAGE_PACKS array integrity', () => {
       'go',
       'python',
       'rust',
+      'lua',
       'json',
       'yaml',
       'dotenv',
@@ -110,6 +111,17 @@ describe('LANGUAGE_PACKS array integrity', () => {
     for (const id of required) {
       expect(ids.has(id), `missing built-in pack: ${id}`).toBe(true);
     }
+  });
+
+  it('ships Lua as a first-class pack entry (Slice B) with plugin-sourced runner', () => {
+    const lua = getLanguagePackById('lua') as LanguagePack;
+    expect(lua).toBeDefined();
+    expect(lua.execution).toBe('run');
+    // Lua keeps a runnerId to satisfy the "every runnable pack ships a
+    // runnerId" invariant even though the actual runner is plugin-sourced.
+    expect(lua.runnerId).toBe('lua');
+    expect(lua.extensions).toContain('lua');
+    expect(lua.monacoLanguage).toBe('lua');
   });
 
   it('runtime-dependent packs declare their host binaries', () => {

@@ -1510,11 +1510,12 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Slice A (descriptor + thin shim migration) shipped on 2026-04-20; Slice B (runner dispatch) and Slice C (capability-aware UI) still pending`
+- Readiness: `Slice A (descriptor + thin shim migration) shipped on 2026-04-20; Slice B (runner dispatch + Lua first-class) shipped on 2026-04-20; Slice C (capability-aware UI) still pending`
 - Current progress:
   - `LANGUAGE_PACK_ADR.md` records the accepted `LanguagePack` descriptor, the three-slice migration plan, and the no-marketplace constraint
   - Guard test `tests/docs/languagePackAdr.test.ts` pins the descriptor fields, migration slices, and adjacent ADR/RL cross-links
   - Slice A (2026-04-20): `src/shared/languagePacks.ts` lands the descriptor + the 16-pack array as the single source of truth, plus resolver helpers (`getLanguagePackById`, `getLanguagePackForExtension`, `getLanguagePackForFileName`, `monacoLanguageForPack`, `executionModeForPack`, `formatterStrategyForPack`, `runnerIdForPack`). `src/renderer/utils/languageMeta.ts` rewritten as a thin shim — every legacy helper now proxies to the pack array. Zero behavior change verified by the existing 836-test baseline plus 11 new pack-integrity tests covering descriptor shape, runnable-vs-validate runnerId contract, extension uniqueness, file-name same-pack-allowed cross-pack-banned rule, and resolver fallback semantics
+  - Slice B (2026-04-20): `src/renderer/runners/manager.ts` replaces the hardcoded constructor with a `BUILT_IN_RUNNER_FACTORIES` map keyed by `LanguagePack.runnerId` and a `LANGUAGE_PACKS` walk. `pluginRegistry.getByLanguage` stays as the fallback so plugin-sourced runners still resolve. Lua joins `LANGUAGE_PACKS` as a first-class entry (`execution: 'run'`, `runnerId: 'lua'`) — its runner is still plugin-sourced, which proves the pack walk is additive. New assertions: the pack test pins the Lua entry shape, and the manager test asserts Lua does NOT resolve from `LANGUAGE_PACKS` alone (plugin registration still required). All 884 tests pass
 - Why this matters:
   - The current built-in language support is functional but still somewhat scattered across templates, runners, toolbar metadata, and settings
   - Plugin support should stay conservative until the built-in architecture is cleaner

@@ -5,11 +5,29 @@ import { GoRunner } from './go';
 import { PythonRunner } from './python';
 import { RustRunner } from './rust';
 import { pluginRegistry } from '../plugins';
+import { LANGUAGE_PACKS } from '../../shared/languagePacks';
 
 export interface RunnerPreparationResult {
   runner: LanguageRunner | null;
   initialized: boolean;
 }
+
+/**
+ * Built-in runner factories keyed by `LanguagePack.runnerId` (RL-038 Slice B).
+ *
+ * The `RunnerManager` constructor walks `LANGUAGE_PACKS`, finds every pack
+ * whose `runnerId` is present in this map, and instantiates the factory.
+ * Packs whose `runnerId` is absent from the map (today: `lua`) intentionally
+ * fall through to the plugin registry — Slice B is additive, not a
+ * pluginRegistry replacement.
+ */
+const BUILT_IN_RUNNER_FACTORIES: Record<string, () => LanguageRunner> = {
+  javascript: () => new JavaScriptRunner(),
+  typescript: () => new TypeScriptRunner(),
+  go: () => new GoRunner(),
+  python: () => new PythonRunner(),
+  rust: () => new RustRunner(),
+};
 
 /**
  * RunnerManager orchestrates language runners.
@@ -21,11 +39,12 @@ export class RunnerManager {
   private initializing: Map<string, Promise<void>> = new Map();
 
   constructor() {
-    this.runners.set('javascript', new JavaScriptRunner());
-    this.runners.set('typescript', new TypeScriptRunner());
-    this.runners.set('go', new GoRunner());
-    this.runners.set('python', new PythonRunner());
-    this.runners.set('rust', new RustRunner());
+    for (const pack of LANGUAGE_PACKS) {
+      if (pack.runnerId === null) continue;
+      const factory = BUILT_IN_RUNNER_FACTORIES[pack.runnerId];
+      if (!factory) continue;
+      this.runners.set(pack.id, factory());
+    }
   }
 
   private async ensureRunner(language: string): Promise<LanguageRunner | null> {

@@ -49,6 +49,7 @@ const ENGLISH_FALLBACK_LABELS: Record<string, { label: string; shortLabel: strin
   go: { label: 'Go', shortLabel: 'Go' },
   python: { label: 'Python', shortLabel: 'Py' },
   rust: { label: 'Rust', shortLabel: 'Rs' },
+  lua: { label: 'Lua', shortLabel: 'Lua' },
   json: { label: 'JSON', shortLabel: 'JSON' },
   yaml: { label: 'YAML', shortLabel: 'YML' },
   dotenv: { label: '.env', shortLabel: 'ENV' },

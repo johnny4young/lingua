@@ -24,6 +24,7 @@ export type LanguagePackId =
   | 'go'
   | 'python'
   | 'rust'
+  | 'lua'
   | 'json'
   | 'yaml'
   | 'dotenv'
@@ -192,6 +193,29 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     formatter: 'ipc:rustfmt',
     capabilities: { lsp: 'desktop', debugger: 'planned', runtimeDependencies: ['rustc'] },
     docsUrl: 'https://doc.rust-lang.org/book/',
+    templateIds: [],
+  },
+  {
+    id: 'lua',
+    labelKey: 'language.lua.label',
+    shortLabelKey: 'language.lua.shortLabel',
+    badgeClass: 'bg-violet-500/20 text-violet-300',
+    textColorClass: 'text-violet-300',
+    extensions: ['lua'],
+    monacoLanguage: 'lua',
+    defaultCode:
+      '-- Lua example\nlocal function greet(name)\n  print("Hello, " .. name .. "!")\nend\n\ngreet("Lingua")\n',
+    execution: 'run',
+    // Lua's runner is plugin-sourced (see src/renderer/plugins/lua-runner.ts
+    // + plugins/catalog.ts). Slice B keeps `runnerId` populated so the pack
+    // array's invariant ("every runnable pack ships a runnerId") stays
+    // intact, but `RunnerManager` intentionally has no factory for it —
+    // resolution falls through to `pluginRegistry`. This proves the
+    // factory-map walk is additive, not a pluginRegistry replacement.
+    runnerId: 'lua',
+    formatter: 'none',
+    capabilities: { lsp: 'none', debugger: 'none' },
+    docsUrl: 'https://www.lua.org/docs.html',
     templateIds: [],
   },
   {

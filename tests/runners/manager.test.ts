@@ -137,6 +137,15 @@ describe('RunnerManager', () => {
     expect(() => manager.stop('rust')).not.toThrow(); // no-op (native runner)
   });
 
+  it('RL-038 Slice B: does not resolve lua from LANGUAGE_PACKS alone — plugin fallback required', () => {
+    // Lua ships as a first-class LanguagePack entry (Slice B) but its
+    // runner is plugin-sourced. Without a plugin registration, the
+    // manager must NOT claim support, which proves the pack walk is
+    // additive — it did not secretly replace the pluginRegistry path.
+    expect(manager.isSupported('lua')).toBe(false);
+    expect(manager.getSupportedLanguages()).not.toContain('lua');
+  });
+
   it('should execute a registered plugin runner', async () => {
     pluginRegistry.register({
       id: 'lua-smoke',
