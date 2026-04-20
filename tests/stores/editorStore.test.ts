@@ -1,7 +1,35 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useEditorStore, createDefaultTab } from '@/stores/editorStore';
+import { useLicenseStore } from '@/stores/licenseStore';
 import { pluginRegistry } from '@/plugins';
 import { luaPlugin } from '@/plugins/lua-runner';
+
+function setActiveProLicense(): void {
+  // The existing editor-store suite predates RL-060 and opens multiple
+  // tabs per test. Seed a Pro license so those flows bypass the Free
+  // ceiling — each RL-060 gate test below resets the tier back to free
+  // inside its own body.
+  useLicenseStore.setState({
+    token: 'test.token',
+    status: {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'test@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    },
+    lastVerifiedAt: Date.now(),
+  });
+}
 
 describe('editorStore', () => {
   const initialState = useEditorStore.getState();
@@ -11,6 +39,7 @@ describe('editorStore', () => {
       tabs: [],
       activeTabId: null,
     });
+    setActiveProLicense();
     if (!pluginRegistry.get(luaPlugin.id)) {
       pluginRegistry.register(luaPlugin);
     }
@@ -447,6 +476,68 @@ describe('editorStore', () => {
         line: 20,
         column: 5,
       });
+    });
+  });
+
+  describe('RL-060 tab budget enforcement', () => {
+    it('blocks addTab past the Free ceiling and pushes an upsell notice', async () => {
+      const { useLicenseStore } = await import('@/stores/licenseStore');
+      const { useUIStore } = await import('@/stores/uiStore');
+      useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+      useUIStore.setState({ statusNotice: null });
+
+      const first = createDefaultTab('javascript');
+      useEditorStore.getState().addTab(first);
+      expect(useEditorStore.getState().tabs).toHaveLength(1);
+
+      useEditorStore.getState().addTab(createDefaultTab('python'));
+      expect(useEditorStore.getState().tabs).toHaveLength(1);
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+    });
+
+    it('waves paid tiers through the ceiling so Pro users get unlimited tabs', async () => {
+      const { useLicenseStore } = await import('@/stores/licenseStore');
+      useLicenseStore.setState({
+        token: 'proof.sig',
+        status: {
+          kind: 'active',
+          verification: {
+            ok: true,
+            state: 'active',
+            supportWindowEndsAt: Date.now() + 86_400_000,
+            payload: {
+              productId: 'lingua-desktop',
+              tier: 'pro',
+              issuedTo: 'user@example.com',
+              issuedAt: new Date().toISOString(),
+              supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+              entitlements: [],
+            },
+          },
+        },
+        lastVerifiedAt: Date.now(),
+      });
+
+      for (let i = 0; i < 5; i += 1) {
+        useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      }
+      expect(useEditorStore.getState().tabs).toHaveLength(5);
+    });
+
+    it('blocks openFile past the Free ceiling and skips disk reads', async () => {
+      const { useLicenseStore } = await import('@/stores/licenseStore');
+      const { useUIStore } = await import('@/stores/uiStore');
+      useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+      useUIStore.setState({ statusNotice: null });
+
+      useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      (window.lingua.fs.read as ReturnType<typeof vi.fn>).mockResolvedValue('print("hi")');
+
+      await useEditorStore.getState().openFile('/tmp/blocked.py', 'blocked.py', 'python');
+
+      expect(window.lingua.fs.read).not.toHaveBeenCalled();
+      expect(useEditorStore.getState().tabs).toHaveLength(1);
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
     });
   });
 });

@@ -154,6 +154,12 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
 
     if (isCreatingNew || !selectedSnippet) {
       const snippetId = addSnippet(snippetPayload);
+      // `addSnippet` returns `null` when the Free-tier ceiling blocks the
+      // save; the upsell notice is already surfaced by the store, so keep
+      // the modal open on the user's draft instead of mutating selection.
+      if (snippetId === null) {
+        return;
+      }
       setSelectedSnippetId(snippetId);
       setIsCreatingNew(false);
       return;

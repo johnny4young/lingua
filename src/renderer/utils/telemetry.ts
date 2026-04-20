@@ -1,8 +1,11 @@
 import {
+  bucketOs,
+  createSessionId,
+  redactForTelemetry,
   type TelemetryEvent,
   type TelemetryEventName,
-  redactForTelemetry,
 } from '../../shared/telemetry';
+import { useLicenseStore } from '../stores/licenseStore';
 import { useSettingsStore } from '../stores/settingsStore';
 
 /**
@@ -71,4 +74,46 @@ export async function emitTelemetryEvent(
   } catch {
     // Silent — telemetry is best-effort.
   }
+}
+
+/**
+ * Sessionid is generated once per renderer launch and never persisted.
+ * We keep it at module scope so the same id tags every event fired in
+ * this tab / window, and a fresh launch gets a fresh id automatically.
+ */
+const SESSION_ID = createSessionId();
+
+export function resolveTelemetryBase(): Pick<
+  TelemetryEvent,
+  'appVersion' | 'osBucket' | 'licenseStatus' | 'sessionId'
+> {
+  const platform =
+    typeof navigator !== 'undefined' && typeof navigator.platform === 'string'
+      ? navigator.platform.toLowerCase()
+      : 'unknown';
+  // We bucket the OS into "platform/major" — see
+  // `src/shared/telemetry.ts` for the contract. The userAgent is not
+  // inspected because it's fingerprint-heavy.
+  const osBucket = bucketOs(platform.split(' ')[0] ?? 'unknown', '0');
+
+  const licenseStatus = useLicenseStore.getState().status.kind;
+
+  return {
+    appVersion: import.meta.env?.VITE_LINGUA_APP_VERSION ?? '0.0.0',
+    osBucket,
+    licenseStatus,
+    sessionId: SESSION_ID,
+  };
+}
+
+/**
+ * Convenience wrapper that composes the base fields with the caller's
+ * per-event properties. Returns a promise the caller can ignore — every
+ * failure mode is already swallowed inside `emitTelemetryEvent`.
+ */
+export async function trackEvent(
+  event: TelemetryEventName,
+  properties: Record<string, string | number | boolean> = {}
+): Promise<void> {
+  await emitTelemetryEvent(event, properties, resolveTelemetryBase());
 }

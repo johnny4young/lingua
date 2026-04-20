@@ -12,6 +12,7 @@ Related reference:
 
 - [`src/renderer/README.md`](./src/renderer/README.md) documents the renderer folder map, state ownership, shared styling rules, and common UI change paths.
 - [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) records which execution class (browser WASM, browser interpreter, desktop native, or hybrid) owns each capability and the promotion rules for moving between classes.
+- [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) captures the "stay on Electron Forge vs. migrate to electron-vite or electron-builder" decision for the desktop build pipeline, and the triggers that should reopen the question.
 
 ## At a glance
 

@@ -96,4 +96,32 @@ describe('snippetsStore', () => {
     useSnippetsStore.getState().setPendingLinkedSnippetId(null);
     expect(useSnippetsStore.getState().pendingLinkedSnippetId).toBeNull();
   });
+
+  it('blocks addSnippet past the Free ceiling and returns null without mutating state', async () => {
+    const { useLicenseStore } = await import('@/stores/licenseStore');
+    const { useUIStore } = await import('@/stores/uiStore');
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    useUIStore.setState({ statusNotice: null });
+
+    // Fill exactly to the Free ceiling (5).
+    for (let i = 0; i < 5; i += 1) {
+      useSnippetsStore.getState().addSnippet({
+        label: `snip ${i}`,
+        description: '',
+        code: '',
+        language: 'javascript',
+      });
+    }
+    expect(useSnippetsStore.getState().snippets).toHaveLength(5);
+
+    const blocked = useSnippetsStore.getState().addSnippet({
+      label: 'over',
+      description: '',
+      code: '',
+      language: 'javascript',
+    });
+    expect(blocked).toBeNull();
+    expect(useSnippetsStore.getState().snippets).toHaveLength(5);
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+  });
 });

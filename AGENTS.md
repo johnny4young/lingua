@@ -33,28 +33,59 @@ Before making non-trivial changes, open these files (in order):
 - If a change touches shortcuts, execution behavior, or workflow behavior, update the related docs in the same change.
 - Treat `PLAN.md` as the local current-state/backlog document, not as a speculative roadmap.
 
-## UI verification preference order
+## UI verification — MANDATORY when the diff touches user-facing surfaces
 
-When a change needs to be verified visually, pick the cheapest path
-first:
+**Hard rule**: any change that touches a React component, a Settings
+section, a status notice, a keyboard shortcut, an i18n copy string, or
+any other user-facing surface MUST be verified in a running app before
+the slice is declared done. Tests passing is necessary but not
+sufficient — they do not catch runtime render errors, Tailwind class
+collisions, store rehydration timing, or i18n interpolation bugs.
+
+Order of preference:
 
 1. **Isolated React component or static HTML artifact** → embedded
    preview. Zero overhead, no server, no Chrome instance.
-2. **Web build end-to-end** (`dist/web` or `npm run preview:web`) →
-   Playwright MCP with a persistent Chrome instance. Prefer
-   `browser_snapshot` over screenshots — DOM snapshots cost ~1–3k
-   tokens vs. ~5–15k for a PNG, and the DOM stays queryable.
-3. **Electron surfaces that need main + IPC + renderer together** →
-   `npm run desktop:smoke` (it writes artifacts under
-   `output/playwright/desktop-smoke` and exercises JS, TS, Python, Go,
-   and Rust in the real desktop shell) or Playwright Electron. Only
-   reach for MCP `computer-use` when a flow genuinely can't be
-   scripted — it's the most expensive tier in tokens and time.
-4. Avoid raw screenshot + click-by-pixel flows. They are a last resort
-   for native targets with no scriptable alternative.
+2. **Web build end-to-end** (`npm run preview:web`, port 4173) →
+   Playwright MCP with a persistent Chrome instance. This is the
+   default for any renderer-side slice. Use `browser_snapshot` over
+   screenshots (DOM snapshots cost ~1–3k tokens vs. ~5–15k for a PNG
+   and stay queryable). Always end the pass with
+   `browser_console_messages({ level: 'error' })` — zero errors is
+   the gate.
+3. **Electron shell** (fallback when the slice only works in desktop
+   — IPC handlers that have no web stub, `crashReporter` boot,
+   `protocol.registerFileProtocol`, etc.) → `npm run desktop:smoke`
+   (writes artifacts under `output/playwright/desktop-smoke` and
+   exercises JS, TS, Python, Go, and Rust in the real desktop shell)
+   or Playwright Electron. Only reach for MCP `computer-use` when a
+   flow genuinely can't be scripted — it's the most expensive tier in
+   tokens and time.
+4. Avoid raw screenshot + click-by-pixel flows. Last resort for
+   native targets with no scriptable alternative.
 
-Corollary: when the change is purely backend, internal, or covered by
-unit tests, skip UI verification entirely.
+Minimum smoke pass for a renderer-side slice:
+
+- Start `npm run preview:web` in background, navigate to
+  `http://localhost:4173/`.
+- Open the surface the slice touched. Exercise the happy path plus
+  the primary error path.
+- Flip `lingua-settings.language` to `es`, reload, re-exercise — at
+  least confirm the changed strings render without missing keys.
+- Assert `browser_console_messages({ level: 'error' })` is 0 at the
+  end of the pass.
+- Kill the preview server before closing out.
+
+Skip UI verification only when ALL of these are true: the diff is
+purely main-process IPC with no renderer effect, purely a shared
+helper with component-test coverage, purely a doc/ADR/test change, or
+purely a dependency bump with no behavior delta. When in doubt, run
+the web smoke. The token cost is small; a shipped runtime bug is
+larger.
+
+Corollary: if the slice CAN'T be validated via web (it's Electron
+main-only or needs IPC shapes the web adapter stubs out), fall
+through to Electron smoke. Never skip both tiers silently.
 
 ## Workflow conventions
 

@@ -261,6 +261,14 @@ interface LinguaAPI {
     python: (source: string) => Promise<FormatIpcResult>;
   };
 
+  consent: {
+    set: (
+      value: 'granted' | 'declined' | 'unset'
+    ) => Promise<
+      { ok: true } | { ok: false; reason: string; message?: string }
+    >;
+  };
+
   fs: {
     selectDirectory: () => Promise<string | null>;
     selectFile: () => Promise<string | null>;

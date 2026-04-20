@@ -115,6 +115,11 @@ const webLingua: LinguaAPI = {
   go: goStub,
   rust: rustStub,
   format: formatStub,
+  // Web build has no main-process mirror to write; the renderer store
+  // remains the source of truth and the crash reporter never runs here.
+  consent: {
+    set: async () => ({ ok: true }),
+  },
   fs: webFsAdapter,
   updates: updateStub,
   plugins: pluginStub,

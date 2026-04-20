@@ -11,6 +11,7 @@ import {
   TELEMETRY_EVENTS,
   bucketDurationMs,
   bucketOs,
+  createSessionId,
   redactForTelemetry,
   type TelemetryEvent,
 } from '../../src/shared/telemetry';
@@ -119,5 +120,20 @@ describe('bucketOs + bucketDurationMs', () => {
     expect(bucketDurationMs(29_000)).toBe(30_000);
     expect(bucketDurationMs(120_000)).toBe(60_000);
     expect(bucketDurationMs(Number.NaN)).toBe(0);
+  });
+});
+
+describe('createSessionId', () => {
+  it('produces a 32-hex-char launch-scoped id', () => {
+    const id = createSessionId();
+    expect(id).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it('produces unique ids across multiple calls so we never collide across launches', () => {
+    const ids = new Set<string>();
+    for (let i = 0; i < 200; i += 1) {
+      ids.add(createSessionId());
+    }
+    expect(ids.size).toBe(200);
   });
 });

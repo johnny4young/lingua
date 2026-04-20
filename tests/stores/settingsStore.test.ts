@@ -1,12 +1,26 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 describe('settingsStore', () => {
   const initialState = useSettingsStore.getState();
+  let originalLingua: typeof window.lingua;
 
   beforeEach(() => {
     localStorage.clear();
     useSettingsStore.setState(initialState, true);
+    originalLingua = window.lingua;
+    if (!window.lingua) {
+      window.lingua = {
+        consent: {
+          set: async () => ({ ok: true as const }),
+        },
+      } as typeof window.lingua;
+    }
+  });
+
+  afterEach(() => {
+    window.lingua = originalLingua;
+    vi.restoreAllMocks();
   });
 
   it('should have correct defaults', () => {
@@ -193,6 +207,19 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().language).toBe('system');
   });
 
+  it('mirrors telemetry consent through the preload bridge when the toggle changes', async () => {
+    const consentSet = vi.fn().mockResolvedValue({ ok: true });
+    window.lingua = {
+      ...window.lingua,
+      consent: { set: consentSet },
+    };
+
+    useSettingsStore.getState().setTelemetryConsent('granted');
+    await Promise.resolve();
+
+    expect(consentSet).toHaveBeenCalledWith('granted');
+  });
+
   it('should persist the last seen release version', () => {
     useSettingsStore.getState().setLastSeenVersion('0.1.0');
     expect(useSettingsStore.getState().lastSeenVersion).toBe('0.1.0');
@@ -201,6 +228,31 @@ describe('settingsStore', () => {
   it('should persist guided tour completion', () => {
     useSettingsStore.getState().setHasCompletedTour(true);
     expect(useSettingsStore.getState().hasCompletedTour).toBe(true);
+  });
+
+  it('seeds the consent mirror from persisted settings during rehydrate', async () => {
+    const consentSet = vi.fn().mockResolvedValue({ ok: true });
+    window.lingua = {
+      ...window.lingua,
+      consent: { set: consentSet },
+    };
+
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: { telemetryConsent: 'granted' },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    await Promise.resolve();
+    expect(consentSet).toHaveBeenCalledWith('granted');
   });
 
   it('defaults shortcutOverrides to an empty map', () => {
