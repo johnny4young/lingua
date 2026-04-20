@@ -140,8 +140,11 @@ Architecture deep dive:
 - [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) is the ADR for the desktop build system (stay on Electron Forge vs. move to electron-vite or electron-builder) with the scoring matrix and when-to-revisit triggers.
 - [`TAURI_SPIKE_ADR.md`](./TAURI_SPIKE_ADR.md) is the written no-go decision on migrating to Tauri 2, with the architectural gap analysis and the triggers that would reopen the question.
 - [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) documents the declarative `LanguagePack` descriptor and the three-slice migration plan for built-in + Lua language support.
+- [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) records the RL-011 env-var scoping decisions (which runtimes, web-mode answer, tab > project > global precedence) and the four-slice implementation roadmap.
+- [`VITE_UPGRADE_ADR.md`](./VITE_UPGRADE_ADR.md) plans the Vite 5 → 7 bump with the impact matrix, four blocker peer-range checks, the verification matrix, and the rollback plan.
 - [`docs/press-kit/`](./docs/press-kit/) holds the Phase 2 launch asset boilerplate (en + es) — product descriptions, pricing one-pager, founder bio, Show HN / Product Hunt / subreddit drafts.
 - [`docs/seo-pages/`](./docs/seo-pages/) holds the RL-066 SEO landing page scaffolds (five language-intent pages) ready for `linguacode.dev` to consume once the domain ships.
+- [`docs/lessons/`](./docs/lessons/) holds the RL-039 first-slice guided lesson scaffolds (en + es) — read-only Markdown today, picked up by the future interactive lesson runner.
 - [`src/renderer/README.md`](./src/renderer/README.md) maps the renderer folders, state ownership, styling rules, extraction conventions, and common change/test paths.
 
 ### Windows contributors: enable symlinks before cloning
