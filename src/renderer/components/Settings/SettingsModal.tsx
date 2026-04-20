@@ -5,6 +5,7 @@ import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
 import { LayoutSection } from './LayoutSection';
 import { PluginsSection } from './PluginsSection';
+import { PrivacySection } from './PrivacySection';
 import { UpdatesSection } from './UpdatesSection';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 
@@ -52,6 +53,7 @@ export function SettingsModal({
             </div>
             <div className="space-y-6">
               <EditorSection />
+              <PrivacySection />
               <PluginsSection />
             </div>
           </div>
