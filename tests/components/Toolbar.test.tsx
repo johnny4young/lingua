@@ -304,4 +304,20 @@ describe('Toolbar', () => {
 
     expect(onOpenUtilities).toHaveBeenCalledOnce();
   });
+
+  it('marks developer utilities as the active affordance when the modal is open', () => {
+    render(<Toolbar utilitiesOpen />);
+
+    expect(screen.getByRole('button', { name: 'Developer utilities' }).getAttribute('aria-pressed')).toBe(
+      'true'
+    );
+  });
+
+  it('exposes the console toggle as a pressed state when the console is visible', () => {
+    render(<Toolbar />);
+
+    expect(
+      screen.getByRole('button', { name: 'Toggle console (Cmd+\\)' }).getAttribute('aria-pressed')
+    ).toBe('true');
+  });
 });

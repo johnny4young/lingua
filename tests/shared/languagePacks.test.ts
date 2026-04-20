@@ -97,6 +97,7 @@ describe('LANGUAGE_PACKS array integrity', () => {
       'python',
       'rust',
       'lua',
+      'ruby',
       'json',
       'yaml',
       'dotenv',
@@ -113,6 +114,22 @@ describe('LANGUAGE_PACKS array integrity', () => {
     for (const id of required) {
       expect(ids.has(id), `missing built-in pack: ${id}`).toBe(true);
     }
+  });
+
+  it('ships Ruby as a validate-only pack (RL-042 first slice) — no runner, monaco grammar only', () => {
+    const ruby = getLanguagePackById('ruby') as LanguagePack;
+    expect(ruby).toBeDefined();
+    expect(ruby.execution).toBe('validate');
+    expect(ruby.runnerId).toBeNull();
+    expect(ruby.formatter).toBe('none');
+    expect(ruby.monacoLanguage).toBe('ruby');
+    expect(ruby.extensions).toContain('rb');
+    expect(ruby.capabilities.lsp).toBe('none');
+  });
+
+  it('resolves the ruby pack by its .rb extension round-trip', () => {
+    expect(getLanguagePackForExtension('rb')?.id).toBe('ruby');
+    expect(getLanguagePackForExtension('.rb')?.id).toBe('ruby');
   });
 
   it('ships Lua as a first-class pack entry (Slice B) with plugin-sourced runner', () => {

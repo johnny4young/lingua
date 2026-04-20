@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRunner } from '@/hooks/useRunner';
 import { useConsoleStore } from '@/stores/consoleStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
 import { useResultStore } from '@/stores/resultStore';
 import type { ExecutionResult } from '@/types';
 
@@ -28,12 +29,14 @@ vi.mock('@/runners', () => ({
 describe('useRunner', () => {
   const initialConsoleState = useConsoleStore.getState();
   const initialEditorState = useEditorStore.getState();
+  const initialExecutionHistoryState = useExecutionHistoryStore.getState();
   const initialResultState = useResultStore.getState();
 
   beforeEach(() => {
     vi.clearAllMocks();
     useConsoleStore.setState(initialConsoleState, true);
     useEditorStore.setState(initialEditorState, true);
+    useExecutionHistoryStore.setState(initialExecutionHistoryState, true);
     useResultStore.setState(initialResultState, true);
     mockIsSupported.mockReturnValue(true);
     mockNeedsInitialization.mockReturnValue(false);
@@ -42,6 +45,7 @@ describe('useRunner', () => {
   afterEach(() => {
     useConsoleStore.setState(initialConsoleState, true);
     useEditorStore.setState(initialEditorState, true);
+    useExecutionHistoryStore.setState(initialExecutionHistoryState, true);
     useResultStore.setState(initialResultState, true);
   });
 
@@ -87,6 +91,9 @@ describe('useRunner', () => {
     expect(useResultStore.getState().fullOutput).toBe('');
     expect(useResultStore.getState().error).toEqual({ message: 'Boom', line: 2, column: 3 });
     expect(useResultStore.getState().executionTime).toBe(24);
+    expect(useExecutionHistoryStore.getState().entries).toMatchObject([
+      { language: 'typescript', status: 'error', durationMs: 24 },
+    ]);
   });
 
   it('syncs compiled manual runs into the result store', async () => {
@@ -131,5 +138,44 @@ describe('useRunner', () => {
       column: 2,
     });
     expect(useResultStore.getState().executionTime).toBe(51);
+    expect(useExecutionHistoryStore.getState().entries).toMatchObject([
+      { language: 'rust', status: 'error', durationMs: 51 },
+    ]);
+  });
+
+  it('records successful manual runs in execution history too', async () => {
+    mockPrepareRunner.mockResolvedValue({
+      runner: {
+        execute: vi.fn().mockResolvedValue({
+          stdout: [{ type: 'log', args: ['ok'] }],
+          stderr: [],
+          executionTime: 9,
+          error: null,
+        } satisfies ExecutionResult),
+      },
+    });
+
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-3',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'console.log("ok")',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-3',
+    });
+
+    const { result: hook } = renderHook(() => useRunner());
+
+    await act(async () => {
+      await hook.current.run();
+    });
+
+    expect(useExecutionHistoryStore.getState().entries).toMatchObject([
+      { language: 'javascript', status: 'ok', durationMs: 9 },
+    ]);
   });
 });

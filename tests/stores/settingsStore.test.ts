@@ -115,6 +115,14 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().formatOnSave).toBe(false);
   });
 
+  it('should default vimMode to false and toggle cleanly (RL-037)', () => {
+    expect(useSettingsStore.getState().vimMode).toBe(false);
+    useSettingsStore.getState().toggleVimMode();
+    expect(useSettingsStore.getState().vimMode).toBe(true);
+    useSettingsStore.getState().toggleVimMode();
+    expect(useSettingsStore.getState().vimMode).toBe(false);
+  });
+
   it('should default fontLigatures to true and toggle cleanly', () => {
     expect(useSettingsStore.getState().fontLigatures).toBe(true);
     useSettingsStore.getState().toggleFontLigatures();

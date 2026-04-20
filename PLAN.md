@@ -317,7 +317,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Scoping ADR, Slice A (pure merger), Slice B (store plumbing + snapshot bridge shell), and Slice C first increment (Settings panel for the global tier) shipped on 2026-04-20; remaining Slice C surfaces (project + tab tier editors) and Slice D (main-side runner integration) still pending`
+- Readiness: `Scoping ADR, Slice A (pure merger), Slice B (store plumbing + snapshot bridge shell), Slice C first + second + third increments (global, tab, project tier editors + effective-env trace preview) shipped on 2026-04-20; Slice D (main-side runner integration) still pending`
 - Current progress:
   - `ENV_VARS_ADR.md` answers the three blocking questions: Go/Rust/Python receive env in desktop; JS/TS Workers and the web build do not; the merge order is tab > project > global with empty-string-as-real-value POSIX semantics
   - Secret-storage scope creep is explicitly blocked — env vars persist as plain JSON; secrets belong in the host shell or a vault
@@ -325,7 +325,9 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
   - Guard test `tests/docs/envVarsAdr.test.ts` pins the three decisions, the secret-storage block, the four slices, and adjacent ADR cross-links
   - Slice A (2026-04-20): `src/shared/envVarScopes.ts` ships the pure merger (`mergeEnvScopes`, `sanitizeScope`, `validateEnvVarKey`, `traceEnvScopes`). POSIX-style key validation (`[A-Za-z_][A-Za-z0-9_]*`), reserved-key deny list (PATH/HOME/USER/SHELL/LOGNAME/PWD/OLDPWD), per-scope 100-key cap, per-value 32k-char cap, frozen merged output so callers can't mutate downstream. 16 tests lock precedence, POSIX mask semantics, reserved-key block, invalid-key rejection at every tier
   - Slice B (2026-04-20): `src/renderer/stores/envVarsStore.ts` threads the three user-owned tiers (`global`, `project`, `tab`) through a persist-backed Zustand store. Writes enforce the Slice A validator + per-scope caps; rehydrate sanitizes every tier so a tampered localStorage can't smuggle reserved keys back in. `resolveEffectiveEnv(processEnv, projectId, tabId)` composes the tiers with a caller-supplied `processEnv` via the Slice A merger. `src/main/ipc/env.ts` + preload + web adapter ship the `env:snapshot` bridge shape, but it intentionally returns `{}` for now so host `process.env` stays in main until Slice D wires the final merge directly into the subprocess path. 15 new tests pin the write/remove/clear contracts, the resolver composition, the persistence sanitization, and the empty desktop snapshot guard. Runner integration (passing the merged env into Go / Rust / Python subprocesses) is Slice D
-  - Slice C first increment (2026-04-20): `src/renderer/components/Settings/EnvVarsSection.tsx` lands the Settings panel for the **global** tier. Add form + list + remove affordance + empty state + inline validator error (blank key, reserved/invalid POSIX name, over-cap value) + always-visible precedence hint so the user knows this is one tier of three. Wired into `SettingsModal` next to the Privacy section. Copy ships in en + es (`envVars.title/description/keyLabel/valueLabel/addButton/empty/emptyValueDisplay/removeAriaLabel/precedenceNote/error.keyRequired/error.rejected`). Seven new component tests pin empty state, successful add + draft reset, blank-key error, reserved-name rejection, empty-string sentinel, row removal, and the Spanish locale. Project + tab tier editors follow in Slice C's next increment
+  - Slice C first increment (2026-04-20): `src/renderer/components/Settings/EnvVarsSection.tsx` lands the Settings panel for the **global** tier. Add form + list + remove affordance + empty state + inline validator error (blank key, reserved/invalid POSIX name, over-cap value) + always-visible precedence hint so the user knows this is one tier of three. Wired into `SettingsModal` next to the Privacy section. Copy ships in en + es (`envVars.title/description/keyLabel/valueLabel/addButton/empty/emptyValueDisplay/removeAriaLabel/precedenceNote/error.keyRequired/error.rejected`). Seven new component tests pin empty state, successful add + draft reset, blank-key error, reserved-name rejection, empty-string sentinel, row removal, and the Spanish locale
+  - Slice C second increment (2026-04-20 bis): extracts a generic `ScopeEditor` sub-component and adds the **tab** tier editor that reads `useEditorStore.activeTabId` and delegates to `setTabVar` / `removeTabVar`. Empty-tab placeholder renders when no tab is focused. Copy extends en + es (`envVars.globalTitle/tabTitle/tabDescription/tabEmpty/noActiveTab`). Seven new component tests cover the no-active placeholder, empty tab-scope, successful add + per-tab keying, row removal with automatic pruning of the tabId entry, validator error on the tab editor, and Spanish locale on both the editor copy and the placeholder
+  - Slice C third increment (2026-04-20 bis): **project** tier editor reads `useProjectStore.currentProject.id` and falls back to a "no active project" placeholder; description interpolates the project name when one is open. Below the precedence note, a new collapsible `EffectiveEnvPanel` uses `traceEnvScopes` to render every resolved key with a tier badge (global / project / tab — `processEnv` stays empty by design, the host-side merge is Slice D). Copy extends en + es (`envVars.projectTitle/projectDescription{,NoProject}/projectEmpty/noActiveProject/effectiveTitle/effectiveEmpty/trace.tier.*`). Five additional component tests cover the no-active-project placeholder, project-scope writes keyed by projectId, the trace-panel tier-discrimination across SHARED/GLOBAL_ONLY/PROJECT_ONLY/TAB_ONLY, the empty-trace hint, and the Spanish locale
 - Decisions needed:
   - Which runtimes receive env vars in desktop mode ✅
   - Which env vars, if any, should exist in web mode ✅
@@ -894,8 +896,14 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-028 Add execution history, replay, and benchmarking tools
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready after REPL state/history exists`
+- Status: `Partial`
+- Readiness: `First slice shipped on 2026-04-20 — a ring-buffer store captures metadata-only entries (language, status, durationMs, timestamp). UI (Recent Runs panel, replay, comparison) still pending`
+- 2026-04-20 update:
+  - `src/renderer/stores/executionHistoryStore.ts` ships a non-persisted Zustand store with `record / clear / byLanguage`; cap is `MAX_HISTORY_ENTRIES = 50`, FIFO drop for the 51st push; timestamps round to whole seconds to reduce fingerprintability
+  - Store is **never persisted** — history stays in-memory across reloads, same privacy posture as the RL-065 telemetry work
+  - Captures **only** language, status (`ok` / `error`), `durationMs` (null on init failure), and timestamp — no stdout, stderr, source, or file path
+  - `executeTabManually` pushes one entry on the success branch and one on the catch branch, so users see both outcomes in the future Recent Runs surface
+  - Seven new tests pin the metadata-only contract, null-duration support, unique id per push, the FIFO cap, `clear`, `byLanguage`, and caller snapshot immutability
 - Scope:
   - Save execution snapshots
   - Replay previous inputs
@@ -1484,7 +1492,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Font panel, theme preset import/export, result/console theme alignment, read-only reference, editable shortcut mapper, a first alternate keymap preset, and a first alternate theme pack completed on 2026-04-17; Vim mode integration ADR shipped on 2026-04-20; Vim mode implementation slice and macros still pending`
+- Readiness: `Font panel, theme preset import/export, result/console theme alignment, read-only reference, editable shortcut mapper, a first alternate keymap preset, and a first alternate theme pack completed on 2026-04-17; Vim mode integration ADR shipped on 2026-04-20; Vim mode first implementation increment (settings flag + toggle) shipped on 2026-04-20 bis; monaco-vim lazy integration and macros still pending`
 - Scope:
   - Shortcut editor (read-only reference ✅ — editable shortcut mapper ✅)
   - custom keymaps
@@ -1511,6 +1519,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - A `themePack` setting plus a new `src/renderer/data/themePacks.ts` catalog ship the first built-in theme pack ("Solarized Daylight") alongside the default. Settings → Appearance exposes the pack selector as the first row; applying a pack swaps theme, editorTheme, font, size, ligatures, layout, and shell sync in one call but intentionally leaves safety/workflow prefs (loopProtection, formatOnSave, restoreSession) alone. Any manual appearance edit flips the pack back to `default`; unknown persisted ids are sanitized in the merge hook
   - Shortcut overrides now ship an export/import pair in the modal footer, symmetric with the theme-preset import/export. The schema lives in `src/renderer/utils/shortcutPreset.ts` (v1 discriminated union with `invalid-json`/`invalid-shape`/`unsupported-version` failure reasons), reuses the same FS bridge (`window.lingua.fs.saveDialog|selectFile|read|write`), and sanitizes parsed combos through the same editable-combo guard plus duplicate-binding filter as the persist merge
   - 2026-04-20 update: `VIM_MODE_ADR.md` lands the design for the Vim-mode slice. Accepts `monaco-vim` as the lazy-loaded keybindings layer gated by a single `settings.vimMode` toggle; commits to editor-focus-only keystroke ownership so `Ctrl/Cmd+P` Quick Open and other global shortcuts keep working outside Monaco; adopts the English-only status bar as the shipping posture with a documented escape hatch. Ships a six-row verification matrix, a single-toggle rollback path, five revisit triggers, and cross-links to `BUILD_SYSTEM_ADR.md` + `LANGUAGE_PACK_ADR.md` + `CAPABILITY_MATRIX.md`. `tests/docs/vimModeAdr.test.ts` pins the decision sections, the Quick Open conflict resolution, the `:q` / `:w` safety clauses, and the adjacent ADR cross-links
+  - 2026-04-20 bis update: Vim mode first implementation increment. `settings.vimMode: boolean` + `toggleVimMode()` land in `SettingsState` with persist-partialize inclusion; default `false`. `EditorSection` renders a new Row with the toggle, plus a status note explaining that this slice only ships the flag and that Vim keybindings activate in a follow-up slice. `Toggle` now accepts an optional `aria-label` so multiple toggles in the same section can be uniquely identified in tests and by assistive tech. Copy ships in en + es (`editor.vimMode.label / hint / pendingNote`). Three new component tests pin the default-off state, the flip + persistence, and the Spanish locale; the settings store test extends the toggle coverage. The monaco-vim lazy integration is the next slice
 - Acceptance criteria:
   - Users can customize shortcuts without editing source files ✅
   - At least one custom theme pack and one alternate keymap ship from the first rollout — alternate keymap ✅, theme pack ✅
@@ -1721,8 +1730,14 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-042 Expand language support toward 15+ languages
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready after language-pack architecture exists`
+- Status: `Partial`
+- Readiness: `First slice shipped on 2026-04-20 — Ruby landed as a validate-only LanguagePack entry so the file tree and language selector can pick .rb files today. Execution runtimes (Ruby, C/C++, Java, Kotlin, etc.) still pending and each is its own slice`
+- 2026-04-20 update:
+  - `ruby` joins `LANGUAGE_PACKS` with `execution: 'validate'`, `runnerId: null`, Monaco's built-in Ruby grammar, and `.rb` extension detection
+  - `BuiltInLanguage` in `src/renderer/types/index.ts` and `ENGLISH_FALLBACK_LABELS` in `src/renderer/utils/languageMeta.ts` both know about Ruby
+  - Pack guard test pins Ruby's validate-only shape + the `.rb` extension round-trip; `languageMeta.test.ts` asserts the detection + Monaco routing
+  - Toolbar's New File menu stays untouched for now (separate list); a future slice promotes Ruby there once an execution runtime lands
+  - Original `Planned` readiness note preserved below as history
 - Why this matters:
   - CodeRunner supports 25 languages out of the box
   - The current 5-language limit is a competitive disadvantage for students and polyglot developers
