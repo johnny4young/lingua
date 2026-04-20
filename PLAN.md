@@ -317,12 +317,13 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Scoping ADR landed on 2026-04-20; implementation slices A-D still pending`
+- Readiness: `Scoping ADR and Slice A (pure scope merger) shipped on 2026-04-20; Slices B–D (store plumbing, Settings UI, web stub) still pending`
 - Current progress:
   - `ENV_VARS_ADR.md` answers the three blocking questions: Go/Rust/Python receive env in desktop; JS/TS Workers and the web build do not; the merge order is tab > project > global with empty-string-as-real-value POSIX semantics
   - Secret-storage scope creep is explicitly blocked — env vars persist as plain JSON; secrets belong in the host shell or a vault
   - Four-slice implementation roadmap (pure scope merger, store plumbing, Settings UI, web stub) ready to ship in follow-up sessions
   - Guard test `tests/docs/envVarsAdr.test.ts` pins the three decisions, the secret-storage block, the four slices, and adjacent ADR cross-links
+  - Slice A (2026-04-20): `src/shared/envVarScopes.ts` ships the pure merger (`mergeEnvScopes`, `sanitizeScope`, `validateEnvVarKey`, `traceEnvScopes`). POSIX-style key validation (`[A-Za-z_][A-Za-z0-9_]*`), reserved-key deny list (PATH/HOME/USER/SHELL/LOGNAME/PWD/OLDPWD), per-scope 100-key cap, per-value 32k-char cap, frozen merged output so callers can't mutate downstream. 16 tests lock precedence, POSIX mask semantics, reserved-key block, invalid-key rejection at every tier
 - Decisions needed:
   - Which runtimes receive env vars in desktop mode ✅
   - Which env vars, if any, should exist in web mode ✅
