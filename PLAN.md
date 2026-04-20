@@ -1402,8 +1402,15 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-035 Run a Tauri 2 feasibility spike without committing to migration
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Useful only as a bounded spike`
+- Status: `Partial`
+- Readiness: `Written no-go decision landed on 2026-04-19; measured POC still intentionally deferred`
+- Current progress:
+  - `TAURI_SPIKE_ADR.md` lands at the repo root alongside `BUILD_SYSTEM_ADR.md` and `CAPABILITY_MATRIX.md`
+  - Decision: do not migrate. The architectural review shows 6–8 weeks of Rust-shell rebuild (Go, Rust, formatter IPC handlers, filesystem bridge, crash reporter) for wins that only the permission-model axis makes compelling, without the team skill or customer signal to justify it
+  - POC explicitly skipped: the cost (1–2 days) is better spent on Phase 1/2 launch blockers, and the acceptance criterion "no full migration work starts before a decision" is satisfied by the written no-go
+  - Five revisit triggers codified (Tauri crash-reporter parity, customer signal on cold-start/bundle, team Rust maintainer, Electron deprecation, Electron-specific CVE pattern)
+  - Guard test `tests/docs/tauriSpikeAdr.test.ts` pins the decision, axes, triggers, and cross-links
+  - Remaining gap: RL-035 still names a proof-of-concept as acceptance criterion #1, so this stays Partial until that criterion is explicitly retired or a thin measured spike is run
 - Scope:
   - Port one thin slice of the current product to Tauri 2:
     - editor shell
@@ -1492,8 +1499,11 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-038 Build a conservative language-pack architecture before expanding plugins
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready for design`
+- Status: `Partial`
+- Readiness: `Design ADR landed on 2026-04-19; implementation slices A/B/C still pending`
+- Current progress:
+  - `LANGUAGE_PACK_ADR.md` records the accepted `LanguagePack` descriptor, the three-slice migration plan, and the no-marketplace constraint
+  - Guard test `tests/docs/languagePackAdr.test.ts` pins the descriptor fields, migration slices, and adjacent ADR/RL cross-links
 - Why this matters:
   - The current built-in language support is functional but still somewhat scattered across templates, runners, toolbar metadata, and settings
   - Plugin support should stay conservative until the built-in architecture is cleaner
@@ -2178,7 +2188,14 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 
 - Priority: `P1`
 - Status: `Partial`
-- Readiness: `Incrementally implemented on 2026-04-16 / 2026-04-17`
+- Readiness: `Language detection and diagnostics are in place, but validator messages still bypass i18n and need localization before this is fully closed`
+- 2026-04-19 audit:
+  - ✅ `package.json` / `.env` / `docker-compose.yml` / `data.csv` all resolve to correct Monaco languages and validate-only execution modes via `languageMeta` + `languageCapabilities` + the extension resolver
+  - ✅ No non-runnable file shows a Run affordance — `executionModeFor()` gates the toolbar Run button
+  - ✅ Diagnostics appear as Monaco markers: JSON parse, YAML structure, dotenv dup/malformed, CSV shape, Dockerfile + editorconfig + gitignore + Makefile + shellscript validators
+  - ✅ UI copy distinguishes runnable / validate / view — result panel and toolbar use different strings per mode
+  - Remaining gap: validator diagnostics in `src/renderer/validation/index.ts` still ship as hardcoded English strings, so Spanish builds mix localized chrome with English validation output
+  - Depth follow-ups (shellcheck-style shell linting, gitignore globstar sanity) remain enhancements on top of the localization fix
 - Current gap:
   - `json`, `yaml`/`yml`, `.env`, and `csv` now open with language-aware validate-only semantics plus lightweight diagnostics
   - `toml` and `ini` now open with dedicated highlighting and explicit view-only status instead of misleading run semantics
@@ -2314,13 +2331,13 @@ Lingua is **closed-source commercial software**. The repository is private and t
 
 | Domain | Priority | Rationale |
 |--------|----------|-----------|
-| `lingua.run` | Primary | Perfect fit: "Lingua" + "run" = execute languages. Cheap (~$3-5/year). `.run` TLD is underused |
+| `linguacode.dev` | Primary | Perfect fit: "Lingua" + "run" = execute languages. Cheap (~$3-5/year). `.run` TLD is underused |
 | `lingua.dev` | Secondary | Premium developer TLD. Verify availability — may be registered |
 | `getlingua.dev` | Fallback | Classic SaaS landing pattern if `lingua.dev` is unavailable |
 | `lingua.app` | Alternative | Good for desktop app marketing. Google-managed TLD |
 | `linguacode.dev` | Legacy alias | Referenced in early strategy drafts (Phase 1 of the go-to-market plan). If registered, 301-redirects to the primary. Do not ship the download page under this host before a redirect rule is in place |
 
-Note on reconciliation: The go-to-market plan in Section 14 uses `lingua.run` as the single source of truth for the download/landing page so all Phase 1 / 2 / 3 assets (HN post, Product Hunt, ads, SEO landing pages) point to one canonical origin. `linguacode.dev` is accepted as a legacy alias only; new copy must link to `lingua.run`.
+Note on reconciliation: The go-to-market plan in Section 14 uses `linguacode.dev` as the single source of truth for the download/landing page so all Phase 1 / 2 / 3 assets (HN post, Product Hunt, ads, SEO landing pages) point to one canonical origin. `linguacode.dev` is accepted as a legacy alias only; new copy must link to `linguacode.dev`.
 
 ### Pricing model (research-backed recommendation)
 
@@ -2372,7 +2389,7 @@ Concrete deliverables:
 - Polar.sh storefront with 3 purchasable products (Free is free, Pro, Pro Lifetime; Education unlocks through verification, not a separate SKU).
 - License-key issuance on purchase, offline-verifiable inside the app.
 - Public GitHub presence with a README that states the pitch, pricing, licensing model, and download link honestly.
-- Landing/download page live on the primary domain (`lingua.run`).
+- Landing/download page live on the primary domain (`linguacode.dev`).
 
 Mapping to tasks: **RL-059** (license infra), **RL-060** (feature-tier gating), **RL-061** (Polar.sh integration), **RL-062** (public README / license declaration cleanup), **RL-063** (download landing page).
 
@@ -2404,8 +2421,8 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-059 License-key infrastructure
 
 - Priority: `P0` for Phase 1
-- Status: `Done`
-- Readiness: `Completed on 2026-04-19 (UI surface landed; main-side verifier still deferred but not on the launch critical path since the renderer verifier covers both shells)`
+- Status: `Partial`
+- Readiness: `Renderer verifier + Settings UI completed on 2026-04-19; preload/main-side license surface still deferred`
 - 2026-04-19 update:
   - `LicenseSection` now lives in the Settings modal — paste a token, Apply, clear it, status pill reflects free / active / grace / invalid. Errors surface through the shared status-notice banner so the copy stays consistent with other Settings surfaces
   - 7 component tests cover: default Free state, Active pill, Apply disabled on empty input, success + error notice flows, clear + notice, es locale fallback
@@ -2501,7 +2518,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
     2. **Open-core:** only if we intentionally split core vs paid addons, with a real `LICENSE` and a separate `LICENSE-commercial` describing paid entitlements.
   - Land the chosen LICENSE file so the repo has a valid license at publication.
   - Update the README intro so the value proposition is explicit: "Multi-language desktop code runner — JavaScript, TypeScript, Python, Go, and Rust in one offline-first Monaco-powered app." Match the HN positioning.
-  - Add a "Pricing and download" link pointing to `lingua.run`.
+  - Add a "Pricing and download" link pointing to `linguacode.dev`.
 - Acceptance criteria:
   - The repo has no broken LICENSE reference.
   - The README top section states: what Lingua is, who it is for, the 5 shipping languages, pricing posture, and the download URL.
@@ -2509,7 +2526,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 - Dependencies:
   - None
 
-### RL-063 Download landing page at lingua.run
+### RL-063 Download landing page at linguacode.dev
 
 - Priority: `P0` for Phase 1
 - Status: `Planned`
@@ -2518,7 +2535,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - RL-032 describes a fuller marketing site but is dependency-chained on i18n (RL-018). That blocks Phase 1.
   - Phase 1 only needs a fast, honest download page.
 - Scope:
-  - Ship a minimal static landing page at `lingua.run` with:
+  - Ship a minimal static landing page at `linguacode.dev` with:
     - one-line pitch
     - screenshot / 60-second demo embed (from RL-064)
     - download links per platform (reads latest GitHub release assets)
@@ -2526,9 +2543,9 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
     - FAQ covering: refund policy, offline behavior, education program, license transfer, system requirements.
   - Page is English-only at first; localization is deferred to RL-032 / RL-018.
   - Deploy pipeline: GitHub Pages on a `lingua-site` directory or a separate repo; TLS via Cloudflare.
-  - Redirect `linguacode.dev` to `lingua.run` if the legacy domain is registered.
+  - Redirect `linguacode.dev` to `linguacode.dev` if the legacy domain is registered.
 - Acceptance criteria:
-  - Visiting `lingua.run` shows the download page with a working checkout link.
+  - Visiting `linguacode.dev` shows the download page with a working checkout link.
   - The latest release version is pulled from GitHub releases at build time, not hardcoded.
   - A manual redeploy is documented in `RELEASE.md`.
 - Dependencies:
@@ -2537,8 +2554,13 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-064 Launch asset kit (Phase 2)
 
 - Priority: `P1` for Phase 2
-- Status: `Planned`
-- Readiness: `Ready after Phase 1 tasks ship`
+- Status: `Partial`
+- Readiness: `Copy + press kit scaffold landed on 2026-04-19; 60-second demo, production screenshots, and the linguacode.dev/press ZIP still depend on RL-063`
+- Current progress:
+  - `docs/press-kit/` ships `README.md` + `boilerplate.md` (25/50/150 words, en + es) + `pricing-one-pager.md` (four-tier matrix + education, en + es) + `launch-copy.md` (Show HN + Product Hunt + r/golang + r/rust + r/Python drafts) + `founder-bio.md` (40/100 words, en + es)
+  - Every claim cross-checked against `PLAN.md` Done items; no feature outruns implementation, no "MIT" / "open-source" claim survives
+  - Guard test `tests/docs/pressKit.test.ts` pins file presence, en + es parity, channel section coverage, pricing tiers, and the no-MIT-claim rule
+  - Remaining: demo video recording, production screenshots, and the downloadable ZIP that hangs off `linguacode.dev/press` (blocked on RL-063)
 - Scope:
   - 60-second demo video: JS → TS → Python → Go → Rust in one unbroken desktop recording.
   - Screenshots for the README, the landing page, Product Hunt gallery, and the HN post thumbnail.
@@ -2550,15 +2572,15 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - All assets live in `docs/press-kit/` so the repo is the single source of truth.
 - Acceptance criteria:
   - Every Phase 2 channel has finalized copy reviewed for honesty (no claims that are not implemented).
-  - The press kit ZIP can be downloaded from `lingua.run/press`.
+  - The press kit ZIP can be downloaded from `linguacode.dev/press`.
 - Dependencies:
   - RL-062, RL-063
 
 ### RL-065 Privacy-respecting launch telemetry
 
 - Priority: `P1` for Phase 2
-- Status: `Done`
-- Readiness: `Completed on 2026-04-19 (first-run-prompt modal still deferred but the Settings toggle already satisfies the opt-in acceptance criterion)`
+- Status: `Partial`
+- Readiness: `Consent toggle + base event wiring completed on 2026-04-19; the one-time first-run prompt is still pending`
 - 2026-04-19 update:
   - `createSessionId()` produces a 32-char hex id per launch; held in renderer module scope, never persisted, never transmitted as a user identifier
   - `resolveTelemetryBase()` assembles app version, OS bucket, license status, and sessionId from the live stores
@@ -2588,10 +2610,16 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-066 SEO landing pages for language-specific intents
 
 - Priority: `P1` for Phase 3
-- Status: `Planned`
-- Readiness: `Ready after RL-063`
+- Status: `Partial`
+- Readiness: `Content scaffolds landed on 2026-04-19; hosting at linguacode.dev/* still blocked on RL-063 shipping the domain`
+- Current progress:
+  - `docs/seo-pages/` ships the five scaffolds the plan enumerates: `go-playground-desktop.md`, `rust-code-runner-desktop.md`, `python-repl-desktop.md`, `typescript-playground-offline.md`, `multi-language-code-runner.md`
+  - Each scaffold has front-matter (`title`, `description` ≤160 chars, `canonical`, `ogImage`, `language`), a "what actually runs" table, a "what doesn't work today" section (RL-066 acceptance: honest limitations), and a canonical link back to `https://linguacode.dev`
+  - `docs/seo-pages/README.md` codifies the five shared rules (no claim outruns reality, strict front-matter, canonical CTA, required limits section, JSON-LD is owned by the site build)
+  - Guard test `tests/docs/seoPages.test.ts` pins presence, no stray pages, front-matter completeness (incl. description-length bound), canonical link, honest-limitations section, and no-MIT-claim rule
+  - Remaining: wire the scaffolds into the `linguacode.dev` build when RL-063 lands, shoot the `ogImage` artwork, submit the `sitemap.xml`
 - Scope:
-  - Add dedicated static sub-pages under `lingua.run`:
+  - Add dedicated static sub-pages under `linguacode.dev`:
     - `/go-playground-desktop`
     - `/rust-code-runner-desktop`
     - `/python-repl-desktop`
@@ -2602,7 +2630,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - Avoid content farming: every page must say something true about Lingua's real support for that language, or we do not ship the page.
 - Acceptance criteria:
   - Each target page ranks at least for its exact head query within a reasonable crawl window after launch.
-  - All pages link back to the canonical download on `lingua.run`.
+  - All pages link back to the canonical download on `linguacode.dev`.
   - Pages lint clean against HTML / schema.org validators.
 - Dependencies:
   - RL-063
@@ -2691,7 +2719,7 @@ Ship these before Phase 2 distribution. Every item is a blocker for charging for
 | RL-059 | License-key infrastructure | None | Medium |
 | RL-060 | Feature-tier gating in the renderer | RL-059 | Medium |
 | RL-061 | Polar.sh integration (3 products + webhook issuance) | RL-059 | Medium |
-| RL-063 | Download landing page at lingua.run | RL-061 | Small |
+| RL-063 | Download landing page at linguacode.dev | RL-061 | Small |
 
 ---
 
