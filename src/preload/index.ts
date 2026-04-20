@@ -51,11 +51,10 @@ contextBridge.exposeInMainWorld('lingua', {
       >,
   },
 
-  // Process-env snapshot (RL-011 Slice B). Desktop-only — the web build has
-  // no host env and this preload isn't loaded there. The renderer merges
-  // the snapshot under the global / project / tab scopes via
-  // `mergeEnvScopes` and passes the resolved record to runners that consume
-  // an env (Go, Rust, Python subprocesses).
+  // Env-snapshot bridge (RL-011 Slice B). Intentionally returns an empty
+  // record today: host `process.env` stays in main until runner integration
+  // lands so secrets never cross into the renderer. The API shape still
+  // exists now so Slice C/D can wire against a stable contract later.
   env: {
     snapshot: () =>
       ipcRenderer.invoke('env:snapshot') as Promise<Record<string, string>>,

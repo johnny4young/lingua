@@ -1,26 +1,21 @@
 /**
  * Process-env snapshot IPC handler (RL-011 Slice B).
  *
- * The renderer needs a read-only snapshot of the host `process.env` so the
- * env-var scope merger can resolve the `processEnv` tier at execute time.
- * Web builds ship a stub that returns `{}` — no host environment exists in
- * the browser sandbox.
+ * Important boundary: the renderer must NOT receive the host `process.env`
+ * wholesale. It may contain credentials, tokens, and machine-specific
+ * values that have no place in a renderer-visible API. The actual
+ * child-process merge (`process.env` + global/project/tab overrides) belongs
+ * in main once runner integration lands.
  *
- * The payload is **filtered to string values only** so accidental binary
- * junk in the env (rare but possible on some shells) can't poison the
- * merged record. Reserved host-critical names are intentionally left in
- * the snapshot: the merger's own validator will skip them on the way into
- * the merged output.
+ * For now we keep the bridge shape stable and return an empty record on both
+ * desktop and web. That preserves the store contract without leaking host
+ * secrets across the preload boundary.
  */
 
 import { ipcMain } from 'electron';
 
 export function snapshotProcessEnv(): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (typeof value === 'string') out[key] = value;
-  }
-  return out;
+  return {};
 }
 
 export function registerEnvHandlers(): void {

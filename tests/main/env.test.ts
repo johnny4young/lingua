@@ -1,9 +1,9 @@
 /**
  * RL-011 Slice B — main-process `env:snapshot` IPC handler.
  *
- * The snapshot must only expose string values (binary env junk should not
- * reach the renderer) and must register under the `env:snapshot` channel
- * so the preload can forward the call.
+ * The bridge exists so Slice C/D can wire against a stable API shape, but
+ * it must NOT leak the host environment into the renderer. The real
+ * subprocess merge stays in main once runner integration lands.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,21 +35,15 @@ describe('env:snapshot IPC', () => {
     expect(ipcHandlers.has('env:snapshot')).toBe(true);
   });
 
-  it('returns a string-only snapshot of process.env', async () => {
+  it('returns an empty object instead of exposing process.env', async () => {
     const { snapshotProcessEnv } = await import('../../src/main/ipc/env');
     const originalEnv = process.env;
-    // Cast to any so we can stub a non-string value without TS yelling.
     (process as { env: Record<string, unknown> }).env = {
       LINGUA_TEST_STRING: 'ok',
-      LINGUA_TEST_EMPTY: '',
-      LINGUA_TEST_NONSTRING: 42,
+      OPENAI_API_KEY: 'secret',
     };
-
     try {
-      const snapshot = snapshotProcessEnv();
-      expect(snapshot.LINGUA_TEST_STRING).toBe('ok');
-      expect(snapshot.LINGUA_TEST_EMPTY).toBe('');
-      expect('LINGUA_TEST_NONSTRING' in snapshot).toBe(false);
+      expect(snapshotProcessEnv()).toEqual({});
     } finally {
       process.env = originalEnv;
     }
