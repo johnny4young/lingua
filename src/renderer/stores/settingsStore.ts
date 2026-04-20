@@ -124,6 +124,7 @@ export const useSettingsStore = create<SettingsState>()(
       restoreSession: false,
       formatOnSave: false,
       syncShellWithEditorTheme: true,
+      telemetryConsent: 'unset',
       language: 'system',
       lastSeenVersion: null,
       hasCompletedTour: false,
@@ -169,6 +170,7 @@ export const useSettingsStore = create<SettingsState>()(
           syncShellWithEditorTheme: !s.syncShellWithEditorTheme,
           themePack: DEFAULT_THEME_PACK_ID,
         })),
+      setTelemetryConsent: (telemetryConsent) => set({ telemetryConsent }),
       applyThemePreset: (preset) =>
         set((state) => ({
           theme: preset.theme,
@@ -251,6 +253,7 @@ export const useSettingsStore = create<SettingsState>()(
         restoreSession: state.restoreSession,
         formatOnSave: state.formatOnSave,
         syncShellWithEditorTheme: state.syncShellWithEditorTheme,
+        telemetryConsent: state.telemetryConsent,
         language: state.language,
         lastSeenVersion: state.lastSeenVersion,
         hasCompletedTour: state.hasCompletedTour,

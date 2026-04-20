@@ -23,6 +23,22 @@ export interface AppInfo {
 
 const metadata = packageJson as PackageJsonMetadata;
 
+/**
+ * Turn the raw package.json `license` value into something suitable for the
+ * About surface. SPDX expressions like `SEE LICENSE IN LICENSE` (the shape
+ * npm recommends for non-OSS commercial licenses — see RL-062) read as
+ * noise to an end user, so we map them to a friendly `Commercial` label.
+ * Real SPDX ids pass through unchanged.
+ */
+export function resolveLicenseType(license: string | undefined): string {
+  if (!license) return 'Unknown';
+  const trimmed = license.trim();
+  if (trimmed.length === 0) return 'Unknown';
+  if (/^see\s+license/iu.test(trimmed)) return 'Commercial';
+  if (trimmed.toUpperCase() === 'UNLICENSED') return 'Commercial';
+  return trimmed;
+}
+
 function normalizeUrl(value: string | undefined | null): string | null {
   if (!value) {
     return null;
@@ -78,7 +94,7 @@ export function getBundledAppInfo(overrides: Partial<AppInfo> = {}): AppInfo {
     productName,
     version: metadata.version ?? '0.0.0',
     buildDate: buildDateFromBundle(),
-    licenseType: metadata.license ?? 'Unknown',
+    licenseType: resolveLicenseType(metadata.license),
     repositoryUrl,
     websiteUrl: websiteUrlFromBundle(),
     licenseUrl: repositoryUrl ? `${repositoryUrl.replace(/\/$/, '')}/blob/main/LICENSE` : null,

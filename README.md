@@ -2,14 +2,26 @@
 
 [![CI](https://github.com/johnny4young/lingua/actions/workflows/ci.yml/badge.svg)](https://github.com/johnny4young/lingua/actions/workflows/ci.yml)
 [![Node 24+](https://img.shields.io/badge/node-%3E%3D24-brightgreen)](https://nodejs.org)
+[![License: Source-available (commercial)](https://img.shields.io/badge/license-source--available%20(commercial)-6f42c1)](./LICENSE)
 
 **Multi-language desktop code runner — JavaScript, TypeScript, Python, Go, and Rust in one offline-first Monaco-powered app.** Lingua combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds. It is the multi-language answer to RunJS: the same "open, write, run" ergonomics, but with Go, Rust, and Python as first-class citizens instead of JavaScript-only.
 
-> Licensing note: Lingua is a commercial product. The license declaration, pricing, and distribution posture are being finalized as part of the Phase 1 go-to-market plan tracked in [`PLAN.md`](./PLAN.md) (see tasks `RL-062` and `RL-059`). Until then, treat this repository as source-available for evaluation and contributor review only.
+## Pricing and licensing
 
-## Pricing and download
+Lingua is a commercial product distributed under a source-available license — see [`LICENSE`](./LICENSE) for the full text. The repository is public so the community can read the source, audit security, and submit contributions; production, paid, or at-scale use requires a commercial license.
 
-The paid tiers (Free, Pro one-time, Pro Lifetime) are documented in [`PLAN.md` Section 13](./PLAN.md). The download page and checkout will live at **`lingua.run`** once `RL-063` ships. Education access for verified students/educators is free — see the go-to-market plan in `PLAN.md` Section 14.
+- **Free tier** — personal evaluation, self-learning, single-user non-commercial use with the default feature set.
+- **Pro (one-time)** — unlocks Pro entitlements for a major version with 12 months of updates.
+- **Pro Lifetime** — the Pro entitlement set with lifetime updates.
+- **Team / Education** — seat-based licensing and free access for verified students and educators.
+
+The full tier matrix, entitlements, and pricing currently live in [`PLAN.md` Section 13](./PLAN.md). The download page and checkout will live at [`lingua.run`](https://lingua.run) once `RL-063` ships.
+
+## Who it is for
+
+- Developers juggling JavaScript, TypeScript, Python, Go, and Rust snippets across Slack, Stack Overflow answers, and interview prep.
+- Teachers and students who want a single offline-capable multi-language sandbox that runs on laptops without per-language CLI setup.
+- Teams who need a lightweight, reviewable, commercial-licensed alternative to web-hosted playgrounds for proprietary code.
 
 ## Current capabilities
 
@@ -29,8 +41,20 @@ The paid tiers (Free, Pro one-time, Pro Lifetime) are documented in [`PLAN.md` S
 - Theme preset export/import: save your editor theme, fonts, and layout as a versioned JSON file and share it between machines, with validation errors surfaced through the status banner (appearance/typography/layout only — safety prefs are never overridden by an imported preset)
 - Shell polarity follows the editor theme by default, so picking a light Monaco theme flips the console and run-result panels to light without a separate click; a Settings toggle keeps the legacy independent behavior one click away
 - Keyboard shortcut reference/editor reachable via the Command Palette (`Open Keyboard Shortcuts`), with a search filter, platform-aware combo rendering (⌘ on macOS, `Ctrl+...` elsewhere), inline rebinding, preset switching, and JSON export/import for override bundles
+- Commercial license-key infrastructure: Ed25519-signed offline-verifiable tokens, renderer store with active / grace / invalid states, and entitlement-based feature gating (11 entitlements, Free ceilings of 1 tab / 5 snippets / JS-TS-Python)
+- Opt-in privacy-respecting telemetry and crash reporting — off by default; the Settings → Privacy section surfaces the consent toggle, build-level kill switches disable both regardless of user choice, and every payload is passed through a redactor that drops anything outside an explicit allow-list (never user code or file paths)
 - Web build for browser-based usage, with JavaScript, TypeScript, and Python support plus browser file access
 - CI plus manual deploy/release workflows
+
+### Configuration env vars
+
+| Name | Scope | Purpose |
+| ---- | ----- | ------- |
+| `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` | renderer build | Ed25519 public key (JWK JSON) the app uses to verify paid-tier licenses. Missing key keeps every build on Free |
+| `VITE_LINGUA_TELEMETRY_URL` | renderer build | HTTPS endpoint that receives redacted telemetry events when the user has opted in. Unset disables telemetry |
+| `VITE_LINGUA_TELEMETRY_DISABLED` | renderer build | Set to `1` to disable telemetry regardless of user choice |
+| `LINGUA_CRASH_REPORTER_URL` | main runtime | Minidump submission endpoint. Unset disables crash reporting |
+| `LINGUA_CRASH_REPORTER_DISABLED` | main runtime | Set to `1` to disable crash reporting regardless of user choice |
 - Repeatable desktop smoke validation with artifact output under `output/playwright/desktop-smoke`
 
 ## Editor diagnostics and results
@@ -110,9 +134,19 @@ Renderer architecture note:
 
 Architecture deep dive:
 
+- [`AGENTS.md`](./AGENTS.md) is the canonical guidance for any agent (Claude Code, Cursor, Codex, Aider) working in this repo — routing, landmines, UI verification tiers, commit rules. `CLAUDE.md` at the repo root is a symlink to it so Claude Code's auto-loader picks the same file.
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) explains the project lifecycle, Electron IPC file-system bridge, and watch-state flow with diagrams and extension guidance.
 - [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) is the decision record for what runs where (browser WASM, browser interpreter, desktop native, hybrid) with the promotion rules for future WASM-first migrations.
 - [`src/renderer/README.md`](./src/renderer/README.md) maps the renderer folders, state ownership, styling rules, extraction conventions, and common change/test paths.
+
+### Windows contributors: enable symlinks before cloning
+
+`CLAUDE.md` is a git symlink (`mode 120000`) that points at `AGENTS.md`. Linux and macOS follow it transparently. Windows needs one-time setup so git materializes it as a real symlink instead of a text file containing the word `AGENTS.md`:
+
+1. Enable **Developer Mode** (Settings → Privacy & security → For developers → Developer Mode on).
+2. `git config --global core.symlinks true` before `git clone`.
+
+Without this, `CLAUDE.md` still works as a pointer — it just shows up as a regular text file containing `AGENTS.md`. Edit `AGENTS.md` in either case; never edit the symlink.
 
 ## Quality checks
 
@@ -423,4 +457,4 @@ Stable channel policy:
 
 ## License
 
-Lingua is a commercial product. The final license file is being landed as part of `RL-062` in [`PLAN.md`](./PLAN.md). Until that task ships, treat this repository as source-available for evaluation, contributor review, and security auditing — **not** as MIT-licensed. Redistributing packaged binaries is not permitted before the commercial license is published.
+Lingua is a commercial product distributed under a source-available license. The full terms live in [`LICENSE`](./LICENSE); the short version is: the repository is public for evaluation, contributor review, and security auditing, but production, paid, or at-scale use requires a commercial license purchased via [`lingua.run`](https://lingua.run). Redistributing packaged binaries or competing hosted offerings is not permitted.

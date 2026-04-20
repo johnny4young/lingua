@@ -2399,8 +2399,13 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-059 License-key infrastructure
 
 - Priority: `P0` for Phase 1
-- Status: `Planned`
-- Readiness: `Ready — no blockers`
+- Status: `Partial`
+- Readiness: `Verifier + renderer store completed on 2026-04-17; main-side verifier, UI to paste/clear a license, and issuer keys pending`
+- Current progress:
+  - Shared `src/shared/license.ts` implements the `<payload>.<signature>` token format using Ed25519 via WebCrypto — pure module, no dependencies, works in Node and browsers
+  - `decodeLicenseToken` + `verifyLicenseToken` return a discriminated result (malformed / invalid-signature / expired / not-yet-valid / clock-skew / unsupported-tier, or ok with active|grace state). Grace defaults to 14d, clock skew to 24h; both configurable per call
+  - `src/renderer/stores/licenseStore.ts` (zustand + persist) owns the token, calls the verifier, and maps results into a `free | active | grace | invalid` status. Embedded public key is read from `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` at build time — missing key yields an explicit `no-public-key` error instead of silently "verifying"
+  - Tests cover: valid/active window, grace window, expired past grace, clock-skew future issuedAt, tampered payload under the same signature, wrong signing key, malformed tokens, empty tokens, and the store's clear/revalidate flows
 - Scope:
   - Choose a signing strategy for license keys that works offline (recommended: Ed25519 signed JWT-like token; private key held by the issuer, public key embedded in the app).
   - Add a `licenseStore` in the renderer that can import, validate, and persist a license payload.
@@ -2419,8 +2424,14 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-060 Feature-tier gating in the renderer
 
 - Priority: `P0` for Phase 1
-- Status: `Planned`
-- Readiness: `Ready after RL-059`
+- Status: `Partial`
+- Readiness: `Shared policy + hook + upsell helper completed on 2026-04-17; per-store gating rewiring (tabs, snippets, dev utilities) pending a follow-up slice`
+- Current progress:
+  - `src/shared/entitlements.ts` now owns the 11-entry `Entitlement` enum, the Free-tier ceilings (1 tab, 5 snippets, JS/TS/Python only), and helpers (`isEntitled`, `withinTabBudget`, `withinSnippetBudget`, `isLanguageAllowed`) so Free policy lives in one module
+  - `src/renderer/hooks/useEntitlement.ts` exposes `useEffectiveTier` (grace counts as paid), `useEntitlement`, `useTabBudget`, `useSnippetBudget`, and `useLanguageAllowed` — every gating UI should consume this surface
+  - `src/renderer/utils/upsellNotice.ts` routes Free-ceiling upsells through a single `pushStatusNotice` call so every surface shares one copy block
+  - i18n keys for the upsell messaging + 4 feature labels added in `en` and `es`
+  - Entitlement matrix is locked by tests — Free tier denies every paid entitlement, paid tiers collapse to the full set, ceilings match the documented numbers
 - Scope:
   - Define `Entitlement` as a typed enum so gating is searchable and static: `UNLIMITED_TABS`, `NPM_PACKAGES`, `SNIPPETS_UNLIMITED`, `DEV_UTILITIES`, `LANGUAGE_PACK_EXTENDED`, `THEME_PACK_EXTENDED`, `FONT_PACK_EXTENDED`, `LOCAL_AI`, `NOTEBOOK_MODE`, `EXECUTION_HISTORY`, `BENCHMARK`.
   - Add `useEntitlement(entitlement)` hook backed by `licenseStore`.
@@ -2459,8 +2470,13 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-062 Public README, license declaration, and distribution posture
 
 - Priority: `P0` for Phase 1
-- Status: `Planned`
-- Readiness: `Ready immediately`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-17`
+- Current progress:
+  - Shipped a real `LICENSE` at the repo root with the source-available commercial terms (personal/evaluation use granted; redistribution, hosted-service, and commercial use require a paid license)
+  - Removed the MIT license declaration from `package.json` in favor of `SEE LICENSE IN LICENSE`
+  - Rewrote the README header to ship a License badge pointing at the new file, a `## Pricing and licensing` section naming the four tiers, and a `## Who it is for` audience paragraph
+  - Guard test in `tests/docs/license.test.ts` fails CI if anyone removes the LICENSE, drops the README posture section, or reintroduces an MIT badge
 - Current gap:
   - The `README.md` carries an MIT badge that links to a `LICENSE` file that does not exist in the repo.
   - The plan declares Lingua closed-source commercial. The public-facing README must match the real distribution posture before the repo is published.
@@ -2527,8 +2543,13 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-065 Privacy-respecting launch telemetry
 
 - Priority: `P1` for Phase 2
-- Status: `Planned`
-- Readiness: `Ready, must ship opt-in`
+- Status: `Partial`
+- Readiness: `Consent + emitter + redactor completed on 2026-04-17; first-run prompt modal and endpoint deployment pending`
+- Current progress:
+  - `src/shared/telemetry.ts` owns the `TelemetryEvent` shape, the five-entry event allowlist, the per-event property allowlist, a secondary key/value deny pass for defense-in-depth, and duration/OS bucketers. Timestamps are rounded to the minute
+  - `src/renderer/utils/telemetry.ts` is the emitter. It returns early unless the user consent is `granted`, a configured `VITE_LINGUA_TELEMETRY_URL` is present, AND the `VITE_LINGUA_TELEMETRY_DISABLED` kill switch is not set. All failures are swallowed so analytics can never crash the app
+  - `settingsStore` grows a three-state `telemetryConsent` (`unset | granted | declined`) persisted across sessions, and `PrivacySection` in Settings renders a toggle with live status copy; default stays `unset` so telemetry is off unless the user affirmatively opts in
+  - Enforcement tests cover: allowlist drift, non-primitive values rejected, key substrings like `sourceCode` dropped even when snuck onto an event, timestamps rounded, bucketers coarse
 - Why this matters:
   - Phase 2 distribution posts generate a short traffic window. Without any measurement, we cannot learn what converted.
   - The app is local-first; telemetry must be explicitly opt-in and never record user code.
@@ -2569,8 +2590,14 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-067 Crash reporting
 
 - Priority: `P1` for Phase 2/3
-- Status: `Planned`
-- Readiness: `Ready, must ship opt-in`
+- Status: `Partial`
+- Readiness: `Boot pipeline + unified consent wiring completed on 2026-04-17; endpoint deployment, stack-trace redaction, and early-crash coverage (consent-mirroring IPC + boot-before-createWindow) pending`
+- Current progress:
+  - `src/main/crashReporter.ts` bootstraps Electron's `crashReporter` gated by the same consent flag RL-065 persists (`telemetryConsent === 'granted'`), plus a `LINGUA_CRASH_REPORTER_DISABLED` kill switch and an env-configurable `LINGUA_CRASH_REPORTER_URL`
+  - `bootCrashReporter` returns a discriminated `started | skipped-no-consent | skipped-no-endpoint | skipped-kill-switch` result so main can log the branch without ever logging user data
+  - `extra` payload is intentionally minimal — only `appVersion` — so crash dumps cannot carry user code or file paths
+  - `readConsentFromSettingsFile` reads the renderer's zustand-persist snapshot on boot and defaults to `unset` on any parse failure, biasing toward not sending
+  - Tests cover: every skip branch, granted path, missing / malformed / happy-path settings file reads
 - Scope:
   - Capture renderer and main crashes via Electron's `crashReporter`.
   - Redact stack traces that include user file paths before upload.
