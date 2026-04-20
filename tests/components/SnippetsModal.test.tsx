@@ -4,12 +4,36 @@ import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { SnippetsModal } from '../../src/renderer/components/Snippets';
 import { useEditorStore } from '@/stores/editorStore';
+import { useLicenseStore } from '@/stores/licenseStore';
 import { useSnippetsStore } from '@/stores/snippetsStore';
 
 describe('SnippetsModal', () => {
   beforeEach(async () => {
     await act(async () => {
       await i18next.changeLanguage('en');
+    });
+    // RL-060: these tests predate tier gating and open multiple tabs per
+    // case. Seed a Pro license so the editor-store ceiling doesn't block
+    // the flows under test.
+    useLicenseStore.setState({
+      token: 'test.token',
+      status: {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 86_400_000,
+          payload: {
+            productId: 'lingua-desktop',
+            tier: 'pro',
+            issuedTo: 'test@example.com',
+            issuedAt: new Date().toISOString(),
+            supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+            entitlements: [],
+          },
+        },
+      },
+      lastVerifiedAt: Date.now(),
     });
     useSnippetsStore.setState({ snippets: [] });
     useSnippetsStore.setState({

@@ -63,6 +63,12 @@ export interface EditorState {
    */
   pendingReveal: EditorRevealRequest | null;
   addTab: (tab: Omit<FileTab, 'isDirty'>) => void;
+  /**
+   * Grandfather an array of tabs into the store without consulting the
+   * RL-060 tier ceiling. Only the session-restore path should use this
+   * so users' prior workspaces are never truncated by a Free downgrade.
+   */
+  restoreTabs: (tabs: Array<Omit<FileTab, 'isDirty'>>, activeTabId?: string | null) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   updateContent: (id: string, content: string) => void;

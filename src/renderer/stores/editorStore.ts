@@ -8,9 +8,13 @@ import {
   isFormatterSupported,
   type FormatterFailure,
 } from '../utils/formatters';
+import i18next from 'i18next';
 import { useRecentFilesStore } from './recentFilesStore';
 import { useSettingsStore } from './settingsStore';
 import { useUIStore } from './uiStore';
+import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { withinTabBudget } from '../../shared/entitlements';
+import { pushUpsellNotice } from '../utils/upsellNotice';
 
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
@@ -125,12 +129,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   clearPendingReveal: () => set({ pendingReveal: null }),
 
   addTab: (tab) => {
+    const { tabs } = get();
+    // RL-060: block new-tab creation once the Free ceiling is hit. Users
+    // already over the ceiling (grandfathered data from before gating
+    // shipped) keep their tabs; only additions past the ceiling are
+    // refused so nobody loses work in the upgrade.
+    if (!withinTabBudget(currentEffectiveTier(), tabs.length + 1)) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: i18next.t('upsell.feature.extraTabs'),
+      });
+      return;
+    }
     const newTab: FileTab = { ...tab, isDirty: false };
     set((state) => ({
       tabs: [...state.tabs, newTab],
       activeTabId: newTab.id,
     }));
   },
+
+  restoreTabs: (tabs, activeTabId) =>
+    set({
+      tabs: tabs.map((tab) => ({ ...tab, isDirty: false })),
+      activeTabId: activeTabId ?? null,
+    }),
 
   removeTab: (id) =>
     set((state) => {
@@ -164,6 +186,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const existing = tabs.find((t) => t.filePath === filePath);
     if (existing) {
       set({ activeTabId: existing.id });
+      return;
+    }
+
+    if (!withinTabBudget(currentEffectiveTier(), tabs.length + 1)) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: i18next.t('upsell.feature.extraTabs'),
+      });
       return;
     }
 

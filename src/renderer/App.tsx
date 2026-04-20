@@ -34,6 +34,7 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
 import { desktopSmokeEnabled } from './utils/desktopSmoke';
+import { trackEvent } from './utils/telemetry';
 
 const DeveloperUtilitiesModal = lazy(async () => {
   const module = await import('./components/DeveloperUtilities');
@@ -121,6 +122,16 @@ function AppChrome({
   useEffect(() => {
     void initializeUpdates();
   }, [initializeUpdates]);
+
+  useEffect(() => {
+    // RL-065: fire the first telemetry event. `trackEvent` is a no-op
+    // unless the user has explicitly opted in, the endpoint is
+    // configured, and the kill switch is not set. Safe to call
+    // unconditionally here.
+    void trackEvent('app.launched', {
+      platform: window.lingua?.platform ?? 'unknown',
+    });
+  }, []);
 
   useEffect(() => {
     if (hasHandledWhatsNewRef.current || smokeEnabled || hasHandledDeepLink) {

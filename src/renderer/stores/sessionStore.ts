@@ -41,8 +41,9 @@ export const useSessionStore = create<SessionState>()(
         const { savedTabs, savedActiveIndex } = get();
         if (savedTabs.length === 0) return;
 
-        const { addTab, setActiveTab } = useEditorStore.getState();
-        const tabIds: string[] = [];
+        const restored: Array<Parameters<ReturnType<typeof useEditorStore.getState>['restoreTabs']>[0][number] & {
+          id: string;
+        }> = [];
 
         for (const saved of savedTabs) {
           let content = saved.content;
@@ -55,25 +56,23 @@ export const useSessionStore = create<SessionState>()(
             }
           }
 
-          const id = crypto.randomUUID();
           const language = saved.filePath
             ? resolveFileLanguageOrPlaintext(saved.filePath)
             : saved.language;
 
-          addTab({
-            id,
+          restored.push({
+            id: crypto.randomUUID(),
             name: saved.name,
             language,
             content,
             filePath: saved.filePath,
           });
-          tabIds.push(id);
         }
 
-        const activeId = tabIds[savedActiveIndex];
-        if (activeId) {
-          setActiveTab(activeId);
-        }
+        // Bypass the RL-060 tier ceiling — restoring a prior session must
+        // grandfather the user's workspace, not truncate it.
+        const activeId = restored[savedActiveIndex]?.id ?? null;
+        useEditorStore.getState().restoreTabs(restored, activeId);
       },
     }),
     {

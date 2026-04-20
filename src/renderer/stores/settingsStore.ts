@@ -106,6 +106,18 @@ function themePackAppearanceMatchesSettings(
   );
 }
 
+function syncConsentMirror(
+  telemetryConsent: SettingsState['telemetryConsent']
+): void {
+  const bridge = typeof window !== 'undefined' ? window.lingua?.consent : undefined;
+  if (!bridge) {
+    return;
+  }
+  void bridge.set(telemetryConsent).catch(() => {
+    // Best-effort only; a mirror failure must never break the renderer.
+  });
+}
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
@@ -170,7 +182,12 @@ export const useSettingsStore = create<SettingsState>()(
           syncShellWithEditorTheme: !s.syncShellWithEditorTheme,
           themePack: DEFAULT_THEME_PACK_ID,
         })),
-      setTelemetryConsent: (telemetryConsent) => set({ telemetryConsent }),
+      setTelemetryConsent: (telemetryConsent) => {
+        set({ telemetryConsent });
+        // Mirror to main so `bootCrashReporter` can read consent at the
+        // next app boot, before createWindow().
+        syncConsentMirror(telemetryConsent);
+      },
       applyThemePreset: (preset) =>
         set((state) => ({
           theme: preset.theme,
@@ -316,6 +333,15 @@ export const useSettingsStore = create<SettingsState>()(
           keymapPreset: normalizedKeymapPreset,
           themePack: normalizedThemePack,
         };
+      },
+      onRehydrateStorage: () => (state) => {
+        if (!state) {
+          return;
+        }
+        // Seed/refresh the main-process mirror after every startup
+        // rehydrate so pre-existing opt-ins survive the upgrade to the
+        // RL-067 mirror path without forcing the user to toggle again.
+        syncConsentMirror(state.telemetryConsent);
       },
     }
   )
