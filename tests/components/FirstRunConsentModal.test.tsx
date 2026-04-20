@@ -35,7 +35,13 @@ function stubWebBridge(): void {
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     writable: true,
-    value: { ...globalThis.window, lingua: undefined },
+    value: {
+      ...globalThis.window,
+      lingua: {
+        platform: 'web',
+        consent: { set: consentSet },
+      },
+    },
   });
 }
 

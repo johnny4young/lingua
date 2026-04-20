@@ -269,6 +269,10 @@ interface LinguaAPI {
     >;
   };
 
+  env: {
+    snapshot: () => Promise<Record<string, string>>;
+  };
+
   fs: {
     selectDirectory: () => Promise<string | null>;
     selectFile: () => Promise<string | null>;

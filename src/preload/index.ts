@@ -51,6 +51,16 @@ contextBridge.exposeInMainWorld('lingua', {
       >,
   },
 
+  // Process-env snapshot (RL-011 Slice B). Desktop-only — the web build has
+  // no host env and this preload isn't loaded there. The renderer merges
+  // the snapshot under the global / project / tab scopes via
+  // `mergeEnvScopes` and passes the resolved record to runners that consume
+  // an env (Go, Rust, Python subprocesses).
+  env: {
+    snapshot: () =>
+      ipcRenderer.invoke('env:snapshot') as Promise<Record<string, string>>,
+  },
+
   // App lifecycle IPC
   confirmClose: (dirtyFileNames: string[], language?: string) =>
     ipcRenderer.invoke('app:confirm-close', dirtyFileNames, language) as Promise<number>,
