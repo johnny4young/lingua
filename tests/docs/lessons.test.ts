@@ -56,6 +56,18 @@ describe('docs/lessons (RL-039)', () => {
     const lessons = listLessons();
     expect(lessons).toContain('01-javascript-loops-and-arrays.md');
     expect(lessons).toContain('02-typescript-generic-functions.md');
+    expect(lessons).toContain('03-python-fundamentals.md');
+  });
+
+  it('covers at least one second language beyond JS/TS (acceptance)', () => {
+    const secondLanguageIds = new Set<string>();
+    for (const filename of listLessons()) {
+      const fm = readFrontMatter(resolve(LESSONS_DIR, filename));
+      if (fm.language && fm.language !== 'javascript' && fm.language !== 'typescript') {
+        secondLanguageIds.add(fm.language);
+      }
+    }
+    expect(secondLanguageIds.size).toBeGreaterThan(0);
   });
 
   it('every lesson carries the required front-matter fields', () => {

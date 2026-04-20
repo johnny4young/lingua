@@ -245,11 +245,42 @@ describe('Toolbar', () => {
     render(<Toolbar />);
 
     await user.click(screen.getByRole('button', { name: 'New file language menu' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Go' }));
+    // The Go menu item now carries a capability badge ("Desktop only"), so
+    // the accessible name is "GoDesktop only" — match as a prefix.
+    await user.click(screen.getByRole('menuitem', { name: /^Go/ }));
 
     expect(mockAddTab).toHaveBeenCalledWith(
       expect.objectContaining({ language: 'go' })
     );
+  });
+
+  it('shows a capability badge on host-toolchain languages and omits it on bundled ones (RL-038 Slice C)', async () => {
+    const user = userEvent.setup();
+    render(<Toolbar />);
+    await user.click(screen.getByRole('button', { name: 'New file language menu' }));
+
+    // Go + Rust require a host toolchain — both render the badge.
+    expect(screen.getByTestId('toolbar-new-file-capability-go')).toBeTruthy();
+    expect(screen.getByTestId('toolbar-new-file-capability-rust')).toBeTruthy();
+    expect(
+      screen.getByTestId('toolbar-new-file-capability-go').textContent
+    ).toContain('Desktop only');
+
+    // JS / TS / Python ship their runtime in-process — no badge.
+    expect(screen.queryByTestId('toolbar-new-file-capability-javascript')).toBeNull();
+    expect(screen.queryByTestId('toolbar-new-file-capability-typescript')).toBeNull();
+    expect(screen.queryByTestId('toolbar-new-file-capability-python')).toBeNull();
+  });
+
+  it('localizes the capability badge when i18next is Spanish', async () => {
+    await i18next.changeLanguage('es');
+    const user = userEvent.setup();
+    render(<Toolbar />);
+    await user.click(screen.getByRole('button', { name: 'Menú de lenguaje para nuevo archivo' }));
+
+    expect(
+      screen.getByTestId('toolbar-new-file-capability-rust').textContent
+    ).toContain('Solo escritorio');
   });
 
   it('renders localized toolbar copy in Spanish', async () => {

@@ -50,3 +50,6 @@ Thumbs.db
 .npm
 .eslintcache
 .cache
+
+# Claude Code per-developer worktrees
+.claude/worktrees/

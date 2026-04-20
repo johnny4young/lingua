@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   executionModeForLanguage,
   extensionForLanguage,
+  languageCapabilityBadgeKey,
   languageForExtension,
   languageSupportsFileName,
   monacoLanguageFor,
@@ -69,6 +70,18 @@ describe('languageMeta', () => {
     expect(languageSupportsFileName('gitignore', '.gitignore')).toBe(true);
     expect(languageSupportsFileName('gitignore', '.dockerignore')).toBe(true);
     expect(languageSupportsFileName('editorconfig', '.editorconfig')).toBe(true);
+  });
+
+  it('flags languages that need a host toolchain with a capability badge key (RL-038 Slice C)', () => {
+    // Go + Rust depend on host binaries declared in LANGUAGE_PACKS.
+    expect(languageCapabilityBadgeKey('go')).toBe('language.capability.desktopOnly');
+    expect(languageCapabilityBadgeKey('rust')).toBe('language.capability.desktopOnly');
+    // Self-contained runtimes return null so the toolbar shows no badge.
+    expect(languageCapabilityBadgeKey('javascript')).toBeNull();
+    expect(languageCapabilityBadgeKey('typescript')).toBeNull();
+    expect(languageCapabilityBadgeKey('python')).toBeNull();
+    // Plugin-only languages without a LANGUAGE_PACKS entry fall through to null.
+    expect(languageCapabilityBadgeKey('unknown-language')).toBeNull();
   });
 
   it('routes infra files through plausible Monaco modes', () => {
