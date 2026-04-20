@@ -2601,7 +2601,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 
 - Priority: `P1` for Phase 2
 - Status: `Partial`
-- Readiness: `Consent toggle + base event wiring completed on 2026-04-19; the one-time first-run prompt is still pending`
+- Readiness: `Consent toggle + base event wiring completed on 2026-04-19; first-run desktop prompt shipped on 2026-04-20`
 - 2026-04-19 update:
   - `createSessionId()` produces a 32-char hex id per launch; held in renderer module scope, never persisted, never transmitted as a user identifier
   - `resolveTelemetryBase()` assembles app version, OS bucket, license status, and sessionId from the live stores
@@ -2613,6 +2613,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - `src/renderer/utils/telemetry.ts` is the emitter. It returns early unless the user consent is `granted`, a configured `VITE_LINGUA_TELEMETRY_URL` is present, AND the `VITE_LINGUA_TELEMETRY_DISABLED` kill switch is not set. All failures are swallowed so analytics can never crash the app
   - `settingsStore` grows a three-state `telemetryConsent` (`unset | granted | declined`) persisted across sessions, and `PrivacySection` in Settings renders a toggle with live status copy; default stays `unset` so telemetry is off unless the user affirmatively opts in
   - Enforcement tests cover: allowlist drift, non-primitive values rejected, key substrings like `sourceCode` dropped even when snuck onto an event, timestamps rounded, bucketers coarse
+  - 2026-04-20 update: `src/renderer/components/FirstRunConsentModal.tsx` ships the one-time opt-in prompt, mounted from `App` on boot. Renders while `telemetryConsent === 'unset'` AND the desktop consent bridge is present (`window.lingua.consent`) — the web build skips it because there is no telemetry on web. Allow and Decline both flip the three-state flag, which removes the `unset` gate so the modal never reappears and mirrors the choice through the existing `consent:set` IPC. Copy ships in en + es (`privacy.firstRun.title / body / changeLater / allow / decline`). Six new component tests cover desktop render, web suppression, post-choice suppression, Allow/Decline side-effects, and Spanish locale
 - Why this matters:
   - Phase 2 distribution posts generate a short traffic window. Without any measurement, we cannot learn what converted.
   - The app is local-first; telemetry must be explicitly opt-in and never record user code.
