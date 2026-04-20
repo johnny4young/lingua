@@ -41,7 +41,7 @@ describe('repository license posture (RL-062)', () => {
     expect(readme).toContain('Multi-language desktop code runner');
     expect(readme).toContain('## Pricing and licensing');
     expect(readme).toContain('## Who it is for');
-    expect(readme).toContain('lingua.run');
+    expect(readme).toContain('linguacode.dev');
   });
 
   it('package.json no longer claims the MIT license', () => {

@@ -11,14 +11,14 @@ describe('pushUpsellNotice', () => {
     pushUpsellNotice({
       messageKey: 'upsell.freeCeilingReached',
       featureLabel: 'additional open tabs',
-      detail: 'Visit lingua.run for pricing and downloads.',
+      detail: 'Visit linguacode.dev for pricing and downloads.',
     });
 
     expect(useUIStore.getState().statusNotice).toMatchObject({
       tone: 'info',
       messageKey: 'upsell.freeCeilingReached',
       values: { feature: 'additional open tabs' },
-      detail: 'Visit lingua.run for pricing and downloads.',
+      detail: 'Visit linguacode.dev for pricing and downloads.',
     });
   });
 });
