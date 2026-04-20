@@ -142,6 +142,7 @@ Architecture deep dive:
 - [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) documents the declarative `LanguagePack` descriptor and the three-slice migration plan for built-in + Lua language support.
 - [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) records the RL-011 env-var scoping decisions (which runtimes, web-mode answer, tab > project > global precedence) and the four-slice implementation roadmap.
 - [`VITE_UPGRADE_ADR.md`](./VITE_UPGRADE_ADR.md) plans the Vite 5 → 7 bump with the impact matrix, four blocker peer-range checks, the verification matrix, and the rollback plan.
+- [`VIM_MODE_ADR.md`](./VIM_MODE_ADR.md) records the RL-037 Vim mode integration decisions (monaco-vim as the lazy-loaded layer, focus-gated keystroke ownership, English-only status bar posture) and the rollback + revisit triggers.
 - [`docs/press-kit/`](./docs/press-kit/) holds the Phase 2 launch asset boilerplate (en + es) — product descriptions, pricing one-pager, founder bio, Show HN / Product Hunt / subreddit drafts.
 - [`docs/seo-pages/`](./docs/seo-pages/) holds the RL-066 SEO landing page scaffolds (five language-intent pages) ready for `linguacode.dev` to consume once the domain ships.
 - [`docs/lessons/`](./docs/lessons/) holds the RL-039 first-slice guided lesson scaffolds (en + es) — read-only Markdown today, picked up by the future interactive lesson runner.
