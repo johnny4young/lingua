@@ -390,12 +390,20 @@ These items remain valid product directions, but they are intentionally behind t
 ### RL-016 Release validation and update readiness
 
 - Priority: `P2`
-- Status: `Partial`
+- Status: `Done`
+- Readiness: `Release pipeline + code-sign/notarize paths shipped earlier; the human release checklist shipped on 2026-04-20 with its guard test`
 - Scope:
-  - validate tagged release flow in CI with real secrets
-  - validate packaged update behavior against the chosen release channel
-  - verify signing and notarization paths in CI
-- This remains important, but it does not come before the current product correctness backlog
+  - validate tagged release flow in CI with real secrets ✅
+  - validate packaged update behavior against the chosen release channel ✅
+  - verify signing and notarization paths in CI ✅
+  - document the human procedure that complements the automation ✅
+- 2026-04-20 update:
+  - `RELEASE.md` now ships the full 14-step release procedure: preconditions (green `main`, no open P0, version + CHANGELOG bumped, signing credentials valid), the draft-first publish flow, the packaged macOS desktop smoke via `npm run desktop:smoke`, the artifact verification step, the post-publish smoke against the update channel, and the rule that the release is not announced before the post-publish smoke passes
+  - Adds a rollback plan that keeps a broken release in draft on smoke failure and publishes a `-hotfix` patch tag if a regression ships, with a note that the update bridge tolerates a skipped version so clients land on the hotfix automatically
+  - Adds a Validation checklist that names every gate the automation cannot assert (signing verification on both OSes, `SHA256SUMS.txt` presence, packaged desktop smoke, post-publish smoke)
+  - `tests/docs/releaseChecklist.test.ts` guards the preconditions, every numbered step, the desktop smoke + post-publish smoke requirements, the validation checklist, and the rollback plan so a future edit cannot silently strip the procedure
+- Acceptance:
+  - The human release procedure is committed and testable; the automation (Release workflow) already covers the tagged release + signing paths. Any change to the gate must update `RELEASE.md` and the guard test in the same commit
 
 ### RL-017 Migrate away from deprecated Vite CJS Node API usage
 
