@@ -17,6 +17,21 @@ import type { LicenseTier } from '../../shared/license';
  */
 export function useEffectiveTier(): LicenseTier {
   const status = useLicenseStore((state) => state.status);
+  return tierFromStatus(status);
+}
+
+/**
+ * Non-hook reader for stores and imperative code that cannot take a hook
+ * dependency. Returns the same value as `useEffectiveTier` snapshotted at
+ * the moment of the call.
+ */
+export function currentEffectiveTier(): LicenseTier {
+  return tierFromStatus(useLicenseStore.getState().status);
+}
+
+type StatusLike = ReturnType<typeof useLicenseStore.getState>['status'];
+
+function tierFromStatus(status: StatusLike): LicenseTier {
   if (status.kind === 'active' || status.kind === 'grace') {
     return status.verification.payload.tier;
   }

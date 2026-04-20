@@ -42,6 +42,15 @@ contextBridge.exposeInMainWorld('lingua', {
       ipcRenderer.invoke('format:python', source) as Promise<FormatIpcResult>,
   },
 
+  // Consent mirror — renderer pushes the telemetry/crash opt-in value so
+  // main can read it before creating the window. RL-067 early-crash slice.
+  consent: {
+    set: (value: 'granted' | 'declined' | 'unset') =>
+      ipcRenderer.invoke('consent:set', value) as Promise<
+        { ok: true } | { ok: false; reason: string; message?: string }
+      >,
+  },
+
   // App lifecycle IPC
   confirmClose: (dirtyFileNames: string[], language?: string) =>
     ipcRenderer.invoke('app:confirm-close', dirtyFileNames, language) as Promise<number>,

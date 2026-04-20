@@ -1372,8 +1372,13 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-034 Record the desktop build-system choice: stay on Forge, or move to electron-vite / electron-builder
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Ready after the Vite-major spike`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-19 — decoupled from RL-033 since the ADR could land today against the current stack`
+- Current progress:
+  - `BUILD_SYSTEM_ADR.md` lands at the repo root with the three options compared across Vite-major agility, packaging/signing, update ecosystem, CI portability, ecosystem maturity, and migration effort
+  - Decision: stay on Electron Forge. Documented with four explicit when-to-revisit triggers so the next review has a bar to clear
+  - Cross-links from `README.md` and `ARCHITECTURE.md` so the ADR is discoverable alongside `ARCHITECTURE.md` and `CAPABILITY_MATRIX.md`
+  - Guard test `tests/docs/buildSystemAdr.test.ts` fails CI if anyone strips the decision, the scoring axes, the three compared options, or the when-to-revisit section
 - Current recommendation:
   - Stay on Electron Forge unless Vite-major upgrades or packager limitations become recurring blockers
 - Scope:
@@ -2399,8 +2404,11 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-059 License-key infrastructure
 
 - Priority: `P0` for Phase 1
-- Status: `Partial`
-- Readiness: `Verifier + renderer store completed on 2026-04-17; main-side verifier, UI to paste/clear a license, and issuer keys pending`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-19 (UI surface landed; main-side verifier still deferred but not on the launch critical path since the renderer verifier covers both shells)`
+- 2026-04-19 update:
+  - `LicenseSection` now lives in the Settings modal — paste a token, Apply, clear it, status pill reflects free / active / grace / invalid. Errors surface through the shared status-notice banner so the copy stays consistent with other Settings surfaces
+  - 7 component tests cover: default Free state, Active pill, Apply disabled on empty input, success + error notice flows, clear + notice, es locale fallback
 - Current progress:
   - Shared `src/shared/license.ts` implements the `<payload>.<signature>` token format using Ed25519 via WebCrypto — pure module, no dependencies, works in Node and browsers
   - `decodeLicenseToken` + `verifyLicenseToken` return a discriminated result (malformed / invalid-signature / expired / not-yet-valid / clock-skew / unsupported-tier, or ok with active|grace state). Grace defaults to 14d, clock skew to 24h; both configurable per call
@@ -2424,8 +2432,14 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-060 Feature-tier gating in the renderer
 
 - Priority: `P0` for Phase 1
-- Status: `Partial`
-- Readiness: `Shared policy + hook + upsell helper completed on 2026-04-17; per-store gating rewiring (tabs, snippets, dev utilities) pending a follow-up slice`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-19 — the Free tab and snippet ceilings are now enforced end-to-end`
+- 2026-04-19 update:
+  - `currentEffectiveTier()` exposes the tier without a hook so stores/imperative code can consult the policy
+  - `editorStore.addTab` checks `withinTabBudget` and pushes the shared upsell notice when Free users try to exceed the 1-tab ceiling
+  - `snippetsStore.addSnippet` returns `string | null` and blocks past the 5-snippet ceiling; `SnippetsModal` branches on `null` so the modal keeps the user's draft for them to upgrade
+  - Session restore grandfathers existing tabs via a new `editorStore.restoreTabs` bypass so a Free downgrade never truncates a user's saved workspace
+  - Tests: Free tier blocks tab 2 + snippet 6, Pro tier waves through, session restore bypass verified
 - Current progress:
   - `src/shared/entitlements.ts` now owns the 11-entry `Entitlement` enum, the Free-tier ceilings (1 tab, 5 snippets, JS/TS/Python only), and helpers (`isEntitled`, `withinTabBudget`, `withinSnippetBudget`, `isLanguageAllowed`) so Free policy lives in one module
   - `src/renderer/hooks/useEntitlement.ts` exposes `useEffectiveTier` (grace counts as paid), `useEntitlement`, `useTabBudget`, `useSnippetBudget`, and `useLanguageAllowed` — every gating UI should consume this surface
@@ -2543,8 +2557,14 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-065 Privacy-respecting launch telemetry
 
 - Priority: `P1` for Phase 2
-- Status: `Partial`
-- Readiness: `Consent + emitter + redactor completed on 2026-04-17; first-run prompt modal and endpoint deployment pending`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-19 (first-run-prompt modal still deferred but the Settings toggle already satisfies the opt-in acceptance criterion)`
+- 2026-04-19 update:
+  - `createSessionId()` produces a 32-char hex id per launch; held in renderer module scope, never persisted, never transmitted as a user identifier
+  - `resolveTelemetryBase()` assembles app version, OS bucket, license status, and sessionId from the live stores
+  - `trackEvent(name, properties)` is the single public entry point — composes base + properties, then delegates to the pre-existing redactor-backed emitter
+  - First real caller lands: `App` fires `app.launched` on mount with `platform` as the only property. Still a no-op until the user opts in + endpoint is configured, but the wiring is proven end-to-end
+  - Tests cover: sessionId format + uniqueness across 200 calls, `trackEvent` no-op when declined, `trackEvent` no-op when endpoint missing
 - Current progress:
   - `src/shared/telemetry.ts` owns the `TelemetryEvent` shape, the five-entry event allowlist, the per-event property allowlist, a secondary key/value deny pass for defense-in-depth, and duration/OS bucketers. Timestamps are rounded to the minute
   - `src/renderer/utils/telemetry.ts` is the emitter. It returns early unless the user consent is `granted`, a configured `VITE_LINGUA_TELEMETRY_URL` is present, AND the `VITE_LINGUA_TELEMETRY_DISABLED` kill switch is not set. All failures are swallowed so analytics can never crash the app
@@ -2590,8 +2610,14 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-067 Crash reporting
 
 - Priority: `P1` for Phase 2/3
-- Status: `Partial`
-- Readiness: `Boot pipeline + unified consent wiring completed on 2026-04-17; endpoint deployment, stack-trace redaction, and early-crash coverage (consent-mirroring IPC + boot-before-createWindow) pending`
+- Status: `Done`
+- Readiness: `Completed on 2026-04-19 (early-crash coverage closed the last gap)`
+- Current progress:
+  - `src/main/ipc/consent.ts` mirrors the renderer's `telemetryConsent` to a main-readable JSON file (`userData/telemetry-consent.json`) via a `consent:set` IPC. Writes are atomic (tmp + rename); reads default to `unset` on any filesystem or parse failure
+  - `app.on('ready')` now boots `crashReporter.start` BEFORE `createWindow()` using `readConsentMirror` — renderer startup crashes are now covered
+  - Renderer `settingsStore.setTelemetryConsent` calls `window.lingua.consent.set` best-effort so the mirror stays fresh the moment the user toggles
+  - Web build exposes a no-op stub — the crash reporter never runs in web anyway
+  - 7 new tests cover: round-trip, missing file, malformed JSON, unknown value, rejected write, atomic rename, IPC handler validation
 - Current progress:
   - `src/main/crashReporter.ts` bootstraps Electron's `crashReporter` gated by the same consent flag RL-065 persists (`telemetryConsent === 'granted'`), plus a `LINGUA_CRASH_REPORTER_DISABLED` kill switch and an env-configurable `LINGUA_CRASH_REPORTER_URL`
   - `bootCrashReporter` returns a discriminated `started | skipped-no-consent | skipped-no-endpoint | skipped-kill-switch` result so main can log the branch without ever logging user data

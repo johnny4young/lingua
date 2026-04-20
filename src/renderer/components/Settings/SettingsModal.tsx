@@ -4,6 +4,7 @@ import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
 import { LayoutSection } from './LayoutSection';
+import { LicenseSection } from './LicenseSection';
 import { PluginsSection } from './PluginsSection';
 import { PrivacySection } from './PrivacySection';
 import { UpdatesSection } from './UpdatesSection';
@@ -53,6 +54,7 @@ export function SettingsModal({
             </div>
             <div className="space-y-6">
               <EditorSection />
+              <LicenseSection />
               <PrivacySection />
               <PluginsSection />
             </div>

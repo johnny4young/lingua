@@ -129,6 +129,28 @@ export function bucketOs(platform: string, version: string): string {
   return `${platform}/${major}`;
 }
 
+/**
+ * Generate a coarse, non-persistent session id (32 hex chars). Used as a
+ * fingerprint-resistant grouping key for events inside a single launch.
+ * Deliberately module-agnostic so renderer + tests + any future main
+ * emitter call through the same helper.
+ */
+export function createSessionId(): string {
+  const source =
+    typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function'
+      ? crypto
+      : globalThis.crypto;
+  if (!source || typeof source.getRandomValues !== 'function') {
+    // Worst case (no Web Crypto): return a time-based fallback. Still
+    // single-launch scoped — it never leaves memory and is only used to
+    // group events, never to identify a user.
+    return `t${Date.now().toString(16)}${Math.floor(Math.random() * 0xffffff).toString(16)}`.padEnd(32, '0');
+  }
+  const bytes = new Uint8Array(16);
+  source.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 /** Simple duration bucketer so we never transmit raw run times. */
 export function bucketDurationMs(ms: number): number {
   if (!Number.isFinite(ms) || ms < 0) return 0;

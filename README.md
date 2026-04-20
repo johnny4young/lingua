@@ -137,6 +137,7 @@ Architecture deep dive:
 - [`AGENTS.md`](./AGENTS.md) is the canonical guidance for any agent (Claude Code, Cursor, Codex, Aider) working in this repo — routing, landmines, UI verification tiers, commit rules. `CLAUDE.md` at the repo root is a symlink to it so Claude Code's auto-loader picks the same file.
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) explains the project lifecycle, Electron IPC file-system bridge, and watch-state flow with diagrams and extension guidance.
 - [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) is the decision record for what runs where (browser WASM, browser interpreter, desktop native, hybrid) with the promotion rules for future WASM-first migrations.
+- [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) is the ADR for the desktop build system (stay on Electron Forge vs. move to electron-vite or electron-builder) with the scoring matrix and when-to-revisit triggers.
 - [`src/renderer/README.md`](./src/renderer/README.md) maps the renderer folders, state ownership, styling rules, extraction conventions, and common change/test paths.
 
 ### Windows contributors: enable symlinks before cloning

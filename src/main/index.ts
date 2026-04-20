@@ -9,7 +9,12 @@ import {
   markDeepLinkRendererReady,
   primeDeepLinkFromArgv,
 } from './deepLinkState';
-import { bootCrashReporter, parsePersistedTelemetryConsent } from './crashReporter';
+import { bootCrashReporter } from './crashReporter';
+import {
+  readConsentMirror,
+  registerConsentHandlers,
+  resolveConsentMirrorPath,
+} from './ipc/consent';
 import { registerFormatterHandlers } from './formatters';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
@@ -43,7 +48,6 @@ registerUpdater();
 
 let forceQuit = false;
 let mainWindow: BrowserWindow | null = null;
-let crashReporterBootRequested = false;
 const deepLinkState = createDeepLinkRuntimeState();
 
 function focusMainWindow() {
@@ -140,31 +144,6 @@ const createWindow = () => {
     window.show();
   });
 
-  window.webContents.once('did-finish-load', () => {
-    if (crashReporterBootRequested) {
-      return;
-    }
-    crashReporterBootRequested = true;
-    // Consent lives in the renderer's zustand/localStorage snapshot, not in a
-    // standalone JSON file on disk. Read the real `lingua-settings` value from
-    // the loaded renderer so the opt-in setting actually controls crash
-    // reporting in desktop builds.
-    void bootCrashReporter({
-      appVersion: app.getVersion(),
-      readConsentAtBoot: async () => {
-        try {
-          const snapshot = (await window.webContents.executeJavaScript(
-            "(() => { try { return window.localStorage.getItem('lingua-settings'); } catch { return null; } })()",
-            true
-          )) as string | null;
-          return parsePersistedTelemetryConsent(snapshot);
-        } catch {
-          return 'unset';
-        }
-      },
-    });
-  });
-
   window.on('closed', () => {
     markDeepLinkRendererReady(deepLinkState, false);
     mainWindow = null;
@@ -231,7 +210,18 @@ app.on('open-url', (event, url) => {
   handleDeepLink(url);
 });
 
-app.on('ready', () => {
+app.on('ready', async () => {
+  const mirrorPath = resolveConsentMirrorPath(app.getPath('userData'));
+  // Register the IPC writer first so the renderer's `setTelemetryConsent`
+  // always has a live handler by the time the window loads.
+  registerConsentHandlers(mirrorPath);
+  // Boot the crash reporter BEFORE `createWindow()` so the reporter is
+  // attached for the renderer process from its first tick — fixes the
+  // RL-067 early-crash-coverage gap the staged-diff review flagged.
+  await bootCrashReporter({
+    appVersion: app.getVersion(),
+    readConsentAtBoot: () => readConsentMirror(mirrorPath),
+  });
   registerProtocolClient();
   createWindow();
 });
