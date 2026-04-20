@@ -155,6 +155,21 @@ export function executionModeForLanguage(language: Language): 'run' | 'validate'
   return getLanguageMeta(language).executionMode;
 }
 
+/**
+ * RL-038 Slice C capability-aware UI — returns a stable i18n key
+ * describing the host-toolchain expectation for the given language,
+ * or `null` when the pack carries none (self-contained runtime or
+ * bundled interpreter). The renderer looks this key up through
+ * `useTranslation()` so the copy stays localized.
+ */
+export function languageCapabilityBadgeKey(language: Language): string | null {
+  const pack = getLanguagePackById(language);
+  const hasHostDependency =
+    pack?.capabilities.runtimeDependencies !== undefined &&
+    pack.capabilities.runtimeDependencies.length > 0;
+  return hasHostDependency ? 'language.capability.desktopOnly' : null;
+}
+
 export function languageSupportsFileName(language: Language, fileName: string): boolean {
   const normalized = fileName.toLowerCase();
   const fileNames = getLanguageMeta(language).fileNames ?? [];

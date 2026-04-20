@@ -16,8 +16,10 @@ import {
   getLanguagePackForFileName,
   monacoLanguageForPack,
   runnerIdForPack,
+  templateIdsForPack,
   type LanguagePack,
 } from '../../src/shared/languagePacks';
+import { BUILT_IN_TEMPLATES } from '../../src/renderer/data/templates';
 
 describe('LANGUAGE_PACKS array integrity', () => {
   it('keeps every built-in language id unique', () => {
@@ -129,6 +131,47 @@ describe('LANGUAGE_PACKS array integrity', () => {
     const rustPack = getLanguagePackById('rust') as LanguagePack;
     expect(goPack.capabilities.runtimeDependencies).toContain('go');
     expect(rustPack.capabilities.runtimeDependencies).toContain('rustc');
+  });
+});
+
+describe('templateIds contract (RL-038 Slice C polish)', () => {
+  it('every runnable built-in pack declares at least one starter template', () => {
+    for (const pack of LANGUAGE_PACKS) {
+      if (pack.execution !== 'run' && pack.execution !== 'compile') continue;
+      // Lua is runnable but plugin-sourced and ships no built-in templates
+      // yet; skip it so we don't force a template just to satisfy the guard.
+      if (pack.id === 'lua') continue;
+      expect(pack.templateIds.length, `${pack.id} has no templateIds`).toBeGreaterThan(0);
+    }
+  });
+
+  it('every declared templateId resolves to a real template and matches its language', () => {
+    const templatesById = new Map(BUILT_IN_TEMPLATES.map((template) => [template.id, template]));
+    for (const pack of LANGUAGE_PACKS) {
+      for (const templateId of pack.templateIds) {
+        const template = templatesById.get(templateId);
+        expect(template, `${pack.id} references unknown template ${templateId}`).toBeDefined();
+        expect(
+          template?.language,
+          `template ${templateId} claims language ${template?.language} but pack is ${pack.id}`
+        ).toBe(pack.id);
+      }
+    }
+  });
+
+  it('no built-in template is orphaned — every template is claimed by its pack', () => {
+    const claimed = new Set<string>();
+    for (const pack of LANGUAGE_PACKS) {
+      for (const id of pack.templateIds) claimed.add(id);
+    }
+    for (const template of BUILT_IN_TEMPLATES) {
+      expect(claimed.has(template.id), `template ${template.id} is not claimed by any pack`).toBe(true);
+    }
+  });
+
+  it('templateIdsForPack falls back to an empty array for unknown ids', () => {
+    expect(templateIdsForPack('mystery')).toEqual([]);
+    expect(templateIdsForPack('javascript').length).toBeGreaterThan(0);
   });
 });
 

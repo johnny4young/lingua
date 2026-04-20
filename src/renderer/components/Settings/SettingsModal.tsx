@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
+import { EnvVarsSection } from './EnvVarsSection';
 import { LayoutSection } from './LayoutSection';
 import { LicenseSection } from './LicenseSection';
 import { PluginsSection } from './PluginsSection';
@@ -56,6 +57,7 @@ export function SettingsModal({
               <EditorSection />
               <LicenseSection />
               <PrivacySection />
+              <EnvVarsSection />
               <PluginsSection />
             </div>
           </div>

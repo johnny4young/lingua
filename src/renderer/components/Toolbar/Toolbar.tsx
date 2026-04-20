@@ -19,7 +19,11 @@ import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
 import type { Language } from '../../types';
-import { executionModeForLanguage, languageLabel } from '../../utils/languageMeta';
+import {
+  executionModeForLanguage,
+  languageCapabilityBadgeKey,
+  languageLabel,
+} from '../../utils/languageMeta';
 import { usePluginStore } from '../../stores/pluginStore';
 import { IconButton, Tooltip } from '../ui/chrome';
 
@@ -205,25 +209,38 @@ export function Toolbar({
               aria-label={t('toolbar.newFile.menuAriaLabel')}
               className="surface-panel-strong absolute left-0 top-[calc(100%+0.55rem)] z-20 min-w-52 p-1.5"
             >
-              {languages.map((language) => (
-                <button
-                  key={language.id}
-                  role="menuitem"
-                  onClick={() => handleNewFile(language.id)}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-xs font-medium transition-colors ${
-                    language.id === defaultNewFileLanguage
-                      ? 'bg-primary-soft text-primary'
-                      : 'text-foreground hover:bg-surface-strong/78'
-                  }`}
-                >
-                  <span>{language.label}</span>
-                  {language.id === defaultNewFileLanguage && (
-                    <span className="status-pill border-primary/20 bg-transparent px-0 text-primary">
-                      {t('toolbar.newFile.current')}
+              {languages.map((language) => {
+                const capabilityKey = languageCapabilityBadgeKey(language.id);
+                return (
+                  <button
+                    key={language.id}
+                    role="menuitem"
+                    onClick={() => handleNewFile(language.id)}
+                    className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-medium transition-colors ${
+                      language.id === defaultNewFileLanguage
+                        ? 'bg-primary-soft text-primary'
+                        : 'text-foreground hover:bg-surface-strong/78'
+                    }`}
+                  >
+                    <span>{language.label}</span>
+                    <span className="flex items-center gap-2">
+                      {capabilityKey && (
+                        <span
+                          className="status-pill border-border/60 bg-transparent px-2 text-[0.7rem] text-muted"
+                          data-testid={`toolbar-new-file-capability-${language.id}`}
+                        >
+                          {t(capabilityKey)}
+                        </span>
+                      )}
+                      {language.id === defaultNewFileLanguage && (
+                        <span className="status-pill border-primary/20 bg-transparent px-0 text-primary">
+                          {t('toolbar.newFile.current')}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
