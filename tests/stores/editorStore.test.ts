@@ -1,4 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+const { mockTrackEvent } = vi.hoisted(() => ({
+  mockTrackEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/utils/telemetry', () => ({
+  trackEvent: mockTrackEvent,
+}));
+
 import { useEditorStore, createDefaultTab } from '@/stores/editorStore';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { pluginRegistry } from '@/plugins';
@@ -538,6 +547,73 @@ describe('editorStore', () => {
       expect(window.lingua.fs.read).not.toHaveBeenCalled();
       expect(useEditorStore.getState().tabs).toHaveLength(1);
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+    });
+
+    it('RL-065 — emits feature.blocked telemetry when addTab hits the Free ceiling', async () => {
+      const { useLicenseStore } = await import('@/stores/licenseStore');
+      useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+      mockTrackEvent.mockClear();
+
+      useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      // First tab fits the budget — no telemetry emitted yet.
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      useEditorStore.getState().addTab(createDefaultTab('python'));
+      // Second tab on Free hits the gate; telemetry fires.
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'feature.blocked',
+        expect.objectContaining({ entitlement: 'tabs', tier: 'free' })
+      );
+    });
+
+    it('RL-065 — emits feature.blocked telemetry when openFile hits the Free ceiling', async () => {
+      const { useLicenseStore } = await import('@/stores/licenseStore');
+      useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+      mockTrackEvent.mockClear();
+
+      useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      mockTrackEvent.mockClear();
+
+      await useEditorStore.getState().openFile('/tmp/blocked.py', 'blocked.py', 'python');
+
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'feature.blocked',
+        expect.objectContaining({ entitlement: 'tabs', tier: 'free' })
+      );
+    });
+
+    it('RL-065 — does NOT emit feature.blocked when a Pro user opens additional tabs', async () => {
+      const { useLicenseStore } = await import('@/stores/licenseStore');
+      useLicenseStore.setState({
+        token: 'pro.token',
+        status: {
+          kind: 'active',
+          verification: {
+            ok: true,
+            state: 'active',
+            supportWindowEndsAt: Date.now() + 86_400_000,
+            payload: {
+              productId: 'lingua-desktop',
+              tier: 'pro',
+              issuedTo: 'pro@example.com',
+              issuedAt: new Date().toISOString(),
+              supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+              entitlements: [],
+            },
+          },
+        },
+        lastVerifiedAt: Date.now(),
+      });
+      mockTrackEvent.mockClear();
+
+      for (let i = 0; i < 4; i += 1) {
+        useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      }
+
+      const blockedCalls = mockTrackEvent.mock.calls.filter(
+        ([event]) => event === 'feature.blocked'
+      );
+      expect(blockedCalls).toHaveLength(0);
     });
   });
 });

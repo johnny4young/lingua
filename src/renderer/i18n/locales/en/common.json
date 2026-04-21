@@ -371,6 +371,8 @@
   "commandPalette.recentRuns.description": "Jump to an open tab in this language.",
   "commandPalette.recentRuns.status.ok": "ok",
   "commandPalette.recentRuns.status.error": "error",
+  "commandPalette.action.rerunLast.label": "Re-run last execution",
+  "commandPalette.action.rerunLast.description": "Run the active tab again with the same code and language.",
   "commandPalette.action.layout.horizontal.label": "Layout: Horizontal Split",
   "commandPalette.action.layout.horizontal.description": "Editor on top, console below",
   "commandPalette.action.layout.vertical.label": "Layout: Vertical Split",

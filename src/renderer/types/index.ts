@@ -13,6 +13,8 @@ export type BuiltInLanguage =
   | 'cpp'
   | 'swift'
   | 'kotlin'
+  | 'java'
+  | 'scala'
   | 'json'
   | 'yaml'
   | 'dotenv'

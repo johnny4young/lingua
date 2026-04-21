@@ -1,4 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+const { mockTrackEvent } = vi.hoisted(() => ({
+  mockTrackEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/utils/telemetry', () => ({
+  trackEvent: mockTrackEvent,
+}));
+
 import { useSnippetsStore } from '@/stores/snippetsStore';
 
 describe('snippetsStore', () => {
@@ -123,5 +132,36 @@ describe('snippetsStore', () => {
     expect(blocked).toBeNull();
     expect(useSnippetsStore.getState().snippets).toHaveLength(5);
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
+  });
+
+  it('RL-065 — emits feature.blocked telemetry when addSnippet hits the Free ceiling', async () => {
+    const { useLicenseStore } = await import('@/stores/licenseStore');
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    mockTrackEvent.mockClear();
+
+    for (let i = 0; i < 5; i += 1) {
+      useSnippetsStore.getState().addSnippet({
+        label: `snip ${i}`,
+        description: '',
+        code: '',
+        language: 'javascript',
+      });
+    }
+    // First 5 fit the budget — no telemetry.
+    expect(
+      mockTrackEvent.mock.calls.filter(([event]) => event === 'feature.blocked')
+    ).toHaveLength(0);
+
+    useSnippetsStore.getState().addSnippet({
+      label: 'over',
+      description: '',
+      code: '',
+      language: 'javascript',
+    });
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'feature.blocked',
+      expect.objectContaining({ entitlement: 'snippets', tier: 'free' })
+    );
   });
 });

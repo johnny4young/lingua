@@ -30,6 +30,8 @@ export type LanguagePackId =
   | 'cpp'
   | 'swift'
   | 'kotlin'
+  | 'java'
+  | 'scala'
   | 'json'
   | 'yaml'
   | 'dotenv'
@@ -312,6 +314,39 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     formatter: 'none',
     capabilities: { lsp: 'none', debugger: 'none' },
     docsUrl: 'https://kotlinlang.org/docs/home.html',
+    templateIds: [],
+  },
+  {
+    id: 'java',
+    labelKey: 'language.java.label',
+    shortLabelKey: 'language.java.shortLabel',
+    badgeClass: 'bg-amber-500/15 text-amber-300',
+    textColorClass: 'text-amber-300',
+    extensions: ['java'],
+    monacoLanguage: 'java',
+    defaultCode:
+      'public class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello, Lingua");\n    }\n}\n',
+    execution: 'validate',
+    runnerId: null,
+    formatter: 'none',
+    capabilities: { lsp: 'none', debugger: 'none' },
+    docsUrl: 'https://docs.oracle.com/en/java/',
+    templateIds: [],
+  },
+  {
+    id: 'scala',
+    labelKey: 'language.scala.label',
+    shortLabelKey: 'language.scala.shortLabel',
+    badgeClass: 'bg-rose-500/15 text-rose-300',
+    textColorClass: 'text-rose-300',
+    extensions: ['scala', 'sc'],
+    monacoLanguage: 'scala',
+    defaultCode: '@main def hello(): Unit =\n  println("Hello, Lingua")\n',
+    execution: 'validate',
+    runnerId: null,
+    formatter: 'none',
+    capabilities: { lsp: 'none', debugger: 'none' },
+    docsUrl: 'https://docs.scala-lang.org/',
     templateIds: [],
   },
   {

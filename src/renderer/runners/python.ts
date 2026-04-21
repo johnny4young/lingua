@@ -10,6 +10,7 @@ import type {
 import { transformPythonMagicComments, detectPythonMagicComments } from '../utils/magicComments';
 import { injectPythonLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
+import { resolveUserEnvForRunner } from './go';
 
 const DEFAULT_TIMEOUT = 60_000; // Python needs more time for initial load
 
@@ -138,7 +139,17 @@ export class PythonRunner implements LanguageRunner {
       };
 
       worker.addEventListener('message', handler);
-      worker.postMessage({ type: 'execute', code: transformedCode, timeout });
+      // RL-011 Slice D third increment — pipe the resolved user env
+      // into the Pyodide worker so user code's `os.environ` reflects
+      // the global / project / tab tiers. Empty record keeps the
+      // worker's fast path untouched.
+      const userEnv = resolveUserEnvForRunner();
+      worker.postMessage({
+        type: 'execute',
+        code: transformedCode,
+        timeout,
+        userEnv,
+      });
     });
   }
 
