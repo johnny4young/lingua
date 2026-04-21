@@ -143,6 +143,7 @@ Architecture deep dive:
 - [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) records the RL-011 env-var scoping decisions (which runtimes, web-mode answer, tab > project > global precedence) and the four-slice implementation roadmap.
 - [`VITE_UPGRADE_ADR.md`](./VITE_UPGRADE_ADR.md) plans the Vite 5 → 7 bump with the impact matrix, four blocker peer-range checks, the verification matrix, and the rollback plan.
 - [`VIM_MODE_ADR.md`](./VIM_MODE_ADR.md) records the RL-037 Vim mode integration decisions (monaco-vim as the lazy-loaded layer, focus-gated keystroke ownership, English-only status bar posture) and the rollback + revisit triggers.
+- [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) plans the RL-027 debugger MVP — JS/TS first via Monaco, then Python via pdb, Go via Delve, Rust via lldb — with a bounded feature budget (breakpoints, step, watch, stack, variables) and explicit out-of-scope list.
 - [`RELEASE.md`](./RELEASE.md) is the RL-016 release checklist — preconditions, 14 numbered release steps including the packaged desktop smoke and post-publish smoke, the validation gate, and the rollback plan.
 - [`docs/press-kit/`](./docs/press-kit/) holds the Phase 2 launch asset boilerplate (en + es) — product descriptions, pricing one-pager, founder bio, Show HN / Product Hunt / subreddit drafts.
 - [`docs/seo-pages/`](./docs/seo-pages/) holds the RL-066 SEO landing page scaffolds (five language-intent pages) ready for `linguacode.dev` to consume once the domain ships.

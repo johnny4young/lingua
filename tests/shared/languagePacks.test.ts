@@ -100,6 +100,8 @@ describe('LANGUAGE_PACKS array integrity', () => {
       'ruby',
       'c',
       'cpp',
+      'swift',
+      'kotlin',
       'json',
       'yaml',
       'dotenv',
@@ -116,6 +118,30 @@ describe('LANGUAGE_PACKS array integrity', () => {
     for (const id of required) {
       expect(ids.has(id), `missing built-in pack: ${id}`).toBe(true);
     }
+  });
+
+  it('ships Swift and Kotlin as validate-only packs (RL-042 third slice)', () => {
+    const swift = getLanguagePackById('swift') as LanguagePack;
+    const kotlin = getLanguagePackById('kotlin') as LanguagePack;
+    for (const pack of [swift, kotlin]) {
+      expect(pack).toBeDefined();
+      expect(pack.execution).toBe('validate');
+      expect(pack.runnerId).toBeNull();
+      expect(pack.formatter).toBe('none');
+    }
+    expect(swift.monacoLanguage).toBe('swift');
+    expect(swift.extensions).toContain('swift');
+    expect(swift.badgeClass).toContain('orange');
+    expect(kotlin.monacoLanguage).toBe('kotlin');
+    expect(kotlin.extensions).toEqual(expect.arrayContaining(['kt', 'kts']));
+    expect(kotlin.badgeClass).toContain('purple');
+  });
+
+  it('resolves Swift and Kotlin packs by their canonical extensions', () => {
+    expect(getLanguagePackForExtension('swift')?.id).toBe('swift');
+    expect(getLanguagePackForExtension('.swift')?.id).toBe('swift');
+    expect(getLanguagePackForExtension('kt')?.id).toBe('kotlin');
+    expect(getLanguagePackForExtension('kts')?.id).toBe('kotlin');
   });
 
   it('ships C and C++ as validate-only packs (RL-042 second slice)', () => {

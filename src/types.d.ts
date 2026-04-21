@@ -255,7 +255,10 @@ interface LinguaAPI {
 
   rust: {
     detect: () => Promise<RustDetectResult>;
-    run: (sourceCode: string) => Promise<RustRunResult>;
+    run: (
+      sourceCode: string,
+      userEnv?: Record<string, string>
+    ) => Promise<RustRunResult>;
   };
 
   format: {
