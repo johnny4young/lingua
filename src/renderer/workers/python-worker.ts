@@ -8,17 +8,24 @@
 // Worker global function (not available in DOM lib)
 declare function importScripts(...urls: string[]): void;
 
+import { syncUserEnvInPyodide } from './python-worker-env';
+
 const ctx = self as unknown as Worker;
 
 // Pyodide CDN URL
 const PYODIDE_CDN = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
 
 let pyodide: unknown = null;
+let appliedUserEnvKeys: string[] = [];
 
 type PyodideRuntime = {
   runPythonAsync(code: string): Promise<unknown>;
   setStdout?: (options: { batched: (text: string) => void }) => void;
   setStderr?: (options: { batched: (text: string) => void }) => void;
+  globals: {
+    set(name: string, value: unknown): void;
+    delete?(name: string): void;
+  };
 };
 
 async function loadPyodide(): Promise<unknown> {
@@ -90,11 +97,27 @@ ctx.addEventListener('message', async (event) => {
   }
 
   if (msg.type === 'execute') {
-    const { code, timeout } = msg;
+    const { code, timeout, userEnv } = msg as {
+      code: string;
+      timeout: number;
+      userEnv?: Record<string, string>;
+    };
     const startTime = performance.now();
 
     try {
       const py = (await loadPyodide()) as PyodideRuntime;
+
+      // RL-011 Slice D third increment — bridge user-space env into
+      // Pyodide's os.environ so user code can call os.getenv(...) just
+      // like the Go and Rust subprocess paths. Because this worker is
+      // persistent, we must also remove keys that disappeared between
+      // runs; otherwise stale values would linger in os.environ after
+      // the user clears or renames a var.
+      appliedUserEnvKeys = await syncUserEnvInPyodide(
+        py,
+        userEnv,
+        appliedUserEnvKeys
+      );
 
       await py.runPythonAsync(`
 import io

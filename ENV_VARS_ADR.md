@@ -38,9 +38,31 @@ both `execFileAsync('rustc', ...)` (compile tier) and
 `spawn(binaryFile, ...)` (runtime tier) so the Rust program reads the
 same env via `std::env::var` that the compiler saw.
 
-Python's turn is the next slice and lives on its own IPC path —
-Pyodide runs in the renderer, not via subprocess, so the env hands
-off through a worker boot message rather than a spawn option.
+### Python (shipped 2026-04-20 quinquies)
+
+Python is the only Slice-D runtime that does NOT use a subprocess
+— Pyodide runs in a Web Worker inside the renderer. The env crosses
+via the `execute` postMessage payload (`userEnv` field) instead of
+through `ipcRenderer.invoke`. Inside the worker, before user code
+runs, a small Python preamble does:
+
+```py
+import os
+os.environ.update(_LINGUA_USER_ENV)
+```
+
+`_LINGUA_USER_ENV` is set with `pyodide.globals.set(...)` and is
+deleted right after the merge so it does not leak into user scope.
+When the resolver returns an empty record (no tiers set), the
+preamble is skipped entirely so the existing fast path stays
+untouched. `os.getenv(...)` from user code reflects the merged
+record exactly the way Go and Rust subprocesses see their env.
+
+There is no `process.env` tier here — Pyodide has no host process
+to read from, and the Slice B contract explicitly keeps host env
+out of the renderer. The merge is therefore "global → project →
+tab" with no host underlay; that is honest about Pyodide's
+sandbox.
 
 ## Context
 
