@@ -98,6 +98,8 @@ describe('LANGUAGE_PACKS array integrity', () => {
       'rust',
       'lua',
       'ruby',
+      'c',
+      'cpp',
       'json',
       'yaml',
       'dotenv',
@@ -114,6 +116,32 @@ describe('LANGUAGE_PACKS array integrity', () => {
     for (const id of required) {
       expect(ids.has(id), `missing built-in pack: ${id}`).toBe(true);
     }
+  });
+
+  it('ships C and C++ as validate-only packs (RL-042 second slice)', () => {
+    const cPack = getLanguagePackById('c') as LanguagePack;
+    const cppPack = getLanguagePackById('cpp') as LanguagePack;
+    for (const pack of [cPack, cppPack]) {
+      expect(pack).toBeDefined();
+      expect(pack.execution).toBe('validate');
+      expect(pack.runnerId).toBeNull();
+      expect(pack.formatter).toBe('none');
+      expect(pack.capabilities.lsp).toBe('none');
+    }
+    expect(cPack.monacoLanguage).toBe('c');
+    expect(cPack.extensions).toEqual(expect.arrayContaining(['c', 'h']));
+    expect(cppPack.monacoLanguage).toBe('cpp');
+    expect(cppPack.extensions).toEqual(
+      expect.arrayContaining(['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx'])
+    );
+  });
+
+  it('resolves C and C++ packs by their canonical extensions', () => {
+    expect(getLanguagePackForExtension('c')?.id).toBe('c');
+    expect(getLanguagePackForExtension('h')?.id).toBe('c');
+    expect(getLanguagePackForExtension('cpp')?.id).toBe('cpp');
+    expect(getLanguagePackForExtension('.hpp')?.id).toBe('cpp');
+    expect(getLanguagePackForExtension('cxx')?.id).toBe('cpp');
   });
 
   it('ships Ruby as a validate-only pack (RL-042 first slice) — no runner, monaco grammar only', () => {

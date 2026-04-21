@@ -9,6 +9,8 @@ export type BuiltInLanguage =
   | 'python'
   | 'rust'
   | 'ruby'
+  | 'c'
+  | 'cpp'
   | 'json'
   | 'yaml'
   | 'dotenv'

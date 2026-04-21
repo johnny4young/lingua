@@ -51,6 +51,8 @@ const ENGLISH_FALLBACK_LABELS: Record<string, { label: string; shortLabel: strin
   rust: { label: 'Rust', shortLabel: 'Rs' },
   lua: { label: 'Lua', shortLabel: 'Lua' },
   ruby: { label: 'Ruby', shortLabel: 'Rb' },
+  c: { label: 'C', shortLabel: 'C' },
+  cpp: { label: 'C++', shortLabel: 'C++' },
   json: { label: 'JSON', shortLabel: 'JSON' },
   yaml: { label: 'YAML', shortLabel: 'YML' },
   dotenv: { label: '.env', shortLabel: 'ENV' },

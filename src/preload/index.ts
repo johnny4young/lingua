@@ -23,7 +23,11 @@ contextBridge.exposeInMainWorld('lingua', {
   // Go runner IPC
   go: {
     detect: () => ipcRenderer.invoke('go:detect'),
-    compile: (sourceCode: string) => ipcRenderer.invoke('go:compile', sourceCode),
+    // RL-011 Slice D: userEnv flows through to the Go subprocess and is
+    // merged over process.env in main. The renderer-side env-vars store
+    // already validated + sanitized the record before handing it off.
+    compile: (sourceCode: string, userEnv?: Record<string, string>) =>
+      ipcRenderer.invoke('go:compile', sourceCode, userEnv),
   },
 
   // Rust runner IPC

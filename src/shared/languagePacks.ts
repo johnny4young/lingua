@@ -26,6 +26,8 @@ export type LanguagePackId =
   | 'rust'
   | 'lua'
   | 'ruby'
+  | 'c'
+  | 'cpp'
   | 'json'
   | 'yaml'
   | 'dotenv'
@@ -238,6 +240,44 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     formatter: 'none',
     capabilities: { lsp: 'none', debugger: 'none' },
     docsUrl: 'https://www.ruby-lang.org/en/documentation/',
+    templateIds: [],
+  },
+  {
+    id: 'c',
+    labelKey: 'language.c.label',
+    shortLabelKey: 'language.c.shortLabel',
+    badgeClass: 'bg-sky-500/15 text-sky-300',
+    textColorClass: 'text-sky-300',
+    extensions: ['c', 'h'],
+    monacoLanguage: 'c',
+    defaultCode: "#include <stdio.h>\n\nint main(void) {\n    printf(\"Hello, Lingua\\n\");\n    return 0;\n}\n",
+    // RL-042 second slice: C ships validate-only, same posture as Ruby.
+    // A native toolchain runner (gcc / clang) lands in a follow-up slice
+    // that deals with desktop-only subprocess wiring; the pack entry
+    // today exists so file detection + Monaco highlighting work for any
+    // `.c` / `.h` source the user opens.
+    execution: 'validate',
+    runnerId: null,
+    formatter: 'none',
+    capabilities: { lsp: 'none', debugger: 'none' },
+    docsUrl: 'https://en.cppreference.com/w/c',
+    templateIds: [],
+  },
+  {
+    id: 'cpp',
+    labelKey: 'language.cpp.label',
+    shortLabelKey: 'language.cpp.shortLabel',
+    badgeClass: 'bg-indigo-500/15 text-indigo-300',
+    textColorClass: 'text-indigo-300',
+    extensions: ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx'],
+    monacoLanguage: 'cpp',
+    defaultCode:
+      '#include <iostream>\n\nint main() {\n    std::cout << "Hello, Lingua" << std::endl;\n    return 0;\n}\n',
+    execution: 'validate',
+    runnerId: null,
+    formatter: 'none',
+    capabilities: { lsp: 'none', debugger: 'none' },
+    docsUrl: 'https://en.cppreference.com/w/cpp',
     templateIds: [],
   },
   {
