@@ -72,6 +72,19 @@ describe('languageMeta', () => {
     expect(languageSupportsFileName('editorconfig', '.editorconfig')).toBe(true);
   });
 
+  it('resolves Swift and Kotlin through the LanguagePack descriptor (RL-042 third slice)', () => {
+    expect(languageForExtension('swift')).toBe('swift');
+    expect(languageForExtension('.swift')).toBe('swift');
+    expect(languageForExtension('kt')).toBe('kotlin');
+    expect(languageForExtension('kts')).toBe('kotlin');
+    expect(extensionForLanguage('swift')).toBe('swift');
+    expect(extensionForLanguage('kotlin')).toBe('kt');
+    expect(monacoLanguageFor('swift')).toBe('swift');
+    expect(monacoLanguageFor('kotlin')).toBe('kotlin');
+    expect(executionModeForLanguage('swift')).toBe('validate');
+    expect(executionModeForLanguage('kotlin')).toBe('validate');
+  });
+
   it('resolves C and C++ through the LanguagePack descriptor (RL-042 second slice)', () => {
     expect(languageForExtension('c')).toBe('c');
     expect(languageForExtension('.h')).toBe('c');

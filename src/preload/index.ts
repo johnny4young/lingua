@@ -33,7 +33,10 @@ contextBridge.exposeInMainWorld('lingua', {
   // Rust runner IPC
   rust: {
     detect: () => ipcRenderer.invoke('rust:detect'),
-    run: (sourceCode: string) => ipcRenderer.invoke('rust:run', sourceCode),
+    // RL-011 Slice D — userEnv flows through to rustc + spawn. The
+    // renderer-side envVarsStore already sanitized the record.
+    run: (sourceCode: string, userEnv?: Record<string, string>) =>
+      ipcRenderer.invoke('rust:run', sourceCode, userEnv),
   },
 
   // Formatter IPC — gofmt / rustfmt / python pipe source via stdin

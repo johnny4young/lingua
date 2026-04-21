@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUpdateStore } from '../../stores/updateStore';
+import type { Language } from '../../types';
 import { Kbd, OverlayBackdrop, OverlayCard, Tooltip } from '../ui/chrome';
 import { handleCloseOnEscape } from '../ui/keyboard';
 import { CommandPaletteResults } from './CommandPaletteResults';
@@ -45,14 +47,27 @@ export function CommandPalette({
 
   const { addTab, openFileFromDisk, saveActiveTabAs, duplicateActiveTab } = useEditorStore();
   const { snippets } = useSnippetsStore();
+  const executionHistory = useExecutionHistoryStore((state) => state.entries);
   const { setLayoutPreset } = useSettingsStore();
   const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
   const { t, i18n } = useTranslation();
+
+  // RL-028 third slice — when the user picks a recent-run entry, try to
+  // focus a tab that matches the run's language. If there isn't one
+  // open today we just close the palette (the action is informational
+  // until Slice D of RL-028 wires an actual replay path).
+  const focusLanguageTab = (language: Language) => {
+    const { tabs, setActiveTab } = useEditorStore.getState();
+    const match = tabs.find((tab) => tab.language === language);
+    if (match) setActiveTab(match.id);
+  };
 
   const allCommands = useMemo(() => {
     return buildCommandPaletteModel({
       templates: BUILT_IN_TEMPLATES,
       snippets,
+      executionHistory,
+      onFocusLanguageTab: focusLanguageTab,
       updateStatus,
       createTab: addTab,
       createDefaultTab,
@@ -79,6 +94,7 @@ export function CommandPalette({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     snippets,
+    executionHistory,
     addTab,
     setLayoutPreset,
     onClose,

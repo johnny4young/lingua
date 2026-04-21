@@ -2,6 +2,8 @@ import { runnerManager } from '../runners';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
+import { trackEvent } from '../utils/telemetry';
+import { bucketDurationMs } from '../../shared/telemetry';
 import type { FileTab, Language } from '../types';
 import {
   getCompilationLoadingMessage,
@@ -190,6 +192,16 @@ export async function executeTabManually(
       durationMs: result.executionTime ?? null,
     });
 
+    // RL-065 — emit runner.executed so consenting users' telemetry
+    // reflects runtime usage. `durationBucketMs` is already coarse
+    // (from shared/telemetry), and the property allowlist rejects
+    // anything beyond language/status/durationBucketMs.
+    void trackEvent('runner.executed', {
+      language,
+      status: result.error ? 'error' : 'ok',
+      durationBucketMs: bucketDurationMs(result.executionTime ?? 0),
+    });
+
     return {
       mode: 'run',
       ok: !result.error,
@@ -205,6 +217,14 @@ export async function executeTabManually(
       language,
       status: 'error',
       durationMs: null,
+    });
+
+    // RL-065 — mirror the error path in telemetry. `durationBucketMs: 0`
+    // because the runner never completed a timed window.
+    void trackEvent('runner.executed', {
+      language,
+      status: 'error',
+      durationBucketMs: 0,
     });
     if (!runnerPrepared) {
       setDiagnostics([]);

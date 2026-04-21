@@ -28,6 +28,8 @@ export type LanguagePackId =
   | 'ruby'
   | 'c'
   | 'cpp'
+  | 'swift'
+  | 'kotlin'
   | 'json'
   | 'yaml'
   | 'dotenv'
@@ -278,6 +280,38 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     formatter: 'none',
     capabilities: { lsp: 'none', debugger: 'none' },
     docsUrl: 'https://en.cppreference.com/w/cpp',
+    templateIds: [],
+  },
+  {
+    id: 'swift',
+    labelKey: 'language.swift.label',
+    shortLabelKey: 'language.swift.shortLabel',
+    badgeClass: 'bg-orange-500/15 text-orange-300',
+    textColorClass: 'text-orange-300',
+    extensions: ['swift'],
+    monacoLanguage: 'swift',
+    defaultCode: 'import Foundation\n\nprint("Hello, Lingua")\n',
+    execution: 'validate',
+    runnerId: null,
+    formatter: 'none',
+    capabilities: { lsp: 'none', debugger: 'none' },
+    docsUrl: 'https://docs.swift.org/swift-book/',
+    templateIds: [],
+  },
+  {
+    id: 'kotlin',
+    labelKey: 'language.kotlin.label',
+    shortLabelKey: 'language.kotlin.shortLabel',
+    badgeClass: 'bg-purple-500/15 text-purple-300',
+    textColorClass: 'text-purple-300',
+    extensions: ['kt', 'kts'],
+    monacoLanguage: 'kotlin',
+    defaultCode: 'fun main() {\n    println("Hello, Lingua")\n}\n',
+    execution: 'validate',
+    runnerId: null,
+    formatter: 'none',
+    capabilities: { lsp: 'none', debugger: 'none' },
+    docsUrl: 'https://kotlinlang.org/docs/home.html',
     templateIds: [],
   },
   {

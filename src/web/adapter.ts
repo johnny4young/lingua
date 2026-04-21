@@ -59,7 +59,10 @@ const rustStub: LinguaAPI['rust'] = {
     installed: false,
     error: t('errors.rust.webUnavailable'),
   }),
-  run: async (_sourceCode: string): Promise<RustRunResult> => ({
+  run: async (
+    _sourceCode: string,
+    _userEnv?: Record<string, string>
+  ): Promise<RustRunResult> => ({
     success: false,
     stdout: '',
     stderr: t('errors.rust.webUnavailable'),

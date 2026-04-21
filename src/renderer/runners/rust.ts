@@ -5,6 +5,7 @@ import type {
   ConsoleOutput,
 } from '../types';
 import { parseRustExecutionError } from '../utils/executionDiagnostics';
+import { resolveUserEnvForRunner } from './go';
 
 export class RustRunner implements LanguageRunner {
   id = 'rust';
@@ -43,7 +44,11 @@ export class RustRunner implements LanguageRunner {
       };
     }
 
-    const runResult = await window.lingua.rust.run(code);
+    // RL-011 Slice D — same resolver Go uses. processEnv stays empty
+    // in the renderer; the real merge over process.env happens in main
+    // so host secrets never cross the preload boundary.
+    const userEnv = resolveUserEnvForRunner();
+    const runResult = await window.lingua.rust.run(code, userEnv);
 
     const stdout: ConsoleOutput[] = runResult.stdout
       .split('\n')
