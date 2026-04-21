@@ -89,7 +89,34 @@ async function detectGo(): Promise<GoDetectResult> {
 }
 
 /** Compile Go source code to WASM */
-async function compileGoToWasm(sourceCode: string): Promise<GoCompileResult> {
+/**
+ * Merge a user-space env record over `process.env` for the Go subprocess.
+ * RL-011 Slice D contract: GOOS / GOARCH are runner-owned and
+ * **cannot** be overridden by the user env — they would silently break
+ * the WASM pipeline. Everything else the user set in the renderer's
+ * env-vars store (already validated + sanitized there) flows through.
+ */
+export function resolveGoCompileEnv(userEnv?: Record<string, string>): NodeJS.ProcessEnv {
+  const safeUserEnv: Record<string, string> = {};
+  if (userEnv) {
+    for (const [key, value] of Object.entries(userEnv)) {
+      if (typeof value !== 'string') continue;
+      safeUserEnv[key] = value;
+    }
+  }
+  return {
+    ...process.env,
+    ...safeUserEnv,
+    // Runner-owned — these must win over anything the user set.
+    GOOS: 'js',
+    GOARCH: 'wasm',
+  };
+}
+
+async function compileGoToWasm(
+  sourceCode: string,
+  userEnv?: Record<string, string>
+): Promise<GoCompileResult> {
   const goInfo = await detectGo();
   if (!goInfo.installed || !goInfo.goRoot) {
     return {
@@ -119,11 +146,7 @@ async function compileGoToWasm(sourceCode: string): Promise<GoCompileResult> {
     // Compile to WASM
     await execFileAsync('go', ['build', '-o', wasmFile, '.'], {
       cwd: tempDir,
-      env: {
-        ...process.env,
-        GOOS: 'js',
-        GOARCH: 'wasm',
-      },
+      env: resolveGoCompileEnv(userEnv),
       timeout: 30_000,
     });
 
@@ -163,7 +186,10 @@ export function registerGoHandlers(): void {
     return detectGo();
   });
 
-  ipcMain.handle('go:compile', async (_event, sourceCode: string) => {
-    return compileGoToWasm(sourceCode);
-  });
+  ipcMain.handle(
+    'go:compile',
+    async (_event, sourceCode: string, userEnv?: Record<string, string>) => {
+      return compileGoToWasm(sourceCode, userEnv);
+    }
+  );
 }

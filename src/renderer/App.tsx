@@ -338,10 +338,22 @@ export function App() {
       setSelectedUtilityId(utilityId ?? DEFAULT_DEVELOPER_UTILITY_ID);
     }
     setOverlay(nextOverlay);
+    // RL-065 — fire overlay.opened so a consenting user's telemetry can
+    // reflect which panels got use. trackEvent is a no-op unless consent
+    // is granted and the endpoint + kill-switch let it through; the
+    // allowlist already includes overlay.opened with an overlayId string
+    // property, so no allowlist churn here.
+    void trackEvent('overlay.opened', { overlayId: nextOverlay });
   };
 
   const toggleOverlay = (nextOverlay: Exclude<AppOverlay, 'none'>) => {
-    setOverlay((currentOverlay) => (currentOverlay === nextOverlay ? 'none' : nextOverlay));
+    setOverlay((currentOverlay) => {
+      const next = currentOverlay === nextOverlay ? 'none' : nextOverlay;
+      if (next !== 'none') {
+        void trackEvent('overlay.opened', { overlayId: next });
+      }
+      return next;
+    });
   };
 
   const closeOverlay = () => {

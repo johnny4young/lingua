@@ -17,6 +17,7 @@ import {
   getWasmExecCandidatePaths,
   readWasmExecJs,
   registerGoHandlers,
+  resolveGoCompileEnv,
 } from '../../src/main/go-compiler';
 
 describe('main go compiler helpers', () => {
@@ -68,6 +69,60 @@ describe('main go compiler helpers', () => {
     );
     await expect(readWasmExecJs(tempRoot)).rejects.toThrow(/lib\/wasm\/wasm_exec\.js/);
     await expect(readWasmExecJs(tempRoot)).rejects.toThrow(/misc\/wasm\/wasm_exec\.js/);
+  });
+});
+
+describe('main go compiler env resolver (RL-011 Slice D)', () => {
+  const PRESERVED = 'LINGUA_TEST_FIXTURE_KEEP';
+  const INJECTED = 'LINGUA_TEST_FIXTURE_INJECT';
+
+  beforeEach(() => {
+    process.env[PRESERVED] = 'host-value';
+    delete process.env[INJECTED];
+  });
+
+  afterEach(() => {
+    delete process.env[PRESERVED];
+    delete process.env[INJECTED];
+  });
+
+  it('spreads process.env underneath the user env so host values stay visible', () => {
+    const resolved = resolveGoCompileEnv({ [INJECTED]: 'user-value' });
+    expect(resolved[PRESERVED]).toBe('host-value');
+    expect(resolved[INJECTED]).toBe('user-value');
+  });
+
+  it('lets the user env override overlapping host keys (user wins over host)', () => {
+    const resolved = resolveGoCompileEnv({ [PRESERVED]: 'overridden-by-user' });
+    expect(resolved[PRESERVED]).toBe('overridden-by-user');
+  });
+
+  it('refuses to let userEnv overwrite GOOS / GOARCH — runner-owned keys stay wasm', () => {
+    const resolved = resolveGoCompileEnv({
+      GOOS: 'linux',
+      GOARCH: 'amd64',
+      [INJECTED]: 'still-here',
+    });
+    expect(resolved.GOOS).toBe('js');
+    expect(resolved.GOARCH).toBe('wasm');
+    expect(resolved[INJECTED]).toBe('still-here');
+  });
+
+  it('drops non-string user values defensively', () => {
+    const resolved = resolveGoCompileEnv({
+      [INJECTED]: 'ok',
+      // @ts-expect-error — simulate a tampered IPC payload
+      BAD: 42,
+    });
+    expect(resolved[INJECTED]).toBe('ok');
+    expect('BAD' in resolved).toBe(false);
+  });
+
+  it('produces a GOOS=js / GOARCH=wasm env even when userEnv is undefined', () => {
+    const resolved = resolveGoCompileEnv();
+    expect(resolved.GOOS).toBe('js');
+    expect(resolved.GOARCH).toBe('wasm');
+    expect(resolved[PRESERVED]).toBe('host-value');
   });
 });
 

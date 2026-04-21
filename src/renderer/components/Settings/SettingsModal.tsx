@@ -4,6 +4,7 @@ import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
 import { EnvVarsSection } from './EnvVarsSection';
+import { ExecutionHistorySection } from './ExecutionHistorySection';
 import { LayoutSection } from './LayoutSection';
 import { LicenseSection } from './LicenseSection';
 import { PluginsSection } from './PluginsSection';
@@ -58,6 +59,7 @@ export function SettingsModal({
               <LicenseSection />
               <PrivacySection />
               <EnvVarsSection />
+              <ExecutionHistorySection />
               <PluginsSection />
             </div>
           </div>

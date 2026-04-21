@@ -5,7 +5,7 @@ import { runnerManager } from '../runners';
 import type { ExecutionResult } from '../types';
 import { toExecutionPresentation } from '../utils/executionPresentation';
 import { toExecutionDiagnostics } from '../utils/executionDiagnostics';
-import { executionModeForLanguage } from '../utils/languageMeta';
+import { executionModeForLanguage, languageCapabilityBadgeKey } from '../utils/languageMeta';
 import { validateDocument } from '../validation';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
@@ -58,8 +58,19 @@ export function useAutoRun() {
         setIsAutoRunning,
       } = useResultStore.getState();
       const executionMode = executionModeForLanguage(language);
+      const isWebBuild =
+        typeof window !== 'undefined' && window.lingua?.platform === 'web';
+      const desktopOnlyGate =
+        isWebBuild &&
+        executionMode === 'run' &&
+        languageCapabilityBadgeKey(language) === 'language.capability.desktopOnly';
 
       if (executionMode === 'view') {
+        clear();
+        return;
+      }
+
+      if (desktopOnlyGate) {
         clear();
         return;
       }

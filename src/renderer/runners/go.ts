@@ -7,8 +7,29 @@ import type {
   WorkerResponse,
 } from '../types';
 import { parseGoExecutionError } from '../utils/executionDiagnostics';
+import { useEditorStore } from '../stores/editorStore';
+import { useEnvVarsStore } from '../stores/envVarsStore';
+import { useProjectStore } from '../stores/projectStore';
 
 const DEFAULT_TIMEOUT = 30_000;
+
+/**
+ * Resolve the effective user-space env for a subprocess runner.
+ * RL-011 Slice D — reads the global + project + tab tiers from the
+ * renderer store and composes them with an empty `processEnv` (the host
+ * env gets merged on the main-process side so secrets don't cross the
+ * preload). Exported so the future Rust / Python slices can reuse the
+ * exact same resolver without re-deriving the tier lookup.
+ */
+export function resolveUserEnvForRunner(): Record<string, string> {
+  const { activeTabId } = useEditorStore.getState();
+  const { currentProject } = useProjectStore.getState();
+  const { resolveEffectiveEnv } = useEnvVarsStore.getState();
+  // Spread into a plain mutable record so IPC doesn't receive a frozen
+  // object (structured clone handles it either way, but callers reading
+  // it downstream appreciate a plain shape).
+  return { ...resolveEffectiveEnv({}, currentProject?.id ?? null, activeTabId) };
+}
 
 export class GoRunner implements LanguageRunner {
   id = 'go';
@@ -51,8 +72,13 @@ export class GoRunner implements LanguageRunner {
       };
     }
 
-    // Step 1: Compile Go to WASM via IPC (main process)
-    const compileResult = await window.lingua.go.compile(code);
+    // Step 1: Compile Go to WASM via IPC (main process).
+    // RL-011 Slice D — resolve the user-space env (global + project +
+    // tab) and hand it to main so `go build` sees it. processEnv stays
+    // `{}` on the renderer side: the real process.env merge happens in
+    // main so host secrets never cross the preload boundary.
+    const userEnv = resolveUserEnvForRunner();
+    const compileResult = await window.lingua.go.compile(code, userEnv);
 
     if (!compileResult.success || !compileResult.wasmBytes || !compileResult.wasmExecJs) {
       return {

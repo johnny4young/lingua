@@ -72,6 +72,20 @@ describe('languageMeta', () => {
     expect(languageSupportsFileName('editorconfig', '.editorconfig')).toBe(true);
   });
 
+  it('resolves C and C++ through the LanguagePack descriptor (RL-042 second slice)', () => {
+    expect(languageForExtension('c')).toBe('c');
+    expect(languageForExtension('.h')).toBe('c');
+    expect(languageForExtension('cpp')).toBe('cpp');
+    expect(languageForExtension('hpp')).toBe('cpp');
+    expect(languageForExtension('.cxx')).toBe('cpp');
+    expect(extensionForLanguage('c')).toBe('c');
+    expect(extensionForLanguage('cpp')).toBe('cpp');
+    expect(monacoLanguageFor('c')).toBe('c');
+    expect(monacoLanguageFor('cpp')).toBe('cpp');
+    expect(executionModeForLanguage('c')).toBe('validate');
+    expect(executionModeForLanguage('cpp')).toBe('validate');
+  });
+
   it('resolves Ruby through the LanguagePack descriptor (RL-042 first slice)', () => {
     expect(languageForExtension('rb')?.toString()).toBe('ruby');
     expect(extensionForLanguage('ruby')).toBe('rb');
