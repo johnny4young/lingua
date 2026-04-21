@@ -75,15 +75,26 @@ export function Toolbar({
   const defaultNewFileLabel = languageLabel(defaultNewFileLanguage);
   const activeLanguage = activeTab?.language ?? 'javascript';
   const executionMode = executionModeForLanguage(activeLanguage);
-  const actionDisabled = !hasTabs || isRunning || executionMode === 'view';
+  // RL-038 Slice C — when the active language needs a host toolchain
+  // (Go, Rust) AND this is the web build, the Run button is honest about
+  // the gap: disabled + a localized tooltip pointing at the desktop
+  // build. Desktop users still see the normal Run affordance.
+  const isWebBuild =
+    typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const languageIsDesktopOnly =
+    languageCapabilityBadgeKey(activeLanguage) === 'language.capability.desktopOnly';
+  const desktopOnlyGate = isWebBuild && languageIsDesktopOnly && executionMode === 'run';
+  const actionDisabled =
+    !hasTabs || isRunning || executionMode === 'view' || desktopOnlyGate;
   const actionLabel =
     executionMode === 'validate'
       ? loadingMessage ?? (isRunning ? t('toolbar.validate.running') : t('toolbar.validate.label'))
       : executionMode === 'view'
         ? t('toolbar.viewOnly.label')
         : loadingMessage ?? (isRunning ? t('toolbar.run.running') : t('toolbar.run.label'));
-  const actionTooltip =
-    executionMode === 'validate'
+  const actionTooltip = desktopOnlyGate
+    ? t('toolbar.run.desktopOnlyTooltip')
+    : executionMode === 'validate'
       ? t('toolbar.validate.title')
       : executionMode === 'view'
         ? t('toolbar.viewOnly.title')
@@ -144,11 +155,19 @@ export function Toolbar({
 
         <div className="toolbar-divider" />
 
-        <Tooltip content={actionTooltip} disabled={actionDisabled}>
+        <Tooltip
+          content={actionTooltip}
+          // Suppress the tooltip only for "disabled because there are no
+          // tabs / still running / view-only" — those cases carry no
+          // value. Keep it visible for the desktop-only gate so the web
+          // user sees the explanation on hover.
+          disabled={actionDisabled && !desktopOnlyGate}
+        >
           <button
             onClick={run}
             disabled={actionDisabled}
             data-tour-id="run-button"
+            data-testid="toolbar-run-button"
             className="button-primary min-w-[7.4rem] justify-center bg-success text-background hover:bg-success/92"
           >
             {isInitializing ? (

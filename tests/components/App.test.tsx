@@ -17,6 +17,7 @@ const {
   mockSetHasCompletedTour,
   mockStartTour,
   mockUseDesktopSmoke,
+  mockTrackEvent,
 } = vi.hoisted(() => ({
   mockRestoreSession: vi.fn().mockResolvedValue(undefined),
   mockSaveSession: vi.fn(),
@@ -40,6 +41,7 @@ const {
   mockSetHasCompletedTour: vi.fn(),
   mockStartTour: vi.fn(),
   mockUseDesktopSmoke: vi.fn(),
+  mockTrackEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
 let beforeCloseHandler: (() => void) | undefined;
@@ -134,6 +136,10 @@ vi.mock('../../src/renderer/hooks/useAppTheme', () => ({
 
 vi.mock('../../src/renderer/hooks/useDesktopSmoke', () => ({
   useDesktopSmoke: mockUseDesktopSmoke,
+}));
+
+vi.mock('../../src/renderer/utils/telemetry', () => ({
+  trackEvent: mockTrackEvent,
 }));
 
 vi.mock('../../src/renderer/utils/desktopSmoke', () => ({
@@ -349,6 +355,21 @@ describe('App', () => {
       expect(mockSaveDialog).not.toHaveBeenCalled();
       expect(mockWrite).not.toHaveBeenCalled();
       expect(mockForceClose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('fires app.launched on mount and overlay.opened when the first-boot whats-new dialog opens (RL-065)', async () => {
+    // Default beforeEach state: lastSeenVersion is null and current
+    // version is 0.1.0, so the whats-new overlay opens automatically on
+    // first mount. That flow goes through openOverlay which now fires
+    // overlay.opened for the consenting-user telemetry.
+    render(<App />);
+
+    await waitFor(() => {
+      expect(mockTrackEvent).toHaveBeenCalledWith('app.launched', expect.any(Object));
+      expect(mockTrackEvent).toHaveBeenCalledWith('overlay.opened', {
+        overlayId: 'whats-new',
+      });
     });
   });
 });

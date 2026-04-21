@@ -272,6 +272,113 @@ describe('Toolbar', () => {
     expect(screen.queryByTestId('toolbar-new-file-capability-python')).toBeNull();
   });
 
+  it('disables the Run button and shows the desktop-only tooltip when Go is active on the web build (RL-038 Slice C)', async () => {
+    editorStoreState.tabs = [
+      {
+        id: 'tab-go',
+        name: 'main.go',
+        language: 'go',
+        content: 'package main\n',
+        isDirty: false,
+      },
+    ];
+    editorStoreState.activeTabId = 'tab-go';
+
+    const originalLingua = (window as unknown as { lingua?: unknown }).lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      writable: true,
+      value: { platform: 'web' },
+    });
+
+    const user = userEvent.setup();
+    try {
+      render(<Toolbar />);
+
+      const runBtn = screen.getByTestId('toolbar-run-button');
+      expect((runBtn as HTMLButtonElement).disabled).toBe(true);
+
+      await user.hover(runBtn);
+      expect(screen.getByRole('tooltip').textContent).toContain(
+        'This runtime needs the desktop build of Lingua'
+      );
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        writable: true,
+        value: originalLingua,
+      });
+    }
+  });
+
+  it('keeps Run enabled when Go is active on the desktop build (RL-038 Slice C)', () => {
+    editorStoreState.tabs = [
+      {
+        id: 'tab-go',
+        name: 'main.go',
+        language: 'go',
+        content: 'package main\n',
+        isDirty: false,
+      },
+    ];
+    editorStoreState.activeTabId = 'tab-go';
+
+    const originalLingua = (window as unknown as { lingua?: unknown }).lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      writable: true,
+      value: { platform: 'darwin' },
+    });
+
+    try {
+      render(<Toolbar />);
+      const runBtn = screen.getByTestId('toolbar-run-button');
+      expect((runBtn as HTMLButtonElement).disabled).toBe(false);
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        writable: true,
+        value: originalLingua,
+      });
+    }
+  });
+
+  it('localizes the desktop-only tooltip when i18next is Spanish (RL-038 Slice C)', async () => {
+    await i18next.changeLanguage('es');
+    editorStoreState.tabs = [
+      {
+        id: 'tab-rs',
+        name: 'main.rs',
+        language: 'rust',
+        content: 'fn main() {}\n',
+        isDirty: false,
+      },
+    ];
+    editorStoreState.activeTabId = 'tab-rs';
+
+    const originalLingua = (window as unknown as { lingua?: unknown }).lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      writable: true,
+      value: { platform: 'web' },
+    });
+
+    const user = userEvent.setup();
+    try {
+      render(<Toolbar />);
+      await user.hover(screen.getByTestId('toolbar-run-button'));
+      expect(screen.getByRole('tooltip').textContent).toContain(
+        'Este runtime requiere la build de escritorio de Lingua'
+      );
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        writable: true,
+        value: originalLingua,
+      });
+    }
+  });
+
   it('localizes the capability badge when i18next is Spanish', async () => {
     await i18next.changeLanguage('es');
     const user = userEvent.setup();

@@ -1,10 +1,34 @@
 # ADR — Environment variables for execution contexts (RL-011)
 
-| Status | Accepted — design |
+| Status | Accepted — design; Slices A / B / C / D-Go shipped |
 | ------ | ----------------- |
 | Decision | Add a tab-overrides-project-overrides-global env-var stack for desktop child-process runners (Go, Rust, Python). JS/TS Worker mode and the web build remain env-var free. |
 | Date | 2026-04-20 |
-| Implementation start | Unblocked by this ADR. Slice plan in the "Implementation slices" section below. |
+| Implementation start | Slice A (pure merger), Slice B (store + snapshot bridge shell), Slice C (Settings UI for all three tiers + trace preview), and Slice D first increment (Go compile IPC receives the merged user env, `GOOS`/`GOARCH` stay runner-owned) have shipped. Rust and Python subprocess integration each follow as their own slice. |
+
+## Slice D — final merge order (2026-04-20 ter)
+
+The Go compile path is the first runtime to consume the merged env end-
+to-end. The merge order lives in `resolveGoCompileEnv` in
+`src/main/go-compiler.ts` and is this, in order of increasing
+precedence:
+
+1. `process.env` (host — comes in via the main process, not via
+   preload; preserves credentials and machine-specific values).
+2. The user-space record composed by `useEnvVarsStore.resolveEffectiveEnv`
+   in the renderer (global → project → tab).
+3. Runner-owned keys (`GOOS=js`, `GOARCH=wasm` for Go) — these
+   **cannot** be overridden by the user env. Writing them in the user
+   tier is allowed (the Slice A validator lets them through) but they
+   get dropped during this final merge so the WASM build never breaks
+   silently.
+
+Non-string user values are dropped defensively at this step even though
+`envVarsStore` already rejects them up front. Rust and Python follow
+the same pattern; each will gain a parallel `resolveRustRunEnv` /
+`resolvePythonFormatEnv` helper that preserves its own runner-owned
+keys (e.g. `RUSTC_WRAPPER` may be forwarded from host; `PATH` for
+Python needs the same process.env base).
 
 ## Context
 

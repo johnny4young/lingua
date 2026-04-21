@@ -317,7 +317,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Scoping ADR, Slice A (pure merger), Slice B (store plumbing + snapshot bridge shell), Slice C first + second + third increments (global, tab, project tier editors + effective-env trace preview) shipped on 2026-04-20; Slice D (main-side runner integration) still pending`
+- Readiness: `Scoping ADR, Slice A (pure merger), Slice B (store plumbing + snapshot bridge shell), Slice C first + second + third increments (global, tab, project tier editors + effective-env trace preview) shipped on 2026-04-20; Slice D first increment (Go compile IPC threads the effective user env, GOOS/GOARCH stay runner-owned) shipped on 2026-04-20 ter; Rust and Python subprocess integration still pending`
 - Current progress:
   - `ENV_VARS_ADR.md` answers the three blocking questions: Go/Rust/Python receive env in desktop; JS/TS Workers and the web build do not; the merge order is tab > project > global with empty-string-as-real-value POSIX semantics
   - Secret-storage scope creep is explicitly blocked — env vars persist as plain JSON; secrets belong in the host shell or a vault
@@ -328,6 +328,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
   - Slice C first increment (2026-04-20): `src/renderer/components/Settings/EnvVarsSection.tsx` lands the Settings panel for the **global** tier. Add form + list + remove affordance + empty state + inline validator error (blank key, reserved/invalid POSIX name, over-cap value) + always-visible precedence hint so the user knows this is one tier of three. Wired into `SettingsModal` next to the Privacy section. Copy ships in en + es (`envVars.title/description/keyLabel/valueLabel/addButton/empty/emptyValueDisplay/removeAriaLabel/precedenceNote/error.keyRequired/error.rejected`). Seven new component tests pin empty state, successful add + draft reset, blank-key error, reserved-name rejection, empty-string sentinel, row removal, and the Spanish locale
   - Slice C second increment (2026-04-20 bis): extracts a generic `ScopeEditor` sub-component and adds the **tab** tier editor that reads `useEditorStore.activeTabId` and delegates to `setTabVar` / `removeTabVar`. Empty-tab placeholder renders when no tab is focused. Copy extends en + es (`envVars.globalTitle/tabTitle/tabDescription/tabEmpty/noActiveTab`). Seven new component tests cover the no-active placeholder, empty tab-scope, successful add + per-tab keying, row removal with automatic pruning of the tabId entry, validator error on the tab editor, and Spanish locale on both the editor copy and the placeholder
   - Slice C third increment (2026-04-20 bis): **project** tier editor reads `useProjectStore.currentProject.id` and falls back to a "no active project" placeholder; description interpolates the project name when one is open. Below the precedence note, a new collapsible `EffectiveEnvPanel` uses `traceEnvScopes` to render every resolved key with a tier badge (global / project / tab — `processEnv` stays empty by design, the host-side merge is Slice D). Copy extends en + es (`envVars.projectTitle/projectDescription{,NoProject}/projectEmpty/noActiveProject/effectiveTitle/effectiveEmpty/trace.tier.*`). Five additional component tests cover the no-active-project placeholder, project-scope writes keyed by projectId, the trace-panel tier-discrimination across SHARED/GLOBAL_ONLY/PROJECT_ONLY/TAB_ONLY, the empty-trace hint, and the Spanish locale
+  - Slice D first increment (2026-04-20 ter): Go compile IPC now accepts an optional `userEnv: Record<string, string>` second parameter. `resolveGoCompileEnv` in `src/main/go-compiler.ts` merges `process.env` + user env, then overrides `GOOS / GOARCH` with `js / wasm` so the WASM pipeline stays honest regardless of what the user set. Preload + web adapter + `LinguaAPI.go.compile` type signature all extend to carry the parameter. Renderer-side `src/renderer/runners/go.ts` exports a shared `resolveUserEnvForRunner()` helper that reads the global + project + tab tiers from `useEnvVarsStore` and passes the merged record through the IPC. Five new IPC-layer tests pin the merge order (host keys visible, user overrides host, `GOOS` / `GOARCH` immovable, non-string user values dropped, undefined userEnv still ships the wasm defaults); two new GoRunner tests pin that the renderer sends the merged tiers and falls back to `{}` when no tiers have values. Rust + Python subprocess integration is each a follow-up slice that reuses the same `resolveUserEnvForRunner` contract
 - Decisions needed:
   - Which runtimes receive env vars in desktop mode ✅
   - Which env vars, if any, should exist in web mode ✅
@@ -897,13 +898,14 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `First slice shipped on 2026-04-20 — a ring-buffer store captures metadata-only entries (language, status, durationMs, timestamp). UI (Recent Runs panel, replay, comparison) still pending`
+- Readiness: `First slice shipped on 2026-04-20 — a ring-buffer store captures metadata-only entries (language, status, durationMs, timestamp). Second slice shipped on 2026-04-20 ter — Settings row exposes the count and a Clear button wired to the store. Recent Runs panel, replay, and comparison UI still pending`
 - 2026-04-20 update:
   - `src/renderer/stores/executionHistoryStore.ts` ships a non-persisted Zustand store with `record / clear / byLanguage`; cap is `MAX_HISTORY_ENTRIES = 50`, FIFO drop for the 51st push; timestamps round to whole seconds to reduce fingerprintability
   - Store is **never persisted** — history stays in-memory across reloads, same privacy posture as the RL-065 telemetry work
   - Captures **only** language, status (`ok` / `error`), `durationMs` (null on init failure), and timestamp — no stdout, stderr, source, or file path
   - `executeTabManually` pushes one entry on the success branch and one on the catch branch, so users see both outcomes in the future Recent Runs surface
   - Seven new tests pin the metadata-only contract, null-duration support, unique id per push, the FIFO cap, `clear`, `byLanguage`, and caller snapshot immutability
+  - 2026-04-20 ter — second slice: `src/renderer/components/Settings/ExecutionHistorySection.tsx` lands a Settings row showing the current entry count (singular/plural via i18next `_one`/`_other`) and a Clear button gated on the count > 0. Wired into `SettingsModal` next to the env-vars section. Copy ships in en + es (`executionHistory.title/description/countLabel_one/countLabel_other/clearButton/privacyNote`). Five new component tests cover zero-count disabled state, singular form at 1 entry, count growth on record, Clear wiping the store, and Spanish locale
 - Scope:
   - Save execution snapshots
   - Replay previous inputs
@@ -1530,7 +1532,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Slice A (descriptor + thin shim migration) shipped on 2026-04-20; Slice B (runner dispatch + Lua first-class) shipped on 2026-04-20; Slice C first increment (capability badges in the New File menu) shipped on 2026-04-20; remaining Slice C surfaces (language selector elsewhere, capability-aware settings) still pending`
+- Readiness: `Slice A (descriptor + thin shim migration) shipped on 2026-04-20; Slice B (runner dispatch + Lua first-class) shipped on 2026-04-20; Slice C first increment (capability badges in the New File menu) shipped on 2026-04-20; Slice C fourth increment (Run button disabled + tooltip on web when language is desktop-only) shipped on 2026-04-20 ter; remaining Slice C surfaces (language selector elsewhere, capability-aware settings) still pending`
 - Current progress:
   - `LANGUAGE_PACK_ADR.md` records the accepted `LanguagePack` descriptor, the three-slice migration plan, and the no-marketplace constraint
   - Guard test `tests/docs/languagePackAdr.test.ts` pins the descriptor fields, migration slices, and adjacent ADR/RL cross-links
@@ -1538,6 +1540,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Slice B (2026-04-20): `src/renderer/runners/manager.ts` replaces the hardcoded constructor with a `BUILT_IN_RUNNER_FACTORIES` map keyed by `LanguagePack.runnerId` and a `LANGUAGE_PACKS` walk. `pluginRegistry.getByLanguage` stays as the fallback so plugin-sourced runners still resolve. Lua joins `LANGUAGE_PACKS` as a first-class entry (`execution: 'run'`, `runnerId: 'lua'`) — its runner is still plugin-sourced, which proves the pack walk is additive. New assertions: the pack test pins the Lua entry shape, and the manager test asserts Lua does NOT resolve from `LANGUAGE_PACKS` alone (plugin registration still required). All 884 tests pass
   - Slice C first increment (2026-04-20): `languageCapabilityBadgeKey(language)` reads `LanguagePack.capabilities.runtimeDependencies` and returns a stable i18n key (`language.capability.desktopOnly`) for host-toolchain languages (Go, Rust) or `null` for self-contained runtimes (JS, TS, Python, Lua). The Toolbar's New File menu renders the badge next to each language label when the helper returns a key. Copy ships in en + es (`Desktop only` / `Solo escritorio`). Tests pin the helper's per-language output and the Toolbar's badge rendering + localization
   - Slice C polish (2026-04-20): the `templateIds` field on every runnable built-in pack now points at the real template ids in `src/renderer/data/templates.ts` (js × 4, ts × 4, go × 3, py × 4, rs × 4). New resolver helper `templateIdsForPack(id)` reads them with a safe fallback. Four new guard tests assert every runnable pack declares at least one starter template (Lua exempt until its first starter ships), every declared id resolves to a real template and matches the pack's language, no built-in template is orphaned, and the resolver falls back cleanly for unknown ids. This closes the Slice A "declared templates per language" todo that previously shipped as an empty array
+  - Slice C fourth increment (2026-04-20 ter): the Toolbar's Run button is now honest on the web build — when the active language needs a host toolchain (Go, Rust) AND `window.lingua.platform === 'web'`, the button disables and its tooltip flips to `toolbar.run.desktopOnlyTooltip` instead of the generic title. Other disabled reasons (no tabs, still running, view-only) keep the tooltip suppressed as before. Copy ships in en + es. Three new Toolbar tests cover the web-with-Go disabled + localized tooltip, the desktop-with-Go still-enabled path, and the Spanish locale on the tooltip
 - Why this matters:
   - The current built-in language support is functional but still somewhat scattered across templates, runners, toolbar metadata, and settings
   - Plugin support should stay conservative until the built-in architecture is cleaner
@@ -1731,12 +1734,13 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `First slice shipped on 2026-04-20 — Ruby landed as a validate-only LanguagePack entry so the file tree and language selector can pick .rb files today. Execution runtimes (Ruby, C/C++, Java, Kotlin, etc.) still pending and each is its own slice`
+- Readiness: `First and second validate-only slices shipped on 2026-04-20 — Ruby, C, and C++ land as LanguagePack entries so the file tree and language detection can pick .rb / .c / .h / .cpp / .cc / .cxx / .hpp / .hh / .hxx files today. Execution runtimes (Ruby, C/C++, Java, Kotlin, etc.) still pending and each is its own slice`
 - 2026-04-20 update:
   - `ruby` joins `LANGUAGE_PACKS` with `execution: 'validate'`, `runnerId: null`, Monaco's built-in Ruby grammar, and `.rb` extension detection
   - `BuiltInLanguage` in `src/renderer/types/index.ts` and `ENGLISH_FALLBACK_LABELS` in `src/renderer/utils/languageMeta.ts` both know about Ruby
   - Pack guard test pins Ruby's validate-only shape + the `.rb` extension round-trip; `languageMeta.test.ts` asserts the detection + Monaco routing
   - Toolbar's New File menu stays untouched for now (separate list); a future slice promotes Ruby there once an execution runtime lands
+  - 2026-04-20 ter — RL-042 second slice: `c` and `cpp` join `LANGUAGE_PACKS` the same validate-only way. `c` claims `.c` + `.h`, `cpp` claims `.cpp / .cc / .cxx / .hpp / .hh / .hxx`. Monaco's built-in `c` and `cpp` grammars handle highlighting; `BuiltInLanguage` + `ENGLISH_FALLBACK_LABELS` know about both; tests pin the extension round-trips, validate mode, and null runnerId. Native toolchain runners (gcc / clang) are their own follow-up slice
   - Original `Planned` readiness note preserved below as history
 - Why this matters:
   - CodeRunner supports 25 languages out of the box
@@ -2630,7 +2634,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 
 - Priority: `P1` for Phase 2
 - Status: `Partial`
-- Readiness: `Consent toggle + base event wiring completed on 2026-04-19; first-run desktop prompt shipped on 2026-04-20`
+- Readiness: `Consent toggle + base event wiring completed on 2026-04-19; first-run desktop prompt shipped on 2026-04-20; overlay.opened callsites shipped on 2026-04-20 ter`
 - 2026-04-19 update:
   - `createSessionId()` produces a 32-char hex id per launch; held in renderer module scope, never persisted, never transmitted as a user identifier
   - `resolveTelemetryBase()` assembles app version, OS bucket, license status, and sessionId from the live stores
@@ -2643,6 +2647,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - `settingsStore` grows a three-state `telemetryConsent` (`unset | granted | declined`) persisted across sessions, and `PrivacySection` in Settings renders a toggle with live status copy; default stays `unset` so telemetry is off unless the user affirmatively opts in
   - Enforcement tests cover: allowlist drift, non-primitive values rejected, key substrings like `sourceCode` dropped even when snuck onto an event, timestamps rounded, bucketers coarse
   - 2026-04-20 update: `src/renderer/components/FirstRunConsentModal.tsx` ships the one-time opt-in prompt, mounted from `App` on boot. Renders while `telemetryConsent === 'unset'` AND the desktop consent bridge is present (`window.lingua.consent`) — the web build skips it because there is no telemetry on web. Allow and Decline both flip the three-state flag, which removes the `unset` gate so the modal never reappears and mirrors the choice through the existing `consent:set` IPC. Copy ships in en + es (`privacy.firstRun.title / body / changeLater / allow / decline`). Six new component tests cover desktop render, web suppression, post-choice suppression, Allow/Decline side-effects, and Spanish locale
+  - 2026-04-20 ter update: `App.openOverlay` and `App.toggleOverlay` now fire `trackEvent('overlay.opened', { overlayId })` so a consenting user's telemetry reflects which Lingua surfaces actually got used. No allowlist churn (the event + property were already permitted in `src/shared/telemetry.ts`). No copy churn (the consent body already names "which overlays you opened"). `tests/components/App.test.tsx` pins that both `app.launched` and the auto-boot `overlay.opened { overlayId: 'whats-new' }` fire on the default first-boot path, using a hoisted mock of `@/utils/telemetry`
 - Why this matters:
   - Phase 2 distribution posts generate a short traffic window. Without any measurement, we cannot learn what converted.
   - The app is local-first; telemetry must be explicitly opt-in and never record user code.

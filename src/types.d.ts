@@ -247,7 +247,10 @@ interface LinguaAPI {
 
   go: {
     detect: () => Promise<GoDetectResult>;
-    compile: (sourceCode: string) => Promise<GoCompileResult>;
+    compile: (
+      sourceCode: string,
+      userEnv?: Record<string, string>
+    ) => Promise<GoCompileResult>;
   };
 
   rust: {

@@ -25,7 +25,10 @@ const goStub: LinguaAPI['go'] = {
     installed: false,
     error: t('errors.go.webUnavailable'),
   }),
-  compile: async (_sourceCode: string): Promise<GoCompileResult> => ({
+  compile: async (
+    _sourceCode: string,
+    _userEnv?: Record<string, string>
+  ): Promise<GoCompileResult> => ({
     success: false,
     error: t('errors.go.webUnavailable'),
   }),

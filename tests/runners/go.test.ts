@@ -19,10 +19,20 @@ Object.defineProperty(globalThis, 'window', {
 });
 
 import { GoRunner } from '@/runners/go';
+import { useEnvVarsStore } from '@/stores/envVarsStore';
+import { useEditorStore } from '@/stores/editorStore';
+import { useProjectStore } from '@/stores/projectStore';
 
 describe('GoRunner', () => {
+  const initialEnv = useEnvVarsStore.getState();
+  const initialEditor = useEditorStore.getState();
+  const initialProject = useProjectStore.getState();
+
   beforeEach(() => {
     vi.clearAllMocks();
+    useEnvVarsStore.setState(initialEnv, true);
+    useEditorStore.setState(initialEditor, true);
+    useProjectStore.setState(initialProject, true);
   });
 
   it('should have correct metadata', () => {
@@ -147,5 +157,74 @@ describe('GoRunner', () => {
     const runner = new GoRunner();
     await runner.init();
     expect(mockDetect).toHaveBeenCalledOnce();
+  });
+
+  it('RL-011 Slice D — forwards the merged user env (global + project + tab) to go:compile', async () => {
+    mockDetect.mockResolvedValue({
+      installed: true,
+      version: 'go1.22.0',
+      goRoot: '/usr/local/go',
+    });
+    mockCompile.mockResolvedValue({ success: false, error: 'mock' });
+
+    // Seed the renderer stores with user-space env across three tiers
+    // so the runner must compose all of them through the Slice A
+    // merger before firing the IPC.
+    useEnvVarsStore.setState({
+      global: { SHARED: 'from-global', GLOBAL_ONLY: 'g' },
+      project: { 'proj-1': { SHARED: 'from-project', PROJECT_ONLY: 'p' } },
+      tab: { 'tab-1': { SHARED: 'from-tab', TAB_ONLY: 't' } },
+    });
+    useProjectStore.setState({
+      currentProject: {
+        id: 'proj-1',
+        name: 'Fixture',
+        rootPath: '/tmp/fixture',
+        openedAt: Date.now(),
+      },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-1',
+          name: 'main.go',
+          language: 'go',
+          content: '',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-1',
+    });
+
+    const runner = new GoRunner();
+    await runner.init();
+    await runner.execute('package main\nfunc main() {}');
+
+    expect(mockCompile).toHaveBeenCalledTimes(1);
+    const [sourceCode, userEnv] = mockCompile.mock.calls[0] as [string, Record<string, string>];
+    expect(sourceCode).toContain('package main');
+    // Tab wins over project + global for SHARED; tier-unique keys survive.
+    expect(userEnv).toMatchObject({
+      SHARED: 'from-tab',
+      GLOBAL_ONLY: 'g',
+      PROJECT_ONLY: 'p',
+      TAB_ONLY: 't',
+    });
+  });
+
+  it('RL-011 Slice D — forwards an empty env when no tiers have values', async () => {
+    mockDetect.mockResolvedValue({
+      installed: true,
+      version: 'go1.22.0',
+      goRoot: '/usr/local/go',
+    });
+    mockCompile.mockResolvedValue({ success: false, error: 'mock' });
+
+    const runner = new GoRunner();
+    await runner.init();
+    await runner.execute('package main\nfunc main() {}');
+
+    const [, userEnv] = mockCompile.mock.calls[0] as [string, Record<string, string>];
+    expect(userEnv).toEqual({});
   });
 });
