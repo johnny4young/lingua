@@ -1653,7 +1653,7 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 | Built-in web inspector / DOM debugger | CodeRunner 4 | RL-019 browser preview covers part; DOM inspector is new |
 | Reactive notebook cells / dataflow | marimo, Jupyter, Observable | New: RL-043 notebook mode |
 | Rich data visualization inline | Jupyter, marimo, Observable | New: RL-044 inline visualization |
-| Built-in developer utilities (regex, JSON, diff) | DevToys, VS Code extensions, cod-ai.com | New: RL-045 dev utilities |
+| Built-in developer utilities (regex, JSON, diff) | DevToys, DevUtils.app, VS Code extensions, cod-ai.com | RL-045 ✅ (10 utilities); follow-ups RL-068 (coverage), RL-069 (productivity layer), RL-070 (beautify/minify + conversions), RL-071 (parity hardening), RL-072 (QR + string inspector) |
 | Gamification / achievements / progress tracking | Codecademy, Duolingo-style apps | New: RL-046 gamification |
 | Algorithm visualization / step-through animation | VisuAlgo, Programiz, DSA Visualizer | New: RL-047 algorithm visualization |
 | GPU-accelerated rendering (120fps) | Zed | Aspirational; not blocking |
@@ -2707,6 +2707,312 @@ RL-036 is now re-prioritized for the execution order summary. Phase A (local sha
 
 ---
 
+## 15. DevUtils benchmark and dev-utilities follow-up (2026-04-21)
+
+Research pass completed on `2026-04-21` against DevUtils.app, a macOS offline
+developer toolbox that is the most frequently cited competitor for the
+built-in utilities surface. Public pages were unreachable from this sandbox
+(both `https://devutils.com/` and `https://devutils.com/demo/` returned
+HTTP 403 to our fetcher), so the research below is consolidated from the
+public product description, the Mac App Store listing, the DevUtils docs
+index, the HN Show HN thread, and the Setapp catalog entry.
+
+Sources used:
+
+- `https://devutils.com/` — landing page, tool list, feature callouts
+- `https://devutils.com/demo/` — interactive web demo of the same tools
+- `https://devutils.com/docs/` — per-tool documentation
+- `https://apps.apple.com/us/app/devutils-app/id1533756032` — Mac App Store listing
+- `https://news.ycombinator.com/item?id=24604291` — Show HN thread with
+  clipboard-detection and hotkey details
+- `https://setapp.com/apps/devutils.app` — Setapp catalog entry
+
+### What DevUtils actually ships
+
+Tools (grouped by category, as DevUtils presents them):
+
+- **Formatters / beautify / minify**: JSON Formatter & Validator, HTML
+  Beautify/Minify, CSS Beautify/Minify, JS Beautify/Minify, XML
+  Beautify/Minify, SCSS / LESS / ERB Beautify/Minify, SQL Formatter,
+  HTML Preview, Markdown Preview
+- **Encoders / decoders**: Base64 String, Base64 Image, URL
+  Encode/Decode, HTML Entity Encode/Decode, Backslash Escape/Unescape,
+  JWT Debugger (decode, sign, verify — HS256/384/512, RS256/384/512,
+  ES256/384/512, PS256/384/512)
+- **Converters**: YAML ↔ JSON, JSON ↔ CSV, PHP ↔ JSON, PHP Serialize /
+  Unserialize, Number Base Converter, Color Converter, HTML to JSX,
+  SVG to CSS, cURL to Code
+- **Generators**: UUID / ULID, Lorem Ipsum, Random String, QR Code
+  (generate + read), Hash Generator (MD5, SHA-family)
+- **Network / inspectors**: RegExp Tester, URL Parser, String
+  Inspector, Cron Job Parser, Unix Time Converter, Text Diff Checker
+
+Cross-cutting productivity layer that ships alongside the tools:
+
+- **Smart input detection** — each tool has a lightning-icon "auto-apply"
+  button that inspects the clipboard and applies the tool when the
+  shape matches (e.g. RegExp Tester detects a pasted regex; JSON
+  Formatter detects pasted JSON)
+- **Clipboard monitoring** — optional, disabled via Preferences
+- **Per-tool history** — previous inputs and outputs are recallable
+- **Favorites** — pin your most-used tools at the top
+- **Keyboard shortcuts** — `⌘⇧C` Copy Output, `⌘⇧R` Instant Replace
+  Clipboard (replace clipboard with output); `⌥`-click the status bar
+  icon instantly copies the current result
+- **Offline-first, privacy-first** — nothing leaves the machine; the
+  whole toolbox works without network
+
+### Where Lingua stands today
+
+RL-045 shipped 10 utilities in the Developer Utilities workspace (JSON
+formatter, Base64, URL, UUID, SHA-1/256 hash, Unix timestamp, JWT
+decoder, regex tester, color converter, line-level diff). That covers
+roughly a quarter of DevUtils' surface and none of DevUtils' productivity
+layer — no per-tool history, no favorites, no auto-detect, no "copy
+output" / "replace clipboard" shortcuts.
+
+Gap table (coverage is relative to DevUtils; items the repo intentionally
+does not pursue are marked `Skip`):
+
+| DevUtils tool or feature | Lingua today | Follow-up item |
+| --- | --- | --- |
+| JSON Formatter/Validator | ✅ RL-045 | — |
+| Base64 String Encode/Decode | ✅ RL-045 | — |
+| URL Encode/Decode | ✅ RL-045 | — |
+| UUID v4 Generator | ✅ RL-045 | RL-071 (add v7, ULID, decode) |
+| SHA-1 / SHA-256 Hash | ✅ RL-045 | RL-071 (add MD5, SHA-384, SHA-512, HMAC, file hashing) |
+| Unix Time Converter | ✅ RL-045 | — |
+| JWT Decoder | ✅ RL-045 | RL-071 (add verify + sign for HS/RS/ES/PS) |
+| RegExp Tester | ✅ RL-045 | — |
+| Color Converter | ✅ RL-045 | — |
+| Line Diff Checker | ✅ RL-045 (line-level only) | RL-071 (word + character modes) |
+| YAML ↔ JSON | ❌ | RL-068 |
+| JSON ↔ CSV | ❌ | RL-068 |
+| Number Base Converter | ❌ | RL-068 |
+| URL Parser | ❌ | RL-068 |
+| HTML Entity Encode/Decode | ❌ | RL-068 |
+| Backslash Escape/Unescape | ❌ | RL-068 |
+| String Case Converter | ❌ | RL-068 |
+| Lorem Ipsum Generator | ❌ | RL-068 |
+| Random String Generator | ❌ | RL-068 |
+| Cron Job Parser | ❌ | RL-068 |
+| Markdown Preview | ❌ | RL-068 |
+| SQL Formatter | ❌ | RL-068 |
+| HTML / CSS / JS / XML / SCSS / LESS Beautify + Minify | ❌ | RL-070 |
+| HTML → JSX | ❌ | RL-070 |
+| SVG → CSS | ❌ | RL-070 |
+| cURL → Code | ❌ | RL-070 |
+| Base64 Image Encode/Decode | ❌ | RL-071 |
+| QR Code Generate / Read | ❌ | RL-072 |
+| String Inspector | ❌ | RL-072 |
+| Smart input auto-detect (lightning button) | ❌ | RL-069 |
+| Optional clipboard monitoring | ❌ | RL-069 (off by default, never background-polls) |
+| Per-tool history | ❌ | RL-069 |
+| Favorites + tool search within the workspace | ❌ | RL-069 |
+| `⌘⇧C` Copy Output / `⌘⇧R` Replace Clipboard shortcuts | ❌ | RL-069 |
+| HTML Preview | ❌ | Skip — subsumed by Markdown Preview (RL-068) + the RL-019 browser preview story |
+| PHP ↔ JSON, PHP Serialize/Unserialize | ❌ | Skip — out of audience for a JS/TS/Go/Python/Rust runner |
+| ERB Beautify/Minify | ❌ | Skip — out of audience |
+
+### Why these follow-ups now
+
+- **Product positioning**: the `README` already lists "built-in developer
+  utilities" as a first-class capability and the Pro tier matrix
+  (Section 13) already counts the utilities panel as a Pro entitlement.
+  Closing the DevUtils coverage gap is a direct way to make that
+  entitlement feel earned without changing the commercial story.
+- **Privacy posture alignment**: DevUtils' offline-first message is the
+  same one Lingua sells. Every follow-up below has a clean web-build
+  story (all pure, all lazy-loaded) and none of them require a new
+  network call, so they stay consistent with RL-065 (opt-in telemetry)
+  and RL-067 (opt-in crash reporting).
+- **Zero dependency on Tier 1.5 monetization work**: these slices can
+  land in parallel with Phase 2 distribution because they do not touch
+  licensing infra, release pipelines, or domain hosting.
+
+### RL-068 Expand developer utilities with DevUtils-equivalent coverage
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready to implement — extends RL-045 without new infra`
+- Why this matters:
+  - DevUtils ships 40+ tools; Lingua ships 10. Closing the practical
+    subset (YAML/JSON, CSV/JSON, number base, URL parser, HTML entity,
+    backslash, string case, lorem, random string, cron, markdown
+    preview, SQL formatter) covers the long tail of day-to-day requests
+    without pulling Lingua into PHP/Ruby territory that our audience
+    does not need.
+- Scope:
+  - Add the following lazy-loaded panels to the Developer Utilities
+    workspace:
+    - YAML ↔ JSON (preserve comments when possible; explicit diagnostic
+      when losing them)
+    - JSON ↔ CSV (configurable delimiter + header row)
+    - Number Base Converter (bin / oct / dec / hex + custom base 2–36)
+    - URL Parser (scheme / user / host / port / path / query / fragment,
+      per-key query table)
+    - HTML Entity Encode/Decode
+    - Backslash Escape/Unescape (with language-aware presets)
+    - String Case Converter (camel, snake, kebab, pascal, constant,
+      sentence, title)
+    - Lorem Ipsum Generator (word / sentence / paragraph counts)
+    - Random String Generator (length, charset toggles, multiple outputs)
+    - Cron Job Parser (next N runs, human-readable explanation)
+    - Markdown Preview (GFM subset, no remote image fetch)
+    - SQL Formatter (ANSI + PostgreSQL + MySQL dialects)
+  - Command Palette entry per tool (`Open YAML to JSON`, etc.)
+  - Each tool ships with at least three golden-input tests
+  - Strings localized through the RL-018 i18n system on landing
+- Acceptance criteria:
+  - All 12 tools are reachable from the toolbar and Command Palette
+  - Each tool has its own pure module under `DeveloperUtilities/`
+    consumed by both desktop and web builds
+  - Bundle size of the main editor chunk does not grow (utilities stay
+    lazy)
+- Dependencies:
+  - RL-045 ✅
+  - RL-018 (i18n infrastructure) for copy strings
+
+### RL-069 DevUtils-class productivity layer for the utilities workspace
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready after RL-037 shortcut editor lands; design can start now`
+- Why this matters:
+  - DevUtils' biggest win over DevToys is the productivity layer:
+    clipboard-aware "apply" button, per-tool history, favorites, and
+    hotkeys that move output back to the clipboard in one keystroke.
+    Adding the same layer on top of RL-045 converts the utilities
+    workspace from "nice to have" to "faster than leaving the app".
+- Scope:
+  - Smart input auto-detection per tool:
+    - Each utility exposes a `detect(input: string): boolean` helper
+    - A "⚡ Apply from input" button calls `detect` against the current
+      panel input and, if it matches, runs the tool immediately
+    - The detection is purely local — no background clipboard polling
+  - Optional clipboard-on-focus apply (explicit Settings toggle,
+    default off, consent copy aligned with RL-065 telemetry posture):
+    - When enabled, focusing a utility panel reads the clipboard once
+      and offers (not forces) the apply
+    - Never reads clipboard when the workspace is not focused
+  - Per-tool history:
+    - Session-scoped by default (cleared on reload)
+    - Persist-to-disk toggle per tool, gated behind a `Clear history`
+      action
+  - Favorites:
+    - Pin tools to a "Favorites" row at the top of the workspace
+    - Reorder by drag and drop
+  - Tool search:
+    - Fuzzy search field at the top of the workspace
+    - Searches tool name + category + common aliases (e.g. "jwt"
+      matches "JWT Debugger")
+  - Keyboard shortcuts (registered through the RL-037 shortcut editor):
+    - `Cmd/Ctrl+Shift+C` Copy Output from the focused utility panel
+    - `Cmd/Ctrl+Shift+R` Replace clipboard with the current output
+- Acceptance criteria:
+  - Clipboard auto-apply is opt-in; a fresh install never reads the
+    clipboard without a user gesture
+  - History and favorites survive reload when persistence is enabled
+  - Both new shortcuts appear in the Keyboard Shortcuts overlay and can
+    be rebound
+  - The utilities modal continues to pass the RL-018 i18n copy check
+- Dependencies:
+  - RL-045 ✅
+  - RL-037 (keyboard shortcut editor) — for shortcut registration
+  - RL-065 consent copy patterns — for the clipboard opt-in wording
+
+### RL-070 Beautify / minify suite and code-conversion bundle
+
+- Priority: `P3`
+- Status: `Planned`
+- Readiness: `Ready to design; Pro-tier candidate under the RL-060 entitlement table`
+- Why this matters:
+  - Beautify + minify is the single largest bucket in DevUtils' tool
+    list (HTML / CSS / JS / XML / SCSS / LESS / JSON). Most of it maps
+    to Prettier or to small pure-JS libraries we can lazy-load.
+  - Code conversion (HTML → JSX, SVG → CSS, cURL → Code) is high-value
+    for exactly the audience Lingua already targets (TS + Python + Go).
+- Scope:
+  - Unified Beautify + Minify panel with a language selector for:
+    HTML, CSS, SCSS, LESS, JavaScript, JSON, XML. Beautify reuses
+    Prettier (already bundled via RL-010); minify uses a small
+    per-language minifier loaded only when the language is selected.
+  - Code conversion bundle:
+    - HTML → JSX (attribute mapping, `class` → `className`, self-closing
+      tags, inline-style object form)
+    - SVG → CSS (inline data-URI background-image with width/height
+      hints)
+    - cURL → Code with targets: `fetch`, Node `undici`, Python
+      `requests`, Go `net/http`. Handle `-H`, `-d`, `--data-binary`,
+      `-X`, and basic auth.
+- Acceptance criteria:
+  - Round-trip beautify → minify → beautify is stable for the bundled
+    fixtures
+  - cURL → Code passes a fixture suite of 10 real-world invocations
+  - All new panels stay lazy-loaded
+- Dependencies:
+  - RL-045 ✅
+  - RL-010 (format-on-save) — reuses the existing Prettier pipeline
+
+### RL-071 Harden existing utilities to DevUtils parity
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready to implement in small slices, each utility independently`
+- Why this matters:
+  - Every existing utility (JWT, Hash, UUID, Diff, Base64) has a clear
+    DevUtils counterpart that does more. Closing those gaps is cheaper
+    than adding new tools because the panels, i18n keys, and Command
+    Palette entries already exist.
+- Scope:
+  - **JWT Debugger**: add verify + sign flows using Web Crypto for
+    HS256/384/512, RS256/384/512, ES256/384/512, PS256/384/512. Keys
+    never leave the renderer. Paste-key UX plus generate-key UX.
+  - **Hash Generator**: add MD5, SHA-384, SHA-512, HMAC variants, and
+    file-input hashing via drag-and-drop (renderer streaming, no
+    IPC).
+  - **UUID**: add UUID v7 and ULID generators; add a UUID/ULID decoder
+    that surfaces version + embedded timestamp.
+  - **Diff Viewer**: add word-level and character-level modes alongside
+    the current line-level view; retain the existing summary.
+  - **Base64**: add Base64 Image Encode/Decode panel (drag an image in,
+    copy data-URI out; paste data-URI in, preview the image).
+- Acceptance criteria:
+  - JWT sign + verify round-trip is covered by tests for every
+    supported algorithm
+  - Hashes match known test vectors for MD5, SHA-256, SHA-384, SHA-512
+  - UUID v7 and ULID outputs conform to the respective drafts
+  - Web + desktop behavior stays identical (no IPC dependency added)
+- Dependencies:
+  - RL-045 ✅
+
+### RL-072 Specialty utilities — QR + String Inspector
+
+- Priority: `P3`
+- Status: `Planned`
+- Readiness: `Lower priority; useful for press-kit screenshots but not a daily-driver gap`
+- Why this matters:
+  - QR code generate + read is a DevUtils staple and one of the more
+    recognizable screenshots in competitor comparisons.
+  - A String Inspector (unicode code points, invisible characters, byte
+    length, encoding) is the single tool developers most often reach
+    for when debugging weird copy-paste.
+- Scope:
+  - **QR Code**: generate (payload + error-correction level), read
+    (upload image, decode locally; no network).
+  - **String Inspector**: render code points, highlight
+    invisible/whitespace characters, surface byte length per
+    UTF-8/UTF-16, and call out mixed-script homoglyphs.
+- Acceptance criteria:
+  - QR decoding works offline on at least PNG and JPEG inputs
+  - String Inspector flags zero-width and BiDi control characters by
+    default
+  - Bundle size of the main editor chunk does not grow
+- Dependencies:
+  - RL-045 ✅
+
+---
+
 ## Execution order summary (updated 2026-04-13)
 
 ### Status legend
@@ -2818,6 +3124,11 @@ Ship these before Phase 2 distribution. Every item is a blocker for charging for
 | RL-026 | Language intelligence beyond JS/TS (LSP) | RL-030, RL-038 | Large |
 | RL-029 | WebContainers pilot (JS/TS web only) | RL-025 | Medium |
 | RL-037 | Deep editor personalization (keys, fonts, vim) | RL-018 | Medium |
+| RL-068 | Expand developer utilities (YAML/CSV/cron/markdown/SQL/etc.) | RL-045 ✅, RL-018 | Medium |
+| RL-069 | DevUtils-class productivity layer (auto-detect, history, favorites, shortcuts) | RL-045 ✅, RL-037 | Medium |
+| RL-071 | Harden existing utilities (JWT sign/verify, hash MD5/384/512 + file, UUIDv7/ULID, word-diff, Base64 image) | RL-045 ✅ | Medium |
+| RL-070 | Beautify/minify suite + HTML→JSX, SVG→CSS, cURL→code | RL-045 ✅, RL-010 | Medium |
+| RL-072 | QR code + String Inspector | RL-045 ✅ | Small |
 
 ---
 
