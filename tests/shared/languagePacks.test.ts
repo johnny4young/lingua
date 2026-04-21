@@ -302,3 +302,55 @@ describe('resolver helpers', () => {
     expect(runnerIdForPack('json')).toBeNull();
   });
 });
+
+// RL-038 drift guard: the language-pack capabilities should stay in sync
+// with the actual validators registered in `src/renderer/validation`. If a
+// new validator ships without the corresponding pack flag, this test fails
+// and points at the mismatch so the registry can't silently lie about what
+// the pipeline actually does.
+//
+// Known overload: a few packs use `execution: 'validate'` as a "visible but
+// no runtime yet" placeholder (see the Ruby pack comment in
+// `src/shared/languagePacks.ts`). A future schema slice can split that into
+// a dedicated `placeholder` mode; until then we allow-list those ids so the
+// drift check stays strict on the real validators without blocking the
+// placeholder UX.
+// RL-042 ships several languages as "validate-mode placeholders" — file
+// detection + Monaco highlighting work but there's no runtime or validator
+// yet. See the inline comments on each of these packs in
+// `src/shared/languagePacks.ts`. When a real validator lands, remove the
+// pack id from this set so the drift guard starts enforcing it.
+const VALIDATE_MODE_PLACEHOLDERS: ReadonlySet<string> = new Set([
+  'ruby',
+  'c',
+  'cpp',
+  'swift',
+  'kotlin',
+  'java',
+  'scala',
+]);
+
+describe('language-pack ↔ validator drift guard', () => {
+  it('every pack whose execution mode is "validate" has a validator registered', async () => {
+    const { supportsValidation } = await import('../../src/renderer/validation');
+    for (const pack of LANGUAGE_PACKS) {
+      if (pack.execution !== 'validate') continue;
+      if (VALIDATE_MODE_PLACEHOLDERS.has(pack.id)) continue;
+      expect(
+        supportsValidation(pack.id),
+        `pack ${pack.id} is marked validate but has no validator wired`
+      ).toBe(true);
+    }
+  });
+
+  it('every registered validator has a pack that declares the validate execution mode', async () => {
+    const { supportsValidation } = await import('../../src/renderer/validation');
+    for (const pack of LANGUAGE_PACKS) {
+      if (!supportsValidation(pack.id)) continue;
+      expect(
+        pack.execution,
+        `pack ${pack.id} has a validator but pack.execution is ${pack.execution}`
+      ).toBe('validate');
+    }
+  });
+});

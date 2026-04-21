@@ -12,6 +12,7 @@ Library/
 output/
 PLAN.md
 TEST_PLAN.md
+dev-license.json
 
 # Logs
 *.log

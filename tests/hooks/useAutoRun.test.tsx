@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAutoRun, AUTO_RUN_DEBOUNCE_MS } from '@/hooks/useAutoRun';
 import { runnerManager } from '@/runners';
 import { useEditorStore } from '@/stores/editorStore';
+import { useLicenseStore } from '@/stores/licenseStore';
 import { useResultStore } from '@/stores/resultStore';
 
 vi.mock('@/runners', () => ({
@@ -16,6 +17,7 @@ vi.mock('@/runners', () => ({
 
 describe('useAutoRun', () => {
   const initialEditor = useEditorStore.getState();
+  const initialLicense = useLicenseStore.getState();
   const initialResult = useResultStore.getState();
   const originalLingua = window.lingua;
 
@@ -23,6 +25,27 @@ describe('useAutoRun', () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     useEditorStore.setState(initialEditor, true);
+    useLicenseStore.setState(initialLicense, true);
+    useLicenseStore.setState({
+      token: 'test.token',
+      status: {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 86_400_000,
+          payload: {
+            productId: 'lingua-desktop',
+            tier: 'pro',
+            issuedTo: 'test@example.com',
+            issuedAt: new Date().toISOString(),
+            supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+            entitlements: [],
+          },
+        },
+      },
+      lastVerifiedAt: Date.now(),
+    });
     useResultStore.setState(initialResult, true);
     vi.mocked(runnerManager.isSupported).mockReturnValue(true);
   });
@@ -31,6 +54,7 @@ describe('useAutoRun', () => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
     useEditorStore.setState(initialEditor, true);
+    useLicenseStore.setState(initialLicense, true);
     useResultStore.setState(initialResult, true);
     Object.defineProperty(window, 'lingua', {
       configurable: true,

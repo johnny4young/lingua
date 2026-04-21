@@ -8,6 +8,7 @@ import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUpdateStore } from '../../stores/updateStore';
+import { useEntitlement } from '../../hooks/useEntitlement';
 import type { Language } from '../../types';
 import { Kbd, OverlayBackdrop, OverlayCard, Tooltip } from '../ui/chrome';
 import { handleCloseOnEscape } from '../ui/keyboard';
@@ -54,6 +55,7 @@ export function CommandPalette({
 
   const { addTab, openFileFromDisk, saveActiveTabAs, duplicateActiveTab } = useEditorStore();
   const { snippets } = useSnippetsStore();
+  const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const executionHistory = useExecutionHistoryStore((state) => state.entries);
   const { setLayoutPreset } = useSettingsStore();
   const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
@@ -73,9 +75,9 @@ export function CommandPalette({
     return buildCommandPaletteModel({
       templates: BUILT_IN_TEMPLATES,
       snippets,
-      executionHistory,
+      executionHistory: canUseExecutionHistory ? executionHistory : [],
       onFocusLanguageTab: focusLanguageTab,
-      onRerunLast,
+      onRerunLast: canUseExecutionHistory ? onRerunLast : undefined,
       updateStatus,
       createTab: addTab,
       createDefaultTab,
@@ -102,6 +104,7 @@ export function CommandPalette({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     snippets,
+    canUseExecutionHistory,
     executionHistory,
     onRerunLast,
     addTab,

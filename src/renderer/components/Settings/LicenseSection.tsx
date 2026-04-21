@@ -41,6 +41,34 @@ function statusLabelKey(status: LicenseStatus): string {
   }
 }
 
+/**
+ * Map an invalid-status `reason` code to a user-facing i18n key. The raw
+ * `status.message` string is developer-only — it can mention env vars,
+ * JWK fields, or clock skew internals that would leak implementation
+ * details into end-user UI. Keep the mapping here so every reason we emit
+ * from the verifier has to land on a translated string deliberately.
+ */
+function invalidReasonMessageKey(status: Extract<LicenseStatus, { kind: 'invalid' }>): string {
+  switch (status.reason) {
+    case 'malformed':
+      return 'license.notice.invalid.malformed';
+    case 'invalid-signature':
+      return 'license.notice.invalid.signature';
+    case 'expired':
+      return 'license.notice.invalid.expired';
+    case 'clock-skew':
+      return 'license.notice.invalid.clockSkew';
+    case 'unsupported-tier':
+      return 'license.notice.invalid.unsupportedTier';
+    case 'no-public-key':
+      return 'license.notice.invalid.notAccepted';
+    default:
+      // Fall back to the generic copy so a new reason code doesn't crash
+      // the UI before its i18n key lands.
+      return 'license.notice.invalid';
+  }
+}
+
 export function LicenseSection() {
   const { t } = useTranslation();
   const [draft, setDraft] = useState('');
@@ -60,8 +88,10 @@ export function LicenseSection() {
       if (next.kind === 'invalid') {
         pushStatusNotice({
           tone: 'error',
-          messageKey: 'license.notice.invalid',
-          detail: next.message,
+          messageKey: invalidReasonMessageKey(next),
+          // Deliberately omit `next.message` — it contains developer-only
+          // detail (env var names, verifier internals) that has no place
+          // in the end-user banner. Reason-specific copy lives in i18n.
         });
         return;
       }

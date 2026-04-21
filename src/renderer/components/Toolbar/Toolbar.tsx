@@ -16,6 +16,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
 import type { Language } from '../../types';
@@ -25,7 +26,11 @@ import {
   languageLabel,
 } from '../../utils/languageMeta';
 import { usePluginStore } from '../../stores/pluginStore';
+import { isLanguageAllowed } from '../../../shared/entitlements';
+import { pushUpsellNotice } from '../../utils/upsellNotice';
+import { trackEvent } from '../../utils/telemetry';
 import { IconButton, Tooltip } from '../ui/chrome';
+import { LicenseBadge } from './LicenseBadge';
 
 const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
   { id: 'javascript', label: 'JavaScript' },
@@ -56,6 +61,8 @@ export function Toolbar({
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   const { sidebarVisible, consoleVisible, toggleSidebar, toggleConsole } = useUIStore();
   const plugins = usePluginStore((state) => state.plugins);
+  const effectiveTier = useEffectiveTier();
+  const canUseDeveloperUtilities = useEntitlement('DEV_UTILITIES');
   const [isNewFileMenuOpen, setIsNewFileMenuOpen] = useState(false);
   const newFileMenuRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
@@ -83,27 +90,47 @@ export function Toolbar({
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const languageIsDesktopOnly =
     languageCapabilityBadgeKey(activeLanguage) === 'language.capability.desktopOnly';
-  const desktopOnlyGate = isWebBuild && languageIsDesktopOnly && executionMode === 'run';
+  const proLanguageGate =
+    executionMode === 'run' && !isLanguageAllowed(effectiveTier, activeLanguage);
+  const desktopOnlyGate =
+    !proLanguageGate && isWebBuild && languageIsDesktopOnly && executionMode === 'run';
   const actionDisabled =
-    !hasTabs || isRunning || executionMode === 'view' || desktopOnlyGate;
+    !hasTabs || isRunning || executionMode === 'view' || desktopOnlyGate || proLanguageGate;
   const actionLabel =
     executionMode === 'validate'
       ? loadingMessage ?? (isRunning ? t('toolbar.validate.running') : t('toolbar.validate.label'))
       : executionMode === 'view'
         ? t('toolbar.viewOnly.label')
         : loadingMessage ?? (isRunning ? t('toolbar.run.running') : t('toolbar.run.label'));
-  const actionTooltip = desktopOnlyGate
-    ? t('toolbar.run.desktopOnlyTooltip')
-    : executionMode === 'validate'
-      ? t('toolbar.validate.title')
-      : executionMode === 'view'
-        ? t('toolbar.viewOnly.title')
-        : t('toolbar.run.title');
+  const actionTooltip = proLanguageGate
+    ? t('toolbar.run.proOnlyTooltip')
+    : desktopOnlyGate
+      ? t('toolbar.run.desktopOnlyTooltip')
+      : executionMode === 'validate'
+        ? t('toolbar.validate.title')
+        : executionMode === 'view'
+          ? t('toolbar.viewOnly.title')
+          : t('toolbar.run.title');
 
   const handleNewFile = (language: Language) => {
     const tab = createDefaultTab(language);
     addTab(tab);
     setIsNewFileMenuOpen(false);
+  };
+
+  const handleOpenUtilities = () => {
+    if (canUseDeveloperUtilities) {
+      onOpenUtilities?.();
+      return;
+    }
+    pushUpsellNotice({
+      messageKey: 'upsell.freeCeilingReached',
+      featureLabel: t('upsell.feature.devUtilities'),
+    });
+    void trackEvent('feature.blocked', {
+      entitlement: 'dev-utilities',
+      tier: effectiveTier,
+    });
   };
 
   useEffect(() => {
@@ -159,9 +186,9 @@ export function Toolbar({
           content={actionTooltip}
           // Suppress the tooltip only for "disabled because there are no
           // tabs / still running / view-only" — those cases carry no
-          // value. Keep it visible for the desktop-only gate so the web
-          // user sees the explanation on hover.
-          disabled={actionDisabled && !desktopOnlyGate}
+          // value. Keep it visible for the desktop-only + Pro-language
+          // gates so the user sees the explanation on hover.
+          disabled={actionDisabled && !desktopOnlyGate && !proLanguageGate}
         >
           <button
             onClick={run}
@@ -245,7 +272,14 @@ export function Toolbar({
                   >
                     <span>{language.label}</span>
                     <span className="flex items-center gap-2">
-                      {capabilityKey && (
+                      {!isLanguageAllowed(effectiveTier, language.id) ? (
+                        <span
+                          className="status-pill border-primary/25 bg-transparent px-2 text-[0.7rem] text-primary"
+                          data-testid={`toolbar-new-file-capability-${language.id}`}
+                        >
+                          {t('language.capability.proOnly')}
+                        </span>
+                      ) : capabilityKey && (
                         <span
                           className="status-pill border-border/60 bg-transparent px-2 text-[0.7rem] text-muted"
                           data-testid={`toolbar-new-file-capability-${language.id}`}
@@ -273,6 +307,7 @@ export function Toolbar({
             {t('toolbar.languageActive', { language: defaultNewFileLabel })}
           </div>
         )}
+        <LicenseBadge onClick={onOpenSettings} />
 
         <IconButton onClick={onOpenQuickOpen} tooltip={t('toolbar.quickOpen')}>
           <Search size={15} />
@@ -284,10 +319,10 @@ export function Toolbar({
           <BookCopy size={15} />
         </IconButton>
         <IconButton
-          onClick={onOpenUtilities}
+          onClick={handleOpenUtilities}
           tooltip={t('toolbar.utilities')}
-          active={utilitiesOpen}
-          aria-pressed={utilitiesOpen}
+          active={canUseDeveloperUtilities && utilitiesOpen}
+          aria-pressed={canUseDeveloperUtilities && utilitiesOpen}
           aria-haspopup="dialog"
         >
           <Wrench size={15} />
