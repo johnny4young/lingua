@@ -13,7 +13,7 @@ import { useRecentFilesStore } from './recentFilesStore';
 import { useSettingsStore } from './settingsStore';
 import { useUIStore } from './uiStore';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
-import { withinTabBudget } from '../../shared/entitlements';
+import { isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { trackEvent } from '../utils/telemetry';
 
@@ -131,6 +131,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   addTab: (tab) => {
     const { tabs } = get();
+    if (!isLanguageAllowed(currentEffectiveTier(), tab.language)) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: i18next.t('upsell.feature.extraLanguages'),
+      });
+      void trackEvent('feature.blocked', {
+        entitlement: 'languages-extended',
+        tier: currentEffectiveTier(),
+      });
+      return;
+    }
     // RL-060: block new-tab creation once the Free ceiling is hit. Users
     // already over the ceiling (grandfathered data from before gating
     // shipped) keep their tabs; only additions past the ceiling are

@@ -113,7 +113,9 @@ describe('LicenseSection', () => {
     vi.spyOn(useLicenseStore.getState(), 'setLicenseToken').mockResolvedValue({
       kind: 'invalid',
       reason: 'malformed',
-      message: 'not a real license',
+      // Raw message intentionally contains developer-only copy to prove the
+      // component does NOT surface it to end users.
+      message: 'Dev-only detail: env var VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK',
     });
     render(<LicenseSection />);
 
@@ -122,8 +124,42 @@ describe('LicenseSection', () => {
 
     // Draft survives so the user can fix it
     expect((screen.getByTestId('license-input') as HTMLTextAreaElement).value).toBe('garbage');
-    expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.invalid');
-    expect(useUIStore.getState().statusNotice?.tone).toBe('error');
+    const notice = useUIStore.getState().statusNotice;
+    expect(notice?.messageKey).toBe('license.notice.invalid.malformed');
+    expect(notice?.tone).toBe('error');
+    // Crucially: the raw developer message never reaches the banner.
+    expect(notice?.detail).toBeUndefined();
+  });
+
+  it('maps each invalid reason code to its own user-facing i18n key', async () => {
+    const reasons = [
+      ['invalid-signature', 'license.notice.invalid.signature'],
+      ['expired', 'license.notice.invalid.expired'],
+      ['clock-skew', 'license.notice.invalid.clockSkew'],
+      ['unsupported-tier', 'license.notice.invalid.unsupportedTier'],
+      ['no-public-key', 'license.notice.invalid.notAccepted'],
+    ] as const;
+
+    for (const [reason, expectedKey] of reasons) {
+      const user = userEvent.setup();
+      vi.spyOn(useLicenseStore.getState(), 'setLicenseToken').mockResolvedValue({
+        kind: 'invalid',
+        reason,
+        message: 'developer-only implementation detail',
+      });
+      const { unmount } = render(<LicenseSection />);
+
+      await user.type(screen.getByTestId('license-input'), 'garbage');
+      await user.click(screen.getByTestId('license-apply'));
+
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(expectedKey);
+      expect(useUIStore.getState().statusNotice?.detail).toBeUndefined();
+
+      unmount();
+      // Reset between iterations so the next render starts clean.
+      useUIStore.setState({ statusNotice: null });
+      vi.restoreAllMocks();
+    }
   });
 
   it('clears the license and pushes the cleared notice when Remove is clicked', async () => {

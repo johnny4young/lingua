@@ -7,6 +7,8 @@ import { toExecutionPresentation } from '../utils/executionPresentation';
 import { toExecutionDiagnostics } from '../utils/executionDiagnostics';
 import { executionModeForLanguage, languageCapabilityBadgeKey } from '../utils/languageMeta';
 import { validateDocument } from '../validation';
+import { currentEffectiveTier } from './useEntitlement';
+import { isLanguageAllowed } from '../../shared/entitlements';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
 /**
@@ -60,6 +62,9 @@ export function useAutoRun() {
       const executionMode = executionModeForLanguage(language);
       const isWebBuild =
         typeof window !== 'undefined' && window.lingua?.platform === 'web';
+      const proLanguageGate =
+        executionMode === 'run' &&
+        !isLanguageAllowed(currentEffectiveTier(), language);
       const desktopOnlyGate =
         isWebBuild &&
         executionMode === 'run' &&
@@ -70,7 +75,7 @@ export function useAutoRun() {
         return;
       }
 
-      if (desktopOnlyGate) {
+      if (desktopOnlyGate || proLanguageGate) {
         clear();
         return;
       }

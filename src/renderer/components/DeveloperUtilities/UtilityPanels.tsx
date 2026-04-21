@@ -1,6 +1,8 @@
+import { Palette } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
+import { CopyButton } from './CopyButton';
 import {
   analyzeColor,
   analyzeJson,
@@ -15,6 +17,21 @@ import {
   generateUuid,
   hashText,
 } from '../../utils/developerUtilities';
+import {
+  MAX_BASE,
+  MIN_BASE,
+  formatInBase,
+  isValidBase,
+  parseInAnyBase,
+} from '../../utils/numberBase';
+import {
+  generateUlid,
+  generateUuidV7,
+  inspectIdentifier,
+  type IdentifierKind,
+} from '../../utils/uuid';
+import { formatSource } from '../../utils/formatters';
+import { minifySource, type MinifyLanguage } from '../../utils/minify';
 
 function PanelSection({
   title,
@@ -217,12 +234,17 @@ function TwoPaneTransformPanel({
         title={t('utilities.field.output')}
         description={errorKey ? t('utilities.status.invalid') : t('utilities.status.live')}
       >
-        <UtilityTextarea
-          aria-label={t('utilities.field.output')}
-          readOnly
-          value={output}
-          className={errorKey ? 'text-danger' : ''}
-        />
+        <div className="relative">
+          <UtilityTextarea
+            aria-label={t('utilities.field.output')}
+            readOnly
+            value={output}
+            className={errorKey ? 'pr-10 text-danger' : 'pr-10'}
+          />
+          <div className="absolute right-2 top-2">
+            <CopyButton value={output} disabled={!output || Boolean(errorKey)} />
+          </div>
+        </div>
         {errorKey ? <StatusMessage message={t(errorKey)} tone="error" /> : null}
       </PanelSection>
     </div>
@@ -307,35 +329,121 @@ function UrlUtilityPanel() {
   );
 }
 
+type UuidKind = 'v4' | 'v7' | 'ulid';
+
+function generateIdentifier(kind: UuidKind): string {
+  if (kind === 'v4') return generateUuid();
+  if (kind === 'v7') return generateUuidV7();
+  return generateUlid();
+}
+
+function kindLabelKey(kind: IdentifierKind): string {
+  if (kind === 'uuid-v7') return 'utilities.tool.uuid.version.v7';
+  if (kind === 'uuid-v4') return 'utilities.tool.uuid.version.v4';
+  return 'utilities.tool.uuid.version.ulid';
+}
+
 function UuidUtilityPanel() {
   const { t } = useTranslation();
+  const [kind, setKind] = useState<UuidKind>('v4');
   const [values, setValues] = useState<string[]>(() =>
-    Array.from({ length: 3 }, () => generateUuid())
+    Array.from({ length: 3 }, () => generateIdentifier('v4'))
   );
+  const [decoderInput, setDecoderInput] = useState('');
+  const decoded = useMemo(() => {
+    const trimmed = decoderInput.trim();
+    return trimmed ? inspectIdentifier(trimmed) : null;
+  }, [decoderInput]);
+
+  const regenerate = (nextKind: UuidKind = kind) => {
+    setValues(Array.from({ length: 3 }, () => generateIdentifier(nextKind)));
+  };
 
   return (
-    <PanelSection
-      title={t('utilities.tool.uuid.title')}
-      description={t('utilities.tool.uuid.panelDescription')}
-    >
-      <button
-        type="button"
-        className="button-primary w-fit"
-        onClick={() => setValues(Array.from({ length: 3 }, () => generateUuid()))}
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <PanelSection
+        title={t('utilities.tool.uuid.title')}
+        description={t('utilities.tool.uuid.panelDescription')}
       >
-        {t('utilities.tool.uuid.actions.regenerate')}
-      </button>
-      <div className="grid gap-2">
-        {values.map((value) => (
-          <div
-            key={value}
-            className="rounded-[1rem] border border-border/80 bg-background/70 px-3 py-2 font-mono text-sm text-foreground"
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.uuid.version.label')}</FieldLabel>
+          <select
+            aria-label={t('utilities.tool.uuid.version.label')}
+            data-testid="uuid-version-select"
+            value={kind}
+            onChange={(event) => {
+              const next = event.target.value as UuidKind;
+              setKind(next);
+              regenerate(next);
+            }}
+            className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
           >
-            {value}
+            <option value="v4">{t('utilities.tool.uuid.version.v4')}</option>
+            <option value="v7">{t('utilities.tool.uuid.version.v7')}</option>
+            <option value="ulid">{t('utilities.tool.uuid.version.ulid')}</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          className="button-primary w-fit"
+          onClick={() => regenerate()}
+        >
+          {t('utilities.tool.uuid.actions.regenerate')}
+        </button>
+        <div className="grid gap-2">
+          {values.map((value) => (
+            <div
+              key={value}
+              data-testid="uuid-generated-value"
+              className="rounded-[1rem] border border-border/80 bg-background/70 px-3 py-2 font-mono text-sm text-foreground"
+            >
+              {value}
+            </div>
+          ))}
+        </div>
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.tool.uuid.decode.title')}
+        description={t('utilities.tool.uuid.decode.description')}
+      >
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.uuid.decode.inputLabel')}</FieldLabel>
+          <UtilityInput
+            aria-label={t('utilities.tool.uuid.decode.inputLabel')}
+            data-testid="uuid-decoder-input"
+            value={decoderInput}
+            onChange={(event) => setDecoderInput(event.target.value)}
+            placeholder={t('utilities.tool.uuid.decode.placeholder')}
+            spellCheck={false}
+          />
+        </div>
+        {decoderInput.trim() === '' ? (
+          <StatusMessage message={t('utilities.tool.uuid.decode.idle')} />
+        ) : decoded === null ? (
+          <StatusMessage
+            message={t('utilities.tool.uuid.decode.unrecognized')}
+            tone="error"
+          />
+        ) : (
+          <div className="grid gap-2" data-testid="uuid-decoder-result">
+            <StatusMessage
+              message={t('utilities.tool.uuid.decode.kind', {
+                kind: t(kindLabelKey(decoded.kind)),
+              })}
+              tone="success"
+            />
+            {decoded.timestamp ? (
+              <StatusMessage
+                message={t('utilities.tool.uuid.decode.timestamp', {
+                  value: decoded.timestamp.toISOString(),
+                })}
+              />
+            ) : null}
           </div>
-        ))}
-      </div>
-    </PanelSection>
+        )}
+      </PanelSection>
+    </div>
   );
 }
 
@@ -398,11 +506,17 @@ function HashUtilityPanel() {
         title={t('utilities.field.output')}
         description={t('utilities.status.live')}
       >
-        <UtilityTextarea
-          aria-label={t('utilities.field.output')}
-          readOnly
-          value={digest}
-        />
+        <div className="relative">
+          <UtilityTextarea
+            aria-label={t('utilities.field.output')}
+            readOnly
+            value={digest}
+            className="pr-10"
+          />
+          <div className="absolute right-2 top-2">
+            <CopyButton value={digest} disabled={!digest || Boolean(errorKey)} />
+          </div>
+        </div>
         {errorKey ? <StatusMessage message={t(errorKey)} tone="error" /> : null}
       </PanelSection>
     </div>
@@ -642,6 +756,32 @@ function RegexUtilityPanel() {
   );
 }
 
+function ColorOutputCard({
+  label,
+  value,
+  display,
+  testid,
+}: {
+  label: string;
+  /** Raw value to copy; empty string disables the copy button. */
+  value: string;
+  /** What to render inside the card (may include a placeholder dash). */
+  display: string;
+  testid?: string;
+}) {
+  return (
+    <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] uppercase tracking-[0.16em] text-muted">{label}</span>
+        <CopyButton value={value} testid={testid ? `${testid}-copy` : undefined} disabled={!value} />
+      </div>
+      <span className="font-mono text-sm text-foreground" data-testid={testid}>
+        {display}
+      </span>
+    </div>
+  );
+}
+
 function ColorUtilityPanel() {
   const { t } = useTranslation();
   const [input, setInput] = useState('#4f46e5');
@@ -664,14 +804,25 @@ function ColorUtilityPanel() {
           />
         </div>
         <div className="grid gap-2">
-          <FieldLabel>{t('utilities.tool.color.fieldPicker')}</FieldLabel>
-          <input
-            type="color"
+          <FieldLabel>
+            <span className="inline-flex items-center gap-1.5">
+              <Palette size={12} className="text-muted" aria-hidden="true" />
+              {t('utilities.tool.color.fieldPicker')}
+            </span>
+          </FieldLabel>
+          <label
+            className="inline-flex cursor-pointer items-center gap-3 rounded-[0.9rem] border border-border/80 bg-background/88 px-3 py-2 transition-colors hover:border-border-strong/90"
             aria-label={t('utilities.tool.color.fieldPicker')}
-            value={analysis.hex ?? '#000000'}
-            onChange={(event) => setInput(event.target.value)}
-            className="h-10 w-20 cursor-pointer rounded-[0.9rem] border border-border/80 bg-background/88"
-          />
+          >
+            <input
+              type="color"
+              aria-label={t('utilities.tool.color.fieldPicker')}
+              value={analysis.hex ?? '#000000'}
+              onChange={(event) => setInput(event.target.value)}
+              className="h-7 w-10 cursor-pointer rounded-[0.55rem] border border-border/60 bg-transparent p-0"
+            />
+            <span className="text-xs text-muted">{t('utilities.tool.color.pickerHint')}</span>
+          </label>
         </div>
         {analysis.errorKey ? (
           <StatusMessage message={t(analysis.errorKey)} tone="error" />
@@ -690,29 +841,41 @@ function ColorUtilityPanel() {
           style={{ backgroundColor: swatch }}
         />
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
-              {t('utilities.tool.color.outputs.hex')}
-            </span>
-            <span className="font-mono text-sm text-foreground">{analysis.hex ?? '—'}</span>
-          </div>
-          <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
-              {t('utilities.tool.color.outputs.rgb')}
-            </span>
-            <span className="font-mono text-sm text-foreground">
-              {analysis.rgb ? `rgb(${analysis.rgb.r}, ${analysis.rgb.g}, ${analysis.rgb.b})` : '—'}
-            </span>
-          </div>
-          <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3 md:col-span-2">
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
-              {t('utilities.tool.color.outputs.hsl')}
-            </span>
-            <span className="font-mono text-sm text-foreground">
-              {analysis.hsl
-                ? `hsl(${analysis.hsl.h}, ${analysis.hsl.s}%, ${analysis.hsl.l}%)`
-                : '—'}
-            </span>
+          <ColorOutputCard
+            label={t('utilities.tool.color.outputs.hex')}
+            value={analysis.hex ?? ''}
+            display={analysis.hex ?? '—'}
+            testid="color-output-hex"
+          />
+          <ColorOutputCard
+            label={t('utilities.tool.color.outputs.rgb')}
+            value={
+              analysis.rgb
+                ? `rgb(${analysis.rgb.r}, ${analysis.rgb.g}, ${analysis.rgb.b})`
+                : ''
+            }
+            display={
+              analysis.rgb
+                ? `rgb(${analysis.rgb.r}, ${analysis.rgb.g}, ${analysis.rgb.b})`
+                : '—'
+            }
+            testid="color-output-rgb"
+          />
+          <div className="md:col-span-2">
+            <ColorOutputCard
+              label={t('utilities.tool.color.outputs.hsl')}
+              value={
+                analysis.hsl
+                  ? `hsl(${analysis.hsl.h}, ${analysis.hsl.s}%, ${analysis.hsl.l}%)`
+                  : ''
+              }
+              display={
+                analysis.hsl
+                  ? `hsl(${analysis.hsl.h}, ${analysis.hsl.s}%, ${analysis.hsl.l}%)`
+                  : '—'
+              }
+              testid="color-output-hsl"
+            />
           </div>
         </div>
       </PanelSection>
@@ -798,6 +961,274 @@ function DiffUtilityPanel() {
   );
 }
 
+interface NumberBaseView {
+  readonly id: 'binary' | 'octal' | 'decimal' | 'hex' | 'custom';
+  readonly base: number;
+  readonly labelKey: string;
+  readonly testId: string;
+}
+
+const NUMBER_BASE_STATIC_VIEWS: readonly NumberBaseView[] = [
+  { id: 'binary', base: 2, labelKey: 'utilities.tool.numberBase.input.binary', testId: 'number-base-input-binary' },
+  { id: 'octal', base: 8, labelKey: 'utilities.tool.numberBase.input.octal', testId: 'number-base-input-octal' },
+  { id: 'decimal', base: 10, labelKey: 'utilities.tool.numberBase.input.decimal', testId: 'number-base-input-decimal' },
+  { id: 'hex', base: 16, labelKey: 'utilities.tool.numberBase.input.hex', testId: 'number-base-input-hex' },
+];
+
+function NumberBaseUtilityPanel() {
+  const { t } = useTranslation();
+  // Single source of truth: the parsed bigint. Views derive their rendered
+  // string from `value` unless the view is the one the user is currently
+  // editing (tracked via `editingId`) — that way invalid transient input in
+  // one view doesn't stomp the other views' formatted output.
+  const [value, setValue] = useState<bigint>(255n);
+  const [draft, setDraft] = useState<Record<NumberBaseView['id'], string>>({
+    binary: '11111111',
+    octal: '377',
+    decimal: '255',
+    hex: 'FF',
+    custom: '',
+  });
+  const [editingId, setEditingId] = useState<NumberBaseView['id'] | null>(null);
+  const [invalidId, setInvalidId] = useState<NumberBaseView['id'] | null>(null);
+  const [customBase, setCustomBase] = useState(7);
+
+  const views = useMemo<readonly NumberBaseView[]>(
+    () => [
+      ...NUMBER_BASE_STATIC_VIEWS,
+      {
+        id: 'custom',
+        base: customBase,
+        labelKey: 'utilities.tool.numberBase.input.custom',
+        testId: 'number-base-input-custom',
+      },
+    ],
+    [customBase]
+  );
+
+  const rendered = useMemo<Record<NumberBaseView['id'], string>>(() => {
+    const output: Record<NumberBaseView['id'], string> = {
+      binary: formatInBase(value, 2),
+      octal: formatInBase(value, 8),
+      decimal: formatInBase(value, 10),
+      hex: formatInBase(value, 16),
+      custom: isValidBase(customBase) ? formatInBase(value, customBase) : '',
+    };
+    if (editingId) {
+      output[editingId] = draft[editingId];
+    }
+    return output;
+  }, [value, editingId, draft, customBase]);
+
+  const handleChange = (view: NumberBaseView, nextInput: string) => {
+    setEditingId(view.id);
+    setDraft((prev) => ({ ...prev, [view.id]: nextInput }));
+    const parsed = parseInAnyBase(nextInput, view.base);
+    if (parsed === null) {
+      setInvalidId(view.id);
+      return;
+    }
+    setInvalidId(null);
+    setValue(parsed);
+  };
+
+  const handleBlur = () => {
+    // On blur we exit editing mode so every view re-derives from `value`,
+    // erasing any stale draft that happened to be the active one.
+    setEditingId(null);
+    setInvalidId(null);
+  };
+
+  return (
+    <PanelSection
+      title={t('utilities.tool.numberBase.title')}
+      description={t('utilities.tool.numberBase.panelDescription')}
+    >
+      <div className="grid gap-3">
+        {views.map((view) => {
+          const isInvalid = invalidId === view.id;
+          return (
+            <div key={view.id} className="grid gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <FieldLabel>{t(view.labelKey)}</FieldLabel>
+                {view.id === 'custom' ? (
+                  <label className="flex items-center gap-2 text-xs text-muted">
+                    <span>{t('utilities.tool.numberBase.customBaseLabel')}</span>
+                    <input
+                      type="number"
+                      min={MIN_BASE}
+                      max={MAX_BASE}
+                      value={customBase}
+                      onChange={(event) => {
+                        const next = Number(event.target.value);
+                        if (isValidBase(next)) setCustomBase(next);
+                      }}
+                      aria-label={t('utilities.tool.numberBase.customBaseLabel')}
+                      className="w-16 rounded-[0.75rem] border border-border/80 bg-background/88 px-2 py-1 text-xs text-foreground outline-none focus:border-primary/50"
+                    />
+                  </label>
+                ) : null}
+              </div>
+              <UtilityInput
+                aria-label={t(view.labelKey)}
+                data-testid={view.testId}
+                value={rendered[view.id]}
+                onChange={(event) => handleChange(view, event.target.value)}
+                onBlur={handleBlur}
+                className={
+                  isInvalid
+                    ? 'border-danger/70 focus:border-danger'
+                    : undefined
+                }
+                spellCheck={false}
+              />
+            </div>
+          );
+        })}
+      </div>
+      {invalidId ? (
+        <StatusMessage message={t('utilities.tool.numberBase.invalidInput')} tone="error" />
+      ) : (
+        <StatusMessage message={t('utilities.status.live')} />
+      )}
+    </PanelSection>
+  );
+}
+
+type BeautifyMinifyMode = 'beautify' | 'minify';
+
+function BeautifyMinifyUtilityPanel() {
+  const { t } = useTranslation();
+  const [language, setLanguage] = useState<MinifyLanguage>('json');
+  const [mode, setMode] = useState<BeautifyMinifyMode>('beautify');
+  const [input, setInput] = useState('{\n  "greeting": "Hello, World!",\n  "count": 3\n}');
+  const [output, setOutput] = useState('');
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (input === '') {
+        if (!cancelled) {
+          setOutput('');
+          setErrorKey(null);
+        }
+        return;
+      }
+
+      if (mode === 'beautify') {
+        const result = await formatSource(language, input);
+        if (cancelled) return;
+        if (result.ok) {
+          setOutput(result.formatted);
+          setErrorKey(null);
+        } else {
+          setOutput('');
+          setErrorKey('utilities.tool.beautifyMinify.parseError');
+        }
+        return;
+      }
+
+      const result = minifySource(language, input);
+      if (cancelled) return;
+      if (result.ok) {
+        setOutput(result.output);
+        setErrorKey(null);
+      } else {
+        setOutput('');
+        setErrorKey('utilities.tool.beautifyMinify.parseError');
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [language, mode, input]);
+
+  const handleLanguageChange = (next: MinifyLanguage) => {
+    // Switching language resets the error so the panel doesn't claim the new
+    // language's parser failed before it ran.
+    setLanguage(next);
+    setErrorKey(null);
+  };
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <PanelSection
+        title={t('utilities.tool.beautifyMinify.title')}
+        description={t('utilities.tool.beautifyMinify.panelDescription')}
+      >
+        <div className="grid gap-2 md:grid-cols-2">
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.beautifyMinify.languageLabel')}</FieldLabel>
+            <select
+              data-testid="beautify-minify-language"
+              value={language}
+              onChange={(event) => handleLanguageChange(event.target.value as MinifyLanguage)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              <option value="json">{t('utilities.tool.beautifyMinify.language.json')}</option>
+              <option value="javascript">
+                {t('utilities.tool.beautifyMinify.language.javascript')}
+              </option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.beautifyMinify.modeLabel')}</FieldLabel>
+            <select
+              data-testid="beautify-minify-mode"
+              value={mode}
+              onChange={(event) => setMode(event.target.value as BeautifyMinifyMode)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              <option value="beautify">{t('utilities.tool.beautifyMinify.mode.beautify')}</option>
+              <option value="minify">{t('utilities.tool.beautifyMinify.mode.minify')}</option>
+            </select>
+          </label>
+        </div>
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.field.input')}</FieldLabel>
+          <UtilityTextarea
+            aria-label={t('utilities.field.input')}
+            data-testid="beautify-minify-input"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+          />
+        </div>
+        {language === 'javascript' && mode === 'minify' ? (
+          <StatusMessage message={t('utilities.tool.beautifyMinify.jsMinifyHint')} />
+        ) : null}
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.field.output')}
+        description={t('utilities.status.live')}
+      >
+        {errorKey ? (
+          <StatusMessage message={t(errorKey)} tone="error" />
+        ) : (
+          <div className="relative">
+            <UtilityTextarea
+              aria-label={t('utilities.field.output')}
+              data-testid="beautify-minify-output"
+              value={output}
+              readOnly
+              spellCheck={false}
+              className="pr-10"
+            />
+            <div className="absolute right-2 top-2">
+              <CopyButton value={output} disabled={!output} />
+            </div>
+          </div>
+        )}
+      </PanelSection>
+    </div>
+  );
+}
+
 export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }) {
   if (toolId === 'json') {
     return <JsonUtilityPanel />;
@@ -833,6 +1264,14 @@ export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }
 
   if (toolId === 'diff') {
     return <DiffUtilityPanel />;
+  }
+
+  if (toolId === 'number-base') {
+    return <NumberBaseUtilityPanel />;
+  }
+
+  if (toolId === 'beautify-minify') {
+    return <BeautifyMinifyUtilityPanel />;
   }
 
   return <JwtUtilityPanel />;
