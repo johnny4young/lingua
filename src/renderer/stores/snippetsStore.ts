@@ -5,6 +5,7 @@ import type { Language } from '../types';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { withinSnippetBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
+import { trackEvent } from '../utils/telemetry';
 
 export interface Snippet {
   id: string;
@@ -49,6 +50,12 @@ export const useSnippetsStore = create<SnippetsState>()(
           pushUpsellNotice({
             messageKey: 'upsell.freeCeilingReached',
             featureLabel: i18next.t('upsell.feature.extraSnippets'),
+          });
+          // RL-065 — emit feature.blocked so the consenting user's
+          // telemetry reflects the snippet-ceiling friction.
+          void trackEvent('feature.blocked', {
+            entitlement: 'snippets',
+            tier: currentEffectiveTier(),
           });
           return null;
         }

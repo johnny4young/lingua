@@ -27,6 +27,12 @@ interface CommandPaletteProps {
   onOpenGoToSymbol?: () => void;
   onOpenDeveloperUtility?: (id: DeveloperUtilityId) => void;
   onOpenKeyboardShortcuts?: () => void;
+  /**
+   * RL-028 fourth slice — fires the "Re-run last execution" palette
+   * action. Owned by the AppChrome layer so the palette doesn't have
+   * to know about runner internals.
+   */
+  onRerunLast?: () => void;
 }
 
 export function CommandPalette({
@@ -39,6 +45,7 @@ export function CommandPalette({
   onOpenGoToSymbol,
   onOpenDeveloperUtility,
   onOpenKeyboardShortcuts,
+  onRerunLast,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -68,6 +75,7 @@ export function CommandPalette({
       snippets,
       executionHistory,
       onFocusLanguageTab: focusLanguageTab,
+      onRerunLast,
       updateStatus,
       createTab: addTab,
       createDefaultTab,
@@ -95,6 +103,7 @@ export function CommandPalette({
   }, [
     snippets,
     executionHistory,
+    onRerunLast,
     addTab,
     setLayoutPreset,
     onClose,

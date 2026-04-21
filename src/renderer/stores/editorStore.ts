@@ -15,6 +15,7 @@ import { useUIStore } from './uiStore';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
+import { trackEvent } from '../utils/telemetry';
 
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
@@ -139,6 +140,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         messageKey: 'upsell.freeCeilingReached',
         featureLabel: i18next.t('upsell.feature.extraTabs'),
       });
+      // RL-065 — emit feature.blocked so the consenting user's
+      // telemetry reflects the friction. Allowlist already permits
+      // this event with `entitlement` + `tier`.
+      void trackEvent('feature.blocked', {
+        entitlement: 'tabs',
+        tier: currentEffectiveTier(),
+      });
       return;
     }
     const newTab: FileTab = { ...tab, isDirty: false };
@@ -193,6 +201,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
         featureLabel: i18next.t('upsell.feature.extraTabs'),
+      });
+      // RL-065 — same emit on the openFile gate so both rejection
+      // paths surface a feature.blocked event.
+      void trackEvent('feature.blocked', {
+        entitlement: 'tabs',
+        tier: currentEffectiveTier(),
       });
       return;
     }

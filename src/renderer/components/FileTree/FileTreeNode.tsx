@@ -11,7 +11,10 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProjectStore, type FileTreeNode as ProjectFileTreeNode } from '../../stores/projectStore';
-import { languageTextColorClass } from '../../utils/languageMeta';
+import {
+  languageCapabilityBadgeKey,
+  languageTextColorClass,
+} from '../../utils/languageMeta';
 import { Tooltip } from '../ui/chrome';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
 import type { CreationTarget } from './fileTreeTypes';
@@ -45,6 +48,19 @@ export function FileTreeNode({
   const { expandDirectory, collapseDirectory, renameEntry } = useProjectStore();
 
   const indent = depth * 12;
+
+  // RL-038 Slice C fifth increment — surface the capability badge in
+  // the file tree when the user is on the web build and the file
+  // belongs to a host-toolchain language (Go, Rust). Stays hidden on
+  // desktop and for self-contained runtimes.
+  const isWebBuild =
+    typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const capabilityKey =
+    !node.isDirectory && node.language
+      ? languageCapabilityBadgeKey(node.language)
+      : null;
+  const showDesktopOnlyBadge =
+    isWebBuild && capabilityKey === 'language.capability.desktopOnly';
 
   const handleToggle = async () => {
     if (!node.isDirectory) {
@@ -116,6 +132,15 @@ export function FileTreeNode({
               {node.name}
             </button>
           </Tooltip>
+        )}
+
+        {showDesktopOnlyBadge && !renaming && (
+          <span
+            className="ml-1 shrink-0 rounded-md border border-border/60 bg-transparent px-1.5 py-0.5 text-[0.6rem] font-medium uppercase tracking-wide text-muted"
+            data-testid={`file-tree-capability-${node.path}`}
+          >
+            {t('language.capability.desktopOnly')}
+          </span>
         )}
 
         {hovered && !renaming && (

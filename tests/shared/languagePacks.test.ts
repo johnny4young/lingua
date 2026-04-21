@@ -102,6 +102,8 @@ describe('LANGUAGE_PACKS array integrity', () => {
       'cpp',
       'swift',
       'kotlin',
+      'java',
+      'scala',
       'json',
       'yaml',
       'dotenv',
@@ -118,6 +120,30 @@ describe('LANGUAGE_PACKS array integrity', () => {
     for (const id of required) {
       expect(ids.has(id), `missing built-in pack: ${id}`).toBe(true);
     }
+  });
+
+  it('ships Java and Scala as validate-only packs (RL-042 fourth slice)', () => {
+    const java = getLanguagePackById('java') as LanguagePack;
+    const scala = getLanguagePackById('scala') as LanguagePack;
+    for (const pack of [java, scala]) {
+      expect(pack).toBeDefined();
+      expect(pack.execution).toBe('validate');
+      expect(pack.runnerId).toBeNull();
+      expect(pack.formatter).toBe('none');
+    }
+    expect(java.monacoLanguage).toBe('java');
+    expect(java.extensions).toContain('java');
+    expect(java.badgeClass).toContain('amber');
+    expect(scala.monacoLanguage).toBe('scala');
+    expect(scala.extensions).toEqual(expect.arrayContaining(['scala', 'sc']));
+    expect(scala.badgeClass).toContain('rose');
+  });
+
+  it('resolves Java and Scala packs by their canonical extensions', () => {
+    expect(getLanguagePackForExtension('java')?.id).toBe('java');
+    expect(getLanguagePackForExtension('.java')?.id).toBe('java');
+    expect(getLanguagePackForExtension('scala')?.id).toBe('scala');
+    expect(getLanguagePackForExtension('sc')?.id).toBe('scala');
   });
 
   it('ships Swift and Kotlin as validate-only packs (RL-042 third slice)', () => {

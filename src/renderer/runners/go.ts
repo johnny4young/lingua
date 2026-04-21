@@ -22,6 +22,14 @@ const DEFAULT_TIMEOUT = 30_000;
  * exact same resolver without re-deriving the tier lookup.
  */
 export function resolveUserEnvForRunner(): Record<string, string> {
+  // RL-011 contract: user-defined env vars are a desktop-only feature.
+  // The web build keeps the Settings surface honest for tier editing and
+  // trace preview, but runnable paths must not leak those vars into the
+  // browser runtimes.
+  if (typeof window !== 'undefined' && window.lingua?.platform === 'web') {
+    return {};
+  }
+
   const { activeTabId } = useEditorStore.getState();
   const { currentProject } = useProjectStore.getState();
   const { resolveEffectiveEnv } = useEnvVarsStore.getState();

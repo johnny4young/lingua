@@ -371,6 +371,8 @@
   "commandPalette.recentRuns.description": "Salta a una pestaña abierta en este lenguaje.",
   "commandPalette.recentRuns.status.ok": "ok",
   "commandPalette.recentRuns.status.error": "error",
+  "commandPalette.action.rerunLast.label": "Volver a ejecutar lo último",
+  "commandPalette.action.rerunLast.description": "Ejecuta de nuevo la pestaña activa con el mismo código y lenguaje.",
   "commandPalette.action.layout.horizontal.label": "Dise\u00f1o: divisi\u00f3n horizontal",
   "commandPalette.action.layout.horizontal.description": "Editor arriba, consola abajo",
   "commandPalette.action.layout.vertical.label": "Dise\u00f1o: divisi\u00f3n vertical",

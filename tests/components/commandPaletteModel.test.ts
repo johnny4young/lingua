@@ -507,3 +507,60 @@ describe('buildCommandPaletteModel — recent runs (RL-028 third slice)', () => 
     expect(focus).toHaveBeenCalledWith('python');
   });
 });
+
+describe('buildCommandPaletteModel — re-run last action (RL-028 fourth slice)', () => {
+  function buildWith(onRerunLast?: () => void) {
+    return buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      onRerunLast,
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    });
+  }
+
+  it('hides the action when no onRerunLast callback is supplied', () => {
+    const commands = buildWith();
+    expect(commands.find((c) => c.id === 'action-rerun-last')).toBeUndefined();
+  });
+
+  it('exposes the action when onRerunLast is wired and fires the callback on activation', () => {
+    const rerun = vi.fn();
+    const commands = buildWith(rerun);
+    const action = commands.find((c) => c.id === 'action-rerun-last');
+    expect(action).toBeDefined();
+    expect(action?.label.toLowerCase()).toContain('re-run');
+    expect(action?.keywords).toEqual(
+      expect.arrayContaining(['rerun', 'replay', 'last', 'recent', 'run'])
+    );
+    action?.action();
+    expect(rerun).toHaveBeenCalledTimes(1);
+  });
+
+  it('localizes the rerun label in Spanish', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const commands = buildWith(() => {});
+      const action = commands.find((c) => c.id === 'action-rerun-last');
+      expect(action?.label).toBe('Volver a ejecutar lo último');
+    } finally {
+      await i18next.changeLanguage('en');
+    }
+  });
+});

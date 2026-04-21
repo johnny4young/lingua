@@ -42,6 +42,12 @@ interface BuildCommandPaletteModelArgs {
    * Slice D of RL-028 may wire it to a real replay action.
    */
   onFocusLanguageTab?: (language: Language) => void;
+  /**
+   * RL-028 fourth slice — fires when the user runs the "Re-run last
+   * execution" palette action. Optional so legacy callers without an
+   * execution surface keep working; when omitted the action is hidden.
+   */
+  onRerunLast?: () => void;
   updateStatus: UpdateStatus;
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   createDefaultTab: (language: Language) => FileTab;
@@ -211,6 +217,7 @@ export function buildCommandPaletteModel({
   snippets,
   executionHistory,
   onFocusLanguageTab,
+  onRerunLast,
   updateStatus,
   createTab,
   createDefaultTab,
@@ -256,6 +263,23 @@ export function buildCommandPaletteModel({
     ...recentRunEntries.map((entry) =>
       buildRecentRunCommand(entry, onClose, translate, onFocusLanguageTab)
     ),
+    // RL-028 fourth slice — Re-run last execution. Hidden when the
+    // caller does not wire `onRerunLast` so legacy callers (or
+    // surfaces with no execution context) keep working.
+    ...(onRerunLast
+      ? [
+          buildActionCommand(
+            'action-rerun-last',
+            translate('commandPalette.action.rerunLast.label'),
+            translate('commandPalette.action.rerunLast.description'),
+            ['rerun', 'replay', 'last', 'recent', 'run'],
+            () => {
+              onRerunLast();
+              onClose();
+            }
+          ),
+        ]
+      : []),
     buildActionCommand(
       'action-layout-horizontal',
       translate('commandPalette.action.layout.horizontal.label'),

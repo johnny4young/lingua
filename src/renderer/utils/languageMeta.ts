@@ -55,6 +55,8 @@ const ENGLISH_FALLBACK_LABELS: Record<string, { label: string; shortLabel: strin
   cpp: { label: 'C++', shortLabel: 'C++' },
   swift: { label: 'Swift', shortLabel: 'Sw' },
   kotlin: { label: 'Kotlin', shortLabel: 'Kt' },
+  java: { label: 'Java', shortLabel: 'Java' },
+  scala: { label: 'Scala', shortLabel: 'Scl' },
   json: { label: 'JSON', shortLabel: 'JSON' },
   yaml: { label: 'YAML', shortLabel: 'YML' },
   dotenv: { label: '.env', shortLabel: 'ENV' },

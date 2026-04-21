@@ -294,6 +294,7 @@ function AppChrome({
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
           onOpenDeveloperUtility={(utilityId) => openOverlay('utilities', utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
+          onRerunLast={() => void run()}
         />
       )}
       {overlay === 'settings' && (

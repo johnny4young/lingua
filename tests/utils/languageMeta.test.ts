@@ -72,6 +72,19 @@ describe('languageMeta', () => {
     expect(languageSupportsFileName('editorconfig', '.editorconfig')).toBe(true);
   });
 
+  it('resolves Java and Scala through the LanguagePack descriptor (RL-042 fourth slice)', () => {
+    expect(languageForExtension('java')).toBe('java');
+    expect(languageForExtension('.java')).toBe('java');
+    expect(languageForExtension('scala')).toBe('scala');
+    expect(languageForExtension('sc')).toBe('scala');
+    expect(extensionForLanguage('java')).toBe('java');
+    expect(extensionForLanguage('scala')).toBe('scala');
+    expect(monacoLanguageFor('java')).toBe('java');
+    expect(monacoLanguageFor('scala')).toBe('scala');
+    expect(executionModeForLanguage('java')).toBe('validate');
+    expect(executionModeForLanguage('scala')).toBe('validate');
+  });
+
   it('resolves Swift and Kotlin through the LanguagePack descriptor (RL-042 third slice)', () => {
     expect(languageForExtension('swift')).toBe('swift');
     expect(languageForExtension('.swift')).toBe('swift');
