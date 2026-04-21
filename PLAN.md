@@ -905,7 +905,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `First slice shipped on 2026-04-20 — a ring-buffer store captures metadata-only entries (language, status, durationMs, timestamp). Second slice shipped on 2026-04-20 ter — Settings row exposes the count and a Clear button. Third slice shipped on 2026-04-20 quater — command palette surfaces up to 5 recent runs. Fourth slice shipped on 2026-04-20 quinquies — Re-run last execution palette action wired to useRunner. Replay (re-run a specific historical entry by id), comparison, and a dedicated Recent Runs panel still pending`
+- Readiness: `First slice shipped on 2026-04-20 — a ring-buffer store captures metadata-only entries (language, status, durationMs, timestamp). Second slice shipped on 2026-04-20 ter — Settings row exposes the count and a Clear button. Third slice shipped on 2026-04-20 quater — command palette surfaces up to 5 recent runs. Fourth slice shipped on 2026-04-20 quinquies — Re-run last execution palette action wired to useRunner. Fifth slice shipped on 2026-04-21 — console popover surfaces the recent runs buffer with clear + same-language rerun. Replay by id and comparison tooling still pending`
 - 2026-04-20 update:
   - `src/renderer/stores/executionHistoryStore.ts` ships a non-persisted Zustand store with `record / clear / byLanguage`; cap is `MAX_HISTORY_ENTRIES = 50`, FIFO drop for the 51st push; timestamps round to whole seconds to reduce fingerprintability
   - Store is **never persisted** — history stays in-memory across reloads, same privacy posture as the RL-065 telemetry work
@@ -915,6 +915,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - 2026-04-20 ter — second slice: `src/renderer/components/Settings/ExecutionHistorySection.tsx` lands a Settings row showing the current entry count (singular/plural via i18next `_one`/`_other`) and a Clear button gated on the count > 0. Wired into `SettingsModal` next to the env-vars section. Copy ships in en + es (`executionHistory.title/description/countLabel_one/countLabel_other/clearButton/privacyNote`). Five new component tests cover zero-count disabled state, singular form at 1 entry, count growth on record, Clear wiping the store, and Spanish locale
   - 2026-04-20 quater — third slice: `buildCommandPaletteModel` accepts an optional `executionHistory` + `onFocusLanguageTab`; each entry becomes a `CommandEntry` with id `recent-run-<entry.id>`, label `Recent: {language} · {status} · {formattedDuration}`, and description "Jump to an open tab in this language". Cap 5, newest-first. `CommandPalette.tsx` reads `useExecutionHistoryStore.entries` and wires `focusLanguageTab` so activation selects the first tab whose language matches the run. Duration copy reuses the shell's `formatExecTime(...)` helper so the palette never shows raw floating-point noise. Copy ships in en + es (`commandPalette.recentRuns.label/description/status.ok/status.error`). Six new model tests pin the empty case, the 5-cap newest-first order, the label composition, the duration formatting, the honest description copy, and the onFocusLanguageTab callback
   - 2026-04-20 quinquies — fourth slice: `buildCommandPaletteModel` accepts a new optional `onRerunLast` callback; when wired, the palette gains a `action-rerun-last` action labeled "Re-run last execution" with keywords `rerun, replay, last, recent, run`. `CommandPalette.tsx` propagates the prop; `App.tsx` wires it to `useRunner().run()` so activation re-executes the active tab. Hidden when no callback is supplied so legacy callers stay unaffected. Copy ships in en + es. Three new tests pin the hidden case, the action firing the callback, and the Spanish locale
+  - 2026-04-21 sexies — fifth slice: `ConsolePanel` gains an `ExecutionHistoryPopover` button next to the timestamp toggle. The popover shows newest-first runs, relative timestamps, a Clear action, and a per-entry rerun affordance. Rerun intentionally targets the first open tab in the same language rather than replaying the historical entry body; when no matching tab is open the shell surfaces a localized info notice instead of running the wrong tab. Copy ships in en + es and tests pin empty state, newest-first ordering, rerun wiring, no-match notice, and Spanish strings
 - Scope:
   - Save execution snapshots
   - Replay previous inputs
@@ -2867,8 +2868,8 @@ does not pursue are marked `Skip`):
 ### RL-068 Expand developer utilities with DevUtils-equivalent coverage
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready to implement — extends RL-045 without new infra`
+- Status: `Partial`
+- Readiness: `First slice shipped on 2026-04-21 — Number Base Converter landed; remaining tools still planned`
 - Why this matters:
   - DevUtils ships 40+ tools; Lingua ships 10. Closing the practical
     subset (YAML/JSON, CSV/JSON, number base, URL parser, HTML entity,
@@ -2906,6 +2907,11 @@ does not pursue are marked `Skip`):
 - Dependencies:
   - RL-045 ✅
   - RL-018 (i18n infrastructure) for copy strings
+- 2026-04-21 first slice:
+  - `Number Base Converter` landed as a pure `bigint`-backed helper + panel under the Developer Utilities workspace
+  - Supports binary / octal / decimal / hexadecimal plus custom base 2–36, underscore separators, and `0x` / `0o` / `0b` prefixes in the decimal field
+  - Copy ships in en + es and the panel is reachable from the utility sidebar and the Command Palette catalog
+  - Tests pin round-trips, invalid-input preservation, custom-base formatting, very large integers beyond `Number.MAX_SAFE_INTEGER`, and Spanish UI copy
 
 ### RL-069 DevUtils-class productivity layer for the utilities workspace
 
@@ -2958,8 +2964,8 @@ does not pursue are marked `Skip`):
 ### RL-070 Beautify / minify suite and code-conversion bundle
 
 - Priority: `P3`
-- Status: `Planned`
-- Readiness: `Ready to design; Pro-tier candidate under the RL-060 entitlement table`
+- Status: `Partial`
+- Readiness: `First slice shipped on 2026-04-21 — JSON + JavaScript Beautify/Minify panel landed; code conversion bundle still pending`
 - Why this matters:
   - Beautify + minify is the single largest bucket in DevUtils' tool
     list (HTML / CSS / JS / XML / SCSS / LESS / JSON). Most of it maps
@@ -2987,12 +2993,17 @@ does not pursue are marked `Skip`):
 - Dependencies:
   - RL-045 ✅
   - RL-010 (format-on-save) — reuses the existing Prettier pipeline
+- 2026-04-21 first slice:
+  - `Beautify / Minify` landed as a unified panel for JSON + JavaScript
+  - Beautify reuses `formatSource(...)`; JSON minify is a parse + stringify round-trip; JavaScript minify is intentionally whitespace/comment compaction only, not semantic compression
+  - Regex literals are preserved by the JS minifier state machine so `//` inside a regex body is not mistaken for a line comment
+  - Copy ships in en + es and the panel is reachable from the Developer Utilities workspace + Command Palette
 
 ### RL-071 Harden existing utilities to DevUtils parity
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready to implement in small slices, each utility independently`
+- Status: `Partial`
+- Readiness: `First slice shipped on 2026-04-21 — UUID utility gained v7 / ULID support and identifier decoding; the other hardening slices remain planned`
 - Why this matters:
   - Every existing utility (JWT, Hash, UUID, Diff, Base64) has a clear
     DevUtils counterpart that does more. Closing those gaps is cheaper
@@ -3019,6 +3030,10 @@ does not pursue are marked `Skip`):
   - Web + desktop behavior stays identical (no IPC dependency added)
 - Dependencies:
   - RL-045 ✅
+- 2026-04-21 first slice:
+  - `UUID` utility now generates UUID v4, UUID v7, and ULID batches
+  - Added a decode surface that recognizes UUID v4, UUID v7, and ULID inputs and surfaces the embedded timestamp where the format provides one
+  - Helper coverage pins the UUID v7 version/variant bits, ULID alphabet, decode round-trips, malformed-input rejection, and Spanish UI copy
 
 ### RL-072 Specialty utilities — QR + String Inspector
 

@@ -4,6 +4,7 @@ import { useRunner } from '@/hooks/useRunner';
 import { useConsoleStore } from '@/stores/consoleStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
+import { useLicenseStore } from '@/stores/licenseStore';
 import { useResultStore } from '@/stores/resultStore';
 import type { ExecutionResult } from '@/types';
 
@@ -30,6 +31,7 @@ describe('useRunner', () => {
   const initialConsoleState = useConsoleStore.getState();
   const initialEditorState = useEditorStore.getState();
   const initialExecutionHistoryState = useExecutionHistoryStore.getState();
+  const initialLicenseState = useLicenseStore.getState();
   const initialResultState = useResultStore.getState();
 
   beforeEach(() => {
@@ -37,6 +39,27 @@ describe('useRunner', () => {
     useConsoleStore.setState(initialConsoleState, true);
     useEditorStore.setState(initialEditorState, true);
     useExecutionHistoryStore.setState(initialExecutionHistoryState, true);
+    useLicenseStore.setState(initialLicenseState, true);
+    useLicenseStore.setState({
+      token: 'test.token',
+      status: {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 86_400_000,
+          payload: {
+            productId: 'lingua-desktop',
+            tier: 'pro',
+            issuedTo: 'test@example.com',
+            issuedAt: new Date().toISOString(),
+            supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+            entitlements: [],
+          },
+        },
+      },
+      lastVerifiedAt: Date.now(),
+    });
     useResultStore.setState(initialResultState, true);
     mockIsSupported.mockReturnValue(true);
     mockNeedsInitialization.mockReturnValue(false);
@@ -46,6 +69,7 @@ describe('useRunner', () => {
     useConsoleStore.setState(initialConsoleState, true);
     useEditorStore.setState(initialEditorState, true);
     useExecutionHistoryStore.setState(initialExecutionHistoryState, true);
+    useLicenseStore.setState(initialLicenseState, true);
     useResultStore.setState(initialResultState, true);
   });
 

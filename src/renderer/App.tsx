@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AppLayout } from './components/Layout';
 import { GuidedTourProvider } from './components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from './components/GuidedTour/guidedTourContext';
@@ -28,6 +29,7 @@ import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
 import { useAppTheme } from './hooks/useAppTheme';
+import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { useEditorStore } from './stores/editorStore';
 import { usePluginStore } from './stores/pluginStore';
 import { useSessionStore } from './stores/sessionStore';
@@ -35,6 +37,7 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useUIStore } from './stores/uiStore';
 import { useUpdateStore } from './stores/updateStore';
 import { desktopSmokeEnabled } from './utils/desktopSmoke';
+import { pushUpsellNotice } from './utils/upsellNotice';
 import { trackEvent } from './utils/telemetry';
 
 const DeveloperUtilitiesModal = lazy(async () => {
@@ -59,6 +62,7 @@ function AppChrome({
   selectedUtilityId: DeveloperUtilityId;
 }) {
   const { run, stop, isRunning } = useRunner();
+  const { t } = useTranslation();
   const saveActiveTab = useEditorStore((s) => s.saveActiveTab);
   const saveActiveTabAs = useEditorStore((s) => s.saveActiveTabAs);
   const openFileFromDisk = useEditorStore((s) => s.openFileFromDisk);
@@ -71,6 +75,8 @@ function AppChrome({
   const initializePlugins = usePluginStore((s) => s.initialize);
   const initializeUpdates = useUpdateStore((s) => s.initialize);
   const appInfo = useAppInfo();
+  const effectiveTier = useEffectiveTier();
+  const canUseDeveloperUtilities = useEntitlement('DEV_UTILITIES');
   const { hasCompletedTour, startTour } = useGuidedTour();
   const smokeEnabled = desktopSmokeEnabled();
   const hasHandledDeepLink = useDeepLinks({ openOverlay });
@@ -270,6 +276,21 @@ function AppChrome({
     startTour();
   };
 
+  const handleOpenDeveloperUtility = (utilityId?: DeveloperUtilityId) => {
+    if (canUseDeveloperUtilities) {
+      openOverlay('utilities', utilityId);
+      return;
+    }
+    pushUpsellNotice({
+      messageKey: 'upsell.freeCeilingReached',
+      featureLabel: t('upsell.feature.devUtilities'),
+    });
+    void trackEvent('feature.blocked', {
+      entitlement: 'dev-utilities',
+      tier: effectiveTier,
+    });
+  };
+
   return (
     <>
       <AppLayout
@@ -277,7 +298,7 @@ function AppChrome({
         onOpenPalette={() => openOverlay('palette')}
         onOpenQuickOpen={() => openOverlay('quick-open')}
         onOpenSnippets={() => openOverlay('snippets')}
-        onOpenUtilities={() => openOverlay('utilities')}
+        onOpenUtilities={() => handleOpenDeveloperUtility()}
         utilitiesOpen={overlay === 'utilities'}
       />
       {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
@@ -292,7 +313,7 @@ function AppChrome({
           onOpenSnippets={() => openOverlay('snippets')}
           onOpenProjectSearch={() => openOverlay('search')}
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
-          onOpenDeveloperUtility={(utilityId) => openOverlay('utilities', utilityId)}
+          onOpenDeveloperUtility={(utilityId) => handleOpenDeveloperUtility(utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
           onRerunLast={() => void run()}
         />

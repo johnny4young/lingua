@@ -4,25 +4,35 @@ All notable changes to Lingua are documented here.
 
 The format follows Keep a Changelog and groups changes by release.
 
-## [Unreleased] — 2026-04-16
+## [0.2.0] — 2026-04-21
 
 ### Added
-- **About view (`RL-052`)**: Settings now includes a dedicated About surface with product metadata, repository/license links, and a direct entry point into the update flow.
-- **What's New view (`RL-053`)**: Lingua now bundles structured release notes from this changelog, exposes them through a dedicated overlay, links them from the About view, and adds a Command Palette action for quick access.
-- **Editable keyboard shortcuts (`RL-037`)**: The keyboard-shortcuts overlay now lets users rebind any catalogued shortcut inline, with conflict detection against existing bindings, per-row and global reset, and persistence across sessions. The global dispatcher consumes the override map directly instead of a hand-rolled combo ladder, so defaults and user bindings follow the same path. Escape (close overlay) stays non-editable.
-- **Keymap presets (`RL-037`)**: The keyboard-shortcuts overlay ships a preset selector with a Sublime Text-inspired bundle alongside the default. Applying a preset replaces per-shortcut overrides in one move; any manual edit afterwards flips the selector back to "Default" so the UI stays honest.
-- **Theme packs (`RL-037`)**: Settings → Appearance now has a theme pack selector with a Solarized Daylight bundle alongside the default. Applying a pack swaps appearance, typography, and layout wholesale without touching safety/workflow prefs; any manual appearance edit flips the selector back to "Default".
-- **Extra keymap + theme options (`RL-037`)**: The keymap preset dropdown adds a JetBrains-style "Classic IDE" bundle (Go to Symbol on Mod+Alt+O, project search on Mod+Alt+F, console on Mod+J). The theme pack dropdown adds "Nord Night" (dark nord editor + Fira Code).
-- **Infra-file language detection (`RL-058`)**: `Dockerfile`/`Containerfile`/`Dockerfile.*`, `Makefile`/`GNUmakefile`, `.gitignore`/`.dockerignore`/`.npmignore`, and `.editorconfig` now open with appropriate Monaco grammars and explicit view-only execution mode instead of falling back to plaintext.
-- **Shortcut overrides export/import (`RL-037`)**: The shortcuts overlay footer now has Export/Import JSON actions symmetric with the theme-preset pair. Export writes a versioned document; import validates schema, version, combo shape, and duplicate bindings (dropping unknown ids / non-editable or conflicting combos) and surfaces failures through the shared status-notice pipeline.
-- **EditorConfig + Dockerfile validators (`RL-058`)**: Running (Cmd+Enter) a `.editorconfig` or `Dockerfile` now surfaces lightweight diagnostics via Monaco markers. EditorConfig flags unknown keys and invalid enum values; Dockerfile warns on deprecated `MAINTAINER`, `ADD <url>` usage, and missing `FROM`.
-- **Gitignore + Makefile validators (`RL-058`)**: `.gitignore` / `.dockerignore` / `.npmignore` now surface duplicate-pattern info notices, "`!` with no pattern" warnings, and flag backslash-as-separator (a Windows-path footgun). `Makefile` / `GNUmakefile` now flag the classic space-indented recipe trap and tab-indented commands with no preceding target. Both languages graduated from view-only to the validate execution path.
-- **Dockerfile validator enhancements (`RL-058`)**: The Dockerfile validator now also warns on `FROM image:latest` or `FROM image` without a tag (non-reproducible builds) and on `RUN apt-get install` without `-y` (builds will hang on the interactive prompt). `FROM scratch` and pinned `@sha256` digests are intentionally skipped.
-- **Makefile hygiene + Dockerfile root-user reminder (`RL-058`)**: The Makefile validator now flags duplicate target definitions (including combined `a b c:` forms) and adds a `.PHONY` reminder for the common virtual targets (`all`, `build`, `clean`, `test`, `install`, `lint`, `release`, `run`, `check`, `uninstall`) when they're defined without a `.PHONY` declaration. Dockerfile adds a soft info notice on `USER root` / `USER 0` so runtime images aren't accidentally shipped as root.
-- **Shell script validator + more infra hygiene (`RL-058`)**: New `shellscript` built-in language covers `.sh`/`.bash`/`.zsh` files plus shell dotfiles (`.bashrc`, `.zshrc`, `.bash_profile`, `.profile`). The validator flags missing shebangs and nudges toward `set -euo pipefail`. Dockerfile gains a HEALTHCHECK reminder when `EXPOSE` is present without one. Makefile gains unused-variable detection (implicit vars like `CC`/`CFLAGS` are skipped). `.gitignore` now flags trailing whitespace (silently changes pattern meaning) and honors escaped trailing spaces.
+- **License management**: A new License section in Settings lets you paste a Lingua token to unlock your plan. The current tier is visible next to the input, and a FREE / PRO pill in the toolbar shows your active plan at a glance. Click the pill to jump straight to the License section.
+- **Environment variables**: A new Settings section where you can define environment variables at the workspace or per-project level. Values stay on your machine and flow to desktop runners when you execute a file.
+- **Expanded language catalog**: Ruby, Java, Kotlin, Scala, Swift, C, and C++ files now open with proper syntax highlighting, file-extension detection, and a clear indicator in the file tree when they aren't runnable yet.
+- **Privacy controls**: A first-launch prompt asks whether you want to share anonymous usage signals before anything leaves your machine, and Settings → Privacy lets you change your mind at any time. Telemetry and crash reporting are off until you opt in, and never include your code or file paths.
+- **About and What's New**: Settings now ships a dedicated About panel with version and release links, plus a What's New overlay that surfaces these release notes without leaving the app.
+- **Editable keyboard shortcuts**: Rebind any built-in shortcut from the Keyboard Shortcuts overlay. Conflicts are detected and refused with a helpful notice, per-row and global reset restore the defaults, and your changes persist across sessions. Escape stays reserved so you can always close an overlay.
+- **Keyboard shortcut presets**: Switch between "Default (Lingua)", "Sublime Text-inspired", and "Classic IDE (JetBrains-style)" bundles in one click. Any manual edit afterwards flips the selector back to Default so the UI always reflects the truth.
+- **Export and import your keymap**: Save your personalised shortcuts to a JSON file or import one from another install. The file is validated for shape, version, and conflict-free combos before it is applied.
+- **Theme packs**: Settings → Appearance adds a theme pack selector. Pick "Solarized Daylight" for warm paper light mode, "Nord Night" for a calm blue-grey dark mode, or stay on the Lingua default. A pack swaps appearance, typography, and layout in one move.
+- **Guided tour on-startup toggle**: Every step of the guided tour now has a "Don't show this tour on startup" checkbox. A matching switch lives in Settings → About for anyone who wants to replay or silence the tour on demand.
+- **Execution history everywhere**: A new clock icon in the console toolbar opens a popover with your most recent runs — language, duration, and relative time — and the Command Palette surfaces the same list so you can re-run a recent file from the keyboard. Clear the history any time.
+- **Number Base Converter** (Developer Utilities): Convert integers between binary, octal, decimal, hexadecimal, or any custom base from 2 to 36. `0x`, `0o`, and `0b` prefixes are honoured and underscores work as digit separators.
+- **UUID v7 and ULID** (Developer Utilities): Generate modern time-ordered identifiers alongside the classic UUID v4. A new decoder surfaces the embedded timestamp from any UUID v7 or ULID you paste.
+- **Beautify / Minify panel** (Developer Utilities): Pretty-print or compact JSON and JavaScript side-by-side. JSON round-trips through a parse and restringify; JavaScript gets an honest whitespace-only minifier with a clearly labelled hint.
+- **Quick copy in Developer Utilities**: Every result field in Developer Utilities — hex/RGB/HSL colors, hashes, Base64 output, URL encode/decode, Beautify / Minify results — now has a small copy icon that writes the value to the clipboard with a brief confirmation.
+- **Format on save for Python**: Python files now run through ruff (falling back to black) when format-on-save is enabled, alongside the existing support for JavaScript, TypeScript, JSON, CSS, Go, and Rust.
+- **Support for infrastructure files**: `Dockerfile`, `Containerfile`, `Makefile`, `.gitignore`, `.dockerignore`, `.npmignore`, `.editorconfig`, and shell scripts (`.sh`, `.bash`, `.zsh`, plus common shell dotfiles) now open with proper syntax highlighting.
+- **Inline validators with friendly diagnostics**: Running a JSON, YAML, `.env`, CSV, `.editorconfig`, Dockerfile, Makefile, `.gitignore`, or shell script file now surfaces lightweight warnings inline — duplicate `.gitignore` patterns, space-indented Makefile recipes, missing Dockerfile `FROM` or deprecated `MAINTAINER`, unknown EditorConfig keys, missing shebangs in shell scripts, and more.
 
 ### Changed
-- **Release workflows**: Pushes to `main` now validate CI only; web deploy, update-server deploy, and desktop release creation stay manual workflows.
+- **Dark / Light toggle**: Picking a shell theme always takes effect now. Previously the "match shell to editor theme" option could quietly override your choice.
+- **Clearer license errors**: Invalid tokens surface a tier-specific explanation — "malformed token", "signature does not match", "expired", "clock is off", and so on — rather than a generic fallback.
+- **Color Converter picker**: The colour picker row now reads as a proper control, with a Palette icon and a hint line instead of an anonymous square.
+
+### Fixed
+- **Shortcut row spacing**: Keyboard Shortcuts rows keep clear breathing room between the combo and the Edit / Reset buttons in every language, including Spanish.
 
 ## [0.1.0] — 2026-04-16
 

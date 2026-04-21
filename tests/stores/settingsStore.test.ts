@@ -1,13 +1,40 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { useLicenseStore } from '@/stores/licenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+
+function setActiveProLicense() {
+  useLicenseStore.setState({
+    token: 'test.token',
+    status: {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'test@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    },
+    lastVerifiedAt: Date.now(),
+  });
+}
 
 describe('settingsStore', () => {
   const initialState = useSettingsStore.getState();
+  const initialLicense = useLicenseStore.getState();
   let originalLingua: typeof window.lingua;
 
   beforeEach(() => {
     localStorage.clear();
     useSettingsStore.setState(initialState, true);
+    useLicenseStore.setState(initialLicense, true);
+    setActiveProLicense();
     originalLingua = window.lingua;
     if (!window.lingua) {
       window.lingua = {
@@ -20,6 +47,7 @@ describe('settingsStore', () => {
 
   afterEach(() => {
     window.lingua = originalLingua;
+    useLicenseStore.setState(initialLicense, true);
     vi.restoreAllMocks();
   });
 
@@ -60,6 +88,14 @@ describe('settingsStore', () => {
   it('should set font family', () => {
     useSettingsStore.getState().setFontFamily('Menlo');
     expect(useSettingsStore.getState().fontFamily).toBe('Menlo');
+  });
+
+  it('keeps the default font family on the Free tier when an extended font is requested', () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    useSettingsStore.getState().setFontFamily('Menlo, monospace');
+    expect(useSettingsStore.getState().fontFamily).toBe(
+      "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace"
+    );
   });
 
   it('should toggle line numbers', () => {
@@ -169,6 +205,12 @@ describe('settingsStore', () => {
       layoutPreset: 'horizontal',
     });
     expect(useSettingsStore.getState().syncShellWithEditorTheme).toBe(false);
+  });
+
+  it('blocks extended theme packs on the Free tier', () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    useSettingsStore.getState().applyThemePack('solarized-daylight');
+    expect(useSettingsStore.getState().themePack).toBe('default');
   });
 
   it('should default syncShellWithEditorTheme to true and toggle cleanly', () => {

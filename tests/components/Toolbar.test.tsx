@@ -2,6 +2,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
+import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be hoisted before component imports
@@ -34,11 +35,24 @@ vi.mock('../../src/renderer/hooks/useRunner', () => ({
   useRunner: () => mockRunnerState,
 }));
 
-const { mockAddTab, mockToggleSidebar, mockToggleConsole, mockOpenFileFromDisk } = vi.hoisted(() => ({
+const {
+  mockAddTab,
+  mockToggleSidebar,
+  mockToggleConsole,
+  mockOpenFileFromDisk,
+  mockPushStatusNotice,
+  uiStoreState,
+} = vi.hoisted(() => ({
   mockAddTab: vi.fn(),
   mockToggleSidebar: vi.fn(),
   mockToggleConsole: vi.fn(),
   mockOpenFileFromDisk: vi.fn().mockResolvedValue(undefined),
+  mockPushStatusNotice: vi.fn((notice: Omit<{ id: number }, 'id'> & Record<string, unknown>) => {
+    uiStoreState.statusNotice = { ...notice, id: 1 };
+  }),
+  uiStoreState: {
+    statusNotice: null as Record<string, unknown> | null,
+  },
 }));
 
 vi.mock('../../src/renderer/stores/editorStore', () => {
@@ -69,6 +83,8 @@ vi.mock('../../src/renderer/stores/uiStore', () => ({
     consoleVisible: true,
     toggleSidebar: mockToggleSidebar,
     toggleConsole: mockToggleConsole,
+    statusNotice: uiStoreState.statusNotice,
+    pushStatusNotice: mockPushStatusNotice,
   }),
 }));
 
@@ -113,6 +129,29 @@ function resetRunnerState(partial: Partial<typeof mockRunnerState> = {}) {
   };
 }
 
+function setActiveProLicense() {
+  useLicenseStore.setState({
+    token: 'test.token',
+    status: {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'test@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    },
+    lastVerifiedAt: Date.now(),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -121,6 +160,8 @@ describe('Toolbar', () => {
   beforeEach(async () => {
     resetRunnerState();
     vi.clearAllMocks();
+    setActiveProLicense();
+    uiStoreState.statusNotice = null;
     editorStoreState.tabs = [
       {
         id: 'tab-1',
@@ -390,6 +431,22 @@ describe('Toolbar', () => {
     ).toContain('Solo escritorio');
   });
 
+  it('marks paid languages as PRO and blocks creation on the Free tier', async () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    const user = userEvent.setup();
+    render(<Toolbar />);
+
+    await user.click(screen.getByRole('button', { name: 'New file language menu' }));
+    expect(screen.getByTestId('toolbar-new-file-capability-go').textContent).toContain('PRO');
+
+    await user.click(screen.getByRole('menuitem', { name: /^Go/ }));
+
+    expect(mockAddTab).not.toHaveBeenCalled();
+    expect(uiStoreState.statusNotice).toMatchObject({
+      messageKey: 'upsell.freeCeilingReached',
+    });
+  });
+
   it('renders localized toolbar copy in Spanish', async () => {
     await i18next.changeLanguage('es');
 
@@ -412,6 +469,21 @@ describe('Toolbar', () => {
     expect(onOpenUtilities).toHaveBeenCalledOnce();
   });
 
+  it('blocks developer utilities on the Free tier', async () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    const user = userEvent.setup();
+    const onOpenUtilities = vi.fn();
+
+    render(<Toolbar onOpenUtilities={onOpenUtilities} />);
+
+    await user.click(screen.getByRole('button', { name: 'Developer utilities' }));
+
+    expect(onOpenUtilities).not.toHaveBeenCalled();
+    expect(uiStoreState.statusNotice).toMatchObject({
+      messageKey: 'upsell.freeCeilingReached',
+    });
+  });
+
   it('marks developer utilities as the active affordance when the modal is open', () => {
     render(<Toolbar utilitiesOpen />);
 
@@ -426,5 +498,44 @@ describe('Toolbar', () => {
     expect(
       screen.getByRole('button', { name: 'Toggle console (Cmd+\\)' }).getAttribute('aria-pressed')
     ).toBe('true');
+  });
+
+  it('shows the Pro-only tooltip for Go on the Free tier before the desktop-only gate', async () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    editorStoreState.tabs = [
+      {
+        id: 'tab-go',
+        name: 'main.go',
+        language: 'go',
+        content: 'package main\n',
+        isDirty: false,
+      },
+    ];
+    editorStoreState.activeTabId = 'tab-go';
+
+    const originalLingua = (window as unknown as { lingua?: unknown }).lingua;
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      writable: true,
+      value: { platform: 'web' },
+    });
+
+    const user = userEvent.setup();
+    try {
+      render(<Toolbar />);
+      const runBtn = screen.getByTestId('toolbar-run-button');
+      expect((runBtn as HTMLButtonElement).disabled).toBe(true);
+
+      await user.hover(runBtn);
+      expect(screen.getByRole('tooltip').textContent).toContain(
+        'This runtime is available in Lingua Pro.'
+      );
+    } finally {
+      Object.defineProperty(window, 'lingua', {
+        configurable: true,
+        writable: true,
+        value: originalLingua,
+      });
+    }
   });
 });

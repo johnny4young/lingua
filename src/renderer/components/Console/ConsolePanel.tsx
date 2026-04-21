@@ -1,9 +1,15 @@
 import { Clock, Trash2 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ConsoleEntry, ConsoleEntryType } from '../../types';
+import type { ConsoleEntry, ConsoleEntryType, Language } from '../../types';
 import { useConsoleStore } from '../../stores/consoleStore';
+import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
+import { useEditorStore } from '../../stores/editorStore';
+import { useUIStore } from '../../stores/uiStore';
+import { useRunner } from '../../hooks/useRunner';
+import { languageLabel } from '../../utils/languageMeta';
 import { IconButton, Tooltip } from '../ui/chrome';
+import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 
 interface AnsiSpan {
   text: string;
@@ -164,6 +170,7 @@ function EntryRow({
 
 export function ConsolePanel() {
   const { t } = useTranslation();
+  const { run } = useRunner();
   const { entries, activeFilters, showTimestamps, clear, toggleFilter, toggleTimestamps } =
     useConsoleStore();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -188,6 +195,24 @@ export function ConsolePanel() {
     const atBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 32;
     userScrolled.current = !atBottom;
   };
+
+  const rerunHistoryEntry = useCallback(
+    (entry: ExecutionHistoryEntry) => {
+      const { tabs, setActiveTab } = useEditorStore.getState();
+      const match = tabs.find((tab) => tab.language === entry.language);
+      if (!match) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'executionHistory.rerun.noOpenTab',
+          values: { language: languageLabel(entry.language as Language) },
+        });
+        return;
+      }
+      setActiveTab(match.id);
+      void run();
+    },
+    [run]
+  );
 
   const visibleEntries = entries.filter((entry) => activeFilters.has(entry.type));
 
@@ -236,6 +261,7 @@ export function ConsolePanel() {
           >
             <Clock size={13} />
           </IconButton>
+          <ExecutionHistoryPopover onRerun={rerunHistoryEntry} />
           <IconButton onClick={clear} tooltip={t('console.actions.clear')} tone="danger">
             <Trash2 size={13} />
           </IconButton>

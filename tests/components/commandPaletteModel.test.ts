@@ -295,7 +295,10 @@ describe('buildCommandPaletteModel', () => {
     });
     const jsonAction = withUtilities.find((c) => c.id === 'action-developer-utility-json');
 
-    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(10);
+    // Count reflects the DeveloperUtilities catalog length. Bumps when a
+    // new utility id is added (RL-068 slice added number-base, RL-070 slice
+    // added beautify-minify, taking this to 12).
+    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(12);
     expect(jsonAction?.label).toBe('Open JSON Formatter');
 
     jsonAction?.action();

@@ -8,7 +8,9 @@ export type DeveloperUtilityId =
   | 'jwt'
   | 'regex'
   | 'color'
-  | 'diff';
+  | 'diff'
+  | 'number-base'
+  | 'beautify-minify';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -90,6 +92,20 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.diff.label',
     descriptionKey: 'utilities.tool.diff.description',
     keywords: ['diff', 'compare', 'text', 'changes'],
+  },
+  {
+    id: 'number-base',
+    titleKey: 'utilities.tool.numberBase.titleLabel',
+    actionLabelKey: 'utilities.tool.numberBase.label',
+    descriptionKey: 'utilities.tool.numberBase.description',
+    keywords: ['number', 'base', 'binary', 'hex', 'octal', 'decimal', 'radix', 'convert'],
+  },
+  {
+    id: 'beautify-minify',
+    titleKey: 'utilities.tool.beautifyMinify.titleLabel',
+    actionLabelKey: 'utilities.tool.beautifyMinify.label',
+    descriptionKey: 'utilities.tool.beautifyMinify.description',
+    keywords: ['beautify', 'minify', 'format', 'pretty', 'json', 'javascript', 'js'],
   },
 ] as const;
 

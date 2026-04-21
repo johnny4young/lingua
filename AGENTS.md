@@ -97,6 +97,70 @@ through to Electron smoke. Never skip both tiers silently.
 - Keep scope tight. If a review surfaces something out of scope, flag
   it in `PLAN.md` rather than expanding the current slice.
 
+## Testing Pro / paid mode locally
+
+Lingua has no hardcoded "flip to Pro" switch by design — the renderer
+only trusts an Ed25519-signed license token verified against a public
+key embedded at build time. To exercise Pro-gated UI without the real
+issuer, the repo ships two helpers that mint a throwaway keypair +
+token for the session.
+
+### Fast path — web: `npm run dev:web:pro`
+
+One command starts Vite on `http://localhost:5174` with a fresh dev
+public key injected into `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` and
+prints a signed token to the terminal.
+
+```bash
+npm run dev:web:pro               # tier=pro, valid 30 days
+npm run dev:web:pro -- --tier team --days 7
+```
+
+Copy the token printed in the terminal → open the running app →
+**Settings → License → "Paste a license token"** → Apply. The status
+pill flips to `Active · pro` and `useEntitlement(...)` returns true
+everywhere.
+
+Revert: click **Remove license** in the same row, or
+`localStorage.removeItem('lingua-license')` + reload. Stopping the
+dev server discards the keypair; any previously-applied token becomes
+invalid on the next restart.
+
+### Electron + CI path — `scripts/mint-dev-license.mjs`
+
+Use this when you need the key and token as data (e.g. desktop-dev,
+CI smoke, scripted tests). End-to-end coverage lives in
+`tests/scripts/mintDevLicense.test.ts`.
+
+1. Mint the keypair + token:
+
+   ```bash
+   node scripts/mint-dev-license.mjs --tier pro --days 7 \
+     --issued-to you@local > dev-license.json
+   ```
+
+2. Export the public key before starting the target:
+
+   ```bash
+   export VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK="$(jq -r .publicKeyJwk dev-license.json)"
+   npm run desktop:dev    # or: npx vite --config vite.web.config.mts --port 5174
+   ```
+
+3. In the running app open **Settings → License** and paste the `token`
+   field from `dev-license.json`.
+
+Notes:
+
+- The keypair is session-scoped. Once the dev server stops, the
+  private key is gone — mint again for the next session.
+- `--days 0` produces an expired token so you can smoke the expiry
+  banner.
+- **Do not commit** `dev-license.json`, and never paste the private
+  key (`privateKeyJwkDoNotShip`) into the app.
+- Tests mint throwaway tokens in-process via
+  `tests/__fixtures__/license.ts` — never import that module from app
+  code.
+
 ## Commit attribution — no AI co-authorship
 
 Never add AI co-authorship trailers to commits or PR descriptions

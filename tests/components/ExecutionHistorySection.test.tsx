@@ -11,12 +11,41 @@ import i18next from 'i18next';
 import { initI18n } from '@/i18n';
 import { ExecutionHistorySection } from '@/components/Settings/ExecutionHistorySection';
 import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
+import { useLicenseStore } from '@/stores/licenseStore';
+import { useUIStore } from '@/stores/uiStore';
+
+function setActiveProLicense() {
+  useLicenseStore.setState({
+    token: 'test.token',
+    status: {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'test@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    },
+    lastVerifiedAt: Date.now(),
+  });
+}
 
 describe('ExecutionHistorySection', () => {
   const initial = useExecutionHistoryStore.getState();
+  const initialLicense = useLicenseStore.getState();
 
   beforeEach(async () => {
     useExecutionHistoryStore.setState(initial, true);
+    useLicenseStore.setState(initialLicense, true);
+    setActiveProLicense();
+    useUIStore.setState({ statusNotice: null });
     initI18n('en');
     await i18next.changeLanguage('en');
   });
@@ -24,6 +53,7 @@ describe('ExecutionHistorySection', () => {
   afterEach(() => {
     cleanup();
     useExecutionHistoryStore.setState(initial, true);
+    useLicenseStore.setState(initialLicense, true);
   });
 
   it('renders the zero-count state with the Clear button disabled', () => {
@@ -85,5 +115,16 @@ describe('ExecutionHistorySection', () => {
     expect(screen.getByTestId('execution-history-clear').textContent).toContain(
       'Limpiar'
     );
+  });
+
+  it('renders a locked state on the Free tier and pushes an upsell notice', async () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    const user = userEvent.setup();
+    render(<ExecutionHistorySection />);
+
+    expect(screen.getByText('Recent runs and rerun tools')).toBeTruthy();
+    await user.click(screen.getByTestId('execution-history-unlock'));
+
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
   });
 });
