@@ -381,3 +381,129 @@ describe('buildCommandPaletteModel', () => {
     expect(filterCommandPaletteCommands(commands, '')).toEqual(commands);
   });
 });
+
+describe('buildCommandPaletteModel — recent runs (RL-028 third slice)', () => {
+  function buildWithHistory(
+    history: Array<{
+      id: string;
+      language: string;
+      status: 'ok' | 'error';
+      durationMs: number | null;
+      timestamp: number;
+    }>,
+    onFocusLanguageTab?: (language: string) => void
+  ) {
+    return buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      executionHistory: history,
+      onFocusLanguageTab,
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    });
+  }
+
+  it('returns no recent-run entries when the history is empty', () => {
+    const commands = buildWithHistory([]);
+    expect(commands.filter((c) => c.id.startsWith('recent-run-'))).toEqual([]);
+  });
+
+  it('caps the recent-run entries at 5 and keeps them newest-first', () => {
+    const history = Array.from({ length: 7 }, (_, i) => ({
+      id: `e${i}`,
+      language: 'javascript',
+      status: 'ok' as const,
+      durationMs: i,
+      timestamp: 1_700_000_000_000 + i * 1000,
+    }));
+    const commands = buildWithHistory(history);
+    const recent = commands.filter((c) => c.id.startsWith('recent-run-'));
+    expect(recent).toHaveLength(5);
+    // Newest entry (e6) must come first, oldest kept (e2) last.
+    expect(recent[0]?.id).toBe('recent-run-e6');
+    expect(recent[4]?.id).toBe('recent-run-e2');
+  });
+
+  it('includes language, status, and duration in the label for discoverability', () => {
+    const commands = buildWithHistory([
+      {
+        id: 'entry-rust',
+        language: 'rust',
+        status: 'error',
+        durationMs: 42,
+        timestamp: 0,
+      },
+    ]);
+    const entry = commands.find((c) => c.id === 'recent-run-entry-rust');
+    expect(entry).toBeDefined();
+    expect(entry?.label.toLowerCase()).toContain('rust');
+    expect(entry?.label.toLowerCase()).toContain('error');
+    expect(entry?.label).toContain('42.0 ms');
+  });
+
+  it('formats recent-run durations with the shell helper instead of raw floats', () => {
+    const commands = buildWithHistory([
+      {
+        id: 'entry-float',
+        language: 'javascript',
+        status: 'ok',
+        durationMs: 0.2749999761581421,
+        timestamp: 0,
+      },
+    ]);
+    const entry = commands.find((c) => c.id === 'recent-run-entry-float');
+    expect(entry).toBeDefined();
+    expect(entry?.label).toContain('0.3 ms');
+    expect(entry?.label).not.toContain('0.2749999761581421');
+  });
+
+  it('describes recent-run actions as language-level tab focus, not exact replay', () => {
+    const commands = buildWithHistory([
+      {
+        id: 'entry-js',
+        language: 'javascript',
+        status: 'ok',
+        durationMs: 5,
+        timestamp: 0,
+      },
+    ]);
+    const entry = commands.find((c) => c.id === 'recent-run-entry-js');
+    expect(entry).toBeDefined();
+    expect(entry?.description.toLowerCase()).toContain('open tab');
+    expect(entry?.description.toLowerCase()).not.toContain('last ran');
+  });
+
+  it('calls onFocusLanguageTab with the entry language when the action fires', () => {
+    const focus = vi.fn();
+    const commands = buildWithHistory(
+      [
+        {
+          id: 'entry-py',
+          language: 'python',
+          status: 'ok',
+          durationMs: 10,
+          timestamp: 0,
+        },
+      ],
+      focus
+    );
+    commands.find((c) => c.id === 'recent-run-entry-py')?.action();
+    expect(focus).toHaveBeenCalledWith('python');
+  });
+});

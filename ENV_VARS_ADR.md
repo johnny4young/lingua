@@ -24,11 +24,23 @@ precedence:
    silently.
 
 Non-string user values are dropped defensively at this step even though
-`envVarsStore` already rejects them up front. Rust and Python follow
-the same pattern; each will gain a parallel `resolveRustRunEnv` /
-`resolvePythonFormatEnv` helper that preserves its own runner-owned
-keys (e.g. `RUSTC_WRAPPER` may be forwarded from host; `PATH` for
-Python needs the same process.env base).
+`envVarsStore` already rejects them up front.
+
+### Rust (shipped 2026-04-20 quater)
+
+`resolveRustRunEnv` in `src/main/rust-compiler.ts` follows the same
+two-tier merge — `process.env` underneath, user env on top — with one
+intentional difference from Go: **there are no runner-owned keys**.
+Rust's toolchain knobs are plain env vars (`RUSTC_WRAPPER`,
+`RUSTFLAGS`, `CARGO_HOME`, etc.) that users legitimately want to set,
+so we let them win over host values. The resolved env is passed to
+both `execFileAsync('rustc', ...)` (compile tier) and
+`spawn(binaryFile, ...)` (runtime tier) so the Rust program reads the
+same env via `std::env::var` that the compiler saw.
+
+Python's turn is the next slice and lives on its own IPC path —
+Pyodide runs in the renderer, not via subprocess, so the env hands
+off through a worker boot message rather than a spawn option.
 
 ## Context
 

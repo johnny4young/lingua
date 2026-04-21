@@ -20,10 +20,20 @@ Object.defineProperty(globalThis, 'window', {
 });
 
 import { RustRunner } from '@/runners/rust';
+import { useEnvVarsStore } from '@/stores/envVarsStore';
+import { useEditorStore } from '@/stores/editorStore';
+import { useProjectStore } from '@/stores/projectStore';
 
 describe('RustRunner', () => {
+  const initialEnv = useEnvVarsStore.getState();
+  const initialEditor = useEditorStore.getState();
+  const initialProject = useProjectStore.getState();
+
   beforeEach(() => {
     vi.clearAllMocks();
+    useEnvVarsStore.setState(initialEnv, true);
+    useEditorStore.setState(initialEditor, true);
+    useProjectStore.setState(initialProject, true);
   });
 
   it('should have correct metadata', () => {
@@ -128,5 +138,77 @@ describe('RustRunner', () => {
     const runner = new RustRunner();
     await runner.init();
     expect(mockDetect).toHaveBeenCalledOnce();
+  });
+
+  it('RL-011 Slice D — forwards the merged user env to rust:run', async () => {
+    mockDetect.mockResolvedValue({ installed: true, version: 'rustc 1.75.0' });
+    mockRun.mockResolvedValue({
+      success: true,
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+      executionTime: 1,
+    });
+
+    useEnvVarsStore.setState({
+      global: { SHARED: 'from-global', GLOBAL_ONLY: 'g' },
+      project: { 'proj-1': { SHARED: 'from-project', PROJECT_ONLY: 'p' } },
+      tab: { 'tab-1': { SHARED: 'from-tab', TAB_ONLY: 't' } },
+    });
+    useProjectStore.setState({
+      currentProject: {
+        id: 'proj-1',
+        name: 'Fixture',
+        rootPath: '/tmp/fixture',
+        openedAt: Date.now(),
+      },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-1',
+          name: 'main.rs',
+          language: 'rust',
+          content: '',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-1',
+    });
+
+    const runner = new RustRunner();
+    await runner.init();
+    await runner.execute('fn main() {}');
+
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    const [sourceCode, userEnv] = mockRun.mock.calls[0] as [
+      string,
+      Record<string, string>
+    ];
+    expect(sourceCode).toContain('fn main');
+    expect(userEnv).toMatchObject({
+      SHARED: 'from-tab',
+      GLOBAL_ONLY: 'g',
+      PROJECT_ONLY: 'p',
+      TAB_ONLY: 't',
+    });
+  });
+
+  it('RL-011 Slice D — forwards an empty env when no tiers have values', async () => {
+    mockDetect.mockResolvedValue({ installed: true, version: 'rustc 1.75.0' });
+    mockRun.mockResolvedValue({
+      success: true,
+      stdout: '',
+      stderr: '',
+      exitCode: 0,
+      executionTime: 1,
+    });
+
+    const runner = new RustRunner();
+    await runner.init();
+    await runner.execute('fn main() {}');
+
+    const [, userEnv] = mockRun.mock.calls[0] as [string, Record<string, string>];
+    expect(userEnv).toEqual({});
   });
 });

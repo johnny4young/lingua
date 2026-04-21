@@ -10,8 +10,10 @@ import {
   type Template,
 } from '../../data/templates';
 import type { Snippet } from '../../stores/snippetsStore';
+import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import type { FileTab, Language, LayoutPreset } from '../../types';
-import { extensionForLanguage } from '../../utils/languageMeta';
+import { formatExecTime } from '../../hooks/runnerOutput';
+import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
 
 export type CommandCategory = 'template' | 'snippet' | 'action';
 
@@ -28,6 +30,18 @@ export interface CommandEntry {
 interface BuildCommandPaletteModelArgs {
   templates: readonly Template[];
   snippets: Snippet[];
+  /**
+   * RL-028 third slice — the most recent executions surfaced as palette
+   * entries so the user can jump back to "what I just ran" without
+   * navigating the Settings panel. Optional for legacy callers.
+   */
+  executionHistory?: readonly ExecutionHistoryEntry[];
+  /**
+   * Called when the user activates a Recent-runs entry. The caller
+   * decides what focus means — today it's a no-op or a tab-focus;
+   * Slice D of RL-028 may wire it to a real replay action.
+   */
+  onFocusLanguageTab?: (language: Language) => void;
   updateStatus: UpdateStatus;
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   createDefaultTab: (language: Language) => FileTab;
@@ -144,9 +158,59 @@ function identityTranslate(key: string): string {
   return segment.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
 }
 
+/**
+ * RL-028 third slice — surface up to 5 recent runs as palette actions.
+ * Label format is `{{language}} · {{status}} · {{duration}}`,
+ * all localized. `onFocusLanguageTab` is optional; when it's missing
+ * the action just closes the palette (a harmless "I saw the entry"
+ * acknowledgement, same as every other palette item without a caller).
+ */
+const MAX_RECENT_RUNS_IN_PALETTE = 5;
+
+function buildRecentRunCommand(
+  entry: ExecutionHistoryEntry,
+  onClose: () => void,
+  translate: (key: string, options?: Record<string, unknown>) => string,
+  onFocusLanguageTab?: (language: Language) => void
+): CommandEntry {
+  const statusKey =
+    entry.status === 'ok'
+      ? 'commandPalette.recentRuns.status.ok'
+      : 'commandPalette.recentRuns.status.error';
+  const languageName = languageLabel(entry.language as Language);
+  const label = translate('commandPalette.recentRuns.label', {
+    language: languageName,
+    status: translate(statusKey),
+    duration: formatExecTime(entry.durationMs ?? 0),
+  });
+  const description = translate('commandPalette.recentRuns.description');
+
+  return {
+    id: `recent-run-${entry.id}`,
+    category: 'action',
+    label,
+    description,
+    language: entry.language as Language,
+    keywords: normalizeKeywords([
+      label,
+      description,
+      entry.language,
+      entry.status,
+      'recent',
+      'run',
+    ]),
+    action: () => {
+      onFocusLanguageTab?.(entry.language as Language);
+      onClose();
+    },
+  };
+}
+
 export function buildCommandPaletteModel({
   templates,
   snippets,
+  executionHistory,
+  onFocusLanguageTab,
   updateStatus,
   createTab,
   createDefaultTab,
@@ -177,12 +241,20 @@ export function buildCommandPaletteModel({
       : 'commandPalette.action.restartUpdate.descriptionPending'
   );
 
+  const recentRunEntries = (executionHistory ?? [])
+    // Store keeps entries oldest → newest; palette wants newest first.
+    .slice(-MAX_RECENT_RUNS_IN_PALETTE)
+    .reverse();
+
   const commands: CommandEntry[] = [
     ...templates.map((template) =>
       buildTemplateCommand(template, createTab, createDefaultTab, onClose, t)
     ),
     ...snippets.map((snippet) =>
       buildSnippetCommand(snippet, createTab, createDefaultTab, onClose, translate)
+    ),
+    ...recentRunEntries.map((entry) =>
+      buildRecentRunCommand(entry, onClose, translate, onFocusLanguageTab)
     ),
     buildActionCommand(
       'action-layout-horizontal',

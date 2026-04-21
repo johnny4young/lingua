@@ -11,6 +11,8 @@ export type BuiltInLanguage =
   | 'ruby'
   | 'c'
   | 'cpp'
+  | 'swift'
+  | 'kotlin'
   | 'json'
   | 'yaml'
   | 'dotenv'

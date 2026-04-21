@@ -31,6 +31,30 @@ interface RustRunResult {
   error?: string;
 }
 
+/**
+ * Merge a user-space env record over `process.env` for the Rust
+ * compile + run subprocess. RL-011 Slice D second increment.
+ *
+ * Unlike Go's compile path there are no runner-owned keys that must
+ * be immovable — rustc respects the host toolchain on its own and the
+ * spawned binary reads whatever env we hand it. We still drop non-
+ * string user values defensively; the renderer's envVarsStore already
+ * rejects them up front, but the IPC boundary is untrusted.
+ */
+export function resolveRustRunEnv(userEnv?: Record<string, string>): NodeJS.ProcessEnv {
+  const safeUserEnv: Record<string, string> = {};
+  if (userEnv) {
+    for (const [key, value] of Object.entries(userEnv)) {
+      if (typeof value !== 'string') continue;
+      safeUserEnv[key] = value;
+    }
+  }
+  return {
+    ...process.env,
+    ...safeUserEnv,
+  };
+}
+
 /** Detect if Rust (rustc) is installed and return version info */
 async function detectRust(): Promise<RustDetectResult> {
   try {
@@ -45,7 +69,10 @@ async function detectRust(): Promise<RustDetectResult> {
 }
 
 /** Compile and run Rust source code natively */
-async function runRustCode(sourceCode: string): Promise<RustRunResult> {
+async function runRustCode(
+  sourceCode: string,
+  userEnv?: Record<string, string>
+): Promise<RustRunResult> {
   const rustInfo = await detectRust();
   if (!rustInfo.installed) {
     return {
@@ -69,10 +96,15 @@ async function runRustCode(sourceCode: string): Promise<RustRunResult> {
     await mkdir(tempDir, { recursive: true });
     await writeFile(sourceFile, sourceCode, 'utf-8');
 
+    // RL-011 Slice D — resolve once and use for both compile + spawn
+    // so `rustc` and the user binary see the same environment.
+    const mergedEnv = resolveRustRunEnv(userEnv);
+
     // --- Compile ---
     const compileStart = Date.now();
     try {
       await execFileAsync('rustc', [sourceFile, '-o', binaryFile], {
+        env: mergedEnv,
         timeout: 60_000, // compilation can be slow on first run
       });
     } catch (compileErr) {
@@ -94,7 +126,7 @@ async function runRustCode(sourceCode: string): Promise<RustRunResult> {
       let stdout = '';
       let stderr = '';
 
-      const child = spawn(binaryFile, [], { timeout: 30_000 });
+      const child = spawn(binaryFile, [], { env: mergedEnv, timeout: 30_000 });
 
       child.stdout.on('data', (chunk: Buffer) => {
         stdout += chunk.toString();
@@ -139,7 +171,9 @@ async function runRustCode(sourceCode: string): Promise<RustRunResult> {
 export function registerRustHandlers(): void {
   ipcMain.handle('rust:detect', async () => detectRust());
 
-  ipcMain.handle('rust:run', async (_event, sourceCode: string) =>
-    runRustCode(sourceCode)
+  ipcMain.handle(
+    'rust:run',
+    async (_event, sourceCode: string, userEnv?: Record<string, string>) =>
+      runRustCode(sourceCode, userEnv),
   );
 }
