@@ -13,13 +13,42 @@ import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { initI18n } from '@/i18n';
 import { EditorSection } from '@/components/Settings/EditorSection';
+import { useLicenseStore } from '@/stores/licenseStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useUIStore } from '@/stores/uiStore';
+
+function setActiveProLicense() {
+  useLicenseStore.setState({
+    token: 'test.token',
+    status: {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'test@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    },
+    lastVerifiedAt: Date.now(),
+  });
+}
 
 describe('EditorSection — Vim mode toggle (RL-037)', () => {
   const initial = useSettingsStore.getState();
+  const initialLicense = useLicenseStore.getState();
 
   beforeEach(async () => {
     useSettingsStore.setState(initial, true);
+    useLicenseStore.setState(initialLicense, true);
+    setActiveProLicense();
+    useUIStore.setState({ statusNotice: null });
     initI18n('en');
     await i18next.changeLanguage('en');
   });
@@ -27,6 +56,7 @@ describe('EditorSection — Vim mode toggle (RL-037)', () => {
   afterEach(() => {
     cleanup();
     useSettingsStore.setState(initial, true);
+    useLicenseStore.setState(initialLicense, true);
   });
 
   it('renders the Vim mode toggle unchecked by default', () => {
@@ -59,5 +89,18 @@ describe('EditorSection — Vim mode toggle (RL-037)', () => {
     expect(screen.getByTestId('editor-vim-mode-status').textContent).toContain(
       'Hoy solo persiste el flag'
     );
+  });
+
+  it('blocks extended editor fonts on the Free tier', async () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    const user = userEvent.setup();
+    render(<EditorSection />);
+
+    await user.selectOptions(screen.getByTestId('editor-font-family-select'), 'Menlo, monospace');
+
+    expect(useSettingsStore.getState().fontFamily).toBe(
+      "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace"
+    );
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
   });
 });

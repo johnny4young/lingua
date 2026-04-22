@@ -1,6 +1,10 @@
 import { useTranslation } from 'react-i18next';
+import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { trackEvent } from '../../utils/telemetry';
+import { pushUpsellNotice } from '../../utils/upsellNotice';
 import {
+  DEFAULT_FONT_FAMILY,
   EDITOR_THEMES,
   FONT_FAMILIES,
   FONT_SIZES,
@@ -10,6 +14,8 @@ import { Row, Section, Select, StepperButton, Toggle } from './shared';
 import { ThemePresetControls } from './ThemePresetControls';
 
 export function EditorSection() {
+  const effectiveTier = useEffectiveTier();
+  const canUseExtendedFonts = useEntitlement('FONT_PACK_EXTENDED');
   const editorTheme = useSettingsStore((state) => state.editorTheme);
   const setEditorTheme = useSettingsStore((state) => state.setEditorTheme);
   const fontFamily = useSettingsStore((state) => state.fontFamily);
@@ -43,6 +49,31 @@ export function EditorSection() {
   const { t } = useTranslation();
   const ligaturesAvailable = fontStackSupportsLigatures(fontFamily);
 
+  const handleFontFamilyChange = (nextFontFamily: string) => {
+    const isExtendedFont = nextFontFamily !== DEFAULT_FONT_FAMILY;
+    if (isExtendedFont && !canUseExtendedFonts) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: t('upsell.feature.fontPacks'),
+      });
+      void trackEvent('feature.blocked', {
+        entitlement: 'font-packs',
+        tier: effectiveTier,
+      });
+      return;
+    }
+    setFontFamily(nextFontFamily);
+  };
+
+  const formatFontOptionLabel = (font: (typeof FONT_FAMILIES)[number]) => {
+    const baseLabel = font.supportsLigatures
+      ? t('editor.fontFamily.optionWithLigatures', { name: font.label })
+      : font.label;
+    return font.value === DEFAULT_FONT_FAMILY || canUseExtendedFonts
+      ? baseLabel
+      : `${baseLabel} · ${t('license.badge.pro')}`;
+  };
+
   return (
     <Section
       title={t('editor.title')}
@@ -70,12 +101,14 @@ export function EditorSection() {
 
       <Row label={t('editor.fontFamily.label')} hint={t('editor.fontFamily.hint')}>
         <div className="grid w-full gap-2">
-          <Select value={fontFamily} onChange={(event) => setFontFamily(event.target.value)}>
+          <Select
+            value={fontFamily}
+            onChange={(event) => handleFontFamilyChange(event.target.value)}
+            data-testid="editor-font-family-select"
+          >
             {FONT_FAMILIES.map((font) => (
               <option key={font.value} value={font.value}>
-                {font.supportsLigatures
-                  ? t('editor.fontFamily.optionWithLigatures', { name: font.label })
-                  : font.label}
+                {formatFontOptionLabel(font)}
               </option>
             ))}
           </Select>

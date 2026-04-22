@@ -113,6 +113,20 @@ export function Toolbar({
           : t('toolbar.run.title');
 
   const handleNewFile = (language: Language) => {
+    if (!isLanguageAllowed(effectiveTier, language)) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: t('upsell.feature.languagePack'),
+      });
+      void trackEvent('feature.blocked', {
+        entitlement: 'language-pack-extended',
+        tier: effectiveTier,
+        language,
+      });
+      setIsNewFileMenuOpen(false);
+      return;
+    }
+
     const tab = createDefaultTab(language);
     addTab(tab);
     setIsNewFileMenuOpen(false);

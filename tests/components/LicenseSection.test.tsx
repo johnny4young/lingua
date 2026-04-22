@@ -66,7 +66,7 @@ describe('LicenseSection', () => {
       'token.value'
     );
     render(<LicenseSection />);
-    expect(screen.getByTestId('license-status-pill').textContent).toContain('Active — pro');
+    expect(screen.getByTestId('license-status-pill').textContent).toContain('Active — Pro');
     expect(screen.getByTestId('license-clear')).toBeTruthy();
   });
 
@@ -78,24 +78,22 @@ describe('LicenseSection', () => {
 
   it('pushes a success notice and clears the draft when setLicenseToken returns active', async () => {
     const user = userEvent.setup();
-    const spy = vi
-      .spyOn(useLicenseStore.getState(), 'setLicenseToken')
-      .mockResolvedValue({
-        kind: 'active',
-        verification: {
-          ok: true,
-          state: 'active',
-          supportWindowEndsAt: Date.now() + 86_400_000,
-          payload: {
-            productId: 'lingua-desktop',
-            tier: 'pro_lifetime',
-            issuedTo: 'user@example.com',
-            issuedAt: new Date().toISOString(),
-            supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
-            entitlements: [],
-          },
+    const spy = vi.spyOn(useLicenseStore.getState(), 'setLicenseToken').mockResolvedValue({
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro_lifetime',
+          issuedTo: 'user@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
         },
-      });
+      },
+    });
     render(<LicenseSection />);
 
     const input = screen.getByTestId('license-input') as HTMLTextAreaElement;
@@ -195,7 +193,7 @@ describe('LicenseSection', () => {
     await i18next.changeLanguage('es');
     try {
       render(<LicenseSection />);
-      expect(screen.getByTestId('license-status-pill').textContent).toContain('Plan Free');
+      expect(screen.getByTestId('license-status-pill').textContent).toContain('Plan Gratis');
     } finally {
       await i18next.changeLanguage('en');
     }

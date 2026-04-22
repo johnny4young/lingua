@@ -17,7 +17,11 @@ import {
   isKnownThemePackId,
   type ThemePackAppearance,
 } from '../data/themePacks';
+import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { isEntitled } from '../../shared/entitlements';
 import type { SettingsState } from '../types';
+
+const DEFAULT_EDITOR_FONT_FAMILY = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace";
 
 const APP_LANGUAGES = ['system', 'en', 'es'] as const;
 
@@ -124,7 +128,7 @@ export const useSettingsStore = create<SettingsState>()(
       theme: 'dark',
       editorTheme: 'lingua-dark',
       fontSize: 14,
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+      fontFamily: DEFAULT_EDITOR_FONT_FAMILY,
       fontLigatures: true,
       showLineNumbers: true,
       wordWrap: false,
@@ -162,7 +166,15 @@ export const useSettingsStore = create<SettingsState>()(
         set({ editorTheme, themePack: DEFAULT_THEME_PACK_ID }),
       setFontSize: (fontSize) => set({ fontSize, themePack: DEFAULT_THEME_PACK_ID }),
       setFontFamily: (fontFamily) =>
-        set({ fontFamily, themePack: DEFAULT_THEME_PACK_ID }),
+        set((state) => {
+          if (
+            fontFamily !== DEFAULT_EDITOR_FONT_FAMILY &&
+            !isEntitled(currentEffectiveTier(), 'FONT_PACK_EXTENDED')
+          ) {
+            return state;
+          }
+          return { fontFamily, themePack: DEFAULT_THEME_PACK_ID };
+        }),
       toggleFontLigatures: () =>
         set((s) => ({
           fontLigatures: !s.fontLigatures,
@@ -241,6 +253,12 @@ export const useSettingsStore = create<SettingsState>()(
       applyThemePack: (packId) => {
         const pack = findThemePack(packId);
         if (!pack) return;
+        if (
+          pack.id !== DEFAULT_THEME_PACK_ID &&
+          !isEntitled(currentEffectiveTier(), 'THEME_PACK_EXTENDED')
+        ) {
+          return;
+        }
         set({
           themePack: pack.id,
           theme: pack.appearance.theme,
