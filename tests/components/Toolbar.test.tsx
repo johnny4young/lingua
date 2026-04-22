@@ -78,13 +78,22 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
 });
 
 vi.mock('../../src/renderer/stores/uiStore', () => ({
-  useUIStore: () => ({
+  useUIStore: Object.assign(() => ({
     sidebarVisible: true,
     consoleVisible: true,
     toggleSidebar: mockToggleSidebar,
     toggleConsole: mockToggleConsole,
     statusNotice: uiStoreState.statusNotice,
     pushStatusNotice: mockPushStatusNotice,
+  }), {
+    getState: () => ({
+      sidebarVisible: true,
+      consoleVisible: true,
+      toggleSidebar: mockToggleSidebar,
+      toggleConsole: mockToggleConsole,
+      statusNotice: uiStoreState.statusNotice,
+      pushStatusNotice: mockPushStatusNotice,
+    }),
   }),
 }));
 
@@ -440,6 +449,30 @@ describe('Toolbar', () => {
     expect(screen.getByTestId('toolbar-new-file-capability-go').textContent).toContain('PRO');
 
     await user.click(screen.getByRole('menuitem', { name: /^Go/ }));
+
+    expect(mockAddTab).not.toHaveBeenCalled();
+    expect(uiStoreState.statusNotice).toMatchObject({
+      messageKey: 'upsell.freeCeilingReached',
+    });
+  });
+
+  it('blocks the primary new-file action when the active language is Pro-only on the Free tier', async () => {
+    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+    editorStoreState.tabs = [
+      {
+        id: 'tab-go',
+        name: 'main.go',
+        language: 'go',
+        content: 'package main\n',
+        isDirty: false,
+      },
+    ];
+    editorStoreState.activeTabId = 'tab-go';
+    const user = userEvent.setup();
+
+    render(<Toolbar />);
+
+    await user.click(screen.getByRole('button', { name: 'New Go' }));
 
     expect(mockAddTab).not.toHaveBeenCalled();
     expect(uiStoreState.statusNotice).toMatchObject({

@@ -24,6 +24,9 @@
     "check:i18n:copy": "node ./scripts/check-renderer-copy.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "test": "vitest run",
+    "test:e2e:web": "PLAYWRIGHT_BROWSERS_PATH=0 node ./scripts/run-playwright-web-validation.mjs",
+    "test:smoke:license-web": "vitest run tests/smoke/licenseWebSmoke.test.tsx",
+    "test:smoke:license-web:unit": "npm run test:smoke:license-web",
     "test:watch": "vitest"
   },
   "repository": {
@@ -54,6 +57,7 @@
     "@electron-forge/publisher-github": "^7.11.1",
     "@electron/fuses": "^1.8.0",
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

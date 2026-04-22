@@ -108,8 +108,7 @@ export function ExecutionHistoryPopover({
         onClick={handleToggle}
         tooltip={enabled ? t('executionHistory.toggle') : t('executionHistory.lockedTooltip')}
         aria-expanded={enabled ? open : false}
-        aria-disabled={enabled ? undefined : true}
-        aria-haspopup="dialog"
+        aria-haspopup={enabled ? 'dialog' : undefined}
         aria-controls={enabled && open ? popoverId : undefined}
         data-testid="execution-history-toggle"
       >

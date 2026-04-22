@@ -55,6 +55,8 @@ export const FONT_FAMILIES: FontFamilyOption[] = [
   { value: 'monospace', label: 'System Monospace', supportsLigatures: false },
 ];
 
+export const DEFAULT_FONT_FAMILY = FONT_FAMILIES[0]?.value ?? 'monospace';
+
 /**
  * Return true if the font stack is known to carry ligature glyphs. Falls back
  * to true for unknown custom stacks so we never silently disable ligatures for

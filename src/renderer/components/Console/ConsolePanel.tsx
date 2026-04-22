@@ -7,7 +7,10 @@ import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useRunner } from '../../hooks/useRunner';
+import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { languageLabel } from '../../utils/languageMeta';
+import { pushUpsellNotice } from '../../utils/upsellNotice';
+import { trackEvent } from '../../utils/telemetry';
 import { IconButton, Tooltip } from '../ui/chrome';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 
@@ -171,6 +174,8 @@ function EntryRow({
 export function ConsolePanel() {
   const { t } = useTranslation();
   const { run } = useRunner();
+  const effectiveTier = useEffectiveTier();
+  const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const { entries, activeFilters, showTimestamps, clear, toggleFilter, toggleTimestamps } =
     useConsoleStore();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -213,6 +218,17 @@ export function ConsolePanel() {
     },
     [run]
   );
+
+  const handleBlockedExecutionHistory = useCallback(() => {
+    pushUpsellNotice({
+      messageKey: 'upsell.freeCeilingReached',
+      featureLabel: t('upsell.feature.executionHistory'),
+    });
+    void trackEvent('feature.blocked', {
+      entitlement: 'execution-history',
+      tier: effectiveTier,
+    });
+  }, [effectiveTier, t]);
 
   const visibleEntries = entries.filter((entry) => activeFilters.has(entry.type));
 
@@ -261,7 +277,11 @@ export function ConsolePanel() {
           >
             <Clock size={13} />
           </IconButton>
-          <ExecutionHistoryPopover onRerun={rerunHistoryEntry} />
+          <ExecutionHistoryPopover
+            enabled={canUseExecutionHistory}
+            onBlocked={handleBlockedExecutionHistory}
+            onRerun={rerunHistoryEntry}
+          />
           <IconButton onClick={clear} tooltip={t('console.actions.clear')} tone="danger">
             <Trash2 size={13} />
           </IconButton>
