@@ -953,6 +953,39 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Dependencies:
   - RL-025
 
+### Deferred study — Web service worker and offline-cache hardening
+
+- Priority: `P3`
+- Status: `Deferred study`
+- Readiness: `Revisit after the current web-validation and licensing slices settle`
+- Why this matters:
+  - The web build already ships a baseline service worker in `public/sw.js`, but its cache versioning is manual and its routing rules are intentionally conservative.
+  - A follow-up should make the web shell more resilient to stale HTML / rotated hashed assets, clarify what should never be cached, and improve the offline fallback story without destabilizing local development or Playwright.
+- Study scope:
+  - Audit the current request classes handled by `public/sw.js`:
+    - navigations
+    - same-origin static assets
+    - CDN resources
+  - Decide where Lingua should keep `network-first`, `cache-first`, or adopt `stale-while-revalidate`.
+  - Evaluate whether the web build should add:
+    - a dedicated `offline.html` fallback
+    - explicit exclusions for future dynamic/API routes
+    - clearer cache-busting / version-bump discipline for deploys
+    - richer activation/update semantics beyond the current `skipWaiting()` + `clients.claim()` baseline
+  - Write down the validation matrix for any future SW change:
+    - first load
+    - reload after a fresh deploy
+    - offline revisit
+    - upgrade from an older cached shell
+    - Playwright behavior with `serviceWorkers: 'block'`
+- Explicitly not committed yet:
+  - shipping a new service-worker strategy right now
+  - background sync, push, or periodic background refresh
+  - broad PWA expansion beyond cache/offline correctness
+- Exit criteria:
+  - A short design note or ADR recommends the next safe extension to `public/sw.js`.
+  - The rollout plan includes cache invalidation rules plus web smoke coverage for both `en` and `es`.
+
 ### RL-030 Write a WASM-first capability matrix and migrate only where it wins
 
 - Priority: `P1`

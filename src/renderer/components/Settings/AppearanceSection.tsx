@@ -1,9 +1,12 @@
 import { MoonStar, SunMedium } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { THEME_PACKS } from '../../data/themePacks';
+import { DEFAULT_THEME_PACK_ID, THEME_PACKS } from '../../data/themePacks';
+import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { changeAppLanguage } from '../../i18n';
 import type { AppLanguage } from '../../types';
+import { trackEvent } from '../../utils/telemetry';
+import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { Row, Section, Select } from './shared';
 
 const APP_THEMES = [
@@ -30,6 +33,8 @@ function isAppLanguage(value: string): value is AppLanguage {
 }
 
 export function AppearanceSection() {
+  const effectiveTier = useEffectiveTier();
+  const canUseExtendedThemePacks = useEntitlement('THEME_PACK_EXTENDED');
   const theme = useSettingsStore((state) => state.theme);
   const setTheme = useSettingsStore((state) => state.setTheme);
   const language = useSettingsStore((state) => state.language);
@@ -45,6 +50,22 @@ export function AppearanceSection() {
     void changeAppLanguage(value, () => window.lingua.getSystemLanguages());
   };
 
+  const handleThemePackChange = (packId: string) => {
+    const isExtendedPack = packId !== DEFAULT_THEME_PACK_ID;
+    if (isExtendedPack && !canUseExtendedThemePacks) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: t('upsell.feature.themePacks'),
+      });
+      void trackEvent('feature.blocked', {
+        entitlement: 'theme-packs',
+        tier: effectiveTier,
+      });
+      return;
+    }
+    applyThemePack(packId);
+  };
+
   return (
     <Section
       title={t('appearance.title')}
@@ -56,12 +77,14 @@ export function AppearanceSection() {
       >
         <Select
           value={themePack}
-          onChange={(event) => applyThemePack(event.currentTarget.value)}
+          onChange={(event) => handleThemePackChange(event.currentTarget.value)}
           data-testid="theme-pack-select"
         >
           {THEME_PACKS.map((pack) => (
             <option key={pack.id} value={pack.id}>
-              {t(pack.labelKey)}
+              {pack.id === DEFAULT_THEME_PACK_ID || canUseExtendedThemePacks
+                ? t(pack.labelKey)
+                : `${t(pack.labelKey)} · ${t('license.badge.pro')}`}
             </option>
           ))}
         </Select>
@@ -115,7 +138,11 @@ export function AppearanceSection() {
       </div>
 
       <Row label={t('language.label')} hint={t('language.hint')}>
-        <Select value={language} onChange={(e) => handleLanguageChange(e.currentTarget.value)}>
+        <Select
+          value={language}
+          onChange={(e) => handleLanguageChange(e.currentTarget.value)}
+          data-testid="app-language-select"
+        >
           <option value="system">{t('language.system')}</option>
           <option value="en">{t('language.en')}</option>
           <option value="es">{t('language.es')}</option>

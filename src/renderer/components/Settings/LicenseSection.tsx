@@ -69,16 +69,23 @@ function invalidReasonMessageKey(status: Extract<LicenseStatus, { kind: 'invalid
   }
 }
 
+function tierLabel(t: ReturnType<typeof useTranslation>['t'], status: LicenseStatus): string {
+  if (status.kind === 'active' || status.kind === 'grace') {
+    return t(`license.tier.${status.verification.payload.tier}`);
+  }
+  return t('license.tier.free');
+}
+
 export function LicenseSection() {
   const { t } = useTranslation();
   const [draft, setDraft] = useState('');
   const [isApplying, setIsApplying] = useState(false);
 
-  const status = useLicenseStore((state) => state.status);
-  const token = useLicenseStore((state) => state.token);
-  const setLicenseToken = useLicenseStore((state) => state.setLicenseToken);
-  const clearLicense = useLicenseStore((state) => state.clearLicense);
-  const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
+  const status = useLicenseStore(state => state.status);
+  const token = useLicenseStore(state => state.token);
+  const setLicenseToken = useLicenseStore(state => state.setLicenseToken);
+  const clearLicense = useLicenseStore(state => state.clearLicense);
+  const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
 
   const handleApply = async () => {
     if (isApplying) return;
@@ -100,7 +107,7 @@ export function LicenseSection() {
         pushStatusNotice({
           tone: 'success',
           messageKey: 'license.notice.activated',
-          values: { tier: next.verification.payload.tier },
+          values: { tier: tierLabel(t, next) },
         });
       }
     } finally {
@@ -114,11 +121,6 @@ export function LicenseSection() {
     pushStatusNotice({ tone: 'info', messageKey: 'license.notice.cleared' });
   };
 
-  const tierLabel =
-    status.kind === 'active' || status.kind === 'grace'
-      ? status.verification.payload.tier
-      : 'free';
-
   return (
     <Section title={t('license.title')} description={t('license.description')}>
       <Row label={t('license.current.label')} hint={t('license.current.hint')}>
@@ -128,7 +130,7 @@ export function LicenseSection() {
             aria-live="polite"
             className={`inline-flex w-fit items-center gap-2 self-end rounded-[0.8rem] border px-2 py-1 text-xs font-medium ${statusToneClass(status)}`}
           >
-            {t(statusLabelKey(status), { tier: tierLabel })}
+            {t(statusLabelKey(status), { tier: tierLabel(t, status) })}
           </span>
           {token ? (
             <button
@@ -150,7 +152,7 @@ export function LicenseSection() {
             placeholder={t('license.paste.placeholder')}
             value={draft}
             spellCheck={false}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={event => setDraft(event.target.value)}
             data-testid="license-input"
             className="min-h-20 w-full rounded-[1rem] border border-border/80 bg-background/88 px-3 py-2 font-mono text-xs text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
           />

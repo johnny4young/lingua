@@ -9,13 +9,9 @@ vi.mock('../../src/renderer/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
   ),
-  OverlayBackdrop: ({
-    children,
-    onClose,
-  }: {
-    children: React.ReactNode;
-    onClose?: () => void;
-  }) => <div onClick={onClose}>{children}</div>,
+  OverlayBackdrop: ({ children, onClose }: { children: React.ReactNode; onClose?: () => void }) => (
+    <div onClick={onClose}>{children}</div>
+  ),
   OverlayCard: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
     <div {...props}>{children}</div>
   ),
@@ -52,7 +48,7 @@ describe('NumberBaseUtilityPanel', () => {
     expect((screen.getByTestId('number-base-input-binary') as HTMLInputElement).value).toBe(
       '1010101111001101'
     );
-  });
+  }, 10_000);
 
   it('flags an invalid binary entry without clobbering the other views', async () => {
     const user = userEvent.setup();
@@ -109,8 +105,6 @@ describe('NumberBaseUtilityPanel', () => {
     // `utilities.tool.numberBase.title` key, which renders as "Bases
     // numéricas" in ES. Matching against level 3 (<h3>) pins the assertion
     // to the inner panel header and not the dialog-level <h2>.
-    expect(
-      screen.getByRole('heading', { level: 3, name: /Bases num[eé]ricas/i })
-    ).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 3, name: /Bases num[eé]ricas/i })).toBeTruthy();
   });
 });

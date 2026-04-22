@@ -188,6 +188,7 @@
   "upsell.feature.extraSnippets": "additional saved snippets",
   "upsell.feature.extraLanguages": "Go, Rust, and additional languages",
   "upsell.feature.devUtilities": "the built-in developer utilities",
+  "upsell.feature.languagePack": "additional language runtimes",
   "upsell.feature.executionHistory": "execution history and rerun tools",
   "upsell.feature.themePacks": "additional theme packs",
   "upsell.feature.fontPacks": "additional editor fonts",

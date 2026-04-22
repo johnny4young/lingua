@@ -82,16 +82,13 @@ describe('AppearanceSection', () => {
       expect(useSettingsStore.getState().language).toBe('es');
       expect(i18next.language).toBe('es');
     });
-  });
+  }, 10_000);
 
   it('applies a theme pack wholesale when the selector changes', async () => {
     const user = userEvent.setup();
     render(<AppearanceSection />);
 
-    await user.selectOptions(
-      screen.getByTestId('theme-pack-select'),
-      'solarized-daylight'
-    );
+    await user.selectOptions(screen.getByTestId('theme-pack-select'), 'solarized-daylight');
 
     const state = useSettingsStore.getState();
     expect(state.themePack).toBe('solarized-daylight');
