@@ -15,7 +15,8 @@ export type DeveloperUtilityId =
   | 'string-case'
   | 'html-entity'
   | 'string-inspector'
-  | 'qr-code';
+  | 'qr-code'
+  | 'backslash-escape';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -146,6 +147,23 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.qrCode.label',
     descriptionKey: 'utilities.tool.qrCode.description',
     keywords: ['qr', 'qrcode', 'barcode', 'payload', 'scanner', 'url', 'share'],
+  },
+  {
+    id: 'backslash-escape',
+    titleKey: 'utilities.tool.backslashEscape.titleLabel',
+    actionLabelKey: 'utilities.tool.backslashEscape.label',
+    descriptionKey: 'utilities.tool.backslashEscape.description',
+    keywords: [
+      'backslash',
+      'escape',
+      'unescape',
+      'string',
+      'javascript',
+      'json',
+      'python',
+      'sql',
+      'mysql',
+    ],
   },
 ] as const;
 

@@ -43,6 +43,7 @@ Cosmetic or low-severity issues that do not warrant a dedicated
 want to batch them into one sprint.
 
 - [tests] Clean up the recurring React act(...) warnings across component suites so green runs are warning-free again — 2026-04-23
+- [devutils] `unescapeWithPreset('python')` returns `expected-eight-hex-digits` when `\UHHHHHHHH` digits are well-formed but the codepoint exceeds `U+10FFFF`. Add a dedicated `codepoint-out-of-range` `UnescapeReason` variant + matching en/es i18n copy so the error message matches the root cause. Only reachable with Python preset and a value like `\U00200000`; cosmetic today. — 2026-04-23
 
 ## 3. Spikes and research
 
