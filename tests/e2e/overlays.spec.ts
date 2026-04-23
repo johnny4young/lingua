@@ -246,6 +246,68 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('QR Code panel renders a PNG preview and a working download link', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^QR Code/ }).click();
+
+    const input = page.getByTestId('qr-code-input');
+    await input.fill('https://linguacode.dev');
+
+    // Preview image lands with a base64 PNG data URL, proving the helper
+    // ran and produced a deterministic artefact.
+    const image = page.getByTestId('qr-code-image');
+    await expect(image).toBeVisible();
+    await expect(image).toHaveAttribute('src', /^data:image\/png;base64,/);
+
+    // Download anchor carries the same data URL + the expected filename.
+    const download = page.getByTestId('qr-code-download');
+    await expect(download).toHaveAttribute('download', 'qr-code.png');
+    await expect(download).toHaveAttribute('href', /^data:image\/png;base64,/);
+
+    // Flipping the correction level regenerates a distinct preview.
+    const firstSrc = await image.getAttribute('src');
+    await page.getByTestId('qr-code-level').selectOption('H');
+    await expect(image).not.toHaveAttribute('src', firstSrc ?? '');
+
+    // Clearing the payload hides the preview and surfaces the empty hint.
+    await input.fill('');
+    await expect(page.getByTestId('qr-code-image')).toHaveCount(0);
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('JWT Debugger signs a token and verifies it via the mode toggle', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^JWT Debugger/ }).click();
+
+    // Sign first: HS256 with a key that hits the 32-byte HMAC floor.
+    await page.getByTestId('jwt-mode').selectOption('sign');
+    await page.getByTestId('jwt-sign-key').fill('this-secret-is-exactly-32-bytes!');
+    await page.getByTestId('jwt-sign-run').click();
+
+    const signResult = page.getByTestId('jwt-sign-result');
+    await expect(signResult).toBeVisible();
+    const token = await signResult.inputValue();
+    expect(token.split('.')).toHaveLength(3);
+
+    // Verify: paste the same token + key, algorithm auto-stays on HS256
+    // (the default). Expect the pass indicator.
+    await page.getByTestId('jwt-mode').selectOption('verify');
+    await page.getByTestId('jwt-verify-token').fill(token);
+    await page.getByTestId('jwt-verify-key').fill('this-secret-is-exactly-32-bytes!');
+    await page.getByTestId('jwt-verify-run').click();
+
+    await expect(page.getByTestId('jwt-verify-result-pass')).toBeVisible();
+
+    // Tamper one character in the token — verify should flip to fail.
+    const tampered = token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A');
+    await page.getByTestId('jwt-verify-token').fill(tampered);
+    await page.getByTestId('jwt-verify-run').click();
+    await expect(page.getByTestId('jwt-verify-result-fail')).toBeVisible();
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Diff Viewer granularity selector swaps between line, word and char modes', async ({
     page,
   }) => {
