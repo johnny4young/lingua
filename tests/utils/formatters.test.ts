@@ -29,6 +29,7 @@ describe('formatters', () => {
     expect(isFormatterSupported('typescript')).toBe(true);
     expect(isFormatterSupported('json')).toBe(true);
     expect(isFormatterSupported('css')).toBe(true);
+    expect(isFormatterSupported('html')).toBe(true);
     expect(isFormatterSupported('go')).toBe(true);
     expect(isFormatterSupported('rust')).toBe(true);
     expect(isFormatterSupported('python')).toBe(true);
@@ -183,6 +184,39 @@ describe('formatters', () => {
     if (!result.ok) {
       expect(result.failure).toBe('binary-missing');
       expect(result.message).toContain('PATH');
+    }
+  });
+
+  it('formats HTML with Prettier, indenting block-level children onto new lines', async () => {
+    // Prettier keeps short inline HTML on a single line. Force a break by
+    // mixing a block-level <section> with nested content that exceeds the
+    // default printWidth.
+    const source =
+      '<section><h1>Welcome</h1><p>This is a paragraph that needs enough content to push past the default 80-char Prettier print width.</p></section>';
+    const result = await formatSource('html', source);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.formatted).toContain('<section>');
+      expect(result.formatted).toContain('<h1>Welcome</h1>');
+      // Break + indentation is visible between the opening <section> and the
+      // first child element.
+      expect(result.formatted).toMatch(/<section>\n\s+<h1>/);
+      expect(result.changed).toBe(true);
+    }
+  });
+
+  it('is idempotent when formatting already-formatted HTML', async () => {
+    const first = await formatSource(
+      'html',
+      '<section><h1>Welcome</h1><p>Some paragraph that is long enough to get wrapped onto its own indented line.</p></section>'
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const second = await formatSource('html', first.formatted);
+    expect(second.ok).toBe(true);
+    if (second.ok) {
+      expect(second.formatted).toBe(first.formatted);
+      expect(second.changed).toBe(false);
     }
   });
 });
