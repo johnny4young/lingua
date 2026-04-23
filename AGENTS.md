@@ -7,19 +7,33 @@ transparently — edit this file, not the symlink.
 
 ## Read on arrival
 
-Before making non-trivial changes, open these files (in order):
+Before making non-trivial changes, open these files (in order). The
+three planning files in `docs/` are intentionally split by cost —
+load the cheapest one that answers your current question, not
+`PLAN.md` by default. **All planning state lives in `docs/*.md`
+committed to git; do not rely on `.claude/plans/*` or any other
+machine-local state.**
 
 1. This file — routing, skill preferences, landmines, UI validation,
    commit rules.
-2. `docs/PLAN.md` — current backlog, RL-XXX status, and execution order.
-   Never invent plan items; reference the existing RL numbering.
-3. `docs/ARCHITECTURE.md` — project lifecycle, IPC filesystem bridge, and
-   watch-state model.
-4. `docs/CAPABILITY_MATRIX.md` — which execution class (browser WASM, browser
-   interpreter, WebContainer, desktop native, hybrid) owns each
-   capability today. Do not propose WASM-first migrations outside the
-   promotion rules there.
-5. `src/renderer/README.md` — renderer folder map and state ownership.
+2. `docs/ROADMAP.md` — canonical `Status` + priority for every
+   `RL-XXX`. The cheapest planning doc and the first one you read
+   when deciding what to pick next. Never invent new RL ids.
+3. `docs/SPRINT-PLAN.md` — per-commit execution detail for the
+   currently-active iters. Read this when executing an approved iter.
+4. `docs/PLAN.md` — deep scope + acceptance criteria + historical
+   reasoning. Large; load a single `### RL-XXX` section via grep,
+   not the whole file. When this and ROADMAP disagree on status,
+   ROADMAP wins.
+5. `docs/BACKLOG.md` — pre-commitment raw ideas. Read when capturing
+   something new; never pick implementation work from here.
+6. `docs/ARCHITECTURE.md` — project lifecycle, IPC filesystem bridge,
+   and watch-state model.
+7. `docs/CAPABILITY_MATRIX.md` — which execution class (browser WASM,
+   browser interpreter, WebContainer, desktop native, hybrid) owns
+   each capability today. Do not propose WASM-first migrations
+   outside the promotion rules there.
+8. `src/renderer/README.md` — renderer folder map and state ownership.
 
 ## Routing
 
@@ -31,7 +45,7 @@ Before making non-trivial changes, open these files (in order):
 
 - Do not describe plugin support as a finished user-facing extension system until the typing and UI flows go beyond the built-in language set.
 - If a change touches shortcuts, execution behavior, or workflow behavior, update the related docs in the same change.
-- Treat `docs/PLAN.md` as the local current-state/backlog document, not as a speculative roadmap.
+- Treat `docs/ROADMAP.md` as the local current-state/backlog document, not as a speculative roadmap. `docs/PLAN.md` is deep reference only.
 
 ## UI verification — MANDATORY when the diff touches user-facing surfaces
 

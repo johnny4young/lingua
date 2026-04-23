@@ -1,8 +1,62 @@
-# Lingua — Unified Delivery Plan
+# Lingua — Delivery Plan (technical deep-dive reference)
 
-This document is the operational source of truth for Lingua. It replaces the old split between "roadmap", "workstreams", and "milestones" with one ordered backlog based on verified product state, desktop validation, and implementation readiness.
+> **This file is the deep reference for every `RL-XXX` ticket.** It
+> holds scope, acceptance criteria, dependencies, and the historical
+> reasoning behind each decision. It is **not** the file an agent
+> should load to decide what to pick next.
+>
+> - **For canonical `Status` + priority + the current backlog:** read
+>   [`docs/ROADMAP.md`](./ROADMAP.md). When this file and ROADMAP
+>   disagree on a ticket's status, **ROADMAP wins.** This file's
+>   `Status` fields are a cached mirror and may lag by one commit.
+> - **For active-sprint per-commit detail:** read
+>   [`docs/SPRINT-PLAN.md`](./SPRINT-PLAN.md).
+> - **For pre-commitment raw ideas:** capture in
+>   [`docs/BACKLOG.md`](./BACKLOG.md) first; graduate to ROADMAP only
+>   after acceptance criteria clear.
+> - **For the index of every engineering doc in the repo:** see
+>   [`docs/README.md`](./README.md).
+>
+> **Read this file conditionally.** Load a single `RL-XXX` section
+> (grep `### RL-XXX`) when you need the deep scope. Loading the whole
+> file is ~50k tokens and rarely necessary.
 
-The order of items below is the execution order. If a task is not in this plan, it is not currently committed work.
+This document is the operational source of truth for Lingua's ticket scope and acceptance criteria. It replaces the old split between "roadmap", "workstreams", and "milestones" with one ordered backlog based on verified product state, desktop validation, and implementation readiness.
+
+The order of items below is the historical execution order. If a task is not in this plan, it is not currently committed work.
+
+---
+
+## How to read this plan
+
+Every task is an `### RL-XXX` heading followed by three metadata fields:
+
+- **`Priority`** — `P0` (critical, unblocks other work), `P1` (next up), `P2` (scheduled), `P3` (nice-to-have), `Future` (explicit parking lot).
+- **`Status`** — closed enum, see the legend below.
+- **`Readiness`** — human-readable note on what is actually shipped, what blocks the task, and which dates the slices landed on.
+
+Anything else under the task (Scope, Acceptance criteria, Dependencies, Not in scope) fleshes out the slice.
+
+### Status legend
+
+| Value | Meaning |
+|-------|---------|
+| `Done` | Fully shipped and validated. Listed for historical context; not a candidate for the next step. |
+| `Partial` | Started. One or more slices have landed; the `Readiness` field names which ones, and what is still pending. Partial tasks ARE candidates for the next step — pick the smallest unshipped slice the task calls out. |
+| `Planned` | Fully spec'd but no code shipped yet. Candidate for the next step. |
+| `Research-backed spike` | Investigation complete, ADR filed, no production code. Parked intentionally — not a candidate unless the plan promotes it first. |
+| `Deferred study` | Parked for later revisit. Not a candidate. |
+| `Superseded` | Original scoping replaced by newer RL items; the `Readiness` field names them. Not a candidate — pick the successor(s). |
+
+### Picking the next step
+
+A slice is **implementable now** when all of the following hold:
+
+1. `Status` is `Partial` or `Planned`.
+2. Every id in its `Dependencies` block is `Done` (or explicitly noted as soft-gate).
+3. Its `Readiness` field does not list an external block (e.g. "waiting on RL-0xx Slice A").
+
+Do not invent new RL ids. If a slice needs to split further, add a new `## N.N` section inside the existing task rather than create a parallel RL.
 
 ---
 
@@ -359,6 +413,8 @@ These items remain valid product directions, but they are intentionally behind t
 ### RL-013 Hybrid JS/TS runtime modes
 
 - Priority: `Future`
+- Status: `Superseded`
+- Readiness: `Scope re-split across RL-019 (explicit JS/TS runtime modes), RL-020 (scratchpad / REPL experience), and RL-029 (WebContainers pilot). Do not pick this id — pick the successor(s) instead.`
 - Includes:
   - DOM/iframe execution mode
   - desktop Node execution mode
@@ -370,6 +426,8 @@ These items remain valid product directions, but they are intentionally behind t
 ### RL-014 AI assistance
 
 - Priority: `Future`
+- Status: `Superseded`
+- Readiness: `Scope re-split into RL-031 (local AI assistant focused on algorithms + cross-language generation). Do not pick this id — pick RL-031.`
 - Includes:
   - provider abstraction
   - chat sidebar
@@ -381,6 +439,8 @@ These items remain valid product directions, but they are intentionally behind t
 ### RL-015 i18n, custom theming, and shortcut customization
 
 - Priority: `Future`
+- Status: `Superseded`
+- Readiness: `Scope re-split into RL-018 (maintainable i18n system) and RL-037 (deep editor personalization — theme packs, editor fonts, keymap presets, Vim mode). Both successors already shipped relevant slices. Do not pick this id.`
 - Includes:
   - translation framework
   - locale packs
