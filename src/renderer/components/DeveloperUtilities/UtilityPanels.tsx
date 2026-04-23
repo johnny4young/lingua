@@ -8,7 +8,6 @@ import {
   analyzeJson,
   analyzeRegex,
   analyzeTimestamp,
-  computeLineDiff,
   decodeBase64,
   decodeJwt,
   decodeUrlComponentValue,
@@ -24,6 +23,19 @@ import {
   isValidBase,
   parseInAnyBase,
 } from '../../utils/numberBase';
+import { isParsedUrl, parseUrl, type ParsedQueryParam } from '../../utils/urlParser';
+import { CASE_KEY_LIST, formatAllCases, type CaseKey } from '../../utils/stringCase';
+import { computeDiff, summarizeDiff, type DiffGranularity, type DiffSegment } from '../../utils/diff';
+import {
+  decodeHtmlEntities,
+  encodeHtmlEntities,
+  type EncodeStrategy,
+} from '../../utils/htmlEntity';
+import {
+  inspect as inspectString,
+  type CharacterCategory,
+  type WarningKind,
+} from '../../utils/stringInspector';
 import {
   generateUlid,
   generateUuidV7,
@@ -165,7 +177,7 @@ function JsonUtilityPanel() {
         {analysis.errorKey ? (
           <StatusMessage message={t(analysis.errorKey)} tone="error" />
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               className="button-secondary"
@@ -180,6 +192,11 @@ function JsonUtilityPanel() {
             >
               {t('utilities.tool.json.actions.minify')}
             </button>
+            <CopyButton
+              value={input}
+              testid="json-input-copy"
+              disabled={!input}
+            />
           </div>
         )}
       </PanelSection>
@@ -329,6 +346,489 @@ function UrlUtilityPanel() {
   );
 }
 
+const URL_PARSER_SAMPLE = 'https://user:secret@api.lingua.dev:8443/v1/items?tag=dev&tag=web&page=2#results';
+
+interface UrlReadoutField {
+  labelKey: string;
+  value: string;
+  testid: string;
+  sensitive?: boolean;
+}
+
+function UrlReadoutCard({
+  label,
+  value,
+  testid,
+  sensitive = false,
+  revealed = false,
+  onToggleReveal,
+  revealLabel,
+  hideLabel,
+}: {
+  label: string;
+  value: string;
+  testid: string;
+  sensitive?: boolean;
+  revealed?: boolean;
+  onToggleReveal?: () => void;
+  revealLabel?: string;
+  hideLabel?: string;
+}) {
+  const hidden = sensitive && !revealed && value.length > 0;
+  const display = hidden ? '•'.repeat(Math.min(value.length, 12)) : value || '—';
+  return (
+    <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] uppercase tracking-[0.16em] text-muted">{label}</span>
+        <div className="flex items-center gap-1">
+          {sensitive && value.length > 0 && onToggleReveal ? (
+            <button
+              type="button"
+              onClick={onToggleReveal}
+              className="rounded-[0.6rem] border border-border/80 px-2 py-1 text-[11px] font-medium text-muted hover:border-border-strong/90 hover:text-foreground"
+              data-testid={`${testid}-reveal`}
+            >
+              {revealed ? hideLabel : revealLabel}
+            </button>
+          ) : null}
+          <CopyButton
+            value={value}
+            testid={`${testid}-copy`}
+            disabled={!value}
+          />
+        </div>
+      </div>
+      <span
+        className="break-all font-mono text-sm text-foreground"
+        data-testid={testid}
+      >
+        {display}
+      </span>
+    </div>
+  );
+}
+
+function UrlParserPanel() {
+  const { t } = useTranslation();
+  const [input, setInput] = useState(URL_PARSER_SAMPLE);
+  const [revealPassword, setRevealPassword] = useState(false);
+
+  const parsed = useMemo(() => parseUrl(input), [input]);
+
+  return (
+    <div className="grid gap-4">
+      <PanelSection
+        title={t('utilities.tool.urlParser.title')}
+        description={t('utilities.tool.urlParser.panelDescription')}
+      >
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.field.input')}</FieldLabel>
+          <UtilityTextarea
+            aria-label={t('utilities.field.input')}
+            data-testid="url-parser-input"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+          />
+        </div>
+        {!isParsedUrl(parsed) ? (
+          <StatusMessage
+            message={t(
+              parsed.error === 'empty'
+                ? 'utilities.tool.urlParser.error.empty'
+                : 'utilities.tool.urlParser.error.invalid'
+            )}
+            tone={parsed.error === 'invalid' ? 'error' : 'muted'}
+          />
+        ) : null}
+      </PanelSection>
+
+      {isParsedUrl(parsed) ? (
+        <>
+          <PanelSection
+            title={t('utilities.tool.urlParser.parts.title')}
+            description={t('utilities.tool.urlParser.parts.description')}
+          >
+            <div className="grid gap-2 md:grid-cols-2">
+              {(
+                [
+                  { labelKey: 'utilities.tool.urlParser.field.protocol', value: parsed.protocol, testid: 'url-parser-protocol' },
+                  { labelKey: 'utilities.tool.urlParser.field.origin', value: parsed.origin, testid: 'url-parser-origin' },
+                  { labelKey: 'utilities.tool.urlParser.field.username', value: parsed.username, testid: 'url-parser-username' },
+                  { labelKey: 'utilities.tool.urlParser.field.password', value: parsed.password, testid: 'url-parser-password', sensitive: true },
+                  { labelKey: 'utilities.tool.urlParser.field.hostname', value: parsed.hostname, testid: 'url-parser-hostname' },
+                  { labelKey: 'utilities.tool.urlParser.field.port', value: parsed.port, testid: 'url-parser-port' },
+                  { labelKey: 'utilities.tool.urlParser.field.pathname', value: parsed.pathname, testid: 'url-parser-pathname' },
+                  { labelKey: 'utilities.tool.urlParser.field.search', value: parsed.search, testid: 'url-parser-search' },
+                  { labelKey: 'utilities.tool.urlParser.field.hash', value: parsed.hash, testid: 'url-parser-hash' },
+                  { labelKey: 'utilities.tool.urlParser.field.href', value: parsed.href, testid: 'url-parser-href' },
+                ] satisfies UrlReadoutField[]
+              ).map((field) => (
+                <UrlReadoutCard
+                  key={field.testid}
+                  label={t(field.labelKey)}
+                  value={field.value}
+                  testid={field.testid}
+                  sensitive={field.sensitive}
+                  revealed={revealPassword}
+                  onToggleReveal={
+                    field.sensitive
+                      ? () => setRevealPassword((prev) => !prev)
+                      : undefined
+                  }
+                  revealLabel={t('utilities.tool.urlParser.password.reveal')}
+                  hideLabel={t('utilities.tool.urlParser.password.hide')}
+                />
+              ))}
+            </div>
+          </PanelSection>
+
+          <PanelSection
+            title={t('utilities.tool.urlParser.query.title')}
+            description={t('utilities.tool.urlParser.query.description')}
+          >
+            {parsed.query.length === 0 ? (
+              <StatusMessage
+                message={t('utilities.tool.urlParser.query.empty')}
+              />
+            ) : (
+              <div
+                className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3"
+                data-testid="url-parser-query-table"
+              >
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] items-center gap-2 pb-1 text-[11px] uppercase tracking-[0.16em] text-muted">
+                  <span>{t('utilities.tool.urlParser.query.header.key')}</span>
+                  <span>{t('utilities.tool.urlParser.query.header.value')}</span>
+                  <span className="sr-only">
+                    {t('utilities.tool.urlParser.query.header.copy')}
+                  </span>
+                </div>
+                {parsed.query.map((entry: ParsedQueryParam, index: number) => (
+                  <div
+                    key={`${entry.key}-${index}`}
+                    data-testid="url-parser-query-row"
+                    className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] items-center gap-2 border-t border-border/60 pt-1 first:border-t-0 first:pt-0"
+                  >
+                    <span className="truncate font-mono text-sm text-foreground">
+                      {entry.key}
+                    </span>
+                    <span className="break-all font-mono text-sm text-muted">
+                      {entry.value}
+                    </span>
+                    <CopyButton
+                      value={entry.value}
+                      testid={`url-parser-query-copy-${index}`}
+                      disabled={!entry.value}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </PanelSection>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function StringCasePanel() {
+  const { t } = useTranslation();
+  const [input, setInput] = useState('user profile page');
+  const outputs = useMemo(() => formatAllCases(input), [input]);
+
+  return (
+    <div className="grid gap-4">
+      <PanelSection
+        title={t('utilities.tool.stringCase.title')}
+        description={t('utilities.tool.stringCase.panelDescription')}
+      >
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.stringCase.input.label')}</FieldLabel>
+          <UtilityTextarea
+            aria-label={t('utilities.tool.stringCase.input.label')}
+            data-testid="string-case-input"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder={t('utilities.tool.stringCase.input.placeholder')}
+            spellCheck={false}
+          />
+        </div>
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.tool.stringCase.outputsTitle')}
+        description={t('utilities.tool.stringCase.outputsDescription')}
+      >
+        <div className="grid gap-2 md:grid-cols-2">
+          {CASE_KEY_LIST.map((key: CaseKey) => {
+            const value = outputs[key];
+            return (
+              <div
+                key={key}
+                className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
+                    {t(`utilities.tool.stringCase.output.${key}`)}
+                  </span>
+                  <CopyButton
+                    value={value}
+                    testid={`string-case-${key}-copy`}
+                    disabled={!value}
+                  />
+                </div>
+                <span
+                  className="break-all font-mono text-sm text-foreground"
+                  data-testid={`string-case-${key}`}
+                >
+                  {value || '—'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </PanelSection>
+    </div>
+  );
+}
+
+type HtmlEntityMode = 'encode-minimal' | 'encode-named' | 'encode-numeric' | 'decode';
+
+function HtmlEntityPanel() {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<HtmlEntityMode>('encode-named');
+  const [input, setInput] = useState('<p class="lead">© 2026 Lingua — ñ</p>');
+
+  const { output, unresolvedCount } = useMemo(() => {
+    if (mode === 'decode') {
+      const decoded = decodeHtmlEntities(input);
+      return { output: decoded.text, unresolvedCount: decoded.unresolvedCount };
+    }
+    const strategy: EncodeStrategy =
+      mode === 'encode-minimal'
+        ? 'minimal'
+        : mode === 'encode-numeric'
+          ? 'numeric'
+          : 'named';
+    return { output: encodeHtmlEntities(input, strategy), unresolvedCount: 0 };
+  }, [input, mode]);
+
+  return (
+    <div className="grid gap-4">
+      <PanelSection
+        title={t('utilities.tool.htmlEntity.title')}
+        description={t('utilities.tool.htmlEntity.panelDescription')}
+      >
+        <div className="grid gap-2">
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.htmlEntity.mode.label')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.htmlEntity.mode.label')}
+              data-testid="html-entity-mode"
+              value={mode}
+              onChange={(event) => setMode(event.target.value as HtmlEntityMode)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              <option value="encode-minimal">
+                {t('utilities.tool.htmlEntity.mode.encodeMinimal')}
+              </option>
+              <option value="encode-named">
+                {t('utilities.tool.htmlEntity.mode.encodeNamed')}
+              </option>
+              <option value="encode-numeric">
+                {t('utilities.tool.htmlEntity.mode.encodeNumeric')}
+              </option>
+              <option value="decode">{t('utilities.tool.htmlEntity.mode.decode')}</option>
+            </select>
+          </label>
+        </div>
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.htmlEntity.input.label')}</FieldLabel>
+          <UtilityTextarea
+            aria-label={t('utilities.tool.htmlEntity.input.label')}
+            data-testid="html-entity-input"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+          />
+        </div>
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.tool.htmlEntity.output.label')}
+        description={t('utilities.status.live')}
+      >
+        <div className="relative">
+          <UtilityTextarea
+            aria-label={t('utilities.tool.htmlEntity.output.label')}
+            data-testid="html-entity-output"
+            readOnly
+            value={output}
+            className="pr-10"
+            spellCheck={false}
+          />
+          <div className="absolute right-2 top-2">
+            <CopyButton value={output} testid="html-entity-output-copy" disabled={!output} />
+          </div>
+        </div>
+        {mode === 'decode' && unresolvedCount > 0 ? (
+          <StatusMessage
+            tone="muted"
+            message={t('utilities.tool.htmlEntity.decode.unresolved', { count: unresolvedCount })}
+          />
+        ) : null}
+      </PanelSection>
+    </div>
+  );
+}
+
+function StringInspectorPanel() {
+  const { t } = useTranslation();
+  const [input, setInput] = useState('hello\u200Bworld');
+  const report = useMemo(() => inspectString(input), [input]);
+
+  return (
+    <div className="grid gap-4">
+      <PanelSection
+        title={t('utilities.tool.stringInspector.title')}
+        description={t('utilities.tool.stringInspector.panelDescription')}
+      >
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.stringInspector.input.label')}</FieldLabel>
+          <UtilityTextarea
+            aria-label={t('utilities.tool.stringInspector.input.label')}
+            data-testid="string-inspector-input"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+          />
+        </div>
+        <div className="grid gap-2 md:grid-cols-3">
+          <InspectorCountCard
+            label={t('utilities.tool.stringInspector.summary.graphemes')}
+            value={report.counts.graphemesApprox}
+            testid="string-inspector-graphemes"
+          />
+          <InspectorCountCard
+            label={t('utilities.tool.stringInspector.summary.utf16')}
+            value={report.counts.charactersUtf16}
+            testid="string-inspector-utf16"
+          />
+          <InspectorCountCard
+            label={t('utilities.tool.stringInspector.summary.utf8Bytes')}
+            value={report.counts.bytesUtf8}
+            testid="string-inspector-utf8"
+          />
+        </div>
+      </PanelSection>
+
+      {report.warnings.length > 0 ? (
+        <PanelSection
+          title={t('utilities.tool.stringInspector.warnings.title')}
+          description={t('utilities.tool.stringInspector.warnings.description')}
+        >
+          <ul className="grid gap-1" data-testid="string-inspector-warnings">
+            {report.warnings.map((warning) => (
+              <li
+                key={warning.kind}
+                data-testid={`string-inspector-warning-${warning.kind}`}
+                className="rounded-[0.9rem] border border-warning/60 bg-warning/10 px-3 py-2 text-xs text-warning"
+              >
+                {t(warningKeyForKind(warning.kind), { count: warning.at.length })}
+              </li>
+            ))}
+          </ul>
+        </PanelSection>
+      ) : null}
+
+      <PanelSection
+        title={t('utilities.tool.stringInspector.table.title')}
+        description={t('utilities.tool.stringInspector.table.description')}
+      >
+        {report.characters.length === 0 ? (
+          <StatusMessage message={t('utilities.tool.stringInspector.table.empty')} />
+        ) : (
+          <div
+            className="max-h-[26rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65"
+            data-testid="string-inspector-table"
+          >
+            <table className="w-full border-collapse text-xs">
+              <thead className="sticky top-0 bg-surface/88 text-[11px] uppercase tracking-[0.16em] text-muted">
+                <tr>
+                  <th className="px-3 py-2 text-left">
+                    {t('utilities.tool.stringInspector.column.index')}
+                  </th>
+                  <th className="px-3 py-2 text-left">
+                    {t('utilities.tool.stringInspector.column.glyph')}
+                  </th>
+                  <th className="px-3 py-2 text-left">
+                    {t('utilities.tool.stringInspector.column.codepoint')}
+                  </th>
+                  <th className="px-3 py-2 text-left">
+                    {t('utilities.tool.stringInspector.column.category')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.characters.map((row) => (
+                  <tr
+                    key={row.index}
+                    data-testid="string-inspector-row"
+                    data-category={row.category}
+                    className="border-t border-border/60 font-mono"
+                  >
+                    <td className="px-3 py-1 tabular-nums text-muted">{row.index}</td>
+                    <td className="px-3 py-1 text-foreground">{row.glyph}</td>
+                    <td className="px-3 py-1 tabular-nums text-foreground">{row.hex}</td>
+                    <td className="px-3 py-1 text-muted">
+                      {t(categoryKey(row.category))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {report.truncated ? (
+          <StatusMessage
+            tone="muted"
+            message={t('utilities.tool.stringInspector.truncated', {
+              count: report.characters.length,
+            })}
+          />
+        ) : null}
+      </PanelSection>
+    </div>
+  );
+}
+
+function InspectorCountCard({
+  label,
+  value,
+  testid,
+}: {
+  label: string;
+  value: number;
+  testid: string;
+}) {
+  return (
+    <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
+      <span className="text-[11px] uppercase tracking-[0.16em] text-muted">{label}</span>
+      <span className="font-mono text-sm text-foreground" data-testid={testid}>
+        {value.toLocaleString()}
+      </span>
+    </div>
+  );
+}
+
+function warningKeyForKind(kind: WarningKind): string {
+  return `utilities.tool.stringInspector.warning.${kind === 'zero-width' ? 'zeroWidth' : kind === 'bidi-control' ? 'bidiControl' : kind === 'mixed-script' ? 'mixedScript' : 'homoglyph'}`;
+}
+
+function categoryKey(category: CharacterCategory): string {
+  return `utilities.tool.stringInspector.category.${category}`;
+}
+
 type UuidKind = 'v4' | 'v7' | 'ulid';
 
 function generateIdentifier(kind: UuidKind): string {
@@ -391,13 +891,17 @@ function UuidUtilityPanel() {
           {t('utilities.tool.uuid.actions.regenerate')}
         </button>
         <div className="grid gap-2">
-          {values.map((value) => (
+          {values.map((value, index) => (
             <div
               key={value}
               data-testid="uuid-generated-value"
-              className="rounded-[1rem] border border-border/80 bg-background/70 px-3 py-2 font-mono text-sm text-foreground"
+              className="flex items-center justify-between gap-2 rounded-[1rem] border border-border/80 bg-background/70 px-3 py-2 font-mono text-sm text-foreground"
             >
-              {value}
+              <span className="truncate">{value}</span>
+              <CopyButton
+                value={value}
+                testid={`uuid-generated-value-copy-${index}`}
+              />
             </div>
           ))}
         </div>
@@ -559,36 +1063,65 @@ function TimestampUtilityPanel() {
         description={t('utilities.tool.timestamp.outputsDescription')}
       >
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
-              {t('utilities.tool.timestamp.outputs.seconds')}
-            </span>
-            <span className="font-mono text-sm text-foreground">
-              {analysis.unixSeconds ?? '—'}
-            </span>
-          </div>
-          <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3">
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
-              {t('utilities.tool.timestamp.outputs.milliseconds')}
-            </span>
-            <span className="font-mono text-sm text-foreground">
-              {analysis.unixMilliseconds ?? '—'}
-            </span>
-          </div>
-          <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3 md:col-span-2">
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
-              {t('utilities.tool.timestamp.outputs.iso')}
-            </span>
-            <span className="font-mono text-sm text-foreground">{analysis.iso ?? '—'}</span>
-          </div>
-          <div className="grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3 md:col-span-2">
-            <span className="text-[11px] uppercase tracking-[0.16em] text-muted">
-              {t('utilities.tool.timestamp.outputs.local')}
-            </span>
-            <span className="text-sm text-foreground">{analysis.local ?? '—'}</span>
-          </div>
+          <TimestampOutputCard
+            label={t('utilities.tool.timestamp.outputs.seconds')}
+            value={analysis.unixSeconds ?? null}
+            testid="timestamp-output-seconds"
+          />
+          <TimestampOutputCard
+            label={t('utilities.tool.timestamp.outputs.milliseconds')}
+            value={analysis.unixMilliseconds ?? null}
+            testid="timestamp-output-milliseconds"
+          />
+          <TimestampOutputCard
+            label={t('utilities.tool.timestamp.outputs.iso')}
+            value={analysis.iso ?? null}
+            testid="timestamp-output-iso"
+            fullWidth
+          />
+          <TimestampOutputCard
+            label={t('utilities.tool.timestamp.outputs.local')}
+            value={analysis.local ?? null}
+            testid="timestamp-output-local"
+            fullWidth
+            monospace={false}
+          />
         </div>
       </PanelSection>
+    </div>
+  );
+}
+
+function TimestampOutputCard({
+  label,
+  value,
+  testid,
+  fullWidth = false,
+  monospace = true,
+}: {
+  label: string;
+  /** Raw value for the cell. `null` renders the placeholder and disables copy. */
+  value: string | number | null;
+  testid: string;
+  fullWidth?: boolean;
+  monospace?: boolean;
+}) {
+  const hasValue = value !== null && value !== undefined && String(value).length > 0;
+  const stringValue = hasValue ? String(value) : '';
+  const textClass = `${monospace ? 'font-mono ' : ''}text-sm text-foreground`;
+  return (
+    <div
+      className={`grid gap-1 rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3 ${
+        fullWidth ? 'md:col-span-2' : ''
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] uppercase tracking-[0.16em] text-muted">{label}</span>
+        <CopyButton value={stringValue} testid={`${testid}-copy`} disabled={!hasValue} />
+      </div>
+      <span className={textClass} data-testid={testid}>
+        {hasValue ? stringValue : '—'}
+      </span>
     </div>
   );
 }
@@ -625,8 +1158,16 @@ function JwtUtilityPanel() {
           description={t('utilities.tool.jwt.headerDescription')}
         >
           {analysis.header ? (
-            <div className="max-h-48 overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
-              <JsonTreeNode value={analysis.header} />
+            <div className="grid gap-2">
+              <div className="max-h-48 overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+                <JsonTreeNode value={analysis.header} />
+              </div>
+              <div className="flex justify-end">
+                <CopyButton
+                  value={JSON.stringify(analysis.header, null, 2)}
+                  testid="jwt-header-copy"
+                />
+              </div>
             </div>
           ) : (
             <StatusMessage message={t('utilities.tool.jwt.empty')} />
@@ -637,8 +1178,16 @@ function JwtUtilityPanel() {
           description={t('utilities.tool.jwt.payloadDescription')}
         >
           {analysis.payload ? (
-            <div className="max-h-48 overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
-              <JsonTreeNode value={analysis.payload} />
+            <div className="grid gap-2">
+              <div className="max-h-48 overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65 p-3">
+                <JsonTreeNode value={analysis.payload} />
+              </div>
+              <div className="flex justify-end">
+                <CopyButton
+                  value={JSON.stringify(analysis.payload, null, 2)}
+                  testid="jwt-payload-copy"
+                />
+              </div>
             </div>
           ) : (
             <StatusMessage message={t('utilities.tool.jwt.empty')} />
@@ -887,7 +1436,13 @@ function DiffUtilityPanel() {
   const { t } = useTranslation();
   const [left, setLeft] = useState('line one\nline two\nline three');
   const [right, setRight] = useState('line one\nline two updated\nline three\nline four');
-  const analysis = useMemo(() => computeLineDiff(left, right), [left, right]);
+  const [granularity, setGranularity] = useState<DiffGranularity>('line');
+
+  const segments = useMemo(
+    () => computeDiff(left, right, granularity),
+    [left, right, granularity]
+  );
+  const summary = useMemo(() => summarizeDiff(segments), [segments]);
 
   return (
     <div className="grid gap-4">
@@ -919,46 +1474,116 @@ function DiffUtilityPanel() {
         title={t('utilities.tool.diff.resultTitle')}
         description={t('utilities.tool.diff.resultDescription')}
       >
-        <StatusMessage
-          tone="muted"
-          message={t('utilities.tool.diff.summary', {
-            added: analysis.addCount,
-            removed: analysis.removeCount,
-            same: analysis.sameCount,
-          })}
-        />
-        {analysis.lines.length === 0 ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-xs text-muted">
+            <span>{t('utilities.tool.diff.granularity.label')}</span>
+            <select
+              aria-label={t('utilities.tool.diff.granularity.label')}
+              data-testid="diff-granularity-select"
+              value={granularity}
+              onChange={(event) => setGranularity(event.target.value as DiffGranularity)}
+              className="rounded-[0.9rem] border border-border/80 bg-background/88 px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              <option value="line">{t('utilities.tool.diff.granularity.line')}</option>
+              <option value="word">{t('utilities.tool.diff.granularity.word')}</option>
+              <option value="character">
+                {t('utilities.tool.diff.granularity.character')}
+              </option>
+            </select>
+          </label>
+          <StatusMessage
+            tone="muted"
+            message={t('utilities.tool.diff.summary', {
+              added: summary.add,
+              removed: summary.remove,
+              same: summary.equal,
+            })}
+          />
+        </div>
+        {segments.length === 0 ? (
           <StatusMessage message={t('utilities.tool.diff.empty')} />
+        ) : granularity === 'line' ? (
+          <DiffLineResult segments={segments} />
         ) : (
-          <div className="max-h-[26rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65">
-            <ul className="grid">
-              {analysis.lines.map((line, index) => {
-                const prefix = line.kind === 'add' ? '+' : line.kind === 'remove' ? '-' : ' ';
-                const toneClass =
-                  line.kind === 'add'
-                    ? 'bg-success/10 text-success'
-                    : line.kind === 'remove'
-                      ? 'bg-danger/10 text-danger'
-                      : 'text-foreground';
-                return (
-                  <li
-                    key={`${line.kind}-${index}`}
-                    className={`flex items-baseline gap-2 px-3 py-1 font-mono text-xs ${toneClass}`}
-                  >
-                    <span className="w-4 select-none text-muted">{prefix}</span>
-                    <span className="whitespace-pre-wrap break-words">{line.value || ' '}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          <DiffInlineResult segments={segments} />
         )}
-        {analysis.truncated ? (
-          <StatusMessage message={t('utilities.tool.diff.truncated')} />
-        ) : null}
       </PanelSection>
     </div>
   );
+}
+
+function DiffLineResult({ segments }: { segments: readonly DiffSegment[] }) {
+  const rows = useMemo(() => segmentsToLineRows(segments), [segments]);
+  return (
+    <div
+      className="max-h-[26rem] overflow-auto rounded-[1.1rem] border border-border/80 bg-background/65"
+      data-testid="diff-result-line"
+    >
+      <ul className="grid">
+        {rows.map((row, index) => {
+          const prefix = row.kind === 'add' ? '+' : row.kind === 'remove' ? '-' : ' ';
+          const toneClass =
+            row.kind === 'add'
+              ? 'bg-success/10 text-success'
+              : row.kind === 'remove'
+                ? 'bg-danger/10 text-danger'
+                : 'text-foreground';
+          return (
+            <li
+              key={`${row.kind}-${index}`}
+              data-testid={`diff-line-${row.kind}`}
+              className={`flex items-baseline gap-2 px-3 py-1 font-mono text-xs ${toneClass}`}
+            >
+              <span className="w-4 select-none text-muted">{prefix}</span>
+              <span className="whitespace-pre-wrap break-words">{row.text || ' '}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function DiffInlineResult({ segments }: { segments: readonly DiffSegment[] }) {
+  return (
+    <div
+      className="max-h-[26rem] overflow-auto whitespace-pre-wrap break-words rounded-[1.1rem] border border-border/80 bg-background/65 px-3 py-3 font-mono text-xs leading-5 text-foreground"
+      data-testid="diff-result-inline"
+    >
+      {segments.map((segment, index) => {
+        const toneClass =
+          segment.kind === 'add'
+            ? 'bg-success/15 text-success'
+            : segment.kind === 'remove'
+              ? 'bg-danger/15 text-danger line-through'
+              : '';
+        return (
+          <span
+            key={`${segment.kind}-${index}`}
+            data-testid={`diff-segment-${segment.kind}`}
+            className={toneClass}
+          >
+            {segment.text}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+interface DiffLineRow {
+  kind: DiffSegment['kind'];
+  text: string;
+}
+
+/**
+ * Line-mode segments are already bare lines (tokenizer strips trailing
+ * newlines), so a row maps 1:1 to a segment. The helper keeps the call
+ * site explicit about its expectations and normalizes the empty-row
+ * edge case.
+ */
+function segmentsToLineRows(segments: readonly DiffSegment[]): DiffLineRow[] {
+  return segments.map((segment) => ({ kind: segment.kind, text: segment.text }));
 }
 
 interface NumberBaseView {
@@ -1242,6 +1867,10 @@ export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }
     return <UrlUtilityPanel />;
   }
 
+  if (toolId === 'url-parser') {
+    return <UrlParserPanel />;
+  }
+
   if (toolId === 'uuid') {
     return <UuidUtilityPanel />;
   }
@@ -1272,6 +1901,18 @@ export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }
 
   if (toolId === 'beautify-minify') {
     return <BeautifyMinifyUtilityPanel />;
+  }
+
+  if (toolId === 'string-case') {
+    return <StringCasePanel />;
+  }
+
+  if (toolId === 'html-entity') {
+    return <HtmlEntityPanel />;
+  }
+
+  if (toolId === 'string-inspector') {
+    return <StringInspectorPanel />;
   }
 
   return <JwtUtilityPanel />;

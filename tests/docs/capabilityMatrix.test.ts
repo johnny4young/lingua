@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const MATRIX_PATH = resolve(__dirname, '../../CAPABILITY_MATRIX.md');
+const MATRIX_PATH = resolve(__dirname, '../../docs/CAPABILITY_MATRIX.md');
 const matrix = readFileSync(MATRIX_PATH, 'utf-8');
 
 const RUNTIME_CAPABILITIES = [

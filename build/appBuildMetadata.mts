@@ -14,7 +14,7 @@ function resolveWebsiteUrl() {
 }
 
 function resolveChangelogJson() {
-  const markdown = readFileSync(path.resolve(rootDir, 'CHANGELOG.md'), 'utf8');
+  const markdown = readFileSync(path.resolve(rootDir, 'docs/CHANGELOG.md'), 'utf8');
   return JSON.stringify(JSON.stringify(parseChangelog(markdown)));
 }
 

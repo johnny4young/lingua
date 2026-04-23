@@ -49,7 +49,7 @@ an implicit status quo. This ADR is that baseline.
 | Vite-major agility | Depends on Forge keeping its Vite plugin current | Good — direct Vite major bumps | Good — direct Vite major bumps |
 | Packaging + signing | Built-in makers cover macOS/Windows/Linux | External (electron-builder) | Strong, builder-native |
 | Update ecosystem | `electron-updater` works today | `electron-updater` works too | `electron-builder` updater (different feed format) |
-| CI portability | Known — `make:*` scripts exist | Medium — need to re-author CI | Medium — need to re-author CI |
+| CI portability | Known — `make:desktop:*` scripts exist | Medium — need to re-author CI | Medium — need to re-author CI |
 | Ecosystem maturity | High | Medium | High |
 | Migration effort | Zero (stay) | Medium — rebuild packaging pipeline | High — rebuild packaging + Vite wiring |
 

@@ -210,7 +210,7 @@ After Slice B + C ship:
    "desktop only".
 4. Define an invalid key (`123FOO`, `WITH SPACE`, etc.) and
    confirm the validator rejects it before persistence.
-5. Run `npm run desktop:smoke` to confirm Go and Rust still
+5. Run `npm run smoke:desktop` to confirm Go and Rust still
    execute correctly when no env vars are defined (regression
    protection for the merge plumbing).
 

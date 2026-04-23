@@ -89,9 +89,9 @@ Run in this order — each step depends on the previous one passing:
 | 4 | `npm test -- --run` | baseline test count holds | Vitest + Vite peer alignment |
 | 5 | `npm run check:i18n` + `check:i18n:copy` | clean | i18n loader still works under v6/v7 `import.meta.glob` |
 | 6 | `npm run build:web` | clean, hash diff in chunks expected | renderer chunking still produces the Monaco + worker shape we need |
-| 7 | `npm run desktop:dev` | window loads, console clean | Forge plugin compatibility verified at runtime |
-| 8 | `npm run desktop:smoke` | all five language runners green | end-to-end IPC + worker pipeline still healthy |
-| 9 | `npm run make:mac` (or platform-equivalent) | packaged artifact produced | packaging path survived the bump |
+| 7 | `npm run dev:desktop` | window loads, console clean | Forge plugin compatibility verified at runtime |
+| 8 | `npm run smoke:desktop` | all five language runners green | end-to-end IPC + worker pipeline still healthy |
+| 9 | `npm run make:desktop:mac` (or platform-equivalent) | packaged artifact produced | packaging path survived the bump |
 
 If steps 1–4 pass but step 6 produces a worker-loading regression,
 the most likely cause is the chunking semantics around Monaco

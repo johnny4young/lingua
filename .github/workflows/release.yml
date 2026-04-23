@@ -140,7 +140,7 @@ jobs:
           echo "APPLE_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
       - name: Build macOS artifacts
-        run: npm run make:mac
+        run: npm run make:desktop:mac
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -237,7 +237,7 @@ jobs:
           Write-Host "Windows signing certificate written to runner temp path"
 
       - name: Build Windows artifacts
-        run: npm run make:win
+        run: npm run make:desktop:win
         env:
           WIN_CERT_FILE: ${{ env.WIN_CERT_FILE }}
           WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
@@ -309,7 +309,7 @@ jobs:
           echo "Linux signing: not configured"
 
       - name: Build Linux artifacts
-        run: npm run make:linux
+        run: npm run make:desktop:linux
 
       - name: Verify Linux artifacts
         shell: bash
@@ -379,7 +379,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to GitHub Releases
-        run: npm run publish
+        run: npm run publish:desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}

@@ -15,7 +15,7 @@ Lingua is a commercial product distributed under a source-available license — 
 - **Pro Lifetime** — the Pro entitlement set with lifetime updates.
 - **Team / Education** — seat-based licensing and free access for verified students and educators.
 
-The full tier matrix, entitlements, and pricing currently live in [`PLAN.md` Section 13](./PLAN.md). The download page and checkout will live at [`linguacode.dev`](https://linguacode.dev) once `RL-063` ships.
+The full tier matrix, entitlements, and pricing currently live in [`docs/PLAN.md` Section 13](./docs/PLAN.md). The download page and checkout will live at [`linguacode.dev`](https://linguacode.dev) once `RL-063` ships.
 
 ## Who it is for
 
@@ -69,7 +69,7 @@ The full tier matrix, entitlements, and pricing currently live in [`PLAN.md` Sec
 
 ## Release notes and onboarding surfaces
 
-- `CHANGELOG.md` now follows a Keep a Changelog-style semver structure so release notes stay readable in git and in-product
+- [`docs/CHANGELOG.md`](./docs/CHANGELOG.md) now follows a Keep a Changelog-style semver structure so release notes stay readable in git and in-product
 - The renderer bundles parsed changelog data at build time, so the desktop and web shells can show release notes without direct file-system access
 - A dedicated What's New overlay is available from both the Command Palette and the About section, and it auto-opens once when the app sees a newer version than the last one stored locally
 - A Shepherd-based guided tour now opens from the About section, the Command Palette, or automatically after first-launch gating when the user has not completed onboarding yet
@@ -122,7 +122,13 @@ The full tier matrix, entitlements, and pricing currently live in [`PLAN.md` Sec
 git clone https://github.com/johnny4young/lingua.git
 cd lingua
 npm install
-npm start
+npm run dev:desktop
+```
+
+For browser-only iteration, use:
+
+```bash
+npm run dev:web
 ```
 
 Renderer architecture note:
@@ -135,15 +141,15 @@ Renderer architecture note:
 Architecture deep dive:
 
 - [`AGENTS.md`](./AGENTS.md) is the canonical guidance for any agent (Claude Code, Cursor, Codex, Aider) working in this repo — routing, landmines, UI verification tiers, commit rules. `CLAUDE.md` at the repo root is a symlink to it so Claude Code's auto-loader picks the same file.
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md) explains the project lifecycle, Electron IPC file-system bridge, and watch-state flow with diagrams and extension guidance.
-- [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) is the decision record for what runs where (browser WASM, browser interpreter, desktop native, hybrid) with the promotion rules for future WASM-first migrations.
-- [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) is the ADR for the desktop build system (stay on Electron Forge vs. move to electron-vite or electron-builder) with the scoring matrix and when-to-revisit triggers.
-- [`TAURI_SPIKE_ADR.md`](./TAURI_SPIKE_ADR.md) is the written no-go decision on migrating to Tauri 2, with the architectural gap analysis and the triggers that would reopen the question.
-- [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) documents the declarative `LanguagePack` descriptor and the three-slice migration plan for built-in + Lua language support.
-- [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) records the RL-011 env-var scoping decisions (which runtimes, web-mode answer, tab > project > global precedence) and the four-slice implementation roadmap.
-- [`VITE_UPGRADE_ADR.md`](./VITE_UPGRADE_ADR.md) plans the Vite 5 → 7 bump with the impact matrix, four blocker peer-range checks, the verification matrix, and the rollback plan.
-- [`VIM_MODE_ADR.md`](./VIM_MODE_ADR.md) records the RL-037 Vim mode integration decisions (monaco-vim as the lazy-loaded layer, focus-gated keystroke ownership, English-only status bar posture) and the rollback + revisit triggers.
-- [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) plans the RL-027 debugger MVP — JS/TS first via Monaco, then Python via pdb, Go via Delve, Rust via lldb — with a bounded feature budget (breakpoints, step, watch, stack, variables) and explicit out-of-scope list.
+- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) explains the project lifecycle, Electron IPC file-system bridge, and watch-state flow with diagrams and extension guidance.
+- [`docs/CAPABILITY_MATRIX.md`](./docs/CAPABILITY_MATRIX.md) is the decision record for what runs where (browser WASM, browser interpreter, desktop native, hybrid) with the promotion rules for future WASM-first migrations.
+- [`docs/BUILD_SYSTEM_ADR.md`](./docs/BUILD_SYSTEM_ADR.md) is the ADR for the desktop build system (stay on Electron Forge vs. move to electron-vite or electron-builder) with the scoring matrix and when-to-revisit triggers.
+- [`docs/TAURI_SPIKE_ADR.md`](./docs/TAURI_SPIKE_ADR.md) is the written no-go decision on migrating to Tauri 2, with the architectural gap analysis and the triggers that would reopen the question.
+- [`docs/LANGUAGE_PACK_ADR.md`](./docs/LANGUAGE_PACK_ADR.md) documents the declarative `LanguagePack` descriptor and the three-slice migration plan for built-in + Lua language support.
+- [`docs/ENV_VARS_ADR.md`](./docs/ENV_VARS_ADR.md) records the RL-011 env-var scoping decisions (which runtimes, web-mode answer, tab > project > global precedence) and the four-slice implementation roadmap.
+- [`docs/VITE_UPGRADE_ADR.md`](./docs/VITE_UPGRADE_ADR.md) plans the Vite 5 → 7 bump with the impact matrix, four blocker peer-range checks, the verification matrix, and the rollback plan.
+- [`docs/VIM_MODE_ADR.md`](./docs/VIM_MODE_ADR.md) records the RL-037 Vim mode integration decisions (monaco-vim as the lazy-loaded layer, focus-gated keystroke ownership, English-only status bar posture) and the rollback + revisit triggers.
+- [`docs/DEBUGGER_ADR.md`](./docs/DEBUGGER_ADR.md) plans the RL-027 debugger MVP — JS/TS first via Monaco, then Python via pdb, Go via Delve, Rust via lldb — with a bounded feature budget (breakpoints, step, watch, stack, variables) and explicit out-of-scope list.
 - [`RELEASE.md`](./RELEASE.md) is the RL-016 release checklist — preconditions, 14 numbered release steps including the packaged desktop smoke and post-publish smoke, the validation gate, and the rollback plan.
 - [`docs/press-kit/`](./docs/press-kit/) holds the Phase 2 launch asset boilerplate (en + es) — product descriptions, pricing one-pager, founder bio, Show HN / Product Hunt / subreddit drafts.
 - [`docs/seo-pages/`](./docs/seo-pages/) holds the RL-066 SEO landing page scaffolds (five language-intent pages) ready for `linguacode.dev` to consume once the domain ships.
@@ -168,14 +174,14 @@ npm run check:i18n:copy
 npm test
 npx tsc --noEmit
 npm run build:web
-npm run desktop:smoke
+npm run smoke:desktop
 ```
 
 These are the main local verification commands. CI also runs a non-blocking `npm audit`.
 
 Desktop smoke notes:
 
-- `npm run desktop:smoke` launches a real Electron window against a local renderer server, exercises JavaScript, TypeScript, Python, Go, and Rust, and exits with a failing status if any language smoke case fails.
+- `npm run smoke:desktop` launches a real Electron window against a local renderer server, exercises JavaScript, TypeScript, Python, Go, and Rust, and exits with a failing status if any language smoke case fails.
 - Artifacts land in `output/playwright/desktop-smoke/`:
   - `desktop-smoke-bootstrap.json`
   - `desktop-smoke-progress.json`
@@ -227,7 +233,7 @@ This is currently the best end-to-end check for renderer behavior. Desktop-only 
 Use the desktop launcher when you need the real Electron app without going through a full `electron-forge start` cycle:
 
 ```bash
-npm run desktop:dev
+npm run dev:desktop
 ```
 
 What it does:
@@ -239,28 +245,59 @@ What it does:
 If `src/main` or `src/preload` changed and the existing `.vite/build` bundle may be stale, resync those artifacts once before launch:
 
 ```bash
-npm run desktop:dev:sync
+npm run dev:desktop:sync
 ```
 
 Useful flags:
 
 ```bash
 # Reuse an already-running matching renderer server instead of owning it
-npm run desktop:dev -- --reuse-server
+npm run dev:desktop -- --reuse-server
 
 # Auto-close Electron after a few seconds (useful for smoke automation)
-npm run desktop:dev -- --exit-after-ms 4000
+npm run dev:desktop -- --exit-after-ms 4000
 ```
 
 The launcher avoids rebuilds during normal renderer-focused desktop testing. A resync is only needed when `main` or `preload` code changes, or when `.vite/build` is missing.
 The Vite configs use `.mts` so the standard dev/build flow stays on Vite's supported ESM config path and avoids the deprecated CJS Node API warning.
+
+If you specifically need the raw Electron Forge boot path, use:
+
+```bash
+npm run dev:desktop:forge
+```
+
+## Testing Pro locally
+
+Fast paths:
+
+```bash
+npm run dev:web:pro
+npm run dev:desktop:pro
+```
+
+Both commands mint a throwaway dev public key + signed token, print the token to the terminal, and start the target surface with `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` already wired in. Copy the token into **Settings → License → Paste a license token** to unlock Pro locally.
+
+The desktop wrapper also forwards the managed-launcher flags you already use on `dev:desktop`:
+
+```bash
+npm run dev:desktop:pro -- --sync-main --exit-after-ms 4000
+```
+
+If you need the keypair + token as data for CI or a custom local workflow:
+
+```bash
+node scripts/mint-dev-license.mjs --tier pro --days 30 > dev-license.json
+export VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK="$(jq -r .publicKeyJwk dev-license.json)"
+npm run dev:desktop
+```
 
 ## Desktop smoke validation
 
 Use the repeatable Electron smoke workflow when you need a contributor-friendly UI pass instead of ad hoc manual clicks:
 
 ```bash
-npm run desktop:smoke
+npm run smoke:desktop
 ```
 
 What it does:
@@ -295,9 +332,9 @@ If Go or Rust toolchains are missing locally, the smoke run fails with captured 
 ### Desktop packages
 
 ```bash
-npm run make:mac
-npm run make:linux
-npm run make:win
+npm run make:desktop:mac
+npm run make:desktop:linux
+npm run make:desktop:win
 ```
 
 Artifacts are written to `out/make/`.
@@ -462,7 +499,7 @@ Stable channel policy:
 
 ## Notes for contributors
 
-- The repository currently documents product status in `PLAN.md`, not as a historical implementation roadmap
+- The repository currently documents product status in `docs/PLAN.md`, not as a historical implementation roadmap
 - Plugin support is currently limited to local language manifests that resolve to bundled runtimes
 - If you change shortcuts, runner behavior, or workflow behavior, update the documentation in the same change
 

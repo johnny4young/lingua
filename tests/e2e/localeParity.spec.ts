@@ -142,6 +142,21 @@ test.describe('Spanish locale — Pro flows', () => {
     await expect(page.getByRole('heading', { name: 'Formateador JSON' })).toBeVisible();
     await closeDeveloperUtilities(page);
   });
+
+  test('URL Parser localizes its panel copy and empty-state hint', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Analizador de URL/ }).click();
+
+    await expect(
+      page.getByRole('heading', { level: 3, name: 'Analizador de URL' })
+    ).toBeVisible();
+    await expect(page.getByText('Parámetros del query')).toBeVisible();
+
+    await page.getByTestId('url-parser-input').fill('');
+    await expect(page.getByText('Pega una URL para ver sus partes.')).toBeVisible();
+
+    await closeDeveloperUtilities(page);
+  });
 });
 
 test.describe('Spanish locale — live apply', () => {

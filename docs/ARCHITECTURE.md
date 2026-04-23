@@ -10,7 +10,7 @@ This is an **explanation** document. It focuses on how the architecture works, w
 
 Related reference:
 
-- [`src/renderer/README.md`](./src/renderer/README.md) documents the renderer folder map, state ownership, shared styling rules, and common UI change paths.
+- [`src/renderer/README.md`](../src/renderer/README.md) documents the renderer folder map, state ownership, shared styling rules, and common UI change paths.
 - [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) records which execution class (browser WASM, browser interpreter, desktop native, or hybrid) owns each capability and the promotion rules for moving between classes.
 - [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) captures the "stay on Electron Forge vs. migrate to electron-vite or electron-builder" decision for the desktop build pipeline, and the triggers that should reopen the question.
 
@@ -71,9 +71,9 @@ It means this narrower lifecycle:
 4. Expand, refresh, and mutate the tree while the project is open.
 5. Stop the watcher and clear transient state when the project closes or switches.
 
-The renderer entry point for this is [`useProjectStore`](./src/renderer/stores/projectStore.ts).
+The renderer entry point for this is [`useProjectStore`](../src/renderer/stores/projectStore.ts).
 
-The pure tree helpers live in [`projectTree.ts`](./src/renderer/stores/projectTree.ts).
+The pure tree helpers live in [`projectTree.ts`](../src/renderer/stores/projectTree.ts).
 
 ### Open flow
 
@@ -218,9 +218,9 @@ This project uses Electron's secure preload + IPC model:
 - `ipcRenderer.invoke(...)` / `ipcMain.handle(...)`
 - `ipcRenderer.on(...)` for push-style change events
 
-The bridge is defined in [`src/preload/index.ts`](./src/preload/index.ts).
+The bridge is defined in [`src/preload/index.ts`](../src/preload/index.ts).
 
-The handlers are registered from [`src/main/index.ts`](./src/main/index.ts), mainly through [`src/main/ipc/fileSystem.ts`](./src/main/ipc/fileSystem.ts).
+The handlers are registered from [`src/main/index.ts`](../src/main/index.ts), mainly through [`src/main/ipc/fileSystem.ts`](../src/main/ipc/fileSystem.ts).
 
 ### Why IPC is used here
 
@@ -276,7 +276,7 @@ The file-system IPC handlers are not just thin pass-through wrappers.
 
 They also enforce:
 
-- blocked system/sensitive paths through [`src/main/ipc/permissions.ts`](./src/main/ipc/permissions.ts)
+- blocked system/sensitive paths through [`src/main/ipc/permissions.ts`](../src/main/ipc/permissions.ts)
 - safe entry names for rename operations
 - confirmation dialogs for destructive deletes
 - hidden-entry filtering for explorer cleanliness
@@ -354,7 +354,7 @@ Why this is technically safer:
 
 ### Debounce behavior
 
-The debounce currently lives in [`src/renderer/hooks/useProjectWatchSync.ts`](./src/renderer/hooks/useProjectWatchSync.ts).
+The debounce currently lives in [`src/renderer/hooks/useProjectWatchSync.ts`](../src/renderer/hooks/useProjectWatchSync.ts).
 
 Current value:
 
@@ -367,7 +367,7 @@ Why debounce is used:
 
 ### Where the watch subscription lives
 
-The watch subscription is attached once near the top of the renderer app in [`src/renderer/App.tsx`](./src/renderer/App.tsx).
+The watch subscription is attached once near the top of the renderer app in [`src/renderer/App.tsx`](../src/renderer/App.tsx).
 
 Why this is useful:
 
@@ -387,7 +387,7 @@ However the watch semantics are different:
 | Native recursive watcher | Yes     | No                              |
 | `onChanged` events       | Yes     | No-op                           |
 
-The web implementation is in [`src/web/fs-adapter.ts`](./src/web/fs-adapter.ts).
+The web implementation is in [`src/web/fs-adapter.ts`](../src/web/fs-adapter.ts).
 
 Important limitation:
 
@@ -404,10 +404,10 @@ Why:
 
 Follow this path:
 
-1. Add or update the type in [`src/types.d.ts`](./src/types.d.ts).
-2. Expose it in [`src/preload/index.ts`](./src/preload/index.ts).
-3. Implement the handler in [`src/main/ipc/fileSystem.ts`](./src/main/ipc/fileSystem.ts).
-4. Decide whether the web adapter should support it in [`src/web/fs-adapter.ts`](./src/web/fs-adapter.ts).
+1. Add or update the type in [`src/types.d.ts`](../src/types.d.ts).
+2. Expose it in [`src/preload/index.ts`](../src/preload/index.ts).
+3. Implement the handler in [`src/main/ipc/fileSystem.ts`](../src/main/ipc/fileSystem.ts).
+4. Decide whether the web adapter should support it in [`src/web/fs-adapter.ts`](../src/web/fs-adapter.ts).
 5. Call it from renderer state or hooks, not directly from many UI components.
 
 Reason:

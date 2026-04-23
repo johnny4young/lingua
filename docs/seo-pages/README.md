@@ -20,7 +20,7 @@ plus YAML front-matter).
 1. **Every claim has to match shipped reality**. The RL-066 acceptance
    line is explicit: "every page must say something true about
    Lingua's real support for that language, or we do not ship the
-   page." Cross-check against `PLAN.md` Done items before adding a
+   page." Cross-check against [PLAN.md](../PLAN.md) Done items before adding a
    feature claim.
 2. **Front-matter is strict**. Required keys: `title`, `description`
    (<=160 chars for the meta tag), `canonical`, `ogImage`,

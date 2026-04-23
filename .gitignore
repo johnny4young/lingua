@@ -10,8 +10,8 @@ Library/
 
 # Local artifacts
 output/
-PLAN.md
-TEST_PLAN.md
+/PLAN.md
+/TEST_PLAN.md
 dev-license.json
 
 # Logs
