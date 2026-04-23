@@ -14,7 +14,7 @@ import {
  * file tree, the snippets store, the templates module, the i18n loader)
  * keep compiling without per-call-site migration.
  *
- * Slices B and C in `LANGUAGE_PACK_ADR.md` migrate the consumers off
+ * Slices B and C in `docs/LANGUAGE_PACK_ADR.md` migrate the consumers off
  * these shims one folder at a time. Until then, every helper that used
  * to read `BUILT_IN_LANGUAGE_META[language]` now reads
  * `getLanguagePackById(language)` and falls back to the same plaintext

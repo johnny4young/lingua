@@ -6,7 +6,7 @@
  * `resolveEffectiveEnv()` helper that composes them with a caller-supplied
  * `processEnv` tier via the Slice A merger.
  *
- * Wiring contract (per `ENV_VARS_ADR.md`):
+ * Wiring contract (per `docs/ENV_VARS_ADR.md`):
  *   processEnv  (lowest — supplied by the eventual main-side runner path)
  *   < global    (renderer-owned, persisted, project-agnostic)
  *   < project   (renderer-owned, keyed by projectId)

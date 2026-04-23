@@ -49,4 +49,23 @@ describe('scripts/mint-dev-license.mjs', () => {
     }
     expect(threw).toBe(true);
   });
+
+  it('accepts --days 0 and still emits a valid signed token payload', async () => {
+    const stdout = execFileSync(
+      process.execPath,
+      ['scripts/mint-dev-license.mjs', '--tier', 'pro', '--days', '0'],
+      { encoding: 'utf8' }
+    );
+    const parsed = JSON.parse(stdout) as {
+      publicKeyJwk: string;
+      token: string;
+      payload: { supportWindowEndsAt: string };
+    };
+
+    expect(parsed.payload.supportWindowEndsAt).toMatch(/T/);
+
+    const publicKey = JSON.parse(parsed.publicKeyJwk) as JsonWebKey;
+    const result = await verifyLicenseToken(parsed.token, publicKey);
+    expect(result.ok).toBe(true);
+  });
 });

@@ -13,7 +13,7 @@ This is an **explanation and decision-record** document. Related reading:
   file-system contract
 - [`PLAN.md`](./PLAN.md) item **RL-030** for the originating acceptance
   criteria
-- [`README.md`](./README.md) for a user-facing summary of what runs where
+- [`README.md`](../README.md) for a user-facing summary of what runs where
 
 ## Execution classes
 

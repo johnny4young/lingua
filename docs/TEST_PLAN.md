@@ -67,13 +67,13 @@ npm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 41
 Use the managed desktop launcher once stable:
 
 ```bash
-npm run desktop:dev
+npm run dev:desktop
 ```
 
 Or when main/preload changes require sync:
 
 ```bash
-npm run desktop:dev:sync
+npm run dev:desktop:sync
 ```
 
 Desktop baseline must guarantee:

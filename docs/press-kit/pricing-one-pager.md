@@ -1,8 +1,8 @@
 # Pricing one-pager
 
-Mirror of `PLAN.md` Section 13 in plain-language form for press and
+Mirror of [PLAN.md](../PLAN.md) Section 13 in plain-language form for press and
 partner outreach. Update this file in the same commit as any pricing
-change in `PLAN.md`.
+change in [PLAN.md](../PLAN.md).
 
 ## English
 

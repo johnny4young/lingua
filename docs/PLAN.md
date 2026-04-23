@@ -177,9 +177,9 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
     - Electron smoke test entrypoint
     - artifact output under `output/playwright/`
 - Current progress:
-  - `npm run desktop:dev` now launches the renderer server and Electron together and tears the owned server down when Electron exits
-  - `npm run desktop:dev:sync` can resync `.vite/build/main.js` and `.vite/build/preload.js` without going through `electron-forge start`
-  - `npm run desktop:smoke` now exercises JS, TS, Python, Go, and Rust in a real Electron window and writes bootstrap, progress, screenshots, and summary artifacts under `output/playwright/desktop-smoke`
+  - `npm run dev:desktop` now launches the renderer server and Electron together and tears the owned server down when Electron exits
+  - `npm run dev:desktop:sync` can resync `.vite/build/main.js` and `.vite/build/preload.js` without going through `electron-forge start`
+  - `npm run smoke:desktop` now exercises JS, TS, Python, Go, and Rust in a real Electron window and writes bootstrap, progress, screenshots, and summary artifacts under `output/playwright/desktop-smoke`
   - The smoke flow has explicit timeout/failure reporting so contributors get a terminating command with actionable artifact output instead of a silent hang
 - Acceptance criteria:
   - A contributor can run one documented command sequence and validate Electron UI behavior
@@ -404,7 +404,7 @@ These items remain valid product directions, but they are intentionally behind t
   - verify signing and notarization paths in CI ✅
   - document the human procedure that complements the automation ✅
 - 2026-04-20 update:
-  - `RELEASE.md` now ships the full 14-step release procedure: preconditions (green `main`, no open P0, version + CHANGELOG bumped, signing credentials valid), the draft-first publish flow, the packaged macOS desktop smoke via `npm run desktop:smoke`, the artifact verification step, the post-publish smoke against the update channel, and the rule that the release is not announced before the post-publish smoke passes
+  - `RELEASE.md` now ships the full 14-step release procedure: preconditions (green `main`, no open P0, version + CHANGELOG bumped, signing credentials valid), the draft-first publish flow, the packaged macOS desktop smoke via `npm run smoke:desktop`, the artifact verification step, the post-publish smoke against the update channel, and the rule that the release is not announced before the post-publish smoke passes
   - Adds a rollback plan that keeps a broken release in draft on smoke failure and publishes a `-hotfix` patch tag if a regression ships, with a note that the update bridge tolerates a skipped version so clients land on the hotfix automatically
   - Adds a Validation checklist that names every gate the automation cannot assert (signing verification on both OSes, `SHA256SUMS.txt` presence, packaged desktop smoke, post-publish smoke)
   - `tests/docs/releaseChecklist.test.ts` guards the preconditions, every numbered step, the desktop smoke + post-publish smoke requirements, the validation checklist, and the rollback plan so a future edit cannot silently strip the procedure
@@ -1432,7 +1432,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
     - renderer dev
     - Electron Forge dev
     - packaged desktop build
-    - `desktop:dev`
+    - `dev:desktop`
     - web build
   - Remove or replace deprecated config patterns found during migration
 - Acceptance criteria:
@@ -2945,6 +2945,11 @@ does not pursue are marked `Skip`):
   - Supports binary / octal / decimal / hexadecimal plus custom base 2–36, underscore separators, and `0x` / `0o` / `0b` prefixes in the decimal field
   - Copy ships in en + es and the panel is reachable from the utility sidebar and the Command Palette catalog
   - Tests pin round-trips, invalid-input preservation, custom-base formatting, very large integers beyond `Number.MAX_SAFE_INTEGER`, and Spanish UI copy
+- 2026-04-22 second slice:
+  - `URL Parser` landed as a pure renderer-side helper + panel using the platform `URL` parser, with ordered duplicate-preserving query rows, password masking/reveal, and per-field copy affordances
+  - `String Case Converter` landed as a pure renderer-side helper + panel covering camel / pascal / snake / kebab / constant / sentence / title casing from one shared tokenization pass
+  - `HTML Entity Encode/Decode` landed as a pure renderer-side helper + panel with minimal / named / numeric encode strategies plus decode mode and unresolved-reference hints
+  - All three tools ship en + es copy, are reachable from the utility sidebar and the Command Palette catalog, and are covered by helper, component, and targeted Playwright locale/runtime smoke tests
 
 ### RL-069 DevUtils-class productivity layer for the utilities workspace
 
@@ -3067,12 +3072,16 @@ does not pursue are marked `Skip`):
   - `UUID` utility now generates UUID v4, UUID v7, and ULID batches
   - Added a decode surface that recognizes UUID v4, UUID v7, and ULID inputs and surfaces the embedded timestamp where the format provides one
   - Helper coverage pins the UUID v7 version/variant bits, ULID alphabet, decode round-trips, malformed-input rejection, and Spanish UI copy
+- 2026-04-22 second slice:
+  - `Diff Viewer` now supports line, word, and character granularities instead of line-only output
+  - The diff stays pure/offline in the renderer, keeps the existing summary strip, and renders inline add/remove spans for word/character modes plus row-oriented output for line mode
+  - Coverage now includes helper tests for the tokenizers/Myers dispatcher, component tests for the granularity selector, and targeted Playwright smoke for the Pro-gated utility panel
 
 ### RL-072 Specialty utilities — QR + String Inspector
 
 - Priority: `P3`
-- Status: `Planned`
-- Readiness: `Lower priority; useful for press-kit screenshots but not a daily-driver gap`
+- Status: `Partial`
+- Readiness: `First slice shipped on 2026-04-22 — String Inspector landed; QR work remains planned`
 - Why this matters:
   - QR code generate + read is a DevUtils staple and one of the more
     recognizable screenshots in competitor comparisons.
@@ -3092,6 +3101,10 @@ does not pursue are marked `Skip`):
   - Bundle size of the main editor chunk does not grow
 - Dependencies:
   - RL-045 ✅
+- 2026-04-22 first slice:
+  - `String Inspector` landed as a pure renderer-side helper + panel with UTF-8 / UTF-16 counts, per-codepoint rows, and warnings for zero-width, BiDi, mixed-script, and homoglyph cases
+  - The panel stays fully offline in the renderer, flags suspicious mixed-script tokens without penalizing legitimate single-script Cyrillic text, and ships en + es copy
+  - Coverage spans helper tests, component tests, and targeted Playwright smoke in the Developer Utilities workspace
 
 ---
 

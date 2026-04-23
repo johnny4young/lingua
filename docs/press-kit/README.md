@@ -22,10 +22,10 @@ directly from this directory.
 
 1. **Nothing can be more than one hop from reality.** If a feature is
    not shipped, do not claim it. Use the phrase "Lingua today" and
-   anchor to the `PLAN.md` RL entries.
+   anchor to the [PLAN.md](../PLAN.md) RL entries.
 2. **Match the posture in `LICENSE`.** Source-available commercial —
    never claim "open source" or "MIT".
-3. **Pricing matches `PLAN.md` Section 13** (Free, Pro one-time, Pro
+3. **Pricing matches [PLAN.md](../PLAN.md) Section 13** (Free, Pro one-time, Pro
    Lifetime, Team). If any of these change, update this kit in the
    same commit.
 4. **Spanish mirror**: every customer-facing string file ships `en`

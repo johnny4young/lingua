@@ -48,7 +48,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
   });
 
   it('requires the packaged desktop smoke before promotion', () => {
-    expect(checklist).toContain('npm run desktop:smoke');
+    expect(checklist).toContain('npm run smoke:desktop');
     expect(checklist).toContain('output/playwright/desktop-smoke');
   });
 
@@ -62,7 +62,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toMatch(/macOS signing verification/i);
     expect(checklist).toMatch(/Windows signing verification/i);
     expect(checklist).toContain('SHA256SUMS.txt');
-    expect(checklist).toMatch(/desktop:smoke.*passed|passed.*desktop:smoke/i);
+    expect(checklist).toMatch(/smoke:desktop.*passed|passed.*smoke:desktop/i);
   });
 
   it('ships a rollback plan that keeps the release in draft on failure', () => {

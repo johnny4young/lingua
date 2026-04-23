@@ -7,7 +7,7 @@ This is a **reference + explanation** page for Lingua's renderer. Use it as the 
 - where to change shared styling
 - what to update together when renderer behavior changes
 
-For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE.md](/Users/johnny4young/Personal/github/lingua/ARCHITECTURE.md).
+For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE.md](/Users/johnny4young/Personal/github/lingua/docs/ARCHITECTURE.md).
 
 ## Entry points
 
@@ -224,4 +224,4 @@ Keep tests close to the behavior they validate, even though the repository uses 
 ## Related documents
 
 - [README.md](/Users/johnny4young/Personal/github/lingua/README.md) for setup, build, validation, and release operations
-- [ARCHITECTURE.md](/Users/johnny4young/Personal/github/lingua/ARCHITECTURE.md) for project lifecycle, file-system IPC, and watch-state flow
+- [ARCHITECTURE.md](/Users/johnny4young/Personal/github/lingua/docs/ARCHITECTURE.md) for project lifecycle, file-system IPC, and watch-state flow

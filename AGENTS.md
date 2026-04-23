@@ -11,11 +11,11 @@ Before making non-trivial changes, open these files (in order):
 
 1. This file — routing, skill preferences, landmines, UI validation,
    commit rules.
-2. `PLAN.md` — current backlog, RL-XXX status, and execution order.
+2. `docs/PLAN.md` — current backlog, RL-XXX status, and execution order.
    Never invent plan items; reference the existing RL numbering.
-3. `ARCHITECTURE.md` — project lifecycle, IPC filesystem bridge, and
+3. `docs/ARCHITECTURE.md` — project lifecycle, IPC filesystem bridge, and
    watch-state model.
-4. `CAPABILITY_MATRIX.md` — which execution class (browser WASM, browser
+4. `docs/CAPABILITY_MATRIX.md` — which execution class (browser WASM, browser
    interpreter, WebContainer, desktop native, hybrid) owns each
    capability today. Do not propose WASM-first migrations outside the
    promotion rules there.
@@ -31,7 +31,7 @@ Before making non-trivial changes, open these files (in order):
 
 - Do not describe plugin support as a finished user-facing extension system until the typing and UI flows go beyond the built-in language set.
 - If a change touches shortcuts, execution behavior, or workflow behavior, update the related docs in the same change.
-- Treat `PLAN.md` as the local current-state/backlog document, not as a speculative roadmap.
+- Treat `docs/PLAN.md` as the local current-state/backlog document, not as a speculative roadmap.
 
 ## UI verification — MANDATORY when the diff touches user-facing surfaces
 
@@ -55,7 +55,7 @@ Order of preference:
    the gate.
 3. **Electron shell** (fallback when the slice only works in desktop
    — IPC handlers that have no web stub, `crashReporter` boot,
-   `protocol.registerFileProtocol`, etc.) → `npm run desktop:smoke`
+   `protocol.registerFileProtocol`, etc.) → `npm run smoke:desktop`
    (writes artifacts under `output/playwright/desktop-smoke` and
    exercises JS, TS, Python, Go, and Rust in the real desktop shell)
    or Playwright Electron. Only reach for MCP `computer-use` when a
@@ -93,9 +93,9 @@ through to Electron smoke. Never skip both tiers silently.
   `npm run check:i18n`, and `npm run check:i18n:copy` before declaring
   a slice done. The `check:i18n` guards catch untranslated keys and
   hardcoded renderer copy.
-- Web builds: `npm run build:web`. Desktop dev: `npm run desktop:dev`.
+- Web builds: `npm run build:web`. Desktop dev: `npm run dev:desktop`.
 - Keep scope tight. If a review surfaces something out of scope, flag
-  it in `PLAN.md` rather than expanding the current slice.
+  it in `docs/PLAN.md` rather than expanding the current slice.
 
 ## Testing Pro / paid mode locally
 
@@ -126,7 +126,24 @@ Revert: click **Remove license** in the same row, or
 dev server discards the keypair; any previously-applied token becomes
 invalid on the next restart.
 
-### Electron + CI path — `scripts/mint-dev-license.mjs`
+### Fast path — desktop: `npm run dev:desktop:pro`
+
+One command mints a fresh dev public key + token, injects the public
+key into the managed desktop launcher, and prints the token you can
+paste into Settings → License.
+
+```bash
+npm run dev:desktop:pro
+npm run dev:desktop:pro -- --tier team --days 7
+npm run dev:desktop:pro -- --sync-main --exit-after-ms 4000
+```
+
+Copy the token printed in the terminal → open the running desktop app
+→ **Settings → License → "Paste a license token"** → Apply. The
+status pill flips to `Active · pro` and `useEntitlement(...)` returns
+true everywhere.
+
+### Data path — `scripts/mint-dev-license.mjs`
 
 Use this when you need the key and token as data (e.g. desktop-dev,
 CI smoke, scripted tests). End-to-end coverage lives in
@@ -143,7 +160,7 @@ CI smoke, scripted tests). End-to-end coverage lives in
 
    ```bash
    export VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK="$(jq -r .publicKeyJwk dev-license.json)"
-   npm run desktop:dev    # or: npx vite --config vite.web.config.mts --port 5174
+   npm run dev:desktop    # or: npm run dev:web
    ```
 
 3. In the running app open **Settings → License** and paste the `token`
@@ -153,8 +170,8 @@ Notes:
 
 - The keypair is session-scoped. Once the dev server stops, the
   private key is gone — mint again for the next session.
-- `--days 0` produces an expired token so you can smoke the expiry
-  banner.
+- `--days 0` leaves no remaining support window so you can smoke
+  grace/expiry handling without waiting days for the window to lapse.
 - **Do not commit** `dev-license.json`, and never paste the private
   key (`privateKeyJwkDoNotShip`) into the app.
 - Tests mint throwaway tokens in-process via

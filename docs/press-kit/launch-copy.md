@@ -1,7 +1,7 @@
 # Launch copy drafts
 
 Pre-written posts for Phase 2 distribution. Every draft here has been
-cross-checked against `PLAN.md` (Done items only) — no claim should
+cross-checked against [PLAN.md](../PLAN.md) (Done items only) — no claim should
 outrun the actual implementation. Edit in this file, then commit, then
 post.
 

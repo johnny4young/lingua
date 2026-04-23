@@ -153,6 +153,10 @@ test.describe('Developer utilities modal (Pro)', () => {
     const firstValue = page.getByTestId('uuid-generated-value').first();
     await expect(firstValue).not.toBeEmpty();
 
+    // Each generated value ships with its own copy affordance alongside
+    // the identifier text — a non-negotiable for a "mock data" utility.
+    await expect(page.getByTestId('uuid-generated-value-copy-0')).toBeVisible();
+
     // Switching to v7 should regenerate with the v7 structural shape.
     await page.getByTestId('uuid-version-select').selectOption('v7');
     const v7 = (await firstValue.textContent())?.trim() ?? '';
@@ -161,6 +165,131 @@ test.describe('Developer utilities modal (Pro)', () => {
     // Decoder round-trip — paste the v7 and see its embedded timestamp.
     await page.getByTestId('uuid-decoder-input').fill(v7);
     await expect(page.getByTestId('uuid-decoder-result')).toBeVisible();
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('String Case Converter emits every casing from a single input', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^String Case Converter/ }).click();
+
+    const input = page.getByTestId('string-case-input');
+    await input.fill('parseJSONValue');
+
+    await expect(page.getByTestId('string-case-camel')).toHaveText('parseJsonValue');
+    await expect(page.getByTestId('string-case-snake')).toHaveText('parse_json_value');
+    await expect(page.getByTestId('string-case-constant')).toHaveText('PARSE_JSON_VALUE');
+    await expect(page.getByTestId('string-case-kebab')).toHaveText('parse-json-value');
+    await expect(page.getByTestId('string-case-camel-copy')).toBeVisible();
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('Timestamp Converter outputs every card with a copy button', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Timestamp Converter/ }).click();
+
+    for (const testid of [
+      'timestamp-output-seconds',
+      'timestamp-output-milliseconds',
+      'timestamp-output-iso',
+      'timestamp-output-local',
+    ]) {
+      await expect(page.getByTestId(testid)).toBeVisible();
+      await expect(page.getByTestId(`${testid}-copy`)).toBeVisible();
+    }
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('HTML Entity encode/decode mode swaps the output live', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^HTML Entity/ }).click();
+
+    const input = page.getByTestId('html-entity-input');
+    const output = page.getByTestId('html-entity-output');
+    await input.fill('<p>© ñ</p>');
+
+    // Default is `encode-named` — output should contain named entities.
+    await expect(output).toHaveValue('&lt;p&gt;&copy; &ntilde;&lt;/p&gt;');
+
+    // Switch to numeric — named entities become decimal references.
+    await page.getByTestId('html-entity-mode').selectOption('encode-numeric');
+    await expect(output).toHaveValue('&lt;p&gt;&#169; &#241;&lt;/p&gt;');
+
+    // Decode mode resolves the references back to the original text.
+    await page.getByTestId('html-entity-mode').selectOption('decode');
+    await input.fill('&lt;p&gt;&copy; &ntilde;&lt;/p&gt;');
+    await expect(output).toHaveValue('<p>© ñ</p>');
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('String Inspector surfaces counts and a zero-width warning inline', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^String Inspector/ }).click();
+
+    const input = page.getByTestId('string-inspector-input');
+    await input.fill('hi');
+    await expect(page.getByTestId('string-inspector-graphemes')).toHaveText('2');
+
+    // Drop a zero-width space — the warnings card should appear with the
+    // dedicated kind-scoped testid.
+    await input.fill('a\u200Bb');
+    await expect(page.getByTestId('string-inspector-warning-zero-width')).toBeVisible();
+    await expect(page.getByTestId('string-inspector-graphemes')).toHaveText('3');
+    // The invisible character becomes a dedicated row with category=invisible.
+    await expect(
+      page.locator('[data-testid="string-inspector-row"][data-category="invisible"]'),
+    ).toBeVisible();
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('Diff Viewer granularity selector swaps between line, word and char modes', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Diff Viewer/ }).click();
+
+    // Default granularity is "line" — the grouped rows are rendered.
+    await expect(page.getByTestId('diff-result-line')).toBeVisible();
+
+    await page.getByTestId('diff-granularity-select').selectOption('word');
+    await expect(page.getByTestId('diff-result-inline')).toBeVisible();
+    await expect(page.getByTestId('diff-result-line')).toHaveCount(0);
+    // The seeded inputs introduce new words on the right side — at least
+    // one `add` segment must render inline.
+    await expect(
+      page.getByTestId('diff-segment-add').first()
+    ).toBeVisible();
+
+    await page.getByTestId('diff-granularity-select').selectOption('character');
+    await expect(page.getByTestId('diff-result-inline')).toBeVisible();
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('URL Parser breaks a URL into components and a query table', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^URL Parser/ }).click();
+
+    // Default sample URL is already loaded — the live parse should
+    // populate every readout. Flip to a new URL to prove the parser
+    // reacts to input changes, then inspect the deterministic pieces.
+    const input = page.getByTestId('url-parser-input');
+    await input.fill('https://example.com:9000/search?q=dev&q=web');
+
+    await expect(page.getByTestId('url-parser-hostname')).toHaveText('example.com');
+    await expect(page.getByTestId('url-parser-port')).toHaveText('9000');
+    await expect(page.getByTestId('url-parser-pathname')).toHaveText('/search');
+    await expect(page.getByTestId('url-parser-query-row')).toHaveCount(2);
+
+    // Invalid input short-circuits to the error copy and hides the
+    // component grid so users are not left with stale values.
+    await input.fill('not a url');
+    await expect(page.getByText('That string is not a valid URL.')).toBeVisible();
+    await expect(page.getByTestId('url-parser-hostname')).toHaveCount(0);
 
     await closeDeveloperUtilities(page);
   });

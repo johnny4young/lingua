@@ -2,19 +2,14 @@ import { spawn } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Smoke tests for `scripts/dev-web-pro.mjs`.
+ * Smoke tests for `scripts/dev-desktop-pro.mjs`.
  *
- * The wrapper mints the keypair, prints the token, and then launches the
- * dev server. CI does not need the actual server, so tests set the internal
- * `LINGUA_DEV_SESSION_SKIP_LAUNCH=1` hook and only validate the emitted
- * token + payload shape.
- *
- * Signature correctness of the same primitive is already covered in
- * `mintDevLicense.test.ts`; this test pins the wrapper's printed payload
- * shape so a refactor can't silently stop emitting the token.
+ * Like the web wrapper test, CI only validates the emitted token payload and
+ * relies on the internal skip-launch hook instead of opening a real Electron
+ * window.
  */
-describe('scripts/dev-web-pro.mjs', () => {
-  it('prints a signed pro-tier token before spawning vite', async () => {
+describe('scripts/dev-desktop-pro.mjs', () => {
+  it('prints a signed pro-tier token before launching the desktop shell', async () => {
     const token = await runWrapperAndReadToken();
 
     expect(token).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
@@ -28,14 +23,19 @@ describe('scripts/dev-web-pro.mjs', () => {
     expect(payload.productId).toBe('lingua');
   }, 10_000);
 
-  it('honors custom tier and issued-to values in the emitted token payload', async () => {
+  it('accepts dev-license flags alongside desktop-launcher args', async () => {
     const token = await runWrapperAndReadToken([
       '--tier',
       'team',
       '--days',
       '7',
       '--issued-to',
-      'ci@local',
+      'desktop@local',
+      '--sync-main',
+      '--exit-after-ms',
+      '4000',
+      '--',
+      '--inspect-brk',
     ]);
 
     const [payloadPart = ''] = token.split('.');
@@ -44,7 +44,7 @@ describe('scripts/dev-web-pro.mjs', () => {
     const payload = JSON.parse(decoded) as { tier?: string; issuedTo?: string };
 
     expect(payload.tier).toBe('team');
-    expect(payload.issuedTo).toBe('ci@local');
+    expect(payload.issuedTo).toBe('desktop@local');
   });
 });
 
@@ -52,7 +52,7 @@ function runWrapperAndReadToken(args = ['--tier', 'pro', '--days', '1']): Promis
   return new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,
-      ['./scripts/dev-web-pro.mjs', ...args],
+      ['./scripts/dev-desktop-pro.mjs', ...args],
       {
         stdio: ['ignore', 'pipe', 'pipe'],
         env: {

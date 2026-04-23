@@ -8,10 +8,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const ADR_PATH = resolve(__dirname, '../../VITE_UPGRADE_ADR.md');
+const ADR_PATH = resolve(__dirname, '../../docs/VITE_UPGRADE_ADR.md');
 
 describe('VITE_UPGRADE_ADR.md', () => {
-  it('exists at the repo root', () => {
+  it('exists under docs/', () => {
     expect(existsSync(ADR_PATH)).toBe(true);
   });
 
@@ -60,9 +60,9 @@ describe('VITE_UPGRADE_ADR.md', () => {
       'npm run lint',
       'npm test',
       'npm run build:web',
-      'npm run desktop:dev',
-      'npm run desktop:smoke',
-      'npm run make:mac',
+      'npm run dev:desktop',
+      'npm run smoke:desktop',
+      'npm run make:desktop:mac',
     ]) {
       expect(adr).toContain(command);
     }

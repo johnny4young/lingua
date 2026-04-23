@@ -2,6 +2,7 @@ export type DeveloperUtilityId =
   | 'json'
   | 'base64'
   | 'url'
+  | 'url-parser'
   | 'uuid'
   | 'hash'
   | 'timestamp'
@@ -10,7 +11,10 @@ export type DeveloperUtilityId =
   | 'color'
   | 'diff'
   | 'number-base'
-  | 'beautify-minify';
+  | 'beautify-minify'
+  | 'string-case'
+  | 'html-entity'
+  | 'string-inspector';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -43,6 +47,13 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.url.label',
     descriptionKey: 'utilities.tool.url.description',
     keywords: ['url', 'encode', 'decode', 'querystring'],
+  },
+  {
+    id: 'url-parser',
+    titleKey: 'utilities.tool.urlParser.titleLabel',
+    actionLabelKey: 'utilities.tool.urlParser.label',
+    descriptionKey: 'utilities.tool.urlParser.description',
+    keywords: ['url', 'parse', 'host', 'query', 'path', 'inspect'],
   },
   {
     id: 'uuid',
@@ -106,6 +117,27 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.beautifyMinify.label',
     descriptionKey: 'utilities.tool.beautifyMinify.description',
     keywords: ['beautify', 'minify', 'format', 'pretty', 'json', 'javascript', 'js'],
+  },
+  {
+    id: 'string-case',
+    titleKey: 'utilities.tool.stringCase.titleLabel',
+    actionLabelKey: 'utilities.tool.stringCase.label',
+    descriptionKey: 'utilities.tool.stringCase.description',
+    keywords: ['case', 'camel', 'snake', 'kebab', 'pascal', 'constant', 'title', 'sentence'],
+  },
+  {
+    id: 'html-entity',
+    titleKey: 'utilities.tool.htmlEntity.titleLabel',
+    actionLabelKey: 'utilities.tool.htmlEntity.label',
+    descriptionKey: 'utilities.tool.htmlEntity.description',
+    keywords: ['html', 'entity', 'escape', 'ampersand', 'encode', 'decode'],
+  },
+  {
+    id: 'string-inspector',
+    titleKey: 'utilities.tool.stringInspector.titleLabel',
+    actionLabelKey: 'utilities.tool.stringInspector.label',
+    descriptionKey: 'utilities.tool.stringInspector.description',
+    keywords: ['unicode', 'codepoint', 'bytes', 'invisible', 'zero-width', 'bidi', 'homoglyph'],
   },
 ] as const;
 
