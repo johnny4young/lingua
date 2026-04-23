@@ -5,9 +5,9 @@ This repository uses a draft-first manual release process, with the release tag 
 ## Preconditions
 
 - CI is green on `main`
-- No open P0 incidents in `PLAN.md`
+- No open P0 incidents in `docs/PLAN.md`
 - Release tag will be a stable tag in the form `vX.Y.Z`
-- `package.json` `version` and `CHANGELOG.md` have both been bumped to the target version in a merged commit
+- `package.json` `version` and `docs/CHANGELOG.md` have both been bumped to the target version in a merged commit
 - GitHub Actions secrets are configured:
   - macOS:
     - `APPLE_ID`
@@ -24,7 +24,7 @@ This repository uses a draft-first manual release process, with the release tag 
 
 ## Release steps
 
-1. Update versioned product changes in the repository as needed (final doc sweep, `CHANGELOG.md`, any release-gated copy).
+1. Update versioned product changes in the repository as needed (final doc sweep, `docs/CHANGELOG.md`, any release-gated copy).
 2. Commit and merge the release-ready state into `main`.
 3. Open GitHub Actions and run the `Release` workflow manually.
 4. Provide `release_tag`, the stable tag/version to create and publish, for example `vX.Y.Z`.
@@ -36,7 +36,7 @@ This repository uses a draft-first manual release process, with the release tag 
 7. Open the draft GitHub Release created by the workflow.
 8. Verify attached artifacts and `SHA256SUMS.txt`.
 9. Verify release notes and artifact naming.
-10. Download the macOS artifact locally and run `npm run desktop:smoke` against the packaged app (the validated host). The smoke exercises JS, TS, Python, Go, and Rust in the real desktop shell.
+10. Download the macOS artifact locally and run `npm run smoke:desktop` against the packaged app (the validated host). The smoke exercises JS, TS, Python, Go, and Rust in the real desktop shell.
 11. Confirm the smoke artifacts under `output/playwright/desktop-smoke` captured a screenshot + console log for each runner with zero unexpected errors.
 12. Promote the draft release manually when validation is complete.
 13. Immediately after promotion, run a **post-publish smoke**: from a clean install location, download the published artifact through the update channel (or the GitHub release page), launch, and confirm the app opens to the default tab without errors.
@@ -50,7 +50,7 @@ This repository uses a draft-first manual release process, with the release tag 
 - macOS signing verification passed
 - Windows signing verification passed
 - `SHA256SUMS.txt` is attached or present in the release payload
-- `npm run desktop:smoke` passed against the packaged macOS artifact (the desktop:smoke gate)
+- `npm run smoke:desktop` passed against the packaged macOS artifact (the smoke:desktop gate)
 - Post-publish smoke succeeded against the channel-distributed artifact
 - Release remains draft until human review is complete
 

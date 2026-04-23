@@ -294,15 +294,24 @@ describe('buildCommandPaletteModel', () => {
       onOpenDeveloperUtility,
     });
     const jsonAction = withUtilities.find((c) => c.id === 'action-developer-utility-json');
+    const urlParserAction = withUtilities.find(
+      (c) => c.id === 'action-developer-utility-url-parser'
+    );
 
     // Count reflects the DeveloperUtilities catalog length. Bumps when a
-    // new utility id is added (RL-068 slice added number-base, RL-070 slice
-    // added beautify-minify, taking this to 12).
-    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(12);
+    // new utility id is added. The most recent bumps: number-base,
+    // beautify-minify, url-parser, string-case, html-entity, and
+    // string-inspector from RL-068 / RL-070 / RL-072 — now 16.
+    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(16);
     expect(jsonAction?.label).toBe('Open JSON Formatter');
+    expect(urlParserAction?.label).toBe('Open URL Parser');
+    expect(urlParserAction?.description).toContain('scheme, host, path, query, and fragment');
+    expect(filterCommandPaletteCommands(withUtilities, 'inspect')).toContain(urlParserAction);
 
     jsonAction?.action();
+    urlParserAction?.action();
     expect(onOpenDeveloperUtility).toHaveBeenCalledWith('json');
+    expect(onOpenDeveloperUtility).toHaveBeenCalledWith('url-parser');
 
     const regexAction = withUtilities.find(
       (c) => c.id === 'action-developer-utility-regex'
@@ -316,6 +325,44 @@ describe('buildCommandPaletteModel', () => {
     expect(regexAction?.label).toBe('Open Regex Tester');
     expect(colorAction?.label).toBe('Open Color Converter');
     expect(diffAction?.label).toBe('Open Diff Viewer');
+  });
+
+  it('keeps the URL Parser palette action discoverable after switching to Spanish', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const commands = buildCommandPaletteModel({
+        templates: [],
+        snippets: [],
+        updateStatus: 'idle',
+        createTab: vi.fn(),
+        createDefaultTab: (language) => ({
+          id: `tab-${language}`,
+          name: `untitled-${language}`,
+          language,
+          content: '',
+          isDirty: false,
+        }),
+        setLayoutPreset: vi.fn(),
+        onClose: vi.fn(),
+        onOpenSettings: vi.fn(),
+        onOpenWhatsNew: vi.fn(),
+        onStartGuidedTour: vi.fn(),
+        onOpenSnippets: vi.fn(),
+        onOpenDeveloperUtility: vi.fn(),
+        checkForUpdates: vi.fn().mockResolvedValue(undefined),
+        restartToApply: vi.fn().mockResolvedValue(true),
+        t: i18next.t.bind(i18next),
+      });
+
+      const urlParserAction = commands.find(
+        (command) => command.id === 'action-developer-utility-url-parser'
+      );
+      expect(urlParserAction?.label).toBe('Abrir analizador de URL');
+      expect(filterCommandPaletteCommands(commands, 'analizador')).toContain(urlParserAction);
+      expect(filterCommandPaletteCommands(commands, 'inspect')).toContain(urlParserAction);
+    } finally {
+      await i18next.changeLanguage('en');
+    }
   });
 
   it('exposes the keyboard shortcuts action only when the opener is wired in', () => {

@@ -4,6 +4,16 @@ All notable changes to Lingua are documented here.
 
 The format follows Keep a Changelog and groups changes by release.
 
+## [0.2.1] — 2026-04-22
+
+### Added
+- **URL Parser** (Developer Utilities): A new panel breaks any URL into scheme, origin, user, password, host, port, path, search, and fragment. Each component renders on its own card with a copy button, and the query string shows as a one-row-per-parameter table that preserves duplicate keys. The password cell stays masked until you explicitly reveal it.
+- **String Case Converter** (Developer Utilities): Type any phrase or identifier and see seven casings live: camelCase, PascalCase, snake_case, kebab-case, CONSTANT_CASE, Sentence case, and Title Case. The tokenizer understands acronyms (`HTTPRequest` → `HTTP Request`), letter-digit boundaries, and leaves CJK, emoji, and accented characters intact.
+- **HTML Entity Encode / Decode** (Developer Utilities): A new panel with four modes — Encode (minimal), Encode (named), Encode (numeric), and Decode. Named encoding covers Latin-1 Supplement plus common punctuation / symbol entities; codepoints outside the named table fall back to decimal numeric. Decode resolves named, decimal, and hex references and surfaces a small hint when any reference could not be resolved.
+- **String Inspector** (Developer Utilities): Paste any text to see its UTF-16 units, approximate graphemes, and UTF-8 byte length alongside a per-codepoint table that labels every character (printable, whitespace, control, invisible, BiDi). Warning cards call out zero-width characters, BiDi overrides, mixed-script words, and common Latin / Cyrillic homoglyphs — the usual suspects when a pasted string behaves mysteriously.
+- **Diff Viewer granularity**: The Diff Viewer now supports line-level, word-level, and character-level comparison via a selector at the top of the result. Word and character modes render inline so small edits pop visually, while the line summary keeps the familiar added / removed / unchanged counts.
+- **More copy buttons across Developer Utilities**: The UUID Generator, Timestamp Converter, JSON Formatter, and JWT Debugger now ship a dedicated copy affordance on every result — each generated UUID row, the four timestamp cards (Unix seconds, Unix milliseconds, ISO 8601, local time), the current JSON input, and the decoded JWT header and payload.
+
 ## [0.2.0] — 2026-04-21
 
 ### Added

@@ -9,7 +9,7 @@
  * Slice A is intentionally **zero-behavior-change**: every consumer
  * still goes through the legacy helper names. Slices B (runner
  * dispatch) and C (capability-aware UI) live in
- * `LANGUAGE_PACK_ADR.md` and ship in follow-up sessions.
+ * `docs/LANGUAGE_PACK_ADR.md` and ship in follow-up sessions.
  *
  * Constraint per the ADR: NO third-party arbitrary-code loading is
  * introduced. Plugin runtimes register pack descriptors at build time

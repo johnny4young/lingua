@@ -9,10 +9,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const ADR_PATH = resolve(__dirname, '../../LANGUAGE_PACK_ADR.md');
+const ADR_PATH = resolve(__dirname, '../../docs/LANGUAGE_PACK_ADR.md');
 
 describe('LANGUAGE_PACK_ADR.md', () => {
-  it('exists at the repo root', () => {
+  it('exists under docs/', () => {
     expect(existsSync(ADR_PATH)).toBe(true);
   });
 
