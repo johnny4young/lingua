@@ -10,12 +10,10 @@ export interface TransformResult {
   errorKey: string | null;
 }
 
-export interface JwtAnalysis {
-  header: Record<string, unknown> | null;
-  payload: Record<string, unknown> | null;
-  signature: string | null;
-  errorKey: string | null;
-}
+// `JwtAnalysis` and `decodeJwt` moved to `./jwt` alongside the new
+// verify/sign surfaces for RL-071. Re-exported here so existing import
+// sites (developerUtilities.ts was the historical home) keep compiling.
+export type { JwtAnalysis } from './jwt';
 
 export interface TimestampAnalysis {
   unixSeconds: number | null;
@@ -93,23 +91,9 @@ function base64ToBytes(value: string): Uint8Array {
   return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
-function normalizeBase64Url(value: string): string {
-  const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-  const padding = normalized.length % 4;
-  if (padding === 0) {
-    return normalized;
-  }
-
-  return normalized.padEnd(normalized.length + (4 - padding), '=');
-}
-
-function parseJsonObject(value: string): Record<string, unknown> | null {
-  const parsed = JSON.parse(value) as unknown;
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return null;
-  }
-  return parsed as Record<string, unknown>;
-}
+// `normalizeBase64Url` and `parseJsonObject` moved to `./jwt` as private
+// helpers alongside the decode/verify/sign surfaces for RL-071. No other
+// consumer in this module needed them.
 
 export function analyzeJson(value: string): JsonAnalysis {
   if (!value.trim()) {
@@ -208,59 +192,11 @@ export function generateUuid(): string {
   return crypto.randomUUID();
 }
 
-export function decodeJwt(value: string): JwtAnalysis {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return {
-      header: null,
-      payload: null,
-      signature: null,
-      errorKey: null,
-    };
-  }
-
-  const [headerPart, payloadPart, signaturePart] = trimmed.split('.');
-  if (!headerPart || !payloadPart) {
-    return {
-      header: null,
-      payload: null,
-      signature: null,
-      errorKey: 'utilities.tool.jwt.errorSegments',
-    };
-  }
-
-  try {
-    const header = parseJsonObject(
-      new TextDecoder().decode(base64ToBytes(normalizeBase64Url(headerPart)))
-    );
-    const payload = parseJsonObject(
-      new TextDecoder().decode(base64ToBytes(normalizeBase64Url(payloadPart)))
-    );
-
-    if (!header || !payload) {
-      return {
-        header,
-        payload,
-        signature: signaturePart ?? null,
-        errorKey: 'utilities.tool.jwt.errorObject',
-      };
-    }
-
-    return {
-      header,
-      payload,
-      signature: signaturePart ?? null,
-      errorKey: null,
-    };
-  } catch {
-    return {
-      header: null,
-      payload: null,
-      signature: signaturePart ?? null,
-      errorKey: 'utilities.tool.jwt.error',
-    };
-  }
-}
+// `decodeJwt` moved to `src/renderer/utils/jwt.ts` together with the new
+// `verifyJwt` and `signJwt` surfaces for RL-071. Re-exported here so the
+// existing import sites (developerUtilities.ts was the historical home)
+// do not have to migrate in this commit.
+export { decodeJwt } from './jwt';
 
 export function analyzeTimestamp(value: string): TimestampAnalysis {
   const trimmed = value.trim();

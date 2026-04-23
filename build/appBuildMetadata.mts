@@ -14,7 +14,10 @@ function resolveWebsiteUrl() {
 }
 
 function resolveChangelogJson() {
-  const markdown = readFileSync(path.resolve(rootDir, 'docs/CHANGELOG.md'), 'utf8');
+  // CHANGELOG lives at the repo root — it is a product surface (shown
+  // in the in-app What's New overlay) rather than an engineering doc,
+  // so it does NOT belong under docs/. Keep this path at the root.
+  const markdown = readFileSync(path.resolve(rootDir, 'CHANGELOG.md'), 'utf8');
   return JSON.stringify(JSON.stringify(parseChangelog(markdown)));
 }
 

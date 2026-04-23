@@ -300,9 +300,10 @@ describe('buildCommandPaletteModel', () => {
 
     // Count reflects the DeveloperUtilities catalog length. Bumps when a
     // new utility id is added. The most recent bumps: number-base,
-    // beautify-minify, url-parser, string-case, html-entity, and
-    // string-inspector from RL-068 / RL-070 / RL-072 — now 16.
-    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(16);
+    // beautify-minify, url-parser, string-case, html-entity,
+    // string-inspector, and qr-code from RL-068 / RL-070 / RL-071 /
+    // RL-072 — now 17.
+    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(17);
     expect(jsonAction?.label).toBe('Open JSON Formatter');
     expect(urlParserAction?.label).toBe('Open URL Parser');
     expect(urlParserAction?.description).toContain('scheme, host, path, query, and fragment');

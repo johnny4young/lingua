@@ -42,7 +42,7 @@ Cosmetic or low-severity issues that do not warrant a dedicated
 `RL-NNN` ticket. Group into a single `RL-NNN` when you have ~5 and
 want to batch them into one sprint.
 
-- _(none captured yet)_
+- [tests] Clean up the recurring React act(...) warnings across component suites so green runs are warning-free again — 2026-04-23
 
 ## 3. Spikes and research
 

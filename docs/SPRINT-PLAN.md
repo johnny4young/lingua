@@ -22,7 +22,7 @@ Mirrors the authoritative `Status` column in
 
 | Iter | Ticket | Status | Scope |
 |------|--------|:------:|-------|
-| Iter 1 | [`RL-068`](./ROADMAP.md) | Partial (Shipped 16 of ~18 utility panels on 2026-04-22) | Expand Developer Utilities to DevUtils parity — see §3. |
+| Iter 1 | [`RL-068`](./ROADMAP.md) · [`RL-072`](./ROADMAP.md) (QR Code) + [`RL-071`](./ROADMAP.md) (JWT verify+sign) both shipped 2026-04-23 | Shipped | Expand Developer Utilities to DevUtils parity — QR Code generate + JWT Decode/Verify/Sign modes both landed. See §3 for the closing summary. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (5 of ~7 slices shipped) | Execution history — replay-by-id + comparison. See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
 | Iter 4 | [`RL-059`](./ROADMAP.md) | Partial | License-key infrastructure — Polar webhook + email delivery. Gates the 0.3 launch. See §6. |
@@ -67,32 +67,9 @@ on a launch ticket.
 
 **3.1 Sequencing (2 commits, ~1.5 days)**:
 
-1. **Commit 1 — QR utility (from `RL-072`)** (~0.5 days)
-   - New pure helper `src/renderer/utils/qrCode.ts` wrapping a
-     QR-generation library (choose `qrcode` — WASM-free, ~10KB gzipped).
-     Read mode stays out of scope until a camera decision is made.
-   - New `QrCodePanel` with payload textarea + error-correction level
-     selector (L, M, Q, H) + live SVG preview + Download-as-PNG button.
-   - Register `qr-code` in `DEVELOPER_UTILITIES` catalog and router.
-   - i18n keys: `utilities.tool.qrCode.*` in both en and es.
-   - Tests: unit helper (golden SVG for "hello world" at level M),
-     component test (payload renders, level toggle triggers re-render,
-     empty payload shows placeholder).
-   - Playwright: one assertion in `overlays.spec.ts`.
+1. **Commit 1 — QR utility (from `RL-072`)** — Shipped on 2026-04-23. See [`RL-072` in ROADMAP §4e](./ROADMAP.md) for the landed slice (PNG preview + L/M/Q/H levels + Download-as-PNG). Read mode still deferred.
 
-2. **Commit 2 — JWT verify + sign (from `RL-071`)** (~1 day)
-   - Extend `src/renderer/utils/jwt.ts` with `verifyJwt(token, key)` and
-     `signJwt(header, payload, key)` using Web Crypto — HS256, HS384,
-     HS512, RS256. Document that RSA private keys are pasted in JWK
-     format; no file-system read.
-   - Extend `JwtUtilityPanel` with a toggle between Decode / Verify /
-     Sign modes. Verify mode adds a key textarea + pass/fail indicator.
-     Sign mode adds header + payload + key + algorithm selector +
-     "Generate" button. All output fields get copy buttons.
-   - i18n keys: `utilities.tool.jwt.verify.*` and `utilities.tool.jwt.sign.*`.
-   - Tests: unit round-trip (sign → verify returns `{ ok: true }`),
-     failing verify, tampered payload, unsupported algorithm.
-   - Playwright: mode switch + sign round-trip assertion.
+2. **Commit 2 — JWT verify + sign (from `RL-071`)** — Shipped on 2026-04-23. See [`RL-071` in ROADMAP §4e](./ROADMAP.md) for the landed slice (HS256/384/512 + RS256 via Web Crypto, `src/renderer/utils/jwt.ts` extraction, panel mode toggle). ES/PS algorithms + regex replace + Base64 file upload still pending.
 
 **3.2 Edge cases**:
 - QR: empty payload → empty placeholder, not a broken SVG. Payload
