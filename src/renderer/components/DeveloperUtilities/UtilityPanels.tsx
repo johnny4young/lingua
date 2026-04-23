@@ -2190,6 +2190,7 @@ function BeautifyMinifyUtilityPanel() {
               <option value="javascript">
                 {t('utilities.tool.beautifyMinify.language.javascript')}
               </option>
+              <option value="html">{t('utilities.tool.beautifyMinify.language.html')}</option>
             </select>
           </label>
           <label className="grid gap-1 text-xs text-muted">
@@ -2217,6 +2218,9 @@ function BeautifyMinifyUtilityPanel() {
         </div>
         {language === 'javascript' && mode === 'minify' ? (
           <StatusMessage message={t('utilities.tool.beautifyMinify.jsMinifyHint')} />
+        ) : null}
+        {language === 'html' && mode === 'minify' ? (
+          <StatusMessage message={t('utilities.tool.beautifyMinify.htmlMinifyHint')} />
         ) : null}
       </PanelSection>
 
