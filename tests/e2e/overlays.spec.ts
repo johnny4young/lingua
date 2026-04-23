@@ -219,6 +219,44 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('Backslash Escape/Unescape round-trips and flags malformed input per preset', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Backslash Escape \/ Unescape/ }).click();
+
+    const input = page.getByTestId('backslash-escape-input');
+    const output = page.getByTestId('backslash-escape-output');
+
+    // Default mode Escape + preset JavaScript. Fill, escape, round-trip.
+    await input.fill('tab\there, quote "x"');
+    await expect(output).toHaveValue('tab\\there, quote \\"x\\"');
+
+    // Flip to Unescape, paste the output back, expect the original input.
+    await page.getByTestId('backslash-escape-mode').selectOption('unescape');
+    await input.fill('tab\\there, quote \\"x\\"');
+    await expect(output).toHaveValue('tab\there, quote "x"');
+
+    // Feed a malformed \x sequence — the error banner replaces the output.
+    await input.fill('a\\x1');
+    await expect(page.getByTestId('backslash-escape-error')).toContainText(
+      'Expected two hex digits',
+    );
+
+    // Switch to Python preset, back to Escape, and verify octal-capable
+    // behavior still reads the seeded control-char set correctly.
+    await page.getByTestId('backslash-escape-mode').selectOption('escape');
+    await page.getByTestId('backslash-escape-preset').selectOption('python');
+    await input.fill('\n\t');
+    await expect(output).toHaveValue('\\n\\t');
+
+    // SQL preset surfaces the LIKE-wildcard hint.
+    await page.getByTestId('backslash-escape-preset').selectOption('sql-mysql');
+    await expect(page.getByText(/SQL LIKE wildcards/)).toBeVisible();
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('HTML Entity encode/decode mode swaps the output live', async ({ page }) => {
     await openDeveloperUtilities(page);
     await page.getByRole('button', { name: /^HTML Entity/ }).click();

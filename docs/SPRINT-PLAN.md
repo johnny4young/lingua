@@ -22,7 +22,7 @@ Mirrors the authoritative `Status` column in
 
 | Iter | Ticket | Status | Scope |
 |------|--------|:------:|-------|
-| Iter 1 | [`RL-068`](./ROADMAP.md) · [`RL-072`](./ROADMAP.md) (QR Code) + [`RL-071`](./ROADMAP.md) (JWT verify+sign) + [`RL-070`](./ROADMAP.md) (HTML Beautify/Minify) all shipped 2026-04-23 | Shipped | Expand Developer Utilities to DevUtils parity — QR Code generate, JWT Decode/Verify/Sign modes, and HTML Beautify/Minify (Prettier + whitespace-only minifier with pre/textarea/script/style preservation) all landed. See §3 for the closing summary. |
+| Iter 1 | [`RL-068`](./ROADMAP.md) · [`RL-072`](./ROADMAP.md) (QR Code) + [`RL-071`](./ROADMAP.md) (JWT verify+sign) + [`RL-070`](./ROADMAP.md) (HTML Beautify/Minify) + [`RL-068`](./ROADMAP.md) (Backslash Escape/Unescape) all shipped 2026-04-23 | Shipped | Expand Developer Utilities to DevUtils parity — QR Code generate, JWT Decode/Verify/Sign modes, HTML Beautify/Minify (Prettier + whitespace-only minifier with pre/textarea/script/style preservation), and Backslash Escape/Unescape (JS / JSON / Python / SQL-MySQL presets) all landed. See §3 for the closing summary. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (5 of ~7 slices shipped) | Execution history — replay-by-id + comparison. See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
 | Iter 4 | [`RL-059`](./ROADMAP.md) | Partial | License-key infrastructure — Polar webhook + email delivery. Gates the 0.3 launch. See §6. |
@@ -72,6 +72,8 @@ on a launch ticket.
 2. **Commit 2 — JWT verify + sign (from `RL-071`)** — Shipped on 2026-04-23. See [`RL-071` in ROADMAP §4e](./ROADMAP.md) for the landed slice (HS256/384/512 + RS256 via Web Crypto, `src/renderer/utils/jwt.ts` extraction, panel mode toggle). ES/PS algorithms + regex replace + Base64 file upload still pending.
 
 3. **Commit 3 — HTML Beautify / Minify (from `RL-070`)** — Shipped on 2026-04-23. See [`RL-070` in ROADMAP §4e](./ROADMAP.md) for the landed slice (Prettier html plugin wired, hand-rolled whitespace-only `minifyHtml` that preserves `<pre>` / `<textarea>` / `<script>` / `<style>` content byte-for-byte and strips HTML comments + IE conditional comments). CSS / SCSS / LESS / XML languages and the code-conversion bundle still pending.
+
+4. **Commit 4 — Backslash Escape / Unescape (from `RL-068`)** — Shipped on 2026-04-23. See [`RL-068` in ROADMAP §4e](./ROADMAP.md) for the landed slice. New `src/renderer/utils/backslashEscape.ts` with 4 language presets (JavaScript, JSON, Python, SQL-MySQL); escape path encodes named + control + non-ASCII per preset; unescape path is a tagged-union state machine covering `\xHH`, `\uHHHH`, `\u{…}`, `\UHHHHHHHH`, octal, simple one-char escapes, with closed `UnescapeReason` enum for structural errors. YAML↔JSON, JSON↔CSV, Lorem Ipsum, Random String, Cron Parser, Markdown Preview, SQL Formatter still pending under the RL-068 umbrella.
 
 **3.2 Edge cases**:
 - QR: empty payload → empty placeholder, not a broken SVG. Payload
