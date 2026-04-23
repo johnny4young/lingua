@@ -21,13 +21,14 @@ export interface FormatterErr {
 
 export type FormatterResult = FormatterOk | FormatterErr;
 
-type PrettierParser = 'babel-ts' | 'babel' | 'json' | 'css';
+type PrettierParser = 'babel-ts' | 'babel' | 'json' | 'css' | 'html';
 
 const PRETTIER_PARSER_BY_LANGUAGE: Partial<Record<string, PrettierParser>> = {
   javascript: 'babel',
   typescript: 'babel-ts',
   json: 'json',
   css: 'css',
+  html: 'html',
 };
 
 /**
@@ -48,14 +49,21 @@ async function formatWithPrettier(
   source: string
 ): Promise<FormatterResult> {
   try {
-    const [{ format }, babelPlugin, estreePlugin, typescriptPlugin, cssPlugin] =
-      await Promise.all([
-        import('prettier/standalone'),
-        import('prettier/plugins/babel'),
-        import('prettier/plugins/estree'),
-        import('prettier/plugins/typescript'),
-        import('prettier/plugins/postcss'),
-      ]);
+    const [
+      { format },
+      babelPlugin,
+      estreePlugin,
+      typescriptPlugin,
+      cssPlugin,
+      htmlPlugin,
+    ] = await Promise.all([
+      import('prettier/standalone'),
+      import('prettier/plugins/babel'),
+      import('prettier/plugins/estree'),
+      import('prettier/plugins/typescript'),
+      import('prettier/plugins/postcss'),
+      import('prettier/plugins/html'),
+    ]);
 
     const formatted = await format(source, {
       parser,
@@ -64,6 +72,7 @@ async function formatWithPrettier(
         estreePlugin.default ?? estreePlugin,
         typescriptPlugin.default ?? typescriptPlugin,
         cssPlugin.default ?? cssPlugin,
+        htmlPlugin.default ?? htmlPlugin,
       ],
     });
 

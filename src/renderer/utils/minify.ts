@@ -1,14 +1,15 @@
 /**
  * Lightweight minifiers that pair with `formatSource` (Prettier) for the
- * Beautify/Minify developer utility (RL-070 slice 1). JSON minify is a pure
- * parse + stringify round-trip. JS minify is intentionally a
- * whitespace-stripping pass — NOT a full minifier. A real minifier would
- * pull in terser and balloon the editor bundle; that's a later slice. The
- * panel surfaces a hint that JS minify is whitespace-only so expectations
- * stay honest.
+ * Beautify/Minify developer utility (RL-070 slices 1 + 2). JSON minify is
+ * a pure parse + stringify round-trip. JS and HTML minify are intentionally
+ * whitespace-stripping passes — NOT full minifiers. A real JS minifier
+ * would pull in terser, and a real HTML minifier would pull in
+ * html-minifier-terser; both balloon the editor bundle, so they're later
+ * slices. The panel surfaces a hint that JS / HTML minify is whitespace-only
+ * so expectations stay honest.
  */
 
-export type MinifyLanguage = 'json' | 'javascript';
+export type MinifyLanguage = 'json' | 'javascript' | 'html';
 
 export type MinifyResult =
   | { ok: true; output: string }
@@ -193,7 +194,180 @@ function minifyJavaScript(source: string): MinifyResult {
   return { ok: true, output: output.join('').trim() };
 }
 
+/**
+ * HTML minify — strips `<!-- ... -->` comments and collapses whitespace in
+ * text content / inter-tag gaps / attribute lists, while preserving the
+ * content inside `<pre>`, `<textarea>`, `<script>`, and `<style>` tags
+ * byte-for-byte. Like the JS pass this is NOT a real minifier — it doesn't
+ * rewrite attributes, normalize boolean attrs, or strip optional closing
+ * tags. The panel surfaces a hint so users understand the scope.
+ *
+ * Whitespace policy in text content:
+ *   - Consecutive whitespace collapses to a single space.
+ *   - Whitespace immediately after `>` (between a tag close and the next
+ *     text) is dropped.
+ *   - Whitespace immediately before `<` (between text and the next tag) is
+ *     dropped.
+ *   - Leading / trailing whitespace in the document is trimmed.
+ * This is more aggressive than "conservative collapse" but simple and
+ * predictable.
+ */
+function minifyHtml(source: string): MinifyResult {
+  if (source === '') return { ok: true, output: '' };
+
+  type HtmlMode =
+    | 'text'
+    | 'tag'
+    | 'tag-single-string'
+    | 'tag-double-string'
+    | 'comment'
+    | 'preserve';
+
+  const PRESERVE_TAGS = new Set(['pre', 'textarea', 'script', 'style']);
+
+  const output: string[] = [];
+  let mode: HtmlMode = 'text';
+  let preserveCloseTag = '';
+  let tagBuffer = '';
+  let i = 0;
+  const length = source.length;
+
+  while (i < length) {
+    const char = source[i] ?? '';
+
+    if (mode === 'comment') {
+      if (char === '-' && source[i + 1] === '-' && source[i + 2] === '>') {
+        mode = 'text';
+        i += 3;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (mode === 'preserve') {
+      const slice = source.slice(i, i + preserveCloseTag.length);
+      if (slice.toLowerCase() === preserveCloseTag) {
+        output.push(source.slice(i, i + preserveCloseTag.length));
+        // Hand control to tag mode so whatever trailing whitespace /
+        // attributes sit between `</tagname` and the final `>` are
+        // processed with tag-mode rules (attr collapsing, quoted string
+        // preservation) rather than leaking into text mode.
+        tagBuffer = preserveCloseTag.slice(1);
+        i += preserveCloseTag.length;
+        mode = 'tag';
+        continue;
+      }
+      output.push(char);
+      i += 1;
+      continue;
+    }
+
+    if (mode === 'tag-single-string' || mode === 'tag-double-string') {
+      output.push(char);
+      tagBuffer += char;
+      if (
+        (mode === 'tag-single-string' && char === "'") ||
+        (mode === 'tag-double-string' && char === '"')
+      ) {
+        mode = 'tag';
+      }
+      i += 1;
+      continue;
+    }
+
+    if (mode === 'tag') {
+      if (char === "'") {
+        output.push(char);
+        tagBuffer += char;
+        mode = 'tag-single-string';
+        i += 1;
+        continue;
+      }
+      if (char === '"') {
+        output.push(char);
+        tagBuffer += char;
+        mode = 'tag-double-string';
+        i += 1;
+        continue;
+      }
+      if (char === '>') {
+        output.push('>');
+        const trimmed = tagBuffer.trim();
+        const isClosing = trimmed.startsWith('/');
+        const isSelfClosing = trimmed.endsWith('/');
+        const nameSource = isClosing ? trimmed.slice(1) : trimmed;
+        const firstToken = nameSource.split(/\s/)[0] ?? '';
+        const tagName = firstToken.replace(/\/$/, '').toLowerCase();
+        if (!isClosing && !isSelfClosing && PRESERVE_TAGS.has(tagName)) {
+          mode = 'preserve';
+          preserveCloseTag = `</${tagName}`;
+        } else {
+          mode = 'text';
+        }
+        tagBuffer = '';
+        i += 1;
+        continue;
+      }
+      if (/\s/u.test(char)) {
+        // Collapse whitespace between attributes to a single space.
+        const last = output[output.length - 1] ?? '';
+        if (last !== ' ' && last !== '<' && last !== '/') {
+          output.push(' ');
+          tagBuffer += ' ';
+        }
+        i += 1;
+        continue;
+      }
+      output.push(char);
+      tagBuffer += char;
+      i += 1;
+      continue;
+    }
+
+    // mode === 'text'
+    if (
+      char === '<' &&
+      source[i + 1] === '!' &&
+      source[i + 2] === '-' &&
+      source[i + 3] === '-'
+    ) {
+      mode = 'comment';
+      i += 4;
+      continue;
+    }
+    if (char === '<') {
+      // Drop any whitespace that was emitted just before the tag.
+      while (output.length > 0 && output[output.length - 1] === ' ') {
+        output.pop();
+      }
+      output.push('<');
+      tagBuffer = '';
+      mode = 'tag';
+      i += 1;
+      continue;
+    }
+    if (/\s/u.test(char)) {
+      // Collapse consecutive whitespace to a single space. Skip entirely
+      // when the previous emitted char is a tag-close `>` (drop whitespace
+      // that sits between a tag boundary and the next text) or another
+      // space (dedupe) or the very start of the stream.
+      const last = output[output.length - 1] ?? '';
+      if (last !== '>' && last !== ' ' && last !== '') {
+        output.push(' ');
+      }
+      i += 1;
+      continue;
+    }
+    output.push(char);
+    i += 1;
+  }
+
+  return { ok: true, output: output.join('').trim() };
+}
+
 export function minifySource(language: MinifyLanguage, source: string): MinifyResult {
   if (language === 'json') return minifyJson(source);
+  if (language === 'html') return minifyHtml(source);
   return minifyJavaScript(source);
 }

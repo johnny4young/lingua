@@ -144,6 +144,23 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('Beautify/Minify panel minifies HTML and preserves <pre> content', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Beautify \/ Minify/ }).click();
+
+    await page.getByTestId('beautify-minify-language').selectOption('html');
+    await page.getByTestId('beautify-minify-mode').selectOption('minify');
+    await page
+      .getByTestId('beautify-minify-input')
+      .fill('<div>\n  <pre>keep  spaces</pre>\n  <span>hi</span>\n</div>');
+
+    const output = page.getByTestId('beautify-minify-output');
+    // Whitespace between tags collapses; <pre> content stays intact.
+    await expect(output).toHaveValue('<div><pre>keep  spaces</pre><span>hi</span></div>');
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('UUID Generator produces a value and the decoder recognizes it', async ({ page }) => {
     await openDeveloperUtilities(page);
     await page.getByRole('button', { name: /^UUID Generator/ }).click();
