@@ -14,7 +14,8 @@ export type DeveloperUtilityId =
   | 'beautify-minify'
   | 'string-case'
   | 'html-entity'
-  | 'string-inspector';
+  | 'string-inspector'
+  | 'qr-code';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -138,6 +139,13 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.stringInspector.label',
     descriptionKey: 'utilities.tool.stringInspector.description',
     keywords: ['unicode', 'codepoint', 'bytes', 'invisible', 'zero-width', 'bidi', 'homoglyph'],
+  },
+  {
+    id: 'qr-code',
+    titleKey: 'utilities.tool.qrCode.titleLabel',
+    actionLabelKey: 'utilities.tool.qrCode.label',
+    descriptionKey: 'utilities.tool.qrCode.description',
+    keywords: ['qr', 'qrcode', 'barcode', 'payload', 'scanner', 'url', 'share'],
   },
 ] as const;
 

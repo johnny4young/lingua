@@ -116,8 +116,8 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | [`RL-068`](./PLAN.md#rl-068-expand-developer-utilities-with-devutils-equivalent-coverage) | Expand utilities to DevUtils parity | `Partial` | JSON, Base64, URL, UUID, Hash, Timestamp, JWT, Regex, Color, Diff, Number Base, Beautify/Minify, URL Parser, String Case, HTML Entity, String Inspector shipped. Remaining: a few DevUtils items the ticket enumerates. |
 | [`RL-069`](./PLAN.md#rl-069-devutils-class-productivity-layer-for-the-utilities-workspace) | DevUtils-class productivity layer | `Planned` | Smart input auto-detection, recent-inputs history, cross-tool piping. |
 | [`RL-070`](./PLAN.md#rl-070-beautify--minify-suite-and-code-conversion-bundle) | Beautify / minify suite + code-conversion | `Partial` | JSON + JavaScript first slice shipped. Remaining: HTML, CSS, SCSS, LESS, XML; JS → terser minifier. |
-| [`RL-071`](./PLAN.md#rl-071-harden-existing-utilities-to-devutils-parity) | Harden existing utilities | `Partial` | Diff word/char granularity shipped. Remaining: JWT verify + sign with Web Crypto, regex replace, Base64 file upload. |
-| [`RL-072`](./PLAN.md#rl-072-specialty-utilities--qr--string-inspector) | Specialty utilities — QR + inspector | `Partial` | String Inspector shipped. Remaining: QR code generate + read. |
+| [`RL-071`](./PLAN.md#rl-071-harden-existing-utilities-to-devutils-parity) | Harden existing utilities | `Partial` | Diff word/char granularity shipped. JWT verify + sign (HS256/384/512 + RS256) shipped on 2026-04-23 via Web Crypto; `decodeJwt` extracted into `src/renderer/utils/jwt.ts`; panel gains Decode / Verify / Sign mode toggle. Remaining: ES256/384/512 + PS256/384/512 algorithms, regex replace, Base64 file upload. |
+| [`RL-072`](./PLAN.md#rl-072-specialty-utilities--qr--string-inspector) | Specialty utilities — QR + inspector | `Partial` | String Inspector shipped. QR code generate shipped on 2026-04-23 (PNG + download + L/M/Q/H levels). Remaining: QR code read mode (camera vs upload decision pending). |
 
 ### 4f. Launch operations (P1)
 
