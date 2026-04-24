@@ -257,6 +257,34 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('Random String Generator mints a batch of 5 x 32-char values with the default charset', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Random String Generator/ }).click();
+
+    // Default state: length 32, count 5, lowercase + uppercase + digits on.
+    await page.getByTestId('random-string-generate').click();
+
+    const rows = page.getByTestId('random-string-value');
+    await expect(rows).toHaveCount(5);
+    // Each value is 32 chars drawn from [A-Za-z0-9].
+    for (let i = 0; i < 5; i += 1) {
+      const text = (await rows.nth(i).locator('span').first().innerText()).trim();
+      expect(text).toMatch(/^[A-Za-z0-9]{32}$/);
+    }
+
+    // Turning every charset class off disables Generate and shows the
+    // translated empty-charset banner.
+    await page.getByTestId('random-string-toggle-lowercase').click();
+    await page.getByTestId('random-string-toggle-uppercase').click();
+    await page.getByTestId('random-string-toggle-digits').click();
+    await expect(page.getByTestId('random-string-error')).toBeVisible();
+    await expect(page.getByTestId('random-string-generate')).toBeDisabled();
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Backslash Escape/Unescape round-trips and flags malformed input per preset', async ({
     page,
   }) => {
