@@ -302,9 +302,9 @@ describe('buildCommandPaletteModel', () => {
     // new utility id is added. The most recent bumps: number-base,
     // beautify-minify, url-parser, string-case, html-entity,
     // string-inspector, qr-code, backslash-escape, random-string,
-    // base64-image, lorem-ipsum, svg-to-css, and cron-parser from
-    // RL-068 / RL-070 / RL-071 / RL-072 — now 23.
-    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(23);
+    // base64-image, lorem-ipsum, svg-to-css, cron-parser, html-to-jsx,
+    // and curl-to-code from RL-068 / RL-070 / RL-071 / RL-072 — now 25.
+    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(25);
     expect(jsonAction?.label).toBe('Open JSON Formatter');
     expect(urlParserAction?.label).toBe('Open URL Parser');
     expect(urlParserAction?.description).toContain('scheme, host, path, query, and fragment');

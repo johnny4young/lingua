@@ -1,6 +1,6 @@
 # Lingua — Roadmap
 
-> **Updated:** 2026-04-22
+> **Updated:** 2026-04-24
 > Canonical status board. Single source of truth for the `Status` column
 > on every `RL-XXX` ticket. When any other doc disagrees, this one wins.
 >
@@ -115,7 +115,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 |----|-------|:------:|-----------------|
 | [`RL-068`](./PLAN.md#rl-068-expand-developer-utilities-with-devutils-equivalent-coverage) | Expand utilities to DevUtils parity | `Partial` | JSON, Base64, URL, UUID, Hash, Timestamp, JWT, Regex, Color, Diff, Number Base, Beautify/Minify, URL Parser, String Case, HTML Entity, String Inspector shipped. Backslash Escape/Unescape shipped on 2026-04-23 (4 presets: JavaScript, JSON, Python, SQL-MySQL). Random String Generator shipped on 2026-04-23 (configurable length + count, 4-class charset toggles, ambiguous-char exclusion, unbiased rejection-sampling via `crypto.getRandomValues`). Lorem Ipsum Generator shipped on 2026-04-24 (words / sentences / paragraphs, optional canonical-opening toggle, mid-sentence comma sprinkling). Cron Parser shipped on 2026-04-24 — new panel lazy-loads `cron-parser@^5` + `cronstrue@^3` (both MIT) for human-readable explanations in EN + ES plus configurable next-N-runs against the machine clock. Remaining: YAML↔JSON, JSON↔CSV, Markdown Preview, SQL Formatter. |
 | [`RL-069`](./PLAN.md#rl-069-devutils-class-productivity-layer-for-the-utilities-workspace) | DevUtils-class productivity layer | `Planned` | Smart input auto-detection, recent-inputs history, cross-tool piping. |
-| [`RL-070`](./PLAN.md#rl-070-beautify--minify-suite-and-code-conversion-bundle) | Beautify / minify suite + code-conversion | `Partial` | JSON + JavaScript shipped 2026-04-21. HTML + CSS + XML shipped on 2026-04-23 (CSS via postcss plugin; XML via new `@prettier/plugin-xml` dep). SCSS + LESS shipped on 2026-04-23 (same postcss parser; `minifyCss` extended with `//` line-comment stripping); JS minifier upgraded from whitespace-only to terser v5 (~100 KB lazy chunk) — `minifySource` dispatcher now async. All seven Beautify/Minify languages complete. SVG → CSS converter shipped on 2026-04-24 — new panel with Base64 / URL-encoded mode toggle, auto-detected size hint (width/height preferred, viewBox fallback, non-positive values ignored), live data-URI + CSS block outputs with CopyButtons, and a 100 KB byte cap. Remaining: code-conversion bundle (HTML→JSX, cURL→Code). |
 | [`RL-072`](./PLAN.md#rl-072-specialty-utilities--qr--string-inspector) | Specialty utilities — QR + inspector | `Partial` | String Inspector shipped. QR code generate shipped on 2026-04-23 (PNG + download + L/M/Q/H levels). Remaining: QR code read mode (camera vs upload decision pending). |
 
 ### 4f. Launch operations (P1)
@@ -154,7 +153,7 @@ Value-per-day priority, skipping parked tickets. This is the order an
 agent should follow when §3's tiebreakers don't resolve.
 
 1. **Launch blockers.** `RL-059` (finish the webhook + email delivery slice) → `RL-061` (Polar products + checkout) → `RL-063` (linguacode.dev download page). Nothing ships without these.
-2. **Utilities polish.** `RL-068` / `RL-070` / `RL-072` remaining slices — short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
+2. **Utilities polish.** `RL-068` / `RL-072` remaining slices — short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
 3. **Debugger + language intelligence.** `RL-027` Slice 1 (JS/TS debugger minimal) and `RL-026` adapter layer. These unblock `RL-042` and `RL-047`.
 4. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
 5. **Notebook + rich output.** `RL-043` + `RL-044` are a paired slice. Only after the runtime contract from §4 is stable.
@@ -171,13 +170,13 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>31 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>33 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
 `RL-022`, `RL-030`, `RL-034`, `RL-040`, `RL-045`, `RL-051`, `RL-052`,
 `RL-053`, `RL-054`, `RL-055`, `RL-056`, `RL-057`, `RL-058`, `RL-060`,
-`RL-062`, `RL-067`, `RL-071`.
+`RL-062`, `RL-067`, `RL-070`, `RL-071`, `RL-073`.
 
 </details>
 

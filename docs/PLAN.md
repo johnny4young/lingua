@@ -2927,9 +2927,9 @@ does not pursue are marked `Skip`):
 | Markdown Preview | ❌ | RL-068 |
 | SQL Formatter | ❌ | RL-068 |
 | HTML / CSS / JS / XML / SCSS / LESS Beautify + Minify | ✅ 2026-04-23 | RL-070 |
-| HTML → JSX | ❌ | RL-070 |
+| HTML → JSX | ✅ 2026-04-24 | RL-070 |
 | SVG → CSS | ✅ 2026-04-24 | RL-070 |
-| cURL → Code | ❌ | RL-070 |
+| cURL → Code | ✅ 2026-04-24 | RL-070 |
 | Base64 Image Encode/Decode | ✅ 2026-04-23 | RL-071 |
 | QR Code Generate / Read | ❌ | RL-072 |
 | String Inspector | ❌ | RL-072 |
@@ -3074,8 +3074,8 @@ does not pursue are marked `Skip`):
 ### RL-070 Beautify / minify suite and code-conversion bundle
 
 - Priority: `P3`
-- Status: `Partial`
-- Readiness: `All seven Beautify/Minify languages shipped by 2026-04-23; SVG → CSS shipped on 2026-04-24; HTML → JSX and cURL → Code remain planned`
+- Status: `Done`
+- Readiness: `All scope shipped — Beautify/Minify across 7 languages (JSON, JS via terser, HTML, CSS, SCSS, LESS, XML), plus the full code-conversion bundle (SVG → CSS, HTML → JSX, cURL → Code) — archived to ROADMAP §6`
 - Why this matters:
   - Beautify + minify is the single largest bucket in DevUtils' tool
     list (HTML / CSS / JS / XML / SCSS / LESS / JSON). Most of it maps
@@ -3119,6 +3119,10 @@ does not pursue are marked `Skip`):
   - `SVG → CSS` landed as a pure renderer-side converter with Base64 and URL-encoded data-URI modes, a CSS `background-image` block output, and per-output copy affordances
   - Size hints prefer positive `width` / `height` values, fall back to positive `viewBox` dimensions, and omit `background-size` when the source only exposes relative or unsupported units
   - Input is rejected before encoding for empty, non-SVG, or over-100 KB payloads; helper, component, i18n, command-palette, and Playwright coverage pin the shipped surface
+- 2026-04-24 fifth slice (closes RL-070):
+  - `HTML → JSX` landed as a deps-free converter using built-in `DOMParser`; the walker concatenates `document.head.childNodes` + `document.body.childNodes` so top-level `<meta>` / `<title>` / `<link>` inputs survive DOMParser's auto-hoisting, with an attribute map that covers `class` → `className`, `for` → `htmlFor`, `charset` → `charSet`, `tabindex` → `tabIndex`, event handlers lowercased-to-camelCase, `data-*` / `aria-*` passthrough, void-element self-closing, HTML-comment → JSX-comment rewriting, and inline `style` parsed into an object literal with camelCased CSS property names
+  - `cURL → Code` landed with a POSIX argv tokenizer (CRLF-aware line continuation), a `parseCurlCommand` → `CurlCommand` stage, and four codegen targets (`fetch`, `undici`, Python `requests`, Go `net/http`). Unknown flags surface as inline warning comments; file-backed body forms such as `--data @file`, `--data-binary @file`, and `--data-urlencode @file` are rejected with a translated error; `--data-urlencode` values are percent-encoded per cURL's rules; `-u` together with an explicit `Authorization` header emits a clobber warning
+  - Acceptance criteria satisfied: the 10-invocation cURL fixture suite covers bare GET, GET-with-query, POST JSON, POST form-urlencoded, PUT, DELETE, basic auth, custom header stack, line continuation, and cookie. Catalog count bumped 23 → 25; ~30 new i18n keys per locale in tuteo
 
 ### RL-071 Harden existing utilities to DevUtils parity
 
@@ -3199,6 +3203,86 @@ does not pursue are marked `Skip`):
   - `String Inspector` landed as a pure renderer-side helper + panel with UTF-8 / UTF-16 counts, per-codepoint rows, and warnings for zero-width, BiDi, mixed-script, and homoglyph cases
   - The panel stays fully offline in the renderer, flags suspicious mixed-script tokens without penalizing legitimate single-script Cyrillic text, and ships en + es copy
   - Coverage spans helper tests, component tests, and targeted Playwright smoke in the Developer Utilities workspace
+
+### RL-073 Define Lingua's own editor-theme identity (syntax palette + light counterpart)
+
+- Priority: `P1`
+- Status: `Done`
+- Why this matters:
+  - `lingua-dark`, the default theme shipped as Lingua's visual identity,
+    currently declares `rules: []` in `src/renderer/components/Editor/editorThemes.ts`.
+    Every syntax color is inherited from Monaco's `vs-dark` base, which
+    means the product has no owned syntax palette — devs pasting JS, Go,
+    or Python see Microsoft's colors through Lingua's chrome.
+  - No `lingua-light` exists, so users running the app in light shell
+    mode are forced onto `vs` (Microsoft) or `solarized-light`
+    (third-party) for the editor. There is no Lingua-owned light option.
+  - Without a declared palette, the `/foundations/code` page planned for
+    the Lingua design-system migration has nothing to document and every
+    future feature that renders code (utility panels, inline code in
+    docs, tooltips) has to invent its own syntax colors on the fly.
+- Scope:
+  - Add a Signal-Slate aligned 8-token syntax palette to `lingua-dark`
+    (`keyword`, `string`, `number`, `comment`, `type`, `function`,
+    `variable`, `operator`). Cool-leaning family — indigo/violet
+    keywords, mint strings, sky numbers, teal types, blue functions,
+    slate glue. Avoids Dracula-magenta and Monokai-pink so the theme
+    reads as Lingua's identity, not a port.
+  - Add `lingua-light`: same cool-slate family re-pitched for a
+    `#f6f8fa` background, with chrome and syntax re-tuned for light-mode
+    legibility. Uses Monaco's `vs` as base with `inherit: true`.
+  - Register `lingua-light` in `EDITOR_THEMES`
+    (`src/renderer/components/Settings/settingsOptions.ts`) as the
+    second entry, immediately after `lingua-dark`, with `dark: false`.
+  - Prerequisite fix: add `lingua-light` AND the missing `nord-night`
+    to the import/export validator's `EDITOR_THEMES` tuple in
+    `src/renderer/utils/themePreset.ts`. The audit discovered
+    `nord-night` was listed in `EDITOR_THEMES` for the Settings
+    dropdown but absent from the preset validator, which would have
+    silently rejected presets referencing it.
+  - Every syntax token in every Lingua-owned theme (dark + light) must
+    pass WCAG AA (≥ 4.5:1) contrast against its editor.background.
+- Acceptance criteria:
+  - `lingua-dark.rules` declares all 8 required tokens; `rules.length` > 0.
+  - `lingua-light` is defined with `base: 'vs'` and the same 8 tokens.
+  - Selecting `lingua-light` in Settings → Editor flips the editor
+    background to `#f6f8fa`, re-renders syntax tokens with the
+    declared palette, and (via the existing `syncShellWithEditorTheme`
+    flag) the shell also switches to light mode.
+  - No console errors triggered by the theme switch.
+  - The 11 `tests/components/Editor/editorThemes.test.ts` gates pass —
+    including the WCAG AA contrast check that runs against every token
+    in both Lingua-owned themes.
+- Dependencies:
+  - None. RL-073 stands alone; the palette choice is prescriptive and
+    becomes the input to the forthcoming `/foundations/code`
+    documentation page in the external design-system site.
+- Out of scope (tracked in `docs/BACKLOG.md`):
+  - Aligning the hardcoded ANSI_FG map in `ConsolePanel.tsx` with the
+    semantic CSS vars (separate concern — touches runtime output
+    rendering, not Monaco).
+  - Selection-background alpha inconsistency across the 5
+    redistributed themes (cosmetic polish).
+- 2026-04-24 shipped:
+  - `lingua-dark` now declares 8 syntax rules with the new Signal-Slate
+    palette; `lingua-light` lands as a full theme (chrome + 8-token
+    palette) built on Monaco's `vs` base with `#f6f8fa` background,
+    `#1e293b` foreground, and deeper violet/teal/emerald syntax tones
+    tuned for AA contrast on the light canvas. Prerequisite fix adds
+    `lingua-light` + `nord-night` to the preset-validator tuple so
+    import/export no longer rejects valid themes.
+  - New `tests/components/Editor/editorThemes.test.ts` adds 11 gates:
+    theme registration order, required-token coverage, comment-italic
+    pinning, WCAG AA contrast for every token foreground against every
+    editor.background, and base-theme pinning so `lingua-dark` stays
+    dark and `lingua-light` stays light when Monaco falls back for
+    unhandled tokens.
+  - Live smoke via Playwright MCP on `npm run preview:web`: opened
+    Settings → Editor, selected "Lingua Light", verified editor
+    background flipped to `#f6f8fa`, syntax tokens rendered with the
+    new palette (strings in `#047857`, variables in `#1e293b`), shell
+    auto-flipped to light via `syncShellWithEditorTheme`, and
+    `browser_console_messages({ level: 'error' })` remained 0.
 
 ---
 
