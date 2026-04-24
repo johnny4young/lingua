@@ -44,6 +44,7 @@ want to batch them into one sprint.
 
 - [tests] Clean up the recurring React act(...) warnings across component suites so green runs are warning-free again — 2026-04-23
 - [devutils] `unescapeWithPreset('python')` returns `expected-eight-hex-digits` when `\UHHHHHHHH` digits are well-formed but the codepoint exceeds `U+10FFFF`. Add a dedicated `codepoint-out-of-range` `UnescapeReason` variant + matching en/es i18n copy so the error message matches the root cause. Only reachable with Python preset and a value like `\U00200000`; cosmetic today. — 2026-04-23
+- [devutils] Add an adversarial-forged-token test for `verifyJwt` ECDSA curve rejection: craft a token whose header claims `alg: ES256` but whose signature segment was produced against a P-384 key. That path reaches `importEcdsaKey` with a curve mismatch (the current curve-mismatch test trips the earlier algorithm-mismatch guard). Low-severity — not a realistic paste mistake — but worth pinning so the `invalid-jwk` branch classification stays stable. — 2026-04-23
 
 ## 3. Spikes and research
 

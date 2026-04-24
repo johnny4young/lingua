@@ -133,4 +133,34 @@ describe('JwtUtilityPanel', () => {
     expect(labels).toContain('Verificar');
     expect(labels).toContain('Firmar');
   });
+
+  it('exposes the full HS / RS / ES / PS algorithm set in both Verify and Sign selects', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+
+    const expected = [
+      'HS256',
+      'HS384',
+      'HS512',
+      'RS256',
+      'ES256',
+      'ES384',
+      'ES512',
+      'PS256',
+      'PS384',
+      'PS512',
+    ];
+
+    await user.selectOptions(screen.getByTestId('jwt-mode'), 'verify');
+    const verifyOptions = Array.from(
+      (screen.getByTestId('jwt-verify-algorithm') as HTMLSelectElement).options,
+    ).map((opt) => opt.value);
+    expect(verifyOptions).toEqual(expected);
+
+    await user.selectOptions(screen.getByTestId('jwt-mode'), 'sign');
+    const signOptions = Array.from(
+      (screen.getByTestId('jwt-sign-algorithm') as HTMLSelectElement).options,
+    ).map((opt) => opt.value);
+    expect(signOptions).toEqual(expected);
+  });
 });
