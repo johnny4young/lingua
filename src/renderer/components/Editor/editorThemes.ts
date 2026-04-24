@@ -1,10 +1,26 @@
 import type { Monaco } from '@monaco-editor/react';
 
 export function defineCustomThemes(monaco: Monaco) {
+  // Lingua Dark — Signal-Slate syntax palette on top of the existing
+  // GitHub-dark-inspired chrome. Cool-leaning family: violet keywords,
+  // mint strings, sky numbers, teal types, blue functions, slate glue.
+  // Intentionally avoids Dracula-pink and Monokai-fuchsia so the theme
+  // reads as Lingua's own identity, not a third-party port. Every
+  // foreground passes WCAG AA (≥ 4.5:1) against the #0d1117 background;
+  // the tests/components/editorThemes.test.ts contrast gate enforces it.
   monaco.editor.defineTheme('lingua-dark', {
     base: 'vs-dark',
     inherit: true,
-    rules: [],
+    rules: [
+      { token: 'comment', foreground: '7a8699', fontStyle: 'italic' },
+      { token: 'keyword', foreground: 'a78bfa' },
+      { token: 'string', foreground: '7ee9b4' },
+      { token: 'number', foreground: '7dd3fc' },
+      { token: 'type', foreground: '5eead4' },
+      { token: 'function', foreground: '93c5fd' },
+      { token: 'variable', foreground: 'e2e8f0' },
+      { token: 'operator', foreground: '94a3b8' },
+    ],
     colors: {
       'editor.background': '#0d1117',
       'editor.foreground': '#e6edf3',
@@ -13,6 +29,35 @@ export function defineCustomThemes(monaco: Monaco) {
       'editor.lineHighlightBackground': '#161b22',
       'editor.selectionBackground': '#264f7840',
       'editorCursor.foreground': '#79c0ff',
+    },
+  });
+
+  // Lingua Light — light counterpart of lingua-dark. Same cool-slate
+  // family re-pitched for a light canvas: deeper violets, teals, and
+  // emeralds so they stay readable on #f6f8fa. Enables the "sync shell
+  // with editor theme" flow to land on a Lingua-owned light theme
+  // instead of forcing users onto vs (Microsoft) or solarized-light.
+  monaco.editor.defineTheme('lingua-light', {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '556b7d', fontStyle: 'italic' },
+      { token: 'keyword', foreground: '7c3aed' },
+      { token: 'string', foreground: '047857' },
+      { token: 'number', foreground: '0369a1' },
+      { token: 'type', foreground: '0f766e' },
+      { token: 'function', foreground: '1d4ed8' },
+      { token: 'variable', foreground: '1e293b' },
+      { token: 'operator', foreground: '475569' },
+    ],
+    colors: {
+      'editor.background': '#f6f8fa',
+      'editor.foreground': '#1e293b',
+      'editorLineNumber.foreground': '#94a3b8',
+      'editorLineNumber.activeForeground': '#475569',
+      'editor.lineHighlightBackground': '#eef2f7',
+      'editor.selectionBackground': '#cde7ff80',
+      'editorCursor.foreground': '#2563eb',
     },
   });
 

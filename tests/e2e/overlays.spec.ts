@@ -406,6 +406,42 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('HTML to JSX converter translates class/for and self-closes void elements', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^HTML to JSX/ }).click();
+
+    const output = page.getByTestId('html-to-jsx-output');
+    await expect(output).toBeVisible();
+    await expect(output).toHaveValue(/className="card"/);
+    await expect(output).toHaveValue(/htmlFor="name"/);
+    await expect(output).toHaveValue(/<br \/>/);
+    await expect(output).toHaveValue(/\{\/\* a comment \*\/\}/);
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('cURL to Code converter swaps between fetch, requests, and net-http targets', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^cURL to Code/ }).click();
+
+    const output = page.getByTestId('curl-to-code-output');
+    await expect(output).toHaveValue(/await fetch\("https:\/\/api\.example\.com\/users"/);
+
+    await page.getByTestId('curl-to-code-target').selectOption('requests');
+    await expect(output).toHaveValue(
+      /requests\.request\("POST", "https:\/\/api\.example\.com\/users"/,
+    );
+
+    await page.getByTestId('curl-to-code-target').selectOption('net-http');
+    await expect(output).toHaveValue(/http\.NewRequest\("POST"/);
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Lorem Ipsum Generator mints 3 paragraphs opening with the canonical phrase', async ({
     page,
   }) => {

@@ -50,9 +50,11 @@ const LAYOUT_PRESETS: readonly LayoutPreset[] = ['horizontal', 'vertical', 'edit
 const APPEARANCE_THEMES: readonly SettingsState['theme'][] = ['dark', 'light'];
 const EDITOR_THEMES = [
   'lingua-dark',
+  'lingua-light',
   'dracula',
   'one-dark-pro',
   'monokai',
+  'nord-night',
   'vs-dark',
   'vs',
   'solarized-light',
