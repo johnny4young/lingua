@@ -10,8 +10,8 @@
  * surfaces covering the full JWS algorithm families:
  *
  *   - HS256 / HS384 / HS512 — HMAC-SHA, shared secret pasted as string.
- *   - RS256 — RSASSA-PKCS1-v1_5 with SHA-256, key pasted as JWK object.
- *     RS384 / RS512 deferred (single stub in `rsaHashForAlgorithm`).
+ *   - RS256 / RS384 / RS512 — RSASSA-PKCS1-v1_5 with the matching SHA
+ *     hash, key pasted as JWK object.
  *   - ES256 / ES384 / ES512 — ECDSA with the matching curve
  *     (P-256 / P-384 / P-521 — the 512 name is a JWT spec quirk; the
  *     underlying curve is P-521). JWK pasted as JSON.
@@ -38,6 +38,8 @@ export const JWT_SUPPORTED_ALGORITHMS = [
   'HS384',
   'HS512',
   'RS256',
+  'RS384',
+  'RS512',
   'ES256',
   'ES384',
   'ES512',
@@ -164,11 +166,14 @@ function isPsAlgorithm(algorithm: JwtAlgorithm): algorithm is PsAlgorithm {
   return algorithm.startsWith('PS');
 }
 
-// RS-family guard. Today narrows to `'RS256'` only; adding RS384 / RS512
-// to JWT_SUPPORTED_ALGORITHMS will widen the union here and force the
-// sign / verify switches to handle the new hash mapping.
-function isRsAlgorithm(algorithm: JwtAlgorithm): algorithm is 'RS256' {
-  return algorithm === 'RS256';
+type RsAlgorithm = 'RS256' | 'RS384' | 'RS512';
+
+// RS-family guard covering the full RSASSA-PKCS1-v1_5 set. Narrows via
+// the RS prefix so any future additions need a matching case in
+// rsaHashForAlgorithm / importRsaKey rather than falling through to the
+// exhaustive `never` tail.
+function isRsAlgorithm(algorithm: JwtAlgorithm): algorithm is RsAlgorithm {
+  return algorithm.startsWith('RS');
 }
 
 function esCurveForAlgorithm(algorithm: EsAlgorithm): 'P-256' | 'P-384' | 'P-521' {
@@ -350,9 +355,10 @@ export async function verifyJwt(
     }
 
     if (isRsAlgorithm(expectedAlgorithm)) {
-      // RS256 only — RS384 / RS512 would need a new branch here and in
-      // rsaHashForAlgorithm; the literal-typed helper ensures a missed
-      // branch is a compile-time error rather than a runtime throw.
+      // RSASSA-PKCS1-v1_5 for the full RS family (RS256 / RS384 / RS512).
+      // rsaHashForAlgorithm picks the hash per algorithm and importRsaKey
+      // embeds it at key-import time, so the verify / sign call itself
+      // needs no hash parameter.
       const jwk = parseJsonObject(key);
       if (!jwk) return { ok: false, kind: 'invalid-jwk' };
       const cryptoKey = await importRsaKey(jwk, expectedAlgorithm, ['verify']);
@@ -406,17 +412,18 @@ async function runHmacVerify(
   );
 }
 
-// Narrowed to the single literal instead of `JwtAlgorithm` so any future
-// RS384 / RS512 addition is caught at compile time (missing branch in
-// the verify / sign switches, missing case here) rather than falling
-// through to a runtime throw.
-function rsaHashForAlgorithm(_algorithm: 'RS256'): 'SHA-256' {
-  return 'SHA-256';
+// Narrowed to the RS* literal union so any future RS-family addition
+// needs an explicit case here — the exhaustive switch turns a missing
+// branch into a compile-time error instead of a runtime throw.
+function rsaHashForAlgorithm(algorithm: RsAlgorithm): 'SHA-256' | 'SHA-384' | 'SHA-512' {
+  if (algorithm === 'RS256') return 'SHA-256';
+  if (algorithm === 'RS384') return 'SHA-384';
+  return 'SHA-512';
 }
 
 async function importRsaKey(
   jwk: Record<string, unknown>,
-  algorithm: 'RS256',
+  algorithm: RsAlgorithm,
   usages: KeyUsage[]
 ): Promise<CryptoKey> {
   return crypto.subtle.importKey(
@@ -542,9 +549,10 @@ export async function signJwt(
       );
       signatureBytes = new Uint8Array(sig);
     } else if (isRsAlgorithm(algorithm)) {
-      // RS256 only — RS384 / RS512 would need a new branch here and in
-      // rsaHashForAlgorithm; the literal-typed helper ensures a missed
-      // branch is a compile-time error rather than a runtime throw.
+      // RSASSA-PKCS1-v1_5 for the full RS family (RS256 / RS384 / RS512).
+      // rsaHashForAlgorithm picks the hash per algorithm and importRsaKey
+      // embeds it at key-import time, so the verify / sign call itself
+      // needs no hash parameter.
       const jwk = parseJsonObject(key);
       if (!jwk) return { ok: false, kind: 'invalid-jwk' };
       const cryptoKey = await importRsaKey(jwk, algorithm, ['sign']);
