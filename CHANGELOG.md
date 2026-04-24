@@ -19,6 +19,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **Base64 Image Encode / Decode** (Developer Utilities): Drop an image to create a data-URI, or paste a data-URI to preview it with MIME and size metadata. Oversized pasted payloads are rejected before preview so the app stays responsive.
 - **JWT Debugger algorithm coverage**: Verify and sign JWTs across the full HS, RS, ES, and PS families, including RS384 and RS512, without leaving the local renderer.
 - **Beautify / Minify expansion** (Developer Utilities): The panel now covers JSON, JavaScript, HTML, CSS, SCSS, LESS, and XML. JavaScript minify uses a real ECMAScript minifier, while markup and stylesheet modes preserve raw text, strings, URLs, CDATA, and other sensitive content.
+- **SVG to CSS converter** (Developer Utilities): Paste SVG markup and copy either a Base64 or URL-encoded data-URI plus a ready-to-use CSS `background-image` block, with detected size hints when the SVG exposes safe dimensions.
 
 ## [0.2.0] — 2026-04-21
 

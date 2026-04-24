@@ -1019,5 +1019,20 @@
   "utilities.tool.loremIpsum.startWithClassic": "Start with the canonical Lorem ipsum dolor sit amet phrase",
   "utilities.tool.loremIpsum.generate.action": "Generate",
   "utilities.tool.loremIpsum.empty": "Tap Generate to mint a fresh block of placeholder text.",
-  "utilities.tool.loremIpsum.output.label": "Generated text"
+  "utilities.tool.loremIpsum.output.label": "Generated text",
+  "utilities.tool.svgToCss.titleLabel": "SVG to CSS",
+  "utilities.tool.svgToCss.label": "Open SVG to CSS converter",
+  "utilities.tool.svgToCss.description": "Convert SVG markup to a CSS background-image data-URI snippet.",
+  "utilities.tool.svgToCss.title": "SVG to CSS converter",
+  "utilities.tool.svgToCss.panelDescription": "Paste SVG markup; copy a ready-to-paste CSS block backed by a base64 or URL-encoded data-URI.",
+  "utilities.tool.svgToCss.mode.label": "Encoding",
+  "utilities.tool.svgToCss.mode.base64": "Base64",
+  "utilities.tool.svgToCss.mode.percent": "URL-encoded",
+  "utilities.tool.svgToCss.input.label": "SVG markup",
+  "utilities.tool.svgToCss.dataUri.label": "Data URI",
+  "utilities.tool.svgToCss.css.label": "CSS block",
+  "utilities.tool.svgToCss.size.detected": "Detected size: {{width}} x {{height}}",
+  "utilities.tool.svgToCss.error.empty": "Paste SVG markup above to see the CSS output.",
+  "utilities.tool.svgToCss.error.notSvg": "Input does not contain an <svg> element.",
+  "utilities.tool.svgToCss.error.tooLarge": "SVG exceeds the {{limitKb}} KB limit for inline encoding."
 }

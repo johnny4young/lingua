@@ -2928,7 +2928,7 @@ does not pursue are marked `Skip`):
 | SQL Formatter | ❌ | RL-068 |
 | HTML / CSS / JS / XML / SCSS / LESS Beautify + Minify | ✅ 2026-04-23 | RL-070 |
 | HTML → JSX | ❌ | RL-070 |
-| SVG → CSS | ❌ | RL-070 |
+| SVG → CSS | ✅ 2026-04-24 | RL-070 |
 | cURL → Code | ❌ | RL-070 |
 | Base64 Image Encode/Decode | ✅ 2026-04-23 | RL-071 |
 | QR Code Generate / Read | ❌ | RL-072 |
@@ -3071,7 +3071,7 @@ does not pursue are marked `Skip`):
 
 - Priority: `P3`
 - Status: `Partial`
-- Readiness: `All seven Beautify/Minify languages shipped by 2026-04-23; code conversion bundle still pending`
+- Readiness: `All seven Beautify/Minify languages shipped by 2026-04-23; SVG → CSS shipped on 2026-04-24; HTML → JSX and cURL → Code remain planned`
 - Why this matters:
   - Beautify + minify is the single largest bucket in DevUtils' tool
     list (HTML / CSS / JS / XML / SCSS / LESS / JSON). Most of it maps
@@ -3111,6 +3111,10 @@ does not pursue are marked `Skip`):
   - SCSS and LESS landed through the shared postcss parser and CSS-family minifier, including `//` line-comment stripping while preserving strings and `url(...)` bodies
   - JavaScript minify upgraded to lazy `terser` v5, so the panel now performs semantic ECMAScript minification instead of whitespace-only compaction
   - `minifySource(...)` is async so the renderer waits for lazy minifier chunks before showing output; regression coverage pins raw-text close-tag boundaries and escaped `url(...)` parens
+- 2026-04-24 fourth slice:
+  - `SVG → CSS` landed as a pure renderer-side converter with Base64 and URL-encoded data-URI modes, a CSS `background-image` block output, and per-output copy affordances
+  - Size hints prefer positive `width` / `height` values, fall back to positive `viewBox` dimensions, and omit `background-size` when the source only exposes relative or unsupported units
+  - Input is rejected before encoding for empty, non-SVG, or over-100 KB payloads; helper, component, i18n, command-palette, and Playwright coverage pin the shipped surface
 
 ### RL-071 Harden existing utilities to DevUtils parity
 
