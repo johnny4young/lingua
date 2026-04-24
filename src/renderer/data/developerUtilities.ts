@@ -16,7 +16,8 @@ export type DeveloperUtilityId =
   | 'html-entity'
   | 'string-inspector'
   | 'qr-code'
-  | 'backslash-escape';
+  | 'backslash-escape'
+  | 'random-string';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -163,6 +164,23 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'python',
       'sql',
       'mysql',
+    ],
+  },
+  {
+    id: 'random-string',
+    titleKey: 'utilities.tool.randomString.titleLabel',
+    actionLabelKey: 'utilities.tool.randomString.label',
+    descriptionKey: 'utilities.tool.randomString.description',
+    keywords: [
+      'random',
+      'string',
+      'password',
+      'token',
+      'secret',
+      'mock',
+      'generate',
+      'charset',
+      'secure',
     ],
   },
 ] as const;
