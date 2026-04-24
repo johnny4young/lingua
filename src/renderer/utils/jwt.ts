@@ -6,13 +6,18 @@
  * Chromium renderer) so the same entry points work in every shell.
  *
  * This module is the extraction of `decodeJwt` (previously inlined in
- * `developerUtilities.ts`) plus the new `verifyJwt` and `signJwt`
- * surfaces scoped to this slice:
+ * `developerUtilities.ts`) plus the `verifyJwt` and `signJwt`
+ * surfaces covering the full JWS algorithm families:
  *
- *   - HS256 / HS384 / HS512 (HMAC-SHA, shared secret pasted as string)
- *   - RS256 (RSASSA-PKCS1-v1_5 with SHA-256, key pasted as JWK object
- *     — RSA only in this slice; ES and PS variants are deferred per
- *     SPRINT-PLAN §3.1 Commit 2)
+ *   - HS256 / HS384 / HS512 — HMAC-SHA, shared secret pasted as string.
+ *   - RS256 — RSASSA-PKCS1-v1_5 with SHA-256, key pasted as JWK object.
+ *     RS384 / RS512 deferred (single stub in `rsaHashForAlgorithm`).
+ *   - ES256 / ES384 / ES512 — ECDSA with the matching curve
+ *     (P-256 / P-384 / P-521 — the 512 name is a JWT spec quirk; the
+ *     underlying curve is P-521). JWK pasted as JSON.
+ *   - PS256 / PS384 / PS512 — RSA-PSS with the matching hash + salt
+ *     length equal to the hash output in bytes (RFC 7518 §3.5).
+ *     JWK pasted as JSON.
  *
  * The verify/sign surfaces return a tagged union so the panel can
  * render a pass/fail indicator without a try/catch wrapper. Unknown
@@ -33,6 +38,12 @@ export const JWT_SUPPORTED_ALGORITHMS = [
   'HS384',
   'HS512',
   'RS256',
+  'ES256',
+  'ES384',
+  'ES512',
+  'PS256',
+  'PS384',
+  'PS512',
 ] as const;
 
 export type JwtAlgorithm = (typeof JWT_SUPPORTED_ALGORITHMS)[number];
@@ -136,8 +147,61 @@ function hsHashAlgorithm(algorithm: 'HS256' | 'HS384' | 'HS512'): 'SHA-256' | 'S
   return 'SHA-512';
 }
 
+// Algorithm-family guards. Every JWS algorithm maps to exactly one
+// family (HS / RS / ES / PS); the tuple order is intentional so
+// `JWT_SUPPORTED_ALGORITHMS[i]` for a known prefix resolves in O(1).
 function isHsAlgorithm(algorithm: JwtAlgorithm): algorithm is 'HS256' | 'HS384' | 'HS512' {
-  return algorithm !== 'RS256';
+  return algorithm.startsWith('HS');
+}
+
+type EsAlgorithm = 'ES256' | 'ES384' | 'ES512';
+function isEsAlgorithm(algorithm: JwtAlgorithm): algorithm is EsAlgorithm {
+  return algorithm.startsWith('ES');
+}
+
+type PsAlgorithm = 'PS256' | 'PS384' | 'PS512';
+function isPsAlgorithm(algorithm: JwtAlgorithm): algorithm is PsAlgorithm {
+  return algorithm.startsWith('PS');
+}
+
+// RS-family guard. Today narrows to `'RS256'` only; adding RS384 / RS512
+// to JWT_SUPPORTED_ALGORITHMS will widen the union here and force the
+// sign / verify switches to handle the new hash mapping.
+function isRsAlgorithm(algorithm: JwtAlgorithm): algorithm is 'RS256' {
+  return algorithm === 'RS256';
+}
+
+function esCurveForAlgorithm(algorithm: EsAlgorithm): 'P-256' | 'P-384' | 'P-521' {
+  if (algorithm === 'ES256') return 'P-256';
+  if (algorithm === 'ES384') return 'P-384';
+  // ES512 pairs with curve P-521 (JWT spec quirk — the name refers to
+  // the SHA-512 hash, not the 512-bit curve). RFC 7518 §3.4 pins this.
+  return 'P-521';
+}
+
+function esHashForAlgorithm(algorithm: EsAlgorithm): 'SHA-256' | 'SHA-384' | 'SHA-512' {
+  if (algorithm === 'ES256') return 'SHA-256';
+  if (algorithm === 'ES384') return 'SHA-384';
+  return 'SHA-512';
+}
+
+function psHashForAlgorithm(algorithm: PsAlgorithm): 'SHA-256' | 'SHA-384' | 'SHA-512' {
+  if (algorithm === 'PS256') return 'SHA-256';
+  if (algorithm === 'PS384') return 'SHA-384';
+  return 'SHA-512';
+}
+
+/**
+ * Salt length for RSA-PSS in bytes. RFC 7518 §3.5 requires the salt
+ * length to equal the hash output — 32 for SHA-256, 48 for SHA-384,
+ * 64 for SHA-512. Web Crypto defaults to the same value, but we pass
+ * it explicitly so the intent is visible on the line and future
+ * test-vector compat stays trivial to verify.
+ */
+function psSaltLengthForAlgorithm(algorithm: PsAlgorithm): number {
+  if (algorithm === 'PS256') return 32;
+  if (algorithm === 'PS384') return 48;
+  return 64;
 }
 
 // ---------------------------------------------------------------------------
@@ -257,20 +321,56 @@ export async function verifyJwt(
       return { ok: true, header, payload };
     }
 
-    // RS256 (expected-algorithm gated — any other RS* variant would
-    // need a new branch that picks the right hash name; no silent
-    // fallback to SHA-256 for future additions).
-    const jwk = parseJsonObject(key);
-    if (!jwk) return { ok: false, kind: 'invalid-jwk' };
-    const cryptoKey = await importRsaKey(jwk, expectedAlgorithm, ['verify']);
-    const valid = await crypto.subtle.verify(
-      { name: 'RSASSA-PKCS1-v1_5' },
-      cryptoKey,
-      signatureBytes as BufferSource,
-      signingInput as BufferSource
-    );
-    if (!valid) return { ok: false, kind: 'signature-invalid' };
-    return { ok: true, header, payload };
+    if (isEsAlgorithm(expectedAlgorithm)) {
+      const jwk = parseJsonObject(key);
+      if (!jwk) return { ok: false, kind: 'invalid-jwk' };
+      const cryptoKey = await importEcdsaKey(jwk, expectedAlgorithm, ['verify']);
+      const valid = await crypto.subtle.verify(
+        { name: 'ECDSA', hash: { name: esHashForAlgorithm(expectedAlgorithm) } },
+        cryptoKey,
+        signatureBytes as BufferSource,
+        signingInput as BufferSource
+      );
+      if (!valid) return { ok: false, kind: 'signature-invalid' };
+      return { ok: true, header, payload };
+    }
+
+    if (isPsAlgorithm(expectedAlgorithm)) {
+      const jwk = parseJsonObject(key);
+      if (!jwk) return { ok: false, kind: 'invalid-jwk' };
+      const cryptoKey = await importRsaPssKey(jwk, expectedAlgorithm, ['verify']);
+      const valid = await crypto.subtle.verify(
+        { name: 'RSA-PSS', saltLength: psSaltLengthForAlgorithm(expectedAlgorithm) },
+        cryptoKey,
+        signatureBytes as BufferSource,
+        signingInput as BufferSource
+      );
+      if (!valid) return { ok: false, kind: 'signature-invalid' };
+      return { ok: true, header, payload };
+    }
+
+    if (isRsAlgorithm(expectedAlgorithm)) {
+      // RS256 only — RS384 / RS512 would need a new branch here and in
+      // rsaHashForAlgorithm; the literal-typed helper ensures a missed
+      // branch is a compile-time error rather than a runtime throw.
+      const jwk = parseJsonObject(key);
+      if (!jwk) return { ok: false, kind: 'invalid-jwk' };
+      const cryptoKey = await importRsaKey(jwk, expectedAlgorithm, ['verify']);
+      const valid = await crypto.subtle.verify(
+        { name: 'RSASSA-PKCS1-v1_5' },
+        cryptoKey,
+        signatureBytes as BufferSource,
+        signingInput as BufferSource
+      );
+      if (!valid) return { ok: false, kind: 'signature-invalid' };
+      return { ok: true, header, payload };
+    }
+
+    // Exhaustive: every member of JWT_SUPPORTED_ALGORITHMS has a
+    // branch above. This throw is a belt-and-braces guard for runtime —
+    // TypeScript narrows `expectedAlgorithm` to `never` here.
+    const _exhaustive: never = expectedAlgorithm;
+    throw new Error(`Unhandled JWT algorithm: ${_exhaustive as string}`);
   } catch (error) {
     // importKey rejects malformed JWK with a DOMException — classify as
     // invalid-jwk to give the user an actionable message instead.
@@ -306,24 +406,55 @@ async function runHmacVerify(
   );
 }
 
-function rsaHashForAlgorithm(algorithm: JwtAlgorithm): 'SHA-256' {
-  // Only RS256 is in scope for this slice. When RS384/RS512 land per
-  // PLAN.md, extend this lookup so the hash matches the algorithm — a
-  // single-return function today is already narrower than a generic
-  // default would be.
-  if (algorithm === 'RS256') return 'SHA-256';
-  throw new Error(`Unsupported RSA variant: ${algorithm}`);
+// Narrowed to the single literal instead of `JwtAlgorithm` so any future
+// RS384 / RS512 addition is caught at compile time (missing branch in
+// the verify / sign switches, missing case here) rather than falling
+// through to a runtime throw.
+function rsaHashForAlgorithm(_algorithm: 'RS256'): 'SHA-256' {
+  return 'SHA-256';
 }
 
 async function importRsaKey(
   jwk: Record<string, unknown>,
-  algorithm: JwtAlgorithm,
+  algorithm: 'RS256',
   usages: KeyUsage[]
 ): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     'jwk',
     jwk as JsonWebKey,
     { name: 'RSASSA-PKCS1-v1_5', hash: { name: rsaHashForAlgorithm(algorithm) } },
+    false,
+    usages
+  );
+}
+
+async function importEcdsaKey(
+  jwk: Record<string, unknown>,
+  algorithm: EsAlgorithm,
+  usages: KeyUsage[]
+): Promise<CryptoKey> {
+  // The JWK itself carries `crv` (P-256 / P-384 / P-521). If the user
+  // pastes a JWK whose curve disagrees with the selected algorithm,
+  // Web Crypto rejects the import with a DOMException — the
+  // outer catch translates that to `invalid-jwk` for the panel.
+  return crypto.subtle.importKey(
+    'jwk',
+    jwk as JsonWebKey,
+    { name: 'ECDSA', namedCurve: esCurveForAlgorithm(algorithm) },
+    false,
+    usages
+  );
+}
+
+async function importRsaPssKey(
+  jwk: Record<string, unknown>,
+  algorithm: PsAlgorithm,
+  usages: KeyUsage[]
+): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
+    'jwk',
+    jwk as JsonWebKey,
+    { name: 'RSA-PSS', hash: { name: psHashForAlgorithm(algorithm) } },
     false,
     usages
   );
@@ -385,10 +516,35 @@ export async function signJwt(
       );
       const sig = await crypto.subtle.sign({ name: 'HMAC' }, cryptoKey, signingInput as BufferSource);
       signatureBytes = new Uint8Array(sig);
-    } else {
-      // RS256 — key must be a JWK with `d` (private key). Hash is
-      // picked from `algorithm` so future RS384/RS512 additions cannot
-      // silently drop to SHA-256.
+    } else if (isEsAlgorithm(algorithm)) {
+      // ECDSA JWK with `d` (private key). Web Crypto emits IEEE P1363
+      // raw-r-s concatenation — that's exactly what JWS (RFC 7515 §3.3)
+      // requires, so no DER conversion is needed.
+      const jwk = parseJsonObject(key);
+      if (!jwk) return { ok: false, kind: 'invalid-jwk' };
+      const cryptoKey = await importEcdsaKey(jwk, algorithm, ['sign']);
+      const sig = await crypto.subtle.sign(
+        { name: 'ECDSA', hash: { name: esHashForAlgorithm(algorithm) } },
+        cryptoKey,
+        signingInput as BufferSource
+      );
+      signatureBytes = new Uint8Array(sig);
+    } else if (isPsAlgorithm(algorithm)) {
+      // RSA-PSS JWK with `d` (private key). Salt length = hash output
+      // in bytes per RFC 7518 §3.5.
+      const jwk = parseJsonObject(key);
+      if (!jwk) return { ok: false, kind: 'invalid-jwk' };
+      const cryptoKey = await importRsaPssKey(jwk, algorithm, ['sign']);
+      const sig = await crypto.subtle.sign(
+        { name: 'RSA-PSS', saltLength: psSaltLengthForAlgorithm(algorithm) },
+        cryptoKey,
+        signingInput as BufferSource
+      );
+      signatureBytes = new Uint8Array(sig);
+    } else if (isRsAlgorithm(algorithm)) {
+      // RS256 only — RS384 / RS512 would need a new branch here and in
+      // rsaHashForAlgorithm; the literal-typed helper ensures a missed
+      // branch is a compile-time error rather than a runtime throw.
       const jwk = parseJsonObject(key);
       if (!jwk) return { ok: false, kind: 'invalid-jwk' };
       const cryptoKey = await importRsaKey(jwk, algorithm, ['sign']);
@@ -398,6 +554,12 @@ export async function signJwt(
         signingInput as BufferSource
       );
       signatureBytes = new Uint8Array(sig);
+    } else {
+      // Exhaustive: every member of JWT_SUPPORTED_ALGORITHMS has a
+      // branch above. Narrow to `never` so a future addition is a
+      // compile-time error if the author forgets to extend this switch.
+      const _exhaustive: never = algorithm;
+      return { ok: false, kind: 'unsupported-algorithm', claimed: _exhaustive as string };
     }
 
     const token = `${headerPart}.${payloadPart}.${bytesToBase64Url(signatureBytes)}`;
