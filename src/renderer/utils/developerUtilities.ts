@@ -314,6 +314,75 @@ export function analyzeRegex(
   return { matches, truncated, errorKey: null };
 }
 
+export type RegexReplaceResult =
+  | { ok: true; output: string; replacementCount: number; truncatedCount: boolean }
+  | { ok: false; errorKey: string };
+
+/**
+ * Apply a regex replacement to `input`. Mirrors the error handling of
+ * `analyzeRegex`: invalid pattern → tagged `{ ok: false, errorKey }`;
+ * empty pattern → pass-through output with zero replacements.
+ *
+ * Replacement semantics defer to `String.prototype.replace` — `$1`,
+ * `$2`, `$<name>`, `$&`, `$$` all expand exactly per the ECMAScript
+ * spec (including literal pass-through of `$<name>` when the regex has
+ * no named capture groups). We use a two-pass approach: first count
+ * matches via `matchAll` (capped at `REGEX_MATCH_LIMIT` so the summary
+ * stays honest on pathological inputs; the flag is surfaced via
+ * `truncatedCount`), then run the native replace to produce `output`.
+ * Two passes are bounded by the same cap and cost ~2x one regex scan
+ * against the input — negligible at this limit and far simpler than
+ * re-implementing template expansion inside a replacer callback.
+ */
+export function applyRegexReplace(
+  pattern: string,
+  flags: string,
+  input: string,
+  replacement: string
+): RegexReplaceResult {
+  if (!pattern) {
+    return { ok: true, output: input, replacementCount: 0, truncatedCount: false };
+  }
+
+  let regex: RegExp;
+  try {
+    regex = new RegExp(pattern, flags);
+  } catch {
+    return { ok: false, errorKey: 'utilities.tool.regex.errorPattern' };
+  }
+
+  let replacementCount = 0;
+  let truncatedCount = false;
+  try {
+    if (regex.global) {
+      // Count-only iteration — no match binding needed; the iterator's
+      // completion state is all we consult. The clamp fires *after* the
+      // Nth `next()` returns a match, which is why it sets `truncatedCount`
+      // without incrementing past the limit.
+      const iterator = input.matchAll(regex);
+      while (!iterator.next().done) {
+        if (replacementCount >= REGEX_MATCH_LIMIT) {
+          truncatedCount = true;
+          break;
+        }
+        replacementCount += 1;
+      }
+    } else if (regex.test(input)) {
+      replacementCount = 1;
+    }
+
+    // Native template expansion — handles $1, $&, $<name>, $$ per spec,
+    // including the literal-`$<name>` case when the regex has no named
+    // captures. `replace` resets `lastIndex` internally for global regexes
+    // and ignores it for non-global, so the prior `test()` call above
+    // cannot leak state into this result.
+    const output = input.replace(regex, replacement);
+    return { ok: true, output, replacementCount, truncatedCount };
+  } catch {
+    return { ok: false, errorKey: 'utilities.tool.regex.errorExecution' };
+  }
+}
+
 const HEX_SHORT_PATTERN = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/iu;
 const HEX_LONG_PATTERN = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/iu;
 const RGB_PATTERN =

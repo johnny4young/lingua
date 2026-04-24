@@ -4,6 +4,7 @@ import {
   analyzeJson,
   analyzeRegex,
   analyzeTimestamp,
+  applyRegexReplace,
   computeLineDiff,
   decodeBase64,
   decodeJwt,
@@ -114,6 +115,71 @@ describe('developerUtilities', () => {
     expect(analyzeRegex('(unbalanced', 'g', 'x').errorKey).toBe(
       'utilities.tool.regex.errorPattern'
     );
+  });
+
+  it('applyRegexReplace replaces every global occurrence and counts them', () => {
+    const result = applyRegexReplace('foo', 'g', 'foo bar foo baz foo', 'qux');
+    expect(result).toMatchObject({ ok: true, output: 'qux bar qux baz qux', replacementCount: 3 });
+  });
+
+  it('applyRegexReplace single-match mode when no global flag', () => {
+    const result = applyRegexReplace('foo', '', 'foo bar foo baz', 'qux');
+    expect(result).toMatchObject({ ok: true, output: 'qux bar foo baz', replacementCount: 1 });
+  });
+
+  it('applyRegexReplace supports numbered back-references ($1, $2)', () => {
+    const result = applyRegexReplace(
+      '(\\w+)@(\\w+\\.\\w+)',
+      'g',
+      'hello@lingua.dev and support@example.com',
+      '[$1 at $2]',
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      output: '[hello at lingua.dev] and [support at example.com]',
+      replacementCount: 2,
+    });
+  });
+
+  it('applyRegexReplace supports named back-references ($<name>)', () => {
+    const result = applyRegexReplace(
+      '(?<user>\\w+)@(?<host>\\w+\\.\\w+)',
+      'g',
+      'hello@lingua.dev',
+      '$<user> on $<host>',
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      output: 'hello on lingua.dev',
+      replacementCount: 1,
+    });
+  });
+
+  it('applyRegexReplace treats $$ as a literal $', () => {
+    const result = applyRegexReplace('foo', 'g', 'foo', '$$1');
+    // `$$` expands to a literal `$`; `$1` is left untouched because there
+    // are no capture groups in the pattern — our expander emits it verbatim.
+    expect(result).toMatchObject({ ok: true, output: '$1', replacementCount: 1 });
+  });
+
+  it('applyRegexReplace with empty replacement removes matches', () => {
+    const result = applyRegexReplace('\\s+', 'g', 'a  b  c', '');
+    expect(result).toMatchObject({ ok: true, output: 'abc', replacementCount: 2 });
+  });
+
+  it('applyRegexReplace returns the input unchanged when pattern is empty', () => {
+    const result = applyRegexReplace('', '', 'any text', 'qux');
+    expect(result).toMatchObject({ ok: true, output: 'any text', replacementCount: 0 });
+  });
+
+  it('applyRegexReplace returns empty output when input is empty', () => {
+    const result = applyRegexReplace('foo', 'g', '', 'bar');
+    expect(result).toMatchObject({ ok: true, output: '', replacementCount: 0 });
+  });
+
+  it('applyRegexReplace reports invalid pattern via errorKey without throwing', () => {
+    const result = applyRegexReplace('(unbalanced', 'g', 'x', 'y');
+    expect(result).toMatchObject({ ok: false, errorKey: 'utilities.tool.regex.errorPattern' });
   });
 
   it('converts colors between hex, rgb, and hsl representations', () => {
