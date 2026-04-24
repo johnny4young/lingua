@@ -72,6 +72,14 @@ import {
   generateRandomStrings,
   type CharsetToggles,
 } from '../../utils/randomString';
+import {
+  BASE64_IMAGE_MAX_BYTES,
+  decodeDataUri,
+  encodeFileToDataUri,
+  formatByteSize,
+  type Base64ImageDecodeResult,
+  type Base64ImageEncodeResult,
+} from '../../utils/base64Image';
 
 function PanelSection({
   title,
@@ -2696,6 +2704,232 @@ function RandomStringPanel() {
   );
 }
 
+type Base64ImageMode = 'encode' | 'decode';
+
+interface Base64ImageEncodeError {
+  kind: 'not-image' | 'too-large' | 'read-error';
+  mime?: string;
+  byteSize?: number;
+}
+
+interface Base64ImageDecodeError {
+  kind: 'invalid-uri' | 'not-image' | 'invalid-base64';
+  mime?: string;
+}
+
+function Base64ImagePanel() {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<Base64ImageMode>('encode');
+
+  const [encoded, setEncoded] = useState<
+    Extract<Base64ImageEncodeResult, { ok: true }> | null
+  >(null);
+  const [encodeError, setEncodeError] = useState<Base64ImageEncodeError | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const [decodeInput, setDecodeInput] = useState('');
+  const decoded = useMemo<
+    | { ok: true; value: Extract<Base64ImageDecodeResult, { ok: true }> }
+    | { ok: false; value: Base64ImageDecodeError }
+    | null
+  >(() => {
+    if (decodeInput.trim() === '') return null;
+    const result = decodeDataUri(decodeInput);
+    return result.ok ? { ok: true, value: result } : { ok: false, value: result };
+  }, [decodeInput]);
+
+  const handleFile = async (file: File | null | undefined) => {
+    if (!file) return;
+    const result = await encodeFileToDataUri(file);
+    if (result.ok) {
+      setEncoded(result);
+      setEncodeError(null);
+    } else {
+      setEncoded(null);
+      setEncodeError(result);
+    }
+  };
+
+  const describeEncodeError = (error: Base64ImageEncodeError): string => {
+    if (error.kind === 'not-image') {
+      return t('utilities.tool.base64Image.encode.error.notImage', {
+        mime: error.mime ?? 'unknown',
+      });
+    }
+    if (error.kind === 'too-large') {
+      return t('utilities.tool.base64Image.encode.error.tooLarge', {
+        max: formatByteSize(BASE64_IMAGE_MAX_BYTES),
+        actual: formatByteSize(error.byteSize ?? 0),
+      });
+    }
+    return t('utilities.tool.base64Image.encode.error.readError');
+  };
+
+  const describeDecodeError = (error: Base64ImageDecodeError): string => {
+    if (error.kind === 'invalid-uri') {
+      return t('utilities.tool.base64Image.decode.error.invalidUri');
+    }
+    if (error.kind === 'not-image') {
+      return t('utilities.tool.base64Image.decode.error.notImage', {
+        mime: error.mime ?? 'unknown',
+      });
+    }
+    return t('utilities.tool.base64Image.decode.error.invalidBase64');
+  };
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <PanelSection
+        title={t('utilities.tool.base64Image.title')}
+        description={t('utilities.tool.base64Image.panelDescription')}
+      >
+        <label className="grid gap-1 text-xs text-muted">
+          <FieldLabel>{t('utilities.tool.base64Image.mode.label')}</FieldLabel>
+          <select
+            aria-label={t('utilities.tool.base64Image.mode.label')}
+            data-testid="base64-image-mode"
+            value={mode}
+            onChange={(event) => setMode(event.target.value as Base64ImageMode)}
+            className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+          >
+            <option value="encode">{t('utilities.tool.base64Image.mode.encode')}</option>
+            <option value="decode">{t('utilities.tool.base64Image.mode.decode')}</option>
+          </select>
+        </label>
+
+        {mode === 'encode' ? (
+          <div className="grid gap-2">
+            <div
+              data-testid="base64-image-dropzone"
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragOver(false);
+                const file = event.dataTransfer.files?.[0];
+                void handleFile(file);
+              }}
+              className={`flex flex-col items-center justify-center gap-2 rounded-[1rem] border-2 border-dashed px-4 py-8 text-sm text-muted ${
+                dragOver ? 'border-primary/70 bg-primary/5' : 'border-border/80 bg-background/60'
+              }`}
+            >
+              <span>{t('utilities.tool.base64Image.encode.dropHint')}</span>
+              <span className="text-xs">
+                {t('utilities.tool.base64Image.encode.maxSize', {
+                  max: formatByteSize(BASE64_IMAGE_MAX_BYTES),
+                })}
+              </span>
+            </div>
+            <label className="text-xs text-muted">
+              <span className="sr-only">{t('utilities.tool.base64Image.encode.fileLabel')}</span>
+              <input
+                type="file"
+                accept="image/*"
+                data-testid="base64-image-file-input"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  void handleFile(file);
+                }}
+                className="block w-full rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2 text-sm text-foreground"
+              />
+            </label>
+            {encodeError ? (
+              <StatusMessage
+                tone="error"
+                testid="base64-image-encode-error"
+                message={describeEncodeError(encodeError)}
+              />
+            ) : null}
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            <FieldLabel>{t('utilities.tool.base64Image.decode.inputLabel')}</FieldLabel>
+            <UtilityTextarea
+              aria-label={t('utilities.tool.base64Image.decode.inputLabel')}
+              data-testid="base64-image-decode-input"
+              value={decodeInput}
+              onChange={(event) => setDecodeInput(event.target.value)}
+              placeholder={t('utilities.tool.base64Image.decode.placeholder') ?? undefined}
+              spellCheck={false}
+            />
+            {decoded && !decoded.ok ? (
+              <StatusMessage
+                tone="error"
+                testid="base64-image-decode-error"
+                message={describeDecodeError(decoded.value)}
+              />
+            ) : null}
+          </div>
+        )}
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.tool.base64Image.preview.title')}
+        description={t('utilities.status.live')}
+      >
+        {mode === 'encode' ? (
+          encoded ? (
+            <div className="grid gap-3">
+              <img
+                data-testid="base64-image-preview"
+                src={encoded.dataUri}
+                alt={t('utilities.tool.base64Image.preview.alt')}
+                className="max-h-48 w-full rounded-[1rem] border border-border/80 bg-background/70 object-contain"
+              />
+              <StatusMessage
+                testid="base64-image-metadata"
+                message={t('utilities.tool.base64Image.metadata.summary', {
+                  mime: encoded.mime,
+                  size: formatByteSize(encoded.byteSize),
+                })}
+              />
+              <div className="relative">
+                <UtilityTextarea
+                  aria-label={t('utilities.tool.base64Image.encode.outputLabel')}
+                  data-testid="base64-image-encode-output"
+                  value={encoded.dataUri}
+                  readOnly
+                  spellCheck={false}
+                  className="pr-10 font-mono text-xs"
+                />
+                <div className="absolute right-2 top-2">
+                  <CopyButton
+                    value={encoded.dataUri}
+                    testid="base64-image-encode-output-copy"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <StatusMessage message={t('utilities.tool.base64Image.encode.empty')} />
+          )
+        ) : decoded?.ok ? (
+          <div className="grid gap-3">
+            <img
+              data-testid="base64-image-preview"
+              src={decoded.value.dataUri}
+              alt={t('utilities.tool.base64Image.preview.alt')}
+              className="max-h-48 w-full rounded-[1rem] border border-border/80 bg-background/70 object-contain"
+            />
+            <StatusMessage
+              testid="base64-image-metadata"
+              message={t('utilities.tool.base64Image.metadata.summary', {
+                mime: decoded.value.mime,
+                size: formatByteSize(decoded.value.byteSize),
+              })}
+            />
+          </div>
+        ) : (
+          <StatusMessage message={t('utilities.tool.base64Image.decode.empty')} />
+        )}
+      </PanelSection>
+    </div>
+  );
+}
+
 export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }) {
   if (toolId === 'json') {
     return <JsonUtilityPanel />;
@@ -2767,6 +3001,10 @@ export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }
 
   if (toolId === 'random-string') {
     return <RandomStringPanel />;
+  }
+
+  if (toolId === 'base64-image') {
+    return <Base64ImagePanel />;
   }
 
   return <JwtUtilityPanel />;

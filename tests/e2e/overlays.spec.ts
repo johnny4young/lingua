@@ -257,6 +257,29 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('Base64 Image decode renders a pasted data-URI preview with metadata', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Base64 Image/ }).click();
+
+    await page.getByTestId('base64-image-mode').selectOption('decode');
+
+    const dataUri =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    await page.getByTestId('base64-image-decode-input').fill(dataUri);
+
+    const preview = page.getByTestId('base64-image-preview');
+    await expect(preview).toBeVisible();
+    await expect(preview).toHaveAttribute('src', dataUri);
+    await expect(page.getByTestId('base64-image-metadata')).toContainText('image/png');
+
+    // Switch to encode mode — dropzone is visible; no preview until a file lands.
+    await page.getByTestId('base64-image-mode').selectOption('encode');
+    await expect(page.getByTestId('base64-image-dropzone')).toBeVisible();
+    await expect(page.getByTestId('base64-image-preview')).toHaveCount(0);
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Random String Generator mints a batch of 5 x 32-char values with the default charset', async ({
     page,
   }) => {
