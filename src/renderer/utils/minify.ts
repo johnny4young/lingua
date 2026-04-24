@@ -1,15 +1,16 @@
 /**
  * Lightweight minifiers that pair with `formatSource` (Prettier) for the
- * Beautify/Minify developer utility (RL-070 slices 1 + 2). JSON minify is
- * a pure parse + stringify round-trip. JS and HTML minify are intentionally
- * whitespace-stripping passes — NOT full minifiers. A real JS minifier
- * would pull in terser, and a real HTML minifier would pull in
- * html-minifier-terser; both balloon the editor bundle, so they're later
- * slices. The panel surfaces a hint that JS / HTML minify is whitespace-only
- * so expectations stay honest.
+ * Beautify/Minify developer utility (RL-070 slices 1 / 2 / 3). JSON minify
+ * is a pure parse + stringify round-trip. JS, HTML, CSS, and XML minify
+ * are intentionally whitespace-stripping passes — NOT full minifiers. A
+ * real JS minifier would pull in terser, a real HTML minifier would pull
+ * in html-minifier-terser, and a real CSS / XML minifier would pull in
+ * cssnano / xml-minifier; all of those balloon the editor bundle, so
+ * they're later slices. The panel surfaces a hint per-language so users
+ * know minify is scope-bounded.
  */
 
-export type MinifyLanguage = 'json' | 'javascript' | 'html';
+export type MinifyLanguage = 'json' | 'javascript' | 'html' | 'css' | 'xml';
 
 export type MinifyResult =
   | { ok: true; output: string }
@@ -292,6 +293,11 @@ function minifyHtml(source: string): MinifyResult {
         continue;
       }
       if (char === '>') {
+        // Trim trailing whitespace inside the tag — collapsed attr gaps
+        // shouldn't leak past the closing `>`. Matches XML tag behavior.
+        while (output.length > 0 && output[output.length - 1] === ' ') {
+          output.pop();
+        }
         output.push('>');
         const trimmed = tagBuffer.trim();
         const isClosing = trimmed.startsWith('/');
@@ -366,8 +372,353 @@ function minifyHtml(source: string): MinifyResult {
   return { ok: true, output: output.join('').trim() };
 }
 
+/**
+ * CSS minify — strips `/* ... *\/` block comments and collapses whitespace
+ * in rule bodies + selectors while preserving content inside single-quoted
+ * and double-quoted strings and `url(...)` function bodies byte-for-byte.
+ * Drops the trailing `;` before a closing brace (CSS spec allows it).
+ *
+ * Whitespace policy:
+ *   - Consecutive whitespace in declarations collapses to a single space.
+ *   - Whitespace around structural chars ({, }, :, ;, ,) is dropped
+ *     entirely — CSS does not need it to tokenize correctly.
+ *   - Strings + url(...) bodies pass through verbatim.
+ */
+function minifyCss(source: string): MinifyResult {
+  if (source === '') return { ok: true, output: '' };
+
+  type CssMode =
+    | 'code'
+    | 'block-comment'
+    | 'single-string'
+    | 'double-string'
+    | 'url-unquoted';
+
+  // Asymmetric whitespace-drop rules around structural chars. `{`, `}`, `:`,
+  // `;`, `,`, `>` drop whitespace on either side. `(` only drops AFTER
+  // itself (keep the space before — `@media (…)` requires it). `)` only
+  // drops BEFORE itself (keep the space after — that space can matter to
+  // the next token).
+  const DROP_BEFORE = new Set(['{', '}', ':', ';', ',', '>', ')']);
+  const DROP_AFTER = new Set(['{', '}', ':', ';', ',', '>', '(']);
+
+  const output: string[] = [];
+  let mode: CssMode = 'code';
+  let pendingWhitespace = false;
+  let i = 0;
+  const length = source.length;
+
+  while (i < length) {
+    const char = source[i] ?? '';
+
+    if (mode === 'block-comment') {
+      if (char === '*' && source[i + 1] === '/') {
+        mode = 'code';
+        i += 2;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (mode === 'single-string') {
+      output.push(char);
+      if (char === '\\' && i + 1 < length) {
+        // Preserve the next char verbatim (escape sequence).
+        output.push(source[i + 1] ?? '');
+        i += 2;
+        continue;
+      }
+      if (char === "'") mode = 'code';
+      i += 1;
+      continue;
+    }
+    if (mode === 'double-string') {
+      output.push(char);
+      if (char === '\\' && i + 1 < length) {
+        output.push(source[i + 1] ?? '');
+        i += 2;
+        continue;
+      }
+      if (char === '"') mode = 'code';
+      i += 1;
+      continue;
+    }
+    if (mode === 'url-unquoted') {
+      // Inside url(...) with unquoted content. Preserve every char until
+      // the matching `)`.
+      output.push(char);
+      if (char === ')') {
+        mode = 'code';
+      }
+      i += 1;
+      continue;
+    }
+
+    // mode === 'code'
+    if (char === '/' && source[i + 1] === '*') {
+      mode = 'block-comment';
+      i += 2;
+      continue;
+    }
+    if (char === "'") {
+      pendingWhitespace = false;
+      mode = 'single-string';
+      output.push(char);
+      i += 1;
+      continue;
+    }
+    if (char === '"') {
+      pendingWhitespace = false;
+      mode = 'double-string';
+      output.push(char);
+      i += 1;
+      continue;
+    }
+
+    // Detect `url(` (case-insensitive) with either a quoted or unquoted
+    // body. The quoted body naturally falls into single/double-string
+    // modes; for the unquoted body we need a dedicated preserve branch.
+    if (char === '(' && output.length >= 3) {
+      const last3 = output.slice(-3).join('').toLowerCase();
+      if (last3 === 'url') {
+        output.push('(');
+        // Skip whitespace inside url( … ) up to the first real content
+        // char; if it's a quote the string modes take over; otherwise
+        // we enter url-unquoted mode.
+        let j = i + 1;
+        while (j < length && /\s/u.test(source[j] ?? '')) j += 1;
+        const next = source[j] ?? '';
+        if (next === "'" || next === '"') {
+          // Leave code-mode; the string mode will pick up on the next
+          // iteration. We still emit nothing for the skipped whitespace
+          // because CSS treats url( "x" ) and url("x") as equivalent.
+          i = j;
+          continue;
+        }
+        // Unquoted url body — preserve byte-for-byte until `)`.
+        mode = 'url-unquoted';
+        i = j;
+        continue;
+      }
+    }
+
+    if (/\s/u.test(char)) {
+      pendingWhitespace = true;
+      i += 1;
+      continue;
+    }
+
+    // Non-whitespace code char. Decide whether to emit the pending
+    // whitespace first.
+    if (pendingWhitespace) {
+      const last = output[output.length - 1] ?? '';
+      // Drop whitespace when either side is structural; otherwise collapse
+      // to a single space. `last === ''` is the start of the stream —
+      // never emit leading whitespace.
+      if (!DROP_BEFORE.has(char) && !DROP_AFTER.has(last) && last !== '') {
+        output.push(' ');
+      }
+      pendingWhitespace = false;
+    }
+
+    // Drop a `;` that sits right before a `}` — CSS spec optional, and
+    // stripping it is the single biggest size win of a conservative
+    // minifier. Find the next non-whitespace char; if `}`, skip the `;`.
+    if (char === ';') {
+      let j = i + 1;
+      while (j < length && /\s/u.test(source[j] ?? '')) j += 1;
+      const next = source[j] ?? '';
+      if (next === '}') {
+        // Skip the `;` — jump past the whitespace we just scanned; the
+        // outer loop will land on `}` next.
+        i = j;
+        continue;
+      }
+    }
+
+    output.push(char);
+    i += 1;
+  }
+
+  return { ok: true, output: output.join('').trim() };
+}
+
+/**
+ * XML minify — strips `<!-- -->` comments and collapses inter-tag
+ * whitespace while preserving content inside CDATA sections
+ * (`<![CDATA[...]]>`), processing instructions (`<?...?>`), and quoted
+ * attribute values byte-for-byte. Unlike HTML, XML has no implicit
+ * "preserve these tag contents" set — element text content follows the
+ * same whitespace-collapsing rules as the rest of the document.
+ * Callers who need significant whitespace should use `xml:space="preserve"`
+ * in their source — a real XML minifier would honour that; this one
+ * does not (documented in the i18n hint).
+ */
+function minifyXml(source: string): MinifyResult {
+  if (source === '') return { ok: true, output: '' };
+
+  type XmlMode =
+    | 'text'
+    | 'tag'
+    | 'tag-single-string'
+    | 'tag-double-string'
+    | 'comment'
+    | 'cdata'
+    | 'pi';
+
+  const output: string[] = [];
+  let mode: XmlMode = 'text';
+  let i = 0;
+  const length = source.length;
+
+  while (i < length) {
+    const char = source[i] ?? '';
+
+    if (mode === 'comment') {
+      if (char === '-' && source[i + 1] === '-' && source[i + 2] === '>') {
+        mode = 'text';
+        i += 3;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (mode === 'cdata') {
+      output.push(char);
+      if (
+        char === ']' &&
+        source[i + 1] === ']' &&
+        source[i + 2] === '>'
+      ) {
+        output.push(']', '>');
+        i += 3;
+        mode = 'text';
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (mode === 'pi') {
+      output.push(char);
+      if (char === '?' && source[i + 1] === '>') {
+        output.push('>');
+        i += 2;
+        mode = 'text';
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (mode === 'tag-single-string' || mode === 'tag-double-string') {
+      output.push(char);
+      if (
+        (mode === 'tag-single-string' && char === "'") ||
+        (mode === 'tag-double-string' && char === '"')
+      ) {
+        mode = 'tag';
+      }
+      i += 1;
+      continue;
+    }
+
+    if (mode === 'tag') {
+      if (char === "'") {
+        output.push(char);
+        mode = 'tag-single-string';
+        i += 1;
+        continue;
+      }
+      if (char === '"') {
+        output.push(char);
+        mode = 'tag-double-string';
+        i += 1;
+        continue;
+      }
+      if (char === '>') {
+        // Trim any trailing whitespace inside the tag — collapsed attr
+        // gaps shouldn't bleed past the closing `>`.
+        while (output.length > 0 && output[output.length - 1] === ' ') {
+          output.pop();
+        }
+        output.push('>');
+        mode = 'text';
+        i += 1;
+        continue;
+      }
+      if (/\s/u.test(char)) {
+        const last = output[output.length - 1] ?? '';
+        if (last !== ' ' && last !== '<' && last !== '/') {
+          output.push(' ');
+        }
+        i += 1;
+        continue;
+      }
+      output.push(char);
+      i += 1;
+      continue;
+    }
+
+    // mode === 'text'
+    if (
+      char === '<' &&
+      source[i + 1] === '!' &&
+      source[i + 2] === '[' &&
+      source.slice(i + 3, i + 8) === 'CDATA' &&
+      source[i + 8] === '['
+    ) {
+      output.push('<![CDATA[');
+      i += 9;
+      mode = 'cdata';
+      continue;
+    }
+    if (
+      char === '<' &&
+      source[i + 1] === '!' &&
+      source[i + 2] === '-' &&
+      source[i + 3] === '-'
+    ) {
+      mode = 'comment';
+      i += 4;
+      continue;
+    }
+    if (char === '<' && source[i + 1] === '?') {
+      output.push('<', '?');
+      i += 2;
+      mode = 'pi';
+      continue;
+    }
+    if (char === '<') {
+      while (output.length > 0 && output[output.length - 1] === ' ') {
+        output.pop();
+      }
+      output.push('<');
+      mode = 'tag';
+      i += 1;
+      continue;
+    }
+    if (/\s/u.test(char)) {
+      const last = output[output.length - 1] ?? '';
+      if (last !== '>' && last !== ' ' && last !== '') {
+        output.push(' ');
+      }
+      i += 1;
+      continue;
+    }
+    output.push(char);
+    i += 1;
+  }
+
+  return { ok: true, output: output.join('').trim() };
+}
+
 export function minifySource(language: MinifyLanguage, source: string): MinifyResult {
   if (language === 'json') return minifyJson(source);
   if (language === 'html') return minifyHtml(source);
+  if (language === 'css') return minifyCss(source);
+  if (language === 'xml') return minifyXml(source);
   return minifyJavaScript(source);
 }

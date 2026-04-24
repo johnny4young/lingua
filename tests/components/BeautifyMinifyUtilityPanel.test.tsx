@@ -25,10 +25,16 @@ vi.mock('../../src/renderer/components/ui/chrome', () => ({
 vi.mock('../../src/renderer/utils/formatters', () => ({
   formatSource: vi.fn(async (language: string, source: string) => {
     if (source.trim() === '') return { ok: true, formatted: '', changed: false };
-    if (language === 'html') {
+    if (language === 'html' || language === 'xml') {
       // Cheap stand-in: wrap tags onto their own lines so the test can assert
       // the beautify path ran without importing Prettier in unit tests.
       const formatted = source.replace(/></g, '>\n<');
+      return { ok: true, formatted, changed: formatted !== source };
+    }
+    if (language === 'css') {
+      // Cheap stand-in for CSS: insert a newline after `{` and before `}`
+      // so the test can assert "beautify ran" without Prettier.
+      const formatted = source.replace(/\{/g, '{\n  ').replace(/\}/g, '\n}');
       return { ok: true, formatted, changed: formatted !== source };
     }
     try {
@@ -129,12 +135,12 @@ describe('BeautifyMinifyUtilityPanel', () => {
     ).toBeTruthy();
   });
 
-  it('lists HTML as an available language', () => {
+  it('lists the full language set (JSON, JavaScript, HTML, CSS, XML) in order', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
 
     const select = screen.getByTestId('beautify-minify-language') as HTMLSelectElement;
     const options = Array.from(select.options).map((option) => option.value);
-    expect(options).toContain('html');
+    expect(options).toEqual(['json', 'javascript', 'html', 'css', 'xml']);
   });
 
   it('beautifies HTML through formatSource when the HTML language is picked', async () => {
@@ -176,5 +182,45 @@ describe('BeautifyMinifyUtilityPanel', () => {
 
     // The honesty hint surfaces specifically for HTML minify mode.
     expect(screen.getByText(/pre, textarea, script/)).toBeTruthy();
+  });
+
+  it('minifies CSS using the real minifier and shows the css hint', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+
+    await user.selectOptions(screen.getByTestId('beautify-minify-language'), 'css');
+    await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');
+
+    const input = screen.getByTestId('beautify-minify-input') as HTMLTextAreaElement;
+    fireEvent.change(input, {
+      target: { value: '/* note */ .x { color: red; }' },
+    });
+
+    await waitFor(() => {
+      const output = screen.getByTestId('beautify-minify-output') as HTMLTextAreaElement;
+      expect(output.value).toBe('.x{color:red}');
+    });
+
+    expect(screen.getByText(/url\(\) values are preserved/)).toBeTruthy();
+  });
+
+  it('minifies XML using the real minifier and shows the xml hint', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+
+    await user.selectOptions(screen.getByTestId('beautify-minify-language'), 'xml');
+    await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');
+
+    const input = screen.getByTestId('beautify-minify-input') as HTMLTextAreaElement;
+    fireEvent.change(input, {
+      target: { value: '<!-- note --><root>\n  <child>hi</child>\n</root>' },
+    });
+
+    await waitFor(() => {
+      const output = screen.getByTestId('beautify-minify-output') as HTMLTextAreaElement;
+      expect(output.value).toBe('<root><child>hi</child></root>');
+    });
+
+    expect(screen.getByText(/CDATA sections/)).toBeTruthy();
   });
 });
