@@ -347,6 +347,32 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('Cron Parser explains a seeded cron expression and lists 5 upcoming runs', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Cron Parser/ }).click();
+
+    // Default seed: "*/5 * * * *" with nextCount=5.
+    await expect(page.getByTestId('cron-parser-input')).toHaveValue('*/5 * * * *');
+    await expect(page.getByTestId('cron-parser-next-count')).toHaveValue('5');
+
+    const description = page.getByTestId('cron-parser-description');
+    await expect(description).toBeVisible();
+    await expect(description).toHaveValue(/every 5 minutes/i);
+
+    const rows = page.getByTestId('cron-parser-next-runs').locator('li');
+    await expect(rows).toHaveCount(5);
+    await expect(page.getByTestId('cron-parser-next-row-0')).toBeVisible();
+
+    // Garbage input flips the right pane to the error banner and hides outputs.
+    await page.getByTestId('cron-parser-input').fill('not a cron');
+    await expect(page.getByTestId('cron-parser-description')).toHaveCount(0);
+    await expect(page.getByText(/Invalid cron expression/i)).toBeVisible();
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Lorem Ipsum Generator mints 3 paragraphs opening with the canonical phrase', async ({
     page,
   }) => {

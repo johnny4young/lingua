@@ -111,6 +111,26 @@ through to Electron smoke. Never skip both tiers silently.
 - Keep scope tight. If a review surfaces something out of scope, flag
   it in `docs/PLAN.md` rather than expanding the current slice.
 
+## Copy style — Spanish locale
+
+Spanish UI strings in `src/renderer/i18n/locales/es/common.json` (and
+anywhere else we ship Spanish copy) use **neutral Latin American
+Spanish — tuteo**, not rioplatense voseo.
+
+- Imperative: `Pega`, `Copia`, `Toca`, `Explica`, `Ingresa`, `Elige`,
+  `Prueba`, `Revisa`, `Suelta`, `Codifica`, `Activa` (tuteo) — not
+  `Pegá`, `Copiá`, `Tocá`, `Explicá`, `Ingresá`, `Elegí`, `Probá`,
+  `Revisá`, `Soltá`, `Codificá`, `Activá` (voseo).
+- 2ps present indicative: `necesitas`, `quieres`, `puedes`, `sabes`
+  — not `necesitás`, `querés`, `podés`, `sabés`.
+- `tu` / `tus` possessives and indicatives like `vas` / `das` are the
+  same in both registers — no change needed.
+
+When adding or modifying ES strings, prefer these forms even if you
+are personally more comfortable with voseo. This keeps the product
+readable across Mexico, Colombia, Peru, Chile, Spain, and the US
+diaspora, not just the Río de la Plata region.
+
 ## Testing Pro / paid mode locally
 
 Lingua has no hardcoded "flip to Pro" switch by design — the renderer

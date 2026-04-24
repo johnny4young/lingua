@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+const desktopSmokeEnabled =
+  process.env.LINGUA_DESKTOP_SMOKE === '1' ||
+  process.argv.includes('--lingua-desktop-smoke');
+
 contextBridge.exposeInMainWorld('lingua', {
   platform: process.platform,
 
@@ -139,7 +143,7 @@ contextBridge.exposeInMainWorld('lingua', {
   },
 
   desktopSmoke: {
-    enabled: process.env.LINGUA_DESKTOP_SMOKE === '1',
+    enabled: desktopSmokeEnabled,
     getConfig: () => ipcRenderer.invoke('desktop-smoke:get-config') as Promise<DesktopSmokeConfig | null>,
     capture: (name: string) => ipcRenderer.invoke('desktop-smoke:capture', name) as Promise<string | null>,
     writeJsonArtifact: (name: string, payload: unknown) =>
