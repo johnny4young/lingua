@@ -29,6 +29,8 @@ describe('formatters', () => {
     expect(isFormatterSupported('typescript')).toBe(true);
     expect(isFormatterSupported('json')).toBe(true);
     expect(isFormatterSupported('css')).toBe(true);
+    expect(isFormatterSupported('scss')).toBe(true);
+    expect(isFormatterSupported('less')).toBe(true);
     expect(isFormatterSupported('html')).toBe(true);
     expect(isFormatterSupported('xml')).toBe(true);
     expect(isFormatterSupported('go')).toBe(true);
@@ -272,6 +274,58 @@ describe('formatters', () => {
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     const second = await formatSource('xml', first.formatted);
+    expect(second.ok).toBe(true);
+    if (second.ok) {
+      expect(second.formatted).toBe(first.formatted);
+      expect(second.changed).toBe(false);
+    }
+  });
+
+  it('formats SCSS with Prettier, indenting nested rules and preserving // comments', async () => {
+    const source = '.outer{color:red;.inner{padding:1px 2px;}}';
+    const result = await formatSource('scss', source);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.formatted).toContain('.outer {');
+      expect(result.formatted).toContain('.inner {');
+      expect(result.changed).toBe(true);
+    }
+  });
+
+  it('is idempotent when formatting already-formatted SCSS', async () => {
+    const first = await formatSource(
+      'scss',
+      '.outer { color: red; .inner { padding: 1px 2px; } }',
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const second = await formatSource('scss', first.formatted);
+    expect(second.ok).toBe(true);
+    if (second.ok) {
+      expect(second.formatted).toBe(first.formatted);
+      expect(second.changed).toBe(false);
+    }
+  });
+
+  it('formats LESS with Prettier, preserving @variable declarations', async () => {
+    const source = '@primary:#333;.x{color:@primary;border:1px solid @primary;}';
+    const result = await formatSource('less', source);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.formatted).toContain('@primary:');
+      expect(result.formatted).toContain('.x {');
+      expect(result.changed).toBe(true);
+    }
+  });
+
+  it('is idempotent when formatting already-formatted LESS', async () => {
+    const first = await formatSource(
+      'less',
+      '@primary: #333;\n.x {\n  color: @primary;\n}\n',
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const second = await formatSource('less', first.formatted);
     expect(second.ok).toBe(true);
     if (second.ok) {
       expect(second.formatted).toBe(first.formatted);

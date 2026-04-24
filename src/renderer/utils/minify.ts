@@ -1,16 +1,32 @@
 /**
- * Lightweight minifiers that pair with `formatSource` (Prettier) for the
- * Beautify/Minify developer utility (RL-070 slices 1 / 2 / 3). JSON minify
- * is a pure parse + stringify round-trip. JS, HTML, CSS, and XML minify
- * are intentionally whitespace-stripping passes — NOT full minifiers. A
- * real JS minifier would pull in terser, a real HTML minifier would pull
- * in html-minifier-terser, and a real CSS / XML minifier would pull in
- * cssnano / xml-minifier; all of those balloon the editor bundle, so
- * they're later slices. The panel surfaces a hint per-language so users
- * know minify is scope-bounded.
+ * Minifiers that pair with `formatSource` (Prettier) for the
+ * Beautify/Minify developer utility (RL-070). Coverage:
+ *
+ *   - JSON: pure parse + stringify round-trip.
+ *   - JavaScript: terser v5 (real ECMAScript minifier — mangling,
+ *     dead-code elimination, expression compaction). Lazy-imported so
+ *     the ~100 KB gzipped bundle only ships when the panel runs.
+ *   - HTML / XML: hand-rolled whitespace-only state machines that
+ *     preserve preserve-tag / CDATA / PI / attribute-string contents
+ *     byte-for-byte. A full html-minifier-terser / xml-minifier is a
+ *     later slice; the panel surfaces a hint so expectations stay
+ *     honest.
+ *   - CSS / SCSS / LESS: shared state machine — same whitespace-only
+ *     collapse, with `//` line comments stripped for SCSS / LESS (CSS
+ *     has no `//` outside strings / url()).
+ *
+ * The dispatcher is async because terser's API is Promise-based;
+ * every unit-test and panel call site awaits the result.
  */
 
-export type MinifyLanguage = 'json' | 'javascript' | 'html' | 'css' | 'xml';
+export type MinifyLanguage =
+  | 'json'
+  | 'javascript'
+  | 'html'
+  | 'css'
+  | 'scss'
+  | 'less'
+  | 'xml';
 
 export type MinifyResult =
   | { ok: true; output: string }
@@ -33,175 +49,45 @@ function minifyJson(source: string): MinifyResult {
 }
 
 /**
- * Strip comments and collapse whitespace in JS source while preserving every
- * character inside string and template literals and regex literals byte-for-
- * byte. The implementation is a small state machine rather than a regex so
- * the quote/regex detection stays honest — false positives on `"/"` / `"//"`
- * are exactly the bug class that derails "clever" regex minifiers.
+ * Minify JS source via terser — the real-deal ECMAScript minifier:
+ * scope-aware variable mangling, dead-code elimination, expression
+ * compaction, safe short-circuiting of comparisons. Imported lazily
+ * so terser's ~100 KB gzipped footprint only ships when the panel
+ * actually runs.
+ *
+ * Terser's API rejects on parse errors — we catch and map to the
+ * tagged-union `parse-error` branch so the panel can render a
+ * translated banner without a try/catch.
  */
-function minifyJavaScript(source: string): MinifyResult {
-  type Mode =
-    | 'code'
-    | 'line-comment'
-    | 'block-comment'
-    | 'single-string'
-    | 'double-string'
-    | 'template-string'
-    | 'regex-literal';
-
-  const output: string[] = [];
-  let mode: Mode = 'code';
-  let needsWhitespace = false;
-  let regexCharClassDepth = 0;
-  const length = source.length;
-
-  const isIdentChar = (char: string): boolean =>
-    /[A-Za-z0-9_$]/u.test(char);
-
-  const REGEX_PREFIX_KEYWORDS = new Set([
-    'case',
-    'delete',
-    'do',
-    'else',
-    'in',
-    'instanceof',
-    'new',
-    'return',
-    'throw',
-    'typeof',
-    'void',
-    'yield',
-  ]);
-
-  const canStartRegexLiteral = (): boolean => {
-    let index = output.length - 1;
-    while (index >= 0) {
-      const candidate = output[index] ?? '';
-      if (candidate !== '') {
-        if (!isIdentChar(candidate)) {
-          return '([{,;:=!&|?+-*%^~<>'.includes(candidate);
-        }
-
-        let start = index;
-        while (start >= 0 && isIdentChar(output[start] ?? '')) {
-          start -= 1;
-        }
-        const keyword = output.slice(start + 1, index + 1).join('');
-        return REGEX_PREFIX_KEYWORDS.has(keyword);
-      }
-      index -= 1;
+async function minifyJavaScript(source: string): Promise<MinifyResult> {
+  if (source.trim() === '') return { ok: true, output: '' };
+  try {
+    const terser = await import('terser');
+    const result = await terser.minify(source);
+    if (typeof result.code !== 'string') {
+      return {
+        ok: false,
+        reason: 'parse-error',
+        message: 'terser returned no code',
+      };
     }
-    return true;
-  };
-
-  for (let i = 0; i < length; i += 1) {
-    const char = source[i] ?? '';
-    const next = source[i + 1] ?? '';
-
-    if (mode === 'line-comment') {
-      if (char === '\n') mode = 'code';
-      continue;
-    }
-    if (mode === 'block-comment') {
-      if (char === '*' && next === '/') {
-        mode = 'code';
-        i += 1;
-      }
-      continue;
-    }
-    if (
-      mode === 'single-string' ||
-      mode === 'double-string' ||
-      mode === 'template-string' ||
-      mode === 'regex-literal'
-    ) {
-      output.push(char);
-      if (char === '\\' && i + 1 < length) {
-        // Preserve the next char verbatim (escape sequence).
-        output.push(source[i + 1] ?? '');
-        i += 1;
-        continue;
-      }
-      if (mode === 'regex-literal') {
-        if (char === '[') {
-          regexCharClassDepth += 1;
-          continue;
-        }
-        if (char === ']' && regexCharClassDepth > 0) {
-          regexCharClassDepth -= 1;
-          continue;
-        }
-        if (char === '/' && regexCharClassDepth === 0) {
-          mode = 'code';
-        }
-        continue;
-      }
-      const closed =
-        (mode === 'single-string' && char === "'") ||
-        (mode === 'double-string' && char === '"') ||
-        (mode === 'template-string' && char === '`');
-      if (closed) mode = 'code';
-      continue;
-    }
-
-    // Mode === 'code' below here.
-    if (char === '/' && next === '/') {
-      mode = 'line-comment';
-      i += 1;
-      continue;
-    }
-    if (char === '/' && next === '*') {
-      mode = 'block-comment';
-      i += 1;
-      continue;
-    }
-    if (char === '/' && canStartRegexLiteral()) {
-      needsWhitespace = false;
-      regexCharClassDepth = 0;
-      mode = 'regex-literal';
-      output.push(char);
-      continue;
-    }
-    if (char === "'" || char === '"' || char === '`') {
-      // A string/template literal is unambiguously a new token — no space
-      // is needed before it regardless of what came before, because
-      // identifiers followed by a string literal still tokenize as two
-      // separate tokens (`foo"bar"`).
-      needsWhitespace = false;
-      mode = char === "'" ? 'single-string' : char === '"' ? 'double-string' : 'template-string';
-      output.push(char);
-      continue;
-    }
-
-    if (/\s/u.test(char)) {
-      // Mark that we're between tokens. We only emit a real space when the
-      // next non-whitespace char is an identifier char AND the previous
-      // emitted char was also an identifier char — otherwise whitespace can
-      // be dropped without changing semantics (e.g. `a ;` → `a;`).
-      needsWhitespace = true;
-      continue;
-    }
-
-    if (needsWhitespace) {
-      const prev = output[output.length - 1] ?? '';
-      if (isIdentChar(prev) && isIdentChar(char)) {
-        output.push(' ');
-      }
-      needsWhitespace = false;
-    }
-    output.push(char);
+    return { ok: true, output: result.code };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: 'parse-error',
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
-
-  return { ok: true, output: output.join('').trim() };
 }
 
 /**
  * HTML minify — strips `<!-- ... -->` comments and collapses whitespace in
  * text content / inter-tag gaps / attribute lists, while preserving the
  * content inside `<pre>`, `<textarea>`, `<script>`, and `<style>` tags
- * byte-for-byte. Like the JS pass this is NOT a real minifier — it doesn't
- * rewrite attributes, normalize boolean attrs, or strip optional closing
- * tags. The panel surfaces a hint so users understand the scope.
+ * byte-for-byte. NOT a full minifier — it doesn't rewrite attributes,
+ * normalize boolean attrs, or strip optional closing tags. The panel
+ * surfaces a hint so users understand the scope.
  *
  * Whitespace policy in text content:
  *   - Consecutive whitespace collapses to a single space.
@@ -225,6 +111,7 @@ function minifyHtml(source: string): MinifyResult {
     | 'preserve';
 
   const PRESERVE_TAGS = new Set(['pre', 'textarea', 'script', 'style']);
+  const isCloseTagBoundary = (value: string): boolean => value === '>' || /\s/u.test(value);
 
   const output: string[] = [];
   let mode: HtmlMode = 'text';
@@ -248,7 +135,8 @@ function minifyHtml(source: string): MinifyResult {
 
     if (mode === 'preserve') {
       const slice = source.slice(i, i + preserveCloseTag.length);
-      if (slice.toLowerCase() === preserveCloseTag) {
+      const boundary = source[i + preserveCloseTag.length] ?? '';
+      if (slice.toLowerCase() === preserveCloseTag && isCloseTagBoundary(boundary)) {
         output.push(source.slice(i, i + preserveCloseTag.length));
         // Hand control to tag mode so whatever trailing whitespace /
         // attributes sit between `</tagname` and the final `>` are
@@ -373,15 +261,18 @@ function minifyHtml(source: string): MinifyResult {
 }
 
 /**
- * CSS minify — strips `/* ... *\/` block comments and collapses whitespace
- * in rule bodies + selectors while preserving content inside single-quoted
- * and double-quoted strings and `url(...)` function bodies byte-for-byte.
- * Drops the trailing `;` before a closing brace (CSS spec allows it).
+ * CSS / SCSS / LESS minify — strips `/* ... *\/` block comments,
+ * strips `//` line comments (legal in SCSS + LESS; CSS has no `//` in
+ * code mode so stripping is a no-op there), and collapses whitespace
+ * in rule bodies + selectors while preserving content inside
+ * single-quoted and double-quoted strings and `url(...)` function
+ * bodies byte-for-byte. Drops the trailing `;` before a closing brace
+ * (spec allows it in all three languages).
  *
  * Whitespace policy:
  *   - Consecutive whitespace in declarations collapses to a single space.
  *   - Whitespace around structural chars ({, }, :, ;, ,) is dropped
- *     entirely — CSS does not need it to tokenize correctly.
+ *     entirely — the grammar does not need it to tokenize correctly.
  *   - Strings + url(...) bodies pass through verbatim.
  */
 function minifyCss(source: string): MinifyResult {
@@ -390,6 +281,7 @@ function minifyCss(source: string): MinifyResult {
   type CssMode =
     | 'code'
     | 'block-comment'
+    | 'line-comment'
     | 'single-string'
     | 'double-string'
     | 'url-unquoted';
@@ -421,6 +313,15 @@ function minifyCss(source: string): MinifyResult {
       continue;
     }
 
+    if (mode === 'line-comment') {
+      // Consume through end-of-line. The newline itself is dropped too
+      // — it'll be recreated by the whitespace-collapse pass if the
+      // next real token needs separation.
+      if (char === '\n') mode = 'code';
+      i += 1;
+      continue;
+    }
+
     if (mode === 'single-string') {
       output.push(char);
       if (char === '\\' && i + 1 < length) {
@@ -448,6 +349,11 @@ function minifyCss(source: string): MinifyResult {
       // Inside url(...) with unquoted content. Preserve every char until
       // the matching `)`.
       output.push(char);
+      if (char === '\\' && i + 1 < length) {
+        output.push(source[i + 1] ?? '');
+        i += 2;
+        continue;
+      }
       if (char === ')') {
         mode = 'code';
       }
@@ -458,6 +364,15 @@ function minifyCss(source: string): MinifyResult {
     // mode === 'code'
     if (char === '/' && source[i + 1] === '*') {
       mode = 'block-comment';
+      i += 2;
+      continue;
+    }
+    // SCSS + LESS line comments. Plain CSS has no legal `//` in code
+    // mode, so stripping unconditionally is safe — the url() and string
+    // preserve modes above catch the contexts where `//` appears as
+    // literal content.
+    if (char === '/' && source[i + 1] === '/') {
+      mode = 'line-comment';
       i += 2;
       continue;
     }
@@ -522,16 +437,39 @@ function minifyCss(source: string): MinifyResult {
       pendingWhitespace = false;
     }
 
-    // Drop a `;` that sits right before a `}` — CSS spec optional, and
-    // stripping it is the single biggest size win of a conservative
-    // minifier. Find the next non-whitespace char; if `}`, skip the `;`.
+    // Drop a `;` that sits right before a `}` — the grammar treats the
+    // trailing semicolon as optional, and stripping it is the single
+    // biggest size win of a conservative minifier. The look-ahead skips
+    // whitespace AND comments (both `//` for SCSS / LESS and `/* */`
+    // for all three) so declarations like `color: red; // note` still
+    // lose the trailing `;` when followed by `}`.
     if (char === ';') {
       let j = i + 1;
-      while (j < length && /\s/u.test(source[j] ?? '')) j += 1;
-      const next = source[j] ?? '';
-      if (next === '}') {
-        // Skip the `;` — jump past the whitespace we just scanned; the
-        // outer loop will land on `}` next.
+      while (j < length) {
+        const nextChar = source[j] ?? '';
+        if (/\s/u.test(nextChar)) {
+          j += 1;
+          continue;
+        }
+        if (nextChar === '/' && source[j + 1] === '/') {
+          j += 2;
+          while (j < length && source[j] !== '\n') j += 1;
+          continue;
+        }
+        if (nextChar === '/' && source[j + 1] === '*') {
+          j += 2;
+          while (
+            j + 1 < length &&
+            !(source[j] === '*' && source[j + 1] === '/')
+          ) {
+            j += 1;
+          }
+          j += 2; // past the closing `*/`
+          continue;
+        }
+        break;
+      }
+      if (source[j] === '}') {
         i = j;
         continue;
       }
@@ -715,10 +653,15 @@ function minifyXml(source: string): MinifyResult {
   return { ok: true, output: output.join('').trim() };
 }
 
-export function minifySource(language: MinifyLanguage, source: string): MinifyResult {
+export async function minifySource(
+  language: MinifyLanguage,
+  source: string
+): Promise<MinifyResult> {
   if (language === 'json') return minifyJson(source);
   if (language === 'html') return minifyHtml(source);
-  if (language === 'css') return minifyCss(source);
+  if (language === 'css' || language === 'scss' || language === 'less') {
+    return minifyCss(source);
+  }
   if (language === 'xml') return minifyXml(source);
   return minifyJavaScript(source);
 }

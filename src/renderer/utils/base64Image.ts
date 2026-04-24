@@ -32,6 +32,7 @@ export type Base64ImageDecodeResult =
   | { ok: true; dataUri: string; mime: string; byteSize: number }
   | { ok: false; kind: 'invalid-uri' }
   | { ok: false; kind: 'not-image'; mime: string }
+  | { ok: false; kind: 'too-large'; byteSize: number; maxBytes: number }
   | { ok: false; kind: 'invalid-base64'; message: string };
 
 /**
@@ -80,6 +81,22 @@ export function encodeFileToDataUri(file: File): Promise<Base64ImageEncodeResult
 
 const DATA_URI_PREFIX = /^data:(?<mime>[^;,]+)(?<params>;[^,]*)?,(?<body>.*)$/s;
 
+function estimateBase64ByteSize(body: string): { normalized: string; byteSize: number } {
+  const normalized = body.replace(/\s+/gu, '');
+  const padding = normalized.endsWith('==') ? 2 : normalized.endsWith('=') ? 1 : 0;
+  const byteSize = Math.max(0, Math.floor((normalized.length * 3) / 4) - padding);
+  return { normalized, byteSize };
+}
+
+function tooLarge(byteSize: number): Extract<Base64ImageDecodeResult, { kind: 'too-large' }> {
+  return {
+    ok: false,
+    kind: 'too-large',
+    byteSize,
+    maxBytes: BASE64_IMAGE_MAX_BYTES,
+  };
+}
+
 /**
  * Parse a pasted `data:` URI into a `{ dataUri, mime, byteSize }`
  * descriptor. Validates that the MIME type claims an image family and
@@ -103,8 +120,13 @@ export function decodeDataUri(value: string): Base64ImageDecodeResult {
   let byteSize: number;
   try {
     if (isBase64) {
-      byteSize = atob(body).length;
+      const estimate = estimateBase64ByteSize(body);
+      if (estimate.byteSize > BASE64_IMAGE_MAX_BYTES) return tooLarge(estimate.byteSize);
+      byteSize = atob(estimate.normalized).length;
     } else {
+      // Percent-encoded bodies can be very large; reject clearly oversized
+      // payloads before allocating the decoded string.
+      if (body.length > BASE64_IMAGE_MAX_BYTES) return tooLarge(body.length);
       // Non-base64 body is percent-encoded text (e.g. SVG). The byte
       // size is the decoded UTF-8 length.
       byteSize = new TextEncoder().encode(decodeURIComponent(body)).byteLength;
@@ -116,6 +138,7 @@ export function decodeDataUri(value: string): Base64ImageDecodeResult {
       message: error instanceof Error ? error.message : String(error),
     };
   }
+  if (byteSize > BASE64_IMAGE_MAX_BYTES) return tooLarge(byteSize);
 
   return { ok: true, dataUri: trimmed, mime, byteSize };
 }

@@ -2916,21 +2916,21 @@ does not pursue are marked `Skip`):
 | Line Diff Checker | ✅ RL-045 (line-level only) | RL-071 (word + character modes) |
 | YAML ↔ JSON | ❌ | RL-068 |
 | JSON ↔ CSV | ❌ | RL-068 |
-| Number Base Converter | ❌ | RL-068 |
-| URL Parser | ❌ | RL-068 |
-| HTML Entity Encode/Decode | ❌ | RL-068 |
-| Backslash Escape/Unescape | ❌ | RL-068 |
-| String Case Converter | ❌ | RL-068 |
+| Number Base Converter | ✅ 2026-04-21 | RL-068 |
+| URL Parser | ✅ 2026-04-22 | RL-068 |
+| HTML Entity Encode/Decode | ✅ 2026-04-22 | RL-068 |
+| Backslash Escape/Unescape | ✅ 2026-04-23 | RL-068 |
+| String Case Converter | ✅ 2026-04-22 | RL-068 |
 | Lorem Ipsum Generator | ❌ | RL-068 |
-| Random String Generator | ❌ | RL-068 |
+| Random String Generator | ✅ 2026-04-23 | RL-068 |
 | Cron Job Parser | ❌ | RL-068 |
 | Markdown Preview | ❌ | RL-068 |
 | SQL Formatter | ❌ | RL-068 |
-| HTML / CSS / JS / XML / SCSS / LESS Beautify + Minify | ❌ | RL-070 |
+| HTML / CSS / JS / XML / SCSS / LESS Beautify + Minify | ✅ 2026-04-23 | RL-070 |
 | HTML → JSX | ❌ | RL-070 |
 | SVG → CSS | ❌ | RL-070 |
 | cURL → Code | ❌ | RL-070 |
-| Base64 Image Encode/Decode | ❌ | RL-071 |
+| Base64 Image Encode/Decode | ✅ 2026-04-23 | RL-071 |
 | QR Code Generate / Read | ❌ | RL-072 |
 | String Inspector | ❌ | RL-072 |
 | Smart input auto-detect (lightning button) | ❌ | RL-069 |
@@ -2962,7 +2962,7 @@ does not pursue are marked `Skip`):
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `First slice shipped on 2026-04-21 — Number Base Converter landed; remaining tools still planned`
+- Readiness: `Number Base, URL Parser, String Case, HTML Entity, Backslash Escape/Unescape, and Random String Generator shipped; YAML↔JSON, JSON↔CSV, Lorem Ipsum, Cron Parser, Markdown Preview, and SQL Formatter remain planned`
 - Why this matters:
   - DevUtils ships 40+ tools; Lingua ships 10. Closing the practical
     subset (YAML/JSON, CSV/JSON, number base, URL parser, HTML entity,
@@ -3010,6 +3010,10 @@ does not pursue are marked `Skip`):
   - `String Case Converter` landed as a pure renderer-side helper + panel covering camel / pascal / snake / kebab / constant / sentence / title casing from one shared tokenization pass
   - `HTML Entity Encode/Decode` landed as a pure renderer-side helper + panel with minimal / named / numeric encode strategies plus decode mode and unresolved-reference hints
   - All three tools ship en + es copy, are reachable from the utility sidebar and the Command Palette catalog, and are covered by helper, component, and targeted Playwright locale/runtime smoke tests
+- 2026-04-23 third slice:
+  - `Backslash Escape/Unescape` landed with JavaScript, JSON, Python, and SQL-MySQL presets plus a tagged-union unescape state machine for malformed sequences
+  - `Random String Generator` landed with configurable length/count, lowercase/uppercase/digit/symbol toggles, ambiguous-character exclusion, and unbiased Web Crypto rejection sampling
+  - Both panels ship en + es copy, utility catalog entries, component/helper coverage, and Playwright smoke coverage in the Developer Utilities workspace
 
 ### RL-069 DevUtils-class productivity layer for the utilities workspace
 
@@ -3063,7 +3067,7 @@ does not pursue are marked `Skip`):
 
 - Priority: `P3`
 - Status: `Partial`
-- Readiness: `First slice shipped on 2026-04-21 — JSON + JavaScript Beautify/Minify panel landed; code conversion bundle still pending`
+- Readiness: `All seven Beautify/Minify languages shipped by 2026-04-23; code conversion bundle still pending`
 - Why this matters:
   - Beautify + minify is the single largest bucket in DevUtils' tool
     list (HTML / CSS / JS / XML / SCSS / LESS / JSON). Most of it maps
@@ -3093,15 +3097,22 @@ does not pursue are marked `Skip`):
   - RL-010 (format-on-save) — reuses the existing Prettier pipeline
 - 2026-04-21 first slice:
   - `Beautify / Minify` landed as a unified panel for JSON + JavaScript
-  - Beautify reuses `formatSource(...)`; JSON minify is a parse + stringify round-trip; JavaScript minify is intentionally whitespace/comment compaction only, not semantic compression
+  - Beautify reuses `formatSource(...)`; JSON minify is a parse + stringify round-trip; JavaScript initially shipped with whitespace/comment compaction
   - Regex literals are preserved by the JS minifier state machine so `//` inside a regex body is not mistaken for a line comment
   - Copy ships in en + es and the panel is reachable from the Developer Utilities workspace + Command Palette
+- 2026-04-23 second slice:
+  - HTML, CSS, and XML landed in the same panel; HTML preserves `<pre>`, `<textarea>`, `<script>`, and `<style>` bodies, CSS preserves strings and `url(...)`, and XML preserves CDATA / processing instructions
+  - CSS beautify reuses the bundled Prettier postcss plugin; XML beautify lazy-loads `@prettier/plugin-xml`; helper, component, and Playwright coverage pin the new language paths
+- 2026-04-23 third slice:
+  - SCSS and LESS landed through the shared postcss parser and CSS-family minifier, including `//` line-comment stripping while preserving strings and `url(...)` bodies
+  - JavaScript minify upgraded to lazy `terser` v5, so the panel now performs semantic ECMAScript minification instead of whitespace-only compaction
+  - `minifySource(...)` is async so the renderer waits for lazy minifier chunks before showing output; regression coverage pins raw-text close-tag boundaries and escaped `url(...)` parens
 
 ### RL-071 Harden existing utilities to DevUtils parity
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `First slice shipped on 2026-04-21 — UUID utility gained v7 / ULID support and identifier decoding; the other hardening slices remain planned`
+- Readiness: `UUID v7/ULID, Diff word/char mode, JWT sign/verify for all 12 JWS families, and Base64 Image Encode/Decode shipped; regex replace and Hash additions remain planned`
 - Why this matters:
   - Every existing utility (JWT, Hash, UUID, Diff, Base64) has a clear
     DevUtils counterpart that does more. Closing those gaps is cheaper
@@ -3136,6 +3147,12 @@ does not pursue are marked `Skip`):
   - `Diff Viewer` now supports line, word, and character granularities instead of line-only output
   - The diff stays pure/offline in the renderer, keeps the existing summary strip, and renders inline add/remove spans for word/character modes plus row-oriented output for line mode
   - Coverage now includes helper tests for the tokenizers/Myers dispatcher, component tests for the granularity selector, and targeted Playwright smoke for the Pro-gated utility panel
+- 2026-04-23 third slice:
+  - `JWT Debugger` gained Verify and Sign modes backed by Web Crypto, covering HS256/384/512 and RS256 first, then ES256/384/512 and PS256/384/512
+  - The latent algorithm-family guard was tightened so new ES/PS algorithms cannot accidentally route through HMAC
+- 2026-04-23 fourth slice:
+  - JWT RS384 and RS512 completed the RSA PKCS#1 family; the algorithm selector now exposes all 12 planned JWS families
+  - `Base64 Image` landed with drag-drop image-file encoding to data-URI and pasted data-URI decode/preview, with MIME validation and encode/decode size caps so oversized payloads are rejected before preview
 
 ### RL-072 Specialty utilities — QR + String Inspector
 
