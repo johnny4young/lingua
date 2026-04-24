@@ -2921,7 +2921,7 @@ does not pursue are marked `Skip`):
 | HTML Entity Encode/Decode | ✅ 2026-04-22 | RL-068 |
 | Backslash Escape/Unescape | ✅ 2026-04-23 | RL-068 |
 | String Case Converter | ✅ 2026-04-22 | RL-068 |
-| Lorem Ipsum Generator | ❌ | RL-068 |
+| Lorem Ipsum Generator | ✅ 2026-04-24 | RL-068 |
 | Random String Generator | ✅ 2026-04-23 | RL-068 |
 | Cron Job Parser | ❌ | RL-068 |
 | Markdown Preview | ❌ | RL-068 |
@@ -2962,7 +2962,7 @@ does not pursue are marked `Skip`):
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Number Base, URL Parser, String Case, HTML Entity, Backslash Escape/Unescape, and Random String Generator shipped; YAML↔JSON, JSON↔CSV, Lorem Ipsum, Cron Parser, Markdown Preview, and SQL Formatter remain planned`
+- Readiness: `Number Base, URL Parser, String Case, HTML Entity, Backslash Escape/Unescape, Random String Generator, and Lorem Ipsum Generator shipped; YAML↔JSON, JSON↔CSV, Cron Parser, Markdown Preview, and SQL Formatter remain planned`
 - Why this matters:
   - DevUtils ships 40+ tools; Lingua ships 10. Closing the practical
     subset (YAML/JSON, CSV/JSON, number base, URL parser, HTML entity,
@@ -3014,6 +3014,10 @@ does not pursue are marked `Skip`):
   - `Backslash Escape/Unescape` landed with JavaScript, JSON, Python, and SQL-MySQL presets plus a tagged-union unescape state machine for malformed sequences
   - `Random String Generator` landed with configurable length/count, lowercase/uppercase/digit/symbol toggles, ambiguous-character exclusion, and unbiased Web Crypto rejection sampling
   - Both panels ship en + es copy, utility catalog entries, component/helper coverage, and Playwright smoke coverage in the Developer Utilities workspace
+- 2026-04-24 fourth slice:
+  - `Lorem Ipsum Generator` landed with words, sentences, and paragraphs modes plus an optional classic-opening toggle
+  - Sentence output uses bounded 5-12 word generation with a single mid-sentence comma for natural placeholder copy, while paragraph output groups 3-6 generated sentences with blank-line separation
+  - The panel ships en + es copy, utility catalog registration, command palette count coverage, helper/component tests, and Playwright smoke coverage in the Developer Utilities workspace
 
 ### RL-069 DevUtils-class productivity layer for the utilities workspace
 
