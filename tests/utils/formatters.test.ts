@@ -30,6 +30,7 @@ describe('formatters', () => {
     expect(isFormatterSupported('json')).toBe(true);
     expect(isFormatterSupported('css')).toBe(true);
     expect(isFormatterSupported('html')).toBe(true);
+    expect(isFormatterSupported('xml')).toBe(true);
     expect(isFormatterSupported('go')).toBe(true);
     expect(isFormatterSupported('rust')).toBe(true);
     expect(isFormatterSupported('python')).toBe(true);
@@ -213,6 +214,64 @@ describe('formatters', () => {
     expect(first.ok).toBe(true);
     if (!first.ok) return;
     const second = await formatSource('html', first.formatted);
+    expect(second.ok).toBe(true);
+    if (second.ok) {
+      expect(second.formatted).toBe(first.formatted);
+      expect(second.changed).toBe(false);
+    }
+  });
+
+  it('formats CSS with Prettier, indenting declarations inside a rule', async () => {
+    const result = await formatSource('css', '.x{color:red;padding:1px 2px}');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.formatted).toContain('.x {');
+      expect(result.formatted).toContain('color: red;');
+      expect(result.formatted).toMatch(/\.x \{\n\s+color:/);
+      expect(result.changed).toBe(true);
+    }
+  });
+
+  it('is idempotent when formatting already-formatted CSS', async () => {
+    const first = await formatSource('css', '.x { color: red; padding: 1px 2px; }');
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const second = await formatSource('css', first.formatted);
+    expect(second.ok).toBe(true);
+    if (second.ok) {
+      expect(second.formatted).toBe(first.formatted);
+      expect(second.changed).toBe(false);
+    }
+  });
+
+  it('formats XML with Prettier, wrapping long element content past the print width', async () => {
+    // Prettier keeps short inline XML on a single line. Force a wrap by
+    // handing it content that exceeds the default 80-char printWidth so we
+    // can see the indentation behavior light up.
+    const source =
+      '<root><child>a longer child that should push this well past the default 80 char print width</child><other value="x"/></root>';
+    const result = await formatSource('xml', source);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.formatted).toContain('<root>');
+      expect(result.formatted).toContain(
+        'a longer child that should push this well past the default 80 char print width',
+      );
+      // Prettier xml wraps the opening tag onto its own indented line when
+      // the element is above printWidth.
+      expect(result.formatted).toMatch(/<child\n\s+>/);
+      expect(result.changed).toBe(true);
+    }
+  });
+
+  it('is idempotent when formatting already-formatted XML', async () => {
+    const first = await formatSource(
+      'xml',
+      '<root><child>a longer child that should push this well past the default 80 char print width</child><other value="x"/></root>'
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const second = await formatSource('xml', first.formatted);
     expect(second.ok).toBe(true);
     if (second.ok) {
       expect(second.formatted).toBe(first.formatted);

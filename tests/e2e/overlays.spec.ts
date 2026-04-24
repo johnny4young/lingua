@@ -161,6 +161,44 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('Beautify/Minify panel minifies CSS and preserves url() + strings', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Beautify \/ Minify/ }).click();
+
+    await page.getByTestId('beautify-minify-language').selectOption('css');
+    await page.getByTestId('beautify-minify-mode').selectOption('minify');
+    await page.getByTestId('beautify-minify-input').fill(
+      '/* header */\n.x {\n  color: red;\n  content: "  keep  spaces  ";\n  background: url("path.png");\n}'
+    );
+
+    const output = page.getByTestId('beautify-minify-output');
+    await expect(output).toHaveValue(
+      '.x{color:red;content:"  keep  spaces  ";background:url("path.png")}'
+    );
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('Beautify/Minify panel minifies XML and preserves CDATA + comments stripped', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Beautify \/ Minify/ }).click();
+
+    await page.getByTestId('beautify-minify-language').selectOption('xml');
+    await page.getByTestId('beautify-minify-mode').selectOption('minify');
+    await page
+      .getByTestId('beautify-minify-input')
+      .fill('<!-- note --><root>\n  <child><![CDATA[  raw <tags>  ]]></child>\n</root>');
+
+    const output = page.getByTestId('beautify-minify-output');
+    await expect(output).toHaveValue(
+      '<root><child><![CDATA[  raw <tags>  ]]></child></root>'
+    );
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('UUID Generator produces a value and the decoder recognizes it', async ({ page }) => {
     await openDeveloperUtilities(page);
     await page.getByRole('button', { name: /^UUID Generator/ }).click();
