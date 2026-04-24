@@ -363,6 +363,50 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('JWT Debugger rounds-trips Sign → Verify for ES256 via Web Crypto', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^JWT Debugger/ }).click();
+
+    // Generate an ECDSA P-256 keypair inside the page and export both
+    // halves as JWK strings. The Web Crypto surface that the panel uses
+    // is the same one the test runs in, so this is a faithful smoke.
+    const keyMaterial = await page.evaluate(async () => {
+      const keyPair = await crypto.subtle.generateKey(
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        true,
+        ['sign', 'verify'],
+      );
+      const privateJwk = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+      const publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+      return {
+        privateJwk: JSON.stringify(privateJwk),
+        publicJwk: JSON.stringify(publicJwk),
+      };
+    });
+
+    // Sign with ES256 + the private JWK.
+    await page.getByTestId('jwt-mode').selectOption('sign');
+    await page.getByTestId('jwt-sign-algorithm').selectOption('ES256');
+    await page.getByTestId('jwt-sign-key').fill(keyMaterial.privateJwk);
+    await page.getByTestId('jwt-sign-run').click();
+
+    const signResult = page.getByTestId('jwt-sign-result');
+    await expect(signResult).toBeVisible();
+    const token = await signResult.inputValue();
+    expect(token.split('.')).toHaveLength(3);
+
+    // Verify with ES256 + the public JWK → PASS.
+    await page.getByTestId('jwt-mode').selectOption('verify');
+    await page.getByTestId('jwt-verify-algorithm').selectOption('ES256');
+    await page.getByTestId('jwt-verify-token').fill(token);
+    await page.getByTestId('jwt-verify-key').fill(keyMaterial.publicJwk);
+    await page.getByTestId('jwt-verify-run').click();
+
+    await expect(page.getByTestId('jwt-verify-result-pass')).toBeVisible();
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Diff Viewer granularity selector swaps between line, word and char modes', async ({
     page,
   }) => {
