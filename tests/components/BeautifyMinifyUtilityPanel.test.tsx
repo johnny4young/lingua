@@ -31,9 +31,10 @@ vi.mock('../../src/renderer/utils/formatters', () => ({
       const formatted = source.replace(/></g, '>\n<');
       return { ok: true, formatted, changed: formatted !== source };
     }
-    if (language === 'css') {
-      // Cheap stand-in for CSS: insert a newline after `{` and before `}`
-      // so the test can assert "beautify ran" without Prettier.
+    if (language === 'css' || language === 'scss' || language === 'less') {
+      // Cheap stand-in for the CSS family: insert a newline after `{`
+      // and before `}` so the test can assert "beautify ran" without
+      // importing Prettier.
       const formatted = source.replace(/\{/g, '{\n  ').replace(/\}/g, '\n}');
       return { ok: true, formatted, changed: formatted !== source };
     }
@@ -66,7 +67,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
     });
   });
 
-  it('minify mode compacts JSON and hides the JS hint', async () => {
+  it('minify mode compacts the seeded JSON into the standard minified form', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
 
@@ -76,7 +77,6 @@ describe('BeautifyMinifyUtilityPanel', () => {
       const output = screen.getByTestId('beautify-minify-output') as HTMLTextAreaElement;
       expect(output.value).toBe('{"greeting":"Hello, World!","count":3}');
     });
-    expect(screen.queryByText(/whitespace-only/)).toBeNull();
   });
 
   it('shows the parseError copy when the JSON input is malformed', async () => {
@@ -94,34 +94,23 @@ describe('BeautifyMinifyUtilityPanel', () => {
     ).toBeTruthy();
   });
 
-  it('surfaces the whitespace-only hint when JS + minify are selected', async () => {
-    const user = userEvent.setup();
-    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
-
-    await user.selectOptions(screen.getByTestId('beautify-minify-language'), 'javascript');
-    await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');
-
-    expect(screen.getByText(/whitespace-only/)).toBeTruthy();
-  });
-
-  it('switching language resets an existing error banner', async () => {
+  it('switching language resets an existing error banner when the new language accepts the input', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
 
     await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');
     const input = screen.getByTestId('beautify-minify-input') as HTMLTextAreaElement;
-    await user.clear(input);
-    await user.type(input, '{{ broken');
+    fireEvent.change(input, { target: { value: 'export const x = 1;' } });
+    // Valid JS, invalid JSON → parse error in JSON mode.
     expect(
-      await screen.findByText(/Could not parse the input under the selected language/)
+      await screen.findByText(/Could not parse the input under the selected language/),
     ).toBeTruthy();
 
     await user.selectOptions(screen.getByTestId('beautify-minify-language'), 'javascript');
-    // With JS minify the same "{ broken" input now parses (as whitespace-only
-    // JS, not strict JSON), so the error banner should disappear.
+    // Terser parses the same source cleanly → the banner disappears.
     await waitFor(() => {
       expect(
-        screen.queryByText(/Could not parse the input under the selected language/)
+        screen.queryByText(/Could not parse the input under the selected language/),
       ).toBeNull();
     });
   });
@@ -135,12 +124,12 @@ describe('BeautifyMinifyUtilityPanel', () => {
     ).toBeTruthy();
   });
 
-  it('lists the full language set (JSON, JavaScript, HTML, CSS, XML) in order', () => {
+  it('lists the full 7-language set in order (JSON, JS, HTML, CSS, SCSS, LESS, XML)', () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
 
     const select = screen.getByTestId('beautify-minify-language') as HTMLSelectElement;
     const options = Array.from(select.options).map((option) => option.value);
-    expect(options).toEqual(['json', 'javascript', 'html', 'css', 'xml']);
+    expect(options).toEqual(['json', 'javascript', 'html', 'css', 'scss', 'less', 'xml']);
   });
 
   it('beautifies HTML through formatSource when the HTML language is picked', async () => {

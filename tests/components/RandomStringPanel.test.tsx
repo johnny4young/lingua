@@ -12,6 +12,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { DeveloperUtilitiesModal } from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
 
+const RANDOM_STRING_ROW_TESTID = /^random-string-value-\d+$/;
+
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button {...props}>{children}</button>
@@ -55,7 +57,7 @@ describe('RandomStringPanel', () => {
       (screen.getByTestId('random-string-toggle-excludeAmbiguous') as HTMLInputElement).checked,
     ).toBe(false);
     // No values yet — output shows the empty placeholder.
-    expect(screen.queryByTestId('random-string-value')).toBeNull();
+    expect(screen.queryByTestId(RANDOM_STRING_ROW_TESTID)).toBeNull();
   });
 
   it('generates count rows of length chars when the user clicks Generate', async () => {
@@ -65,9 +67,9 @@ describe('RandomStringPanel', () => {
     await user.click(screen.getByTestId('random-string-generate'));
 
     await waitFor(() => {
-      expect(screen.getAllByTestId('random-string-value')).toHaveLength(5);
+      expect(screen.getAllByTestId(RANDOM_STRING_ROW_TESTID)).toHaveLength(5);
     });
-    for (const row of screen.getAllByTestId('random-string-value')) {
+    for (const row of screen.getAllByTestId(RANDOM_STRING_ROW_TESTID)) {
       const text = row.textContent ?? '';
       // Strip the CopyButton label (which may show as icon text in the
       // mocked IconButton stand-in); the value is the truncated span's
@@ -90,7 +92,7 @@ describe('RandomStringPanel', () => {
     await user.click(screen.getByTestId('random-string-generate'));
 
     await waitFor(() => {
-      expect(screen.getAllByTestId('random-string-value')).toHaveLength(2);
+      expect(screen.getAllByTestId(RANDOM_STRING_ROW_TESTID)).toHaveLength(2);
     });
   });
 
@@ -121,9 +123,9 @@ describe('RandomStringPanel', () => {
     await user.click(screen.getByTestId('random-string-generate'));
 
     await waitFor(() => {
-      expect(screen.getAllByTestId('random-string-value')).toHaveLength(5);
+      expect(screen.getAllByTestId(RANDOM_STRING_ROW_TESTID)).toHaveLength(5);
     });
-    for (const row of screen.getAllByTestId('random-string-value')) {
+    for (const row of screen.getAllByTestId(RANDOM_STRING_ROW_TESTID)) {
       const value = row.querySelector('span')?.textContent ?? '';
       for (const forbidden of ['0', 'O', 'o', '1', 'l', 'I', '|']) {
         expect(value).not.toContain(forbidden);
@@ -138,8 +140,11 @@ describe('RandomStringPanel', () => {
     await user.click(screen.getByTestId('random-string-generate'));
 
     await waitFor(() => {
-      expect(screen.getAllByTestId('random-string-value')).toHaveLength(5);
+      expect(screen.getAllByTestId(RANDOM_STRING_ROW_TESTID)).toHaveLength(5);
     });
+    for (let i = 0; i < 5; i += 1) {
+      expect(screen.getByTestId(`random-string-value-${i}`)).toBeTruthy();
+    }
     for (let i = 0; i < 5; i += 1) {
       expect(screen.getByTestId(`random-string-value-copy-${i}`)).toBeTruthy();
     }

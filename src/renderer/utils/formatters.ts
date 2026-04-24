@@ -21,13 +21,26 @@ export interface FormatterErr {
 
 export type FormatterResult = FormatterOk | FormatterErr;
 
-type PrettierParser = 'babel-ts' | 'babel' | 'json' | 'css' | 'html' | 'xml';
+type PrettierParser =
+  | 'babel-ts'
+  | 'babel'
+  | 'json'
+  | 'css'
+  | 'scss'
+  | 'less'
+  | 'html'
+  | 'xml';
 
 const PRETTIER_PARSER_BY_LANGUAGE: Partial<Record<string, PrettierParser>> = {
   javascript: 'babel',
   typescript: 'babel-ts',
   json: 'json',
   css: 'css',
+  // SCSS and LESS ride the same postcss plugin that already covers CSS —
+  // Prettier dispatches the parser via the `parser` option, no new plugin
+  // import needed.
+  scss: 'scss',
+  less: 'less',
   html: 'html',
   xml: 'xml',
 };

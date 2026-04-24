@@ -2166,7 +2166,7 @@ function BeautifyMinifyUtilityPanel() {
         return;
       }
 
-      const result = minifySource(language, input);
+      const result = await minifySource(language, input);
       if (cancelled) return;
       if (result.ok) {
         setOutput(result.output);
@@ -2211,6 +2211,8 @@ function BeautifyMinifyUtilityPanel() {
               </option>
               <option value="html">{t('utilities.tool.beautifyMinify.language.html')}</option>
               <option value="css">{t('utilities.tool.beautifyMinify.language.css')}</option>
+              <option value="scss">{t('utilities.tool.beautifyMinify.language.scss')}</option>
+              <option value="less">{t('utilities.tool.beautifyMinify.language.less')}</option>
               <option value="xml">{t('utilities.tool.beautifyMinify.language.xml')}</option>
             </select>
           </label>
@@ -2237,14 +2239,12 @@ function BeautifyMinifyUtilityPanel() {
             spellCheck={false}
           />
         </div>
-        {language === 'javascript' && mode === 'minify' ? (
-          <StatusMessage message={t('utilities.tool.beautifyMinify.jsMinifyHint')} />
-        ) : null}
         {language === 'html' && mode === 'minify' ? (
           <StatusMessage message={t('utilities.tool.beautifyMinify.htmlMinifyHint')} />
         ) : null}
-        {language === 'css' && mode === 'minify' ? (
-          <StatusMessage message={t('utilities.tool.beautifyMinify.cssMinifyHint')} />
+        {(language === 'css' || language === 'scss' || language === 'less') &&
+        mode === 'minify' ? (
+          <StatusMessage message={t('utilities.tool.beautifyMinify.cssFamilyMinifyHint')} />
         ) : null}
         {language === 'xml' && mode === 'minify' ? (
           <StatusMessage message={t('utilities.tool.beautifyMinify.xmlMinifyHint')} />
@@ -2687,7 +2687,7 @@ function RandomStringPanel() {
             {values.map((value, index) => (
               <div
                 key={`${index}-${value}`}
-                data-testid="random-string-value"
+                data-testid={`random-string-value-${index}`}
                 className="flex items-center justify-between gap-2 rounded-[1rem] border border-border/80 bg-background/70 px-3 py-2 font-mono text-sm text-foreground"
               >
                 <span className="truncate">{value}</span>
@@ -2713,8 +2713,9 @@ interface Base64ImageEncodeError {
 }
 
 interface Base64ImageDecodeError {
-  kind: 'invalid-uri' | 'not-image' | 'invalid-base64';
+  kind: 'invalid-uri' | 'not-image' | 'too-large' | 'invalid-base64';
   mime?: string;
+  byteSize?: number;
 }
 
 function Base64ImagePanel() {
@@ -2772,6 +2773,12 @@ function Base64ImagePanel() {
     if (error.kind === 'not-image') {
       return t('utilities.tool.base64Image.decode.error.notImage', {
         mime: error.mime ?? 'unknown',
+      });
+    }
+    if (error.kind === 'too-large') {
+      return t('utilities.tool.base64Image.decode.error.tooLarge', {
+        max: formatByteSize(BASE64_IMAGE_MAX_BYTES),
+        actual: formatByteSize(error.byteSize ?? 0),
       });
     }
     return t('utilities.tool.base64Image.decode.error.invalidBase64');
