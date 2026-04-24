@@ -221,13 +221,171 @@ describe('minifySource (html)', () => {
     if (result.ok) expect(result.output).toBe(source);
   });
 
-  it('handles whitespace before the > in a preserve-element closing tag', () => {
+  it('collapses whitespace before the > in a preserve-element closing tag', () => {
     // Rare but spec-legal: `</script >` with a space before `>`. Tag-mode
-    // rules collapse the space, so the closing tag is emitted as `</script >`
-    // (valid HTML, still readable as a proper close for the block).
+    // trims any trailing whitespace when emitting `>`, so the closing tag
+    // tightens to `</script>` — the canonical form. Pins the behavior so
+    // any future reintroduction of the stray space is deliberate.
     const source = '<script>const x = 1;</script >';
     const result = minifySource('html', source);
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.output).toBe('<script>const x = 1;</script >');
+    if (result.ok) expect(result.output).toBe('<script>const x = 1;</script>');
+  });
+});
+
+describe('minifySource (css)', () => {
+  it('is a no-op on an empty string', () => {
+    const result = minifySource('css', '');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('');
+  });
+
+  it('strips /* */ block comments', () => {
+    const result = minifySource('css', '/* leading */ .x { color: red; } /* trailing */');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('.x{color:red}');
+  });
+
+  it('collapses whitespace around structural chars', () => {
+    const result = minifySource('css', '.x , .y   {\n  color :  red ;\n  padding:  1px   2px ;\n}');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('.x,.y{color:red;padding:1px 2px}');
+  });
+
+  it('drops the trailing semicolon before a closing brace', () => {
+    const result = minifySource('css', '.x { color: red; }');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('.x{color:red}');
+  });
+
+  it('preserves whitespace inside double-quoted strings', () => {
+    const result = minifySource('css', '.x { content: "  keep  spaces  "; }');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('.x{content:"  keep  spaces  "}');
+  });
+
+  it('preserves whitespace inside single-quoted strings', () => {
+    const result = minifySource('css', ".x { content: '  quoted  '; }");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe(".x{content:'  quoted  '}");
+  });
+
+  it('preserves escaped quotes inside strings', () => {
+    const result = minifySource('css', '.x { content: "a\\"b"; }');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('.x{content:"a\\"b"}');
+  });
+
+  it('preserves unquoted url() content byte-for-byte', () => {
+    const result = minifySource('css', '.x { background: url(path with space.png); }');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('.x{background:url(path with space.png)}');
+  });
+
+  it('preserves quoted url() content', () => {
+    const result = minifySource('css', '.x { background: url( "path.png" ); }');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('.x{background:url("path.png")}');
+  });
+
+  it('preserves a data-URI inside url()', () => {
+    const source =
+      '.x { background: url("data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22></svg>"); }';
+    const result = minifySource('css', source);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.output).toBe(
+        '.x{background:url("data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22></svg>")}'
+      );
+    }
+  });
+
+  it('handles @media + @keyframes block nesting', () => {
+    const result = minifySource(
+      'css',
+      '@media (min-width: 600px) {\n  .x { color: red; }\n  .y { color: blue; }\n}'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.output).toBe('@media (min-width:600px){.x{color:red}.y{color:blue}}');
+    }
+  });
+
+  it('is lenient on an unclosed block comment (runs to EOF without throwing)', () => {
+    const result = minifySource('css', '.x { /* never closes }');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('.x{');
+  });
+});
+
+describe('minifySource (xml)', () => {
+  it('is a no-op on an empty string', () => {
+    const result = minifySource('xml', '');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('');
+  });
+
+  it('strips XML comments', () => {
+    const result = minifySource(
+      'xml',
+      '<!-- note --><root><child>hi</child><!-- inner --></root>'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('<root><child>hi</child></root>');
+  });
+
+  it('collapses whitespace between tags', () => {
+    const result = minifySource(
+      'xml',
+      '<root>\n  <child>\n    hi\n  </child>\n</root>'
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('<root><child>hi</child></root>');
+  });
+
+  it('preserves CDATA content byte-for-byte', () => {
+    const source = '<root><![CDATA[  keep <tags> & "quotes"  ]]></root>';
+    const result = minifySource('xml', source);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe(source);
+  });
+
+  it('preserves processing instructions including the XML declaration', () => {
+    const source = '<?xml version="1.0" encoding="UTF-8"?>\n<root/>';
+    const result = minifySource('xml', source);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('<?xml version="1.0" encoding="UTF-8"?><root/>');
+  });
+
+  it('preserves attribute values with whitespace', () => {
+    const result = minifySource('xml', '<root  title="hello  world"  >content</root>');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('<root title="hello  world">content</root>');
+  });
+
+  it('handles self-closing tags', () => {
+    const result = minifySource('xml', '<root>\n  <child/>\n  <other />\n</root>');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('<root><child/><other /></root>');
+  });
+
+  it('preserves single-quoted attributes with whitespace inside', () => {
+    const result = minifySource('xml', "<root title='  ok  '/>");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe("<root title='  ok  '/>");
+  });
+
+  it('preserves an inline <![CDATA[]]> that contains a literal ]] sequence', () => {
+    // CDATA can only end on `]]>`, so a lone `]]` inside survives.
+    const source = '<root><![CDATA[a ]] b]]></root>';
+    const result = minifySource('xml', source);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe(source);
+  });
+
+  it('is lenient on malformed input (unclosed tag runs to EOF)', () => {
+    const result = minifySource('xml', '<root>hello');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.output).toBe('<root>hello');
   });
 });

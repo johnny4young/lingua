@@ -21,7 +21,7 @@ export interface FormatterErr {
 
 export type FormatterResult = FormatterOk | FormatterErr;
 
-type PrettierParser = 'babel-ts' | 'babel' | 'json' | 'css' | 'html';
+type PrettierParser = 'babel-ts' | 'babel' | 'json' | 'css' | 'html' | 'xml';
 
 const PRETTIER_PARSER_BY_LANGUAGE: Partial<Record<string, PrettierParser>> = {
   javascript: 'babel',
@@ -29,6 +29,7 @@ const PRETTIER_PARSER_BY_LANGUAGE: Partial<Record<string, PrettierParser>> = {
   json: 'json',
   css: 'css',
   html: 'html',
+  xml: 'xml',
 };
 
 /**
@@ -56,6 +57,7 @@ async function formatWithPrettier(
       typescriptPlugin,
       cssPlugin,
       htmlPlugin,
+      xmlPlugin,
     ] = await Promise.all([
       import('prettier/standalone'),
       import('prettier/plugins/babel'),
@@ -63,6 +65,10 @@ async function formatWithPrettier(
       import('prettier/plugins/typescript'),
       import('prettier/plugins/postcss'),
       import('prettier/plugins/html'),
+      // XML parser lives in a separate npm package (@prettier/plugin-xml)
+      // because Prettier core doesn't ship it. Lazy-imported to keep the
+      // main editor chunk unchanged.
+      import('@prettier/plugin-xml'),
     ]);
 
     const formatted = await format(source, {
@@ -73,6 +79,7 @@ async function formatWithPrettier(
         typescriptPlugin.default ?? typescriptPlugin,
         cssPlugin.default ?? cssPlugin,
         htmlPlugin.default ?? htmlPlugin,
+        xmlPlugin.default ?? xmlPlugin,
       ],
     });
 
