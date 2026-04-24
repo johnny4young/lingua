@@ -13,6 +13,14 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { resolveUserEnvForRunner } from './go';
 
 const DEFAULT_TIMEOUT = 60_000; // Python needs more time for initial load
+const PYODIDE_LOAD_TIMEOUT = 90_000;
+
+function workerLoadErrorMessage(event: Event): string {
+  const maybeMessage = (event as { message?: unknown }).message;
+  return typeof maybeMessage === 'string' && maybeMessage.length > 0
+    ? maybeMessage
+    : 'Python worker failed to load';
+}
 
 export class PythonRunner implements LanguageRunner {
   id = 'python';
@@ -44,24 +52,54 @@ export class PythonRunner implements LanguageRunner {
     if (!this.worker) {
       this.worker = new Worker(
         new URL('../workers/python-worker.ts', import.meta.url),
-        { type: 'classic' }
+        { type: 'module' }
       );
     }
 
     if (!this.loadingPromise) {
       this.loadingPromise = new Promise<void>((resolve, reject) => {
+        let timeoutId: ReturnType<typeof globalThis.setTimeout> | null =
+          globalThis.setTimeout(() => {
+            cleanup();
+            this.worker?.terminate();
+            this.worker = null;
+            this.pyodideLoaded = false;
+            this.loadingPromise = null;
+            reject(new Error(`Timed out loading Pyodide after ${PYODIDE_LOAD_TIMEOUT / 1000}s`));
+          }, PYODIDE_LOAD_TIMEOUT);
+
+        const cleanup = () => {
+          this.worker?.removeEventListener('message', handler);
+          this.worker?.removeEventListener('error', errorHandler);
+          if (timeoutId !== null) {
+            globalThis.clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+        };
+
         const handler = (event: MessageEvent) => {
           const msg = event.data;
           if (msg.type === 'ready') {
             this.pyodideLoaded = true;
-            this.worker?.removeEventListener('message', handler);
+            cleanup();
             resolve();
           } else if (msg.type === 'error') {
-            this.worker?.removeEventListener('message', handler);
+            cleanup();
             reject(new Error(msg.error?.message ?? 'Failed to load Pyodide'));
           }
         };
+
+        const errorHandler = (event: Event) => {
+          cleanup();
+          this.worker?.terminate();
+          this.worker = null;
+          this.pyodideLoaded = false;
+          this.loadingPromise = null;
+          reject(new Error(workerLoadErrorMessage(event)));
+        };
+
         this.worker!.addEventListener('message', handler);
+        this.worker!.addEventListener('error', errorHandler);
         this.worker!.postMessage({ type: 'init' });
       });
     }

@@ -177,4 +177,45 @@ describe('PythonRunner — RL-011 Slice D env wiring', () => {
     const executeMessage = postedMessages.find((m) => m.type === 'execute');
     expect(executeMessage?.userEnv).toEqual({});
   });
+
+  it('returns a load failure when the Python worker emits a startup error', async () => {
+    class FailingWorker {
+      private listeners = new Map<string, (event: Event) => void>();
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: Event) => void): void {
+        this.listeners.set(type, handler);
+      }
+
+      removeEventListener(type: string): void {
+        this.listeners.delete(type);
+      }
+
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+        if (message.type === 'init') {
+          this.listeners.get('error')?.({ message: 'worker script failed' } as Event);
+        }
+      }
+
+      terminate(): void {
+        // no-op for the test
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: FailingWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute('print("hi")');
+
+    expect(result.error?.message).toContain(
+      'Failed to load Python runtime: worker script failed'
+    );
+  });
 });

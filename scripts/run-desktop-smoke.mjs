@@ -45,12 +45,22 @@ async function main() {
 
   const child = spawn(
     process.execPath,
-    [path.join(repoRoot, 'scripts', 'run-electron-desktop.mjs'), '--sync-main'],
+    [
+      path.join(repoRoot, 'scripts', 'run-electron-desktop.mjs'),
+      '--sync-main',
+      '--',
+      '--lingua-desktop-smoke',
+      `--lingua-smoke-artifact-dir=${artifactDir}`,
+    ],
     {
       cwd: repoRoot,
       stdio: 'inherit',
       env: {
         ...process.env,
+        LINGUA_ELECTRON_LAUNCHER:
+          process.platform === 'darwin'
+            ? process.env.LINGUA_ELECTRON_LAUNCHER ?? 'open'
+            : process.env.LINGUA_ELECTRON_LAUNCHER,
         LINGUA_DESKTOP_SMOKE: '1',
         LINGUA_SMOKE_ARTIFACT_DIR: artifactDir,
       },

@@ -5,9 +5,6 @@
  * Captures stdout/stderr and sends to main thread.
  */
 
-// Worker global function (not available in DOM lib)
-declare function importScripts(...urls: string[]): void;
-
 import { syncUserEnvInPyodide } from './python-worker-env';
 
 const ctx = self as unknown as Worker;
@@ -28,14 +25,19 @@ type PyodideRuntime = {
   };
 };
 
+type PyodideLoaderModule = {
+  loadPyodide: (options: { indexURL: string }) => Promise<unknown>;
+};
+
 async function loadPyodide(): Promise<unknown> {
   if (pyodide) return pyodide;
 
-  // Import Pyodide from CDN
-  importScripts(`${PYODIDE_CDN}pyodide.js`);
-
-  // @ts-expect-error loadPyodide is globally available after importScripts
-  pyodide = await self.loadPyodide({ indexURL: PYODIDE_CDN });
+  // Module workers cannot use importScripts. Load Pyodide's ESM entry
+  // explicitly so Electron and Vite both execute the worker as a module.
+  const { loadPyodide } = (await import(
+    /* @vite-ignore */ `${PYODIDE_CDN}pyodide.mjs`
+  )) as PyodideLoaderModule;
+  pyodide = await loadPyodide({ indexURL: PYODIDE_CDN });
 
   const runtime = pyodide as PyodideRuntime;
   runtime.setStdout?.({

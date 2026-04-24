@@ -2,12 +2,22 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+const DESKTOP_SMOKE_FLAG = '--lingua-desktop-smoke';
+const SMOKE_ARTIFACT_DIR_PREFIX = '--lingua-smoke-artifact-dir=';
+
 function isDesktopSmokeEnabled(): boolean {
-  return process.env.LINGUA_DESKTOP_SMOKE === '1';
+  return (
+    process.env.LINGUA_DESKTOP_SMOKE === '1' ||
+    process.argv.includes(DESKTOP_SMOKE_FLAG)
+  );
 }
 
 function getArtifactDir(): string | null {
-  const artifactDir = process.env.LINGUA_SMOKE_ARTIFACT_DIR;
+  const artifactDir =
+    process.env.LINGUA_SMOKE_ARTIFACT_DIR ??
+    process.argv
+      .find((arg) => arg.startsWith(SMOKE_ARTIFACT_DIR_PREFIX))
+      ?.slice(SMOKE_ARTIFACT_DIR_PREFIX.length);
   return artifactDir ? path.resolve(artifactDir) : null;
 }
 
