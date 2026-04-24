@@ -8,6 +8,7 @@ export interface EditorThemeOption {
 
 export const EDITOR_THEMES: readonly EditorThemeOption[] = [
   { id: 'lingua-dark', label: 'Lingua Dark', dark: true },
+  { id: 'lingua-light', label: 'Lingua Light', dark: false },
   { id: 'dracula', label: 'Dracula', dark: true },
   { id: 'one-dark-pro', label: 'One Dark Pro', dark: true },
   { id: 'monokai', label: 'Monokai', dark: true },

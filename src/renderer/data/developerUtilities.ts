@@ -21,7 +21,9 @@ export type DeveloperUtilityId =
   | 'base64-image'
   | 'lorem-ipsum'
   | 'svg-to-css'
-  | 'cron-parser';
+  | 'cron-parser'
+  | 'html-to-jsx'
+  | 'curl-to-code';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -233,6 +235,33 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'runs',
       'quartz',
       'expression',
+    ],
+  },
+  {
+    id: 'html-to-jsx',
+    titleKey: 'utilities.tool.htmlToJsx.titleLabel',
+    actionLabelKey: 'utilities.tool.htmlToJsx.label',
+    descriptionKey: 'utilities.tool.htmlToJsx.description',
+    keywords: ['html', 'jsx', 'react', 'convert', 'migrate', 'component', 'classname'],
+  },
+  {
+    id: 'curl-to-code',
+    titleKey: 'utilities.tool.curlToCode.titleLabel',
+    actionLabelKey: 'utilities.tool.curlToCode.label',
+    descriptionKey: 'utilities.tool.curlToCode.description',
+    keywords: [
+      'curl',
+      'fetch',
+      'undici',
+      'requests',
+      'net-http',
+      'http',
+      'request',
+      'convert',
+      'code',
+      'python',
+      'go',
+      'javascript',
     ],
   },
 ] as const;
