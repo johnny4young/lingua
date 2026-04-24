@@ -218,6 +218,39 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('Hash Generator cycles through MD5 / SHA-384 / HMAC and produces the expected digests', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Hash Generator/ }).click();
+
+    // Type a stable input, then swap algorithms to prove each lands.
+    await page.getByTestId('hash-input-text').fill('abc');
+
+    await page.getByTestId('hash-algorithm').selectOption('MD5');
+    await expect(page.getByTestId('hash-output')).toHaveValue(
+      '900150983cd24fb0d6963f7d28e17f72',
+    );
+
+    await page.getByTestId('hash-algorithm').selectOption('SHA-384');
+    // SHA-384("abc") — canonical NIST test vector, 96 hex chars.
+    await expect(page.getByTestId('hash-output')).toHaveValue(
+      'cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7',
+    );
+
+    // Flip to HMAC mode; MD5 must be gone from the dropdown, a Key field
+    // appears, and a seeded key produces the RFC-style vector.
+    await page.getByTestId('hash-mode').selectOption('hmac');
+    await page.getByTestId('hash-input-text').fill('The quick brown fox jumps over the lazy dog');
+    await page.getByTestId('hash-hmac-key').fill('key');
+    await page.getByTestId('hash-algorithm').selectOption('SHA-256');
+    await expect(page.getByTestId('hash-output')).toHaveValue(
+      'f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8',
+    );
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('UUID Generator produces a value and the decoder recognizes it', async ({ page }) => {
     await openDeveloperUtilities(page);
     await page.getByRole('button', { name: /^UUID Generator/ }).click();
