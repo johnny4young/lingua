@@ -13,14 +13,20 @@ const HS_SECRET_48 = 'a-much-longer-48-byte-secret-for-hs384-round-trip';
 const HS_SECRET_64 =
   'and-an-even-longer-64-byte-secret-for-hs512-round-trip-use-ok!!!';
 
-/** Generate an RSA JWK keypair for RS256 sign/verify coverage. */
-async function generateRsaJwkPair(): Promise<{ privateJwk: JsonWebKey; publicJwk: JsonWebKey }> {
+/**
+ * Generate an RSA JWK keypair paired with the hash that matches an RS*
+ * algorithm. Defaults to SHA-256 so legacy RS256 callers don't need to
+ * opt in; RS384 / RS512 round-trips opt in explicitly.
+ */
+async function generateRsaJwkPair(
+  hash: 'SHA-256' | 'SHA-384' | 'SHA-512' = 'SHA-256'
+): Promise<{ privateJwk: JsonWebKey; publicJwk: JsonWebKey }> {
   const keyPair = await crypto.subtle.generateKey(
     {
       name: 'RSASSA-PKCS1-v1_5',
       modulusLength: 2048,
       publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-      hash: 'SHA-256',
+      hash,
     },
     true,
     ['sign', 'verify']
@@ -70,12 +76,14 @@ async function generateRsaPssJwkPair(
 }
 
 describe('isJwtAlgorithm + JWT_SUPPORTED_ALGORITHMS', () => {
-  it('enumerates the full HS / RS256 / ES / PS set and rejects unknowns', () => {
+  it('enumerates the full HS / RS / ES / PS set and rejects unknowns', () => {
     expect([...JWT_SUPPORTED_ALGORITHMS]).toEqual([
       'HS256',
       'HS384',
       'HS512',
       'RS256',
+      'RS384',
+      'RS512',
       'ES256',
       'ES384',
       'ES512',
@@ -84,9 +92,10 @@ describe('isJwtAlgorithm + JWT_SUPPORTED_ALGORITHMS', () => {
       'PS512',
     ]);
     for (const alg of JWT_SUPPORTED_ALGORITHMS) expect(isJwtAlgorithm(alg)).toBe(true);
-    // RS384 / RS512 remain intentionally unsupported in this slice.
-    expect(isJwtAlgorithm('RS384')).toBe(false);
-    expect(isJwtAlgorithm('RS512')).toBe(false);
+    // EdDSA is a real JWS algorithm name that we don't support (Web
+    // Crypto has no Ed25519 sign/verify in Chromium yet); canary for
+    // the unsupported-algorithm branch.
+    expect(isJwtAlgorithm('EdDSA')).toBe(false);
     expect(isJwtAlgorithm('none')).toBe(false);
     expect(isJwtAlgorithm(null)).toBe(false);
   });
@@ -231,16 +240,17 @@ describe('verifyJwt', () => {
   });
 
   it('rejects a token whose claimed alg is outside the supported set', async () => {
-    // RS384 is intentionally out of scope in this slice — use it as the
-    // "genuinely unsupported" canary so the test stays meaningful as
-    // the tuple grows.
-    const header = Buffer.from('{"alg":"RS384"}').toString('base64url');
+    // EdDSA is a real JWS algorithm (Ed25519 / Ed448) that Chromium's
+    // Web Crypto does not implement — use it as the "genuinely
+    // unsupported" canary so the test stays meaningful as the tuple
+    // grows.
+    const header = Buffer.from('{"alg":"EdDSA"}').toString('base64url');
     const payload = Buffer.from('{}').toString('base64url');
     const sig = Buffer.from('anything').toString('base64url');
     const result = await verifyJwt(`${header}.${payload}.${sig}`, HS_SECRET_32, 'HS256');
     expect(result.ok).toBe(false);
     if (!result.ok && result.kind === 'unsupported-algorithm') {
-      expect(result.claimed).toBe('RS384');
+      expect(result.claimed).toBe('EdDSA');
     }
   });
 
@@ -297,6 +307,62 @@ describe('verifyJwt', () => {
     if (!signed.ok) return;
     const result = await verifyJwt(signed.token, 'not a jwk', 'RS256');
     expect(result).toMatchObject({ ok: false, kind: 'invalid-jwk' });
+  }, 15_000);
+
+  const RS_EXTRA_CASES: readonly {
+    algorithm: 'RS384' | 'RS512';
+    hash: 'SHA-384' | 'SHA-512';
+  }[] = [
+    { algorithm: 'RS384', hash: 'SHA-384' },
+    { algorithm: 'RS512', hash: 'SHA-512' },
+  ];
+
+  for (const { algorithm, hash } of RS_EXTRA_CASES) {
+    it(`round-trips sign → verify for ${algorithm} with a generated RSA JWK keypair`, async () => {
+      const { privateJwk, publicJwk } = await generateRsaJwkPair(hash);
+      const signed = await signJwt(
+        '{}',
+        `{"sub":"${algorithm.toLowerCase()}"}`,
+        JSON.stringify(privateJwk),
+        algorithm
+      );
+      expect(signed.ok).toBe(true);
+      if (!signed.ok) return;
+      const verified = await verifyJwt(signed.token, JSON.stringify(publicJwk), algorithm);
+      expect(verified.ok).toBe(true);
+      if (verified.ok) {
+        expect(verified.payload).toMatchObject({ sub: algorithm.toLowerCase() });
+      }
+    }, 15_000);
+  }
+
+  it('fails a tampered RS512 token with signature-invalid', async () => {
+    const { privateJwk, publicJwk } = await generateRsaJwkPair('SHA-512');
+    const signed = await signJwt('{}', '{"sub":"ok"}', JSON.stringify(privateJwk), 'RS512');
+    expect(signed.ok).toBe(true);
+    if (!signed.ok) return;
+    const [h, _p, s] = signed.token.split('.');
+    const tamperedPayload = Buffer.from('{"sub":"evil"}').toString('base64url');
+    const tampered = `${h}.${tamperedPayload}.${s}`;
+    const result = await verifyJwt(tampered, JSON.stringify(publicJwk), 'RS512');
+    expect(result).toMatchObject({ ok: false, kind: 'signature-invalid' });
+  }, 15_000);
+
+  it('cross-RS algorithm-mismatch: RS384 token verified as RS512 short-circuits at the header guard', async () => {
+    const { privateJwk } = await generateRsaJwkPair('SHA-384');
+    const signed = await signJwt('{}', '{}', JSON.stringify(privateJwk), 'RS384');
+    expect(signed.ok).toBe(true);
+    if (!signed.ok) return;
+    // Pass any JWK — the algorithm-mismatch guard fires before import.
+    const { publicJwk } = await generateRsaJwkPair('SHA-512');
+    const result = await verifyJwt(signed.token, JSON.stringify(publicJwk), 'RS512');
+    expect(result.ok).toBe(false);
+    if (!result.ok && result.kind === 'algorithm-mismatch') {
+      expect(result.claimed).toBe('RS384');
+      expect(result.expected).toBe('RS512');
+    } else {
+      expect(result).toMatchObject({ ok: false, kind: 'algorithm-mismatch' });
+    }
   }, 15_000);
 
   const ES_ALGORITHMS: readonly ('ES256' | 'ES384' | 'ES512')[] = ['ES256', 'ES384', 'ES512'];

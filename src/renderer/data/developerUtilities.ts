@@ -17,7 +17,8 @@ export type DeveloperUtilityId =
   | 'string-inspector'
   | 'qr-code'
   | 'backslash-escape'
-  | 'random-string';
+  | 'random-string'
+  | 'base64-image';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -182,6 +183,13 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'charset',
       'secure',
     ],
+  },
+  {
+    id: 'base64-image',
+    titleKey: 'utilities.tool.base64Image.titleLabel',
+    actionLabelKey: 'utilities.tool.base64Image.label',
+    descriptionKey: 'utilities.tool.base64Image.description',
+    keywords: ['base64', 'image', 'data-uri', 'png', 'jpeg', 'svg', 'encode', 'decode', 'preview'],
   },
 ] as const;
 
