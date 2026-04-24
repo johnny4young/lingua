@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  HASH_FILE_MAX_BYTES,
   analyzeColor,
   analyzeJson,
   analyzeRegex,
   analyzeTimestamp,
   applyRegexReplace,
+  computeHash,
   computeLineDiff,
   decodeBase64,
   decodeJwt,
@@ -61,6 +63,134 @@ describe('developerUtilities', () => {
     await expect(hashText('Lingua', 'SHA-256')).resolves.toBe(
       '0fcc9b7d744c5feeeaad15919402773216cba26b703a5ad3e0724c2ab2d315ee'
     );
+  });
+
+  it('computeHash MD5 matches the known vector for "abc"', async () => {
+    const result = await computeHash('abc', { algorithm: 'MD5', mode: 'plain' });
+    expect(result).toMatchObject({
+      ok: true,
+      hex: '900150983cd24fb0d6963f7d28e17f72',
+      algorithm: 'MD5',
+      mode: 'plain',
+      inputByteLength: 3,
+    });
+  });
+
+  it('computeHash SHA-384 matches the NIST vector for "abc"', async () => {
+    const result = await computeHash('abc', { algorithm: 'SHA-384', mode: 'plain' });
+    expect(result).toMatchObject({
+      ok: true,
+      hex: 'cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7',
+      algorithm: 'SHA-384',
+    });
+  });
+
+  it('computeHash SHA-512 matches the NIST vector for "abc"', async () => {
+    const result = await computeHash('abc', { algorithm: 'SHA-512', mode: 'plain' });
+    expect(result).toMatchObject({
+      ok: true,
+      hex: 'ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f',
+      algorithm: 'SHA-512',
+    });
+  });
+
+  it('computeHash HMAC-SHA-256 matches the widely cited quick-brown-fox vector', async () => {
+    // The "key" + "The quick brown fox jumps over the lazy dog" combination
+    // produces the f7bc83... vector cited in Wikipedia's HMAC article and
+    // countless independent verifier tools. Not a formal RFC test-case, but
+    // independently cross-referenced enough to serve as a stability anchor.
+    const result = await computeHash(
+      'The quick brown fox jumps over the lazy dog',
+      { algorithm: 'SHA-256', mode: 'hmac', key: 'key' }
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      hex: 'f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8',
+      algorithm: 'SHA-256',
+      mode: 'hmac',
+    });
+  });
+
+  it('computeHash HMAC-SHA-512 produces a 128-char hex digest', async () => {
+    const result = await computeHash('abc', {
+      algorithm: 'SHA-512',
+      mode: 'hmac',
+      key: 'secret',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.hex).toHaveLength(128);
+    expect(result.mode).toBe('hmac');
+  });
+
+  it('computeHash rejects HMAC-MD5 with the unsupported-combo error key', async () => {
+    const result = await computeHash('abc', {
+      algorithm: 'MD5',
+      mode: 'hmac',
+      key: 'secret',
+    });
+    expect(result).toEqual({
+      ok: false,
+      errorKey: 'utilities.tool.hash.error.unsupportedCombo',
+    });
+  });
+
+  it('computeHash rejects HMAC with an empty key', async () => {
+    const result = await computeHash('abc', {
+      algorithm: 'SHA-256',
+      mode: 'hmac',
+      key: '',
+    });
+    expect(result).toEqual({
+      ok: false,
+      errorKey: 'utilities.tool.hash.error.emptyKey',
+    });
+  });
+
+  it('computeHash rejects empty input with the empty error key', async () => {
+    const result = await computeHash('', { algorithm: 'SHA-256', mode: 'plain' });
+    expect(result).toEqual({
+      ok: false,
+      errorKey: 'utilities.tool.hash.error.empty',
+    });
+  });
+
+  it('computeHash rejects payloads above the size limit with the tooLarge error key', async () => {
+    // Allocate a buffer 1 byte over the limit; fills with zeros.
+    const buffer = new ArrayBuffer(HASH_FILE_MAX_BYTES + 1);
+    const result = await computeHash(buffer, { algorithm: 'SHA-256', mode: 'plain' });
+    expect(result).toEqual({
+      ok: false,
+      errorKey: 'utilities.tool.hash.error.fileTooLarge',
+    });
+  });
+
+  it('computeHash accepts an ArrayBuffer input and hashes the binary bytes', async () => {
+    const bytes = new Uint8Array([0x61, 0x62, 0x63]); // "abc"
+    const result = await computeHash(bytes.buffer, {
+      algorithm: 'SHA-256',
+      mode: 'plain',
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      hex: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+      inputByteLength: 3,
+    });
+  });
+
+  it('computeHash round-trips non-ASCII UTF-8 bytes consistently for SHA-256', async () => {
+    const textResult = await computeHash('Lingua ñ 🎉', {
+      algorithm: 'SHA-256',
+      mode: 'plain',
+    });
+    const bufferResult = await computeHash(
+      new TextEncoder().encode('Lingua ñ 🎉').buffer.slice(0),
+      { algorithm: 'SHA-256', mode: 'plain' }
+    );
+    expect(textResult.ok).toBe(true);
+    expect(bufferResult.ok).toBe(true);
+    if (!textResult.ok || !bufferResult.ok) return;
+    expect(textResult.hex).toBe(bufferResult.hex);
   });
 
   it('decodes JWT header and payload objects', () => {

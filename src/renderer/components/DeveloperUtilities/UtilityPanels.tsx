@@ -1,20 +1,27 @@
 import { Palette } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { CopyButton } from './CopyButton';
 import {
+  HASH_ALGORITHMS,
+  HASH_FILE_MAX_BYTES,
+  HASH_FILE_MAX_MB,
+  HMAC_ALGORITHMS,
   analyzeColor,
   analyzeJson,
   analyzeRegex,
   analyzeTimestamp,
   applyRegexReplace,
+  computeHash,
   decodeBase64,
   decodeUrlComponentValue,
   encodeBase64,
   encodeUrlComponentValue,
   generateUuid,
-  hashText,
+  type HashAlgorithm,
+  type HashMode,
+  type HashResult,
 } from '../../utils/developerUtilities';
 import {
   MAX_BASE,
@@ -1015,77 +1022,265 @@ function UuidUtilityPanel() {
   );
 }
 
+type HashInputSource = 'text' | 'file';
+
+type HashFileState = {
+  name: string;
+  size: number;
+  buffer: ArrayBuffer;
+};
+
+const HASH_ALGORITHM_I18N_KEYS: Record<HashAlgorithm, string> = {
+  MD5: 'utilities.tool.hash.algorithms.md5',
+  'SHA-1': 'utilities.tool.hash.algorithms.sha1',
+  'SHA-256': 'utilities.tool.hash.algorithms.sha256',
+  'SHA-384': 'utilities.tool.hash.algorithms.sha384',
+  'SHA-512': 'utilities.tool.hash.algorithms.sha512',
+};
+
 function HashUtilityPanel() {
   const { t } = useTranslation();
-  const [algorithm, setAlgorithm] = useState<'SHA-1' | 'SHA-256'>('SHA-256');
-  const [input, setInput] = useState('Lingua');
-  const [digest, setDigest] = useState('');
-  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [mode, setMode] = useState<HashMode>('plain');
+  const [source, setSource] = useState<HashInputSource>('text');
+  const [algorithm, setAlgorithm] = useState<HashAlgorithm>('SHA-256');
+  const [text, setText] = useState('Lingua');
+  const [hmacKey, setHmacKey] = useState('');
+  const [file, setFile] = useState<HashFileState | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [result, setResult] = useState<HashResult | null>(null);
+  // Monotonic counter for file-read operations so a slow `arrayBuffer()`
+  // call from a superseded file drop can't clobber the newer selection.
+  const fileRequestRef = useRef(0);
+
+  const handleModeChange = (next: HashMode) => {
+    // Flip mode AND correct the algorithm in the same event tick so we
+    // never render the invalid `hmac`+`MD5` combo — React batches these
+    // setState calls and the next render lands with both values coherent.
+    setMode(next);
+    if (next === 'hmac' && algorithm === 'MD5') {
+      setAlgorithm('SHA-256');
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
-    void hashText(input, algorithm)
-      .then((value) => {
-        if (!cancelled) {
-          setDigest(value);
-          setErrorKey(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setDigest('');
-          setErrorKey('utilities.tool.hash.error');
-        }
-      });
+    const payload: string | ArrayBuffer | null =
+      source === 'file' ? file?.buffer ?? null : text;
+
+    if (payload === null) {
+      // No file picked yet — surface the empty hint without kicking off a hash.
+      setResult({ ok: false, errorKey: 'utilities.tool.hash.error.empty' });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void computeHash(payload, { algorithm, mode, key: hmacKey }).then((next) => {
+      if (!cancelled) {
+        setResult(next);
+      }
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [algorithm, input]);
+  }, [algorithm, mode, source, text, hmacKey, file]);
+
+  const handleFile = async (dropped: File | null) => {
+    // Bump the generation counter up front so earlier in-flight reads skip
+    // their setState calls. Only the latest request commits its result.
+    fileRequestRef.current += 1;
+    const requestId = fileRequestRef.current;
+    setFileError(null);
+    if (!dropped) {
+      setFile(null);
+      return;
+    }
+    if (dropped.size > HASH_FILE_MAX_BYTES) {
+      setFileError('utilities.tool.hash.error.fileTooLarge');
+      setFile(null);
+      return;
+    }
+    try {
+      const buffer = await dropped.arrayBuffer();
+      if (fileRequestRef.current !== requestId) return;
+      setFile({ name: dropped.name, size: dropped.size, buffer });
+    } catch {
+      if (fileRequestRef.current !== requestId) return;
+      setFileError('utilities.tool.hash.error.fileRead');
+      setFile(null);
+    }
+  };
+
+  const algorithmOptions = mode === 'hmac' ? HMAC_ALGORITHMS : HASH_ALGORITHMS;
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <PanelSection
         title={t('utilities.tool.hash.title')}
         description={t('utilities.tool.hash.panelDescription')}
       >
-        <div className="grid gap-2">
-          <FieldLabel>{t('utilities.field.algorithm')}</FieldLabel>
+        <div className="grid gap-2 md:grid-cols-2">
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.hash.mode.label')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.hash.mode.label')}
+              data-testid="hash-mode"
+              value={mode}
+              onChange={(event) => handleModeChange(event.target.value as HashMode)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              <option value="plain">{t('utilities.tool.hash.mode.plain')}</option>
+              <option value="hmac">{t('utilities.tool.hash.mode.hmac')}</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.hash.source.label')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.hash.source.label')}
+              data-testid="hash-source"
+              value={source}
+              onChange={(event) => setSource(event.target.value as HashInputSource)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              <option value="text">{t('utilities.tool.hash.source.text')}</option>
+              <option value="file">{t('utilities.tool.hash.source.file')}</option>
+            </select>
+          </label>
+        </div>
+        <label className="grid gap-1 text-xs text-muted">
+          <FieldLabel>{t('utilities.tool.hash.algorithmLabel')}</FieldLabel>
           <select
-            aria-label={t('utilities.field.algorithm')}
+            aria-label={t('utilities.tool.hash.algorithmLabel')}
+            data-testid="hash-algorithm"
             value={algorithm}
-            onChange={(event) => setAlgorithm(event.target.value as 'SHA-1' | 'SHA-256')}
+            onChange={(event) => setAlgorithm(event.target.value as HashAlgorithm)}
             className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
           >
-            <option value="SHA-256">{t('utilities.tool.hash.algorithms.sha256')}</option>
-            <option value="SHA-1">{t('utilities.tool.hash.algorithms.sha1')}</option>
+            {algorithmOptions.map((algo) => (
+              <option key={algo} value={algo}>
+                {t(HASH_ALGORITHM_I18N_KEYS[algo])}
+              </option>
+            ))}
           </select>
-        </div>
-        <div className="grid gap-2">
-          <FieldLabel>{t('utilities.field.input')}</FieldLabel>
-          <UtilityTextarea
-            aria-label={t('utilities.field.input')}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-          />
-        </div>
+        </label>
+        {mode === 'hmac' ? (
+          <div className="grid gap-2">
+            <FieldLabel>{t('utilities.tool.hash.key.label')}</FieldLabel>
+            <UtilityInput
+              aria-label={t('utilities.tool.hash.key.label')}
+              data-testid="hash-hmac-key"
+              value={hmacKey}
+              onChange={(event) => setHmacKey(event.target.value)}
+              placeholder={t('utilities.tool.hash.key.placeholder') ?? undefined}
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+        ) : null}
+        {source === 'text' ? (
+          <div className="grid gap-2">
+            <FieldLabel>{t('utilities.tool.hash.input.textLabel')}</FieldLabel>
+            <UtilityTextarea
+              aria-label={t('utilities.tool.hash.input.textLabel')}
+              data-testid="hash-input-text"
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              spellCheck={false}
+            />
+          </div>
+        ) : (
+          <div className="grid gap-2">
+            <FieldLabel>{t('utilities.tool.hash.input.fileLabel')}</FieldLabel>
+            <div
+              role="region"
+              aria-label={t('utilities.tool.hash.input.fileLabel')}
+              className="grid gap-2 rounded-[1.1rem] border border-dashed border-border/80 bg-background/65 p-4 text-xs text-muted"
+              data-testid="hash-dropzone"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                const [first] = Array.from(event.dataTransfer.files);
+                void handleFile(first ?? null);
+              }}
+            >
+              <span>{t('utilities.tool.hash.input.dropHint')}</span>
+              <input
+                type="file"
+                aria-label={t('utilities.tool.hash.input.fileLabel')}
+                data-testid="hash-file-input"
+                onChange={(event) => void handleFile(event.target.files?.[0] ?? null)}
+                className="text-xs text-foreground"
+              />
+              {file ? (
+                <span className="font-mono text-xs text-foreground" data-testid="hash-file-summary">
+                  {t('utilities.tool.hash.input.fileSummary', {
+                    name: file.name,
+                    size: formatByteSize(file.size),
+                  })}
+                </span>
+              ) : (
+                <span>{t('utilities.tool.hash.input.filePlaceholder')}</span>
+              )}
+              {fileError ? (
+                <StatusMessage
+                  tone="error"
+                  message={t(fileError, { limitMb: HASH_FILE_MAX_MB })}
+                />
+              ) : null}
+            </div>
+          </div>
+        )}
       </PanelSection>
+
       <PanelSection
-        title={t('utilities.field.output')}
+        title={t('utilities.tool.hash.output.label')}
         description={t('utilities.status.live')}
       >
-        <div className="relative">
-          <UtilityTextarea
-            aria-label={t('utilities.field.output')}
-            readOnly
-            value={digest}
-            className="pr-10"
-          />
-          <div className="absolute right-2 top-2">
-            <CopyButton value={digest} disabled={!digest || Boolean(errorKey)} />
+        {result === null ? (
+          <StatusMessage message={t('utilities.tool.hash.error.empty')} tone="muted" />
+        ) : !result.ok ? (
+          <div className="grid gap-2">
+            <StatusMessage
+              message={t(result.errorKey, { limitMb: HASH_FILE_MAX_MB })}
+              tone={result.errorKey === 'utilities.tool.hash.error.empty' ? 'muted' : 'error'}
+              testid="hash-error"
+            />
+            {result.message ? (
+              <p
+                className="rounded-[0.9rem] border border-border/70 bg-background/55 px-3 py-2 font-mono text-xs text-muted"
+                data-testid="hash-error-detail"
+              >
+                {result.message}
+              </p>
+            ) : null}
           </div>
-        </div>
-        {errorKey ? <StatusMessage message={t(errorKey)} tone="error" /> : null}
+        ) : (
+          <div className="grid gap-2">
+            <div className="relative">
+              <UtilityTextarea
+                aria-label={t('utilities.tool.hash.output.label')}
+                data-testid="hash-output"
+                readOnly
+                value={result.hex}
+                className="pr-10 font-mono"
+                spellCheck={false}
+              />
+              <div className="absolute right-2 top-2">
+                <CopyButton
+                  value={result.hex}
+                  testid="hash-output-copy"
+                  disabled={!result.hex}
+                />
+              </div>
+            </div>
+            <StatusMessage
+              tone="muted"
+              testid="hash-byte-length"
+              message={t('utilities.tool.hash.byteLength', { bytes: result.inputByteLength })}
+            />
+          </div>
+        )}
       </PanelSection>
     </div>
   );
