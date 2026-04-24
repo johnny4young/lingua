@@ -11,6 +11,7 @@ import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { DeveloperUtilitiesModal } from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
+import { BASE64_IMAGE_MAX_BYTES } from '../../src/renderer/utils/base64Image';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -139,6 +140,25 @@ describe('Base64ImagePanel', () => {
       expect(banner.textContent).toMatch(/not an image/);
       expect(banner.textContent).toContain('text/plain');
     });
+  });
+
+  it('rejects oversized pasted data-URIs before rendering a preview', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64-image" />);
+
+    await user.selectOptions(screen.getByTestId('base64-image-mode'), 'decode');
+
+    const textarea = screen.getByTestId('base64-image-decode-input') as HTMLTextAreaElement;
+    const encodedLength = Math.ceil((BASE64_IMAGE_MAX_BYTES + 1) / 3) * 4;
+    fireEvent.change(textarea, {
+      target: { value: `data:image/png;base64,${'A'.repeat(encodedLength)}` },
+    });
+
+    await waitFor(() => {
+      const banner = screen.getByTestId('base64-image-decode-error');
+      expect(banner.textContent).toMatch(/caps previews/i);
+    });
+    expect(screen.queryByTestId('base64-image-preview')).toBeNull();
   });
 
   it('localizes the panel title to Spanish when the locale switches', async () => {

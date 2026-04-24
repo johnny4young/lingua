@@ -110,6 +110,25 @@ describe('decodeDataUri', () => {
     if (result.ok) return;
     expect(result.kind).toBe('invalid-base64');
   });
+
+  it('rejects oversized base64 payloads before decoding them', () => {
+    const encodedLength = Math.ceil((BASE64_IMAGE_MAX_BYTES + 1) / 3) * 4;
+    const result = decodeDataUri(`data:image/png;base64,${'A'.repeat(encodedLength)}`);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.kind).toBe('too-large');
+    if (result.kind === 'too-large') {
+      expect(result.byteSize).toBeGreaterThan(BASE64_IMAGE_MAX_BYTES);
+      expect(result.maxBytes).toBe(BASE64_IMAGE_MAX_BYTES);
+    }
+  });
+
+  it('rejects oversized percent-encoded payloads before decoding them', () => {
+    const result = decodeDataUri(`data:image/svg+xml,${'a'.repeat(BASE64_IMAGE_MAX_BYTES + 1)}`);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.kind).toBe('too-large');
+  });
 });
 
 describe('formatByteSize', () => {

@@ -161,6 +161,25 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('Beautify/Minify panel minifies SCSS with nested rules and // line comments', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Beautify \/ Minify/ }).click();
+
+    await page.getByTestId('beautify-minify-language').selectOption('scss');
+    await page.getByTestId('beautify-minify-mode').selectOption('minify');
+    await page
+      .getByTestId('beautify-minify-input')
+      .fill('// header\n.outer {\n  color: red; // inline\n  .inner { padding: 1px 2px; }\n}');
+
+    const output = page.getByTestId('beautify-minify-output');
+    // Both // comments stripped, nested rule collapsed, trailing `;` before `}` dropped.
+    await expect(output).toHaveValue('.outer{color:red;.inner{padding:1px 2px}}');
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Beautify/Minify panel minifies CSS and preserves url() + strings', async ({ page }) => {
     await openDeveloperUtilities(page);
     await page.getByRole('button', { name: /^Beautify \/ Minify/ }).click();
@@ -289,7 +308,7 @@ test.describe('Developer utilities modal (Pro)', () => {
     // Default state: length 32, count 5, lowercase + uppercase + digits on.
     await page.getByTestId('random-string-generate').click();
 
-    const rows = page.getByTestId('random-string-value');
+    const rows = page.getByTestId(/^random-string-value-\d+$/);
     await expect(rows).toHaveCount(5);
     // Each value is 32 chars drawn from [A-Za-z0-9].
     for (let i = 0; i < 5; i += 1) {
