@@ -20,7 +20,8 @@ export type DeveloperUtilityId =
   | 'random-string'
   | 'base64-image'
   | 'lorem-ipsum'
-  | 'svg-to-css';
+  | 'svg-to-css'
+  | 'cron-parser';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -215,6 +216,23 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'encode',
       'image',
       'icon',
+    ],
+  },
+  {
+    id: 'cron-parser',
+    titleKey: 'utilities.tool.cron.titleLabel',
+    actionLabelKey: 'utilities.tool.cron.label',
+    descriptionKey: 'utilities.tool.cron.description',
+    keywords: [
+      'cron',
+      'crontab',
+      'schedule',
+      'job',
+      'timer',
+      'next',
+      'runs',
+      'quartz',
+      'expression',
     ],
   },
 ] as const;

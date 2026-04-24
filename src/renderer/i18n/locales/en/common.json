@@ -1034,5 +1034,22 @@
   "utilities.tool.svgToCss.size.detected": "Detected size: {{width}} x {{height}}",
   "utilities.tool.svgToCss.error.empty": "Paste SVG markup above to see the CSS output.",
   "utilities.tool.svgToCss.error.notSvg": "Input does not contain an <svg> element.",
-  "utilities.tool.svgToCss.error.tooLarge": "SVG exceeds the {{limitKb}} KB limit for inline encoding."
+  "utilities.tool.svgToCss.error.tooLarge": "SVG exceeds the {{limitKb}} KB limit for inline encoding.",
+  "utilities.tool.cron.titleLabel": "Cron Parser",
+  "utilities.tool.cron.label": "Open Cron Parser",
+  "utilities.tool.cron.description": "Explain any cron expression and list the next scheduled runs.",
+  "utilities.tool.cron.title": "Cron Parser",
+  "utilities.tool.cron.panelDescription": "Paste a 5-part cron expression, a 6-part expression with seconds, or a nickname such as @daily; read a human-readable explanation and the upcoming run times computed from your machine clock.",
+  "utilities.tool.cron.input.label": "Cron expression",
+  "utilities.tool.cron.input.placeholder": "*/5 * * * *",
+  "utilities.tool.cron.nextCount.label": "Upcoming runs",
+  "utilities.tool.cron.schedule.label": "Schedule",
+  "utilities.tool.cron.description.label": "Explanation",
+  "utilities.tool.cron.nextRuns.label": "Next runs",
+  "utilities.tool.cron.nextRuns.empty": "No upcoming runs fit the expression.",
+  "utilities.tool.cron.loading": "Parsing expression…",
+  "utilities.tool.cron.error.empty": "Enter a cron expression above to see the schedule.",
+  "utilities.tool.cron.error.invalid": "Invalid cron expression.",
+  "utilities.tool.cron.error.iteration": "Could not enumerate upcoming runs.",
+  "utilities.tool.cron.error.loadFailure": "Failed to load the cron parser module."
 }

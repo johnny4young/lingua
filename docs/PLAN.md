@@ -2923,7 +2923,7 @@ does not pursue are marked `Skip`):
 | String Case Converter | ✅ 2026-04-22 | RL-068 |
 | Lorem Ipsum Generator | ✅ 2026-04-24 | RL-068 |
 | Random String Generator | ✅ 2026-04-23 | RL-068 |
-| Cron Job Parser | ❌ | RL-068 |
+| Cron Job Parser | ✅ 2026-04-24 | RL-068 |
 | Markdown Preview | ❌ | RL-068 |
 | SQL Formatter | ❌ | RL-068 |
 | HTML / CSS / JS / XML / SCSS / LESS Beautify + Minify | ✅ 2026-04-23 | RL-070 |
@@ -2962,7 +2962,7 @@ does not pursue are marked `Skip`):
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Number Base, URL Parser, String Case, HTML Entity, Backslash Escape/Unescape, Random String Generator, and Lorem Ipsum Generator shipped; YAML↔JSON, JSON↔CSV, Cron Parser, Markdown Preview, and SQL Formatter remain planned`
+- Readiness: `Number Base, URL Parser, String Case, HTML Entity, Backslash Escape/Unescape, Random String Generator, Lorem Ipsum Generator, and Cron Parser shipped; YAML↔JSON, JSON↔CSV, Markdown Preview, and SQL Formatter remain planned`
 - Why this matters:
   - DevUtils ships 40+ tools; Lingua ships 10. Closing the practical
     subset (YAML/JSON, CSV/JSON, number base, URL parser, HTML entity,
@@ -3017,6 +3017,10 @@ does not pursue are marked `Skip`):
 - 2026-04-24 fourth slice:
   - `Lorem Ipsum Generator` landed with words, sentences, and paragraphs modes plus an optional classic-opening toggle
   - Sentence output uses bounded 5-12 word generation with a single mid-sentence comma for natural placeholder copy, while paragraph output groups 3-6 generated sentences with blank-line separation
+  - The panel ships en + es copy, utility catalog registration, command palette count coverage, helper/component tests, and Playwright smoke coverage in the Developer Utilities workspace
+- 2026-04-24 fifth slice:
+  - `Cron Parser` landed with a pure renderer-side panel that lazy-loads `cron-parser` for validation / upcoming-run enumeration and `cronstrue`'s i18n bundle for human-readable EN + ES explanations
+  - The helper supports 5-field expressions, 6-field expressions with seconds, nicknames such as `@daily`, list/range/step syntax, and a configurable next-run count clamped to 1-100
   - The panel ships en + es copy, utility catalog registration, command palette count coverage, helper/component tests, and Playwright smoke coverage in the Developer Utilities workspace
 
 ### RL-069 DevUtils-class productivity layer for the utilities workspace

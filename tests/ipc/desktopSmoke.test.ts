@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const handlers = new Map<string, (...args: unknown[]) => unknown>();
 const listeners = new Map<string, (...args: unknown[]) => unknown>();
@@ -8,6 +8,7 @@ const mockCapturePage = vi.fn().mockResolvedValue({
   toPNG: () => Buffer.from('png-bytes'),
 });
 const mockAppExit = vi.fn();
+const originalArgv = process.argv;
 
 vi.mock('electron', () => ({
   app: {
@@ -45,6 +46,10 @@ describe('desktop smoke IPC handlers', () => {
     listeners.clear();
     process.env.LINGUA_DESKTOP_SMOKE = '1';
     process.env.LINGUA_SMOKE_ARTIFACT_DIR = '/tmp/lingua-smoke';
+  });
+
+  afterEach(() => {
+    process.argv = originalArgv;
   });
 
   it('returns smoke config and writes screenshot artifacts', async () => {
@@ -89,5 +94,25 @@ describe('desktop smoke IPC handlers', () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(mockAppExit).toHaveBeenCalledWith(1);
+  });
+
+  it('accepts CLI flags when LaunchServices drops smoke environment variables', async () => {
+    delete process.env.LINGUA_DESKTOP_SMOKE;
+    delete process.env.LINGUA_SMOKE_ARTIFACT_DIR;
+    process.argv = [
+      ...originalArgv,
+      '--lingua-desktop-smoke',
+      '--lingua-smoke-artifact-dir=/tmp/lingua-smoke-argv',
+    ];
+
+    const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
+    registerDesktopSmokeHandlers();
+
+    const getConfig = handlers.get('desktop-smoke:get-config');
+
+    expect(await getConfig?.()).toEqual({
+      enabled: true,
+      artifactDir: '/tmp/lingua-smoke-argv',
+    });
   });
 });

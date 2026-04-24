@@ -14,6 +14,7 @@ const SMOKE_CASES: Array<{
   fileName: string;
   content: string;
   expectText: string;
+  timeoutMs?: number;
 }> = [
   {
     language: 'javascript',
@@ -32,6 +33,7 @@ const SMOKE_CASES: Array<{
     fileName: 'smoke-python.py',
     content: 'print("smoke-python")\n',
     expectText: 'smoke-python',
+    timeoutMs: 120_000,
   },
   {
     language: 'go',
@@ -64,7 +66,7 @@ interface SmokeProgressArtifact {
   error?: string;
 }
 
-const CASE_TIMEOUT_MS = 35_000;
+const DEFAULT_CASE_TIMEOUT_MS = 35_000;
 
 function waitForUi(ms = 220): Promise<void> {
   return new Promise((resolve) => {
@@ -121,6 +123,8 @@ export function useDesktopSmoke(enabled: boolean) {
         return;
       }
 
+      const summaries: SmokeCaseSummary[] = [];
+
       try {
         await api.writeJsonArtifact('desktop-smoke-bootstrap.json', {
           generatedAt: new Date().toISOString(),
@@ -139,8 +143,6 @@ export function useDesktopSmoke(enabled: boolean) {
           sidebarVisible: false,
           consoleVisible: true,
         });
-
-        const summaries: SmokeCaseSummary[] = [];
 
         for (const smokeCase of SMOKE_CASES) {
           await api.writeJsonArtifact('desktop-smoke-progress.json', {
@@ -161,7 +163,7 @@ export function useDesktopSmoke(enabled: boolean) {
           await waitForUi();
           const execution = await withTimeout(
             executeTabManually(tab),
-            CASE_TIMEOUT_MS,
+            smokeCase.timeoutMs ?? DEFAULT_CASE_TIMEOUT_MS,
             `${smokeCase.language} smoke execution`
           );
           await waitForUi();
@@ -206,12 +208,13 @@ export function useDesktopSmoke(enabled: boolean) {
         await api.writeJsonArtifact('desktop-smoke-progress.json', {
           generatedAt: new Date().toISOString(),
           status: 'failed',
+          completedLanguages: summaries.map((summary) => summary.language),
           error: error instanceof Error ? error.message : String(error),
         } satisfies SmokeProgressArtifact);
         await api.writeJsonArtifact('desktop-smoke-summary.json', {
           generatedAt: new Date().toISOString(),
           artifactDir: config.artifactDir,
-          cases: [],
+          cases: summaries,
           error: error instanceof Error ? error.message : String(error),
         });
         api.finish(false);

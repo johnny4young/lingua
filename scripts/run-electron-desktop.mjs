@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const electronBinary = require('electron');
+const electronAppPath = path.dirname(path.dirname(path.dirname(electronBinary)));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -134,6 +135,33 @@ function spawnManagedProcess(command, args, options = {}) {
     },
     detached: process.platform !== 'win32',
   });
+}
+
+function resolveElectronLaunchMode() {
+  const configuredMode = process.env.LINGUA_ELECTRON_LAUNCHER;
+  if (configuredMode === 'direct' || configuredMode === 'open') {
+    return configuredMode;
+  }
+
+  // Codex Desktop launches commands from a sandboxed GUI app. On macOS 26,
+  // spawning Electron.app/Contents/MacOS/Electron directly from that context
+  // can crash inside AppKit/HIServices while the app registers itself. Going
+  // through LaunchServices gives the process a normal foreground app role.
+  if (process.platform === 'darwin' && process.env.CODEX_SANDBOX) {
+    return 'open';
+  }
+
+  return 'direct';
+}
+
+function spawnElectronProcess(args, options = {}) {
+  const launchMode = resolveElectronLaunchMode();
+  if (launchMode === 'open') {
+    console.log('[desktop] Launching Electron via macOS LaunchServices');
+    return spawnManagedProcess('open', ['-W', '-n', electronAppPath, '--args', ...args], options);
+  }
+
+  return spawnManagedProcess(electronBinary, args, options);
 }
 
 function waitForExit(child) {
@@ -331,7 +359,7 @@ async function main() {
     }
 
     console.log(`[desktop] Launching Electron against ${parsedRendererUrl.toString()}`);
-    electronProcess = spawnManagedProcess(electronBinary, ['.', ...options.electronArgs], {
+    electronProcess = spawnElectronProcess([repoRoot, ...options.electronArgs], {
       env: {
         LINGUA_RENDERER_URL: parsedRendererUrl.toString(),
       },
