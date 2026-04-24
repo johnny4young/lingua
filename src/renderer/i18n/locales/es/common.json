@@ -995,5 +995,19 @@
   "utilities.tool.base64Image.decode.error.invalidBase64": "El payload del data-URI no decodificó bien. Revisá espacios en blanco, escapes inválidos o truncado.",
   "utilities.tool.base64Image.preview.title": "Previsualización",
   "utilities.tool.base64Image.preview.alt": "Previsualización de imagen Base64",
-  "utilities.tool.base64Image.metadata.summary": "{{mime}} · {{size}}"
+  "utilities.tool.base64Image.metadata.summary": "{{mime}} · {{size}}",
+  "utilities.tool.loremIpsum.titleLabel": "Generador de Lorem Ipsum",
+  "utilities.tool.loremIpsum.label": "Abrir Generador de Lorem Ipsum",
+  "utilities.tool.loremIpsum.description": "Genera texto de relleno del corpus clásico latín — palabras, oraciones o párrafos.",
+  "utilities.tool.loremIpsum.title": "Generar Lorem Ipsum",
+  "utilities.tool.loremIpsum.panelDescription": "Elegí cuánto texto necesitás y si querés que abra con la frase canónica Lorem ipsum dolor sit amet. Las oraciones incluyen comas para que el resultado se lea natural.",
+  "utilities.tool.loremIpsum.unitLabel": "Unidad",
+  "utilities.tool.loremIpsum.unit.words": "Palabras",
+  "utilities.tool.loremIpsum.unit.sentences": "Oraciones",
+  "utilities.tool.loremIpsum.unit.paragraphs": "Párrafos",
+  "utilities.tool.loremIpsum.countLabel": "Cantidad",
+  "utilities.tool.loremIpsum.startWithClassic": "Abrir con la frase canónica Lorem ipsum dolor sit amet",
+  "utilities.tool.loremIpsum.generate.action": "Generar",
+  "utilities.tool.loremIpsum.empty": "Tocá Generar para crear un bloque nuevo de texto de relleno.",
+  "utilities.tool.loremIpsum.output.label": "Texto generado"
 }

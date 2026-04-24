@@ -299,6 +299,24 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('Lorem Ipsum Generator mints 3 paragraphs opening with the canonical phrase', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Lorem Ipsum Generator/ }).click();
+
+    // Defaults: unit = paragraphs, count = 3, classic-opening toggle on.
+    await page.getByTestId('lorem-ipsum-generate').click();
+
+    const output = page.getByTestId('lorem-ipsum-output');
+    await expect(output).toBeVisible();
+    const value = await output.inputValue();
+    expect(value.startsWith('Lorem ipsum dolor sit amet, consectetur adipiscing elit.')).toBe(true);
+    expect(value.split('\n\n')).toHaveLength(3);
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Random String Generator mints a batch of 5 x 32-char values with the default charset', async ({
     page,
   }) => {

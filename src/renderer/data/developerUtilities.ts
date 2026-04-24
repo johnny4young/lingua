@@ -18,7 +18,8 @@ export type DeveloperUtilityId =
   | 'qr-code'
   | 'backslash-escape'
   | 'random-string'
-  | 'base64-image';
+  | 'base64-image'
+  | 'lorem-ipsum';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -190,6 +191,13 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.base64Image.label',
     descriptionKey: 'utilities.tool.base64Image.description',
     keywords: ['base64', 'image', 'data-uri', 'png', 'jpeg', 'svg', 'encode', 'decode', 'preview'],
+  },
+  {
+    id: 'lorem-ipsum',
+    titleKey: 'utilities.tool.loremIpsum.titleLabel',
+    actionLabelKey: 'utilities.tool.loremIpsum.label',
+    descriptionKey: 'utilities.tool.loremIpsum.description',
+    keywords: ['lorem', 'ipsum', 'placeholder', 'dummy', 'mock', 'copy', 'text', 'latin'],
   },
 ] as const;
 
