@@ -299,6 +299,31 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('Regex Tester Replace mode expands $1 / $2 back-references and reports the replacement count', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Regex Tester/ }).click();
+
+    await page.getByTestId('regex-mode').selectOption('replace');
+
+    // Seeded pattern `(\w+)@(\w+\.\w+)`, flags `g`, seeded test string
+    // `hello@lingua.dev and support@example.com`. Override the
+    // replacement field with a simple template that exercises both
+    // numbered back-refs.
+    await page.getByTestId('regex-replacement').fill('[$1 at $2]');
+
+    const output = page.getByTestId('regex-replace-output');
+    await expect(output).toHaveValue('[hello at lingua.dev] and [support at example.com]');
+    await expect(page.getByTestId('regex-replace-count')).toContainText('2 replacements');
+
+    // Switch back to Match mode — the replace output + count disappear.
+    await page.getByTestId('regex-mode').selectOption('match');
+    await expect(page.getByTestId('regex-replace-output')).toHaveCount(0);
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Lorem Ipsum Generator mints 3 paragraphs opening with the canonical phrase', async ({
     page,
   }) => {
