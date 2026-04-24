@@ -324,6 +324,29 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('SVG to CSS converter emits a base64 data-URI with detected size hint and toggles to URL-encoded', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^SVG to CSS/ }).click();
+
+    // Default: seeded SVG with width=24/height=24 in Base64 mode.
+    const dataUri = page.getByTestId('svg-to-css-data-uri');
+    await expect(dataUri).toHaveValue(/^data:image\/svg\+xml;base64,/);
+    await expect(page.getByTestId('svg-to-css-size')).toContainText(/24.*24/);
+    const cssBlock = page.getByTestId('svg-to-css-block');
+    await expect(cssBlock).toContainText('background-image: url("data:image/svg+xml;base64,');
+    await expect(cssBlock).toContainText('background-size: 24px 24px;');
+    await expect(cssBlock).toContainText('background-repeat: no-repeat;');
+
+    // Flip to URL-encoded and confirm the prefix changes.
+    await page.getByTestId('svg-to-css-mode').selectOption('percent');
+    await expect(dataUri).toHaveValue(/^data:image\/svg\+xml,%3Csvg/);
+    await expect(cssBlock).not.toContainText(';base64,');
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Lorem Ipsum Generator mints 3 paragraphs opening with the canonical phrase', async ({
     page,
   }) => {

@@ -1019,5 +1019,20 @@
   "utilities.tool.loremIpsum.startWithClassic": "Abrir con la frase canónica Lorem ipsum dolor sit amet",
   "utilities.tool.loremIpsum.generate.action": "Generar",
   "utilities.tool.loremIpsum.empty": "Tocá Generar para crear un bloque nuevo de texto de relleno.",
-  "utilities.tool.loremIpsum.output.label": "Texto generado"
+  "utilities.tool.loremIpsum.output.label": "Texto generado",
+  "utilities.tool.svgToCss.titleLabel": "SVG a CSS",
+  "utilities.tool.svgToCss.label": "Abrir conversor de SVG a CSS",
+  "utilities.tool.svgToCss.description": "Convierte marcado SVG en un fragmento CSS background-image con data-URI.",
+  "utilities.tool.svgToCss.title": "Conversor de SVG a CSS",
+  "utilities.tool.svgToCss.panelDescription": "Pega el marcado SVG; copia un bloque CSS listo para usar respaldado por un data-URI en base64 o URL-encoded.",
+  "utilities.tool.svgToCss.mode.label": "Codificación",
+  "utilities.tool.svgToCss.mode.base64": "Base64",
+  "utilities.tool.svgToCss.mode.percent": "URL-encoded",
+  "utilities.tool.svgToCss.input.label": "Marcado SVG",
+  "utilities.tool.svgToCss.dataUri.label": "Data URI",
+  "utilities.tool.svgToCss.css.label": "Bloque CSS",
+  "utilities.tool.svgToCss.size.detected": "Tamaño detectado: {{width}} x {{height}}",
+  "utilities.tool.svgToCss.error.empty": "Pega marcado SVG arriba para ver el CSS resultante.",
+  "utilities.tool.svgToCss.error.notSvg": "La entrada no contiene un elemento <svg>.",
+  "utilities.tool.svgToCss.error.tooLarge": "El SVG supera el límite de {{limitKb}} KB para codificación en línea."
 }

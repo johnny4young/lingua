@@ -19,7 +19,8 @@ export type DeveloperUtilityId =
   | 'backslash-escape'
   | 'random-string'
   | 'base64-image'
-  | 'lorem-ipsum';
+  | 'lorem-ipsum'
+  | 'svg-to-css';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -198,6 +199,23 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.loremIpsum.label',
     descriptionKey: 'utilities.tool.loremIpsum.description',
     keywords: ['lorem', 'ipsum', 'placeholder', 'dummy', 'mock', 'copy', 'text', 'latin'],
+  },
+  {
+    id: 'svg-to-css',
+    titleKey: 'utilities.tool.svgToCss.titleLabel',
+    actionLabelKey: 'utilities.tool.svgToCss.label',
+    descriptionKey: 'utilities.tool.svgToCss.description',
+    keywords: [
+      'svg',
+      'css',
+      'background',
+      'background-image',
+      'data-uri',
+      'data-url',
+      'encode',
+      'image',
+      'icon',
+    ],
   },
 ] as const;
 
