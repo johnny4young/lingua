@@ -175,17 +175,209 @@ export function decodeUrlComponentValue(value: string): TransformResult {
   }
 }
 
+/**
+ * RL-071 — Hash Generator. Supports five plain digests (MD5, SHA-1/256/384/512)
+ * and HMAC variants for every SHA family member.
+ *
+ * - SHA digests route through `crypto.subtle.digest`, which is native in every
+ *   supported browser + Node 18+.
+ * - HMAC routes through `crypto.subtle.importKey` + `crypto.subtle.sign`. The
+ *   key is a UTF-8-encoded user string; HMAC-MD5 is intentionally rejected
+ *   (SubtleCrypto does not support it and modern protocols avoid it).
+ * - MD5 lazy-imports `spark-md5` (MIT/WTFPL) so the ~10 KB gz module only
+ *   lands in the DevUtils chunk when a user picks the MD5 algorithm.
+ *
+ * Inputs are always normalized to `ArrayBuffer` so text and file paths share
+ * the same code path downstream. The 50 MB cap protects the renderer from
+ * pathological file drops — SubtleCrypto has no streaming API, so we have to
+ * hold the whole buffer in memory.
+ */
+
+export type HashAlgorithm = 'MD5' | 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512';
+export type HashMode = 'plain' | 'hmac';
+
+export const HASH_ALGORITHMS = ['MD5', 'SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'] as const;
+export const HMAC_ALGORITHMS = ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'] as const;
+
+/** Maximum accepted input byte length (text or file). */
+export const HASH_FILE_MAX_BYTES = 50 * 1024 * 1024; // 50 MB
+export const HASH_FILE_MAX_MB = Math.round(HASH_FILE_MAX_BYTES / (1024 * 1024));
+
+export interface HashOptions {
+  readonly algorithm: HashAlgorithm;
+  readonly mode: HashMode;
+  /** UTF-8 key, required when `mode === 'hmac'`. */
+  readonly key?: string;
+}
+
+export type HashResult =
+  | {
+      ok: true;
+      hex: string;
+      algorithm: HashAlgorithm;
+      mode: HashMode;
+      /**
+       * Size of the *input* that was hashed (not the digest). For text this
+       * is the UTF-8 byte count; for file inputs this is `file.size`. The
+       * panel surfaces it as a "Hashed N bytes" status line so users can
+       * sanity-check the payload that went into the hash.
+       */
+      inputByteLength: number;
+    }
+  | {
+      ok: false;
+      errorKey: string;
+      /** Raw library or platform message for the panel to render in a secondary line. */
+      message?: string;
+    };
+
+/** Type of the dynamic `spark-md5` import. */
+interface SparkMd5Module {
+  default?: {
+    ArrayBuffer: { hash(buffer: ArrayBuffer): string };
+  };
+  ArrayBuffer?: { hash(buffer: ArrayBuffer): string };
+}
+
+export async function computeHash(
+  input: string | ArrayBuffer,
+  options: HashOptions
+): Promise<HashResult> {
+  const buffer = toArrayBuffer(input);
+
+  if (buffer.byteLength === 0) {
+    return { ok: false, errorKey: 'utilities.tool.hash.error.empty' };
+  }
+
+  if (buffer.byteLength > HASH_FILE_MAX_BYTES) {
+    return { ok: false, errorKey: 'utilities.tool.hash.error.fileTooLarge' };
+  }
+
+  if (options.mode === 'hmac') {
+    if (!options.key || options.key.length === 0) {
+      return { ok: false, errorKey: 'utilities.tool.hash.error.emptyKey' };
+    }
+    if (options.algorithm === 'MD5') {
+      return { ok: false, errorKey: 'utilities.tool.hash.error.unsupportedCombo' };
+    }
+    try {
+      const key = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(options.key),
+        { name: 'HMAC', hash: { name: options.algorithm } },
+        false,
+        ['sign']
+      );
+      const signature = await crypto.subtle.sign('HMAC', key, buffer);
+      return {
+        ok: true,
+        hex: bytesToHex(new Uint8Array(signature)),
+        algorithm: options.algorithm,
+        mode: 'hmac',
+        inputByteLength: buffer.byteLength,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        errorKey: 'utilities.tool.hash.error.execution',
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  // Plain MD5 — lazy-load spark-md5.
+  if (options.algorithm === 'MD5') {
+    let sparkModule: SparkMd5Module;
+    try {
+      sparkModule = (await import('spark-md5')) as unknown as SparkMd5Module;
+    } catch (error) {
+      return {
+        ok: false,
+        errorKey: 'utilities.tool.hash.error.loadFailure',
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+    const sparkApi = sparkModule.default?.ArrayBuffer ?? sparkModule.ArrayBuffer;
+    if (!sparkApi || typeof sparkApi.hash !== 'function') {
+      return {
+        ok: false,
+        errorKey: 'utilities.tool.hash.error.loadFailure',
+        message: 'spark-md5 module did not expose an ArrayBuffer.hash entry point',
+      };
+    }
+    try {
+      const hex = sparkApi.hash(buffer);
+      return {
+        ok: true,
+        hex,
+        algorithm: 'MD5',
+        mode: 'plain',
+        inputByteLength: buffer.byteLength,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        errorKey: 'utilities.tool.hash.error.execution',
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  // Plain SHA family via SubtleCrypto.
+  try {
+    const digest = await crypto.subtle.digest(options.algorithm, buffer);
+    return {
+      ok: true,
+      hex: bytesToHex(new Uint8Array(digest)),
+      algorithm: options.algorithm,
+      mode: 'plain',
+      inputByteLength: buffer.byteLength,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      errorKey: 'utilities.tool.hash.error.execution',
+      message: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function toArrayBuffer(input: string | ArrayBuffer): ArrayBuffer {
+  if (typeof input === 'string') {
+    // `TextEncoder.encode` returns a `Uint8Array` whose `.buffer` may be a
+    // `SharedArrayBuffer` in theory; force a fresh copy to guarantee a real
+    // `ArrayBuffer` for every downstream API (spark-md5 + SubtleCrypto both
+    // require it).
+    const bytes = new TextEncoder().encode(input);
+    const copy = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(copy).set(bytes);
+    return copy;
+  }
+  return input;
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  let hex = '';
+  for (const byte of bytes) {
+    hex += byte.toString(16).padStart(2, '0');
+  }
+  return hex;
+}
+
+/**
+ * Thin text-to-hex wrapper retained for historical parity with the pre-RL-071
+ * API. Routes through `computeHash` and throws on error to preserve the old
+ * signature (pre-tagged-union callers).
+ */
 export async function hashText(
   value: string,
-  algorithm: 'SHA-1' | 'SHA-256'
+  algorithm: 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512'
 ): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    algorithm,
-    new TextEncoder().encode(value)
-  );
-  return Array.from(new Uint8Array(digest), (byte) =>
-    byte.toString(16).padStart(2, '0')
-  ).join('');
+  const result = await computeHash(value, { algorithm, mode: 'plain' });
+  if (!result.ok) {
+    throw new Error(result.message ?? result.errorKey);
+  }
+  return result.hex;
 }
 
 export function generateUuid(): string {

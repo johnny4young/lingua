@@ -21,6 +21,7 @@ The format follows Keep a Changelog and groups changes by release.
 - **Beautify / Minify expansion** (Developer Utilities): The panel now covers JSON, JavaScript, HTML, CSS, SCSS, LESS, and XML. JavaScript minify uses a real ECMAScript minifier, while markup and stylesheet modes preserve raw text, strings, URLs, CDATA, and other sensitive content.
 - **SVG to CSS converter** (Developer Utilities): Paste SVG markup and copy either a Base64 or URL-encoded data-URI plus a ready-to-use CSS `background-image` block, with detected size hints when the SVG exposes safe dimensions.
 - **Cron Parser** (Developer Utilities): Explain cron expressions in plain language and list the next scheduled run times from your machine clock, with English and Spanish descriptions plus a configurable upcoming-runs count.
+- **Hash Generator closeout** (Developer Utilities): Adds MD5 via a lazy-loaded spark-md5 chunk, SHA-384, SHA-512, HMAC over the full SHA family, plus a drag-drop file input so local payloads up to 50 MB can be hashed without ever leaving the device.
 
 ## [0.2.0] — 2026-04-21
 

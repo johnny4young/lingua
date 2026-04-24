@@ -2908,7 +2908,7 @@ does not pursue are marked `Skip`):
 | Base64 String Encode/Decode | ✅ RL-045 | — |
 | URL Encode/Decode | ✅ RL-045 | — |
 | UUID v4 Generator | ✅ RL-045 | RL-071 (add v7, ULID, decode) |
-| SHA-1 / SHA-256 Hash | ✅ RL-045 | RL-071 (add MD5, SHA-384, SHA-512, HMAC, file hashing) |
+| SHA-1 / SHA-256 Hash | ✅ RL-045 | ✅ RL-071 2026-04-24 (MD5, SHA-384, SHA-512, HMAC, file hashing) |
 | Unix Time Converter | ✅ RL-045 | — |
 | JWT Decoder | ✅ RL-045 | RL-071 (add verify + sign for HS/RS/ES/PS) |
 | RegExp Tester | ✅ RL-045 | — |
@@ -3123,8 +3123,8 @@ does not pursue are marked `Skip`):
 ### RL-071 Harden existing utilities to DevUtils parity
 
 - Priority: `P2`
-- Status: `Partial`
-- Readiness: `UUID v7/ULID, Diff word/char mode, JWT sign/verify for all 12 JWS families, and Base64 Image Encode/Decode shipped; regex replace and Hash additions remain planned`
+- Status: `Done`
+- Readiness: `All scope shipped — UUID v7/ULID, Diff word/char, JWT sign/verify across 12 JWS families, Base64 Image, regex replace, Hash Generator closeout (MD5, SHA-384/512, HMAC SHA family, file-drop) — archived to ROADMAP §6`
 - Why this matters:
   - Every existing utility (JWT, Hash, UUID, Diff, Base64) has a clear
     DevUtils counterpart that does more. Closing those gaps is cheaper
@@ -3165,6 +3165,11 @@ does not pursue are marked `Skip`):
 - 2026-04-23 fourth slice:
   - JWT RS384 and RS512 completed the RSA PKCS#1 family; the algorithm selector now exposes all 12 planned JWS families
   - `Base64 Image` landed with drag-drop image-file encoding to data-URI and pasted data-URI decode/preview, with MIME validation and encode/decode size caps so oversized payloads are rejected before preview
+- 2026-04-24 fifth slice:
+  - `Regex Tester` gained a Match / Replace mode toggle with live replaced-output pane, native-spec back-reference expansion (`$1` / `$<name>` / `$$`), plural-aware count summary, and a neutral zero-matches branch consistent with Match mode
+- 2026-04-24 sixth slice (closes RL-071):
+  - `Hash Generator` closed the full plan scope with MD5 (via lazy-loaded `spark-md5`), SHA-384, SHA-512, and HMAC over the full SHA family (HMAC-MD5 intentionally rejected), plus a drag-drop file input hashed in-renderer up to a 50 MB cap
+  - New `computeHash` tagged-union helper routes text and file inputs through the same `ArrayBuffer` pipeline; panel gains mode / input-source / algorithm selects with conditional HMAC-key field; cancelled-flag + generation-counter guards protect against stale promise and file-read races; library exception messages render in muted mono beneath translated error prefixes so ES users never see half-English banners
 
 ### RL-072 Specialty utilities — QR + String Inspector
 
