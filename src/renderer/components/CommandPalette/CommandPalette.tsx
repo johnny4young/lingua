@@ -138,7 +138,9 @@ export function CommandPalette({
   }, []);
 
   useEffect(() => {
-    const element = listRef.current?.children[selectedIndex] as HTMLElement | undefined;
+    const element = listRef.current?.querySelector<HTMLElement>(
+      `[data-result-index="${selectedIndex}"]`
+    );
     element?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 

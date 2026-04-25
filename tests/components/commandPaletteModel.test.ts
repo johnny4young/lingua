@@ -303,8 +303,9 @@ describe('buildCommandPaletteModel', () => {
     // beautify-minify, url-parser, string-case, html-entity,
     // string-inspector, qr-code, backslash-escape, random-string,
     // base64-image, lorem-ipsum, svg-to-css, cron-parser, html-to-jsx,
-    // and curl-to-code from RL-068 / RL-070 / RL-071 / RL-072 — now 25.
-    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(25);
+    // curl-to-code, plus the RL-068 closeout bundle (yaml-json,
+    // json-csv, markdown-preview, sql-formatter) — now 29.
+    expect(withUtilities.filter((c) => c.id.startsWith('action-developer-utility-'))).toHaveLength(29);
     expect(jsonAction?.label).toBe('Open JSON Formatter');
     expect(urlParserAction?.label).toBe('Open URL Parser');
     expect(urlParserAction?.description).toContain('scheme, host, path, query, and fragment');

@@ -442,6 +442,63 @@ test.describe('Developer utilities modal (Pro)', () => {
     await closeDeveloperUtilities(page);
   });
 
+  test('YAML and JSON converter renders a comment-loss notice and toggles direction', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^YAML and JSON/ }).click();
+
+    const output = page.getByTestId('yaml-json-output');
+    await expect(output).toHaveValue(/"name": "lingua"/);
+    await expect(page.getByTestId('yaml-json-comments-dropped')).toBeVisible();
+
+    await page.getByTestId('yaml-json-mode').selectOption('json-to-yaml');
+    await expect(output).toHaveValue(/name: lingua/);
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('JSON and CSV converter dumps a header row by default and parses CSV back', async ({
+    page,
+  }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^JSON and CSV/ }).click();
+
+    const output = page.getByTestId('json-csv-output');
+    await expect(output).toHaveValue(/^name,score\nAlice,92/);
+    await expect(page.getByTestId('json-csv-summary')).toContainText('3 rows');
+
+    await page.getByTestId('json-csv-mode').selectOption('csv-to-json');
+    await expect(output).toHaveValue(/"name": "Alice"/);
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('Markdown Preview emits sanitized HTML for the seeded source', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^Markdown Preview/ }).click();
+
+    const html = page.getByTestId('markdown-preview-html');
+    await expect(html).toHaveValue(/<h1>Hello, Lingua<\/h1>/);
+    await expect(html).toHaveValue(/<strong>Markdown Preview<\/strong>/);
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('SQL Formatter formats a SELECT and switches keyword case', async ({ page }) => {
+    await openDeveloperUtilities(page);
+    await page.getByRole('button', { name: /^SQL Formatter/ }).click();
+
+    const output = page.getByTestId('sql-formatter-output');
+    await expect(output).toHaveValue(/SELECT/);
+    await expect(output).toHaveValue(/FROM/);
+
+    await page.getByTestId('sql-formatter-keyword-case').selectOption('lower');
+    await expect(output).toHaveValue(/^select/);
+
+    await closeDeveloperUtilities(page);
+  });
+
   test('Lorem Ipsum Generator mints 3 paragraphs opening with the canonical phrase', async ({
     page,
   }) => {

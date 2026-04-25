@@ -24,6 +24,10 @@ The format follows Keep a Changelog and groups changes by release.
 - **Hash Generator closeout** (Developer Utilities): Adds MD5 via a lazy-loaded spark-md5 chunk, SHA-384, SHA-512, HMAC over the full SHA family, plus a drag-drop file input so local payloads up to 50 MB can be hashed without ever leaving the device.
 - **HTML to JSX converter** (Developer Utilities): Paste HTML markup and copy valid JSX with React-compatible attribute names, self-closing void elements, inline styles translated to object literals, HTML comments converted to JSX comments, and multi-root inputs optionally wrapped in a fragment.
 - **cURL to Code converter** (Developer Utilities): Paste common cURL commands and generate equivalent code for fetch (browser), undici (Node), Python requests, or Go net/http. Headers, methods, inline bodies, basic auth, and cookies all carry over; file-backed bodies get a clear error, and unknown flags surface as inline warnings instead of hard failures.
+- **YAML and JSON converter** (Developer Utilities): Convert between YAML and JSON with a 2 / 4-space indent toggle. A diagnostic flags when YAML comments are dropped at the JSON boundary; quoted-scalar `#` characters are correctly preserved.
+- **JSON and CSV converter** (Developer Utilities): RFC 4180-compliant CSV ↔ JSON-array converter with configurable delimiter (comma, tab, semicolon, pipe), header-row toggle, sparse-row support, and full quoted-field handling for embedded delimiters and newlines.
+- **Markdown Preview** (Developer Utilities): Render Markdown to a sanitized HTML preview locally — DOMPurify backstops the sanitization and remote `<img src="…">` attributes are stripped before rendering so nothing leaves the renderer.
+- **SQL Formatter** (Developer Utilities): Format SQL with ANSI standard, PostgreSQL, or MySQL dialect rules. Configurable indent (2 / 4 spaces) and keyword case (preserve / UPPERCASE / lowercase).
 
 ## [0.2.0] — 2026-04-21
 

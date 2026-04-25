@@ -118,7 +118,9 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
   }, []);
 
   useEffect(() => {
-    const element = listRef.current?.children[selectedIndex] as HTMLElement | undefined;
+    const element = listRef.current?.querySelector<HTMLElement>(
+      `[data-result-index="${selectedIndex}"]`
+    );
     element?.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 
@@ -179,46 +181,25 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
 
         <div ref={listRef} className="max-h-80 overflow-y-auto px-2 py-2">
           {filtered.length === 0 ? (
-            <p className="px-4 py-10 text-center text-sm text-muted">
-              {allFiles.length === 0
-                ? t('quickOpen.empty.noProject')
-                : t('quickOpen.empty.noMatch', { query })}
-            </p>
+            <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+              <p className="text-sm text-muted">
+                {allFiles.length === 0
+                  ? t('quickOpen.empty.noProject')
+                  : t('quickOpen.empty.noMatch', { query })}
+              </p>
+              {allFiles.length === 0 && (
+                <p className="text-xs text-muted/80">
+                  {t('quickOpen.empty.noProject.hint')}
+                </p>
+              )}
+              {allFiles.length > 0 && (
+                <p className="text-xs text-muted/80">
+                  {t('quickOpen.empty.noMatch.hint')}
+                </p>
+              )}
+            </div>
           ) : (
-            filtered.map((file, index) => (
-              <button
-                key={file.path}
-                onClick={() => void select(file)}
-                onMouseEnter={() => setSelectedIndex(index)}
-                className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors ${
-                  index === selectedIndex
-                    ? 'bg-primary-soft'
-                    : 'hover:bg-surface-strong/68'
-                }`}
-              >
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate text-sm font-medium text-foreground">{file.name}</span>
-                  {file.path !== file.name && (
-                    <span className="truncate text-xs text-muted">{file.path}</span>
-                  )}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {file.source === 'open-tab' && (
-                    <span className="status-pill">{t('quickOpen.badge.open')}</span>
-                  )}
-                  {file.source === 'recent' && (
-                    <span className="status-pill">{t('quickOpen.badge.recent')}</span>
-                  )}
-                  {file.language && (
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${languageBadgeClass(file.language)}`}
-                    >
-                      {file.language}
-                    </span>
-                  )}
-                </div>
-              </button>
-            ))
+            renderQuickOpenResults(filtered, query, selectedIndex, setSelectedIndex, select, t)
           )}
         </div>
 
@@ -236,4 +217,101 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
       </OverlayCard>
     </OverlayBackdrop>
   );
+}
+
+/**
+ * Section order for the empty-query overview. Open tabs first because
+ * the user is most likely jumping back to something already on screen,
+ * recent files second for "what I touched yesterday", project tail
+ * last as the catalog. On any non-empty query the renderer flattens to
+ * a single ranked list so search results are not split across sections.
+ */
+const QUICK_OPEN_SECTION_ORDER: readonly FileResult['source'][] = [
+  'open-tab',
+  'recent',
+  'project',
+];
+
+const QUICK_OPEN_SECTION_LABEL_KEY: Record<FileResult['source'], string> = {
+  'open-tab': 'quickOpen.scope.openTabs',
+  recent: 'quickOpen.scope.recent',
+  project: 'quickOpen.scope.project',
+};
+
+function renderQuickOpenResults(
+  filtered: FileResult[],
+  query: string,
+  selectedIndex: number,
+  setSelectedIndex: (index: number) => void,
+  select: (file: FileResult) => Promise<void>,
+  t: (key: string, options?: Record<string, unknown>) => string
+) {
+  const isEmptyQuery = query.trim().length === 0;
+  const renderRow = (file: FileResult, index: number) => (
+    <button
+      key={file.path}
+      onClick={() => void select(file)}
+      onMouseEnter={() => setSelectedIndex(index)}
+      data-result-index={index}
+      className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors ${
+        index === selectedIndex
+          ? 'bg-primary-soft'
+          : 'hover:bg-surface-strong/68'
+      }`}
+    >
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium text-foreground">{file.name}</span>
+        {file.path !== file.name && (
+          <span className="truncate text-xs text-muted">{file.path}</span>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {file.source === 'open-tab' && (
+          <span className="status-pill">{t('quickOpen.badge.open')}</span>
+        )}
+        {file.source === 'recent' && (
+          <span className="status-pill">{t('quickOpen.badge.recent')}</span>
+        )}
+        {file.language && (
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] ${languageBadgeClass(file.language)}`}
+          >
+            {file.language}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+
+  if (!isEmptyQuery) {
+    return filtered.map((file, index) => renderRow(file, index));
+  }
+
+  // Bucket while preserving original index so keyboard navigation
+  // (which steps through `filtered` linearly) keeps highlighting the
+  // right entry — sections are a render-time concern only, not a
+  // data restructure.
+  const buckets: Record<FileResult['source'], Array<{ file: FileResult; index: number }>> = {
+    'open-tab': [],
+    recent: [],
+    project: [],
+  };
+  filtered.forEach((file, index) => {
+    buckets[file.source].push({ file, index });
+  });
+
+  return QUICK_OPEN_SECTION_ORDER.flatMap((source) => {
+    const bucket = buckets[source];
+    if (bucket.length === 0) return [];
+    return [
+      <p
+        key={`section-${source}`}
+        className="panel-title px-3 pt-3 pb-1.5"
+        role="presentation"
+      >
+        {t(QUICK_OPEN_SECTION_LABEL_KEY[source])}
+      </p>,
+      ...bucket.map(({ file, index }) => renderRow(file, index)),
+    ];
+  });
 }
