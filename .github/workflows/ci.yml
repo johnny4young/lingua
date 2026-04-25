@@ -70,6 +70,18 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  windows-path-hardening:
+    name: Windows path hardening
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test -- tests/ipc/permissions.test.ts
+
   audit:
     name: Security audit
     runs-on: ubuntu-latest
