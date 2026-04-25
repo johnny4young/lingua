@@ -16,7 +16,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { chmod, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export type ConsentValue = 'granted' | 'declined' | 'unset';
@@ -40,7 +40,14 @@ export async function writeConsentMirror(
   }
   const tmp = `${mirrorPath}.${process.pid}.tmp`;
   const payload = JSON.stringify({ telemetryConsent: value, writtenAt: Date.now() }) + '\n';
-  await writeFile(tmp, payload, { encoding: 'utf-8' });
+  await writeFile(tmp, payload, { encoding: 'utf-8', mode: 0o600 });
+  // Mode in `writeFile` is honoured only when the file is created. Re-apply
+  // it so an existing tmp left over from a crashed write inherits the
+  // restrictive permissions. Skip on win32 — `chmod` there only toggles the
+  // read-only bit and produces a no-op warning.
+  if (process.platform !== 'win32') {
+    await chmod(tmp, 0o600);
+  }
   // `rename` is atomic within a single filesystem on POSIX. On Windows it's
   // atomic when overwriting an existing file; non-existing target is a
   // regular create which cannot race with a second reader because readers

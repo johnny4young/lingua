@@ -42,6 +42,22 @@ describe('isPathBlocked', () => {
     expect(isPathBlocked('/tmp/myproject/main.go', 'write')).toBe(false);
     expect(isPathBlocked('/tmp/myproject/main.go', 'delete')).toBe(false);
   });
+
+  it.runIf(process.platform === 'win32')(
+    'matches Windows blocks case-insensitively',
+    () => {
+      expect(isPathBlocked('c:\\windows\\system32', 'write')).toBe(true);
+      expect(isPathBlocked('C:\\WINDOWS\\System32', 'delete')).toBe(true);
+    }
+  );
+
+  it.runIf(process.platform === 'win32')(
+    'rejects Windows device-namespace and UNC prefixes that would skip the block',
+    () => {
+      expect(isPathBlocked('\\\\?\\C:\\Windows\\System32', 'write')).toBe(true);
+      expect(isPathBlocked('\\\\.\\C:\\Windows\\System32', 'delete')).toBe(true);
+    }
+  );
 });
 
 describe('isPathWithinProject', () => {
