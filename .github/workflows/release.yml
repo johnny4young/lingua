@@ -340,13 +340,6 @@ jobs:
           ref: ${{ env.RELEASE_REF }}
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - run: npm ci
-
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -378,11 +371,53 @@ jobs:
             echo "- Generated: \`out/make/SHA256SUMS.txt\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish to GitHub Releases
-        run: npm run publish:desktop
+      - name: Collect release assets
+        id: collect
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find out/make -type f \( \
+              -name '*.zip' -o -name '*.exe' -o -name '*.deb' \
+              -o -name '*.rpm' -o -name '*.nupkg' \
+              -o -name 'RELEASES' -o -name 'SHA256SUMS.txt' \
+            \) | sort)
+
+          if (( ${#assets[@]} == 0 )); then
+            echo "::error::No release assets matched the expected patterns under out/make"
+            exit 1
+          fi
+
+          {
+            echo "### Release assets"
+            for asset in "${assets[@]}"; do
+              printf -- '- `%s`\n' "$asset"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          {
+            echo 'assets<<__LINGUA_ASSETS__'
+            printf '%s\n' "${assets[@]}"
+            echo '__LINGUA_ASSETS__'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish draft GitHub Release
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-          GITHUB_REF: ${{ env.RELEASE_REF }}
-          GITHUB_REF_NAME: ${{ env.RELEASE_TAG }}
-          GITHUB_REF_TYPE: tag
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ASSETS: ${{ steps.collect.outputs.assets }}
+        run: |
+          set -euo pipefail
+          mapfile -t assets <<< "$ASSETS"
+
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_TAG} already exists — uploading assets in place."
+            gh release upload "${RELEASE_TAG}" --clobber "${assets[@]}"
+          else
+            gh release create "${RELEASE_TAG}" \
+              --target main \
+              --title "${RELEASE_TAG}" \
+              --draft \
+              --notes "Draft release for ${RELEASE_TAG}. Run the human checklist in RELEASE.md before promoting." \
+              "${assets[@]}"
+          fi
