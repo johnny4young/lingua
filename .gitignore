@@ -6,6 +6,7 @@ out/
 dist/
 .vite/
 .playwright-cli/
+.playwright-mcp/
 Library/
 
 # Local artifacts
