@@ -2914,8 +2914,8 @@ does not pursue are marked `Skip`):
 | RegExp Tester | ✅ RL-045 | — |
 | Color Converter | ✅ RL-045 | — |
 | Line Diff Checker | ✅ RL-045 (line-level only) | RL-071 (word + character modes) |
-| YAML ↔ JSON | ❌ | RL-068 |
-| JSON ↔ CSV | ❌ | RL-068 |
+| YAML ↔ JSON | ✅ 2026-04-24 | RL-068 |
+| JSON ↔ CSV | ✅ 2026-04-24 | RL-068 |
 | Number Base Converter | ✅ 2026-04-21 | RL-068 |
 | URL Parser | ✅ 2026-04-22 | RL-068 |
 | HTML Entity Encode/Decode | ✅ 2026-04-22 | RL-068 |
@@ -2924,8 +2924,8 @@ does not pursue are marked `Skip`):
 | Lorem Ipsum Generator | ✅ 2026-04-24 | RL-068 |
 | Random String Generator | ✅ 2026-04-23 | RL-068 |
 | Cron Job Parser | ✅ 2026-04-24 | RL-068 |
-| Markdown Preview | ❌ | RL-068 |
-| SQL Formatter | ❌ | RL-068 |
+| Markdown Preview | ✅ 2026-04-24 | RL-068 |
+| SQL Formatter | ✅ 2026-04-24 | RL-068 |
 | HTML / CSS / JS / XML / SCSS / LESS Beautify + Minify | ✅ 2026-04-23 | RL-070 |
 | HTML → JSX | ✅ 2026-04-24 | RL-070 |
 | SVG → CSS | ✅ 2026-04-24 | RL-070 |
@@ -2961,8 +2961,8 @@ does not pursue are marked `Skip`):
 ### RL-068 Expand developer utilities with DevUtils-equivalent coverage
 
 - Priority: `P2`
-- Status: `Partial`
-- Readiness: `Number Base, URL Parser, String Case, HTML Entity, Backslash Escape/Unescape, Random String Generator, Lorem Ipsum Generator, and Cron Parser shipped; YAML↔JSON, JSON↔CSV, Markdown Preview, and SQL Formatter remain planned`
+- Status: `Done`
+- Readiness: `All scope shipped — Number Base, URL Parser, String Case, HTML Entity, Backslash Escape/Unescape, Random String Generator, Lorem Ipsum, Cron Parser, plus the YAML↔JSON / JSON↔CSV / Markdown Preview / SQL Formatter closeout — archived to ROADMAP §6`
 - Why this matters:
   - DevUtils ships 40+ tools; Lingua ships 10. Closing the practical
     subset (YAML/JSON, CSV/JSON, number base, URL parser, HTML entity,
@@ -3022,6 +3022,13 @@ does not pursue are marked `Skip`):
   - `Cron Parser` landed with a pure renderer-side panel that lazy-loads `cron-parser` for validation / upcoming-run enumeration and `cronstrue`'s i18n bundle for human-readable EN + ES explanations
   - The helper supports 5-field expressions, 6-field expressions with seconds, nicknames such as `@daily`, list/range/step syntax, and a configurable next-run count clamped to 1-100
   - The panel ships en + es copy, utility catalog registration, command palette count coverage, helper/component tests, and Playwright smoke coverage in the Developer Utilities workspace
+- 2026-04-24 sixth slice (closes RL-068):
+  - `YAML ↔ JSON`, `JSON ↔ CSV`, `Markdown Preview`, and `SQL Formatter` landed as four new lazy-loaded panels covering the full remaining DevUtils-parity surface
+  - YAML uses the already-bundled `js-yaml` (zero new deps); the comment-detection pre-pass respects YAML's `''` apostrophe escape inside single-quoted scalars so the panel only flags genuine comment loss
+  - JSON ↔ CSV is deps-free, RFC 4180-compliant with configurable delimiter (`,` / `\t` / `;` / `|`), header-row toggle, sparse-row tolerance, and detailed row+column metadata
+  - Markdown Preview lazy-loads `marked` + `dompurify`, strips remote `<img src="...">` via regex pre-pass plus a DOMPurify FORBID_ATTR backstop, and ships the sanitized HTML output via a read-only textarea (no inline iframe preview — the iframe approach produced spurious sandbox console warnings)
+  - SQL Formatter wraps `sql-formatter` for ANSI / PostgreSQL / MySQL dialects with indent and keyword-case toggles
+  - Catalog count bumped 25 → 29; 67 new i18n keys per locale in tuteo; coverage spans 53 unit cases, 10 component cases, and 4 Playwright round-trips
 
 ### RL-069 DevUtils-class productivity layer for the utilities workspace
 
@@ -3283,6 +3290,83 @@ does not pursue are marked `Skip`):
     new palette (strings in `#047857`, variables in `#1e293b`), shell
     auto-flipped to light via `syncShellWithEditorTheme`, and
     `browser_console_messages({ level: 'error' })` remained 0.
+
+### RL-074 Group Command Palette and Quick Open by scope on the empty-query overview
+
+- Priority: `P2`
+- Status: `Done`
+- Why this matters:
+  - Both palettes shipped as flat lists, ignoring the `category` /
+    `source` field they already carried in their data layer. The user
+    facing the empty palette saw a wall of unsorted entries — actions
+    interleaved with templates, snippets, and recent runs in the
+    Command Palette; open tabs jumbled with project files and
+    recents in Quick Open.
+  - The Lingua Variations artboard had pinned a Linear/Raycast-style
+    grouped overview as the design intent for both surfaces from
+    Ronda 2 onwards. Implementing it closes a long-standing
+    artboard-vs-code drift without touching the data model.
+  - The empty-state copy was a single muted line. The redesign added
+    a hint that points users at an alternative scope or a Cmd+P
+    jump, so a zero-match query stops being a dead end.
+- Scope:
+  - Add a grouped render path to
+    `src/renderer/components/CommandPalette/CommandPaletteResults.tsx`
+    that buckets entries by `CommandCategory` (`action`, `template`,
+    `snippet`) under eyebrow section headers when the query is empty,
+    and falls back to the existing flat ranked list on any non-empty
+    query so search ranking is not split across sections.
+  - Add equivalent grouping inline in
+    `src/renderer/components/QuickOpen/QuickOpen.tsx`: bucket
+    `FileResult` entries by `source` (`open-tab`, `recent`,
+    `project`) under section headers when the query is empty,
+    flatten on any query.
+  - Section ordering picked to match Lingua usage patterns:
+    - Command Palette: Actions first, Templates, Snippets last.
+    - Quick Open: Open tabs first, Recents, Project files last.
+  - Empty-state copy gains a hint line in both palettes. Empty
+    buckets stay collapsed (a section with zero entries does not
+    render its eyebrow header).
+  - Bilingüe es/en: 7 new i18n keys plus the noProject hint.
+    Spanish copy follows the tuteo rule from CLAUDE.md.
+- Acceptance criteria:
+  - When the search input is empty, both palettes render at least
+    one eyebrow scope header above their entries.
+  - When the user types any query, both palettes render a flat
+    list with zero scope headers.
+  - Sections with no entries do not render their header.
+  - Keyboard navigation still steps through entries linearly,
+    ignoring section headers.
+  - Existing tests continue to pass; new tests pin the grouping
+    behavior.
+- Out of scope (tracked in `docs/BACKLOG.md`):
+  - Inline keyboard-shortcut display next to commands that have a
+    global shortcut.
+  - Splitting recent-runs into its own scope distinct from
+    `action`.
+- Dependencies:
+  - None. Pure renderer-layer change.
+- 2026-04-25 shipped:
+  - `CommandPaletteResults.tsx` refactored: extracted `renderEntry`
+    and `renderGrouped` helpers; the empty-query branch buckets
+    entries while preserving the original flat-list index so
+    `↑↓` navigation keeps working.
+  - `QuickOpen.tsx` gains an inline `renderQuickOpenResults`
+    helper with the same pattern (open-tab / recent / project).
+  - 7 new i18n keys land in
+    `src/renderer/i18n/locales/{en,es}/common.json`, plus the
+    noProject hint.
+  - 5 new tests across `tests/components/CommandPalette.test.tsx`
+    and `tests/components/QuickOpen.test.tsx` pin grouping,
+    flatten-on-query, empty-bucket suppression, and the
+    empty-match hint.
+  - Live smoke via Playwright MCP on `npm run preview:web`:
+    Cmd+Shift+P empty query showed `Acciones` + `Plantillas`
+    eyebrows; typing `layout` flattened to 3 ranked results;
+    `zzzzzzzznada` rendered the empty copy plus the
+    "Prueba Cmd+P…" hint; Cmd+P showed `Pestañas abiertas`
+    eyebrow; `browser_console_messages({ level: 'error' })`
+    remained 0 across the flow.
 
 ---
 

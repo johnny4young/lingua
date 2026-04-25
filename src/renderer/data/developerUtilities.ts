@@ -23,7 +23,11 @@ export type DeveloperUtilityId =
   | 'svg-to-css'
   | 'cron-parser'
   | 'html-to-jsx'
-  | 'curl-to-code';
+  | 'curl-to-code'
+  | 'yaml-json'
+  | 'json-csv'
+  | 'markdown-preview'
+  | 'sql-formatter';
 
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
@@ -263,6 +267,34 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'go',
       'javascript',
     ],
+  },
+  {
+    id: 'yaml-json',
+    titleKey: 'utilities.tool.yamlJson.titleLabel',
+    actionLabelKey: 'utilities.tool.yamlJson.label',
+    descriptionKey: 'utilities.tool.yamlJson.description',
+    keywords: ['yaml', 'json', 'convert', 'parse', 'dump', 'serialize', 'config'],
+  },
+  {
+    id: 'json-csv',
+    titleKey: 'utilities.tool.jsonCsv.titleLabel',
+    actionLabelKey: 'utilities.tool.jsonCsv.label',
+    descriptionKey: 'utilities.tool.jsonCsv.description',
+    keywords: ['json', 'csv', 'convert', 'tsv', 'export', 'spreadsheet', 'rfc-4180'],
+  },
+  {
+    id: 'markdown-preview',
+    titleKey: 'utilities.tool.markdownPreview.titleLabel',
+    actionLabelKey: 'utilities.tool.markdownPreview.label',
+    descriptionKey: 'utilities.tool.markdownPreview.description',
+    keywords: ['markdown', 'md', 'preview', 'gfm', 'render', 'docs', 'readme'],
+  },
+  {
+    id: 'sql-formatter',
+    titleKey: 'utilities.tool.sqlFormatter.titleLabel',
+    actionLabelKey: 'utilities.tool.sqlFormatter.label',
+    descriptionKey: 'utilities.tool.sqlFormatter.description',
+    keywords: ['sql', 'format', 'beautify', 'mysql', 'postgresql', 'ansi', 'database'],
   },
 ] as const;
 

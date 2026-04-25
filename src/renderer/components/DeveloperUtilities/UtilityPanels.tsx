@@ -118,6 +118,36 @@ import {
   type ConvertCurlResult,
   type CurlTarget,
 } from '../../utils/curlToCode';
+import {
+  YAML_JSON_INDENTS,
+  convertJsonToYaml,
+  convertYamlToJson,
+  type JsonToYamlResult,
+  type YamlJsonIndent,
+  type YamlToJsonResult,
+} from '../../utils/yamlJson';
+import {
+  JSON_CSV_DELIMITERS,
+  JSON_CSV_MAX_KB,
+  convertCsvToJson,
+  convertJsonToCsv,
+  type CsvToJsonResult,
+  type JsonCsvDelimiter,
+  type JsonToCsvResult,
+} from '../../utils/jsonCsv';
+import {
+  MARKDOWN_PREVIEW_MAX_KB,
+  renderMarkdownPreview,
+  type MarkdownPreviewResult,
+} from '../../utils/markdownPreview';
+import {
+  SQL_DIALECTS,
+  SQL_FORMATTER_MAX_KB,
+  formatSql,
+  type FormatSqlResult,
+  type SqlDialect,
+  type SqlFormatOptions,
+} from '../../utils/sqlFormatter';
 
 function PanelSection({
   title,
@@ -3837,6 +3867,543 @@ function CurlToCodePanel() {
   );
 }
 
+type YamlJsonMode = 'yaml-to-json' | 'json-to-yaml';
+
+const DEFAULT_YAML_SAMPLE = `name: lingua
+version: 0.2.1
+services:
+  - editor
+  - runner
+# a comment`;
+
+const DEFAULT_JSON_SAMPLE = `{
+  "name": "lingua",
+  "version": "0.2.1",
+  "services": ["editor", "runner"]
+}`;
+
+function YamlJsonPanel() {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<YamlJsonMode>('yaml-to-json');
+  const [indent, setIndent] = useState<YamlJsonIndent>(2);
+  const [yamlInput, setYamlInput] = useState(DEFAULT_YAML_SAMPLE);
+  const [jsonInput, setJsonInput] = useState(DEFAULT_JSON_SAMPLE);
+
+  const yamlResult: YamlToJsonResult = useMemo(
+    () => convertYamlToJson(yamlInput, { indent }),
+    [yamlInput, indent]
+  );
+  const jsonResult: JsonToYamlResult = useMemo(
+    () => convertJsonToYaml(jsonInput, { indent }),
+    [jsonInput, indent]
+  );
+
+  const isYamlToJson = mode === 'yaml-to-json';
+  const input = isYamlToJson ? yamlInput : jsonInput;
+  const setInput = isYamlToJson ? setYamlInput : setJsonInput;
+  const result = isYamlToJson ? yamlResult : jsonResult;
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <PanelSection
+        title={t('utilities.tool.yamlJson.title')}
+        description={t('utilities.tool.yamlJson.panelDescription')}
+      >
+        <div className="grid gap-2 md:grid-cols-2">
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.yamlJson.mode.label')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.yamlJson.mode.label')}
+              data-testid="yaml-json-mode"
+              value={mode}
+              onChange={(event) => setMode(event.target.value as YamlJsonMode)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              <option value="yaml-to-json">{t('utilities.tool.yamlJson.mode.yamlToJson')}</option>
+              <option value="json-to-yaml">{t('utilities.tool.yamlJson.mode.jsonToYaml')}</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.yamlJson.indent.label')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.yamlJson.indent.label')}
+              data-testid="yaml-json-indent"
+              value={indent}
+              onChange={(event) => setIndent(Number(event.target.value) as YamlJsonIndent)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              {YAML_JSON_INDENTS.map((value) => (
+                <option key={value} value={value}>
+                  {value === 2
+                    ? t('utilities.tool.yamlJson.indent.two')
+                    : t('utilities.tool.yamlJson.indent.four')}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.yamlJson.input.label')}</FieldLabel>
+          <UtilityTextarea
+            aria-label={t('utilities.tool.yamlJson.input.label')}
+            data-testid="yaml-json-input"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+            className="min-h-[14rem] font-mono"
+          />
+        </div>
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.tool.yamlJson.output.label')}
+        description={t('utilities.status.live')}
+      >
+        {!result.ok ? (
+          <StatusMessage
+            message={t(result.errorKey)}
+            tone={result.errorKey === 'utilities.tool.yamlJson.error.empty' ? 'muted' : 'error'}
+            testid="yaml-json-error"
+          />
+        ) : (
+          <div className="grid gap-2">
+            {isYamlToJson && (yamlResult as { hadComments?: boolean }).hadComments ? (
+              <StatusMessage
+                tone="warning"
+                testid="yaml-json-comments-dropped"
+                message={t('utilities.tool.yamlJson.commentsDropped')}
+              />
+            ) : null}
+            <div className="relative">
+              <UtilityTextarea
+                aria-label={t('utilities.tool.yamlJson.output.label')}
+                data-testid="yaml-json-output"
+                value={result.output}
+                readOnly
+                spellCheck={false}
+                className="pr-10 min-h-[14rem] font-mono"
+              />
+              <div className="absolute right-2 top-2">
+                <CopyButton
+                  value={result.output}
+                  testid="yaml-json-output-copy"
+                  disabled={!result.output}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </PanelSection>
+    </div>
+  );
+}
+
+type JsonCsvMode = 'json-to-csv' | 'csv-to-json';
+
+const DEFAULT_JSON_CSV_JSON_SAMPLE = `[
+  {"name": "Alice", "score": 92},
+  {"name": "Bob", "score": 87},
+  {"name": "Carol", "score": 78}
+]`;
+
+const DEFAULT_JSON_CSV_CSV_SAMPLE = `name,score\nAlice,92\nBob,87\nCarol,78`;
+
+const JSON_CSV_DELIMITER_KEYS: Record<JsonCsvDelimiter, string> = {
+  ',': 'utilities.tool.jsonCsv.delimiter.comma',
+  '\t': 'utilities.tool.jsonCsv.delimiter.tab',
+  ';': 'utilities.tool.jsonCsv.delimiter.semicolon',
+  '|': 'utilities.tool.jsonCsv.delimiter.pipe',
+};
+
+function JsonCsvPanel() {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<JsonCsvMode>('json-to-csv');
+  const [delimiter, setDelimiter] = useState<JsonCsvDelimiter>(',');
+  const [includeHeader, setIncludeHeader] = useState(true);
+  const [jsonInput, setJsonInput] = useState(DEFAULT_JSON_CSV_JSON_SAMPLE);
+  const [csvInput, setCsvInput] = useState(DEFAULT_JSON_CSV_CSV_SAMPLE);
+
+  const jsonResult: JsonToCsvResult = useMemo(
+    () => convertJsonToCsv(jsonInput, { delimiter, includeHeader }),
+    [jsonInput, delimiter, includeHeader]
+  );
+  const csvResult: CsvToJsonResult = useMemo(
+    () => convertCsvToJson(csvInput, { delimiter, includeHeader }),
+    [csvInput, delimiter, includeHeader]
+  );
+
+  const isJsonToCsv = mode === 'json-to-csv';
+  const input = isJsonToCsv ? jsonInput : csvInput;
+  const setInput = isJsonToCsv ? setJsonInput : setCsvInput;
+  const result = isJsonToCsv ? jsonResult : csvResult;
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <PanelSection
+        title={t('utilities.tool.jsonCsv.title')}
+        description={t('utilities.tool.jsonCsv.panelDescription')}
+      >
+        <div className="grid gap-2 md:grid-cols-2">
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.jsonCsv.mode.label')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.jsonCsv.mode.label')}
+              data-testid="json-csv-mode"
+              value={mode}
+              onChange={(event) => setMode(event.target.value as JsonCsvMode)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              <option value="json-to-csv">{t('utilities.tool.jsonCsv.mode.jsonToCsv')}</option>
+              <option value="csv-to-json">{t('utilities.tool.jsonCsv.mode.csvToJson')}</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.jsonCsv.delimiter.label')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.jsonCsv.delimiter.label')}
+              data-testid="json-csv-delimiter"
+              value={delimiter}
+              onChange={(event) => setDelimiter(event.target.value as JsonCsvDelimiter)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              {JSON_CSV_DELIMITERS.map((value) => (
+                <option key={value} value={value}>
+                  {t(JSON_CSV_DELIMITER_KEYS[value])}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            data-testid="json-csv-header"
+            checked={includeHeader}
+            onChange={(event) => setIncludeHeader(event.target.checked)}
+          />
+          <span>{t('utilities.tool.jsonCsv.header.label')}</span>
+        </label>
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.jsonCsv.input.label')}</FieldLabel>
+          <UtilityTextarea
+            aria-label={t('utilities.tool.jsonCsv.input.label')}
+            data-testid="json-csv-input"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+            className="min-h-[14rem] font-mono"
+          />
+        </div>
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.tool.jsonCsv.output.label')}
+        description={t('utilities.status.live')}
+      >
+        {!result.ok ? (
+          <StatusMessage
+            message={t(result.errorKey, { limitKb: JSON_CSV_MAX_KB })}
+            tone={result.errorKey === 'utilities.tool.jsonCsv.error.empty' ? 'muted' : 'error'}
+            testid="json-csv-error"
+          />
+        ) : (
+          <div className="grid gap-2">
+            <StatusMessage
+              tone="muted"
+              testid="json-csv-summary"
+              message={t('utilities.tool.jsonCsv.summary', {
+                rows: result.rowCount,
+                columns: result.columnCount,
+              })}
+            />
+            <div className="relative">
+              <UtilityTextarea
+                aria-label={t('utilities.tool.jsonCsv.output.label')}
+                data-testid="json-csv-output"
+                value={result.output}
+                readOnly
+                spellCheck={false}
+                className="pr-10 min-h-[14rem] font-mono"
+              />
+              <div className="absolute right-2 top-2">
+                <CopyButton
+                  value={result.output}
+                  testid="json-csv-output-copy"
+                  disabled={!result.output}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </PanelSection>
+    </div>
+  );
+}
+
+const DEFAULT_MARKDOWN_SAMPLE = `# Hello, Lingua
+
+A **Markdown Preview** with [autolink](https://example.com) support.
+
+- task list
+
+  - [x] sanitized
+  - [ ] no remote fetch
+
+\`\`\`js
+console.log("hello");
+\`\`\`
+`;
+
+function MarkdownPreviewPanel() {
+  const { t } = useTranslation();
+  const [input, setInput] = useState(DEFAULT_MARKDOWN_SAMPLE);
+  const [gfm, setGfm] = useState(true);
+  const [result, setResult] = useState<MarkdownPreviewResult | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const next = await renderMarkdownPreview(input, { gfm });
+        if (!cancelled) setResult(next);
+      } catch (error) {
+        if (!cancelled) {
+          setResult({
+            ok: false,
+            errorKey: 'utilities.tool.markdownPreview.error.loadFailure',
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [input, gfm]);
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <PanelSection
+        title={t('utilities.tool.markdownPreview.title')}
+        description={t('utilities.tool.markdownPreview.panelDescription')}
+      >
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            data-testid="markdown-preview-gfm"
+            checked={gfm}
+            onChange={(event) => setGfm(event.target.checked)}
+          />
+          <span>{t('utilities.tool.markdownPreview.gfm.label')}</span>
+        </label>
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.markdownPreview.input.label')}</FieldLabel>
+          <UtilityTextarea
+            aria-label={t('utilities.tool.markdownPreview.input.label')}
+            data-testid="markdown-preview-input"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+            className="min-h-[18rem] font-mono"
+          />
+        </div>
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.tool.markdownPreview.preview.label')}
+        description={t('utilities.status.live')}
+      >
+        {result === null ? (
+          <StatusMessage message={t('utilities.tool.markdownPreview.error.empty')} tone="muted" />
+        ) : !result.ok ? (
+          <StatusMessage
+            message={t(result.errorKey, { limitKb: MARKDOWN_PREVIEW_MAX_KB })}
+            tone={
+              result.errorKey === 'utilities.tool.markdownPreview.error.empty' ? 'muted' : 'error'
+            }
+            testid="markdown-preview-error"
+          />
+        ) : (
+          <div className="grid gap-2" data-testid="markdown-preview-rendered">
+            {/*
+             * The Markdown panel ships only the sanitized HTML output —
+             * we deliberately do not render a visual preview because
+             * neither inline `dangerouslySetInnerHTML` (security-hook
+             * flagged) nor a sandboxed iframe (its own console-warning
+             * footprint) is tradeoff-free in this code base. The user
+             * can copy the HTML directly into any consumer that needs
+             * to render it. Output is already DOMPurified and has had
+             * remote `<img>` src attributes stripped.
+             */}
+            <FieldLabel>{t('utilities.tool.markdownPreview.html.label')}</FieldLabel>
+            <div className="relative">
+              <UtilityTextarea
+                aria-label={t('utilities.tool.markdownPreview.html.label')}
+                data-testid="markdown-preview-html"
+                value={result.html}
+                readOnly
+                spellCheck={false}
+                className="pr-10 min-h-[20rem] font-mono"
+              />
+              <div className="absolute right-2 top-2">
+                <CopyButton
+                  value={result.html}
+                  testid="markdown-preview-html-copy"
+                  disabled={!result.html}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </PanelSection>
+    </div>
+  );
+}
+
+const DEFAULT_SQL_SAMPLE = `select id, name, created_at from users where deleted_at is null and tenant_id = ? order by created_at desc limit 25;`;
+
+const SQL_DIALECT_KEYS: Record<SqlDialect, string> = {
+  sql: 'utilities.tool.sqlFormatter.dialect.ansi',
+  postgresql: 'utilities.tool.sqlFormatter.dialect.postgresql',
+  mysql: 'utilities.tool.sqlFormatter.dialect.mysql',
+};
+
+function SqlFormatterPanel() {
+  const { t } = useTranslation();
+  const [dialect, setDialect] = useState<SqlDialect>('sql');
+  const [tabWidth, setTabWidth] = useState<2 | 4>(2);
+  const [keywordCase, setKeywordCase] =
+    useState<SqlFormatOptions['keywordCase']>('upper');
+  const [input, setInput] = useState(DEFAULT_SQL_SAMPLE);
+  const [result, setResult] = useState<FormatSqlResult | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const next = await formatSql(input, { dialect, tabWidth, keywordCase });
+        if (!cancelled) setResult(next);
+      } catch (error) {
+        if (!cancelled) {
+          setResult({
+            ok: false,
+            errorKey: 'utilities.tool.sqlFormatter.error.loadFailure',
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [input, dialect, tabWidth, keywordCase]);
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <PanelSection
+        title={t('utilities.tool.sqlFormatter.title')}
+        description={t('utilities.tool.sqlFormatter.panelDescription')}
+      >
+        <div className="grid gap-2 md:grid-cols-3">
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.sqlFormatter.dialect.label')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.sqlFormatter.dialect.label')}
+              data-testid="sql-formatter-dialect"
+              value={dialect}
+              onChange={(event) => setDialect(event.target.value as SqlDialect)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              {SQL_DIALECTS.map((value) => (
+                <option key={value} value={value}>
+                  {t(SQL_DIALECT_KEYS[value])}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.sqlFormatter.tabWidth.label')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.sqlFormatter.tabWidth.label')}
+              data-testid="sql-formatter-tab-width"
+              value={tabWidth}
+              onChange={(event) => setTabWidth(Number(event.target.value) as 2 | 4)}
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              <option value={2}>{t('utilities.tool.sqlFormatter.tabWidth.two')}</option>
+              <option value={4}>{t('utilities.tool.sqlFormatter.tabWidth.four')}</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs text-muted">
+            <FieldLabel>{t('utilities.tool.sqlFormatter.keywordCase.label')}</FieldLabel>
+            <select
+              aria-label={t('utilities.tool.sqlFormatter.keywordCase.label')}
+              data-testid="sql-formatter-keyword-case"
+              value={keywordCase}
+              onChange={(event) =>
+                setKeywordCase(event.target.value as SqlFormatOptions['keywordCase'])
+              }
+              className="rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none focus:border-primary/50"
+            >
+              <option value="preserve">
+                {t('utilities.tool.sqlFormatter.keywordCase.preserve')}
+              </option>
+              <option value="upper">{t('utilities.tool.sqlFormatter.keywordCase.upper')}</option>
+              <option value="lower">{t('utilities.tool.sqlFormatter.keywordCase.lower')}</option>
+            </select>
+          </label>
+        </div>
+        <div className="grid gap-2">
+          <FieldLabel>{t('utilities.tool.sqlFormatter.input.label')}</FieldLabel>
+          <UtilityTextarea
+            aria-label={t('utilities.tool.sqlFormatter.input.label')}
+            data-testid="sql-formatter-input"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            spellCheck={false}
+            className="min-h-[14rem] font-mono"
+          />
+        </div>
+      </PanelSection>
+
+      <PanelSection
+        title={t('utilities.tool.sqlFormatter.output.label')}
+        description={t('utilities.status.live')}
+      >
+        {result === null ? (
+          <StatusMessage message={t('utilities.tool.sqlFormatter.error.empty')} tone="muted" />
+        ) : !result.ok ? (
+          <StatusMessage
+            message={t(result.errorKey, { limitKb: SQL_FORMATTER_MAX_KB })}
+            tone={
+              result.errorKey === 'utilities.tool.sqlFormatter.error.empty' ? 'muted' : 'error'
+            }
+            testid="sql-formatter-error"
+          />
+        ) : (
+          <div className="relative">
+            <UtilityTextarea
+              aria-label={t('utilities.tool.sqlFormatter.output.label')}
+              data-testid="sql-formatter-output"
+              value={result.output}
+              readOnly
+              spellCheck={false}
+              className="pr-10 min-h-[14rem] font-mono"
+            />
+            <div className="absolute right-2 top-2">
+              <CopyButton
+                value={result.output}
+                testid="sql-formatter-output-copy"
+                disabled={!result.output}
+              />
+            </div>
+          </div>
+        )}
+      </PanelSection>
+    </div>
+  );
+}
+
 export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }) {
   if (toolId === 'json') {
     return <JsonUtilityPanel />;
@@ -3932,6 +4499,22 @@ export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }
 
   if (toolId === 'curl-to-code') {
     return <CurlToCodePanel />;
+  }
+
+  if (toolId === 'yaml-json') {
+    return <YamlJsonPanel />;
+  }
+
+  if (toolId === 'json-csv') {
+    return <JsonCsvPanel />;
+  }
+
+  if (toolId === 'markdown-preview') {
+    return <MarkdownPreviewPanel />;
+  }
+
+  if (toolId === 'sql-formatter') {
+    return <SqlFormatterPanel />;
   }
 
   return <JwtUtilityPanel />;

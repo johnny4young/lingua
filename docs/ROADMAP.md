@@ -1,6 +1,6 @@
 # Lingua — Roadmap
 
-> **Updated:** 2026-04-24
+> **Updated:** 2026-04-25
 > Canonical status board. Single source of truth for the `Status` column
 > on every `RL-XXX` ticket. When any other doc disagrees, this one wins.
 >
@@ -113,7 +113,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-068`](./PLAN.md#rl-068-expand-developer-utilities-with-devutils-equivalent-coverage) | Expand utilities to DevUtils parity | `Partial` | JSON, Base64, URL, UUID, Hash, Timestamp, JWT, Regex, Color, Diff, Number Base, Beautify/Minify, URL Parser, String Case, HTML Entity, String Inspector shipped. Backslash Escape/Unescape shipped on 2026-04-23 (4 presets: JavaScript, JSON, Python, SQL-MySQL). Random String Generator shipped on 2026-04-23 (configurable length + count, 4-class charset toggles, ambiguous-char exclusion, unbiased rejection-sampling via `crypto.getRandomValues`). Lorem Ipsum Generator shipped on 2026-04-24 (words / sentences / paragraphs, optional canonical-opening toggle, mid-sentence comma sprinkling). Cron Parser shipped on 2026-04-24 — new panel lazy-loads `cron-parser@^5` + `cronstrue@^3` (both MIT) for human-readable explanations in EN + ES plus configurable next-N-runs against the machine clock. Remaining: YAML↔JSON, JSON↔CSV, Markdown Preview, SQL Formatter. |
 | [`RL-069`](./PLAN.md#rl-069-devutils-class-productivity-layer-for-the-utilities-workspace) | DevUtils-class productivity layer | `Planned` | Smart input auto-detection, recent-inputs history, cross-tool piping. |
 | [`RL-072`](./PLAN.md#rl-072-specialty-utilities--qr--string-inspector) | Specialty utilities — QR + inspector | `Partial` | String Inspector shipped. QR code generate shipped on 2026-04-23 (PNG + download + L/M/Q/H levels). Remaining: QR code read mode (camera vs upload decision pending). |
 
@@ -170,13 +169,13 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>33 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>35 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
 `RL-022`, `RL-030`, `RL-034`, `RL-040`, `RL-045`, `RL-051`, `RL-052`,
 `RL-053`, `RL-054`, `RL-055`, `RL-056`, `RL-057`, `RL-058`, `RL-060`,
-`RL-062`, `RL-067`, `RL-070`, `RL-071`, `RL-073`.
+`RL-062`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`, `RL-074`.
 
 </details>
 
