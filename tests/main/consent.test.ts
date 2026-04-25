@@ -79,6 +79,19 @@ describe('consent mirror', () => {
     expect(parsed.telemetryConsent).toBe('declined');
   });
 
+  it.skipIf(process.platform === 'win32')(
+    'writeConsentMirror produces a file owner-only readable on POSIX',
+    async () => {
+      const { stat } = await import('node:fs/promises');
+      const { writeConsentMirror } = await import('../../src/main/ipc/consent');
+      const file = path.join(tempDir, 'mode.json');
+      await writeConsentMirror(file, 'granted');
+      const info = await stat(file);
+      // Permission bits live in the lower 9 bits of mode; expect 0o600.
+      expect(info.mode & 0o777).toBe(0o600);
+    }
+  );
+
   it('registerConsentHandlers exposes consent:set and validates inputs', async () => {
     const { registerConsentHandlers, readConsentMirror } = await import(
       '../../src/main/ipc/consent'

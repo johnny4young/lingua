@@ -9,6 +9,7 @@ import path from 'node:path';
 import os from 'node:os';
 
 const home = os.homedir();
+const isWindows = process.platform === 'win32';
 
 /** Paths that are always blocked from write/delete operations */
 const BLOCKED_PATHS: string[] = [
@@ -37,6 +38,28 @@ const BLOCKED_PATHS: string[] = [
 ];
 
 /**
+ * Strip Windows device-namespace and UNC prefixes so a caller passing
+ * `\\?\C:\Windows\System32` or `\\.\C:\Windows` cannot side-step a block
+ * entry written as `C:\Windows`. Path comparisons on these prefixed
+ * forms have a different leading segment than the bare drive path, so
+ * `startsWith` would return false even for an obviously protected
+ * target.
+ */
+function stripWindowsDevicePrefix(value: string): string {
+  // Matches \\?\, \\.\, //?/, //./
+  const match = /^[\\/]{2}[?.][\\/]/.exec(value);
+  return match ? value.slice(match[0].length) : value;
+}
+
+function canonicalizePath(value: string): string {
+  const stripped = isWindows ? stripWindowsDevicePrefix(value) : value;
+  const resolved = path.normalize(path.resolve(stripped));
+  // Windows paths are case-insensitive on the filesystem; comparing
+  // case-sensitively lets `c:\windows` slip past a `C:\Windows` block.
+  return isWindows ? resolved.toLowerCase() : resolved;
+}
+
+/**
  * Returns true if the given path is blocked for the given operation.
  * All operations (read, write, delete) are checked against BLOCKED_PATHS.
  */
@@ -44,10 +67,10 @@ export function isPathBlocked(
   filePath: string,
   _operation: 'read' | 'write' | 'delete'
 ): boolean {
-  const normalizedTarget = path.normalize(path.resolve(filePath));
+  const normalizedTarget = canonicalizePath(filePath);
 
   return BLOCKED_PATHS.some((blocked) => {
-    const normalizedBlocked = path.normalize(path.resolve(blocked));
+    const normalizedBlocked = canonicalizePath(blocked);
     return (
       normalizedTarget === normalizedBlocked ||
       normalizedTarget.startsWith(normalizedBlocked + path.sep)
@@ -63,8 +86,8 @@ export function isPathWithinProject(
   filePath: string,
   projectRoot: string
 ): boolean {
-  const normalizedFile = path.normalize(path.resolve(filePath));
-  const normalizedRoot = path.normalize(path.resolve(projectRoot));
+  const normalizedFile = canonicalizePath(filePath);
+  const normalizedRoot = canonicalizePath(projectRoot);
   return (
     normalizedFile === normalizedRoot ||
     normalizedFile.startsWith(normalizedRoot + path.sep)

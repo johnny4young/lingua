@@ -5,6 +5,34 @@ const UPDATE_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
 declare const __LINGUA_UPDATE_URL__: string;
 
+/**
+ * Resolve the auto-update feed URL from the build-time `__LINGUA_UPDATE_URL__`
+ * define. Returns `null` when the configured base is missing, malformed, or
+ * uses a non-HTTPS scheme so the updater fails closed instead of fetching
+ * release manifests over plaintext or from an unintended origin.
+ */
+export function resolveUpdateFeedUrl(
+  base: string | undefined,
+  platform: string,
+  version: string
+): string | null {
+  if (typeof base !== 'string' || base.length === 0) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(base);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== 'https:') return null;
+
+  const trimmedBase = base.replace(/\/+$/u, '');
+  const safePlatform = encodeURIComponent(platform);
+  const safeVersion = encodeURIComponent(version);
+  return `${trimmedBase}/update/${safePlatform}/${safeVersion}`;
+}
+
 let updateState: UpdateState = {
   status: 'unavailable',
   supported: false,
@@ -102,7 +130,20 @@ function startUpdater(): void {
     });
   });
 
-  const feedURL = `${__LINGUA_UPDATE_URL__}/update/${process.platform}/${app.getVersion()}`;
+  const feedURL = resolveUpdateFeedUrl(
+    __LINGUA_UPDATE_URL__,
+    process.platform,
+    app.getVersion()
+  );
+  if (!feedURL) {
+    setUpdateState({
+      status: 'unavailable',
+      supported: false,
+      enabled: false,
+      message: 'Automatic updates are disabled (invalid update endpoint).',
+    });
+    return;
+  }
   autoUpdater.setFeedURL({ url: feedURL });
 
   // Initial check shortly after launch, then every hour
