@@ -410,8 +410,13 @@ jobs:
           set -euo pipefail
           mapfile -t assets <<< "$ASSETS"
 
-          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            echo "Release ${RELEASE_TAG} already exists — uploading assets in place."
+          if release_is_draft="$(gh release view "${RELEASE_TAG}" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            if [[ "${release_is_draft}" != "true" ]]; then
+              echo "::error::Release ${RELEASE_TAG} already exists and is not a draft; refusing to clobber published assets."
+              exit 1
+            fi
+
+            echo "Draft release ${RELEASE_TAG} already exists; uploading assets in place."
             gh release upload "${RELEASE_TAG}" --clobber "${assets[@]}"
           else
             gh release create "${RELEASE_TAG}" \
