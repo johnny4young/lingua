@@ -51,6 +51,12 @@ describe('release workflow', () => {
     expect(workflow).toMatch(/gh release upload "\$\{RELEASE_TAG\}"/u);
   });
 
+  it('refuses to clobber an existing published release', () => {
+    expect(workflow).toMatch(/gh release view "\$\{RELEASE_TAG\}" --json isDraft --jq \.isDraft/u);
+    expect(workflow).toContain('Release ${RELEASE_TAG} already exists and is not a draft');
+    expect(workflow).toMatch(/if \[\[ "\$\{release_is_draft\}" != "true" \]\]; then[\s\S]*?exit 1/u);
+  });
+
   it('verifies macOS, Windows, and Linux artifacts before publishing', () => {
     expect(workflow).toContain('Verify macOS artifacts');
     expect(workflow).toContain('Verify Windows artifacts');
