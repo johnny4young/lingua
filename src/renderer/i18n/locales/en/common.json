@@ -222,6 +222,7 @@
   "license.notice.invalid.unsupportedTier": "That license is for a tier this build of Lingua doesn't recognize. Update to the latest version and try again.",
   "license.notice.invalid.notAccepted": "This build of Lingua cannot accept licenses. Install an official Lingua release to activate your plan.",
   "license.notice.cleared": "License removed. You are back on the Free plan.",
+  "license.notice.clearFailed": "The license could not be removed. Check disk permissions and try again.",
   "validation.format.line": "[{{severity}}] {{location}} — {{message}}",
   "validation.format.locationLineColumn": "line {{line}}:{{column}}",
   "validation.format.locationLineOnly": "line {{line}}",

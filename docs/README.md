@@ -60,6 +60,7 @@ only superseded by a new ADR that names the one it replaces.
 | [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) | Debugger MVP — which backend and UI surface | `RL-027` |
 | [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) | Environment variables for execution contexts (global / project / tab tiers) | `RL-011` |
 | [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) | Declarative language-pack registry | `RL-038` |
+| [`LICENSING_ADR.md`](./LICENSING_ADR.md) | Vendor (Polar.sh), license-server stack, device-binding, trial, and release/update strategy | `RL-059`, `RL-061` |
 | [`TAURI_SPIKE_ADR.md`](./TAURI_SPIKE_ADR.md) | Tauri 2 feasibility spike | `RL-035` |
 | [`VIM_MODE_ADR.md`](./VIM_MODE_ADR.md) | Vim mode integration inside the personalization slice | `RL-037` |
 | [`VITE_UPGRADE_ADR.md`](./VITE_UPGRADE_ADR.md) | Vite major upgrade plan | `RL-033` |

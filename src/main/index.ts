@@ -26,6 +26,8 @@ import { registerEnvHandlers } from './ipc/env';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
+import { createLicenseRuntime, parseEmbeddedPublicKey } from './license';
+import { registerLicenseHandlers } from './ipc/license';
 
 if (started) {
   app.quit();
@@ -213,7 +215,8 @@ app.on('open-url', (event, url) => {
 });
 
 app.on('ready', async () => {
-  const mirrorPath = resolveConsentMirrorPath(app.getPath('userData'));
+  const userDataDir = app.getPath('userData');
+  const mirrorPath = resolveConsentMirrorPath(userDataDir);
   // Register the IPC writer first so the renderer's `setTelemetryConsent`
   // always has a live handler by the time the window loads.
   registerConsentHandlers(mirrorPath);
@@ -224,6 +227,16 @@ app.on('ready', async () => {
     appVersion: app.getVersion(),
     readConsentAtBoot: () => readConsentMirror(mirrorPath),
   });
+
+  // RL-059 main-side license runtime — boots before the window so the
+  // first `getState` call from the renderer always sees the verified
+  // snapshot instead of a free-tier sentinel.
+  const licenseRuntime = await createLicenseRuntime({
+    userDataDir,
+    publicKeyJwk: parseEmbeddedPublicKey(__LINGUA_LICENSE_PUBLIC_KEY_JWK__),
+  });
+  registerLicenseHandlers(licenseRuntime);
+
   registerProtocolClient();
   createWindow();
 });

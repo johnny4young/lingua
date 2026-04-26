@@ -204,6 +204,45 @@ interface DesktopSmokeConfig {
   artifactDir: string | null;
 }
 
+// -------------------------------------------------------------- License types
+
+interface LicensePayloadShape {
+  productId: string;
+  tier: 'free' | 'pro' | 'pro_lifetime' | 'team';
+  issuedTo: string;
+  issuedAt: string;
+  supportWindowEndsAt: string;
+  entitlements: readonly string[];
+}
+
+interface LicenseVerificationOk {
+  ok: true;
+  payload: LicensePayloadShape;
+  state: 'active' | 'grace';
+  supportWindowEndsAt: number;
+}
+
+type LicenseStatus =
+  | { kind: 'free' }
+  | { kind: 'invalid'; reason: string; message?: string }
+  | { kind: 'active'; verification: LicenseVerificationOk }
+  | { kind: 'grace'; verification: LicenseVerificationOk };
+
+interface LicenseSnapshot {
+  token: string | null;
+  status: LicenseStatus;
+  deviceId: string;
+  lastVerifiedAt: number | null;
+}
+
+type LicenseApplyResult =
+  | { ok: true; status: LicenseStatus; snapshot: LicenseSnapshot }
+  | { ok: false; reason: string; message?: string };
+
+type LicenseClearResult =
+  | { ok: true; snapshot: LicenseSnapshot }
+  | { ok: false; reason: string; message?: string };
+
 // ------------------------------------------------------------- Plugin types
 
 type PluginInstallStatus =
@@ -314,6 +353,13 @@ interface LinguaAPI {
     list: () => Promise<InstalledPluginRecord[]>;
   };
 
+  license?: {
+    getState: () => Promise<LicenseSnapshot>;
+    applyToken: (token: string) => Promise<LicenseApplyResult>;
+    clear: () => Promise<LicenseClearResult>;
+    revalidate: () => Promise<LicenseApplyResult>;
+  };
+
   deepLinks: {
     consumePending: () => Promise<DeepLinkTarget | null>;
     markReady: () => void;
@@ -344,3 +390,4 @@ declare global {
 
 declare const __LINGUA_BUILD_DATE__: string | undefined;
 declare const __LINGUA_WEBSITE_URL__: string | undefined;
+declare const __LINGUA_LICENSE_PUBLIC_KEY_JWK__: string | undefined;

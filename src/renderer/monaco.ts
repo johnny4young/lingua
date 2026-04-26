@@ -142,10 +142,16 @@ function ensureLanguageContributions(m: Monaco): void {
     }
 
     if ('loader' in lang) {
-      void lang.loader().then((mod) => {
-        m.languages.setMonarchTokensProvider(lang.id, mod.language);
-        m.languages.setLanguageConfiguration(lang.id, mod.conf);
-      });
+      void lang
+        .loader()
+        .then((mod) => {
+          m.languages.setMonarchTokensProvider(lang.id, mod.language);
+          m.languages.setLanguageConfiguration(lang.id, mod.conf);
+        })
+        .catch(() => {
+          // Optional tokenizer chunks should not create unhandled rejections.
+          // Monaco can still keep the registered language as a plain mode.
+        });
       continue;
     }
 

@@ -222,6 +222,7 @@
   "license.notice.invalid.unsupportedTier": "Esa licencia corresponde a un nivel que esta versi\u00f3n de Lingua no reconoce. Actualiza a la \u00faltima versi\u00f3n e int\u00e9ntalo de nuevo.",
   "license.notice.invalid.notAccepted": "Esta build de Lingua no acepta licencias. Instala una versi\u00f3n oficial de Lingua para activar tu plan.",
   "license.notice.cleared": "Licencia eliminada. Regresaste al plan Gratis.",
+  "license.notice.clearFailed": "No se pudo quitar la licencia. Revisa los permisos del disco e inténtalo de nuevo.",
   "validation.format.line": "[{{severity}}] {{location}} — {{message}}",
   "validation.format.locationLineColumn": "línea {{line}}:{{column}}",
   "validation.format.locationLineOnly": "línea {{line}}",

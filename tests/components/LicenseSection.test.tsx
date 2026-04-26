@@ -6,7 +6,7 @@
  * outcome deterministically and focus on UI behavior + i18n fallback.
  */
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,10 +16,12 @@ import { useLicenseStore, type LicenseStatus } from '@/stores/licenseStore';
 import { useUIStore } from '@/stores/uiStore';
 
 function stubStatus(status: LicenseStatus, token: string | null = null): void {
-  useLicenseStore.setState({
-    token,
-    status,
-    lastVerifiedAt: null,
+  act(() => {
+    useLicenseStore.setState({
+      token,
+      status,
+      lastVerifiedAt: null,
+    });
   });
 }
 
@@ -27,15 +29,21 @@ describe('LicenseSection', () => {
   const initial = useLicenseStore.getState();
 
   beforeEach(async () => {
-    useLicenseStore.setState(initial, true);
-    useUIStore.setState({ statusNotice: null });
+    act(() => {
+      useLicenseStore.setState(initial, true);
+      useUIStore.setState({ statusNotice: null });
+    });
     initI18n('en');
-    await i18next.changeLanguage('en');
+    await act(async () => {
+      await i18next.changeLanguage('en');
+    });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    useLicenseStore.setState(initial, true);
+    act(() => {
+      useLicenseStore.setState(initial, true);
+    });
   });
 
   it('renders the Free status pill when no license is applied', () => {
@@ -181,21 +189,110 @@ describe('LicenseSection', () => {
       },
       'existing.token'
     );
-    const spy = vi.spyOn(useLicenseStore.getState(), 'clearLicense');
+    const spy = vi.spyOn(useLicenseStore.getState(), 'clearLicense').mockResolvedValue({ kind: 'free' });
     render(<LicenseSection />);
 
     await user.click(screen.getByTestId('license-clear'));
-    expect(spy).toHaveBeenCalledTimes(1);
-    expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.cleared');
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.cleared')
+    );
+  });
+
+  it('pushes a failure notice when Remove cannot clear the persisted license', async () => {
+    const user = userEvent.setup();
+    stubStatus(
+      {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 86_400_000,
+          payload: {
+            productId: 'lingua-desktop',
+            tier: 'pro',
+            issuedTo: 'user@example.com',
+            issuedAt: new Date().toISOString(),
+            supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+            entitlements: [],
+          },
+        },
+      },
+      'existing.token'
+    );
+    vi.spyOn(useLicenseStore.getState(), 'clearLicense').mockResolvedValue({
+      kind: 'invalid',
+      reason: 'clear-failed',
+    });
+    render(<LicenseSection />);
+
+    await user.click(screen.getByTestId('license-clear'));
+
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.clearFailed')
+    );
+    expect(useUIStore.getState().statusNotice?.tone).toBe('error');
+  });
+
+  it('disables license actions while a clear request is pending', async () => {
+    const user = userEvent.setup();
+    stubStatus(
+      {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 86_400_000,
+          payload: {
+            productId: 'lingua-desktop',
+            tier: 'pro',
+            issuedTo: 'user@example.com',
+            issuedAt: new Date().toISOString(),
+            supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+            entitlements: [],
+          },
+        },
+      },
+      'existing.token'
+    );
+    let resolveClear: (status: LicenseStatus) => void = () => undefined;
+    vi.spyOn(useLicenseStore.getState(), 'clearLicense').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveClear = resolve;
+        })
+    );
+    render(<LicenseSection />);
+
+    await user.type(screen.getByTestId('license-input'), 'replacement.token');
+    const apply = screen.getByTestId('license-apply') as HTMLButtonElement;
+    const clear = screen.getByTestId('license-clear') as HTMLButtonElement;
+    expect(apply.disabled).toBe(false);
+
+    await user.click(clear);
+
+    await waitFor(() => expect(clear.disabled).toBe(true));
+    expect(apply.disabled).toBe(true);
+
+    await act(async () => {
+      resolveClear({ kind: 'free' });
+    });
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.cleared')
+    );
   });
 
   it('falls back gracefully to es copy when i18next is switched mid-session', async () => {
-    await i18next.changeLanguage('es');
+    await act(async () => {
+      await i18next.changeLanguage('es');
+    });
     try {
       render(<LicenseSection />);
       expect(screen.getByTestId('license-status-pill').textContent).toContain('Plan Gratis');
     } finally {
-      await i18next.changeLanguage('en');
+      await act(async () => {
+        await i18next.changeLanguage('en');
+      });
     }
   });
 });

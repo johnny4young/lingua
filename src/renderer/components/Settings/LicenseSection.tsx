@@ -80,6 +80,7 @@ export function LicenseSection() {
   const { t } = useTranslation();
   const [draft, setDraft] = useState('');
   const [isApplying, setIsApplying] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const status = useLicenseStore(state => state.status);
   const token = useLicenseStore(state => state.token);
@@ -115,10 +116,20 @@ export function LicenseSection() {
     }
   };
 
-  const handleClear = () => {
-    clearLicense();
-    setDraft('');
-    pushStatusNotice({ tone: 'info', messageKey: 'license.notice.cleared' });
+  const handleClear = async () => {
+    if (isClearing) return;
+    setIsClearing(true);
+    try {
+      const next = await clearLicense();
+      if (next.kind === 'invalid') {
+        pushStatusNotice({ tone: 'error', messageKey: 'license.notice.clearFailed' });
+        return;
+      }
+      setDraft('');
+      pushStatusNotice({ tone: 'info', messageKey: 'license.notice.cleared' });
+    } finally {
+      setIsClearing(false);
+    }
   };
 
   return (
@@ -135,8 +146,9 @@ export function LicenseSection() {
           {token ? (
             <button
               type="button"
-              onClick={handleClear}
-              className="self-end rounded-[0.65rem] border border-border/70 px-2 py-0.5 text-[11px] text-muted hover:text-foreground"
+              onClick={() => void handleClear()}
+              disabled={isClearing || isApplying}
+              className="self-end rounded-[0.65rem] border border-border/70 px-2 py-0.5 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
               data-testid="license-clear"
             >
               {t('license.clear')}
@@ -159,7 +171,7 @@ export function LicenseSection() {
           <button
             type="button"
             onClick={() => void handleApply()}
-            disabled={isApplying || draft.trim().length === 0}
+            disabled={isApplying || isClearing || draft.trim().length === 0}
             data-testid="license-apply"
             className="button-primary w-fit self-end disabled:cursor-not-allowed disabled:opacity-60"
           >
