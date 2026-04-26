@@ -21,23 +21,48 @@ interface AnsiSpan {
   dim?: boolean;
 }
 
+/**
+ * ANSI foreground codes routed through the DS canonical console
+ * tokens (declared in src/renderer/index.css under :root,.light and
+ * .dark / [data-theme="dark"]). The DS spec defines six console
+ * roles with theme-aware values:
+ *
+ *   --color-console-stdout    → ANSI 37/97 (default white text)
+ *   --color-console-stderr    → ANSI 31/91 (red)
+ *   --color-console-warning   → ANSI 33/93 (yellow / amber)
+ *   --color-console-info      → ANSI 34/94/36/96 (blue / cyan)
+ *   --color-console-prompt    → ANSI 35/95 (magenta in legacy, mapped
+ *                                to the slate accent here so prompts
+ *                                read as the brand color rather than
+ *                                a third color outside the system)
+ *   --color-console-timestamp → ANSI 30/90 (the dim greys reserved
+ *                                for metadata in tools like git/npm
+ *                                output)
+ *
+ * The bright variants (90-97) deliberately collapse to the same
+ * semantic var as their non-bright sibling — the original ANSI
+ * "brightness boost" was arbitrary hex and preserving it would re-
+ * introduce the hardcoded-hex drift the migration fixes. If a
+ * future slice wants the distinction, declare
+ * --color-console-stderr-strong (etc) and split the rows.
+ */
 const ANSI_FG: Record<number, string> = {
-  30: '#4e4e4e',
-  31: '#ff5555',
-  32: '#55ff55',
-  33: '#ffff55',
-  34: '#5555ff',
-  35: '#ff55ff',
-  36: '#55ffff',
-  37: '#cccccc',
-  90: '#888888',
-  91: '#ff8888',
-  92: '#88ff88',
-  93: '#ffff88',
-  94: '#8888ff',
-  95: '#ff88ff',
-  96: '#88ffff',
-  97: '#ffffff',
+  30: 'var(--color-console-timestamp)',
+  31: 'var(--color-console-stderr)',
+  32: 'var(--color-success-fg)',
+  33: 'var(--color-console-warning)',
+  34: 'var(--color-console-info)',
+  35: 'var(--color-console-prompt)',
+  36: 'var(--color-console-info)',
+  37: 'var(--color-console-stdout)',
+  90: 'var(--color-console-timestamp)',
+  91: 'var(--color-console-stderr)',
+  92: 'var(--color-success-fg)',
+  93: 'var(--color-console-warning)',
+  94: 'var(--color-console-info)',
+  95: 'var(--color-console-prompt)',
+  96: 'var(--color-console-info)',
+  97: 'var(--color-console-stdout)',
 };
 
 function parseAnsi(raw: string): AnsiSpan[] {

@@ -1,63 +1,69 @@
 import type { Monaco } from '@monaco-editor/react';
 
 export function defineCustomThemes(monaco: Monaco) {
-  // Lingua Dark — Signal-Slate syntax palette on top of the existing
-  // GitHub-dark-inspired chrome. Cool-leaning family: violet keywords,
-  // mint strings, sky numbers, teal types, blue functions, slate glue.
-  // Intentionally avoids Dracula-pink and Monokai-fuchsia so the theme
-  // reads as Lingua's own identity, not a third-party port. Every
-  // foreground passes WCAG AA (≥ 4.5:1) against the #0d1117 background;
-  // the tests/components/editorThemes.test.ts contrast gate enforces it.
+  // Lingua Dark — DS canonical syntax palette + chrome from
+  // tokens.json (Signal-Slate v1.0.0). The hexes are the OKLCh values
+  // declared in lingua/project/handoff/tokens.json under
+  // color.syntax.* and color.editor.*, converted to sRGB via the
+  // standard OKLab→linear-RGB→sRGB chain. Every foreground passes
+  // WCAG AA against #060a0b (the editor.background); the gate in
+  // tests/components/Editor/editorThemes.test.ts enforces it.
+  //
+  // The palette intentionally uses TWO warm hues (number=80 amber,
+  // function=285 violet) and one green (string=155) on top of the
+  // cool slate base — the multi-hue approach is part of the DS spec
+  // and gives the eye more to lock onto when scanning a function
+  // body than a strictly cool-leaning palette would.
   monaco.editor.defineTheme('lingua-dark', {
     base: 'vs-dark',
     inherit: true,
     rules: [
-      { token: 'comment', foreground: '7a8699', fontStyle: 'italic' },
-      { token: 'keyword', foreground: 'a78bfa' },
-      { token: 'string', foreground: '7ee9b4' },
-      { token: 'number', foreground: '7dd3fc' },
-      { token: 'type', foreground: '5eead4' },
-      { token: 'function', foreground: '93c5fd' },
-      { token: 'variable', foreground: 'e2e8f0' },
-      { token: 'operator', foreground: '94a3b8' },
+      { token: 'comment', foreground: '6d7e81', fontStyle: 'italic' },
+      { token: 'keyword', foreground: '7caaff' },
+      { token: 'string', foreground: '63d18f' },
+      { token: 'number', foreground: 'f3b94c' },
+      { token: 'type', foreground: 'afa9ff' },
+      { token: 'function', foreground: 'afa9ff' },
+      { token: 'variable', foreground: 'dfe6e7' },
+      { token: 'operator', foreground: '98a8ab' },
     ],
     colors: {
-      'editor.background': '#0d1117',
-      'editor.foreground': '#e6edf3',
-      'editorLineNumber.foreground': '#3d444d',
-      'editorLineNumber.activeForeground': '#6e7681',
-      'editor.lineHighlightBackground': '#161b22',
-      'editor.selectionBackground': '#264f7840',
-      'editorCursor.foreground': '#79c0ff',
+      'editor.background': '#060a0b',
+      'editor.foreground': '#dfe6e7',
+      'editorLineNumber.foreground': '#475558',
+      'editorLineNumber.activeForeground': '#98a8ab',
+      'editor.lineHighlightBackground': '#0d1314',
+      'editor.selectionBackground': '#003d4980',
+      'editorCursor.foreground': '#00bfdf',
     },
   });
 
-  // Lingua Light — light counterpart of lingua-dark. Same cool-slate
-  // family re-pitched for a light canvas: deeper violets, teals, and
-  // emeralds so they stay readable on #f6f8fa. Enables the "sync shell
-  // with editor theme" flow to land on a Lingua-owned light theme
-  // instead of forcing users onto vs (Microsoft) or solarized-light.
+  // Lingua Light — DS canonical light counterpart. Same syntax roles
+  // re-pitched for the light canvas at hue 210 (cool blue-teal). The
+  // Signal-Slate accent hue 210 produces a saturated teal cursor,
+  // which is the brand mark for the editor in light mode just as the
+  // sky-blue cursor is in dark mode.
   monaco.editor.defineTheme('lingua-light', {
     base: 'vs',
     inherit: true,
     rules: [
-      { token: 'comment', foreground: '556b7d', fontStyle: 'italic' },
-      { token: 'keyword', foreground: '7c3aed' },
-      { token: 'string', foreground: '047857' },
-      { token: 'number', foreground: '0369a1' },
-      { token: 'type', foreground: '0f766e' },
-      { token: 'function', foreground: '1d4ed8' },
-      { token: 'variable', foreground: '1e293b' },
-      { token: 'operator', foreground: '475569' },
+      { token: 'comment', foreground: '7c898b', fontStyle: 'italic' },
+      { token: 'keyword', foreground: '2249b7' },
+      { token: 'string', foreground: '007338' },
+      { token: 'number', foreground: '9e6400' },
+      { token: 'type', foreground: '5d52b4' },
+      { token: 'function', foreground: '5d52b4' },
+      { token: 'variable', foreground: '2a3537' },
+      { token: 'operator', foreground: '4a585b' },
     ],
     colors: {
-      'editor.background': '#f6f8fa',
-      'editor.foreground': '#1e293b',
-      'editorLineNumber.foreground': '#94a3b8',
-      'editorLineNumber.activeForeground': '#475569',
-      'editor.lineHighlightBackground': '#eef2f7',
-      'editor.selectionBackground': '#cde7ff80',
-      'editorCursor.foreground': '#2563eb',
+      'editor.background': '#fafcfd',
+      'editor.foreground': '#2a3537',
+      'editorLineNumber.foreground': '#9ea6a8',
+      'editorLineNumber.activeForeground': '#4a585b',
+      'editor.lineHighlightBackground': '#f1f5f6',
+      'editor.selectionBackground': '#a1e5f180',
+      'editorCursor.foreground': '#0080a1',
     },
   });
 
