@@ -2501,23 +2501,32 @@ Note on reconciliation: The go-to-market plan in Section 14 uses `linguacode.dev
 
 ### Pricing model (research-backed recommendation)
 
-**Strategy: Freemium with perpetual one-time purchase (RunJS model)**
+**Strategy: Freemium with monthly + lifetime paid licenses**
 
 Rationale:
-- Product is desktop-first with no cloud infrastructure costs
-- Developers prefer one-time purchases for local tools
-- RunJS validated this model successfully at $26 perpetual
-- Students need generous free access for adoption
+- Product is desktop-first and local-first, but Phase 1 now includes a
+  license-server for activation, device limits, trials, and renewal refresh.
+- A monthly plan funds ongoing maintenance and support without forcing
+  every serious user into a high up-front price.
+- A lifetime plan still fits the desktop-tool buyer who prefers a
+  one-time purchase.
+- Team stays as a small metered pilot so device limits and seat handling
+  can be validated before broader marketing.
 
-The three go-to-market pricing tiers (matching the Phase 1 "3 tiers en Polar.sh" target) are **Free**, **Pro**, and **Pro Lifetime**. **Education** is an access program layered on top of Pro (verified students/educators receive a Pro license for free) — it is intentionally not a separate sellable tier, so Polar.sh still stocks 3 purchasable products and a single verification flow unlocks Pro for educators.
+The launch checkout surface now tracks the `LICENSING_ADR.md` decision:
+three purchasable Polar products (`lingua_monthly`, `lingua_lifetime`,
+`lingua_team`), plus Free and Trial paths that do not live in the Polar
+catalog. Education remains a future access program layered on top of Pro,
+not a Phase 1 checkout SKU.
 
 | Tier | Price | Polar.sh product | Includes |
 |------|-------|------------------|----------|
 | **Lingua Free** | $0 | n/a (no purchase needed) | Editor completo, 5 lenguajes base (JS/TS/Python/Go/Rust), auto-run, magic comments, 1 tab, dark/light theme, ejecución ilimitada |
-| **Lingua Pro** | $29 one-time (perpetuo) | Yes (1 of 3) | Todo Free + tabs ilimitados, snippets, npm packages, 15+ lenguajes, dev utilities, variable inspector, temas extra, custom fonts, deep links, execution history, benchmarking. Updates 1 año |
-| **Lingua Pro Lifetime** | $49 one-time | Yes (2 of 3) | Todo Pro + actualizaciones de por vida incluyendo major versions |
-| **Lingua Team** (future) | per-seat (pilot) | Yes (3 of 3) | Todo Pro Lifetime + license management for N seats, team snippet library, priority support. Pilot with a small cohort before listing publicly |
-| **Lingua Education** | $0 (verified) | Access program on top of Pro | Todo Pro gratis para estudiantes y educadores (.edu email, GitHub Education) |
+| **Lingua Pro Monthly** | TBD monthly | `lingua_monthly` | Todo Free + tabs ilimitados, snippets, npm packages, 15+ lenguajes, dev utilities, variable inspector, temas extra, custom fonts, deep links, execution history, benchmarking. Updates while the subscription is active. |
+| **Lingua Pro Lifetime** | TBD one-time | `lingua_lifetime` | Todo Pro + actualizaciones de por vida incluyendo major versions |
+| **Lingua Team** | metered / per-seat pilot | `lingua_team` | Todo Pro Lifetime + configurable device limit, team snippet library, priority support. Pilot with a small cohort before listing publicly |
+| **Lingua Trial** | $0 for 14 days | n/a (`/trials/start`) | Full Pro entitlements for one device, with email + device + IP anti-abuse |
+| **Lingua Education** (future) | $0 (verified) | Access program on top of Pro | Todo Pro gratis para estudiantes y educadores (.edu email, GitHub Education) |
 
 Premium-only features:
 - Unlimited tabs (Free: 1 tab)
@@ -2546,7 +2555,7 @@ This section operationalizes the "Estrategia de Lanzamiento" (strategic alignmen
 Goal: the product can accept money and gate Pro features behind a validated license without a cloud backend.
 
 Concrete deliverables:
-- Polar.sh storefront with 3 purchasable products (Free is free, Pro, Pro Lifetime; Education unlocks through verification, not a separate SKU).
+- Polar.sh storefront with 3 purchasable products (`lingua_monthly`, `lingua_lifetime`, `lingua_team`). Free has no checkout, and Trial is minted by `/trials/start` rather than a Polar product.
 - License-key issuance on purchase, offline-verifiable inside the app.
 - Public GitHub presence with a README that states the pitch, pricing, licensing model, and download link honestly.
 - Landing/download page live on the primary domain (`linguacode.dev`).
@@ -2582,7 +2591,14 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 
 - Priority: `P0` for Phase 1
 - Status: `Partial`
-- Readiness: `Renderer verifier + Settings UI completed on 2026-04-19; preload/main-side license surface still deferred`
+- Readiness: `Renderer verifier + Settings UI completed on 2026-04-19; main-side IPC bridge + device-id loader shipped on 2026-04-25 (Slice 0). Polar webhook + email delivery still pending under RL-061.`
+- 2026-04-25 update — Slice 0:
+  - `src/main/license.ts` lands the main-side runtime: persists the token at `userData/license.json` (atomic write, mode 0o600), persists an opaque per-install `deviceId` at `userData/device-id.json` (`crypto.randomUUID()` minted once), boots a verified snapshot before `createWindow()`, and self-heals if the on-disk token no longer verifies (wipes the file rather than surfacing a sticky `invalid` state).
+  - `src/main/ipc/license.ts` exposes `license:get-state`, `license:apply-token`, `license:clear`, `license:revalidate` over `ipcMain.handle`. Every handler returns a tagged-union result so the renderer can ship a typed mirror.
+  - `src/preload/index.ts` exposes `window.lingua.license` (optional — the renderer falls through to its existing local-verify + zustand-persist path when the bridge is absent, which is the contract the web build relies on).
+  - `src/renderer/stores/licenseStore.ts` auto-detects the bridge and switches between two concrete stores at module load: desktop mirrors the main snapshot via IPC and never writes to localStorage; web keeps the existing zustand-persist behavior. Public API (`token`, `status`, `setLicenseToken`, `revalidate`, `clearLicense`) is identical across both modes so callers (`LicenseSection`, `useEntitlement`, telemetry) stay untouched.
+  - `vite.main.config.mts` adds `__LINGUA_LICENSE_PUBLIC_KEY_JWK__` (falls back to `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` so `npm run dev:desktop:pro` keeps minting + injecting against both processes from one env var).
+  - Tests: `tests/main/license.test.ts` covers persistence atomicity + POSIX mode + deviceId mint-once + boot wipe of stale tokens + active/grace transitions + IPC channel registration. `tests/stores/licenseStoreDesktop.test.ts` covers the bridge mirror + non-localStorage path. The existing `tests/stores/licenseStore.test.ts` continues to exercise the web mode unchanged.
 - 2026-04-19 update:
   - `LicenseSection` now lives in the Settings modal — paste a token, Apply, clear it, status pill reflects free / active / grace / invalid. Errors surface through the shared status-notice banner so the copy stays consistent with other Settings surfaces
   - 7 component tests cover: default Free state, Active pill, Apply disabled on empty input, success + error notice flows, clear + notice, es locale fallback
@@ -2642,21 +2658,27 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 
 - Priority: `P0` for Phase 1
 - Status: `Planned`
-- Readiness: `Ready after RL-059`
-- Scope:
-  - Create three Polar.sh products: Lingua Pro (one-time), Lingua Pro Lifetime (one-time), Lingua Team (metered / pilot).
-  - Add a minimal webhook receiver (separate service under `update-server/` or a new `license-server/`) that:
-    - Listens to Polar `order.paid` / `order.refunded`.
-    - Signs an RL-059 license payload and emails it to the buyer.
-    - Records issuance in an append-only log (SQLite or flat JSONL for the pilot; no cloud dependency until volume justifies it).
-  - Add "Buy Pro" and "Enter license key" entry points in Settings → About, plus a command-palette command.
-  - Keep cloud identity out of scope for the first release — license keys are enough; accounts can come later.
+- Readiness: `Ready after RL-059. Scope expanded on 2026-04-25 — see LICENSING_ADR.md and the §Scope rewrite below.`
+- 2026-04-25 update:
+  - The pricing tiers chosen for launch are `lingua_monthly` (subscription), `lingua_lifetime` (one-time), and `lingua_team` (metered) — Pro one-time is dropped. Trial is a separate `tier: 'trial'` minted by `/trials/start`, not a Polar product.
+  - The implementation lives in a new sibling Cloudflare Worker `license-server/`, not inside `update-server/`. Decision and trade-offs captured in `docs/LICENSING_ADR.md`.
+  - Email delivery uses Resend (already configured by the maintainer). Server consumes `RESEND_API_KEY` as a Cloudflare secret.
+  - The license-server is the source of truth for max-3-devices (configurable for Team via Polar product `metadata.device_limit`). Self-service device removal is done by the renderer with the license token as auth — no separate user account in Phase 1.
+- Scope (rewritten 2026-04-25):
+  - Polar products: `lingua_monthly` (subscription), `lingua_lifetime` (one-time), `lingua_team` (metered, with optional `metadata.device_limit`).
+  - Sibling Cloudflare Worker `license-server/` deployed at `licenses.linguacode.dev` with D1 persistence (`licenses`, `devices`, `trials` tables — full schema in `docs/LICENSING_ADR.md`).
+  - HTTP endpoints: `POST /webhooks/polar`, `POST /trials/start`, `POST /licenses/activate`, `GET /licenses/status` (returns `refreshedToken` post-renewal so Monthly stays offline-friendly), `POST /licenses/devices/remove`, `GET /health`.
+  - Webhook handlers: `order.paid`, `order.refunded`, `subscription.created`, `subscription.updated` (renewal extends `expires_at` and mints a new server-side token), `subscription.canceled` (sets `status=cancel_at_period_end`).
+  - 14-day trial with anti-abuse: `UNIQUE(email)` + `UNIQUE(device_id)` in the `trials` table + per-IP rate limit on `/trials/start`. Email verification deferred to a Phase 2 follow-up if observed abuse exceeds ~5% of trial volume.
+  - Renderer surfaces tracked under sibling slices of RL-059: device-management UI in Settings → License (lists active devices with remove + rename), Trial CTA, "Buy Pro" / "Enter license key" entry points.
 - Acceptance criteria:
-  - A successful test purchase in Polar's sandbox results in the buyer receiving a working license key.
-  - A refund invalidates the key the next time the app does a remote check (optional — offline use continues until the next online verify).
-  - The checkout URL is configurable via env so we can point at Polar sandbox vs production.
+  - A successful sandbox purchase via Polar issues a working license token by email.
+  - A successful Monthly renewal returns a `refreshedToken` to the next `/licenses/status` call so the desktop client never hits expired offline.
+  - Activating on a fourth device on a hard-3 tier returns `exhausted` with the active device list; removing one device + retrying succeeds.
+  - The trial endpoint refuses a second trial for the same email or the same device id.
+  - The checkout URL and the `licenses.linguacode.dev` base URL are env-configurable so sandbox vs production is a deploy flag.
 - Dependencies:
-  - RL-059
+  - RL-059 (Slice 0 — main-side bridge + device id — shipped 2026-04-25)
 
 ### RL-062 Public README, license declaration, and distribution posture
 

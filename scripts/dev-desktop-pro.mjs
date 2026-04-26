@@ -49,7 +49,13 @@ try {
     process.exit(0);
   }
 
-  const launchArgs = [desktopLauncher, ...passthroughArgs];
+  // Always pass --sync-main: each invocation mints a fresh keypair, and
+  // the main bundle has __LINGUA_LICENSE_PUBLIC_KEY_JWK__ baked in via
+  // esbuild --define at build time. Without --sync-main the launcher
+  // would early-return on a cached bundle from a previous session and
+  // run with publicKeyJwk: null — verification would then return
+  // `no-public-key` for any token the user pastes.
+  const launchArgs = [desktopLauncher, '--sync-main', ...passthroughArgs];
   if (trailingArgs.length > 0) {
     launchArgs.push('--', ...trailingArgs);
   }

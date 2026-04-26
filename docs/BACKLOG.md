@@ -34,7 +34,9 @@ Product / strategic ideas that have not been sized. A human decides
 whether they graduate to ROADMAP, die here, or stay pending more
 research.
 
-- _(none captured yet — add new items as short bullets with a domain tag and date)_
+- [infra] Unified release pipeline GH Actions: a single `git tag v*` builds desktop installers + web bundle, deploys web to Cloudflare Pages, purges `updates.linguacode.dev` cache, and (later) bumps the `/web/version` endpoint that drives the renderer update banner. Acceptance criteria still TBD; design lives in [`LICENSING_ADR.md`](./LICENSING_ADR.md) Decision 6. — 2026-04-25 (jy)
+- [ui] Web shell update banner driven by a new `updates.linguacode.dev/web/version` endpoint. Renderer polls every 30 min, compares against `import.meta.env.VITE_LINGUA_VERSION`, surfaces a "Reload to update" notice. Desktop build skips the checker — autoupdate native covers it. Acceptance criteria TBD; design lives in [`LICENSING_ADR.md`](./LICENSING_ADR.md) Decision 6. — 2026-04-25 (jy)
+- [licensing] Trial email verification (magic-link). Phase 1 of RL-061 ships without it; promote when observed abuse exceeds ~5% of trial volume. Schema + `/trials/start` already supports a follow-up flow. — 2026-04-25 (jy)
 
 ## 2. Small bugs / polish
 

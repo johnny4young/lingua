@@ -71,8 +71,8 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-059`](./PLAN.md#rl-059-license-key-infrastructure) | License-key infrastructure | `Partial` | Ed25519 signed-token verifier + Settings section; remaining: Polar.sh webhook + email delivery. |
-| [`RL-061`](./PLAN.md#rl-061-polarsh-integration) | Polar.sh integration | `Planned` | Three Polar products + checkout link + webhook that emits a signed license. Depends on `RL-059`. |
+| [`RL-059`](./PLAN.md#rl-059-license-key-infrastructure) | License-key infrastructure | `Partial` | Ed25519 verifier + Settings section + main-side IPC bridge with device id (Slice 0 shipped 2026-04-25). Remaining: Polar webhook + email delivery (now lives under `RL-061`). |
+| [`RL-061`](./PLAN.md#rl-061-polarsh-integration) | Polar.sh integration | `Planned` | Sibling Cloudflare Worker `license-server/` + D1 + Resend. Three Polar products (`monthly`/`lifetime`/`team`) + 14d trial + max-3-devices + device removal. See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
 | [`RL-063`](./PLAN.md#rl-063-download-landing-page-at-linguacodedev) | Download landing page at linguacode.dev | `Planned` | Static marketing page with OS-aware download + pricing. Depends on `RL-061` and `RL-018`. |
 
 ### 4b. Editor, runtime and workflow (P1)
@@ -151,7 +151,7 @@ discoverability only.
 Value-per-day priority, skipping parked tickets. This is the order an
 agent should follow when §3's tiebreakers don't resolve.
 
-1. **Launch blockers.** `RL-059` (finish the webhook + email delivery slice) → `RL-061` (Polar products + checkout) → `RL-063` (linguacode.dev download page). Nothing ships without these.
+1. **Launch blockers.** `RL-061` (license-server scaffold → Polar webhook/email → device/trial/update slices) → `RL-063` (linguacode.dev download page). `RL-059` stays `Partial` only as the historical parent for the verifier + bridge work now shipped.
 2. **Utilities polish.** `RL-068` / `RL-072` remaining slices — short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
 3. **Debugger + language intelligence.** `RL-027` Slice 1 (JS/TS debugger minimal) and `RL-026` adapter layer. These unblock `RL-042` and `RL-047`.
 4. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.

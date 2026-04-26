@@ -15,6 +15,11 @@ class MockCssWorker {}
 class MockHtmlWorker {}
 class MockTsWorker {}
 
+const basicLanguageModule = {
+  conf: {},
+  language: { tokenizer: {} },
+};
+
 const monacoMock = {
   editor: {},
   languages: {
@@ -67,6 +72,16 @@ vi.mock('monaco-editor/esm/vs/editor/editor.api.js', () => monacoMock);
 vi.mock('monaco-editor/esm/vs/editor/editor.all.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/language/typescript/monaco.contribution.js', () => ({}));
 vi.mock('monaco-editor/esm/vs/language/json/monaco.contribution.js', () => ({}));
+vi.mock('monaco-editor/esm/vs/basic-languages/javascript/javascript.js', () => basicLanguageModule);
+vi.mock('monaco-editor/esm/vs/basic-languages/typescript/typescript.js', () => basicLanguageModule);
+vi.mock('monaco-editor/esm/vs/basic-languages/go/go.js', () => basicLanguageModule);
+vi.mock('monaco-editor/esm/vs/basic-languages/python/python.js', () => basicLanguageModule);
+vi.mock('monaco-editor/esm/vs/basic-languages/rust/rust.js', () => basicLanguageModule);
+vi.mock('monaco-editor/esm/vs/basic-languages/lua/lua.js', () => basicLanguageModule);
+vi.mock('monaco-editor/esm/vs/basic-languages/yaml/yaml.js', () => basicLanguageModule);
+vi.mock('monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.js', () => basicLanguageModule);
+vi.mock('monaco-editor/esm/vs/basic-languages/shell/shell.js', () => basicLanguageModule);
+vi.mock('monaco-editor/esm/vs/basic-languages/ini/ini.js', () => basicLanguageModule);
 vi.mock('monaco-editor/esm/vs/editor/editor.worker?worker', () => ({
   default: MockEditorWorker,
 }));

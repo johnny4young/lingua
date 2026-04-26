@@ -15,7 +15,7 @@
 
 ---
 
-## 1. Status at a glance (2026-04-24)
+## 1. Status at a glance (2026-04-25)
 
 Mirrors the authoritative `Status` column in
 [`ROADMAP.md`](./ROADMAP.md) §4. **When discrepancies appear, ROADMAP wins.**
@@ -25,7 +25,7 @@ Mirrors the authoritative `Status` column in
 | Iter 1 | [`RL-072`](./ROADMAP.md) | Shipping · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Expand Developer Utilities to DevUtils parity — full panel set shipped (29 panels). RL-068 closeout adds YAML ↔ JSON, JSON ↔ CSV, Markdown Preview (sanitized HTML output, no remote image fetch), and SQL Formatter (ANSI / PostgreSQL / MySQL dialects). RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (5 of ~7 slices shipped) | Execution history — replay-by-id + comparison. See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
-| Iter 4 | [`RL-059`](./ROADMAP.md) | Partial | License-key infrastructure — Polar webhook + email delivery. Gates the 0.3 launch. See §6. |
+| Iter 4 | [`RL-059`](./ROADMAP.md) | Partial · Slice 0 shipped 2026-04-25 (main-side IPC bridge + device id). Remaining slices live under `RL-061`. | License-key infrastructure. Slice 0 closes the desktop preload/main-side gap; Slices 1–5 (license-server, Polar webhook, device UI, trial CTA, release/update banner) are now the focus and live under `RL-061`. See [`LICENSING_ADR.md`](./LICENSING_ADR.md) and §6. |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Partial (Slices A + B shipped) | Language-pack registry Slice C — capability-aware UI. See §7. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
@@ -36,8 +36,10 @@ Gated / deferred tickets are NOT in this table — they live exclusively in
 Value-per-day priority. The full reasoning is in
 [`ROADMAP.md`](./ROADMAP.md) §5; this list only names the next pulls.
 
-1. **Iter 4 / RL-059** — close the licensing story (~1 week, unblocks
-   `RL-061` and `RL-063`, which gate the 0.3 launch).
+1. **Iter 4 / RL-061** — continue the licensing story after the shipped
+   `RL-059` bridge slice: license-server scaffold, Polar webhook/email,
+   device UI, trial CTA, and update banner slices. This gates `RL-063`
+   and the 0.3 launch.
 2. **Iter 1 / RL-068 + RL-072** — finish the Developer Utilities
    trailing slices (~2 days each, diverse code, no external risk).
 3. **Iter 2 / RL-028** — replay + benchmarking for execution history
@@ -244,19 +246,45 @@ with call stack + variables; (d) step over / continue / stop controls;
 
 ---
 
-## 6. Iter 4 / RL-059 — License-key infrastructure (closing slices)
+## 6. Iter 4 / RL-059 + RL-061 — Licensing infrastructure (sequenced slices)
 
-**One-liner**: Polar.sh webhook handler + email delivery so the full
-buy-verify-activate loop is live. The verifier, Settings UI, and tier
-gates are already shipped.
+**One-liner**: Land the full buy-verify-activate loop in slices, with
+no external-dependency surface in Slice 0 and progressively more Polar /
+Resend / DNS coupling as the slices ramp. Design lives in
+[`LICENSING_ADR.md`](./LICENSING_ADR.md); ticket scope expansions live in
+PLAN.md `RL-059` and `RL-061`.
 
-**Context**: RL-059 shipped the offline Ed25519 verifier, the Settings
-License section, the pasted-token apply flow, and `useEntitlement()`
-everywhere. The remaining gap is the server-side delivery path that
-issues signed tokens after a Polar checkout completes.
+**Context**: RL-059 shipped the renderer verifier, the Settings License
+section, the pasted-token flow, and `useEntitlement()` everywhere. The
+2026-04-25 ADR locks: vendor (Polar.sh), license-server stack (sibling
+Cloudflare Worker `license-server/` + D1), email (Resend), pricing tiers
+(`lingua_monthly` + `lingua_lifetime` + `lingua_team`), device limit
+(hard 3 for monthly+lifetime, configurable for team), trial (14d, no
+verification in Phase 1), and a release/update propagation strategy with
+a unified GH Actions pipeline + a web update banner.
 
-**Full detail to land when this iter is picked.** Must sequence with
-`RL-061` (Polar product setup) since they share the contract.
+**Slice 0 — Main-side IPC bridge (shipped 2026-04-25).** `src/main/license.ts`
++ `src/main/ipc/license.ts` + `src/preload/index.ts` + the renderer store
+auto-detect. No external deps. Closes the preload/main-side gap that
+PLAN's Readiness flagged.
+
+**Slice 1 — `license-server/` Cloudflare Worker scaffold.** D1 schema +
+`/health` + mocked `/trials/start` + `/licenses/activate`. miniflare-
+backed tests. No Polar wiring yet.
+
+**Slice 2 — Polar webhook handler + Resend email integration.** Real
+signing, real `subscription.*` + `order.*` event handling, real outbound
+email. Requires the maintainer's Polar sandbox + Resend domain
+verification before end-to-end smoke is possible.
+
+**Slice 3 — Device management UI.** Settings → License lists active
+devices, supports rename + remove, surfaces the exhausted-device modal.
+
+**Slice 4 — Trial CTA.** Settings + landing-page hook for `/trials/start`.
+
+**Slice 5 — Release pipeline + web update banner.** GH Actions workflow
+that builds desktop+web, deploys web, purges CF cache; renderer banner
+driven by a new `/web/version` endpoint.
 
 ---
 

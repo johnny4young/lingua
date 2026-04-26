@@ -63,6 +63,27 @@ describe('licenseStore', () => {
     expect(useLicenseStore.getState().token).toBeNull();
   });
 
+  it('keeps the previous active token when a replacement token fails verification', async () => {
+    const token = await signLicenseTokenForTest(
+      {
+        productId: 'lingua-desktop',
+        tier: 'pro',
+        issuedTo: 'user@example.com',
+        issuedAt: new Date(Date.now() - 1000).toISOString(),
+        supportWindowEndsAt: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+        entitlements: ['plugins'],
+      },
+      privateKeyJwk
+    );
+    await useLicenseStore.getState().setLicenseToken(token);
+
+    const status = await useLicenseStore.getState().setLicenseToken('aaa.bbb');
+    expect(status.kind).toBe('invalid');
+    if (status.kind === 'invalid') expect(status.reason).toBe('malformed');
+    expect(useLicenseStore.getState().token).toBe(token);
+    expect(useLicenseStore.getState().status.kind).toBe('active');
+  });
+
   it('rejects empty tokens with a malformed reason and never persists them', async () => {
     const status = await useLicenseStore.getState().setLicenseToken('   ');
     expect(status.kind).toBe('invalid');

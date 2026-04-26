@@ -142,6 +142,20 @@ contextBridge.exposeInMainWorld('lingua', {
     list: () => ipcRenderer.invoke('plugins:list'),
   },
 
+  // License bridge (RL-059 Slice 0). Main owns persistence + verification;
+  // the renderer mirrors the snapshot into its zustand store and forwards
+  // every mutation through here so localStorage stays out of the desktop
+  // licensing path.
+  license: {
+    getState: () => ipcRenderer.invoke('license:get-state') as Promise<LicenseSnapshot>,
+    applyToken: (token: string) =>
+      ipcRenderer.invoke('license:apply-token', token) as Promise<LicenseApplyResult>,
+    clear: () =>
+      ipcRenderer.invoke('license:clear') as Promise<LicenseClearResult>,
+    revalidate: () =>
+      ipcRenderer.invoke('license:revalidate') as Promise<LicenseApplyResult>,
+  },
+
   desktopSmoke: {
     enabled: desktopSmokeEnabled,
     getConfig: () => ipcRenderer.invoke('desktop-smoke:get-config') as Promise<DesktopSmokeConfig | null>,

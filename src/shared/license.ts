@@ -48,7 +48,8 @@ export type LicenseFailureReason =
   | 'invalid-signature'
   | 'expired'
   | 'clock-skew'
-  | 'unsupported-tier';
+  | 'unsupported-tier'
+  | 'no-public-key';
 
 export type LicenseVerificationResult =
   | {
