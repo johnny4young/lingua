@@ -4,8 +4,45 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* -------------------------------------------------------------------------- */
-/* Theme tokens                                                                */
+/* Theme tokens — Lingua · Signal-Slate                                        */
 /* -------------------------------------------------------------------------- */
+
+/*
+ * Source of truth: the design-system handoff bundle exported from
+ * Claude Design (claude.ai/design), version 1.0.0 dated 2026-04-24,
+ * vendored as `tokens.json` + `tokens.css` in
+ * lingua/project/handoff/. Every value below either matches that
+ * bundle byte-for-byte or chains through `var()` to a token that does.
+ *
+ * Layering:
+ *
+ *   1. DS canonical tokens (`--color-*`, `--space-*`, `--radius-*`,
+ *      `--shadow-*`, `--duration-*`, `--curve-*`, `--text-*-*`,
+ *      `--weight-*`) — declared in :root,.light and overridden in
+ *      .dark / [data-theme="dark"]. New components consume these
+ *      directly through Tailwind classes (`bg-bg-base`,
+ *      `text-fg-muted`, `border-border-default`) or via `var(--…)`.
+ *
+ *   2. Legacy `--app-*` bridge — every historical Lingua token
+ *      (`--app-background`, `--app-foreground`, `--app-primary`,
+ *      etc.) chains to a DS canonical token so existing components
+ *      that say `bg-background` or `text-primary` keep rendering
+ *      against the same canonical value the DS specifies. Dark-mode
+ *      is automatic because the bridge is a single declaration —
+ *      when the canonical token redefines, the alias follows.
+ *
+ *   3. Tailwind v4 `@theme inline` block — exposes both layers as
+ *      utility classes. Existing `text-foreground` / `bg-primary`
+ *      keep working unchanged; new code can reach for
+ *      `text-fg-base` / `bg-accent` directly.
+ *
+ * Hue convention: Signal-Slate lives at hue 210 (cool blue-teal).
+ * Multi-hue exceptions exist for syntax highlighting (keyword 265,
+ * function 285, number 80, string 155) and for the four semantic
+ * status colors (success 155, warning 70, error 22, info 240) — these
+ * deliberately step outside the slate family because their meaning
+ * comes from the hue, not from brand consistency.
+ */
 
 :root,
 .light {
@@ -13,55 +50,300 @@
   --font-display-stack: 'Bahnschrift', 'IBM Plex Sans', 'Aptos', sans-serif;
   --font-code: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
 
-  --app-background: oklch(95.8% 0.008 84);
-  --app-background-elevated: oklch(99.1% 0.004 84);
-  --app-surface: oklch(97.4% 0.007 84);
-  --app-surface-strong: oklch(93.4% 0.012 84);
-  --app-panel: oklch(100% 0 0 / 0.78);
-  --app-border: oklch(83.2% 0.016 84 / 0.72);
-  --app-border-strong: oklch(74.5% 0.022 84 / 0.86);
-  --app-foreground: oklch(24.5% 0.02 258);
-  --app-muted: oklch(48.9% 0.015 260);
-  --app-muted-strong: oklch(36.8% 0.018 260);
-  --app-primary: oklch(59.5% 0.2 293);
-  --app-primary-foreground: oklch(99% 0.002 85);
-  --app-primary-soft: oklch(88.9% 0.053 293 / 0.58);
-  --app-info: oklch(61.5% 0.15 244);
-  --app-success: oklch(65% 0.16 149);
-  --app-warning: oklch(76% 0.16 87);
-  --app-error: oklch(63% 0.2 24);
-  --app-ring: oklch(62.5% 0.18 292 / 0.5);
-  --app-shadow: 0 24px 80px rgba(43, 32, 79, 0.12);
-  --app-gradient-a: radial-gradient(circle at 12% 0%, rgba(123, 92, 255, 0.12), transparent 34%);
-  --app-gradient-b: radial-gradient(circle at 88% 12%, rgba(13, 148, 136, 0.1), transparent 28%);
-  --app-grid: rgba(81, 78, 121, 0.08);
+  /* ===== DS canonical tokens — light ===== */
+
+  /* Neutral ramp */
+  --color-neutral-0: oklch(1 0 0);
+  --color-neutral-50: oklch(0.985 0.004 210);
+  --color-neutral-100: oklch(0.968 0.005 210);
+  --color-neutral-200: oklch(0.935 0.006 210);
+  --color-neutral-300: oklch(0.885 0.008 210);
+  --color-neutral-400: oklch(0.78 0.01 210);
+  --color-neutral-500: oklch(0.62 0.015 210);
+  --color-neutral-600: oklch(0.45 0.018 210);
+  --color-neutral-700: oklch(0.32 0.016 210);
+  --color-neutral-800: oklch(0.22 0.014 210);
+  --color-neutral-900: oklch(0.16 0.012 210);
+
+  /* Slate ramp (saturated, the brand accent family) */
+  --color-slate-50: oklch(0.97 0.018 210);
+  --color-slate-100: oklch(0.94 0.04 210);
+  --color-slate-200: oklch(0.88 0.07 210);
+  --color-slate-300: oklch(0.78 0.11 210);
+  --color-slate-400: oklch(0.64 0.15 210);
+  --color-slate-500: oklch(0.52 0.18 210);
+  --color-slate-600: oklch(0.44 0.18 210);
+  --color-slate-700: oklch(0.36 0.17 210);
+  --color-slate-800: oklch(0.28 0.14 210);
+  --color-slate-900: oklch(0.2 0.1 210);
+
+  /* Surfaces */
+  --color-bg-base: oklch(0.985 0.004 210);
+  --color-bg-panel: oklch(1 0 0);
+  --color-bg-panel-alt: oklch(0.968 0.005 210);
+  --color-bg-inset: oklch(0.935 0.006 210);
+
+  /* Text */
+  --color-fg-base: oklch(0.16 0.012 210);
+  --color-fg-muted: oklch(0.45 0.018 210);
+  --color-fg-subtle: oklch(0.62 0.015 210);
+  --color-fg-on-accent: oklch(1 0 0);
+
+  /* Borders */
+  --color-border-subtle: oklch(0.935 0.006 210);
+  --color-border-default: oklch(0.885 0.008 210);
+  --color-border-strong: oklch(0.78 0.01 210);
+
+  /* Accent */
+  --color-accent: oklch(0.52 0.18 210);
+  --color-accent-hover: oklch(0.44 0.18 210);
+  --color-accent-fg: oklch(0.36 0.17 210);
+
+  /* Status (each semantic role keeps its hue per DS spec) */
+  --color-success-bg: oklch(0.94 0.06 155);
+  --color-success-fg: oklch(0.35 0.14 155);
+  --color-success-border: oklch(0.55 0.14 155);
+  --color-warning-bg: oklch(0.95 0.07 70);
+  --color-warning-fg: oklch(0.42 0.14 70);
+  --color-warning-border: oklch(0.62 0.16 70);
+  --color-error-bg: oklch(0.94 0.05 22);
+  --color-error-fg: oklch(0.45 0.2 22);
+  --color-error-border: oklch(0.58 0.22 22);
+  --color-info-bg: oklch(0.94 0.04 240);
+  --color-info-fg: oklch(0.4 0.15 240);
+  --color-info-border: oklch(0.56 0.16 240);
+
+  /* Syntax (multi-hue per DS spec) */
+  --color-syntax-keyword: oklch(0.45 0.18 265);
+  --color-syntax-string: oklch(0.48 0.14 155);
+  --color-syntax-number: oklch(0.55 0.15 80);
+  --color-syntax-comment: oklch(0.62 0.015 210);
+  --color-syntax-function: oklch(0.5 0.15 285);
+  --color-syntax-operator: oklch(0.45 0.018 210);
+  --color-syntax-variable: oklch(0.32 0.016 210);
+  --color-syntax-punctuation: oklch(0.62 0.015 210);
+
+  /* Editor surfaces */
+  --color-editor-bg: oklch(0.99 0.003 210);
+  --color-editor-fg: oklch(0.22 0.014 210);
+  --color-editor-gutter-fg: oklch(0.72 0.01 210);
+  --color-editor-line-hl: oklch(0.968 0.005 210);
+  --color-editor-selection: oklch(0.88 0.07 210);
+
+  /* Console surfaces — distinct semantic tokens that ConsolePanel ANSI maps to */
+  --color-console-bg: oklch(0.985 0.004 210);
+  --color-console-stdout: oklch(0.22 0.014 210);
+  --color-console-stderr: oklch(0.45 0.2 22);
+  --color-console-warning: oklch(0.42 0.14 70);
+  --color-console-info: oklch(0.4 0.15 240);
+  --color-console-timestamp: oklch(0.62 0.015 210);
+  --color-console-prompt: oklch(0.44 0.18 210);
+
+  /* Spacing scale — 8pt baseline with a 4px micro step */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radius scale */
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-full: 9999px;
+
+  /* Typography weights */
+  --weight-regular: 400;
+  --weight-book: 450;
+  --weight-medium: 500;
+  --weight-demi: 550;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Typography scale (size · line-height · tracking · weight per role) */
+  --text-display-size: 40px;
+  --text-display-lh: 1.05;
+  --text-display-tracking: -0.03em;
+  --text-display-weight: 550;
+  --text-h1-size: 28px;
+  --text-h1-lh: 1.15;
+  --text-h1-tracking: -0.025em;
+  --text-h1-weight: 600;
+  --text-h2-size: 22px;
+  --text-h2-lh: 1.2;
+  --text-h2-tracking: -0.02em;
+  --text-h2-weight: 600;
+  --text-h3-size: 17px;
+  --text-h3-lh: 1.3;
+  --text-h3-tracking: -0.015em;
+  --text-h3-weight: 600;
+  --text-body-lg-size: 15px;
+  --text-body-lg-lh: 1.55;
+  --text-body-lg-tracking: -0.005em;
+  --text-body-lg-weight: 450;
+  --text-body-size: 13px;
+  --text-body-lh: 1.5;
+  --text-body-tracking: -0.005em;
+  --text-body-weight: 450;
+  --text-body-sm-size: 12px;
+  --text-body-sm-lh: 1.5;
+  --text-body-sm-tracking: 0;
+  --text-body-sm-weight: 450;
+  --text-caption-size: 11px;
+  --text-caption-lh: 1.45;
+  --text-caption-tracking: 0.005em;
+  --text-caption-weight: 500;
+  --text-eyebrow-size: 10.5px;
+  --text-eyebrow-lh: 1.2;
+  --text-eyebrow-tracking: 0.16em;
+  --text-eyebrow-weight: 600;
+
+  /* Shadows (light) */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(16, 18, 26, 0.06);
+  --shadow-md: 0 4px 10px -2px rgba(16, 18, 26, 0.08), 0 2px 4px -2px rgba(16, 18, 26, 0.06);
+  --shadow-lg: 0 12px 28px -8px rgba(16, 18, 26, 0.14), 0 4px 10px -4px rgba(16, 18, 26, 0.08);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 320ms;
+  --curve-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --curve-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --curve-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ===== Legacy --app-* bridge — chains to DS canonical ===== */
+
+  --app-background: var(--color-bg-base);
+  --app-background-elevated: var(--color-bg-panel);
+  --app-surface: var(--color-bg-panel-alt);
+  --app-surface-strong: var(--color-bg-inset);
+  --app-panel: oklch(1 0 0 / 0.82);
+  --app-border: var(--color-border-default);
+  --app-border-strong: var(--color-border-strong);
+  --app-foreground: var(--color-fg-base);
+  --app-muted: var(--color-fg-muted);
+  --app-muted-strong: var(--color-fg-base);
+  --app-primary: var(--color-accent);
+  --app-primary-foreground: var(--color-fg-on-accent);
+  --app-primary-soft: oklch(0.88 0.07 210 / 0.55);
+  --app-info: var(--color-info-fg);
+  --app-success: var(--color-success-fg);
+  --app-warning: var(--color-warning-fg);
+  --app-error: var(--color-error-fg);
+  --app-ring: oklch(0.52 0.18 210 / 0.5);
+  --app-shadow: var(--shadow-lg);
+  --app-gradient-a: radial-gradient(circle at 12% 0%, oklch(0.52 0.18 210 / 0.1), transparent 34%);
+  --app-gradient-b: radial-gradient(circle at 88% 12%, oklch(0.5 0.15 285 / 0.07), transparent 28%);
+  --app-grid: oklch(0.16 0.012 210 / 0.06);
   --tour-overlay: color-mix(in srgb, var(--app-background) 42%, transparent);
 }
 
-.dark {
-  --app-background: oklch(18.2% 0.015 274);
-  --app-background-elevated: oklch(21.5% 0.018 274);
-  --app-surface: oklch(24.8% 0.018 274);
-  --app-surface-strong: oklch(28.1% 0.02 274);
-  --app-panel: oklch(21.8% 0.018 274 / 0.8);
-  --app-border: oklch(35.5% 0.016 274 / 0.7);
-  --app-border-strong: oklch(43.5% 0.022 274 / 0.84);
-  --app-foreground: oklch(95.6% 0.01 284);
-  --app-muted: oklch(70.4% 0.015 284);
-  --app-muted-strong: oklch(79.8% 0.018 284);
-  --app-primary: oklch(72.5% 0.19 294);
-  --app-primary-foreground: oklch(18.2% 0.015 274);
-  --app-primary-soft: oklch(42.4% 0.09 294 / 0.42);
-  --app-info: oklch(77% 0.12 245);
-  --app-success: oklch(75% 0.15 149);
-  --app-warning: oklch(82% 0.16 86);
-  --app-error: oklch(72% 0.18 23);
-  --app-ring: oklch(78.4% 0.15 294 / 0.45);
-  --app-shadow: 0 30px 120px rgba(3, 4, 9, 0.52);
-  --app-gradient-a: radial-gradient(circle at 16% 0%, rgba(156, 120, 255, 0.17), transparent 38%);
-  --app-gradient-b: radial-gradient(circle at 84% 10%, rgba(24, 188, 184, 0.12), transparent 30%);
-  --app-grid: rgba(122, 116, 179, 0.11);
-  --tour-overlay: color-mix(in srgb, var(--app-background) 58%, transparent);
+.dark,
+[data-theme='dark'] {
+  /* ===== DS canonical tokens — dark ===== */
+
+  --color-neutral-0: oklch(0.12 0.005 210);
+  --color-neutral-50: oklch(0.16 0.01 210);
+  --color-neutral-100: oklch(0.2 0.012 210);
+  --color-neutral-200: oklch(0.24 0.014 210);
+  --color-neutral-300: oklch(0.32 0.016 210);
+  --color-neutral-400: oklch(0.44 0.018 210);
+  --color-neutral-500: oklch(0.58 0.02 210);
+  --color-neutral-600: oklch(0.72 0.018 210);
+  --color-neutral-700: oklch(0.85 0.015 210);
+  --color-neutral-800: oklch(0.94 0.01 210);
+  --color-neutral-900: oklch(0.98 0.005 210);
+
+  --color-slate-50: oklch(0.22 0.035 210);
+  --color-slate-100: oklch(0.26 0.055 210);
+  --color-slate-200: oklch(0.32 0.08 210);
+  --color-slate-300: oklch(0.42 0.11 210);
+  --color-slate-400: oklch(0.56 0.145 210);
+  --color-slate-500: oklch(0.72 0.17 210);
+  --color-slate-600: oklch(0.8 0.16 210);
+  --color-slate-700: oklch(0.85 0.14 210);
+  --color-slate-800: oklch(0.9 0.11 210);
+  --color-slate-900: oklch(0.94 0.08 210);
+
+  --color-bg-base: oklch(0.12 0.005 210);
+  --color-bg-panel: oklch(0.16 0.01 210);
+  --color-bg-panel-alt: oklch(0.2 0.012 210);
+  --color-bg-inset: oklch(0.14 0.008 210);
+
+  --color-fg-base: oklch(0.98 0.005 210);
+  --color-fg-muted: oklch(0.72 0.018 210);
+  --color-fg-subtle: oklch(0.58 0.02 210);
+  --color-fg-on-accent: oklch(0.12 0.005 210);
+
+  --color-border-subtle: oklch(0.24 0.014 210);
+  --color-border-default: oklch(0.32 0.016 210);
+  --color-border-strong: oklch(0.44 0.018 210);
+
+  --color-accent: oklch(0.72 0.17 210);
+  --color-accent-hover: oklch(0.8 0.16 210);
+  --color-accent-fg: oklch(0.85 0.14 210);
+
+  --color-success-bg: oklch(0.25 0.06 155);
+  --color-success-fg: oklch(0.78 0.14 155);
+  --color-success-border: oklch(0.65 0.14 155);
+  --color-warning-bg: oklch(0.28 0.08 70);
+  --color-warning-fg: oklch(0.82 0.12 70);
+  --color-warning-border: oklch(0.7 0.14 70);
+  --color-error-bg: oklch(0.25 0.08 22);
+  --color-error-fg: oklch(0.8 0.18 22);
+  --color-error-border: oklch(0.65 0.2 22);
+  --color-info-bg: oklch(0.25 0.06 240);
+  --color-info-fg: oklch(0.8 0.15 240);
+  --color-info-border: oklch(0.65 0.15 240);
+
+  --color-syntax-keyword: oklch(0.75 0.16 265);
+  --color-syntax-string: oklch(0.78 0.14 155);
+  --color-syntax-number: oklch(0.82 0.14 80);
+  --color-syntax-comment: oklch(0.58 0.02 210);
+  --color-syntax-function: oklch(0.78 0.14 285);
+  --color-syntax-operator: oklch(0.72 0.018 210);
+  --color-syntax-variable: oklch(0.92 0.008 210);
+  --color-syntax-punctuation: oklch(0.58 0.02 210);
+
+  --color-editor-bg: oklch(0.14 0.008 210);
+  --color-editor-fg: oklch(0.92 0.008 210);
+  --color-editor-gutter-fg: oklch(0.44 0.018 210);
+  --color-editor-line-hl: oklch(0.18 0.01 210);
+  --color-editor-selection: oklch(0.32 0.08 210);
+
+  --color-console-bg: oklch(0.12 0.005 210);
+  --color-console-stdout: oklch(0.92 0.008 210);
+  --color-console-stderr: oklch(0.8 0.18 22);
+  --color-console-warning: oklch(0.82 0.12 70);
+  --color-console-info: oklch(0.8 0.15 240);
+  --color-console-timestamp: oklch(0.58 0.02 210);
+  --color-console-prompt: oklch(0.8 0.16 210);
+
+  /* Shadows (dark — inset highlight + drop shadow per DS spec) */
+  --shadow-sm: inset 0 1px 0 oklch(0.3 0.015 210 / 0.7), 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: inset 0 1px 0 oklch(0.32 0.015 210 / 0.8), 0 6px 14px rgba(0, 0, 0, 0.45);
+  --shadow-lg: inset 0 1px 0 oklch(0.34 0.015 210 / 0.9), 0 18px 36px rgba(0, 0, 0, 0.55);
+
+  /* Legacy --app-* bridge — dark-mode-specific overrides where the
+     light declaration referenced an alpha-baked value that needs a
+     different blend on dark surfaces. The plain bridge entries
+     (`--app-background: var(--color-bg-base)`) inherit automatically
+     from the canonical redefinitions above. */
+  --app-panel: oklch(0.16 0.01 210 / 0.82);
+  --app-primary-soft: oklch(0.32 0.08 210 / 0.45);
+  --app-ring: oklch(0.72 0.17 210 / 0.5);
+  --app-shadow: 0 30px 120px rgba(0, 0, 0, 0.55);
+  --app-gradient-a: radial-gradient(circle at 16% 0%, oklch(0.72 0.17 210 / 0.16), transparent 38%);
+  --app-gradient-b: radial-gradient(circle at 84% 10%, oklch(0.78 0.14 285 / 0.1), transparent 30%);
+  --app-grid: oklch(0.72 0.018 210 / 0.1);
+  --tour-overlay: color-mix(in srgb, var(--color-bg-base) 58%, transparent);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -73,6 +355,10 @@
   --font-display: var(--font-display-stack);
   --font-mono: var(--font-code);
 
+  /* Legacy color names — Tailwind classes that existed before the DS
+     migration (e.g. `text-foreground`, `bg-primary-soft`). They keep
+     working unchanged because each --app-* now chains to a DS
+     canonical token in the :root block. */
   --color-background: var(--app-background);
   --color-background-elevated: var(--app-background-elevated);
   --color-surface: var(--app-surface);
@@ -92,14 +378,34 @@
   --color-error: var(--app-error);
   --color-ring: var(--app-ring);
 
-  --radius-sm: 0.625rem;
-  --radius-md: 0.9rem;
-  --radius-lg: 1.2rem;
-  --radius-xl: 1.6rem;
+  /* DS canonical names — what new code SHOULD reach for. Tailwind v4
+     auto-generates `bg-bg-base`, `text-fg-muted`, `border-border-default`,
+     `bg-accent`, `text-success-fg`, etc. from these declarations. */
+  --color-neutral-0: var(--color-neutral-0);
+  --color-slate-500: var(--color-slate-500);
+
+  /* Spacing & radius the DS spec, surfaced as Tailwind utilities. */
+  --spacing-1: var(--space-1);
+  --spacing-2: var(--space-2);
+  --spacing-3: var(--space-3);
+  --spacing-4: var(--space-4);
+  --spacing-5: var(--space-5);
+  --spacing-6: var(--space-6);
+  --spacing-7: var(--space-7);
+  --spacing-8: var(--space-8);
+
+  /* Tailwind expects `--radius-*` to be on the @theme block to
+     generate the `rounded-*` utilities. Bridge from the DS scale to
+     historical Lingua names (the old `--radius-2xl` is intentionally
+     larger than DS xl — kept for the few overlay cards that need it). */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
   --radius-2xl: 1.85rem;
 
-  --animate-shell-fade: shell-fade 0.28s ease-out;
-  --animate-rise-in: rise-in 0.22s ease-out;
+  --animate-shell-fade: shell-fade var(--duration-slow) var(--curve-ease-out);
+  --animate-rise-in: rise-in var(--duration-normal) var(--curve-ease-out);
   --animate-glow-pulse: glow-pulse 6s ease-in-out infinite;
 
   @keyframes shell-fade {
@@ -297,8 +603,6 @@
   .button-danger {
     @apply inline-flex items-center justify-center gap-2 rounded-xl border border-error/25 bg-error/12 px-3.5 py-2 text-xs font-semibold tracking-[0.02em] text-error transition-all duration-200 hover:bg-error/18 disabled:cursor-not-allowed disabled:opacity-45;
   }
-
-  /* Form primitives */
   .field-shell {
     @apply w-full rounded-2xl border border-border/80 bg-background-elevated/88 px-3.5 py-2.5 text-sm text-foreground outline-none transition-all duration-200 placeholder:text-muted focus:border-border-strong/90 focus:bg-background-elevated focus:ring-2 focus:ring-ring/50;
   }
