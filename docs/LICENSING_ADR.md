@@ -104,23 +104,54 @@ Subdomains: `updates.linguacode.dev` (existing) +
 
 ### Decision
 
-Three offered SKUs:
+Three Polar-priced SKUs:
 
 - **`lingua_monthly`** — subscription, hard 3-device limit.
 - **`lingua_lifetime`** — one-time, hard 3-device limit.
 - **`lingua_team`** — metered, device limit configurable via Polar
   product `metadata.device_limit` (default 3 if absent).
 
-A separate `tier: 'trial'` (14 days, 1 device, full Pro
-entitlements) is minted by `/trials/start` and never enters the
-Polar product catalog.
+Two server-minted tiers that **never enter the Polar product
+catalog** — both reuse the trial pattern (no Polar webhook, no
+checkout, server emits the token directly):
+
+- **`tier: 'trial'`** — 14 days, 1 device, full Pro entitlements,
+  one-shot. Minted by `/trials/start`. Same anti-abuse as below
+  (UNIQUE email + UNIQUE device).
+- **`tier: 'education'`** — 1 year, full Pro entitlements,
+  **renewable** by re-validating an educational email. Minted by
+  `POST /education/start`; renewed by `POST /education/renew` against
+  the same license id (extends `expires_at` by another year). Sized
+  for students + educators who validate via `.edu` domain or GitHub
+  Education API (validation strategy locked in Slice 4). Anti-abuse
+  same shape as trial: one active education license per email,
+  per-IP rate-limit on issuance, KV-backed.
+
+The `tier: 'pro'` device cap (3) applies to the education tier as
+well — students reinstalling on a new laptop go through the same
+`/licenses/devices/remove` flow as paid users.
 
 ### Consequences
 
+- `licenses.product_id` enum gains `'lingua_education'`. `licenses.tier`
+  enum gains `'education'`.
 - `licenses` table carries `device_limit INTEGER NOT NULL DEFAULT 3`
-  so the gate runs in SQL on activation.
+  so the gate runs in SQL on activation. Education shares the
+  hard-3 default with Monthly + Lifetime; only Team overrides via
+  Polar metadata.
 - The Polar webhook handler reads `metadata.device_limit` only for
-  the team SKU; the other SKUs ignore overrides.
+  the team SKU; the other SKUs ignore overrides. Education + trial
+  bypass the webhook entirely — they are server-minted by their
+  dedicated endpoints.
+- A new `educations` table (mirror of `trials`) holds the anti-abuse
+  ledger: `UNIQUE(email)` + `UNIQUE(device_id)` so a single educator
+  cannot stack multiple concurrent education tokens. Schema lands
+  with Slice 4 alongside the endpoint code.
+- Renewal is **explicit**: when `expires_at` approaches, the renderer
+  prompts the user to re-validate the educational email; only on
+  successful re-validation does the server extend `expires_at` and
+  mint a refreshedToken. No silent renewal — if the user's `.edu`
+  status lapses, the license expires gracefully.
 - Settings → License surface displays `(N of {device_limit})` so
   Team customers see their actual budget, not a hard-coded "3".
 

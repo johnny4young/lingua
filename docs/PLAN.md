@@ -2515,9 +2515,8 @@ Rationale:
 
 The launch checkout surface now tracks the `LICENSING_ADR.md` decision:
 three purchasable Polar products (`lingua_monthly`, `lingua_lifetime`,
-`lingua_team`), plus Free and Trial paths that do not live in the Polar
-catalog. Education remains a future access program layered on top of Pro,
-not a Phase 1 checkout SKU.
+`lingua_team`), plus Free, Trial, and Education paths that do NOT live
+in the Polar catalog (server-minted via dedicated endpoints).
 
 | Tier | Price | Polar.sh product | Includes |
 |------|-------|------------------|----------|
@@ -2526,7 +2525,7 @@ not a Phase 1 checkout SKU.
 | **Lingua Pro Lifetime** | TBD one-time | `lingua_lifetime` | Todo Pro + actualizaciones de por vida incluyendo major versions |
 | **Lingua Team** | metered / per-seat pilot | `lingua_team` | Todo Pro Lifetime + configurable device limit, team snippet library, priority support. Pilot with a small cohort before listing publicly |
 | **Lingua Trial** | $0 for 14 days | n/a (`/trials/start`) | Full Pro entitlements for one device, with email + device + IP anti-abuse |
-| **Lingua Education** (future) | $0 (verified) | Access program on top of Pro | Todo Pro gratis para estudiantes y educadores (.edu email, GitHub Education) |
+| **Lingua Education** | $0 for 1 year (renewable) | n/a (`/education/start` + `/education/renew`) | Full Pro entitlements for verified students/educators (.edu email and/or GitHub Education API). Renewable on annual re-validation; same hard-3 device limit + remove flow as paid tiers. Endpoints land in Slice 4 of `RL-061`. |
 
 Premium-only features:
 - Unlimited tabs (Free: 1 tab)
@@ -2612,7 +2611,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - Add a `licenseStore` in the renderer that can import, validate, and persist a license payload.
   - Expose `window.lingua.license.*` through preload so main can decide what ships activated.
   - Main-side verifier in `src/main/license.ts` for packaged builds; renderer-side verifier in `src/renderer/license/` for web builds (same verify code, same public key, single source of truth in `src/shared/license.ts`).
-  - License payload fields: `productId`, `tier` (`pro` | `pro_lifetime` | `team`), `issuedTo`, `issuedAt`, `supportWindowEndsAt`, `entitlements[]`, `signature`.
+  - License payload fields: `productId`, `tier` (`pro` | `pro_lifetime` | `team` | `trial` | `education`), `issuedTo`, `issuedAt`, `supportWindowEndsAt`, `entitlements[]`, `signature`.
   - Grace-period and clock-skew tolerance are explicit: +/- 24h skew, 14-day grace window after `supportWindowEndsAt` for online re-check (offline keeps working indefinitely for perpetual tiers).
 - Acceptance criteria:
   - A valid signed license unlocks Pro entitlements in both desktop and web builds.
@@ -2657,25 +2656,37 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-061 Polar.sh integration
 
 - Priority: `P0` for Phase 1
-- Status: `Planned`
-- Readiness: `Ready after RL-059. Scope expanded on 2026-04-25 — see LICENSING_ADR.md and the §Scope rewrite below.`
+- Status: `Partial`
+- Readiness: `Slice 1 (license-server/ scaffold) shipped 2026-04-26. Remaining: Slice 2 (Polar webhook + Resend + D1 wiring), Slice 3 (device UI), Slice 4 (trial CTA), Slice 5 (release pipeline + web update banner). See LICENSING_ADR.md and the §Status Update — Slice 1 block below.`
+- 2026-04-26 update — Slice 1:
+  - `license-server/` directory ships as a sibling Cloudflare Worker beside `update-server/`. Hono router + D1 schema migration + `GET /health` + 501 stubs for the four Slice-2 endpoints (`/trials/start`, `/licenses/activate`, `/licenses/status`, `/licenses/devices/remove`) + `/webhooks/polar`.
+  - `migrations/0001_initial.sql` defines the three Slice 1 tables — `licenses`, `devices`, `trials` — from LICENSING_ADR Decision 2. It reserves constrained product/tier values for `lingua_trial` and `lingua_education`; the separate `educations` anti-abuse table still lands with Slice 4 alongside the education endpoints. Includes the `device_limit INTEGER NOT NULL DEFAULT 3` column for the Team configurable-limit logic landing in Slice 2.
+  - Every non-webhook endpoint validates request shape (UTF-8 byte caps, email pattern, OS enum, required fields) before returning the 501. `/webhooks/polar` intentionally returns 501 without reading the body until Slice 2 adds signature verification. Slice 2 will replace the 501 branches with real D1 reads/writes + Polar signature verification + Resend email delivery without revisiting the request contract.
+  - Tagged-union response shape (`{ ok: true, ...payload }` / `{ ok: false, reason, message?, issues? }`) matches the `licenseStore` IPC bridge contract from RL-059 Slice 0 — Slice 2's wiring code passes server responses through without remapping.
+  - `wrangler.toml` declares the D1 binding with a placeholder `database_id` that the maintainer fills in via `wrangler d1 create lingua-licenses` (documented in `license-server/README.md`).
+  - Vitest suite covers 40 cases across health, trials, licenses, webhooks, migration constraints, method mismatches, and unknown-route fallthrough. Runs against `app.request(...)` directly (no miniflare) — Slice 2 will adopt `@cloudflare/vitest-pool-workers` when D1 + KV emulation lands.
+  - Maintainer-side prerequisites for Slice 2 (Polar account + sandbox products, Resend domain verification, Cloudflare D1 provisioning, secrets, custom domain `licenses.linguacode.dev`) are listed in `license-server/README.md`.
 - 2026-04-25 update:
   - The pricing tiers chosen for launch are `lingua_monthly` (subscription), `lingua_lifetime` (one-time), and `lingua_team` (metered) — Pro one-time is dropped. Trial is a separate `tier: 'trial'` minted by `/trials/start`, not a Polar product.
   - The implementation lives in a new sibling Cloudflare Worker `license-server/`, not inside `update-server/`. Decision and trade-offs captured in `docs/LICENSING_ADR.md`.
   - Email delivery uses Resend (already configured by the maintainer). Server consumes `RESEND_API_KEY` as a Cloudflare secret.
   - The license-server is the source of truth for max-3-devices (configurable for Team via Polar product `metadata.device_limit`). Self-service device removal is done by the renderer with the license token as auth — no separate user account in Phase 1.
-- Scope (rewritten 2026-04-25):
+- Scope (rewritten 2026-04-25; education SKU added 2026-04-26):
   - Polar products: `lingua_monthly` (subscription), `lingua_lifetime` (one-time), `lingua_team` (metered, with optional `metadata.device_limit`).
-  - Sibling Cloudflare Worker `license-server/` deployed at `licenses.linguacode.dev` with D1 persistence (`licenses`, `devices`, `trials` tables — full schema in `docs/LICENSING_ADR.md`).
-  - HTTP endpoints: `POST /webhooks/polar`, `POST /trials/start`, `POST /licenses/activate`, `GET /licenses/status` (returns `refreshedToken` post-renewal so Monthly stays offline-friendly), `POST /licenses/devices/remove`, `GET /health`.
+  - Server-minted tiers (NO Polar product, NO checkout): `lingua_trial` (14d, 1-shot) and `lingua_education` (1yr, renewable on educational email re-validation).
+  - Sibling Cloudflare Worker `license-server/` deployed at `licenses.linguacode.dev` with D1 persistence (`licenses`, `devices`, `trials`, `educations` tables — full schema in `docs/LICENSING_ADR.md`). The `educations` table mirrors `trials` (UNIQUE email + UNIQUE device_id) and lands in Slice 4 alongside the endpoints.
+  - HTTP endpoints: `POST /webhooks/polar`, `POST /trials/start`, `POST /education/start`, `POST /education/renew`, `POST /licenses/activate`, `GET /licenses/status` (returns `refreshedToken` post-renewal so Monthly stays offline-friendly), `POST /licenses/devices/remove`, `GET /health`.
   - Webhook handlers: `order.paid`, `order.refunded`, `subscription.created`, `subscription.updated` (renewal extends `expires_at` and mints a new server-side token), `subscription.canceled` (sets `status=cancel_at_period_end`).
   - 14-day trial with anti-abuse: `UNIQUE(email)` + `UNIQUE(device_id)` in the `trials` table + per-IP rate limit on `/trials/start`. Email verification deferred to a Phase 2 follow-up if observed abuse exceeds ~5% of trial volume.
-  - Renderer surfaces tracked under sibling slices of RL-059: device-management UI in Settings → License (lists active devices with remove + rename), Trial CTA, "Buy Pro" / "Enter license key" entry points.
+  - 1-year education tier with anti-abuse: same UNIQUE pattern in the `educations` table + per-IP rate limit. Email validated against `.edu` domain (and/or GitHub Education API — locked in Slice 4). Renewal is explicit — `POST /education/renew` re-runs the email validation and extends `expires_at` by 365d. No silent renewal; if validation lapses, license expires gracefully.
+  - Renderer surfaces tracked under sibling slices of RL-059: device-management UI in Settings → License (lists active devices with remove + rename), Trial CTA, **Education CTA** (Slice 4), "Buy Pro" / "Enter license key" entry points.
 - Acceptance criteria:
   - A successful sandbox purchase via Polar issues a working license token by email.
   - A successful Monthly renewal returns a `refreshedToken` to the next `/licenses/status` call so the desktop client never hits expired offline.
   - Activating on a fourth device on a hard-3 tier returns `exhausted` with the active device list; removing one device + retrying succeeds.
   - The trial endpoint refuses a second trial for the same email or the same device id.
+  - The education endpoint refuses a second active education license for the same email or the same device id, and accepts only emails the validation strategy admits as educational.
+  - A successful `/education/renew` against a still-valid education license extends `expires_at` by 365d and returns a refreshedToken; a renew against a license whose email no longer validates is rejected with a translated reason so the renderer can prompt the user to upgrade or downgrade.
   - The checkout URL and the `licenses.linguacode.dev` base URL are env-configurable so sandbox vs production is a deploy flag.
 - Dependencies:
   - RL-059 (Slice 0 — main-side bridge + device id — shipped 2026-04-25)
@@ -3389,6 +3400,172 @@ does not pursue are marked `Skip`):
     "Prueba Cmd+P…" hint; Cmd+P showed `Pestañas abiertas`
     eyebrow; `browser_console_messages({ level: 'error' })`
     remained 0 across the flow.
+
+### RL-075 Adopt the Signal-Slate DS canonical token surface
+
+- Priority: `P1`
+- Status: `Done`
+- Why this matters:
+  - The shell shipped on a warm-cream + violet palette while the
+    editor (RL-073) had already adopted Signal-Slate. The mismatch
+    was visible every time a user crossed from editor chrome into a
+    Settings overlay or Command Palette — two products glued
+    together rather than one.
+  - The Claude Design handoff bundle (vendored as
+    `lingua/project/handoff/tokens.json` v1.0.0 dated 2026-04-24)
+    is the canonical source of truth for every visual decision
+    in the design system: hue, slate scale, semantic statuses,
+    syntax tokens, console tokens, spacing scale, radius, type
+    scale, shadows, motion. Until the shell consumed those values,
+    every future slice would have had to either invent its own
+    deviation or re-derive the same numbers.
+  - Hardcoded ANSI hex in `ConsolePanel.tsx` was the largest
+    isolated drift surface: 16 hex literals that the rest of the
+    palette could not influence. Routing them through CSS vars
+    closes that drift permanently.
+- Scope:
+  - Replace the `:root,.light` and `.dark` token blocks in
+    `src/renderer/index.css` with the DS canonical surface
+    (neutral 0-900 ramp, slate 50-900 ramp, four surface levels,
+    fg-base/muted/subtle/on-accent, border subtle/default/strong,
+    accent + accent-hover + accent-fg, four semantic statuses
+    each with bg/fg/border, eight syntax tokens, six console
+    tokens, eight spacing steps, six radius levels, eight font
+    weights, nine typography roles each with size/lh/tracking/
+    weight, three light + three dark shadows, three durations,
+    three curves).
+  - Chain every legacy `--app-*` token to a DS canonical so the
+    historic Tailwind utility classes (`text-foreground`,
+    `bg-primary-soft`, `border-border-strong`, etc.) keep
+    rendering against the same canonical values.
+  - Convert `lingua-dark` and `lingua-light` editor themes in
+    `src/renderer/components/Editor/editorThemes.ts` to use the
+    DS syntax palette (violet keyword, sage string, amber number,
+    violet function, slate operator/variable, italic comment) by
+    converting the OKLCh declarations to sRGB hex via the
+    standard OKLab→linear-RGB→sRGB conversion. The redistributed
+    third-party themes (Dracula, One Dark Pro, Monokai, Nord
+    Night, Solarized Light) stay untouched — they are intentional
+    ports.
+  - Refactor the ANSI map in
+    `src/renderer/components/Console/ConsolePanel.tsx` from
+    hardcoded hex to `var(--color-console-*)` references so the
+    console adopts theme changes automatically and the palette
+    can evolve without ANSI drift.
+- Acceptance criteria:
+  - Every value in `:root,.light` and `.dark` is either a
+    one-to-one match against `lingua/project/handoff/tokens.json`
+    or chains through `var()` to a token that is.
+  - The editor theme contrast gate
+    (`tests/components/Editor/editorThemes.test.ts`) keeps passing
+    with the new hex palette. Comment role uses AA Large (3:1)
+    instead of AA Normal (4.5:1) because the DS spec deliberately
+    drops below 4.5 on `comment` for visual hierarchy, matching
+    the convention every major editor theme follows.
+  - All existing components that consume `--app-*` keep working
+    without modification (verified by running the full test suite
+    and a Playwright smoke through Editor + Settings + Command
+    Palette + Quick Open in light + dark).
+  - Zero `console.error` during the smoke pass.
+- Dependencies:
+  - RL-073 (the editor themes that establish the Signal-Slate
+    direction; their hex values are now derived from the same DS
+    canonical the shell consumes).
+- 2026-04-25 shipped:
+  - `src/renderer/index.css` rewritten — 414 lines added, 102
+    removed. Token blocks reorganized into DS canonical (`:root`
+    + `[data-theme="dark"]` + `.dark`) plus legacy bridge.
+  - `editorThemes.ts` syntax palette migrated to DS hex (90
+    lines diff). Comment-italic preserved.
+  - `ConsolePanel.tsx` ANSI map routed through 5 DS console
+    tokens — 51 lines diff including the explanatory header
+    comment.
+  - Contrast gate test relaxed for `comment` role per DS spec
+    (14 lines diff in `editorThemes.test.ts`).
+  - Live smoke via Playwright MCP on `npm run preview:web`:
+    captured 8 + 5 viewport screenshots in light + dark across
+    Editor, Settings, Command Palette, License section, Welcome.
+    `browser_console_messages({ level: 'error' })` remained 0
+    across both polarities.
+
+### RL-076 Refresh editor tabs against the DS canonical
+
+- Priority: `P1`
+- Status: `Done`
+- Why this matters:
+  - `EditorTabs.tsx` shipped before the Signal-Slate migration and
+    still uses a card-style tab (rounded border + uniform
+    background) where the DS spec specifies a flat tab strip with
+    a 2px accent border-top on the active row and a subtle
+    panel-alt background for inactive rows. The mismatch is most
+    visible in light mode now that RL-075 cooled down the rest of
+    the shell.
+  - The DS spec on `signal-tabs-editor.jsx` documents seven
+    interaction variants (basic / dirty / error / hover-close /
+    rename / overflow / drag) plus a context menu and a close-
+    confirm modal. Lingua today only renders the first three
+    properly. The visible gaps are: no right-click menu, no
+    inline rename, and no way to bulk-close other / right tabs.
+  - Each missing affordance is a paper cut for power users (the
+    audience that opens 6+ tabs in a session). Closing them as a
+    coherent slice is cheaper than chasing them one at a time.
+- Scope:
+  - Visual refresh of `EditorTabs.tsx` to match
+    `signal-tabs-editor.jsx` from the handoff: 2px accent
+    border-top on active, panel-alt bg on inactive, JetBrains
+    Mono filename at 11.5px to match the editor canvas, lang
+    chip in mono at 8.5px with semantic-color background per
+    language, dirty dot using the slate accent.
+  - New `EditorTabContextMenu` component (rendered through the
+    existing `OverlayBackdrop` portal pattern) with six items:
+    Cerrar / Cerrar otras / Cerrar a la derecha / Cerrar todas /
+    Renombrar / Duplicar. Keyboard shortcuts inline where
+    applicable (⌘W, ⌘⇧W, F2). Right-click on a tab opens it
+    anchored to the tab.
+  - Inline rename: double-click on the filename (or F2 / context
+    menu Rename) replaces the filename with an input. Enter
+    commits, Escape cancels. The rename writes to a new
+    `renameTab(id, name)` action on `editorStore`.
+  - New store actions on `editorStore`:
+    `renameTab(id, name)`, `closeOtherTabs(id)`,
+    `closeTabsToRight(id)`, `closeAllTabs()`. Each respects the
+    existing dirty-check flow in `closeTab`.
+  - i18n: 8 new keys across en + es for menu labels plus the
+    rename input ARIA label. Spanish follows the tuteo rule
+    from CLAUDE.md (`Cerrar`, `Renombrar`, `Duplicar`).
+- Acceptance criteria:
+  - Active tab visually distinct from inactive (2px accent
+    border-top, panel bg, mono filename); inactive tabs have
+    panel-alt bg.
+  - Right-click on a tab opens the context menu anchored to
+    the tab.
+  - Each menu item triggers its corresponding action; close
+    items respect the existing dirty-check flow (one prompt per
+    dirty tab in close-others / close-all).
+  - F2 on the active tab and double-click on a filename open
+    the inline rename. Enter commits the new name, Escape
+    cancels without changes.
+  - Existing tests in `tests/components/EditorTabs.test.tsx`
+    keep passing; new tests cover: context menu open/close,
+    rename commit, rename cancel, close-others, close-right,
+    close-all.
+  - Bilingüe es/en for every menu item and the rename input
+    placeholder.
+- Out of scope (tracked in `docs/BACKLOG.md` as separate items):
+  - Error indicator dot on tabs whose last execution failed
+    (requires per-tab execution status that today lives only in
+    the global execution history store).
+  - Drag handle + reorder via drag-drop (touches drag-drop
+    infra, deserves its own slice).
+  - Overflow dropdown with hidden-tabs count badge (today the
+    overflow falls through to horizontal scroll; the chevron +
+    count affordance is a separate piece).
+  - Pin tab, Reveal in Finder, Copy path (pin needs a new
+    `isPinned` field on FileTab; the Electron-only items need
+    an IPC handler).
+- Dependencies:
+  - RL-075 (the slate accent + panel surfaces that the new tab
+    visuals consume).
 
 ---
 

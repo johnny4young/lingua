@@ -15,7 +15,7 @@
 
 ---
 
-## 1. Status at a glance (2026-04-25)
+## 1. Status at a glance (2026-04-26)
 
 Mirrors the authoritative `Status` column in
 [`ROADMAP.md`](./ROADMAP.md) §4. **When discrepancies appear, ROADMAP wins.**
@@ -25,7 +25,7 @@ Mirrors the authoritative `Status` column in
 | Iter 1 | [`RL-072`](./ROADMAP.md) | Shipping · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Expand Developer Utilities to DevUtils parity — full panel set shipped (29 panels). RL-068 closeout adds YAML ↔ JSON, JSON ↔ CSV, Markdown Preview (sanitized HTML output, no remote image fetch), and SQL Formatter (ANSI / PostgreSQL / MySQL dialects). RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (5 of ~7 slices shipped) | Execution history — replay-by-id + comparison. See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
-| Iter 4 | [`RL-059`](./ROADMAP.md) | Partial · Slice 0 shipped 2026-04-25 (main-side IPC bridge + device id). Remaining slices live under `RL-061`. | License-key infrastructure. Slice 0 closes the desktop preload/main-side gap; Slices 1–5 (license-server, Polar webhook, device UI, trial CTA, release/update banner) are now the focus and live under `RL-061`. See [`LICENSING_ADR.md`](./LICENSING_ADR.md) and §6. |
+| Iter 4 | [`RL-061`](./ROADMAP.md) | Partial · RL-059 Slice 0 shipped 2026-04-25; RL-061 Slice 1 shipped 2026-04-26 (`license-server/` scaffold). Remaining slices 2–5 still under `RL-061`. | License-key infrastructure. Slice 0 closed the preload/main-side gap; Slice 1 lays the Cloudflare Worker skeleton + D1 schema + endpoint stubs. Slices 2 (Polar webhook + Resend), 3 (device UI), 4 (trial CTA), 5 (release pipeline + web update banner) still pending. See [`LICENSING_ADR.md`](./LICENSING_ADR.md) and §6. |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Partial (Slices A + B shipped) | Language-pack registry Slice C — capability-aware UI. See §7. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
@@ -268,9 +268,13 @@ a unified GH Actions pipeline + a web update banner.
 auto-detect. No external deps. Closes the preload/main-side gap that
 PLAN's Readiness flagged.
 
-**Slice 1 — `license-server/` Cloudflare Worker scaffold.** D1 schema +
-`/health` + mocked `/trials/start` + `/licenses/activate`. miniflare-
-backed tests. No Polar wiring yet.
+**Slice 1 — `license-server/` Cloudflare Worker scaffold (shipped 2026-04-26).**
+Hono router + D1 schema migration + real `GET /health` + 501 stubs for
+`POST /trials/start`, `POST /licenses/activate`, `GET /licenses/status`,
+`POST /licenses/devices/remove`, `POST /webhooks/polar`. Vitest suite
+(40 cases) runs the Hono app via `app.request(...)` — no miniflare
+yet because no endpoint touches D1. Slice 2 promotes to
+`@cloudflare/vitest-pool-workers` when D1 + KV emulation is needed.
 
 **Slice 2 — Polar webhook handler + Resend email integration.** Real
 signing, real `subscription.*` + `order.*` event handling, real outbound
@@ -280,7 +284,13 @@ verification before end-to-end smoke is possible.
 **Slice 3 — Device management UI.** Settings → License lists active
 devices, supports rename + remove, surfaces the exhausted-device modal.
 
-**Slice 4 — Trial CTA.** Settings + landing-page hook for `/trials/start`.
+**Slice 4 — Trial + Education CTAs.** Settings + landing-page hooks
+for `/trials/start` (14d trial, one-shot) and `/education/start` +
+`/education/renew` (1yr renewable, server-minted, NO Polar). Includes
+the `educations` D1 table (mirror of `trials`), the educational-email
+validation strategy (`.edu` regex + GitHub Education API to be locked
+when this iter is picked), the renderer Education CTA, and the
+explicit annual renewal flow.
 
 **Slice 5 — Release pipeline + web update banner.** GH Actions workflow
 that builds desktop+web, deploys web, purges CF cache; renderer banner

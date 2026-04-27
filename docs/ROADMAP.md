@@ -1,6 +1,6 @@
 # Lingua — Roadmap
 
-> **Updated:** 2026-04-25
+> **Updated:** 2026-04-26
 > Canonical status board. Single source of truth for the `Status` column
 > on every `RL-XXX` ticket. When any other doc disagrees, this one wins.
 >
@@ -72,7 +72,7 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
 | [`RL-059`](./PLAN.md#rl-059-license-key-infrastructure) | License-key infrastructure | `Partial` | Ed25519 verifier + Settings section + main-side IPC bridge with device id (Slice 0 shipped 2026-04-25). Remaining: Polar webhook + email delivery (now lives under `RL-061`). |
-| [`RL-061`](./PLAN.md#rl-061-polarsh-integration) | Polar.sh integration | `Planned` | Sibling Cloudflare Worker `license-server/` + D1 + Resend. Three Polar products (`monthly`/`lifetime`/`team`) + 14d trial + max-3-devices + device removal. See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
+| [`RL-061`](./PLAN.md#rl-061-polarsh-integration) | Polar.sh integration | `Partial` | Slice 1 shipped 2026-04-26 (`license-server/` Hono + D1 schema + endpoint stubs). Remaining: Polar webhook + Resend + D1 wiring (Slice 2), device UI (Slice 3), trial CTA (Slice 4), release pipeline + web update banner (Slice 5). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
 | [`RL-063`](./PLAN.md#rl-063-download-landing-page-at-linguacodedev) | Download landing page at linguacode.dev | `Planned` | Static marketing page with OS-aware download + pricing. Depends on `RL-061` and `RL-018`. |
 
 ### 4b. Editor, runtime and workflow (P1)
@@ -169,13 +169,14 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>35 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>37 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
 `RL-022`, `RL-030`, `RL-034`, `RL-040`, `RL-045`, `RL-051`, `RL-052`,
 `RL-053`, `RL-054`, `RL-055`, `RL-056`, `RL-057`, `RL-058`, `RL-060`,
-`RL-062`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`, `RL-074`.
+`RL-062`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`, `RL-074`,
+`RL-075`, `RL-076`.
 
 </details>
 

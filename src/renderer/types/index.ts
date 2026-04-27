@@ -98,6 +98,20 @@ export interface EditorState {
   /** Duplicate the active tab into a new unsaved tab. */
   duplicateActiveTab: () => void;
   /**
+   * Rename a tab in place. Re-resolves the Monaco language from the
+   * new extension and marks the tab dirty so the divergence with disk
+   * is visible until the user saves.
+   */
+  renameTab: (id: string, name: string) => void;
+  /**
+   * Bulk close-helpers used by the tab context menu. Each one funnels
+   * through `closeTab` per-tab so the existing dirty-check prompt
+   * fires for unsaved tabs in the batch.
+   */
+  closeOtherTabs: (id: string) => Promise<void>;
+  closeTabsToRight: (id: string) => Promise<void>;
+  closeAllTabs: () => Promise<void>;
+  /**
    * Queue a scroll + caret move that the CodeEditor applies once the target
    * file is the active tab. Latest request wins so rapid clicks in Project
    * Search do not leave the editor ping-ponging between positions.

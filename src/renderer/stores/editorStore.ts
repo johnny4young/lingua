@@ -326,4 +326,78 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       content: tab.content,
     });
   },
+
+  /**
+   * Rename a tab in place. The new name flows through
+   * `resolveFileLanguageOrPlaintext` so a `.py` → `.go` rename also
+   * flips the Monaco language. The tab is marked dirty because the
+   * on-disk filename diverges from the in-memory one until the next
+   * save reuses Save As.
+   *
+   * No-ops when the tab does not exist or the trimmed name is empty,
+   * so accidental Enter on an empty rename input does not silently
+   * destroy the filename.
+   */
+  renameTab: (id, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    set((state) => {
+      const next = state.tabs.map((tab) => {
+        if (tab.id !== id) return tab;
+        if (tab.name === trimmed) return tab;
+        const language = resolveFileLanguageOrPlaintext(trimmed);
+        return {
+          ...tab,
+          name: trimmed,
+          language,
+          isDirty: true,
+        };
+      });
+      return { tabs: next };
+    });
+  },
+
+  /**
+   * Close every tab whose id is NOT the supplied one. Each dirty tab
+   * still funnels through `closeTab` so the existing
+   * `confirmCloseTab` prompt is honored — the user cannot lose
+   * unsaved work via this bulk action even when triggered by a
+   * single context-menu click.
+   */
+  closeOtherTabs: async (id) => {
+    const { tabs, closeTab } = get();
+    const targets = tabs.filter((tab) => tab.id !== id).map((tab) => tab.id);
+    for (const tabId of targets) {
+      const closed = await closeTab(tabId);
+      if (!closed) break;
+    }
+  },
+
+  /**
+   * Close every tab to the right of the supplied id, preserving the
+   * pivot. Same dirty-check contract as `closeOtherTabs`.
+   */
+  closeTabsToRight: async (id) => {
+    const { tabs, closeTab } = get();
+    const pivot = tabs.findIndex((tab) => tab.id === id);
+    if (pivot < 0) return;
+    const targets = tabs.slice(pivot + 1).map((tab) => tab.id);
+    for (const tabId of targets) {
+      const closed = await closeTab(tabId);
+      if (!closed) break;
+    }
+  },
+
+  /**
+   * Close every open tab. Goes through `closeTab` per-tab so dirty
+   * prompts still fire — the user can cancel mid-batch.
+   */
+  closeAllTabs: async () => {
+    const { tabs, closeTab } = get();
+    const targets = tabs.map((tab) => tab.id);
+    for (const tabId of targets) {
+      const closed = await closeTab(tabId);
+      if (!closed) break;
+    }
+  },
 }));

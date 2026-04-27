@@ -16,7 +16,7 @@
  * result so the renderer and main verifiers can handle them the same way.
  */
 
-export const LICENSE_TIERS = ['free', 'pro', 'pro_lifetime', 'team'] as const;
+export const LICENSE_TIERS = ['free', 'pro', 'pro_lifetime', 'team', 'trial', 'education'] as const;
 export type LicenseTier = (typeof LICENSE_TIERS)[number];
 
 export interface LicensePayload {
@@ -244,4 +244,3 @@ export async function verifyLicenseToken(
     supportWindowEndsAt,
   };
 }
-

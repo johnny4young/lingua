@@ -100,6 +100,23 @@ describe('verifyLicenseToken', () => {
     }
   });
 
+  it.each(['trial', 'education'] as const)('accepts server-minted %s tokens as paid tiers', async (tier) => {
+    const token = await signLicenseTokenForTest(
+      buildPayload({
+        productId: tier === 'trial' ? 'lingua_trial' : 'lingua_education',
+        tier,
+      }),
+      keys.privateKey
+    );
+
+    const result = await verifyLicenseToken(token, keys.publicKey, { now });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.state).toBe('active');
+      expect(result.payload.tier).toBe(tier);
+    }
+  });
+
   it('accepts a token inside the grace window as grace', async () => {
     const token = await signLicenseTokenForTest(
       buildPayload({ supportWindowEndsAt: new Date(now - DAY_MS).toISOString() }),
@@ -188,6 +205,13 @@ describe('verifyLicenseToken', () => {
   });
 
   it('keeps the tier whitelist exhaustive', () => {
-    expect([...LICENSE_TIERS].sort()).toEqual(['free', 'pro', 'pro_lifetime', 'team']);
+    expect([...LICENSE_TIERS].sort()).toEqual([
+      'education',
+      'free',
+      'pro',
+      'pro_lifetime',
+      'team',
+      'trial',
+    ]);
   });
 });

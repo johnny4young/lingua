@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 const mockSetActiveTab = vi.fn();
 const mockRemoveTab = vi.fn();
 const mockCloseTab = vi.fn().mockResolvedValue(true);
+const mockRenameTab = vi.fn();
+const mockDuplicateActiveTab = vi.fn();
+const mockCloseOtherTabs = vi.fn().mockResolvedValue(undefined);
+const mockCloseTabsToRight = vi.fn().mockResolvedValue(undefined);
+const mockCloseAllTabs = vi.fn().mockResolvedValue(undefined);
 
 const mockTabs = [
   {
@@ -23,14 +28,27 @@ const mockTabs = [
   },
 ];
 
+const mockState = {
+  tabs: mockTabs,
+  activeTabId: 'tab-go',
+  setActiveTab: mockSetActiveTab,
+  removeTab: mockRemoveTab,
+  closeTab: mockCloseTab,
+  renameTab: mockRenameTab,
+  duplicateActiveTab: mockDuplicateActiveTab,
+  closeOtherTabs: mockCloseOtherTabs,
+  closeTabsToRight: mockCloseTabsToRight,
+  closeAllTabs: mockCloseAllTabs,
+};
+
+// Zustand-style selector hook: when the component pulls a single
+// field via `useEditorStore((state) => state.tabs)`, the mock has to
+// run the selector against the snapshot rather than always returning
+// the whole object. Without this, every selected field collapses to
+// `undefined.tabs` and the map() call below explodes.
 vi.mock('../../src/renderer/stores/editorStore', () => ({
-  useEditorStore: () => ({
-    tabs: mockTabs,
-    activeTabId: 'tab-go',
-    setActiveTab: mockSetActiveTab,
-    removeTab: mockRemoveTab,
-    closeTab: mockCloseTab,
-  }),
+  useEditorStore: <T,>(selector?: (state: typeof mockState) => T) =>
+    selector ? selector(mockState) : mockState,
 }));
 
 vi.mock('lucide-react', () => ({
@@ -93,7 +111,9 @@ describe('EditorTabs', () => {
     render(<EditorTabs />);
 
     const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
-    tab.focus();
+    await act(async () => {
+      tab.focus();
+    });
 
     await user.keyboard('{Enter}');
     expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
@@ -110,5 +130,117 @@ describe('EditorTabs', () => {
     await user.hover(screen.getByRole('tab', { name: 'Go main.go' }));
 
     expect(screen.getByRole('tooltip').textContent).toContain('main.go');
+  });
+
+  it('opens the context menu on right-click anchored to the tab', async () => {
+    const user = userEvent.setup();
+    render(<EditorTabs />);
+
+    const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
+    await user.pointer({ keys: '[MouseRight]', target: tab });
+
+    // Right-click activates the tab AND opens the menu — both
+    // matter for the user's mental model: the menu always anchors
+    // to whatever tab is now active, never to a stale selection.
+    expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
+    const menu = screen.getByTestId('editor-tab-context-menu');
+    expect(menu).toBeTruthy();
+    expect(menu.getAttribute('aria-label')).toContain('untitled.js');
+  });
+
+  it('opens the context menu from the keyboard and supports arrow navigation', async () => {
+    const user = userEvent.setup();
+    render(<EditorTabs />);
+
+    const activeTab = screen.getByRole('tab', { name: 'Go main.go' });
+    await act(async () => {
+      activeTab.focus();
+    });
+    await user.keyboard('{Shift>}{F10}{/Shift}');
+
+    expect(mockSetActiveTab).toHaveBeenCalledWith('tab-go');
+    const closeItem = screen.getAllByRole('menuitem')[0];
+    expect(document.activeElement).toBe(closeItem);
+
+    await user.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(
+      screen.getByRole('menuitem', { name: /^Close others/ })
+    );
+
+    await user.keyboard('{End}');
+    expect(document.activeElement).toBe(
+      screen.getByRole('menuitem', { name: /^Duplicate/ })
+    );
+  });
+
+  it('routes context menu actions through the matching store helpers', async () => {
+    const user = userEvent.setup();
+    render(<EditorTabs />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('tab', { name: 'JS untitled.js' }),
+    });
+
+    await user.click(screen.getByRole('menuitem', { name: /^Close others/ }));
+    expect(mockCloseOtherTabs).toHaveBeenCalledWith('tab-js');
+
+    // The menu closes after each action; reopen for the next
+    // assertion so we exercise the full open → click → close cycle.
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('tab', { name: 'JS untitled.js' }),
+    });
+    await user.click(screen.getByRole('menuitem', { name: /^Close all/ }));
+    expect(mockCloseAllTabs).toHaveBeenCalled();
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('tab', { name: 'JS untitled.js' }),
+    });
+    await user.click(screen.getByRole('menuitem', { name: /^Duplicate/ }));
+    expect(mockDuplicateActiveTab).toHaveBeenCalled();
+  });
+
+  it('starts inline rename on double-click and commits the new name on Enter', async () => {
+    const user = userEvent.setup();
+    render(<EditorTabs />);
+
+    const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
+    // The filename span lives inside the tab; targeting the tab
+    // node bubbles to it without depending on a fragile testid.
+    const filename = tab.querySelector('span.font-mono') as HTMLElement;
+    await user.dblClick(filename);
+
+    const input = screen.getByTestId('editor-tab-rename-input') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    await user.clear(input);
+    await user.type(input, 'renamed.ts');
+    await user.keyboard('{Enter}');
+
+    expect(mockRenameTab).toHaveBeenCalledWith('tab-js', 'renamed.ts');
+    expect(mockRenameTab).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels inline rename on Escape without calling renameTab', async () => {
+    const user = userEvent.setup();
+    render(<EditorTabs />);
+
+    const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
+    const filename = tab.querySelector('span.font-mono') as HTMLElement;
+    await user.dblClick(filename);
+
+    const input = screen.getByTestId('editor-tab-rename-input') as HTMLInputElement;
+    await user.clear(input);
+    await user.type(input, 'discarded');
+    await user.keyboard('{Escape}');
+
+    expect(mockRenameTab).not.toHaveBeenCalled();
+    // Input is gone; the tooltip + tab labels still announce the
+    // original name. Use queryAllByText so the multiple references
+    // (tab aria-label, filename span, tooltip) do not trip the
+    // assertion — what matters is that AT LEAST one survives.
+    expect(screen.queryByTestId('editor-tab-rename-input')).toBeNull();
+    expect(screen.queryAllByText('untitled.js').length).toBeGreaterThan(0);
   });
 });

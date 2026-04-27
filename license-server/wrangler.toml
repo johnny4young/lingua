@@ -1,0 +1,25 @@
+name = "lingua-license-server"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+
+# Maintainer-side prereqs (see README.md):
+#   1. wrangler d1 create lingua-licenses → fill in `database_id` below.
+#   2. wrangler secret put POLAR_WEBHOOK_SECRET (Slice 2)
+#   3. wrangler secret put POLAR_API_KEY (Slice 2)
+#   4. wrangler secret put LINGUA_LICENSE_PRIVATE_KEY_JWK (Slice 2)
+#   5. wrangler secret put RESEND_API_KEY (Slice 2)
+#   6. Add `licenses.linguacode.dev` as a Workers > Routes custom domain.
+#
+# Until step 1 is done, `wrangler deploy` will fail with a missing-binding
+# error — that is intentional. Slice 1 only ships the worker code; the
+# maintainer is responsible for provisioning the D1 instance once before
+# the first deploy.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lingua-licenses"
+database_id = "TODO-after-wrangler-d1-create"
+migrations_dir = "migrations"
+
+[observability]
+enabled = true
