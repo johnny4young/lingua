@@ -66,6 +66,8 @@ describe('entitlements policy (RL-060)', () => {
   it('Paid tiers collapse tab and snippet ceilings to Infinity', () => {
     expect(tabCeilingForTier('pro')).toBe(Number.POSITIVE_INFINITY);
     expect(snippetCeilingForTier('pro_lifetime')).toBe(Number.POSITIVE_INFINITY);
+    expect(tabCeilingForTier('trial')).toBe(Number.POSITIVE_INFINITY);
+    expect(snippetCeilingForTier('education')).toBe(Number.POSITIVE_INFINITY);
   });
 
   it('withinTabBudget respects Free ceiling and waves paid tiers through', () => {

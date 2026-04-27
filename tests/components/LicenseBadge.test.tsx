@@ -1,33 +1,36 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
 import { LicenseBadge } from '../../src/renderer/components/Toolbar/LicenseBadge';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
+import type { LicenseTier } from '../../src/shared/license';
 
-function seedActiveTier(tier: 'pro' | 'pro_lifetime' | 'team') {
+function seedActiveTier(tier: Exclude<LicenseTier, 'free'>) {
   // Bypass the setter to force the resolved tier without needing a real
   // signed token — useEffectiveTier reads `status.verification.payload.tier`.
-  useLicenseStore.setState({
-    token: `dev-${tier}.token`,
-    status: {
-      kind: 'active',
-      verification: {
-        ok: true,
-        state: 'active',
-        supportWindowEndsAt: Date.now() + 24 * 60 * 60 * 1000,
-        payload: {
-          productId: 'lingua',
-          tier,
-          issuedTo: 'dev@localhost',
-          issuedAt: new Date().toISOString(),
-          supportWindowEndsAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          entitlements: [],
+  act(() => {
+    useLicenseStore.setState({
+      token: `dev-${tier}.token`,
+      status: {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 24 * 60 * 60 * 1000,
+          payload: {
+            productId: 'lingua',
+            tier,
+            issuedTo: 'dev@localhost',
+            issuedAt: new Date().toISOString(),
+            supportWindowEndsAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            entitlements: [],
+          },
         },
       },
-    },
-    lastVerifiedAt: Date.now(),
+      lastVerifiedAt: Date.now(),
+    });
   });
 }
 
@@ -36,18 +39,22 @@ describe('LicenseBadge', () => {
     initI18n('en');
     await i18next.changeLanguage('en');
     // Reset to the free default.
-    useLicenseStore.setState({
-      token: null,
-      status: { kind: 'free' },
-      lastVerifiedAt: null,
+    act(() => {
+      useLicenseStore.setState({
+        token: null,
+        status: { kind: 'free' },
+        lastVerifiedAt: null,
+      });
     });
   });
 
   afterEach(() => {
-    useLicenseStore.setState({
-      token: null,
-      status: { kind: 'free' },
-      lastVerifiedAt: null,
+    act(() => {
+      useLicenseStore.setState({
+        token: null,
+        status: { kind: 'free' },
+        lastVerifiedAt: null,
+      });
     });
   });
 
@@ -84,11 +91,26 @@ describe('LicenseBadge', () => {
     expect(screen.getByTestId('license-badge').getAttribute('data-license-tier')).toBe('team');
   });
 
+  it('has tooltip labels for server-minted trial and education tiers', () => {
+    seedActiveTier('trial');
+    const { unmount } = render(<LicenseBadge />);
+    expect(screen.getByTestId('license-badge').textContent).toBe('PRO');
+    expect(screen.getByTestId('license-badge').getAttribute('title') ?? '').toContain('Trial');
+    unmount();
+
+    seedActiveTier('education');
+    render(<LicenseBadge />);
+    expect(screen.getByTestId('license-badge').textContent).toBe('PRO');
+    expect(screen.getByTestId('license-badge').getAttribute('title') ?? '').toContain('Education');
+  });
+
   it('falls back to FREE when the stored status is invalid (no silent upgrade)', () => {
-    useLicenseStore.setState({
-      token: 'garbage',
-      status: { kind: 'invalid', reason: 'malformed' },
-      lastVerifiedAt: Date.now(),
+    act(() => {
+      useLicenseStore.setState({
+        token: 'garbage',
+        status: { kind: 'invalid', reason: 'malformed' },
+        lastVerifiedAt: Date.now(),
+      });
     });
     render(<LicenseBadge />);
     expect(screen.getByTestId('license-badge').textContent).toBe('FREE');

@@ -424,6 +424,180 @@ describe('editorStore', () => {
     });
   });
 
+  describe('renameTab', () => {
+    it('updates the tab name, re-derives the language from the extension, and marks it dirty', () => {
+      const tab = createDefaultTab('python');
+      useEditorStore.getState().addTab(tab);
+
+      useEditorStore.getState().renameTab(tab.id, 'helper.go');
+
+      const { tabs } = useEditorStore.getState();
+      expect(tabs[0].name).toBe('helper.go');
+      // Renaming a tab shifts the runner because the file extension
+      // is the only contract Lingua has between filename and runner.
+      expect(tabs[0].language).toBe('go');
+      // Dirty stays true even on a clean tab — the in-memory name has
+      // diverged from disk (or from the tab's logical identity), so
+      // the user needs to see a save indicator until they reconcile.
+      expect(tabs[0].isDirty).toBe(true);
+    });
+
+    it('treats whitespace-only names as a no-op rather than nuking the filename', () => {
+      const tab = createDefaultTab('javascript');
+      useEditorStore.getState().addTab(tab);
+      const originalName = tab.name;
+
+      useEditorStore.getState().renameTab(tab.id, '   ');
+
+      expect(useEditorStore.getState().tabs[0].name).toBe(originalName);
+      expect(useEditorStore.getState().tabs[0].isDirty).toBe(false);
+    });
+
+    it('skips work when the trimmed new name matches the existing one', () => {
+      const tab = createDefaultTab('javascript');
+      useEditorStore.getState().addTab(tab);
+
+      // Sanity check: addTab seeds isDirty=false; rename to the same
+      // name should preserve that, not flip it.
+      useEditorStore.getState().renameTab(tab.id, `  ${tab.name}  `);
+
+      expect(useEditorStore.getState().tabs[0].isDirty).toBe(false);
+      expect(useEditorStore.getState().tabs[0].name).toBe(tab.name);
+    });
+  });
+
+  describe('closeOtherTabs / closeTabsToRight / closeAllTabs', () => {
+    it('closes every tab except the supplied id when closeOtherTabs runs', async () => {
+      const a = createDefaultTab('javascript');
+      const b = createDefaultTab('python');
+      const c = createDefaultTab('go');
+      useEditorStore.getState().addTab(a);
+      useEditorStore.getState().addTab(b);
+      useEditorStore.getState().addTab(c);
+
+      await useEditorStore.getState().closeOtherTabs(b.id);
+
+      const { tabs } = useEditorStore.getState();
+      expect(tabs).toHaveLength(1);
+      expect(tabs[0].id).toBe(b.id);
+    });
+
+    it('closes only the tabs to the right of the pivot when closeTabsToRight runs', async () => {
+      const a = createDefaultTab('javascript');
+      const b = createDefaultTab('python');
+      const c = createDefaultTab('go');
+      const d = createDefaultTab('rust');
+      useEditorStore.getState().addTab(a);
+      useEditorStore.getState().addTab(b);
+      useEditorStore.getState().addTab(c);
+      useEditorStore.getState().addTab(d);
+
+      await useEditorStore.getState().closeTabsToRight(b.id);
+
+      const { tabs } = useEditorStore.getState();
+      expect(tabs).toHaveLength(2);
+      expect(tabs.map((t) => t.id)).toEqual([a.id, b.id]);
+    });
+
+    it('clears the entire strip when closeAllTabs runs', async () => {
+      const a = createDefaultTab('javascript');
+      const b = createDefaultTab('python');
+      useEditorStore.getState().addTab(a);
+      useEditorStore.getState().addTab(b);
+
+      await useEditorStore.getState().closeAllTabs();
+
+      expect(useEditorStore.getState().tabs).toHaveLength(0);
+    });
+
+    it('routes dirty tabs through the existing closeTab dirty-check prompt', async () => {
+      const a = createDefaultTab('javascript');
+      const b = createDefaultTab('python');
+      useEditorStore.getState().addTab(a);
+      useEditorStore.getState().addTab(b);
+      useEditorStore.getState().updateContent(b.id, 'unsaved work');
+
+      // First click of the prompt: Discard. The flow lands without
+      // saving and removes the tab — same contract as a single
+      // closeTab call. Use a vi.fn that resolves to 1 (Discard) so
+      // we exercise the dirty-check branch end-to-end.
+      const confirmCloseTab = window.lingua.confirmCloseTab as ReturnType<typeof vi.fn>;
+      confirmCloseTab.mockResolvedValue(1);
+
+      await useEditorStore.getState().closeAllTabs();
+
+      expect(confirmCloseTab).toHaveBeenCalledTimes(1);
+      expect(useEditorStore.getState().tabs).toHaveLength(0);
+    });
+
+    it('stops closeAllTabs after the first dirty-tab cancel', async () => {
+      const a = createDefaultTab('javascript');
+      const b = createDefaultTab('python');
+      const c = createDefaultTab('go');
+      useEditorStore.getState().addTab(a);
+      useEditorStore.getState().addTab(b);
+      useEditorStore.getState().addTab(c);
+      useEditorStore.getState().updateContent(b.id, 'unsaved work');
+
+      const confirmCloseTab = window.lingua.confirmCloseTab as ReturnType<typeof vi.fn>;
+      confirmCloseTab.mockResolvedValue(2);
+
+      await useEditorStore.getState().closeAllTabs();
+
+      expect(confirmCloseTab).toHaveBeenCalledTimes(1);
+      expect(useEditorStore.getState().tabs.map((tab) => tab.id)).toEqual([b.id, c.id]);
+    });
+
+    it('stops closeTabsToRight after a dirty-tab cancel', async () => {
+      const a = createDefaultTab('javascript');
+      const b = createDefaultTab('python');
+      const c = createDefaultTab('go');
+      const d = createDefaultTab('rust');
+      useEditorStore.getState().addTab(a);
+      useEditorStore.getState().addTab(b);
+      useEditorStore.getState().addTab(c);
+      useEditorStore.getState().addTab(d);
+      useEditorStore.getState().updateContent(c.id, 'unsaved work');
+
+      const confirmCloseTab = window.lingua.confirmCloseTab as ReturnType<typeof vi.fn>;
+      confirmCloseTab.mockResolvedValue(2);
+
+      await useEditorStore.getState().closeTabsToRight(b.id);
+
+      expect(confirmCloseTab).toHaveBeenCalledTimes(1);
+      expect(useEditorStore.getState().tabs.map((tab) => tab.id)).toEqual([
+        a.id,
+        b.id,
+        c.id,
+        d.id,
+      ]);
+    });
+
+    it('stops closeOtherTabs after a dirty-tab cancel', async () => {
+      const a = createDefaultTab('javascript');
+      const b = createDefaultTab('python');
+      const c = createDefaultTab('go');
+      const d = createDefaultTab('rust');
+      useEditorStore.getState().addTab(a);
+      useEditorStore.getState().addTab(b);
+      useEditorStore.getState().addTab(c);
+      useEditorStore.getState().addTab(d);
+      useEditorStore.getState().updateContent(c.id, 'unsaved work');
+
+      const confirmCloseTab = window.lingua.confirmCloseTab as ReturnType<typeof vi.fn>;
+      confirmCloseTab.mockResolvedValue(2);
+
+      await useEditorStore.getState().closeOtherTabs(b.id);
+
+      expect(confirmCloseTab).toHaveBeenCalledTimes(1);
+      expect(useEditorStore.getState().tabs.map((tab) => tab.id)).toEqual([
+        b.id,
+        c.id,
+        d.id,
+      ]);
+    });
+  });
+
   describe('requestReveal / clearPendingReveal', () => {
     it('queues a reveal with sane defaults and lets callers clear it', () => {
       useEditorStore.getState().requestReveal({
