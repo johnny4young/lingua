@@ -56,6 +56,7 @@ only superseded by a new ADR that names the one it replaces.
 
 | ADR | Scope | Owning RL task |
 |-----|-------|----------------|
+| [`AI_BRIDGE_ADR.md`](./AI_BRIDGE_ADR.md) | Three-tier AI access (local Ollama, BYO key, hosted credit pool); keychain integration; tier-by-tier matrix | v2.0 (no `RL-NNN` yet — graduates from BACKLOG when sized) |
 | [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) | Stay on Electron Forge vs. move to electron-vite / electron-builder | `RL-034` |
 | [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) | Debugger MVP — which backend and UI surface | `RL-027` |
 | [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) | Environment variables for execution contexts (global / project / tab tiers) | `RL-011` |

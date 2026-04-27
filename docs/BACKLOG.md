@@ -38,6 +38,82 @@ research.
 - [ui] Web shell update banner driven by a new `updates.linguacode.dev/web/version` endpoint. Renderer polls every 30 min, compares against `import.meta.env.VITE_LINGUA_VERSION`, surfaces a "Reload to update" notice. Desktop build skips the checker — autoupdate native covers it. Acceptance criteria TBD; design lives in [`LICENSING_ADR.md`](./LICENSING_ADR.md) Decision 6. — 2026-04-25 (jy)
 - [licensing] Trial email verification (magic-link). Phase 1 of RL-061 ships without it; promote when observed abuse exceeds ~5% of trial volume. Schema + `/trials/start` already supports a follow-up flow. — 2026-04-25 (jy)
 
+### v2.0 strategic roadmap entries (see [`PLAN.md` §16](./PLAN.md))
+
+Captured 2026-04-26 in one batch. AC still TBD; each graduates to ROADMAP `RL-NNN` only when sized.
+
+#### AI features (Pillar 1) — all enabled by [`AI_BRIDGE_ADR.md`](./AI_BRIDGE_ADR.md)
+
+- [ai] AI bridge IPC scaffold + provider registry. `window.lingua.ai.complete()` channel, keychain integration via main, AI Settings panel skeleton with provider + model + endpoint configuration. Slice A of the AI bridge. **Headline feature for v2.0.** — 2026-04-26 (jy)
+- [ai] Local + BYO completions: Ollama-compatible local + OpenAI / Anthropic / Groq / OpenRouter via BYO key. Streaming SSE renderer panel. Slice B of the AI bridge. — 2026-04-26 (jy)
+- [ai] Hosted credit proxy at `ai.linguacode.dev`: Cloudflare Worker + `ai_usage` D1 table + license-token quota enforcement + monthly reset cron. Pro Monthly + Team only. Slice C of the AI bridge. — 2026-04-26 (jy)
+- [ai] Cross-language port: "translate this Python to Rust idiomatically" with diff view. Pro feature. — 2026-04-26 (jy)
+- [ai] Test generator: function/class → Jest / pytest / Go test / Rust test scaffolding. Inline AI panel feature. — 2026-04-26 (jy)
+- [ai] Error explainer: paste stacktrace → plain-English breakdown + likely-fix bullets. Free or trial-tier candidate. — 2026-04-26 (jy)
+- [ai] Regex from natural language: "match IPv6 addresses" → working regex with sample inputs the AI verified the pattern against. — 2026-04-26 (jy)
+- [ai] Docstring + JSDoc generator: select a function → AI emits the doc comment block in the target language idiom. — 2026-04-26 (jy)
+- [ai] Variable rename suggestions: context-aware idiomatic naming based on usage in the snippet. — 2026-04-26 (jy)
+- [ai] SQL builder: natural language → SQL against a connected DB schema. Synergy with the SQL playground panel. — 2026-04-26 (jy)
+- [ai] Commit message from git diff: paste a diff → conventional commit message. Free tier. — 2026-04-26 (jy)
+- [ai] Data inference: paste JSON / CSV → TypeScript / Pydantic / JSON-Schema / Zod / Avro types. — 2026-04-26 (jy)
+- [ai] Algorithm coach + Big-O analysis: explain complexity of a snippet + suggest optimizations. — 2026-04-26 (jy)
+- [ai] Codepath simulator: step-through execution with variable values inline (visualizes what RL-047 envisioned but AI-driven). — 2026-04-26 (jy)
+- [ai] Image-to-code: paste a UI mockup → React / HTML component (vision API). Pro feature. — 2026-04-26 (jy)
+- [ai] Prompt builder + token counter: meta-tool for users building LLM apps in the editor. — 2026-04-26 (jy)
+
+#### Tools (Pillar 2 + extras)
+
+- [tool] HTTP client panel — Postman-light. Multi-tab requests, history, auth methods (Bearer / Basic / OAuth simulator), env vars per request, response viewer, cURL import/export. Top-3 v2.0 must-have. — 2026-04-26 (jy)
+- [tool] SQL playground panel — DuckDB-WASM (web) + native bridges (desktop) for SQLite / Postgres / MySQL. Query history, schema explorer. Top-3 v2.0 must-have. — 2026-04-26 (jy)
+- [tool] GraphQL client panel — like HTTP panel but introspection-aware. Synergy with HTTP panel codebase. — 2026-04-26 (jy)
+- [tool] OpenAPI client codegen — paste spec → fetch / axios / requests / Go client implementations. — 2026-04-26 (jy)
+- [tool] Database explorer — read-only browse tables, with AI-assisted query when the AI bridge ships. — 2026-04-26 (jy)
+- [tool] Image tools panel — resize / crop / convert formats / extract-from-data-uri / compress. — 2026-04-26 (jy)
+- [tool] PDF tools panel — split / merge / extract text via pdf-lib WASM. — 2026-04-26 (jy)
+- [tool] CSV / TSV table editor — mini-Excel UI with SQL-against-CSV via DuckDB-WASM. — 2026-04-26 (jy)
+- [tool] Mermaid renderer — first-class diagram preview tab (markdown + standalone). — 2026-04-26 (jy)
+- [tool] LaTeX renderer — first-class equation preview tab via KaTeX. — 2026-04-26 (jy)
+- [tool] Encryption playground — AES-GCM, RSA, ECC, key generation, cross-format export. Synergy with JWT debugger. — 2026-04-26 (jy)
+- [tool] OAuth flow simulator — demo authorization_code / PKCE / client_credentials flows offline. — 2026-04-26 (jy)
+- [tool] Time tools panel — TZ math, business-day arithmetic, duration parser, ISO ↔ epoch ↔ human-readable. — 2026-04-26 (jy)
+- [tool] Color tools v2 — palette generator (AI-assisted), accessibility checker, design tokens export to Tailwind / CSS vars. — 2026-04-26 (jy)
+- [tool] Mock data generator — Faker.js + AI for realistic data based on a schema description. — 2026-04-26 (jy)
+- [tool] Docs viewer offline (Dash-style) — vendored MDN / Python docs / Go docs, searchable. Free tier. — 2026-04-26 (jy)
+
+#### Languages runnable (Pillar 3)
+
+- [lang] SQL runnable — DuckDB-WASM in web build (~5MB), native sqlite / duckdb bridge in desktop. Plays with the SQL playground panel. Top-3 v2.0 must-have language. — 2026-04-26 (jy)
+- [lang] Java runnable — TeaVM or CheerpJ WASM tier. Captures enterprise developers who currently have no scratchpad. Top-3 v2.0 must-have language. — 2026-04-26 (jy)
+- [lang] Bash runnable — desktop-only, sandboxed sh subprocess via main IPC. — 2026-04-26 (jy)
+- [lang] C / C++ runnable — Emscripten WASM tier with a stdin/stdout shim. — 2026-04-26 (jy)
+- [lang] Lua runnable — fengari-luastate WASM. Aligns with the deferred lua entries in `RL-042`. — 2026-04-26 (jy)
+
+#### Notebooks + viz (Pillar 4)
+
+- [notebook] Notebook mode — promote `RL-043` from Planned. Cell-based execution with persistent outputs across reload. — 2026-04-26 (jy)
+- [notebook] Inline data viz — promote `RL-044` from Planned. Auto-detect tables / images / matplotlib / plotly outputs and render richly. — 2026-04-26 (jy)
+- [notebook] Notebook export to HTML — share a standalone snapshot. — 2026-04-26 (jy)
+
+#### Collaboration (Pillar 5)
+
+- [collab] Share by link — cloud snapshot endpoint (Cloudflare Pages + R2). Tab + history → shareable URL. — 2026-04-26 (jy)
+- [collab] Embed mode — read-only iframe of a shared snapshot for blogs / docs. — 2026-04-26 (jy)
+- [collab] Public snippet gallery — opt-in user profiles listing shared snippets. — 2026-04-26 (jy)
+
+#### Plugin SDK (Pillar 6)
+
+- [plugin] Plugin SDK v1 — promote `RL-038` Slices C + D. Typed API for utility-panel plugins, registered through the manifest already shipped in Slices A + B. — 2026-04-26 (jy)
+- [plugin] Plugin marketplace — Pro feature, browse + install + auto-update plugins from `linguacode.dev/plugins`. Polar-billed for paid plugins. — 2026-04-26 (jy)
+- [plugin] First-party launch plugins — OpenAPI codegen, Mermaid, LaTeX, Excalidraw embed, time tracker. Each one is a small slice once the SDK lands. — 2026-04-26 (jy)
+
+#### Polish (cross-cutting)
+
+- [polish] Smart paste — promote `RL-069` Slice 1. Detect any pasted content and suggest the right utility panel automatically. Major UX win that lifts the whole utilities surface. — 2026-04-26 (jy)
+- [polish] Cross-tool piping — promote `RL-069` Slice 2. Base64 decode → JSON format → diff in three clicks without re-paste. — 2026-04-26 (jy)
+- [polish] Recent inputs history per panel — every utility remembers the last 10 inputs locally so coming back the next day picks up where you left off. — 2026-04-26 (jy)
+- [polish] Universal command palette improvements — fuzzy search across all panels + commands + tabs + recent inputs in one ranked list. — 2026-04-26 (jy)
+- [polish] Onboarding tour v2 — interactive tutorial covering the 5 highest-value panels (whatever the analytics show). — 2026-04-26 (jy)
+
 ## 2. Small bugs / polish
 
 Cosmetic or low-severity issues that do not warrant a dedicated

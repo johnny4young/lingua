@@ -3569,6 +3569,229 @@ does not pursue are marked `Skip`):
 
 ---
 
+## 16. Lingua v2.0 strategic roadmap (2026-04-26)
+
+Strategic vision for the v2.0 cycle, written after RL-061 Slice 1 shipped.
+Covers market positioning, daily-workflow gap analysis, the six pillars
+of v2.0, AI-feature brainstorm, and the 50 features captured in
+[`docs/BACKLOG.md`](./BACKLOG.md). Pricing implications of the AI bridge
+are folded into §13 / §14.
+
+This section is **vision, not commitment** — it sets the direction and
+pricing-economics frame. Concrete `RL-NNN` tickets graduate from
+[`BACKLOG.md`](./BACKLOG.md) into [`ROADMAP.md`](./ROADMAP.md) §4 once
+acceptance criteria are sized; we do not pre-allocate IDs here.
+
+### 16.1 Market positioning
+
+Lingua occupies an intersection that no other product covers cleanly today:
+
+```
+                           online-only (cloud)        offline-first (desktop)
+single-language scratchpad CodePen, JSFiddle          RunJS (JS only)
+multi-language playground  Replit, CodeSandbox        ◀── Lingua sits here
+dev utilities only         CyberChef.io               DevToys (Win), DevUtils (paid)
+multi-lang + utilities     —                          ← Lingua is unique
+```
+
+The actual buyer profile: **a developer who lives in JS by day, writes
+Python scripts at night, and formats a JWT every other hour**. Today
+that workflow spans three apps. Lingua is the only product that unites
+the three on an offline desktop. That is the positioning that justifies
+the price.
+
+### 16.2 Competitor map and the gaps Lingua should close
+
+| Category | Competitor | Where they win | Where Lingua wins |
+|---|---|---|---|
+| Single-language scratchpad | RunJS ($26 perpetual, JS only) | Live worker, instant feedback | Multi-language, dev utilities included |
+| Single-language scratchpad | Quokka.js (VS Code, $50/yr) | Inline values per line | No VS Code dependency, multi-lang |
+| Online IDE | Replit | Cloud collab, GPU, AI tutor | Privacy (offline), no rate-limits, no forced subscription |
+| Online IDE | CodeSandbox | Full project workflows | Scratchpad/utility focus, zero project setup |
+| Dev utilities | DevUtils.app ($30/yr macOS) | Polish, smart-input detection | Cross-platform, code execution |
+| Dev utilities | DevToys (free, Windows) | Free + Win-integrated | macOS+Linux, execution, themes, i18n |
+| Dev utilities | CyberChef (browser, free) | 300+ pipeline-able operations | Native, multi-tool layout, less geek-y |
+| Text manipulation | Boop (macOS, free) | User-script extensibility | (Lingua needs `RL-038` Slice C+D to match — gap) |
+| API / data | Postman, Insomnia, Bruno | Mature HTTP clients | Lingua does not compete today (gap) |
+| API / data | TablePlus, DBeaver | Mature DB clients | Lingua does not compete today (gap) |
+| AI-first IDEs | Cursor ($20/mo), Zed, Continue.dev | AI agentic editing | Lingua has no AI features today (gap) |
+| AI-first terminals | Warp | Agentic terminal | Lingua does not target the terminal (out of scope) |
+
+Translated to v2.0 commitments: **HTTP client + SQL client + AI assistant
++ plugin SDK** are the four gaps that, closed, move Lingua from "another
+scratchpad" to "the dev tool you keep open all day".
+
+### 16.3 Language coverage matrix (2026)
+
+| Lenguaje | Uso real 2026 | Lingua hoy | v2.0 target |
+|---|---|---|---|
+| JavaScript | Front-end, tooling | runnable | maintain |
+| TypeScript | Front-end, backend | runnable | maintain |
+| Python | Data, ML, scripts | runnable (Pyodide) | numpy/pandas micropip preload |
+| Go | Backend, cloud-native | runnable (desktop) | maintain |
+| Rust | Systems, WASM | runnable (desktop) | maintain |
+| **SQL** | Todos | formatter only | **runnable via DuckDB-WASM** ← high impact |
+| **Java** | Enterprise, Android | view-only | **runnable via TeaVM** ← high impact |
+| **Bash** | DevOps, scripts | none | **runnable desktop-only** ← medium impact |
+| Kotlin | Android, multiplatform | view-only | runnable later (RL-042) |
+| Swift | iOS, server | view-only | runnable later (macOS-only) |
+| C/C++ | Systems, games | view-only | runnable later via Emscripten |
+| Ruby | Rails | view-only | runnable later |
+| PHP | Laravel, WordPress | none | low priority |
+| Lua | Game scripting (Roblox) | view-only | runnable medium |
+| C#, Elixir, Zig, Dart, etc. | Various | none | future |
+
+Top-3 runnable adds for v2.0: **SQL** (DuckDB-WASM, ~5MB), **Java**
+(TeaVM WASM tier), **Bash** (desktop spawn).
+
+### 16.4 Six pillars of v2.0
+
+**Pillar 1 — AI first, local-first**
+
+Lingua's moat against Cursor/Copilot/Replit-AI is **privacy + offline
++ no-subscription-forced**. The bridge ships three options simultaneously:
+
+- **Local model** (Ollama-compatible): Qwen2.5-Coder, Codestral,
+  DeepSeek-Coder. Best for users with a 16GB+ machine.
+- **BYO key**: paste OpenAI / Anthropic / Groq / etc. API key. Stored
+  in main process via Keychain / DPAPI / libsecret — never in
+  localStorage, never in the renderer.
+- **Hosted credit pool** (Pro tier add-on): we resell tokens at a
+  margin so casual users don't have to manage keys.
+
+Decision matrix lives in [`docs/AI_BRIDGE_ADR.md`](./AI_BRIDGE_ADR.md).
+
+**Pillar 2 — Universal HTTP + SQL clients integrated**
+
+The dev typically has 3-5 tools for HTTP/SQL workflows. Absorbing
+those workflows into Lingua with consistent UX captures 10x more daily
+sessions:
+
+- **HTTP panel** — Postman-light. Saved requests, history, auth methods
+  (Bearer / Basic / OAuth simulator), env vars per request, response
+  viewer, cURL import/export.
+- **SQL panel** — DuckDB-WASM (web) + native bridges (desktop) for
+  SQLite/Postgres/MySQL. Query history, schema explorer.
+- Both integrate with the AI panel: "fix this query", "explain this
+  401", "make a curl from this fetch".
+
+**Pillar 3 — More languages runnable** (see §16.3 matrix).
+
+**Pillar 4 — Notebook mode + rich output**
+
+`RL-043` (notebook) + `RL-044` (inline viz) accelerated for v2.0:
+
+- Cell-based execution with persistent outputs.
+- Auto-detect output types: tables → grid, images → preview,
+  matplotlib/plotly → embed, markdown → render.
+- Sharing: notebook → standalone HTML.
+
+**Pillar 5 — Asynchronous collaboration** (NOT real-time)
+
+Real-time collab is expensive and `RL-050` is deferred. But share-by-link
+and embed-mode are cheap and useful:
+
+- Cloud snapshot endpoint: tab + history → URL (Cloudflare Pages + R2).
+- Embed mode: read-only iframe for blogs / docs.
+- Public profile (opt-in): list shared snippets.
+
+**Pillar 6 — Plugin SDK** (RL-038 Slice C + D promoted)
+
+The Boop moat is extensibility. To match:
+
+- Stable typed API for utility-panel plugins.
+- Marketplace on linguacode.dev (Pro feature, Polar-billed for paid plugins).
+- First-party launch plugins: OpenAPI → client codegen, Mermaid renderer,
+  LaTeX preview, Excalidraw embed, time tracker.
+
+### 16.5 Pricing implication of AI bridge
+
+AI changes the unit economics of every tier. Hosted-credit cost is the
+recurring expense that justifies recurring revenue:
+
+| Tier | AI access |
+|---|---|
+| Free | BYO-key + local Ollama only. No hosted credits. |
+| Pro Monthly | + N hosted tokens / month (e.g. 1M tokens GPT-4o-mini-equivalent ≈ $1 vendor cost). Subscription justifies the recurring spend. |
+| Pro Lifetime | BYO-key + local only. No hosted credits — recurring token cost would erase one-time-purchase margin. |
+| Team | Shared hosted-credit pool, configurable cap. |
+| Trial | Hosted credits limited (e.g. 100K tokens for 14 days). |
+| Education | Hosted credits limited (e.g. 100K / month, renewable on annual re-validation). |
+
+This is the cleanest answer to the recurring question "how does Lifetime
+not eat margin": **Lifetime gets the offline product but not the
+ongoing cloud spend**. Users who want managed AI tokens self-select
+into Monthly. The AI bridge is also the lever that makes Education
+worth the year of free Pro: students get the same AI access cap as
+trial users, capped to keep abuse contained.
+
+### 16.6 v2.0 must-haves vs v2.1+
+
+**v2.0 ship list** (the surface area that justifies a "switching to
+Lingua" headline):
+
+1. AI bridge (Ollama + BYO-key + hosted credits) — **the headline**.
+2. HTTP client panel — pulls Postman users.
+3. SQL playground panel (DuckDB-WASM) — pulls TablePlus light users.
+4. Notebook mode + inline viz — pulls Jupyter casual users.
+5. Smart paste / cross-tool piping (`RL-069` accelerated).
+6. 5 destacated AI features:
+   - Cross-language port ("translate this Python to Rust")
+   - Test generator (Jest / pytest / Go test scaffolding)
+   - Error explainer (paste stacktrace → plain English)
+   - Regex from natural language ("match IPv6")
+   - Mock data generator (schema → realistic JSON / CSV)
+
+**v2.1** — fill follow-up gaps:
+
+7. More AI features (commit message, docstring/JSDoc, variable rename,
+   perf coach with Big-O analysis).
+8. More languages runnable (SQL native, Java, Bash).
+9. Plugin SDK + first marketplace plugins.
+
+**v2.2+** — moat extensions:
+
+10. Share-by-link + embed mode.
+11. Database explorer (full read-only browse).
+12. AI-assisted DB query builder.
+13. Algorithm visualizer (`RL-047`, gated on debugger MVP).
+
+### 16.7 How v2.0 graduates from BACKLOG
+
+Per [`docs/README.md`](./README.md) flow, ideas captured in
+[`BACKLOG.md`](./BACKLOG.md) graduate to ROADMAP `RL-NNN` when:
+
+- Acceptance criteria are sized.
+- A slice plan exists (or is small enough that a plan is unnecessary).
+- Dependencies are `Done`.
+
+The 50 v2.0 features captured in `BACKLOG.md` §1 carry the `[ai]`,
+`[tool]`, `[lang]`, `[collab]`, `[plugin]`, or `[polish]` tag plus the
+date `2026-04-26`. As each matures, it graduates one at a time —
+**we do not pre-allocate `RL-NNN` IDs in this section**.
+
+### 16.8 Open questions for v2.0
+
+These are decisions that block the headline AI bridge slice and need
+explicit answers before its first ticket graduates:
+
+1. **Local model default**: Qwen2.5-Coder 7B (1.5GB Q4) vs Codestral
+   22B (5GB Q4) vs DeepSeek-Coder 6.7B. Resolved in `AI_BRIDGE_ADR.md`
+   when we ship the bridge.
+2. **Hosted credit provider**: do we proxy through OpenAI / Anthropic
+   directly or use a router (OpenRouter / Helicone)?
+3. **Token-budget UI**: where does the user see remaining hosted credits
+   for the month? Settings → License? A status-bar pill?
+4. **Plugin sandboxing**: Web Workers vs iframe? Affects API surface.
+5. **HTTP panel storage**: requests saved per-tab or in a global
+   collection? Trade-off between RunJS-style scratchpad and
+   Postman-style workspace.
+
+These remain in §16.8 as live questions. Each gets resolved in the ADR
+or scope cell of the corresponding ticket as it graduates.
+
+---
+
 ## Execution order summary (updated 2026-04-13)
 
 ### Status legend
