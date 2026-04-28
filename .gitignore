@@ -55,3 +55,4 @@ Thumbs.db
 
 # Claude Code per-developer worktrees
 .claude/worktrees/
+prod-keypair.json

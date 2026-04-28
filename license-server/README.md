@@ -100,13 +100,21 @@ of them green to smoke end-to-end.
    ```bash
    npm run migrations:apply:local
    ```
-3. **Set the secrets** (Slice 2 will read them; Slice 1 ignores all):
+3. **Set the secrets** (Slice 2 will read them; Slice 1 ignores all).
+   Three of them are short strings and can go in interactively:
    ```bash
    wrangler secret put POLAR_WEBHOOK_SECRET
    wrangler secret put POLAR_API_KEY
-   wrangler secret put LINGUA_LICENSE_PRIVATE_KEY_JWK
    wrangler secret put RESEND_API_KEY
    ```
+   For the JWK keypair (`LINGUA_LICENSE_PRIVATE_KEY_JWK` +
+   `LINGUA_LICENSE_PUBLIC_KEY_JWK`), pipe `jq -r` (raw) from
+   `prod-keypair.json` to avoid shell paste-mangling. See the
+   doc-comment in `scripts/mint-dev-license.mjs` for the full
+   end-to-end pattern (mint → validate → upload → delete keypair
+   file). Using `jq -c` here will store a double-encoded JSON
+   string and the worker will reject every signed request with
+   `invalid-private-key`.
 4. **Add the custom domain**: in Cloudflare Workers > Routes, attach
    `licenses.linguacode.dev` to this worker.
 5. **Apply the migration to production** when ready to ship Slice 2:

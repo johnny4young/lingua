@@ -68,4 +68,50 @@ describe('scripts/mint-dev-license.mjs', () => {
     const result = await verifyLicenseToken(parsed.token, publicKey);
     expect(result.ok).toBe(true);
   });
+
+  it('emits JWKs with ONLY the RFC 8037 §2 fields — strips Node 22+ extras like `alg: "Ed25519"` that Cloudflare Workers WebCrypto rejects', () => {
+    // Pinning the keypair shape so a future change to the mint helper
+    // (or a Node version bump that adds new fields to exportKey output)
+    // can't silently break license-server uploads. See
+    // `scripts/dev-license-shared.mjs` `normalizeEd25519*Jwk` helpers.
+    const stdout = execFileSync(
+      process.execPath,
+      [
+        'scripts/mint-dev-license.mjs',
+        '--tier',
+        'pro',
+        '--days',
+        '7',
+        '--issued-to',
+        'ci@local',
+      ],
+      { encoding: 'utf8' }
+    );
+    const parsed = JSON.parse(stdout) as {
+      publicKeyJwk: string;
+      privateKeyJwkDoNotShip: string;
+    };
+
+    const publicKey = JSON.parse(parsed.publicKeyJwk) as Record<string, unknown>;
+    expect(Object.keys(publicKey).sort()).toEqual(['crv', 'kty', 'x']);
+    expect(publicKey.kty).toBe('OKP');
+    expect(publicKey.crv).toBe('Ed25519');
+
+    const privateKey = JSON.parse(parsed.privateKeyJwkDoNotShip) as Record<string, unknown>;
+    expect(Object.keys(privateKey).sort()).toEqual(['crv', 'd', 'kty', 'x']);
+    expect(privateKey.kty).toBe('OKP');
+    expect(privateKey.crv).toBe('Ed25519');
+
+    // Spot-check: the foot-gun fields must not leak through. If any of
+    // these are present, Cloudflare Workers' importKey will throw a
+    // DataError and `license-server/src/lib/sign.ts` surfaces it as
+    // `invalid-private-key` — exactly the bug this guard exists to
+    // prevent regressing.
+    for (const forbidden of ['alg', 'key_ops', 'ext']) {
+      expect(publicKey, `publicKeyJwk leaked ${forbidden}`).not.toHaveProperty(forbidden);
+      expect(privateKey, `privateKeyJwkDoNotShip leaked ${forbidden}`).not.toHaveProperty(
+        forbidden
+      );
+    }
+  });
 });

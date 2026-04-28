@@ -155,12 +155,43 @@ export async function mintDevLicense({
     )
   );
 
+  // The JWK fields are JSON-stringified intentionally — the consumer
+  // contract expects a string, not an embedded object, so shells can
+  // round-trip them through env vars / `wrangler secret put` stdin
+  // without quoting issues. See `scripts/mint-dev-license.mjs` doc-
+  // comment for the `jq -r` (NOT `-c`) extraction pattern. Do NOT
+  // change this to return embedded objects without updating every
+  // downstream caller (the Vite define on the desktop launcher,
+  // `npm run dev:desktop:pro`, and the wrangler-secret usage in
+  // `license-server/README.md`).
   return {
-    publicKeyJwk: JSON.stringify(publicKeyJwk),
-    privateKeyJwkDoNotShip: JSON.stringify(privateKeyJwk),
+    publicKeyJwk: JSON.stringify(normalizeEd25519PublicJwk(publicKeyJwk)),
+    privateKeyJwkDoNotShip: JSON.stringify(normalizeEd25519PrivateJwk(privateKeyJwk)),
     token: `${payloadPart}.${base64UrlEncode(signatureBytes)}`,
     payload,
   };
+}
+
+/**
+ * Strip every JWK field that is not in RFC 8037 §2 for Ed25519
+ * (`kty`, `crv`, `x`, plus `d` for private). Node 22+ webcrypto
+ * `exportKey('jwk', …)` adds `alg: "Ed25519"`, `key_ops`, and `ext`
+ * to the JWK; Cloudflare Workers' WebCrypto rejects `alg: "Ed25519"`
+ * (the JOSE registry only defines `EdDSA` for Ed25519, not the curve
+ * name) and the `importKey` call fails with a vague `DataError`,
+ * surfacing as `invalid-private-key` from `license-server/src/lib/sign.ts`.
+ *
+ * Stripping is a one-line normalize that keeps the worker happy
+ * across Node ↔ CF ↔ browser without making any consumer aware of
+ * the per-runtime variance. Tests pin the absence of the optional
+ * fields so the next time someone adds a Node-22-ism we catch it.
+ */
+function normalizeEd25519PrivateJwk(jwk) {
+  return { kty: jwk.kty, crv: jwk.crv, d: jwk.d, x: jwk.x };
+}
+
+function normalizeEd25519PublicJwk(jwk) {
+  return { kty: jwk.kty, crv: jwk.crv, x: jwk.x };
 }
 
 export function printDevLicenseBanner({
