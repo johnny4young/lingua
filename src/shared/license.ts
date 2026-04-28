@@ -179,6 +179,24 @@ async function getSubtleCrypto(): Promise<SubtleCrypto | null> {
   return null;
 }
 
+/**
+ * Strip every JWK field that is not in RFC 8037 §2 for Ed25519
+ * (`kty`, `crv`, `x`). Node 22+ webcrypto `exportKey('jwk', …)` adds
+ * `alg: "Ed25519"`, `key_ops`, and `ext` to the public key; some
+ * runtimes (notably Cloudflare Workers) reject `alg: "Ed25519"`
+ * because the JOSE registry only defines `EdDSA` for this curve, and
+ * `importKey` then fails with a vague `DataError`.
+ *
+ * The renderer + main share this verifier, so historical `.env`
+ * values that still carry the foot-gun fields keep working after a
+ * silent normalize. Mirrors `normalizeEd25519PublicJwk` in
+ * `scripts/dev-license-shared.mjs` and the worker's
+ * `license-server/src/lib/sign.ts` strip pattern.
+ */
+function normalizeEd25519PublicJwk(jwk: JsonWebKey): JsonWebKey {
+  return { kty: jwk.kty, crv: jwk.crv, x: jwk.x };
+}
+
 export async function verifyLicenseToken(
   token: string,
   publicKeyJwk: JsonWebKey,
@@ -200,7 +218,11 @@ export async function verifyLicenseToken(
 
   let key: CryptoKey;
   try {
-    key = await subtle.importKey('jwk', publicKeyJwk, { name: 'Ed25519' }, false, ['verify']);
+    // Defensive normalize before importKey — see
+    // `normalizeEd25519PublicJwk` doc-comment for the Node 22+ /
+    // Cloudflare Workers JWK divergence this protects against.
+    const normalized = normalizeEd25519PublicJwk(publicKeyJwk);
+    key = await subtle.importKey('jwk', normalized, { name: 'Ed25519' }, false, ['verify']);
   } catch (error) {
     return {
       ok: false,
