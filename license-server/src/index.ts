@@ -1,16 +1,18 @@
 /**
- * Lingua license-server (RL-061 Slice 1).
+ * Lingua license-server (RL-061 Slice 2).
  *
  * Cloudflare Worker hosted at `licenses.linguacode.dev`. Sibling of the
  * `update-server/` worker (which proxies GitHub Releases for Squirrel).
  * Source-of-truth for license issuance, device tracking, trial minting,
  * and renewal token refresh — see docs/LICENSING_ADR.md Decision 2.
  *
- * Slice 1 ships the Hono router skeleton + D1 schema migration +
- * 501 stubs for every endpoint except /health. Slice 2 wires the Polar
- * webhook + Resend email + actual D1 writes; Slice 3 ships the
- * device-management UI in the Electron renderer; Slice 4 wires the
- * trial CTA; Slice 5 ships the release pipeline + web update banner.
+ * Slice 1 shipped the router skeleton + D1 schema + 501 stubs.
+ * Slice 2 promotes /webhooks/polar + /licenses/{activate,status,
+ * devices/remove} to real D1-backed implementations, with split-bucket
+ * device limit (3 desktop + 3 web) per the 2026-04-26 design lock.
+ * Slice 3 ships the device-management UI in the Electron renderer;
+ * Slice 4 wires trial + education + recovery; Slice 5 ships the
+ * release pipeline + web update banner.
  *
  * Every route returns the same tagged-union shape:
  *   { ok: true,  ...payload }
@@ -20,6 +22,7 @@
  */
 
 import { Context, Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { errorResponse } from './lib/errors';
 import { healthRouter } from './handlers/health';
 import { licensesRouter } from './handlers/licenses';
@@ -29,13 +32,96 @@ import { jsonNoStore } from './lib/json';
 
 export interface Env {
   /**
-   * D1 binding declared in wrangler.toml. Slice 1 does not query it
-   * yet; Slice 2 wires `licenses`, `devices`, and `trials` reads/writes.
+   * D1 binding declared in wrangler.toml. Slice 2 wires `licenses` +
+   * `devices` reads/writes; `trials` + `educations` come in Slice 4.
    */
   DB: D1Database;
+  /**
+   * Workers KV binding for rate-limit buckets. Declared in
+   * wrangler.toml; Slice 4 consumes it from /trials/start and
+   * /licenses/recover. Slice 2 leaves it unused but the binding is
+   * declared so Slice 4 doesn't need a wrangler.toml change.
+   */
+  RATE_LIMIT: KVNamespace;
+  /**
+   * Polar webhook secret (HMAC). Set via `wrangler secret put
+   * POLAR_WEBHOOK_SECRET`.
+   */
+  POLAR_WEBHOOK_SECRET: string;
+  /**
+   * Polar API key. Slice 2 declares it but does not call back into
+   * Polar — webhook signature + D1 idempotency are sufficient.
+   * Reserved for Slice 5 (checkout-link generation).
+   */
+  POLAR_API_KEY: string;
+  /**
+   * Ed25519 private key (JWK string). Set via `wrangler secret put
+   * LINGUA_LICENSE_PRIVATE_KEY_JWK`.
+   */
+  LINGUA_LICENSE_PRIVATE_KEY_JWK: string;
+  /**
+   * Ed25519 public key (JWK string). Pair of the private key. Used
+   * by /licenses/* endpoints to verify the token clients submit.
+   */
+  LINGUA_LICENSE_PUBLIC_KEY_JWK: string;
+  /**
+   * Resend API key. Set via `wrangler secret put RESEND_API_KEY`.
+   * Slice 2 sends the buyer email when a Polar webhook successfully
+   * mints a license.
+   */
+  RESEND_API_KEY: string;
+  /** Resend "from" email address. Vars in wrangler.toml. */
+  RESEND_FROM_EMAIL: string;
+  /** Resend "from" display name. Vars in wrangler.toml. */
+  RESEND_FROM_NAME: string;
+  /** Comma-separated CORS allowlist. Vars in wrangler.toml. */
+  CORS_ALLOWED_ORIGINS: string;
 }
 
 export const app = new Hono<{ Bindings: Env }>();
+
+/**
+ * CORS for browser-side activation calls from the web build. The
+ * desktop main process bypasses CORS entirely (Node fetch ignores it),
+ * but the web build runs in a real browser at `linguacode.dev` and
+ * needs the server to acknowledge its origin. The allowed origins are
+ * read at request time from the `CORS_ALLOWED_ORIGINS` env var so a
+ * preview deploy can extend the list without a code change.
+ *
+ * The `/webhooks/polar` route deliberately bypasses CORS — webhooks
+ * come from Polar's IP range with no Origin header, and applying CORS
+ * would just add noise to the headers.
+ */
+function buildCorsMiddleware(
+  env: Env | undefined,
+  options: { allowMethods: string[]; allowHeaders: string[] }
+) {
+  const raw = env?.CORS_ALLOWED_ORIGINS ?? '';
+  const allowList = raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  return cors({
+    origin: (origin) => (allowList.includes(origin) ? origin : null),
+    allowMethods: options.allowMethods,
+    allowHeaders: options.allowHeaders,
+    maxAge: 86400,
+  });
+}
+
+app.use('/licenses/*', (c, next) =>
+  buildCorsMiddleware(c.env, {
+    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+  })(c, next)
+);
+
+app.use('/trials/*', (c, next) =>
+  buildCorsMiddleware(c.env, {
+    allowMethods: ['POST', 'OPTIONS'],
+    allowHeaders: ['Content-Type'],
+  })(c, next)
+);
 
 /**
  * Tagged-union response for any unhandled throw. Exposed so tests can

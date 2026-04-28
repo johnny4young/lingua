@@ -15,7 +15,7 @@
 
 ---
 
-## 1. Status at a glance (2026-04-26)
+## 1. Status at a glance (2026-04-27)
 
 Mirrors the authoritative `Status` column in
 [`ROADMAP.md`](./ROADMAP.md) §4. **When discrepancies appear, ROADMAP wins.**
@@ -25,7 +25,7 @@ Mirrors the authoritative `Status` column in
 | Iter 1 | [`RL-072`](./ROADMAP.md) | Shipping · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Expand Developer Utilities to DevUtils parity — full panel set shipped (29 panels). RL-068 closeout adds YAML ↔ JSON, JSON ↔ CSV, Markdown Preview (sanitized HTML output, no remote image fetch), and SQL Formatter (ANSI / PostgreSQL / MySQL dialects). RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (5 of ~7 slices shipped) | Execution history — replay-by-id + comparison. See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
-| Iter 4 | [`RL-061`](./ROADMAP.md) | Partial · RL-059 Slice 0 shipped 2026-04-25; RL-061 Slice 1 shipped 2026-04-26 (`license-server/` scaffold). Remaining slices 2–5 still under `RL-061`. | License-key infrastructure. Slice 0 closed the preload/main-side gap; Slice 1 lays the Cloudflare Worker skeleton + D1 schema + endpoint stubs. Slices 2 (Polar webhook + Resend), 3 (device UI), 4 (trial CTA), 5 (release pipeline + web update banner) still pending. See [`LICENSING_ADR.md`](./LICENSING_ADR.md) and §6. |
+| Iter 4 | [`RL-061`](./ROADMAP.md) | Partial · Slices 0+1+2 shipped (Slice 2 on 2026-04-27 ships Polar webhook + Resend + D1-backed license endpoints with split-bucket device limit). Remaining slices: 2.5 (web licenseStore refactor), 3 (device UI), 4 (trial+education+recovery CTAs), 5 (release pipeline + web update banner). | License-key infrastructure. Slice 0 closed the preload/main-side gap; Slice 1 laid the worker skeleton; Slice 2 wires real D1 + Polar + Resend with surface-aware device limit. See [`LICENSING_ADR.md`](./LICENSING_ADR.md) and §6. |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Partial (Slices A + B shipped) | Language-pack registry Slice C — capability-aware UI. See §7. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
@@ -276,10 +276,28 @@ Hono router + D1 schema migration + real `GET /health` + 501 stubs for
 yet because no endpoint touches D1. Slice 2 promotes to
 `@cloudflare/vitest-pool-workers` when D1 + KV emulation is needed.
 
-**Slice 2 — Polar webhook handler + Resend email integration.** Real
-signing, real `subscription.*` + `order.*` event handling, real outbound
-email. Requires the maintainer's Polar sandbox + Resend domain
-verification before end-to-end smoke is possible.
+**Slice 2 — Polar webhook handler + Resend email + D1-backed license endpoints (shipped 2026-04-27).**
+Real Ed25519 signing in `license-server/src/lib/sign.ts`, Polar webhook
+signature verification (Standard Webhooks v1) in `lib/polar.ts`, Resend
+email helper in `lib/resend.ts`, surface-aware D1 helpers in `lib/db.ts`,
+real handlers for `/webhooks/polar` (5 event types: `order.paid`,
+`order.refunded`, `subscription.{created,updated,canceled}`) and the
+three license endpoints (`/licenses/activate`, `/licenses/status`,
+`/licenses/devices/remove`). Migration `0002_add_surface_column.sql`
+introduces the per-surface device bucket. Paid subscriptions mint or
+refresh only from paid `order.paid`, while `subscription.created` waits
+for payment and `subscription.updated` handles cancel/uncancel state.
+Vitest 73 cases covering
+sign/polar/tokens unit paths + handler 501-when-unconfigured paths.
+End-to-end production smoke still requires the maintainer's Polar
+sandbox + Resend domain verification + D1 + KV provisioning.
+
+**Slice 2.5 — Web licenseStore refactor.** Renderer's web-mode
+`licenseStore` (today local-verify-only) refactored to mint a
+localStorage UUID, send `surface: 'web'` to `/licenses/activate`, and
+poll `/licenses/status` for `refreshedToken`. Preserves the offline-grace
+window via the existing local Ed25519 verifier as fallback when the
+server is unreachable.
 
 **Slice 3 — Device management UI.** Settings → License lists active
 devices, supports rename + remove, surfaces the exhausted-device modal.

@@ -2611,7 +2611,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - Add a `licenseStore` in the renderer that can import, validate, and persist a license payload.
   - Expose `window.lingua.license.*` through preload so main can decide what ships activated.
   - Main-side verifier in `src/main/license.ts` for packaged builds; renderer-side verifier in `src/renderer/license/` for web builds (same verify code, same public key, single source of truth in `src/shared/license.ts`).
-  - License payload fields: `productId`, `tier` (`pro` | `pro_lifetime` | `team` | `trial` | `education`), `issuedTo`, `issuedAt`, `supportWindowEndsAt`, `entitlements[]`, `signature`.
+  - License payload fields: optional `licenseId` (server-minted tokens), `productId`, `tier` (`pro` | `pro_lifetime` | `team` | `trial` | `education`), `issuedTo`, `issuedAt`, `supportWindowEndsAt`, `entitlements[]`, `signature`.
   - Grace-period and clock-skew tolerance are explicit: +/- 24h skew, 14-day grace window after `supportWindowEndsAt` for online re-check (offline keeps working indefinitely for perpetual tiers).
 - Acceptance criteria:
   - A valid signed license unlocks Pro entitlements in both desktop and web builds.
@@ -2676,7 +2676,7 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - Server-minted tiers (NO Polar product, NO checkout): `lingua_trial` (14d, 1-shot) and `lingua_education` (1yr, renewable on educational email re-validation).
   - Sibling Cloudflare Worker `license-server/` deployed at `licenses.linguacode.dev` with D1 persistence (`licenses`, `devices`, `trials`, `educations` tables — full schema in `docs/LICENSING_ADR.md`). The `educations` table mirrors `trials` (UNIQUE email + UNIQUE device_id) and lands in Slice 4 alongside the endpoints.
   - HTTP endpoints: `POST /webhooks/polar`, `POST /trials/start`, `POST /education/start`, `POST /education/renew`, `POST /licenses/activate`, `GET /licenses/status` (returns `refreshedToken` post-renewal so Monthly stays offline-friendly), `POST /licenses/devices/remove`, `GET /health`.
-  - Webhook handlers: `order.paid`, `order.refunded`, `subscription.created`, `subscription.updated` (renewal extends `expires_at` and mints a new server-side token), `subscription.canceled` (sets `status=cancel_at_period_end`).
+  - Webhook handlers: `order.paid` (the only event that mints/refreshes paid Polar tokens; lifetime by order id, Monthly/Team by subscription id after payment), `order.refunded`, `subscription.created` (ack + wait for paid order), `subscription.updated` (cancel/uncancel status only), `subscription.canceled` (sets `status=cancel_at_period_end`).
   - 14-day trial with anti-abuse: `UNIQUE(email)` + `UNIQUE(device_id)` in the `trials` table + per-IP rate limit on `/trials/start`. Email verification deferred to a Phase 2 follow-up if observed abuse exceeds ~5% of trial volume.
   - 1-year education tier with anti-abuse: same UNIQUE pattern in the `educations` table + per-IP rate limit. Email validated against `.edu` domain (and/or GitHub Education API — locked in Slice 4). Renewal is explicit — `POST /education/renew` re-runs the email validation and extends `expires_at` by 365d. No silent renewal; if validation lapses, license expires gracefully.
   - Renderer surfaces tracked under sibling slices of RL-059: device-management UI in Settings → License (lists active devices with remove + rename), Trial CTA, **Education CTA** (Slice 4), "Buy Pro" / "Enter license key" entry points.
@@ -2690,6 +2690,68 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - The checkout URL and the `licenses.linguacode.dev` base URL are env-configurable so sandbox vs production is a deploy flag.
 - Dependencies:
   - RL-059 (Slice 0 — main-side bridge + device id — shipped 2026-04-25)
+
+### §RL-061.0 Status Update — Slice 2 shipped 2026-04-27
+
+The Slice 2 commit promotes `/webhooks/polar`, `/licenses/activate`,
+`/licenses/status`, and `/licenses/devices/remove` from 501-stubs to
+real D1-backed implementations:
+
+- `license-server/src/lib/sign.ts` — Ed25519 sign + verify via
+  WebCrypto (mirror of `src/shared/license.ts:verifyLicenseToken`).
+- `license-server/src/lib/tokens.ts` — `mintAndSignToken()` builds the
+  canonical `LicensePayload` from webhook context + signs.
+- `license-server/src/lib/polar.ts` — Standard Webhooks v1
+  HMAC-SHA256 signature verification with constant-time compare,
+  ±5min replay window, base64 secret unwrapping for the `whsec_`
+  prefix; tagged-union `PolarKnownEvent` for the 5 event types we
+  care about; `deviceLimitForProduct` honors `metadata.device_limit`
+  for the team SKU only.
+- `license-server/src/lib/db.ts` — typed D1 query helpers for
+  `licenses` and `devices`, all surface-aware (`WHERE surface = ?`).
+- `license-server/src/lib/resend.ts` — minimal HTTP fetch wrapper
+  for the Resend email API, with no-op fallback when `RESEND_API_KEY`
+  is unset (best-effort email; license persistence is the source of
+  truth).
+- `license-server/migrations/0002_add_surface_column.sql` —
+  `ALTER TABLE devices ADD COLUMN surface` (CHECK 'desktop' | 'web')
+  + composite index for the per-surface activation count.
+- `license-server/src/handlers/webhooks.ts` — full Polar handler
+  with idempotency via `polar_order_id` / `polar_subscription_id`
+  UNIQUE indexes, 5 event types dispatched, token mint/refresh gated
+  to paid `order.paid` events, unknown events ack 200 with
+  `ignored: 'unknown-event'`.
+- `license-server/src/handlers/licenses.ts` — verifies token
+  signature against `LINGUA_LICENSE_PUBLIC_KEY_JWK`, looks up the
+  license row, enforces hard-fail on `refunded` + `expired`,
+  enforces split-bucket device limit on activation, returns devices
+  grouped by surface in status, soft-deletes on remove (idempotent).
+- `license-server/src/index.ts` — Env interface gains the 8 new
+  bindings (`DB`, `RATE_LIMIT`, `POLAR_*`, `LINGUA_LICENSE_*`,
+  `RESEND_*`, `CORS_ALLOWED_ORIGINS`); CORS middleware mounted on
+  `/licenses/*` and `/trials/*` reads `CORS_ALLOWED_ORIGINS` at
+  request time so a preview origin can be added without a code change.
+- Test counter: license-server vitest 40 → 73 cases (lib unit tests
+  for sign + polar + tokens + handler stub-tests updated for the new
+  request shapes, including `surface: 'desktop' | 'web'` validation
+  and the per-surface bucket enforcement). Review fixes added
+  refreshed-token lookup, paid-order subscription minting, malformed
+  whsec, and canceled-after-grace coverage.
+
+The renderer-side web licenseStore refactor (Slice 2.5) is **NOT** in
+this commit — Slice 2 only sets the server contract. Slice 2.5 will
+mint a `localStorage['lingua-device-id']` UUID, call
+`/licenses/activate` with `surface: 'web'`, and poll
+`/licenses/status` for `refreshedToken` to pick up Monthly renewals.
+
+End-to-end production smoke still requires maintainer prereqs
+(see `LICENSING_ADR.md` Maintainer-side prerequisites): `wrangler d1
+create lingua-licenses`, `wrangler kv namespace create
+lingua-licenses-rl`, four secrets (`POLAR_WEBHOOK_SECRET`,
+`POLAR_API_KEY`, `LINGUA_LICENSE_PRIVATE_KEY_JWK`,
+`LINGUA_LICENSE_PUBLIC_KEY_JWK`, `RESEND_API_KEY`), and the
+`licenses.linguacode.dev` Workers route. Slice 2 is pure code; the
+maintainer steps unblock end-to-end Polar sandbox + Resend smoke.
 
 ### RL-062 Public README, license declaration, and distribution posture
 

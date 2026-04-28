@@ -11,6 +11,9 @@
  */
 
 const SUPPORTED_OS = new Set<string>(['darwin', 'win32', 'linux']);
+const SUPPORTED_SURFACES = new Set<string>(['desktop', 'web']);
+
+export type Surface = 'desktop' | 'web';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const TEXT_ENCODER = new TextEncoder();
@@ -92,6 +95,7 @@ export interface LicenseActivateBody {
   deviceId: string;
   deviceName: string;
   os: 'darwin' | 'win32' | 'linux';
+  surface: Surface;
 }
 
 export function validateLicenseActivateBody(input: unknown): ValidationResult<LicenseActivateBody> {
@@ -122,16 +126,31 @@ export function validateLicenseActivateBody(input: unknown): ValidationResult<Li
   const os = asString(record.os) ?? '';
   if (!SUPPORTED_OS.has(os)) pushIssue(issues, `os must be one of ${[...SUPPORTED_OS].join(', ')}`);
 
+  // Surface is required for the split-bucket device limit. Renderer
+  // sends 'desktop' when window.lingua.license is present, 'web' when
+  // not. See LICENSING_ADR Decision 4.
+  const surface = asString(record.surface) ?? '';
+  if (!SUPPORTED_SURFACES.has(surface)) {
+    pushIssue(issues, `surface must be one of ${[...SUPPORTED_SURFACES].join(', ')}`);
+  }
+
   if (issues.length > 0) return { ok: false, issues };
   return {
     ok: true,
-    value: { token, deviceId, deviceName, os: os as LicenseActivateBody['os'] },
+    value: {
+      token,
+      deviceId,
+      deviceName,
+      os: os as LicenseActivateBody['os'],
+      surface: surface as Surface,
+    },
   };
 }
 
 export interface LicenseStatusRequest {
   token: string;
   deviceId: string;
+  surface: Surface;
 }
 
 const BEARER_PREFIX = /^Bearer\s+/iu;
@@ -168,8 +187,13 @@ export function validateLicenseStatusRequest(
     pushIssue(issues, `deviceId exceeds ${MAX_DEVICE_ID_LENGTH} byte cap`);
   }
 
+  const surface = (params.get('surface') ?? '').trim();
+  if (!SUPPORTED_SURFACES.has(surface)) {
+    pushIssue(issues, `surface must be one of ${[...SUPPORTED_SURFACES].join(', ')}`);
+  }
+
   if (issues.length > 0) return { ok: false, issues };
-  return { ok: true, value: { token, deviceId } };
+  return { ok: true, value: { token, deviceId, surface: surface as Surface } };
 }
 
 export interface DeviceRemoveBody {

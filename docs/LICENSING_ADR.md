@@ -93,12 +93,33 @@ Subdomains: `updates.linguacode.dev` (existing) +
 
 - Schema lives in D1: `licenses`, `devices`, `trials` tables (full
   shape captured in the implementation plan and `RL-061` scope).
-- Endpoints: `POST /webhooks/polar`, `POST /trials/start`,
-  `POST /licenses/activate`, `GET /licenses/status`,
-  `POST /licenses/devices/remove`, `GET /health`.
+  `educations` joins in Slice 4 alongside the education endpoints.
+- Endpoints (Slice 2 shipped 2026-04-27 except `/trials/start` +
+  `/education/*` + `/licenses/recover` which land in Slice 4):
+  - `POST /webhooks/polar` — Polar Standard Webhooks signature
+  - `POST /trials/start` — Slice 4
+  - `POST /education/start` — Slice 4
+  - `POST /education/renew` — Slice 4
+  - `POST /licenses/activate` — body includes `surface: 'desktop' |
+    'web'`; activation enforces the per-surface bucket
+  - `GET /licenses/status` — query carries `?deviceId=…&surface=…`;
+    response groups devices by surface, includes `refreshedToken`
+    when newer than the client's; server-minted token payloads include
+    stable `licenseId` so an older signed token can still find the row
+    after renewal replaces `licenses.token`
+  - `POST /licenses/devices/remove` — soft-delete by `(license_id,
+    device_id)` (cross-surface; renderer chooses which device to
+    remove from the device-management UI)
+  - `POST /licenses/recover` — Slice 4; emails the current
+    `licenses.token` to the buyer, rate-limited per IP + per email
+    via Workers KV, never leaks ownership (always 200)
+  - `GET /health` — liveness check
 - The same Ed25519 keypair signs in `license-server/` and verifies
   in the desktop + web apps. The private key lives only as a
   Cloudflare secret (`LINGUA_LICENSE_PRIVATE_KEY_JWK`).
+- Paid Polar subscriptions mint or refresh tokens only after
+  `order.paid`; `subscription.created` is not enough because Polar can
+  send it before the first payment becomes active.
 
 ## Decision 3 — Pricing tiers + device limit
 
