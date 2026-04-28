@@ -24,8 +24,8 @@ import { Hono, type Context } from 'hono';
 import { errorResponse, methodNotAllowedResponse } from '../lib/errors';
 import { jsonNoStore } from '../lib/json';
 import {
-  KNOWN_PRODUCT_IDS,
   deviceLimitForProduct,
+  resolveProductSku,
   verifyPolarWebhook,
   type PolarEvent,
   type PolarKnownEvent,
@@ -196,17 +196,21 @@ async function handleOrderPaid(
 ): Promise<Response> {
   const orderId = event.data?.id;
   const email = event.data?.customer?.email;
-  const productId = event.data?.product?.id;
   const metadata = event.data?.product?.metadata;
+  const productId = resolveProductSku(event.data?.product);
 
-  if (!orderId || !email || !productId) {
+  if (!orderId || !email) {
     return errorResponse(c, 'invalid-input', { message: 'order.paid is missing required fields.' });
   }
-  if (!KNOWN_PRODUCT_IDS.has(productId)) {
-    return jsonNoStore(c, { ok: true, ignored: 'unknown-product', productId });
+  if (!productId) {
+    return jsonNoStore(c, {
+      ok: true,
+      ignored: 'unknown-product',
+      productId: event.data?.product?.id ?? null,
+    });
   }
   if (productId === 'lingua_monthly' || productId === 'lingua_team') {
-    return handleSubscriptionOrderPaid(c, event, productId as PolarProductId, metadata);
+    return handleSubscriptionOrderPaid(c, event, productId, metadata);
   }
 
   const existing = await findLicenseByPolarOrder(c.env.DB, orderId);
@@ -220,7 +224,7 @@ async function handleOrderPaid(
 
   return emitLicenseAndEmail(c, {
     licenseRowId: crypto.randomUUID(),
-    productId: productId as PolarProductId,
+    productId,
     issuedTo: email,
     issuedAt,
     expiresAt: null,
@@ -325,15 +329,19 @@ async function handleSubscriptionCreated(
   event: Extract<PolarKnownEvent, { type: 'subscription.created' }>
 ): Promise<Response> {
   const subscriptionId = event.data?.id;
-  const productId = event.data?.product?.id;
+  const productId = resolveProductSku(event.data?.product);
 
-  if (!subscriptionId || !productId) {
+  if (!subscriptionId) {
     return errorResponse(c, 'invalid-input', {
       message: 'subscription.created is missing required fields.',
     });
   }
-  if (!KNOWN_PRODUCT_IDS.has(productId)) {
-    return jsonNoStore(c, { ok: true, ignored: 'unknown-product', productId });
+  if (!productId) {
+    return jsonNoStore(c, {
+      ok: true,
+      ignored: 'unknown-product',
+      productId: event.data?.product?.id ?? null,
+    });
   }
   if (productId === 'lingua_lifetime') {
     return jsonNoStore(c, { ok: true, ignored: 'lifetime-handled-by-order-paid' });

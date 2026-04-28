@@ -51,7 +51,12 @@ describe('POST /webhooks/polar', () => {
       data: {
         id: 'sub_pending',
         customer: { email: 'buyer@example.com' },
-        product: { id: 'lingua_monthly', metadata: {} },
+        // Polar sends a UUID for product.id; the canonical slug lives
+        // in metadata.product_id and that is what the worker matches on.
+        product: {
+          id: '01234567-89ab-cdef-0123-456789abcdef',
+          metadata: { product_id: 'lingua_monthly' },
+        },
         current_period_end: '2026-05-27T00:00:00.000Z',
       },
     });
@@ -81,7 +86,10 @@ describe('POST /webhooks/polar', () => {
         billing_reason: 'subscription_create',
         subscription_id: 'sub_team',
         customer: { email: 'buyer@example.com' },
-        product: { id: 'lingua_team', metadata: { device_limit: '10' } },
+        product: {
+          id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+          metadata: { product_id: 'lingua_team', device_limit: '10' },
+        },
         subscription: { id: 'sub_team', current_period_end: '2026-05-27T00:00:00.000Z' },
       },
     });
@@ -106,6 +114,67 @@ describe('POST /webhooks/polar', () => {
       device_limit: 10,
       expires_at: Math.floor(Date.parse('2026-05-27T00:00:00.000Z') / 1000),
     });
+  });
+
+  it('acks `unknown-product` when metadata.product_id is missing (forces maintainer to set it on every Polar product)', async () => {
+    const env = createMockEnv({ polarWebhookSecret: WHSEC });
+    const { headers, body } = await buildSignedPolarWebhook(WHSEC, {
+      type: 'order.paid',
+      data: {
+        id: 'order_unknown',
+        customer: { email: 'buyer@example.com' },
+        // Real Polar webhook with a UUID product.id and no metadata —
+        // the worker has no way to know which Lingua SKU this maps to.
+        // Acks 200 so Polar doesn't retry; observable as `ignored:
+        // unknown-product` in the audit log.
+        product: { id: '01234567-89ab-cdef-0123-456789abcdef', metadata: {} },
+      },
+    });
+
+    const response = await app.request(
+      'http://localhost/webhooks/polar',
+      { method: 'POST', headers, body },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const parsed = (await response.json()) as {
+      ok: boolean;
+      ignored?: string;
+      productId?: string | null;
+    };
+    expect(parsed).toMatchObject({
+      ok: true,
+      ignored: 'unknown-product',
+      productId: '01234567-89ab-cdef-0123-456789abcdef',
+    });
+    expect(env.__db.licenses.size).toBe(0);
+  });
+
+  it('acks `unknown-product` when metadata.product_id is set but not in the known SKU set', async () => {
+    const env = createMockEnv({ polarWebhookSecret: WHSEC });
+    const { headers, body } = await buildSignedPolarWebhook(WHSEC, {
+      type: 'order.paid',
+      data: {
+        id: 'order_typo',
+        customer: { email: 'buyer@example.com' },
+        product: {
+          id: '01234567-89ab-cdef-0123-456789abcdef',
+          metadata: { product_id: 'lingua_montly' /* typo */ },
+        },
+      },
+    });
+
+    const response = await app.request(
+      'http://localhost/webhooks/polar',
+      { method: 'POST', headers, body },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const parsed = (await response.json()) as { ok: boolean; ignored?: string };
+    expect(parsed).toMatchObject({ ok: true, ignored: 'unknown-product' });
+    expect(env.__db.licenses.size).toBe(0);
   });
 });
 
