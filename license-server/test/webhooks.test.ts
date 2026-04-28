@@ -1,26 +1,39 @@
 import { describe, expect, it } from 'vitest';
 import app, { buildInternalErrorResponse } from '../src/index';
+import { buildSignedPolarWebhook, createMockEnv, generateEd25519Keypair } from './helpers';
+
+const WHSEC = 'whsec_dGVzdC1zZWNyZXQ=';
 
 describe('POST /webhooks/polar', () => {
-  it('returns 501 not-implemented unconditionally — Slice 1 must NOT accept events from Polar before signature verification ships', async () => {
-    const response = await app.request('http://localhost/webhooks/polar', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type: 'order.paid', data: { id: 'fake' } }),
-    });
+  it('returns 501 not-implemented when POLAR_WEBHOOK_SECRET is not configured (defends against accidentally accepting events on a half-deployed worker)', async () => {
+    const response = await app.request(
+      'http://localhost/webhooks/polar',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ type: 'order.paid', data: { id: 'fake' } }),
+      },
+      createMockEnv({ polarWebhookSecret: '' })
+    );
     expect(response.status).toBe(501);
     const body = (await response.json()) as { ok: boolean; reason: string; message?: string };
     expect(body).toMatchObject({ ok: false, reason: 'not-implemented' });
-    expect(body.message).toMatch(/Slice 2/);
+    expect(body.message).toMatch(/POLAR_WEBHOOK_SECRET/);
   });
 
-  it('also returns 501 for an empty body so the maintainer cannot accidentally test-fire the endpoint and get a misleading 200', async () => {
-    const response = await app.request('http://localhost/webhooks/polar', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: '',
-    });
-    expect(response.status).toBe(501);
+  it('returns 401 invalid-signature when headers are missing the signature triple', async () => {
+    const response = await app.request(
+      'http://localhost/webhooks/polar',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '',
+      },
+      createMockEnv({ polarWebhookSecret: 'whsec_dGVzdC1zZWNyZXQ=' })
+    );
+    expect(response.status).toBe(400);
+    const body = (await response.json()) as { ok: boolean; reason: string };
+    expect(body).toMatchObject({ ok: false, reason: 'missing-headers' });
   });
 
   it('returns 405 for method mismatches on the known webhook route', async () => {
@@ -29,6 +42,70 @@ describe('POST /webhooks/polar', () => {
     expect(response.headers.get('Allow')).toBe('POST');
     const body = (await response.json()) as { ok: boolean; reason: string };
     expect(body).toMatchObject({ ok: false, reason: 'method-not-allowed' });
+  });
+
+  it('waits for order.paid before minting a subscription license', async () => {
+    const env = createMockEnv({ polarWebhookSecret: WHSEC });
+    const { headers, body } = await buildSignedPolarWebhook(WHSEC, {
+      type: 'subscription.created',
+      data: {
+        id: 'sub_pending',
+        customer: { email: 'buyer@example.com' },
+        product: { id: 'lingua_monthly', metadata: {} },
+        current_period_end: '2026-05-27T00:00:00.000Z',
+      },
+    });
+
+    const response = await app.request(
+      'http://localhost/webhooks/polar',
+      { method: 'POST', headers, body },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const parsed = (await response.json()) as { ok: boolean; ignored?: string };
+    expect(parsed).toMatchObject({ ok: true, ignored: 'awaiting-order-paid' });
+    expect(env.__db.licenses.size).toBe(0);
+  });
+
+  it('mints an expiring Team license from the paid subscription order', async () => {
+    const keys = await generateEd25519Keypair();
+    const env = createMockEnv({
+      polarWebhookSecret: WHSEC,
+      privateKeyJwk: keys.privateKeyJwk,
+    });
+    const { headers, body } = await buildSignedPolarWebhook(WHSEC, {
+      type: 'order.paid',
+      data: {
+        id: 'order_team_paid',
+        billing_reason: 'subscription_create',
+        subscription_id: 'sub_team',
+        customer: { email: 'buyer@example.com' },
+        product: { id: 'lingua_team', metadata: { device_limit: '10' } },
+        subscription: { id: 'sub_team', current_period_end: '2026-05-27T00:00:00.000Z' },
+      },
+    });
+
+    const response = await app.request(
+      'http://localhost/webhooks/polar',
+      { method: 'POST', headers, body },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const parsed = (await response.json()) as { ok: boolean; licenseId?: string };
+    expect(parsed.ok).toBe(true);
+    expect(env.__db.licenses.size).toBe(1);
+    const [row] = [...env.__db.licenses.values()];
+    expect(row).toMatchObject({
+      product_id: 'lingua_team',
+      tier: 'team',
+      issued_to: 'buyer@example.com',
+      polar_order_id: null,
+      polar_subscription_id: 'sub_team',
+      device_limit: 10,
+      expires_at: Math.floor(Date.parse('2026-05-27T00:00:00.000Z') / 1000),
+    });
   });
 });
 

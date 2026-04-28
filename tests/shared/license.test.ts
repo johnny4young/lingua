@@ -91,11 +91,15 @@ describe('verifyLicenseToken', () => {
   const now = Date.parse('2026-03-15T00:00:00.000Z');
 
   it('accepts a valid token inside the support window as active', async () => {
-    const token = await signLicenseTokenForTest(buildPayload(), keys.privateKey);
+    const token = await signLicenseTokenForTest(
+      buildPayload({ licenseId: 'lic_shared_contract' }),
+      keys.privateKey
+    );
     const result = await verifyLicenseToken(token, keys.publicKey, { now });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.state).toBe('active');
+      expect(result.payload.licenseId).toBe('lic_shared_contract');
       expect(result.payload.tier).toBe('pro');
     }
   });

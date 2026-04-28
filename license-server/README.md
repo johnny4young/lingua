@@ -11,35 +11,75 @@ secret.
 Design and decisions: [`docs/LICENSING_ADR.md`](../docs/LICENSING_ADR.md).
 Ticket: [`RL-061`](../docs/PLAN.md#rl-061-polarsh-integration).
 
-## What ships in Slice 1
+## What ships in Slice 2
 
-- Hono app skeleton with the full route map (`src/index.ts`).
-- D1 schema migration (`migrations/0001_initial.sql`) for `licenses`,
-  `devices`, and `trials`.
+- Hono app skeleton with the full route map (`src/index.ts`) +
+  request-time CORS middleware on `/licenses/*` and `/trials/*`
+  reading `CORS_ALLOWED_ORIGINS` env so preview origins can be added
+  without code changes.
+- D1 schema migrations: `0001_initial.sql` (Slice 1) for `licenses` /
+  `devices` / `trials`, plus `0002_add_surface_column.sql` (Slice 2)
+  adding the per-surface device bucket from the 2026-04-26 design lock.
 - Real `GET /health` endpoint.
-- 501 stubs for `POST /trials/start`, `POST /licenses/activate`,
-  `GET /licenses/status`, `POST /licenses/devices/remove`, and
-  `POST /webhooks/polar` — every non-webhook endpoint validates
-  request shape before returning the canonical
-  `{ ok: false, reason: 'not-implemented' }` payload. The Polar webhook
-  intentionally returns 501 without reading the body until Slice 2 adds
-  signature verification.
-- Vitest suite (`test/`) covering happy paths + invalid-input branches
-  + method-mismatch / 404 routing + migration enum constraints.
+- Real `POST /webhooks/polar` — Standard Webhooks v1 HMAC-SHA256
+  signature verification, ±5 min replay window, constant-time compare,
+  `whsec_` base64 unwrap. Dispatches `order.paid`, `order.refunded`,
+  `subscription.created`, `subscription.updated`,
+  `subscription.canceled`. Idempotent against `polar_order_id` /
+  `polar_subscription_id` UNIQUE indexes. Mints Ed25519 tokens from
+  paid `order.paid` events only: one-time lifetime purchases by order
+  id, subscription Monthly/Team purchases or renewals by
+  subscription id. `subscription.created` waits for payment;
+  `subscription.updated` only updates cancel/uncancel status. Tokens
+  persist via `src/lib/db.ts`; email sends via `src/lib/resend.ts`.
+  Unknown events ack 200 with
+  `{ ok: true, ignored: 'unknown-event' }`.
+- Real `POST /licenses/activate` — verifies token signature, looks up
+  the license row, enforces split-bucket device limit (3 desktop +
+  3 web by default; configurable for `lingua_team` via Polar
+  `metadata.device_limit`), idempotent re-activation when the same
+  device id + surface is already registered.
+- Real `GET /licenses/status` — verifies token, returns devices
+  grouped by surface, includes `refreshedToken` when the persisted
+  `licenses.token` is newer than what the client sent (Monthly
+  renewal pickup). Server-minted payloads include a stable `licenseId`
+  so a previously-issued signed token can still find the D1 row after
+  renewal replaces `licenses.token`. Token comes from
+  `Authorization: Bearer …`, never from the URL query (CF logs capture
+  query params verbatim).
+- Real `POST /licenses/devices/remove` — soft-deletes by
+  `(license_id, device_id)`; idempotent for already-removed devices.
+- 501 stubs still on `POST /trials/start` (Slice 4 implements with
+  the renderer Trial CTA + KV rate-limiter).
+- Vitest suite (`test/`) — 73 cases including pure unit tests for
+  sign / polar / tokens, handler tests covering 501-when-unconfigured
+  paths, validation rejections, and method/route fallthroughs. The
+  in-memory D1 mock in `test/helpers.ts` covers the SQL shapes the
+  handlers issue without a miniflare integration tier (flagged as
+  MED follow-up — promote to `@cloudflare/vitest-pool-workers` once
+  vitest 4 lands in the parent repo).
 
-## What does NOT ship in Slice 1
+## What does NOT ship in Slice 2
 
-- No Polar webhook signature verification — Slice 2.
-- No Resend email delivery — Slice 2.
-- No actual D1 reads/writes — Slice 2.
-- No Workers KV rate-limiter for `/trials/start` — Slice 2.
-- No real Ed25519 token minting — Slice 2.
-- No `/education/start` + `/education/renew` endpoints — Slice 4.
-  The `lingua_education` SKU is reserved in the schema constraints + the
+- Renderer-side web `licenseStore` refactor — Slice 2.5. Today the
+  web build still verifies locally; the server contract above is
+  ready for it.
+- Renderer-side device-management UI — Slice 3. Settings → License
+  shows the bucketed devices and surfaces the exhausted modal.
+- `POST /trials/start` real implementation — Slice 4 alongside the
+  Trial + Education + Recovery CTAs.
+- `POST /education/start` + `POST /education/renew` — Slice 4. The
+  `lingua_education` SKU is reserved in the schema constraints + the
   ADR (free 1-year tier, renewable on `.edu` / GitHub-Education
-  re-validation, server-minted just like `/trials/start` — never
-  flows through Polar). The `educations` D1 table mirrors `trials`
-  and lands alongside the endpoints in Slice 4.
+  re-validation, server-minted, never flows through Polar). The
+  `educations` D1 table mirrors `trials` and lands alongside the
+  endpoints in Slice 4 via a new `0003_*.sql` migration.
+- `POST /licenses/recover` — Slice 4. Email-based token re-issuance
+  with KV rate-limit + audit log; never leaks ownership.
+- Workers KV rate-limiter — Slice 4 (consumed by trials, education,
+  and recovery). The KV binding is declared in `wrangler.toml` so
+  Slice 4 doesn't need a config change.
+- GitHub Actions release pipeline + web update banner — Slice 5.
 
 ## Maintainer-side prerequisites
 

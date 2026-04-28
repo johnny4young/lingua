@@ -20,6 +20,8 @@ export const LICENSE_TIERS = ['free', 'pro', 'pro_lifetime', 'team', 'trial', 'e
 export type LicenseTier = (typeof LICENSE_TIERS)[number];
 
 export interface LicensePayload {
+  /** Stable server-side license row id. Present on server-minted tokens. */
+  licenseId?: string;
   productId: string;
   tier: LicenseTier;
   issuedTo: string;
@@ -115,6 +117,12 @@ function isStringArray(value: unknown): value is readonly string[] {
 function isValidPayload(value: unknown): value is LicensePayload {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Record<string, unknown>;
+  if (
+    candidate.licenseId !== undefined &&
+    (typeof candidate.licenseId !== 'string' || candidate.licenseId.length === 0)
+  ) {
+    return false;
+  }
   if (typeof candidate.productId !== 'string' || candidate.productId.length === 0) return false;
   if (typeof candidate.tier !== 'string') return false;
   if (typeof candidate.issuedTo !== 'string' || candidate.issuedTo.length === 0) return false;

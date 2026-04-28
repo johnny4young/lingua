@@ -1,14 +1,19 @@
 name = "lingua-license-server"
 main = "src/index.ts"
 compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
 
 # Maintainer-side prereqs (see README.md):
 #   1. wrangler d1 create lingua-licenses → fill in `database_id` below.
-#   2. wrangler secret put POLAR_WEBHOOK_SECRET (Slice 2)
-#   3. wrangler secret put POLAR_API_KEY (Slice 2)
-#   4. wrangler secret put LINGUA_LICENSE_PRIVATE_KEY_JWK (Slice 2)
-#   5. wrangler secret put RESEND_API_KEY (Slice 2)
-#   6. Add `licenses.linguacode.dev` as a Workers > Routes custom domain.
+#   2. wrangler kv namespace create lingua-licenses-rl → fill in `id` below
+#      (rate-limit bucket; consumed by /trials/start in Slice 4 and
+#      /licenses/recover in Slice 4).
+#   3. wrangler secret put POLAR_WEBHOOK_SECRET (Slice 2)
+#   4. wrangler secret put POLAR_API_KEY (Slice 2)
+#   5. wrangler secret put LINGUA_LICENSE_PRIVATE_KEY_JWK (Slice 2)
+#   6. wrangler secret put LINGUA_LICENSE_PUBLIC_KEY_JWK (Slice 2)
+#   7. wrangler secret put RESEND_API_KEY (Slice 2)
+#   8. Add `licenses.linguacode.dev` as a Workers > Routes custom domain.
 #
 # Until step 1 is done, `wrangler deploy` will fail with a missing-binding
 # error — that is intentional. Slice 1 only ships the worker code; the
@@ -18,8 +23,24 @@ compatibility_date = "2026-04-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "lingua-licenses"
-database_id = "TODO-after-wrangler-d1-create"
+database_id = "4bf9d99f-005e-41dc-a908-29abf8f6c386"
 migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "3698a3e2f089439d97babd4b10e4d1e1"
+
+[vars]
+# Public key embedded at deploy time. Sibling to the build-time public
+# key in the Electron renderer + main bundles so /licenses/activate
+# verifies tokens with the same key the issuer signed with. Set via
+# `wrangler secret put LINGUA_LICENSE_PUBLIC_KEY_JWK` (or in
+# wrangler.jsonc per-environment if you ever split sandbox vs prod).
+RESEND_FROM_EMAIL = "noreply@linguacode.dev"
+RESEND_FROM_NAME = "Lingua"
+# CORS allowed origins for browser-side activation calls from the web
+# build. Add additional origins (e.g. preview deploys) here.
+CORS_ALLOWED_ORIGINS = "https://linguacode.dev,http://localhost:5174,http://localhost:4173"
 
 [observability]
 enabled = true
