@@ -13,7 +13,11 @@
  * force clients to refresh stale caches.
  */
 
-const CACHE_VERSION = 'v1';
+// Bumped to `v2` for RL-061 Slice 2.5 — the previous `v1` cache could
+// have stored `/licenses/status` GET responses under cache-first
+// before the LICENSE_ORIGINS short-circuit landed below; bumping the
+// cache name forces existing clients to drop those entries.
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `lingua-${CACHE_VERSION}`;
 const BASE_PATH = new URL(self.registration.scope).pathname;
 
@@ -22,6 +26,20 @@ const APP_SHELL = [BASE_PATH, `${BASE_PATH}index.html`];
 
 // CDN origins that should use Network-First (always try network, fall back to cache)
 const NETWORK_FIRST_ORIGINS = ['https://cdn.jsdelivr.net'];
+
+// License-server origins are always passthrough — never cached. The
+// worker explicitly returns `Cache-Control: no-store` on every
+// response, but the SW's cache-first strategy stores the body
+// regardless of the response header. A stale `/licenses/status` would
+// keep a refunded or revoked license alive in the renderer until the
+// SW unregisters; bypassing entirely is the only safe contract.
+const LICENSE_ORIGINS = [
+  'https://licenses.linguacode.dev',
+  // Allow preview deployments and local dev to also bypass without
+  // needing per-build SW edits. Keep this list synchronised with
+  // CORS_ALLOWED_ORIGINS in `license-server/wrangler.toml`.
+  'http://localhost:8787',
+];
 
 // ------------------------------------------------------------------ Install
 
@@ -53,6 +71,14 @@ self.addEventListener('fetch', event => {
 
   // Only handle GET requests
   if (request.method !== 'GET') return;
+
+  // RL-061 Slice 2.5 — license-server requests bypass the cache
+  // entirely. Returning early without `respondWith` lets the browser
+  // run its default fetch path, so the response never enters our
+  // cache regardless of the strategy that would otherwise apply.
+  if (LICENSE_ORIGINS.includes(url.origin)) {
+    return;
+  }
 
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request));

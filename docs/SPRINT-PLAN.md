@@ -25,7 +25,7 @@ Mirrors the authoritative `Status` column in
 | Iter 1 | [`RL-072`](./ROADMAP.md) | Shipping · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Expand Developer Utilities to DevUtils parity — full panel set shipped (29 panels). RL-068 closeout adds YAML ↔ JSON, JSON ↔ CSV, Markdown Preview (sanitized HTML output, no remote image fetch), and SQL Formatter (ANSI / PostgreSQL / MySQL dialects). RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (5 of ~7 slices shipped) | Execution history — replay-by-id + comparison. See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
-| Iter 4 | [`RL-061`](./ROADMAP.md) | Partial · Slices 0+1+2 shipped (Slice 2 on 2026-04-27 ships Polar webhook + Resend + D1-backed license endpoints with split-bucket device limit). Remaining slices: 2.5 (web licenseStore refactor), 3 (device UI), 4 (trial+education+recovery CTAs), 5 (release pipeline + web update banner). | License-key infrastructure. Slice 0 closed the preload/main-side gap; Slice 1 laid the worker skeleton; Slice 2 wires real D1 + Polar + Resend with surface-aware device limit. See [`LICENSING_ADR.md`](./LICENSING_ADR.md) and §6. |
+| Iter 4 | [`RL-061`](./ROADMAP.md) | Partial · Slices 0+1+2+2.5 shipped (Slice 2.5 on 2026-04-28 ships the web licenseStore server-aware refactor: surface=web activate, refreshedToken polling, license-origin SW bypass, production keypair alignment). Remaining slices: 3 (device UI), 4 (trial+education+recovery CTAs), 5 (release pipeline + web update banner). | License-key infrastructure. Slice 0 closed the preload/main-side gap; Slice 1 laid the worker skeleton; Slice 2 wires real D1 + Polar + Resend with surface-aware device limit; Slice 2.5 brings the web build into the same server contract. See [`LICENSING_ADR.md`](./LICENSING_ADR.md) and §6. |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Partial (Slices A + B shipped) | Language-pack registry Slice C — capability-aware UI. See §7. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
@@ -292,12 +292,25 @@ sign/polar/tokens unit paths + handler 501-when-unconfigured paths.
 End-to-end production smoke still requires the maintainer's Polar
 sandbox + Resend domain verification + D1 + KV provisioning.
 
-**Slice 2.5 — Web licenseStore refactor.** Renderer's web-mode
-`licenseStore` (today local-verify-only) refactored to mint a
-localStorage UUID, send `surface: 'web'` to `/licenses/activate`, and
-poll `/licenses/status` for `refreshedToken`. Preserves the offline-grace
-window via the existing local Ed25519 verifier as fallback when the
-server is unreachable.
+**Slice 2.5 — Web licenseStore refactor.** Shipped 2026-04-28.
+Renderer's web-mode `licenseStore` now mints a `localStorage` UUID
+device id, calls `POST /licenses/activate` with `surface: 'web'` on
+paste, and calls `GET /licenses/status` on rehydrate / cross-tab to
+pick up Monthly subscription `refreshedToken`. Local-verify-only
+behaviour persists when `VITE_LINGUA_LICENSE_SERVER_URL` is unset
+(dev) or the server is unreachable (24-hour offline-grace per
+LICENSING_ADR Decision 4). New `src/renderer/services/{licenseServer,
+deviceFingerprint}.ts`. New transient `kind: 'verifying'` status while
+activate is in flight. New i18n strings for `devices-exhausted`,
+`license-refunded`, `unknown-license`, `serverUnreachable`. Aligns
+the production keypair: `.env` rewritten to the CF-side public JWK
+(stripped to RFC 8037 §2), `verifyLicenseToken` defensively strips
+`alg`/`key_ops`/`ext` so historical `.env` values keep verifying.
+Service worker `public/sw.js` short-circuits all `licenses.linguacode.dev`
+GETs (cache-version bumped `v1` → `v2`) so `/licenses/status` is
+never cached. Vite web config gains `envDir: __dirname` so repo-root
+`.env` / `.env.production` actually substitute `VITE_*` defines into
+the bundle (latent bug Slice 2.5 surfaced).
 
 **Slice 3 — Device management UI.** Settings → License lists active
 devices, supports rename + remove, surfaces the exhausted-device modal.

@@ -2753,6 +2753,131 @@ lingua-licenses-rl`, four secrets (`POLAR_WEBHOOK_SECRET`,
 `licenses.linguacode.dev` Workers route. Slice 2 is pure code; the
 maintainer steps unblock end-to-end Polar sandbox + Resend smoke.
 
+### §RL-061.1 Status Update — Slice 2.5 shipped 2026-04-28
+
+Slice 2.5 brings the **web build into the same server contract the
+desktop bridge already had**, so a token paid for in Polar reaches D1
+from the renderer regardless of platform. The browser route was
+previously local-verify-only — meaning license sharing on web was
+unenforced (no per-surface device count) and Monthly subscription
+renewals never landed because `refreshedToken` ships in the
+`/licenses/status` response.
+
+What ships:
+
+- **Production keypair alignment.** Repo `.env` now embeds the same
+  Ed25519 public key whose private counterpart is uploaded to
+  Cloudflare Workers as `LINGUA_LICENSE_PRIVATE_KEY_JWK`, stripped to
+  RFC 8037 §2 (`{ kty, crv, x }`). `verifyLicenseToken` in
+  `src/shared/license.ts` defensively strips `alg`/`key_ops`/`ext`
+  from any imported public-key JWK before `crypto.subtle.importKey`,
+  mirroring the worker's strip and protecting against historical
+  `.env` values that still carry the Node 22+ `alg: "Ed25519"`
+  foot-gun.
+- **`src/renderer/services/licenseServer.ts`.** Three thin fetch
+  wrappers — `activate`, `status`, `removeDevice` — each returning a
+  tagged-union result (`{ ok: true, ... } | { ok: false, reason,
+  message? }`). 5-second timeout via `AbortController`, no retry,
+  `keepalive: true` on `removeDevice` so a fast tab close still
+  completes the device removal. Reads the base URL from
+  `import.meta.env.VITE_LINGUA_LICENSE_SERVER_URL`; when unset the
+  wrappers short-circuit to `{ ok: false, reason: 'disabled' }` so
+  dev builds (`npm run dev:web:pro`) stay local-verify-only.
+- **`src/renderer/services/deviceFingerprint.ts`.** Mints
+  `crypto.randomUUID()` once on first paste and persists it under
+  `localStorage['lingua-device-id']`. Derives `deviceName` (e.g.
+  `'Chrome on macOS'`) and `os` (e.g. `'web-chrome'`) from
+  `navigator.userAgent`. SSR-safe and privacy-mode-tolerant.
+- **`src/renderer/stores/licenseStore.ts`.** Web branch refactored:
+  - New transient `kind: 'verifying'` status while activate is in
+    flight — `useEffectiveTier` collapses it to `'free'` so
+    entitlements stay conservative until the server confirms.
+  - `setLicenseToken` calls `serverActivate` after local verify.
+    Maps server outcomes onto local statuses: `ok` → `active`/`grace`,
+    `exhausted` → `invalid:devices-exhausted` (token kept so Slice 3
+    can remediate), `revoked`/`expired`/`unknown-license` →
+    `invalid:*` (token wiped), `unreachable`/`server-error` → fall
+    back to local-verify within the 24-hour offline-grace window
+    (per LICENSING_ADR Decision 4).
+  - `revalidate` calls `serverStatus` and replaces the local token
+    with `refreshedToken` only when its `payload.issuedAt` is
+    strictly newer than the stored token's — defends against
+    stale-replica responses from D1's read path.
+  - `clearLicense` fires `serverRemoveDevice` fire-and-forget
+    (`keepalive: true`) before wiping local state.
+  - Cross-tab sync via `window.addEventListener('storage')` so a
+    paste in tab A triggers a `revalidate()` in tab B on the next
+    user interaction.
+  - New `serverSync` field on `LicenseState` (`'synced' |
+    'unreachable' | 'disabled' | null`) drives the
+    `license.notice.serverUnreachable` info banner.
+- **`src/renderer/components/Settings/LicenseSection.tsx`.**
+  Surfaces `verifying` as the transient pending pill via
+  `license.status.verifying`, maps three new failure reasons
+  (`devices-exhausted`, `license-refunded`, `unknown-license`) to
+  user-facing i18n keys, and pushes the `serverUnreachable` info
+  notice when the activate call falls back to local-verify.
+- **i18n.** `en/common.json` + `es/common.json` (tuteo Latin-American
+  Spanish) gain four new keys: `license.status.verifying`,
+  `license.notice.invalid.devicesExhausted`,
+  `license.notice.invalid.refunded`,
+  `license.notice.invalid.unknownLicense`,
+  `license.notice.serverUnreachable`.
+- **`public/sw.js`.** Short-circuits the fetch handler for any GET
+  whose origin is in a new `LICENSE_ORIGINS` list
+  (`https://licenses.linguacode.dev`, `http://localhost:8787`) by
+  returning early without `event.respondWith` — the browser's
+  default fetch path runs, the response never enters the cache, and
+  `/licenses/status` cannot be served stale. `CACHE_VERSION` bumped
+  `v1` → `v2` so existing clients drop any pre-fix cached license
+  responses on the next activate.
+- **`vite.web.config.mts`.** Sets `envDir: __dirname` so Vite loads
+  the repo-root `.env` / `.env.production` instead of `src/web/`
+  (which is empty). Latent bug Slice 2.5 surfaced — without it,
+  every `import.meta.env.VITE_*` substitution in production web
+  bundles was silently `undefined`, including
+  `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK`.
+- **`.env.production`** (NEW). Sets
+  `VITE_LINGUA_LICENSE_SERVER_URL='https://licenses.linguacode.dev'`
+  for `npm run build:web`. Local dev keeps the empty default from
+  `.env` so `dev:web:pro` runs server-disabled.
+- **Tests.** New `tests/services/{licenseServer,deviceFingerprint}.test.ts`
+  pin the wrapper contract (URL/headers/body, timeout, tagged
+  union shapes, keepalive, dev-disabled short-circuit). Extended
+  `tests/stores/licenseStore.test.ts` with a `licenseStore —
+  server-aware web branch (Slice 2.5)` block covering verifying →
+  active, unreachable fallback, exhausted retain-token,
+  revoked-wipe, refreshedToken newest-wins, and clearLicense
+  keepalive. New `tests/web/sw.test.ts` pins the SW license-origin
+  bypass against silent regression. Total suite: 1835 passed
+  (added 33 new cases on top of yesterday's 1802).
+
+What remains (Slice 3 + later):
+
+- Settings → License device list UI (per-surface buckets, rename,
+  remove). Remediation modal for `devices-exhausted`.
+- Trial + Education + Recovery server-minted CTAs.
+- GH Actions release pipeline + web update banner.
+
+Manual smoke checklist (deferred to maintainer per AGENTS.md UI
+verification rule):
+
+1. Build production web (`npm run build:web`); `preview:web`; paste
+   the real Polar token from yesterday's smoke (license id
+   `04074d85-…`); confirm status pill flips through `verifying` →
+   `active · pro_lifetime`; confirm DevTools Network shows POST to
+   `licenses.linguacode.dev/licenses/activate` with `surface: 'web'`
+   and a UUID `deviceId`; confirm `localStorage` has `lingua-license`
+   + `lingua-device-id`; confirm `caches.keys()` does not contain
+   the license origin.
+2. DevTools → block-URL `https://licenses.linguacode.dev/*`; reload
+   → status pill stays `active`, info notice
+   `license.notice.serverUnreachable` appears, no console errors.
+3. `npm run dev:web:pro` → confirm zero fetch traffic to license
+   origin (regression smoke for the `disabled` short-circuit).
+4. `npm run dev:desktop:pro -- --sync-main` → desktop unchanged,
+   IPC bridge still owns truth, no fetch from renderer.
+
 ### RL-062 Public README, license declaration, and distribution posture
 
 - Priority: `P0` for Phase 1

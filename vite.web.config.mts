@@ -22,6 +22,14 @@ export default defineConfig({
   plugins: [react()],
   define: getSharedBuildDefines(),
   root: path.resolve(__dirname, 'src/web'),
+  // Repo-root `.env` / `.env.production` are the canonical source for
+  // VITE_* values across all build configs (renderer, web, main). With
+  // `root` set to `src/web/`, Vite's default `envDir` would point there
+  // and miss the repo-root files entirely — silently leaving every
+  // `import.meta.env.VITE_*` substitution as `undefined`. RL-061 Slice
+  // 2.5 noticed this when VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK and
+  // VITE_LINGUA_LICENSE_SERVER_URL did not land in `dist/web/assets/*`.
+  envDir: __dirname,
   publicDir: path.resolve(__dirname, 'public'),
   resolve: {
     alias: {

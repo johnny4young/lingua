@@ -25,12 +25,24 @@ function parseArgs(args) {
   for (let i = 2; i < args.length; i += 1) {
     const flag = args[i];
     const next = args[i + 1];
-    if (flag === '--url') out.url = next, i += 1;
-    else if (flag === '--type') out.type = next, i += 1;
-    else if (flag === '--product') out.product = next, i += 1;
-    else if (flag === '--email') out.email = next, i += 1;
-    else if (flag === '--device-limit') out.deviceLimit = next, i += 1;
-    else if (flag === '--help' || flag === '-h') out.help = true;
+    if (flag === '--url') {
+      out.url = next;
+      i += 1;
+    } else if (flag === '--type') {
+      out.type = next;
+      i += 1;
+    } else if (flag === '--product') {
+      out.product = next;
+      i += 1;
+    } else if (flag === '--email') {
+      out.email = next;
+      i += 1;
+    } else if (flag === '--device-limit') {
+      out.deviceLimit = next;
+      i += 1;
+    } else if (flag === '--help' || flag === '-h') {
+      out.help = true;
+    }
   }
   return out;
 }

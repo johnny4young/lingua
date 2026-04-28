@@ -218,4 +218,34 @@ describe('verifyLicenseToken', () => {
       'trial',
     ]);
   });
+
+  it('verifies tokens against a JWK that still carries the Node 22+ alg/key_ops/ext fields (defensive normalize)', async () => {
+    // Older `.env` values and historical `prod-keypair.json` files
+    // produced before commit a2354a4 carried the foot-gun fields that
+    // CF Workers reject. The renderer's verifyLicenseToken silently
+    // strips them so the token still verifies. This pin keeps the
+    // strip in place forever.
+    const polluted: JsonWebKey = {
+      ...keys.publicKey,
+      alg: 'Ed25519' as JsonWebKey['alg'],
+      key_ops: ['verify'],
+      ext: true,
+    };
+    const token = await signLicenseTokenForTest(buildPayload(), keys.privateKey);
+    const result = await verifyLicenseToken(token, polluted, { now });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.state).toBe('active');
+  });
+
+  it('verifies tokens against a stripped JWK with only kty/crv/x (the canonical RFC 8037 §2 shape)', async () => {
+    const stripped: JsonWebKey = {
+      kty: keys.publicKey.kty,
+      crv: keys.publicKey.crv,
+      x: keys.publicKey.x,
+    };
+    const token = await signLicenseTokenForTest(buildPayload(), keys.privateKey);
+    const result = await verifyLicenseToken(token, stripped, { now });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.state).toBe('active');
+  });
 });

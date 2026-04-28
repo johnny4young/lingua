@@ -159,8 +159,8 @@ licensesRouter.get('/status', async (c) => {
 
   // Include refreshedToken when the persisted token differs from the
   // one the client just sent — Monthly subscriptions pick up
-  // `expires_at` extensions through this channel after a
-  // `subscription.updated` webhook re-mints `licenses.token`.
+  // `expires_at` extensions through this channel after a paid
+  // `order.paid` webhook re-mints `licenses.token`.
   const refreshedToken = license.token !== token ? license.token : undefined;
 
   return jsonNoStore(c, {

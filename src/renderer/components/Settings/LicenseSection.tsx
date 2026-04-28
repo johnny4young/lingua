@@ -21,6 +21,8 @@ function statusToneClass(status: LicenseStatus): string {
       return 'border-warning/60 bg-warning/10 text-warning';
     case 'invalid':
       return 'border-danger/60 bg-danger/10 text-danger';
+    case 'verifying':
+      return 'border-border/80 bg-surface-strong/85 text-muted';
     case 'free':
     default:
       return 'border-border/80 bg-surface-strong/85 text-foreground';
@@ -35,6 +37,8 @@ function statusLabelKey(status: LicenseStatus): string {
       return 'license.status.grace';
     case 'invalid':
       return 'license.status.invalid';
+    case 'verifying':
+      return 'license.status.verifying';
     case 'free':
     default:
       return 'license.status.free';
@@ -62,6 +66,15 @@ function invalidReasonMessageKey(status: Extract<LicenseStatus, { kind: 'invalid
       return 'license.notice.invalid.unsupportedTier';
     case 'no-public-key':
       return 'license.notice.invalid.notAccepted';
+    // RL-061 Slice 2.5 — server-rejection reasons. Slice 3 will surface
+    // the device-management modal that lets the user remediate the
+    // `devices-exhausted` case without re-pasting the token.
+    case 'devices-exhausted':
+      return 'license.notice.invalid.devicesExhausted';
+    case 'license-refunded':
+      return 'license.notice.invalid.refunded';
+    case 'unknown-license':
+      return 'license.notice.invalid.unknownLicense';
     default:
       // Fall back to the generic copy so a new reason code doesn't crash
       // the UI before its i18n key lands.
@@ -105,11 +118,28 @@ export function LicenseSection() {
       }
       setDraft('');
       if (next.kind === 'active' || next.kind === 'grace') {
-        pushStatusNotice({
-          tone: 'success',
-          messageKey: 'license.notice.activated',
-          values: { tier: tierLabel(t, next) },
-        });
+        // Read the post-apply `serverSync` flag to decide between the
+        // standard activation notice and the offline-grace warning.
+        // Pulled here (not via a selector subscription) so the component
+        // doesn't re-render on every apply just to read this once.
+        const serverSync = useLicenseStore.getState().serverSync;
+        if (serverSync === 'unreachable') {
+          // 24-hour offline-grace per LICENSING_ADR Decision 4 — the
+          // license is locally valid but the server didn't see this
+          // device yet. Surface it so the user knows to try again with
+          // network reachable.
+          pushStatusNotice({
+            tone: 'info',
+            messageKey: 'license.notice.serverUnreachable',
+            values: { tier: tierLabel(t, next) },
+          });
+        } else {
+          pushStatusNotice({
+            tone: 'success',
+            messageKey: 'license.notice.activated',
+            values: { tier: tierLabel(t, next) },
+          });
+        }
       }
     } finally {
       setIsApplying(false);
