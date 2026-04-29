@@ -2992,6 +2992,140 @@ verified, console errors = 0):
 3. Flip locale to `es`; reload; confirm the tuteo strings render
    without missing-key warnings.
 
+### §RL-061.3 Status Update — Slice 3.5 shipped 2026-04-29
+
+Slice 3.5 closes the desktop-vs-web gap that Slice 3 surfaced:
+desktop verifies the token locally but, before this slice, never
+registered the device in D1. The `desktop` bucket therefore stayed
+empty server-side and the Devices section never rendered on desktop
+builds. Slice 3.5 wires the main-process bridge into the same three
+endpoints the web build hit since Slice 2.5
+(`/licenses/{activate,status,devices/remove}`) and ships the
+extended snapshot through IPC so the renderer's desktop branch can
+satisfy Slice 3's gate.
+
+What ships:
+
+- **`src/shared/licenseServerTypes.ts`** (NEW). Canonical request /
+  response types for the license-server contract — `ActivateInput`,
+  `StatusSuccess`, `LicenseServerFailureReason`, etc. Both
+  `src/renderer/services/licenseServer.ts` and
+  `src/main/licenseServer.ts` import from here so the contract
+  cannot drift between surfaces. The renderer module re-exports the
+  shared names so its existing consumers (licenseStore, DeviceList,
+  ExhaustedDevicesModal) keep their import paths.
+- **`src/main/licenseServer.ts`** (NEW). Main-side fetch wrappers
+  that mirror the renderer ones — same 5-second AbortController
+  timeout, same tagged-union failures, same `disabled` /
+  `unreachable` / `server-error` triage. Two key differences:
+  - Base URL comes from the build-time `__LINGUA_LICENSE_SERVER_URL__`
+    define (loaded from `.env.production` via `loadEnv()` in
+    `vite.main.config.mts`), with `process.env.LINGUA_LICENSE_SERVER_URL`
+    as a runtime override for `dev:desktop:prod`.
+  - No `keepalive: true` on `/licenses/devices/remove` — main lives
+    in a long-lived process where the browser tab-close edge case
+    cannot happen.
+  - Defensive `typeof fetch === 'function'` guard so an older
+    Electron bundle without the Node-22 fetch global degrades to
+    `disabled` instead of crashing.
+- **`src/main/license.ts`.** `LicenseSnapshot` extended with
+  `serverSync: 'synced' | 'unreachable' | 'disabled'`,
+  `devices: LicenseServerDevicesBucket | null`,
+  `deviceLimit: LicenseServerDeviceLimit | null`. Persistence
+  shape unchanged — only `token` + `lastVerifiedAt` go to disk.
+  After a successful local verify in `applyToken`, the runtime
+  calls `serverActivate` with `surface: 'desktop'`, the persisted
+  `userData/device-id.json` UUID, and `os.hostname()` +
+  `process.platform` as the device metadata. `revalidate` calls
+  `/licenses/status`, picks up Monthly subscription `refreshedToken`
+  when `payload.issuedAt` is strictly newer than the stored
+  token's, and re-issues `serverActivate` when
+  `result.deviceRegistered === false` so a rehydrated exhausted
+  token cannot bypass the per-surface cap. `clear` fires
+  `serverRemoveDevice` best-effort for the current device. New
+  `removeDevice(deviceIdToRemove)` action exposes the third
+  endpoint to the IPC bridge with terminal-reason wipe semantics
+  (`unknown-license` / `revoked` flip to invalid, transient
+  failures preserve the cached bucket). Boot revalidate fires
+  async + non-blocking after `runtime` is constructed so
+  `app.ready` is not delayed by a slow server roundtrip.
+- **`src/main/ipc/license.ts`.** New `license:remove-device`
+  handler. The four existing handlers automatically return the
+  extended snapshot through `getSnapshot()`.
+- **`src/preload/index.ts`.** `window.lingua.license.removeDevice(deviceIdToRemove)`.
+- **`src/types.d.ts`.** `LicenseSnapshot` ambient type extended with
+  the three new fields, new `LicenseRemoveDeviceResult` tagged
+  union, new `__LINGUA_LICENSE_SERVER_URL__` declare const.
+- **`src/renderer/stores/licenseStore.ts`.** Desktop branch refactored:
+  - New private `applySnapshot()` helper mirrors all six fields
+    from main's snapshot into the store (token + status +
+    lastVerifiedAt + serverSync + devices + deviceLimit) instead of
+    the Slice-0 trio.
+  - `removeDevice` no longer no-ops; delegates to
+    `bridge.removeDevice(deviceIdToRemove)`. On success, applies
+    the returned snapshot. On terminal failure
+    (`unknown-license` / `revoked`), syncs from bridge so the
+    renderer reflects whatever main wrote (e.g. a wipe to free).
+    On transient failure, the cached bucket survives so the user
+    can retry.
+  - The Slice 0 `bootstrapApplied` race-guard is preserved —
+    user-initiated mutations still take precedence over the boot
+    snapshot apply.
+- **`src/renderer/components/Settings/LicenseSection.tsx`.**
+  No changes. The Slice 3 gate
+  (`status.kind ∈ {active, grace}` + `serverSync === 'synced'` +
+  `devices && deviceLimit`) is already correct; desktop now
+  satisfies it because main pushes `serverSync: 'synced'` once
+  the activate handshake completes.
+- **`vite.main.config.mts`.** New `__LINGUA_LICENSE_SERVER_URL__`
+  build-time define, loaded the same way Slice 3's prerequisite
+  fix established for the public key (`loadEnv()` from repo-root
+  `.env.production`).
+- **Tests.**
+  - `tests/main/licenseServer.test.ts` (NEW, 14 cases) — pin the
+    contract of the main wrappers (URL / body / headers / timeout /
+    tagged-union shapes / `Authorization: Bearer` header for
+    status / no `keepalive` / `disabled` fallback when fetch is
+    unavailable).
+  - `tests/main/license.test.ts` extended with 10 Slice 3.5 cases
+    (server-aware describe block): activate-after-verify caches
+    devices/deviceLimit, transient failure preserves token with
+    `serverSync='unreachable'`, exhausted preserves token, the
+    `deviceRegistered=false` re-activate flow, removeDevice happy
+    path, removeDevice unreachable preserves bucket, authoritative
+    server expired status, refreshedToken payload sync, clear fires
+    best-effort removeDevice without waiting for it. Total: 38 cases
+    (was 28).
+  - `tests/stores/licenseStore.test.ts` extended with 4 desktop
+    bridge cases: snapshot mirrors all six fields, removeDevice
+    delegates and applies returned snapshot, transient failure
+    forwards tagged-union shape, no-token returns invalid-input
+    without calling the bridge. Total: 27 cases (was 23).
+  - Renderer suite total: 1896 passed / 2 skipped (was 1868).
+
+What remains (Slice 4 + later):
+
+- Trial + Education + Recovery server-minted CTAs.
+- GH Actions release pipeline + web update banner.
+
+Manual smoke checklist (deferred to maintainer per AGENTS.md UI
+verification rule):
+
+1. `npm run smoke:desktop` — confirms the runners (Go / Rust /
+   Python / JS / TS) still boot through the re-bundled main
+   process.
+2. `npm run dev:desktop:prod` against a real CF-issued token —
+   confirm the activate POST lands with `surface: 'desktop'`,
+   the pill flips to `Active`, the Devices row renders with the
+   current device chip on the row matching
+   `userData/device-id.json`.
+3. `npm run make:desktop`; open the packaged .app; paste a
+   real token — same assertions as (2) but against the production
+   build (CSP allow already shipped in Slice 3, the Vite config
+   `loadEnv` fix already shipped in Slice 3).
+4. Disconnect network mid-session, reload, confirm the
+   `serverUnreachable` notice appears and the app stays Active.
+
 ### RL-062 Public README, license declaration, and distribution posture
 
 - Priority: `P0` for Phase 1

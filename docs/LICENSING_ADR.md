@@ -280,27 +280,44 @@ well — students reinstalling on a new laptop go through the same
 
 ## Slice sequencing
 
-The implementation lands across slices to keep blast radius low:
+The implementation lands across slices to keep blast radius low.
+Updated 2026-04-29 to reflect Slice 3.5 shipped:
 
-1. **Slice 0 — Main-side IPC bridge (this commit).** No external
-   dependency. `src/main/license.ts` owns persistence + verifier
-   + device id; preload exposes `window.lingua.license.*`; the
-   renderer store auto-detects and mirrors the bridge in desktop
-   builds. Web build keeps its localStorage path unchanged.
-2. **Slice 1 — `license-server/` worker scaffold.** D1 schema +
-   `/health` + mocked `/trials/start` + `/licenses/activate`.
-   No Polar wiring yet. Tests run under miniflare.
-3. **Slice 2 — Polar webhook + Resend email.** Real signing,
-   `subscription.*` + `order.*` handlers, real outbound email.
-   Requires the maintainer's Polar account + Resend domain
-   verification before end-to-end smoke is possible.
-4. **Slice 3 — Device management UI.** Settings → License lists
-   active devices, supports rename + remove, surfaces the
-   exhausted-device modal during activation.
-5. **Slice 4 — Free trial CTA.** Settings + landing-page hook
-   for `/trials/start`.
-6. **Slice 5 — Release pipeline + web update banner.** GH Actions
-   workflow + `/web/version` endpoint + renderer banner.
+1. **Slice 0 — Main-side IPC bridge.** SHIPPED 2026-04-25. No
+   external dependency. `src/main/license.ts` owns persistence +
+   verifier + device id; preload exposes `window.lingua.license.*`;
+   the renderer store auto-detects and mirrors the bridge in
+   desktop builds. Web build keeps its localStorage path unchanged.
+2. **Slice 1 — `license-server/` worker scaffold.** SHIPPED
+   2026-04-26. D1 schema + `/health` + 501-stubs for the four
+   Slice-2 endpoints. No Polar wiring yet.
+3. **Slice 2 — Polar webhook + Resend email.** SHIPPED 2026-04-27.
+   Real signing, `subscription.*` + `order.*` handlers, real
+   outbound email, surface-aware D1 device limit. Requires the
+   maintainer's Polar account + Resend domain verification for
+   end-to-end smoke.
+4. **Slice 2.5 — Web licenseStore server-aware refactor.** SHIPPED
+   2026-04-28. The web build now calls `/licenses/{activate,status,
+   devices/remove}` with `surface: 'web'`, picks up Monthly
+   `refreshedToken` on rehydrate, falls back to local-verify within
+   the 24h offline-grace.
+5. **Slice 3 — Web device management UI.** SHIPPED 2026-04-28.
+   Settings → License lists active devices per surface, supports
+   remove, surfaces the exhausted-devices remediation modal during
+   activation. Rename intentionally deferred (no `/licenses/devices/rename`
+   endpoint yet — tracked in `BACKLOG.md`).
+6. **Slice 3.5 — Desktop main-side `/licenses/*` wiring.** SHIPPED
+   2026-04-29. Main bridge calls `/licenses/{activate,status,devices/remove}`
+   with `surface: 'desktop'`, registers the device in the per-surface
+   bucket, picks up `refreshedToken`, re-activates when
+   `deviceRegistered: false`. Renderer's desktop branch mirrors the
+   extended snapshot so the Devices section renders under the same
+   gate the web build already passes.
+7. **Slice 4 — Free trial + Education CTAs.** PENDING. Settings +
+   landing-page hooks for `/trials/start`, `/education/start`,
+   `/education/renew`, `/licenses/recover`.
+8. **Slice 5 — Release pipeline + web update banner.** PENDING.
+   GH Actions workflow + `/web/version` endpoint + renderer banner.
 
 ## Maintainer-side prerequisites (out of agent scope)
 

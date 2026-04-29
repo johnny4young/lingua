@@ -27,6 +27,21 @@ export default defineConfig(({ mode }) => {
     env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK ||
     '';
 
+  // RL-061 Slice 3.5 — license-server base URL for the main-side
+  // wrappers in `src/main/licenseServer.ts`. Same loadEnv source as
+  // the public key so packaged `make:desktop` builds pick up
+  // `licenses.linguacode.dev` from `.env.production` without any
+  // wrapper script. Runtime `process.env.LINGUA_LICENSE_SERVER_URL`
+  // overrides the baked value for dev launchers
+  // (`scripts/dev-desktop-prod.mjs`) that need to point at a
+  // localhost mock without rebuilding main.
+  const licenseServerUrl =
+    process.env.LINGUA_LICENSE_SERVER_URL ||
+    process.env.VITE_LINGUA_LICENSE_SERVER_URL ||
+    env.LINGUA_LICENSE_SERVER_URL ||
+    env.VITE_LINGUA_LICENSE_SERVER_URL ||
+    '';
+
   return {
     define: {
       __LINGUA_UPDATE_URL__: JSON.stringify(
@@ -41,6 +56,9 @@ export default defineConfig(({ mode }) => {
       // `no-public-key` failure (never silently "verifies" against
       // nothing).
       __LINGUA_LICENSE_PUBLIC_KEY_JWK__: JSON.stringify(publicKeyJwk),
+      // RL-061 Slice 3.5 — license-server base URL baked at build time
+      // for the main-side wrappers.
+      __LINGUA_LICENSE_SERVER_URL__: JSON.stringify(licenseServerUrl),
       ...getSharedBuildDefines(),
     },
     build: {

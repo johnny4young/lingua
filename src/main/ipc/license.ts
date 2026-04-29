@@ -9,10 +9,15 @@
 
 import { ipcMain } from 'electron';
 import type { LicenseRuntime, LicenseSnapshot, LicenseStatus } from '../license';
+import type { RemoveDeviceResult } from '../licenseServer';
 
 export type LicenseApplyResult =
   | { ok: true; status: LicenseStatus; snapshot: LicenseSnapshot }
   | { ok: false; reason: string; message?: string };
+
+export type LicenseRemoveDeviceResult =
+  | { ok: true; removed: boolean; snapshot: LicenseSnapshot }
+  | { ok: false; reason: string; message?: string; issues?: string[] };
 
 export function registerLicenseHandlers(runtime: LicenseRuntime): void {
   ipcMain.handle('license:get-state', async () => runtime.getSnapshot());
@@ -58,4 +63,37 @@ export function registerLicenseHandlers(runtime: LicenseRuntime): void {
       };
     }
   });
+
+  // Slice 3.5 — desktop's parallel of `/licenses/devices/remove`.
+  // Renderer's `licenseStore` desktop branch delegates here through
+  // `window.lingua.license.removeDevice(deviceIdToRemove)`. The
+  // wrapper-side tagged union (`RemoveDeviceResult`) is collapsed
+  // into a renderer-friendly shape with a flat `snapshot` for the
+  // success case so the callers do not have to refetch state.
+  ipcMain.handle(
+    'license:remove-device',
+    async (_event, deviceIdToRemove: unknown): Promise<LicenseRemoveDeviceResult> => {
+      if (typeof deviceIdToRemove !== 'string' || deviceIdToRemove.length === 0) {
+        return { ok: false, reason: 'invalid-input', message: 'Expected a non-empty deviceId.' };
+      }
+      try {
+        const result: RemoveDeviceResult = await runtime.removeDevice(deviceIdToRemove);
+        if (result.ok) {
+          return { ok: true, removed: result.removed, snapshot: runtime.getSnapshot() };
+        }
+        return {
+          ok: false,
+          reason: result.reason,
+          message: result.message,
+          issues: result.issues,
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          reason: 'remove-failed',
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+  );
 }

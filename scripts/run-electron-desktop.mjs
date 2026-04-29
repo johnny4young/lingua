@@ -10,7 +10,20 @@ import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const electronBinary = require('electron');
-const electronAppPath = path.dirname(path.dirname(path.dirname(electronBinary)));
+
+function resolveElectronAppPath(binaryPath) {
+  let current = binaryPath;
+  while (current !== path.dirname(current)) {
+    if (path.basename(current).endsWith('.app')) {
+      return current;
+    }
+    current = path.dirname(current);
+  }
+
+  return path.dirname(path.dirname(path.dirname(path.dirname(binaryPath))));
+}
+
+const electronAppPath = resolveElectronAppPath(electronBinary);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
