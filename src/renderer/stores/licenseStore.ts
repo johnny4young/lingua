@@ -609,31 +609,45 @@ function createDesktopStore(bridge: LicenseBridge) {
     bootstrapApplied = true;
   }
 
+  /**
+   * RL-061 Slice 3.5 — apply the full main-side snapshot to the
+   * renderer state, including the new server-derived fields
+   * (`serverSync`, `devices`, `deviceLimit`). Slice 0 only mirrored
+   * the local-verify trio (token / status / lastVerifiedAt) because
+   * main was local-verify-only; Slice 3.5 makes main the source of
+   * truth for the server bucket too.
+   */
+  function applySnapshot(snapshot: LicenseSnapshot): void {
+    store.setState({
+      token: snapshot.token,
+      status: snapshot.status,
+      lastVerifiedAt: snapshot.lastVerifiedAt,
+      serverSync: snapshot.serverSync,
+      devices: snapshot.devices,
+      deviceLimit: snapshot.deviceLimit,
+    });
+  }
+
   async function syncFromBridge(): Promise<void> {
     try {
       const snapshot = await bridge.getState();
-      store.setState({
-        token: snapshot.token,
-        status: snapshot.status,
-        lastVerifiedAt: snapshot.lastVerifiedAt,
-      });
+      applySnapshot(snapshot);
     } catch {
       // Best-effort resync; leave whatever local state we have if the
       // bridge itself is failing.
     }
   }
 
-  const store = create<LicenseState>()((set) => ({
+  const store = create<LicenseState>()((set, get) => ({
     token: null,
     status: FREE_STATUS,
     lastVerifiedAt: null,
-    // Desktop owns truth via main-process verification (`src/main/license.ts`)
-    // — `serverSync` is fixed to `'disabled'` so the Web-only "fell back
-    // to local" notice never surfaces on desktop builds.
+    // Slice 3.5 — main now talks to /licenses/* and reports the
+    // outcome through `serverSync`. The renderer mirrors whatever
+    // main snapshots; the initial `'disabled'` is just the
+    // pre-rehydrate placeholder and gets overwritten on the first
+    // `getState()` round-trip.
     serverSync: 'disabled' as const,
-    // Desktop main-side bridge does not yet call /licenses/* (Slice 3.5).
-    // Until it does, the device list is web-only and these stay null on
-    // desktop so the Devices section renders nothing instead of crashing.
     devices: null,
     deviceLimit: null,
     setLicenseToken: async (token) => {
@@ -649,11 +663,7 @@ function createDesktopStore(bridge: LicenseBridge) {
           await syncFromBridge();
           return { kind: 'invalid', reason: result.reason, message: result.message };
         }
-        set({
-          token: result.snapshot.token,
-          status: result.snapshot.status,
-          lastVerifiedAt: result.snapshot.lastVerifiedAt,
-        });
+        applySnapshot(result.snapshot);
         return result.status;
       } catch (error) {
         await syncFromBridge();
@@ -668,11 +678,7 @@ function createDesktopStore(bridge: LicenseBridge) {
           await syncFromBridge();
           return { kind: 'invalid', reason: result.reason, message: result.message };
         }
-        set({
-          token: result.snapshot.token,
-          status: result.snapshot.status,
-          lastVerifiedAt: result.snapshot.lastVerifiedAt,
-        });
+        applySnapshot(result.snapshot);
         return result.status;
       } catch (error) {
         await syncFromBridge();
@@ -684,29 +690,78 @@ function createDesktopStore(bridge: LicenseBridge) {
       // returned status still carries a later main-side failure so the UI can
       // avoid showing a false "removed" notice.
       markBootstrapped();
-      set({ token: null, status: FREE_STATUS, lastVerifiedAt: Date.now() });
+      set({
+        token: null,
+        status: FREE_STATUS,
+        lastVerifiedAt: Date.now(),
+        devices: null,
+        deviceLimit: null,
+      });
       try {
         const result = await bridge.clear();
         if (!result.ok) {
           await syncFromBridge();
           return { kind: 'invalid', reason: result.reason, message: result.message };
         }
-        set({
-          token: result.snapshot.token,
-          status: result.snapshot.status,
-          lastVerifiedAt: result.snapshot.lastVerifiedAt,
-        });
+        applySnapshot(result.snapshot);
         return result.snapshot.status;
       } catch (error) {
         await syncFromBridge();
         return bridgeFailureStatus('clear-failed', error);
       }
     },
-    // Desktop has no server-backed device list yet. Slice 3.5 will wire
-    // the main bridge into `/licenses/devices/remove`; until then the
-    // action no-ops with `not-implemented` so the Web-only Slice 3 UI
-    // (which is the only caller today) stays gated to the web build.
-    removeDevice: async () => ({ ok: false, reason: 'not-implemented' as const }),
+    /**
+     * Slice 3.5 — desktop now delegates removeDevice to the main
+     * bridge, which calls `/licenses/devices/remove` with the
+     * persisted token. The bridge returns a flat snapshot on
+     * success; on failure we forward the tagged-union shape so the
+     * renderer's existing handlers (LicenseSection,
+     * ExhaustedDevicesModal) can dispatch the right notice without
+     * caring whether they are running on desktop or web.
+     */
+    removeDevice: async (deviceIdToRemove) => {
+      markBootstrapped();
+      const { token } = get();
+      if (!token) {
+        return { ok: false, reason: 'invalid-input', message: 'No active license token.' };
+      }
+      try {
+        const result = await bridge.removeDevice(deviceIdToRemove);
+        if (!result.ok) {
+          // Terminal-reason wipes are handled by main; we just need
+          // to resync the snapshot so the renderer reflects whatever
+          // main wrote (e.g. a wipe to free under unknown-license).
+          if (result.reason === 'unknown-license' || result.reason === 'revoked') {
+            await syncFromBridge();
+          }
+          return {
+            ok: false,
+            reason: result.reason as RemoveDeviceResult extends { ok: false; reason: infer R }
+              ? R
+              : never,
+            message: result.message,
+            issues: result.issues,
+          };
+        }
+        applySnapshot(result.snapshot);
+        const devices = result.snapshot.devices ?? { desktop: [], web: [] };
+        const deviceLimit = result.snapshot.deviceLimit ?? { desktop: 3, web: 3 };
+        return {
+          ok: true,
+          licenseId: result.snapshot.token ?? '',
+          removed: result.removed,
+          devices,
+          deviceLimit,
+        };
+      } catch (error) {
+        await syncFromBridge();
+        return {
+          ok: false,
+          reason: 'server-error',
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
   }));
 
   // Bootstrap from the main snapshot so the very first render reflects a
@@ -722,11 +777,7 @@ function createDesktopStore(bridge: LicenseBridge) {
         return;
       }
       bootstrapApplied = true;
-      store.setState({
-        token: snapshot.token,
-        status: snapshot.status,
-        lastVerifiedAt: snapshot.lastVerifiedAt,
-      });
+      applySnapshot(snapshot);
     })
     .catch(() => {
       // Bridge errors leave the store at the free-tier defaults — main

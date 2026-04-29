@@ -228,11 +228,43 @@ type LicenseStatus =
   | { kind: 'active'; verification: LicenseVerificationOk }
   | { kind: 'grace'; verification: LicenseVerificationOk };
 
+// RL-061 Slice 3.5 — server-derived fields shipped from main to
+// renderer via the IPC bridge so the desktop branch of `licenseStore`
+// can render the Devices section under the same gate the web build
+// already passes (`serverSync === 'synced'` + non-null `devices` +
+// `deviceLimit`). Persistence shape unchanged: nothing here goes to
+// disk — devices belong on the server, the boot revalidate
+// re-fetches them.
+interface LicenseServerDevice {
+  id: string;
+  deviceId: string;
+  deviceName: string;
+  os: string;
+  surface: 'desktop' | 'web';
+  activatedAt: number;
+  lastSeenAt: number;
+}
+
+interface LicenseServerDevicesBucket {
+  desktop: LicenseServerDevice[];
+  web: LicenseServerDevice[];
+}
+
+interface LicenseServerDeviceLimit {
+  desktop: number;
+  web: number;
+}
+
+type LicenseServerSyncState = 'synced' | 'unreachable' | 'disabled';
+
 interface LicenseSnapshot {
   token: string | null;
   status: LicenseStatus;
   deviceId: string;
   lastVerifiedAt: number | null;
+  serverSync: LicenseServerSyncState;
+  devices: LicenseServerDevicesBucket | null;
+  deviceLimit: LicenseServerDeviceLimit | null;
 }
 
 type LicenseApplyResult =
@@ -242,6 +274,10 @@ type LicenseApplyResult =
 type LicenseClearResult =
   | { ok: true; snapshot: LicenseSnapshot }
   | { ok: false; reason: string; message?: string };
+
+type LicenseRemoveDeviceResult =
+  | { ok: true; removed: boolean; snapshot: LicenseSnapshot }
+  | { ok: false; reason: string; message?: string; issues?: string[] };
 
 // ------------------------------------------------------------- Plugin types
 
@@ -358,6 +394,7 @@ interface LinguaAPI {
     applyToken: (token: string) => Promise<LicenseApplyResult>;
     clear: () => Promise<LicenseClearResult>;
     revalidate: () => Promise<LicenseApplyResult>;
+    removeDevice: (deviceIdToRemove: string) => Promise<LicenseRemoveDeviceResult>;
   };
 
   deepLinks: {
@@ -391,3 +428,4 @@ declare global {
 declare const __LINGUA_BUILD_DATE__: string | undefined;
 declare const __LINGUA_WEBSITE_URL__: string | undefined;
 declare const __LINGUA_LICENSE_PUBLIC_KEY_JWK__: string | undefined;
+declare const __LINGUA_LICENSE_SERVER_URL__: string | undefined;

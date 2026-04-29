@@ -1,29 +1,36 @@
 /**
- * Thin fetch wrappers for the RL-061 license-server endpoints.
+ * Main-side fetch wrappers for the RL-061 license-server endpoints
+ * (Slice 3.5).
  *
- * The web build calls these to enforce the split-bucket device limit
- * (3 desktop + 3 web concurrent activations per license, per
- * LICENSING_ADR Decision 4) and to pick up Monthly subscription
- * `refreshedToken` updates when the worker re-mints
- * `licenses.token` after a paid `order.paid` renewal.
+ * Mirror of `src/renderer/services/licenseServer.ts` for the desktop
+ * build: same canonical request / response types (imported from
+ * `src/shared/licenseServerTypes.ts`), same tagged-union failure
+ * shape, same 5-second AbortController timeout, same `disabled` /
+ * `unreachable` / `server-error` triage. Differences from the
+ * renderer wrappers:
  *
- * Desktop renderer never calls these — it goes through the
- * `window.lingua.license.*` IPC bridge which the main process owns.
- * Slice 3.5 ships the parallel main-side implementation in
- * `src/main/licenseServer.ts`; both sides import their request /
- * response types from `src/shared/licenseServerTypes.ts` so the
- * contract cannot drift.
+ * - Base URL comes from the build-time `__LINGUA_LICENSE_SERVER_URL__`
+ *   define in `vite.main.config.mts` (loaded via `loadEnv()` from
+ *   `.env.production`), with `process.env.LINGUA_LICENSE_SERVER_URL`
+ *   as a runtime override for dev launchers
+ *   (`scripts/dev-desktop-prod.mjs` etc.).
+ * - Uses Node 22+ global `fetch`. Electron 30+ ships Node 22 with
+ *   fetch as a global; the defensive `typeof fetch === 'function'`
+ *   guard keeps an older bundle from crashing — it falls back to
+ *   `disabled` so the renderer's local-verify path stays in charge.
+ * - No `keepalive: true` — main runs in a long-lived process, the
+ *   browser tab-close edge case the renderer worries about cannot
+ *   happen here.
  *
- * All wrappers:
- *   - read the base URL from `import.meta.env.VITE_LINGUA_LICENSE_SERVER_URL`
- *   - return a tagged-union `{ ok: true, ... } | { ok: false, reason, message? }`
- *   - never throw; network errors and parse errors map to `unreachable`
- *     so callers can implement the 24-hour offline-grace fallback
- *   - apply a 5-second timeout via `AbortController`; no retry
- *
- * `removeDevice` uses `keepalive: true` so a fast tab close still
- * completes the request — clearing a license should always reach the
- * server even if the user immediately closes the tab.
+ * Slice 3.5 callers (`src/main/license.ts`):
+ *   - `applyToken` runs `serverActivate` after a successful local
+ *     verify so the desktop bucket in D1 stays accurate.
+ *   - `revalidate` runs `serverStatus` and re-issues `serverActivate`
+ *     when `deviceRegistered: false` so a rehydrated exhausted token
+ *     cannot bypass the per-surface cap.
+ *   - `removeDevice` exposes `/licenses/devices/remove` to the IPC
+ *     bridge so the renderer's Devices section can act on desktop
+ *     too.
  */
 
 import type {
@@ -38,10 +45,10 @@ import type {
   StatusInput,
   StatusResult,
   StatusSuccess,
-} from '../../shared/licenseServerTypes';
+} from '../shared/licenseServerTypes';
 
-// Re-export so existing renderer imports
-// (`from '../services/licenseServer'`) keep working unchanged.
+// Re-export so `src/main/license.ts` can import from one place
+// (the runtime + the wrappers stay siblings under src/main).
 export type {
   ActivateInput,
   ActivateResult,
@@ -53,6 +60,7 @@ export type {
   LicenseServerFailureReason,
   LicenseServerStatusKind,
   LicenseServerSurface,
+  LicenseServerSyncState,
   RemoveDeviceInput,
   RemoveDeviceResult,
   RemoveDeviceSuccess,
@@ -60,22 +68,43 @@ export type {
   StatusInput,
   StatusResult,
   StatusSuccess,
-} from '../../shared/licenseServerTypes';
+} from '../shared/licenseServerTypes';
 
 const REQUEST_TIMEOUT_MS = 5000;
 
+/**
+ * Build-time substitution from `vite.main.config.mts` — the
+ * `loadEnv()` call there pulls `LINGUA_LICENSE_SERVER_URL` (or its
+ * VITE_ alias) out of repo-root `.env.production` and bakes the
+ * literal string into the bundle. Empty string means "no server
+ * configured", which the wrappers surface as `disabled`.
+ */
+declare const __LINGUA_LICENSE_SERVER_URL__: string;
+
 function getBaseUrl(): string | null {
-  const raw = import.meta.env.VITE_LINGUA_LICENSE_SERVER_URL;
-  if (typeof raw !== 'string') return null;
-  const trimmed = raw.trim().replace(/\/$/, '');
-  return trimmed.length === 0 ? null : trimmed;
+  // Runtime override wins over the baked-in value so the dev
+  // launchers (`scripts/dev-desktop-prod.mjs`,
+  // `scripts/dev-desktop-pro.mjs`) can point at a localhost mock
+  // without having to rebuild main. Also keeps the `dev:desktop`
+  // (no env var) path strictly local-verify-only.
+  const candidates = [
+    typeof process !== 'undefined' ? process.env?.LINGUA_LICENSE_SERVER_URL : undefined,
+    typeof __LINGUA_LICENSE_SERVER_URL__ !== 'undefined' ? __LINGUA_LICENSE_SERVER_URL__ : undefined,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    const trimmed = candidate.trim().replace(/\/$/, '');
+    if (trimmed.length > 0) return trimmed;
+  }
+  return null;
 }
 
 /**
- * Map the server's `reason` strings (per
- * `license-server/src/handlers/licenses.ts`) onto our renderer-side
- * union. Anything we don't recognise falls back to `server-error`
- * so a misshapen response never crashes the caller.
+ * Map the worker's `reason` strings (per
+ * `license-server/src/handlers/licenses.ts`) onto the canonical
+ * `LicenseServerFailureReason` union. Anything unrecognised falls
+ * back to `server-error` so a misshapen response never crashes the
+ * caller.
  */
 function mapServerReason(raw: unknown): LicenseServerFailureReason {
   if (typeof raw !== 'string') return 'server-error';
@@ -103,13 +132,18 @@ function mapServerReason(raw: unknown): LicenseServerFailureReason {
 /**
  * Run a fetch with a 5-second AbortController timeout. Treats
  * network errors, timeouts, and abort as `unreachable` so callers
- * can fall back to the local-verify path without distinguishing
- * the underlying cause.
+ * can fall back to the local-verify path. Defensive `typeof fetch`
+ * check covers the unlikely case of an Electron version older than
+ * Node 22 where `fetch` is not a global — bundle stays usable in
+ * local-verify-only mode rather than crashing.
  */
 async function fetchWithTimeout(
   input: string,
   init: RequestInit
-): Promise<{ ok: true; response: Response } | { ok: false; reason: 'unreachable'; message?: string }> {
+): Promise<{ ok: true; response: Response } | { ok: false; reason: 'unreachable' | 'disabled'; message?: string }> {
+  if (typeof fetch !== 'function') {
+    return { ok: false, reason: 'disabled', message: 'global fetch is not available in this runtime' };
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -134,13 +168,6 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-/**
- * Pull the `issues` array off a worker error response when present.
- * The worker validator (`license-server/src/lib/validation.ts`) emits
- * `{ ok: false, reason: 'invalid-input', issues: [...] }` on shape
- * violations. The renderer surfaces a translated user-facing notice
- * separately; the issues themselves are developer-detail.
- */
 function readIssues(body: Record<string, unknown> | null): string[] | undefined {
   const raw = body?.issues;
   if (!Array.isArray(raw)) return undefined;
@@ -149,19 +176,23 @@ function readIssues(body: Record<string, unknown> | null): string[] | undefined 
 }
 
 /**
- * Loud diagnostics for `invalid-input` responses. The renderer should
- * never produce a request body that fails the worker's validator —
- * if it does, the contract between renderer (`deviceFingerprint.ts`)
- * and worker (`validation.ts`) has drifted and we want to know
- * immediately. Console.warn instead of console.error so the message
- * does not crash the FirstRun consent test that asserts a clean
- * console at boot.
+ * Loud diagnostics for `invalid-input` responses on the main side.
+ * If the desktop client produces a request body the worker validator
+ * rejects, the contract between `src/main/license.ts:resolveDeviceMetadata`
+ * (which feeds `os` + `deviceName`) and
+ * `license-server/src/lib/validation.ts` has drifted. Same shape as
+ * the renderer's warning so the message is searchable across both
+ * surfaces in production logs.
  */
-function warnOnInvalidInput(endpoint: string, reason: LicenseServerFailureReason, issues: string[] | undefined): void {
+function warnOnInvalidInput(
+  endpoint: string,
+  reason: LicenseServerFailureReason,
+  issues: string[] | undefined
+): void {
   if (reason !== 'invalid-input') return;
   console.warn(
-    `[lingua-license] ${endpoint} rejected with invalid-input. issues: ${issues?.join(' | ') ?? '(none)'}. ` +
-      'Renderer ↔ worker validator may be out of sync; check src/renderer/services/deviceFingerprint.ts ' +
+    `[lingua-license][main] ${endpoint} rejected with invalid-input. issues: ${issues?.join(' | ') ?? '(none)'}. ` +
+      'Renderer/main ↔ worker validator may be out of sync; check src/main/license.ts ' +
       'against license-server/src/lib/validation.ts.'
   );
 }
@@ -177,7 +208,7 @@ export async function activate(input: ActivateInput): Promise<ActivateResult> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
-  if (!result.ok) return { ok: false, reason: 'unreachable', message: result.message };
+  if (!result.ok) return { ok: false, reason: result.reason, message: result.message };
   const { response } = result;
   const body = (await readJson(response)) as Record<string, unknown> | null;
 
@@ -185,7 +216,6 @@ export async function activate(input: ActivateInput): Promise<ActivateResult> {
     return { ok: false, reason: 'server-error', message: `HTTP ${response.status}` };
   }
 
-  // 200 ok=true → activated or idempotent. 200 ok=false → exhausted.
   if (response.ok && body && body.ok === true) {
     return body as unknown as ActivateSuccess;
   }
@@ -193,12 +223,8 @@ export async function activate(input: ActivateInput): Promise<ActivateResult> {
     return body as unknown as ExhaustedFailure;
   }
 
-  // 4xx with the worker's tagged reason field.
   const reason = mapServerReason(body?.reason);
   if (reason === 'exhausted') {
-    // Defensive: the only way to reach this branch is a 4xx with reason
-    // 'exhausted', which the worker never emits, but the type system
-    // wants the exhaustive return so we keep it tight.
     return { ok: false, reason: 'server-error', message: 'unexpected exhausted on non-200' };
   }
   const issues = readIssues(body);
@@ -221,13 +247,14 @@ export async function status(input: StatusInput): Promise<StatusResult> {
   const result = await fetchWithTimeout(`${base}/licenses/status?${params.toString()}`, {
     method: 'GET',
     headers: {
-      // Token in Authorization header NEVER in the URL query — CF
-      // logs capture query params verbatim, so a token in `?token=…`
-      // would persist in the worker's audit log.
+      // Token in Authorization header — never in the URL query — for
+      // the same reason the renderer wrapper does it: CF Workers
+      // observability captures query params verbatim, and a token in
+      // `?token=...` would persist in the worker's audit log.
       Authorization: `Bearer ${input.token}`,
     },
   });
-  if (!result.ok) return { ok: false, reason: 'unreachable', message: result.message };
+  if (!result.ok) return { ok: false, reason: result.reason, message: result.message };
   const { response } = result;
   const body = (await readJson(response)) as Record<string, unknown> | null;
 
@@ -260,13 +287,8 @@ export async function removeDevice(input: RemoveDeviceInput): Promise<RemoveDevi
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token: input.token, deviceIdToRemove: input.deviceIdToRemove }),
-    // Survive a fast tab close — `clearLicense` fires this and then
-    // immediately wipes localStorage; without keepalive a navigation
-    // race would cancel the in-flight request and leave a dangling
-    // device row in D1.
-    keepalive: true,
   });
-  if (!result.ok) return { ok: false, reason: 'unreachable', message: result.message };
+  if (!result.ok) return { ok: false, reason: result.reason, message: result.message };
   const { response } = result;
   const body = (await readJson(response)) as Record<string, unknown> | null;
 
@@ -291,9 +313,9 @@ export async function removeDevice(input: RemoveDeviceInput): Promise<RemoveDevi
 
 /**
  * `true` when the build is configured to talk to the license-server.
- * Renderer code reads this to gate behaviour the desktop bridge would
- * otherwise own (e.g. don't auto-revalidate on rehydrate when there
- * is no server).
+ * `src/main/license.ts` reads this to gate behaviour the local-verify
+ * path would otherwise skip (e.g. don't try to register a device when
+ * there is no server, don't auto-revalidate on rehydrate).
  */
 export function isLicenseServerEnabled(): boolean {
   return getBaseUrl() !== null;

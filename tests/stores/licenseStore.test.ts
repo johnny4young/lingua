@@ -844,3 +844,205 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
     expect(init?.keepalive).toBe(true);
   });
 });
+
+/**
+ * RL-061 Slice 3.5 — desktop branch with the extended bridge contract.
+ *
+ * The desktop branch detects `window.lingua.license` at module-load
+ * time and routes every action through it. Slice 3.5 makes the bridge
+ * snapshot carry `serverSync` / `devices` / `deviceLimit` so the
+ * Devices section can render under the same gate the web build uses.
+ * These tests stub the bridge with a controllable mock to assert that
+ * the snapshot mirrors all six fields and that `removeDevice`
+ * delegates correctly.
+ */
+describe('licenseStore — desktop bridge branch (Slice 3.5)', () => {
+  type LicenseSnapshotMock = {
+    token: string | null;
+    status:
+      | { kind: 'free' }
+      | { kind: 'invalid'; reason: string; message?: string }
+      | { kind: 'active' | 'grace'; verification: unknown };
+    deviceId: string;
+    lastVerifiedAt: number | null;
+    serverSync: 'synced' | 'unreachable' | 'disabled';
+    devices: { desktop: unknown[]; web: unknown[] } | null;
+    deviceLimit: { desktop: number; web: number } | null;
+  };
+
+  type BridgeMock = {
+    getState: ReturnType<typeof vi.fn>;
+    applyToken: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
+    revalidate: ReturnType<typeof vi.fn>;
+    removeDevice: ReturnType<typeof vi.fn>;
+  };
+
+  function freeBridgeSnapshot(): LicenseSnapshotMock {
+    return {
+      token: null,
+      status: { kind: 'free' },
+      deviceId: 'd-uuid-from-main',
+      lastVerifiedAt: null,
+      serverSync: 'disabled',
+      devices: null,
+      deviceLimit: null,
+    };
+  }
+
+  function activeBridgeSnapshot(token: string, devices: unknown[]): LicenseSnapshotMock {
+    return {
+      token,
+      status: {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 30 * 86_400_000,
+          payload: {
+            productId: 'lingua-desktop',
+            tier: 'pro',
+            issuedTo: 'user@example.com',
+            issuedAt: new Date().toISOString(),
+            supportWindowEndsAt: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+            entitlements: [],
+          },
+        },
+      },
+      deviceId: 'd-uuid-from-main',
+      lastVerifiedAt: Date.now(),
+      serverSync: 'synced',
+      devices: { desktop: devices, web: [] },
+      deviceLimit: { desktop: 3, web: 3 },
+    };
+  }
+
+  function installBridge(bridge: BridgeMock): void {
+    vi.stubGlobal('window', {
+      ...((globalThis as Record<string, unknown>).window ?? {}),
+      lingua: { license: bridge },
+      addEventListener: () => undefined,
+    });
+  }
+
+  async function importFreshStore() {
+    vi.resetModules();
+    return import('../../src/renderer/stores/licenseStore');
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('mirrors all six snapshot fields (token + status + lastVerifiedAt + serverSync + devices + deviceLimit) on bootstrap', async () => {
+    const desktopDevice = {
+      id: 'd1',
+      deviceId: 'd-uuid-from-main',
+      deviceName: 'host',
+      os: 'darwin',
+      surface: 'desktop',
+      activatedAt: 1,
+      lastSeenAt: 2,
+    };
+    const bootstrap = activeBridgeSnapshot('rehydrated.token', [desktopDevice]);
+    const bridge: BridgeMock = {
+      getState: vi.fn().mockResolvedValue(bootstrap),
+      applyToken: vi.fn(),
+      clear: vi.fn(),
+      revalidate: vi.fn(),
+      removeDevice: vi.fn(),
+    };
+    installBridge(bridge);
+
+    const { useLicenseStore } = await importFreshStore();
+    await vi.waitFor(() => {
+      expect(useLicenseStore.getState().token).toBe('rehydrated.token');
+    });
+    const state = useLicenseStore.getState();
+    expect(state.serverSync).toBe('synced');
+    expect(state.devices?.desktop).toEqual([desktopDevice]);
+    expect(state.deviceLimit).toEqual({ desktop: 3, web: 3 });
+  });
+
+  it('removeDevice delegates to the bridge and applies the returned snapshot', async () => {
+    const initial = activeBridgeSnapshot('tok', [
+      { id: 'd1', deviceId: 'd-uuid-current', deviceName: 'host', os: 'darwin', surface: 'desktop', activatedAt: 1, lastSeenAt: 2 },
+      { id: 'd2', deviceId: 'd-uuid-other', deviceName: 'other', os: 'darwin', surface: 'desktop', activatedAt: 1, lastSeenAt: 2 },
+    ]);
+    const after = activeBridgeSnapshot('tok', [
+      { id: 'd1', deviceId: 'd-uuid-current', deviceName: 'host', os: 'darwin', surface: 'desktop', activatedAt: 1, lastSeenAt: 2 },
+    ]);
+
+    const bridge: BridgeMock = {
+      getState: vi.fn().mockResolvedValue(initial),
+      applyToken: vi.fn(),
+      clear: vi.fn(),
+      revalidate: vi.fn(),
+      removeDevice: vi.fn().mockResolvedValue({ ok: true, removed: true, snapshot: after }),
+    };
+    installBridge(bridge);
+
+    const { useLicenseStore } = await importFreshStore();
+    await vi.waitFor(() => {
+      expect(useLicenseStore.getState().devices?.desktop.length).toBe(2);
+    });
+
+    const result = await useLicenseStore.getState().removeDevice('d-uuid-other');
+    expect(result.ok).toBe(true);
+    expect(bridge.removeDevice).toHaveBeenCalledWith('d-uuid-other');
+    expect(useLicenseStore.getState().devices?.desktop.length).toBe(1);
+  });
+
+  it('removeDevice forwards a tagged-union failure shape so renderer notices fire correctly', async () => {
+    const initial = activeBridgeSnapshot('tok', []);
+    const bridge: BridgeMock = {
+      getState: vi.fn().mockResolvedValue(initial),
+      applyToken: vi.fn(),
+      clear: vi.fn(),
+      revalidate: vi.fn(),
+      removeDevice: vi.fn().mockResolvedValue({
+        ok: false,
+        reason: 'unreachable',
+        message: 'Network error',
+      }),
+    };
+    installBridge(bridge);
+
+    const { useLicenseStore } = await importFreshStore();
+    await vi.waitFor(() => {
+      expect(useLicenseStore.getState().token).toBe('tok');
+    });
+
+    const result = await useLicenseStore.getState().removeDevice('d-uuid');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('unreachable');
+    // Cached bucket survives transient failures.
+    expect(useLicenseStore.getState().devices).not.toBeNull();
+  });
+
+  it('removeDevice without a token returns invalid-input without calling the bridge', async () => {
+    const bridge: BridgeMock = {
+      getState: vi.fn().mockResolvedValue(freeBridgeSnapshot()),
+      applyToken: vi.fn(),
+      clear: vi.fn(),
+      revalidate: vi.fn(),
+      removeDevice: vi.fn(),
+    };
+    installBridge(bridge);
+
+    const { useLicenseStore } = await importFreshStore();
+    await vi.waitFor(() => {
+      expect(useLicenseStore.getState().token).toBeNull();
+    });
+
+    const result = await useLicenseStore.getState().removeDevice('d-uuid');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('invalid-input');
+    expect(bridge.removeDevice).not.toHaveBeenCalled();
+  });
+});

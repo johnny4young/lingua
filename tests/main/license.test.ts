@@ -547,3 +547,520 @@ describe('registerLicenseHandlers', () => {
     expect(onDisk).toBeNull();
   });
 });
+
+/**
+ * RL-061 Slice 3.5 — server-aware desktop runtime.
+ *
+ * The base `createLicenseRuntime` block above keeps
+ * `LINGUA_LICENSE_SERVER_URL` unset so the runtime stays in
+ * local-verify-only mode (matches the pre-Slice-3.5 contract). This
+ * block opts the runtime into the server path by setting the env var
+ * before each test, then mocks `fetch` per-case to drive each
+ * applyToken / revalidate / removeDevice / clear branch the plan
+ * calls out.
+ */
+describe('createLicenseRuntime — server-aware desktop branch (Slice 3.5)', () => {
+  const SERVER_URL = 'https://licenses.test.local';
+  let tempDir: string;
+
+  function freshPayload(overrides: Partial<{ tier: string; supportWindowEndsAt: string; issuedAt: string }> = {}) {
+    return {
+      productId: 'lingua-desktop',
+      tier: (overrides.tier ?? 'pro') as 'pro' | 'pro_lifetime' | 'team',
+      issuedTo: 'user@example.com',
+      issuedAt: overrides.issuedAt ?? new Date(Date.now() - 1000).toISOString(),
+      supportWindowEndsAt:
+        overrides.supportWindowEndsAt ?? new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      entitlements: ['plugins'] as const,
+    };
+  }
+
+  function makeFetchMock() {
+    const fetchMock = vi.fn() as ReturnType<typeof vi.fn>;
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
+    return new Response(JSON.stringify(body), {
+      status: init.status ?? 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+
+  beforeEach(() => {
+    ipcHandlers.clear();
+    vi.resetModules();
+    tempDir = mkdtempSync(path.join(tmpdir(), 'lingua-license-'));
+    process.env.LINGUA_LICENSE_SERVER_URL = SERVER_URL;
+  });
+
+  afterEach(() => {
+    delete process.env.LINGUA_LICENSE_SERVER_URL;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('applyToken activates against the server after local verify and caches devices + deviceLimit', async () => {
+    const desktopDevice = {
+      id: 'dev_d1',
+      deviceId: 'd-uuid',
+      deviceName: 'MacBook Pro',
+      os: 'darwin',
+      surface: 'desktop' as const,
+      activatedAt: 1_700_000_000,
+      lastSeenAt: 1_700_000_900,
+    };
+    const fetchMock = makeFetchMock();
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        ok: true,
+        licenseId: 'lic_1',
+        activated: true,
+        idempotent: false,
+        devices: { desktop: [desktopDevice], web: [] },
+        deviceLimit: { desktop: 3, web: 3 },
+      })
+    );
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'MacBook Pro', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    const status = await runtime.applyToken(token);
+
+    expect(status.kind).toBe('active');
+    const snap = runtime.getSnapshot();
+    expect(snap.serverSync).toBe('synced');
+    expect(snap.devices?.desktop).toEqual([desktopDevice]);
+    expect(snap.deviceLimit).toEqual({ desktop: 3, web: 3 });
+
+    // Confirm the activate body had surface=desktop + the right device metadata.
+    const activateCalls = fetchMock.mock.calls.filter(
+      ([url]) => url === `${SERVER_URL}/licenses/activate`
+    );
+    expect(activateCalls.length).toBe(1);
+    const body = JSON.parse(activateCalls[0]![1]?.body as string);
+    expect(body).toMatchObject({
+      surface: 'desktop',
+      deviceName: 'MacBook Pro',
+      os: 'darwin',
+    });
+  });
+
+  it('applyToken transient failure keeps the locally-verified status with serverSync unreachable', async () => {
+    const fetchMock = makeFetchMock();
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    const status = await runtime.applyToken(token);
+
+    expect(status.kind).toBe('active');
+    const snap = runtime.getSnapshot();
+    expect(snap.token).toBe(token);
+    expect(snap.serverSync).toBe('unreachable');
+    expect(snap.devices).toBeNull();
+  });
+
+  it('applyToken exhausted preserves the token, caches the bucket, and flips status to invalid:devices-exhausted', async () => {
+    const exhaustedDevices = ['a', 'b', 'c'].map((id) => ({
+      id: `dev_${id}`,
+      deviceId: `d-uuid-${id}`,
+      deviceName: `Mac ${id}`,
+      os: 'darwin',
+      surface: 'desktop' as const,
+      activatedAt: 1_700_000_000,
+      lastSeenAt: 1_700_000_900,
+    }));
+    const fetchMock = makeFetchMock();
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        ok: false,
+        reason: 'exhausted',
+        surface: 'desktop',
+        devices: { desktop: exhaustedDevices, web: [] },
+        deviceLimit: { desktop: 3, web: 3 },
+      })
+    );
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    const status = await runtime.applyToken(token);
+
+    expect(status.kind).toBe('invalid');
+    if (status.kind === 'invalid') expect(status.reason).toBe('devices-exhausted');
+    const snap = runtime.getSnapshot();
+    expect(snap.token).toBe(token);
+    expect(snap.devices?.desktop).toEqual(exhaustedDevices);
+  });
+
+  it('revalidate with deviceRegistered=false re-activates so a rehydrated exhausted token cannot bypass the cap', async () => {
+    let activateCalls = 0;
+    const registeredDevice = {
+      id: 'dev_reg',
+      deviceId: 'd-uuid',
+      deviceName: 'host',
+      os: 'darwin',
+      surface: 'desktop' as const,
+      activatedAt: 1_700_001_000,
+      lastSeenAt: 1_700_001_500,
+    };
+    const fetchMock = makeFetchMock();
+    fetchMock.mockImplementation(async (url: Parameters<typeof fetch>[0]) => {
+      const requestUrl = String(url);
+      if (requestUrl === `${SERVER_URL}/licenses/activate`) {
+        activateCalls += 1;
+        return jsonResponse({
+          ok: true,
+          licenseId: 'lic_1',
+          activated: true,
+          idempotent: activateCalls > 1,
+          devices: { desktop: activateCalls > 1 ? [registeredDevice] : [], web: [] },
+          deviceLimit: { desktop: 3, web: 3 },
+        });
+      }
+      // status — pretend the device fell off the bucket
+      return jsonResponse({
+        ok: true,
+        licenseId: 'lic_1',
+        status: 'active',
+        tier: 'pro',
+        expiresAt: null,
+        supportWindowEndsAt: Math.floor(Date.now() / 1000) + 90 * 86_400,
+        devices: { desktop: [], web: [] },
+        deviceLimit: { desktop: 3, web: 3 },
+        deviceRegistered: false,
+      });
+    });
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    await runtime.applyToken(token);
+    const status = await runtime.revalidate();
+
+    expect(status.kind).toBe('active');
+    expect(activateCalls).toBe(2);
+    const snap = runtime.getSnapshot();
+    expect(snap.devices?.desktop).toEqual([registeredDevice]);
+  });
+
+  it('revalidate treats server-side expired status as authoritative over a locally valid token', async () => {
+    const fetchMock = makeFetchMock();
+    fetchMock.mockImplementation(async (url: Parameters<typeof fetch>[0]) => {
+      const requestUrl = String(url);
+      if (requestUrl === `${SERVER_URL}/licenses/activate`) {
+        return jsonResponse({
+          ok: true,
+          licenseId: 'lic_1',
+          activated: true,
+          idempotent: false,
+          devices: { desktop: [], web: [] },
+          deviceLimit: { desktop: 3, web: 3 },
+        });
+      }
+      return jsonResponse({
+        ok: true,
+        licenseId: 'lic_1',
+        status: 'expired',
+        tier: 'pro',
+        expiresAt: Math.floor(Date.now() / 1000) - 60,
+        supportWindowEndsAt: Math.floor(Date.now() / 1000) - 60,
+        devices: { desktop: [], web: [] },
+        deviceLimit: { desktop: 3, web: 3 },
+        deviceRegistered: true,
+      });
+    });
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    await runtime.applyToken(token);
+
+    const status = await runtime.revalidate();
+
+    expect(status.kind).toBe('invalid');
+    if (status.kind === 'invalid') expect(status.reason).toBe('expired');
+    const snap = runtime.getSnapshot();
+    expect(snap.token).toBeNull();
+    expect(snap.devices).toBeNull();
+  });
+
+  it('revalidate updates the verification payload when accepting a newer refreshedToken', async () => {
+    const oldIssuedAt = new Date(Date.now() - 10_000).toISOString();
+    const newIssuedAt = new Date(Date.now() + 10_000).toISOString();
+    const oldToken = await signLicenseTokenForTest(
+      freshPayload({ issuedAt: oldIssuedAt, tier: 'pro' }),
+      privateKeyJwk
+    );
+    const refreshedToken = await signLicenseTokenForTest(
+      freshPayload({ issuedAt: newIssuedAt, tier: 'team' }),
+      privateKeyJwk
+    );
+    const fetchMock = makeFetchMock();
+    fetchMock.mockImplementation(async (url: Parameters<typeof fetch>[0]) => {
+      const requestUrl = String(url);
+      if (requestUrl === `${SERVER_URL}/licenses/activate`) {
+        return jsonResponse({
+          ok: true,
+          licenseId: 'lic_1',
+          activated: true,
+          idempotent: false,
+          devices: { desktop: [], web: [] },
+          deviceLimit: { desktop: 3, web: 3 },
+        });
+      }
+      return jsonResponse({
+        ok: true,
+        licenseId: 'lic_1',
+        status: 'active',
+        tier: 'team',
+        expiresAt: null,
+        supportWindowEndsAt: Math.floor(Date.now() / 1000) + 90 * 86_400,
+        devices: { desktop: [], web: [] },
+        deviceLimit: { desktop: 3, web: 3 },
+        deviceRegistered: true,
+        refreshedToken,
+      });
+    });
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    await runtime.applyToken(oldToken);
+
+    const status = await runtime.revalidate();
+
+    expect(status.kind).toBe('active');
+    if (status.kind === 'active') expect(status.verification.payload.tier).toBe('team');
+    const snap = runtime.getSnapshot();
+    expect(snap.token).toBe(refreshedToken);
+    if (snap.status.kind === 'active') expect(snap.status.verification.payload.tier).toBe('team');
+  });
+
+  it('removeDevice POSTs to /licenses/devices/remove and refreshes the cached bucket on success', async () => {
+    const fetchMock = makeFetchMock();
+    let activateDone = false;
+    fetchMock.mockImplementation(async (url: Parameters<typeof fetch>[0]) => {
+      const requestUrl = String(url);
+      if (requestUrl === `${SERVER_URL}/licenses/activate`) {
+        activateDone = true;
+        return jsonResponse({
+          ok: true,
+          licenseId: 'lic_1',
+          activated: true,
+          idempotent: false,
+          devices: {
+            desktop: [
+              { id: 'd1', deviceId: 'd-uuid', deviceName: 'host', os: 'darwin', surface: 'desktop', activatedAt: 1, lastSeenAt: 2 },
+              { id: 'd2', deviceId: 'd-other', deviceName: 'other', os: 'darwin', surface: 'desktop', activatedAt: 1, lastSeenAt: 2 },
+            ],
+            web: [],
+          },
+          deviceLimit: { desktop: 3, web: 3 },
+        });
+      }
+      // remove
+      expect(activateDone).toBe(true);
+      return jsonResponse({
+        ok: true,
+        licenseId: 'lic_1',
+        removed: true,
+        devices: {
+          desktop: [
+            { id: 'd1', deviceId: 'd-uuid', deviceName: 'host', os: 'darwin', surface: 'desktop', activatedAt: 1, lastSeenAt: 2 },
+          ],
+          web: [],
+        },
+        deviceLimit: { desktop: 3, web: 3 },
+      });
+    });
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    await runtime.applyToken(token);
+    expect(runtime.getSnapshot().devices?.desktop.length).toBe(2);
+
+    const result = await runtime.removeDevice('d-other');
+    expect(result.ok).toBe(true);
+    expect(runtime.getSnapshot().devices?.desktop.length).toBe(1);
+
+    const removeCalls = fetchMock.mock.calls.filter(
+      ([url]) => url === `${SERVER_URL}/licenses/devices/remove`
+    );
+    expect(removeCalls.length).toBe(1);
+    const body = JSON.parse(removeCalls[0]![1]?.body as string);
+    expect(body).toEqual({ token, deviceIdToRemove: 'd-other' });
+  });
+
+  it('removeDevice unreachable preserves the cached bucket and forwards the failure shape', async () => {
+    const fetchMock = makeFetchMock();
+    let stage = 'activate';
+    fetchMock.mockImplementation(async (url: Parameters<typeof fetch>[0]) => {
+      const requestUrl = String(url);
+      if (requestUrl === `${SERVER_URL}/licenses/activate`) {
+        stage = 'remove';
+        return jsonResponse({
+          ok: true,
+          licenseId: 'lic_1',
+          activated: true,
+          idempotent: false,
+          devices: {
+            desktop: [
+              { id: 'd1', deviceId: 'd-uuid', deviceName: 'host', os: 'darwin', surface: 'desktop', activatedAt: 1, lastSeenAt: 2 },
+            ],
+            web: [],
+          },
+          deviceLimit: { desktop: 3, web: 3 },
+        });
+      }
+      expect(stage).toBe('remove');
+      throw new TypeError('Failed to fetch');
+    });
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    await runtime.applyToken(token);
+    const before = runtime.getSnapshot().devices?.desktop;
+
+    const result = await runtime.removeDevice('d-uuid');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('unreachable');
+    expect(runtime.getSnapshot().devices?.desktop).toEqual(before);
+  });
+
+  it('clear best-effort fires removeDevice for the current device and wipes the cache regardless of result', async () => {
+    const fetchMock = makeFetchMock();
+    let stage = 'activate';
+    fetchMock.mockImplementation(async (url: Parameters<typeof fetch>[0]) => {
+      const requestUrl = String(url);
+      if (requestUrl === `${SERVER_URL}/licenses/activate`) {
+        stage = 'remove';
+        return jsonResponse({
+          ok: true,
+          licenseId: 'lic_1',
+          activated: true,
+          idempotent: false,
+          devices: { desktop: [], web: [] },
+          deviceLimit: { desktop: 3, web: 3 },
+        });
+      }
+      expect(stage).toBe('remove');
+      // Fail the remove — clear should still wipe local state.
+      throw new TypeError('Failed to fetch');
+    });
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    await runtime.applyToken(token);
+    expect(runtime.getSnapshot().token).toBe(token);
+
+    await runtime.clear();
+    const snap = runtime.getSnapshot();
+    expect(snap.token).toBeNull();
+    expect(snap.status.kind).toBe('free');
+    expect(snap.devices).toBeNull();
+
+    const removeCalls = fetchMock.mock.calls.filter(
+      ([url]) => url === `${SERVER_URL}/licenses/devices/remove`
+    );
+    expect(removeCalls.length).toBe(1);
+  });
+
+  it('clear does not wait for the best-effort server device removal to settle', async () => {
+    const fetchMock = makeFetchMock();
+    let stage = 'activate';
+    let resolveRemove!: (response: Response) => void;
+    const pendingRemove = new Promise<Response>((resolve) => {
+      resolveRemove = resolve;
+    });
+    fetchMock.mockImplementation(async (url: Parameters<typeof fetch>[0]) => {
+      const requestUrl = String(url);
+      if (requestUrl === `${SERVER_URL}/licenses/activate`) {
+        stage = 'remove';
+        return jsonResponse({
+          ok: true,
+          licenseId: 'lic_1',
+          activated: true,
+          idempotent: false,
+          devices: { desktop: [], web: [] },
+          deviceLimit: { desktop: 3, web: 3 },
+        });
+      }
+      expect(stage).toBe('remove');
+      return pendingRemove;
+    });
+
+    const { createLicenseRuntime } = await import('../../src/main/license');
+    const runtime = await createLicenseRuntime({
+      userDataDir: tempDir,
+      publicKeyJwk,
+      deviceMetadata: { deviceName: 'host', os: 'darwin' },
+    });
+    const token = await signLicenseTokenForTest(freshPayload(), privateKeyJwk);
+    await runtime.applyToken(token);
+
+    let clearResolved = false;
+    const clearPromise = runtime.clear().then(() => {
+      clearResolved = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(clearResolved).toBe(true);
+    resolveRemove(
+      jsonResponse({
+        ok: true,
+        licenseId: 'lic_1',
+        removed: true,
+        devices: { desktop: [], web: [] },
+        deviceLimit: { desktop: 3, web: 3 },
+      })
+    );
+    await clearPromise;
+    expect(runtime.getSnapshot().token).toBeNull();
+    const removeCalls = fetchMock.mock.calls.filter(
+      ([url]) => url === `${SERVER_URL}/licenses/devices/remove`
+    );
+    expect(removeCalls.length).toBe(1);
+  });
+});
