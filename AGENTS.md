@@ -46,6 +46,10 @@ machine-local state.**
 - Do not describe plugin support as a finished user-facing extension system until the typing and UI flows go beyond the built-in language set.
 - If a change touches shortcuts, execution behavior, or workflow behavior, update the related docs in the same change.
 - Treat `docs/ROADMAP.md` as the local current-state/backlog document, not as a speculative roadmap. `docs/PLAN.md` is deep reference only.
+- **Vite env consumers — audit ALL THREE configs.** When a slice introduces a new consumer of `import.meta.env.VITE_*` (renderer / web) or of a build-time `process.env.LINGUA_*` (main `define`), it must be wired into every Vite config that reaches a packaged surface, not only the one where the bug first showed up. Concretely:
+  - `vite.web.config.mts` and `vite.renderer.config.mts` need `envDir: __dirname` so repo-root `.env` / `.env.production` actually substitute `import.meta.env.VITE_*` defines into their bundles.
+  - `vite.main.config.mts` needs the function form of `defineConfig` calling `loadEnv(mode, __dirname, '')` because main reads from `process.env` at config-load time, BEFORE Vite's automatic env loading runs.
+  - **`dev:desktop:pro` and `dev:desktop:prod` mask both gaps** by injecting the var via `process.env` before spawning, so dev paths cannot detect this regression. Validate end-to-end with a packaged `npm run make:desktop` build and a paste, not just the dev launchers. RL-061 Slice 2.5 fixed only the web symptom; Slice 3 surfaced the renderer + main gaps when the production .app rejected every paste with `no-public-key`.
 
 ## UI verification — MANDATORY when the diff touches user-facing surfaces
 

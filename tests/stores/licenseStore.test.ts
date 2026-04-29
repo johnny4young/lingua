@@ -214,8 +214,13 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
     const activateCalls = fetchMock.mock.calls.filter(
       ([url]) => url === `${SERVER_URL}/licenses/activate`
     );
-    expect(activateCalls).toHaveLength(1);
-    const [, init] = activateCalls[0]!;
+    expect(activateCalls.length).toBeGreaterThanOrEqual(1);
+    const matchingActivate = activateCalls.find(([, init]) => {
+      if (typeof init?.body !== 'string') return false;
+      return JSON.parse(init.body).surface === 'web';
+    });
+    expect(matchingActivate).toBeDefined();
+    const [, init] = matchingActivate!;
     expect(init?.method).toBe('POST');
     const body = JSON.parse(init?.body as string);
     expect(body.surface).toBe('web');
@@ -236,6 +241,44 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
     expect(status.kind).toBe('active');
     expect(store.getState().token).toBe(token);
     expect(store.getState().serverSync).toBe('unreachable');
+  });
+
+  it('clears cached devices when a replacement activation falls back to local verification', async () => {
+    let call = 0;
+    const fetchMock = vi.fn(async () => {
+      call += 1;
+      if (call === 1) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            licenseId: 'lic_1',
+            activated: true,
+            idempotent: false,
+            devices: { desktop: [], web: [{ id: 'stale', deviceId: 'stale-uuid' }] },
+            deviceLimit: { desktop: 3, web: 3 },
+          }),
+          { status: 200 }
+        );
+      }
+      throw new TypeError('Failed to fetch');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const firstToken = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    const secondToken = await signLicenseTokenForTest(
+      buildPayload({ issuedAt: new Date().toISOString() }),
+      privateKeyJwk
+    );
+    await store.getState().setLicenseToken(firstToken);
+    expect(store.getState().devices?.web.length).toBe(1);
+
+    await store.getState().setLicenseToken(secondToken);
+
+    expect(store.getState().token).toBe(secondToken);
+    expect(store.getState().serverSync).toBe('unreachable');
+    expect(store.getState().devices).toBeNull();
+    expect(store.getState().deviceLimit).toBeNull();
   });
 
   it('surfaces server-side `exhausted` as invalid:devices-exhausted and KEEPS the token so Slice 3 can remediate', async () => {
@@ -377,6 +420,380 @@ describe('licenseStore — server-aware web branch (Slice 2.5)', () => {
     await store.getState().setLicenseToken(newToken);
     await store.getState().revalidate();
     expect(store.getState().token).toBe(newToken);
+  });
+
+  it('persists devices + deviceLimit on activate-success so Slice 3 UI can render the bucket', async () => {
+    const desktopDevice = {
+      id: 'dev_d1',
+      deviceId: 'd-uuid-1',
+      deviceName: 'MacBook Pro',
+      os: 'macOS',
+      surface: 'desktop' as const,
+      activatedAt: 1_700_000_000,
+      lastSeenAt: 1_700_000_500,
+    };
+    const webDevice = {
+      id: 'dev_w1',
+      deviceId: 'w-uuid-1',
+      deviceName: 'Chrome on macOS',
+      os: 'web-chrome',
+      surface: 'web' as const,
+      activatedAt: 1_700_000_100,
+      lastSeenAt: 1_700_000_900,
+    };
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            licenseId: 'lic_1',
+            activated: true,
+            idempotent: false,
+            devices: { desktop: [desktopDevice], web: [webDevice] },
+            deviceLimit: { desktop: 3, web: 3 },
+          }),
+          { status: 200 }
+        )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    await store.getState().setLicenseToken(token);
+
+    const state = store.getState();
+    expect(state.devices?.desktop).toEqual([desktopDevice]);
+    expect(state.devices?.web).toEqual([webDevice]);
+    expect(state.deviceLimit).toEqual({ desktop: 3, web: 3 });
+  });
+
+  it('persists devices + deviceLimit on the exhausted branch so the modal can list candidates to remove', async () => {
+    const webDevices = ['a', 'b', 'c'].map((id) => ({
+      id: `dev_${id}`,
+      deviceId: `w-uuid-${id}`,
+      deviceName: `Browser ${id}`,
+      os: 'web-chrome',
+      surface: 'web' as const,
+      activatedAt: 1_700_000_000,
+      lastSeenAt: 1_700_000_900,
+    }));
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ok: false,
+            reason: 'exhausted',
+            surface: 'web',
+            devices: { desktop: [], web: webDevices },
+            deviceLimit: { desktop: 3, web: 3 },
+          }),
+          { status: 200 }
+        )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    const status = await store.getState().setLicenseToken(token);
+
+    expect(status.kind).toBe('invalid');
+    if (status.kind === 'invalid') expect(status.reason).toBe('devices-exhausted');
+    expect(store.getState().token).toBe(token);
+    expect(store.getState().devices?.web).toEqual(webDevices);
+    expect(store.getState().deviceLimit).toEqual({ desktop: 3, web: 3 });
+  });
+
+  it('refreshes devices + deviceLimit on revalidate-success', async () => {
+    let call = 0;
+    const refreshedDevice = {
+      id: 'dev_w2',
+      deviceId: 'w-uuid-2',
+      deviceName: 'Firefox on macOS',
+      os: 'web-firefox',
+      surface: 'web' as const,
+      activatedAt: 1_700_001_000,
+      lastSeenAt: 1_700_001_500,
+    };
+    const fetchMock = vi.fn(async () => {
+      call += 1;
+      if (call === 1) {
+        // Activate.
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            licenseId: 'lic_1',
+            activated: true,
+            idempotent: false,
+            devices: { desktop: [], web: [] },
+            deviceLimit: { desktop: 3, web: 3 },
+          }),
+          { status: 200 }
+        );
+      }
+      // Status.
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          licenseId: 'lic_1',
+          status: 'active',
+          tier: 'pro',
+          expiresAt: null,
+          supportWindowEndsAt: Math.floor(Date.now() / 1000) + 90 * 86_400,
+          devices: { desktop: [], web: [refreshedDevice] },
+          deviceLimit: { desktop: 3, web: 3 },
+          deviceRegistered: true,
+        }),
+        { status: 200 }
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    await store.getState().setLicenseToken(token);
+    await store.getState().revalidate();
+
+    expect(store.getState().devices?.web).toEqual([refreshedDevice]);
+  });
+
+  it('revalidate registers the browser when /licenses/status says the current device is missing', async () => {
+    let activateCall = 0;
+    const registeredDevice = {
+      id: 'dev_current',
+      deviceId: 'current-uuid',
+      deviceName: 'Chrome on macOS',
+      os: 'web-chrome',
+      surface: 'web' as const,
+      activatedAt: 1_700_002_000,
+      lastSeenAt: 1_700_002_500,
+    };
+    const fetchMock = vi.fn(async (url: Parameters<typeof fetch>[0]) => {
+      const requestUrl = String(url);
+      if (requestUrl === `${SERVER_URL}/licenses/activate`) {
+        activateCall += 1;
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            licenseId: 'lic_1',
+            activated: true,
+            idempotent: activateCall > 1,
+            devices: { desktop: [], web: activateCall > 1 ? [registeredDevice] : [] },
+            deviceLimit: { desktop: 3, web: 3 },
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          licenseId: 'lic_1',
+          status: 'active',
+          tier: 'pro',
+          expiresAt: null,
+          supportWindowEndsAt: Math.floor(Date.now() / 1000) + 90 * 86_400,
+          devices: { desktop: [], web: [] },
+          deviceLimit: { desktop: 3, web: 3 },
+          deviceRegistered: false,
+        }),
+        { status: 200 }
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    await store.getState().setLicenseToken(token);
+    const status = await store.getState().revalidate();
+
+    expect(status.kind).toBe('active');
+    const activateCalls = fetchMock.mock.calls.filter(
+      ([url]) => url === `${SERVER_URL}/licenses/activate`
+    );
+    expect(activateCalls).toHaveLength(2);
+    expect(store.getState().devices?.web).toEqual([registeredDevice]);
+  });
+
+  it('revalidate keeps the token invalid when a missing current device hits the server cap', async () => {
+    let activateCall = 0;
+    const activeDevices = ['a', 'b', 'c'].map((id) => ({
+      id: `dev_${id}`,
+      deviceId: `w-uuid-${id}`,
+      deviceName: `Browser ${id}`,
+      os: 'web-chrome',
+      surface: 'web' as const,
+      activatedAt: 1_700_000_000,
+      lastSeenAt: 1_700_000_900,
+    }));
+    const fetchMock = vi.fn(async (url: Parameters<typeof fetch>[0]) => {
+      const requestUrl = String(url);
+      if (requestUrl === `${SERVER_URL}/licenses/activate`) {
+        activateCall += 1;
+        if (activateCall === 1) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              licenseId: 'lic_1',
+              activated: true,
+              idempotent: false,
+              devices: { desktop: [], web: [] },
+              deviceLimit: { desktop: 3, web: 3 },
+            }),
+            { status: 200 }
+          );
+        }
+        return new Response(
+          JSON.stringify({
+            ok: false,
+            reason: 'exhausted',
+            surface: 'web',
+            devices: { desktop: [], web: activeDevices },
+            deviceLimit: { desktop: 3, web: 3 },
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          licenseId: 'lic_1',
+          status: 'active',
+          tier: 'pro',
+          expiresAt: null,
+          supportWindowEndsAt: Math.floor(Date.now() / 1000) + 90 * 86_400,
+          devices: { desktop: [], web: activeDevices },
+          deviceLimit: { desktop: 3, web: 3 },
+          deviceRegistered: false,
+        }),
+        { status: 200 }
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    await store.getState().setLicenseToken(token);
+    const status = await store.getState().revalidate();
+
+    expect(status.kind).toBe('invalid');
+    if (status.kind === 'invalid') expect(status.reason).toBe('devices-exhausted');
+    expect(store.getState().token).toBe(token);
+    expect(store.getState().devices?.web).toEqual(activeDevices);
+  });
+
+  it('removeDevice POSTs to /licenses/devices/remove and refreshes the cached bucket on success', async () => {
+    let call = 0;
+    const fetchMock = vi.fn(async () => {
+      call += 1;
+      if (call === 1) {
+        // Initial activate populates the bucket so removeDevice has
+        // somewhere to start.
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            licenseId: 'lic_1',
+            activated: true,
+            idempotent: false,
+            devices: { desktop: [], web: [{ id: 'old', deviceId: 'old-uuid' }] },
+            deviceLimit: { desktop: 3, web: 3 },
+          }),
+          { status: 200 }
+        );
+      }
+      // Remove device — server returns the post-removal bucket.
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          licenseId: 'lic_1',
+          removed: true,
+          devices: { desktop: [], web: [] },
+          deviceLimit: { desktop: 3, web: 3 },
+        }),
+        { status: 200 }
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    await store.getState().setLicenseToken(token);
+    expect(store.getState().devices?.web.length).toBe(1);
+
+    const result = await store.getState().removeDevice('old-uuid');
+    expect(result.ok).toBe(true);
+    expect(store.getState().devices?.web).toEqual([]);
+
+    // The remove call hit the right URL with the right body — ignore the
+    // earlier activate request.
+    const removeCalls = fetchMock.mock.calls.filter(
+      ([url]) => url === `${SERVER_URL}/licenses/devices/remove`
+    );
+    expect(removeCalls).toHaveLength(1);
+    const [, init] = removeCalls[0]!;
+    expect(init?.method).toBe('POST');
+    const body = JSON.parse(init?.body as string);
+    expect(body.deviceIdToRemove).toBe('old-uuid');
+  });
+
+  it('removeDevice preserves the cached bucket on transient unreachable failure so the user can retry', async () => {
+    let call = 0;
+    const fetchMock = vi.fn(async () => {
+      call += 1;
+      if (call === 1) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            licenseId: 'lic_1',
+            activated: true,
+            idempotent: false,
+            devices: {
+              desktop: [],
+              web: [{ id: 'keepme', deviceId: 'keep-uuid' }],
+            },
+            deviceLimit: { desktop: 3, web: 3 },
+          }),
+          { status: 200 }
+        );
+      }
+      throw new TypeError('Failed to fetch');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    await store.getState().setLicenseToken(token);
+
+    const result = await store.getState().removeDevice('keep-uuid');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('unreachable');
+    // Bucket survives the failure.
+    expect(store.getState().devices?.web.length).toBe(1);
+  });
+
+  it('clearLicense resets devices + deviceLimit to null', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            ok: true,
+            licenseId: 'lic_1',
+            activated: true,
+            idempotent: false,
+            devices: { desktop: [], web: [{ id: 'a', deviceId: 'a-uuid' }] },
+            deviceLimit: { desktop: 3, web: 3 },
+          }),
+          { status: 200 }
+        )
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const store = await importFreshStore();
+    const token = await signLicenseTokenForTest(buildPayload(), privateKeyJwk);
+    await store.getState().setLicenseToken(token);
+    expect(store.getState().devices).not.toBeNull();
+
+    await store.getState().clearLicense();
+    expect(store.getState().devices).toBeNull();
+    expect(store.getState().deviceLimit).toBeNull();
   });
 
   it('clearLicense fires removeDevice with keepalive: true and wipes local state', async () => {

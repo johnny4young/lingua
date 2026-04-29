@@ -53,6 +53,7 @@ describe('Script naming docs guard', () => {
       'dev:desktop',
       'dev:desktop:sync',
       'dev:desktop:pro',
+      'dev:desktop:prod',
       'dev:desktop:forge',
       'build:web',
       'preview:web',

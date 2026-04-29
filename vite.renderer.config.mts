@@ -9,6 +9,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   plugins: [react()],
   define: getSharedBuildDefines(),
+  // Repo-root `.env` / `.env.production` are the canonical source for
+  // VITE_* values across all build configs (renderer, web, main). When
+  // `make:desktop` invokes Vite via `@electron-forge/plugin-vite`, the
+  // working directory is the project root but Vite's default envDir
+  // resolution can drift to wherever Forge stages the renderer entry,
+  // silently leaving every `import.meta.env.VITE_*` substitution as
+  // `undefined`. The desktop renderer was missing
+  // VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK in packaged builds for that
+  // reason — pasting a CF token reported `no-public-key`. The web
+  // config (`vite.web.config.mts`) already pins `envDir` for the same
+  // reason; this mirror keeps the desktop renderer in sync.
+  envDir: __dirname,
   server: {
     watch: {
       ignored: [

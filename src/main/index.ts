@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { createRequire } from 'node:module';
 import path from 'node:path';
-import started from 'electron-squirrel-startup';
 import { extractLinguaDeepLinkUrl, type DeepLinkTarget } from '../shared/deepLinks';
 import {
   consumePendingDeepLink,
@@ -29,7 +29,36 @@ import { registerUpdater } from './updater';
 import { createLicenseRuntime, parseEmbeddedPublicKey } from './license';
 import { registerLicenseHandlers } from './ipc/license';
 
-if (started) {
+/**
+ * Squirrel.Windows installer / uninstaller lifecycle hook. The
+ * `electron-squirrel-startup` package emits `true` when Electron is
+ * being invoked by Squirrel with the `--squirrel-install` /
+ * `--squirrel-updated` / `--squirrel-uninstall` / `--squirrel-obsolete`
+ * args, in which case the app should quit immediately.
+ *
+ * Wrapped in a runtime require gated on `process.platform === 'win32'`
+ * because:
+ *   1. Squirrel only matters on Windows; macOS + Linux artifacts have
+ *      no use for the module and packaging it into their bundles is
+ *      pure overhead.
+ *   2. Forge's vite plugin marks the module as external, and the
+ *      packager occasionally fails to copy it into `app.asar` on
+ *      macOS / Linux. A static `import` would crash the main process
+ *      at startup with `Cannot find module 'electron-squirrel-startup'`
+ *      before any window is shown. The defensive try/catch keeps the
+ *      app booting even if Forge regresses again, on any platform.
+ */
+function consumeSquirrelStartup(): boolean {
+  if (process.platform !== 'win32') return false;
+  try {
+    const requireFromHere = createRequire(import.meta.url);
+    return Boolean(requireFromHere('electron-squirrel-startup'));
+  } catch {
+    return false;
+  }
+}
+
+if (consumeSquirrelStartup()) {
   app.quit();
 }
 

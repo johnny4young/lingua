@@ -131,4 +131,54 @@ describe('getOs', () => {
     setUserAgent('UnknownBot/1.0');
     expect(getOs()).toBe('web-unknown');
   });
+
+  /**
+   * Contract guard between renderer and worker validator. Every value
+   * the renderer emits MUST satisfy the worker's `OS_PATTERN` regex
+   * (lowercase letters/digits with optional internal hyphens, capped at
+   * 64 bytes). If either side drifts, this test fails — and so does
+   * the worker-side `accepts the web build OS string family` test in
+   * `license-server/test/{licenses,trials}.test.ts`. Two-sided
+   * assertion so a regression on either codebase is caught without
+   * needing a full end-to-end run.
+   *
+   * Source-of-truth pattern lives in
+   * `license-server/src/lib/validation.ts:OS_PATTERN`. If you change
+   * one, change both.
+   */
+  const OS_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+  const MAX_OS_LENGTH = 64;
+
+  it.each([
+    [
+      'Chrome on macOS',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    ],
+    ['Firefox on Windows', 'Mozilla/5.0 (Windows NT 10.0; rv:120.0) Gecko/20100101 Firefox/120.0'],
+    [
+      'Safari on macOS',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+    ],
+    [
+      'Edge on Windows',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+    ],
+    [
+      'Opera',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36 OPR/104.0.0.0',
+    ],
+    [
+      'Brave',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Brave/1.60 Chrome/120.0.0.0 Safari/537.36',
+    ],
+    ['Chromium', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chromium/120.0.0.0 Safari/537.36'],
+    ['UnknownBot', 'UnknownBot/1.0'],
+    ['empty UA', ''],
+  ])('getOs() output for %s satisfies the worker OS_PATTERN contract', (_label, ua) => {
+    setUserAgent(ua);
+    const os = getOs();
+    expect(os.length).toBeGreaterThan(0);
+    expect(os.length).toBeLessThanOrEqual(MAX_OS_LENGTH);
+    expect(os).toMatch(OS_PATTERN);
+  });
 });

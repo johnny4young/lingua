@@ -10,7 +10,6 @@
  * caller surface.
  */
 
-const SUPPORTED_OS = new Set<string>(['darwin', 'win32', 'linux']);
 const SUPPORTED_SURFACES = new Set<string>(['desktop', 'web']);
 
 export type Surface = 'desktop' | 'web';
@@ -25,12 +24,28 @@ const TEXT_ENCODER = new TextEncoder();
  * (36 chars), deviceName seeds from `os.hostname()` (typically <64,
  * 254 cap leaves room for the user's edits), token is a JWS with two
  * base64url segments (a few hundred bytes — 4096 has 10x headroom),
- * email is RFC-5321 254 cap.
+ * email is RFC-5321 254 cap. `os` is informational only — Electron
+ * sends one of `darwin|win32|linux` and the web build sends
+ * `web-${browserFamily}` (chrome / firefox / safari / edge / etc., or
+ * the catch-all `web-unknown`). The 64-byte cap accommodates both
+ * shapes plus reasonable headroom for any future surface (mobile,
+ * Tauri) without forcing a server change every time the renderer
+ * gains a new browser detection branch.
  */
 export const MAX_EMAIL_LENGTH = 254;
 export const MAX_DEVICE_ID_LENGTH = 128;
 export const MAX_DEVICE_NAME_LENGTH = 254;
 export const MAX_TOKEN_LENGTH = 4096;
+export const MAX_OS_LENGTH = 64;
+
+/**
+ * Permissive `os` shape check: lowercase ASCII letters, digits, and
+ * single internal hyphens (`darwin`, `win32`, `web-chrome`,
+ * `web-unknown`). Rejects whitespace, punctuation, and HTML-bait so a
+ * compromised client cannot poison a peer's device list with markup
+ * even though React escapes it on render.
+ */
+const OS_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 
 export type ValidationResult<T> =
   | { ok: true; value: T }
@@ -52,7 +67,7 @@ export interface TrialStartBody {
   email: string;
   deviceId: string;
   deviceName: string;
-  os: 'darwin' | 'win32' | 'linux';
+  os: string;
 }
 
 export function validateTrialStartBody(input: unknown): ValidationResult<TrialStartBody> {
@@ -80,13 +95,13 @@ export function validateTrialStartBody(input: unknown): ValidationResult<TrialSt
     pushIssue(issues, `deviceName exceeds ${MAX_DEVICE_NAME_LENGTH} byte cap`);
   }
 
-  const os = asString(record.os) ?? '';
-  if (!SUPPORTED_OS.has(os)) pushIssue(issues, `os must be one of ${[...SUPPORTED_OS].join(', ')}`);
+  const os = asString(record.os)?.trim().toLowerCase() ?? '';
+  validateOsField(os, issues);
 
   if (issues.length > 0) return { ok: false, issues };
   return {
     ok: true,
-    value: { email, deviceId, deviceName, os: os as TrialStartBody['os'] },
+    value: { email, deviceId, deviceName, os },
   };
 }
 
@@ -94,7 +109,7 @@ export interface LicenseActivateBody {
   token: string;
   deviceId: string;
   deviceName: string;
-  os: 'darwin' | 'win32' | 'linux';
+  os: string;
   surface: Surface;
 }
 
@@ -123,8 +138,8 @@ export function validateLicenseActivateBody(input: unknown): ValidationResult<Li
     pushIssue(issues, `deviceName exceeds ${MAX_DEVICE_NAME_LENGTH} byte cap`);
   }
 
-  const os = asString(record.os) ?? '';
-  if (!SUPPORTED_OS.has(os)) pushIssue(issues, `os must be one of ${[...SUPPORTED_OS].join(', ')}`);
+  const os = asString(record.os)?.trim().toLowerCase() ?? '';
+  validateOsField(os, issues);
 
   // Surface is required for the split-bucket device limit. Renderer
   // sends 'desktop' when window.lingua.license is present, 'web' when
@@ -141,10 +156,32 @@ export function validateLicenseActivateBody(input: unknown): ValidationResult<Li
       token,
       deviceId,
       deviceName,
-      os: os as LicenseActivateBody['os'],
+      os,
       surface: surface as Surface,
     },
   };
+}
+
+/**
+ * Shared `os` field validator for `/trials/start` and
+ * `/licenses/activate`. The renderer is the source of truth for the
+ * exact strings that flow through (Electron emits Node's `process.platform`
+ * values; web emits `web-${browserFamily}`). The server only enforces
+ * a length cap and a permissive shape so a junk string cannot break
+ * the device-list display.
+ */
+function validateOsField(os: string, issues: string[]): void {
+  if (os.length === 0) {
+    pushIssue(issues, 'os is required');
+    return;
+  }
+  if (exceedsUtf8ByteCap(os, MAX_OS_LENGTH)) {
+    pushIssue(issues, `os exceeds ${MAX_OS_LENGTH} byte cap`);
+    return;
+  }
+  if (!OS_PATTERN.test(os)) {
+    pushIssue(issues, 'os must be lowercase letters/digits with optional hyphens');
+  }
 }
 
 export interface LicenseStatusRequest {

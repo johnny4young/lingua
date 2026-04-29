@@ -100,10 +100,23 @@ export interface ExhaustedFailure {
   deviceLimit: LicenseServerDeviceLimit;
 }
 
+export interface ServerFailureMeta {
+  message?: string;
+  /**
+   * Echoed straight from the worker's validator (`license-server/src/lib/
+   * validation.ts`). Populated only on `reason: 'invalid-input'` and only
+   * for the surfaces that produce it (activate + remove POST bodies,
+   * status query params). Renderer logs them to the console for
+   * developer visibility but never surfaces them to end users — the
+   * strings are technical and can leak server-side enum names.
+   */
+  issues?: string[];
+}
+
 export type ActivateResult =
   | ActivateSuccess
   | ExhaustedFailure
-  | { ok: false; reason: Exclude<LicenseServerFailureReason, 'exhausted'>; message?: string };
+  | ({ ok: false; reason: Exclude<LicenseServerFailureReason, 'exhausted'> } & ServerFailureMeta);
 
 export interface StatusInput {
   token: string;
@@ -127,7 +140,7 @@ export interface StatusSuccess {
 
 export type StatusResult =
   | StatusSuccess
-  | { ok: false; reason: LicenseServerFailureReason; message?: string };
+  | ({ ok: false; reason: LicenseServerFailureReason } & ServerFailureMeta);
 
 export interface RemoveDeviceInput {
   token: string;
@@ -144,7 +157,7 @@ export interface RemoveDeviceSuccess {
 
 export type RemoveDeviceResult =
   | RemoveDeviceSuccess
-  | { ok: false; reason: LicenseServerFailureReason; message?: string };
+  | ({ ok: false; reason: LicenseServerFailureReason } & ServerFailureMeta);
 
 function getBaseUrl(): string | null {
   const raw = import.meta.env.VITE_LINGUA_LICENSE_SERVER_URL;
@@ -216,6 +229,38 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+/**
+ * Pull the `issues` array off a worker error response when present.
+ * The worker validator (`license-server/src/lib/validation.ts`) emits
+ * `{ ok: false, reason: 'invalid-input', issues: [...] }` on shape
+ * violations. The renderer surfaces a translated user-facing notice
+ * separately; the issues themselves are developer-detail.
+ */
+function readIssues(body: Record<string, unknown> | null): string[] | undefined {
+  const raw = body?.issues;
+  if (!Array.isArray(raw)) return undefined;
+  const filtered = raw.filter((entry): entry is string => typeof entry === 'string');
+  return filtered.length > 0 ? filtered : undefined;
+}
+
+/**
+ * Loud diagnostics for `invalid-input` responses. The renderer should
+ * never produce a request body that fails the worker's validator —
+ * if it does, the contract between renderer (`deviceFingerprint.ts`)
+ * and worker (`validation.ts`) has drifted and we want to know
+ * immediately. Console.warn instead of console.error so the message
+ * does not crash the FirstRun consent test that asserts a clean
+ * console at boot.
+ */
+function warnOnInvalidInput(endpoint: string, reason: LicenseServerFailureReason, issues: string[] | undefined): void {
+  if (reason !== 'invalid-input') return;
+  console.warn(
+    `[lingua-license] ${endpoint} rejected with invalid-input. issues: ${issues?.join(' | ') ?? '(none)'}. ` +
+      'Renderer ↔ worker validator may be out of sync; check src/renderer/services/deviceFingerprint.ts ' +
+      'against license-server/src/lib/validation.ts.'
+  );
+}
+
 // ------------------------------------------------------------------ activate
 
 export async function activate(input: ActivateInput): Promise<ActivateResult> {
@@ -251,7 +296,14 @@ export async function activate(input: ActivateInput): Promise<ActivateResult> {
     // wants the exhaustive return so we keep it tight.
     return { ok: false, reason: 'server-error', message: 'unexpected exhausted on non-200' };
   }
-  return { ok: false, reason, message: typeof body?.message === 'string' ? body.message : undefined };
+  const issues = readIssues(body);
+  warnOnInvalidInput('/licenses/activate', reason, issues);
+  return {
+    ok: false,
+    reason,
+    message: typeof body?.message === 'string' ? body.message : undefined,
+    issues,
+  };
 }
 
 // -------------------------------------------------------------------- status
@@ -283,7 +335,14 @@ export async function status(input: StatusInput): Promise<StatusResult> {
   }
 
   const reason = mapServerReason(body?.reason);
-  return { ok: false, reason, message: typeof body?.message === 'string' ? body.message : undefined };
+  const issues = readIssues(body);
+  warnOnInvalidInput('/licenses/status', reason, issues);
+  return {
+    ok: false,
+    reason,
+    message: typeof body?.message === 'string' ? body.message : undefined,
+    issues,
+  };
 }
 
 // ------------------------------------------------------------- removeDevice
@@ -315,7 +374,14 @@ export async function removeDevice(input: RemoveDeviceInput): Promise<RemoveDevi
   }
 
   const reason = mapServerReason(body?.reason);
-  return { ok: false, reason, message: typeof body?.message === 'string' ? body.message : undefined };
+  const issues = readIssues(body);
+  warnOnInvalidInput('/licenses/devices/remove', reason, issues);
+  return {
+    ok: false,
+    reason,
+    message: typeof body?.message === 'string' ? body.message : undefined,
+    issues,
+  };
 }
 
 /**

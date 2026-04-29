@@ -48,11 +48,38 @@ describe('POST /licenses/activate', () => {
     expect(body.issues).toEqual(expect.arrayContaining([expect.stringMatching(/token is required/)]));
   });
 
-  it('rejects an unknown OS', async () => {
-    const response = await postJson('/licenses/activate', { ...ACTIVATE_BODY, os: 'plan9' });
+  it('rejects a malformed OS string', async () => {
+    // Slice 3 follow-up: the os field is informational (display in the
+    // device list) so we no longer enforce a fixed enum at the server.
+    // The validator still bounces shape violations — uppercase, spaces,
+    // HTML-bait — so a compromised client cannot poison a peer's
+    // device list with markup.
+    const response = await postJson('/licenses/activate', {
+      ...ACTIVATE_BODY,
+      os: '<script>',
+    });
     expect(response.status).toBe(400);
     const body = (await response.json()) as { issues: string[] };
-    expect(body.issues).toEqual(expect.arrayContaining([expect.stringMatching(/^os must be one of/)]));
+    expect(body.issues).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^os must be lowercase letters/)])
+    );
+  });
+
+  it('accepts the web build OS string family (web-chrome, web-firefox, web-unknown)', async () => {
+    // Regression guard for the Slice 2.5 + Slice 3 wiring. Before the
+    // validator + D1 CHECK relaxation, every web activate against prod
+    // bounced with `invalid-input` because the renderer's `getOs()`
+    // emits `web-${browserFamily}` which the desktop-only enum
+    // rejected. The endpoint stays a 501 stub here (Slice 1
+    // scaffolding hasn't wired D1 to this test fixture), but the
+    // request reaches the handler — that's enough to prove the
+    // request body passed validation.
+    for (const os of ['darwin', 'win32', 'linux', 'web-chrome', 'web-firefox', 'web-unknown']) {
+      const response = await postJson('/licenses/activate', { ...ACTIVATE_BODY, os });
+      expect(response.status).not.toBe(400);
+      const body = (await response.json()) as { ok: boolean; issues?: string[] };
+      expect(body.issues).toBeUndefined();
+    }
   });
 
   it('rejects an unknown surface', async () => {
@@ -353,7 +380,33 @@ describe('0001_initial migration', () => {
     expect(migrationSql).toContain("'cancel_at_period_end'");
   });
 
-  it('constrains device operating systems to the validated request enum', () => {
+  it('originally constrained device OS to the desktop triple (relaxed in 0003)', () => {
+    // 0001 shipped with a desktop-only enum that Slice 2.5's web
+    // activate path could not satisfy. 0003 rebuilds the table
+    // without the CHECK so the request-side validator
+    // (validation.ts:validateOsField) becomes the single bound. This
+    // assertion stays so the historical 0001 shape is documented;
+    // see the matching `0003 ...` block below for the relaxed shape.
     expect(migrationSql).toContain("os              TEXT NOT NULL CHECK (os IN ('darwin', 'win32', 'linux'))");
+  });
+});
+
+describe('0003_relax_devices_os_check migration', () => {
+  it('rebuilds the devices table without the os enum CHECK so web-* values can land', async () => {
+    const migration = (await import('../migrations/0003_relax_devices_os_check.sql?raw')).default;
+    expect(migration).toContain('CREATE TABLE devices_new');
+    // Strip SQL comments before scanning so the (intentional) prose
+    // about the OLD constraint in the header doesn't false-positive.
+    const sqlOnly = migration
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('--'))
+      .join('\n');
+    expect(sqlOnly).toContain('os              TEXT NOT NULL,');
+    expect(sqlOnly).not.toContain("CHECK (os IN ('darwin', 'win32', 'linux'))");
+    // Indexes from 0001 + 0002 are recreated against the renamed table.
+    expect(sqlOnly).toContain('devices_license_active_idx');
+    expect(sqlOnly).toContain('devices_license_surface_active_idx');
+    // Surface CHECK survives — only the os enum was relaxed.
+    expect(sqlOnly).toContain("CHECK (surface IN ('desktop', 'web'))");
   });
 });

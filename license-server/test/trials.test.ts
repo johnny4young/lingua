@@ -52,11 +52,29 @@ describe('POST /trials/start', () => {
     expect(body.issues).toEqual(expect.arrayContaining([expect.stringMatching(/malformed/)]));
   });
 
-  it('rejects an OS outside the known triple', async () => {
-    const response = await postJson('/trials/start', { ...VALID_BODY, os: 'beos' });
+  it('rejects a malformed OS string (uppercase, whitespace, HTML-bait)', async () => {
+    // Slice 3 follow-up: the os field is informational so we no longer
+    // gate on a fixed enum. The validator still bounces shape
+    // violations.
+    const response = await postJson('/trials/start', { ...VALID_BODY, os: 'Beos OS' });
     expect(response.status).toBe(400);
     const body = (await response.json()) as { issues: string[] };
-    expect(body.issues).toEqual(expect.arrayContaining([expect.stringMatching(/^os must be one of/)]));
+    expect(body.issues).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^os must be lowercase letters/)])
+    );
+  });
+
+  it('accepts the web build OS string family alongside the desktop triple', async () => {
+    // Regression guard for the Slice 2.5 wiring. Slice 4 will surface
+    // /trials/start to web users too; without the validator
+    // relaxation, every web trial-start would bounce with
+    // `invalid-input` for the same reason every web activate did.
+    for (const os of ['darwin', 'win32', 'linux', 'web-chrome', 'web-firefox', 'web-unknown']) {
+      const response = await postJson('/trials/start', { ...VALID_BODY, os });
+      expect(response.status).not.toBe(400);
+      const body = (await response.json()) as { ok: boolean; issues?: string[] };
+      expect(body.issues).toBeUndefined();
+    }
   });
 
   it('rejects an empty deviceId', async () => {
