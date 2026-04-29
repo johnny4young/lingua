@@ -2878,6 +2878,120 @@ verification rule):
 4. `npm run dev:desktop:pro -- --sync-main` → desktop unchanged,
    IPC bridge still owns truth, no fetch from renderer.
 
+### §RL-061.2 Status Update — Slice 3 shipped 2026-04-28
+
+Slice 3 ships the **web-only device-management UI** that closes the
+remediation loop opened by Slice 2.5. Before this slice a web user who
+hit the per-surface device cap (`reason: 'exhausted'` from
+`/licenses/activate`) had no way out except clearing the license; the
+server already returned the active device bucket but the renderer
+discarded it. Slice 3 turns that bucket into a list of rows the user
+can read and act on.
+
+What ships:
+
+- **`src/renderer/stores/licenseStore.ts`.** New `devices:
+  LicenseServerDevicesBucket | null` and `deviceLimit:
+  LicenseServerDeviceLimit | null` fields on `LicenseState`,
+  populated from the `devices` + `deviceLimit` payload that
+  `/licenses/activate` and `/licenses/status` already returned (and
+  the web `setLicenseToken` flow already discarded). Persistence
+  shape unchanged — both fields stay in-memory only (the persist
+  `partialize` deliberately does not enumerate them). Reset to `null`
+  on `clearLicense`. New `removeDevice(deviceIdToRemove)` action
+  wraps `serverRemoveDevice` with terminal-reason mapping
+  (`unknown-license` / `revoked` wipe the local token + status; the
+  rest preserve the cached bucket so the user can retry). Desktop
+  branch returns `{ ok: false, reason: 'not-implemented' }` from
+  `removeDevice` until Slice 3.5 wires the main-side bridge into
+  `/licenses/*`.
+- **`src/renderer/components/Settings/DeviceList.tsx`** (new).
+  Pure presentational component — takes `devices` + `deviceLimit` +
+  `currentDeviceId` + `pendingRemovalId` + `onRemove`. Renders both
+  surface buckets (`desktop` + `web`) with a per-bucket
+  `[data-testid="license-devices-counter-${surface}"]` showing
+  `N of M`, a per-row `[data-testid="license-device-row-${id}"]`
+  with truncated `deviceName` + os + locale-aware
+  `Intl.RelativeTimeFormat`-based "Last seen X ago" (server stores
+  `lastSeenAt` in unix seconds), and a Remove button that disables
+  on the current-device row with the `removeBlocked` tooltip
+  (`role="status"`-style — title attribute) and disables on every
+  row while one Remove is in flight (concurrent mutations would
+  race the cached bucket update).
+- **`src/renderer/components/Settings/ExhaustedDevicesModal.tsx`**
+  (new). Mounts when the active status is
+  `{ kind: 'invalid', reason: 'devices-exhausted' }` (Slice 2.5
+  keeps the token in that case so we can remediate without
+  re-pasting from email). Calls `revalidate()` on mount so the
+  bucket reflects server truth instead of the snapshot from a
+  failed activate that may now be minutes old. Per-row Remove fires
+  the licenseStore action; Retry re-runs `setLicenseToken(token)`
+  and closes the modal on `active`/`grace`; Cancel falls back to
+  Free via `clearLicense()`. Built on the existing
+  `OverlayBackdrop` + `OverlayCard` chrome primitives and the
+  `surface-header` / `button-primary` / `button-secondary`
+  utility classes for visual consistency with the consent + utility
+  modals.
+- **`src/renderer/components/Settings/LicenseSection.tsx`.** Adds a
+  `Devices` row gated to `status.kind ∈ {active, grace}` AND
+  non-null `devices` + `deviceLimit` (so the section hides under
+  the local-verify-only `serverSync: 'unreachable'` path even on
+  Pro tokens). Intercepts `setLicenseToken` returning
+  `{ kind: 'invalid', reason: 'devices-exhausted' }` to open the
+  modal instead of pushing the standard error notice. A `useEffect`
+  watches `status` and re-opens the modal whenever the persisted
+  state lands back on `devices-exhausted` (covers post-rehydrate +
+  cross-tab reactivation).
+- **i18n.** 18 new keys per locale under `license.devices.*`
+  (`title`, `hint`, `surface.{desktop,web}`, `counter`,
+  `empty.{desktop,web}`, `currentChip`, `lastSeen`, `remove`,
+  `removing`, `removeBlocked`, `removeSucceeded`, `removeFailed`,
+  `exhaustedModal.{title,body,retry,cancel}`). ES copy is tuteo
+  Latin-American (`Quita`, `Reintenta`, `puedes`) per AGENTS.md.
+- **Tests.** New `tests/components/ExhaustedDevicesModal.test.tsx`
+  (6 cases — render + revalidate-on-mount, Remove dispatch, Retry
+  closes on success, Retry stays open on non-success, Cancel
+  closes via clearLicense, Retry-disabled-during-remove). Extended
+  `tests/components/LicenseSection.test.tsx` with 5 new cases
+  (Devices row visible under active, hidden under free, current
+  chip + Remove disabled on current device, Remove dispatches +
+  notice, devices-exhausted routes to modal). Extended
+  `tests/stores/licenseStore.test.ts` with 6 new cases (devices
+  persisted on activate-success / exhausted / revalidate-success;
+  removeDevice happy path + unreachable preserves bucket;
+  clearLicense resets devices/deviceLimit). Total suite: 1854
+  passed (added 17 new cases on top of yesterday's 1835).
+
+What remains under RL-061 (Slice 4 + later):
+
+- Trial + Education + Recovery server-minted CTAs.
+- GH Actions release pipeline + web update banner.
+- **Slice 3.5 (new)** — desktop main-side `/licenses/activate` +
+  `/licenses/status` wiring so the desktop bridge enforces the
+  per-surface bucket and surfaces the same device list inside the
+  desktop Settings → License section.
+- **Slice 3b (BACKLOG)** — device-rename UI and the matching
+  `/licenses/devices/rename` worker endpoint. Tracked in
+  `docs/BACKLOG.md` under `[licensing] 2026-04-28`.
+
+Manual smoke checklist (deferred to maintainer per AGENTS.md UI
+verification rule — the agent already smoked the production web
+build locally with mocked `/licenses/*` routes, browser_snapshot
+verified, console errors = 0):
+
+1. Build production web with the real production keypair +
+   `VITE_LINGUA_LICENSE_SERVER_URL='https://licenses.linguacode.dev'`
+   (`.env.production` already does this); `preview:web`; paste the
+   real Polar token; confirm the Devices section renders both
+   buckets with the actual server response, the current-device chip
+   lands on the matching row, and Remove decrements the counter
+   without flipping the status pill.
+2. Trigger the exhausted path by re-pasting the same token from a
+   third + fourth browser profile (the worker enforces `web: 3`);
+   confirm the modal opens, Retry re-activates after Remove.
+3. Flip locale to `es`; reload; confirm the tuteo strings render
+   without missing-key warnings.
+
 ### RL-062 Public README, license declaration, and distribution posture
 
 - Priority: `P0` for Phase 1

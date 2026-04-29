@@ -11,8 +11,11 @@ import {
   removeDevice as serverRemoveDevice,
   status as serverStatus,
   type ActivateResult,
+  type LicenseServerDeviceLimit,
+  type LicenseServerDevicesBucket,
   type LicenseServerFailureReason,
   type LicenseServerStatusKind,
+  type RemoveDeviceResult,
   type StatusResult,
 } from '../services/licenseServer';
 import { getDeviceName, getOrMintDeviceId, getOs } from '../services/deviceFingerprint';
@@ -56,17 +59,43 @@ export type LicenseStatus =
  */
 export type ServerSyncState = 'synced' | 'unreachable' | 'disabled' | null;
 
+/**
+ * RL-061 Slice 3 — server-side device list cached in memory only.
+ *
+ * Populated from `/licenses/activate` (success + `exhausted` failure)
+ * and `/licenses/status` responses. Deliberately NOT persisted in
+ * `localStorage` — devices belong on the server and the renderer
+ * always re-fetches via `revalidate()` on rehydrate. Persisting them
+ * would let a stale snapshot drift past the actual server state if a
+ * sibling tab or another browser made changes.
+ *
+ * `null` means "no server response yet" (e.g. `serverSync ===
+ * 'unreachable'` or first paint after rehydrate before
+ * `onRehydrateStorage` fires the revalidate). The Devices UI shows an
+ * empty-state in that case rather than crashing on a missing field.
+ */
 export interface LicenseState {
   token: string | null;
   status: LicenseStatus;
   lastVerifiedAt: number | null;
   serverSync: ServerSyncState;
+  devices: LicenseServerDevicesBucket | null;
+  deviceLimit: LicenseServerDeviceLimit | null;
   /** Import and verify a new license token. Returns the resulting status. */
   setLicenseToken: (token: string) => Promise<LicenseStatus>;
   /** Re-verify the stored token, typically after a setting change or startup. */
   revalidate: () => Promise<LicenseStatus>;
   /** Remove the token and return to the free tier. */
   clearLicense: () => Promise<LicenseStatus>;
+  /**
+   * Slice 3 — remove a device from the active license via the server's
+   * `/licenses/devices/remove` endpoint and refresh the cached bucket.
+   * Returns the server's response so the caller can decide whether to
+   * surface the success notice or a translated error. Web-only — the
+   * desktop branch returns `not-implemented` until Slice 3.5 wires the
+   * main-side bridge into the same endpoint.
+   */
+  removeDevice: (deviceIdToRemove: string) => Promise<RemoveDeviceResult>;
 }
 
 const FREE_STATUS: LicenseStatus = { kind: 'free' };
@@ -159,6 +188,10 @@ function serverFailureToInvalid(reason: LicenseServerFailureReason): LicenseStat
   }
 }
 
+function isTransientServerFailure(reason: LicenseServerFailureReason): boolean {
+  return reason === 'unreachable' || reason === 'server-error' || reason === 'not-implemented';
+}
+
 function decodeIssuedAt(token: string): number | null {
   const decoded = decodeLicenseToken(token);
   if (!decoded.ok) return null;
@@ -183,6 +216,8 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
   status: FREE_STATUS,
   lastVerifiedAt: null,
   serverSync: isLicenseServerEnabled() ? null : 'disabled',
+  devices: null,
+  deviceLimit: null,
   setLicenseToken: async (token) => {
     const trimmed = token.trim();
     if (trimmed.length === 0) {
@@ -207,6 +242,8 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
         status: localStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'disabled',
+        devices: null,
+        deviceLimit: null,
       });
       return localStatus;
     }
@@ -233,11 +270,13 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
         status: localStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'synced',
+        devices: result.devices,
+        deviceLimit: result.deviceLimit,
       });
       return localStatus;
     }
 
-    if (result.reason === 'unreachable' || result.reason === 'server-error' || result.reason === 'not-implemented') {
+    if (isTransientServerFailure(result.reason)) {
       // 24-hour offline-grace per LICENSING_ADR Decision 4 — the token
       // is locally valid; the renderer will retry on the next page load
       // and synchronise the device count then.
@@ -246,29 +285,37 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
         status: localStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'unreachable',
+        devices: null,
+        deviceLimit: null,
       });
       return localStatus;
     }
 
     // Terminal server rejection: revoked / exhausted / invalid-token /
     // invalid-input. Map to a discrete invalid status. Keep the token in
-    // state for `exhausted` so the user (or a future Slice 3 modal) can
-    // remediate without re-pasting; wipe it for everything else.
+    // state for `exhausted` so the Slice 3 modal can remediate without
+    // forcing the user to re-paste; wipe it for everything else.
     const invalid =
       serverFailureToInvalid(result.reason) ?? { kind: 'invalid' as const, reason: result.reason };
     const keepToken = result.reason === 'exhausted';
+    // Persist `devices` + `deviceLimit` on `exhausted` — the modal needs
+    // the bucket to render the per-device Remove buttons. Every other
+    // terminal branch clears the bucket so a replacement token cannot
+    // inherit stale rows from a previous license.
     set({
       token: keepToken ? trimmed : null,
       status: invalid,
       lastVerifiedAt: Date.now(),
       serverSync: 'synced',
+      devices: result.reason === 'exhausted' ? result.devices : null,
+      deviceLimit: result.reason === 'exhausted' ? result.deviceLimit : null,
     });
     return invalid;
   },
   revalidate: async () => {
     const { token } = get();
     if (!token) {
-      set({ status: FREE_STATUS, lastVerifiedAt: Date.now() });
+      set({ status: FREE_STATUS, lastVerifiedAt: Date.now(), devices: null, deviceLimit: null });
       return FREE_STATUS;
     }
 
@@ -276,7 +323,13 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
     if (localStatus.kind === 'invalid') {
       // Stored token failed local verification (key rotation, tampering,
       // or expiry past grace) — wipe regardless of server reachability.
-      set({ token: null, status: localStatus, lastVerifiedAt: Date.now() });
+      set({
+        token: null,
+        status: localStatus,
+        lastVerifiedAt: Date.now(),
+        devices: null,
+        deviceLimit: null,
+      });
       return localStatus;
     }
 
@@ -285,6 +338,8 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
         status: localStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'disabled',
+        devices: null,
+        deviceLimit: null,
       });
       return localStatus;
     }
@@ -315,20 +370,91 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       }
 
       const finalStatus = serverStatusKindToStatus(result.status, activeStatus);
+      if (finalStatus.kind === 'invalid') {
+        set({
+          token: null,
+          status: finalStatus,
+          lastVerifiedAt: Date.now(),
+          serverSync: 'synced',
+          devices: null,
+          deviceLimit: null,
+        });
+        return finalStatus;
+      }
+
+      if (!result.deviceRegistered) {
+        // `/licenses/status` reports license health, not registration.
+        // If this browser is missing from the active device bucket, retry
+        // activation before granting Pro so a rehydrated exhausted token
+        // cannot bypass the per-surface cap.
+        const deviceId = getOrMintDeviceId();
+        const activation = await serverActivate({
+          token: activeToken,
+          deviceId,
+          deviceName: getDeviceName(),
+          os: getOs(),
+          surface: 'web',
+        });
+
+        if (activation.ok) {
+          set({
+            token: activeToken,
+            status: finalStatus,
+            lastVerifiedAt: Date.now(),
+            serverSync: 'synced',
+            devices: activation.devices,
+            deviceLimit: activation.deviceLimit,
+          });
+          return finalStatus;
+        }
+
+        if (isTransientServerFailure(activation.reason)) {
+          set({
+            token: activeToken,
+            status: finalStatus,
+            lastVerifiedAt: Date.now(),
+            serverSync: 'unreachable',
+            devices: null,
+            deviceLimit: null,
+          });
+          return finalStatus;
+        }
+
+        const invalid =
+          serverFailureToInvalid(activation.reason) ?? {
+            kind: 'invalid' as const,
+            reason: activation.reason,
+          };
+        const keepToken = activation.reason === 'exhausted';
+        set({
+          token: keepToken ? activeToken : null,
+          status: invalid,
+          lastVerifiedAt: Date.now(),
+          serverSync: 'synced',
+          devices: activation.reason === 'exhausted' ? activation.devices : null,
+          deviceLimit: activation.reason === 'exhausted' ? activation.deviceLimit : null,
+        });
+        return invalid;
+      }
+
       set({
-        token: finalStatus.kind === 'invalid' ? null : activeToken,
+        token: activeToken,
         status: finalStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'synced',
+        devices: result.devices,
+        deviceLimit: result.deviceLimit,
       });
       return finalStatus;
     }
 
-    if (result.reason === 'unreachable' || result.reason === 'server-error' || result.reason === 'not-implemented') {
+    if (isTransientServerFailure(result.reason)) {
       set({
         status: localStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'unreachable',
+        devices: null,
+        deviceLimit: null,
       });
       return localStatus;
     }
@@ -340,6 +466,8 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       status: invalid,
       lastVerifiedAt: Date.now(),
       serverSync: 'synced',
+      devices: null,
+      deviceLimit: null,
     });
     return invalid;
   },
@@ -353,6 +481,8 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       status: FREE_STATUS,
       lastVerifiedAt: Date.now(),
       serverSync: isLicenseServerEnabled() ? get().serverSync : 'disabled',
+      devices: null,
+      deviceLimit: null,
     });
 
     if (token && isLicenseServerEnabled()) {
@@ -365,6 +495,50 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       void serverRemoveDevice({ token, deviceIdToRemove: deviceId });
     }
     return FREE_STATUS;
+  },
+  removeDevice: async (deviceIdToRemove) => {
+    const { token } = get();
+    if (!token) {
+      return { ok: false, reason: 'invalid-input', message: 'No active license token.' };
+    }
+    if (!isLicenseServerEnabled()) {
+      return { ok: false, reason: 'disabled' };
+    }
+
+    const result = await serverRemoveDevice({ token, deviceIdToRemove });
+    if (!result.ok) {
+      // Leave the cached bucket untouched on transient failure so the
+      // user can retry without losing context. Terminal reasons
+      // (`unknown-license` / `revoked`) should wipe; the caller maps
+      // those onto the standard `invalid:*` status the renderer
+      // already knows how to render.
+      if (result.reason === 'unknown-license' || result.reason === 'revoked') {
+        const invalid = serverFailureToInvalid(result.reason);
+        if (invalid) {
+          set({
+            token: null,
+            status: invalid,
+            lastVerifiedAt: Date.now(),
+            serverSync: 'synced',
+            devices: null,
+            deviceLimit: null,
+          });
+        }
+      }
+      return result;
+    }
+
+    // Server confirmed removal — refresh the cached bucket from the
+    // response. If the device just removed was the *current* device the
+    // server still returned a list excluding it, so the UI naturally
+    // collapses to a no-current-row state on the next render.
+    set({
+      devices: result.devices,
+      deviceLimit: result.deviceLimit,
+      lastVerifiedAt: Date.now(),
+      serverSync: 'synced',
+    });
+    return result;
   },
 });
 
@@ -457,6 +631,11 @@ function createDesktopStore(bridge: LicenseBridge) {
     // — `serverSync` is fixed to `'disabled'` so the Web-only "fell back
     // to local" notice never surfaces on desktop builds.
     serverSync: 'disabled' as const,
+    // Desktop main-side bridge does not yet call /licenses/* (Slice 3.5).
+    // Until it does, the device list is web-only and these stay null on
+    // desktop so the Devices section renders nothing instead of crashing.
+    devices: null,
+    deviceLimit: null,
     setLicenseToken: async (token) => {
       markBootstrapped();
       try {
@@ -523,6 +702,11 @@ function createDesktopStore(bridge: LicenseBridge) {
         return bridgeFailureStatus('clear-failed', error);
       }
     },
+    // Desktop has no server-backed device list yet. Slice 3.5 will wire
+    // the main bridge into `/licenses/devices/remove`; until then the
+    // action no-ops with `not-implemented` so the Web-only Slice 3 UI
+    // (which is the only caller today) stays gated to the web build.
+    removeDevice: async () => ({ ok: false, reason: 'not-implemented' as const }),
   }));
 
   // Bootstrap from the main snapshot so the very first render reflects a

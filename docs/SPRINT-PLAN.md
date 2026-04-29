@@ -25,7 +25,7 @@ Mirrors the authoritative `Status` column in
 | Iter 1 | [`RL-072`](./ROADMAP.md) | Shipping · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Expand Developer Utilities to DevUtils parity — full panel set shipped (29 panels). RL-068 closeout adds YAML ↔ JSON, JSON ↔ CSV, Markdown Preview (sanitized HTML output, no remote image fetch), and SQL Formatter (ANSI / PostgreSQL / MySQL dialects). RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (5 of ~7 slices shipped) | Execution history — replay-by-id + comparison. See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
-| Iter 4 | [`RL-061`](./ROADMAP.md) | Partial · Slices 0+1+2+2.5 shipped (Slice 2.5 on 2026-04-28 ships the web licenseStore server-aware refactor: surface=web activate, refreshedToken polling, license-origin SW bypass, production keypair alignment). Remaining slices: 3 (device UI), 4 (trial+education+recovery CTAs), 5 (release pipeline + web update banner). | License-key infrastructure. Slice 0 closed the preload/main-side gap; Slice 1 laid the worker skeleton; Slice 2 wires real D1 + Polar + Resend with surface-aware device limit; Slice 2.5 brings the web build into the same server contract. See [`LICENSING_ADR.md`](./LICENSING_ADR.md) and §6. |
+| Iter 4 | [`RL-061`](./ROADMAP.md) | Partial · Slices 0+1+2+2.5+3 shipped (Slice 3 on 2026-04-28 ships the web-only device-management UI: per-surface buckets, current-device chip, per-row Remove, exhausted-devices remediation modal). Remaining slices: 4 (trial+education+recovery CTAs), 5 (release pipeline + web update banner), and a follow-up Slice 3.5 that wires the desktop main-side bridge into `/licenses/*`. | License-key infrastructure. Slice 0 closed the preload/main-side gap; Slice 1 laid the worker skeleton; Slice 2 wires real D1 + Polar + Resend with surface-aware device limit; Slice 2.5 brings the web build into the same server contract; Slice 3 closes the device-list remediation loop on web. See [`LICENSING_ADR.md`](./LICENSING_ADR.md) and §6. |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Partial (Slices A + B shipped) | Language-pack registry Slice C — capability-aware UI. See §7. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
@@ -312,8 +312,11 @@ never cached. Vite web config gains `envDir: __dirname` so repo-root
 `.env` / `.env.production` actually substitute `VITE_*` defines into
 the bundle (latent bug Slice 2.5 surfaced).
 
-**Slice 3 — Device management UI.** Settings → License lists active
-devices, supports rename + remove, surfaces the exhausted-device modal.
+**Slice 3 — Web device management UI.** Shipped 2026-04-28 — see
+[`RL-061` §RL-061.2 in PLAN.md](./PLAN.md#rl-061-polarsh-integration).
+Rename intentionally deferred (no `/licenses/devices/rename` endpoint
+yet — tracked in `BACKLOG.md`); desktop main-side server activation
+deferred to a follow-up Slice 3.5.
 
 **Slice 4 — Trial + Education CTAs.** Settings + landing-page hooks
 for `/trials/start` (14d trial, one-shot) and `/education/start` +

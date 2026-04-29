@@ -12,7 +12,7 @@ import i18next from 'i18next';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '@/i18n';
 import { LicenseSection } from '@/components/Settings/LicenseSection';
-import { useLicenseStore, type LicenseStatus } from '@/stores/licenseStore';
+import { useLicenseStore, type LicenseStatus, type ServerSyncState } from '@/stores/licenseStore';
 import { useUIStore } from '@/stores/uiStore';
 
 function stubStatus(status: LicenseStatus, token: string | null = null): void {
@@ -144,6 +144,10 @@ describe('LicenseSection', () => {
       ['clock-skew', 'license.notice.invalid.clockSkew'],
       ['unsupported-tier', 'license.notice.invalid.unsupportedTier'],
       ['no-public-key', 'license.notice.invalid.notAccepted'],
+      // RL-061 Slice 3 follow-up: server-side request rejection
+      // (validator drift between renderer + worker) gets its own copy
+      // so users do not waste time re-pasting a perfectly good token.
+      ['invalid-input', 'license.notice.invalid.requestRejected'],
     ] as const;
 
     for (const [reason, expectedKey] of reasons) {
@@ -279,6 +283,277 @@ describe('LicenseSection', () => {
     });
     await waitFor(() =>
       expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.cleared')
+    );
+  });
+
+  // ----------- RL-061 Slice 3 — devices row + exhausted modal ------------
+
+  function activeStatusForDevices(): LicenseStatus {
+    return {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 30 * 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'user@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    };
+  }
+
+  function stubDevicesState(opts: {
+    status: LicenseStatus;
+    token: string | null;
+    devices?: {
+      desktop: Array<Record<string, unknown>>;
+      web: Array<Record<string, unknown>>;
+    };
+    deviceLimit?: { desktop: number; web: number };
+    serverSync?: ServerSyncState;
+  }): void {
+    act(() => {
+      useLicenseStore.setState({
+        token: opts.token,
+        status: opts.status,
+        lastVerifiedAt: null,
+        serverSync: opts.serverSync ?? 'synced',
+        devices: opts.devices ?? null,
+        deviceLimit: opts.deviceLimit ?? null,
+      });
+    });
+  }
+
+  it('renders the Devices row with both buckets when status is active and devices are cached', () => {
+    stubDevicesState({
+      status: activeStatusForDevices(),
+      token: 'tok.value',
+      devices: {
+        desktop: [
+          {
+            id: 'dev_d1',
+            deviceId: '11111111-1111-4111-8111-111111111111',
+            deviceName: 'MacBook Pro',
+            os: 'macOS',
+            surface: 'desktop',
+            activatedAt: 1_700_000_000,
+            lastSeenAt: 1_700_000_900,
+          },
+        ],
+        web: [
+          {
+            id: 'dev_w1',
+            deviceId: 'w-uuid-1',
+            deviceName: 'Chrome on macOS',
+            os: 'web-chrome',
+            surface: 'web',
+            activatedAt: 1_700_000_100,
+            lastSeenAt: 1_700_000_900,
+          },
+        ],
+      },
+      deviceLimit: { desktop: 3, web: 3 },
+    });
+
+    render(<LicenseSection />);
+    expect(screen.getByTestId('license-devices-list')).toBeTruthy();
+    expect(screen.getByTestId('license-devices-bucket-desktop')).toBeTruthy();
+    expect(screen.getByTestId('license-devices-bucket-web')).toBeTruthy();
+    expect(screen.getByTestId('license-devices-counter-web').textContent).toContain('1');
+  });
+
+  it('hides the Devices row when status is free / verifying / invalid', () => {
+    stubDevicesState({
+      status: { kind: 'free' },
+      token: null,
+      devices: { desktop: [], web: [] },
+      deviceLimit: { desktop: 3, web: 3 },
+    });
+    render(<LicenseSection />);
+    expect(screen.queryByTestId('license-devices-list')).toBeNull();
+  });
+
+  it('hides a cached Devices row when the server sync fell back to local verification', () => {
+    stubDevicesState({
+      status: activeStatusForDevices(),
+      token: 'tok.value',
+      serverSync: 'unreachable',
+      devices: {
+        desktop: [],
+        web: [
+          {
+            id: 'dev_w1',
+            deviceId: 'w-uuid-1',
+            deviceName: 'Chrome on macOS',
+            os: 'web-chrome',
+            surface: 'web',
+            activatedAt: 1_700_000_100,
+            lastSeenAt: 1_700_000_900,
+          },
+        ],
+      },
+      deviceLimit: { desktop: 3, web: 3 },
+    });
+
+    render(<LicenseSection />);
+    expect(screen.queryByTestId('license-devices-list')).toBeNull();
+  });
+
+  it('disables the Remove button on the current device row and exposes the blocked reason via title', () => {
+    // Force a deterministic device id so the test doesn't depend on
+    // navigator UUID minting.
+    localStorage.setItem('lingua-device-id', '11111111-1111-4111-8111-111111111111');
+    stubDevicesState({
+      status: activeStatusForDevices(),
+      token: 'tok.value',
+      devices: {
+        desktop: [
+          {
+            id: 'dev_d1',
+            deviceId: '11111111-1111-4111-8111-111111111111',
+            deviceName: 'MacBook Pro',
+            os: 'macOS',
+            surface: 'desktop',
+            activatedAt: 1_700_000_000,
+            lastSeenAt: 1_700_000_900,
+          },
+          {
+            id: 'dev_d2',
+            deviceId: '22222222-2222-4222-8222-222222222222',
+            deviceName: 'Other Mac',
+            os: 'macOS',
+            surface: 'desktop',
+            activatedAt: 1_700_000_500,
+            lastSeenAt: 1_700_001_900,
+          },
+        ],
+        web: [],
+      },
+      deviceLimit: { desktop: 3, web: 3 },
+    });
+
+    try {
+      render(<LicenseSection />);
+      // Current chip lands on the matching row only.
+      expect(screen.getByTestId('license-current-device-chip')).toBeTruthy();
+      const currentRemove = screen.getByTestId('license-device-remove-dev_d1') as HTMLButtonElement;
+      expect(currentRemove.disabled).toBe(true);
+      expect(currentRemove.title).toContain('Remove license');
+      const otherRemove = screen.getByTestId('license-device-remove-dev_d2') as HTMLButtonElement;
+      expect(otherRemove.disabled).toBe(false);
+    } finally {
+      localStorage.removeItem('lingua-device-id');
+    }
+  });
+
+  it('clicking Remove on a non-current device dispatches removeDevice and pushes the success notice', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem('lingua-device-id', '11111111-1111-4111-8111-111111111111');
+    stubDevicesState({
+      status: activeStatusForDevices(),
+      token: 'tok.value',
+      devices: {
+        desktop: [
+          {
+            id: 'dev_d1',
+            deviceId: '11111111-1111-4111-8111-111111111111',
+            deviceName: 'MacBook Pro',
+            os: 'macOS',
+            surface: 'desktop',
+            activatedAt: 1_700_000_000,
+            lastSeenAt: 1_700_000_900,
+          },
+          {
+            id: 'dev_d2',
+            deviceId: '22222222-2222-4222-8222-222222222222',
+            deviceName: 'Other Mac',
+            os: 'macOS',
+            surface: 'desktop',
+            activatedAt: 1_700_000_500,
+            lastSeenAt: 1_700_001_900,
+          },
+        ],
+        web: [],
+      },
+      deviceLimit: { desktop: 3, web: 3 },
+    });
+
+    const removeSpy = vi.spyOn(useLicenseStore.getState(), 'removeDevice').mockResolvedValue({
+      ok: true,
+      licenseId: 'lic_1',
+      removed: true,
+      devices: {
+        desktop: [
+          {
+            id: 'dev_d1',
+            deviceId: '11111111-1111-4111-8111-111111111111',
+            deviceName: 'MacBook Pro',
+            os: 'macOS',
+            surface: 'desktop',
+            activatedAt: 1_700_000_000,
+            lastSeenAt: 1_700_000_900,
+          },
+        ],
+        web: [],
+      },
+      deviceLimit: { desktop: 3, web: 3 },
+    });
+
+    try {
+      render(<LicenseSection />);
+      await user.click(screen.getByTestId('license-device-remove-dev_d2'));
+      await waitFor(() => expect(removeSpy).toHaveBeenCalledWith('22222222-2222-4222-8222-222222222222'));
+      await waitFor(() =>
+        expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+          'license.devices.removeSucceeded'
+        )
+      );
+    } finally {
+      localStorage.removeItem('lingua-device-id');
+    }
+  });
+
+  it('routes setLicenseToken devices-exhausted into the modal instead of the standard error notice', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(useLicenseStore.getState(), 'setLicenseToken').mockImplementation(async () => {
+      const status: LicenseStatus = { kind: 'invalid', reason: 'devices-exhausted' };
+      useLicenseStore.setState({
+        token: 'tok.value',
+        status,
+        lastVerifiedAt: Date.now(),
+        serverSync: 'synced',
+        devices: {
+          desktop: [],
+          web: [
+            {
+              id: 'dev_w1',
+              deviceId: 'w-uuid-1',
+              deviceName: 'Chrome on macOS',
+              os: 'web-chrome',
+              surface: 'web',
+              activatedAt: 1_700_000_000,
+              lastSeenAt: 1_700_000_900,
+            },
+          ],
+        },
+        deviceLimit: { desktop: 3, web: 3 },
+      });
+      return status;
+    });
+
+    render(<LicenseSection />);
+    await user.type(screen.getByTestId('license-input'), 'whatever');
+    await user.click(screen.getByTestId('license-apply'));
+
+    await waitFor(() => expect(screen.getByTestId('license-exhausted-modal')).toBeTruthy());
+    // Crucially: the standard error banner did NOT fire.
+    expect(useUIStore.getState().statusNotice?.messageKey).not.toBe(
+      'license.notice.invalid.devicesExhausted'
     );
   });
 

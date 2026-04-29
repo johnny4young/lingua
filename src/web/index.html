@@ -8,10 +8,17 @@
       - Pyodide is fetched from cdn.jsdelivr.net at runtime
       - blob: workers are needed for Monaco and JS/TS/Python web workers
       - 'unsafe-eval' is required by esbuild-wasm and Monaco language workers
+      - licenses.linguacode.dev — RL-061 Slice 2.5 license-server endpoints
+        (/licenses/activate, /licenses/status, /licenses/devices/remove);
+        without this allow the per-surface device cap is silently bypassed
+        and Slice 3's Devices section never reaches `serverSync='synced'`.
+      - updates.linguacode.dev — RL-061 Slice 5 web update banner
+        (/web/version polling); whitelisted now to avoid a follow-up CSP
+        churn when the banner ships.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net;"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net https://licenses.linguacode.dev https://updates.linguacode.dev;"
     />
     <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
     <link rel="manifest" href="%BASE_URL%manifest.json" />

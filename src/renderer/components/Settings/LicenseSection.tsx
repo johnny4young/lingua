@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLicenseStore, type LicenseStatus } from '../../stores/licenseStore';
 import { useUIStore } from '../../stores/uiStore';
+import { getOrMintDeviceId } from '../../services/deviceFingerprint';
+import { DeviceList } from './DeviceList';
+import { ExhaustedDevicesModal } from './ExhaustedDevicesModal';
 import { Row, Section } from './shared';
 
 /**
@@ -75,6 +78,15 @@ function invalidReasonMessageKey(status: Extract<LicenseStatus, { kind: 'invalid
       return 'license.notice.invalid.refunded';
     case 'unknown-license':
       return 'license.notice.invalid.unknownLicense';
+    // RL-061 Slice 3 follow-up. `invalid-input` means the renderer's
+    // request body was rejected by the worker validator — the token is
+    // fine but the client and server disagree on the request shape
+    // (e.g. an `os` value the worker enum did not accept). Distinct
+    // copy so users don't waste time re-pasting a perfectly good
+    // token; the developer-facing detail goes to console.warn from
+    // licenseServer.ts:warnOnInvalidInput.
+    case 'invalid-input':
+      return 'license.notice.invalid.requestRejected';
     default:
       // Fall back to the generic copy so a new reason code doesn't crash
       // the UI before its i18n key lands.
@@ -94,12 +106,39 @@ export function LicenseSection() {
   const [draft, setDraft] = useState('');
   const [isApplying, setIsApplying] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [pendingRemovalId, setPendingRemovalId] = useState<string | null>(null);
+  // Modal-open is local to this component because the modal is owned by
+  // the License section's lifecycle: a paste fails with `devices-exhausted`
+  // → modal opens → user remediates or cancels → modal closes. Hoisting
+  // it into uiStore would let it survive route changes, which is the
+  // wrong shape for this single-step remediation flow.
+  const [exhaustedModalOpen, setExhaustedModalOpen] = useState(false);
 
   const status = useLicenseStore(state => state.status);
   const token = useLicenseStore(state => state.token);
+  const serverSync = useLicenseStore(state => state.serverSync);
+  const devices = useLicenseStore(state => state.devices);
+  const deviceLimit = useLicenseStore(state => state.deviceLimit);
   const setLicenseToken = useLicenseStore(state => state.setLicenseToken);
   const clearLicense = useLicenseStore(state => state.clearLicense);
+  const removeDevice = useLicenseStore(state => state.removeDevice);
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
+
+  // Auto-open the modal whenever the active status flips into
+  // `invalid:devices-exhausted` (covers the post-rehydrate case where
+  // `setLicenseToken` ran in a previous session and we land back here
+  // with the cap still hit). Closing the modal does NOT clear the
+  // status — that requires removing a device + retrying or pressing
+  // Cancel — so we re-open until the user resolves the cap.
+  useEffect(() => {
+    if (status.kind === 'invalid' && status.reason === 'devices-exhausted') {
+      setExhaustedModalOpen(true);
+    }
+  }, [status]);
+
+  const handleExhaustedModalClose = useCallback(() => {
+    setExhaustedModalOpen(false);
+  }, []);
 
   const handleApply = async () => {
     if (isApplying) return;
@@ -107,6 +146,12 @@ export function LicenseSection() {
     try {
       const next = await setLicenseToken(draft);
       if (next.kind === 'invalid') {
+        // The exhausted case routes through the modal — the user needs
+        // a device list + Remove buttons + Retry, not a one-line banner.
+        if (next.reason === 'devices-exhausted') {
+          setExhaustedModalOpen(true);
+          return;
+        }
         pushStatusNotice({
           tone: 'error',
           messageKey: invalidReasonMessageKey(next),
@@ -118,12 +163,13 @@ export function LicenseSection() {
       }
       setDraft('');
       if (next.kind === 'active' || next.kind === 'grace') {
-        // Read the post-apply `serverSync` flag to decide between the
-        // standard activation notice and the offline-grace warning.
-        // Pulled here (not via a selector subscription) so the component
-        // doesn't re-render on every apply just to read this once.
-        const serverSync = useLicenseStore.getState().serverSync;
-        if (serverSync === 'unreachable') {
+        // Read the post-apply `serverSync` flag imperatively so we see
+        // whatever value the store just wrote inside `setLicenseToken`.
+        // The closure variable from the selector subscription above
+        // reflects the *previous* render and would mis-fire the
+        // offline-grace branch on the very first activate.
+        const postApplyServerSync = useLicenseStore.getState().serverSync;
+        if (postApplyServerSync === 'unreachable') {
           // 24-hour offline-grace per LICENSING_ADR Decision 4 — the
           // license is locally valid but the server didn't see this
           // device yet. Surface it so the user knows to try again with
@@ -140,9 +186,39 @@ export function LicenseSection() {
             values: { tier: tierLabel(t, next) },
           });
         }
-      }
+    }
     } finally {
       setIsApplying(false);
+    }
+  };
+
+  const handleRemoveDevice = async (deviceIdToRemove: string) => {
+    if (pendingRemovalId !== null) return;
+    setPendingRemovalId(deviceIdToRemove);
+    try {
+      const result = await removeDevice(deviceIdToRemove);
+      if (!result.ok) {
+        pushStatusNotice({
+          tone: 'error',
+          messageKey: 'license.devices.removeFailed',
+        });
+        return;
+      }
+      // Surface the result in the user-visible bucket. The inline row
+      // is rendered for both desktop + web buckets but the renderer
+      // only ever activates against `web` itself, so we report the
+      // post-removal web count to keep the message concrete.
+      pushStatusNotice({
+        tone: 'success',
+        messageKey: 'license.devices.removeSucceeded',
+        values: {
+          remaining: result.devices.web.length,
+          limit: result.deviceLimit.web,
+          surface: t('license.devices.surface.web'),
+        },
+      });
+    } finally {
+      setPendingRemovalId(null);
     }
   };
 
@@ -209,6 +285,37 @@ export function LicenseSection() {
           </button>
         </div>
       </Row>
+
+      {(status.kind === 'active' || status.kind === 'grace') &&
+      serverSync === 'synced' &&
+      devices &&
+      deviceLimit ? (
+        <div
+          className="rounded-[1.15rem] border border-border/80 bg-background-elevated/72 px-3.5 py-3"
+          data-testid="license-devices-row"
+        >
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">{t('license.devices.title')}</p>
+            <p className="text-xs leading-5 text-muted">
+              {t('license.devices.hint', {
+                desktop: deviceLimit.desktop,
+                web: deviceLimit.web,
+              })}
+            </p>
+          </div>
+          <div className="mt-3">
+            <DeviceList
+              devices={devices}
+              deviceLimit={deviceLimit}
+              currentDeviceId={getOrMintDeviceId()}
+              pendingRemovalId={pendingRemovalId}
+              onRemove={(deviceId) => void handleRemoveDevice(deviceId)}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {exhaustedModalOpen ? <ExhaustedDevicesModal onClose={handleExhaustedModalClose} /> : null}
     </Section>
   );
 }
