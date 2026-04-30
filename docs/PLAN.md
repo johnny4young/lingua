@@ -2656,8 +2656,8 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-061 Polar.sh integration
 
 - Priority: `P0` for Phase 1
-- Status: `Partial`
-- Readiness: `Slice 1 (license-server/ scaffold) shipped 2026-04-26. Remaining: Slice 2 (Polar webhook + Resend + D1 wiring), Slice 3 (device UI), Slice 4 (trial CTA), Slice 5 (release pipeline + web update banner). See LICENSING_ADR.md and the §Status Update — Slice 1 block below.`
+- Status: `Done`
+- Readiness: `All slices shipped (Slice 0 → Slice 5, 2026-04-25 through 2026-04-30). Launch-blocker scope fully closed; unblocks RL-063 (re-scoped around the new lingua-marketing repo). See LICENSING_ADR.md and the §Status Update blocks below.`
 - 2026-04-26 update — Slice 1:
   - `license-server/` directory ships as a sibling Cloudflare Worker beside `update-server/`. Hono router + D1 schema migration + `GET /health` + 501 stubs for the four Slice-2 endpoints (`/trials/start`, `/licenses/activate`, `/licenses/status`, `/licenses/devices/remove`) + `/webhooks/polar`.
   - `migrations/0001_initial.sql` defines the three Slice 1 tables — `licenses`, `devices`, `trials` — from LICENSING_ADR Decision 2. It reserves constrained product/tier values for `lingua_trial` and `lingua_education`; the separate `educations` anti-abuse table still lands with Slice 4 alongside the education endpoints. Includes the `device_limit INTEGER NOT NULL DEFAULT 3` column for the Team configurable-limit logic landing in Slice 2.
@@ -3290,6 +3290,160 @@ verification rule):
    tuteo throughout (`Inicia` not `Iniciá`, `Revisa` not
    `Revisá`).
 8. End: `browser_console_messages({ level: 'error' })` = 0.
+
+### §RL-061.5 Status Update — Slice 5 shipped 2026-04-30
+
+Slice 5 closes the launch-blocker scope of RL-061. Two surfaces
+shipped together:
+
+- **Web update banner** — `update-server` exposes a new
+  `GET /web/version` route (`license-server/../update-server/src/index.ts:handleWebVersion`)
+  that returns the latest published GitHub release tag (with the
+  leading `v` stripped) under a 5-minute edge cache. Returns 204
+  when no release exists yet so the renderer fallback stays
+  clean. Renderer side: `__LINGUA_APP_VERSION__` is now injected
+  by `build/appBuildMetadata.mts:getSharedBuildDefines` from
+  `package.json#version`. The new
+  `src/renderer/hooks/useWebVersionPolling.ts` polls every
+  12 hours plus on `visibilitychange` after >1 hour idle, both
+  short-circuited when `window.lingua.platform !== 'web'`
+  (the web adapter `src/web/adapter.ts` exposes
+  `window.lingua.platform = 'web'`; native Electron builds set
+  it to `'darwin'` / `'win32'` / `'linux'` and skip the hook so
+  the native autoupdater in `src/main/updater.ts` owns update
+  UX). A new `WebUpdateBanner` component renders at the top of
+  the App chrome whenever the remote tag is strictly newer than
+  the build pin (`utils/version.ts:isVersionNewer`, with parity
+  pinned against the worker's `update-server/src/version.ts:isNewer`
+  via shared regex `/^(0|[1-9]\d*)$/u` rejecting leading zeros,
+  exponent notation, and hex), with Reload (calls
+  `window.location.reload()`) and Dismiss
+  (in-memory) buttons. 4 i18n keys × 2 locales (en + es tuteo).
+
+- **CF Pages migration + custom domain `app.linguacode.dev`** —
+  the web build moved from GitHub Pages
+  (`johnny4young.github.io/lingua/`) to Cloudflare Pages
+  (`app.linguacode.dev`). `linguacode.dev` itself stays
+  reserved for the future `lingua-marketing` repo (filed in
+  BACKLOG, HIGH PRIORITY). `deploy-web.yml` now uses
+  `wrangler pages deploy dist/web --project-name lingua-web`
+  and ends with a `POST /zones/$ZONE_ID/purge_cache` call so
+  long-lived tabs see the new HTML on next navigation.
+  `VITE_BASE_PATH` flipped from `/lingua/` to `/`.
+  `public/sw.js` `CACHE_VERSION` bumped `v2 → v3` so any user
+  with a stale GH Pages SW drops their cache on first load.
+
+- **Release pipeline orchestration** — `release.yml` now accepts
+  four boolean inputs (`release_macos`, `release_windows`,
+  `release_linux`, `release_web`, all default `true`). Each
+  build job is gated on its respective input via `if:`. The
+  publish job uses `if: ${{ always() && (any-build-enabled) }}`
+  so a web-only release skips the desktop matrix entirely
+  (~5 min vs ~240 min full run — critical for staying under
+  the 2,000 min/month GH Actions free tier on a private repo).
+  A new `deploy-web` job at the end calls
+  `deploy-web.yml` via `workflow_call` so a single
+  `gh workflow run release.yml` drives both desktop and web
+  in lockstep.
+
+- **Telemetry side benefit** — the existing
+  `src/renderer/utils/telemetry.ts:resolveTelemetryBase` reads
+  `import.meta.env.VITE_LINGUA_APP_VERSION ?? '0.0.0'`. Slice 5
+  adds `applySharedEnvDefaults()` to the four Vite configs
+  (`vite.web/.renderer/.main.config.mts` + `vitest.config.mts`)
+  so `VITE_LINGUA_APP_VERSION` is seeded from
+  `package.json#version` at config-load time. When RL-065's
+  event-export pipeline ships, every event will already report
+  the real version instead of `'0.0.0'`. Forward-compatible
+  with no runtime cost today (telemetry endpoint is still
+  unconfigured so events stay buffered in memory).
+
+Files in this slice's staged diff (~17 files):
+
+- `update-server/src/index.ts` — new `/web/version` handler with
+  CORS preflight (OPTIONS), 405 for non-GET, and CORS headers
+  (`Access-Control-Allow-Origin: *`, `Allow-Methods: GET, OPTIONS`,
+  `Max-Age: 86400`) on every response so the renderer can fetch
+  cross-origin from `app.linguacode.dev`.
+- `update-server/src/version.ts` — tightened to share the strict
+  semver regex with the renderer (rejects `01.2.3`, `1e2.0.0`,
+  `0x1.0.0`).
+- `update-server/test/index.test.ts` *[new]* — 25 cases covering
+  the happy path, cache-warm second hit, 204 on no-releases,
+  CORS preflight (OPTIONS), 405 for unsupported methods, plus
+  parity tests for the shared `parseVersion` / `isNewer`
+  helpers.
+- `update-server/vitest.config.ts` *[new]*.
+- `update-server/package.json` — vitest dev dep + `test` script.
+- `build/appBuildMetadata.mts` — `__LINGUA_APP_VERSION__` define
+  + `applySharedEnvDefaults()` env seed.
+- `vite.web/.renderer/.main.config.mts`, `vitest.config.mts` —
+  call `applySharedEnvDefaults()` at config-load time.
+- `src/renderer/hooks/useWebVersionPolling.ts` *[new]* — gates on
+  `window.lingua.platform !== 'web'`, not bridge presence.
+- `src/renderer/services/webUpdateServer.ts` *[new]*.
+- `src/renderer/components/WebUpdateBanner.tsx` *[new]*.
+- `src/renderer/utils/version.ts` *[new]* — strict regex parity
+  with the worker.
+- `src/renderer/App.tsx` — mount banner gated by
+  `window.lingua?.platform === 'web'` (web adapter sets the
+  platform field; native Electron sets a different value).
+- `public/sw.js` — `LICENSE_ORIGINS` renamed to
+  `PASSTHROUGH_ORIGINS` and extended with
+  `https://updates.linguacode.dev` so the service worker never
+  caches `/web/version` responses (would otherwise pin a stale
+  version on the long-lived tab past the 12-hour poll cycle).
+  `CACHE_VERSION` bumped `v2 → v3`.
+- `src/renderer/i18n/locales/{en,es}/common.json` — 4 keys per
+  locale.
+- `tests/utils/version.test.ts` *[new]* — 20 cases.
+- `tests/services/webUpdateServer.test.ts` *[new]* — 7 cases.
+- `tests/hooks/useWebVersionPolling.test.tsx` *[new]* — 6 cases.
+- `tests/components/WebUpdateBanner.test.tsx` *[new]* — 6 cases.
+- `tests/components/App.test.tsx` — extended with two cases
+  pinning the gate (desktop NOT mounted; web build mounts).
+- `tests/web/sw.test.ts` — extended for the
+  `LICENSE_ORIGINS → PASSTHROUGH_ORIGINS` rename + the new
+  `updates.linguacode.dev` allow-list assertion.
+- `tests/docs/releaseWorkflow.test.ts` — extended to pin the
+  per-platform success check, the web-only release branch, and
+  the `workflow_call` ref propagation.
+- `.github/workflows/release.yml` — 4 boolean inputs + per-job
+  `if:` guards + per-platform success-gating on `publish` (so
+  a partial failure cannot publish half a release) + final
+  `deploy-web` job that runs when web-only or when publish
+  succeeded.
+- `.github/workflows/deploy-web.yml` — full rewrite for CF
+  Pages + cache purge. Accepts `ref` input (default
+  `refs/heads/main`) so `release.yml` can pass the validated
+  release tag and the deploy checks out exactly that ref.
+
+Maintainer-side ops (one-time, post-merge):
+
+1. CF Pages dashboard: create project `lingua-web` (production
+   branch `main`).
+2. Add custom domain `app.linguacode.dev` to the project (CF
+   auto-provisions TLS cert).
+3. Add `CLOUDFLARE_ZONE_ID` secret to the repo (zone id of
+   `linguacode.dev` from CF dashboard → Overview → API).
+4. Confirm `CLOUDFLARE_API_TOKEN` has Pages scope (probably yes
+   since the same token deploys Workers; if not, regenerate
+   with `Account > Cloudflare Pages > Edit` permission).
+5. `cd update-server && npm run deploy` — ships
+   `/web/version`. Does NOT need a release tag — the route is
+   purely additive.
+6. `gh workflow run release.yml -f release_tag=v0.2.2` — runs
+   the orchestrated pipeline end-to-end (desktop + web).
+7. Smoke: open `https://app.linguacode.dev/`, override
+   `/web/version` response in DevTools to a higher version,
+   confirm banner appears + Reload + Dismiss work.
+
+What's next:
+
+- `RL-063` (Download landing page at linguacode.dev) is the
+  next launch-blocker, now re-scoped around the new
+  `lingua-marketing` repo (Astro + Tailwind + MDX + CF Pages,
+  filed in BACKLOG 2026-04-30).
 
 ### RL-062 Public README, license declaration, and distribution posture
 

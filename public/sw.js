@@ -13,11 +13,15 @@
  * force clients to refresh stale caches.
  */
 
-// Bumped to `v2` for RL-061 Slice 2.5 — the previous `v1` cache could
-// have stored `/licenses/status` GET responses under cache-first
-// before the LICENSE_ORIGINS short-circuit landed below; bumping the
-// cache name forces existing clients to drop those entries.
-const CACHE_VERSION = 'v2';
+// Bumped to `v3` for RL-061 Slice 5 — the web build moved from
+// GitHub Pages (`<user>.github.io/lingua/`) to Cloudflare Pages
+// (`app.linguacode.dev/`). The previous `v2` cache was scoped under
+// `/lingua/`, so any user who reached the legacy GH Pages URL before
+// the migration has cached entries whose paths no longer match the
+// new asset hashes served at the subdomain root. Bumping the
+// version forces those clients to drop the stale caches on next
+// load. (For the v1→v2 history, see RL-061 Slice 2.5.)
+const CACHE_VERSION = 'v3';
 const CACHE_NAME = `lingua-${CACHE_VERSION}`;
 const BASE_PATH = new URL(self.registration.scope).pathname;
 
@@ -27,14 +31,17 @@ const APP_SHELL = [BASE_PATH, `${BASE_PATH}index.html`];
 // CDN origins that should use Network-First (always try network, fall back to cache)
 const NETWORK_FIRST_ORIGINS = ['https://cdn.jsdelivr.net'];
 
-// License-server origins are always passthrough — never cached. The
-// worker explicitly returns `Cache-Control: no-store` on every
-// response, but the SW's cache-first strategy stores the body
-// regardless of the response header. A stale `/licenses/status` would
-// keep a refunded or revoked license alive in the renderer until the
-// SW unregisters; bypassing entirely is the only safe contract.
-const LICENSE_ORIGINS = [
+// Cross-origin API origins are always passthrough — never cached. The
+// SW Cache API does not enforce HTTP cache headers by itself, so the
+// cache-first strategy would otherwise keep safety-critical API data
+// indefinitely:
+// - A stale `/licenses/status` could keep a refunded or revoked
+//   license alive in the renderer until the SW unregisters.
+// - A stale `/web/version` could hide a newly deployed web build from
+//   the update banner after the first poll.
+const PASSTHROUGH_ORIGINS = [
   'https://licenses.linguacode.dev',
+  'https://updates.linguacode.dev',
   // Allow preview deployments and local dev to also bypass without
   // needing per-build SW edits. Keep this list synchronised with
   // CORS_ALLOWED_ORIGINS in `license-server/wrangler.toml`.
@@ -72,11 +79,11 @@ self.addEventListener('fetch', event => {
   // Only handle GET requests
   if (request.method !== 'GET') return;
 
-  // RL-061 Slice 2.5 — license-server requests bypass the cache
-  // entirely. Returning early without `respondWith` lets the browser
-  // run its default fetch path, so the response never enters our
-  // cache regardless of the strategy that would otherwise apply.
-  if (LICENSE_ORIGINS.includes(url.origin)) {
+  // RL-061 — API requests bypass the cache entirely. Returning early
+  // without `respondWith` lets the browser run its default fetch path,
+  // so the response never enters our cache regardless of the strategy
+  // that would otherwise apply.
+  if (PASSTHROUGH_ORIGINS.includes(url.origin)) {
     return;
   }
 

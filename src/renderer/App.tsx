@@ -13,6 +13,7 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardS
 import { SnippetsModal } from './components/Snippets';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
+import { WebUpdateBanner } from './components/WebUpdateBanner';
 import { CHANGELOG_ENTRIES } from './data/changelog';
 import {
   DEFAULT_DEVELOPER_UTILITY_ID,
@@ -291,8 +292,15 @@ function AppChrome({
     });
   };
 
+  // RL-061 Slice 5 — surface the web-build update banner at the top
+  // of the chrome. Browser builds expose `window.lingua` through
+  // src/web/adapter.ts, so gate on the explicit platform instead of
+  // bridge presence.
+  const showWebUpdateBanner = typeof window !== 'undefined' && window.lingua?.platform === 'web';
+
   return (
     <>
+      {showWebUpdateBanner ? <WebUpdateBanner /> : null}
       <AppLayout
         onOpenSettings={() => openOverlay('settings')}
         onOpenPalette={() => openOverlay('palette')}

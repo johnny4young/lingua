@@ -25,7 +25,7 @@ Mirrors the authoritative `Status` column in
 | Iter 1 | [`RL-072`](./ROADMAP.md) | Shipping · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Expand Developer Utilities to DevUtils parity — full panel set shipped (29 panels). RL-068 closeout adds YAML ↔ JSON, JSON ↔ CSV, Markdown Preview (sanitized HTML output, no remote image fetch), and SQL Formatter (ANSI / PostgreSQL / MySQL dialects). RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (5 of ~7 slices shipped) | Execution history — replay-by-id + comparison. See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
-| Iter 4 | [`RL-061`](./ROADMAP.md) | Partial · Slices 0+1+2+2.5+3+3.5+4 shipped (Slice 4 on 2026-04-29 lands Trial + Education magic-link + Recovery magic-link CTAs end-to-end on web, plus stale-token auto-pickup via `/licenses/status` lookup-by-licenseId and a recover-hint inline banner). Remaining slice: 5 (release pipeline + web update banner). | License-key infrastructure. Slice 0 closed the preload/main-side gap; Slice 1 laid the worker skeleton; Slice 2 wires real D1 + Polar + Resend with surface-aware device limit; Slice 2.5 brings the web build into the same server contract; Slice 3 closes the device-list remediation loop on web; Slice 3.5 lights up desktop end-to-end; Slice 4 closes the Free → Paid funnel for Trial / Education / Recovery. See [`LICENSING_ADR.md`](./LICENSING_ADR.md) and §6. |
+| Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Partial (Slices A + B shipped) | Language-pack registry Slice C — capability-aware UI. See §7. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
@@ -248,89 +248,10 @@ with call stack + variables; (d) step over / continue / stop controls;
 
 ## 6. Iter 4 / RL-059 + RL-061 — Licensing infrastructure (sequenced slices)
 
-**One-liner**: Land the full buy-verify-activate loop in slices, with
-no external-dependency surface in Slice 0 and progressively more Polar /
-Resend / DNS coupling as the slices ramp. Design lives in
-[`LICENSING_ADR.md`](./LICENSING_ADR.md); ticket scope expansions live in
-PLAN.md `RL-059` and `RL-061`.
-
-**Context**: RL-059 shipped the renderer verifier, the Settings License
-section, the pasted-token flow, and `useEntitlement()` everywhere. The
-2026-04-25 ADR locks: vendor (Polar.sh), license-server stack (sibling
-Cloudflare Worker `license-server/` + D1), email (Resend), pricing tiers
-(`lingua_monthly` + `lingua_lifetime` + `lingua_team`), device limit
-(hard 3 for monthly+lifetime, configurable for team), trial (14d, no
-verification in Phase 1), and a release/update propagation strategy with
-a unified GH Actions pipeline + a web update banner.
-
-**Slice 0 — Main-side IPC bridge (shipped 2026-04-25).** `src/main/license.ts`
-+ `src/main/ipc/license.ts` + `src/preload/index.ts` + the renderer store
-auto-detect. No external deps. Closes the preload/main-side gap that
-PLAN's Readiness flagged.
-
-**Slice 1 — `license-server/` Cloudflare Worker scaffold (shipped 2026-04-26).**
-Hono router + D1 schema migration + real `GET /health` + 501 stubs for
-`POST /trials/start`, `POST /licenses/activate`, `GET /licenses/status`,
-`POST /licenses/devices/remove`, `POST /webhooks/polar`. Vitest suite
-(40 cases) runs the Hono app via `app.request(...)` — no miniflare
-yet because no endpoint touches D1. Slice 2 promotes to
-`@cloudflare/vitest-pool-workers` when D1 + KV emulation is needed.
-
-**Slice 2 — Polar webhook handler + Resend email + D1-backed license endpoints (shipped 2026-04-27).**
-Real Ed25519 signing in `license-server/src/lib/sign.ts`, Polar webhook
-signature verification (Standard Webhooks v1) in `lib/polar.ts`, Resend
-email helper in `lib/resend.ts`, surface-aware D1 helpers in `lib/db.ts`,
-real handlers for `/webhooks/polar` (5 event types: `order.paid`,
-`order.refunded`, `subscription.{created,updated,canceled}`) and the
-three license endpoints (`/licenses/activate`, `/licenses/status`,
-`/licenses/devices/remove`). Migration `0002_add_surface_column.sql`
-introduces the per-surface device bucket. Paid subscriptions mint or
-refresh only from paid `order.paid`, while `subscription.created` waits
-for payment and `subscription.updated` handles cancel/uncancel state.
-Vitest 73 cases covering
-sign/polar/tokens unit paths + handler 501-when-unconfigured paths.
-End-to-end production smoke still requires the maintainer's Polar
-sandbox + Resend domain verification + D1 + KV provisioning.
-
-**Slice 2.5 — Web licenseStore refactor.** Shipped 2026-04-28.
-Renderer's web-mode `licenseStore` now mints a `localStorage` UUID
-device id, calls `POST /licenses/activate` with `surface: 'web'` on
-paste, and calls `GET /licenses/status` on rehydrate / cross-tab to
-pick up Monthly subscription `refreshedToken`. Local-verify-only
-behaviour persists when `VITE_LINGUA_LICENSE_SERVER_URL` is unset
-(dev) or the server is unreachable (24-hour offline-grace per
-LICENSING_ADR Decision 4). New `src/renderer/services/{licenseServer,
-deviceFingerprint}.ts`. New transient `kind: 'verifying'` status while
-activate is in flight. New i18n strings for `devices-exhausted`,
-`license-refunded`, `unknown-license`, `serverUnreachable`. Aligns
-the production keypair: `.env` rewritten to the CF-side public JWK
-(stripped to RFC 8037 §2), `verifyLicenseToken` defensively strips
-`alg`/`key_ops`/`ext` so historical `.env` values keep verifying.
-Service worker `public/sw.js` short-circuits all `licenses.linguacode.dev`
-GETs (cache-version bumped `v1` → `v2`) so `/licenses/status` is
-never cached. Vite web config gains `envDir: __dirname` so repo-root
-`.env` / `.env.production` actually substitute `VITE_*` defines into
-the bundle (latent bug Slice 2.5 surfaced).
-
-**Slice 3 — Web device management UI.** Shipped 2026-04-28 — see
-[`RL-061` §RL-061.2 in PLAN.md](./PLAN.md#rl-061-polarsh-integration).
-Rename intentionally deferred (no `/licenses/devices/rename` endpoint
-yet — tracked in `BACKLOG.md`); desktop main-side server activation
-deferred to a follow-up Slice 3.5.
-
-**Slice 4 — Trial + Education CTAs.** Settings + landing-page hooks
-for `/trials/start` (14d trial, one-shot) and `/education/start` +
-`/education/renew` (1yr renewable, server-minted, NO Polar). Includes
-the `educations` D1 table (mirror of `trials`), the educational-email
-validation strategy (`.edu` regex + GitHub Education API to be locked
-when this iter is picked), the renderer Education CTA, and the
-explicit annual renewal flow.
-
-**Slice 5 — Release pipeline + web update banner.** GH Actions workflow
-that builds desktop+web, deploys web, purges CF cache; renderer banner
-driven by a new `/web/version` endpoint.
+Shipped on 2026-04-30 — see RL-061 in [`docs/PLAN.md`](./PLAN.md#rl-061-polarsh-integration) for the full slice-by-slice history (0 → 1 → 2 → 2.5 → 3 → 3.5 → 4 → 5).
 
 ---
+
 
 ## 7. Iter 5 / RL-038 — Language-pack registry Slice C
 

@@ -396,35 +396,79 @@ of a silent token swap that the renderer absorbs transparently.
 
 ## Decision 6 — Release / update propagation
 
+> **Updated 2026-04-30 — RL-061 Slice 5 shipped.** Reflects the
+> implementation reality: web hosting on Cloudflare Pages at
+> `app.linguacode.dev`, marketing domain `linguacode.dev`
+> reserved for the future `lingua-marketing` repo, manual-trigger
+> release pipeline with per-platform skip inputs, 12-hour banner
+> poll cadence.
+
 ### Decision
 
-- **Pipeline.** A single `git tag v*` triggers a GitHub Actions
-  workflow that builds the desktop installers, builds the web
-  bundle, deploys the web bundle to Cloudflare Pages, and purges
-  the `updates.linguacode.dev` cache. The workflow is the source
-  of truth for "ship a release".
-- **Web update banner.** A new endpoint
-  `GET https://updates.linguacode.dev/web/version` returns the
-  latest released version (read from the latest GitHub release).
-  The web build polls every 30 minutes and surfaces a "Reload to
-  update" notice when the remote version is newer than the
-  build-time pin (`import.meta.env.VITE_LINGUA_VERSION`). Desktop
-  build skips this checker — the native autoupdater in
-  `src/main/updater.ts` already covers it.
+- **Pipeline.** `gh workflow run release.yml -f release_tag=vX.Y.Z`
+  triggers the orchestrated release. The workflow:
+  1. Validates the tag, creates it on `main` if missing.
+  2. Builds desktop installers (macOS / Windows / Linux) — each
+     gated on a per-platform `if:` input
+     (`release_macos` / `release_windows` / `release_linux`,
+     all default `true`) so the maintainer can fire web-only
+     releases without burning the GH Actions minutes budget.
+  3. Publishes the GitHub Release (draft) with all built assets.
+  4. Calls `deploy-web.yml` via `workflow_call` (gated on
+     `release_web`, default `true`), which `wrangler pages deploy`s
+     the bundle to `lingua-web` (CF Pages → `app.linguacode.dev`)
+     and ends with a CF API zone purge so any user with a
+     long-lived tab on the previous bundle picks up the new
+     `index.html` on next navigation.
+- **Auto-trigger on `push: tags:`** is intentionally NOT wired
+  in this slice (filed in BACKLOG). An accidental tag push
+  must not ship a bad desktop build to users.
+- **Web update banner.** `GET https://updates.linguacode.dev/web/version`
+  returns the latest published GitHub release tag (with the
+  leading `v` stripped). 5-minute edge cache. 204 when no
+  release exists yet. The web build polls every **12 hours** via
+  `useWebVersionPolling` plus on `visibilitychange` after >1 hour
+  idle, comparing against the build-time pin
+  (`__LINGUA_APP_VERSION__` injected by Vite from
+  `package.json#version`). Surfaces a top-of-app banner with
+  Reload + Dismiss buttons when the remote tag is strictly
+  newer. Desktop builds skip the banner entirely — `window.lingua`
+  defined short-circuits the hook, and the native autoupdater
+  (`src/main/updater.ts`) already covers desktop updates via
+  the same `update-server` worker (`/update/:platform/:version`).
+
+### Hosting split
+
+- **`linguacode.dev`** — reserved for the future
+  `lingua-marketing` repo (Astro + Tailwind + MDX + CF Pages,
+  filed in BACKLOG 2026-04-30 HIGH PRIORITY). Sections planned:
+  Home, Features, Pricing, Docs, "Go to app".
+- **`app.linguacode.dev`** — the web build of Lingua
+  (CF Pages, project `lingua-web`). Standard SaaS marketing/
+  product split.
+- **`licenses.linguacode.dev`** — license-server worker.
+- **`updates.linguacode.dev`** — update-server worker (desktop
+  autoupdate + `/web/version` for the web banner).
 
 ### Consequences
 
-- The current SW update path stays silent (the SW in
-  `public/sw.js` activates new bundles transparently); the new
-  banner is the first user-visible "your app is out of date"
-  surface on web.
-- These two pieces are tracked as `BACKLOG` items today (no
-  acceptance criteria yet) and graduate to `RL-NNN` tickets once
-  scoped:
-  - `[infra] Unified release pipeline GH Actions for desktop +
-    web + cache purge`
-  - `[ui] Web shell update banner driven by /web/version
-    endpoint`
+- The legacy GH Pages deploy at `johnny4young.github.io/lingua/`
+  is replaced by `app.linguacode.dev`. The SW `CACHE_VERSION`
+  was bumped `v2 → v3` so any users of the GH Pages URL drop
+  their stale `/lingua/`-scoped caches on first load of the
+  new origin.
+- The 30-min poll cadence Decision 6 originally proposed was
+  scaled down to 12 hours during Slice 5 implementation —
+  indie scale fit (12h × N tabs ≈ 2 polls/day per tab vs the
+  original 48). The 5-min edge cache absorbs spikes either
+  way.
+- The CF Pages migration unblocks future cache-purge
+  improvements (real CF API purge available, was a no-op on
+  GH Pages).
+- The two BACKLOG items that originally tracked this decision
+  (`[infra] Unified release pipeline GH Actions for desktop +
+  web + cache purge` and `[ui] Web shell update banner driven
+  by /web/version endpoint`) graduated out as part of Slice 5.
 
 ## Slice sequencing
 
@@ -473,8 +517,21 @@ Updated 2026-04-29 to reflect Slice 4 shipped:
    slice. See Decision 5 (Education magic-link), Decision 7
    (Recovery no-info-leak), Decision 8 (transparent token
    re-mint).
-8. **Slice 5 — Release pipeline + web update banner.** PENDING.
-   GH Actions workflow + `/web/version` endpoint + renderer banner.
+8. **Slice 5 — Release pipeline + web update banner.** SHIPPED
+   2026-04-30. `update-server` `GET /web/version` endpoint
+   returns the latest GH release tag with a 5-min edge cache
+   (204 on no-release). Renderer side: `__LINGUA_APP_VERSION__`
+   build-time pin from `package.json`, `useWebVersionPolling`
+   hook (12h interval + visibilitychange retrigger),
+   `WebUpdateBanner` (Reload + Dismiss) gated by `!window.lingua`.
+   CF Pages migration: web build moved to `app.linguacode.dev`,
+   `linguacode.dev` reserved for the future `lingua-marketing`
+   repo. `release.yml` accepts per-platform skip inputs
+   (`release_macos`/`release_windows`/`release_linux`/`release_web`)
+   to control GH Actions minutes; final job calls
+   `deploy-web.yml` via `workflow_call` for one-tag-drives-both
+   orchestration. SW `CACHE_VERSION` v2→v3 to invalidate stale
+   GH Pages caches.
 
 ## Maintainer-side prerequisites (out of agent scope)
 

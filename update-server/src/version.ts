@@ -8,8 +8,9 @@ export function parseVersion(tag: string): [number, number, number] | null {
   const parts = clean.split('.');
   if (parts.length !== 3) return null;
 
+  if (parts.some((part) => !/^(0|[1-9]\d*)$/u.test(part))) return null;
   const nums = parts.map(Number);
-  if (nums.some(isNaN)) return null;
+  if (nums.some((n) => !Number.isSafeInteger(n))) return null;
 
   return nums as [number, number, number];
 }

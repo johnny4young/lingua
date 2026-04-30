@@ -72,8 +72,7 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
 | [`RL-059`](./PLAN.md#rl-059-license-key-infrastructure) | License-key infrastructure | `Partial` | Ed25519 verifier + Settings section + main-side IPC bridge with device id (Slice 0 shipped 2026-04-25). Remaining: Polar webhook + email delivery (now lives under `RL-061`). |
-| [`RL-061`](./PLAN.md#rl-061-polarsh-integration) | Polar.sh integration | `Partial` | Slice 4 shipped 2026-04-29 (Trial single-shot + Education magic-link with `.edu` regex + per-IP & per-email rate limit + Recovery magic-link with no-info-leak design + stale-token auto-pickup via `/licenses/status` lookup-by-licenseId; renderer ships `TrialCta` / `EducationCta` / `RecoveryCta` under `status === 'free'`, plus an inline recover-hint banner when a paste resolves to an expired-but-signature-valid token; worker side adds D1 migration `0004` with `educations` + `education_pending_confirmations` + `recovery_pending_confirmations` tables, six template-driven Resend emails, `KV` rate-limit binding). Remaining: release pipeline + web update banner (Slice 5). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
-| [`RL-063`](./PLAN.md#rl-063-download-landing-page-at-linguacodedev) | Download landing page at linguacode.dev | `Planned` | Static marketing page with OS-aware download + pricing. Depends on `RL-061` and `RL-018`. |
+| [`RL-063`](./PLAN.md#rl-063-download-landing-page-at-linguacodedev) | Download landing page at linguacode.dev | `Planned` | Static marketing page with OS-aware download + pricing. Re-scoped around the new `lingua-marketing` repo (BACKLOG entry, 2026-04-30) so the dedicated Astro+CF Pages site at `linguacode.dev` covers Home, Features, Pricing, Docs, and the "Go to app" link to `app.linguacode.dev`. |
 
 ### 4b. Editor, runtime and workflow (P1)
 
@@ -151,7 +150,7 @@ discoverability only.
 Value-per-day priority, skipping parked tickets. This is the order an
 agent should follow when §3's tiebreakers don't resolve.
 
-1. **Launch blockers.** `RL-061` (license-server scaffold → Polar webhook/email → device/trial/update slices) → `RL-063` (linguacode.dev download page). `RL-059` stays `Partial` only as the historical parent for the verifier + bridge work now shipped.
+1. **Launch blockers.** `RL-061` shipped fully on 2026-04-30 (now in §6 archive). `RL-063` (linguacode.dev download page) is next — re-scoped around a dedicated `lingua-marketing` repo (Astro + CF Pages, BACKLOG entry) since `linguacode.dev` is now reserved for marketing while the web build lives at `app.linguacode.dev`. `RL-059` stays `Partial` only as the historical parent for the verifier + bridge work now shipped.
 2. **Utilities polish.** `RL-068` / `RL-072` remaining slices — short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
 3. **Debugger + language intelligence.** `RL-027` Slice 1 (JS/TS debugger minimal) and `RL-026` adapter layer. These unblock `RL-042` and `RL-047`.
 4. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
@@ -169,14 +168,14 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>37 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>38 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
 `RL-022`, `RL-030`, `RL-034`, `RL-040`, `RL-045`, `RL-051`, `RL-052`,
 `RL-053`, `RL-054`, `RL-055`, `RL-056`, `RL-057`, `RL-058`, `RL-060`,
-`RL-062`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`, `RL-074`,
-`RL-075`, `RL-076`.
+`RL-061`, `RL-062`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`,
+`RL-074`, `RL-075`, `RL-076`.
 
 </details>
 

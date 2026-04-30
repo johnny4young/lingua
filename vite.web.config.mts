@@ -12,7 +12,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getSharedBuildDefines } from './build/appBuildMetadata.mts';
+import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
+
+// Seed `VITE_LINGUA_APP_VERSION` from `package.json#version` BEFORE
+// Vite reads `process.env` for env-substitution. Lets the telemetry
+// consumer (`src/renderer/utils/telemetry.ts`) and the web update
+// banner pick up the real app version without requiring an external
+// `.env.production` to set it. RL-061 Slice 5.
+applySharedEnvDefaults();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const base = process.env.VITE_BASE_PATH ?? '/';
