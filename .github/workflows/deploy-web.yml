@@ -74,6 +74,14 @@ jobs:
         # but only the static HTML benefits — the worker endpoints
         # already set Cache-Control: no-store so their responses are
         # never cached at the edge.
+        #
+        # `continue-on-error: true` is intentional: cache purge is
+        # best-effort. If the API token lacks Zone:Cache Purge:Purge
+        # scope (returns 401), the deploy itself already succeeded
+        # and CF Pages serves the new bundle from the next 5-min
+        # cache cycle on. Failing the workflow over a missed purge
+        # would mask the deploy success.
+        continue-on-error: true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
