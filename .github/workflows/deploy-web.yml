@@ -46,6 +46,15 @@ jobs:
           # (app.linguacode.dev/), not under a /lingua/ path prefix
           # as the legacy GH Pages deploy did.
           VITE_BASE_PATH: /
+          # Lift the Node.js heap from the 4 GB default to 8 GB so
+          # Vite/Rollup can finish bundling Monaco + i18n + plugins
+          # without an out-of-memory GC death-spiral. The
+          # ubuntu-latest runner ships with 16 GB RAM, so 8 GB leaves
+          # comfortable headroom for the OS + dev-deps. Local macs
+          # never hit this because their default heap budget is
+          # bigger; the failure shows up only on CI runners with the
+          # smaller default.
+          NODE_OPTIONS: --max-old-space-size=8192
         run: npm run build:web
 
       - name: Deploy to Cloudflare Pages
