@@ -2,7 +2,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getSharedBuildDefines } from './build/appBuildMetadata.mts';
+import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
+
+// Seed VITE_LINGUA_APP_VERSION from package.json before Vite reads
+// process.env so the telemetry consumer and web update banner pick
+// up the real version. RL-061 Slice 5.
+applySharedEnvDefaults();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

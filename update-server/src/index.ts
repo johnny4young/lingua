@@ -6,6 +6,11 @@ export interface Env {
 }
 
 const CACHE_TTL = 300; // 5 minutes
+const WEB_VERSION_CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+} as const;
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -27,6 +32,25 @@ export default {
     const downloadMatch = path.match(/^\/download\/(\d+)$/);
     if (downloadMatch) {
       return handleDownload(env, parseInt(downloadMatch[1], 10));
+    }
+
+    // GET /web/version — RL-061 Slice 5
+    // Returns the latest published GitHub release tag so the web build's
+    // update banner can compare against its build-time pin. Cached for
+    // 5 minutes at the edge to absorb spikes from many concurrent tabs
+    // polling on the same cadence. Returns 204 (no body) when no
+    // release exists yet so the renderer's null-fallback stays clean.
+    if (path === '/web/version' && request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: WEB_VERSION_CORS_HEADERS });
+    }
+    if (path === '/web/version') {
+      if (request.method !== 'GET') {
+        return new Response('Method Not Allowed', {
+          status: 405,
+          headers: { ...WEB_VERSION_CORS_HEADERS, Allow: 'GET, OPTIONS' },
+        });
+      }
+      return handleWebVersion(request, env);
     }
 
     return new Response('Not Found', { status: 404 });
@@ -174,6 +198,56 @@ async function buildWin32Response(
     status: 200,
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },
   });
+}
+
+// ---------------------------------------------------------------------------
+// /web/version handler
+// ---------------------------------------------------------------------------
+
+/**
+ * RL-061 Slice 5 — version probe for the web build's update banner.
+ *
+ * Strips the leading `v` from the tag (e.g. `v0.2.1` → `0.2.1`) so the
+ * renderer can compare directly against `package.json#version` which
+ * never carries the prefix. Cache TTL matches the rest of the worker
+ * (5 minutes) so a release spike doesn't hammer the GitHub API.
+ *
+ * 204 (no body) on the "no releases yet" branch — the renderer maps
+ * that to `null` and skips the banner render entirely.
+ */
+async function handleWebVersion(request: Request, env: Env): Promise<Response> {
+  const cache = caches.default;
+  const cacheKey = new Request(request.url, { method: 'GET' });
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
+  const release = await getLatestRelease(env.GITHUB_TOKEN);
+  if (!release) {
+    const empty = new Response(null, {
+      status: 204,
+      headers: {
+        ...WEB_VERSION_CORS_HEADERS,
+        'Cache-Control': `public, max-age=${CACHE_TTL}`,
+      },
+    });
+    await cache.put(cacheKey, empty.clone());
+    return empty;
+  }
+
+  const version = release.tag_name.startsWith('v')
+    ? release.tag_name.slice(1)
+    : release.tag_name;
+
+  const response = new Response(JSON.stringify({ version }), {
+    status: 200,
+    headers: {
+      ...WEB_VERSION_CORS_HEADERS,
+      'Content-Type': 'application/json',
+      'Cache-Control': `public, max-age=${CACHE_TTL}`,
+    },
+  });
+  await cache.put(cacheKey, response.clone());
+  return response;
 }
 
 // ---------------------------------------------------------------------------

@@ -98,6 +98,10 @@ vi.mock('../../src/renderer/components/Snippets', () => ({
   SnippetsModal: () => <div>snippets</div>,
 }));
 
+vi.mock('../../src/renderer/components/WebUpdateBanner', () => ({
+  WebUpdateBanner: () => <div data-testid="web-update-banner">web-update-banner</div>,
+}));
+
 vi.mock('../../src/renderer/components/GuidedTour/GuidedTourProvider', () => ({
   GuidedTourProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
@@ -221,6 +225,7 @@ describe('App', () => {
 
     Object.defineProperty(window, 'lingua', {
       value: {
+        platform: 'darwin',
         onBeforeClose: (callback: () => void) => {
           beforeCloseHandler = callback;
           return () => {
@@ -371,5 +376,26 @@ describe('App', () => {
         overlayId: 'whats-new',
       });
     });
+  });
+
+  // RL-061 Slice 5 — desktop builds must NOT mount the
+  // WebUpdateBanner. The native autoupdater handles updates.
+  it('does NOT mount the WebUpdateBanner on desktop builds', async () => {
+    render(<App />);
+    expect(document.querySelector('[data-testid="web-update-banner"]')).toBeNull();
+  });
+
+  it('mounts the WebUpdateBanner on browser builds where the web adapter defines window.lingua', async () => {
+    Object.defineProperty(window, 'lingua', {
+      value: {
+        ...(window.lingua as unknown as Record<string, unknown>),
+        platform: 'web',
+      },
+      configurable: true,
+      writable: true,
+    });
+
+    render(<App />);
+    expect(document.querySelector('[data-testid="web-update-banner"]')).not.toBeNull();
   });
 });

@@ -1,26 +1,37 @@
-name: Deploy web version to GitHub Pages
+name: Deploy web build to Cloudflare Pages
 
+# RL-061 Slice 5 — migrated from GitHub Pages to Cloudflare Pages so
+# the web build can live at the dedicated app.linguacode.dev
+# subdomain alongside the worker family (licenses.*, updates.*, app.*).
+# linguacode.dev itself stays reserved for the future
+# lingua-marketing repo (filed in BACKLOG).
+#
+# workflow_call lets release.yml invoke this from the orchestrated
+# release pipeline. workflow_dispatch stays for manual ad-hoc deploys.
 on:
   workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
+    inputs:
+      ref:
+        description: Git ref to deploy
+        required: false
+        type: string
+        default: refs/heads/main
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to deploy
+        required: false
+        type: string
+        default: refs/heads/main
 
 jobs:
   deploy:
     name: Build and deploy
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -29,16 +40,45 @@ jobs:
 
       - run: npm ci
 
-      - name: Build web version
+      - name: Build web bundle
         env:
-          VITE_BASE_PATH: /lingua/
+          # CF Pages serves the bundle at the subdomain root
+          # (app.linguacode.dev/), not under a /lingua/ path prefix
+          # as the legacy GH Pages deploy did.
+          VITE_BASE_PATH: /
         run: npm run build:web
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist/web
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler pages deploy dist/web \
+            --project-name lingua-web \
+            --branch main
 
-      - name: Deploy to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v4
+      - name: Purge Cloudflare cache for app.linguacode.dev
+        # Purges the entire linguacode.dev zone so any user with a
+        # long-lived tab on the previous bundle picks up the new
+        # index.html (and therefore the new asset hashes) on next
+        # navigation. The zone covers app/licenses/updates subdomains
+        # but only the static HTML benefits — the worker endpoints
+        # already set Cache-Control: no-store so their responses are
+        # never cached at the edge.
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        run: |
+          if [[ -z "${CLOUDFLARE_ZONE_ID:-}" ]]; then
+            echo "::warning::CLOUDFLARE_ZONE_ID secret not configured — skipping cache purge."
+            exit 0
+          fi
+          curl --fail --silent --show-error \
+            --request POST \
+            "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+            --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data '{"purge_everything": true}' \
+            > /tmp/purge.json
+          echo "Cache purge response:"
+          cat /tmp/purge.json

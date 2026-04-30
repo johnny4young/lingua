@@ -2,13 +2,18 @@
   "name": "lingua-update-server",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "wrangler": "^4.14.0",
     "@cloudflare/workers-types": "^4.20250410.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   }
 }

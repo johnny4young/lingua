@@ -18,6 +18,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const WORKFLOW_PATH = resolve(__dirname, '../../.github/workflows/release.yml');
+const DEPLOY_WEB_WORKFLOW_PATH = resolve(__dirname, '../../.github/workflows/deploy-web.yml');
 
 describe('release workflow', () => {
   it('exists at the expected path', () => {
@@ -26,6 +27,9 @@ describe('release workflow', () => {
 
   const workflow = existsSync(WORKFLOW_PATH)
     ? readFileSync(WORKFLOW_PATH, 'utf-8')
+    : '';
+  const deployWebWorkflow = existsSync(DEPLOY_WEB_WORKFLOW_PATH)
+    ? readFileSync(DEPLOY_WEB_WORKFLOW_PATH, 'utf-8')
     : '';
 
   it('downloads pre-built artifacts before publishing', () => {
@@ -61,5 +65,23 @@ describe('release workflow', () => {
     expect(workflow).toContain('Verify macOS artifacts');
     expect(workflow).toContain('Verify Windows artifacts');
     expect(workflow).toContain('Verify Linux artifacts');
+  });
+
+  it('publishes only when every selected platform build succeeded', () => {
+    expect(workflow).toContain("!inputs.release_macos || needs['build-macos'].result == 'success'");
+    expect(workflow).toContain("!inputs.release_windows || needs['build-windows'].result == 'success'");
+    expect(workflow).toContain("!inputs.release_linux || needs['build-linux'].result == 'success'");
+  });
+
+  it('allows web-only releases without publishing partial desktop failures', () => {
+    expect(workflow).toContain('!inputs.release_macos && !inputs.release_windows && !inputs.release_linux');
+    expect(workflow).toContain("needs.publish.result == 'success'");
+  });
+
+  it('deploys the web bundle from the validated release tag ref', () => {
+    expect(existsSync(DEPLOY_WEB_WORKFLOW_PATH)).toBe(true);
+    expect(workflow).toMatch(/uses:\s*\.\/\.github\/workflows\/deploy-web\.yml[\s\S]*?with:[\s\S]*?ref:\s*\$\{\{\s*env\.RELEASE_REF\s*\}\}/u);
+    expect(deployWebWorkflow).toMatch(/workflow_call:[\s\S]*?inputs:[\s\S]*?ref:[\s\S]*?default:\s*refs\/heads\/main/u);
+    expect(deployWebWorkflow).toMatch(/uses:\s*actions\/checkout@v4[\s\S]*?ref:\s*\$\{\{\s*inputs\.ref\s*\}\}/u);
   });
 });

@@ -2,13 +2,13 @@
  * Pin tests for `public/sw.js`. We don't spin up a full ServiceWorker
  * context (it requires `self.registration`, `caches`, etc.) — instead
  * we read the source as text and assert the structural invariants
- * the renderer relies on for license-server safety.
+ * the renderer relies on for cross-origin API safety.
  *
- * The full end-to-end behaviour (license-origin requests are NOT in
+ * The full end-to-end behaviour (API-origin requests are NOT in
  * `caches.keys()`) is covered by the browser smoke described in
  * AGENTS.md. These tests just keep a refactor from silently removing
  * the bypass and reintroducing the cache-poisoning bug from
- * RL-061 Slice 2.5.
+ * RL-061.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -24,11 +24,17 @@ async function readSwSource(): Promise<string> {
   return cachedSource;
 }
 
-describe('public/sw.js — license origin cache bypass', () => {
-  it('lists licenses.linguacode.dev in the LICENSE_ORIGINS allow-list so /licenses/* never enters the cache', async () => {
+describe('public/sw.js — API origin cache bypass', () => {
+  it('lists licenses.linguacode.dev in the passthrough allow-list so /licenses/* never enters the cache', async () => {
     const source = await readSwSource();
-    expect(source).toMatch(/const\s+LICENSE_ORIGINS\s*=/);
+    expect(source).toMatch(/const\s+PASSTHROUGH_ORIGINS\s*=/);
     expect(source).toContain("'https://licenses.linguacode.dev'");
+  });
+
+  it('lists updates.linguacode.dev in the passthrough allow-list so /web/version is never cached by the app shell', async () => {
+    const source = await readSwSource();
+    expect(source).toMatch(/const\s+PASSTHROUGH_ORIGINS\s*=/);
+    expect(source).toContain("'https://updates.linguacode.dev'");
   });
 
   it('bumps CACHE_VERSION past v1 so existing clients drop any pre-fix license-status entries on first activate', async () => {
@@ -44,15 +50,15 @@ describe('public/sw.js — license origin cache bypass', () => {
   it('short-circuits the fetch handler for license origins WITHOUT calling event.respondWith — letting the browser default fetch run untouched', async () => {
     const source = await readSwSource();
     // The fragile-but-pinned contract: there must be a branch that
-    // checks `LICENSE_ORIGINS.includes(url.origin)` BEFORE any
+    // checks `PASSTHROUGH_ORIGINS.includes(url.origin)` BEFORE any
     // respondWith / cache lookup the rest of the handler does. The
     // bypass uses an early `return;` (no respondWith) so cache.put
     // can't run on the response.
-    expect(source).toMatch(/LICENSE_ORIGINS\.includes\(url\.origin\)/);
+    expect(source).toMatch(/PASSTHROUGH_ORIGINS\.includes\(url\.origin\)/);
     // Sanity: the early return exists and is structured as expected.
     // Match across the bare `return;` line that follows the includes()
     // check so the test fails if a refactor flips it to respondWith.
-    const bypassRegex = /if\s*\(\s*LICENSE_ORIGINS\.includes\(url\.origin\)\s*\)\s*\{[\s\S]*?return;[\s\S]*?\}/;
+    const bypassRegex = /if\s*\(\s*PASSTHROUGH_ORIGINS\.includes\(url\.origin\)\s*\)\s*\{[\s\S]*?return;[\s\S]*?\}/;
     expect(source).toMatch(bypassRegex);
   });
 });

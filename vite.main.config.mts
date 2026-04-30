@@ -1,7 +1,11 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
-import { getSharedBuildDefines } from './build/appBuildMetadata.mts';
+import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
+
+// Seed VITE_LINGUA_APP_VERSION from package.json before Vite reads
+// process.env. RL-061 Slice 5.
+applySharedEnvDefaults();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -47,7 +51,15 @@ export default defineConfig(({ mode }) => {
       __LINGUA_UPDATE_URL__: JSON.stringify(
         process.env.LINGUA_UPDATE_URL ||
           env.LINGUA_UPDATE_URL ||
-          'https://lingua-update-server.johnny4young.workers.dev',
+          // RL-061 Slice 5 — point at the custom domain wired in
+          // `update-server/wrangler.toml`. The previous workers.dev
+          // URL leaked the account subdomain `lingua-license-server`
+          // and (post Slice 5) is disabled because `workers_dev` is
+          // not declared in wrangler.toml. The renderer service
+          // (`src/renderer/services/webUpdateServer.ts`) defaults to
+          // the same custom domain, keeping desktop autoupdater
+          // and web update banner pointed at one canonical origin.
+          'https://updates.linguacode.dev',
       ),
       // RL-059 main-side bridge — embed the same Ed25519 public key the
       // renderer uses, so packaged builds can verify license tokens in
