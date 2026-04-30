@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Your Lingua license token</title>
+    <style>{{layoutCss}}</style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="brand">Lingua</div>
+      <div class="card">
+        <h1>Your license token</h1>
+        <p>Hi {{issuedTo}},</p>
+        <p>Here is the current license token for your account. Paste it into Settings → License in the app, or click the button if you opened this email on the same machine.</p>
+        <p><a class="button" href="{{deepLink}}">Activate Pro</a></p>
+        <p>Or paste this token manually:</p>
+        <div class="token-box">{{token}}</div>
+        <p>Plan: <strong>{{tier}}</strong>. Valid until: <strong>{{expiresOn}}</strong>.</p>
+        <p class="muted">You are receiving this email because someone confirmed a recovery request from {{issuedTo}}. If this was not you, contact support to investigate.</p>
+      </div>
+    </div>
+  </body>
+</html>

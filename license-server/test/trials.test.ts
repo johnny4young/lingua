@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import app from '../src/index';
+import { createMockEnv } from './helpers';
 
 const VALID_BODY = {
   email: 'buyer@example.com',
@@ -9,21 +10,25 @@ const VALID_BODY = {
 };
 
 async function postJson(path: string, body: unknown): Promise<Response> {
-  return app.request(`http://localhost${path}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  return app.request(
+    `http://localhost${path}`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    createMockEnv()
+  );
 }
 
 describe('POST /trials/start', () => {
-  it('returns 501 not-implemented for a well-shaped body so Slice 2 can drop in real minting later', async () => {
+  it('returns 501 not-implemented when LINGUA_LICENSE_PRIVATE_KEY_JWK is not configured (Slice 4 dev-disabled fallback)', async () => {
     const response = await postJson('/trials/start', VALID_BODY);
     expect(response.status).toBe(501);
     const body = (await response.json()) as { ok: boolean; reason: string; message?: string };
     expect(body.ok).toBe(false);
     expect(body.reason).toBe('not-implemented');
-    expect(body.message).toMatch(/Slice 2/);
+    expect(body.message).toMatch(/LINGUA_LICENSE_PRIVATE_KEY_JWK/);
   });
 
   it('rejects a non-JSON body before the validator runs', async () => {
@@ -152,5 +157,133 @@ describe('POST /trials/start', () => {
     expect(response.headers.get('Allow')).toBe('POST');
     const body = (await response.json()) as { ok: boolean; reason: string };
     expect(body).toMatchObject({ ok: false, reason: 'method-not-allowed' });
+  });
+});
+
+// --------------------------------------------- Slice 4 — real flow tests
+
+describe('POST /trials/start — real flow (Slice 4)', () => {
+  async function generateKeypair(): Promise<{ privateKeyJwk: JsonWebKey; publicKeyJwk: JsonWebKey }> {
+    const keys = (await crypto.subtle.generateKey(
+      { name: 'Ed25519' },
+      true,
+      ['sign', 'verify']
+    )) as CryptoKeyPair;
+    return {
+      privateKeyJwk: (await crypto.subtle.exportKey('jwk', keys.privateKey)) as JsonWebKey,
+      publicKeyJwk: (await crypto.subtle.exportKey('jwk', keys.publicKey)) as JsonWebKey,
+    };
+  }
+
+  async function postJsonWithEnv(
+    path: string,
+    body: unknown,
+    env: ReturnType<typeof createMockEnv>
+  ): Promise<Response> {
+    return app.request(
+      `http://localhost${path}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      env
+    );
+  }
+
+  it('mints a tier=trial token, persists license + trial rows, returns the token in body for auto-paste', async () => {
+    const { privateKeyJwk, publicKeyJwk } = await generateKeypair();
+    const env = createMockEnv({ privateKeyJwk, publicKeyJwk });
+
+    const response = await postJsonWithEnv('/trials/start', VALID_BODY, env);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      ok: boolean;
+      licenseId: string;
+      token: string;
+      tier: string;
+      expiresAt: number;
+      emailDelivered: boolean;
+    };
+    expect(body.ok).toBe(true);
+    expect(body.tier).toBe('trial');
+    expect(typeof body.token).toBe('string');
+    expect(body.token).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    // 14-day expiry
+    const fourteenDays = 14 * 24 * 60 * 60;
+    expect(body.expiresAt - Math.floor(Date.now() / 1000)).toBeGreaterThan(fourteenDays - 60);
+    expect(body.expiresAt - Math.floor(Date.now() / 1000)).toBeLessThan(fourteenDays + 60);
+    // No RESEND_API_KEY in this env → emailDelivered should be false
+    expect(body.emailDelivered).toBe(false);
+    // Both rows persisted
+    expect(env.__db.licenses.size).toBe(1);
+    expect(env.__db.trials.size).toBe(1);
+  });
+
+  it('returns trial-exists-email + canRecover: true when the email already has a trial', async () => {
+    const { privateKeyJwk, publicKeyJwk } = await generateKeypair();
+    const env = createMockEnv({ privateKeyJwk, publicKeyJwk });
+
+    // First trial succeeds
+    const first = await postJsonWithEnv('/trials/start', VALID_BODY, env);
+    expect(first.status).toBe(200);
+
+    // Second trial with SAME email but DIFFERENT device → rejected by email
+    const second = await postJsonWithEnv(
+      '/trials/start',
+      { ...VALID_BODY, deviceId: 'a-different-device' },
+      env
+    );
+    expect(second.status).toBe(200);
+    const body = (await second.json()) as { ok: boolean; reason: string; canRecover: boolean };
+    expect(body).toEqual({ ok: false, reason: 'trial-exists-email', canRecover: true });
+  });
+
+  it('returns trial-exists-device when the device id already has a trial', async () => {
+    const { privateKeyJwk, publicKeyJwk } = await generateKeypair();
+    const env = createMockEnv({ privateKeyJwk, publicKeyJwk });
+
+    const first = await postJsonWithEnv('/trials/start', VALID_BODY, env);
+    expect(first.status).toBe(200);
+
+    // Same device, different email
+    const second = await postJsonWithEnv(
+      '/trials/start',
+      { ...VALID_BODY, email: 'someone-else@example.com' },
+      env
+    );
+    expect(second.status).toBe(200);
+    const body = (await second.json()) as { ok: boolean; reason: string };
+    expect(body).toEqual({ ok: false, reason: 'trial-exists-device' });
+  });
+
+  it('rate-limits the 4th hit per IP per day with retryAfter', async () => {
+    const { privateKeyJwk, publicKeyJwk } = await generateKeypair();
+    const env = createMockEnv({ privateKeyJwk, publicKeyJwk });
+
+    const fixedHeaders = { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.4' };
+    async function hit(emailSuffix: string, deviceId: string): Promise<Response> {
+      return app.request(
+        'http://localhost/trials/start',
+        {
+          method: 'POST',
+          headers: fixedHeaders,
+          body: JSON.stringify({ ...VALID_BODY, email: `user-${emailSuffix}@example.com`, deviceId }),
+        },
+        env
+      );
+    }
+
+    // Three hits succeed (different email + device each so anti-abuse passes)
+    expect((await hit('a', 'd1')).status).toBe(200);
+    expect((await hit('b', 'd2')).status).toBe(200);
+    expect((await hit('c', 'd3')).status).toBe(200);
+    // Fourth hit from the SAME IP is rate-limited
+    const fourth = await hit('d', 'd4');
+    expect(fourth.status).toBe(429);
+    const body = (await fourth.json()) as { ok: boolean; reason: string; retryAfter: number };
+    expect(body.ok).toBe(false);
+    expect(body.reason).toBe('rate-limited');
+    expect(body.retryAfter).toBeGreaterThan(0);
   });
 });

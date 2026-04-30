@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -12,8 +14,30 @@ import { defineConfig } from 'vitest/config';
  * `@cloudflare/vitest-pool-workers`, which spins miniflare under each
  * test. Slice 1 deliberately stays on plain vitest to keep the bundle
  * + setup minimal.
+ *
+ * Slice 4 — `loadHtmlAndCssAsText` mirrors wrangler.toml's `[[rules]]`
+ * Text loader for the email templates. Both sides import the files
+ * with NO `?raw` suffix (esbuild does not parse Vite query suffixes)
+ * and get the file contents as a string. Without this plugin Vite
+ * would treat `.html` / `.css` as asset modules and the snapshot
+ * tests in `test/emails/templates.test.ts` would render `[object
+ * Object]` instead of the template string.
  */
+function loadHtmlAndCssAsText(): Plugin {
+  return {
+    name: 'lingua-load-html-and-css-as-text',
+    enforce: 'pre',
+    load(id) {
+      const cleanId = id.split('?')[0]!;
+      if (!cleanId.endsWith('.html') && !cleanId.endsWith('.css')) return null;
+      const source = readFileSync(cleanId, 'utf8');
+      return `export default ${JSON.stringify(source)};`;
+    },
+  };
+}
+
 export default defineConfig({
+  plugins: [loadHtmlAndCssAsText()],
   test: {
     globals: true,
     include: ['test/**/*.test.ts'],

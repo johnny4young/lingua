@@ -25,7 +25,9 @@ import { Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { errorResponse } from './lib/errors';
 import { healthRouter } from './handlers/health';
+import { educationRouter } from './handlers/education';
 import { licensesRouter } from './handlers/licenses';
+import { recoverRouter } from './handlers/recover';
 import { trialsRouter } from './handlers/trials';
 import { webhooksRouter } from './handlers/webhooks';
 import { jsonNoStore } from './lib/json';
@@ -123,6 +125,17 @@ app.use('/trials/*', (c, next) =>
   })(c, next)
 );
 
+// Slice 4 — `/education/*` and `/licenses/recover/*` accept browser
+// CORS the same way `/licenses/*` does. The /confirm endpoints
+// return HTML (no CORS needed for direct email-link clicks) but
+// the /start endpoints are POSTed from the renderer.
+app.use('/education/*', (c, next) =>
+  buildCorsMiddleware(c.env, {
+    allowMethods: ['POST', 'OPTIONS'],
+    allowHeaders: ['Content-Type'],
+  })(c, next)
+);
+
 /**
  * Tagged-union response for any unhandled throw. Exposed so tests can
  * exercise the contract without mounting a probe route on the live app
@@ -141,10 +154,14 @@ export function buildInternalErrorResponse(c: Context): Response {
 healthRouter.notFound((c) => errorResponse(c, 'not-found', { message: `unknown route: ${c.req.path}` }));
 trialsRouter.notFound((c) => errorResponse(c, 'not-found', { message: `unknown route: ${c.req.path}` }));
 licensesRouter.notFound((c) => errorResponse(c, 'not-found', { message: `unknown route: ${c.req.path}` }));
+educationRouter.notFound((c) => errorResponse(c, 'not-found', { message: `unknown route: ${c.req.path}` }));
+recoverRouter.notFound((c) => errorResponse(c, 'not-found', { message: `unknown route: ${c.req.path}` }));
 webhooksRouter.notFound((c) => errorResponse(c, 'not-found', { message: `unknown route: ${c.req.path}` }));
 
 app.route('/health', healthRouter);
 app.route('/trials', trialsRouter);
+app.route('/education', educationRouter);
+app.route('/licenses/recover', recoverRouter);
 app.route('/licenses', licensesRouter);
 app.route('/webhooks', webhooksRouter);
 

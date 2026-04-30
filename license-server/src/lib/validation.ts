@@ -260,3 +260,142 @@ export function validateDeviceRemoveBody(input: unknown): ValidationResult<Devic
   if (issues.length > 0) return { ok: false, issues };
   return { ok: true, value: { token, deviceIdToRemove } };
 }
+
+// ----------------------------------------------- RL-061 Slice 4 — Education
+
+export interface EducationStartBody {
+  email: string;
+  deviceId: string;
+  deviceName: string;
+  os: string;
+}
+
+/**
+ * `/education/start` body — same shape as `/trials/start`. The
+ * `.edu` domain check happens in the handler via
+ * `lib/educationEmail.ts:isEducationalEmail` so the validator
+ * stays focused on shape (length caps + non-empty + UTF-8 bytes).
+ */
+export function validateEducationStartBody(input: unknown): ValidationResult<EducationStartBody> {
+  const issues: string[] = [];
+  if (!input || typeof input !== 'object') {
+    return { ok: false, issues: ['body must be a JSON object'] };
+  }
+  const record = input as Record<string, unknown>;
+
+  const email = asString(record.email)?.trim().toLowerCase() ?? '';
+  if (email.length === 0) pushIssue(issues, 'email is required');
+  else if (exceedsUtf8ByteCap(email, MAX_EMAIL_LENGTH)) {
+    pushIssue(issues, `email exceeds ${MAX_EMAIL_LENGTH} byte cap`);
+  } else if (!EMAIL_PATTERN.test(email)) pushIssue(issues, 'email is malformed');
+
+  const deviceId = asString(record.deviceId)?.trim() ?? '';
+  if (deviceId.length === 0) pushIssue(issues, 'deviceId is required');
+  else if (exceedsUtf8ByteCap(deviceId, MAX_DEVICE_ID_LENGTH)) {
+    pushIssue(issues, `deviceId exceeds ${MAX_DEVICE_ID_LENGTH} byte cap`);
+  }
+
+  const deviceName = asString(record.deviceName)?.trim() ?? '';
+  if (deviceName.length === 0) pushIssue(issues, 'deviceName is required');
+  else if (exceedsUtf8ByteCap(deviceName, MAX_DEVICE_NAME_LENGTH)) {
+    pushIssue(issues, `deviceName exceeds ${MAX_DEVICE_NAME_LENGTH} byte cap`);
+  }
+
+  const os = asString(record.os)?.trim().toLowerCase() ?? '';
+  validateOsField(os, issues);
+
+  if (issues.length > 0) return { ok: false, issues };
+  return { ok: true, value: { email, deviceId, deviceName, os } };
+}
+
+export interface EducationRenewBody {
+  token: string;
+  email: string;
+}
+
+/**
+ * `/education/renew` body. Token + email re-validation. The handler
+ * verifies the token signature, looks up the existing education
+ * row by email, then re-runs the `.edu` check on the supplied
+ * email so a graduated user (whose email no longer resolves as
+ * educational) cannot extend their plan.
+ */
+export function validateEducationRenewBody(input: unknown): ValidationResult<EducationRenewBody> {
+  const issues: string[] = [];
+  if (!input || typeof input !== 'object') {
+    return { ok: false, issues: ['body must be a JSON object'] };
+  }
+  const record = input as Record<string, unknown>;
+
+  const token = asString(record.token)?.trim() ?? '';
+  if (token.length === 0) pushIssue(issues, 'token is required');
+  else if (exceedsUtf8ByteCap(token, MAX_TOKEN_LENGTH)) {
+    pushIssue(issues, `token exceeds ${MAX_TOKEN_LENGTH} byte cap`);
+  }
+
+  const email = asString(record.email)?.trim().toLowerCase() ?? '';
+  if (email.length === 0) pushIssue(issues, 'email is required');
+  else if (exceedsUtf8ByteCap(email, MAX_EMAIL_LENGTH)) {
+    pushIssue(issues, `email exceeds ${MAX_EMAIL_LENGTH} byte cap`);
+  } else if (!EMAIL_PATTERN.test(email)) pushIssue(issues, 'email is malformed');
+
+  if (issues.length > 0) return { ok: false, issues };
+  return { ok: true, value: { token, email } };
+}
+
+export interface ConfirmQuery {
+  confirm: string;
+}
+
+const MAX_CONFIRM_TOKEN_LENGTH = 128; // crypto.randomUUID is 36 chars; cap leaves headroom.
+
+/**
+ * Shared validator for `/education/confirm` and
+ * `/licenses/recover/confirm` query params. The `confirm`
+ * parameter is the magic-link's pending-row id; the handler
+ * looks it up in the matching pending table.
+ */
+export function validateConfirmQuery(params: URLSearchParams): ValidationResult<ConfirmQuery> {
+  const issues: string[] = [];
+  const confirm = (params.get('confirm') ?? '').trim();
+  if (confirm.length === 0) {
+    pushIssue(issues, 'confirm is required');
+  } else if (exceedsUtf8ByteCap(confirm, MAX_CONFIRM_TOKEN_LENGTH)) {
+    pushIssue(issues, `confirm exceeds ${MAX_CONFIRM_TOKEN_LENGTH} byte cap`);
+  }
+
+  if (issues.length > 0) return { ok: false, issues };
+  return { ok: true, value: { confirm } };
+}
+
+// ------------------------------------------------ RL-061 Slice 4 — Recovery
+
+export interface LicenseRecoverStartBody {
+  email: string;
+}
+
+/**
+ * `/licenses/recover/start` body — just an email. Recovery does
+ * not touch a device (the user is recovering an existing license,
+ * not registering a new device). The handler is intentionally
+ * permissive on email lookup (always returns 200 + neutral copy)
+ * so this validator only gates shape.
+ */
+export function validateLicenseRecoverBody(
+  input: unknown
+): ValidationResult<LicenseRecoverStartBody> {
+  const issues: string[] = [];
+  if (!input || typeof input !== 'object') {
+    return { ok: false, issues: ['body must be a JSON object'] };
+  }
+  const record = input as Record<string, unknown>;
+
+  const email = asString(record.email)?.trim().toLowerCase() ?? '';
+  if (email.length === 0) pushIssue(issues, 'email is required');
+  else if (exceedsUtf8ByteCap(email, MAX_EMAIL_LENGTH)) {
+    pushIssue(issues, `email exceeds ${MAX_EMAIL_LENGTH} byte cap`);
+  } else if (!EMAIL_PATTERN.test(email)) pushIssue(issues, 'email is malformed');
+
+  if (issues.length > 0) return { ok: false, issues };
+  return { ok: true, value: { email } };
+}

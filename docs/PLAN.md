@@ -3126,6 +3126,171 @@ verification rule):
 4. Disconnect network mid-session, reload, confirm the
    `serverUnreachable` notice appears and the app stays Active.
 
+### §RL-061.4 Status Update — Slice 4 shipped 2026-04-29
+
+Slice 4 closes the Free → Paid funnel for the three non-Polar
+on-ramps the product needs before public launch: a 14-day Trial,
+the Education tier (1-year educational license), and a self-service
+Recovery flow for users who lost their token email. It also
+hardens the renderer against stale-token UX: a re-installed user
+who pastes an old token now silently picks up the latest one via
+`/licenses/status` lookup-by-licenseId, or sees an inline
+recover-hint when the server has nothing fresher.
+
+Concrete shape:
+
+- **Trial — single-shot mint per Decision 5.** `POST /trials/start`
+  validates email + device, rate-limits per IP (3/day), checks the
+  `trials` UNIQUE(email) + UNIQUE(device_id) anti-abuse pair, and
+  mints a 14-day token. Token returns in the response body so the
+  renderer auto-pastes via `setLicenseToken`; user lands directly
+  on Active without ever seeing a paste step. Resend best-effort
+  for the welcome email.
+- **Education — magic-link two-step.**
+  - `POST /education/start` validates the `.edu` allow-list
+    (`/^[^@\s]+@([a-z0-9-]+\.)*edu$/i` plus an explicit list of
+    `ac.uk`, `edu.mx`, `edu.au`, `edu.ca`, `edu.br`, `ac.in`),
+    rate-limits per IP (3/day), persists a row in
+    `education_pending_confirmations` (24h TTL), and sends a
+    confirmation email. Returns `{ ok: true, pending: true }`.
+  - `GET /education/confirm?confirm=<id>` validates the pending
+    row (not expired, not already confirmed), mints the
+    education license + persists in `educations` + `licenses`,
+    sends the canonical token email, returns an HTML success
+    page. Idempotent on re-click — second hit re-renders the
+    same success HTML without re-minting.
+  - `POST /education/renew` re-runs the `.edu` validation,
+    extends `expires_at` by 365d, re-mints (`refreshLicenseToken`
+    rebuilds the signed payload because `supportWindowEndsAt`
+    lives inside the signed payload — see Decision 8 below).
+  - Duplicate-email branch returns `email-already-active` +
+    `canRecover: true`. Renderer (`EducationCta`) hands that
+    flag to `LicenseSection` which pre-fills `RecoveryCta` for
+    the same email.
+- **Recovery — magic-link two-step (mirror of Education) with
+  no-info-leak design (Decision 7).**
+  - `POST /licenses/recover/start` validates email shape,
+    rate-limits per IP (5/day) AND per email (3/day), persists
+    a row in `recovery_pending_confirmations` (no device
+    columns — recovery does not register a new device), sends
+    a confirmation email. ALWAYS returns 200 + neutral copy
+    regardless of whether the email matches a known license,
+    hits a rate limit, or is empty-but-shape-valid. Pending
+    row is created EVEN for unknown emails so timing matches.
+  - `GET /licenses/recover/confirm?confirm=<id>` validates
+    pending row, looks up `findLicenseByEmail`, sends the
+    canonical token email if found, marks `confirmed_at`. Same
+    generic success HTML for known + unknown branches.
+- **Stale-token auto-pickup (renderer-side fix).** When local
+  verify returns `invalid:expired` for a token whose signature
+  is still valid (i.e. `reason !== 'invalid-signature'`), the
+  renderer attempts `/licenses/status` before giving up. The
+  worker's `findCurrentLicenseForToken` walks the `licenseId`
+  lookup if `licenses.token` no longer matches the stale token,
+  so an old T1 + active subscription resolves to the current
+  T2 silently. User pastes T1 → brief `verifying...` pill → ends
+  on `Active` with T2 persisted. No email step needed for the
+  happy path. If the server cannot refresh, the renderer
+  surfaces a `recoverHint` field carrying the token's
+  `issuedTo` payload field; LicenseSection turns that into an
+  inline "Recover via email" banner pre-filled into RecoveryCta.
+
+Shape of the staged diff (one human commit):
+
+- `license-server/migrations/0004_add_educations_and_pending_tables.sql`
+- `license-server/src/lib/{rateLimit,renderTemplate,educationEmail}.ts`
+  (NEW)
+- `license-server/src/lib/{validation,db,resend}.ts` (extended)
+- `license-server/src/handlers/{trials,education,recover}.ts`
+  (NEW + replaced)
+- `license-server/src/index.ts` (router mounts + KV binding)
+- `license-server/src/emails/*.html` (six templates +
+  `_layout.css`) imported via Vite `?raw`
+- `license-server/test/` — 7 new test files, 4 extended; 171
+  worker tests passing.
+- `src/shared/licenseServerTypes.ts` — extended with
+  Trial / Education / Recovery contracts.
+- `src/renderer/services/{trialServer,educationServer,recoveryServer}.ts`
+  (NEW)
+- `src/renderer/stores/licenseStore.ts` — adds `recoverHint`,
+  `clearRecoverHint`, `attemptStaleTokenRefresh` helper, plumbs
+  `activeToken` through `setLicenseToken` + `revalidate` so a
+  refreshed token replaces the stale one without a re-paste.
+- `src/renderer/components/Settings/{TrialCta,EducationCta,RecoveryCta}.tsx`
+  (NEW)
+- `src/renderer/components/Settings/LicenseSection.tsx` — wires
+  the three CTAs under `status === 'free'` (and under
+  `invalid:*` except `devices-exhausted`), surfaces the
+  recover-hint banner.
+- `src/renderer/i18n/locales/{en,es}/common.json` — 47 new keys
+  per locale (Trial 13 + Education 17 + Recovery 14 + 2
+  recover-hint + 1 disabled). Tuteo Latin American.
+- `tests/services/{trialServer,educationServer,recoveryServer}.test.ts`
+  (NEW, 19 cases)
+- `tests/components/LicenseSection.test.tsx` extended with 3
+  Slice 4 cases (CTAs render under free, hidden under active,
+  recover-hint banner renders).
+- Renderer suite total: 1918 passed / 2 skipped (was 1896).
+
+Decision 8 added to `LICENSING_ADR.md`: **"Token re-mint on
+renewal is transparent to the user."** Documents why we cannot
+keep a static token across renewals (the offline-grace window
+relies on `supportWindowEndsAt` baked into the signed payload),
+and how the auto-refresh contract works on both web and
+desktop. References the implementation files
+(`licenses.ts:status`, `licenseStore.ts:revalidate`,
+`main/license.ts:revalidate`).
+
+Decision 5 (Education) updated to reflect the magic-link
+two-step flow.
+
+What remains (Slice 5):
+
+- Release pipeline (GitHub Actions matrix, signing, notarization).
+- Web update banner (advertises the new `.app` / `.exe` /
+  `.AppImage` from `linguacode.dev/download`).
+
+Phase 2 follow-ups filed in BACKLOG:
+
+- GitHub Education API integration (replace the static `.edu`
+  TLD allow-list with OAuth-based proof of educational
+  enrolment).
+- Dev-only `GET /preview-email` endpoint for visual review of
+  the six HTML templates without sending a real email.
+- Desktop main-side stale-token auto-pickup (Slice 4 covers the
+  web build; the desktop main bridge has its own
+  `setLicenseToken` flow that drops out on
+  `local:expired`. The user's primary scenario was the web user
+  re-installing the app, so desktop is deferred).
+
+Manual smoke checklist (deferred to maintainer per AGENTS.md UI
+verification rule):
+
+1. Apply migration: `cd license-server && wrangler d1 migrations
+   apply lingua-licenses --remote` (creates `educations` +
+   `education_pending_confirmations` +
+   `recovery_pending_confirmations`).
+2. `wrangler kv namespace create lingua-rate-limits` if not
+   already done; update `wrangler.toml` binding name to
+   `RATE_LIMIT`. Re-deploy.
+3. `npm run preview:web`. Settings → License with no token —
+   confirm the three CTAs render. Try a Trial with
+   `me@example.com` → Start → token returns in body → renderer
+   auto-pastes → pill flips Free → Active — Trial.
+4. Try a duplicate Trial with the same email → expect
+   `duplicateEmail` notice + Recover form pre-filled.
+5. Education flow: `me@example.org` → Start → notice
+   `notEducational`. Retry `me@school.edu` → Start → "check
+   your email" UX. Manually click the confirmation link from
+   the email → success HTML page → second email arrives with
+   token. Paste token → pill flips to Active — Education.
+6. Recovery flow: any email → Resend → `sent` notice (works
+   for both known and unknown).
+7. Switch locale to `es`, reload, exercise one flow. Confirm
+   tuteo throughout (`Inicia` not `Iniciá`, `Revisa` not
+   `Revisá`).
+8. End: `browser_console_messages({ level: 'error' })` = 0.
+
 ### RL-062 Public README, license declaration, and distribution posture
 
 - Priority: `P0` for Phase 1

@@ -14,6 +14,11 @@ import { initI18n } from '@/i18n';
 import { LicenseSection } from '@/components/Settings/LicenseSection';
 import { useLicenseStore, type LicenseStatus, type ServerSyncState } from '@/stores/licenseStore';
 import { useUIStore } from '@/stores/uiStore';
+import { startTrial } from '@/services/trialServer';
+
+vi.mock('@/services/trialServer', () => ({
+  startTrial: vi.fn(),
+}));
 
 function stubStatus(status: LicenseStatus, token: string | null = null): void {
   act(() => {
@@ -33,6 +38,7 @@ describe('LicenseSection', () => {
       useLicenseStore.setState(initial, true);
       useUIStore.setState({ statusNotice: null });
     });
+    vi.mocked(startTrial).mockReset();
     initI18n('en');
     await act(async () => {
       await i18next.changeLanguage('en');
@@ -569,5 +575,142 @@ describe('LicenseSection', () => {
         await i18next.changeLanguage('en');
       });
     }
+  });
+
+  // ----------------------------------------------- RL-061 Slice 4 — CTAs
+
+  it('renders the Trial / Education / Recovery CTAs under the free state', () => {
+    render(<LicenseSection />);
+    expect(screen.getByTestId('trial-start')).toBeTruthy();
+    expect(screen.getByTestId('education-start')).toBeTruthy();
+    expect(screen.getByTestId('recovery-start')).toBeTruthy();
+  });
+
+  it('does NOT render the CTAs when the license is active', () => {
+    stubStatus(
+      {
+        kind: 'active',
+        verification: {
+          ok: true,
+          state: 'active',
+          supportWindowEndsAt: Date.now() + 86_400_000,
+          payload: {
+            productId: 'lingua-desktop',
+            tier: 'pro',
+            issuedTo: 'user@example.com',
+            issuedAt: new Date().toISOString(),
+            supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+            entitlements: [],
+          },
+        },
+      },
+      'token.value',
+    );
+    render(<LicenseSection />);
+    expect(screen.queryByTestId('trial-start')).toBeNull();
+    expect(screen.queryByTestId('education-start')).toBeNull();
+    expect(screen.queryByTestId('recovery-start')).toBeNull();
+  });
+
+  it('renders the recover-hint banner when the store has a recoverHint', () => {
+    act(() => {
+      useLicenseStore.setState({
+        recoverHint: { email: 'user@example.com' },
+      });
+    });
+    render(<LicenseSection />);
+    expect(screen.getByTestId('license-recover-hint').textContent).toContain('user@example.com');
+  });
+
+  it('updates the Recovery form prefill when a newer recoverHint arrives', async () => {
+    act(() => {
+      useLicenseStore.setState({
+        recoverHint: { email: 'first@example.com' },
+      });
+    });
+    render(<LicenseSection />);
+
+    await waitFor(() =>
+      expect((screen.getByTestId('recovery-email-input') as HTMLInputElement).value).toBe(
+        'first@example.com',
+      ),
+    );
+
+    act(() => {
+      useLicenseStore.setState({
+        recoverHint: { email: 'second@example.com' },
+      });
+    });
+
+    await waitFor(() =>
+      expect((screen.getByTestId('recovery-email-input') as HTMLInputElement).value).toBe(
+        'second@example.com',
+      ),
+    );
+  });
+
+  it('surfaces an activation error when a started trial token is rejected locally', async () => {
+    const user = userEvent.setup();
+    vi.mocked(startTrial).mockResolvedValue({
+      ok: true,
+      licenseId: 'lic_trial',
+      token: 'trial.token.value',
+      tier: 'trial',
+      expiresAt: Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60,
+      emailDelivered: false,
+      emailReason: 'no-api-key',
+    });
+    vi.spyOn(useLicenseStore.getState(), 'setLicenseToken').mockResolvedValue({
+      kind: 'invalid',
+      reason: 'invalid-signature',
+      message: 'developer-only signature mismatch detail',
+    });
+    render(<LicenseSection />);
+
+    await user.type(screen.getByTestId('trial-email-input'), 'trial@example.com');
+    await user.click(screen.getByTestId('trial-start'));
+
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe('license.notice.invalid'),
+    );
+    expect((screen.getByTestId('trial-email-input') as HTMLInputElement).value).toBe(
+      'trial@example.com',
+    );
+  });
+
+  it('hands off the trial duplicate-email canRecover flag to RecoveryCta as a prefill', async () => {
+    // Pin the parent → child wiring: when TrialCta fires
+    // onRequestRecovery (because the worker said `canRecover: true`),
+    // the LicenseSection captures the email into local state and
+    // RecoveryCta picks it up as `prefilledEmail`. A regression here
+    // would silently break the "we already have a trial under this
+    // email — recover it" affordance that LICENSING_ADR Decision 5
+    // promises duplicate-email users.
+    const user = userEvent.setup();
+    vi.mocked(startTrial).mockResolvedValue({
+      ok: false,
+      reason: 'trial-exists-email',
+      canRecover: true,
+    });
+    render(<LicenseSection />);
+
+    // Recovery input starts empty (no recoverHint, no prefill yet).
+    expect((screen.getByTestId('recovery-email-input') as HTMLInputElement).value).toBe('');
+
+    await user.type(screen.getByTestId('trial-email-input'), 'taken@example.com');
+    await user.click(screen.getByTestId('trial-start'));
+
+    await waitFor(() =>
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'license.trial.notice.duplicateEmail',
+      ),
+    );
+    // The duplicate-email branch routed the address into the
+    // recovery form so the user can finish recovery in one click.
+    await waitFor(() =>
+      expect((screen.getByTestId('recovery-email-input') as HTMLInputElement).value).toBe(
+        'taken@example.com',
+      ),
+    );
   });
 });

@@ -225,26 +225,174 @@ well — students reinstalling on a new laptop go through the same
   later, a signed CLI command against `licenses.linguacode.dev`
   is the smallest extension.
 
-## Decision 5 — Free trial without email verification (Phase 1)
+## Decision 5 — Trial single-shot, Education magic-link two-step
+
+> Updated 2026-04-29 (RL-061 Slice 4). Trial keeps the original
+> single-shot semantics; Education flips to a magic-link two-step
+> at the user's request to give the educational tier a confirmed
+> proof of identity beyond the `.edu` regex.
 
 ### Decision
+
+**Trial — single-shot mint.**
 
 - 14 days, full Pro entitlements, 1 device.
 - Anti-abuse layered: `UNIQUE(email)` and `UNIQUE(device_id)` in
   the `trials` table, plus a per-IP rate limit of 3 trials/day on
   `/trials/start` enforced via Cloudflare KV.
-- No magic-link verification in Phase 1. Friction for honest
-  users (paste an email, wait for a click) outweighs the abuse
-  delta the layered constraints already absorb.
+- No magic-link verification on Trial. Friction for honest users
+  (paste an email, wait for a click) outweighs the abuse delta
+  the layered constraints already absorb.
+
+**Education — magic-link two-step.**
+
+- 1 year, full Pro entitlements, 1 device, renewable.
+- `POST /education/start` validates the `.edu` regex
+  (`/^[^@\s]+@([a-z0-9-]+\.)*edu$/i` plus an explicit list of
+  additional educational TLDs: `ac.uk`, `edu.mx`, `edu.au`,
+  `edu.ca`, `edu.br`, `ac.in`), persists a row in
+  `education_pending_confirmations` with a 24h TTL, and sends a
+  confirmation email. Rate-limited per-IP (3/day).
+- `GET /education/confirm?confirm=<id>` validates the pending
+  row (not expired, not already confirmed), mints the
+  education license + persists in `educations` + `licenses`,
+  sends the canonical token email, returns an HTML success page.
+  Idempotent on re-click — second hit re-renders the same
+  success HTML without re-minting.
+- Duplicate-email branch returns
+  `{ ok: false, reason: 'email-already-active', canRecover: true }`.
+  Renderer surfaces an inline Recover button that pre-fills
+  RecoveryCta with the same email.
 
 ### Consequences
 
-- A determined abuser can churn through trials by changing email
-  + reinstalling, but the friction is real and the cost of one
-  additional trial slot is low at indie scale.
-- Phase 2 can promote magic-link verification if observed abuse
-  exceeds ~5% of trial volume; the schema and endpoint surface
-  already support it.
+- Trial: a determined abuser can churn through trials by
+  changing email + reinstalling, but the friction is real and
+  the cost of one additional trial slot is low at indie scale.
+  Phase 2 can promote magic-link verification if observed abuse
+  exceeds ~5% of trial volume; the schema already supports it.
+- Education: the magic-link confirms the user has access to the
+  `.edu` inbox before any license is minted, materially raising
+  the bar for educational-tier abuse. The 24h TTL + single-use
+  semantics keep replay tight. The `.edu` regex stays
+  conservative; broader institution coverage (e.g. private
+  universities with `.com` domains) is filed in BACKLOG as a
+  GitHub Education API integration.
+
+## Decision 7 — Recovery is no-info-leak by default
+
+### Decision
+
+`POST /licenses/recover/start` ALWAYS responds 200 + neutral
+copy regardless of whether the email matches a known license,
+hits a rate limit, or is shape-valid-but-empty. Concretely:
+
+- The pending row in `recovery_pending_confirmations` is created
+  even for unknown emails, so the timing of the response matches
+  across known / unknown branches.
+- `GET /licenses/recover/confirm?confirm=<id>` returns the same
+  generic success HTML for "we sent the token" and "no matching
+  license". The only differentiable response is "link expired"
+  (status 410) which is unavoidable to convey staleness.
+- Two rate-limit scopes — per-IP (5/day) AND per-email (3/day) —
+  defend against both single-attacker and distributed-attack
+  patterns. Both fire the same neutral 200 so the response shape
+  never tells the attacker which limit fired.
+- Server misconfiguration (e.g. `RESEND_API_KEY` missing) renders
+  the same generic success HTML rather than a 501; the operator
+  sees the issue via `console.error`, the user does not.
+
+### Consequences
+
+- An attacker enumerating emails learns nothing useful from the
+  worker's responses.
+- Honest users with no Lingua license still see the same "if
+  that email matches a Lingua license, the recovery email is on
+  its way" copy. We accept the small UX cost of not telling
+  people "no license here" because the alternative is an
+  enumeration primitive.
+- The `RecoveryCta` renderer-side mirror uses the same neutral
+  copy, so the renderer never differentiates known vs unknown.
+
+## Decision 8 — Token re-mint on renewal is transparent to the user
+
+### Decision
+
+When a paid renewal lands (Polar `order.paid` for Monthly), or
+the user renews their education license via `/education/renew`,
+or any future renewable tier expires + renews, the worker
+re-mints the license token (new `expiresAt`, new
+`supportWindowEndsAt`, same `licenseId`, same `productId`, same
+`issuedTo`) and stores it in `licenses.token`. The renderer
+picks up the new token silently via `/licenses/status`'s
+`refreshedToken` field — the user never re-pastes.
+
+The mechanism that makes this work end-to-end:
+
+1. **Server.** `findCurrentLicenseForToken`
+   (`license-server/src/handlers/licenses.ts`) walks the
+   `licenseId` lookup if `licenses.token` no longer matches the
+   client's stored token. As long as the old token's signature
+   is valid and `productId` + `issuedTo` match the canonical
+   row, the server returns the new `licenses.token` via
+   `refreshedToken` in the `/licenses/status` response.
+2. **Renderer (web).**
+   `src/renderer/stores/licenseStore.ts:revalidate` checks
+   `result.refreshedToken` and swaps it in when it strictly
+   newer than the stored token (compared via `decodeIssuedAt`).
+   Slice 4 also adds a parallel path in `setLicenseToken`: if
+   local verify on a paste returns
+   `invalid:expired` (signature still valid), the renderer
+   attempts `/licenses/status` BEFORE giving up. The same
+   `findCurrentLicenseForToken` resolves the stale token to the
+   current row and returns the refreshed token.
+3. **Renderer (desktop).**
+   `src/main/license.ts:revalidate` mirrors the web flow via
+   the IPC bridge. The desktop-side stale-token auto-pickup on
+   `setLicenseToken` is filed as a Phase 2 follow-up — the
+   user's primary scenario for the stale-token path is the web
+   user re-installing the app.
+
+### Why we cannot keep a static token across renewals
+
+Tokens are signed with the issuer's Ed25519 private key. The
+payload baked into the signature includes `expiresAt` AND
+`supportWindowEndsAt`. Both are read by the LOCAL verifier
+(`src/shared/license.ts` and `src/main/license.ts`) for the
+24h offline-grace window per Decision 4 — the local verifier
+cannot read a server clock, so the support window has to live
+in the signed payload.
+
+If we kept a static token across renewals:
+
+- After the initial `expiresAt` lapsed, the renderer's local
+  verify would fire `invalid:expired` and the user would lose
+  Pro features until the next online revalidate. That defeats
+  the offline-grace contract.
+- We would also lose the cryptographic binding between
+  "currently active" and "the token in the user's pocket" —
+  a leaked or refunded token would stay forever-active until
+  the database invalidates it, which we cannot prove
+  cryptographically without re-mint.
+
+The alternative — re-mint on renewal — keeps both invariants
+(local offline-grace + cryptographic revocation) at the cost
+of a silent token swap that the renderer absorbs transparently.
+
+### Consequences
+
+- Subscription users never re-paste tokens. They renew through
+  Polar, the worker re-mints, the next `/licenses/status` poll
+  picks up the new token. From the user's perspective, the app
+  just stays Active.
+- Education users who renew via `/education/renew` see the same
+  silent swap.
+- The renderer's stale-token UX (paste a year-old token →
+  silent pickup → Active) only works while the license row is
+  still active in D1. If the license is revoked / refunded /
+  cancelled past the cancel-at-period-end window, the renderer
+  surfaces a `recoverHint` that drops the user into the
+  recovery magic-link flow.
 
 ## Decision 6 — Release / update propagation
 
@@ -281,7 +429,7 @@ well — students reinstalling on a new laptop go through the same
 ## Slice sequencing
 
 The implementation lands across slices to keep blast radius low.
-Updated 2026-04-29 to reflect Slice 3.5 shipped:
+Updated 2026-04-29 to reflect Slice 4 shipped:
 
 1. **Slice 0 — Main-side IPC bridge.** SHIPPED 2026-04-25. No
    external dependency. `src/main/license.ts` owns persistence +
@@ -313,9 +461,18 @@ Updated 2026-04-29 to reflect Slice 3.5 shipped:
    `deviceRegistered: false`. Renderer's desktop branch mirrors the
    extended snapshot so the Devices section renders under the same
    gate the web build already passes.
-7. **Slice 4 — Free trial + Education CTAs.** PENDING. Settings +
-   landing-page hooks for `/trials/start`, `/education/start`,
-   `/education/renew`, `/licenses/recover`.
+7. **Slice 4 — Trial + Education magic-link + Recovery magic-link
+   CTAs.** SHIPPED 2026-04-29. `/trials/start` (single-shot mint),
+   `/education/{start,confirm,renew}` (magic-link two-step with
+   `.edu` allow-list), `/licenses/recover/{start,confirm}` (no-info-leak
+   magic-link). Renderer ships TrialCta + EducationCta + RecoveryCta
+   under `status === 'free'` plus a stale-token auto-pickup
+   path through `/licenses/status` lookup-by-licenseId. KV
+   rate-limit binding (`RATE_LIMIT`) + D1 migration `0004`
+   (educations + 2 pending-confirmation tables) land in this
+   slice. See Decision 5 (Education magic-link), Decision 7
+   (Recovery no-info-leak), Decision 8 (transparent token
+   re-mint).
 8. **Slice 5 — Release pipeline + web update banner.** PENDING.
    GH Actions workflow + `/web/version` endpoint + renderer banner.
 

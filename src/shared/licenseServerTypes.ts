@@ -159,3 +159,162 @@ export type RemoveDeviceResult =
  * and the renderer only mirrors the last known snapshot.
  */
 export type LicenseServerSyncState = 'synced' | 'unreachable' | 'disabled';
+
+// ====================================================================
+// RL-061 Slice 4 — Trial / Education / Recovery contracts
+// ====================================================================
+//
+// All three flows share a similar shape: a POST /start that registers
+// the request, then either an immediate token (Trial) or a magic-link
+// /confirm step the user reaches via email (Education + Recovery).
+//
+// Failure unions are tagged-by-`reason`. The renderer maps each
+// reason to an i18n key for the notice band — shape-only, no server
+// strings reach the user.
+
+/** Trial / Education / Recovery shared per-flow failure that the
+ *  renderer should surface as a "Recover token" CTA hint. */
+export interface RecoverableFailureFlag {
+  /** Renderer turns this into an inline "Recover token" button. */
+  canRecover?: boolean;
+}
+
+// -------------------------------------------------------- POST /trials/start
+
+export interface TrialStartInput {
+  email: string;
+  deviceId: string;
+  deviceName: string;
+  os: string;
+}
+
+export interface TrialStartSuccess {
+  ok: true;
+  licenseId: string;
+  /** Signed token returned in body for auto-paste even when email delivery fails. */
+  token: string;
+  tier: 'trial';
+  expiresAt: number;
+  emailDelivered: boolean;
+  emailReason?: string;
+}
+
+export type TrialStartFailureReason =
+  | 'invalid-input'
+  | 'trial-exists-email'
+  | 'trial-exists-device'
+  | 'rate-limited'
+  | 'not-implemented'
+  | 'server-error'
+  | 'unreachable'
+  | 'disabled';
+
+export type TrialStartResult =
+  | TrialStartSuccess
+  | ({
+      ok: false;
+      reason: TrialStartFailureReason;
+      retryAfter?: number;
+    } & ServerFailureMeta &
+      RecoverableFailureFlag);
+
+// ------------------------------------------------------ POST /education/start
+
+export interface EducationStartInput {
+  email: string;
+  deviceId: string;
+  deviceName: string;
+  os: string;
+}
+
+/** Magic-link first step — user has been emailed a confirm link.
+ *  No token in body; the token email lands AFTER the user clicks
+ *  the confirmation link and the worker mints. */
+export interface EducationStartPending {
+  ok: true;
+  pending: true;
+  message: string;
+  pendingId: string;
+  expiresAt: number;
+  emailDelivered: true;
+}
+
+export type EducationStartFailureReason =
+  | 'invalid-input'
+  | 'not-educational'
+  | 'email-already-active'
+  | 'device-already-active'
+  | 'rate-limited'
+  | 'confirmation-email-failed'
+  | 'not-implemented'
+  | 'server-error'
+  | 'unreachable'
+  | 'disabled';
+
+export type EducationStartResult =
+  | EducationStartPending
+  | ({
+      ok: false;
+      reason: EducationStartFailureReason;
+      retryAfter?: number;
+    } & ServerFailureMeta &
+      RecoverableFailureFlag);
+
+// ------------------------------------------------------ POST /education/renew
+
+export interface EducationRenewInput {
+  token: string;
+  email: string;
+}
+
+export interface EducationRenewSuccess {
+  ok: true;
+  licenseId: string;
+  refreshedToken: string;
+  expiresAt: number;
+  emailDelivered: boolean;
+  emailReason?: string;
+}
+
+export type EducationRenewFailureReason =
+  | 'invalid-input'
+  | 'not-educational'
+  | 'unknown-license'
+  | 'email-mismatch'
+  | 'not-implemented'
+  | 'server-error'
+  | 'unreachable'
+  | 'disabled';
+
+export type EducationRenewResult =
+  | EducationRenewSuccess
+  | ({ ok: false; reason: EducationRenewFailureReason } & ServerFailureMeta);
+
+// ------------------------------------------------ POST /licenses/recover/start
+
+export interface LicenseRecoverInput {
+  email: string;
+}
+
+/**
+ * Recovery is no-info-leak: the worker ALWAYS responds with this
+ * pending shape regardless of whether the email matches a known
+ * license, hits a rate-limit, or is malformed-but-shape-valid. The
+ * renderer treats it as a uniform "we sent the email if it
+ * matched" notice.
+ */
+export interface LicenseRecoverPending {
+  ok: true;
+  pending: true;
+  message: string;
+}
+
+export type LicenseRecoverFailureReason =
+  | 'invalid-input'
+  | 'server-error'
+  | 'unreachable'
+  | 'disabled';
+
+export type LicenseRecoverResult =
+  | LicenseRecoverPending
+  | ({ ok: false; reason: LicenseRecoverFailureReason } & ServerFailureMeta);

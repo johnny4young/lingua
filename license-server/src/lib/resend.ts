@@ -1,21 +1,38 @@
 /**
- * Minimal Resend HTTP client.
+ * Resend HTTP client — handles every transactional email Lingua's
+ * license-server sends.
  *
- * One function — `sendLicenseEmail` — that POSTs to the Resend API
- * with the buyer's email + the freshly minted license token. No SDK
- * dependency: keeps the worker bundle small and avoids a fetch-shim
- * compatibility surface.
+ * Slice 2 introduced `sendLicenseEmail` for the paid Polar
+ * `order.paid` flow. Slice 4 adds five more wrappers for the
+ * trial / education / recovery surfaces, each backed by an HTML
+ * template under `src/emails/*.html` rendered through
+ * `lib/renderTemplate.ts`. All six wrappers share the same
+ * `postToResend` core so the failure semantics, headers, and
+ * "no API key → no-op" handshake are consistent.
  *
- * Failure modes:
- *   - `RESEND_API_KEY` not set → no-op `{ ok: false, reason: 'no-api-key' }`.
- *     Slice 2 webhook handler logs this but still returns 200 to Polar
- *     so the license persistence in D1 isn't undone by an email-only
- *     failure (Polar would retry the whole webhook and we'd hit a
- *     UNIQUE constraint).
- *   - Resend API 4xx/5xx → `{ ok: false, reason: 'api-error', status }`.
- *     Same logic — log + 200 ack to Polar.
+ * Failure modes (any wrapper):
+ *   - `RESEND_API_KEY` unset → `{ ok: false, reason: 'no-api-key' }`.
+ *     Callers treat this as best-effort and continue (the row in D1
+ *     is the source of truth; users can recover the token via
+ *     `/licenses/recover` if the email was lost).
+ *   - 4xx/5xx → `{ ok: false, reason: 'api-error', status, message }`.
  *   - Network error → `{ ok: false, reason: 'network-error' }`.
  */
+
+// HTML / CSS templates are loaded as plain text via the `[[rules]]`
+// block in `wrangler.toml` (esbuild Text loader for `**/*.html` and
+// `**/*.css`). The matching `vitest.config.ts` plugin reads these
+// extensions through `fs.readFileSync` so vitest sees the same string
+// content. Both sides agree on the file path with NO `?raw` suffix —
+// the suffix is a Vite-only convention that esbuild does not parse.
+import layoutCss from '../emails/_layout.css';
+import trialTemplate from '../emails/trial.html';
+import educationConfirmationTemplate from '../emails/educationConfirmation.html';
+import educationTokenTemplate from '../emails/educationToken.html';
+import educationRenewalTemplate from '../emails/educationRenewal.html';
+import recoveryConfirmationTemplate from '../emails/recoveryConfirmation.html';
+import recoveryTokenTemplate from '../emails/recoveryToken.html';
+import { renderTemplate } from './renderTemplate';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
@@ -26,86 +43,32 @@ export type ResendFailure =
 
 export type ResendResult = { ok: true; id: string } | ResendFailure;
 
-export interface SendLicenseEmailInput {
+interface PostToResendInput {
   to: string;
   fromEmail: string;
   fromName: string;
   apiKey: string | undefined;
-  licenseToken: string;
-  tier: 'pro' | 'pro_lifetime' | 'team' | 'trial' | 'education';
-  productId: string;
-  /** Override fetch for tests. Defaults to global `fetch`. */
+  subject: string;
+  html: string;
+  text: string;
   fetchImpl?: typeof fetch;
 }
 
-const TIER_HUMAN: Record<SendLicenseEmailInput['tier'], string> = {
-  pro: 'Lingua Pro Monthly',
-  pro_lifetime: 'Lingua Pro Lifetime',
-  team: 'Lingua Team',
-  trial: 'Lingua Trial',
-  education: 'Lingua Education',
-};
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 /**
- * Minimal HTML email body. No images, no remote assets, no tracking
- * pixels — keeps deliverability high and avoids spam filters that
- * downrank tracked email. Inline styling only because some clients
- * (Outlook, mobile webmail) ignore <style> blocks.
+ * Common Resend POST. Every wrapper funnels through here so the
+ * failure shape stays consistent.
  */
-function buildHtmlBody(token: string, productLabel: string): string {
-  const safeToken = escapeHtml(token);
-  const safeLabel = escapeHtml(productLabel);
-  return [
-    '<!DOCTYPE html><html><body style="font-family:-apple-system,Segoe UI,sans-serif;color:#0a0a0f;background:#f7f7f9;padding:24px;">',
-    `<h1 style="font-size:18px;margin:0 0 16px 0;">Welcome to ${safeLabel}.</h1>`,
-    '<p style="margin:0 0 16px 0;">Your Lingua license is ready. Paste the token below into the app under <strong>Settings → License → Paste a license token</strong>.</p>',
-    `<pre style="background:#0a0a0f;color:#e7e7ec;padding:16px;border-radius:8px;overflow:auto;font-size:12px;white-space:pre-wrap;word-break:break-all;">${safeToken}</pre>`,
-    '<p style="margin:16px 0 0 0;font-size:13px;color:#6b6b76;">Tokens are tied to your email and a max of 3 desktops + 3 browsers per license. Manage devices any time from <strong>Settings → License</strong>.</p>',
-    '<p style="margin:16px 0 0 0;font-size:13px;color:#6b6b76;">Lost this email? Re-request the token from <strong>Settings → License → Lost your license?</strong> any time.</p>',
-    '</body></html>',
-  ].join('');
-}
-
-function buildTextBody(token: string, productLabel: string): string {
-  return [
-    `Welcome to ${productLabel}.`,
-    '',
-    'Your Lingua license is ready. Paste the token below into the app under',
-    'Settings → License → Paste a license token.',
-    '',
-    token,
-    '',
-    'Tokens are tied to your email and a max of 3 desktops + 3 browsers per',
-    'license. Manage devices any time from Settings → License.',
-    '',
-    'Lost this email? Re-request the token from Settings → License → Lost',
-    'your license? any time.',
-  ].join('\n');
-}
-
-export async function sendLicenseEmail(input: SendLicenseEmailInput): Promise<ResendResult> {
+async function postToResend(input: PostToResendInput): Promise<ResendResult> {
   if (!input.apiKey || input.apiKey.length === 0) {
     return { ok: false, reason: 'no-api-key' };
   }
-  const productLabel = TIER_HUMAN[input.tier];
-  const subject = `Your ${productLabel} license`;
   const body = {
     from: `${input.fromName} <${input.fromEmail}>`,
     to: [input.to],
-    subject,
-    html: buildHtmlBody(input.licenseToken, productLabel),
-    text: buildTextBody(input.licenseToken, productLabel),
+    subject: input.subject,
+    html: input.html,
+    text: input.text,
   };
-
   const fetchImpl = input.fetchImpl ?? fetch;
   let response: Response;
   try {
@@ -124,7 +87,6 @@ export async function sendLicenseEmail(input: SendLicenseEmailInput): Promise<Re
       message: error instanceof Error ? error.message : 'fetch threw',
     };
   }
-
   if (!response.ok) {
     let message: string | undefined;
     try {
@@ -137,13 +99,362 @@ export async function sendLicenseEmail(input: SendLicenseEmailInput): Promise<Re
     }
     return { ok: false, reason: 'api-error', status: response.status, message };
   }
-
   let id: string | undefined;
   try {
     const parsed = (await response.json()) as { id?: string };
     id = parsed.id;
   } catch {
-    // No id in response; Resend usually returns one but we don't depend on it.
+    // No id in response.
   }
   return { ok: true, id: id ?? 'unknown' };
+}
+
+// -------------------------------------------------------- helpers
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderEmailFromTemplate(
+  template: string,
+  vars: Record<string, string>
+): string {
+  return renderTemplate(template, { layoutCss, ...vars });
+}
+
+/**
+ * Format a unix-seconds timestamp as a human-readable date string
+ * for the `{{expiresOn}}` placeholder. Uses `en-US` long format
+ * for predictability across locales — emails ship in English.
+ */
+function formatExpiresOn(epochSeconds: number): string {
+  return new Date(epochSeconds * 1000).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+// ---------------------------------------- Slice 2: paid licenses
+
+export type PaidTier = 'pro' | 'pro_lifetime' | 'team';
+
+export interface SendLicenseEmailInput {
+  to: string;
+  fromEmail: string;
+  fromName: string;
+  apiKey: string | undefined;
+  licenseToken: string;
+  tier: PaidTier | 'trial' | 'education';
+  productId: string;
+  fetchImpl?: typeof fetch;
+}
+
+const TIER_HUMAN: Record<SendLicenseEmailInput['tier'], string> = {
+  pro: 'Lingua Pro Monthly',
+  pro_lifetime: 'Lingua Pro Lifetime',
+  team: 'Lingua Team',
+  trial: 'Lingua Trial',
+  education: 'Lingua Education',
+};
+
+function buildPaidHtmlBody(token: string, productLabel: string): string {
+  const safeToken = escapeHtml(token);
+  const safeLabel = escapeHtml(productLabel);
+  return [
+    '<!DOCTYPE html><html><body style="font-family:-apple-system,Segoe UI,sans-serif;color:#0a0a0f;background:#f7f7f9;padding:24px;">',
+    `<h1 style="font-size:18px;margin:0 0 16px 0;">Welcome to ${safeLabel}.</h1>`,
+    '<p style="margin:0 0 16px 0;">Your Lingua license is ready. Paste the token below into the app under <strong>Settings → License → Paste a license token</strong>.</p>',
+    `<pre style="background:#0a0a0f;color:#e7e7ec;padding:16px;border-radius:8px;overflow:auto;font-size:12px;white-space:pre-wrap;word-break:break-all;">${safeToken}</pre>`,
+    '<p style="margin:16px 0 0 0;font-size:13px;color:#6b6b76;">Tokens are tied to your email and a max of 3 desktops + 3 browsers per license. Manage devices any time from <strong>Settings → License</strong>.</p>',
+    '<p style="margin:16px 0 0 0;font-size:13px;color:#6b6b76;">Lost this email? Re-request the token from <strong>Settings → License → Lost your license?</strong> any time.</p>',
+    '</body></html>',
+  ].join('');
+}
+
+function buildPaidTextBody(token: string, productLabel: string): string {
+  return [
+    `Welcome to ${productLabel}.`,
+    '',
+    'Your Lingua license is ready. Paste the token below into the app under',
+    'Settings → License → Paste a license token.',
+    '',
+    token,
+    '',
+    'Tokens are tied to your email and a max of 3 desktops + 3 browsers per',
+    'license. Manage devices any time from Settings → License.',
+    '',
+    'Lost this email? Re-request the token from Settings → License → Lost',
+    'your license? any time.',
+  ].join('\n');
+}
+
+export async function sendLicenseEmail(input: SendLicenseEmailInput): Promise<ResendResult> {
+  const productLabel = TIER_HUMAN[input.tier];
+  return postToResend({
+    to: input.to,
+    fromEmail: input.fromEmail,
+    fromName: input.fromName,
+    apiKey: input.apiKey,
+    subject: `Your ${productLabel} license`,
+    html: buildPaidHtmlBody(input.licenseToken, productLabel),
+    text: buildPaidTextBody(input.licenseToken, productLabel),
+    fetchImpl: input.fetchImpl,
+  });
+}
+
+// ---------------------------------------- Slice 4: trial / education / recovery
+
+export interface SendTrialEmailInput {
+  to: string;
+  fromEmail: string;
+  fromName: string;
+  apiKey: string | undefined;
+  token: string;
+  issuedTo: string;
+  expiresAt: number;
+  deepLink: string;
+  fetchImpl?: typeof fetch;
+}
+
+export async function sendTrialEmail(input: SendTrialEmailInput): Promise<ResendResult> {
+  const html = renderEmailFromTemplate(trialTemplate, {
+    issuedTo: escapeHtml(input.issuedTo),
+    token: escapeHtml(input.token),
+    expiresOn: formatExpiresOn(input.expiresAt),
+    deepLink: input.deepLink,
+  });
+  const text = [
+    `Hi ${input.issuedTo},`,
+    '',
+    'Your free 14-day Lingua Pro trial is ready. Paste the token below into',
+    'Settings → License inside the app:',
+    '',
+    input.token,
+    '',
+    `Trial expires on ${formatExpiresOn(input.expiresAt)}.`,
+  ].join('\n');
+  return postToResend({
+    to: input.to,
+    fromEmail: input.fromEmail,
+    fromName: input.fromName,
+    apiKey: input.apiKey,
+    subject: 'Your Lingua Pro trial is ready',
+    html,
+    text,
+    fetchImpl: input.fetchImpl,
+  });
+}
+
+export interface SendEducationConfirmationEmailInput {
+  to: string;
+  fromEmail: string;
+  fromName: string;
+  apiKey: string | undefined;
+  issuedTo: string;
+  confirmLink: string;
+  fetchImpl?: typeof fetch;
+}
+
+export async function sendEducationConfirmationEmail(
+  input: SendEducationConfirmationEmailInput
+): Promise<ResendResult> {
+  const html = renderEmailFromTemplate(educationConfirmationTemplate, {
+    issuedTo: escapeHtml(input.issuedTo),
+    confirmLink: input.confirmLink,
+  });
+  const text = [
+    `Hi ${input.issuedTo},`,
+    '',
+    'You requested a free 1-year Lingua Pro Education plan. Click the link',
+    'below to confirm — once confirmed, we will email you the license token:',
+    '',
+    input.confirmLink,
+    '',
+    'This link expires in 24 hours and can only be used once.',
+  ].join('\n');
+  return postToResend({
+    to: input.to,
+    fromEmail: input.fromEmail,
+    fromName: input.fromName,
+    apiKey: input.apiKey,
+    subject: 'Confirm your Lingua Education plan',
+    html,
+    text,
+    fetchImpl: input.fetchImpl,
+  });
+}
+
+export interface SendEducationTokenEmailInput {
+  to: string;
+  fromEmail: string;
+  fromName: string;
+  apiKey: string | undefined;
+  token: string;
+  issuedTo: string;
+  expiresAt: number;
+  deepLink: string;
+  fetchImpl?: typeof fetch;
+}
+
+export async function sendEducationTokenEmail(
+  input: SendEducationTokenEmailInput
+): Promise<ResendResult> {
+  const html = renderEmailFromTemplate(educationTokenTemplate, {
+    issuedTo: escapeHtml(input.issuedTo),
+    token: escapeHtml(input.token),
+    expiresOn: formatExpiresOn(input.expiresAt),
+    deepLink: input.deepLink,
+  });
+  const text = [
+    `Hi ${input.issuedTo},`,
+    '',
+    'Your Lingua Pro Education plan is active. Paste the token below into',
+    'Settings → License inside the app:',
+    '',
+    input.token,
+    '',
+    `Plan expires on ${formatExpiresOn(input.expiresAt)}.`,
+  ].join('\n');
+  return postToResend({
+    to: input.to,
+    fromEmail: input.fromEmail,
+    fromName: input.fromName,
+    apiKey: input.apiKey,
+    subject: 'Your Lingua Education plan is active',
+    html,
+    text,
+    fetchImpl: input.fetchImpl,
+  });
+}
+
+export interface SendEducationRenewalEmailInput {
+  to: string;
+  fromEmail: string;
+  fromName: string;
+  apiKey: string | undefined;
+  token: string;
+  issuedTo: string;
+  expiresAt: number;
+  fetchImpl?: typeof fetch;
+}
+
+export async function sendEducationRenewalEmail(
+  input: SendEducationRenewalEmailInput
+): Promise<ResendResult> {
+  const html = renderEmailFromTemplate(educationRenewalTemplate, {
+    issuedTo: escapeHtml(input.issuedTo),
+    token: escapeHtml(input.token),
+    expiresOn: formatExpiresOn(input.expiresAt),
+  });
+  const text = [
+    `Hi ${input.issuedTo},`,
+    '',
+    'Your Lingua Pro Education plan has been renewed for another year.',
+    'Lingua will pick up the refreshed token automatically the next time the',
+    'app is online. If you need it manually, here it is:',
+    '',
+    input.token,
+    '',
+    `New expiry: ${formatExpiresOn(input.expiresAt)}.`,
+  ].join('\n');
+  return postToResend({
+    to: input.to,
+    fromEmail: input.fromEmail,
+    fromName: input.fromName,
+    apiKey: input.apiKey,
+    subject: 'Your Lingua Education plan is renewed',
+    html,
+    text,
+    fetchImpl: input.fetchImpl,
+  });
+}
+
+export interface SendRecoveryConfirmationEmailInput {
+  to: string;
+  fromEmail: string;
+  fromName: string;
+  apiKey: string | undefined;
+  confirmLink: string;
+  fetchImpl?: typeof fetch;
+}
+
+export async function sendRecoveryConfirmationEmail(
+  input: SendRecoveryConfirmationEmailInput
+): Promise<ResendResult> {
+  const html = renderEmailFromTemplate(recoveryConfirmationTemplate, {
+    confirmLink: input.confirmLink,
+  });
+  const text = [
+    'Someone requested to resend a Lingua license token to this email.',
+    'If that was you, click the link below to confirm — we will then email',
+    'you the latest token for the matching license:',
+    '',
+    input.confirmLink,
+    '',
+    'This link expires in 24 hours and can only be used once.',
+    'If this was not you, ignore this email — nothing changes until the',
+    'link is clicked.',
+  ].join('\n');
+  return postToResend({
+    to: input.to,
+    fromEmail: input.fromEmail,
+    fromName: input.fromName,
+    apiKey: input.apiKey,
+    subject: 'Confirm your Lingua license recovery',
+    html,
+    text,
+    fetchImpl: input.fetchImpl,
+  });
+}
+
+export interface SendRecoveryTokenEmailInput {
+  to: string;
+  fromEmail: string;
+  fromName: string;
+  apiKey: string | undefined;
+  token: string;
+  issuedTo: string;
+  tier: SendLicenseEmailInput['tier'];
+  expiresAt: number | null;
+  deepLink: string;
+  fetchImpl?: typeof fetch;
+}
+
+export async function sendRecoveryTokenEmail(
+  input: SendRecoveryTokenEmailInput
+): Promise<ResendResult> {
+  const tierLabel = TIER_HUMAN[input.tier];
+  const expiresOn = input.expiresAt === null ? 'No expiry (lifetime)' : formatExpiresOn(input.expiresAt);
+  const html = renderEmailFromTemplate(recoveryTokenTemplate, {
+    issuedTo: escapeHtml(input.issuedTo),
+    token: escapeHtml(input.token),
+    tier: escapeHtml(tierLabel),
+    expiresOn,
+    deepLink: input.deepLink,
+  });
+  const text = [
+    `Hi ${input.issuedTo},`,
+    '',
+    'Here is the current license token for your account:',
+    '',
+    input.token,
+    '',
+    `Plan: ${tierLabel}. Valid until: ${expiresOn}.`,
+  ].join('\n');
+  return postToResend({
+    to: input.to,
+    fromEmail: input.fromEmail,
+    fromName: input.fromName,
+    apiKey: input.apiKey,
+    subject: 'Your Lingua license token',
+    html,
+    text,
+    fetchImpl: input.fetchImpl,
+  });
 }
