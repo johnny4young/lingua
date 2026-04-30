@@ -2,49 +2,24 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
-    branches: ['**']
+    branches: [main]
+
+# Cancel in-flight runs when a new commit lands on the same branch /
+# PR — the older run becomes irrelevant the moment a fix is pushed,
+# so finishing it is pure waste of GitHub Actions budget.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-web:
-    name: Build web
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run build:web
-
-  typecheck:
-    name: Type check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: npx tsc --noEmit
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run lint
-
-  i18n:
-    name: i18n checks
+  # All Linux gates collapsed into one job so we pay `npm ci` once per
+  # run instead of six times. Each gate stays distinct as a named step
+  # so failures still pinpoint exactly what broke. ~5 min saved per
+  # run vs six parallel jobs.
+  linux-gates:
+    name: Linux gates (build + typecheck + lint + i18n + test + audit)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,24 +30,31 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
-      - run: npm run check:i18n
-      - run: npm run check:i18n:copy
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm test
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: i18n keys
+        run: npm run check:i18n
+      - name: i18n copy guard
+        run: npm run check:i18n:copy
+      - name: Tests
+        run: npm test
+      - name: Build web
+        run: npm run build:web
+      - name: Security audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
 
   windows-path-hardening:
     name: Windows path hardening
     runs-on: windows-latest
+    # Windows runners count 2× against the Actions budget, and the
+    # path-hardening test is a regression guard that only matters
+    # when changes land on main. Skip on push (the linux-gates job
+    # ran on the PR already), keep on PR so the catch is at review
+    # time. Saves ~6-10 min per direct push to main.
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -81,16 +63,3 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm test -- tests/ipc/permissions.test.ts
-
-  audit:
-    name: Security audit
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm audit --audit-level=high
