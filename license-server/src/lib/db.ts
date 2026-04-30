@@ -281,3 +281,265 @@ export async function markDeviceRemoved(
     .run();
   return { affected: result.meta?.changes ?? 0 };
 }
+
+// =============================================================== Slice 4
+
+// ------------------------------------------------------ trials (Slice 4)
+
+export interface TrialRow {
+  id: string;
+  email: string;
+  device_id: string;
+  license_id: string;
+  issued_at: number;
+}
+
+export async function findTrialByEmail(
+  db: D1Database,
+  email: string
+): Promise<TrialRow | null> {
+  return (await db
+    .prepare(`SELECT * FROM trials WHERE email = ? LIMIT 1`)
+    .bind(email)
+    .first<TrialRow>()) ?? null;
+}
+
+export async function findTrialByDeviceId(
+  db: D1Database,
+  deviceId: string
+): Promise<TrialRow | null> {
+  return (await db
+    .prepare(`SELECT * FROM trials WHERE device_id = ? LIMIT 1`)
+    .bind(deviceId)
+    .first<TrialRow>()) ?? null;
+}
+
+export interface InsertTrialInput {
+  id: string;
+  email: string;
+  deviceId: string;
+  licenseId: string;
+  issuedAt: number;
+}
+
+export async function insertTrial(db: D1Database, input: InsertTrialInput): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO trials (id, email, device_id, license_id, issued_at)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .bind(input.id, input.email, input.deviceId, input.licenseId, input.issuedAt)
+    .run();
+}
+
+// -------------------------------------------------- educations (Slice 4)
+
+export interface EducationRow {
+  id: string;
+  email: string;
+  device_id: string;
+  license_id: string;
+  issued_at: number;
+}
+
+export async function findEducationByEmail(
+  db: D1Database,
+  email: string
+): Promise<EducationRow | null> {
+  return (await db
+    .prepare(`SELECT * FROM educations WHERE email = ? LIMIT 1`)
+    .bind(email)
+    .first<EducationRow>()) ?? null;
+}
+
+export async function findEducationByDeviceId(
+  db: D1Database,
+  deviceId: string
+): Promise<EducationRow | null> {
+  return (await db
+    .prepare(`SELECT * FROM educations WHERE device_id = ? LIMIT 1`)
+    .bind(deviceId)
+    .first<EducationRow>()) ?? null;
+}
+
+export interface InsertEducationInput {
+  id: string;
+  email: string;
+  deviceId: string;
+  licenseId: string;
+  issuedAt: number;
+}
+
+export async function insertEducation(
+  db: D1Database,
+  input: InsertEducationInput
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO educations (id, email, device_id, license_id, issued_at)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .bind(input.id, input.email, input.deviceId, input.licenseId, input.issuedAt)
+    .run();
+}
+
+// -------------------------- education_pending_confirmations (Slice 4)
+
+export interface EducationPendingRow {
+  id: string;
+  email: string;
+  device_id: string;
+  device_name: string;
+  os: string;
+  created_at: number;
+  expires_at: number;
+  confirmed_at: number | null;
+}
+
+export interface InsertEducationPendingInput {
+  id: string;
+  email: string;
+  deviceId: string;
+  deviceName: string;
+  os: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+export async function insertEducationPending(
+  db: D1Database,
+  input: InsertEducationPendingInput
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO education_pending_confirmations
+         (id, email, device_id, device_name, os, created_at, expires_at, confirmed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`
+    )
+    .bind(
+      input.id,
+      input.email,
+      input.deviceId,
+      input.deviceName,
+      input.os,
+      input.createdAt,
+      input.expiresAt
+    )
+    .run();
+}
+
+export async function findEducationPendingById(
+  db: D1Database,
+  id: string
+): Promise<EducationPendingRow | null> {
+  return (await db
+    .prepare(`SELECT * FROM education_pending_confirmations WHERE id = ? LIMIT 1`)
+    .bind(id)
+    .first<EducationPendingRow>()) ?? null;
+}
+
+export async function markEducationPendingConfirmed(
+  db: D1Database,
+  id: string,
+  confirmedAt: number
+): Promise<{ affected: number }> {
+  const result = await db
+    .prepare(
+      `UPDATE education_pending_confirmations
+         SET confirmed_at = ?
+       WHERE id = ? AND confirmed_at IS NULL`
+    )
+    .bind(confirmedAt, id)
+    .run();
+  return { affected: result.meta?.changes ?? 0 };
+}
+
+// --------------------------- recovery_pending_confirmations (Slice 4)
+
+export interface RecoveryPendingRow {
+  id: string;
+  email: string;
+  created_at: number;
+  expires_at: number;
+  confirmed_at: number | null;
+}
+
+export interface InsertRecoveryPendingInput {
+  id: string;
+  email: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+export async function insertRecoveryPending(
+  db: D1Database,
+  input: InsertRecoveryPendingInput
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO recovery_pending_confirmations
+         (id, email, created_at, expires_at, confirmed_at)
+       VALUES (?, ?, ?, ?, NULL)`
+    )
+    .bind(input.id, input.email, input.createdAt, input.expiresAt)
+    .run();
+}
+
+export async function findRecoveryPendingById(
+  db: D1Database,
+  id: string
+): Promise<RecoveryPendingRow | null> {
+  return (await db
+    .prepare(`SELECT * FROM recovery_pending_confirmations WHERE id = ? LIMIT 1`)
+    .bind(id)
+    .first<RecoveryPendingRow>()) ?? null;
+}
+
+export async function markRecoveryPendingConfirmed(
+  db: D1Database,
+  id: string,
+  confirmedAt: number
+): Promise<{ affected: number }> {
+  const result = await db
+    .prepare(
+      `UPDATE recovery_pending_confirmations
+         SET confirmed_at = ?
+       WHERE id = ? AND confirmed_at IS NULL`
+    )
+    .bind(confirmedAt, id)
+    .run();
+  return { affected: result.meta?.changes ?? 0 };
+}
+
+// ------------------------------------------------ recovery email lookup
+
+/**
+ * Recovery looks up the canonical license row by email. `licenses`
+ * has an `issued_to` column (lowercased on insert per
+ * `tokens.ts:buildLicensePayload` + `db.ts:insertLicense`). We
+ * intentionally prefer paid rows over Education, and Education over
+ * Trial, when multiple rows share an email. A user who bought Pro and
+ * later tried a free path should recover the paid token, not the newest
+ * free token.
+ */
+export async function findLicenseByEmail(
+  db: D1Database,
+  email: string
+): Promise<LicenseRow | null> {
+  return (await db
+    .prepare(
+      `SELECT * FROM licenses
+         WHERE issued_to = ?
+         ORDER BY
+           CASE
+             WHEN tier IN ('pro', 'pro_lifetime', 'team') THEN 0
+             WHEN tier = 'education' THEN 1
+             WHEN tier = 'trial' THEN 2
+             ELSE 3
+           END ASC,
+           created_at DESC
+         LIMIT 1`
+    )
+    .bind(email)
+    .first<LicenseRow>()) ?? null;
+}

@@ -74,6 +74,20 @@ export type ServerSyncState = 'synced' | 'unreachable' | 'disabled' | null;
  * `onRehydrateStorage` fires the revalidate). The Devices UI shows an
  * empty-state in that case rather than crashing on a missing field.
  */
+/**
+ * RL-061 Slice 4 — recover-hint surfaced when a paste/rehydrate
+ * resolves to an expired-but-signature-valid token AND the server
+ * cannot auto-refresh (license cancelled, refunded, or unknown). The
+ * `LicenseSection` reads this and renders an inline "Recover via
+ * email" CTA pre-filled with the token's `issuedTo` payload field.
+ *
+ * Distinct from the user-driven RecoveryCta on the free state — this
+ * one fires automatically and is dismissible.
+ */
+export interface RecoverHint {
+  email: string;
+}
+
 export interface LicenseState {
   token: string | null;
   status: LicenseStatus;
@@ -81,6 +95,12 @@ export interface LicenseState {
   serverSync: ServerSyncState;
   devices: LicenseServerDevicesBucket | null;
   deviceLimit: LicenseServerDeviceLimit | null;
+  /**
+   * Slice 4 — non-null when the renderer detected a stale token
+   * and the server could not refresh it. The LicenseSection shows
+   * an inline "Recover via email" button pre-filled with this email.
+   */
+  recoverHint: RecoverHint | null;
   /** Import and verify a new license token. Returns the resulting status. */
   setLicenseToken: (token: string) => Promise<LicenseStatus>;
   /** Re-verify the stored token, typically after a setting change or startup. */
@@ -96,6 +116,8 @@ export interface LicenseState {
    * main-side bridge into the same endpoint.
    */
   removeDevice: (deviceIdToRemove: string) => Promise<RemoveDeviceResult>;
+  /** Slice 4 — dismiss the inline recover-hint after user acknowledgement. */
+  clearRecoverHint: () => void;
 }
 
 const FREE_STATUS: LicenseStatus = { kind: 'free' };
@@ -200,6 +222,55 @@ function decodeIssuedAt(token: string): number | null {
 }
 
 /**
+ * Pull the buyer email out of a token's payload without verifying the
+ * signature. Used as a "best effort" affordance when the token failed
+ * local verify with `expired` and we want to pre-fill the recovery
+ * form. A bogus token won't decode and we just fall back to a blank
+ * recovery form.
+ */
+function decodeIssuedTo(token: string): string | null {
+  const decoded = decodeLicenseToken(token);
+  if (!decoded.ok) return null;
+  const value = decoded.payload.issuedTo;
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+/**
+ * RL-061 Slice 4 — stale-token auto-pickup.
+ *
+ * When local verify on a paste / rehydrate produces
+ * `{ kind: 'invalid', reason: 'expired' }`, the signature was still
+ * valid (otherwise we'd see `'invalid-signature'`). The server's
+ * `findCurrentLicenseForToken` walks the licenseId path and returns
+ * the canonical `licenses.token` via `refreshedToken`, so a stale T1
+ * resolves to the active T2 silently.
+ *
+ * Returns a usable `{ token, status }` pair when the swap succeeds.
+ * Otherwise `null` — caller falls through to the recover-hint UX.
+ */
+async function attemptStaleTokenRefresh(
+  staleToken: string,
+): Promise<{ token: string; status: LicenseStatus } | null> {
+  if (!isLicenseServerEnabled()) return null;
+  const deviceId = getOrMintDeviceId();
+  const result: StatusResult = await serverStatus({
+    token: staleToken,
+    deviceId,
+    surface: 'web',
+  });
+  if (!result.ok) return null;
+  if (typeof result.refreshedToken !== 'string' || result.refreshedToken === staleToken) {
+    return null;
+  }
+  // Defensive: the refreshed token must locally verify before we
+  // accept it. A malformed server response (or key rotation we
+  // didn't see) should not flip the user to "active".
+  const refreshedStatus = await runVerifyWeb(result.refreshedToken);
+  if (refreshedStatus.kind === 'invalid') return null;
+  return { token: result.refreshedToken, status: refreshedStatus };
+}
+
+/**
  * Detect the desktop IPC bridge at module-load time. Tests (vitest, JSDOM)
  * never set this, so they run the same web path as the production web build.
  * Slice 0 of RL-059 keeps the bridge optional — when absent we transparently
@@ -218,6 +289,7 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
   serverSync: isLicenseServerEnabled() ? null : 'disabled',
   devices: null,
   deviceLimit: null,
+  recoverHint: null,
   setLicenseToken: async (token) => {
     const trimmed = token.trim();
     if (trimmed.length === 0) {
@@ -226,34 +298,65 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       return invalid;
     }
 
-    const localStatus = await runVerifyWeb(trimmed);
+    let activeToken = trimmed;
+    let localStatus = await runVerifyWeb(trimmed);
     if (localStatus.kind === 'invalid') {
-      // Local signature / shape failure — server can't fix this. Preserve
-      // the existing token if any so a hot-reload paste doesn't lose state.
-      if (get().token) return localStatus;
-      set({ token: null, status: localStatus, lastVerifiedAt: Date.now() });
-      return localStatus;
+      // Slice 4 — stale-token auto-pickup. When the local verify
+      // failed with `expired` (signature was still valid), try
+      // /licenses/status before giving up. The server walks the
+      // licenseId path and may return a refreshedToken via the
+      // canonical row; that swap keeps subscription users on Active
+      // without re-pasting after a long time away.
+      if (localStatus.reason === 'expired') {
+        const refreshed = await attemptStaleTokenRefresh(trimmed);
+        if (refreshed) {
+          activeToken = refreshed.token;
+          localStatus = refreshed.status;
+        } else {
+          // No silent path — surface a recover-hint so the LicenseSection
+          // can render the inline "Recover via email" button. Suppress
+          // the hint when the build has no license server configured —
+          // the recovery flow it points to (`/licenses/recover/start`)
+          // is unreachable in dev builds, so the banner would dead-end.
+          const issuedTo = isLicenseServerEnabled() ? decodeIssuedTo(trimmed) : null;
+          set({
+            token: null,
+            status: localStatus,
+            lastVerifiedAt: Date.now(),
+            recoverHint: issuedTo ? { email: issuedTo } : null,
+          });
+          return localStatus;
+        }
+      } else {
+        // Real local failure (invalid-signature / malformed / clock-skew /
+        // no-public-key). Preserve the existing token if any so a
+        // hot-reload paste doesn't lose state.
+        if (get().token) return localStatus;
+        set({ token: null, status: localStatus, lastVerifiedAt: Date.now() });
+        return localStatus;
+      }
     }
 
     // Server disabled (dev build): take the local-verify outcome and stop.
     if (!isLicenseServerEnabled()) {
       set({
-        token: trimmed,
+        token: activeToken,
         status: localStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'disabled',
         devices: null,
         deviceLimit: null,
+        recoverHint: null,
       });
       return localStatus;
     }
 
     // Show the transient verifying pill while the activate call runs.
-    set({ token: trimmed, status: VERIFYING_STATUS, lastVerifiedAt: Date.now() });
+    set({ token: activeToken, status: VERIFYING_STATUS, lastVerifiedAt: Date.now() });
 
     const deviceId = getOrMintDeviceId();
     const result: ActivateResult = await serverActivate({
-      token: trimmed,
+      token: activeToken,
       deviceId,
       deviceName: getDeviceName(),
       os: getOs(),
@@ -266,12 +369,13 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       // grace-window vs active that would be more authoritative than
       // our payload's supportWindowEndsAt comparison.
       set({
-        token: trimmed,
+        token: activeToken,
         status: localStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'synced',
         devices: result.devices,
         deviceLimit: result.deviceLimit,
+        recoverHint: null,
       });
       return localStatus;
     }
@@ -281,12 +385,13 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       // is locally valid; the renderer will retry on the next page load
       // and synchronise the device count then.
       set({
-        token: trimmed,
+        token: activeToken,
         status: localStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'unreachable',
         devices: null,
         deviceLimit: null,
+        recoverHint: null,
       });
       return localStatus;
     }
@@ -302,13 +407,21 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
     // the bucket to render the per-device Remove buttons. Every other
     // terminal branch clears the bucket so a replacement token cannot
     // inherit stale rows from a previous license.
+    // Surface a recover-hint when the server says the license itself
+    // is gone (revoked / unknown) so the renderer can prompt the user
+    // to recover via email rather than just bouncing them to free.
+    const issuedToForHint =
+      result.reason === 'unknown-license' || result.reason === 'revoked'
+        ? decodeIssuedTo(activeToken)
+        : null;
     set({
-      token: keepToken ? trimmed : null,
+      token: keepToken ? activeToken : null,
       status: invalid,
       lastVerifiedAt: Date.now(),
       serverSync: 'synced',
       devices: result.reason === 'exhausted' ? result.devices : null,
       deviceLimit: result.reason === 'exhausted' ? result.deviceLimit : null,
+      recoverHint: issuedToForHint ? { email: issuedToForHint } : null,
     });
     return invalid;
   },
@@ -319,34 +432,65 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       return FREE_STATUS;
     }
 
-    const localStatus = await runVerifyWeb(token);
+    let activeToken = token;
+    let localStatus = await runVerifyWeb(token);
     if (localStatus.kind === 'invalid') {
-      // Stored token failed local verification (key rotation, tampering,
-      // or expiry past grace) — wipe regardless of server reachability.
-      set({
-        token: null,
-        status: localStatus,
-        lastVerifiedAt: Date.now(),
-        devices: null,
-        deviceLimit: null,
-      });
-      return localStatus;
+      // Slice 4 — same stale-token auto-pickup as setLicenseToken.
+      // A rehydrated `expired` token may already have a refresh waiting
+      // on the server; surface that silently before wiping the row.
+      if (localStatus.reason === 'expired') {
+        const refreshed = await attemptStaleTokenRefresh(token);
+        if (refreshed) {
+          activeToken = refreshed.token;
+          localStatus = refreshed.status;
+        } else {
+          // Stored token aged out and the server has no refresh —
+          // wipe AND surface a recover-hint so the user can retrieve
+          // the latest token via email. Suppress the hint when the
+          // build has no license server configured (dev mode) so we
+          // don't dead-end the user at an unreachable RecoveryCta.
+          const issuedTo = isLicenseServerEnabled() ? decodeIssuedTo(token) : null;
+          set({
+            token: null,
+            status: localStatus,
+            lastVerifiedAt: Date.now(),
+            devices: null,
+            deviceLimit: null,
+            recoverHint: issuedTo ? { email: issuedTo } : null,
+          });
+          return localStatus;
+        }
+      } else {
+        // Stored token failed local verification (key rotation, tampering,
+        // or signature corruption) — wipe regardless of server reachability.
+        set({
+          token: null,
+          status: localStatus,
+          lastVerifiedAt: Date.now(),
+          devices: null,
+          deviceLimit: null,
+          recoverHint: null,
+        });
+        return localStatus;
+      }
     }
 
     if (!isLicenseServerEnabled()) {
       set({
+        token: activeToken,
         status: localStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'disabled',
         devices: null,
         deviceLimit: null,
+        recoverHint: null,
       });
       return localStatus;
     }
 
     const deviceId = getOrMintDeviceId();
     const result: StatusResult = await serverStatus({
-      token,
+      token: activeToken,
       deviceId,
       surface: 'web',
     });
@@ -355,10 +499,9 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       // Pick up Monthly subscription `refreshedToken` only when its
       // `issuedAt` is strictly newer than the stored token's. Defends
       // against a rare stale-replica response from D1's read path.
-      let activeToken = token;
       let activeStatus = localStatus;
-      if (typeof result.refreshedToken === 'string' && result.refreshedToken !== token) {
-        const oldIssuedAt = decodeIssuedAt(token);
+      if (typeof result.refreshedToken === 'string' && result.refreshedToken !== activeToken) {
+        const oldIssuedAt = decodeIssuedAt(activeToken);
         const newIssuedAt = decodeIssuedAt(result.refreshedToken);
         if (newIssuedAt !== null && (oldIssuedAt === null || newIssuedAt > oldIssuedAt)) {
           const refreshedStatus = await runVerifyWeb(result.refreshedToken);
@@ -450,6 +593,7 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
 
     if (isTransientServerFailure(result.reason)) {
       set({
+        token: activeToken,
         status: localStatus,
         lastVerifiedAt: Date.now(),
         serverSync: 'unreachable',
@@ -461,13 +605,21 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
 
     const invalid =
       serverFailureToInvalid(result.reason) ?? { kind: 'invalid' as const, reason: result.reason };
+    // Slice 4 — surface a recover-hint when the server says the
+    // license is gone (revoked / unknown), mirroring the setLicenseToken
+    // branch above.
+    const issuedToForHint =
+      result.reason === 'unknown-license' || result.reason === 'revoked'
+        ? decodeIssuedTo(activeToken)
+        : null;
     set({
-      token: invalid.kind === 'invalid' && result.reason !== 'exhausted' ? null : token,
+      token: invalid.kind === 'invalid' && result.reason !== 'exhausted' ? null : activeToken,
       status: invalid,
       lastVerifiedAt: Date.now(),
       serverSync: 'synced',
       devices: null,
       deviceLimit: null,
+      recoverHint: issuedToForHint ? { email: issuedToForHint } : null,
     });
     return invalid;
   },
@@ -483,6 +635,7 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       serverSync: isLicenseServerEnabled() ? get().serverSync : 'disabled',
       devices: null,
       deviceLimit: null,
+      recoverHint: null,
     });
 
     if (token && isLicenseServerEnabled()) {
@@ -539,6 +692,9 @@ const webStateCreator: StateCreator<LicenseState> = (set, get) => ({
       serverSync: 'synced',
     });
     return result;
+  },
+  clearRecoverHint: () => {
+    set({ recoverHint: null });
   },
 });
 
@@ -650,6 +806,13 @@ function createDesktopStore(bridge: LicenseBridge) {
     serverSync: 'disabled' as const,
     devices: null,
     deviceLimit: null,
+    // Slice 4 — recoverHint is desktop-side a no-op for now. The
+    // main-process equivalent of the stale-token auto-pickup +
+    // recover-hint fallback is filed as a Phase 2 follow-up; the
+    // desktop user's stale-token UX still works via Settings →
+    // Recover via email, which goes through the same web /licenses/
+    // recover/* endpoints.
+    recoverHint: null,
     setLicenseToken: async (token) => {
       markBootstrapped();
       try {
@@ -761,6 +924,9 @@ function createDesktopStore(bridge: LicenseBridge) {
           message: error instanceof Error ? error.message : String(error),
         };
       }
+    },
+    clearRecoverHint: () => {
+      set({ recoverHint: null });
     },
   }));
 

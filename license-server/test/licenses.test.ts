@@ -410,3 +410,54 @@ describe('0003_relax_devices_os_check migration', () => {
     expect(sqlOnly).toContain("CHECK (surface IN ('desktop', 'web'))");
   });
 });
+
+describe('0004_add_educations_and_pending_tables migration', () => {
+  it('declares educations + 2 pending tables with the right anti-abuse shape', async () => {
+    const migration = (
+      await import('../migrations/0004_add_educations_and_pending_tables.sql?raw')
+    ).default;
+    // Strip SQL comments before scanning so prose in the header
+    // doesn't false-positive against the assertions.
+    const sqlOnly = migration
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('--'))
+      .join('\n');
+
+    // educations: same shape as trials with UNIQUE(email) +
+    // UNIQUE(device_id) so the magic-link confirm path bounces
+    // duplicates at the storage layer instead of relying on the
+    // handler pre-check alone. The constraints are declared
+    // table-level (not inline on the column) — same form as the
+    // 0001 trials block.
+    expect(sqlOnly).toMatch(/CREATE TABLE IF NOT EXISTS educations/i);
+    const educationsBlockMatch = sqlOnly.match(
+      /CREATE TABLE IF NOT EXISTS educations[\s\S]*?\);/i
+    );
+    expect(educationsBlockMatch).not.toBeNull();
+    const educationsBlock = educationsBlockMatch![0];
+    expect(educationsBlock).toMatch(/UNIQUE\s*\(\s*email\s*\)/i);
+    expect(educationsBlock).toMatch(/UNIQUE\s*\(\s*device_id\s*\)/i);
+
+    // education pending: 24h TTL via expires_at, idempotent confirm
+    // via nullable confirmed_at.
+    expect(sqlOnly).toMatch(
+      /CREATE TABLE IF NOT EXISTS education_pending_confirmations/i
+    );
+    expect(sqlOnly).toMatch(/confirmed_at\s+INTEGER/i);
+
+    // recovery pending: NO device columns (recovery does not
+    // register a new device).
+    expect(sqlOnly).toMatch(
+      /CREATE TABLE IF NOT EXISTS recovery_pending_confirmations/i
+    );
+    // Quick negative — the recovery pending block must not
+    // accidentally inherit device_id / device_name / os.
+    const recoveryBlockMatch = sqlOnly.match(
+      /CREATE TABLE IF NOT EXISTS recovery_pending_confirmations[\s\S]*?\);/i
+    );
+    expect(recoveryBlockMatch).not.toBeNull();
+    const recoveryBlock = recoveryBlockMatch![0];
+    expect(recoveryBlock).not.toMatch(/device_id/i);
+    expect(recoveryBlock).not.toMatch(/device_name/i);
+  });
+});

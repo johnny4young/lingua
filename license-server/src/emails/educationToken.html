@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Your Lingua Education plan is active</title>
+    <style>{{layoutCss}}</style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="brand">Lingua</div>
+      <div class="card">
+        <h1>Your Education plan is active</h1>
+        <p>Hi {{issuedTo}},</p>
+        <p>Your Lingua Pro Education plan is confirmed for the next year. Paste the token below into Settings → License inside the app, or click the button if you opened this email on the same machine where Lingua is installed.</p>
+        <p><a class="button" href="{{deepLink}}">Activate Pro</a></p>
+        <p>Or paste this token manually:</p>
+        <div class="token-box">{{token}}</div>
+        <p>Your plan expires on <strong>{{expiresOn}}</strong>. We will email you a renewal link 30 days before then so your access does not lapse.</p>
+        <p class="muted">You are receiving this email because you confirmed an Education plan request on Lingua. Each plan binds to one device — re-run the flow on a different machine if you upgrade.</p>
+      </div>
+    </div>
+  </body>
+</html>

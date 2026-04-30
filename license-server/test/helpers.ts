@@ -49,9 +49,48 @@ interface DeviceRow {
   removed_at: number | null;
 }
 
+interface TrialRow {
+  id: string;
+  email: string;
+  device_id: string;
+  license_id: string;
+  issued_at: number;
+}
+
+interface EducationRow {
+  id: string;
+  email: string;
+  device_id: string;
+  license_id: string;
+  issued_at: number;
+}
+
+interface PendingConfirmationRow {
+  id: string;
+  email: string;
+  device_id: string | null;
+  device_name: string | null;
+  os: string | null;
+  created_at: number;
+  expires_at: number;
+  confirmed_at: number | null;
+}
+
+function recoveryTierPriority(tier: string): number {
+  if (tier === 'pro' || tier === 'pro_lifetime' || tier === 'team') return 0;
+  if (tier === 'education') return 1;
+  if (tier === 'trial') return 2;
+  return 3;
+}
+
 class MockD1Database {
   licenses = new Map<string, LicenseRow>();
   devices = new Map<string, DeviceRow>();
+  // Slice 4 — RL-061
+  trials = new Map<string, TrialRow>();
+  educations = new Map<string, EducationRow>();
+  educationPending = new Map<string, PendingConfirmationRow>();
+  recoveryPending = new Map<string, PendingConfirmationRow>();
 
   prepare(query: string): MockStatement {
     return new MockStatement(this, query);
@@ -144,6 +183,46 @@ class MockStatement {
         (r) => r.license_id === licenseId && r.surface === surface && r.removed_at === null
       ).length;
       return [{ n: count }];
+    }
+    // ------- Slice 4 — trials / educations / pending tables / email lookup
+    if (q.startsWith('SELECT * FROM trials WHERE email =')) {
+      const [email] = this.boundParams as [string];
+      const row = [...this.db.trials.values()].find((r) => r.email === email);
+      return row ? [row] : [];
+    }
+    if (q.startsWith('SELECT * FROM trials WHERE device_id =')) {
+      const [deviceId] = this.boundParams as [string];
+      const row = [...this.db.trials.values()].find((r) => r.device_id === deviceId);
+      return row ? [row] : [];
+    }
+    if (q.startsWith('SELECT * FROM educations WHERE email =')) {
+      const [email] = this.boundParams as [string];
+      const row = [...this.db.educations.values()].find((r) => r.email === email);
+      return row ? [row] : [];
+    }
+    if (q.startsWith('SELECT * FROM educations WHERE device_id =')) {
+      const [deviceId] = this.boundParams as [string];
+      const row = [...this.db.educations.values()].find((r) => r.device_id === deviceId);
+      return row ? [row] : [];
+    }
+    if (q.startsWith('SELECT * FROM education_pending_confirmations WHERE id =')) {
+      const [id] = this.boundParams as [string];
+      const row = this.db.educationPending.get(id);
+      return row ? [row] : [];
+    }
+    if (q.startsWith('SELECT * FROM recovery_pending_confirmations WHERE id =')) {
+      const [id] = this.boundParams as [string];
+      const row = this.db.recoveryPending.get(id);
+      return row ? [row] : [];
+    }
+    if (q.startsWith('SELECT * FROM licenses WHERE issued_to =')) {
+      const [email] = this.boundParams as [string];
+      const matches = [...this.db.licenses.values()].filter((r) => r.issued_to === email);
+      matches.sort((a, b) => {
+        const priorityDelta = recoveryTierPriority(a.tier) - recoveryTierPriority(b.tier);
+        return priorityDelta !== 0 ? priorityDelta : b.created_at - a.created_at;
+      });
+      return matches.length > 0 && matches[0] ? [matches[0]] : [];
     }
     return [];
   }
@@ -287,6 +366,95 @@ class MockStatement {
       }
       return changes;
     }
+    // ------------------------------------------ Slice 4 — RL-061 inserts
+    if (q.startsWith('INSERT INTO trials')) {
+      const [id, email, device_id, license_id, issued_at] = this.boundParams as [
+        string,
+        string,
+        string,
+        string,
+        number,
+      ];
+      // SQL UNIQUE constraint emulation — throw the same shape D1
+      // does so the handler's pre-check + INSERT-collision behaviour
+      // matches production.
+      for (const r of this.db.trials.values()) {
+        if (r.email === email) throw new Error('UNIQUE constraint failed: trials.email');
+        if (r.device_id === device_id) throw new Error('UNIQUE constraint failed: trials.device_id');
+      }
+      this.db.trials.set(id, { id, email, device_id, license_id, issued_at });
+      return 1;
+    }
+    if (q.startsWith('INSERT INTO educations')) {
+      const [id, email, device_id, license_id, issued_at] = this.boundParams as [
+        string,
+        string,
+        string,
+        string,
+        number,
+      ];
+      for (const r of this.db.educations.values()) {
+        if (r.email === email) throw new Error('UNIQUE constraint failed: educations.email');
+        if (r.device_id === device_id) throw new Error('UNIQUE constraint failed: educations.device_id');
+      }
+      this.db.educations.set(id, { id, email, device_id, license_id, issued_at });
+      return 1;
+    }
+    if (q.startsWith('INSERT INTO education_pending_confirmations')) {
+      const [id, email, device_id, device_name, os, created_at, expires_at] = this.boundParams as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        number,
+        number,
+      ];
+      this.db.educationPending.set(id, {
+        id,
+        email,
+        device_id,
+        device_name,
+        os,
+        created_at,
+        expires_at,
+        confirmed_at: null,
+      });
+      return 1;
+    }
+    if (q.startsWith('UPDATE education_pending_confirmations SET confirmed_at =')) {
+      const [confirmedAt, id] = this.boundParams as [number, string];
+      const row = this.db.educationPending.get(id);
+      if (!row || row.confirmed_at !== null) return 0;
+      row.confirmed_at = confirmedAt;
+      return 1;
+    }
+    if (q.startsWith('INSERT INTO recovery_pending_confirmations')) {
+      const [id, email, created_at, expires_at] = this.boundParams as [
+        string,
+        string,
+        number,
+        number,
+      ];
+      this.db.recoveryPending.set(id, {
+        id,
+        email,
+        device_id: null,
+        device_name: null,
+        os: null,
+        created_at,
+        expires_at,
+        confirmed_at: null,
+      });
+      return 1;
+    }
+    if (q.startsWith('UPDATE recovery_pending_confirmations SET confirmed_at =')) {
+      const [confirmedAt, id] = this.boundParams as [number, string];
+      const row = this.db.recoveryPending.get(id);
+      if (!row || row.confirmed_at !== null) return 0;
+      row.confirmed_at = confirmedAt;
+      return 1;
+    }
     return 0;
   }
 }
@@ -316,7 +484,6 @@ export interface MockEnvOptions {
   publicKeyJwk?: JsonWebKey;
   resendApiKey?: string;
   corsAllowedOrigins?: string;
-  fetchImpl?: typeof fetch;
 }
 
 export function createMockEnv(options: MockEnvOptions = {}): Env & { __db: MockD1Database } {

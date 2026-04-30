@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Your Lingua Education plan is renewed</title>
+    <style>{{layoutCss}}</style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="brand">Lingua</div>
+      <div class="card">
+        <h1>Your Education plan is renewed</h1>
+        <p>Hi {{issuedTo}},</p>
+        <p>Your Lingua Pro Education plan has been renewed for another year. Lingua will pick up the refreshed token automatically the next time the app is online — you do not need to re-paste anything.</p>
+        <p>If you switch machines, here is the latest token:</p>
+        <div class="token-box">{{token}}</div>
+        <p>New expiry: <strong>{{expiresOn}}</strong>.</p>
+        <p class="muted">You are receiving this email because your existing Education plan was renewed via the educational email validation flow. If this was not you, please contact support.</p>
+      </div>
+    </div>
+  </body>
+</html>

@@ -4,8 +4,11 @@ import { useLicenseStore, type LicenseStatus } from '../../stores/licenseStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getOrMintDeviceId } from '../../services/deviceFingerprint';
 import { DeviceList } from './DeviceList';
+import { EducationCta } from './EducationCta';
 import { ExhaustedDevicesModal } from './ExhaustedDevicesModal';
+import { RecoveryCta } from './RecoveryCta';
 import { Row, Section } from './shared';
+import { TrialCta } from './TrialCta';
 
 /**
  * License paste / clear surface for RL-059. Intentionally minimal — the
@@ -119,10 +122,28 @@ export function LicenseSection() {
   const serverSync = useLicenseStore(state => state.serverSync);
   const devices = useLicenseStore(state => state.devices);
   const deviceLimit = useLicenseStore(state => state.deviceLimit);
+  const recoverHint = useLicenseStore(state => state.recoverHint);
   const setLicenseToken = useLicenseStore(state => state.setLicenseToken);
   const clearLicense = useLicenseStore(state => state.clearLicense);
   const removeDevice = useLicenseStore(state => state.removeDevice);
+  const clearRecoverHint = useLicenseStore(state => state.clearRecoverHint);
   const pushStatusNotice = useUIStore(state => state.pushStatusNotice);
+
+  // Slice 4 — when a child CTA hits a duplicate-email branch with
+  // `canRecover: true`, we capture the email here and pass it down to
+  // RecoveryCta as a prefill so the user can recover with one click.
+  // Also seeded by the renderer-driven recoverHint (stale-token branch).
+  const [recoveryPrefill, setRecoveryPrefill] = useState<string | null>(null);
+  useEffect(() => {
+    if (recoverHint && recoverHint.email !== recoveryPrefill) {
+      setRecoveryPrefill(recoverHint.email);
+    }
+  }, [recoverHint, recoveryPrefill]);
+
+  const handleDismissRecoverHint = useCallback(() => {
+    clearRecoverHint();
+    setRecoveryPrefill(null);
+  }, [clearRecoverHint]);
 
   // Auto-open the modal whenever the active status flips into
   // `invalid:devices-exhausted` (covers the post-rehydrate case where
@@ -285,6 +306,29 @@ export function LicenseSection() {
           </button>
         </div>
       </Row>
+
+      {status.kind === 'free' || (status.kind === 'invalid' && status.reason !== 'devices-exhausted') ? (
+        <>
+          <TrialCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
+          <EducationCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
+          <RecoveryCta prefilledEmail={recoveryPrefill ?? undefined} />
+          {recoverHint ? (
+            <div
+              className="rounded-[1.15rem] border border-warning/60 bg-warning/10 px-3.5 py-3 text-xs leading-5 text-warning"
+              data-testid="license-recover-hint"
+            >
+              <p className="mb-2">{t('license.recovery.staleHint', { email: recoverHint.email })}</p>
+              <button
+                type="button"
+                onClick={handleDismissRecoverHint}
+                className="text-[11px] text-warning underline-offset-2 hover:underline"
+              >
+                {t('license.recovery.dismissHint')}
+              </button>
+            </div>
+          ) : null}
+        </>
+      ) : null}
 
       {(status.kind === 'active' || status.kind === 'grace') &&
       serverSync === 'synced' &&

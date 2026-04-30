@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Your Lingua Pro trial is ready</title>
+    <style>{{layoutCss}}</style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="brand">Lingua</div>
+      <div class="card">
+        <h1>Your Pro trial is ready</h1>
+        <p>Hi {{issuedTo}},</p>
+        <p>Your free 14-day Lingua Pro trial is active. Paste the token below into Settings → License inside the app, or click the button if you opened this email on the same machine where Lingua is installed.</p>
+        <p><a class="button" href="{{deepLink}}">Activate Pro</a></p>
+        <p>Or paste this token manually:</p>
+        <div class="token-box">{{token}}</div>
+        <p>Your trial expires on <strong>{{expiresOn}}</strong>. After that you can buy a Pro license at <a href="https://linguacode.dev">linguacode.dev</a> or apply for the free Education plan if you are a student.</p>
+        <p class="muted">You are receiving this email because you started a free trial on Lingua. If this was not you, it is safe to ignore — the trial is locked to a single device and email.</p>
+      </div>
+    </div>
+  </body>
+</html>

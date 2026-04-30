@@ -30,6 +30,17 @@ migrations_dir = "migrations"
 binding = "RATE_LIMIT"
 id = "3698a3e2f089439d97babd4b10e4d1e1"
 
+# Slice 4 — load the email HTML + CSS templates as plain text so
+# `import trialTemplate from '../emails/trial.html'` (etc.) returns
+# the file contents as a string at deploy time. Esbuild's Text loader
+# handles this; the matching vitest config has a small Vite plugin
+# that does the same thing for tests so both sides agree without the
+# Vite-only `?raw` suffix.
+[[rules]]
+type = "Text"
+globs = ["**/*.html", "**/*.css"]
+fallthrough = true
+
 [vars]
 # Public key embedded at deploy time. Sibling to the build-time public
 # key in the Electron renderer + main bundles so /licenses/activate
