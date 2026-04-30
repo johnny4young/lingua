@@ -80,7 +80,13 @@ describe('release workflow', () => {
 
   it('deploys the web bundle from the validated release tag ref', () => {
     expect(existsSync(DEPLOY_WEB_WORKFLOW_PATH)).toBe(true);
-    expect(workflow).toMatch(/uses:\s*\.\/\.github\/workflows\/deploy-web\.yml[\s\S]*?with:[\s\S]*?ref:\s*\$\{\{\s*env\.RELEASE_REF\s*\}\}/u);
+    // GitHub Actions rejects `env.*` inside `with:` of a reusable
+    // workflow call ("Unrecognized named-value: 'env'"), so the ref
+    // is computed inline from inputs.release_tag instead of via
+    // env.RELEASE_REF.
+    expect(workflow).toMatch(
+      /uses:\s*\.\/\.github\/workflows\/deploy-web\.yml[\s\S]*?with:[\s\S]*?ref:\s*refs\/tags\/\$\{\{\s*inputs\.release_tag\s*\}\}/u
+    );
     expect(deployWebWorkflow).toMatch(/workflow_call:[\s\S]*?inputs:[\s\S]*?ref:[\s\S]*?default:\s*refs\/heads\/main/u);
     expect(deployWebWorkflow).toMatch(/uses:\s*actions\/checkout@v4[\s\S]*?ref:\s*\$\{\{\s*inputs\.ref\s*\}\}/u);
   });

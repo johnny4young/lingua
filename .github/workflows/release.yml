@@ -483,5 +483,11 @@ jobs:
       contents: read
     uses: ./.github/workflows/deploy-web.yml
     with:
-      ref: ${{ env.RELEASE_REF }}
+      # Workflow-level `env:` (`env.RELEASE_REF`) is NOT accessible
+      # inside the `with:` block of a reusable workflow call — GitHub
+      # rejects the workflow at parse time with "Unrecognized
+      # named-value: 'env'". Inline the same expression we use in the
+      # `env:` block (`refs/tags/${{ inputs.release_tag }}`) so the
+      # value is computed from the workflow inputs instead.
+      ref: refs/tags/${{ inputs.release_tag }}
     secrets: inherit
