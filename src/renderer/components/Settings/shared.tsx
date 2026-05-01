@@ -71,7 +71,7 @@ export function Toggle({
       disabled={disabled}
       onClick={onChange}
       className={cn(
-        'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'relative inline-flex h-[32px] w-[56px] shrink-0 rounded-full border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         value
           ? 'border-primary/30 bg-primary'
           : 'border-border/80 bg-surface-strong/80',
@@ -79,10 +79,8 @@ export function Toggle({
       )}
     >
       <span
-        className={cn(
-          'h-5 w-5 rounded-full bg-white shadow-[0_4px_14px_rgba(15,23,42,0.25)] transition-transform',
-          value ? 'translate-x-5' : 'translate-x-0'
-        )}
+        className="absolute left-[2px] top-1/2 h-[28px] w-[28px] rounded-full bg-white shadow-[0_4px_14px_rgba(15,23,42,0.25)] transition-transform"
+        style={{ transform: `translate(${value ? 24 : 0}px, -50%)` }}
       />
     </button>
   );

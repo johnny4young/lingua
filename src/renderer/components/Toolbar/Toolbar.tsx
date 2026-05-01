@@ -30,6 +30,7 @@ import { isLanguageAllowed } from '../../../shared/entitlements';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 import { IconButton, Tooltip } from '../ui/chrome';
+import { cn } from '../../utils/cn';
 import { LicenseBadge } from './LicenseBadge';
 
 const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
@@ -183,7 +184,12 @@ export function Toolbar({
     >
       <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-32 bg-gradient-to-r from-primary-soft/55 via-transparent to-transparent sm:block" />
 
-      <div className="flex min-w-0 items-center gap-2 pl-[70px] sm:pl-[78px]">
+      <div
+        className={cn(
+          'flex min-w-0 items-center gap-2',
+          isWebBuild ? 'pl-2 sm:pl-3' : 'pl-[70px] sm:pl-[78px]'
+        )}
+      >
         <IconButton
           onClick={toggleSidebar}
           active={sidebarVisible}
@@ -317,7 +323,7 @@ export function Toolbar({
 
       <div data-tour-id="toolbar-actions" className="flex min-w-0 items-center gap-1">
         {activeTab && (
-          <div className="status-pill hidden max-w-[14rem] truncate sm:flex">
+          <div className="status-pill hidden max-w-[14rem] truncate lg:flex">
             {t('toolbar.languageActive', { language: defaultNewFileLabel })}
           </div>
         )}

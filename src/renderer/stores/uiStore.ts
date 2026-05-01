@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type StatusNoticeTone = 'info' | 'error' | 'success';
+export type StatusNoticeTone = 'info' | 'success' | 'warning' | 'error';
 
 export interface StatusNotice {
   id: number;

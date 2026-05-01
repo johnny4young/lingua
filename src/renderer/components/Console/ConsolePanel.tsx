@@ -319,11 +319,21 @@ export function ConsolePanel() {
         className="flex-1 overflow-y-auto px-3 py-2 font-mono text-xs leading-6"
       >
         {visibleEntries.length === 0 ? (
-          <p className="px-2 pt-2 italic text-muted">
-            {entries.length === 0
-              ? t('console.empty.output')
-              : t('console.empty.filtered')}
-          </p>
+          <div className="flex h-full min-h-[120px] flex-col items-center justify-center px-6 py-8 text-center">
+            <p className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted">
+              {t('console.title')}
+            </p>
+            <p className="font-sans text-[13px] font-medium text-foreground">
+              {entries.length === 0
+                ? t('console.empty.output')
+                : t('console.empty.filtered')}
+            </p>
+            {entries.length === 0 ? (
+              <p className="mt-1 max-w-md font-sans text-[11.5px] leading-[1.45] text-muted">
+                {t('console.empty.hint')}
+              </p>
+            ) : null}
+          </div>
         ) : (
           visibleEntries.map((entry) => (
             <EntryRow

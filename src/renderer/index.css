@@ -807,4 +807,105 @@
     opacity: 0.82;
     padding-left: 1rem;
   }
+
+  /* ----------------------------------------------------------------- */
+  /* Monaco overlays · Signal-Slate alignment                          */
+  /*                                                                    */
+  /* Monaco renders Find/Replace, Suggest, Hover, and Peek as floating */
+  /* widgets layered over the editor. Their default styling fights the */
+  /* DS palette — sharp white panels with bright blue selection. The   */
+  /* overrides below pull every widget into our token system so the    */
+  /* whole editor feels like one surface in both light + dark themes.  */
+  /* ----------------------------------------------------------------- */
+
+  /* Find widget — top-right floating panel */
+  .monaco-editor .find-widget {
+    background: var(--color-bg-panel);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    color: var(--color-fg-base);
+  }
+
+  .monaco-editor .find-widget .monaco-inputbox {
+    border-radius: var(--radius-md);
+    background: var(--color-bg-inset);
+    border: 1px solid var(--color-border-subtle);
+  }
+
+  .monaco-editor .find-widget .monaco-inputbox.synthetic-focus {
+    border-color: var(--color-accent);
+  }
+
+  /* Suggest / IntelliSense list */
+  .monaco-editor .suggest-widget {
+    background: var(--color-bg-panel);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+  }
+
+  .monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused {
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    color: var(--color-fg-base);
+  }
+
+  /* Hover widget */
+  .monaco-editor .monaco-hover {
+    background: var(--color-bg-panel);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Multi-cursor primary + secondary visualization. The default
+     Monaco caret is fine; we only tune the secondary-cursor color so
+     it reads as a slate accent rather than a solid blue. */
+  .monaco-editor .cursors-layer .cursor.secondary {
+    background: color-mix(in srgb, var(--color-accent) 60%, transparent) !important;
+  }
+
+  /* Selection highlight — keep saturation modest so syntax colors
+     stay readable through it. */
+  .monaco-editor .selected-text {
+    background: var(--color-editor-selection) !important;
+  }
+
+  /* Find match highlight (current). The default Monaco color is a
+     bright orange that fights every theme; pin it to the warning hue
+     of our DS so it's clearly "current match" but doesn't shout. */
+  .monaco-editor .currentFindMatch {
+    background: color-mix(in srgb, var(--color-warning-fg) 28%, transparent) !important;
+    border: 1px solid var(--color-warning-border) !important;
+    border-radius: 2px;
+  }
+
+  /* Find match (other matches in viewport) — softer. */
+  .monaco-editor .findMatch {
+    background: color-mix(in srgb, var(--color-warning-fg) 14%, transparent) !important;
+    border-radius: 2px;
+  }
+
+  /* Diff editor — added vs deleted line backgrounds. The default
+     red/green can be aggressive in light theme; pin to our success +
+     error semantic ramps with low alpha. */
+  .monaco-diff-editor .line-insert,
+  .monaco-diff-editor .char-insert {
+    background: color-mix(in srgb, var(--color-success-fg) 14%, transparent) !important;
+  }
+
+  .monaco-diff-editor .line-delete,
+  .monaco-diff-editor .char-delete {
+    background: color-mix(in srgb, var(--color-error-fg) 14%, transparent) !important;
+  }
+
+  /* Diff editor gutter markers (the +/- triangles). Match the line
+     bg so they read as part of the same row. */
+  .monaco-diff-editor .insert-sign {
+    color: var(--color-success-fg) !important;
+  }
+
+  .monaco-diff-editor .delete-sign {
+    color: var(--color-error-fg) !important;
+  }
 }

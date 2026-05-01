@@ -26,6 +26,7 @@ import {
   type ParseShortcutPresetResult,
 } from '../../utils/shortcutPreset';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { Eyebrow } from '../ui/primitives';
 
 const NON_EDITABLE_SHORTCUTS: ReadonlySet<string> = new Set(['overlay-close']);
 
@@ -358,33 +359,36 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     <OverlayBackdrop onClose={onClose}>
       <OverlayCard
         data-testid="keyboard-shortcuts-modal"
-        className="relative flex h-[min(82vh,760px)] w-full max-w-3xl flex-col overflow-hidden"
+        className="relative flex h-[min(84vh,820px)] w-[min(96vw,920px)] max-w-none flex-col overflow-hidden"
       >
-        <header className="surface-header flex items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-primary-soft text-primary">
-              <Keyboard size={18} />
+        <header className="surface-header px-6 pt-5 pb-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-primary-soft text-primary">
+                <Keyboard size={18} />
+              </div>
+              <div>
+                <Eyebrow className="mb-0.5">{t('shortcuts.panelTitle')}</Eyebrow>
+                <h2 className="font-display text-[22px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground">
+                  {t('shortcuts.title')}
+                </h2>
+                <p className="mt-1 max-w-2xl text-[12.5px] leading-[1.5] text-muted">
+                  {t('shortcuts.description')}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="panel-title">{t('shortcuts.panelTitle')}</p>
-              <h2 className="text-sm font-semibold text-foreground">{t('shortcuts.title')}</h2>
-            </div>
+            <IconButton onClick={onClose} tooltip={t('shortcuts.close')} aria-label={t('shortcuts.close')}>
+              <X size={16} />
+            </IconButton>
           </div>
-          <IconButton onClick={onClose} tooltip={t('shortcuts.close')} aria-label={t('shortcuts.close')}>
-            <X size={16} />
-          </IconButton>
-        </header>
-
-        <div className="border-b border-border/80 px-5 py-3">
-          <p className="text-sm leading-6 text-muted">{t('shortcuts.description')}</p>
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-xs text-muted">
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-[11.5px] text-muted">
               <span>{t('shortcuts.preset.label')}</span>
               <select
                 value={keymapPreset}
                 onChange={(event) => applyKeymapPreset(event.target.value)}
                 data-testid="shortcut-preset-select"
-                className="field-shell text-sm"
+                className="rounded-[0.75rem] border border-border/80 bg-background-elevated/88 px-2.5 py-1.5 text-[12px] text-foreground outline-none focus:border-primary/50"
               >
                 {KEYMAP_PRESETS.map((preset) => (
                   <option key={preset.id} value={preset.id}>
@@ -393,35 +397,57 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                 ))}
               </select>
             </label>
-            <label className="flex min-w-[12rem] flex-1 items-center gap-2 rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5">
-              <Search size={14} className="text-muted" />
+            <div className="relative flex min-w-[14rem] flex-1 items-center">
+              <Search
+                size={12}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                aria-hidden="true"
+              />
               <input
                 type="search"
                 aria-label={t('shortcuts.searchLabel')}
                 placeholder={t('shortcuts.searchPlaceholder')}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
+                className="w-full rounded-[0.85rem] border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-[12px] text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
               />
-            </label>
+              {query.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  aria-label={t('shortcuts.searchClear')}
+                  className="kbd-shell absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:text-foreground"
+                >
+                  {t('shortcuts.kbd.escape')}
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
+        </header>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-5">
           {matching.length === 0 ? (
-            <p className="rounded-[1rem] border border-border/80 bg-background/65 px-3 py-3 text-sm text-muted">
-              {t('shortcuts.empty', { query: query.trim() })}
-            </p>
+            <div className="rounded-[1rem] border border-border/80 bg-background/65 px-4 py-6 text-center">
+              <p className="text-[13px] font-medium text-foreground">
+                {t('shortcuts.empty.title')}
+              </p>
+              <p className="mt-1 text-[12px] text-muted">
+                {t('shortcuts.empty', { query: query.trim() })}
+              </p>
+            </div>
           ) : (
-            <div className="grid gap-5">
+            <div className="grid gap-6">
               {SHORTCUT_GROUPS.map((group) => {
                 const items = grouped.get(group.id);
                 if (!items || items.length === 0) return null;
                 return (
-                  <section key={group.id} className="grid gap-2">
-                    <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
+                  <section key={group.id}>
+                    <Eyebrow>
                       {t(group.labelKey)}
-                    </h3>
+                      <span className="ml-2 text-muted/70 normal-case tracking-normal">
+                        · {items.length}
+                      </span>
+                    </Eyebrow>
                     <ul className="grid gap-1 rounded-[1.1rem] border border-border/80 bg-background/65">
                       {items.map((shortcut) => (
                         <ShortcutRow

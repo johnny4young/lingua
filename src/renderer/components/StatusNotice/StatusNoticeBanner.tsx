@@ -1,14 +1,30 @@
-import { X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from 'lucide-react';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUIStore } from '../../stores/uiStore';
+import { useUIStore, type StatusNoticeTone } from '../../stores/uiStore';
+import { cn } from '../../utils/cn';
 
 const AUTO_DISMISS_MS = 6000;
 
 /**
- * Ephemeral bottom-right toast surfacing transient notices such as format-on-save
- * parse errors or missing formatter binaries. Never blocks the editor — auto
- * dismisses after a short window and clears immediately when the user hits X.
+ * RL-070 Sub-slice 4 — Signal-Slate toast.
+ *
+ * Refresh of the bottom-right toast for transient notices (format-on-save
+ * parse errors, missing formatter binaries, license activation outcomes,
+ * web-update banner overflow). Now ships with four semantic tones
+ * (success, info, warning, error) — each with its own icon, ramp, and
+ * auto-dismiss behaviour.
+ *
+ * Auto-dismiss is suppressed when the tone is `error` so the user does
+ * not lose actionable copy by looking away. Other tones still expire
+ * after AUTO_DISMISS_MS.
+ *
+ * Visual contract:
+ *
+ *   - Subtle border-tone tint, never solid color blocks.
+ *   - Leading icon column (16px) for instant tone recognition.
+ *   - Body uses Eyebrow-less heading + small detail row when present.
+ *   - Dismiss button stays muted until hover.
  */
 export function StatusNoticeBanner() {
   const { t } = useTranslation();
@@ -17,6 +33,8 @@ export function StatusNoticeBanner() {
 
   useEffect(() => {
     if (!notice) return;
+    // Errors stick — the user has to dismiss them.
+    if (notice.tone === 'error') return undefined;
     const timeout = window.setTimeout(() => {
       dismissStatusNotice();
     }, AUTO_DISMISS_MS);
@@ -25,34 +43,74 @@ export function StatusNoticeBanner() {
 
   if (!notice) return null;
 
-  const toneClass =
-    notice.tone === 'error'
-      ? 'border-danger/60 bg-danger/10 text-danger'
-      : notice.tone === 'success'
-        ? 'border-success/60 bg-success/10 text-success'
-        : 'border-border/80 bg-surface/85 text-foreground';
-
   return (
     <div
-      role="status"
-      aria-live="polite"
+      role={notice.tone === 'error' ? 'alert' : 'status'}
+      aria-live={notice.tone === 'error' ? 'assertive' : 'polite'}
       data-testid="status-notice-banner"
-      className={`pointer-events-auto fixed bottom-6 right-6 z-[60] flex max-w-sm items-start gap-3 rounded-[1.1rem] border px-4 py-3 shadow-xl backdrop-blur ${toneClass}`}
+      data-tone={notice.tone}
+      className={cn(
+        'pointer-events-auto fixed bottom-6 right-6 z-[60] flex max-w-md items-start gap-3 rounded-[1.1rem] border px-4 py-3 shadow-lg backdrop-blur',
+        toneClasses(notice.tone)
+      )}
     >
-      <div className="grid gap-1 text-sm">
+      <ToneIcon tone={notice.tone} />
+      <div className="grid min-w-0 flex-1 gap-1 text-sm">
         <p className="font-medium leading-5">{t(notice.messageKey, notice.values)}</p>
         {notice.detail ? (
-          <p className="max-h-32 overflow-auto text-xs leading-5 text-muted">{notice.detail}</p>
+          <p className="max-h-32 overflow-auto text-[11.5px] leading-[1.45] text-muted">
+            {notice.detail}
+          </p>
         ) : null}
       </div>
       <button
         type="button"
         onClick={dismissStatusNotice}
         aria-label={t('statusNotice.dismiss')}
-        className="ml-auto rounded-full p-1 text-muted transition-colors hover:text-foreground"
+        className="-mr-1 -mt-1 rounded-full p-1 text-muted transition-colors hover:bg-surface-strong/72 hover:text-foreground"
       >
         <X size={14} />
       </button>
     </div>
+  );
+}
+
+function toneClasses(tone: StatusNoticeTone): string {
+  switch (tone) {
+    case 'success':
+      return 'border-success/45 bg-success/10 text-foreground';
+    case 'warning':
+      return 'border-warning/45 bg-warning/12 text-foreground';
+    case 'error':
+      return 'border-error/45 bg-error/12 text-foreground';
+    case 'info':
+    default:
+      return 'border-info/35 bg-info/10 text-foreground';
+  }
+}
+
+function ToneIcon({ tone }: { tone: StatusNoticeTone }) {
+  const Icon =
+    tone === 'success'
+      ? CheckCircle2
+      : tone === 'warning'
+        ? AlertTriangle
+        : tone === 'error'
+          ? XCircle
+          : Info;
+  const colorClass =
+    tone === 'success'
+      ? 'text-success'
+      : tone === 'warning'
+        ? 'text-warning'
+        : tone === 'error'
+          ? 'text-error'
+          : 'text-info';
+  return (
+    <Icon
+      size={16}
+      className={cn('mt-0.5 shrink-0', colorClass)}
+      aria-hidden="true"
+    />
   );
 }
