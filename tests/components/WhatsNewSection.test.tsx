@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { initI18n } from '../../src/renderer/i18n';
@@ -19,6 +19,12 @@ const entries: ChangelogEntry[] = [
     date: '2026-04-16',
     unreleased: true,
     sections: [{ title: 'Added', items: ['New `feature` in progress'] }],
+  },
+  {
+    version: '0.2.0',
+    date: '2026-04-17',
+    unreleased: false,
+    sections: [{ title: 'Added', items: ['Newer release'] }],
   },
   {
     version: '0.1.0',
@@ -46,13 +52,23 @@ describe('WhatsNewSection', () => {
     } as LinguaAPI;
   });
 
-  it('highlights the current version and keeps older entries collapsible', async () => {
+  it('lists all versions in the sidebar timeline and shows the selected version detail', async () => {
     render(<WhatsNewSection entries={entries} onClose={() => {}} />);
 
-    expect(await screen.findByText('Current version highlights')).toBeTruthy();
-    expect(screen.getByText('0.1.0')).toBeTruthy();
+    // RL-070 — the changelog overlay was rebuilt as a sidebar timeline
+    // + detail pane. Both versions appear in the list, the current
+    // version (0.1.0) is the default selection, and rich-text
+    // formatting (`<strong>`, `<code>`) keeps working.
+    expect(await screen.findByTestId('changelog-entry-0.1.0')).toBeTruthy();
+    expect(screen.getByTestId('changelog-entry-Unreleased')).toBeTruthy();
+    expect(screen.getByTestId('changelog-entry-0.2.0')).toBeTruthy();
+    // The default selection follows async appInfo once it resolves,
+    // even when a newer released entry appears earlier in the list.
+    await waitFor(() => {
+      expect(screen.getByTestId('changelog-entry-0.1.0').getAttribute('aria-pressed')).toBe(
+        'true'
+      );
+    });
     expect(screen.getByText('stable', { selector: 'strong' })).toBeTruthy();
-    expect(screen.getByText('feature', { selector: 'code' })).toBeTruthy();
-    expect(screen.getByText('Older release notes')).toBeTruthy();
   });
 });

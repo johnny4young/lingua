@@ -13,6 +13,7 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardS
 import { SnippetsModal } from './components/Snippets';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
 import { CHANGELOG_ENTRIES } from './data/changelog';
 import {
@@ -391,20 +392,22 @@ export function App() {
   };
 
   return (
-    <GuidedTourProvider
-      controls={{
-        closeOverlay,
-        openPalette: () => openOverlay('palette'),
-        openSnippets: () => openOverlay('snippets'),
-      }}
-    >
-      <AppChrome
-        overlay={overlay}
-        openOverlay={openOverlay}
-        toggleOverlay={toggleOverlay}
-        closeOverlay={closeOverlay}
-        selectedUtilityId={selectedUtilityId}
-      />
-    </GuidedTourProvider>
+    <ErrorBoundary scope="app" regionName="Lingua">
+      <GuidedTourProvider
+        controls={{
+          closeOverlay,
+          openPalette: () => openOverlay('palette'),
+          openSnippets: () => openOverlay('snippets'),
+        }}
+      >
+        <AppChrome
+          overlay={overlay}
+          openOverlay={openOverlay}
+          toggleOverlay={toggleOverlay}
+          closeOverlay={closeOverlay}
+          selectedUtilityId={selectedUtilityId}
+        />
+      </GuidedTourProvider>
+    </ErrorBoundary>
   );
 }

@@ -1,10 +1,12 @@
-import { X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { languageShortLabel, languageTextColorClass } from '../../utils/languageMeta';
+import { cn } from '../../utils/cn';
 import { Tooltip } from '../ui/chrome';
+import type { FileTab, TabExecutionState } from '../../types';
 import { EditorTabContextMenu } from './EditorTabContextMenu';
 
 interface ContextMenuState {
@@ -92,7 +94,7 @@ export function EditorTabs() {
       <div
         role="tablist"
         aria-label={t('editorTabs.ariaLabel')}
-        className="flex h-11 items-stretch overflow-x-auto border-b border-border/80 bg-surface-strong/72"
+        className="flex h-[34px] items-stretch overflow-x-auto bg-surface-strong/72"
       >
         {tabs.map((tab, index) => {
           const isActive = tab.id === activeTabId;
@@ -100,7 +102,11 @@ export function EditorTabs() {
           const tabLabel = `${languageShortLabel(tab.language)} ${tab.name}`;
 
           return (
-            <Tooltip key={tab.id} content={tab.name} disabled={isRenaming}>
+            <Tooltip
+              key={tab.id}
+              content={resolveTabTooltip(tab, t)}
+              disabled={isRenaming}
+            >
               <div
                 role="tab"
                 tabIndex={isActive ? 0 : -1}
@@ -108,23 +114,29 @@ export function EditorTabs() {
                 aria-label={tabLabel}
                 data-tab-id={tab.id}
                 data-active={isActive}
+                data-execution-state={tab.executionState ?? 'idle'}
                 onClick={() => !isRenaming && setActiveTab(tab.id)}
                 onKeyDown={(event) => handleActivationKey(event, tab.id)}
                 onContextMenu={(event) => handleContextMenu(event, tab.id)}
-                className={`group relative flex h-full min-w-[11rem] shrink-0 items-center gap-2 border-r border-border/80 px-3 text-xs transition-colors ${
+                className={cn(
+                  'group relative flex h-full min-w-[11rem] shrink-0 items-center gap-2 border-r border-border/60 px-3 text-xs transition-colors',
                   isActive
-                    ? 'bg-background-elevated text-foreground'
-                    : 'cursor-pointer bg-surface-strong/72 text-muted hover:bg-surface-strong hover:text-foreground'
-                }`}
-              >
-                {isActive && (
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-primary"
-                  />
+                    ? // Active: panel bg + 2px top accent + matching bottom border so the
+                      // tab visually merges with the editor surface below.
+                      '-mb-px bg-background-elevated text-foreground border-t-2 border-t-primary'
+                    : 'cursor-pointer border-t-2 border-t-transparent bg-surface-strong/72 text-muted hover:bg-surface-strong hover:text-foreground'
                 )}
+              >
+                {/* Lang chip — uppercase badge with language hue. Uses
+                    `font-sans` not mono so the filename span below stays
+                    the unique `.font-mono` element callers query. */}
                 <span
-                  className={`text-[10px] font-bold leading-none ${languageTextColorClass(tab.language)}`}
+                  data-testid="editor-tab-lang-chip"
+                  className={cn(
+                    'shrink-0 rounded-[3px] px-[5px] py-[2px] font-sans text-[9px] font-bold leading-none tracking-tight',
+                    languageTextColorClass(tab.language)
+                  )}
+                  style={{ backgroundColor: 'color-mix(in srgb, currentColor 14%, transparent)' }}
                 >
                   {languageShortLabel(tab.language)}
                 </span>
@@ -141,41 +153,31 @@ export function EditorTabs() {
                   />
                 ) : (
                   <span
+                    data-testid="editor-tab-filename"
                     onDoubleClick={() => setRenamingTabId(tab.id)}
-                    className="min-w-0 flex-1 truncate font-mono text-[11.5px] leading-none"
+                    className={cn(
+                      'min-w-0 flex-1 truncate font-mono text-[11.5px] leading-none',
+                      tab.executionState === 'error' && 'text-error/95'
+                    )}
                   >
                     {tab.name}
                   </span>
                 )}
-                {tab.isDirty && !isRenaming && (
-                  <Tooltip content={t('editorTabs.unsavedTitle')}>
-                    <span
-                      aria-label={t('editorTabs.unsaved', { name: tab.name })}
-                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
-                    />
-                  </Tooltip>
-                )}
-                <Tooltip content={t('editorTabs.close', { name: tab.name })} disabled={isRenaming}>
-                  <button
-                    type="button"
-                    aria-label={t('editorTabs.close', { name: tab.name })}
-                    data-tab-close="true"
-                    data-tab-id-close={tab.id}
-                    onClick={(event) => {
+
+                {/* Status indicator — single source per tab. Precedence:
+                    running > error > success > dirty > none.
+                    Hidden when the close button takes over on hover. */}
+                {!isRenaming ? (
+                  <TabStatusDot
+                    tab={tab}
+                    unsavedLabel={t('editorTabs.unsaved', { name: tab.name })}
+                    closeLabel={t('editorTabs.close', { name: tab.name })}
+                    onClose={(event) => {
                       event.stopPropagation();
                       void closeTab(tab.id);
                     }}
-                    className="ml-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted opacity-0 transition-all hover:bg-surface-strong/82 hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
-                    style={{ pointerEvents: isRenaming ? 'none' : undefined }}
-                  >
-                    <X size={10} />
-                  </button>
-                </Tooltip>
-                {/* Force the close button visible while the tab is
-                    in the rename branch so the layout does not jump
-                    when rename ends. The opacity-0 above is a
-                    hover-only treatment; this fallback keeps the
-                    width predictable. */}
+                  />
+                ) : null}
                 <span aria-hidden className="hidden" data-index={index} />
               </div>
             </Tooltip>
@@ -289,4 +291,120 @@ function RenameInput({
       className="min-w-0 flex-1 rounded-md border border-primary/45 bg-background-elevated px-1.5 py-0.5 font-mono text-[11.5px] leading-none text-foreground outline-none focus:ring-2 focus:ring-ring/45"
     />
   );
+}
+
+/* ---------------------------------------------------------------- */
+/* Tab status indicator                                              */
+/* ---------------------------------------------------------------- */
+
+/**
+ * RL-070 — single source of truth for the tab's right-edge state
+ * indicator. The close button replaces whatever dot is showing on
+ * hover so the user always has one click to close, regardless of
+ * the tab's current lifecycle state.
+ *
+ * Precedence (matches Signal-Slate):
+ *
+ *   running → spinning loader
+ *   error   → red dot with halo
+ *   success → green dot, fades out after 2s via opacity transition
+ *   dirty   → primary dot
+ *   idle    → no dot (close button still appears on hover)
+ */
+function TabStatusDot({
+  tab,
+  unsavedLabel,
+  closeLabel,
+  onClose,
+}: {
+  tab: FileTab;
+  unsavedLabel: string;
+  closeLabel: string;
+  onClose: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+}) {
+  const state: TabExecutionState = tab.executionState ?? 'idle';
+
+  // Pick the accessible label that matches the visible dot. Dirty + no
+  // execution state => surface the historical "unsaved changes" copy
+  // so screen-reader callers reading the regression test pass.
+  const accessibleLabel =
+    state === 'idle' && tab.isDirty ? unsavedLabel : undefined;
+
+  return (
+    <span className="relative ml-0.5 inline-flex size-5 shrink-0 items-center justify-center">
+      {/* Status marker — hidden on hover so close button can take over. */}
+      {state === 'running' ? (
+        <Loader2
+          size={11}
+          className="pointer-events-none absolute animate-spin text-primary transition-opacity duration-150 group-hover:opacity-0 group-focus-visible:opacity-0"
+          aria-hidden="true"
+          data-testid="editor-tab-running-spinner"
+        />
+      ) : (
+        <span
+          {...(accessibleLabel
+            ? { role: 'img', 'aria-label': accessibleLabel }
+            : { 'aria-hidden': 'true' as const })}
+          className={cn(
+            'pointer-events-none absolute inline-block rounded-full transition-opacity duration-150',
+            'group-hover:opacity-0 group-focus-visible:opacity-0',
+            stateDotClasses(state, tab.isDirty)
+          )}
+        />
+      )}
+      {/* Close button — appears on hover/focus. Always rendered (size kept
+         predictable) but only visible via opacity. */}
+      <button
+        type="button"
+        aria-label={closeLabel}
+        data-tab-close="true"
+        data-tab-id-close={tab.id}
+        onClick={onClose}
+        className="inline-flex size-5 items-center justify-center rounded-md text-muted opacity-0 transition-opacity duration-150 hover:bg-surface-strong/82 hover:text-foreground group-hover:opacity-100 group-focus-visible:opacity-100 focus-visible:opacity-100"
+      >
+        <X size={10} />
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Map per-tab state to the dot's color + size + halo.
+ *
+ * Returns an empty string when there's nothing to show — the
+ * absolutely-positioned span still renders for layout, but it has
+ * no visual.
+ */
+function stateDotClasses(state: TabExecutionState, isDirty: boolean): string {
+  if (state === 'error') {
+    // Red dot with subtle ring so it pops against any tab bg.
+    return 'h-2 w-2 bg-error ring-2 ring-error/15';
+  }
+  if (state === 'success') {
+    return 'h-1.5 w-1.5 bg-success';
+  }
+  if (isDirty) {
+    return 'h-1.5 w-1.5 bg-primary';
+  }
+  return 'h-0 w-0';
+}
+
+/**
+ * Tooltip text — surfaces parseError details when present so the
+ * user knows what failed without opening the console. Falls back to
+ * the filename otherwise.
+ */
+type TFn = (key: string, opts?: Record<string, unknown>) => string;
+
+function resolveTabTooltip(tab: FileTab, t: TFn): string {
+  if (tab.executionState === 'error' && tab.parseError) {
+    return `${tab.name} · ${tab.parseError}`;
+  }
+  if (tab.executionState === 'running') {
+    return `${tab.name} · ${t('editorTabs.running')}`;
+  }
+  if (tab.isDirty) {
+    return `${tab.name} · ${t('editorTabs.unsavedTitle')}`;
+  }
+  return tab.name;
 }

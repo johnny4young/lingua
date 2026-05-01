@@ -33,6 +33,24 @@ export type BuiltInLanguage =
  */
 export type Language = BuiltInLanguage | (string & {});
 
+/**
+ * RL-070 Sub-slice 6 follow-up — per-tab execution lifecycle.
+ *
+ * The tab bar surfaces these as a small status dot to the left of
+ * the close button so the user can scan multiple tabs and tell
+ * which one is running, which one finished cleanly, and which one
+ * blew up. The `parseError` field is a lighter-weight signal: an
+ * inline parse / lint failure that the runner surfaced as a
+ * console entry. Resets to `null` when the user edits the buffer
+ * (the parse position is no longer valid).
+ *
+ * Default state is `idle`. The execution path in `useRunner` flips
+ * `running` on start, then `success` or `error` on resolution. The
+ * editor store clears state back to `idle` on tab edit so a stale
+ * red dot does not persist past a fix.
+ */
+export type TabExecutionState = 'idle' | 'running' | 'success' | 'error';
+
 export interface FileTab {
   id: string;
   name: string;
@@ -41,6 +59,14 @@ export interface FileTab {
   isDirty: boolean;
   /** Absolute path on disk. Undefined for in-memory (unsaved) files. */
   filePath?: string;
+  /** Last execution outcome. Drives the status dot in EditorTabs. */
+  executionState?: TabExecutionState;
+  /**
+   * Last surfaced parse / runtime error message. Truncated by the
+   * tab bar via `title` attribute; the editor store clears it on
+   * the next content edit so a stale message does not linger.
+   */
+  parseError?: string | null;
 }
 
 /**
@@ -80,6 +106,18 @@ export interface EditorState {
   setActiveTab: (id: string) => void;
   updateContent: (id: string, content: string) => void;
   markSaved: (id: string) => void;
+  /**
+   * RL-070 — flip the per-tab lifecycle marker. Called by the runner
+   * when execution starts (`running`), resolves cleanly (`success`),
+   * or fails (`error`). `parseError` accepts an optional one-line
+   * explanation that the tab bar surfaces via title tooltip on
+   * error states.
+   */
+  setTabExecutionState: (
+    id: string,
+    state: TabExecutionState,
+    parseError?: string | null
+  ) => void;
   /** Open a file from disk. If already open, activates that tab. */
   openFile: (filePath: string, name: string, language: Language) => Promise<void>;
   /** Open a native file picker and open the selected file in a new tab. */

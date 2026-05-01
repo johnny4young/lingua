@@ -51,7 +51,7 @@ describe('web adapter', () => {
     const info = await window.lingua.getAppInfo();
 
     expect(info.productName).toBe('Lingua');
-    expect(info.version).toBe('0.2.1');
+    expect(info.version).toBe('0.2.2');
     expect(info.licenseType).toBe('Commercial');
     expect(info.repositoryUrl).toBe('https://github.com/johnny4young/lingua');
     expect(info.licenseUrl).toBe('https://github.com/johnny4young/lingua/blob/main/LICENSE');

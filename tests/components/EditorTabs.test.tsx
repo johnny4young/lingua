@@ -52,6 +52,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
 }));
 
 vi.mock('lucide-react', () => ({
+  Loader2: (props: React.HTMLAttributes<HTMLSpanElement>) => <span {...props}>loading</span>,
   X: () => <span>x</span>,
 }));
 
@@ -60,6 +61,10 @@ import { EditorTabs } from '../../src/renderer/components/Editor/EditorTabs';
 describe('EditorTabs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    for (const tab of mockTabs) {
+      delete (tab as { executionState?: unknown }).executionState;
+      delete (tab as { parseError?: unknown }).parseError;
+    }
   });
 
   it('renders an accessible tablist with selected state', () => {
@@ -89,6 +94,17 @@ describe('EditorTabs', () => {
 
     await user.click(screen.getByRole('button', { name: 'Close untitled.js' }));
     expect(mockCloseTab).toHaveBeenCalledWith('tab-js');
+  });
+
+  it('keeps the close action available while a tab is running', async () => {
+    const user = userEvent.setup();
+    (mockTabs[1] as { executionState?: string }).executionState = 'running';
+    render(<EditorTabs />);
+
+    expect(screen.getByTestId('editor-tab-running-spinner')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Close main.go' }));
+
+    expect(mockCloseTab).toHaveBeenCalledWith('tab-go');
   });
 
   it('activates a tab when clicking anywhere on the card, not only the label', async () => {

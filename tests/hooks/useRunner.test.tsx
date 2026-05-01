@@ -118,6 +118,10 @@ describe('useRunner', () => {
     expect(useExecutionHistoryStore.getState().entries).toMatchObject([
       { language: 'typescript', status: 'error', durationMs: 24 },
     ]);
+    expect(useEditorStore.getState().tabs[0]).toMatchObject({
+      executionState: 'error',
+      parseError: 'Boom',
+    });
   });
 
   it('syncs compiled manual runs into the result store', async () => {
@@ -201,5 +205,9 @@ describe('useRunner', () => {
     expect(useExecutionHistoryStore.getState().entries).toMatchObject([
       { language: 'javascript', status: 'ok', durationMs: 9 },
     ]);
+    expect(useEditorStore.getState().tabs[0]).toMatchObject({
+      executionState: 'success',
+      parseError: null,
+    });
   });
 });

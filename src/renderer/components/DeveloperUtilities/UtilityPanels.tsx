@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { CopyButton } from './CopyButton';
+import { FileDropZone } from '../ui/FileDropZone';
 import {
   HASH_ALGORITHMS,
   HASH_FILE_MAX_BYTES,
@@ -199,11 +200,13 @@ function StatusMessage({
   message,
   tone = 'muted',
   testid,
+  className,
 }: {
   message: string;
   tone?: 'muted' | 'error' | 'success' | 'warning';
   /** Optional data-testid so callers can target a specific status line. */
   testid?: string;
+  className?: string;
 }) {
   const toneClass =
     tone === 'error'
@@ -214,7 +217,7 @@ function StatusMessage({
           ? 'text-warning'
           : 'text-muted';
   return (
-    <p className={`text-xs leading-5 ${toneClass}`} data-testid={testid}>
+    <p className={`text-xs leading-5 ${toneClass} ${className ?? ''}`} data-testid={testid}>
       {message}
     </p>
   );
@@ -1234,43 +1237,37 @@ function HashUtilityPanel() {
         ) : (
           <div className="grid gap-2">
             <FieldLabel>{t('utilities.tool.hash.input.fileLabel')}</FieldLabel>
-            <div
-              role="region"
-              aria-label={t('utilities.tool.hash.input.fileLabel')}
-              className="grid gap-2 rounded-[1.1rem] border border-dashed border-border/80 bg-background/65 p-4 text-xs text-muted"
-              data-testid="hash-dropzone"
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                const [first] = Array.from(event.dataTransfer.files);
-                void handleFile(first ?? null);
-              }}
-            >
-              <span>{t('utilities.tool.hash.input.dropHint')}</span>
-              <input
-                type="file"
-                aria-label={t('utilities.tool.hash.input.fileLabel')}
-                data-testid="hash-file-input"
-                onChange={(event) => void handleFile(event.target.files?.[0] ?? null)}
-                className="text-xs text-foreground"
-              />
-              {file ? (
-                <span className="font-mono text-xs text-foreground" data-testid="hash-file-summary">
-                  {t('utilities.tool.hash.input.fileSummary', {
-                    name: file.name,
-                    size: formatByteSize(file.size),
-                  })}
-                </span>
-              ) : (
-                <span>{t('utilities.tool.hash.input.filePlaceholder')}</span>
-              )}
-              {fileError ? (
-                <StatusMessage
-                  tone="error"
-                  message={t(fileError, { limitMb: HASH_FILE_MAX_MB })}
-                />
-              ) : null}
-            </div>
+            {/* RL-070 — migrated to <FileDropZone> so the hash input
+                inherits the new four-state visual (idle/over/dropping/
+                error). The wrapper testid `hash-dropzone` is preserved
+                for the existing regression test, and the hidden file
+                input keeps its `hash-file-input` testid via the new
+                `inputTestId` prop. The legacy `<StatusMessage>` for
+                fileError is now folded into the dropzone's `error`
+                visual via `errorMessage`. */}
+            <FileDropZone
+              testId="hash-dropzone"
+              inputTestId="hash-file-input"
+              onFile={handleFile}
+              hint={t('utilities.tool.hash.input.dropHint')}
+              placeholder={t('utilities.tool.hash.input.filePlaceholder')}
+              summary={
+                file ? (
+                  <span
+                    className="font-mono text-xs text-foreground"
+                    data-testid="hash-file-summary"
+                  >
+                    {t('utilities.tool.hash.input.fileSummary', {
+                      name: file.name,
+                      size: formatByteSize(file.size),
+                    })}
+                  </span>
+                ) : undefined
+              }
+              errorMessage={
+                fileError ? t(fileError, { limitMb: HASH_FILE_MAX_MB }) : undefined
+              }
+            />
           </div>
         )}
       </PanelSection>
@@ -3066,7 +3063,6 @@ function Base64ImagePanel() {
     Extract<Base64ImageEncodeResult, { ok: true }> | null
   >(null);
   const [encodeError, setEncodeError] = useState<Base64ImageEncodeError | null>(null);
-  const [dragOver, setDragOver] = useState(false);
 
   const [decodeInput, setDecodeInput] = useState('');
   const decoded = useMemo<
@@ -3146,48 +3142,37 @@ function Base64ImagePanel() {
 
         {mode === 'encode' ? (
           <div className="grid gap-2">
-            <div
-              data-testid="base64-image-dropzone"
-              onDragOver={(event) => {
-                event.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={(event) => {
-                event.preventDefault();
-                setDragOver(false);
-                const file = event.dataTransfer.files?.[0];
-                void handleFile(file);
-              }}
-              className={`flex flex-col items-center justify-center gap-2 rounded-[1rem] border-2 border-dashed px-4 py-8 text-sm text-muted ${
-                dragOver ? 'border-primary/70 bg-primary/5' : 'border-border/80 bg-background/60'
-              }`}
-            >
-              <span>{t('utilities.tool.base64Image.encode.dropHint')}</span>
-              <span className="text-xs">
-                {t('utilities.tool.base64Image.encode.maxSize', {
-                  max: formatByteSize(BASE64_IMAGE_MAX_BYTES),
-                })}
-              </span>
-            </div>
-            <label className="text-xs text-muted">
-              <span className="sr-only">{t('utilities.tool.base64Image.encode.fileLabel')}</span>
-              <input
-                type="file"
-                accept="image/*"
-                data-testid="base64-image-file-input"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  void handleFile(file);
-                }}
-                className="block w-full rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2 text-sm text-foreground"
-              />
-            </label>
+            {/* RL-070 — migrated to <FileDropZone>. The previous version
+                had two separate surfaces (a dropzone div + a separate
+                native file input below) which were redundant — the new
+                component folds both into a single <label> so click
+                anywhere opens the picker AND drag-drop works on the same
+                target. The `dragOver` local state and its corresponding
+                handlers go away entirely; the hook owns the state machine. */}
+            <FileDropZone
+              testId="base64-image-dropzone"
+              inputTestId="base64-image-file-input"
+              acceptAttr="image/*"
+              onFile={handleFile}
+              hint={t('utilities.tool.base64Image.encode.dropHint')}
+              placeholder={t('utilities.tool.base64Image.encode.maxSize', {
+                max: formatByteSize(BASE64_IMAGE_MAX_BYTES),
+              })}
+              errorMessage={
+                encodeError ? describeEncodeError(encodeError) : undefined
+              }
+            />
             {encodeError ? (
+              // Keep the existing testid live for regression tests that
+              // assert against `base64-image-encode-error` directly. The
+              // visual is now redundant with the dropzone's error state,
+              // so render the StatusMessage hidden visually but present
+              // in the DOM for the test query.
               <StatusMessage
                 tone="error"
                 testid="base64-image-encode-error"
                 message={describeEncodeError(encodeError)}
+                className="sr-only"
               />
             ) : null}
           </div>

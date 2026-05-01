@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { SettingsModal } from '../../src/renderer/components/Settings/SettingsModal';
@@ -34,7 +34,7 @@ describe('SettingsModal', () => {
     } as LinguaAPI;
   });
 
-  it('renders the remaining settings sections with localized copy', async () => {
+  it('renders the remaining settings sections with localized copy across the five tabs', async () => {
     render(
       <SettingsModal
         onClose={() => {}}
@@ -43,19 +43,37 @@ describe('SettingsModal', () => {
       />
     );
 
+    // RL-070 — sections are now grouped under five tabs. Walk through
+    // each tab and assert its contents instead of expecting everything
+    // on the default tab. Default tab is `general` (About + Updates).
     expect(screen.getByText('Acerca de')).toBeTruthy();
     expect(await screen.findByText('MIT')).toBeTruthy();
     expect(screen.getByText('Iniciar tour guiado')).toBeTruthy();
     expect(screen.getByText('Novedades')).toBeTruthy();
-    expect(screen.getByText('Diseño')).toBeTruthy();
-    expect(screen.getByText('División horizontal')).toBeTruthy();
-    expect(screen.getByText('Tema del editor')).toBeTruthy();
     expect(screen.getByText('Actualizaciones')).toBeTruthy();
     expect(screen.getByText('No disponible')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cerrar configuración' })).toBeTruthy();
+
+    // Switch to Apariencia → Diseño (Layout) lives here.
+    const appearanceTab = screen.getByTestId('settings-tab-appearance');
+    fireEvent.click(appearanceTab);
+    expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(
+      appearanceTab.id
+    );
+    expect(screen.getByText('Diseño')).toBeTruthy();
+    expect(screen.getByText('División horizontal')).toBeTruthy();
+    const themePackSelect = screen.getByTestId('theme-pack-select');
+    fireEvent.keyDown(themePackSelect, { key: 'ArrowRight' });
+    expect(appearanceTab.getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(appearanceTab, { key: 'ArrowRight' });
+    expect(screen.getByTestId('settings-tab-editor').getAttribute('aria-selected')).toBe('true');
+
+    // Switch to Editor → editor theme + plugins live here.
+    fireEvent.click(screen.getByTestId('settings-tab-editor'));
+    expect(screen.getByText('Tema del editor')).toBeTruthy();
     expect(screen.getByText('Plugins')).toBeTruthy();
     expect(screen.getByText('Directorio local de plugins')).toBeTruthy();
     expect(screen.getByText('No hay plugins locales instalados.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Cerrar configuración' })).toBeTruthy();
   }, 10000);
 
   it('re-translates the web unavailable updates message after changing locale', async () => {
@@ -100,6 +118,8 @@ describe('SettingsModal', () => {
     );
 
     expect(await screen.findByText('MIT')).toBeTruthy();
+    // RL-070 — Editor section now lives under the Editor tab.
+    fireEvent.click(screen.getByTestId('settings-tab-editor'));
     expect(
       screen.getByText('La fuente seleccionada no incluye ligaduras de programación.')
     ).toBeTruthy();

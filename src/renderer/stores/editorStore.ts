@@ -187,8 +187,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   updateContent: (id, content) =>
     set((state) => ({
+      // RL-070 — clear lifecycle markers when the user edits the buffer.
+      // A stale `error` dot or `running` state would mislead the user
+      // about the current code's outcome; reset to `idle` so the next
+      // run produces a fresh signal.
       tabs: state.tabs.map((t) =>
-        t.id === id ? { ...t, content, isDirty: true } : t
+        t.id === id
+          ? {
+              ...t,
+              content,
+              isDirty: true,
+              executionState: 'idle' as const,
+              parseError: null,
+            }
+          : t
+      ),
+    })),
+
+  setTabExecutionState: (id, executionState, parseError = null) =>
+    set((state) => ({
+      tabs: state.tabs.map((t) =>
+        t.id === id ? { ...t, executionState, parseError } : t
       ),
     })),
 
