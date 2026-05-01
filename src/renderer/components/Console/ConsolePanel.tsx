@@ -1,14 +1,14 @@
 import { Clock, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ConsoleEntry, ConsoleEntryType, Language } from '../../types';
+import type { ConsoleEntry, ConsoleEntryType, FileTab, Language } from '../../types';
 import { useConsoleStore } from '../../stores/consoleStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
-import { languageLabel } from '../../utils/languageMeta';
+import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 import { IconButton, Tooltip } from '../ui/chrome';
@@ -142,6 +142,18 @@ function formatExecTime(ms: number): string {
   return `${(ms / 1000).toFixed(2)} s`;
 }
 
+function nextReplayTabId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `history-replay-${Date.now().toString(36)}`;
+}
+
+function replayTabName(entry: ExecutionHistoryEntry, language: Language): string {
+  const suffix = entry.id.replace(/[^a-z0-9]/gi, '').slice(-8) || 'history';
+  return `replay-${suffix}.${extensionForLanguage(language)}`;
+}
+
 function AnsiContent({ text, className }: { text: string; className: string }) {
   if (!hasAnsi(text)) {
     return <span className={`whitespace-pre-wrap ${className}`}>{text}</span>;
@@ -198,7 +210,7 @@ function EntryRow({
 
 export function ConsolePanel() {
   const { t } = useTranslation();
-  const { run } = useRunner();
+  const { run, isRunning } = useRunner();
   const effectiveTier = useEffectiveTier();
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const { entries, activeFilters, showTimestamps, clear, toggleFilter, toggleTimestamps } =
@@ -226,22 +238,46 @@ export function ConsolePanel() {
     userScrolled.current = !atBottom;
   };
 
-  const rerunHistoryEntry = useCallback(
+  const replayHistoryEntry = useCallback(
     (entry: ExecutionHistoryEntry) => {
-      const { tabs, setActiveTab } = useEditorStore.getState();
-      const match = tabs.find((tab) => tab.language === entry.language);
-      if (!match) {
+      if (isRunning) {
         useUIStore.getState().pushStatusNotice({
           tone: 'info',
-          messageKey: 'executionHistory.rerun.noOpenTab',
+          messageKey: 'executionHistory.replay.running',
+        });
+        return;
+      }
+
+      if (!entry.snapshot) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'executionHistory.replay.noSnapshot',
           values: { language: languageLabel(entry.language as Language) },
         });
         return;
       }
-      setActiveTab(match.id);
-      void run();
+
+      const language = entry.snapshot.language as Language;
+      const replayTab: FileTab = {
+        id: nextReplayTabId(),
+        name: replayTabName(entry, language),
+        language,
+        content: entry.snapshot.code,
+        isDirty: false,
+      };
+
+      useEditorStore.getState().addTab(replayTab);
+      if (useEditorStore.getState().activeTabId !== replayTab.id) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'executionHistory.replay.openFailed',
+          values: { language: languageLabel(language) },
+        });
+        return;
+      }
+      void run({ recordHistory: false });
     },
-    [run]
+    [isRunning, run]
   );
 
   const handleBlockedExecutionHistory = useCallback(() => {
@@ -305,7 +341,7 @@ export function ConsolePanel() {
           <ExecutionHistoryPopover
             enabled={canUseExecutionHistory}
             onBlocked={handleBlockedExecutionHistory}
-            onRerun={rerunHistoryEntry}
+            onRerun={replayHistoryEntry}
           />
           <IconButton onClick={clear} tooltip={t('console.actions.clear')} tone="danger">
             <Trash2 size={13} />

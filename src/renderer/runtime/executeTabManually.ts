@@ -2,6 +2,9 @@ import { runnerManager } from '../runners';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
+import { useSettingsStore } from '../stores/settingsStore';
+import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { isEntitled } from '../../shared/entitlements';
 import { trackEvent } from '../utils/telemetry';
 import { bucketDurationMs } from '../../shared/telemetry';
 import type { FileTab, Language } from '../types';
@@ -16,11 +19,50 @@ import { toExecutionDiagnostics } from '../utils/executionDiagnostics';
 import { executionModeForLanguage } from '../utils/languageMeta';
 import { validateDocument } from '../validation';
 
+/**
+ * RL-028 sixth slice — gate the optional code snapshot for the
+ * execution-history ring buffer. The snapshot only attaches when the
+ * user opted in via Settings AND the active tier covers
+ * `EXECUTION_HISTORY`. The Pro check is a defense-in-depth gate —
+ * the toggle UI in Editor settings already disables itself for Free
+ * users, but a state-shadowing bug (or a future surface that flips
+ * the flag programmatically) must not be able to leak captures. The
+ * try/catch hardens against a license-store throw (mocked imports in
+ * tests, an unexpected refactor) — fall back to no-snapshot rather
+ * than dropping the entire history record on the floor.
+ *
+ * Caller passes the `code` + `language` it actually executed, not
+ * the live `FileTab` reference. The tab's buffer can mutate during
+ * the awaited `runner.execute(...)` window (autosave, Format on
+ * Save, the user typing into the editor); a snapshot built from
+ * the stale tab ref would not match what `runner.execute()` ran,
+ * defeating the whole point of replay. Snapshot whatever was passed
+ * to the runner — same string the runner saw.
+ */
+function snapshotPayloadFor(
+  code: string,
+  language: string
+): { code: string; language: string } | null {
+  try {
+    const enabled = useSettingsStore.getState().executionHistorySnapshotEnabled;
+    if (enabled !== true) return null;
+    if (!isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY')) return null;
+    return { code, language };
+  } catch {
+    return null;
+  }
+}
+
 export interface ManualExecutionLifecycle {
   setIsRunning?: (value: boolean) => void;
   setIsInitializing?: (value: boolean) => void;
   setLoadingMessage?: (value: string | null) => void;
   setCurrentLanguage?: (language: Language | null) => void;
+  /**
+   * Defaults to true. Replay surfaces pass false so executing a captured
+   * history snapshot does not append another entry to the same timeline.
+   */
+  recordHistory?: boolean;
 }
 
 export interface ManualExecutionSummary {
@@ -49,6 +91,7 @@ export async function executeTabManually(
 
   const { language, content, name } = activeTab;
   const executionMode = executionModeForLanguage(language);
+  const shouldRecordHistory = lifecycle.recordHistory !== false;
 
   lifecycle.setCurrentLanguage?.(language);
 
@@ -184,13 +227,18 @@ export async function executeTabManually(
       addEntry(entry);
     }
 
-    // RL-028 first slice — record metadata only (language + status +
-    // duration), never the code, stdout, stderr, or file path.
-    useExecutionHistoryStore.getState().record({
-      language,
-      status: result.error ? 'error' : 'ok',
-      durationMs: result.executionTime ?? null,
-    });
+    // RL-028 first slice — record metadata always. RL-028 sixth slice —
+    // attach the optional code snapshot when the user opted in AND the
+    // active tier covers `EXECUTION_HISTORY`. `snapshotPayloadFor`
+    // returns `null` otherwise, preserving the metadata-only contract.
+    if (shouldRecordHistory) {
+      useExecutionHistoryStore.getState().record({
+        language,
+        status: result.error ? 'error' : 'ok',
+        durationMs: result.executionTime ?? null,
+        snapshot: snapshotPayloadFor(content, language),
+      });
+    }
 
     // RL-065 — emit runner.executed so consenting users' telemetry
     // reflects runtime usage. `durationBucketMs` is already coarse
@@ -212,12 +260,17 @@ export async function executeTabManually(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // RL-028 — record the failure so "Recent runs" still reflects the
-    // error outcome. `durationMs: null` when timing never ran.
-    useExecutionHistoryStore.getState().record({
-      language,
-      status: 'error',
-      durationMs: null,
-    });
+    // error outcome. `durationMs: null` when timing never ran. The
+    // snapshot still attaches when opted-in + Pro: a failure is the
+    // case where the user most likely wants to replay.
+    if (shouldRecordHistory) {
+      useExecutionHistoryStore.getState().record({
+        language,
+        status: 'error',
+        durationMs: null,
+        snapshot: snapshotPayloadFor(content, language),
+      });
+    }
 
     // RL-065 — mirror the error path in telemetry. `durationBucketMs: 0`
     // because the runner never completed a timed window.

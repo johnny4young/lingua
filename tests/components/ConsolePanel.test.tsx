@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ConsoleState, ConsoleEntryType } from '../../src/renderer/types/index';
+import type { ConsoleState, ConsoleEntryType, FileTab } from '../../src/renderer/types/index';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 
@@ -13,10 +13,18 @@ const mockClear = vi.fn();
 const mockToggleFilter = vi.fn();
 const mockToggleTimestamps = vi.fn();
 const mockRun = vi.fn().mockResolvedValue(undefined);
-const mockSetActiveTab = vi.fn();
 const mockPushStatusNotice = vi.fn();
 
-let mockTabs: Array<{ id: string; language: string }> = [];
+let mockTabs: FileTab[] = [];
+let mockActiveTabId: string | null = null;
+
+const mockSetActiveTab = vi.fn((id: string) => {
+  mockActiveTabId = id;
+});
+const mockAddTab = vi.fn((tab: FileTab) => {
+  mockTabs = [...mockTabs, { ...tab, isDirty: false }];
+  mockActiveTabId = tab.id;
+});
 
 let mockState: Omit<ConsoleState, 'addEntry' | 'clear' | 'toggleFilter' | 'toggleTimestamps'> = {
   entries: [],
@@ -48,6 +56,8 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
   useEditorStore: {
     getState: () => ({
       tabs: mockTabs,
+      activeTabId: mockActiveTabId,
+      addTab: mockAddTab,
       setActiveTab: mockSetActiveTab,
     }),
   },
@@ -82,6 +92,7 @@ function resetState(partial: Partial<typeof mockState> = {}) {
     ...partial,
   };
   mockTabs = [];
+  mockActiveTabId = null;
 }
 
 function setActiveProLicense() {
@@ -184,13 +195,26 @@ describe('ConsolePanel', () => {
     expect(mockClear).toHaveBeenCalledTimes(1);
   });
 
-  it('reruns a history entry by focusing the first open tab in that language', async () => {
+  it('replays a history snapshot in a new tab without appending history', async () => {
     const user = userEvent.setup();
-    mockTabs = [{ id: 'python-tab', language: 'python' }];
+    mockTabs = [
+      {
+        id: 'js-tab',
+        name: 'main.js',
+        language: 'javascript',
+        content: 'console.log("current")',
+        isDirty: false,
+      },
+    ];
+    mockActiveTabId = 'js-tab';
     useExecutionHistoryStore.getState().record({
-      language: 'python',
+      language: 'javascript',
       status: 'ok',
       durationMs: 120,
+      snapshot: {
+        code: 'console.log("historical")',
+        language: 'javascript',
+      },
     });
 
     render(<ConsolePanel />);
@@ -198,13 +222,21 @@ describe('ConsolePanel', () => {
     await user.click(screen.getByTestId('execution-history-toggle'));
     await user.click(screen.getByTestId('execution-history-rerun'));
 
-    expect(mockSetActiveTab).toHaveBeenCalledWith('python-tab');
-    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(useExecutionHistoryStore.getState().entries).toHaveLength(1);
+    expect(mockAddTab).toHaveBeenCalledTimes(1);
+    expect(mockAddTab.mock.calls[0]?.[0]).toMatchObject({
+      name: expect.stringMatching(/^replay-.+\.js$/),
+      language: 'javascript',
+      content: 'console.log("historical")',
+      isDirty: false,
+    });
+    expect(mockActiveTabId).toBe(mockAddTab.mock.calls[0]?.[0].id);
+    expect(mockRun).toHaveBeenCalledWith({ recordHistory: false });
+    expect(mockSetActiveTab).not.toHaveBeenCalled();
   });
 
-  it('shows an info notice instead of rerunning when no matching language tab is open', async () => {
+  it('keeps metadata-only history entries disabled because there is no snapshot to replay', async () => {
     const user = userEvent.setup();
-    mockTabs = [{ id: 'js-tab', language: 'javascript' }];
     useExecutionHistoryStore.getState().record({
       language: 'python',
       status: 'ok',
@@ -214,16 +246,15 @@ describe('ConsolePanel', () => {
     render(<ConsolePanel />);
 
     await user.click(screen.getByTestId('execution-history-toggle'));
-    await user.click(screen.getByTestId('execution-history-rerun'));
+
+    expect((screen.getByTestId('execution-history-rerun') as HTMLButtonElement).disabled).toBe(
+      true
+    );
 
     expect(mockRun).not.toHaveBeenCalled();
+    expect(mockAddTab).not.toHaveBeenCalled();
     expect(mockSetActiveTab).not.toHaveBeenCalled();
-    expect(mockPushStatusNotice).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tone: 'info',
-        messageKey: 'executionHistory.rerun.noOpenTab',
-      })
-    );
+    expect(mockPushStatusNotice).not.toHaveBeenCalled();
   });
 
   it('blocks the history popover on the Free tier', async () => {

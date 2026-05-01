@@ -29,6 +29,10 @@ function isAppLanguage(value: unknown): value is SettingsState['language'] {
   return typeof value === 'string' && (APP_LANGUAGES as readonly string[]).includes(value);
 }
 
+function hasOwn(value: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(value, key);
+}
+
 const MAX_TOKENS_PER_COMBO = 5;
 const MAX_COMBOS_PER_SHORTCUT = 4;
 
@@ -141,6 +145,7 @@ export const useSettingsStore = create<SettingsState>()(
       formatOnSave: false,
       vimMode: false,
       syncShellWithEditorTheme: true,
+      executionHistorySnapshotEnabled: true,
       telemetryConsent: 'unset',
       language: 'system',
       lastSeenVersion: null,
@@ -196,6 +201,8 @@ export const useSettingsStore = create<SettingsState>()(
           syncShellWithEditorTheme: !s.syncShellWithEditorTheme,
           themePack: DEFAULT_THEME_PACK_ID,
         })),
+      toggleExecutionHistorySnapshot: () =>
+        set((s) => ({ executionHistorySnapshotEnabled: !s.executionHistorySnapshotEnabled })),
       setTelemetryConsent: (telemetryConsent) => {
         set({ telemetryConsent });
         // Mirror to main so `bootCrashReporter` can read consent at the
@@ -291,6 +298,7 @@ export const useSettingsStore = create<SettingsState>()(
         formatOnSave: state.formatOnSave,
         vimMode: state.vimMode,
         syncShellWithEditorTheme: state.syncShellWithEditorTheme,
+        executionHistorySnapshotEnabled: state.executionHistorySnapshotEnabled,
         telemetryConsent: state.telemetryConsent,
         language: state.language,
         lastSeenVersion: state.lastSeenVersion,
@@ -301,10 +309,22 @@ export const useSettingsStore = create<SettingsState>()(
         themePack: state.themePack,
       }),
       merge: (persistedState, currentState) => {
+        const persisted =
+          persistedState && typeof persistedState === 'object'
+            ? (persistedState as Partial<SettingsState>)
+            : undefined;
         const merged = {
           ...currentState,
-          ...(persistedState as Partial<SettingsState> | undefined),
+          ...persisted,
         };
+        const hasSnapshotPreference =
+          persisted != null && hasOwn(persisted, 'executionHistorySnapshotEnabled');
+        const executionHistorySnapshotEnabled =
+          typeof persisted?.executionHistorySnapshotEnabled === 'boolean'
+            ? persisted.executionHistorySnapshotEnabled
+            : hasSnapshotPreference
+              ? false
+              : currentState.executionHistorySnapshotEnabled;
         const shortcutOverrides = sanitizeShortcutOverrides(merged.shortcutOverrides);
         const requestedKeymapPreset = isKnownKeymapPresetId(merged.keymapPreset)
           ? merged.keymapPreset
@@ -350,6 +370,7 @@ export const useSettingsStore = create<SettingsState>()(
         return {
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
+          executionHistorySnapshotEnabled,
           shortcutOverrides,
           keymapPreset: normalizedKeymapPreset,
           themePack: normalizedThemePack,

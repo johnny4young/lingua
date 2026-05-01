@@ -4,11 +4,19 @@
  * Pins the metadata-only contract (no stdout / stderr / source / path is
  * accepted or surfaced), the FIFO drop at `MAX_HISTORY_ENTRIES`, the
  * timestamp rounding to whole seconds, and the derived helpers.
+ *
+ * RL-028 sixth slice — opt-in code snapshot. The store stays
+ * caller-driven: when `record()` is called without a snapshot the
+ * entry's `snapshot` field is `null` (preserving the metadata-only
+ * default). When the caller passes `{ code, language }`, the store
+ * clamps the code to `SNAPSHOT_MAX_BYTES` and flags `truncated` so
+ * the UI can disclose the cap honestly.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   MAX_HISTORY_ENTRIES,
+  SNAPSHOT_MAX_BYTES,
   useExecutionHistoryStore,
 } from '@/stores/executionHistoryStore';
 
@@ -110,5 +118,140 @@ describe('executionHistoryStore', () => {
     const clone = [...snapshot];
     clone.length = 0;
     expect(useExecutionHistoryStore.getState().entries).toHaveLength(1);
+  });
+
+  it('defaults snapshot to null when the caller omits one (metadata-only contract)', () => {
+    const entry = useExecutionHistoryStore.getState().record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+    });
+    expect(entry.snapshot).toBeNull();
+  });
+
+  it('defaults snapshot to null when the caller passes null explicitly', () => {
+    const entry = useExecutionHistoryStore.getState().record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+      snapshot: null,
+    });
+    expect(entry.snapshot).toBeNull();
+  });
+
+  it('captures a verbatim snapshot when the caller passes one within the cap', () => {
+    const code = 'console.log("hello");';
+    const entry = useExecutionHistoryStore.getState().record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+      snapshot: { code, language: 'javascript' },
+    });
+    expect(entry.snapshot).toEqual({
+      code,
+      language: 'javascript',
+      truncated: false,
+    });
+  });
+
+  it('truncates the snapshot code at SNAPSHOT_MAX_BYTES and flags truncated', () => {
+    const code = 'a'.repeat(SNAPSHOT_MAX_BYTES + 100);
+    const entry = useExecutionHistoryStore.getState().record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+      snapshot: { code, language: 'javascript' },
+    });
+    expect(entry.snapshot?.truncated).toBe(true);
+    expect(entry.snapshot?.code.length).toBe(SNAPSHOT_MAX_BYTES);
+    // The clamp slices from the beginning so the start of the program
+    // is preserved (where most replay-worthy context lives).
+    expect(entry.snapshot?.code.slice(0, 5)).toBe('aaaaa');
+  });
+
+  it('keeps an empty snapshot as a non-null entry distinguishable from "no capture"', () => {
+    const entry = useExecutionHistoryStore.getState().record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+      snapshot: { code: '', language: 'javascript' },
+    });
+    expect(entry.snapshot).toEqual({
+      code: '',
+      language: 'javascript',
+      truncated: false,
+    });
+  });
+
+  it('normalizes snapshot language to the entry language so replay cannot drift', () => {
+    const entry = useExecutionHistoryStore.getState().record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+      snapshot: { code: 'console.log("stable")', language: 'python' },
+    });
+    expect(entry.snapshot).toEqual({
+      code: 'console.log("stable")',
+      language: 'javascript',
+      truncated: false,
+    });
+  });
+
+  it('FIFO eviction drops snapshots together with their entry', () => {
+    const { record } = useExecutionHistoryStore.getState();
+    for (let i = 0; i < MAX_HISTORY_ENTRIES + 1; i += 1) {
+      record({
+        language: 'javascript',
+        status: 'ok',
+        durationMs: i,
+        snapshot: { code: `entry-${i}`, language: 'javascript' },
+      });
+    }
+    const entries = useExecutionHistoryStore.getState().entries;
+    expect(entries).toHaveLength(MAX_HISTORY_ENTRIES);
+    // The oldest dropped entry was index 0; the new oldest (index 1's
+    // capture) is now at the head with its snapshot intact.
+    expect(entries[0]?.snapshot?.code).toBe('entry-1');
+  });
+
+  it('clear() wipes snapshots together with entries', () => {
+    const { record, clear } = useExecutionHistoryStore.getState();
+    record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+      snapshot: { code: 'console.log("kept?")', language: 'javascript' },
+    });
+    clear();
+    expect(useExecutionHistoryStore.getState().entries).toEqual([]);
+  });
+
+  it('mutating the input source after record() does not affect the stored snapshot', () => {
+    const buffer = { code: 'before', language: 'javascript' };
+    useExecutionHistoryStore.getState().record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+      snapshot: buffer,
+    });
+    buffer.code = 'after';
+    const stored = useExecutionHistoryStore.getState().entries[0]?.snapshot;
+    expect(stored?.code).toBe('before');
+  });
+
+  it('snapshot.language always tracks entry.language, ignoring any mismatch in the caller payload', () => {
+    // Defensive contract: a buggy caller could pass `{ code, language: 'rust' }`
+    // for a JavaScript entry. The store mints `snapshot.language` from
+    // `entry.language` so consumers (Replay, Comparison) can trust the
+    // single field for runner dispatch. This pins that the store
+    // ignores `input.snapshot.language` even if the caller sets it.
+    const entry = useExecutionHistoryStore.getState().record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 1,
+      snapshot: { code: 'console.log("hi")', language: 'rust' },
+    });
+    expect(entry.language).toBe('javascript');
+    expect(entry.snapshot?.language).toBe('javascript');
   });
 });

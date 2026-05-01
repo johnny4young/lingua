@@ -214,6 +214,18 @@ export interface SettingsState {
    */
   syncShellWithEditorTheme: boolean;
   /**
+   * RL-028 sixth slice — opt-in code snapshot for the execution-history
+   * ring buffer. When true (and the active tier covers
+   * `EXECUTION_HISTORY`), each successful or failed run records the
+   * source code at execution time so a follow-up slice can offer
+   * Replay / Comparison. Snapshots stay in memory only — never
+   * persisted, never sent over the network. Defaults to `true` for
+   * Pro users; the runtime gate in `executeTabManually` enforces the
+   * tier check independently of the toggle so a state-shadowing bug
+   * cannot leak captures to Free users.
+   */
+  executionHistorySnapshotEnabled: boolean;
+  /**
    * Telemetry opt-in. Three states so we can distinguish "user explicitly
    * declined" from "user has not seen the prompt yet", and keep the prompt
    * from re-appearing after a decline.
@@ -266,6 +278,7 @@ export interface SettingsState {
   toggleFormatOnSave: () => void;
   toggleVimMode: () => void;
   toggleSyncShellWithEditorTheme: () => void;
+  toggleExecutionHistorySnapshot: () => void;
   setTelemetryConsent: (next: 'granted' | 'declined') => void;
   /**
    * Apply a theme preset (editor theme, shell theme, typography, layout)

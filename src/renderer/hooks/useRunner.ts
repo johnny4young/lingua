@@ -10,13 +10,17 @@ import { isLanguageAllowed } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { trackEvent } from '../utils/telemetry';
 
+export interface RunOptions {
+  recordHistory?: boolean;
+}
+
 export function useRunner() {
   const [isRunning, setIsRunning] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const currentLanguageRef = useRef<Language | null>(null);
 
-  const run = useCallback(async () => {
+  const run = useCallback(async (options: RunOptions = {}) => {
     const { tabs, activeTabId } = useEditorStore.getState();
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
@@ -54,6 +58,7 @@ export function useRunner() {
         setCurrentLanguage: (language) => {
           currentLanguageRef.current = language;
         },
+        recordHistory: options.recordHistory,
       });
       // The execution summary is the canonical run outcome. Avoid
       // scanning the console store here: future console retention or

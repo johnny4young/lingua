@@ -211,7 +211,7 @@ export function Toolbar({
           disabled={actionDisabled && !desktopOnlyGate && !proLanguageGate}
         >
           <button
-            onClick={run}
+            onClick={() => void run()}
             disabled={actionDisabled}
             data-tour-id="run-button"
             data-testid="toolbar-run-button"

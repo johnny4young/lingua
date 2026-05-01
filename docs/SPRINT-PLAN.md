@@ -23,7 +23,7 @@ Mirrors the authoritative `Status` column in
 | Iter | Ticket | Status | Scope |
 |------|--------|:------:|-------|
 | Iter 1 | [`RL-072`](./ROADMAP.md) | Shipping · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Expand Developer Utilities to DevUtils parity — full panel set shipped (29 panels). RL-068 closeout adds YAML ↔ JSON, JSON ↔ CSV, Markdown Preview (sanitized HTML output, no remote image fetch), and SQL Formatter (ANSI / PostgreSQL / MySQL dialects). RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
-| Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (5 of ~7 slices shipped) | Execution history — replay-by-id + comparison. See §4. |
+| Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (6 of ~7 slices shipped — snapshot capture + console Replay landed 2026-05-01) | Execution history — palette replay + comparison. See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
 | Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Partial (Slices A + B shipped) | Language-pack registry Slice C — capability-aware UI. See §7. |
@@ -146,28 +146,18 @@ execution history, so we layer this on top without a new gate.
 
 **4.1 Sequencing (3 commits, ~1 week)**:
 
-1. **Commit 1 — snapshot mode for the ring buffer** (~2 days)
-   - Add `snapshot: { code: string, language: Language } | null` to the
-     store entry. Default off; a Settings toggle under Execution History
-     section flips the opt-in (UI copy: "Keep a copy of the code for
-     replay — off by default, stays on your machine").
-   - On each `record()` call, if opt-in is on, snapshot the tab's
-     current content. Otherwise `snapshot: null`.
-   - Persistence contract unchanged: the store stays in-memory only
-     (RL-028 §Privacy posture).
-   - Tests: record with opt-in off stores null; opt-in on captures code
-     + language; flipping off mid-session stops snapshots going forward
-     but does not wipe existing ones.
+1. **Commit 1 — snapshot mode for the ring buffer** — Shipped on 2026-05-01. `ExecutionHistoryEntry` gained an opt-in `snapshot: { code, language, truncated } | null`. The opt-in lives as `executionHistorySnapshotEnabled` in `settingsStore` (default `true`, persisted), surfaced through a Pro-gated toggle in the Editor settings section instead of Execution History. `executeTabManually` attaches the snapshot only when the toggle is on AND `currentEffectiveTier()` covers `EXECUTION_HISTORY` — defense-in-depth so a state-shadowing bug cannot leak captures to Free users. Code is clamped to `SNAPSHOT_MAX_BYTES = 256 KiB` with a `truncated` flag so the UI can disclose the cap honestly. Tests pin: opt-in off → null on success and error branches; opt-in on + Pro → verbatim capture; opt-in on + Free → null; mid-session toggle flip drops new captures without wiping existing ones; truncation slices from the start; `clear()` and FIFO eviction wipe snapshots together with their entries.
 
-2. **Commit 2 — replay action** (~2 days)
-   - Add `Replay` button next to `Re-run` in the popover entry row.
-     Replay opens a NEW tab with the snapshot code and triggers run.
-     Disabled + tooltip "Opt in to snapshots to enable replay" when the
-     entry has `snapshot: null`.
-   - Wire a new palette action `executionHistory.palette.replay.label`.
-   - Tests: click replay → new tab opened with matching code, run
-     dispatched exactly once; replay on a null-snapshot entry is
-     a no-op with notice.
+2. **Commit 2 — replay action** (~2 days, partially shipped 2026-05-01)
+   - Console popover `Replay` shipped: it opens a NEW tab with the snapshot
+     code, triggers run with `recordHistory: false`, and keeps the history
+     timeline count stable. Metadata-only entries render disabled with a
+     translated tooltip.
+   - Remaining: wire a new palette action
+     `executionHistory.palette.replay.label`.
+   - Tests shipped for popover replay → new tab opened with matching code,
+     run dispatched once without recording another entry, and null-snapshot
+     entries disabled.
 
 3. **Commit 3 — compare two runs** (~2 days)
    - Add a `Compare` affordance when the user selects exactly two
@@ -184,7 +174,7 @@ execution history, so we layer this on top without a new gate.
 - Two entries of different languages → comparison still renders but
   the summary strip notes the mismatch.
 - Replay while a run is in progress → refused with a translated notice,
-  no tab leakage.
+  no tab leakage and no history append.
 - Snapshot opt-in flipped off while the popover is open → existing
   entries with snapshots stay replay-eligible.
 
@@ -202,8 +192,8 @@ feat(execution-history): opt in snapshot capture for future replay
 ```
 feat(execution-history): replay a recorded run in a new tab
 
-- add Replay action in the history popover and the command palette
-- open a new tab preloaded with the snapshot code then dispatch run
+- add Replay action in the history popover
+- open a new tab preloaded with the snapshot code then dispatch run without recording a new history entry
 - disabled state with translated tooltip when the entry has no snapshot
 - cover replay dispatch single fire and the no snapshot no op path
 ```

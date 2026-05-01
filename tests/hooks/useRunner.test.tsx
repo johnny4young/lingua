@@ -210,4 +210,42 @@ describe('useRunner', () => {
       parseError: null,
     });
   });
+
+  it('can execute a replay without recording another history entry', async () => {
+    mockPrepareRunner.mockResolvedValue({
+      runner: {
+        execute: vi.fn().mockResolvedValue({
+          stdout: [{ type: 'log', args: ['replayed'] }],
+          stderr: [],
+          executionTime: 11,
+          error: null,
+        } satisfies ExecutionResult),
+      },
+    });
+
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'replay-tab',
+          name: 'replay.js',
+          language: 'javascript',
+          content: 'console.log("replayed")',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'replay-tab',
+    });
+
+    const { result: hook } = renderHook(() => useRunner());
+
+    await act(async () => {
+      await hook.current.run({ recordHistory: false });
+    });
+
+    expect(useExecutionHistoryStore.getState().entries).toHaveLength(0);
+    expect(useEditorStore.getState().tabs[0]).toMatchObject({
+      executionState: 'success',
+      parseError: null,
+    });
+  });
 });

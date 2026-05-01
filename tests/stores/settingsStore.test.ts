@@ -151,6 +151,26 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().formatOnSave).toBe(false);
   });
 
+  it('fails closed when a persisted execution-history snapshot preference is malformed', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: {
+          executionHistorySnapshotEnabled: 'true',
+        },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState().executionHistorySnapshotEnabled).toBe(false);
+  });
+
   it('should default vimMode to false and toggle cleanly (RL-037)', () => {
     expect(useSettingsStore.getState().vimMode).toBe(false);
     useSettingsStore.getState().toggleVimMode();
