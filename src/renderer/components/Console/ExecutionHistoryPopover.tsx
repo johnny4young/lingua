@@ -9,9 +9,9 @@ import { IconButton } from '../ui/chrome';
 
 interface ExecutionHistoryPopoverProps {
   /**
-   * Called when the user picks an entry's "Re-run" affordance. The caller
-   * decides how to map a history row back onto the currently open workspace
-   * (today: focus an open tab in the same language, then dispatch Run).
+   * Called when the user picks an entry's Replay affordance. The caller owns
+   * creating the snapshot tab and dispatching the run without extending the
+   * history timeline.
    */
   onRerun?: (entry: ExecutionHistoryEntry) => void;
   enabled?: boolean;
@@ -58,7 +58,6 @@ export function ExecutionHistoryPopover({
   // render (which would cause infinite re-renders under React's strict mode).
   useEffect(() => {
     if (!open) return;
-    setNow(Date.now());
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(interval);
   }, [open]);
@@ -97,6 +96,7 @@ export function ExecutionHistoryPopover({
       onBlocked?.();
       return;
     }
+    setNow(Date.now());
     setOpen((current) => !current);
   };
 
@@ -142,45 +142,61 @@ export function ExecutionHistoryPopover({
             </p>
           ) : (
             <ul className="max-h-[18rem] overflow-y-auto">
-              {[...entries].reverse().map((entry) => (
-                <li
-                  key={entry.id}
-                  data-testid="execution-history-entry"
-                  className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-2 last:border-b-0"
-                >
-                  <div className="grid min-w-0 gap-0.5">
-                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
-                      {entry.language}
+              {[...entries].reverse().map((entry) => {
+                const canReplay = entry.snapshot !== null;
+
+                return (
+                  <li
+                    key={entry.id}
+                    data-testid="execution-history-entry"
+                    className="grid grid-cols-[1rem_minmax(0,1fr)_auto] items-start gap-3 border-b border-border/60 px-4 py-3 last:border-b-0"
+                  >
+                    <span className="relative flex min-h-full justify-center pt-1" aria-hidden="true">
+                      <span className="absolute inset-y-[-0.75rem] w-px bg-border/60" />
+                      <span
+                        className={`relative h-2 w-2 rounded-full ring-2 ${
+                          entry.status === 'error'
+                            ? 'bg-error ring-error/15'
+                            : 'bg-success ring-success/15'
+                        }`}
+                      />
                     </span>
-                    <span className="text-sm text-foreground">
-                      {t('executionHistory.entry.durationMs', {
-                        value: formatDuration(entry.durationMs),
-                      })}
-                      {entry.status === 'error' ? (
-                        <span className="ml-2 text-danger">
-                          · {t('executionHistory.entry.failed')}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="text-[11px] text-muted">
-                      {formatRelative(entry.timestamp, now, t)}
-                    </span>
-                  </div>
-                  {onRerun ? (
-                    <button
-                      type="button"
-                      onClick={() => handleRerun(entry)}
-                      data-testid="execution-history-rerun"
-                      aria-label={t('executionHistory.rerun.aria', {
-                        language: entry.language,
-                      })}
-                      className="rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:border-border-strong/90 hover:text-foreground"
-                    >
-                      {t('executionHistory.rerun.label')}
-                    </button>
-                  ) : null}
-                </li>
-              ))}
+                    <div className="grid min-w-0 gap-0.5">
+                      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+                        {entry.language}
+                      </span>
+                      <span className="text-sm text-foreground">
+                        {t('executionHistory.entry.durationMs', {
+                          value: formatDuration(entry.durationMs),
+                        })}
+                        {entry.status === 'error' ? (
+                          <span className="ml-2 text-error">
+                            · {t('executionHistory.entry.failed')}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-[11px] text-muted">
+                        {formatRelative(entry.timestamp, now, t)}
+                      </span>
+                    </div>
+                    {onRerun ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRerun(entry)}
+                        disabled={!canReplay}
+                        title={!canReplay ? t('executionHistory.replay.noSnapshot') : undefined}
+                        data-testid="execution-history-rerun"
+                        aria-label={t('executionHistory.rerun.aria', {
+                          language: entry.language,
+                        })}
+                        className="rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:border-border-strong/90 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border/80 disabled:hover:text-muted"
+                      >
+                        {t('executionHistory.rerun.label')}
+                      </button>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

@@ -64,11 +64,12 @@ describe('ExecutionHistoryPopover', () => {
     expect(entries[1]?.textContent ?? '').toMatch(/420 ms/);
   });
 
-  it('clicking Re-run calls onRerun with the chosen entry and closes the popover', async () => {
+  it('clicking Replay calls onRerun with the chosen snapshot entry and closes the popover', async () => {
     useExecutionHistoryStore.getState().record({
       language: 'rust',
       status: 'ok',
       durationMs: 77,
+      snapshot: { code: 'fn main() {}', language: 'rust' },
     });
 
     const onRerun = vi.fn();
@@ -85,6 +86,28 @@ describe('ExecutionHistoryPopover', () => {
       durationMs: 77,
     });
     expect(screen.queryByTestId('execution-history-popover')).toBeNull();
+  });
+
+  it('disables Replay for metadata-only entries without a code snapshot', async () => {
+    useExecutionHistoryStore.getState().record({
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 18,
+    });
+
+    const onRerun = vi.fn();
+    const user = userEvent.setup();
+    render(<ExecutionHistoryPopover onRerun={onRerun} />);
+
+    await user.click(screen.getByTestId('execution-history-toggle'));
+
+    const replay = screen.getByTestId('execution-history-rerun');
+    expect((replay as HTMLButtonElement).disabled).toBe(true);
+    expect(replay.textContent).toBe('Replay');
+    expect(replay.getAttribute('title')).toBe(
+      'No code snapshot was captured for this entry.'
+    );
+    expect(onRerun).not.toHaveBeenCalled();
   });
 
   it('clear empties the store and returns the popover to the empty state', async () => {

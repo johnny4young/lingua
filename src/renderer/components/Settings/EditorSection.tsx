@@ -16,6 +16,7 @@ import { ThemePresetControls } from './ThemePresetControls';
 export function EditorSection() {
   const effectiveTier = useEffectiveTier();
   const canUseExtendedFonts = useEntitlement('FONT_PACK_EXTENDED');
+  const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const editorTheme = useSettingsStore((state) => state.editorTheme);
   const setEditorTheme = useSettingsStore((state) => state.setEditorTheme);
   const fontFamily = useSettingsStore((state) => state.fontFamily);
@@ -46,8 +47,25 @@ export function EditorSection() {
   const toggleSyncShellWithEditorTheme = useSettingsStore(
     (state) => state.toggleSyncShellWithEditorTheme
   );
+  const executionHistorySnapshotEnabled = useSettingsStore(
+    (state) => state.executionHistorySnapshotEnabled
+  );
+  const toggleExecutionHistorySnapshot = useSettingsStore(
+    (state) => state.toggleExecutionHistorySnapshot
+  );
   const { t } = useTranslation();
   const ligaturesAvailable = fontStackSupportsLigatures(fontFamily);
+
+  const handleExecutionHistorySnapshotUnlock = () => {
+    pushUpsellNotice({
+      messageKey: 'upsell.freeCeilingReached',
+      featureLabel: t('upsell.feature.executionHistory'),
+    });
+    void trackEvent('feature.blocked', {
+      entitlement: 'execution-history',
+      tier: effectiveTier,
+    });
+  };
 
   const handleFontFamilyChange = (nextFontFamily: string) => {
     const isExtendedFont = nextFontFamily !== DEFAULT_FONT_FAMILY;
@@ -210,6 +228,33 @@ export function EditorSection() {
         hint={t('editor.formatOnSave.hint')}
       >
         <Toggle value={formatOnSave} onChange={toggleFormatOnSave} />
+      </Row>
+
+      <Row
+        label={t('editor.executionHistorySnapshot.label')}
+        hint={
+          canUseExecutionHistory
+            ? t('editor.executionHistorySnapshot.hint')
+            : t('editor.executionHistorySnapshot.lockedHint')
+        }
+      >
+        {canUseExecutionHistory ? (
+          <Toggle
+            value={executionHistorySnapshotEnabled}
+            onChange={toggleExecutionHistorySnapshot}
+            aria-label={t('editor.executionHistorySnapshot.label')}
+          />
+        ) : (
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={handleExecutionHistorySnapshotUnlock}
+            data-testid="editor-execution-history-snapshot-unlock"
+            aria-label={t('executionHistory.unlockButton')}
+          >
+            {t('executionHistory.unlockButton')}
+          </button>
+        )}
       </Row>
 
       <Row
