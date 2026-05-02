@@ -48,6 +48,14 @@ interface BuildCommandPaletteModelArgs {
    * execution surface keep working; when omitted the action is hidden.
    */
   onRerunLast?: () => void;
+  /**
+   * RL-028 sixth slice trailer — fires when the user activates a per-entry
+   * "Replay {language} run · {status} · {duration}" palette command.
+   * Optional; when omitted no replay commands are emitted. Caller is
+   * expected to dispatch `replayHistoryEntry(entry, ...)` so the run
+   * does not append another history entry.
+   */
+  onReplayEntry?: (entry: ExecutionHistoryEntry) => void;
   updateStatus: UpdateStatus;
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   createDefaultTab: (language: Language) => FileTab;
@@ -212,12 +220,70 @@ function buildRecentRunCommand(
   };
 }
 
+/**
+ * RL-028 Slice 6 trailer — per-entry Replay command.
+ *
+ * Emitted only for snapshot-bearing entries so the user can fuzzy-search
+ * "replay python ok 1.2s" and re-run any of the recent captures from the
+ * keyboard. The popover Replay button covers the same intent for mouse
+ * users; the palette mirror keeps the keyboard-driven flow first-class
+ * for Lingua's senior-dev audience.
+ *
+ * Activation hands the entry to `onReplayEntry`, which is wired in
+ * `App.tsx` to the shared `replayHistoryEntry` helper. The helper
+ * runs with `lifecycle.recordHistory: false` so no second history
+ * entry is appended.
+ */
+function buildReplayHistoryCommand(
+  entry: ExecutionHistoryEntry,
+  onClose: () => void,
+  translate: (key: string, options?: Record<string, unknown>) => string,
+  onReplayEntry: (entry: ExecutionHistoryEntry) => void
+): CommandEntry {
+  const statusKey =
+    entry.status === 'ok'
+      ? 'commandPalette.recentRuns.status.ok'
+      : 'commandPalette.recentRuns.status.error';
+  const languageName = languageLabel(entry.language as Language);
+  const label = translate('executionHistory.palette.replay.label', {
+    language: languageName,
+    status: translate(statusKey),
+    duration: formatExecTime(entry.durationMs ?? 0),
+  });
+  const description = translate('executionHistory.palette.replay.description');
+
+  return {
+    id: `action-replay-${entry.id}`,
+    category: 'action',
+    label,
+    description,
+    language: entry.language as Language,
+    keywords: normalizeKeywords([
+      label,
+      description,
+      entry.language,
+      entry.status,
+      'replay',
+      'snapshot',
+      'history',
+      'recent',
+      'run',
+      'reproduce',
+    ]),
+    action: () => {
+      onReplayEntry(entry);
+      onClose();
+    },
+  };
+}
+
 export function buildCommandPaletteModel({
   templates,
   snippets,
   executionHistory,
   onFocusLanguageTab,
   onRerunLast,
+  onReplayEntry,
   updateStatus,
   createTab,
   createDefaultTab,
@@ -253,6 +319,16 @@ export function buildCommandPaletteModel({
     .slice(-MAX_RECENT_RUNS_IN_PALETTE)
     .reverse();
 
+  // Per-entry Replay commands share the same recent-history window before
+  // metadata-only entries drop out, so stale snapshots cannot outrank the
+  // latest executions just because newer entries did not capture code.
+  const replayHistoryEntries = onReplayEntry
+    ? (executionHistory ?? [])
+        .slice(-MAX_RECENT_RUNS_IN_PALETTE)
+        .filter((entry) => entry.snapshot !== null)
+        .reverse()
+    : [];
+
   const commands: CommandEntry[] = [
     ...templates.map((template) =>
       buildTemplateCommand(template, createTab, createDefaultTab, onClose, t)
@@ -262,6 +338,14 @@ export function buildCommandPaletteModel({
     ),
     ...recentRunEntries.map((entry) =>
       buildRecentRunCommand(entry, onClose, translate, onFocusLanguageTab)
+    ),
+    ...replayHistoryEntries.map((entry) =>
+      buildReplayHistoryCommand(
+        entry,
+        onClose,
+        translate,
+        onReplayEntry as (entry: ExecutionHistoryEntry) => void
+      )
     ),
     // RL-028 fourth slice — Re-run last execution. Hidden when the
     // caller does not wire `onRerunLast` so legacy callers (or

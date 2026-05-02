@@ -1,15 +1,13 @@
 import { Clock, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ConsoleEntry, ConsoleEntryType, FileTab, Language } from '../../types';
+import type { ConsoleEntry, ConsoleEntryType } from '../../types';
 import { useConsoleStore } from '../../stores/consoleStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
-import { useEditorStore } from '../../stores/editorStore';
-import { useUIStore } from '../../stores/uiStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
-import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
+import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { trackEvent } from '../../utils/telemetry';
 import { IconButton, Tooltip } from '../ui/chrome';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
@@ -142,17 +140,9 @@ function formatExecTime(ms: number): string {
   return `${(ms / 1000).toFixed(2)} s`;
 }
 
-function nextReplayTabId(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `history-replay-${Date.now().toString(36)}`;
-}
-
-function replayTabName(entry: ExecutionHistoryEntry, language: Language): string {
-  const suffix = entry.id.replace(/[^a-z0-9]/gi, '').slice(-8) || 'history';
-  return `replay-${suffix}.${extensionForLanguage(language)}`;
-}
+// `nextReplayTabId` and `replayTabName` moved to
+// `src/renderer/utils/replayHistoryEntry.ts` so the command-palette
+// per-entry Replay surface can share the same helper as this popover.
 
 function AnsiContent({ text, className }: { text: string; className: string }) {
   if (!hasAnsi(text)) {
@@ -238,44 +228,9 @@ export function ConsolePanel() {
     userScrolled.current = !atBottom;
   };
 
-  const replayHistoryEntry = useCallback(
+  const handleReplayHistoryEntry = useCallback(
     (entry: ExecutionHistoryEntry) => {
-      if (isRunning) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'executionHistory.replay.running',
-        });
-        return;
-      }
-
-      if (!entry.snapshot) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'executionHistory.replay.noSnapshot',
-          values: { language: languageLabel(entry.language as Language) },
-        });
-        return;
-      }
-
-      const language = entry.snapshot.language as Language;
-      const replayTab: FileTab = {
-        id: nextReplayTabId(),
-        name: replayTabName(entry, language),
-        language,
-        content: entry.snapshot.code,
-        isDirty: false,
-      };
-
-      useEditorStore.getState().addTab(replayTab);
-      if (useEditorStore.getState().activeTabId !== replayTab.id) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'executionHistory.replay.openFailed',
-          values: { language: languageLabel(language) },
-        });
-        return;
-      }
-      void run({ recordHistory: false });
+      replayHistoryEntry(entry, { isRunning, run });
     },
     [isRunning, run]
   );
@@ -341,7 +296,7 @@ export function ConsolePanel() {
           <ExecutionHistoryPopover
             enabled={canUseExecutionHistory}
             onBlocked={handleBlockedExecutionHistory}
-            onRerun={replayHistoryEntry}
+            onRerun={handleReplayHistoryEntry}
           />
           <IconButton onClick={clear} tooltip={t('console.actions.clear')} tone="danger">
             <Trash2 size={13} />
