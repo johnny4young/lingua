@@ -126,7 +126,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-037`](./PLAN.md#rl-037-add-deep-editor-personalization) | Deep editor personalization | `Partial` | Shortcut editor + presets + Vim mode + theme packs + editor fonts shipped. Remaining: optional slice for custom theme import. |
 | [`RL-039`](./PLAN.md#rl-039-add-guided-lessons-docs-and-app-galleries-for-students) | Guided lessons + app galleries | `Partial` | Guided tour (Shepherd) + seeded lesson drafts in `docs/lessons`. Remaining: in-app lesson browser + progression. |
 | [`RL-041`](./PLAN.md#rl-041-add-static-site-export-and-one-click-publish-for-web-projects) | Static site export + publish | `Planned` | Export JS/TS/HTML projects as self-contained static ZIP; one-click publish to GitHub Pages. |
 | [`RL-046`](./PLAN.md#rl-046-add-gamification-achievements-and-progress-tracking-for-students) | Gamification + achievements | `Planned` | Achievement catalog, per-user progress, streaks. |
@@ -154,7 +153,7 @@ agent should follow when §3's tiebreakers don't resolve.
 3. **Debugger + language intelligence.** `RL-027` Slice 1 (JS/TS debugger minimal) and `RL-026` adapter layer. These unblock `RL-042` and `RL-047`.
 4. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
 5. **Notebook + rich output.** `RL-043` + `RL-044` are a paired slice. Only after the runtime contract from §4 is stable.
-6. **Personalization + lessons.** `RL-037` trailing slice, `RL-039` in-app lesson browser, `RL-041` static export.
+6. **Personalization + lessons.** `RL-039` in-app lesson browser, `RL-041` static export.
 7. **Growth / SEO / marketing.** `RL-032` and `RL-066` after the launch blockers ship so they aren't obsolete by then.
 
 Never start a row tagged `Gated` until its gate clears. When the top of
@@ -167,14 +166,14 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>39 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>40 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
-`RL-022`, `RL-028`, `RL-030`, `RL-034`, `RL-040`, `RL-045`, `RL-051`,
-`RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`, `RL-057`, `RL-058`,
-`RL-060`, `RL-061`, `RL-062`, `RL-067`, `RL-068`, `RL-070`, `RL-071`,
-`RL-073`, `RL-074`, `RL-075`, `RL-076`.
+`RL-022`, `RL-028`, `RL-030`, `RL-034`, `RL-037`, `RL-040`, `RL-045`,
+`RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`, `RL-057`,
+`RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-067`, `RL-068`, `RL-070`,
+`RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`.
 
 </details>
 

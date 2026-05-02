@@ -829,3 +829,89 @@ describe('buildCommandPaletteModel — per-entry replay (RL-028 sixth slice trai
     }
   });
 });
+
+describe('buildCommandPaletteModel — Toggle Vim mode (RL-037)', () => {
+  function buildWithVimToggle(args: {
+    onToggleVimMode?: () => void;
+    vimModeEnabled?: boolean;
+  }) {
+    return buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      onToggleVimMode: args.onToggleVimMode,
+      vimModeEnabled: args.vimModeEnabled,
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    });
+  }
+
+  it('hides the toggle command when onToggleVimMode is not wired', () => {
+    const commands = buildWithVimToggle({});
+    expect(commands.find((c) => c.id === 'action-toggle-vim-mode')).toBeUndefined();
+  });
+
+  it('exposes the toggle command and fires the callback on activation', () => {
+    const toggle = vi.fn();
+    const commands = buildWithVimToggle({ onToggleVimMode: toggle, vimModeEnabled: false });
+    const action = commands.find((c) => c.id === 'action-toggle-vim-mode');
+    expect(action).toBeDefined();
+    expect(action?.label).toBe('Toggle Vim mode');
+    expect(action?.keywords).toEqual(
+      expect.arrayContaining(['vim', 'mode', 'keybindings', 'editor', 'toggle'])
+    );
+    action?.action();
+    expect(toggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('flips the description text based on the current vimModeEnabled flag', () => {
+    const commandsOff = buildWithVimToggle({
+      onToggleVimMode: vi.fn(),
+      vimModeEnabled: false,
+    });
+    const commandsOn = buildWithVimToggle({
+      onToggleVimMode: vi.fn(),
+      vimModeEnabled: true,
+    });
+    const off = commandsOff.find((c) => c.id === 'action-toggle-vim-mode');
+    const on = commandsOn.find((c) => c.id === 'action-toggle-vim-mode');
+    expect(off?.description.toLowerCase()).toContain('turn on');
+    expect(on?.description.toLowerCase()).toContain('turn off');
+  });
+
+  it('localizes the label and descriptions in tuteo Spanish', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const offCommands = buildWithVimToggle({
+        onToggleVimMode: vi.fn(),
+        vimModeEnabled: false,
+      });
+      const onCommands = buildWithVimToggle({
+        onToggleVimMode: vi.fn(),
+        vimModeEnabled: true,
+      });
+      const off = offCommands.find((c) => c.id === 'action-toggle-vim-mode');
+      const on = onCommands.find((c) => c.id === 'action-toggle-vim-mode');
+      expect(off?.label).toBe('Alternar modo Vim');
+      expect(off?.description).toContain('Activa los atajos de Vim');
+      expect(on?.description).toContain('Desactiva los atajos de Vim');
+    } finally {
+      await i18next.changeLanguage('en');
+    }
+  });
+});

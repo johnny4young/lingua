@@ -1,5 +1,6 @@
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -15,8 +16,34 @@ import { useInlineResults } from '../../hooks/useInlineResults';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
 import { defineCustomThemes } from './editorThemes';
+import { VimStatusBar } from './VimStatusBar';
+import { createLocalizedStatusBarClass } from './vimStatusBarFactory';
 
 configureMonaco();
+
+// ---------------------------------------------------------------------------
+// monaco-vim lazy loader (RL-037)
+// ---------------------------------------------------------------------------
+//
+// The chunk is fetched at most once per session — even rapid toggle on /
+// off cycles share the same in-flight promise. Failures fall through to
+// `null` so the gate in `CodeEditor` simply skips the init call instead
+// of bricking the editor; the user can re-flip the toggle to retry.
+
+type MonacoVimModule = typeof import('monaco-vim');
+type VimAdapter = ReturnType<MonacoVimModule['initVimMode']>;
+
+let monacoVimPromise: Promise<MonacoVimModule | null> | null = null;
+
+function loadMonacoVim(): Promise<MonacoVimModule | null> {
+  if (monacoVimPromise) return monacoVimPromise;
+  monacoVimPromise = import('monaco-vim').catch((error: unknown) => {
+    console.warn('Failed to load monaco-vim chunk', error);
+    monacoVimPromise = null;
+    return null;
+  });
+  return monacoVimPromise;
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -35,11 +62,24 @@ export function CodeEditor() {
     wordWrap,
     minimap,
   } = useSettingsStore();
+  const vimMode = useSettingsStore((state) => state.vimMode);
+  const { t } = useTranslation();
+  // Stash `t` in a ref so the Vim init effect doesn't re-run (and tear
+  // down + rebuild the Vim layer, dropping the user's mode + buffer
+  // cursor) every time react-i18next emits a fresh translator
+  // identity. The localized status-bar subclass still resolves the
+  // current locale because it reads through the ref every setMode call.
+  const translateRef = useRef(t);
+  useEffect(() => {
+    translateRef.current = t;
+  }, [t]);
   const lineResults = useResultStore((state) => state.lineResults);
   const diagnostics = useResultStore((state) => state.diagnostics);
   const executionSource = useResultStore((state) => state.executionSource);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
+  const vimAdapterRef = useRef<VimAdapter | null>(null);
+  const vimStatusBarRef = useRef<HTMLDivElement | null>(null);
   const lastRevealedDiagnosticKeyRef = useRef<string | null>(null);
   const { applyDecorations, clearDecorations, applyDiagnostics, clearMarkers } =
     useInlineResults();
@@ -143,31 +183,69 @@ export function CodeEditor() {
     };
   }, [clearDecorations, clearMarkers]);
 
+  // RL-037 — wire the Vim layer when the toggle flips on, dispose when
+  // it flips off (or when the editor unmounts / active tab changes).
+  // The localized status-bar subclass routes through `translateRef.current`
+  // so locale switches reflect immediately on the next mode-change event
+  // without re-initializing the Vim adapter and dropping the user's
+  // buffer position.
+  useEffect(() => {
+    if (!vimMode) return;
+    let cancelled = false;
+    const editor = editorRef.current;
+    const statusNode = vimStatusBarRef.current;
+    if (!editor || !statusNode) return;
+
+    void loadMonacoVim().then((mod) => {
+      if (cancelled || !mod) return;
+      const LocalizedStatusBar = createLocalizedStatusBarClass(mod.StatusBar, (key, options) =>
+        translateRef.current(key, options)
+      );
+      vimAdapterRef.current = mod.initVimMode(editor, statusNode, LocalizedStatusBar);
+    });
+
+    return () => {
+      cancelled = true;
+      vimAdapterRef.current?.dispose();
+      vimAdapterRef.current = null;
+      // Clear any DOM the upstream class wrote into the host node so
+      // toggling off leaves a clean slate. `replaceChildren()` with no
+      // arguments is the standards-track equivalent of `innerHTML = ''`
+      // without the linter false-positive about XSS.
+      statusNode.replaceChildren();
+    };
+  }, [vimMode, activeTab?.id]);
+
   if (!activeTab) {
     return <EditorEmptyState />;
   }
 
   return (
-    <MonacoEditor
-      height="100%"
-      language={monacoLanguageFor(activeTab.language)}
-      value={activeTab.content}
-      theme={editorTheme}
-      beforeMount={handleBeforeMount}
-      onMount={handleEditorMount}
-      onChange={(value) => {
-        if (value !== undefined) {
-          updateContent(activeTab.id, value);
-        }
-      }}
-      options={getEditorOptions({
-        fontSize,
-        fontFamily,
-        fontLigatures: effectiveFontLigatures,
-        showLineNumbers,
-        wordWrap,
-        minimap,
-      })}
-    />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1">
+        <MonacoEditor
+          height="100%"
+          language={monacoLanguageFor(activeTab.language)}
+          value={activeTab.content}
+          theme={editorTheme}
+          beforeMount={handleBeforeMount}
+          onMount={handleEditorMount}
+          onChange={(value) => {
+            if (value !== undefined) {
+              updateContent(activeTab.id, value);
+            }
+          }}
+          options={getEditorOptions({
+            fontSize,
+            fontFamily,
+            fontLigatures: effectiveFontLigatures,
+            showLineNumbers,
+            wordWrap,
+            minimap,
+          })}
+        />
+      </div>
+      <VimStatusBar ref={vimStatusBarRef} vimEnabled={vimMode} />
+    </div>
   );
 }

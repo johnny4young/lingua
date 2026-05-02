@@ -327,6 +327,7 @@ function AppChrome({
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
           onRerunLast={() => void run()}
           onReplayEntry={(entry) => replayHistoryEntry(entry, { isRunning, run })}
+          onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
       )}
       {overlay === 'settings' && (

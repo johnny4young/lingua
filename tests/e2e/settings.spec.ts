@@ -149,13 +149,14 @@ test.describe('Settings — Editor section', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
+    await page.getByRole('tab', { name: 'Editor' }).click();
 
     const vimToggle = page.getByRole('switch', { name: 'Vim mode' });
     await expect(vimToggle).toHaveAttribute('aria-checked', 'false');
 
     await vimToggle.click();
     await expect(vimToggle).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByTestId('editor-vim-mode-status')).toContainText(/vim/i);
+    await expect(page.getByTestId('editor-vim-mode-status')).toHaveCount(0);
 
     // Round-trip through localStorage confirms the settings store actually
     // persisted the change (rather than just flipping local state).
@@ -234,7 +235,9 @@ test.describe('Settings persistence', () => {
     await gotoApp(page);
 
     await openSettings(page);
+    await page.getByRole('tab', { name: 'Editor' }).click();
     await page.getByRole('switch', { name: 'Vim mode' }).click();
+    await page.getByRole('tab', { name: 'Environment' }).click();
 
     const global = page.getByTestId('env-vars-global-region');
     await global.getByTestId('env-vars-key-input').fill('PERSIST');
@@ -246,10 +249,12 @@ test.describe('Settings persistence', () => {
     await page.reload();
     await openSettings(page);
 
+    await page.getByRole('tab', { name: 'Editor' }).click();
     await expect(page.getByRole('switch', { name: 'Vim mode' })).toHaveAttribute(
       'aria-checked',
       'true'
     );
+    await page.getByRole('tab', { name: 'Environment' }).click();
     await expect(page.getByTestId('env-vars-global-region')).toContainText('PERSIST');
   });
 });

@@ -261,19 +261,11 @@ export function EditorSection() {
         label={t('editor.vimMode.label')}
         hint={t('editor.vimMode.hint')}
       >
-        <div className="grid w-full gap-1 text-right">
-          <Toggle
-            value={vimMode}
-            onChange={toggleVimMode}
-            aria-label={t('editor.vimMode.label')}
-          />
-          <span
-            data-testid="editor-vim-mode-status"
-            className="text-xs text-muted"
-          >
-            {t('editor.vimMode.pendingNote')}
-          </span>
-        </div>
+        <Toggle
+          value={vimMode}
+          onChange={toggleVimMode}
+          aria-label={t('editor.vimMode.label')}
+        />
       </Row>
 
       <ThemePresetControls />

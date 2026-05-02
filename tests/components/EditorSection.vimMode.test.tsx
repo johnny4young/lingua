@@ -1,10 +1,10 @@
 /**
- * RL-037 Vim mode toggle — first implementation increment.
+ * RL-037 Vim mode toggle.
  *
- * The settings toggle persists the `vimMode` flag so the next slice (which
- * lazy-loads `monaco-vim`) can gate on it. This slice ships only the flag
- * + the toggle UI; flipping it today does NOT change editor behavior.
- * These tests pin that contract so the follow-up slice can build on it.
+ * The settings toggle persists the `vimMode` flag and the editor surface
+ * lazy-loads `monaco-vim` against it. These tests pin the toggle UI
+ * contract: default-off, flips persistently on click, label localizes
+ * to tuteo Spanish, and Free-tier still gates extended editor fonts.
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -59,13 +59,13 @@ describe('EditorSection — Vim mode toggle (RL-037)', () => {
     useLicenseStore.setState(initialLicense, true);
   });
 
-  it('renders the Vim mode toggle unchecked by default', () => {
+  it('renders the Vim mode toggle unchecked by default and drops the legacy pending note', () => {
     render(<EditorSection />);
     const toggle = screen.getByRole('switch', { name: /Vim mode/i });
     expect(toggle.getAttribute('aria-checked')).toBe('false');
-    expect(screen.getByTestId('editor-vim-mode-status').textContent).toContain(
-      'Flag only today'
-    );
+    // The pendingNote shipped with the placeholder slice is gone now that
+    // the toggle drives a real `monaco-vim` integration.
+    expect(screen.queryByTestId('editor-vim-mode-status')).toBeNull();
   });
 
   it('flips the persisted vimMode flag when the toggle is clicked', async () => {
@@ -81,14 +81,11 @@ describe('EditorSection — Vim mode toggle (RL-037)', () => {
     );
   });
 
-  it('localizes the label and pending note in Spanish', async () => {
+  it('localizes the label in tuteo Spanish', async () => {
     await i18next.changeLanguage('es');
     render(<EditorSection />);
 
     expect(screen.getByRole('switch', { name: /Modo Vim/i })).toBeTruthy();
-    expect(screen.getByTestId('editor-vim-mode-status').textContent).toContain(
-      'Hoy solo persiste el flag'
-    );
   });
 
   it('blocks extended editor fonts on the Free tier', async () => {
