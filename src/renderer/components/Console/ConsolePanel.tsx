@@ -1,5 +1,5 @@
 import { Clock, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ConsoleEntry, ConsoleEntryType } from '../../types';
 import { useConsoleStore } from '../../stores/consoleStore';
@@ -10,6 +10,7 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { trackEvent } from '../../utils/telemetry';
 import { IconButton, Tooltip } from '../ui/chrome';
+import { ExecutionComparisonModal } from './ExecutionComparisonModal';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 
 interface AnsiSpan {
@@ -235,6 +236,21 @@ export function ConsolePanel() {
     [isRunning, run]
   );
 
+  const [comparison, setComparison] = useState<
+    [ExecutionHistoryEntry, ExecutionHistoryEntry] | null
+  >(null);
+
+  const handleCompareEntries = useCallback(
+    (older: ExecutionHistoryEntry, newer: ExecutionHistoryEntry) => {
+      setComparison([older, newer]);
+    },
+    []
+  );
+
+  const handleCloseComparison = useCallback(() => {
+    setComparison(null);
+  }, []);
+
   const handleBlockedExecutionHistory = useCallback(() => {
     pushUpsellNotice({
       messageKey: 'upsell.freeCeilingReached',
@@ -297,6 +313,7 @@ export function ConsolePanel() {
             enabled={canUseExecutionHistory}
             onBlocked={handleBlockedExecutionHistory}
             onRerun={handleReplayHistoryEntry}
+            onCompare={canUseExecutionHistory ? handleCompareEntries : undefined}
           />
           <IconButton onClick={clear} tooltip={t('console.actions.clear')} tone="danger">
             <Trash2 size={13} />
@@ -336,6 +353,8 @@ export function ConsolePanel() {
           ))
         )}
       </div>
+
+      <ExecutionComparisonModal entries={comparison} onClose={handleCloseComparison} />
     </div>
   );
 }

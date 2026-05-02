@@ -1,5 +1,5 @@
 import { History } from 'lucide-react';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   type ExecutionHistoryEntry,
@@ -14,6 +14,13 @@ interface ExecutionHistoryPopoverProps {
    * history timeline.
    */
   onRerun?: (entry: ExecutionHistoryEntry) => void;
+  /**
+   * Called when the user has selected exactly two snapshot-bearing entries
+   * and pressed Compare. The popover hands the entries up sorted oldest →
+   * newest so the comparison surface can render them deterministically. The
+   * popover closes and the multiselect resets after the callback fires.
+   */
+  onCompare?: (older: ExecutionHistoryEntry, newer: ExecutionHistoryEntry) => void;
   enabled?: boolean;
   onBlocked?: () => void;
 }
@@ -39,8 +46,27 @@ function formatRelative(
   return t('executionHistory.relative.hours', { count: hours });
 }
 
+function parseEntryCounter(id: string): number | null {
+  const suffix = id.slice(id.lastIndexOf('-') + 1);
+  if (!/^\d+$/.test(suffix)) return null;
+  return Number.parseInt(suffix, 10);
+}
+
+function compareHistoryEntries(older: ExecutionHistoryEntry, newer: ExecutionHistoryEntry): number {
+  if (older.timestamp !== newer.timestamp) return older.timestamp - newer.timestamp;
+
+  const olderCounter = parseEntryCounter(older.id);
+  const newerCounter = parseEntryCounter(newer.id);
+  if (olderCounter !== null && newerCounter !== null && olderCounter !== newerCounter) {
+    return olderCounter - newerCounter;
+  }
+
+  return older.id.localeCompare(newer.id);
+}
+
 export function ExecutionHistoryPopover({
   onRerun,
+  onCompare,
   enabled = true,
   onBlocked,
 }: ExecutionHistoryPopoverProps) {
@@ -49,8 +75,19 @@ export function ExecutionHistoryPopover({
   const clear = useExecutionHistoryStore((state) => state.clear);
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const containerRef = useRef<HTMLDivElement>(null);
   const popoverId = useId();
+  const selectableEntryIds = useMemo(() => {
+    return new Set(
+      entries
+        .filter((entry) => entry.snapshot !== null)
+        .map((entry) => entry.id)
+    );
+  }, [entries]);
+  const selectedEntries = useMemo(() => {
+    return entries.filter((entry) => selectedIds.has(entry.id) && entry.snapshot !== null);
+  }, [entries, selectedIds]);
 
   // Refresh relative timestamps every 30s while the popover is visible — the
   // store itself never changes purely because of clock drift, so we drive
@@ -83,6 +120,23 @@ export function ExecutionHistoryPopover({
     };
   }, [open]);
 
+  // Selection is intentionally ephemeral: closing the popover clears it so
+  // the next open starts fresh. Reopening with stale selection would
+  // surprise the user, especially after they `Clear`ed the buffer.
+  useEffect(() => {
+    setSelectedIds((current) => {
+      if (!open) {
+        return current.size === 0 ? current : new Set();
+      }
+
+      const next = new Set<string>();
+      for (const id of current) {
+        if (selectableEntryIds.has(id)) next.add(id);
+      }
+      return next.size === current.size ? current : next;
+    });
+  }, [open, selectableEntryIds]);
+
   const handleRerun = useCallback(
     (entry: ExecutionHistoryEntry) => {
       onRerun?.(entry);
@@ -90,6 +144,37 @@ export function ExecutionHistoryPopover({
     },
     [onRerun]
   );
+
+  const toggleSelected = useCallback((id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleCompare = useCallback(() => {
+    if (!onCompare) return;
+    if (selectedIds.size !== 2 || selectedEntries.length !== 2) return;
+    // Sort oldest → newest so the modal can render Older / Newer panes
+    // deterministically. Tie-break on the numeric id suffix (it's
+    // monotonic per timestamp bucket — see `nextId` in the store).
+    const [older, newer] = [...selectedEntries].sort(compareHistoryEntries) as [
+      ExecutionHistoryEntry,
+      ExecutionHistoryEntry,
+    ];
+    onCompare(older, newer);
+    setOpen(false);
+  }, [onCompare, selectedEntries, selectedIds.size]);
+
+  const handleClear = useCallback(() => {
+    clear();
+    setSelectedIds(new Set());
+  }, [clear]);
 
   const handleToggle = () => {
     if (!enabled) {
@@ -101,6 +186,13 @@ export function ExecutionHistoryPopover({
   };
 
   const hasEntries = entries.length > 0;
+  const compareEnabled =
+    onCompare !== undefined && selectedIds.size === 2 && selectedEntries.length === 2;
+  const compareDisabledHintKey = useMemo(() => {
+    if (selectedIds.size === 0) return 'executionHistory.compare.button.disabled.zero';
+    if (selectedIds.size === 1) return 'executionHistory.compare.button.disabled.one';
+    return 'executionHistory.compare.button.disabled.tooMany';
+  }, [selectedIds.size]);
 
   return (
     <div ref={containerRef} className="relative">
@@ -127,7 +219,7 @@ export function ExecutionHistoryPopover({
             {hasEntries ? (
               <button
                 type="button"
-                onClick={() => clear()}
+                onClick={handleClear}
                 data-testid="execution-history-clear"
                 className="text-[11px] uppercase tracking-[0.14em] text-muted hover:text-foreground"
               >
@@ -144,13 +236,37 @@ export function ExecutionHistoryPopover({
             <ul className="max-h-[18rem] overflow-y-auto">
               {[...entries].reverse().map((entry) => {
                 const canReplay = entry.snapshot !== null;
+                const canSelect = entry.snapshot !== null;
+                const checked = selectedIds.has(entry.id);
 
                 return (
                   <li
                     key={entry.id}
                     data-testid="execution-history-entry"
-                    className="grid grid-cols-[1rem_minmax(0,1fr)_auto] items-start gap-3 border-b border-border/60 px-4 py-3 last:border-b-0"
+                    className="grid grid-cols-[1rem_1rem_minmax(0,1fr)_auto] items-start gap-3 border-b border-border/60 px-4 py-3 last:border-b-0"
                   >
+                    {onCompare ? (
+                      <span className="flex min-h-full justify-center pt-1">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSelected(entry.id)}
+                          disabled={!canSelect}
+                          data-testid="execution-history-compare-checkbox"
+                          aria-label={t('executionHistory.compare.checkbox.aria', {
+                            language: entry.language,
+                          })}
+                          title={
+                            !canSelect
+                              ? t('executionHistory.compare.checkbox.disabledNoSnapshot')
+                              : undefined
+                          }
+                          className="h-3.5 w-3.5 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-45"
+                        />
+                      </span>
+                    ) : (
+                      <span aria-hidden="true" />
+                    )}
                     <span className="relative flex min-h-full justify-center pt-1" aria-hidden="true">
                       <span className="absolute inset-y-[-0.75rem] w-px bg-border/60" />
                       <span
@@ -199,6 +315,31 @@ export function ExecutionHistoryPopover({
               })}
             </ul>
           )}
+
+          {hasEntries && onCompare ? (
+            <footer className="flex items-center justify-between gap-3 border-t border-border/80 px-4 py-3">
+              <span
+                data-testid="execution-history-compare-hint"
+                className="text-[11px] text-muted"
+              >
+                {compareEnabled ? null : t(compareDisabledHintKey)}
+              </span>
+              <button
+                type="button"
+                onClick={handleCompare}
+                disabled={!compareEnabled}
+                data-testid="execution-history-compare"
+                aria-label={
+                  compareEnabled
+                    ? t('executionHistory.compare.button.enabledAria')
+                    : t(compareDisabledHintKey)
+                }
+                className="rounded-[0.75rem] border border-border/80 px-3 py-1.5 text-xs text-muted hover:border-border-strong/90 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:border-border/80 disabled:hover:text-muted"
+              >
+                {t('executionHistory.compare.button.label')}
+              </button>
+            </footer>
+          ) : null}
         </div>
       ) : null}
     </div>
