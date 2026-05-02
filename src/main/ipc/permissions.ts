@@ -105,5 +105,5 @@ export function isSafeEntryName(name: string): boolean {
     return false;
   }
 
-  return !/[\\/\\0]/.test(trimmed);
+  return !trimmed.includes('\0') && !/[\\/]/.test(trimmed);
 }

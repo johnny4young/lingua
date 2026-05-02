@@ -4720,8 +4720,8 @@ These tickets were promoted directly into PLAN and ROADMAP from the 2026-05-02 a
 ### RL-077 Capability-based filesystem IPC sandbox
 
 - Priority: `P0`
-- Status: `Planned`
-- Readiness: `Implementation-ready from the 2026-05-02 review. Launch-blocking because the renderer currently sends absolute filesystem paths through the preload/main filesystem bridge; the target state is approved project-root capabilities instead of denylist-only validation.`
+- Status: `Partial`
+- Readiness: `Slice 1 shipped on 2026-05-02 — src/main/ipc/projectCapabilities.ts lands the registry primitives (mintRootCapability, lookupRoot, revokeRoot, resolveCapabilityPath) plus the realpath-resolved containment check that defeats symlink-out attacks. 17 unit tests pin the contract: mint / lookup / revoke round-trip, empty relative path resolves to the root, nested relative paths inside the root resolve, write targets that do not yet exist walk up to an existing ancestor, unknown rootId, malformed IPC shapes, literal ".." / nested traversal, NUL byte names, absolute Unix paths, Windows drive-letter paths, Windows device-namespace prefixes, and protected-path targets all reject before disk I/O; symlink-out attempts fail the realpath probe; and new write targets inside symlinked approved roots resolve to the approved real root. Slice 2 (next session, ~4-5 hours dedicated) consumes the registry across 12 filesystem IPC handlers + 3 picker entry points + a new fs:reopen-root + fs:revoke-root, migrates the renderer (projectStore + projectTree + projectIndexStore + projectSearchStore + editorStore + sessionStore + useProjectIndexSync + useProjectWatchSync + useDeepLinks + ThemePresetControls + KeyboardShortcutsModal + FileTree + QuickOpen + ProjectSearch) onto a { rootId, relativePath } contract, mirrors the registry in the web adapter for FSA-handle parity, and rewrites tests/ipc/fileSystem.test.ts (497 LOC) + tests/web/fs-adapter.test.ts (133 LOC) against the new contract. The slice was attempted as a single closeout in this session and abandoned at ~40% completion when the renderer migration surfaced architectural decisions (session-restore re-mint flow, atomic IPC pattern for non-project-scoped picker flows, FileTab data model with rootId binding, deep-link parent re-mint) that warranted a dedicated cycle rather than mid-execution improvisation. The reverted in-progress work is documented in this readiness so the next session can pick up the design context immediately.`
 - Current gap:
   - The preload bridge exposes broad `window.lingua.fs` operations to the renderer.
   - Main-side filesystem handlers block known sensitive paths, but several read/list/stat/search/watch flows still accept renderer-provided absolute paths.
@@ -5118,4 +5118,3 @@ These tickets capture the additional recommendations from the same review pass. 
   - RL-080
   - RL-081
   - RL-085
-
