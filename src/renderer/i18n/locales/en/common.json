@@ -170,6 +170,8 @@
   "executionHistory.replay.noSnapshot": "No code snapshot was captured for this entry.",
   "executionHistory.replay.openFailed": "Could not open a {{language}} replay tab.",
   "executionHistory.replay.running": "Wait for the current run to finish before replaying a history entry.",
+  "executionHistory.palette.replay.label": "Replay {{language}} run · {{status}} · {{duration}}",
+  "executionHistory.palette.replay.description": "Open a new tab with the captured code from this run and execute it. Does not append a new history entry.",
   "executionHistory.entry.durationMs": "Completed in {{value}}",
   "executionHistory.entry.failed": "failed",
   "executionHistory.relative.seconds_one": "{{count}} second ago",

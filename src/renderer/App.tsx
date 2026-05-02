@@ -6,6 +6,7 @@ import { useGuidedTour } from './components/GuidedTour/guidedTourContext';
 import { SettingsModal } from './components/Settings/SettingsModal';
 import { WhatsNewSection } from './components/Settings/WhatsNewSection';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
+import { replayHistoryEntry } from './utils/replayHistoryEntry';
 import { GoToSymbol } from './components/GoToSymbol/GoToSymbol';
 import { ProjectSearch } from './components/ProjectSearch/ProjectSearch';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
@@ -325,6 +326,7 @@ function AppChrome({
           onOpenDeveloperUtility={(utilityId) => handleOpenDeveloperUtility(utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
           onRerunLast={() => void run()}
+          onReplayEntry={(entry) => replayHistoryEntry(entry, { isRunning, run })}
         />
       )}
       {overlay === 'settings' && (

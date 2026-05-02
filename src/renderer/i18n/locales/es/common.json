@@ -170,6 +170,8 @@
   "executionHistory.replay.noSnapshot": "Esta entrada no tiene una captura de c\u00f3digo.",
   "executionHistory.replay.openFailed": "No se pudo abrir una pesta\u00f1a de reproducci\u00f3n para {{language}}.",
   "executionHistory.replay.running": "Espera a que termine la ejecuci\u00f3n actual antes de reproducir una entrada del historial.",
+  "executionHistory.palette.replay.label": "Reproduce la ejecuci\u00f3n {{language}} \u00b7 {{status}} \u00b7 {{duration}}",
+  "executionHistory.palette.replay.description": "Abre una pesta\u00f1a nueva con el c\u00f3digo guardado de esta ejecuci\u00f3n y ejec\u00fatalo. No agrega otra entrada al historial.",
   "executionHistory.entry.durationMs": "Completado en {{value}}",
   "executionHistory.entry.failed": "fall\u00f3",
   "executionHistory.relative.seconds_one": "hace {{count}} segundo",

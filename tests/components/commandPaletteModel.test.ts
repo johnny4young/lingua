@@ -617,3 +617,215 @@ describe('buildCommandPaletteModel — re-run last action (RL-028 fourth slice)'
     }
   });
 });
+
+describe('buildCommandPaletteModel — per-entry replay (RL-028 sixth slice trailer)', () => {
+  type HistoryEntry = {
+    id: string;
+    language: string;
+    status: 'ok' | 'error';
+    durationMs: number | null;
+    timestamp: number;
+    snapshot: { code: string; language: string; truncated: boolean } | null;
+  };
+
+  function buildWithReplay(
+    history: HistoryEntry[],
+    onReplayEntry?: (entry: HistoryEntry) => void
+  ) {
+    return buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      executionHistory: history,
+      onReplayEntry: onReplayEntry as Parameters<
+        typeof buildCommandPaletteModel
+      >[0]['onReplayEntry'],
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    });
+  }
+
+  function makeEntry(
+    id: string,
+    snapshot: HistoryEntry['snapshot'],
+    overrides?: Partial<HistoryEntry>
+  ): HistoryEntry {
+    return {
+      id,
+      language: 'javascript',
+      status: 'ok',
+      durationMs: 12,
+      timestamp: 1_700_000_000_000,
+      snapshot,
+      ...overrides,
+    };
+  }
+
+  it('emits no replay commands when onReplayEntry is not wired', () => {
+    const commands = buildWithReplay([
+      makeEntry('e1', { code: 'x', language: 'javascript', truncated: false }),
+    ]);
+    expect(commands.filter((c) => c.id.startsWith('action-replay-'))).toEqual([]);
+  });
+
+  it('emits no replay commands when no entry has a snapshot', () => {
+    const commands = buildWithReplay(
+      [makeEntry('e1', null), makeEntry('e2', null)],
+      vi.fn()
+    );
+    expect(commands.filter((c) => c.id.startsWith('action-replay-'))).toEqual([]);
+  });
+
+  it('emits one replay command per snapshot-bearing entry, newest-first, capped at 5', () => {
+    const history: HistoryEntry[] = Array.from({ length: 7 }, (_, i) =>
+      makeEntry(`e${i}`, {
+        code: `entry-${i}`,
+        language: 'javascript',
+        truncated: false,
+      }),
+    );
+    const commands = buildWithReplay(history, vi.fn());
+    const replays = commands.filter((c) => c.id.startsWith('action-replay-'));
+    expect(replays).toHaveLength(5);
+    expect(replays[0]?.id).toBe('action-replay-e6');
+    expect(replays[4]?.id).toBe('action-replay-e2');
+  });
+
+  it('skips metadata-only entries inside the cap-5 recent-history window', () => {
+    const history: HistoryEntry[] = [
+      makeEntry('keep-1', { code: 'a', language: 'javascript', truncated: false }),
+      makeEntry('skip-2', null),
+      makeEntry('keep-3', { code: 'b', language: 'javascript', truncated: false }),
+      makeEntry('skip-4', null),
+      makeEntry('keep-5', { code: 'c', language: 'javascript', truncated: false }),
+    ];
+    const commands = buildWithReplay(history, vi.fn());
+    const replays = commands.filter((c) => c.id.startsWith('action-replay-'));
+    expect(replays.map((c) => c.id)).toEqual([
+      'action-replay-keep-5',
+      'action-replay-keep-3',
+      'action-replay-keep-1',
+    ]);
+  });
+
+  it('does not backfill stale snapshots from outside the cap-5 recent-history window', () => {
+    const history: HistoryEntry[] = [
+      makeEntry('stale-1', { code: 'a', language: 'javascript', truncated: false }),
+      makeEntry('stale-2', { code: 'b', language: 'javascript', truncated: false }),
+      makeEntry('skip-3', null),
+      makeEntry('skip-4', null),
+      makeEntry('skip-5', null),
+      makeEntry('skip-6', null),
+      makeEntry('keep-7', { code: 'c', language: 'javascript', truncated: false }),
+    ];
+    const commands = buildWithReplay(history, vi.fn());
+    const replays = commands.filter((c) => c.id.startsWith('action-replay-'));
+    expect(replays.map((c) => c.id)).toEqual(['action-replay-keep-7']);
+  });
+
+  it('label includes language, status, and duration; description matches the action', () => {
+    const commands = buildWithReplay(
+      [
+        makeEntry(
+          'entry-rust',
+          { code: 'fn main() {}', language: 'rust', truncated: false },
+          { language: 'rust', status: 'error', durationMs: 42 },
+        ),
+      ],
+      vi.fn(),
+    );
+    const replay = commands.find((c) => c.id === 'action-replay-entry-rust');
+    expect(replay).toBeDefined();
+    expect(replay?.label.toLowerCase()).toContain('rust');
+    expect(replay?.label.toLowerCase()).toContain('error');
+    expect(replay?.label).toContain('42.0 ms');
+    expect(replay?.description.toLowerCase()).toContain('captured code');
+  });
+
+  it('keywords include replay, snapshot, history, reproduce', () => {
+    const commands = buildWithReplay(
+      [makeEntry('e1', { code: 'x', language: 'javascript', truncated: false })],
+      vi.fn(),
+    );
+    const replay = commands.find((c) => c.id === 'action-replay-e1');
+    expect(replay?.keywords).toEqual(
+      expect.arrayContaining(['replay', 'snapshot', 'history', 'reproduce']),
+    );
+  });
+
+  it('activation calls onReplayEntry exactly once with the right entry, then closes the palette', () => {
+    const onReplay = vi.fn();
+    const onClose = vi.fn();
+    const entry = makeEntry('e1', {
+      code: 'console.log(1)',
+      language: 'javascript',
+      truncated: false,
+    });
+    const commands = buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      executionHistory: [entry],
+      onReplayEntry: onReplay as Parameters<
+        typeof buildCommandPaletteModel
+      >[0]['onReplayEntry'],
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose,
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    });
+    commands.find((c) => c.id === 'action-replay-e1')?.action();
+    expect(onReplay).toHaveBeenCalledTimes(1);
+    expect(onReplay).toHaveBeenCalledWith(entry);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('localizes the replay label in Spanish (tuteo)', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const commands = buildWithReplay(
+        [
+          makeEntry('e1', {
+            code: 'console.log(1)',
+            language: 'javascript',
+            truncated: false,
+          }),
+        ],
+        vi.fn(),
+      );
+      const replay = commands.find((c) => c.id === 'action-replay-e1');
+      expect(replay?.label).toContain('Reproduce la ejecución');
+      expect(replay?.description).toContain('código guardado');
+    } finally {
+      await i18next.changeLanguage('en');
+    }
+  });
+});

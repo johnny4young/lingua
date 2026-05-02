@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
-import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
+import {
+  type ExecutionHistoryEntry,
+  useExecutionHistoryStore,
+} from '../../stores/executionHistoryStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUpdateStore } from '../../stores/updateStore';
@@ -34,6 +37,13 @@ interface CommandPaletteProps {
    * to know about runner internals.
    */
   onRerunLast?: () => void;
+  /**
+   * RL-028 sixth slice trailer — fires when the user activates a
+   * per-entry "Replay {language} run …" palette action. The handler
+   * dispatches `replayHistoryEntry(entry, ...)` so the run does not
+   * append another history entry.
+   */
+  onReplayEntry?: (entry: ExecutionHistoryEntry) => void;
 }
 
 export function CommandPalette({
@@ -47,6 +57,7 @@ export function CommandPalette({
   onOpenDeveloperUtility,
   onOpenKeyboardShortcuts,
   onRerunLast,
+  onReplayEntry,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -78,6 +89,7 @@ export function CommandPalette({
       executionHistory: canUseExecutionHistory ? executionHistory : [],
       onFocusLanguageTab: focusLanguageTab,
       onRerunLast: canUseExecutionHistory ? onRerunLast : undefined,
+      onReplayEntry: canUseExecutionHistory ? onReplayEntry : undefined,
       updateStatus,
       createTab: addTab,
       createDefaultTab,
@@ -107,6 +119,7 @@ export function CommandPalette({
     canUseExecutionHistory,
     executionHistory,
     onRerunLast,
+    onReplayEntry,
     addTab,
     setLayoutPreset,
     onClose,
