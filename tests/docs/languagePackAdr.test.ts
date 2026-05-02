@@ -38,10 +38,14 @@ describe('LANGUAGE_PACK_ADR.md', () => {
     }
   });
 
-  it('enumerates the three-slice migration plan', () => {
+  it('enumerates the shipped three-slice migration plan', () => {
     expect(adr).toContain('Slice A');
     expect(adr).toContain('Slice B');
     expect(adr).toContain('Slice C');
+    expect(adr).toMatch(/Slice C[\s\S]*Shipped 2026-05-01/i);
+    expect(adr).toContain('SnippetsModal');
+    expect(adr).toContain('EditorEmptyState');
+    expect(adr).toMatch(/no per-language Settings surface today/i);
   });
 
   it('calls out the no-marketplace and i18n-parity constraints verbatim', () => {

@@ -2,10 +2,15 @@ import { BookCopy, Plus, Save, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
+import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import type { Language } from '../../types';
-import { extensionForLanguage, languageLabel } from '../../utils/languageMeta';
+import {
+  extensionForLanguage,
+  languageCapabilityBadgeKey,
+  languageLabel,
+} from '../../utils/languageMeta';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 
 interface SnippetsModalProps {
@@ -26,13 +31,16 @@ const EMPTY_SNIPPET_DRAFT: SnippetDraft = {
   code: '',
 };
 
-const BUILT_IN_LANGUAGES: Language[] = [
-  'javascript',
-  'typescript',
-  'go',
-  'python',
-  'rust',
-];
+// RL-038 Slice C closeout — pull the runnable language set from the
+// shared `LANGUAGE_PACKS` registry instead of a hardcoded list. Walking
+// the registry means future languages added to `src/shared/languagePacks.ts`
+// surface in the snippet picker automatically. We keep the picker
+// scoped to `run` / `compile` packs because saving a snippet of a
+// view-only pack (json, dockerfile, gitignore, ...) is rarely useful;
+// users typing real code into Lingua are working in a runnable pack.
+const SNIPPET_LANGUAGE_PACKS = LANGUAGE_PACKS.filter(
+  (pack) => pack.execution === 'run' || pack.execution === 'compile'
+);
 
 /**
  * Strip a file extension from a tab name and fall back to a localized
@@ -70,6 +78,11 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
   } = useSnippetsStore();
   const { tabs, activeTabId, addTab, updateContent } = useEditorStore();
   const { t } = useTranslation();
+  // Same platform-gating idiom Toolbar / FileTree use — only the web
+  // build surfaces the "(desktop only)" hint; on packaged Electron the
+  // language is genuinely runnable so the suffix would be misleading.
+  const isWebBuild =
+    typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const [selectedSnippetId, setSelectedSnippetId] = useState<string | null>(
     snippets[0]?.id ?? null
   );
@@ -355,12 +368,26 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
                     }))
                   }
                   className="field-shell"
+                  data-testid="snippets-language-select"
                 >
-                  {BUILT_IN_LANGUAGES.map((language) => (
-                    <option key={language} value={language}>
-                      {languageLabel(language)}
-                    </option>
-                  ))}
+                  {SNIPPET_LANGUAGE_PACKS.map((pack) => {
+                    // Append a localized "(desktop only)" suffix on the web
+                    // build so users picking Go / Rust know runtime support
+                    // is desktop-only — informational, the option stays
+                    // selectable so a snippet can still be saved on web.
+                    const isDesktopOnly =
+                      languageCapabilityBadgeKey(pack.id) ===
+                      'language.capability.desktopOnly';
+                    const suffix =
+                      isWebBuild && isDesktopOnly
+                        ? t('language.capability.desktopOnlyOptionSuffix')
+                        : '';
+                    return (
+                      <option key={pack.id} value={pack.id}>
+                        {`${languageLabel(pack.id)}${suffix}`}
+                      </option>
+                    );
+                  })}
                 </select>
               </label>
             </div>
