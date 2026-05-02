@@ -4710,3 +4710,412 @@ The order below reflects the strategic alignment (Phase 1 → Phase 2 → Phase 
 6. After Phase 3 stabilizes, pick from **Tier 3** — RL-019 (runtime modes) and RL-018 (i18n) remain the highest-leverage product items for long-term differentiation.
 
 This ordered list is the milestone sequence. No separate milestone section should be maintained elsewhere.
+
+---
+
+## Security and launch-readiness hardening from the 2026-05-02 review
+
+These tickets were promoted directly into PLAN and ROADMAP from the 2026-05-02 architecture/product review because they are implementation-ready and launch-relevant. ROADMAP remains the canonical status board; this section holds the deep scope and acceptance criteria.
+
+### RL-077 Capability-based filesystem IPC sandbox
+
+- Priority: `P0`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Launch-blocking because the renderer currently sends absolute filesystem paths through the preload/main filesystem bridge; the target state is approved project-root capabilities instead of denylist-only validation.`
+- Current gap:
+  - The preload bridge exposes broad `window.lingua.fs` operations to the renderer.
+  - Main-side filesystem handlers block known sensitive paths, but several read/list/stat/search/watch flows still accept renderer-provided absolute paths.
+  - A compromised renderer should not be able to read, write, delete, watch, or search outside an explicitly approved project root.
+- Scope:
+  - Introduce a main-owned project-root capability registry.
+  - Return an opaque `rootId` or equivalent capability when a user selects or opens a project root.
+  - Change renderer-facing filesystem calls for project-owned operations from free absolute paths to `{ rootId, relativePath }` or an equivalent safe shape.
+  - Resolve and canonicalize every target path in main before touching disk.
+  - Enforce `isPathWithinProject(target, approvedRoot)` for `readdir`, `listAllFiles`, `searchInFiles`, `stat`, `read`, `write`, `delete`, `rename`, `mkdir`, `touch`, `watchStart`, and `watchStop`.
+  - Keep the existing protected-path denylist as defense-in-depth, not as the primary authorization model.
+  - Preserve destructive-operation confirmation dialogs.
+  - Keep web adapter behavior equivalent where possible, while acknowledging that browser handles already provide a separate permission boundary.
+- Acceptance criteria:
+  - Renderer code cannot operate on an absolute path unless main has tied it to an approved root capability.
+  - Attempts to escape via `..`, absolute path injection, Windows device prefixes, or mismatched root ids fail before filesystem access.
+  - `readdir` and `stat` receive the same authorization treatment as write/delete operations.
+  - Project open, file tree, Quick Open, search-in-files, create, rename, delete, save, and watcher flows still pass in desktop smoke.
+  - Regression tests cover allowed relative paths, traversal attempts, protected paths, and stale/unknown root ids.
+- Dependencies:
+  - None
+
+### RL-078 Parent-owned execution timeouts and output/resource limits
+
+- Priority: `P0`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Launch-blocking because timeout logic that lives inside the worker can be starved by CPU-bound user code.`
+- Current gap:
+  - JS/TS execution uses a worker, but its timeout race is scheduled inside the worker.
+  - Python execution uses a persistent Pyodide worker, and its timeout is also scheduled inside the worker execution path.
+  - Loop protection is intentionally lightweight and textual, so it cannot be treated as the only infinite-loop defense.
+  - Large stdout/stderr/result payloads can still create memory and UI pressure.
+- Scope:
+  - Add a parent-owned kill timer in the JS runner.
+  - Add the same parent-owned kill timer in the TypeScript runner after transpilation.
+  - Add a parent-owned kill timer in the Python runner that terminates the Pyodide worker, clears `pyodideLoaded`, and recreates the worker on the next run.
+  - Add run-id or generation guards so late messages from an old worker cannot update the active result.
+  - Cap captured stdout/stderr entries and serialized result size with clear truncation markers.
+  - Keep magic comments, console capture, and existing loop-protection settings working.
+  - Add smoke or unit coverage for a CPU-bound loop that never yields.
+- Acceptance criteria:
+  - `while (true) {}` in JavaScript and TypeScript terminates from the parent runner without hanging the UI.
+  - A CPU-bound Python loop terminates by killing/recreating the Pyodide worker.
+  - Stale messages from a killed worker are ignored.
+  - Long output is truncated deterministically and does not freeze the result panel.
+  - User-facing timeout errors continue to include the configured timeout duration.
+- Dependencies:
+  - None
+
+### RL-079 Trusted native execution hardening for Go and Rust
+
+- Priority: `P0`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Launch-blocking because Go/Rust desktop execution currently runs through local toolchains with the user's OS privileges and must be presented and constrained as trusted-code execution.`
+- Current gap:
+  - Rust compiles and executes a native binary from main.
+  - Go compiles through a local toolchain to WASM.
+  - The subprocess environment currently starts from host `process.env`, which can expose more than the runner needs.
+  - Temporary compilation directories use timestamp-derived names instead of `mkdtemp`.
+- Scope:
+  - Replace timestamp-derived temp directories with `mkdtemp(path.join(tmpdir(), 'lingua-go-'))` and `mkdtemp(path.join(tmpdir(), 'lingua-rust-'))`.
+  - Introduce a minimal environment builder for native runner subprocesses.
+  - Preserve only the host keys required for toolchain discovery and execution, then merge user-defined env vars from RL-011.
+  - Keep runner-owned keys immutable where required, especially `GOOS=js` and `GOARCH=wasm`.
+  - Add an explicit trusted-code warning before first native Go/Rust execution, with a persisted acknowledgement.
+  - Document that Go/Rust desktop execution is not a security sandbox and should only run trusted code.
+  - Ensure subprocess cleanup on timeout, compile failure, app shutdown, and runner stop.
+  - Cap stdout/stderr payloads for compile and runtime paths.
+- Acceptance criteria:
+  - Go/Rust subprocesses no longer inherit the full host environment by default.
+  - User env vars from RL-011 still reach the runner when allowed.
+  - Go's `GOOS` and `GOARCH` remain runner-owned and cannot be overridden by user env.
+  - Temp directories are collision-resistant and are cleaned up after success, compile failure, runtime failure, and timeout.
+  - First native execution shows a clear trust-boundary warning.
+  - Docs and Settings copy clearly distinguish browser/worker execution from trusted native execution.
+- Dependencies:
+  - RL-011 shipped env-var merge/store slices
+  - RL-078 for parent-owned timeout behavior
+
+### RL-080 Release-grade desktop CI and update validation gates
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Builds on RL-016's checklist by promoting release-critical desktop checks into automated gates.`
+- Current gap:
+  - CI covers Linux typecheck/lint/i18n/test/web build well.
+  - Desktop smoke exists as a local workflow, but release automation still relies too much on human validation for packaged desktop behavior.
+  - The audit gate is non-blocking in general CI, which is acceptable for daily work but not for release.
+- Scope:
+  - Add release-focused macOS and Windows package jobs.
+  - Run packaged desktop smoke against release artifacts where runner support permits.
+  - Verify signing/notarization metadata on macOS artifacts.
+  - Verify Windows signing metadata when signing credentials are present.
+  - Validate update-server responses against a staged GitHub Release asset set.
+  - Make `npm audit --audit-level=high` blocking for release workflows while keeping daily CI policy separate if needed.
+  - Require `SHA256SUMS.txt` generation and verification before promotion from draft.
+- Acceptance criteria:
+  - A release cannot be promoted without green desktop package validation for target platforms.
+  - Signing/notarization checks fail loudly when configured credentials are present but invalid.
+  - Update feed smoke covers the latest-version, no-update, and missing-asset branches.
+  - Release artifacts have verified checksums.
+  - The release checklist and workflow file agree on mandatory gates.
+- Dependencies:
+  - RL-016
+  - RL-077
+  - RL-078
+  - RL-079
+
+### RL-081 Launch/legal/source-available documentation cleanup
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Launch-critical because product, license, public/private repo posture, and third-party commercial-license obligations must agree before distribution.`
+- Current gap:
+  - Product copy describes a public source-available repo posture while launch state may still be private or staged.
+  - The guided-tour dependency carries an explicit commercial-license requirement before public distribution.
+  - Some documentation links still point to local absolute paths.
+  - Privacy/security/legal docs need to line up with telemetry, crash reporting, licensing, and checkout behavior.
+- Scope:
+  - Reconcile README, LICENSE, pricing copy, and launch docs around the exact source-available posture for launch.
+  - Decide and document whether the repo is public at launch, private until launch, or source-available under a staged access model.
+  - Resolve Shepherd commercial-license readiness before public distribution, or disable/remove public-build tour code until the license is in place.
+  - Replace local absolute documentation links with repo-relative links.
+  - Add or update `SECURITY.md`, `PRIVACY.md`, and launch/legal notes for telemetry, crash reporting, license verification, device tracking, and support windows.
+  - Align license-tier claims with the live checkout/download surface.
+- Acceptance criteria:
+  - No launch-facing doc claims a repo/public/source posture that is false for the release.
+  - No checked-in documentation link points to `/Users/...` or another local machine path.
+  - Public builds either carry the required Shepherd license or exclude the guided-tour dependency/feature.
+  - Privacy and security docs describe what data is collected, what is never collected, how telemetry/crash consent works, and how license device tracking works.
+  - Pricing/license claims in README, PLAN, ROADMAP, LICENSE, and marketing docs agree with the live checkout flow.
+- Dependencies:
+  - RL-059
+  - RL-061
+  - RL-063
+
+### RL-082 README and docs information-architecture cleanup
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Not launch-blocking after RL-081, but important for contributor onboarding and agent efficiency.`
+- Current gap:
+  - README is valuable but overloaded: marketing, setup, architecture, release operations, licensing, plugins, smoke tests, shortcuts, and browser limitations all live in one long file.
+  - Deep operational docs already exist, but the entry-point hierarchy can be clearer.
+- Scope:
+  - Keep README focused on product overview, quickstart, supported surfaces, and links to deeper docs.
+  - Move development workflow detail into `docs/DEVELOPMENT.md` or an equivalent existing doc.
+  - Move release detail into `RELEASE.md` and link rather than duplicate.
+  - Move security/privacy/licensing details into dedicated docs created or updated by RL-081.
+  - Register new docs in `docs/README.md`.
+  - Add a lightweight docs guard that rejects local absolute paths in Markdown files.
+- Acceptance criteria:
+  - README becomes a concise, stable entry point rather than the full operating manual.
+  - Existing developer workflows remain discoverable through the docs index.
+  - No release/security/licensing guidance is duplicated in a way that can drift silently.
+  - Markdown docs pass the local-absolute-path guard.
+- Dependencies:
+  - RL-081
+
+---
+
+## Second-pass product, security, and operations hardening from the 2026-05-02 review
+
+These tickets capture the additional recommendations from the same review pass. They are intentionally separate from RL-077 through RL-082 so launch-blocking security hardening, operational readiness, product-quality work, and future polish stay independently schedulable.
+
+### RL-083 Offline runtime assets and strict CSP
+
+- Priority: `P0`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Launch-blocking because the current Python/Pyodide worker loads a runtime from a CDN, which conflicts with the offline-first product claim and weakens the security posture.`
+- Current gap:
+  - The Python worker imports Pyodide from a remote CDN.
+  - Packaged desktop Python execution should not depend on network availability.
+  - Runtime-critical assets need explicit ownership, versioning, cache behavior, and CSP treatment.
+- Scope:
+  - Vendor or otherwise package Pyodide runtime assets for desktop builds.
+  - Serve web-mode Pyodide assets from a versioned first-party/app-owned location or an explicitly documented cache strategy.
+  - Add a strict renderer/worker Content Security Policy for desktop and web surfaces.
+  - Remove unnecessary remote script/import allowances.
+  - Add a runtime-asset manifest that records version, source, integrity/hash, and expected load path.
+  - Add an offline smoke path that validates Python can initialize and run without network access in packaged desktop mode.
+- Acceptance criteria:
+  - Python runs in packaged desktop without internet access.
+  - Desktop Python initialization fails if it tries to import Pyodide from a remote CDN.
+  - Web-mode behavior is documented: either first-party hosted assets, cache-backed offline behavior, or an explicit limitation.
+  - CSP blocks unapproved remote script/module imports.
+  - Runtime asset version and integrity are testable in CI or release validation.
+- Dependencies:
+  - RL-078
+
+### RL-084 Local plugin manifest hardening
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Important before plugin support expands beyond conservative local manifests.`
+- Current gap:
+  - The plugin model intentionally avoids arbitrary third-party code loading today.
+  - That policy should be enforced by schema, tests, diagnostics, and docs before the plugin surface grows.
+- Scope:
+  - Define a strict JSON schema for local plugin manifests.
+  - Version the manifest schema and validate `apiVersion`, `pluginId`, `enabled`, `minAppVersion`, and `maxAppVersion`.
+  - Keep a main/renderer allowlist of bundled runtimes that plugin manifests are allowed to enable.
+  - Reject unknown runtime ids, invalid schema versions, unsupported app versions, malformed JSON, and path-like ids.
+  - Surface plugin diagnostics in Settings with reason-specific copy.
+  - Document the explicit policy: manifest-only enablement, no arbitrary plugin executable code in the current product.
+- Acceptance criteria:
+  - Invalid, incompatible, disabled, unknown, and unsupported plugin manifests produce distinct diagnostics.
+  - A plugin manifest cannot cause arbitrary code loading or resolve a runtime outside the bundled allowlist.
+  - Tests cover malformed JSON, schema mismatch, path traversal-like ids, incompatible version ranges, and disabled plugins.
+  - Plugin docs and README claims match the enforced policy.
+- Dependencies:
+  - Existing local plugin discovery implementation
+
+### RL-085 SBOM and third-party license compliance
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Commercial-distribution readiness item; especially important for source-available licensing and dependencies with commercial-license obligations.`
+- Current gap:
+  - The project has commercial/source-available licensing goals, but release artifacts need a repeatable dependency/license inventory.
+  - Third-party notices and license compatibility checks should be release gates, not ad hoc manual review.
+- Scope:
+  - Generate a Software Bill of Materials for release builds.
+  - Add or update `THIRD_PARTY_NOTICES.md`.
+  - Audit runtime and packaged dependencies separately from dev-only dependencies.
+  - Add a license-policy allow/deny list.
+  - Fail release CI when a dependency introduces a disallowed license or missing notice.
+  - Track commercial-license obligations, including guided-tour dependencies, as explicit release prerequisites.
+- Acceptance criteria:
+  - Release artifacts include or link to an SBOM.
+  - Third-party notices cover all packaged runtime dependencies.
+  - CI/release checks fail on disallowed licenses.
+  - Dev-only dependencies are not incorrectly treated as packaged obligations.
+  - Shepherd or any equivalent commercial-license dependency is either licensed for public distribution or excluded from public builds.
+- Dependencies:
+  - RL-081
+
+### RL-086 Performance budgets and bundle/runtime observability
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Not a launch blocker, but important before adding more heavy runtime, debugger, AI, notebook, or rich-output features.`
+- Current gap:
+  - Monaco, Pyodide, esbuild-wasm, Electron, utilities, guided tours, and future AI/debugger surfaces can grow bundle size and startup cost quickly.
+  - There is no explicit performance budget or recurring report for renderer bundles and desktop cold start.
+- Scope:
+  - Add bundle-size reporting for web and renderer builds.
+  - Define budgets for initial renderer bundle, lazy chunks, Pyodide/runtime assets, and utilities chunks.
+  - Measure desktop cold start, time-to-editor-ready, first JS run, first TS run, and first Python run.
+  - Track memory after opening/closing workers and after repeated Python runs.
+  - Keep Developer Utilities, guided tour, Pyodide, and other heavy surfaces lazy-loaded.
+  - Add budget-drift reporting to CI, with blocking behavior only for release or explicitly configured thresholds.
+- Acceptance criteria:
+  - Baseline bundle and runtime metrics are committed.
+  - CI reports size regressions in a human-readable form.
+  - Initial editor boot does not include Pyodide or Developer Utilities chunks.
+  - Repeated worker lifecycle smoke does not show obvious memory leaks.
+  - Release notes can cite measured performance improvements or regressions from the baseline.
+- Dependencies:
+  - None
+
+### RL-087 Watcher reliability and filesystem edge-case suite
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Important because project file watching is core UX and cross-platform watcher behavior is intentionally treated as coarse invalidation.`
+- Current gap:
+  - The architecture correctly treats watcher events as invalidation signals, but the edge-case suite is still thin.
+  - Cross-platform behavior around recursive watch, bursts, renames, permissions, symlinks, and path casing needs dedicated validation.
+- Scope:
+  - Add a desktop watcher test/smoke suite for create, delete, rename, nested directory changes, generated-file bursts, permission failures, and project switching.
+  - Verify watcher start/stop lifecycle across open, close, reopen, and switch-project flows.
+  - Validate behavior on Windows path casing and protected/device-prefixed paths.
+  - Define fallback behavior or documented limitations for platforms where recursive watch is unreliable.
+  - Add diagnostics for watcher registration failure and unexpected watcher churn.
+- Acceptance criteria:
+  - Opening, closing, and switching projects does not leak watchers.
+  - Rename/create/delete bursts refresh the visible tree without refresh storms.
+  - Hidden/generated paths remain filtered according to existing tree policy.
+  - Watcher failures surface actionable diagnostics instead of silently desynchronizing the explorer.
+  - Platform-specific limitations are documented.
+- Dependencies:
+  - RL-077
+
+### RL-088 Accessibility QA hardening
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Product-quality item that builds on existing keyboard/focus work.`
+- Current gap:
+  - The shell already has several keyboard and focus-trap behaviors, but there is no formal accessibility quality gate.
+  - Modal, drawer, command palette, settings, file tree, result panel, and utilities surfaces need consistent checks.
+- Scope:
+  - Add automated accessibility checks for core web-rendered surfaces.
+  - Cover command palette, settings modal, file tree, editor tabs, result panel, console, snippets, and utilities.
+  - Add manual QA notes for screen reader behavior where automation is insufficient.
+  - Verify focus order, focus restoration, aria labels, keyboard-only operation, and contrast.
+  - Add i18n-aware checks for visible labels and aria text where practical.
+- Acceptance criteria:
+  - Core overlays pass automated accessibility checks in CI or a documented smoke path.
+  - Keyboard-only flows cover opening/closing overlays, switching tabs, using command palette, and navigating file tree actions.
+  - Focus restoration works after modal/drawer dismissal.
+  - Known screen-reader limitations are documented rather than hidden.
+- Dependencies:
+  - None
+
+### RL-089 User profile backup, export, and restore
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Valuable for commercial users moving between machines and for support/debugging.`
+- Current gap:
+  - Settings, snippets, shortcut overrides, theme presets, layout state, and env-var scopes can drift across machines.
+  - The project has theme preset import/export, but not a full user-profile backup model.
+- Scope:
+  - Define a versioned user profile export format.
+  - Include safe user-owned data: settings, snippets, shortcut overrides, theme/layout preferences, and optionally env-var definitions.
+  - Exclude license tokens, device ids, crash/telemetry consent mirrors, and other machine-bound or sensitive state.
+  - Add import validation, migration, conflict handling, and dry-run summary.
+  - Surface export/import through Settings.
+- Acceptance criteria:
+  - Exported profile JSON has a version, schema, and clear included/excluded fields.
+  - Import rejects malformed or incompatible profiles with actionable errors.
+  - Import can preserve, replace, or merge user data according to an explicit user choice.
+  - License tokens and device ids are never exported.
+  - Tests cover migration from at least one older profile version.
+- Dependencies:
+  - RL-081 for privacy/security copy alignment
+
+### RL-090 Error boundaries and recovery UX
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Product-quality item for commercial reliability and support.`
+- Current gap:
+  - Crash reporting can capture failures when enabled, but user-facing recovery for renderer failures and corrupted persisted state should be explicit.
+  - A commercial app should offer a clear path back to a working shell after a bad state or component crash.
+- Scope:
+  - Add top-level React error boundaries for major shell regions.
+  - Add a safe-mode boot option that skips risky persisted UI state and optional plugin discovery.
+  - Add a reset/recovery surface for settings, layout, snippets, env vars, shortcuts, and local plugin diagnostics.
+  - Add a support-friendly error detail copy button that excludes user code and file paths by default.
+  - Document recovery steps for support.
+- Acceptance criteria:
+  - A renderer component crash does not leave the entire app blank without recovery options.
+  - Safe mode can boot with persisted UI state disabled.
+  - Users can reset corrupted settings without manually editing storage files.
+  - Error detail export is redacted and never includes user code by default.
+- Dependencies:
+  - RL-065 for telemetry/crash consent model
+  - RL-081 for privacy/security copy alignment
+
+### RL-091 License and update server observability and runbooks
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Operational-readiness item for the Cloudflare Workers that back licensing, recovery, trials, education, and update checks.`
+- Current gap:
+  - License and update workers have structured route behavior, but production operation needs alerting, dashboards, and incident procedures.
+  - Launch support will depend on knowing whether activation, recovery, webhook delivery, and update feeds are healthy.
+- Scope:
+  - Define key metrics for license activation, status checks, device removal, recovery, trials, education, Polar webhook handling, email delivery, update checks, and asset proxying.
+  - Add structured logging that excludes tokens, signatures, email bodies, and sensitive payloads.
+  - Add dashboard/alert requirements for error rates, webhook failures, D1/KV failures, and GitHub API failures.
+  - Write runbooks for webhook replay, license recovery, revoked/refunded license handling, update rollback, and degraded GitHub API behavior.
+- Acceptance criteria:
+  - Production operators can distinguish client error, server error, upstream GitHub/Polar/Resend failure, and D1/KV failure.
+  - No log line stores full license tokens, private keys, or sensitive user payloads.
+  - Runbooks include detection, mitigation, rollback, and customer-support notes.
+  - Health checks cover both liveness and dependency-degraded states.
+- Dependencies:
+  - RL-061
+  - RL-080
+
+### RL-092 Release security review checklist
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Implementation-ready from the 2026-05-02 review. Complements RL-080 automation with a focused security sign-off ritual for Electron, IPC, runtimes, updater, licensing, telemetry, and docs.`
+- Current gap:
+  - RELEASE.md has a strong operational checklist, but there is no dedicated security review checklist that maps to Lingua's riskiest surfaces.
+- Scope:
+  - Add a release security checklist document or a dedicated section in RELEASE.md.
+  - Cover Electron security settings, preload surface changes, IPC authorization, filesystem capability checks, runner trust boundaries, updater behavior, license verification, telemetry/crash consent, dependency/license review, and public docs claims.
+  - Add a guard test that fails if the security checklist is removed or loses required headings.
+- Acceptance criteria:
+  - Each public release has an explicit security sign-off checklist.
+  - Checklist includes Electron, preload/IPC, filesystem, JS/TS/Python workers, Go/Rust native execution, updater, licensing, telemetry/crash reporting, dependencies, and docs/legal claims.
+  - Release cannot be marked ready until checklist ownership is assigned and complete.
+- Dependencies:
+  - RL-077
+  - RL-078
+  - RL-079
+  - RL-080
+  - RL-081
+  - RL-085
+

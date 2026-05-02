@@ -1,6 +1,6 @@
 # Lingua — Roadmap
 
-> **Updated:** 2026-04-26
+> **Updated:** 2026-05-02
 > Canonical status board. Single source of truth for the `Status` column
 > on every `RL-XXX` ticket. When any other doc disagrees, this one wins.
 >
@@ -73,6 +73,10 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 |----|-------|:------:|-----------------|
 | [`RL-059`](./PLAN.md#rl-059-license-key-infrastructure) | License-key infrastructure | `Partial` | Ed25519 verifier + Settings section + main-side IPC bridge with device id (Slice 0 shipped 2026-04-25). Remaining: Polar webhook + email delivery (now lives under `RL-061`). |
 | [`RL-063`](./PLAN.md#rl-063-download-landing-page-at-linguacodedev) | Download landing page at linguacode.dev | `Planned` | Static marketing page with OS-aware download + pricing. Re-scoped around the new `lingua-marketing` repo (BACKLOG entry, 2026-04-30) so the dedicated Astro+CF Pages site at `linguacode.dev` covers Home, Features, Pricing, Docs, and the "Go to app" link to `app.linguacode.dev`. |
+| [`RL-077`](./PLAN.md#rl-077-capability-based-filesystem-ipc-sandbox) | Capability-based filesystem IPC sandbox | `Planned` | Replace renderer-supplied absolute paths with main-owned project-root capabilities and per-operation root containment checks. |
+| [`RL-078`](./PLAN.md#rl-078-parent-owned-execution-timeouts-and-outputresource-limits) | Parent-owned execution timeouts + resource limits | `Planned` | Kill JS/TS/Python workers from the parent runner and cap output/result payloads. |
+| [`RL-079`](./PLAN.md#rl-079-trusted-native-execution-hardening-for-go-and-rust) | Trusted native execution hardening | `Planned` | Harden Go/Rust local toolchain execution with minimal env, mkdtemp, cleanup, output caps, and trusted-code warning. |
+| [`RL-083`](./PLAN.md#rl-083-offline-runtime-assets-and-strict-csp) | Offline runtime assets + strict CSP | `Planned` | Package/version runtime-critical assets, remove unnecessary remote imports, and enforce strict CSP. |
 
 ### 4b. Editor, runtime and workflow (P1)
 
@@ -120,6 +124,10 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | [`RL-064`](./PLAN.md#rl-064-launch-asset-kit-phase-2) | Launch asset kit | `Partial` | Screenshots + press-kit drafted. Remaining: 60-second demo video + press templates. |
 | [`RL-065`](./PLAN.md#rl-065-privacy-respecting-launch-telemetry) | Privacy-respecting telemetry | `Partial` | First-run consent + event allowlist + overlay.opened / runner.executed / feature.blocked wired. Remaining: event export pipeline. |
 | [`RL-066`](./PLAN.md#rl-066-seo-landing-pages-for-language-specific-intents) | SEO landing pages | `Partial` | `seo-pages/` drafts landed. Remaining: build step that promotes drafts into linguacode.dev sub-routes. |
+| [`RL-080`](./PLAN.md#rl-080-release-grade-desktop-ci-and-update-validation-gates) | Release-grade desktop CI + update gates | `Planned` | Promote package smoke, signing/notarization, update-feed checks, audit, and checksums into release automation. |
+| [`RL-081`](./PLAN.md#rl-081-launchlegalsource-available-documentation-cleanup) | Launch/legal/source-available docs cleanup | `Planned` | Align source-available posture, Shepherd licensing, legal/privacy/security docs, and launch copy. |
+| [`RL-084`](./PLAN.md#rl-084-local-plugin-manifest-hardening) | Local plugin manifest hardening | `Planned` | Enforce manifest schema, runtime allowlist, compatibility validation, diagnostics, and no arbitrary plugin code. |
+| [`RL-085`](./PLAN.md#rl-085-sbom-and-third-party-license-compliance) | SBOM + third-party license compliance | `Planned` | Generate release SBOM, third-party notices, and license-policy gates for commercial distribution. |
 
 ### 4g. Personalization and surface polish (P2)
 
@@ -129,7 +137,25 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | [`RL-041`](./PLAN.md#rl-041-add-static-site-export-and-one-click-publish-for-web-projects) | Static site export + publish | `Planned` | Export JS/TS/HTML projects as self-contained static ZIP; one-click publish to GitHub Pages. |
 | [`RL-046`](./PLAN.md#rl-046-add-gamification-achievements-and-progress-tracking-for-students) | Gamification + achievements | `Planned` | Achievement catalog, per-user progress, streaks. |
 
-### 4h. Research-backed spikes and future
+### 4h. Documentation and repo hygiene (P2)
+
+| ID | Title | Status | Scope one-liner |
+|----|-------|:------:|-----------------|
+| [`RL-082`](./PLAN.md#rl-082-readme-and-docs-information-architecture-cleanup) | README + docs information architecture cleanup | `Planned` | Split README into concise entry point plus indexed development, release, security, privacy, and licensing docs. |
+
+### 4i. Security, resilience, and product quality (P2)
+
+| ID | Title | Status | Scope one-liner |
+|----|-------|:------:|-----------------|
+| [`RL-086`](./PLAN.md#rl-086-performance-budgets-and-bundleruntime-observability) | Performance budgets + runtime observability | `Planned` | Add bundle/runtime budgets, cold-start metrics, worker lifecycle measurements, and CI regression reporting. |
+| [`RL-087`](./PLAN.md#rl-087-watcher-reliability-and-filesystem-edge-case-suite) | Watcher reliability + filesystem edge cases | `Planned` | Validate watcher lifecycle, bursts, renames, permissions, symlinks, path casing, and platform limitations. |
+| [`RL-088`](./PLAN.md#rl-088-accessibility-qa-hardening) | Accessibility QA hardening | `Planned` | Add automated and manual accessibility checks for shell, overlays, file tree, editor, results, and utilities. |
+| [`RL-089`](./PLAN.md#rl-089-user-profile-backup-export-and-restore) | User profile backup/export/restore | `Planned` | Versioned profile export/import for safe user-owned settings, snippets, shortcuts, themes, layout, and env vars. |
+| [`RL-090`](./PLAN.md#rl-090-error-boundaries-and-recovery-ux) | Error boundaries + recovery UX | `Planned` | Add shell error boundaries, safe-mode boot, reset flows, redacted error export, and support recovery docs. |
+| [`RL-091`](./PLAN.md#rl-091-license-and-update-server-observability-and-runbooks) | License/update server observability + runbooks | `Planned` | Add metrics, redacted logs, alerts, and incident runbooks for licensing, recovery, webhooks, and update feeds. |
+| [`RL-092`](./PLAN.md#rl-092-release-security-review-checklist) | Release security review checklist | `Planned` | Add security sign-off for Electron, preload/IPC, filesystem, runners, updater, licensing, telemetry, dependencies, and docs. |
+
+### 4j. Research-backed spikes and future
 
 These rows are NOT candidates for the next step. They live here for
 discoverability only.
@@ -147,13 +173,17 @@ discoverability only.
 Value-per-day priority, skipping parked tickets. This is the order an
 agent should follow when §3's tiebreakers don't resolve.
 
-1. **Launch blockers.** `RL-061` shipped fully on 2026-04-30 (now in §6 archive). `RL-063` (linguacode.dev download page) is next — re-scoped around a dedicated `lingua-marketing` repo (Astro + CF Pages, BACKLOG entry) since `linguacode.dev` is now reserved for marketing while the web build lives at `app.linguacode.dev`. `RL-059` stays `Partial` only as the historical parent for the verifier + bridge work now shipped.
-2. **Utilities polish.** `RL-068` / `RL-072` remaining slices — short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
-3. **Debugger + language intelligence.** `RL-027` Slice 1 (JS/TS debugger minimal) and `RL-026` adapter layer. These unblock `RL-042` and `RL-047`.
-4. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
-5. **Notebook + rich output.** `RL-043` + `RL-044` are a paired slice. Only after the runtime contract from §4 is stable.
-6. **Personalization + lessons.** `RL-039` in-app lesson browser, `RL-041` static export.
-7. **Growth / SEO / marketing.** `RL-032` and `RL-066` after the launch blockers ship so they aren't obsolete by then.
+1. **Security launch hardening.** Start with `RL-077`, then `RL-078`, then `RL-079`, then `RL-083`. These are the first launch blockers because they reduce renderer-filesystem risk, worker hang risk, trusted native-execution ambiguity, and runtime/CDN/CSP risk before public distribution.
+2. **Launch blockers.** After the hardening set, continue with `RL-063` (linguacode.dev download page). `RL-061` shipped fully on 2026-04-30 (now in §6 archive). `RL-059` stays `Partial` only as the historical parent for verifier + bridge work now shipped.
+3. **Release, legal, and compliance readiness.** `RL-080`, `RL-081`, `RL-085`, and `RL-092` should land before a public launch announcement so packaged builds, update feeds, signing/notarization, source-available posture, privacy/security docs, third-party notices, dependency licensing, and release security sign-off agree.
+4. **Runtime/platform surface hardening.** `RL-084`, `RL-087`, and `RL-091` harden the local plugin model, watcher reliability, and backend operations after the core launch blockers are under control.
+5. **Product quality and supportability.** `RL-086`, `RL-088`, `RL-089`, and `RL-090` add performance budgets, accessibility QA, profile backup/restore, and recovery UX.
+6. **Utilities polish.** `RL-068` / `RL-072` remaining slices — short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
+7. **Debugger + language intelligence.** `RL-027` Slice 1 (JS/TS debugger minimal) and `RL-026` adapter layer. These unblock `RL-042` and `RL-047`.
+8. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
+9. **Notebook + rich output.** `RL-043` + `RL-044` are a paired slice. Only after the runtime contract from §4 is stable.
+10. **Personalization + lessons.** `RL-039` in-app lesson browser, `RL-041` static export.
+11. **Growth / SEO / marketing / docs IA.** `RL-032`, `RL-066`, and `RL-082` after the launch blockers ship so they aren't obsolete by then.
 
 Never start a row tagged `Gated` until its gate clears. When the top of
 this list is blocked, drop down the list rather than improvise.
