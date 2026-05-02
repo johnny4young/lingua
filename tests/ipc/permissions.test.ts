@@ -102,4 +102,8 @@ describe('isSafeEntryName', () => {
     expect(isSafeEntryName('nested/file.ts')).toBe(false);
     expect(isSafeEntryName('nested\\file.ts')).toBe(false);
   });
+
+  it('rejects NUL bytes', () => {
+    expect(isSafeEntryName('bad\0name.txt')).toBe(false);
+  });
 });
