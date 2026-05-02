@@ -103,7 +103,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 |----|-------|:------:|-----------------|
 | [`RL-011`](./PLAN.md#rl-011-add-an-environment-variables-panel-for-execution-contexts) | Env vars panel | `Partial` | Slice A/B/C shipped + Slice D for Go/Rust/Python. Remaining: JS/TS desktop runner env threading. |
 | [`RL-012`](./PLAN.md#rl-012-package-management) | Package management | `Planned` | Superseded in scope by `RL-025`. Keep open for reference until `RL-025` ships Slice A. |
-| [`RL-028`](./PLAN.md#rl-028-add-execution-history-replay-and-benchmarking-tools) | Execution history / replay / benchmarking | `Partial` | Slices 1-5 shipped (ring buffer, settings row, palette surface, rerun-last, console popover). Slice 6 shipped on 2026-05-01 — opt-in code snapshot field on history entries (Pro-gated, in-memory only, 256 KiB cap with `truncated` flag, default-on toggle in Editor settings) plus console popover Replay and per-entry Command Palette Replay (cap 5, newest-first, snapshot-only) sharing a single `replayHistoryEntry` helper. Comparison tooling still pending. |
 | [`RL-043`](./PLAN.md#rl-043-add-notebook--cell-based-execution-mode) | Notebook / cell-based execution | `Planned` | New notebook view alongside the editor with per-cell output. |
 | [`RL-044`](./PLAN.md#rl-044-add-inline-data-visualization-and-rich-output-rendering) | Inline data visualization + rich output | `Planned` | Detect structured output (tables, images, plots) and render richly. |
 | [`RL-048`](./PLAN.md#rl-048-add-integrated-terminal-for-desktop-mode) | Integrated terminal (desktop) | `Planned` | Embed xterm.js + node-pty panel in the desktop build. |
@@ -168,14 +167,14 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>38 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>39 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
-`RL-022`, `RL-030`, `RL-034`, `RL-040`, `RL-045`, `RL-051`, `RL-052`,
-`RL-053`, `RL-054`, `RL-055`, `RL-056`, `RL-057`, `RL-058`, `RL-060`,
-`RL-061`, `RL-062`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`,
-`RL-074`, `RL-075`, `RL-076`.
+`RL-022`, `RL-028`, `RL-030`, `RL-034`, `RL-040`, `RL-045`, `RL-051`,
+`RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`, `RL-057`, `RL-058`,
+`RL-060`, `RL-061`, `RL-062`, `RL-067`, `RL-068`, `RL-070`, `RL-071`,
+`RL-073`, `RL-074`, `RL-075`, `RL-076`.
 
 </details>
 

@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vite", "--config", "vite.web.config.mts", "--port", "5174"],
       "port": 5174
+    },
+    {
+      "name": "lingua-web-pro",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:web:pro"],
+      "port": 5174
     }
   ]
 }

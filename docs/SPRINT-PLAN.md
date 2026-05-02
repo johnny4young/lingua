@@ -23,7 +23,7 @@ Mirrors the authoritative `Status` column in
 | Iter | Ticket | Status | Scope |
 |------|--------|:------:|-------|
 | Iter 1 | [`RL-072`](./ROADMAP.md) | Shipping · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Expand Developer Utilities to DevUtils parity — full panel set shipped (29 panels). RL-068 closeout adds YAML ↔ JSON, JSON ↔ CSV, Markdown Preview (sanitized HTML output, no remote image fetch), and SQL Formatter (ANSI / PostgreSQL / MySQL dialects). RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
-| Iter 2 | [`RL-028`](./ROADMAP.md) | Partial (6 of ~7 slices shipped — snapshot capture + console Replay + palette Replay landed 2026-05-01) | Execution history — comparison tooling pending. See §4. |
+| Iter 2 | [`RL-028`](./ROADMAP.md) | Shipped (2026-05-01) | Execution history — closed by Slice 7 (Compare two runs, code-only diff). See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
 | Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Partial (Slices A + B shipped) | Language-pack registry Slice C — capability-aware UI. See §7. |
@@ -136,68 +136,9 @@ feat(devutils): jwt verify and sign modes with Web Crypto
 
 ## 4. Iter 2 / RL-028 — Execution history replay + comparison
 
-**One-liner**: Extend the ring-buffer store with per-entry replay that
-re-runs the original tab content (captured snapshot), plus a
-"compare two runs" view that shows a side-by-side diff of outputs.
-
-**Context**: The ring buffer (metadata-only today) needs an opt-in
-snapshot mode for replay. A Pro-gated entitlement already exists for
-execution history, so we layer this on top without a new gate.
-
-**4.1 Sequencing (3 commits, ~1 week)**:
-
-1. **Commit 1 — snapshot mode for the ring buffer** — Shipped on 2026-05-01. `ExecutionHistoryEntry` gained an opt-in `snapshot: { code, language, truncated } | null`. The opt-in lives as `executionHistorySnapshotEnabled` in `settingsStore` (default `true`, persisted), surfaced through a Pro-gated toggle in the Editor settings section instead of Execution History. `executeTabManually` attaches the snapshot only when the toggle is on AND `currentEffectiveTier()` covers `EXECUTION_HISTORY` — defense-in-depth so a state-shadowing bug cannot leak captures to Free users. Code is clamped to `SNAPSHOT_MAX_BYTES = 256 KiB` with a `truncated` flag so the UI can disclose the cap honestly. Tests pin: opt-in off → null on success and error branches; opt-in on + Pro → verbatim capture; opt-in on + Free → null; mid-session toggle flip drops new captures without wiping existing ones; truncation slices from the start; `clear()` and FIFO eviction wipe snapshots together with their entries.
-
-2. **Commit 2 — replay action** — Shipped on 2026-05-01. Console popover `Replay` opens a new tab with the snapshot code and triggers a run with `recordHistory: false`, keeping the history timeline count stable. Metadata-only entries render disabled with a translated tooltip. Command Palette adds per-entry `action-replay-{id}` commands (cap 5, newest-first, snapshot-only) that share a single `replayHistoryEntry` helper with the popover. New i18n keys `executionHistory.palette.replay.label/description` ship in en + es with tuteo. Tests pin: popover replay → new tab + run dispatched once + no history append; null-snapshot entries disabled in popover and absent from palette; cap-5 ordering newest-first; metadata-only entries skipped when picking the cap-5 batch; activation closes the palette and fires the callback exactly once.
-
-3. **Commit 3 — compare two runs** (~2 days)
-   - Add a `Compare` affordance when the user selects exactly two
-     entries in the popover (checkbox UI). Opens a dedicated
-     `ExecutionComparisonModal` with two side-by-side output panes and
-     a summary strip (language, duration delta, exit status).
-   - Reuse `diffLines` from `src/renderer/utils/diff.ts` for the
-     output diff.
-   - i18n keys: `executionHistory.compare.*`.
-   - Tests: select 2 → Compare button enables; modal renders diffed
-     output; one + two + three selections update enable state cleanly.
-
-**4.2 Edge cases**:
-- Two entries of different languages → comparison still renders but
-  the summary strip notes the mismatch.
-- Replay while a run is in progress → refused with a translated notice,
-  no tab leakage and no history append.
-- Snapshot opt-in flipped off while the popover is open → existing
-  entries with snapshots stay replay-eligible.
-
-**4.3 Draft commit messages**:
-
-```
-feat(execution-history): opt in snapshot capture for future replay
-
-- add snapshot field to ring buffer entries gated by a Settings toggle
-- persistence still in memory only to respect the existing privacy posture
-- record captures code and language when the opt in is active
-- cover toggle on off plus round trip tests
-```
-
-```
-feat(execution-history): replay a recorded run in a new tab
-
-- add Replay action in the history popover
-- open a new tab preloaded with the snapshot code then dispatch run without recording a new history entry
-- disabled state with translated tooltip when the entry has no snapshot
-- cover replay dispatch single fire and the no snapshot no op path
-```
-
-```
-feat(execution-history): compare two runs with inline output diff
-
-- add a Compare action when exactly two entries are selected
-- render an ExecutionComparisonModal with side by side output panes
-- reuse diffLines from utils diff for the output delta
-- add executionHistory compare keys in en and es
-- cover selection gating and cross language comparison
-```
+Shipped on 2026-05-01 — see [`RL-028`](./ROADMAP.md) §6 archive for the
+full slice-by-slice history (1 → 5 metadata + popover + palette
+surfaces, 6 snapshot capture + Replay, 7 Compare two runs code diff).
 
 ---
 
