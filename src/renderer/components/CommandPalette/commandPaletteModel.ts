@@ -56,6 +56,20 @@ interface BuildCommandPaletteModelArgs {
    * does not append another history entry.
    */
   onReplayEntry?: (entry: ExecutionHistoryEntry) => void;
+  /**
+   * RL-037 Vim slice — fires when the user activates the
+   * "Toggle Vim mode" palette command. Optional; when omitted the
+   * command is hidden.
+   */
+  onToggleVimMode?: () => void;
+  /**
+   * Current Vim-mode flag, used to flip the palette description text
+   * between "Turn on Vim keybindings…" and "Turn off…". Defaults to
+   * `false` so callers that wire `onToggleVimMode` without this flag
+   * still get a usable command (the description just always reads as
+   * the enable variant).
+   */
+  vimModeEnabled?: boolean;
   updateStatus: UpdateStatus;
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   createDefaultTab: (language: Language) => FileTab;
@@ -284,6 +298,8 @@ export function buildCommandPaletteModel({
   onFocusLanguageTab,
   onRerunLast,
   onReplayEntry,
+  onToggleVimMode,
+  vimModeEnabled = false,
   updateStatus,
   createTab,
   createDefaultTab,
@@ -359,6 +375,27 @@ export function buildCommandPaletteModel({
             ['rerun', 'replay', 'last', 'recent', 'run'],
             () => {
               onRerunLast();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-037 Vim slice — Toggle Vim mode. Hidden when the caller does
+    // not wire `onToggleVimMode`; description text flips based on
+    // `vimModeEnabled` so the palette honestly previews the next state.
+    ...(onToggleVimMode
+      ? [
+          buildActionCommand(
+            'action-toggle-vim-mode',
+            translate('commandPalette.toggleVimMode.label'),
+            translate(
+              vimModeEnabled
+                ? 'commandPalette.toggleVimMode.descriptionDisable'
+                : 'commandPalette.toggleVimMode.descriptionEnable'
+            ),
+            ['vim', 'mode', 'keybindings', 'editor', 'toggle'],
+            () => {
+              onToggleVimMode();
               onClose();
             }
           ),

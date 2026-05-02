@@ -1,6 +1,6 @@
 # ADR — Vim mode integration (RL-037 personalization slice)
 
-| Status | Accepted — design; first slice (settings toggle) shipped |
+| Status | Accepted — Vim integration shipped on 2026-05-01 |
 | ------ | ----------------- |
 | Decision | Add an opt-in Vim keybindings layer via the `monaco-vim` package, lazy-loaded behind a single Settings toggle. Vim only hijacks keystrokes when the Monaco editor owns focus; global shortcuts (Quick Open, Command Palette) keep working elsewhere. |
 | Date | 2026-04-20 |
@@ -70,16 +70,15 @@ users who never flip it on.
 
 - The `monaco-vim` status bar emits strings like `-- INSERT --` and
   `-- NORMAL --`. Upstream does not localize these.
-- **Decision:** ship with English status bar strings. Vim mode is an
-  expert feature; the community convention is English tokens, and
-  forking `monaco-vim` purely to localize two or three strings is an
-  unreasonable maintenance burden for the payoff.
-- If a future slice wants localized status text, the escape hatch is
-  a small render layer that reads `vim.state.mode` from the
-  `monaco-vim` API and replaces the upstream status bar with an
-  i18next-backed component. That slice is explicitly deferred.
+- **Decision:** ship a small localized status-bar subclass instead of
+  forking `monaco-vim`. The adapter overrides upstream `setMode` and
+  routes mode labels through i18n while leaving command input, key
+  buffers, and notifications under the upstream implementation.
+- This keeps the maintenance surface narrow: Lingua owns the six
+  visible mode labels, and `monaco-vim` still owns editing behavior,
+  command routing, macros, and disposal.
 
-## Implementation sketch (for the follow-up slice)
+## Implementation sketch
 
 - **Settings toggle.** `settings.vimMode: boolean` lands in
   `settingsStore` with default `false`. `EditorSection` renders the

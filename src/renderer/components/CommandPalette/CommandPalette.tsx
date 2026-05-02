@@ -44,6 +44,11 @@ interface CommandPaletteProps {
    * append another history entry.
    */
   onReplayEntry?: (entry: ExecutionHistoryEntry) => void;
+  /**
+   * RL-037 Vim slice — fires the "Toggle Vim mode" palette action.
+   * Optional; when omitted the command is hidden.
+   */
+  onToggleVimMode?: () => void;
 }
 
 export function CommandPalette({
@@ -58,6 +63,7 @@ export function CommandPalette({
   onOpenKeyboardShortcuts,
   onRerunLast,
   onReplayEntry,
+  onToggleVimMode,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -69,6 +75,7 @@ export function CommandPalette({
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const executionHistory = useExecutionHistoryStore((state) => state.entries);
   const { setLayoutPreset } = useSettingsStore();
+  const vimMode = useSettingsStore((state) => state.vimMode);
   const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
   const { t, i18n } = useTranslation();
 
@@ -90,6 +97,8 @@ export function CommandPalette({
       onFocusLanguageTab: focusLanguageTab,
       onRerunLast: canUseExecutionHistory ? onRerunLast : undefined,
       onReplayEntry: canUseExecutionHistory ? onReplayEntry : undefined,
+      onToggleVimMode,
+      vimModeEnabled: vimMode,
       updateStatus,
       createTab: addTab,
       createDefaultTab,
@@ -120,6 +129,8 @@ export function CommandPalette({
     executionHistory,
     onRerunLast,
     onReplayEntry,
+    onToggleVimMode,
+    vimMode,
     addTab,
     setLayoutPreset,
     onClose,

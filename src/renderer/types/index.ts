@@ -200,11 +200,9 @@ export interface SettingsState {
   restoreSession: boolean;
   formatOnSave: boolean;
   /**
-   * RL-037 Vim mode flag. When `true`, the next Vim-mode slice will
-   * lazy-load `monaco-vim` and attach it to the active Monaco editor.
-   * This slice only ships the persisted flag + the Settings toggle —
-   * flipping it on today does NOT change editor behavior yet. The
-   * follow-up slice wires the Monaco integration.
+   * RL-037 Vim mode flag. When `true`, the editor lazy-loads
+   * `monaco-vim` and attaches Vim keybindings to the active Monaco
+   * editor.
    */
   vimMode: boolean;
   /**

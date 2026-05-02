@@ -27,6 +27,8 @@ describe('VIM_MODE_ADR.md', () => {
     expect(adr).toContain('### 1. Library');
     expect(adr).toContain('### 2. Focus + keystroke ownership');
     expect(adr).toContain('### 3. i18n posture');
+    expect(adr).toContain('localized status-bar subclass');
+    expect(adr).not.toContain('That slice is explicitly deferred');
   });
 
   it('documents the Ctrl/Cmd+P Quick Open conflict and its resolution', () => {
