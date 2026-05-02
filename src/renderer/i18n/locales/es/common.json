@@ -154,6 +154,7 @@
   "privacy.firstRun.allow": "Permitir",
   "privacy.firstRun.decline": "Rechazar",
   "language.capability.desktopOnly": "Solo escritorio",
+  "language.capability.desktopOnlyOptionSuffix": " (solo escritorio)",
   "language.capability.proOnly": "PRO",
   "language.c.label": "C",
   "language.c.shortLabel": "C",

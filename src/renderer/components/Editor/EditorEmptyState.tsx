@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
 import { createDefaultTab, useEditorStore } from '../../stores/editorStore';
 import {
   BUILT_IN_TEMPLATES,
@@ -10,11 +11,23 @@ import type { Language } from '../../types';
 import {
   extensionForLanguage,
   languageBadgeClass,
+  languageCapabilityBadgeKey,
   languageLabel,
 } from '../../utils/languageMeta';
 import { Kbd } from '../ui/chrome';
 
-const LANGUAGE_ORDER: Language[] = ['javascript', 'typescript', 'go', 'python', 'rust'];
+// RL-038 Slice C closeout — the quick-start row used to be a hardcoded
+// `['javascript', 'typescript', 'go', 'python', 'rust']`. Walking
+// `LANGUAGE_PACKS` with the runnable + has-templates predicate keeps
+// the list in sync with the registry: future runnable packs that ship
+// with starter templates land here automatically; Lua stays out until
+// it gains a starter (its `templateIds` is empty per the Slice A
+// guard test).
+const QUICK_START_PACKS = LANGUAGE_PACKS.filter(
+  (pack) =>
+    (pack.execution === 'run' || pack.execution === 'compile') &&
+    pack.templateIds.length > 0
+);
 
 const FEATURED_TEMPLATES = BUILT_IN_TEMPLATES.slice(0, 6);
 const TOTAL_TEMPLATE_COUNT = BUILT_IN_TEMPLATES.length;
@@ -22,6 +35,12 @@ const TOTAL_TEMPLATE_COUNT = BUILT_IN_TEMPLATES.length;
 export function EditorEmptyState() {
   const { addTab } = useEditorStore();
   const { t } = useTranslation();
+  // Mirror the platform-gate idiom used elsewhere (Toolbar, FileTree).
+  // The "Desktop only" pill only makes sense on the web build —
+  // packaged Electron actually runs Go / Rust, so a pill there would
+  // mislead the user.
+  const isWebBuild =
+    typeof window !== 'undefined' && window.lingua?.platform === 'web';
 
   const openTemplate = (templateId: string) => {
     const template = BUILT_IN_TEMPLATES.find((item) => item.id === templateId);
@@ -72,16 +91,32 @@ export function EditorEmptyState() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {LANGUAGE_ORDER.map((language) => (
-              <button
-                key={language}
-                type="button"
-                onClick={() => quickStart(language)}
-                className={`rounded-full px-4 py-2 text-xs font-semibold transition-transform hover:-translate-y-0.5 ${languageBadgeClass(language)}`}
-              >
-                {languageLabel(language)}
-              </button>
-            ))}
+            {QUICK_START_PACKS.map((pack) => {
+              const language = pack.id as Language;
+              const isDesktopOnly =
+                languageCapabilityBadgeKey(language) ===
+                'language.capability.desktopOnly';
+              const showDesktopOnlyBadge = isWebBuild && isDesktopOnly;
+              return (
+                <button
+                  key={language}
+                  type="button"
+                  onClick={() => quickStart(language)}
+                  data-testid={`empty-state-quick-start-${language}`}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-transform hover:-translate-y-0.5 ${languageBadgeClass(language)}`}
+                >
+                  <span>{languageLabel(language)}</span>
+                  {showDesktopOnlyBadge ? (
+                    <span
+                      data-testid={`empty-state-desktop-only-${language}`}
+                      className="rounded-full bg-foreground/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted"
+                    >
+                      {t('language.capability.desktopOnly')}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted">

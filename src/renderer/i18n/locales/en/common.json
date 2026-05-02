@@ -154,6 +154,7 @@
   "privacy.firstRun.allow": "Allow",
   "privacy.firstRun.decline": "Decline",
   "language.capability.desktopOnly": "Desktop only",
+  "language.capability.desktopOnlyOptionSuffix": " (desktop only)",
   "language.capability.proOnly": "PRO",
   "language.c.label": "C",
   "language.c.shortLabel": "C",

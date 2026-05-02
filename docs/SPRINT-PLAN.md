@@ -15,7 +15,7 @@
 
 ---
 
-## 1. Status at a glance (2026-04-27)
+## 1. Status at a glance (2026-05-01)
 
 Mirrors the authoritative `Status` column in
 [`ROADMAP.md`](./ROADMAP.md) §4. **When discrepancies appear, ROADMAP wins.**
@@ -26,7 +26,7 @@ Mirrors the authoritative `Status` column in
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Shipped (2026-05-01) | Execution history — closed by Slice 7 (Compare two runs, code-only diff). See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
 | Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
-| Iter 5 | [`RL-038`](./ROADMAP.md) | Partial (Slices A + B shipped) | Language-pack registry Slice C — capability-aware UI. See §7. |
+| Iter 5 | [`RL-038`](./ROADMAP.md) | Shipped (2026-05-01) | Language-pack registry — closed by the Slice C closeout. See §7. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -47,8 +47,9 @@ Value-per-day priority. The full reasoning is in
 4. **Iter 3 / RL-027** — debugger JS/TS MVP (~2 weeks, depends on nothing
    but is a bigger scope — schedule it when a longer uninterrupted block
    is available).
-5. **Iter 5 / RL-038 Slice C** — capability-aware UI for language packs
-   (~1 week, unblocks `RL-042` incremental language adds).
+5. **Language platform follow-ups** — RL-038 is shipped; pull `RL-042`
+   runnable tiers only after the next `RL-027` / `RL-026` language-platform
+   slice makes the runtime and diagnostics contract clearer.
 
 Anything Gated (none currently) stops the flow and raises a question to
 the user — do not speculate a workaround.
@@ -177,18 +178,7 @@ Shipped on 2026-04-30 — see RL-061 in [`docs/PLAN.md`](./PLAN.md#rl-061-polars
 
 ## 7. Iter 5 / RL-038 — Language-pack registry Slice C
 
-**One-liner**: Make the UI capability-aware so new languages added via
-`src/shared/languagePacks.ts` automatically show up in the toolbar,
-file tree, tooltips, and run-button disabled states without per-call-site
-code.
-
-**Context**: Slice A (declarative registry) and Slice B (runner dispatch)
-shipped. Slice C moves the remaining consumers — toolbar language menu,
-file tree capability badge, Run button proOnly/desktopOnly tooltips,
-and the Settings capability matrix — off their per-language switch
-statements and onto `getLanguagePackById()`.
-
-**Sequencing to be filled in when this iter is picked.**
+Shipped on 2026-05-01 — see RL-038 in [`docs/PLAN.md`](./PLAN.md#rl-038-build-a-conservative-language-pack-architecture-before-expanding-plugins) for the full slice history (descriptor, runner dispatch, Toolbar / FileTree / Run-button capability UI, SnippetsModal, and EditorEmptyState).
 
 ---
 

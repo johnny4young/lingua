@@ -94,7 +94,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 |----|-------|:------:|-----------------|
 | [`RL-026`](./PLAN.md#rl-026-add-language-intelligence-beyond-monacos-built-in-jsts-services) | Language intelligence beyond Monaco | `Planned` | Adapter for richer diagnostics/completion/hover/signature help per language. |
 | [`RL-027`](./PLAN.md#rl-027-add-debugger-mvp) | Debugger MVP | `Partial` | ADR landed; JS/TS first implementation slice still pending. |
-| [`RL-038`](./PLAN.md#rl-038-build-a-conservative-language-pack-architecture-before-expanding-plugins) | Declarative language-pack registry | `Partial` | Slice A (registry) + Slice B (runner dispatch) shipped; Slice C (capability-aware UI) pending. |
 | [`RL-042`](./PLAN.md#rl-042-expand-language-support-toward-15-languages) | Expand languages toward 15+ | `Partial` | Ruby, Java, Kotlin, Scala, Swift, C, C++ open in view/lint mode. Runnable tiers pending per-lang. |
 
 ### 4d. Execution deepening and tooling (P2)
@@ -166,14 +165,14 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>40 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>41 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
-`RL-022`, `RL-028`, `RL-030`, `RL-034`, `RL-037`, `RL-040`, `RL-045`,
-`RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`, `RL-057`,
-`RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-067`, `RL-068`, `RL-070`,
-`RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`.
+`RL-022`, `RL-028`, `RL-030`, `RL-034`, `RL-037`, `RL-038`, `RL-040`,
+`RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`,
+`RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-067`, `RL-068`,
+`RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`.
 
 </details>
 

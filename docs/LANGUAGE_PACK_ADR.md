@@ -1,6 +1,6 @@
 # ADR — Language-pack architecture (RL-038)
 
-| Status | Accepted — design adopted, incremental migration |
+| Status | Accepted — current migration complete for built-in surfaces |
 | ------ | ------------------------------------------------ |
 | Decision | Introduce a declarative `LanguagePack` descriptor and migrate built-ins + Lua to consume it, without promoting plugin loading into a marketplace. |
 | Date | 2026-04-19 |
@@ -99,8 +99,12 @@ existing helper names so callers don't have to migrate all at once.
 
 ## Migration plan (three slices)
 
+This section is historical implementation context. All three slices are
+now shipped for the built-in surfaces Lingua has today; revisit the
+descriptor only when one of the triggers below is hit.
+
 ### Slice A — Land the descriptor + migrate built-ins that already have
-all fields computed today.
+all fields computed today. Shipped 2026-04-20.
 
 - Create `src/shared/languagePacks.ts` with the `LanguagePack` type
   and an initial `LANGUAGE_PACKS` array populated from today's
@@ -111,7 +115,7 @@ all fields computed today.
 - Target: zero behavior change. All existing tests stay green.
 - Files touched: ~6. Scope: one session.
 
-### Slice B — Migrate the runners dispatch.
+### Slice B — Migrate the runners dispatch. Shipped 2026-04-20.
 
 - Replace the `switch` in `runners/manager.ts` with a lookup:
   `LANGUAGE_PACKS.find(p => p.id === lang)?.runnerId` then instantiate
@@ -123,18 +127,25 @@ all fields computed today.
   arbitrary-code loading is introduced.
 - Files touched: ~4. Scope: one session.
 
-### Slice C — Migrate capability-aware UI.
+### Slice C — Migrate capability-aware UI. Shipped 2026-05-01.
 
-- Toolbar language selector, language picker menus, and the editor
-  chrome read `pack.icon` + `pack.labelKey` instead of hardcoded
-  switches.
-- Settings surfaces that enumerate languages (format-on-save hint,
-  formatter binary coverage) consume the pack array instead of
-  duplicating the list.
-- Target: every `switch (language)` statement for display purposes is
-  eliminated. Capability-aware rendering (e.g. hide the "Run" button
-  for `validate`/`view` packs) reads `pack.execution`.
-- Files touched: ~10. Scope: one session.
+- Toolbar New File, FileTree rows, the Run-button desktop-only tooltip,
+  `SnippetsModal`, and `EditorEmptyState` now read the shared pack array
+  and the `languageCapabilityBadgeKey()` helper instead of local
+  hardcoded language arrays.
+- `SnippetsModal` surfaces every `run` / `compile` pack in registry
+  order and appends a localized desktop-only suffix on web builds for
+  host-toolchain packs.
+- `EditorEmptyState` surfaces runnable packs that also ship starter
+  templates; Lua intentionally stays out of the quick-start row until
+  it gains a starter template, but it is available in the snippet
+  picker.
+- The original Settings capability-matrix note was speculative. Lingua
+  has no per-language Settings surface today; if one is added later, it
+  should consume `getLanguagePackById()` / `LANGUAGE_PACKS` from the
+  start instead of opening a new switch statement.
+- Capability-aware rendering for non-runnable packs still reads
+  `pack.execution` at the surfaces that execute code.
 
 ## Constraints
 
@@ -152,8 +163,9 @@ all fields computed today.
 ## Acceptance criteria (from RL-038 scope)
 
 - **"Adding a new bundled language no longer requires scattered edits
-  across the app"** — satisfied after slices A + B + C. Slice A alone
-  cuts the touch count from 6 to 2 (add a pack entry + an i18n key).
+  across the app"** — satisfied after slices A + B + C. A new pack still
+  needs the pack entry plus its i18n key, and optional templates /
+  runner wiring depending on execution mode.
 - **"The app can render capability-aware UI per language without
   hardcoded switch statements everywhere"** — satisfied after slice
   C.
