@@ -25,6 +25,7 @@ import {
   closeDeveloperUtilities,
   openQuickOpen,
   openSettings,
+  openSettingsTab,
   openSnippets,
   closeSnippets,
   paletteInput,
@@ -41,27 +42,36 @@ test.describe('Spanish locale — shell and settings', () => {
     await gotoApp(page);
     await openSettings(page);
 
-    const headings = [
-      'Acerca de',
-      'Apariencia',
-      'Diseño',
-      'Actualizaciones',
-      'Editor',
-      'Licencia',
-      'Privacidad',
-      'Variables de entorno',
-      'Historial de ejecuciones',
-      'Plugins',
-    ];
-    for (const heading of headings) {
-      await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
-    }
+    await expect(page.getByRole('heading', { name: 'Acerca de', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Actualizaciones', exact: true })
+    ).toBeVisible();
 
     // Web-honest copy stays localized too.
     await expect(
       page.getByText('Las actualizaciones automáticas no están disponibles en la versión web.')
     ).toBeVisible();
-    await expect(page.getByText('No disponible en esta build')).toBeVisible();
+    await expect(page.getByText('No disponible')).toBeVisible();
+
+    await openSettingsTab(page, 'appearance');
+    await expect(page.getByRole('heading', { name: 'Apariencia', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Diseño', exact: true })).toBeVisible();
+
+    await openSettingsTab(page, 'editor');
+    await expect(page.getByRole('heading', { name: 'Editor', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Historial de ejecuciones', exact: true })
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plugins', exact: true })).toBeVisible();
+
+    await openSettingsTab(page, 'environment');
+    await expect(
+      page.getByRole('heading', { name: 'Variables de entorno', exact: true })
+    ).toBeVisible();
+
+    await openSettingsTab(page, 'account');
+    await expect(page.getByRole('heading', { name: 'Licencia', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Privacidad', exact: true })).toBeVisible();
   });
 
   test('upsell notices are localized for theme, font, and history', async ({ page }) => {
@@ -69,9 +79,11 @@ test.describe('Spanish locale — shell and settings', () => {
     await gotoApp(page);
     await openSettings(page);
 
+    await openSettingsTab(page, 'appearance');
     await page.getByTestId('theme-pack-select').selectOption('solarized-daylight');
     await expectNoticeContains(page, 'más paquetes de tema');
 
+    await openSettingsTab(page, 'editor');
     await page.getByTestId('editor-font-family-select').selectOption('Menlo, monospace');
     await expectNoticeContains(page, 'más fuentes del editor');
 
@@ -116,6 +128,7 @@ test.describe('Spanish locale — Pro flows', () => {
 
   test('license status pill reads "Activa — Pro" after seeded login', async ({ page }) => {
     await openSettings(page);
+    await openSettingsTab(page, 'account');
     await expect(page.getByTestId('license-status-pill')).toContainText('Activa — Pro');
   });
 
@@ -133,6 +146,7 @@ test.describe('Spanish locale — Pro flows', () => {
     await page.keyboard.press('Escape');
 
     await openSettings(page);
+    await openSettingsTab(page, 'editor');
     await expect(page.getByText('1 ejecución registrada')).toBeVisible();
   });
 
@@ -178,6 +192,7 @@ test.describe('Compact viewport — 390×844', () => {
     await openSettings(page);
 
     await page.setViewportSize({ width: 390, height: 844 });
+    await openSettingsTab(page, 'environment');
     // Any deep label confirms Settings actually rendered rather than being
     // clipped away — "Global scope" is the first section of the env-vars
     // table and sits well below the fold on narrow viewports.
@@ -192,6 +207,7 @@ test.describe('Compact viewport — 390×844', () => {
     await openSettings(page);
 
     await page.setViewportSize({ width: 390, height: 844 });
+    await openSettingsTab(page, 'environment');
     await expect(page.getByText('Ámbito global')).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await closeSettings(page);
@@ -204,6 +220,7 @@ test.describe('Compact viewport — 390×844', () => {
 
     await openSettings(page);
     await page.setViewportSize({ width: 390, height: 844 });
+    await openSettingsTab(page, 'account');
     await expect(page.getByTestId('license-status-pill')).toContainText('Activa — Pro');
     await expectNoHorizontalOverflow(page);
   });

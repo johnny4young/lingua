@@ -23,6 +23,7 @@ import {
   openDeveloperUtilities,
   openPaletteAction,
   openSettings,
+  openSettingsTab,
   paletteInput,
   seedSession,
   test,
@@ -44,8 +45,10 @@ test.describe('Pro tier unlocks — live apply flow', () => {
     await expectTier(page, 'PRO');
 
     // Paid theme + font should now take effect instead of reverting.
+    await openSettingsTab(page, 'appearance');
     await page.getByTestId('theme-pack-select').selectOption('solarized-daylight');
     await expect(page.getByTestId('theme-pack-select')).toHaveValue('solarized-daylight');
+    await openSettingsTab(page, 'editor');
     await page.getByTestId('editor-font-family-select').selectOption('Menlo, monospace');
     await expect(page.getByTestId('editor-font-family-select')).toHaveValue('Menlo, monospace');
 
@@ -113,6 +116,7 @@ test.describe('Pro tier unlocks — seeded Pro session', () => {
     // a regression where the store and the settings section drift out of
     // sync (different selectors, different memoization).
     await openSettings(page);
+    await openSettingsTab(page, 'editor');
     await expect(page.getByText('1 run recorded')).toBeVisible();
   });
 

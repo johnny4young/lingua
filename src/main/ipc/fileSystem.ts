@@ -1,32 +1,58 @@
 /**
  * File system IPC handlers for the main process.
  *
- * Provides secure file operations with:
- * - Path blocking for system/sensitive directories
- * - Confirmation dialogs for destructive operations (delete)
- * - Native file/directory picker dialogs
- * - Watch mode for detecting external file changes
+ * RL-077 capability-based sandbox: every renderer-facing operation
+ * goes through `resolveCapabilityPath` so absolute paths cannot leak
+ * across the IPC boundary. Pickers mint a capability for the chosen
+ * root (or the parent directory of a single chosen file); subsequent
+ * operations supply `{ rootId, relativePath }` and main canonicalizes,
+ * `realpath`-resolves, and verifies containment before any disk I/O.
+ *
+ * The denylist (`isPathBlocked`) stays as defense-in-depth — applied
+ * inside `resolveCapabilityPath` against the resolved absolute path —
+ * so a project root that itself overlaps a sensitive directory still
+ * rejects writes.
  */
 
 import { ipcMain, dialog, BrowserWindow } from 'electron';
 import {
+  mkdir as mkdirFs,
   readFile,
-  writeFile,
-  unlink,
-  rename,
-  mkdir,
   readdir,
-  stat,
+  rename as renameFs,
   rm,
+  stat as statAsync,
+  unlink,
+  writeFile,
 } from 'node:fs/promises';
 import { watch } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { OPEN_FILE_FILTERS } from '../../shared/filePickerTypes';
 import { translateCommon } from '../../shared/i18n/runtime';
 import { isPathBlocked, isSafeEntryName } from './permissions';
+import {
+  mintRootCapability,
+  resolveCapabilityPath,
+  revokeRoot,
+  type CapabilityResolution,
+  type RootId,
+} from './projectCapabilities';
 
-/** Active file system watchers keyed by directory path */
-const watchers = new Map<string, () => void>();
+/**
+ * Active file system watchers keyed by an opaque watchId. Only main
+ * retains the rootId + absolute watched path mapping; the renderer gets
+ * an unstructured token it can pass back to stop the watcher.
+ */
+interface WatcherEntry {
+  rootId: RootId;
+  watchedPath: string;
+  targetKey: string;
+  stop: () => void;
+}
+
+const watchers = new Map<string, WatcherEntry>();
+const watcherIdsByTarget = new Map<string, string>();
 
 /**
  * Directories and files to filter out of the file tree.
@@ -37,7 +63,7 @@ const HIDDEN_ENTRIES = new Set([
   '.svn',
   '.hg',
   'node_modules',
-  'target',       // Rust build output
+  'target', // Rust build output
   '__pycache__',
   '.DS_Store',
   'Thumbs.db',
@@ -59,6 +85,58 @@ function shouldHide(name: string): boolean {
   return false;
 }
 
+function joinRelative(...parts: string[]): string {
+  return parts
+    .filter(Boolean)
+    .join('/')
+    .replace(/\/+/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/\/$/, '');
+}
+
+/**
+ * Compute the parent of a relative path using only `/` separators.
+ * Renderer-supplied relative paths can mix `\` and `/` (Windows
+ * persistence rehydrating on POSIX, etc.); using `path.dirname` here
+ * would honor the host OS separator and break those mixed strings.
+ */
+function dirnameRelative(relativePath: string): string {
+  const normalized = relativePath.replace(/\\/g, '/');
+  const index = normalized.lastIndexOf('/');
+  return index >= 0 ? normalized.slice(0, index) : '';
+}
+
+class CapabilityError extends Error {
+  constructor(
+    public readonly code: NonNullable<
+      Extract<CapabilityResolution, { ok: false }>
+    >['error']
+  ) {
+    super(`Filesystem capability error: ${code}`);
+  }
+}
+
+async function resolveOrThrow(
+  rootId: unknown,
+  relativePath: unknown,
+  operation: 'read' | 'write' | 'delete'
+): Promise<{ absolutePath: string; rootPath: string }> {
+  const resolution = await resolveCapabilityPath(rootId, relativePath, operation);
+  if (!resolution.ok) {
+    throw new CapabilityError(resolution.error);
+  }
+  return { absolutePath: resolution.absolutePath, rootPath: resolution.rootPath };
+}
+
+function stopWatcherById(watchId: string): boolean {
+  const entry = watchers.get(watchId);
+  if (!entry) return false;
+  entry.stop();
+  watchers.delete(watchId);
+  watcherIdsByTarget.delete(entry.targetKey);
+  return true;
+}
+
 export function registerFileSystemHandlers(): void {
   const t = (
     language: string | undefined,
@@ -72,13 +150,21 @@ export function registerFileSystemHandlers(): void {
     }
   };
 
-  // ---------------------------------------------------------------- dialogs
+  // ---------------------------------------------------------------- pickers
 
   ipcMain.handle('fs:select-directory', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
     });
-    return result.canceled ? null : result.filePaths[0];
+    if (result.canceled || result.filePaths.length === 0) {
+      return { canceled: true } as const;
+    }
+    const chosen = result.filePaths[0]!;
+    if (isPathBlocked(chosen, 'read')) {
+      throw new Error(`Access denied: cannot open protected path: ${chosen}`);
+    }
+    const { rootId, rootPath } = mintRootCapability(chosen);
+    return { canceled: false, rootId, rootPath } as const;
   });
 
   ipcMain.handle('fs:select-file', async () => {
@@ -89,7 +175,39 @@ export function registerFileSystemHandlers(): void {
         extensions: [...filter.extensions],
       })),
     });
-    return result.canceled ? null : result.filePaths[0];
+    if (result.canceled || result.filePaths.length === 0) {
+      return { canceled: true } as const;
+    }
+    const chosen = result.filePaths[0]!;
+    if (isPathBlocked(chosen, 'read')) {
+      throw new Error(`Access denied: cannot read protected path: ${chosen}`);
+    }
+    const parent = path.dirname(chosen);
+    const fileRelativePath = path.basename(chosen);
+    const { rootId, rootPath } = mintRootCapability(parent);
+    // Atomic read while we hold the freshly minted capability so the
+    // renderer never has to make a second IPC call against an absolute
+    // path it does not own.
+    const resolution = await resolveCapabilityPath(rootId, fileRelativePath, 'read');
+    if (!resolution.ok) {
+      revokeRoot(rootId);
+      throw new CapabilityError(resolution.error);
+    }
+    let content: string;
+    try {
+      content = await readFile(resolution.absolutePath, 'utf-8');
+    } catch (error) {
+      revokeRoot(rootId);
+      throw error;
+    }
+    return {
+      canceled: false,
+      rootId,
+      rootPath,
+      fileRelativePath,
+      content,
+      fileName: fileRelativePath,
+    } as const;
   });
 
   ipcMain.handle(
@@ -100,15 +218,67 @@ export function registerFileSystemHandlers(): void {
           ? path.join(defaultDir, defaultName)
           : defaultName,
       });
-      if (result.canceled || !result.filePath) return null;
+      if (result.canceled || !result.filePath) {
+        return { canceled: true } as const;
+      }
       if (isPathBlocked(result.filePath, 'write')) {
         throw new Error(
-          `Access denied: Cannot save to protected path: ${result.filePath}`
+          `Access denied: cannot save to protected path: ${result.filePath}`
         );
       }
-      return result.filePath;
+      const parent = path.dirname(result.filePath);
+      const fileRelativePath = path.basename(result.filePath);
+      const { rootId, rootPath } = mintRootCapability(parent);
+      return { canceled: false, rootId, rootPath, fileRelativePath } as const;
     }
   );
+
+  // ---------------------------------------------------------------- root mgmt
+
+  /**
+   * Re-mint a capability for an absolute root path the user previously
+   * approved (typically the persisted `currentProject.rootPath` in the
+   * renderer's project store, or a saved tab's parent directory). The
+   * path is denylist-checked and stat-probed so a stale entry that no
+   * longer resolves on disk fails loudly instead of silently minting a
+   * token that subsequent operations would reject anyway.
+   */
+  ipcMain.handle('fs:reopen-root', async (_event, absolutePath: string) => {
+    if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
+      return { ok: false, error: 'not-found' } as const;
+    }
+    if (isPathBlocked(absolutePath, 'read')) {
+      return { ok: false, error: 'blocked' } as const;
+    }
+    // `stat` already throws ENOENT / ENOTDIR on missing paths, so a
+    // separate `access` round-trip only widens the TOCTOU window with
+    // no extra signal. One probe is enough.
+    let info;
+    try {
+      info = await statAsync(absolutePath);
+    } catch {
+      return { ok: false, error: 'not-found' } as const;
+    }
+    if (!info.isDirectory()) {
+      return { ok: false, error: 'not-a-directory' } as const;
+    }
+    const { rootId, rootPath } = mintRootCapability(absolutePath);
+    const verification = await resolveCapabilityPath(rootId, '', 'read');
+    if (!verification.ok) {
+      revokeRoot(rootId);
+      return {
+        ok: false,
+        error: verification.error === 'blocked-path' ? 'blocked' : 'not-found',
+      } as const;
+    }
+    return { ok: true, rootId, rootPath } as const;
+  });
+
+  ipcMain.handle('fs:revoke-root', (_event, rootId: RootId) => {
+    return revokeRoot(rootId);
+  });
+
+  // ------------------------------------------------------- close confirmations
 
   ipcMain.handle(
     'app:confirm-close',
@@ -154,49 +324,60 @@ export function registerFileSystemHandlers(): void {
 
   // --------------------------------------------------------------- readdir
 
-  ipcMain.handle('fs:readdir', async (_event, dirPath: string) => {
-    const entries = await readdir(dirPath, { withFileTypes: true });
-    return entries
-      .filter((e) => !shouldHide(e.name))
-      .sort((a, b) => {
-        // Directories first, then alphabetical
-        if (a.isDirectory() !== b.isDirectory()) {
-          return a.isDirectory() ? -1 : 1;
-        }
-        return a.name.localeCompare(b.name);
-      })
-      .map((e) => ({
-        name: e.name,
-        isDirectory: e.isDirectory(),
-        path: path.join(dirPath, e.name),
-      }));
-  });
+  ipcMain.handle(
+    'fs:readdir',
+    async (_event, rootId: RootId, relativePath: string) => {
+      const { absolutePath } = await resolveOrThrow(
+        rootId,
+        relativePath,
+        'read'
+      );
+      const entries = await readdir(absolutePath, { withFileTypes: true });
+      return entries
+        .filter((e) => !shouldHide(e.name))
+        .sort((a, b) => {
+          // Directories first, then alphabetical
+          if (a.isDirectory() !== b.isDirectory()) {
+            return a.isDirectory() ? -1 : 1;
+          }
+          return a.name.localeCompare(b.name);
+        })
+        .map((e) => {
+          return {
+            name: e.name,
+            isDirectory: e.isDirectory(),
+            relativePath: joinRelative(relativePath, e.name),
+          };
+        });
+    }
+  );
 
   // ------------------------------------------------------ listAllFiles (index)
 
   /**
-   * Recursively walk `rootPath` and return every visible file entry. Used by
-   * Quick Open to index the whole project — not just the expanded portion of
-   * the file tree. Directories themselves are omitted; only file leaves are
-   * returned so the renderer can build a flat searchable list.
-   *
-   * The walk is bounded: honours the same `shouldHide` filter as `fs:readdir`,
-   * skips symlinks/non-regular entries (to avoid cycles), and caps the total
-   * result size so a pathological project cannot starve the IPC channel.
+   * Recursively walk the resolved capability path and return every visible
+   * file entry. Used by Quick Open to index the project — only file leaves
+   * are returned. Directories themselves are omitted; symlinks/non-regular
+   * entries are skipped to avoid cycles. Total result size is capped so a
+   * pathological project cannot starve the IPC channel.
    */
   ipcMain.handle(
     'fs:listAllFiles',
-    async (_event, rootPath: string): Promise<FsIndexedFile[]> => {
-      if (isPathBlocked(rootPath, 'read')) {
-        throw new Error(
-          `Access denied: Cannot index protected path: ${rootPath}`
-        );
-      }
+    async (
+      _event,
+      rootId: RootId,
+      relativePath: string = ''
+    ): Promise<FsIndexedFile[]> => {
+      const { absolutePath } = await resolveOrThrow(
+        rootId,
+        relativePath,
+        'read'
+      );
 
       const MAX_FILES = 20_000;
       const results: FsIndexedFile[] = [];
 
-      async function walk(dirPath: string) {
+      async function walk(dirPath: string, currentRelative: string) {
         if (results.length >= MAX_FILES) return;
 
         let entries;
@@ -214,9 +395,10 @@ export function registerFileSystemHandlers(): void {
           if (shouldHide(entry.name)) continue;
 
           const entryPath = path.join(dirPath, entry.name);
+          const entryRelative = joinRelative(currentRelative, entry.name);
 
           if (entry.isDirectory()) {
-            await walk(entryPath);
+            await walk(entryPath, entryRelative);
             continue;
           }
 
@@ -224,13 +406,12 @@ export function registerFileSystemHandlers(): void {
 
           results.push({
             name: entry.name,
-            path: entryPath,
-            relativePath: path.relative(rootPath, entryPath),
+            relativePath: entryRelative,
           });
         }
       }
 
-      await walk(rootPath);
+      await walk(absolutePath, relativePath);
       return results;
     }
   );
@@ -239,32 +420,23 @@ export function registerFileSystemHandlers(): void {
 
   /**
    * Plain-text substring search across every visible file in the project.
-   *
-   * Designed to be reusable for several UI surfaces (project search overlay,
-   * command palette "Find in files" action) and intentionally conservative:
-   *
-   *   - Honours the same hidden-entry filter as `fs:readdir` and
-   *     `fs:listAllFiles` so ignored directories never leak into results.
-   *   - Skips binary files by checking the first kilobyte for NUL bytes.
-   *   - Skips files above a generous size budget so a stray minified
-   *     artifact cannot hang the walk.
-   *   - Caps matches per file and the overall result count so the IPC
-   *     channel stays responsive on medium-size projects.
-   *   - Rejects blocked roots before the walk begins.
+   * Capability-resolved root + relative path, same hidden-entry filter,
+   * binary skip, size budget, and per-file / total match caps as before.
    */
   ipcMain.handle(
     'fs:searchInFiles',
     async (
       _event,
-      rootPath: string,
+      rootId: RootId,
+      relativePath: string,
       query: string,
       options: FsSearchOptions = {}
     ): Promise<FsSearchResult[]> => {
-      if (isPathBlocked(rootPath, 'read')) {
-        throw new Error(
-          `Access denied: Cannot search protected path: ${rootPath}`
-        );
-      }
+      const { absolutePath } = await resolveOrThrow(
+        rootId,
+        relativePath,
+        'read'
+      );
 
       const trimmedQuery = query ?? '';
       if (trimmedQuery.length === 0) return [];
@@ -280,17 +452,18 @@ export function registerFileSystemHandlers(): void {
       let totalMatches = 0;
       let filesScanned = 0;
 
+      const NUL = String.fromCharCode(0);
       function looksBinary(text: string): boolean {
         const probe = text.slice(0, 1024);
-        return probe.includes('\u0000');
+        return probe.includes(NUL);
       }
 
-      async function searchFile(filePath: string, relativePath: string) {
+      async function searchFile(filePath: string, fileRelativePath: string) {
         if (totalMatches >= maxTotalMatches) return;
 
         let info;
         try {
-          info = await stat(filePath);
+          info = await statAsync(filePath);
         } catch {
           return; // missing/unreadable file — best-effort
         }
@@ -334,15 +507,14 @@ export function registerFileSystemHandlers(): void {
 
         if (fileMatches.length > 0) {
           results.push({
-            filePath,
-            relativePath,
+            relativePath: fileRelativePath,
             matches: fileMatches,
           });
           totalMatches += fileMatches.length;
         }
       }
 
-      async function walk(dirPath: string) {
+      async function walk(dirPath: string, currentRelative: string) {
         if (totalMatches >= maxTotalMatches || filesScanned >= maxFilesScanned) {
           return;
         }
@@ -361,28 +533,30 @@ export function registerFileSystemHandlers(): void {
           if (shouldHide(entry.name)) continue;
 
           const entryPath = path.join(dirPath, entry.name);
+          const entryRelative = joinRelative(currentRelative, entry.name);
 
           if (entry.isDirectory()) {
-            await walk(entryPath);
+            await walk(entryPath, entryRelative);
             continue;
           }
 
           if (!entry.isFile()) continue;
 
           filesScanned += 1;
-          await searchFile(entryPath, path.relative(rootPath, entryPath));
+          await searchFile(entryPath, entryRelative);
         }
       }
 
-      await walk(rootPath);
+      await walk(absolutePath, relativePath);
       return results;
     }
   );
 
   // ------------------------------------------------------------------ stat
 
-  ipcMain.handle('fs:stat', async (_event, filePath: string) => {
-    const s = await stat(filePath);
+  ipcMain.handle('fs:stat', async (_event, rootId: RootId, relativePath: string) => {
+    const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
+    const s = await statAsync(absolutePath);
     return {
       size: s.size,
       isDirectory: s.isDirectory(),
@@ -394,26 +568,18 @@ export function registerFileSystemHandlers(): void {
 
   // ------------------------------------------------------------------ read
 
-  ipcMain.handle('fs:read', async (_event, filePath: string) => {
-    if (isPathBlocked(filePath, 'read')) {
-      throw new Error(
-        `Access denied: Cannot read protected path: ${filePath}`
-      );
-    }
-    return readFile(filePath, 'utf-8');
+  ipcMain.handle('fs:read', async (_event, rootId: RootId, relativePath: string) => {
+    const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
+    return readFile(absolutePath, 'utf-8');
   });
 
   // ----------------------------------------------------------------- write
 
   ipcMain.handle(
     'fs:write',
-    async (_event, filePath: string, content: string) => {
-      if (isPathBlocked(filePath, 'write')) {
-        throw new Error(
-          `Access denied: Cannot write to protected path: ${filePath}`
-        );
-      }
-      await writeFile(filePath, content, 'utf-8');
+    async (_event, rootId: RootId, relativePath: string, content: string) => {
+      const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
+      await writeFile(absolutePath, content, 'utf-8');
       return true;
     }
   );
@@ -422,12 +588,18 @@ export function registerFileSystemHandlers(): void {
 
   ipcMain.handle(
     'fs:delete',
-    async (event, filePath: string, isDirectory = false, language?: string) => {
-      if (isPathBlocked(filePath, 'delete')) {
-        throw new Error(
-          `Access denied: Cannot delete protected path: ${filePath}`
-        );
-      }
+    async (
+      event,
+      rootId: RootId,
+      relativePath: string,
+      isDirectory = false,
+      language?: string
+    ) => {
+      const { absolutePath } = await resolveOrThrow(
+        rootId,
+        relativePath,
+        'delete'
+      );
 
       const win = BrowserWindow.fromWebContents(event.sender);
       const { response } = await dialog.showMessageBox(win!, {
@@ -440,7 +612,7 @@ export function registerFileSystemHandlers(): void {
         cancelId: 1,
         title: t(language, 'dialogs.delete.title'),
         message: t(language, 'dialogs.delete.message', {
-          name: path.basename(filePath),
+          name: path.basename(absolutePath),
         }),
         detail: isDirectory
           ? t(language, 'dialogs.delete.detail.directory')
@@ -450,9 +622,9 @@ export function registerFileSystemHandlers(): void {
       if (response !== 0) return false; // user cancelled
 
       if (isDirectory) {
-        await rm(filePath, { recursive: true, force: true });
+        await rm(absolutePath, { recursive: true, force: true });
       } else {
-        await unlink(filePath);
+        await unlink(absolutePath);
       }
       return true;
     }
@@ -462,80 +634,115 @@ export function registerFileSystemHandlers(): void {
 
   ipcMain.handle(
     'fs:rename',
-    async (_event, oldPath: string, newName: string) => {
+    async (_event, rootId: RootId, relativeOldPath: string, newName: string) => {
       assertSafeEntryName(newName, 'name for rename');
-      const newPath = path.join(path.dirname(oldPath), newName);
-      if (isPathBlocked(oldPath, 'write')) {
-        throw new Error(
-          `Access denied: Cannot rename protected path: ${oldPath}`
-        );
+      const { absolutePath: oldAbsolute } = await resolveOrThrow(
+        rootId,
+        relativeOldPath,
+        'write'
+      );
+      const newAbsolute = path.join(path.dirname(oldAbsolute), newName);
+      // Re-resolve the new path through the registry to verify it still
+      // sits inside the approved root after the rename, and that it is
+      // not denylisted.
+      const newRelative = joinRelative(dirnameRelative(relativeOldPath), newName);
+      const verify = await resolveCapabilityPath(rootId, newRelative, 'write');
+      if (!verify.ok) {
+        throw new CapabilityError(verify.error);
       }
-      if (isPathBlocked(newPath, 'write')) {
-        throw new Error(
-          `Access denied: Cannot write to protected path: ${newPath}`
-        );
-      }
-      await rename(oldPath, newPath);
-      return newPath;
+      await renameFs(oldAbsolute, newAbsolute);
+      return newRelative;
     }
   );
 
   // ----------------------------------------------------------------- mkdir
 
-  ipcMain.handle('fs:mkdir', async (_event, dirPath: string) => {
-    if (isPathBlocked(dirPath, 'write')) {
-      throw new Error(
-        `Access denied: Cannot create directory at protected path: ${dirPath}`
-      );
+  ipcMain.handle(
+    'fs:mkdir',
+    async (_event, rootId: RootId, relativePath: string) => {
+      const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
+      await mkdirFs(absolutePath, { recursive: true });
+      return true;
     }
-    await mkdir(dirPath, { recursive: true });
-    return true;
-  });
+  );
 
   // ----------------------------------------------------------------- touch (create empty file)
 
-  ipcMain.handle('fs:touch', async (_event, filePath: string) => {
-    if (isPathBlocked(filePath, 'write')) {
-      throw new Error(
-        `Access denied: Cannot create file at protected path: ${filePath}`
-      );
+  ipcMain.handle(
+    'fs:touch',
+    async (_event, rootId: RootId, relativePath: string) => {
+      const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
+      await writeFile(absolutePath, '', 'utf-8');
+      return true;
     }
-    await writeFile(filePath, '', 'utf-8');
-    return true;
-  });
+  );
 
   // --------------------------------------------------------------- watch
 
-  ipcMain.handle('fs:watch-start', (event, dirPath: string) => {
-    if (isPathBlocked(dirPath, 'read')) {
-      throw new Error(
-        `Access denied: Cannot watch protected path: ${dirPath}`
+  ipcMain.handle(
+    'fs:watch-start',
+    async (event, rootId: RootId, relativePath: string = '') => {
+      const { absolutePath } = await resolveOrThrow(
+        rootId,
+        relativePath,
+        'read'
       );
-    }
-    // Stop any existing watcher on this path
-    const existingStop = watchers.get(dirPath);
-    if (existingStop) existingStop();
-
-    const watcher = watch(
-      dirPath,
-      { recursive: true },
-      (eventType, filename) => {
-        if (!event.sender.isDestroyed()) {
-          event.sender.send('fs:changed', { dirPath, eventType, filename });
-        }
+      // NUL is a delimiter the registry already rejects inside both
+      // `rootId` and absolute paths, so concatenating with `\0` gives
+      // a collision-free dedup key without any escaping ceremony.
+      const targetKey = `${rootId}\0${absolutePath}`;
+      const existingWatchId = watcherIdsByTarget.get(targetKey);
+      if (existingWatchId) {
+        stopWatcherById(existingWatchId);
       }
-    );
+      const watchId = randomUUID();
 
-    watchers.set(dirPath, () => watcher.close());
-    return dirPath;
-  });
+      const watcher = watch(
+        absolutePath,
+        { recursive: true },
+        (eventType, filename) => {
+          if (event.sender.isDestroyed()) return;
+          if (filename === null) {
+            // Some platforms (notably Linux inotify under load) drop the
+            // changed entry's name. Surface the watched subtree itself
+            // as the change so renderer consumers refresh the right
+            // scope — emitting `''` (project root) here would mis-route
+            // events when the renderer ever watches a subdirectory.
+            event.sender.send('fs:changed', {
+              rootId,
+              relativePath,
+              eventType,
+              filename: null,
+            });
+            return;
+          }
+          // The watcher reports filenames relative to the watched dir;
+          // convert to a path relative to the project root so the
+          // renderer always speaks the same coordinate space.
+          const fileName = String(filename);
+          const eventRelative = joinRelative(relativePath, fileName);
+          event.sender.send('fs:changed', {
+            rootId,
+            relativePath: eventRelative,
+            eventType,
+            filename: fileName,
+          });
+        }
+      );
+
+      watchers.set(watchId, {
+        rootId,
+        watchedPath: absolutePath,
+        targetKey,
+        stop: () => watcher.close(),
+      });
+      watcherIdsByTarget.set(targetKey, watchId);
+      return watchId;
+    }
+  );
 
   ipcMain.handle('fs:watch-stop', (_event, watchId: string) => {
-    const stop = watchers.get(watchId);
-    if (stop) {
-      stop();
-      watchers.delete(watchId);
-    }
+    stopWatcherById(watchId);
     return true;
   });
 }

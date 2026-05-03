@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { expect, test as base, type Locator, type Page } from '@playwright/test';
+import { expect, test as base, type Locator, type Page, type Route } from '@playwright/test';
 
 const repoRoot = process.cwd();
 const packageJson = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as {
@@ -9,6 +9,12 @@ const packageJson = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'),
 
 const SETTINGS_KEY = 'lingua-settings';
 const SNIPPETS_KEY = 'lingua-snippets';
+const LICENSE_SERVER_HOST = 'https://licenses.linguacode.dev';
+const LICENSE_SERVER_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization,content-type',
+};
 
 export const APP_VERSION = packageJson.version;
 export const DEV_LICENSE_TOKEN = process.env.LINGUA_DEV_LICENSE_TOKEN;
@@ -70,6 +76,96 @@ function trackConsoleErrors(page: Page): string[] {
   return errors;
 }
 
+function buildE2eDevice(deviceId: string) {
+  const now = Date.now();
+  return {
+    id: `device-${deviceId}`,
+    deviceId,
+    deviceName: 'E2E browser',
+    os: 'web-chromium',
+    surface: 'web',
+    activatedAt: now,
+    lastSeenAt: now,
+  };
+}
+
+async function fulfillLicenseJson(
+  route: Route,
+  body: unknown,
+  status = 200
+): Promise<void> {
+  await route.fulfill({
+    status,
+    contentType: 'application/json',
+    headers: LICENSE_SERVER_HEADERS,
+    body: JSON.stringify(body),
+  });
+}
+
+async function fulfillCorsPreflight(
+  route: Route
+): Promise<boolean> {
+  if (route.request().method() !== 'OPTIONS') return false;
+  await route.fulfill({
+    status: 204,
+    headers: LICENSE_SERVER_HEADERS,
+  });
+  return true;
+}
+
+async function installLicenseServerMock(page: Page): Promise<void> {
+  await page.route(`${LICENSE_SERVER_HOST}/licenses/status**`, async route => {
+    if (await fulfillCorsPreflight(route)) return;
+
+    const url = new URL(route.request().url());
+    const deviceId = url.searchParams.get('deviceId') ?? 'e2e-device';
+    const devices = { desktop: [], web: [buildE2eDevice(deviceId)] };
+    await fulfillLicenseJson(route, {
+      ok: true,
+      licenseId: 'lic_e2e',
+      status: 'active',
+      tier: 'pro',
+      expiresAt: null,
+      supportWindowEndsAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      devices,
+      deviceLimit: { desktop: 3, web: 3 },
+      deviceRegistered: true,
+    });
+  });
+
+  await page.route(`${LICENSE_SERVER_HOST}/licenses/activate`, async route => {
+    if (await fulfillCorsPreflight(route)) return;
+
+    let input: { deviceId?: string } = {};
+    try {
+      input = route.request().postDataJSON() as { deviceId?: string };
+    } catch {
+      input = {};
+    }
+    const deviceId = input.deviceId ?? 'e2e-device';
+    await fulfillLicenseJson(route, {
+      ok: true,
+      licenseId: 'lic_e2e',
+      activated: true,
+      idempotent: false,
+      devices: { desktop: [], web: [buildE2eDevice(deviceId)] },
+      deviceLimit: { desktop: 3, web: 3 },
+    });
+  });
+
+  await page.route(`${LICENSE_SERVER_HOST}/licenses/devices/remove`, async route => {
+    if (await fulfillCorsPreflight(route)) return;
+
+    await fulfillLicenseJson(route, {
+      ok: true,
+      licenseId: 'lic_e2e',
+      removed: true,
+      devices: { desktop: [], web: [] },
+      deviceLimit: { desktop: 3, web: 3 },
+    });
+  });
+}
+
 /**
  * Extended Playwright test fixture that fails any test which produces a
  * console error or page error. Every integration test in this repo runs
@@ -78,6 +174,10 @@ function trackConsoleErrors(page: Page): string[] {
  * i18next missing-key warnings, etc.).
  */
 export const test = base.extend<{ consoleErrors: string[] }>({
+  page: async ({ page }, use) => {
+    await installLicenseServerMock(page);
+    await use(page);
+  },
   consoleErrors: [
     async ({ page }, use) => {
       const errors = trackConsoleErrors(page);
@@ -206,6 +306,17 @@ export async function openSettings(page: Page): Promise<void> {
   ).toBeVisible();
 }
 
+type SettingsTabId = 'general' | 'appearance' | 'editor' | 'environment' | 'account';
+
+export async function openSettingsTab(
+  page: Page,
+  tabId: SettingsTabId
+): Promise<void> {
+  const tab = page.getByTestId(`settings-tab-${tabId}`);
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+}
+
 export async function closeSettings(page: Page): Promise<void> {
   const settingsHeading = page.getByRole('heading', {
     name: /tune the shell, editor, and runtime defaults|ajusta el shell, el editor y los valores predeterminados del entorno/i,
@@ -299,6 +410,9 @@ export async function applyDevLicense(
   page: Page,
   expectedStatus: RegExp | string
 ): Promise<void> {
+  if ((await page.getByTestId('license-input').count()) === 0) {
+    await openSettingsTab(page, 'account');
+  }
   await page
     .getByRole('textbox', { name: /paste a license token|pega un token de licencia/i })
     .fill(DEV_LICENSE_TOKEN);
@@ -308,6 +422,9 @@ export async function applyDevLicense(
 }
 
 export async function clearLicense(page: Page): Promise<void> {
+  if ((await page.getByTestId('license-clear').count()) === 0) {
+    await openSettingsTab(page, 'account');
+  }
   await page.getByTestId('license-clear').click();
   await expect(page.getByTestId('license-status-pill')).toContainText(/Free|Gratis/i);
 }

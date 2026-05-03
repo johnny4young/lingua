@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProjectSearchStore } from '@/stores/projectSearchStore';
+import i18next from 'i18next';
 
 const mockSearchInFiles = vi.fn();
 
@@ -19,7 +20,7 @@ describe('projectSearchStore', () => {
     mockSearchInFiles.mockReset();
     useProjectSearchStore.setState({
       query: '',
-      rootPath: null,
+      rootId: null,
       status: 'idle',
       results: [],
       totalMatches: 0,
@@ -74,6 +75,26 @@ describe('projectSearchStore', () => {
     const state = useProjectSearchStore.getState();
     expect(state.status).toBe('error');
     expect(state.error).toBe('ipc disconnected');
+  });
+
+  it('maps capability errors through the active locale instead of exposing raw IPC codes', async () => {
+    const previousLanguage = i18next.language;
+    await i18next.changeLanguage('es');
+    try {
+      mockSearchInFiles.mockRejectedValue(
+        new Error('Filesystem capability error: unknown-root')
+      );
+
+      await useProjectSearchStore.getState().search('/project', 'foo');
+
+      const state = useProjectSearchStore.getState();
+      expect(state.status).toBe('error');
+      expect(state.error).toBe(
+        'Esta carpeta del proyecto ya no está autorizada. Vuelve a abrir la carpeta para continuar.'
+      );
+    } finally {
+      await i18next.changeLanguage(previousLanguage);
+    }
   });
 
   it('drops stale responses when a newer query has already started', async () => {
@@ -137,6 +158,6 @@ describe('projectSearchStore', () => {
     expect(state.query).toBe('');
     expect(state.status).toBe('idle');
     expect(state.results).toEqual([]);
-    expect(state.rootPath).toBeNull();
+    expect(state.rootId).toBeNull();
   });
 });

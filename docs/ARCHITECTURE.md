@@ -92,17 +92,17 @@ sequenceDiagram
     Preload->>Main: fs:select-directory
     Main->>Native: dialog.showOpenDialog()
     Native-->>Main: chosen directory
-    Main-->>Preload: dirPath
-    Preload-->>Store: dirPath
+    Main-->>Preload: rootId + rootPath
+    Preload-->>Store: rootId + rootPath
 
-    Store->>Preload: readdir(root)
+    Store->>Preload: readdir(rootId, '')
     Preload->>Main: fs:readdir
     Main->>Native: readdir(...)
     Native-->>Main: entries
     Main-->>Preload: filtered/sorted entries
     Preload-->>Store: root nodes
 
-    Store->>Preload: watchStart(root)
+    Store->>Preload: watchStart(rootId, '')
     Preload->>Main: fs:watch-start
     Main->>Native: fs.watch(root, recursive)
     Main-->>Preload: watchId
@@ -118,7 +118,8 @@ sequenceDiagram
 Current behavior:
 
 - opens the native directory picker with Electron's `createDirectory` capability enabled
-- delegates the actual open work to `openProject(dirPath)`
+- receives a main-owned `{ rootId, rootPath }` capability for the picked directory
+- activates that root directly instead of re-opening a path string
 - renames the visible project label to the chosen directory basename
 
 Important nuance:
@@ -132,10 +133,10 @@ This is the central lifecycle transition.
 
 It does five important things:
 
-1. Resolves the target root path.
-2. Stops any previous watcher via `watchStop(watchId)`.
-3. Reads the root directory with `readdir`.
-4. Starts a new watcher with `watchStart(rootPath)`.
+1. Mints or re-mints a root capability via `selectDirectory()` or `reopenRoot(rootPath)`.
+2. Reads the root directory with `readdir(rootId, '')`.
+3. Starts a new watcher with `watchStart(rootId, '')`.
+4. Stops and revokes the previous project root only after the new root loads.
 5. Replaces `currentProject`, `nodes`, `watchId`, and updates `recentProjects`.
 
 Technical reason for doing all of this in one action:
@@ -239,17 +240,19 @@ Most file operations use `invoke/handle` because they are command-like and need 
 
 | Preload method                  | IPC channel           | Main responsibility                                |
 | ------------------------------- | --------------------- | -------------------------------------------------- |
-| `selectDirectory()`             | `fs:select-directory` | open native directory picker                       |
-| `selectFile()`                  | `fs:select-file`      | open native file picker                            |
-| `readdir(dirPath)`              | `fs:readdir`          | list entries, filter hidden items, sort dirs first |
-| `stat(filePath)`                | `fs:stat`             | return metadata                                    |
-| `read(filePath)`                | `fs:read`             | safe read with path checks                         |
-| `write(filePath, content)`      | `fs:write`            | safe write                                         |
-| `delete(filePath, isDirectory)` | `fs:delete`           | guarded delete with confirmation dialog            |
-| `rename(oldPath, newName)`      | `fs:rename`           | validated rename inside the same parent            |
-| `mkdir(dirPath)`                | `fs:mkdir`            | safe directory creation                            |
-| `touch(filePath)`               | `fs:touch`            | create empty file                                  |
-| `watchStart(dirPath)`           | `fs:watch-start`      | create native watcher                              |
+| `selectDirectory()`             | `fs:select-directory` | open native directory picker and mint a rootId     |
+| `selectFile()`                  | `fs:select-file`      | open native file picker and mint a parent rootId   |
+| `reopenRoot(rootPath)`          | `fs:reopen-root`      | re-mint a rootId for a persisted display path      |
+| `revokeRoot(rootId)`            | `fs:revoke-root`      | release a process-scoped root capability           |
+| `readdir(rootId, relativePath)` | `fs:readdir`          | list entries, filter hidden items, sort dirs first |
+| `stat(rootId, relativePath)`    | `fs:stat`             | return metadata                                    |
+| `read(rootId, relativePath)`    | `fs:read`             | safe read inside the approved root                 |
+| `write(rootId, relativePath, content)` | `fs:write`     | safe write inside the approved root                |
+| `delete(rootId, relativePath, isDirectory)` | `fs:delete` | guarded delete with confirmation dialog     |
+| `rename(rootId, oldRelativePath, newName)` | `fs:rename` | validated rename inside the same parent      |
+| `mkdir(rootId, relativePath)`   | `fs:mkdir`            | safe directory creation                            |
+| `touch(rootId, relativePath)`   | `fs:touch`            | create empty file                                  |
+| `watchStart(rootId, relativePath)` | `fs:watch-start`   | create native watcher with an opaque watchId       |
 | `watchStop(watchId)`            | `fs:watch-stop`       | close native watcher                               |
 
 ### Event-style IPC
@@ -261,7 +264,7 @@ The one push-style channel in this architecture is:
 Flow:
 
 1. The main process listens with `fs.watch(...)`.
-2. When Node emits an event, the main process sends `fs:changed` back to the originating renderer.
+2. When Node emits an event, the main process sends `fs:changed` back to the originating renderer with `{ rootId, relativePath, eventType, filename }`.
 3. The preload bridge exposes that as `window.lingua.fs.onChanged(callback)`.
 4. The renderer hook decides whether to refresh the active project tree.
 

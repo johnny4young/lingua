@@ -17,6 +17,7 @@ import {
   expectNoticeContains,
   gotoApp,
   openSettings,
+  openSettingsTab,
   seedSession,
   test,
 } from './licenseWeb.helpers';
@@ -29,21 +30,28 @@ test.describe('Settings — structural tour', () => {
     await gotoApp(page);
     await openSettings(page);
 
-    const headings = [
-      'About',
-      'Appearance',
-      'Layout',
-      'Updates',
-      'Editor',
-      'License',
-      'Privacy',
-      'Environment variables',
-      'Execution history',
-      'Plugins',
-    ];
-    for (const heading of headings) {
-      await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
-    }
+    await expect(page.getByRole('heading', { name: 'About', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Updates', exact: true })).toBeVisible();
+
+    await openSettingsTab(page, 'appearance');
+    await expect(page.getByRole('heading', { name: 'Appearance', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Layout', exact: true })).toBeVisible();
+
+    await openSettingsTab(page, 'editor');
+    await expect(page.getByRole('heading', { name: 'Editor', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Execution history', exact: true })
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plugins', exact: true })).toBeVisible();
+
+    await openSettingsTab(page, 'environment');
+    await expect(
+      page.getByRole('heading', { name: 'Environment variables', exact: true })
+    ).toBeVisible();
+
+    await openSettingsTab(page, 'account');
+    await expect(page.getByRole('heading', { name: 'License', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Privacy', exact: true })).toBeVisible();
   });
 });
 
@@ -56,9 +64,9 @@ test.describe('Settings — Updates section (web honest-copy)', () => {
     await expect(
       page.getByText('Automatic updates are not available in the web version.')
     ).toBeVisible();
-    // The "Not available in this build" status is the deterministic anchor
+    // The "Unavailable" status is the deterministic anchor
     // for the locked state — `updates.state.unavailable` in i18n.
-    await expect(page.getByText('Not available in this build')).toBeVisible();
+    await expect(page.getByText('Unavailable')).toBeVisible();
   });
 });
 
@@ -67,6 +75,7 @@ test.describe('Settings — Privacy section', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
+    await openSettingsTab(page, 'account');
 
     // Seed writes telemetryConsent = 'declined' so this state is the baseline.
     await expect(page.getByTestId('telemetry-status')).toContainText(
@@ -100,6 +109,7 @@ test.describe('Settings — Environment variables', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
+    await openSettingsTab(page, 'environment');
 
     const global = page.getByTestId('env-vars-global-region');
     await global.getByTestId('env-vars-key-input').fill('FOO_BAR');
@@ -115,6 +125,7 @@ test.describe('Settings — Environment variables', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
+    await openSettingsTab(page, 'environment');
 
     const global = page.getByTestId('env-vars-global-region');
     await global.getByTestId('env-vars-key-input').fill('DUPE');
@@ -136,6 +147,7 @@ test.describe('Settings — Environment variables', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
+    await openSettingsTab(page, 'environment');
 
     const global = page.getByTestId('env-vars-global-region');
     await global.getByTestId('env-vars-value-input').fill('orphan');
@@ -149,7 +161,7 @@ test.describe('Settings — Editor section', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
-    await page.getByRole('tab', { name: 'Editor' }).click();
+    await openSettingsTab(page, 'editor');
 
     const vimToggle = page.getByRole('switch', { name: 'Vim mode' });
     await expect(vimToggle).toHaveAttribute('aria-checked', 'false');
@@ -173,6 +185,7 @@ test.describe('Settings — Editor section', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
+    await openSettingsTab(page, 'editor');
 
     // The preview always renders the live font-family the editor will use.
     await expect(page.getByTestId('editor-font-preview')).toBeVisible();
@@ -184,6 +197,7 @@ test.describe('Settings — License flows', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
+    await openSettingsTab(page, 'account');
 
     await applyDevLicense(page, 'Active — Pro');
     await expectTier(page, 'PRO');
@@ -204,6 +218,7 @@ test.describe('Settings — License flows', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
+    await openSettingsTab(page, 'account');
 
     await page
       .getByRole('textbox', { name: /paste a license token/i })
@@ -235,9 +250,9 @@ test.describe('Settings persistence', () => {
     await gotoApp(page);
 
     await openSettings(page);
-    await page.getByRole('tab', { name: 'Editor' }).click();
+    await openSettingsTab(page, 'editor');
     await page.getByRole('switch', { name: 'Vim mode' }).click();
-    await page.getByRole('tab', { name: 'Environment' }).click();
+    await openSettingsTab(page, 'environment');
 
     const global = page.getByTestId('env-vars-global-region');
     await global.getByTestId('env-vars-key-input').fill('PERSIST');
@@ -249,12 +264,12 @@ test.describe('Settings persistence', () => {
     await page.reload();
     await openSettings(page);
 
-    await page.getByRole('tab', { name: 'Editor' }).click();
+    await openSettingsTab(page, 'editor');
     await expect(page.getByRole('switch', { name: 'Vim mode' })).toHaveAttribute(
       'aria-checked',
       'true'
     );
-    await page.getByRole('tab', { name: 'Environment' }).click();
+    await openSettingsTab(page, 'environment');
     await expect(page.getByTestId('env-vars-global-region')).toContainText('PERSIST');
   });
 });

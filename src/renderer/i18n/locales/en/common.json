@@ -179,6 +179,8 @@
   "executionHistory.replay.noSnapshot": "No code snapshot was captured for this entry.",
   "executionHistory.replay.openFailed": "Could not open a {{language}} replay tab.",
   "executionHistory.replay.running": "Wait for the current run to finish before replaying a history entry.",
+  "fs.error.unknownRoot": "This project root is no longer authorized. Reopen the folder to continue.",
+  "fs.error.escapesRoot": "Cannot access a path outside the open project.",
   "executionHistory.palette.replay.label": "Replay {{language}} run · {{status}} · {{duration}}",
   "executionHistory.palette.replay.description": "Open a new tab with the captured code from this run and execute it. Does not append a new history entry.",
   "executionHistory.compare.checkbox.aria": "Select this {{language}} run for comparison",

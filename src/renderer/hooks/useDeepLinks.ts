@@ -3,6 +3,7 @@ import { createDefaultTab, useEditorStore } from '../stores/editorStore';
 import { useSnippetsStore } from '../stores/snippetsStore';
 import type { AppOverlay } from './useGlobalShortcuts';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
+import { parentDirOf } from '../utils/filePath';
 import type { DeepLinkTarget } from '../../shared/deepLinks';
 
 function fileNameFromPath(filePath: string): string {
@@ -23,7 +24,23 @@ export function useDeepLinks({ openOverlay }: UseDeepLinksOptions): boolean {
       if (target.kind === 'open-file') {
         const name = fileNameFromPath(target.filePath);
         const language = resolveFileLanguageOrPlaintext(name);
-        await useEditorStore.getState().openFile(target.filePath, name, language);
+        // RL-077 — mint a capability for the file's parent directory
+        // and open under the new contract. Re-mint failures (path
+        // missing, denylisted, not a directory) just skip the open;
+        // the user-visible feedback is no tab appearing.
+        const { parent, basename } = parentDirOf(target.filePath);
+        const reopen = await window.lingua.fs.reopenRoot(parent);
+        if (!reopen.ok) {
+          console.warn(
+            '[deep-links] reopenRoot rejected target',
+            target.filePath,
+            reopen.error
+          );
+          return;
+        }
+        await useEditorStore
+          .getState()
+          .openFile(reopen.rootId, basename, name, language, target.filePath);
         return;
       }
 

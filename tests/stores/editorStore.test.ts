@@ -59,8 +59,12 @@ describe('editorStore', () => {
           fs: {
             read: vi.fn().mockResolvedValue('file content'),
             write: vi.fn().mockResolvedValue(true),
-            selectFile: vi.fn().mockResolvedValue(null),
-            saveDialog: vi.fn().mockResolvedValue(null),
+            selectFile: vi.fn().mockResolvedValue({ canceled: true }),
+            saveDialog: vi.fn().mockResolvedValue({ canceled: true }),
+            reopenRoot: vi
+              .fn()
+              .mockResolvedValue({ ok: false, error: 'not-found' }),
+            revokeRoot: vi.fn().mockResolvedValue(true),
           },
           confirmCloseTab: vi.fn().mockResolvedValue(2), // Cancel by default
         },
@@ -176,27 +180,90 @@ describe('editorStore', () => {
 
   describe('openFileFromDisk', () => {
     it('should do nothing if user cancels the file picker', async () => {
-      (window.lingua.fs.selectFile as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+      (window.lingua.fs.selectFile as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: true,
+      });
 
       await useEditorStore.getState().openFileFromDisk();
       expect(useEditorStore.getState().tabs).toHaveLength(0);
     });
 
     it('should open a file selected from the picker', async () => {
-      (window.lingua.fs.selectFile as ReturnType<typeof vi.fn>).mockResolvedValue('/test/hello.ts');
+      (window.lingua.fs.selectFile as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-1',
+        rootPath: '/test',
+        fileRelativePath: 'hello.ts',
+        fileName: 'hello.ts',
+        content: 'file content',
+      });
 
       await useEditorStore.getState().openFileFromDisk();
 
       const { tabs } = useEditorStore.getState();
       expect(tabs).toHaveLength(1);
       expect(tabs[0].filePath).toBe('/test/hello.ts');
+      expect(tabs[0].rootId).toBe('root-1');
+      expect(tabs[0].relativePath).toBe('hello.ts');
       expect(tabs[0].name).toBe('hello.ts');
       expect(tabs[0].language).toBe('typescript');
       expect(tabs[0].content).toBe('file content');
     });
 
+    it('builds a sane display path for web single-file capabilities', async () => {
+      (window.lingua.fs.selectFile as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-web-single',
+        rootPath: '/',
+        fileRelativePath: 'hello.ts',
+        fileName: 'hello.ts',
+        content: 'file content',
+      });
+
+      await useEditorStore.getState().openFileFromDisk();
+
+      const { tabs } = useEditorStore.getState();
+      expect(tabs).toHaveLength(1);
+      expect(tabs[0].filePath).toBe('/hello.ts');
+    });
+
+    it('activates an already-open file and revokes the newly minted picker root', async () => {
+      const existing: ReturnType<typeof createDefaultTab> = {
+        ...createDefaultTab('typescript'),
+        id: 'existing-tab',
+        name: 'hello.ts',
+        filePath: '/test/hello.ts',
+        rootId: 'root-existing',
+        relativePath: 'hello.ts',
+        content: 'old content',
+      };
+      useEditorStore.getState().addTab(existing);
+      (window.lingua.fs.selectFile as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-new',
+        rootPath: '/test',
+        fileRelativePath: 'hello.ts',
+        fileName: 'hello.ts',
+        content: 'new content',
+      });
+
+      await useEditorStore.getState().openFileFromDisk();
+
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs).toHaveLength(1);
+      expect(activeTabId).toBe('existing-tab');
+      expect(window.lingua.fs.revokeRoot).toHaveBeenCalledWith('root-new');
+    });
+
     it('should open unknown extensions in plaintext instead of forcing javascript', async () => {
-      (window.lingua.fs.selectFile as ReturnType<typeof vi.fn>).mockResolvedValue('/test/notes.txt');
+      (window.lingua.fs.selectFile as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-2',
+        rootPath: '/test',
+        fileRelativePath: 'notes.txt',
+        fileName: 'notes.txt',
+        content: 'just text',
+      });
 
       await useEditorStore.getState().openFileFromDisk();
 
@@ -221,7 +288,12 @@ describe('editorStore', () => {
     });
 
     it('should save and update tab identity on successful Save As', async () => {
-      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue('/saved/script.py');
+      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-save-1',
+        rootPath: '/saved',
+        fileRelativePath: 'script.py',
+      });
 
       const tab = createDefaultTab('python');
       useEditorStore.getState().addTab(tab);
@@ -231,14 +303,45 @@ describe('editorStore', () => {
 
       const { tabs } = useEditorStore.getState();
       expect(tabs[0].filePath).toBe('/saved/script.py');
+      expect(tabs[0].rootId).toBe('root-save-1');
+      expect(tabs[0].relativePath).toBe('script.py');
       expect(tabs[0].name).toBe('script.py');
       expect(tabs[0].language).toBe('python');
       expect(tabs[0].isDirty).toBe(false);
-      expect(window.lingua.fs.write).toHaveBeenCalledWith('/saved/script.py', 'print("saved")');
+      expect(window.lingua.fs.write).toHaveBeenCalledWith(
+        'root-save-1',
+        'script.py',
+        'print("saved")'
+      );
+    });
+
+    it('keeps only the file name when Save As returns a Windows root path', async () => {
+      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-save-win',
+        rootPath: 'C:\\saved',
+        fileRelativePath: 'script.py',
+      });
+
+      const tab = createDefaultTab('python');
+      useEditorStore.getState().addTab(tab);
+      useEditorStore.getState().updateContent(tab.id, 'print("saved")');
+
+      await useEditorStore.getState().saveActiveTabAs();
+
+      const { tabs } = useEditorStore.getState();
+      expect(tabs[0].filePath).toBe('C:\\saved\\script.py');
+      expect(tabs[0].name).toBe('script.py');
+      expect(tabs[0].language).toBe('python');
     });
 
     it('should keep unknown Save As targets in plaintext', async () => {
-      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue('/saved/notes.txt');
+      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-save-2',
+        rootPath: '/saved',
+        fileRelativePath: 'notes.txt',
+      });
 
       const tab = createDefaultTab('javascript');
       useEditorStore.getState().addTab(tab);
@@ -252,11 +355,91 @@ describe('editorStore', () => {
       expect(tabs[0].language).toBe('plaintext');
       expect(tabs[0].isDirty).toBe(false);
     });
+
+    it('revokes the previous tab-private root after Save As moves the tab to a new capability', async () => {
+      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-save-new',
+        rootPath: '/saved',
+        fileRelativePath: 'script.py',
+      });
+
+      const tab: ReturnType<typeof createDefaultTab> = {
+        ...createDefaultTab('python'),
+        filePath: '/old/script.py',
+        rootId: 'root-save-old',
+        relativePath: 'script.py',
+      };
+      useEditorStore.getState().addTab(tab);
+      useEditorStore.getState().updateContent(tab.id, 'print("moved")');
+
+      await useEditorStore.getState().saveActiveTabAs();
+
+      const { tabs } = useEditorStore.getState();
+      expect(tabs[0].rootId).toBe('root-save-new');
+      expect(window.lingua.fs.revokeRoot).toHaveBeenCalledWith('root-save-old');
+      expect(window.lingua.fs.revokeRoot).not.toHaveBeenCalledWith('root-save-new');
+    });
+
+    it('revokes a picker-minted Save As capability when the write fails', async () => {
+      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-save-fail',
+        rootPath: '/saved',
+        fileRelativePath: 'script.py',
+      });
+      (window.lingua.fs.write as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+
+      const tab = createDefaultTab('python');
+      useEditorStore.getState().addTab(tab);
+      useEditorStore.getState().updateContent(tab.id, 'print("not saved")');
+
+      await useEditorStore.getState().saveActiveTabAs();
+
+      expect(window.lingua.fs.revokeRoot).toHaveBeenCalledWith('root-save-fail');
+      expect(useEditorStore.getState().tabs[0].isDirty).toBe(true);
+    });
+
+    it('revokes a picker-minted Save As capability when formatting throws before write', async () => {
+      const { useSettingsStore } = await import('@/stores/settingsStore');
+      useSettingsStore.setState({ formatOnSave: true });
+      (window.lingua as unknown as {
+        format: { gofmt: ReturnType<typeof vi.fn> };
+      }).format = {
+        gofmt: vi.fn().mockRejectedValue(new Error('formatter crashed')),
+      };
+      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-format-fail',
+        rootPath: '/saved',
+        fileRelativePath: 'main.go',
+      });
+
+      try {
+        const tab = createDefaultTab('go');
+        useEditorStore.getState().addTab(tab);
+        useEditorStore.getState().updateContent(tab.id, 'package main');
+
+        await expect(useEditorStore.getState().saveActiveTabAs()).rejects.toThrow(
+          'formatter crashed'
+        );
+
+        expect(window.lingua.fs.write).not.toHaveBeenCalled();
+        expect(window.lingua.fs.revokeRoot).toHaveBeenCalledWith('root-format-fail');
+      } finally {
+        useSettingsStore.setState({ formatOnSave: false });
+      }
+    });
   });
 
   describe('saveActiveTab delegates to saveActiveTabAs for untitled tabs', () => {
     it('should open Save As when saving an untitled tab', async () => {
-      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue('/new/file.js');
+      (window.lingua.fs.saveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+        canceled: false,
+        rootId: 'root-save-untitled',
+        rootPath: '/new',
+        fileRelativePath: 'file.js',
+      });
 
       const tab = createDefaultTab('javascript');
       useEditorStore.getState().addTab(tab);
@@ -276,13 +459,19 @@ describe('editorStore', () => {
         const tab: ReturnType<typeof createDefaultTab> = {
           ...createDefaultTab('javascript'),
           filePath: '/tmp/demo.js',
+          rootId: 'root-fmt-1',
+          relativePath: 'demo.js',
         };
         useEditorStore.getState().addTab(tab);
         useEditorStore.getState().updateContent(tab.id, 'const  x=1\n');
 
         await useEditorStore.getState().saveActiveTab();
 
-        expect(window.lingua.fs.write).toHaveBeenCalledWith('/tmp/demo.js', 'const x = 1;\n');
+        expect(window.lingua.fs.write).toHaveBeenCalledWith(
+          'root-fmt-1',
+          'demo.js',
+          'const x = 1;\n'
+        );
         const { tabs } = useEditorStore.getState();
         expect(tabs[0]?.content).toBe('const x = 1;\n');
         expect(tabs[0]?.isDirty).toBe(false);
@@ -295,13 +484,19 @@ describe('editorStore', () => {
       const tab: ReturnType<typeof createDefaultTab> = {
         ...createDefaultTab('javascript'),
         filePath: '/tmp/raw.js',
+        rootId: 'root-raw',
+        relativePath: 'raw.js',
       };
       useEditorStore.getState().addTab(tab);
       useEditorStore.getState().updateContent(tab.id, 'const  x=1\n');
 
       await useEditorStore.getState().saveActiveTab();
 
-      expect(window.lingua.fs.write).toHaveBeenCalledWith('/tmp/raw.js', 'const  x=1\n');
+      expect(window.lingua.fs.write).toHaveBeenCalledWith(
+        'root-raw',
+        'raw.js',
+        'const  x=1\n'
+      );
     });
 
     it('falls back to the original content and pushes a status notice on parse errors', async () => {
@@ -313,13 +508,19 @@ describe('editorStore', () => {
         const tab: ReturnType<typeof createDefaultTab> = {
           ...createDefaultTab('json'),
           filePath: '/tmp/broken.json',
+          rootId: 'root-broken',
+          relativePath: 'broken.json',
         };
         useEditorStore.getState().addTab(tab);
         useEditorStore.getState().updateContent(tab.id, '{bad json');
 
         await useEditorStore.getState().saveActiveTab();
 
-        expect(window.lingua.fs.write).toHaveBeenCalledWith('/tmp/broken.json', '{bad json');
+        expect(window.lingua.fs.write).toHaveBeenCalledWith(
+          'root-broken',
+          'broken.json',
+          '{bad json'
+        );
         const notice = useUIStore.getState().statusNotice;
         expect(notice?.messageKey).toBe('editor.formatOnSave.parseError');
         expect(notice?.tone).toBe('error');
@@ -336,13 +537,19 @@ describe('editorStore', () => {
         const tab: ReturnType<typeof createDefaultTab> = {
           ...createDefaultTab('yaml'),
           filePath: '/tmp/data.yaml',
+          rootId: 'root-yaml',
+          relativePath: 'data.yaml',
         };
         useEditorStore.getState().addTab(tab);
         useEditorStore.getState().updateContent(tab.id, 'a:   1\nb:   2');
 
         await useEditorStore.getState().saveActiveTab();
 
-        expect(window.lingua.fs.write).toHaveBeenCalledWith('/tmp/data.yaml', 'a:   1\nb:   2');
+        expect(window.lingua.fs.write).toHaveBeenCalledWith(
+          'root-yaml',
+          'data.yaml',
+          'a:   1\nb:   2'
+        );
       } finally {
         useSettingsStore.setState({ formatOnSave: false });
       }
@@ -392,6 +599,8 @@ describe('editorStore', () => {
         const tab: ReturnType<typeof createDefaultTab> = {
           ...createDefaultTab('javascript'),
           filePath: '/tmp/close-me.js',
+          rootId: 'root-close',
+          relativePath: 'close-me.js',
         };
         useEditorStore.getState().addTab(tab);
         useEditorStore.getState().updateContent(tab.id, 'const  x=1\n');
@@ -399,7 +608,11 @@ describe('editorStore', () => {
         const closed = await useEditorStore.getState().closeTab(tab.id);
 
         expect(closed).toBe(true);
-        expect(window.lingua.fs.write).toHaveBeenCalledWith('/tmp/close-me.js', 'const x = 1;\n');
+        expect(window.lingua.fs.write).toHaveBeenCalledWith(
+          'root-close',
+          'close-me.js',
+          'const x = 1;\n'
+        );
         expect(useEditorStore.getState().tabs).toHaveLength(0);
       } finally {
         useSettingsStore.setState({ formatOnSave: false });
@@ -716,7 +929,9 @@ describe('editorStore', () => {
       useEditorStore.getState().addTab(createDefaultTab('javascript'));
       (window.lingua.fs.read as ReturnType<typeof vi.fn>).mockResolvedValue('print("hi")');
 
-      await useEditorStore.getState().openFile('/tmp/blocked.py', 'blocked.py', 'python');
+      await useEditorStore
+        .getState()
+        .openFile('root-blocked', 'blocked.py', 'blocked.py', 'python', '/tmp/blocked.py');
 
       expect(window.lingua.fs.read).not.toHaveBeenCalled();
       expect(useEditorStore.getState().tabs).toHaveLength(1);
@@ -748,7 +963,9 @@ describe('editorStore', () => {
       useEditorStore.getState().addTab(createDefaultTab('javascript'));
       mockTrackEvent.mockClear();
 
-      await useEditorStore.getState().openFile('/tmp/blocked.py', 'blocked.py', 'python');
+      await useEditorStore
+        .getState()
+        .openFile('root-blocked', 'blocked.py', 'blocked.py', 'python', '/tmp/blocked.py');
 
       expect(mockTrackEvent).toHaveBeenCalledWith(
         'feature.blocked',

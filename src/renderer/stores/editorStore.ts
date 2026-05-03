@@ -3,12 +3,14 @@ import type { EditorState, FileTab, Language } from '../types';
 import { getActiveAppLanguage } from '../i18n';
 import { defaultCodeForLanguage, extensionForLanguage } from '../utils/languageMeta';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
+import { joinAbsolute } from '../utils/filePath';
 import {
   formatSource,
   isFormatterSupported,
   type FormatterFailure,
 } from '../utils/formatters';
 import i18next from 'i18next';
+import { useProjectStore } from './projectStore';
 import { useRecentFilesStore } from './recentFilesStore';
 import { useSettingsStore } from './settingsStore';
 import { useUIStore } from './uiStore';
@@ -68,32 +70,70 @@ async function resolveFormattedContent(
 }
 
 function basename(filePath: string): string {
-  return filePath.split('/').pop() ?? filePath.split('\\').pop() ?? filePath;
+  return filePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? filePath;
 }
 
+/**
+ * RL-077 — write the tab to disk through the capability registry.
+ *
+ *   - If the tab already carries a `{ rootId, relativePath }` pair
+ *     and we are not in Save-As, write through that capability.
+ *   - Otherwise prompt the save dialog: main mints a fresh capability
+ *     bound to the parent directory of the chosen target, and we
+ *     write the file under that capability's relative path.
+ *
+ * `tab.filePath` is kept up to date as a display-only string for
+ * tooltips and session-store persistence, but is never sent to an IPC
+ * handler — every actual filesystem touch goes through `rootId`.
+ */
 async function persistTab(
   tab: FileTab,
   forceSaveAs = false
-): Promise<(FileTab & { filePath: string }) | null> {
-  const targetPath =
-    forceSaveAs || !tab.filePath
-      ? await window.lingua.fs.saveDialog(tab.name)
-      : tab.filePath;
+): Promise<
+  | (FileTab & { filePath: string; rootId: string; relativePath: string })
+  | null
+> {
+  let rootId: string | undefined = tab.rootId;
+  let relativePath: string | undefined = tab.relativePath;
+  let absolutePath: string | undefined = tab.filePath;
+  let mintedRootId: string | null = null;
 
-  if (!targetPath) {
+  const needsPicker = forceSaveAs || !rootId || !relativePath;
+  if (needsPicker) {
+    const result = await window.lingua.fs.saveDialog(tab.name);
+    if (result.canceled) return null;
+    rootId = result.rootId;
+    mintedRootId = result.rootId;
+    relativePath = result.fileRelativePath;
+    absolutePath = joinAbsolute(result.rootPath, result.fileRelativePath);
+  }
+
+  if (!rootId || !relativePath || !absolutePath) {
     return null;
   }
 
-  const name = basename(targetPath);
+  const name = basename(absolutePath);
   const language = resolveFileLanguageOrPlaintext(name);
-  const nextTab: FileTab & { filePath: string } = {
+  const nextTab: FileTab & { filePath: string; rootId: string; relativePath: string } = {
     ...tab,
-    filePath: targetPath,
+    filePath: absolutePath,
+    rootId,
+    relativePath,
     name,
     language,
   };
-  const content = await resolveFormattedContent(nextTab);
-  await window.lingua.fs.write(targetPath, content);
+  let content: string;
+  try {
+    content = await resolveFormattedContent(nextTab);
+    const wrote = await window.lingua.fs.write(rootId, relativePath, content);
+    if (!wrote) {
+      if (mintedRootId) await window.lingua.fs.revokeRoot(mintedRootId).catch(() => {});
+      return null;
+    }
+  } catch (error) {
+    if (mintedRootId) await window.lingua.fs.revokeRoot(mintedRootId).catch(() => {});
+    throw error;
+  }
 
   return {
     ...nextTab,
@@ -175,11 +215,28 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   removeTab: (id) =>
     set((state) => {
+      const target = state.tabs.find((t) => t.id === id);
       const tabs = state.tabs.filter((t) => t.id !== id);
       const activeTabId =
         state.activeTabId === id
           ? tabs[tabs.length - 1]?.id ?? null
           : state.activeTabId;
+      // RL-077 — revoke a tab-private capability when the last tab
+      // using it goes away. Project-tree opens share the active
+      // project's `rootId` (revoked centrally by `closeProject`), so
+      // we leave that one alone; single-file picker / deep-link /
+      // session-restore mints are unique per tab and would otherwise
+      // accumulate in main's registry until app shutdown.
+      if (target?.rootId) {
+        const stillUsed = tabs.some((t) => t.rootId === target.rootId);
+        const projectRootId =
+          useProjectStore.getState().currentProject?.rootId;
+        if (!stillUsed && target.rootId !== projectRootId) {
+          void window.lingua.fs
+            .revokeRoot(target.rootId)
+            .catch(() => {});
+        }
+      }
       return { tabs, activeTabId };
     }),
 
@@ -218,10 +275,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ),
     })),
 
-  openFile: async (filePath, name, language) => {
+  openFile: async (rootId, relativePath, name, language, displayPath) => {
     const { tabs } = get();
 
-    const existing = tabs.find((t) => t.filePath === filePath);
+    const existing = tabs.find(
+      (t) => t.rootId === rootId && t.relativePath === relativePath
+    );
     if (existing) {
       set({ activeTabId: existing.id });
       return;
@@ -241,7 +300,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return;
     }
 
-    const content = await window.lingua.fs.read(filePath);
+    const content = await window.lingua.fs.read(rootId, relativePath);
+    const filePath = displayPath ?? relativePath;
 
     const newTab: FileTab = {
       id: crypto.randomUUID(),
@@ -249,6 +309,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       language,
       content,
       isDirty: false,
+      rootId,
+      relativePath,
       filePath,
     };
 
@@ -261,11 +323,55 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   openFileFromDisk: async () => {
-    const filePath = await window.lingua.fs.selectFile();
-    if (!filePath) return;
-    const name = filePath.split('/').pop() ?? filePath.split('\\').pop() ?? 'file';
-    const language = resolveFileLanguageOrPlaintext(name);
-    await get().openFile(filePath, name, language);
+    const result = await window.lingua.fs.selectFile();
+    if (result.canceled) return;
+    const language = resolveFileLanguageOrPlaintext(result.fileName);
+    const { tabs } = get();
+    const filePath = joinAbsolute(result.rootPath, result.fileRelativePath);
+
+    const existing = tabs.find(
+      (t) =>
+        (t.rootId === result.rootId && t.relativePath === result.fileRelativePath) ||
+        t.filePath === filePath
+    );
+    if (existing) {
+      await window.lingua.fs.revokeRoot(result.rootId).catch(() => {});
+      set({ activeTabId: existing.id });
+      return;
+    }
+
+    if (!withinTabBudget(currentEffectiveTier(), tabs.length + 1)) {
+      await window.lingua.fs.revokeRoot(result.rootId).catch(() => {});
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: i18next.t('upsell.feature.extraTabs'),
+      });
+      void trackEvent('feature.blocked', {
+        entitlement: 'tabs',
+        tier: currentEffectiveTier(),
+      });
+      return;
+    }
+
+    const newTab: FileTab = {
+      id: crypto.randomUUID(),
+      name: result.fileName,
+      language,
+      content: result.content,
+      isDirty: false,
+      rootId: result.rootId,
+      relativePath: result.fileRelativePath,
+      filePath,
+    };
+
+    set((state) => ({
+      tabs: [...state.tabs, newTab],
+      activeTabId: newTab.id,
+    }));
+
+    useRecentFilesStore
+      .getState()
+      .addRecentFile({ filePath, name: result.fileName, language });
   },
 
   saveActiveTab: async () => {
@@ -286,12 +392,23 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!tab) return false;
 
     const previousPath = tab.filePath;
+    const previousRootId = tab.rootId;
     const savedTab = await persistTab(tab, forceSaveAs);
     if (!savedTab) return false;
 
     set((state) => ({
       tabs: state.tabs.map((t) => (t.id === id ? savedTab : t)),
     }));
+
+    if (previousRootId && previousRootId !== savedTab.rootId) {
+      const rootStillUsed = tabs.some(
+        (t) => t.id !== id && t.rootId === previousRootId
+      );
+      const projectRootId = useProjectStore.getState().currentProject?.rootId;
+      if (!rootStillUsed && previousRootId !== projectRootId) {
+        await window.lingua.fs.revokeRoot(previousRootId).catch(() => {});
+      }
+    }
 
     if (forceSaveAs || previousPath !== savedTab.filePath) {
       useRecentFilesStore.getState().addRecentFile({

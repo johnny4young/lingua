@@ -21,6 +21,7 @@ import {
   gotoApp,
   openConsole,
   openSettings,
+  openSettingsTab,
   openSnippets,
   seedSession,
   test,
@@ -103,6 +104,7 @@ test.describe('Free tier gates', () => {
 
   test('theme pack selector marks extended packs PRO and reverts on click', async ({ page }) => {
     await openSettings(page);
+    await openSettingsTab(page, 'appearance');
 
     const select = page.getByTestId('theme-pack-select');
     const options = await select.locator('option').allTextContents();
@@ -121,6 +123,7 @@ test.describe('Free tier gates', () => {
     page,
   }) => {
     await openSettings(page);
+    await openSettingsTab(page, 'editor');
 
     const select = page.getByTestId('editor-font-family-select');
     const options = await select.locator('option').allTextContents();
@@ -135,6 +138,7 @@ test.describe('Free tier gates', () => {
 
   test('execution history Settings row exposes an unlock button (no Clear)', async ({ page }) => {
     await openSettings(page);
+    await openSettingsTab(page, 'editor');
     await expect(page.getByTestId('execution-history-unlock')).toBeVisible();
     await expect(page.getByTestId('execution-history-clear')).toHaveCount(0);
 
@@ -163,6 +167,7 @@ test.describe('Free tier gates', () => {
 
   test('license status pill reads "Free plan" and offers no clear affordance', async ({ page }) => {
     await openSettings(page);
+    await openSettingsTab(page, 'account');
     await expect(page.getByTestId('license-status-pill')).toContainText('Free plan');
     await expect(page.getByTestId('license-clear')).toHaveCount(0);
 
@@ -173,6 +178,7 @@ test.describe('Free tier gates', () => {
 
   test('invalid license token surfaces the sanitized error copy', async ({ page }) => {
     await openSettings(page);
+    await openSettingsTab(page, 'account');
 
     await page
       .getByRole('textbox', { name: /paste a license token/i })
@@ -190,10 +196,12 @@ test.describe('Free tier gates', () => {
 
   test('consecutive upsells queue cleanly (theme then font)', async ({ page }) => {
     await openSettings(page);
+    await openSettingsTab(page, 'appearance');
     await page.getByTestId('theme-pack-select').selectOption('solarized-daylight');
     await expectNoticeContains(page, 'additional theme packs');
     await dismissNotice(page);
 
+    await openSettingsTab(page, 'editor');
     await page.getByTestId('editor-font-family-select').selectOption('Menlo, monospace');
     await expectNoticeContains(page, 'additional editor fonts');
     await closeSettings(page);

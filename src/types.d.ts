@@ -107,12 +107,13 @@ type FormatIpcResult =
 interface FsDirEntry {
   name: string;
   isDirectory: boolean;
-  path: string;
+  /** Path relative to the capability's project root. */
+  relativePath: string;
 }
 
 interface FsIndexedFile {
   name: string;
-  path: string;
+  /** Path relative to the capability's project root. */
   relativePath: string;
 }
 
@@ -137,7 +138,7 @@ interface FsSearchMatch {
 }
 
 interface FsSearchResult {
-  filePath: string;
+  /** Path relative to the capability's project root. */
   relativePath: string;
   matches: FsSearchMatch[];
 }
@@ -151,7 +152,10 @@ interface FsStatResult {
 }
 
 interface FsChangedEvent {
-  dirPath: string;
+  /** Capability id of the project root the watcher belongs to. */
+  rootId: string;
+  /** Path of the changed entry, relative to the capability's project root. */
+  relativePath: string;
   eventType: string;
   filename: string | null;
 }
@@ -355,24 +359,85 @@ interface LinguaAPI {
   };
 
   fs: {
-    selectDirectory: () => Promise<string | null>;
-    selectFile: () => Promise<string | null>;
-    saveDialog: (defaultName: string, defaultDir?: string) => Promise<string | null>;
-    readdir: (dirPath: string) => Promise<FsDirEntry[]>;
-    listAllFiles: (rootPath: string) => Promise<FsIndexedFile[]>;
+    /**
+     * RL-077 capability-based sandbox: pickers mint an opaque `rootId`
+     * tied to the directory the user explicitly approved. Subsequent
+     * filesystem operations supply `{ rootId, relativePath }` instead
+     * of absolute paths so a compromised renderer cannot operate on a
+     * path main has not authorized.
+     */
+    selectDirectory: () => Promise<
+      | { canceled: false; rootId: string; rootPath: string }
+      | { canceled: true }
+    >;
+    selectFile: () => Promise<
+      | {
+          canceled: false;
+          rootId: string;
+          rootPath: string;
+          fileRelativePath: string;
+          fileName: string;
+          content: string;
+        }
+      | { canceled: true }
+    >;
+    saveDialog: (
+      defaultName: string,
+      defaultDir?: string
+    ) => Promise<
+      | {
+          canceled: false;
+          rootId: string;
+          rootPath: string;
+          fileRelativePath: string;
+        }
+      | { canceled: true }
+    >;
+    /**
+     * Re-mint a capability for an absolute root path the user
+     * previously approved (used by the project-store rehydrate flow
+     * and the session-store tab restore so users do not re-pick on
+     * every relaunch).
+     */
+    reopenRoot: (
+      absolutePath: string
+    ) => Promise<
+      | { ok: true; rootId: string; rootPath: string }
+      | { ok: false; error: 'blocked' | 'not-found' | 'not-a-directory' }
+    >;
+    revokeRoot: (rootId: string) => Promise<boolean>;
+    readdir: (rootId: string, relativePath: string) => Promise<FsDirEntry[]>;
+    listAllFiles: (
+      rootId: string,
+      relativePath?: string
+    ) => Promise<FsIndexedFile[]>;
     searchInFiles: (
-      rootPath: string,
+      rootId: string,
+      relativePath: string,
       query: string,
       options?: FsSearchOptions
     ) => Promise<FsSearchResult[]>;
-    stat: (filePath: string) => Promise<FsStatResult>;
-    read: (filePath: string) => Promise<string>;
-    write: (filePath: string, content: string) => Promise<boolean>;
-    delete: (filePath: string, isDirectory?: boolean, language?: string) => Promise<boolean>;
-    rename: (oldPath: string, newName: string) => Promise<string>;
-    mkdir: (dirPath: string) => Promise<boolean>;
-    touch: (filePath: string) => Promise<boolean>;
-    watchStart: (dirPath: string) => Promise<string>;
+    stat: (rootId: string, relativePath: string) => Promise<FsStatResult>;
+    read: (rootId: string, relativePath: string) => Promise<string>;
+    write: (
+      rootId: string,
+      relativePath: string,
+      content: string
+    ) => Promise<boolean>;
+    delete: (
+      rootId: string,
+      relativePath: string,
+      isDirectory?: boolean,
+      language?: string
+    ) => Promise<boolean>;
+    rename: (
+      rootId: string,
+      relativeOldPath: string,
+      newName: string
+    ) => Promise<string>;
+    mkdir: (rootId: string, relativePath: string) => Promise<boolean>;
+    touch: (rootId: string, relativePath: string) => Promise<boolean>;
+    watchStart: (rootId: string, relativePath?: string) => Promise<string>;
     watchStop: (watchId: string) => Promise<boolean>;
     onChanged: (callback: (event: FsChangedEvent) => void) => () => void;
   };
