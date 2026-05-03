@@ -1,8 +1,16 @@
 import type { Language } from '../types';
 import { languageFromPath } from '../utils/language';
 
+/**
+ * RL-077 — Tree-node `path` is the relative path of this entry inside
+ * the active project root. The capability `rootId` lives on the
+ * project store; combining `currentProject.rootId` with `node.path`
+ * yields the `{ rootId, relativePath }` pair every IPC handler now
+ * requires. The empty string `''` represents the project root itself.
+ */
 export interface FileTreeNode {
   name: string;
+  /** Path relative to the current project root. */
   path: string;
   isDirectory: boolean;
   language?: Language;
@@ -10,17 +18,20 @@ export interface FileTreeNode {
   isExpanded?: boolean;
 }
 
+/**
+ * Join two relative path segments using the POSIX separator. Tree
+ * paths are always normalised to `/` regardless of the host OS so a
+ * persisted expansion key from one platform can rehydrate elsewhere.
+ */
 export function joinPath(base: string, name: string): string {
-  const separator = base.includes('\\') ? '\\' : '/';
-  return base.endsWith(separator) ? `${base}${name}` : `${base}${separator}${name}`;
+  if (base.length === 0) return name;
+  return base.endsWith('/') ? `${base}${name}` : `${base}/${name}`;
 }
 
-export function entriesToNodes(
-  entries: FsDirEntry[]
-): FileTreeNode[] {
+export function entriesToNodes(entries: FsDirEntry[]): FileTreeNode[] {
   return entries.map((entry) => ({
     name: entry.name,
-    path: entry.path,
+    path: entry.relativePath,
     isDirectory: entry.isDirectory,
     language: entry.isDirectory ? undefined : languageFromPath(entry.name),
     children: undefined,
@@ -40,10 +51,11 @@ export function collectExpandedPaths(nodes: FileTreeNode[]): string[] {
 }
 
 export async function loadNodesForDirectory(
-  dirPath: string,
+  rootId: string,
+  relativePath: string,
   expandedPaths: ReadonlySet<string>
 ): Promise<FileTreeNode[]> {
-  const entries = await window.lingua.fs.readdir(dirPath);
+  const entries = await window.lingua.fs.readdir(rootId, relativePath);
   const nodes = entriesToNodes(entries);
 
   return Promise.all(
@@ -54,7 +66,7 @@ export async function loadNodesForDirectory(
 
       return {
         ...node,
-        children: await loadNodesForDirectory(node.path, expandedPaths),
+        children: await loadNodesForDirectory(rootId, node.path, expandedPaths),
         isExpanded: true,
       };
     })

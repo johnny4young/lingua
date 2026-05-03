@@ -73,7 +73,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 |----|-------|:------:|-----------------|
 | [`RL-059`](./PLAN.md#rl-059-license-key-infrastructure) | License-key infrastructure | `Partial` | Ed25519 verifier + Settings section + main-side IPC bridge with device id (Slice 0 shipped 2026-04-25). Remaining: Polar webhook + email delivery (now lives under `RL-061`). |
 | [`RL-063`](./PLAN.md#rl-063-download-landing-page-at-linguacodedev) | Download landing page at linguacode.dev | `Planned` | Static marketing page with OS-aware download + pricing. Re-scoped around the new `lingua-marketing` repo (BACKLOG entry, 2026-04-30) so the dedicated Astro+CF Pages site at `linguacode.dev` covers Home, Features, Pricing, Docs, and the "Go to app" link to `app.linguacode.dev`. |
-| [`RL-077`](./PLAN.md#rl-077-capability-based-filesystem-ipc-sandbox) | Capability-based filesystem IPC sandbox | `Partial` | Slice 1 shipped: `src/main/ipc/projectCapabilities.ts` registry (mint / lookup / revoke / `resolveCapabilityPath`) with `realpath` symlink-out defense, traversal / device-prefix / absolute-path rejection, denylist enforcement, malformed IPC-shape rejection, symlinked-root write-target support, and 17 unit tests pinning the contract. Slice 2 wires the registry into the 12 filesystem IPC handlers + 3 picker entry points + `fs:reopen-root` + `fs:revoke-root`, migrates the renderer (project store, file tree, Quick Open, project search, editor store, session store, deep-link handler, theme/shortcut preset atomic IPCs) and the web adapter mirror, and rewrites the existing fileSystem.test.ts + fs-adapter.test.ts suites against the new contract. |
 | [`RL-078`](./PLAN.md#rl-078-parent-owned-execution-timeouts-and-outputresource-limits) | Parent-owned execution timeouts + resource limits | `Planned` | Kill JS/TS/Python workers from the parent runner and cap output/result payloads. |
 | [`RL-079`](./PLAN.md#rl-079-trusted-native-execution-hardening-for-go-and-rust) | Trusted native execution hardening | `Planned` | Harden Go/Rust local toolchain execution with minimal env, mkdtemp, cleanup, output caps, and trusted-code warning. |
 | [`RL-083`](./PLAN.md#rl-083-offline-runtime-assets-and-strict-csp) | Offline runtime assets + strict CSP | `Planned` | Package/version runtime-critical assets, remove unnecessary remote imports, and enforce strict CSP. |
@@ -173,7 +172,7 @@ discoverability only.
 Value-per-day priority, skipping parked tickets. This is the order an
 agent should follow when §3's tiebreakers don't resolve.
 
-1. **Security launch hardening.** Start with `RL-077`, then `RL-078`, then `RL-079`, then `RL-083`. These are the first launch blockers because they reduce renderer-filesystem risk, worker hang risk, trusted native-execution ambiguity, and runtime/CDN/CSP risk before public distribution.
+1. **Security launch hardening.** `RL-077` is closed; continue with `RL-078`, then `RL-079`, then `RL-083`. These are the first launch blockers because they reduce worker hang risk, trusted native-execution ambiguity, and runtime/CDN/CSP risk before public distribution.
 2. **Launch blockers.** After the hardening set, continue with `RL-063` (linguacode.dev download page). `RL-061` shipped fully on 2026-04-30 (now in §6 archive). `RL-059` stays `Partial` only as the historical parent for verifier + bridge work now shipped.
 3. **Release, legal, and compliance readiness.** `RL-080`, `RL-081`, `RL-085`, and `RL-092` should land before a public launch announcement so packaged builds, update feeds, signing/notarization, source-available posture, privacy/security docs, third-party notices, dependency licensing, and release security sign-off agree.
 4. **Runtime/platform surface hardening.** `RL-084`, `RL-087`, and `RL-091` harden the local plugin model, watcher reliability, and backend operations after the core launch blockers are under control.
@@ -195,14 +194,14 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>41 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>42 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
 `RL-022`, `RL-028`, `RL-030`, `RL-034`, `RL-037`, `RL-038`, `RL-040`,
 `RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`,
 `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-067`, `RL-068`,
-`RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`.
+`RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`, `RL-077`.
 
 </details>
 

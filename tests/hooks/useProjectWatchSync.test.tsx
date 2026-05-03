@@ -48,8 +48,9 @@ describe('useProjectWatchSync', () => {
       currentProject: {
         id: '/proj',
         name: 'proj',
+        rootId: 'root-proj',
         rootPath: '/proj',
-        openedAt: Date.now(),
+        lastOpenedAt: Date.now(),
       },
       refreshTree: mockRefreshTree,
     });
@@ -77,8 +78,18 @@ describe('useProjectWatchSync', () => {
     expect(emitChange).toBeTypeOf('function');
 
     await act(async () => {
-      emitChange?.({ dirPath: '/proj', eventType: 'rename', filename: 'a.ts' });
-      emitChange?.({ dirPath: '/proj', eventType: 'change', filename: 'b.ts' });
+      emitChange?.({
+        rootId: 'root-proj',
+        relativePath: 'a.ts',
+        eventType: 'rename',
+        filename: 'a.ts',
+      });
+      emitChange?.({
+        rootId: 'root-proj',
+        relativePath: 'b.ts',
+        eventType: 'change',
+        filename: 'b.ts',
+      });
     });
 
     await act(
@@ -102,7 +113,12 @@ describe('useProjectWatchSync', () => {
     render(<WatchSyncHarness />);
     await Promise.resolve();
 
-    emitChange?.({ dirPath: '/other', eventType: 'rename', filename: 'a.ts' });
+    emitChange?.({
+      rootId: 'root-other',
+      relativePath: 'a.ts',
+      eventType: 'rename',
+      filename: 'a.ts',
+    });
     await new Promise((resolve) =>
       window.setTimeout(resolve, PROJECT_WATCH_REFRESH_DEBOUNCE_MS + 25)
     );
@@ -116,7 +132,12 @@ describe('useProjectWatchSync', () => {
     render(<WatchSyncHarness />);
     await Promise.resolve();
 
-    emitChange?.({ dirPath: '/proj', eventType: 'rename', filename: 'a.ts' });
+    emitChange?.({
+      rootId: 'root-proj',
+      relativePath: 'a.ts',
+      eventType: 'rename',
+      filename: 'a.ts',
+    });
     await new Promise((resolve) =>
       window.setTimeout(resolve, PROJECT_WATCH_REFRESH_DEBOUNCE_MS + 25)
     );

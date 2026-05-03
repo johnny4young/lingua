@@ -10,6 +10,7 @@ import {
 } from '../../stores/projectSearchStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { PLAINTEXT_LANGUAGE, languageFromPath } from '../../utils/language';
+import { joinAbsolute } from '../../utils/filePath';
 import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { handleCloseOnEscape } from '../ui/keyboard';
 
@@ -34,11 +35,11 @@ interface FlatRow {
 function buildFlatRows(results: ProjectSearchResult[]): FlatRow[] {
   const rows: FlatRow[] = [];
   for (const result of results) {
-    rows.push({ kind: 'file', key: `file:${result.filePath}`, result });
+    rows.push({ kind: 'file', key: `file:${result.relativePath}`, result });
     for (const match of result.matches) {
       rows.push({
         kind: 'match',
-        key: `match:${result.filePath}:${match.line}:${match.column}`,
+        key: `match:${result.relativePath}:${match.line}:${match.column}`,
         result,
         match,
       });
@@ -84,9 +85,9 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   // Debounce query → search. Disabled when no project is active.
   useEffect(() => {
     if (!currentProject) return;
-    const rootPath = currentProject.rootPath;
+    const rootId = currentProject.rootId;
     const timeout = window.setTimeout(() => {
-      void search(rootPath, query);
+      void search(rootId, query);
     }, SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timeout);
@@ -136,19 +137,32 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
 
   const openMatch = async (row: FlatRow) => {
     if (!row.match) return;
-    const language = languageFromPath(row.result.filePath) ?? PLAINTEXT_LANGUAGE;
-    const name = row.result.filePath.split(/[\\/]/).pop() ?? row.result.filePath;
+    if (!currentProject) return;
+    const language =
+      languageFromPath(row.result.relativePath) ?? PLAINTEXT_LANGUAGE;
+    const name =
+      row.result.relativePath.split(/[\\/]/).pop() ?? row.result.relativePath;
+    const displayPath = joinAbsolute(
+      currentProject.rootPath,
+      row.result.relativePath
+    );
     // Queue the reveal BEFORE opening so CodeEditor's effect catches it
     // whether the target file is already open (openFile just activates the
     // existing tab) or a fresh tab is being created. openFile is idempotent,
     // so this ordering is safe for both paths.
     requestReveal({
-      filePath: row.result.filePath,
+      filePath: displayPath,
       line: row.match.line,
       column: row.match.column,
     });
     try {
-      await openFile(row.result.filePath, name, language);
+      await openFile(
+        currentProject.rootId,
+        row.result.relativePath,
+        name,
+        language,
+        displayPath
+      );
     } catch {
       clearPendingReveal();
       return;
@@ -239,7 +253,7 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
                     data-row-key={row.key}
                     className="mt-3 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-muted"
                   >
-                    {row.result.relativePath || row.result.filePath}
+                    {row.result.relativePath}
                   </div>
                 );
               }

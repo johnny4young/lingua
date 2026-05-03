@@ -9,7 +9,7 @@ export function useProjectWatchSync(): void {
   useEffect(() => {
     const unsubscribe = window.lingua.fs.onChanged((event) => {
       const { currentProject } = useProjectStore.getState();
-      if (!currentProject || event.dirPath !== currentProject.rootPath) {
+      if (!currentProject || event.rootId !== currentProject.rootId) {
         return;
       }
 

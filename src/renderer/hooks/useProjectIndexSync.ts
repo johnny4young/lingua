@@ -22,26 +22,26 @@ export function useProjectIndexSync(): void {
   useEffect(() => {
     const { refresh, clear } = useProjectIndexStore.getState();
 
-    function applyProject(rootPath: string | null): void {
-      if (!rootPath) {
+    function applyProject(rootId: string | null): void {
+      if (!rootId) {
         clear();
         return;
       }
-      void refresh(rootPath);
+      void refresh(rootId);
     }
 
-    applyProject(useProjectStore.getState().currentProject?.rootPath ?? null);
+    applyProject(useProjectStore.getState().currentProject?.rootId ?? null);
 
     const unsubscribeProject = useProjectStore.subscribe((state, previousState) => {
-      const nextRoot = state.currentProject?.rootPath ?? null;
-      const previousRoot = previousState.currentProject?.rootPath ?? null;
-      if (nextRoot === previousRoot) return;
-      applyProject(nextRoot);
+      const nextRootId = state.currentProject?.rootId ?? null;
+      const previousRootId = previousState.currentProject?.rootId ?? null;
+      if (nextRootId === previousRootId) return;
+      applyProject(nextRootId);
     });
 
     const unsubscribeWatch = window.lingua?.fs?.onChanged?.((event) => {
       const { currentProject } = useProjectStore.getState();
-      if (!currentProject || event.dirPath !== currentProject.rootPath) {
+      if (!currentProject || event.rootId !== currentProject.rootId) {
         return;
       }
 
@@ -53,7 +53,7 @@ export function useProjectIndexSync(): void {
         watchDebounceRef.current = null;
         const { currentProject: projectNow } = useProjectStore.getState();
         if (!projectNow) return;
-        void useProjectIndexStore.getState().refresh(projectNow.rootPath);
+        void useProjectIndexStore.getState().refresh(projectNow.rootId);
       }, PROJECT_INDEX_REFRESH_DEBOUNCE_MS);
     });
 

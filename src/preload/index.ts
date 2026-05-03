@@ -83,42 +83,78 @@ contextBridge.exposeInMainWorld('lingua', {
   },
   forceClose: () => ipcRenderer.send('app:force-close'),
 
-  // File system IPC
+  // File system IPC — RL-077 capability sandbox
   fs: {
     selectDirectory: () => ipcRenderer.invoke('fs:select-directory'),
     selectFile: () => ipcRenderer.invoke('fs:select-file'),
     saveDialog: (defaultName: string, defaultDir?: string) =>
-      ipcRenderer.invoke('fs:save-dialog', defaultName, defaultDir) as Promise<string | null>,
-    readdir: (dirPath: string) => ipcRenderer.invoke('fs:readdir', dirPath),
-    listAllFiles: (rootPath: string) => ipcRenderer.invoke('fs:listAllFiles', rootPath),
-    searchInFiles: (rootPath: string, query: string, options?: FsSearchOptions) =>
-      ipcRenderer.invoke('fs:searchInFiles', rootPath, query, options) as Promise<
-        FsSearchResult[]
-      >,
-    stat: (filePath: string) => ipcRenderer.invoke('fs:stat', filePath),
-    read: (filePath: string) => ipcRenderer.invoke('fs:read', filePath),
-    write: (filePath: string, content: string) =>
-      ipcRenderer.invoke('fs:write', filePath, content),
-    delete: (filePath: string, isDirectory?: boolean, language?: string) =>
-      ipcRenderer.invoke('fs:delete', filePath, isDirectory, language),
-    rename: (oldPath: string, newName: string) =>
-      ipcRenderer.invoke('fs:rename', oldPath, newName),
-    mkdir: (dirPath: string) => ipcRenderer.invoke('fs:mkdir', dirPath),
-    touch: (filePath: string) => ipcRenderer.invoke('fs:touch', filePath),
-    watchStart: (dirPath: string) =>
-      ipcRenderer.invoke('fs:watch-start', dirPath),
+      ipcRenderer.invoke('fs:save-dialog', defaultName, defaultDir),
+    reopenRoot: (absolutePath: string) =>
+      ipcRenderer.invoke('fs:reopen-root', absolutePath),
+    revokeRoot: (rootId: string) =>
+      ipcRenderer.invoke('fs:revoke-root', rootId),
+    readdir: (rootId: string, relativePath: string) =>
+      ipcRenderer.invoke('fs:readdir', rootId, relativePath),
+    listAllFiles: (rootId: string, relativePath?: string) =>
+      ipcRenderer.invoke('fs:listAllFiles', rootId, relativePath),
+    searchInFiles: (
+      rootId: string,
+      relativePath: string,
+      query: string,
+      options?: FsSearchOptions
+    ) =>
+      ipcRenderer.invoke(
+        'fs:searchInFiles',
+        rootId,
+        relativePath,
+        query,
+        options
+      ) as Promise<FsSearchResult[]>,
+    stat: (rootId: string, relativePath: string) =>
+      ipcRenderer.invoke('fs:stat', rootId, relativePath),
+    read: (rootId: string, relativePath: string) =>
+      ipcRenderer.invoke('fs:read', rootId, relativePath),
+    write: (rootId: string, relativePath: string, content: string) =>
+      ipcRenderer.invoke('fs:write', rootId, relativePath, content),
+    delete: (
+      rootId: string,
+      relativePath: string,
+      isDirectory?: boolean,
+      language?: string
+    ) =>
+      ipcRenderer.invoke(
+        'fs:delete',
+        rootId,
+        relativePath,
+        isDirectory,
+        language
+      ),
+    rename: (rootId: string, relativeOldPath: string, newName: string) =>
+      ipcRenderer.invoke('fs:rename', rootId, relativeOldPath, newName),
+    mkdir: (rootId: string, relativePath: string) =>
+      ipcRenderer.invoke('fs:mkdir', rootId, relativePath),
+    touch: (rootId: string, relativePath: string) =>
+      ipcRenderer.invoke('fs:touch', rootId, relativePath),
+    watchStart: (rootId: string, relativePath?: string) =>
+      ipcRenderer.invoke('fs:watch-start', rootId, relativePath),
     watchStop: (watchId: string) =>
       ipcRenderer.invoke('fs:watch-stop', watchId),
     onChanged: (
       callback: (event: {
-        dirPath: string;
+        rootId: string;
+        relativePath: string;
         eventType: string;
         filename: string | null;
       }) => void
     ) => {
       const handler = (_event: Electron.IpcRendererEvent, data: unknown) =>
         callback(
-          data as { dirPath: string; eventType: string; filename: string | null }
+          data as {
+            rootId: string;
+            relativePath: string;
+            eventType: string;
+            filename: string | null;
+          }
         );
       ipcRenderer.on('fs:changed', handler);
       return () => ipcRenderer.removeListener('fs:changed', handler);

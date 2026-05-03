@@ -57,8 +57,24 @@ export interface FileTab {
   language: Language;
   content: string;
   isDirty: boolean;
-  /** Absolute path on disk. Undefined for in-memory (unsaved) files. */
+  /**
+   * Absolute path on disk for display (tooltip, tab title resolution,
+   * sessionStore persistence). NEVER sent to a filesystem IPC handler
+   * — every IPC operation on this file uses `{ rootId, relativePath }`
+   * instead. Undefined for in-memory (unsaved) files.
+   */
   filePath?: string;
+  /**
+   * RL-077 capability binding. The `rootId` is a process-lifetime token
+   * minted when the picker resolved this file (single-file open or
+   * save-as) or when the file was opened from inside the active
+   * project tree. `relativePath` is the file path inside that root.
+   * Both are required to read or write the file; both are undefined
+   * for untitled buffers and re-derived (via `fs:reopen-root`) when
+   * the session-store restores a tab from a previous run.
+   */
+  rootId?: string;
+  relativePath?: string;
   /** Last execution outcome. Drives the status dot in EditorTabs. */
   executionState?: TabExecutionState;
   /**
@@ -118,8 +134,19 @@ export interface EditorState {
     state: TabExecutionState,
     parseError?: string | null
   ) => void;
-  /** Open a file from disk. If already open, activates that tab. */
-  openFile: (filePath: string, name: string, language: Language) => Promise<void>;
+  /**
+   * Open a file from disk via a capability token. If a tab with the
+   * same `(rootId, relativePath)` is already open, activate it. The
+   * optional `displayPath` is shown to the user (tooltips, session
+   * restore) but is never echoed back to an IPC handler.
+   */
+  openFile: (
+    rootId: string,
+    relativePath: string,
+    name: string,
+    language: Language,
+    displayPath?: string
+  ) => Promise<void>;
   /** Open a native file picker and open the selected file in a new tab. */
   openFileFromDisk: () => Promise<void>;
   /** Save the active tab's content to disk (only if it has a filePath). */

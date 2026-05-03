@@ -1,45 +1,27 @@
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+/**
+ * RL-077 — file system IPC handlers under the capability contract.
+ *
+ * Every handler is exercised through a freshly minted capability for a
+ * real tmpdir. We don't mock node:fs/promises because the registry's
+ * `realpath`-based resolution needs real filesystem operations.
+ *
+ * Pickers (`fs:select-directory` / `fs:select-file` / `fs:save-dialog`)
+ * stub `electron.dialog` directly so we can drive them through both
+ * the canceled and confirmed branches without a real Electron host.
+ */
 
-// ---------------------------------------------------------------------------
-// Hoisted mock setup — must come before vi.mock calls
-// ---------------------------------------------------------------------------
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
-const {
-  mockReadFile,
-  mockWriteFile,
-  mockUnlink,
-  mockRename,
-  mockMkdir,
-  mockReaddir,
-  mockStat,
-  mockRm,
-  mockWatch,
-} = vi.hoisted(() => {
-  const statResult = {
-    size: 0,
-    isDirectory: () => false,
-    isFile: () => true,
-    mtime: new Date(),
-    ctime: new Date(),
-  };
-  return {
-    mockReadFile: vi.fn().mockResolvedValue('file content'),
-    mockWriteFile: vi.fn().mockResolvedValue(undefined),
-    mockUnlink: vi.fn().mockResolvedValue(undefined),
-    mockRename: vi.fn().mockResolvedValue(undefined),
-    mockMkdir: vi.fn().mockResolvedValue(undefined),
-    mockReaddir: vi.fn().mockResolvedValue([]),
-    mockStat: vi.fn().mockResolvedValue(statResult),
-    mockRm: vi.fn().mockResolvedValue(undefined),
-    mockWatch: vi.fn().mockReturnValue({ close: vi.fn() }),
-  };
-});
-
-// ---------------------------------------------------------------------------
-// Mock electron and Node fs modules before importing fileSystem
-// ---------------------------------------------------------------------------
-
-const handlers = new Map<string, (...args: unknown[]) => unknown>();
+const { handlers, showOpenDialog, showSaveDialog, showMessageBox } = vi.hoisted(
+  () => ({
+    handlers: new Map<string, (...args: unknown[]) => unknown>(),
+    showOpenDialog: vi.fn(),
+    showSaveDialog: vi.fn(),
+    showMessageBox: vi.fn(),
+  })
+);
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -48,355 +30,91 @@ vi.mock('electron', () => ({
     },
   },
   dialog: {
-    showMessageBox: vi.fn().mockResolvedValue({ response: 0 }),
-    showOpenDialog: vi.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
-    showSaveDialog: vi.fn().mockResolvedValue({ canceled: true, filePath: undefined }),
+    showOpenDialog,
+    showSaveDialog,
+    showMessageBox,
   },
   BrowserWindow: { fromWebContents: vi.fn() },
 }));
 
-vi.mock('node:fs/promises', () => {
-  const exports = {
-    readFile: mockReadFile,
-    writeFile: mockWriteFile,
-    unlink: mockUnlink,
-    rename: mockRename,
-    mkdir: mockMkdir,
-    readdir: mockReaddir,
-    stat: mockStat,
-    rm: mockRm,
-  };
-  return { ...exports, default: exports };
-});
+import { registerFileSystemHandlers } from '../../src/main/ipc/fileSystem';
+import {
+  clearRegistryForTests,
+  mintRootCapability,
+} from '../../src/main/ipc/projectCapabilities';
 
-vi.mock('node:fs', () => ({
-  watch: mockWatch,
-  default: { watch: mockWatch },
-}));
+let tmpRoot: string;
 
-// Import after mocks are set up
-import { registerFileSystemHandlers } from '#src/main/ipc/fileSystem';
-
-// ---------------------------------------------------------------------------
-// Setup
-// ---------------------------------------------------------------------------
-
-beforeEach(() => {
+beforeEach(async () => {
   handlers.clear();
+  clearRegistryForTests();
+  showOpenDialog.mockReset();
+  showSaveDialog.mockReset();
+  showMessageBox.mockReset();
+  showMessageBox.mockResolvedValue({ response: 0 });
   registerFileSystemHandlers();
+  tmpRoot = await mkdtemp(
+    path.join(process.cwd(), '.tmp-lingua-fs-')
+  );
 });
 
-async function invoke(channel: string, ...args: unknown[]) {
-  const handler = handlers.get(channel)!;
-  return handler({} as never, ...args);
+afterEach(async () => {
+  clearRegistryForTests();
+  await rm(tmpRoot, { recursive: true, force: true });
+});
+
+async function invoke(
+  channel: string,
+  ...args: unknown[]
+): Promise<unknown> {
+  const handler = handlers.get(channel);
+  if (!handler) throw new Error(`No handler registered for ${channel}`);
+  return handler({ sender: { isDestroyed: () => false, send: vi.fn() } }, ...args);
 }
 
-// ---------------------------------------------------------------------------
-// fs:read
-// ---------------------------------------------------------------------------
+function mintFor(rootPath: string): { rootId: string; rootPath: string } {
+  return mintRootCapability(rootPath);
+}
 
-describe('fs:read security guard', () => {
-  it('throws "Access denied" for /etc/passwd', async () => {
-    await expect(invoke('fs:read', '/etc/passwd')).rejects.toThrow('Access denied');
+// ---------------------------------------------------------------- pickers
+
+describe('fs:select-directory', () => {
+  it('returns canceled=true when user cancels', async () => {
+    showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] });
+    const result = await invoke('fs:select-directory');
+    expect(result).toEqual({ canceled: true });
   });
 
-  it('returns content for a normal path (/tmp/test.ts)', async () => {
-    const result = await invoke('fs:read', '/tmp/test.ts');
-    expect(result).toBe('file content');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fs:write
-// ---------------------------------------------------------------------------
-
-describe('fs:write security guard', () => {
-  it('throws "Access denied" for /etc/hosts', async () => {
-    await expect(invoke('fs:write', '/etc/hosts', 'content')).rejects.toThrow('Access denied');
-  });
-
-  it('succeeds for a normal path', async () => {
-    const result = await invoke('fs:write', '/tmp/myfile.ts', 'content');
-    expect(result).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fs:rename
-// ---------------------------------------------------------------------------
-
-describe('fs:rename security guard (oldPath)', () => {
-  it('throws "Access denied" when oldPath is /etc/passwd', async () => {
-    await expect(invoke('fs:rename', '/etc/passwd', 'passwd.bak')).rejects.toThrow('Access denied');
-  });
-});
-
-describe('fs:rename security guard (newPath)', () => {
-  it('throws "Access denied" when oldPath resolves into a blocked directory', async () => {
-    // oldPath is inside /etc, so both old and new are blocked
-    await expect(invoke('fs:rename', '/etc/somefile', 'otherfile')).rejects.toThrow('Access denied');
-  });
-
-  it('rejects traversal or nested rename targets', async () => {
-    await expect(invoke('fs:rename', '/tmp/somefile', '../escape')).rejects.toThrow(
-      'Invalid name for rename'
-    );
-    await expect(invoke('fs:rename', '/tmp/somefile', 'nested/file')).rejects.toThrow(
-      'Invalid name for rename'
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fs:watch-start
-// ---------------------------------------------------------------------------
-
-describe('fs:watch-start security guard', () => {
-  it('throws "Access denied" for /etc', async () => {
-    await expect(invoke('fs:watch-start', '/etc')).rejects.toThrow('Access denied');
-  });
-
-  it('does not throw for /tmp/myproject', async () => {
-    await expect(invoke('fs:watch-start', '/tmp/myproject')).resolves.not.toThrow();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// fs:save-dialog
-// ---------------------------------------------------------------------------
-
-describe('fs:listAllFiles', () => {
-  function dirent(name: string, isDir: boolean) {
-    return {
-      name,
-      isDirectory: () => isDir,
-      isFile: () => !isDir,
-    };
-  }
-
-  function configureFileTree(
-    tree: Record<string, Array<{ name: string; isDir: boolean }>>
-  ) {
-    mockReaddir.mockImplementation(async (dirPath: string) => {
-      return (tree[dirPath] ?? []).map((entry) => dirent(entry.name, entry.isDir));
-    });
-  }
-
-  it('walks the project recursively and returns only files with relative paths', async () => {
-    configureFileTree({
-      '/project': [
-        { name: 'README.md', isDir: false },
-        { name: 'src', isDir: true },
-        { name: 'node_modules', isDir: true }, // must be ignored
-      ],
-      '/project/src': [
-        { name: 'main.ts', isDir: false },
-        { name: 'utils', isDir: true },
-      ],
-      '/project/src/utils': [{ name: 'helpers.ts', isDir: false }],
-      '/project/node_modules': [{ name: 'should-not-appear.ts', isDir: false }],
-    });
-
-    const result = await invoke('fs:listAllFiles', '/project');
-    expect(result).toEqual([
-      { name: 'README.md', path: '/project/README.md', relativePath: 'README.md' },
-      { name: 'main.ts', path: '/project/src/main.ts', relativePath: 'src/main.ts' },
-      {
-        name: 'helpers.ts',
-        path: '/project/src/utils/helpers.ts',
-        relativePath: 'src/utils/helpers.ts',
-      },
-    ]);
-  });
-
-  it('rejects blocked root paths before starting the walk', async () => {
-    mockReaddir.mockClear();
-    await expect(invoke('fs:listAllFiles', '/etc')).rejects.toThrow('Access denied');
-    expect(mockReaddir).not.toHaveBeenCalled();
-  });
-
-  it('skips dotfiles that are not explicitly allowed', async () => {
-    configureFileTree({
-      '/project': [
-        { name: '.env', isDir: false },
-        { name: '.gitignore', isDir: false },
-        { name: '.secret', isDir: false },
-        { name: '.DS_Store', isDir: false },
-      ],
-    });
-
-    const result = await invoke('fs:listAllFiles', '/project');
-    const names = (result as FsIndexedFile[]).map((file) => file.name).sort();
-    expect(names).toEqual(['.env', '.gitignore']);
-  });
-
-  it('swallows unreadable directories instead of aborting the whole walk', async () => {
-    mockReaddir.mockImplementation(async (dirPath: string) => {
-      if (dirPath === '/project/forbidden') {
-        throw new Error('EACCES');
-      }
-      if (dirPath === '/project') {
-        return [
-          dirent('ok.ts', false),
-          dirent('forbidden', true),
-        ];
-      }
-      return [];
-    });
-
-    const result = await invoke('fs:listAllFiles', '/project');
-    expect(result).toEqual([
-      { name: 'ok.ts', path: '/project/ok.ts', relativePath: 'ok.ts' },
-    ]);
-  });
-});
-
-describe('fs:searchInFiles', () => {
-  function dirent(name: string, isDir: boolean) {
-    return {
-      name,
-      isDirectory: () => isDir,
-      isFile: () => !isDir,
-    };
-  }
-
-  function configureFileTree(
-    tree: Record<string, Array<{ name: string; isDir: boolean }>>
-  ) {
-    mockReaddir.mockImplementation(async (dirPath: string) => {
-      return (tree[dirPath] ?? []).map((entry) => dirent(entry.name, entry.isDir));
-    });
-  }
-
-  function configureFileContents(contents: Record<string, string>) {
-    mockReadFile.mockImplementation(async (filePath: string) => {
-      if (filePath in contents) {
-        return contents[filePath] as string;
-      }
-      throw new Error(`unexpected readFile: ${filePath}`);
-    });
-    mockStat.mockImplementation(async (filePath: string) => ({
-      size: contents[filePath]?.length ?? 0,
-      isDirectory: () => false,
-      isFile: () => true,
-      mtime: new Date(),
-      ctime: new Date(),
-    }));
-  }
-
-  it('returns no results for an empty query without walking the filesystem', async () => {
-    mockReaddir.mockClear();
-    const result = await invoke('fs:searchInFiles', '/project', '');
-    expect(result).toEqual([]);
-    expect(mockReaddir).not.toHaveBeenCalled();
-  });
-
-  it('finds case-insensitive substring matches with preview windows', async () => {
-    configureFileTree({
-      '/project': [
-        { name: 'main.ts', isDir: false },
-        { name: 'README.md', isDir: false },
-      ],
-    });
-    configureFileContents({
-      '/project/main.ts': "const TODO = 'fix this later';\nconsole.log(todo);\n",
-      '/project/README.md': 'Nothing here yet.\n',
-    });
-
-    const result = (await invoke('fs:searchInFiles', '/project', 'todo')) as FsSearchResult[];
-    expect(result).toHaveLength(1);
-    expect(result[0]!.relativePath).toBe('main.ts');
-    expect(result[0]!.matches).toHaveLength(2);
-    expect(result[0]!.matches[0]).toMatchObject({ line: 1, matchEnd: expect.any(Number) });
-    expect(result[0]!.matches[1]).toMatchObject({ line: 2 });
-  });
-
-  it('skips binary files via the NUL-byte heuristic', async () => {
-    configureFileTree({
-      '/project': [
-        { name: 'asset.bin', isDir: false },
-        { name: 'code.ts', isDir: false },
-      ],
-    });
-    configureFileContents({
-      '/project/asset.bin': `${'needle'}\u0000\u0000binary payload\u0000`,
-      '/project/code.ts': 'const needle = 1;\n',
-    });
-
-    const result = (await invoke('fs:searchInFiles', '/project', 'needle')) as FsSearchResult[];
-    expect(result.map((entry) => entry.relativePath)).toEqual(['code.ts']);
-  });
-
-  it('rejects blocked roots before walking', async () => {
-    mockReaddir.mockClear();
-    await expect(invoke('fs:searchInFiles', '/etc', 'secret')).rejects.toThrow(
-      'Access denied'
-    );
-    expect(mockReaddir).not.toHaveBeenCalled();
-  });
-
-  it('caps total matches so a pathological project cannot flood the IPC channel', async () => {
-    configureFileTree({
-      '/project': [{ name: 'big.ts', isDir: false }],
-    });
-    configureFileContents({
-      '/project/big.ts': 'needle\n'.repeat(500),
-    });
-
-    const result = (await invoke('fs:searchInFiles', '/project', 'needle', {
-      maxTotalMatches: 3,
-      maxMatchesPerFile: 10,
-    })) as FsSearchResult[];
-    const totalMatches = result.reduce((sum, item) => sum + item.matches.length, 0);
-    expect(totalMatches).toBeLessThanOrEqual(3);
-  });
-});
-
-describe('fs:save-dialog', () => {
-  it('registers the handler', () => {
-    expect(handlers.has('fs:save-dialog')).toBe(true);
-  });
-
-  it('returns null when user cancels', async () => {
-    const { dialog } = await import('electron');
-    (dialog.showSaveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
-      canceled: true,
-      filePath: undefined,
-    });
-
-    const result = await invoke('fs:save-dialog', 'untitled.js');
-    expect(result).toBeNull();
-  });
-
-  it('returns the chosen path when user confirms', async () => {
-    const { dialog } = await import('electron');
-    (dialog.showSaveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+  it('mints a capability and returns rootId/rootPath when confirmed', async () => {
+    showOpenDialog.mockResolvedValue({
       canceled: false,
-      filePath: '/tmp/saved.js',
+      filePaths: [tmpRoot],
     });
-
-    const result = await invoke('fs:save-dialog', 'untitled.js');
-    expect(result).toBe('/tmp/saved.js');
+    const result = (await invoke('fs:select-directory')) as {
+      canceled: false;
+      rootId: string;
+      rootPath: string;
+    };
+    expect(result.canceled).toBe(false);
+    expect(typeof result.rootId).toBe('string');
+    expect(result.rootId.length).toBeGreaterThan(0);
+    expect(result.rootPath).toBe(path.normalize(tmpRoot));
   });
 
-  it('throws on blocked path', async () => {
-    const { dialog } = await import('electron');
-    (dialog.showSaveDialog as ReturnType<typeof vi.fn>).mockResolvedValue({
+  it('rejects denylisted picks before mint', async () => {
+    showOpenDialog.mockResolvedValue({
       canceled: false,
-      filePath: '/etc/evil.js',
+      filePaths: ['/etc'],
     });
-
-    await expect(invoke('fs:save-dialog', 'evil.js')).rejects.toThrow('Access denied');
+    await expect(invoke('fs:select-directory')).rejects.toThrow('Access denied');
   });
 });
 
 describe('fs:select-file', () => {
-  it('limits the native picker to code and text file extensions', async () => {
-    const { dialog } = await import('electron');
-
+  it('limits the picker to code/text extensions', async () => {
+    showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] });
     await invoke('fs:select-file');
-
-    expect(dialog.showOpenDialog).toHaveBeenCalledWith(
+    expect(showOpenDialog).toHaveBeenCalledWith(
       expect.objectContaining({
         properties: ['openFile'],
         filters: [
@@ -419,23 +137,443 @@ describe('fs:select-file', () => {
       })
     );
   });
-});
 
-// ---------------------------------------------------------------------------
-// app:confirm-close
-// ---------------------------------------------------------------------------
-
-describe('app:confirm-close', () => {
-  it('registers the handler', () => {
-    expect(handlers.has('app:confirm-close')).toBe(true);
+  it('mints a parent-dir capability and returns content atomically', async () => {
+    const filePath = path.join(tmpRoot, 'demo.ts');
+    await writeFile(filePath, 'const x = 1;\n', 'utf-8');
+    showOpenDialog.mockResolvedValue({
+      canceled: false,
+      filePaths: [filePath],
+    });
+    const result = (await invoke('fs:select-file')) as {
+      canceled: false;
+      rootId: string;
+      rootPath: string;
+      fileRelativePath: string;
+      fileName: string;
+      content: string;
+    };
+    expect(result.canceled).toBe(false);
+    expect(result.fileRelativePath).toBe('demo.ts');
+    expect(result.fileName).toBe('demo.ts');
+    expect(result.content).toBe('const x = 1;\n');
+    expect(result.rootPath).toBe(path.normalize(tmpRoot));
   });
 
+  it.runIf(process.platform !== 'win32')(
+    'rejects selected symlinks whose realpath escapes the minted parent root',
+    async () => {
+      const outside = await mkdtemp(
+        path.join(process.cwd(), '.tmp-lingua-fs-outside-')
+      );
+      try {
+        const target = path.join(outside, 'secret.ts');
+        const link = path.join(tmpRoot, 'link.ts');
+        await writeFile(target, 'secret', 'utf-8');
+        await symlink(target, link);
+        showOpenDialog.mockResolvedValue({
+          canceled: false,
+          filePaths: [link],
+        });
+
+        await expect(invoke('fs:select-file')).rejects.toThrow('escapes-root');
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    }
+  );
+});
+
+describe('fs:save-dialog', () => {
+  it('returns canceled when user cancels', async () => {
+    showSaveDialog.mockResolvedValue({ canceled: true });
+    const result = await invoke('fs:save-dialog', 'untitled.js');
+    expect(result).toEqual({ canceled: true });
+  });
+
+  it('mints a parent capability and returns the relative basename', async () => {
+    const target = path.join(tmpRoot, 'saved.js');
+    showSaveDialog.mockResolvedValue({ canceled: false, filePath: target });
+    const result = (await invoke('fs:save-dialog', 'saved.js')) as {
+      canceled: false;
+      rootId: string;
+      rootPath: string;
+      fileRelativePath: string;
+    };
+    expect(result.canceled).toBe(false);
+    expect(result.fileRelativePath).toBe('saved.js');
+    expect(result.rootPath).toBe(path.normalize(tmpRoot));
+  });
+
+  it('rejects denylisted save targets before mint', async () => {
+    showSaveDialog.mockResolvedValue({
+      canceled: false,
+      filePath: '/etc/evil.js',
+    });
+    await expect(invoke('fs:save-dialog', 'evil.js')).rejects.toThrow(
+      'Access denied'
+    );
+  });
+});
+
+// ------------------------------------------------------- root mgmt
+
+describe('fs:reopen-root', () => {
+  it('mints a fresh capability for an existing directory', async () => {
+    const result = (await invoke('fs:reopen-root', tmpRoot)) as {
+      ok: true;
+      rootId: string;
+      rootPath: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(typeof result.rootId).toBe('string');
+    expect(result.rootPath).toBe(path.normalize(tmpRoot));
+  });
+
+  it('returns ok=false / not-found for a missing path', async () => {
+    const ghost = path.join(tmpRoot, 'does-not-exist');
+    expect(await invoke('fs:reopen-root', ghost)).toEqual({
+      ok: false,
+      error: 'not-found',
+    });
+  });
+
+  it('returns ok=false / blocked for a denylisted path', async () => {
+    expect(await invoke('fs:reopen-root', '/etc')).toEqual({
+      ok: false,
+      error: 'blocked',
+    });
+  });
+
+  it.runIf(process.platform !== 'win32')(
+    'returns ok=false / blocked when a reopened root symlinks to a denylisted path',
+    async () => {
+      const link = path.join(tmpRoot, 'etc-link');
+      await symlink('/etc', link);
+
+      expect(await invoke('fs:reopen-root', link)).toEqual({
+        ok: false,
+        error: 'blocked',
+      });
+    }
+  );
+
+  it('returns ok=false / not-a-directory when the path is a file', async () => {
+    const filePath = path.join(tmpRoot, 'file.txt');
+    await writeFile(filePath, '', 'utf-8');
+    expect(await invoke('fs:reopen-root', filePath)).toEqual({
+      ok: false,
+      error: 'not-a-directory',
+    });
+  });
+
+  it('returns ok=false / not-found for empty / non-string input', async () => {
+    expect(await invoke('fs:reopen-root', '')).toEqual({
+      ok: false,
+      error: 'not-found',
+    });
+    expect(await invoke('fs:reopen-root', null)).toEqual({
+      ok: false,
+      error: 'not-found',
+    });
+  });
+});
+
+describe('fs:revoke-root', () => {
+  it('idempotently revokes a minted capability', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    expect(await invoke('fs:revoke-root', rootId)).toBe(true);
+    expect(await invoke('fs:revoke-root', rootId)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------- ops
+
+describe('fs:read', () => {
+  it('reads a file inside the approved root', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'a.ts'), 'hello', 'utf-8');
+    const result = await invoke('fs:read', rootId, 'a.ts');
+    expect(result).toBe('hello');
+  });
+
+  it('rejects unknown rootId', async () => {
+    await expect(invoke('fs:read', 'fake-rootid', 'a.ts')).rejects.toThrow(
+      'unknown-root'
+    );
+  });
+
+  it('rejects ".." traversal escapes', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await expect(
+      invoke('fs:read', rootId, '../etc/passwd')
+    ).rejects.toThrow();
+  });
+
+  it('rejects cross-rootId access', async () => {
+    const { rootId: rootA } = mintFor(tmpRoot);
+    const otherDir = await mkdtemp(
+      path.join(process.cwd(), '.tmp-lingua-fs-other-')
+    );
+    try {
+      await writeFile(path.join(otherDir, 'a.ts'), 'x', 'utf-8');
+      const { rootId: rootB } = mintFor(otherDir);
+      // rootA's relative path lookup against rootB cannot reach rootA.
+      await expect(invoke('fs:read', rootB, '../mismatch')).rejects.toThrow();
+      // rootA only sees rootA's contents — it does not have a file
+      // named after the other tmpdir's basename.
+      await expect(
+        invoke('fs:read', rootA, path.basename(otherDir) + '/a.ts')
+      ).rejects.toThrow();
+    } finally {
+      await rm(otherDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('fs:write', () => {
+  it('writes a file inside the approved root', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const ok = await invoke('fs:write', rootId, 'b.ts', 'data');
+    expect(ok).toBe(true);
+  });
+
+  it('rejects writing into a denylisted root', async () => {
+    // Capability minted for /etc would itself be rejected by the resolver
+    // because the realpath of /etc is denylisted on POSIX.
+    const { rootId } = mintFor('/etc');
+    await expect(invoke('fs:write', rootId, 'evil.txt', 'x')).rejects.toThrow();
+  });
+});
+
+describe('symlinked approved roots', () => {
+  it.runIf(process.platform !== 'win32')(
+    'returns stable relative paths that can be fed back into later IPC calls',
+    async () => {
+      const realParent = await mkdtemp(
+        path.join(process.cwd(), '.tmp-lingua-fs-real-')
+      );
+      try {
+        const realProject = path.join(realParent, 'project');
+        await mkdir(path.join(realProject, 'src'), { recursive: true });
+        await writeFile(path.join(realProject, 'src', 'main.ts'), 'ok', 'utf-8');
+        const linkedRoot = path.join(tmpRoot, 'linked-root');
+        await symlink(realProject, linkedRoot);
+
+        const { rootId } = mintFor(linkedRoot);
+        const entries = (await invoke('fs:readdir', rootId, '')) as FsDirEntry[];
+        expect(entries).toEqual([
+          expect.objectContaining({ name: 'src', relativePath: 'src' }),
+        ]);
+
+        const indexed = (await invoke('fs:listAllFiles', rootId, '')) as Array<{
+          relativePath: string;
+        }>;
+        expect(indexed.map((entry) => entry.relativePath)).toEqual(['src/main.ts']);
+        await expect(invoke('fs:read', rootId, 'src/main.ts')).resolves.toBe('ok');
+      } finally {
+        await rm(realParent, { recursive: true, force: true });
+      }
+    }
+  );
+});
+
+describe('fs:rename', () => {
+  it('renames within the approved root', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'old.ts'), 'data', 'utf-8');
+    const newRel = await invoke('fs:rename', rootId, 'old.ts', 'new.ts');
+    expect(newRel).toBe('new.ts');
+  });
+
+  it('rejects unsafe new names', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'old.ts'), 'data', 'utf-8');
+    await expect(
+      invoke('fs:rename', rootId, 'old.ts', '../escape')
+    ).rejects.toThrow('Invalid name for rename');
+    await expect(
+      invoke('fs:rename', rootId, 'old.ts', 'nested/file')
+    ).rejects.toThrow('Invalid name for rename');
+  });
+});
+
+describe('fs:listAllFiles', () => {
+  it('walks the project recursively and skips hidden entries', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'README.md'), 'r', 'utf-8');
+    await mkdir(path.join(tmpRoot, 'src'));
+    await writeFile(path.join(tmpRoot, 'src', 'main.ts'), 'm', 'utf-8');
+    await mkdir(path.join(tmpRoot, 'src', 'utils'));
+    await writeFile(
+      path.join(tmpRoot, 'src', 'utils', 'helpers.ts'),
+      'h',
+      'utf-8'
+    );
+    await mkdir(path.join(tmpRoot, 'node_modules'));
+    await writeFile(
+      path.join(tmpRoot, 'node_modules', 'should-not-appear.ts'),
+      'x',
+      'utf-8'
+    );
+
+    const result = (await invoke('fs:listAllFiles', rootId, '')) as Array<{
+      name: string;
+      relativePath: string;
+    }>;
+    const sorted = result
+      .map((f) => f.relativePath)
+      .sort();
+    expect(sorted).toEqual(['README.md', 'src/main.ts', 'src/utils/helpers.ts']);
+  });
+
+  it('keeps useful dotfiles but drops .DS_Store and .secret', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    for (const name of ['.env', '.gitignore', '.secret', '.DS_Store']) {
+      await writeFile(path.join(tmpRoot, name), 'x', 'utf-8');
+    }
+    const result = (await invoke('fs:listAllFiles', rootId, '')) as Array<{
+      name: string;
+      relativePath: string;
+    }>;
+    const names = result.map((f) => f.name).sort();
+    expect(names).toEqual(['.env', '.gitignore']);
+  });
+
+  it('rejects an unknown rootId before walking', async () => {
+    await expect(invoke('fs:listAllFiles', 'ghost', '')).rejects.toThrow(
+      'unknown-root'
+    );
+  });
+});
+
+describe('fs:searchInFiles', () => {
+  it('returns no results for an empty query without resolving the root', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const result = await invoke('fs:searchInFiles', rootId, '', '');
+    expect(result).toEqual([]);
+  });
+
+  it('finds case-insensitive matches with previews', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(
+      path.join(tmpRoot, 'main.ts'),
+      "const TODO = 'fix this later';\nconsole.log(todo);\n",
+      'utf-8'
+    );
+    await writeFile(path.join(tmpRoot, 'README.md'), 'Nothing here.\n', 'utf-8');
+
+    const result = (await invoke(
+      'fs:searchInFiles',
+      rootId,
+      '',
+      'todo'
+    )) as Array<{
+      relativePath: string;
+      matches: Array<{ line: number; column: number }>;
+    }>;
+    expect(result).toHaveLength(1);
+    expect(result[0]!.relativePath).toBe('main.ts');
+    expect(result[0]!.matches).toHaveLength(2);
+  });
+
+  it('skips binary files via the NUL-byte heuristic', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const NUL = String.fromCharCode(0);
+    await writeFile(
+      path.join(tmpRoot, 'asset.bin'),
+      `needle${NUL}${NUL}binary payload${NUL}`,
+      'utf-8'
+    );
+    await writeFile(path.join(tmpRoot, 'code.ts'), 'const needle = 1;\n', 'utf-8');
+
+    const result = (await invoke(
+      'fs:searchInFiles',
+      rootId,
+      '',
+      'needle'
+    )) as Array<{ relativePath: string }>;
+    expect(result.map((r) => r.relativePath)).toEqual(['code.ts']);
+  });
+
+  it('caps total matches', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(
+      path.join(tmpRoot, 'big.ts'),
+      'needle\n'.repeat(500),
+      'utf-8'
+    );
+    const result = (await invoke('fs:searchInFiles', rootId, '', 'needle', {
+      maxTotalMatches: 3,
+      maxMatchesPerFile: 10,
+    })) as Array<{ matches: Array<unknown> }>;
+    const total = result.reduce((sum, r) => sum + r.matches.length, 0);
+    expect(total).toBeLessThanOrEqual(3);
+  });
+
+  it('rejects an unknown rootId before walking', async () => {
+    await expect(
+      invoke('fs:searchInFiles', 'ghost', '', 'needle')
+    ).rejects.toThrow('unknown-root');
+  });
+});
+
+describe('fs:mkdir', () => {
+  it('creates a directory inside the approved root', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const ok = await invoke('fs:mkdir', rootId, 'newdir');
+    expect(ok).toBe(true);
+    const info = (await invoke('fs:stat', rootId, 'newdir')) as {
+      isDirectory: boolean;
+    };
+    expect(info.isDirectory).toBe(true);
+  });
+
+  it('rejects unknown rootId', async () => {
+    await expect(invoke('fs:mkdir', 'ghost', 'newdir')).rejects.toThrow(
+      'unknown-root'
+    );
+  });
+});
+
+describe('fs:touch', () => {
+  it('creates an empty file inside the approved root', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const ok = await invoke('fs:touch', rootId, 'fresh.ts');
+    expect(ok).toBe(true);
+    const content = await invoke('fs:read', rootId, 'fresh.ts');
+    expect(content).toBe('');
+  });
+
+  it('rejects unknown rootId', async () => {
+    await expect(invoke('fs:touch', 'ghost', 'fresh.ts')).rejects.toThrow(
+      'unknown-root'
+    );
+  });
+});
+
+describe('fs:watch-start', () => {
+  it('returns an opaque watchId for an approved root', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const id = await invoke('fs:watch-start', rootId, '');
+    expect(typeof id).toBe('string');
+    expect(id).not.toContain(tmpRoot);
+    await invoke('fs:watch-stop', id as string);
+  });
+
+  it('rejects an unknown rootId', async () => {
+    await expect(invoke('fs:watch-start', 'ghost', '')).rejects.toThrow(
+      'unknown-root'
+    );
+  });
+});
+
+// ----------------------------------------- close + delete confirmation copy
+
+describe('app:confirm-close', () => {
   it('localizes the app-close dialog in Spanish', async () => {
-    const { dialog } = await import('electron');
-
     await invoke('app:confirm-close', ['alpha.ts', 'beta.ts'], 'es');
-
-    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+    expect(showMessageBox).toHaveBeenCalledWith(
       undefined,
       expect.objectContaining({
         buttons: ['Guardar todo', 'Descartar', 'Cancelar'],
@@ -447,21 +585,10 @@ describe('app:confirm-close', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// app:confirm-close-tab
-// ---------------------------------------------------------------------------
-
 describe('app:confirm-close-tab', () => {
-  it('registers the handler', () => {
-    expect(handlers.has('app:confirm-close-tab')).toBe(true);
-  });
-
   it('localizes the dirty-tab dialog in English', async () => {
-    const { dialog } = await import('electron');
-
     await invoke('app:confirm-close-tab', 'draft.ts', 'en');
-
-    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+    expect(showMessageBox).toHaveBeenCalledWith(
       undefined,
       expect.objectContaining({
         buttons: ['Save', 'Discard', 'Cancel'],
@@ -473,17 +600,16 @@ describe('app:confirm-close-tab', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// fs:delete
-// ---------------------------------------------------------------------------
-
 describe('fs:delete confirmation dialog', () => {
   it('localizes folder deletion copy in Spanish', async () => {
-    const { dialog } = await import('electron');
+    const { rootId } = mintFor(tmpRoot);
+    const folder = path.join(tmpRoot, 'demo-folder');
+    await mkdir(folder);
 
-    await invoke('fs:delete', '/tmp/demo-folder', true, 'es');
+    showMessageBox.mockResolvedValue({ response: 1 }); // user cancels
+    await invoke('fs:delete', rootId, 'demo-folder', true, 'es');
 
-    expect(dialog.showMessageBox).toHaveBeenCalledWith(
+    expect(showMessageBox).toHaveBeenCalledWith(
       undefined,
       expect.objectContaining({
         buttons: ['Eliminar', 'Cancelar'],

@@ -25,6 +25,7 @@ import {
   serializeShortcutPreset,
   type ParseShortcutPresetResult,
 } from '../../utils/shortcutPreset';
+import { joinAbsolute } from '../../utils/filePath';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { Eyebrow } from '../ui/primitives';
 
@@ -283,6 +284,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
   const handleExport = useCallback(async () => {
     const saveDialog = window.lingua?.fs?.saveDialog;
     const write = window.lingua?.fs?.write;
+    const revokeRoot = window.lingua?.fs?.revokeRoot;
     if (!saveDialog || !write) {
       pushStatusNotice({
         tone: 'error',
@@ -290,15 +292,19 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       });
       return;
     }
+    let mintedRootId: string | null = null;
     try {
       const chosen = await saveDialog('lingua-shortcuts.json');
-      if (!chosen) return;
+      if (chosen.canceled) return;
+      mintedRootId = chosen.rootId;
       const preset = buildShortcutPreset(overrides);
-      await write(chosen, serializeShortcutPreset(preset));
+      await write(chosen.rootId, chosen.fileRelativePath, serializeShortcutPreset(preset));
       pushStatusNotice({
         tone: 'success',
         messageKey: 'shortcuts.editor.exported',
-        values: { path: chosen },
+        values: {
+          path: joinAbsolute(chosen.rootPath, chosen.fileRelativePath),
+        },
       });
     } catch (error) {
       pushStatusNotice({
@@ -306,24 +312,31 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         messageKey: 'shortcuts.editor.exportFailed',
         detail: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      // RL-077 — revoke the picker-minted capability after the one-shot
+      // write so transient tokens for shortcut exports don't accumulate.
+      if (mintedRootId && revokeRoot) {
+        await revokeRoot(mintedRootId).catch(() => {});
+      }
     }
   }, [overrides, pushStatusNotice]);
 
   const handleImport = useCallback(async () => {
     const selectFile = window.lingua?.fs?.selectFile;
-    const read = window.lingua?.fs?.read;
-    if (!selectFile || !read) {
+    const revokeRoot = window.lingua?.fs?.revokeRoot;
+    if (!selectFile) {
       pushStatusNotice({
         tone: 'error',
         messageKey: 'shortcuts.editor.exportBridgeMissing',
       });
       return;
     }
+    let mintedRootId: string | null = null;
     try {
-      const filePath = await selectFile();
-      if (!filePath) return;
-      const raw = await read(filePath);
-      const result = parseShortcutPreset(raw);
+      const picked = await selectFile();
+      if (picked.canceled) return;
+      mintedRootId = picked.rootId;
+      const result = parseShortcutPreset(picked.content);
 
       if (!result.ok) {
         pushStatusNotice({
@@ -352,6 +365,10 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         messageKey: 'shortcuts.editor.importFailed',
         detail: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      if (mintedRootId && revokeRoot) {
+        await revokeRoot(mintedRootId).catch(() => {});
+      }
     }
   }, [pushStatusNotice, resetShortcutOverrides, setShortcutOverride]);
 

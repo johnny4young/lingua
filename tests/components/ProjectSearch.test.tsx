@@ -22,7 +22,15 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
 
 vi.mock('../../src/renderer/stores/projectStore', () => ({
   useProjectStore: (selector?: (state: unknown) => unknown) => {
-    const state = { currentProject: { rootPath: '/project' } };
+    const state = {
+      currentProject: {
+        id: 'proj',
+        name: 'project',
+        rootId: 'root-proj',
+        rootPath: '/project',
+        lastOpenedAt: 0,
+      },
+    };
     return selector ? selector(state) : state;
   },
 }));
@@ -51,7 +59,7 @@ describe('ProjectSearch', () => {
     mockSearchInFiles.mockReset();
     useProjectSearchStore.setState({
       query: '',
-      rootPath: null,
+      rootId: null,
       status: 'idle',
       results: [],
       totalMatches: 0,
@@ -73,7 +81,6 @@ describe('ProjectSearch', () => {
   it('groups results by file and renders highlighted previews', async () => {
     mockSearchInFiles.mockResolvedValue([
       {
-        filePath: '/project/src/main.ts',
         relativePath: 'src/main.ts',
         matches: [
           {
@@ -103,7 +110,6 @@ describe('ProjectSearch', () => {
   it('opens the target file when a match is clicked and closes the overlay', async () => {
     mockSearchInFiles.mockResolvedValue([
       {
-        filePath: '/project/src/main.ts',
         relativePath: 'src/main.ts',
         matches: [
           {
@@ -131,9 +137,11 @@ describe('ProjectSearch', () => {
     await user.click(screen.getByText('1:1'));
 
     expect(mockOpenFile).toHaveBeenCalledWith(
-      '/project/src/main.ts',
+      'root-proj',
+      'src/main.ts',
       'main.ts',
-      'typescript'
+      'typescript',
+      '/project/src/main.ts'
     );
     expect(onClose).toHaveBeenCalled();
   });
@@ -141,7 +149,6 @@ describe('ProjectSearch', () => {
   it('falls back to plaintext for files with no detectable language', async () => {
     mockSearchInFiles.mockResolvedValue([
       {
-        filePath: '/project/NOTES',
         relativePath: 'NOTES',
         matches: [
           { line: 1, column: 1, preview: 'foo', matchStart: 0, matchEnd: 3 },
@@ -160,13 +167,18 @@ describe('ProjectSearch', () => {
     });
 
     await user.click(screen.getByText('1:1'));
-    expect(mockOpenFile).toHaveBeenCalledWith('/project/NOTES', 'NOTES', 'plaintext');
+    expect(mockOpenFile).toHaveBeenCalledWith(
+      'root-proj',
+      'NOTES',
+      'NOTES',
+      'plaintext',
+      '/project/NOTES'
+    );
   });
 
   it('queues an editor reveal before opening so the cursor lands on the match', async () => {
     mockSearchInFiles.mockResolvedValue([
       {
-        filePath: '/project/src/main.ts',
         relativePath: 'src/main.ts',
         matches: [
           { line: 42, column: 7, preview: 'hello', matchStart: 0, matchEnd: 5 },
@@ -202,7 +214,6 @@ describe('ProjectSearch', () => {
     mockOpenFile.mockRejectedValueOnce(new Error('read failed'));
     mockSearchInFiles.mockResolvedValue([
       {
-        filePath: '/project/src/main.ts',
         relativePath: 'src/main.ts',
         matches: [
           { line: 9, column: 2, preview: 'needle', matchStart: 0, matchEnd: 6 },
@@ -229,7 +240,6 @@ describe('ProjectSearch', () => {
   it('clears the global search state when the overlay unmounts', async () => {
     mockSearchInFiles.mockResolvedValue([
       {
-        filePath: '/project/src/main.ts',
         relativePath: 'src/main.ts',
         matches: [
           { line: 2, column: 1, preview: 'needle', matchStart: 0, matchEnd: 6 },

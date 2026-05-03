@@ -16,6 +16,12 @@ describe('sessionStore', () => {
         lingua: {
           fs: {
             read: vi.fn().mockResolvedValue('restored content'),
+            reopenRoot: vi.fn().mockResolvedValue({
+              ok: true,
+              rootId: 'root-restored',
+              rootPath: '/path',
+            }),
+            revokeRoot: vi.fn().mockResolvedValue(true),
           },
         },
       },

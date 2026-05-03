@@ -26,6 +26,12 @@ describe('useDeepLinks', () => {
       value: {
         fs: {
           read: vi.fn().mockResolvedValue('const deep = true;\n'),
+          reopenRoot: vi.fn().mockResolvedValue({
+            ok: true,
+            rootId: 'root-deep',
+            rootPath: '/tmp',
+          }),
+          revokeRoot: vi.fn().mockResolvedValue(true),
         },
         deepLinks: {
           markReady,

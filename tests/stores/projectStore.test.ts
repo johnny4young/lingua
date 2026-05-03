@@ -36,6 +36,11 @@ beforeEach(() => {
         fs: {
           ...(globalThis.window?.lingua?.fs ?? {}),
           readdir: vi.fn(),
+          selectDirectory: vi.fn(),
+          reopenRoot: vi.fn(),
+          revokeRoot: vi.fn().mockResolvedValue(true),
+          watchStart: vi.fn().mockResolvedValue('watch-new'),
+          watchStop: vi.fn().mockResolvedValue(true),
         },
       },
     },
@@ -245,19 +250,63 @@ describe('collectExpandedPaths', () => {
 describe('entriesToNodes', () => {
   it('leaves unknown file extensions without a language instead of forcing javascript', () => {
     const result = entriesToNodes([
-      { name: 'notes.txt', isDirectory: false, path: '/proj/notes.txt' },
+      { name: 'notes.txt', isDirectory: false, relativePath: 'notes.txt' },
     ]);
 
     expect(result).toEqual([
       {
         name: 'notes.txt',
-        path: '/proj/notes.txt',
+        path: 'notes.txt',
         isDirectory: false,
         language: undefined,
         children: undefined,
         isExpanded: false,
       },
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// project lifecycle
+// ---------------------------------------------------------------------------
+
+describe('projectStore createProject', () => {
+  it('uses the picker-minted capability directly instead of reopening by path', async () => {
+    vi.mocked(window.lingua.fs.selectDirectory).mockResolvedValue({
+      canceled: false,
+      rootId: 'root-picked',
+      rootPath: '/picked',
+    });
+    vi.mocked(window.lingua.fs.readdir).mockResolvedValue([
+      { name: 'README.md', isDirectory: false, relativePath: 'README.md' },
+    ]);
+
+    await useProjectStore.getState().createProject();
+
+    const state = useProjectStore.getState();
+    expect(window.lingua.fs.reopenRoot).not.toHaveBeenCalled();
+    expect(state.currentProject?.rootId).toBe('root-picked');
+    expect(state.currentProject?.rootPath).toBe('/picked');
+    expect(state.nodes).toEqual([
+      expect.objectContaining({
+        name: 'README.md',
+        path: 'README.md',
+        isDirectory: false,
+      }),
+    ]);
+  });
+
+  it('derives a friendly project name from Windows-style root paths', async () => {
+    vi.mocked(window.lingua.fs.selectDirectory).mockResolvedValue({
+      canceled: false,
+      rootId: 'root-picked',
+      rootPath: 'C:\\Users\\dev\\picked',
+    });
+    vi.mocked(window.lingua.fs.readdir).mockResolvedValue([]);
+
+    await useProjectStore.getState().createProject();
+
+    expect(useProjectStore.getState().currentProject?.name).toBe('picked');
   });
 });
 
@@ -269,18 +318,19 @@ describe('projectStore refreshTree', () => {
   it('preserves expanded directories while refreshing children from disk', async () => {
     const mockReaddir = vi.mocked(window.lingua.fs.readdir);
 
-    mockReaddir.mockImplementation(async (dirPath: string) => {
-      if (dirPath === '/proj') {
+    mockReaddir.mockImplementation(async (rootId: string, relativePath: string) => {
+      if (rootId !== 'root-proj') return [];
+      if (relativePath === '') {
         return [
-          { name: 'src', isDirectory: true, path: '/proj/src' },
-          { name: 'README.md', isDirectory: false, path: '/proj/README.md' },
+          { name: 'src', isDirectory: true, relativePath: 'src' },
+          { name: 'README.md', isDirectory: false, relativePath: 'README.md' },
         ];
       }
-
-      if (dirPath === '/proj/src') {
-        return [{ name: 'main.ts', isDirectory: false, path: '/proj/src/main.ts' }];
+      if (relativePath === 'src') {
+        return [
+          { name: 'main.ts', isDirectory: false, relativePath: 'src/main.ts' },
+        ];
       }
-
       return [];
     });
 
@@ -288,39 +338,40 @@ describe('projectStore refreshTree', () => {
       currentProject: {
         id: '/proj',
         name: 'proj',
+        rootId: 'root-proj',
         rootPath: '/proj',
         openedAt: Date.now(),
       },
       nodes: [
         {
           name: 'src',
-          path: '/proj/src',
+          path: 'src',
           isDirectory: true,
           isExpanded: true,
           children: [],
         },
       ],
-      watchId: '/proj',
+      watchId: 'watch-project',
       recentProjects: [],
     });
 
     await useProjectStore.getState().refreshTree();
 
     const [srcNode, readmeNode] = useProjectStore.getState().nodes;
-    expect(mockReaddir).toHaveBeenCalledWith('/proj');
-    expect(mockReaddir).toHaveBeenCalledWith('/proj/src');
-    expect(srcNode?.path).toBe('/proj/src');
+    expect(mockReaddir).toHaveBeenCalledWith('root-proj', '');
+    expect(mockReaddir).toHaveBeenCalledWith('root-proj', 'src');
+    expect(srcNode?.path).toBe('src');
     expect(srcNode?.isExpanded).toBe(true);
     expect(srcNode?.children).toEqual([
       {
         name: 'main.ts',
-        path: '/proj/src/main.ts',
+        path: 'src/main.ts',
         isDirectory: false,
         language: 'typescript',
         children: undefined,
         isExpanded: false,
       },
     ]);
-    expect(readmeNode?.path).toBe('/proj/README.md');
+    expect(readmeNode?.path).toBe('README.md');
   });
 });

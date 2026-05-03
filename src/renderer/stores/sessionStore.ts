@@ -3,12 +3,19 @@ import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
 import { useEditorStore } from './editorStore';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
+import { parentDirOf } from '../utils/filePath';
 
 interface SessionTab {
   name: string;
   language: Language;
   /** Content for in-memory tabs; empty string for disk-backed tabs (re-read on restore). */
   content: string;
+  /**
+   * Display absolute path. Used at restore time to re-mint a capability
+   * for the file's parent directory via `fs:reopen-root` so the tab can
+   * read its own content under the new IPC contract. Never sent to a
+   * filesystem IPC handler directly.
+   */
   filePath?: string;
 }
 
@@ -30,6 +37,10 @@ export const useSessionStore = create<SessionState>()(
         const savedTabs: SessionTab[] = tabs.map((tab) => ({
           name: tab.name,
           language: tab.language,
+          // Disk-backed tabs persist only the path; restore re-reads via
+          // a freshly minted capability so we never persist file content
+          // we are about to re-fetch anyway. Untitled tabs persist their
+          // content so the user does not lose unsaved work.
           content: tab.filePath ? '' : tab.content,
           filePath: tab.filePath,
         }));
@@ -41,18 +52,35 @@ export const useSessionStore = create<SessionState>()(
         const { savedTabs, savedActiveIndex } = get();
         if (savedTabs.length === 0) return;
 
-        const restored: Array<Parameters<ReturnType<typeof useEditorStore.getState>['restoreTabs']>[0][number] & {
-          id: string;
-        }> = [];
+        const restored: Array<
+          Parameters<ReturnType<typeof useEditorStore.getState>['restoreTabs']>[0][number] & {
+            id: string;
+          }
+        > = [];
 
         for (const saved of savedTabs) {
           let content = saved.content;
+          let rootId: string | undefined;
+          let relativePath: string | undefined;
+
           if (saved.filePath) {
+            // RL-077 — re-mint a capability for the persisted tab's parent
+            // directory and read the file under the new contract. If the
+            // mint fails (path no longer exists, denylisted, not a dir),
+            // fall through with empty content so the user does not lose
+            // the tab outright.
+            const { parent, basename } = parentDirOf(saved.filePath);
             try {
-              content = await window.lingua.fs.read(saved.filePath);
+              const reopen = await window.lingua.fs.reopenRoot(parent);
+              if (reopen.ok) {
+                rootId = reopen.rootId;
+                relativePath = basename;
+                content = await window.lingua.fs.read(rootId, relativePath);
+              } else {
+                content = `// File not found: ${saved.name}\n`;
+              }
             } catch {
-              // File no longer exists — restore with empty content
-              content = `// File not found: ${saved.filePath}\n`;
+              content = `// File not found: ${saved.name}\n`;
             }
           }
 
@@ -66,6 +94,8 @@ export const useSessionStore = create<SessionState>()(
             language,
             content,
             filePath: saved.filePath,
+            rootId,
+            relativePath,
           });
         }
 

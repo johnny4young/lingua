@@ -8,6 +8,7 @@ import {
   serializeThemePreset,
   type ParseThemePresetResult,
 } from '../../utils/themePreset';
+import { joinAbsolute } from '../../utils/filePath';
 import { Row } from './shared';
 
 const DEFAULT_FILENAME = 'lingua-theme.json';
@@ -44,6 +45,7 @@ export function ThemePresetControls() {
 
     const saveDialog = window.lingua?.fs?.saveDialog;
     const write = window.lingua?.fs?.write;
+    const revokeRoot = window.lingua?.fs?.revokeRoot;
     if (!saveDialog || !write) {
       pushStatusNotice({
         tone: 'error',
@@ -52,14 +54,18 @@ export function ThemePresetControls() {
       return;
     }
 
+    let mintedRootId: string | null = null;
     try {
       const chosen = await saveDialog(DEFAULT_FILENAME);
-      if (!chosen) return;
-      await write(chosen, serialized);
+      if (chosen.canceled) return;
+      mintedRootId = chosen.rootId;
+      await write(chosen.rootId, chosen.fileRelativePath, serialized);
       pushStatusNotice({
         tone: 'success',
         messageKey: 'settings.themePreset.exported',
-        values: { path: chosen },
+        values: {
+          path: joinAbsolute(chosen.rootPath, chosen.fileRelativePath),
+        },
       });
     } catch (error) {
       pushStatusNotice({
@@ -67,13 +73,20 @@ export function ThemePresetControls() {
         messageKey: 'settings.themePreset.error.writeFailed',
         detail: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      // RL-077 — atomic IPC: the picker mints a capability tied to the
+      // parent directory; we revoke it once the one-shot write finishes
+      // so transient tokens for theme exports don't accumulate.
+      if (mintedRootId && revokeRoot) {
+        await revokeRoot(mintedRootId).catch(() => {});
+      }
     }
   };
 
   const handleImport = async () => {
     const selectFile = window.lingua?.fs?.selectFile;
-    const read = window.lingua?.fs?.read;
-    if (!selectFile || !read) {
+    const revokeRoot = window.lingua?.fs?.revokeRoot;
+    if (!selectFile) {
       pushStatusNotice({
         tone: 'error',
         messageKey: 'settings.themePreset.error.bridgeMissing',
@@ -81,11 +94,12 @@ export function ThemePresetControls() {
       return;
     }
 
+    let mintedRootId: string | null = null;
     try {
-      const filePath = await selectFile();
-      if (!filePath) return;
-      const raw = await read(filePath);
-      const result = parseThemePreset(raw);
+      const picked = await selectFile();
+      if (picked.canceled) return;
+      mintedRootId = picked.rootId;
+      const result = parseThemePreset(picked.content);
 
       if (!result.ok) {
         pushStatusNotice({
@@ -115,6 +129,10 @@ export function ThemePresetControls() {
         messageKey: 'settings.themePreset.error.readFailed',
         detail: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      if (mintedRootId && revokeRoot) {
+        await revokeRoot(mintedRootId).catch(() => {});
+      }
     }
   };
 

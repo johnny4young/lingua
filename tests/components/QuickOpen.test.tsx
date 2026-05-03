@@ -14,27 +14,40 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
   }),
 }));
 
-// The legacy tree-walk fallback. Intentionally small so we can assert that
-// Quick Open prefers the index over this when both are available.
+const PROJECT_FIXTURE = {
+  id: 'test-proj',
+  rootId: 'root-proj',
+  rootPath: '/proj',
+  name: 'proj',
+  lastOpenedAt: 0,
+};
+
+// The legacy tree-walk fallback. Tree node paths are now relative-to-root.
+const projectStoreState = {
+  currentProject: PROJECT_FIXTURE,
+  nodes: [
+    {
+      name: 'src',
+      path: 'src',
+      isDirectory: true,
+      isExpanded: true,
+      children: [
+        {
+          name: 'tree-only.ts',
+          path: 'src/tree-only.ts',
+          isDirectory: false,
+          language: 'typescript',
+        },
+      ],
+    },
+  ],
+};
+
 vi.mock('../../src/renderer/stores/projectStore', () => ({
-  useProjectStore: () => ({
-    nodes: [
-      {
-        name: 'src',
-        path: '/proj/src',
-        isDirectory: true,
-        isExpanded: true,
-        children: [
-          {
-            name: 'tree-only.ts',
-            path: '/proj/src/tree-only.ts',
-            isDirectory: false,
-            language: 'typescript',
-          },
-        ],
-      },
-    ],
-  }),
+  useProjectStore: Object.assign(
+    () => projectStoreState,
+    { getState: () => projectStoreState }
+  ),
 }));
 
 vi.mock('../../src/renderer/stores/recentFilesStore', () => ({
@@ -57,7 +70,7 @@ describe('QuickOpen', () => {
     mockOpenFile.mockClear();
     mockSetActiveTab.mockClear();
     useProjectIndexStore.setState({
-      rootPath: null,
+      rootId: null,
       status: 'idle',
       entries: [],
       lastIndexedAt: null,
@@ -67,18 +80,16 @@ describe('QuickOpen', () => {
 
   it('lists files from the project-wide index when it is ready', () => {
     useProjectIndexStore.setState({
-      rootPath: '/proj',
+      rootId: 'root-proj',
       status: 'ready',
       entries: [
         {
           name: 'main.ts',
-          path: '/proj/src/main.ts',
           relativePath: 'src/main.ts',
           language: 'typescript',
         },
         {
           name: 'hidden-from-tree.py',
-          path: '/proj/deep/hidden-from-tree.py',
           relativePath: 'deep/hidden-from-tree.py',
           language: 'python',
         },
@@ -89,25 +100,24 @@ describe('QuickOpen', () => {
 
     render(<QuickOpen onClose={vi.fn()} />);
 
-    expect(screen.getByText('/proj/src/main.ts')).toBeTruthy();
-    expect(screen.getByText('/proj/deep/hidden-from-tree.py')).toBeTruthy();
+    expect(screen.getByText('src/main.ts')).toBeTruthy();
+    expect(screen.getByText('deep/hidden-from-tree.py')).toBeTruthy();
     // The tree-walk fallback file must NOT appear when the index is ready.
-    expect(screen.queryByText('/proj/src/tree-only.ts')).toBeNull();
+    expect(screen.queryByText('src/tree-only.ts')).toBeNull();
   });
 
   it('falls back to the project tree walk when the index is empty', () => {
     render(<QuickOpen onClose={vi.fn()} />);
-    expect(screen.getByText('/proj/src/tree-only.ts')).toBeTruthy();
+    expect(screen.getByText('src/tree-only.ts')).toBeTruthy();
   });
 
   it('groups files by source with eyebrow headers when the search is empty', () => {
     useProjectIndexStore.setState({
-      rootPath: '/proj',
+      rootId: 'root-proj',
       status: 'ready',
       entries: [
         {
           name: 'main.ts',
-          path: '/proj/src/main.ts',
           relativePath: 'src/main.ts',
           language: 'typescript',
         },
@@ -129,12 +139,11 @@ describe('QuickOpen', () => {
 
   it('flattens results without scope headers when the user types a query', async () => {
     useProjectIndexStore.setState({
-      rootPath: '/proj',
+      rootId: 'root-proj',
       status: 'ready',
       entries: [
         {
           name: 'main.ts',
-          path: '/proj/src/main.ts',
           relativePath: 'src/main.ts',
           language: 'typescript',
         },
@@ -154,17 +163,16 @@ describe('QuickOpen', () => {
     // scope.
     expect(screen.queryByText('Project files')).toBeNull();
     expect(screen.queryByText('Open tabs')).toBeNull();
-    expect(screen.getByText('/proj/src/main.ts')).toBeTruthy();
+    expect(screen.getByText('src/main.ts')).toBeTruthy();
   });
 
   it('renders a hint alongside the empty no-match state', async () => {
     useProjectIndexStore.setState({
-      rootPath: '/proj',
+      rootId: 'root-proj',
       status: 'ready',
       entries: [
         {
           name: 'main.ts',
-          path: '/proj/src/main.ts',
           relativePath: 'src/main.ts',
           language: 'typescript',
         },
@@ -194,18 +202,16 @@ describe('QuickOpen', () => {
       writable: true,
     });
     useProjectIndexStore.setState({
-      rootPath: '/proj',
+      rootId: 'root-proj',
       status: 'ready',
       entries: [
         {
           name: 'main.ts',
-          path: '/proj/src/main.ts',
           relativePath: 'src/main.ts',
           language: 'typescript',
         },
         {
           name: 'helper.ts',
-          path: '/proj/src/helper.ts',
           relativePath: 'src/helper.ts',
           language: 'typescript',
         },
@@ -225,12 +231,11 @@ describe('QuickOpen', () => {
 
   it('opens unknown-extension files in plaintext mode instead of silently ignoring them', async () => {
     useProjectIndexStore.setState({
-      rootPath: '/proj',
+      rootId: 'root-proj',
       status: 'ready',
       entries: [
         {
           name: 'NOTES',
-          path: '/proj/NOTES',
           relativePath: 'NOTES',
           language: undefined,
         },
@@ -245,7 +250,13 @@ describe('QuickOpen', () => {
 
     await user.click(screen.getByText('NOTES'));
 
-    expect(mockOpenFile).toHaveBeenCalledWith('/proj/NOTES', 'NOTES', 'plaintext');
+    expect(mockOpenFile).toHaveBeenCalledWith(
+      'root-proj',
+      'NOTES',
+      'NOTES',
+      'plaintext',
+      '/proj/NOTES'
+    );
     expect(onClose).toHaveBeenCalled();
   });
 });

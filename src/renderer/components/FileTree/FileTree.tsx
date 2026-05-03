@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useProjectStore, type FileTreeNode as ProjectFileTreeNode } from '../../stores/projectStore';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
+import { joinAbsolute } from '../../utils/filePath';
 import { IconButton } from '../ui/chrome';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
@@ -50,7 +51,15 @@ export function FileTree({ onNavigate }: FileTreeProps) {
   // --------------------------------------------------------- handlers
 
   const handleFileClick = async (node: ProjectFileTreeNode) => {
-    await openFile(node.path, node.name, node.language ?? PLAINTEXT_LANGUAGE);
+    if (!currentProject) return;
+    const displayPath = joinAbsolute(currentProject.rootPath, node.path);
+    await openFile(
+      currentProject.rootId,
+      node.path,
+      node.name,
+      node.language ?? PLAINTEXT_LANGUAGE,
+      displayPath
+    );
     onNavigate?.();
   };
 
@@ -60,14 +69,14 @@ export function FileTree({ onNavigate }: FileTreeProps) {
 
   const handleNewFile = (parentNode?: ProjectFileTreeNode) => {
     setCreating({
-      parentPath: parentNode?.path ?? currentProject?.rootPath ?? '',
+      parentPath: parentNode?.path ?? '',
       kind: 'file',
     });
   };
 
   const handleNewDir = (parentNode?: ProjectFileTreeNode) => {
     setCreating({
-      parentPath: parentNode?.path ?? currentProject?.rootPath ?? '',
+      parentPath: parentNode?.path ?? '',
       kind: 'dir',
     });
   };
@@ -142,7 +151,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
       {/* Tree */}
       <div className="flex-1 overflow-y-auto py-1">
         {/* Inline creation at root level */}
-        {creating && creating.parentPath === currentProject.rootPath && (
+        {creating && creating.parentPath === '' && (
           <div className="px-2 py-0.5">
             <FileTreeInlineInput
               placeholder={

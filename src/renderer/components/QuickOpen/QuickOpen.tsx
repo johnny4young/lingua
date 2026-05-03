@@ -9,6 +9,7 @@ import {
 import { useProjectStore, type FileTreeNode } from '../../stores/projectStore';
 import { useRecentFilesStore } from '../../stores/recentFilesStore';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
+import { joinAbsolute, parentDirOf } from '../../utils/filePath';
 import type { Language } from '../../types';
 import { languageBadgeClass } from '../../utils/languageMeta';
 import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
@@ -47,7 +48,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     if (indexStatus === 'ready' && indexEntries.length > 0) {
       return indexEntries.map<FileResult>((entry: ProjectIndexEntry) => ({
         name: entry.name,
-        path: entry.path,
+        path: entry.relativePath,
         language: entry.language,
         source: 'project',
       }));
@@ -128,13 +129,46 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     if (file.source === 'open-tab') {
       const tab = tabs.find((item) => (item.filePath ?? item.id) === file.path);
       if (tab) setActiveTab(tab.id);
-    } else {
-      // Unknown extensions open in plaintext mode instead of being silently
-      // ignored — RL-022 indexes every project file so the user should be
-      // able to open any result they see.
-      await openFile(file.path, file.name, file.language ?? PLAINTEXT_LANGUAGE);
+      onClose();
+      return;
     }
 
+    if (file.source === 'project') {
+      // Project files: rootId comes from the active project's capability;
+      // file.path is already the relative path inside that root.
+      const { currentProject } = useProjectStore.getState();
+      if (!currentProject) {
+        onClose();
+        return;
+      }
+      const displayPath = joinAbsolute(currentProject.rootPath, file.path);
+      await openFile(
+        currentProject.rootId,
+        file.path,
+        file.name,
+        file.language ?? PLAINTEXT_LANGUAGE,
+        displayPath
+      );
+      onClose();
+      return;
+    }
+
+    // Recent files have an absolute path from a previous session. Re-mint
+    // a capability for the parent directory and open under the new
+    // contract so the renderer never hands main an absolute path.
+    const { parent, basename } = parentDirOf(file.path);
+    const reopen = await window.lingua.fs.reopenRoot(parent);
+    if (!reopen.ok) {
+      onClose();
+      return;
+    }
+    await openFile(
+      reopen.rootId,
+      basename,
+      file.name,
+      file.language ?? PLAINTEXT_LANGUAGE,
+      file.path
+    );
     onClose();
   };
 

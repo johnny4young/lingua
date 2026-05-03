@@ -27,7 +27,7 @@ Mirrors the authoritative `Status` column in
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
 | Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Shipped (2026-05-01) | Language-pack registry — closed by the Slice C closeout. See §7. |
-| Iter 6 | [`RL-077`](./ROADMAP.md) | Partial (Slice 1 shipped 2026-05-02) | Capability-based filesystem IPC sandbox — registry primitives landed; Slice 2 wires the capability contract through desktop IPC and renderer callers. See §8. |
+| Iter 6 | [`RL-077`](./ROADMAP.md) | Shipped (2026-05-02) | Capability-based filesystem IPC sandbox — Slice 1 + Slice 2 both landed. See §8. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -37,10 +37,10 @@ Gated / deferred tickets are NOT in this table — they live exclusively in
 Value-per-day priority. The full reasoning is in
 [`ROADMAP.md`](./ROADMAP.md) §5; this list only names the next pulls.
 
-1. **Security launch hardening** — continue `RL-077` with Slice 2, then
-   pick `RL-078`, `RL-079`, and `RL-083` in that order. This reduces
-   renderer-filesystem risk, worker hang risk, trusted native-execution
-   ambiguity, and runtime/CDN/CSP risk before public distribution.
+1. **Security launch hardening** — `RL-077` is closed; pick `RL-078`,
+   then `RL-079`, then `RL-083` in that order. This reduces worker hang
+   risk, trusted native-execution ambiguity, and runtime/CDN/CSP risk
+   before public distribution.
 2. **Launch blockers** — after the hardening set, pull `RL-063`
    (linguacode.dev download page). `RL-061` is shipped; `RL-059` remains
    `Partial` only as the historical verifier + bridge parent.
@@ -195,14 +195,7 @@ Shipped on 2026-05-01 — see RL-038 in [`docs/PLAN.md`](./PLAN.md#rl-038-build-
 
 ## 8. Iter 6 / RL-077 — Capability-based filesystem IPC sandbox
 
-Partial on 2026-05-02 — Slice 1 shipped the main-process capability
-registry primitives and `resolveCapabilityPath` contract. Next pull is
-Slice 2: wire the registry through the filesystem IPC handlers, picker
-entry points, renderer project/file/search flows, web adapter mirror,
-and the existing filesystem adapter test suites. See
-[`RL-077`](./PLAN.md#rl-077-capability-based-filesystem-ipc-sandbox) in
-PLAN for the full migration map and architectural decisions that were
-deferred out of Slice 1.
+Shipped on 2026-05-02 — see [`RL-077`](./PLAN.md#rl-077-capability-based-filesystem-ipc-sandbox).
 
 ---
 
