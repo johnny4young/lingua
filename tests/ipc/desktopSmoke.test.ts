@@ -62,6 +62,7 @@ describe('desktop smoke IPC handlers', () => {
     expect(await getConfig?.()).toEqual({
       enabled: true,
       artifactDir: '/tmp/lingua-smoke',
+      offline: false,
     });
 
     const screenshotPath = await capture?.({ sender: {} } as never, 'Rust Panel');
@@ -113,6 +114,27 @@ describe('desktop smoke IPC handlers', () => {
     expect(await getConfig?.()).toEqual({
       enabled: true,
       artifactDir: '/tmp/lingua-smoke-argv',
+      offline: false,
     });
+  });
+
+  it('flags offline mode when LINGUA_DESKTOP_SMOKE_OFFLINE is set', async () => {
+    process.env.LINGUA_DESKTOP_SMOKE_OFFLINE = '1';
+    try {
+      const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
+      registerDesktopSmokeHandlers();
+
+      const getConfig = handlers.get('desktop-smoke:get-config');
+      expect(await getConfig?.()).toEqual({
+        enabled: true,
+        artifactDir: '/tmp/lingua-smoke',
+        offline: true,
+      });
+
+      const getOfflineBlocks = handlers.get('desktop-smoke:get-offline-blocks');
+      expect(await getOfflineBlocks?.()).toEqual([]);
+    } finally {
+      delete process.env.LINGUA_DESKTOP_SMOKE_OFFLINE;
+    }
   });
 });

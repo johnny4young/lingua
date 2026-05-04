@@ -1,6 +1,10 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import {
+  getBlockedOfflineSmokeUrls,
+  isOfflineSmokeRequested,
+} from '../offlineSmoke';
 
 const DESKTOP_SMOKE_FLAG = '--lingua-desktop-smoke';
 const SMOKE_ARTIFACT_DIR_PREFIX = '--lingua-smoke-artifact-dir=';
@@ -43,7 +47,15 @@ export function registerDesktopSmokeHandlers(): void {
   ipcMain.handle('desktop-smoke:get-config', async () => ({
     enabled: isDesktopSmokeEnabled(),
     artifactDir: getArtifactDir(),
+    offline: isOfflineSmokeRequested(),
   }));
+
+  ipcMain.handle('desktop-smoke:get-offline-blocks', async () => {
+    if (!isDesktopSmokeEnabled() || !isOfflineSmokeRequested()) {
+      return [];
+    }
+    return getBlockedOfflineSmokeUrls();
+  });
 
   ipcMain.handle('desktop-smoke:capture', async (event, name: string) => {
     if (!isDesktopSmokeEnabled()) {

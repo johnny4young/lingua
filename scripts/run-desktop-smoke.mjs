@@ -43,6 +43,18 @@ async function main() {
   await rm(artifactDir, { recursive: true, force: true });
   await mkdir(artifactDir, { recursive: true });
 
+  // Cross-platform offline-mode flag. The previous shape
+  // (`LINGUA_DESKTOP_SMOKE_OFFLINE=1 node ...` in package.json) only
+  // worked on POSIX shells — on Windows the var was never set and the
+  // offline gate silently no-op'd. Read either the flag or the env
+  // var so existing CI invocations keep working.
+  const offlineMode =
+    process.argv.includes('--offline') ||
+    process.env.LINGUA_DESKTOP_SMOKE_OFFLINE === '1';
+  if (offlineMode) {
+    console.log('[desktop-smoke] offline mode: blocking non-loopback HTTP/HTTPS requests');
+  }
+
   const child = spawn(
     process.execPath,
     [
@@ -70,6 +82,10 @@ async function main() {
         // contains the secret, which would mean the env builder
         // leaked it. Real CI environments do not set this name.
         LINGUA_SMOKE_SECRET: '__lingua_smoke_secret__',
+        // RL-083 Slice 1 — propagate offline mode to the spawned
+        // Electron so its main process installs the webRequest
+        // filter before any window loads.
+        ...(offlineMode ? { LINGUA_DESKTOP_SMOKE_OFFLINE: '1' } : {}),
       },
     }
   );

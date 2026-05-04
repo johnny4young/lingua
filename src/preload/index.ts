@@ -220,5 +220,7 @@ contextBridge.exposeInMainWorld('lingua', {
     writeJsonArtifact: (name: string, payload: unknown) =>
       ipcRenderer.invoke('desktop-smoke:write-json-artifact', name, payload) as Promise<string | null>,
     finish: (success: boolean) => ipcRenderer.send('desktop-smoke:finish', success),
+    getOfflineBlocks: () =>
+      ipcRenderer.invoke('desktop-smoke:get-offline-blocks') as Promise<readonly string[]>,
   },
 });
