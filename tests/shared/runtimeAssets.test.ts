@@ -25,6 +25,7 @@ const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
 const lockPath = path.join(repoRoot, 'runtime-assets.lock.json');
 const rendererConfigPath = path.join(repoRoot, 'vite.renderer.config.mts');
 const webConfigPath = path.join(repoRoot, 'vite.web.config.mts');
+const serviceWorkerPath = path.join(repoRoot, 'public', 'sw.js');
 
 async function sha256OfFile(absolutePath: string): Promise<string> {
   const buf = await readFile(absolutePath);
@@ -66,7 +67,7 @@ describe('RL-083 — runtime-assets.lock.json integrity', () => {
     }
   });
 
-  it('keeps desktop on local assets and web on CDN until Slice 2', async () => {
+  it('keeps desktop on local assets and web on CDN with cache-first SW (RL-083 Slice 2)', async () => {
     const rendererConfig = await readFile(rendererConfigPath, 'utf8');
     const webConfig = await readFile(webConfigPath, 'utf8');
 
@@ -74,5 +75,15 @@ describe('RL-083 — runtime-assets.lock.json integrity', () => {
     expect(rendererConfig).toContain('JSON.stringify(null)');
     expect(webConfig).toContain('__LINGUA_PYODIDE_INDEX_URL__');
     expect(webConfig).toContain('RUNTIME_ASSETS.pyodide.sourceUrl');
+  });
+
+  it('service worker pins the locked Pyodide CDN prefix for cache-first', async () => {
+    const sw = await readFile(serviceWorkerPath, 'utf8');
+    const match = sw.match(/PYODIDE_CACHE_PREFIX\s*=\s*['"]([^'"]+)['"]/u);
+    expect(
+      match,
+      'public/sw.js must expose a PYODIDE_CACHE_PREFIX string constant'
+    ).not.toBeNull();
+    expect(match![1]).toBe(RUNTIME_ASSETS.pyodide.sourceUrl);
   });
 });

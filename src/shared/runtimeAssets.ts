@@ -15,9 +15,10 @@
  * git). This module names the files we care about and the version we
  * pin against.
  *
- * Web-build behavior is intentionally unchanged at this slice. Slice 2
- * (web first-party hosting decision) will widen this surface; until
- * then, web consumers continue to load from the CDN.
+ * Web builds also read `sourceUrl`: `vite.web.config.mts` injects it
+ * into the shared Python worker as the CDN index URL, and `public/sw.js`
+ * cache-firsts the same prefix so Python is offline-tolerant after the
+ * first successful web load.
  */
 
 export type RuntimeAssetId = 'pyodide';

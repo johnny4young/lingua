@@ -30,9 +30,9 @@ export default defineConfig({
   plugins: [react()],
   define: {
     ...getSharedBuildDefines(),
-    // RL-083 Slice 1 is desktop-only. Keep the shared Python worker
-    // pointed at the CDN for web until Slice 2 chooses first-party
-    // hosting and tightens src/web/index.html + public/sw.js together.
+    // RL-083 Slice 2 keeps web Pyodide on the version-pinned CDN URL.
+    // public/sw.js cache-firsts this same prefix after the first
+    // successful Python load.
     __LINGUA_PYODIDE_INDEX_URL__: JSON.stringify(RUNTIME_ASSETS.pyodide.sourceUrl),
   },
   root: path.resolve(__dirname, 'src/web'),

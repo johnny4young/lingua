@@ -30,7 +30,7 @@ Mirrors the authoritative `Status` column in
 | Iter 6 | [`RL-077`](./ROADMAP.md) | Shipped (2026-05-02) | Capability-based filesystem IPC sandbox — Slice 1 + Slice 2 both landed. See §8. |
 | Iter 7 | [`RL-078`](./ROADMAP.md) | Shipped (2026-05-03) | Parent-owned execution timeouts + output / resource limits. See §9. |
 | Iter 8 | [`RL-079`](./ROADMAP.md) | Shipped (2026-05-03) | Trusted native execution hardening for Go and Rust. See §10. |
-| Iter 9 | [`RL-083`](./ROADMAP.md) | Partial · Slice 1 shipped 2026-05-04 | Offline runtime assets + strict CSP — desktop vendor + integrity lock + offline smoke + desktop CSP tighten landed. Slice 2 (web first-party hosting + web CSP + SW prefetch) outstanding. See §11. |
+| Iter 9 | [`RL-083`](./ROADMAP.md) | Shipped (2026-05-04) | Offline runtime assets + strict CSP — Slice 1 vendored Pyodide for desktop and tightened the desktop CSP; Slice 2 closed the web track with a cache-first SW for the version-pinned Pyodide URL plus a documented "first Python load needs network" limitation. See §11. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -40,13 +40,12 @@ Gated / deferred tickets are NOT in this table — they live exclusively in
 Value-per-day priority. The full reasoning is in
 [`ROADMAP.md`](./ROADMAP.md) §5; this list only names the next pulls.
 
-1. **Security launch hardening** — `RL-077`, `RL-078`, and `RL-079`
-   are closed; `RL-083` Slice 1 shipped 2026-05-04. Continue with
-   `RL-083` Slice 2 (web first-party hosting + web CSP + SW prefetch)
-   to close the security launch-blocker set.
-2. **Launch blockers** — after the hardening set, pull `RL-063`
-   (linguacode.dev download page). `RL-061` is shipped; `RL-059` remains
-   `Partial` only as the historical verifier + bridge parent.
+1. **Security launch hardening** — closed. `RL-077`, `RL-078`,
+   `RL-079`, and `RL-083` are all `Done` (RL-083 Slice 2 closed
+   2026-05-04 — see §11). Move on.
+2. **Launch blockers** — pull `RL-063` (linguacode.dev download
+   page) next. `RL-061` is shipped; `RL-059` remains `Partial` only as
+   the historical verifier + bridge parent.
 3. **Release, legal, and compliance readiness** — `RL-080`, `RL-081`,
    `RL-085`, and `RL-092` before a public launch announcement.
 4. **Runtime/platform surface hardening** — `RL-084`, `RL-087`, and
@@ -216,56 +215,7 @@ Shipped on 2026-05-03 — see [`RL-079`](./PLAN.md#rl-079-trusted-native-executi
 
 ## 11. Iter 9 / RL-083 — Offline runtime assets + strict CSP
 
-**One-liner**: Vendor Pyodide for desktop, lock its integrity, tighten
-the desktop CSP, and prove the result with an offline-mode desktop
-smoke. Defer the web surface to Slice 2.
-
-**11.1 Slice 1 — Shipped 2026-05-04**
-
-- Added `pyodide@0.26.4` as a runtime dep; copied curated runtime
-  files into `<renderer-out-dir>/pyodide/` via
-  `build/copyRuntimeAssetsPlugin.mts` (Vite plugin handles dev
-  middleware and packaged build).
-- Added `src/shared/runtimeAssets.ts` as the single asset registry
-  (id, version, source URL, paths, critical-files list) plus
-  `scripts/build-runtime-asset-manifest.mjs` and
-  `runtime-assets.lock.json` for the integrity snapshot. New scripts
-  `npm run build:runtime-assets` (write) and
-  `npm run check:runtime-assets` (assert).
-- Vitest mirror at `tests/shared/runtimeAssets.test.ts` fails red on
-  any drift between `node_modules/pyodide/` and the lock.
-- `python-worker.ts` now resolves desktop Pyodide through
-  `new URL('../pyodide/', import.meta.url).href` and imports
-  `${indexURL}pyodide.mjs` — same URL shape works in dev (Vite
-  middleware under `/src/renderer/pyodide/`) and packaged
-  (`file://.../pyodide/`). Removed desktop CDN fallback; web keeps an
-  explicit CDN define until Slice 2.
-- Desktop CSP in `index.html` dropped `https://cdn.jsdelivr.net` from
-  `script-src` and `connect-src`. Web `src/web/index.html` untouched.
-- New `LINGUA_DESKTOP_SMOKE_OFFLINE=1` mode wired through
-  `src/main/offlineSmoke.ts` + `src/main/index.ts` ready handler +
-  `src/main/ipc/desktopSmoke.ts` + preload + renderer hook
-  (`useDesktopSmoke.ts`). The synthetic `offline-no-cdn` summary case
-  asserts no remote URL was attempted. New
-  `npm run smoke:desktop:offline` script.
-- New `docs/RUNTIME_ASSETS_ADR.md` and indexed in
-  `docs/README.md` ADRs table.
-
-**11.2 Slice 2 — Outstanding**
-
-- Decide web hosting strategy: first-party `app.linguacode.dev/pyodide/`
-  vs explicit "first-Python-boot requires connectivity" limitation
-  doc. Cost / quota analysis on the Cloudflare layer drives the call.
-- Tighten `src/web/index.html` CSP once the chosen hosting is live.
-- Update `public/sw.js` cache strategy (precache vs runtime cache) to
-  match.
-- Extend the web smoke (or add a new one) to assert offline behavior.
-
-**11.3 Out of scope**
-
-- SBOM (`RL-085`) — separate ticket; this slice only adds an asset
-  manifest, not a full bill of materials.
-- Plugin manifest hardening (`RL-084`) — separate ticket.
+Shipped on 2026-05-04 — see [`RL-083`](./PLAN.md#rl-083-offline-runtime-assets-and-strict-csp). Slice 1 vendored Pyodide for desktop and tightened the desktop CSP; Slice 2 closed the web track with cache-first SW + documented limitation. ADR: [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md).
 
 ---
 

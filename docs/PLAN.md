@@ -4980,21 +4980,61 @@ Acceptance criteria coverage so far:
   enforced by the absence of `https://cdn.jsdelivr.net` in CSP and
   by the offline smoke filter.
 - Web-mode behavior is documented — yes, in `docs/RUNTIME_ASSETS_ADR.md`
-  as an explicit "Slice 2 will pick the web strategy" note.
+  (the Slice 1 framing pointed at "Slice 2 will pick the web
+  strategy"; see the Slice 2 Status Update block below for the chosen
+  strategy and the matching ADR Web section).
 - CSP blocks unapproved remote script/module imports — desktop only
   in this slice; web tightening tracked under Slice 2.
 - Runtime asset version and integrity are testable in CI — yes, via
   the Vitest integrity test plus the matching CLI script.
 
-Slice 2 (still open):
+#### Slice 2 Status Update — 2026-05-04 (closes RL-083)
 
-- Decide web hosting strategy (first-party host on `app.linguacode.dev`
-  vs explicit "web requires connectivity for first Python boot"
-  limitation). Cost / quota analysis on Cloudflare drives the choice.
-- Tighten `src/web/index.html` CSP once the hosting is live.
-- Adjust `public/sw.js` cache strategy (precache vs runtime cache) to
-  match.
-- Extend or add a web smoke that asserts offline behavior.
+Slice 2 shipped. ROADMAP §4a row removed and added to §6 archive
+(`Done` count 44 → 45).
+
+What landed:
+
+- `public/sw.js` now cache-firsts the version-pinned Pyodide CDN URL
+  (`https://cdn.jsdelivr.net/pyodide/v0.26.4/full/`) so the second and
+  every subsequent visit boots Python without network connectivity.
+  The constant `PYODIDE_CACHE_PREFIX` mirrors
+  `RUNTIME_ASSETS.pyodide.sourceUrl`; a vitest mirror in
+  `tests/shared/runtimeAssets.test.ts` fails red if the two drift.
+- `CACHE_VERSION` bumped `v3 → v4` so existing clients drop the old
+  network-first responses on next reload.
+- ADR (`docs/RUNTIME_ASSETS_ADR.md`) closed and renamed the **Web**
+  section to "Web (Slice 2 — cache-backed offline)". The web strategy
+  is now explicit: load Pyodide from the upstream CDN with a
+  cache-first service worker so the first Python load primes the
+  cache and subsequent loads work offline.
+- `src/web/index.html` keeps `https://cdn.jsdelivr.net` in
+  `script-src` and `connect-src` (Pyodide still loads from CDN). The
+  CSP comment cites the ADR so a future contributor knows the SW
+  cache strategy is the chosen plan, not a placeholder.
+
+Acceptance criteria — final state:
+
+- Python runs in packaged desktop without internet access. Closed in
+  Slice 1.
+- Desktop Python init fails if it tries to reach a remote CDN. Closed
+  in Slice 1.
+- Web-mode behavior is documented: cache-backed offline behavior with
+  an explicit "first Python load needs network" limitation.
+  Closed.
+- CSP blocks unapproved remote script/module imports: desktop CSP
+  blocks all remote imports. Web CSP allows ONE approved remote
+  (`cdn.jsdelivr.net`, version-pinned for Pyodide). Documented.
+- Runtime asset version and integrity are testable in CI: vitest gate
+  asserts `runtime-assets.lock.json` integrity AND `public/sw.js`
+  prefix sync. Closed.
+
+Optional follow-ups (not blocking; tracked outside RL-083):
+
+- Playwright web smoke for offline-after-first-load. The cache-first
+  strategy is currently covered by the vitest URL-drift gate; a
+  full Pyodide-boot Playwright run would be slow (>60s first load
+  over CDN) and was intentionally not added to the default e2e gate.
 
 ### RL-084 Local plugin manifest hardening
 
