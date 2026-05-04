@@ -63,6 +63,7 @@ describe('desktop smoke IPC handlers', () => {
       enabled: true,
       artifactDir: '/tmp/lingua-smoke',
       offline: false,
+      packagedSubset: false,
     });
 
     const screenshotPath = await capture?.({ sender: {} } as never, 'Rust Panel');
@@ -115,6 +116,7 @@ describe('desktop smoke IPC handlers', () => {
       enabled: true,
       artifactDir: '/tmp/lingua-smoke-argv',
       offline: false,
+      packagedSubset: false,
     });
   });
 
@@ -129,12 +131,31 @@ describe('desktop smoke IPC handlers', () => {
         enabled: true,
         artifactDir: '/tmp/lingua-smoke',
         offline: true,
+        packagedSubset: false,
       });
 
       const getOfflineBlocks = handlers.get('desktop-smoke:get-offline-blocks');
       expect(await getOfflineBlocks?.()).toEqual([]);
     } finally {
       delete process.env.LINGUA_DESKTOP_SMOKE_OFFLINE;
+    }
+  });
+
+  it('flags packaged-subset mode when LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET is set (RL-080 Slice 3)', async () => {
+    process.env.LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET = '1';
+    try {
+      const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
+      registerDesktopSmokeHandlers();
+
+      const getConfig = handlers.get('desktop-smoke:get-config');
+      expect(await getConfig?.()).toEqual({
+        enabled: true,
+        artifactDir: '/tmp/lingua-smoke',
+        offline: false,
+        packagedSubset: true,
+      });
+    } finally {
+      delete process.env.LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET;
     }
   });
 });

@@ -60,6 +60,8 @@ describe('Script naming docs guard', () => {
       'smoke:desktop',
       // RL-083 Slice 1 — runtime-asset lock + offline desktop smoke
       'smoke:desktop:offline',
+      // RL-080 Slice 3 — packaged desktop smoke (release-blocking)
+      'smoke:desktop:packaged',
       'build:runtime-assets',
       'check:runtime-assets',
       'test',
@@ -89,5 +91,7 @@ describe('Script naming docs guard', () => {
     expect(scripts).not.toHaveProperty('desktop:smoke');
     expect(scripts).not.toHaveProperty('test:smoke:license-web');
     expect(scripts).not.toHaveProperty('test:smoke:license-web:unit');
+    expect(scripts['smoke:desktop:packaged']).toContain('--offline');
+    expect(scripts['smoke:desktop:packaged']).toContain('--against-packaged out/make');
   });
 });

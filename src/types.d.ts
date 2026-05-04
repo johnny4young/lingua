@@ -218,6 +218,15 @@ interface DesktopSmokeConfig {
    * synthetic case that asserts no remote URL was attempted.
    */
   offline?: boolean;
+  /**
+   * RL-080 Slice 3 — true when the smoke harness is running against
+   * a packaged release artifact (`Lingua.app`) instead of the Vite
+   * dev server. The renderer narrows SMOKE_CASES to a 2-case subset
+   * (javascript + python) so the release gate stays under ~2 minutes
+   * while still exercising the renderer load path and the vendored
+   * Pyodide runtime end-to-end.
+   */
+  packagedSubset?: boolean;
 }
 
 // -------------------------------------------------------------- License types

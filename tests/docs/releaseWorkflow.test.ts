@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 
 const WORKFLOW_PATH = resolve(__dirname, '../../.github/workflows/release.yml');
 const DEPLOY_WEB_WORKFLOW_PATH = resolve(__dirname, '../../.github/workflows/deploy-web.yml');
+const PACKAGE_JSON_PATH = resolve(__dirname, '../../package.json');
 
 describe('release workflow', () => {
   it('exists at the expected path', () => {
@@ -31,6 +32,9 @@ describe('release workflow', () => {
   const deployWebWorkflow = existsSync(DEPLOY_WEB_WORKFLOW_PATH)
     ? readFileSync(DEPLOY_WEB_WORKFLOW_PATH, 'utf-8')
     : '';
+  const packageJson = existsSync(PACKAGE_JSON_PATH)
+    ? JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as { scripts: Record<string, string> }
+    : { scripts: {} };
 
   it('downloads pre-built artifacts before publishing', () => {
     expect(workflow).toMatch(/uses:\s*actions\/download-artifact@v4/u);
@@ -110,6 +114,33 @@ describe('release workflow', () => {
     expect(inlineDeps.length + multiLineDeps.length).toBeGreaterThanOrEqual(3);
     expect(workflow).toMatch(/deploy-web:[\s\S]*?needs:\s*\[\s*publish\s*,\s*security-audit\s*\]/u);
     expect(workflow).toContain("needs.security-audit.result == 'success'");
+  });
+
+  it('runs a release-blocking packaged desktop smoke after macOS signing (RL-080 Slice 3)', () => {
+    // The `Packaged desktop smoke` step is gated on macOS signing
+    // verification (so we only smoke a properly-signed bundle) and
+    // sits before `Upload macOS artifacts` so a smoke failure aborts
+    // the artifact from ever leaving the build runner. Bloqueante:
+    // there is NO `continue-on-error: true` on the step.
+    expect(workflow).toContain('Packaged desktop smoke');
+    expect(workflow).toMatch(/npm run smoke:desktop:packaged/u);
+    expect(packageJson.scripts['smoke:desktop:packaged']).toContain('--offline');
+    const signingIndex = workflow.indexOf('Verify macOS signing');
+    const packagedSmokeIndex = workflow.indexOf('Packaged desktop smoke');
+    const uploadIndex = workflow.indexOf('Upload macOS artifacts');
+    expect(signingIndex).toBeGreaterThan(0);
+    expect(packagedSmokeIndex).toBeGreaterThan(signingIndex);
+    expect(uploadIndex).toBeGreaterThan(packagedSmokeIndex);
+
+    // Capture the step's YAML body and assert it does NOT opt out of
+    // failure propagation. A future "soft launch" change that adds
+    // `continue-on-error: true` would silently turn this gate
+    // advisory; the regex catches that regression.
+    const stepMatch = workflow.match(
+      /- name: Packaged desktop smoke\s*\n([\s\S]*?)(?=\n\s*-\s+name:|$)/u,
+    );
+    expect(stepMatch, 'Packaged desktop smoke step body not found').not.toBeNull();
+    expect(stepMatch![1]).not.toMatch(/continue-on-error:\s*true/u);
   });
 
   it('re-verifies SHA256SUMS.txt against the downloaded payload before publishing (RL-080 Slice 2)', () => {

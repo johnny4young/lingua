@@ -17,6 +17,7 @@
     "preview:web": "vite preview --config vite.web.config.mts",
     "smoke:desktop": "node ./scripts/run-desktop-smoke.mjs",
     "smoke:desktop:offline": "node ./scripts/run-desktop-smoke.mjs --offline",
+    "smoke:desktop:packaged": "node ./scripts/run-desktop-smoke.mjs --offline --against-packaged out/make",
     "build:runtime-assets": "node --experimental-strip-types ./scripts/build-runtime-asset-manifest.mjs --write",
     "check:runtime-assets": "node --experimental-strip-types ./scripts/build-runtime-asset-manifest.mjs",
     "test": "vitest run",
