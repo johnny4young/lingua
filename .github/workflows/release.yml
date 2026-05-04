@@ -88,10 +88,42 @@ jobs:
             echo "Created tag ${RELEASE_TAG} at ${target_sha}"
           fi
 
+  # RL-080 Slice 2 — release-blocking production dependency audit.
+  # The stable Electron Forge 7 build toolchain still carries
+  # dev-only audit findings that cannot be fixed without npm
+  # overrides or alpha Forge packages. Gate the releasable dependency
+  # graph, then keep the full graph visible as advisory output so the
+  # release does not hide build-tool drift. The run block uses only
+  # static npm commands (no github.event interpolation of any kind),
+  # so there is no script-injection surface.
+  security-audit:
+    name: Security audit (release-blocking)
+    runs-on: ubuntu-latest
+    needs: prepare-release-tag
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+          # `npm audit` only needs the working tree (package.json +
+          # package-lock.json). Skip the full-history fetch the
+          # platform builds do — keeps this fail-fast job under a
+          # minute on a cold cache.
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - name: Run blocking production npm audit
+        run: npm audit --omit=dev --audit-level=high
+      - name: Run advisory full npm audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
   build-macos:
     name: Build macOS
     runs-on: macos-latest
-    needs: prepare-release-tag
+    needs: [prepare-release-tag, security-audit]
     if: ${{ inputs.release_macos }}
     steps:
       - uses: actions/checkout@v4
@@ -212,7 +244,7 @@ jobs:
   build-windows:
     name: Build Windows
     runs-on: windows-latest
-    needs: prepare-release-tag
+    needs: [prepare-release-tag, security-audit]
     if: ${{ inputs.release_windows }}
     steps:
       - uses: actions/checkout@v4
@@ -307,7 +339,7 @@ jobs:
   build-linux:
     name: Build Linux
     runs-on: ubuntu-latest
-    needs: prepare-release-tag
+    needs: [prepare-release-tag, security-audit]
     if: ${{ inputs.release_linux }}
     steps:
       - uses: actions/checkout@v4
@@ -406,6 +438,25 @@ jobs:
             echo "- Generated: \`out/make/SHA256SUMS.txt\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # RL-080 Slice 2 — re-verify SHA256SUMS.txt against the
+      # downloaded artifacts as a defensive sanity check. `shasum -c`
+      # recomputes the hash for every file referenced in the manifest
+      # and exits non-zero on the first mismatch. If the manifest
+      # generation step left a stale or corrupted entry behind, this
+      # step catches it before the draft release is published. The
+      # run block uses only static shasum invocations — no
+      # github.event interpolation.
+      - name: Verify release checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd out/make
+          shasum -a 256 -c SHA256SUMS.txt
+          {
+            echo "### Release checksum verification"
+            echo "- Re-verified \`SHA256SUMS.txt\` against the downloaded payload."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Collect release assets
         id: collect
         shell: bash
@@ -464,16 +515,19 @@ jobs:
 
   deploy-web:
     name: Deploy web bundle to Cloudflare Pages
-    needs: publish
+    needs: [publish, security-audit]
     # Always runs when release_web is enabled, even if publish was
     # skipped (web-only release path: release_macos/windows/linux all
-    # false → publish is skipped → web still deploys). If any desktop
-    # platform was selected, require the publish job to have succeeded
-    # before deploying the matching web build.
+    # false → publish is skipped → web still deploys). The
+    # `security-audit` need keeps web-only releases behind the same
+    # release-blocking production dependency audit as desktop releases.
+    # If any desktop platform was selected, require the publish job to
+    # have succeeded before deploying the matching web build.
     if: >-
       ${{
         always() &&
         inputs.release_web &&
+        needs.security-audit.result == 'success' &&
         (
           (!inputs.release_macos && !inputs.release_windows && !inputs.release_linux) ||
           needs.publish.result == 'success'
