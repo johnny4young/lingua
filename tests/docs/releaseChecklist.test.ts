@@ -65,6 +65,20 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toMatch(/smoke:desktop.*passed|passed.*smoke:desktop/i);
   });
 
+  it('requires the RL-080 Slice 2 release-blocking audit + checksum re-verify gates', () => {
+    // RL-080 Slice 2 — the release pipeline runs a blocking
+    // production dependency audit and re-runs `shasum -a 256 -c`
+    // against the downloaded payload after the manifest is generated.
+    // The full dependency audit remains advisory because the stable
+    // Electron Forge 7 build toolchain still carries dev-only audit
+    // findings with no stable upstream fix. Both release gates must
+    // remain in the validation checklist so the human procedure stays
+    // in lockstep with `release.yml`.
+    expect(checklist).toMatch(/release-blocking.*npm audit|npm audit.*release-blocking/i);
+    expect(checklist).toContain('npm audit --omit=dev --audit-level=high');
+    expect(checklist).toMatch(/shasum\s+-a\s+256\s+-c\s+SHA256SUMS\.txt/u);
+  });
+
   it('ships a rollback plan that keeps the release in draft on failure', () => {
     expect(checklist).toContain('## Rollback plan');
     expect(checklist).toMatch(/draft/i);

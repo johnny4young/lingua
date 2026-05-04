@@ -30,9 +30,11 @@ This repository uses a draft-first manual release process, with the release tag 
 4. Provide `release_tag`, the stable tag/version to create and publish, for example `vX.Y.Z`.
 5. Wait for the `Release` GitHub Actions workflow to complete.
 6. Inspect the workflow summary:
+   - Production dependency audit (release-blocking `npm audit --omit=dev --audit-level=high`)
    - macOS signing verification
    - Windows signing verification
    - generated checksums
+   - re-verified checksums (`shasum -c SHA256SUMS.txt`)
 7. Open the draft GitHub Release created by the workflow.
 8. Verify attached artifacts and `SHA256SUMS.txt`.
 9. Verify release notes and artifact naming.
@@ -44,12 +46,14 @@ This repository uses a draft-first manual release process, with the release tag 
 
 ## Validation checklist
 
+- Release-blocking production dependency audit passed (`npm audit --omit=dev --audit-level=high` in the `security-audit` job); the same job also prints full dependency audit output as advisory signal for build-tool drift
 - macOS build completed
 - Windows build completed
 - Linux build completed
 - macOS signing verification passed
 - Windows signing verification passed
 - `SHA256SUMS.txt` is attached or present in the release payload
+- `SHA256SUMS.txt` re-verified against the downloaded payload during `publish` (`shasum -a 256 -c SHA256SUMS.txt`)
 - `npm run smoke:desktop` passed against the packaged macOS artifact (the smoke:desktop gate)
 - Post-publish smoke succeeded against the channel-distributed artifact
 - Release remains draft until human review is complete

@@ -78,6 +78,55 @@ describe('release workflow', () => {
     expect(workflow).toContain("needs.publish.result == 'success'");
   });
 
+  it('runs a release-blocking production audit before any platform build (RL-080 Slice 2)', () => {
+    // The `security-audit` job is gated on `prepare-release-tag` and
+    // each platform build plus web deploy list it under `needs:` so a
+    // failure aborts the release before any runner-minute is spent on
+    // platform builds or a web-only deploy. The full dependency graph
+    // still prints as advisory output because stable Forge 7 carries
+    // dev-only audit findings with no stable upstream fix.
+    expect(workflow).toMatch(/security-audit:\s*\n\s*name: Security audit \(release-blocking\)/u);
+    expect(workflow).toMatch(
+      /Run blocking production npm audit[\s\S]*?npm audit --omit=dev --audit-level=high/u,
+    );
+    expect(workflow).toMatch(
+      /Run advisory full npm audit[\s\S]*?npm audit --audit-level=high[\s\S]*?continue-on-error: true/u,
+    );
+
+    // Match either the inline-array form `needs: [prepare-release-tag,
+    // security-audit]` or the multi-line YAML form
+    //
+    //   needs:
+    //     - prepare-release-tag
+    //     - security-audit
+    //
+    // so a `prettier` / yamllint reformat that flips the shape does
+    // NOT silently drop the audit dep on the build jobs.
+    const inlineDeps = workflow.match(/needs:\s*\[\s*prepare-release-tag\s*,\s*security-audit\s*\]/gu) ?? [];
+    const multiLineDeps =
+      workflow.match(
+        /needs:\s*\n\s*-\s*prepare-release-tag\s*\n\s*-\s*security-audit/gu,
+      ) ?? [];
+    expect(inlineDeps.length + multiLineDeps.length).toBeGreaterThanOrEqual(3);
+    expect(workflow).toMatch(/deploy-web:[\s\S]*?needs:\s*\[\s*publish\s*,\s*security-audit\s*\]/u);
+    expect(workflow).toContain("needs.security-audit.result == 'success'");
+  });
+
+  it('re-verifies SHA256SUMS.txt against the downloaded payload before publishing (RL-080 Slice 2)', () => {
+    // The `Verify release checksums` step runs after `Generate
+    // release checksums` and uses `shasum -a 256 -c SHA256SUMS.txt`
+    // so a manifest mismatch (corrupted asset, wrong file order,
+    // tampering between generate and publish) aborts the publish.
+    expect(workflow).toContain('Verify release checksums');
+    expect(workflow).toMatch(/shasum\s+-a\s+256\s+-c\s+SHA256SUMS\.txt/u);
+    const generateIndex = workflow.indexOf('Generate release checksums');
+    const verifyIndex = workflow.indexOf('Verify release checksums');
+    const publishIndex = workflow.indexOf('Publish draft GitHub Release');
+    expect(generateIndex).toBeGreaterThan(0);
+    expect(verifyIndex).toBeGreaterThan(generateIndex);
+    expect(publishIndex).toBeGreaterThan(verifyIndex);
+  });
+
   it('deploys the web bundle from the validated release tag ref', () => {
     expect(existsSync(DEPLOY_WEB_WORKFLOW_PATH)).toBe(true);
     // GitHub Actions rejects `env.*` inside `with:` of a reusable

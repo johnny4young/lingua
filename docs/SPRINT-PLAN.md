@@ -31,7 +31,7 @@ Mirrors the authoritative `Status` column in
 | Iter 7 | [`RL-078`](./ROADMAP.md) | Shipped (2026-05-03) | Parent-owned execution timeouts + output / resource limits. See §9. |
 | Iter 8 | [`RL-079`](./ROADMAP.md) | Shipped (2026-05-03) | Trusted native execution hardening for Go and Rust. See §10. |
 | Iter 9 | [`RL-083`](./ROADMAP.md) | Shipped (2026-05-04) | Offline runtime assets + strict CSP — Slice 1 vendored Pyodide for desktop and tightened the desktop CSP; Slice 2 closed the web track with a cache-first SW for the version-pinned Pyodide URL plus a documented "first Python load needs network" limitation. See §11. |
-| Iter 10 | [`RL-080`](./ROADMAP.md) | Partial · Slice 1 shipped 2026-05-04 | Release-grade desktop CI + update gates — Slice 1 added 9 update-feed tests covering `/update/:platform/:version` plus the download proxy method guard, and wired the update-server typecheck + test suite into `ci.yml` (they had been ship-and-forget). Remaining: packaged desktop smoke vs release artifacts, SHA256SUMS re-verify on publish, blocking `npm audit` in `release.yml`, RELEASE.md ↔ workflow audit. See §12. |
+| Iter 10 | [`RL-080`](./ROADMAP.md) | Partial · Slice 1 + Slice 2 shipped 2026-05-04 | Release-grade desktop CI + update gates — Slice 1 added 9 update-feed tests + ci.yml worker wiring. Slice 2 added a release-blocking production dependency audit that gates desktop and web releases, full audit advisory output, a `Verify release checksums` step (`shasum -c`), and synced `RELEASE.md` with the new gates. Remaining: packaged desktop smoke vs release artifacts (Slice 3). See §12. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -256,23 +256,49 @@ checksums.
   ship-and-forget; without this fix, the new update-feed tests and the
   worker's separate TypeScript project would never gate PRs.
 
-**12.2 Slice 2 — Outstanding**
+**12.2 Slice 2 — Shipped 2026-05-04**
+
+- New `security-audit` job in `release.yml` that runs
+  `npm audit --omit=dev --audit-level=high` blocking, then runs the
+  full dependency audit as advisory output. Stable Electron Forge 7
+  still carries dev-only audit findings with no stable upstream fix,
+  so the blocking gate is scoped to the releasable dependency graph
+  instead of relying on package overrides. The 3 platform builds
+  (`build-macos` / `build-windows` / `build-linux`) all list
+  `[prepare-release-tag, security-audit]` under `needs:` so a
+  high-severity production dependency vulnerability aborts the
+  release before any runner-minute is spent on builds. `deploy-web`
+  also lists
+  `[publish, security-audit]` under `needs:` and requires
+  `needs.security-audit.result == 'success'`, so web-only releases
+  cannot bypass the release audit when desktop publish is skipped.
+  Daily CI in `ci.yml` keeps
+  `continue-on-error: true` (a transient transitive bump should not
+  park PRs); release runs on a specific tag and must be clean.
+- New `Verify release checksums` step in the `publish` job, sitting
+  between `Generate release checksums` and `Collect release assets`.
+  Uses `shasum -a 256 -c SHA256SUMS.txt` so a corrupted artifact or
+  a stale manifest entry aborts the publish before the draft release
+  is written.
+- `RELEASE.md` validation checklist gains 2 bullets
+  (release-blocking production dependency audit, `SHA256SUMS.txt`
+  re-verified) and the step 6 workflow-summary inspection list adds
+  the audit + re-verify rows.
+- `tests/docs/releaseChecklist.test.ts` extends the RL-016 guard with
+  an explicit assertion that both new bullets stay in `RELEASE.md`,
+  and `tests/docs/releaseWorkflow.test.ts` pins the new
+  `security-audit` job + `Verify release checksums` step ordering in
+  `release.yml`. The two guards keep the human procedure and the
+  automation in lockstep.
+
+**12.3 Slice 3 — Outstanding**
 
 - Packaged desktop smoke against release artifacts. The current
   `npm run smoke:desktop` boots the dev server; the release pipeline
   needs a smoke that runs against `out/make/...` artifacts where
   runner support permits.
-- SHA256SUMS re-verify on publish: after the `Generate release
-  checksums` step in `release.yml`, re-compute the hashes and
-  compare to confirm the published asset set matches the manifest.
-- `npm audit --audit-level=high` blocking specifically in
-  `release.yml`. Daily CI keeps `continue-on-error: true`; release
-  workflow drops the override.
-- RELEASE.md ↔ workflow agreement audit. The release checklist and
-  the workflow file should agree on the mandatory gates; today they
-  may have drifted.
 
-**12.3 Out of scope**
+**12.4 Out of scope**
 
 - macOS notarization end-to-end test (requires real APPLE_ID
   credentials in CI; kept manual).

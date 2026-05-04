@@ -4845,7 +4845,10 @@ These tickets were promoted directly into PLAN and ROADMAP from the 2026-05-02 a
   - Verify signing/notarization metadata on macOS artifacts.
   - Verify Windows signing metadata when signing credentials are present.
   - Validate update-server responses against a staged GitHub Release asset set.
-  - Make `npm audit --audit-level=high` blocking for release workflows while keeping daily CI policy separate if needed.
+  - Make high-severity production dependency audit failures blocking
+    for release workflows while keeping daily CI policy separate if
+    needed, and keep the full dependency audit visible as advisory
+    signal for build-tool drift.
   - Require `SHA256SUMS.txt` generation and verification before promotion from draft.
 - Acceptance criteria:
   - A release cannot be promoted without green desktop package validation for target platforms.
@@ -4905,10 +4908,85 @@ Slice 2..N (still open):
   runner support permits).
 - SHA256SUMS re-verify on publish (re-compute hashes on the
   downloaded asset set and compare against the manifest).
-- `npm audit --audit-level=high` blocking specifically in
-  `release.yml` (daily CI keeps `continue-on-error: true`).
+- Production dependency audit blocking specifically in `release.yml`
+  (daily CI keeps the full `npm audit --audit-level=high` advisory
+  with `continue-on-error: true`).
 - RELEASE.md ↔ `release.yml` audit so the documented checklist and
   the workflow agree on mandatory gates.
+
+#### Slice 2 Status Update — 2026-05-04
+
+Slice 2 shipped. ROADMAP §4f stays `Partial` — Slice 3 (packaged
+smoke vs release artifacts) is the only remaining sub-piece.
+
+What landed:
+
+- New `security-audit` job in `.github/workflows/release.yml` that
+  runs `npm audit --omit=dev --audit-level=high` without
+  `continue-on-error`, then runs the full dependency audit as
+  advisory output. Stable Electron Forge 7 still carries dev-only
+  audit findings with no stable upstream fix, so the blocking gate is
+  scoped to the releasable dependency graph instead of relying on
+  package overrides. Each platform build (`build-macos`,
+  `build-windows`, `build-linux`) lists `[prepare-release-tag,
+  security-audit]` under `needs:`, so a high-severity production
+  dependency vulnerability aborts the release before any runner-minute
+  is spent on builds.
+  `deploy-web` also lists `security-audit` under `needs:` and checks
+  `needs.security-audit.result == 'success'`, so web-only releases
+  cannot bypass the release-blocking audit when desktop publish is
+  intentionally skipped.
+  Daily CI in `ci.yml` intentionally keeps the `continue-on-error`
+  override so a transient transitive bump does not park PRs.
+- New `Verify release checksums` step in the `publish` job, between
+  `Generate release checksums` and `Collect release assets`. Runs
+  `shasum -a 256 -c SHA256SUMS.txt` against the downloaded payload
+  so a corrupted artifact or a stale manifest entry aborts the
+  publish before the draft release is written.
+- `RELEASE.md` updates:
+  - 2 new bullets under `## Validation checklist`: release-blocking
+    production dependency audit + SHA256SUMS re-verify.
+  - Step 6 (Inspect the workflow summary) lists the audit job and
+    the re-verify alongside the existing signing + checksums rows.
+- `tests/docs/releaseChecklist.test.ts` extends the RL-016 guard
+  with an `it(...)` that asserts both new bullets stay in
+  `RELEASE.md` (release-blocking production audit text + the literal
+  `shasum -a 256 -c SHA256SUMS.txt` invocation).
+- `tests/docs/releaseWorkflow.test.ts` adds two new assertions:
+  - `security-audit` job exists with the right name + `npm audit`
+    invocation; the `[prepare-release-tag, security-audit]` `needs:`
+    line appears at least 3 times (once per platform build); and
+    `deploy-web` depends on `security-audit` so web-only releases
+    cannot bypass it.
+  - `Verify release checksums` step exists with `shasum -a 256 -c`
+    and sits between `Generate release checksums` and
+    `Publish draft GitHub Release`.
+
+Acceptance criteria coverage so far:
+
+- "Update feed smoke covers the latest-version, no-update, and
+  missing-asset branches" — closed in Slice 1.
+- "Release artifacts have verified checksums" — closed (re-verify
+  step gates publish).
+- "High-severity production dependency audit is blocking for release
+  workflows" — closed (`security-audit` job); full dev-toolchain
+  audit output remains advisory until stable upstream packages clear
+  the Electron Forge toolchain findings.
+- "The release checklist and workflow file agree on mandatory gates"
+  — closed (RELEASE.md updated + 2 test guards pin the agreement).
+- "A release cannot be promoted without green desktop package
+  validation for target platforms" — partially closed (signing
+  verification already gates each build job; packaged smoke against
+  release artifacts is open in Slice 3).
+
+Slice 3 (still open):
+
+- Packaged desktop smoke vs release artifacts. Reuse the existing
+  `run-desktop-smoke.mjs` against `out/make/Lingua-darwin-arm64-*.zip`
+  (extract + launch the packaged `Lingua.app`) instead of the dev
+  server. Runs only where the GitHub Actions runner can host the
+  packaged binary (macOS-latest can; ubuntu/windows need separate
+  thinking).
 
 ### RL-081 Launch/legal/source-available documentation cleanup
 
