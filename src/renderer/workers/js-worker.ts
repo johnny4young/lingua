@@ -1,12 +1,20 @@
 /**
  * JavaScript execution Web Worker.
  *
- * Runs user code in an isolated context with console capture and timeout support.
+ * Runs user code in an isolated context with console capture.
  * Communication via structured messages (WorkerRequest / WorkerResponse).
+ *
+ * RL-078: this worker no longer schedules its own deadline. The
+ * parent renderer thread owns a kill timer and calls
+ * `worker.terminate()` if user code does not yield in time. The
+ * `runId` from each `execute` request is echoed on every reply so
+ * the parent can drop messages from a previous (terminated) run.
  */
 
 // Make this file a module so TS doesn't merge its scope with other workers
 export {};
+
+import { truncateSerialized } from '../runners/limits';
 
 // Type-safe message posting (Worker context has no DOM types)
 const ctx = self as unknown as Worker;
@@ -19,22 +27,29 @@ const originalConsole = {
   info: console.info.bind(console),
 };
 
-function serialize(args: unknown[]): string[] {
+/** Fallback only used for malformed legacy messages without a marker. */
+const FALLBACK_RESULT_TRUNCATION_MARKER = '[result truncated]';
+
+function truncate(value: string, marker: string): string {
+  return truncateSerialized(value, marker);
+}
+
+function serialize(args: unknown[], marker: string): string[] {
   return args.map((arg) => {
     if (arg === undefined) return 'undefined';
     if (arg === null) return 'null';
-    if (typeof arg === 'string') return arg;
+    if (typeof arg === 'string') return truncate(arg, marker);
     if (typeof arg === 'function') return `[Function: ${arg.name || 'anonymous'}]`;
     if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
     try {
-      return JSON.stringify(arg, null, 2);
+      return truncate(JSON.stringify(arg, null, 2), marker);
     } catch {
-      return String(arg);
+      return truncate(String(arg), marker);
     }
   });
 }
 
-function createConsoleProxy() {
+function createConsoleProxy(runId: string, marker: string) {
   const methods = ['log', 'warn', 'error', 'info'] as const;
   for (const method of methods) {
     console[method] = (...args: unknown[]) => {
@@ -55,8 +70,9 @@ function createConsoleProxy() {
 
       ctx.postMessage({
         type: 'console',
+        runId,
         method,
-        args: serialize(args),
+        args: serialize(args, marker),
         line,
       });
     };
@@ -101,32 +117,35 @@ ctx.addEventListener('message', async (event) => {
   const msg = event.data;
 
   if (msg.type === 'execute') {
-    const { code, timeout } = msg;
+    const { runId, code, resultTruncationMarker } = msg as {
+      type: 'execute';
+      runId: string;
+      code: string;
+      resultTruncationMarker?: string;
+    };
+    const marker =
+      typeof resultTruncationMarker === 'string' && resultTruncationMarker.length > 0
+        ? resultTruncationMarker
+        : FALLBACK_RESULT_TRUNCATION_MARKER;
     const startTime = performance.now();
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    createConsoleProxy();
+    createConsoleProxy(runId, marker);
 
     try {
-      // Set up timeout
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => {
-          reject(new Error(`Execution timed out after ${timeout / 1000}s`));
-        }, timeout);
-      });
-
-      // Execute user code using async Function constructor for top-level await support
+      // Execute user code using async Function constructor for top-level await support.
+      // RL-078: no in-worker timeout race — the parent terminates us.
       const executionPromise = (async () => {
         // Magic comment helper: captures expression value and sends to main thread
         const __mc = (line: number, value: unknown) => {
           let serialized: string;
           try {
-            serialized = serialize([value])[0]!;
+            serialized = serialize([value], marker)[0]!;
           } catch {
-            serialized = String(value);
+            serialized = truncate(String(value), marker);
           }
           ctx.postMessage({
             type: 'magic-comment',
+            runId,
             line,
             value: serialized,
           });
@@ -138,32 +157,30 @@ ctx.addEventListener('message', async (event) => {
         return await fn(__mc);
       })();
 
-      const result = await Promise.race([executionPromise, timeoutPromise]);
-
-      if (timeoutId) clearTimeout(timeoutId);
+      const result = await executionPromise;
 
       // Send result if there is one
       if (result !== undefined) {
         ctx.postMessage({
           type: 'result',
-          value: serialize([result])[0],
+          runId,
+          value: serialize([result], marker)[0],
         });
       }
 
       const executionTime = performance.now() - startTime;
-      ctx.postMessage({ type: 'done', executionTime });
+      ctx.postMessage({ type: 'done', runId, executionTime });
     } catch (err) {
-      if (timeoutId) clearTimeout(timeoutId);
-
       const executionTime = performance.now() - startTime;
       const parsed = parseError(err);
 
       ctx.postMessage({
         type: 'error',
+        runId,
         error: parsed,
       });
 
-      ctx.postMessage({ type: 'done', executionTime });
+      ctx.postMessage({ type: 'done', runId, executionTime });
     } finally {
       restoreConsole();
     }

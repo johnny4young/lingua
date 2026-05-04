@@ -64,7 +64,9 @@ export function useRunner() {
       // scanning the console store here: future console retention or
       // unrelated error entries should not be able to mark this tab red
       // after a successful run.
-      if (!summary.ok) {
+      if (summary.cancelled) {
+        editor.setTabExecutionState(activeTab.id, 'idle');
+      } else if (!summary.ok) {
         editor.setTabExecutionState(activeTab.id, 'error', oneLineTooltip(summary.message));
       } else {
         editor.setTabExecutionState(activeTab.id, 'success');
@@ -82,10 +84,6 @@ export function useRunner() {
     }
     setIsRunning(false);
     setLoadingMessage(null);
-    useConsoleStore.getState().addEntry({
-      type: 'warn',
-      content: 'Execution stopped by user.',
-    });
   }, []);
 
   return { run, stop, isRunning, isInitializing, loadingMessage };

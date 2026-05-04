@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import { runnerManager } from '../runners';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
@@ -63,11 +64,19 @@ export interface ManualExecutionLifecycle {
    * history snapshot does not append another entry to the same timeline.
    */
   recordHistory?: boolean;
+  /**
+   * RL-078 — opt-in override for the runner's deadline (ms). Used by
+   * the desktop smoke timeout cases so the parent kill timer fires
+   * within a few seconds instead of the language default. End-user
+   * surfaces leave this undefined and inherit each runner's default.
+   */
+  executionTimeoutMs?: number;
 }
 
 export interface ManualExecutionSummary {
   mode: 'run' | 'validate' | 'view';
   ok: boolean;
+  cancelled?: boolean;
   executionTime: number | null;
   diagnosticsCount: number;
   message: string;
@@ -85,6 +94,7 @@ export async function executeTabManually(
     setExecutionSource,
     setFullOutput,
     setIsAutoRunning,
+    setIsManualRunning,
     setLineResults,
     setDiagnostics,
   } = useResultStore.getState();
@@ -121,6 +131,7 @@ export async function executeTabManually(
     clearResults();
     setExecutionSource('manual');
     setIsAutoRunning(false);
+    setIsManualRunning(true);
     lifecycle.setIsRunning?.(true);
     addEntry({ type: 'info', content: `Validating ${name}...` });
 
@@ -150,6 +161,7 @@ export async function executeTabManually(
         message: hasErrors ? validation.fullOutput : `Validation passed for ${name}.`,
       };
     } finally {
+      setIsManualRunning(false);
       lifecycle.setIsRunning?.(false);
       lifecycle.setCurrentLanguage?.(null);
     }
@@ -174,6 +186,7 @@ export async function executeTabManually(
   clearResults();
   setExecutionSource('manual');
   setIsAutoRunning(false);
+  setIsManualRunning(true);
   setDiagnostics([]);
   addEntry({ type: 'info', content: `Running ${name}...` });
   lifecycle.setIsRunning?.(true);
@@ -214,7 +227,47 @@ export async function executeTabManually(
       addEntry(compilationMessage);
     }
 
-    const result = await runner.execute(content);
+    const result = await runner.execute(
+      content,
+      lifecycle.executionTimeoutMs !== undefined
+        ? { timeout: lifecycle.executionTimeoutMs }
+        : undefined
+    );
+
+    if (result.cancelled) {
+      const message =
+        result.error?.message ?? (i18next.t('runner.stopped.message') as string);
+      const presentation = toExecutionPresentation(language, content, {
+        ...result,
+        error: undefined,
+      });
+      setLineResults(presentation.lineResults);
+      setFullOutput(presentation.fullOutput || message);
+      setError(null);
+      setDiagnostics([]);
+      setExecutionTime(result.executionTime);
+      for (const output of [...result.stdout, ...result.stderr]) {
+        addEntry({
+          type: output.type,
+          content: output.args.join(' '),
+          line: output.line,
+        });
+      }
+      addEntry({
+        type: 'warn',
+        content: message,
+        executionTime: result.executionTime,
+      });
+      return {
+        mode: 'run',
+        ok: false,
+        cancelled: true,
+        executionTime: result.executionTime,
+        diagnosticsCount: 0,
+        message,
+      };
+    }
+
     const presentation = toExecutionPresentation(language, content, result);
     setLineResults(presentation.lineResults);
     setFullOutput(presentation.fullOutput);
@@ -311,6 +364,7 @@ export async function executeTabManually(
       message,
     };
   } finally {
+    setIsManualRunning(false);
     lifecycle.setIsRunning?.(false);
     lifecycle.setIsInitializing?.(false);
     lifecycle.setLoadingMessage?.(null);

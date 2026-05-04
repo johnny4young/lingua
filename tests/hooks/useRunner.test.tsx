@@ -248,4 +248,61 @@ describe('useRunner', () => {
       parseError: null,
     });
   });
+
+  it('does not record history or mark the tab successful when execution is stopped', async () => {
+    mockPrepareRunner.mockResolvedValue({
+      runner: {
+        execute: vi.fn().mockResolvedValue({
+          stdout: [{ type: 'log', args: ['before stop'], line: 1 }],
+          stderr: [{ type: 'error', args: ['partial stderr'], line: 2 }],
+          executionTime: 0,
+          cancelled: true,
+          error: { message: 'Execution stopped by user.' },
+        } satisfies ExecutionResult),
+      },
+    });
+
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'stopped-tab',
+          name: 'stopped.js',
+          language: 'javascript',
+          content: 'while (true) {}',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'stopped-tab',
+    });
+
+    const { result: hook } = renderHook(() => useRunner());
+
+    await act(async () => {
+      await hook.current.run();
+    });
+
+    expect(useExecutionHistoryStore.getState().entries).toHaveLength(0);
+    expect(useEditorStore.getState().tabs[0]).toMatchObject({
+      executionState: 'idle',
+      parseError: null,
+    });
+    expect(useConsoleStore.getState().entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'log',
+          content: 'before stop',
+          line: 1,
+        }),
+        expect.objectContaining({
+          type: 'error',
+          content: 'partial stderr',
+          line: 2,
+        }),
+        expect.objectContaining({
+          type: 'warn',
+          content: 'Execution stopped by user.',
+        }),
+      ])
+    );
+  });
 });

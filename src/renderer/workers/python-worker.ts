@@ -3,9 +3,17 @@
  *
  * Loads Pyodide from CDN on first use, caches in memory for subsequent runs.
  * Captures stdout/stderr and sends to main thread.
+ *
+ * RL-078: this worker no longer schedules its own deadline. The
+ * parent renderer thread owns a kill timer and calls
+ * `worker.terminate()` if user code does not yield in time. Each
+ * `execute` request carries a `runId` that the worker echoes on
+ * every reply so the parent can drop messages from a previous
+ * (terminated) run.
  */
 
 import { syncUserEnvInPyodide } from './python-worker-env';
+import { truncateSerialized } from '../runners/limits';
 
 const ctx = self as unknown as Worker;
 
@@ -14,6 +22,13 @@ const PYODIDE_CDN = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
 
 let pyodide: unknown = null;
 let appliedUserEnvKeys: string[] = [];
+let activeRunId: string | null = null;
+
+const FALLBACK_RESULT_TRUNCATION_MARKER = '[result truncated]';
+
+function truncate(value: string, marker: string): string {
+  return truncateSerialized(value, marker);
+}
 
 type PyodideRuntime = {
   runPythonAsync(code: string): Promise<unknown>;
@@ -40,17 +55,36 @@ async function loadPyodide(): Promise<unknown> {
   pyodide = await loadPyodide({ indexURL: PYODIDE_CDN });
 
   const runtime = pyodide as PyodideRuntime;
+  // The user-code path redirects sys.stdout / sys.stderr into
+  // `__lingua_stdout` / `__lingua_stderr` (see the `execute` block
+  // below) and reads them back via `runPythonAsync`. These
+  // `setStdout` / `setStderr` callbacks therefore only fire for
+  // Pyodide host-level chatter that arrives outside that redirect
+  // — typically during the one-time `loadPyodide` boot. We still
+  // gate on `activeRunId` so that a stray late-flushed chunk
+  // arriving between runs is dropped here instead of being tagged
+  // with the wrong run's id.
   runtime.setStdout?.({
     batched: (text: string) => {
-      if (text.length > 0) {
-        ctx.postMessage({ type: 'console', method: 'log', args: [text] });
+      if (text.length > 0 && activeRunId) {
+        ctx.postMessage({
+          type: 'console',
+          runId: activeRunId,
+          method: 'log',
+          args: [text],
+        });
       }
     },
   });
   runtime.setStderr?.({
     batched: (text: string) => {
-      if (text.length > 0) {
-        ctx.postMessage({ type: 'console', method: 'error', args: [text] });
+      if (text.length > 0 && activeRunId) {
+        ctx.postMessage({
+          type: 'console',
+          runId: activeRunId,
+          method: 'error',
+          args: [text],
+        });
       }
     },
   });
@@ -73,9 +107,13 @@ function parsePythonError(errorText: string): { line?: number; message: string }
   };
 }
 
-function postBufferedOutput(method: 'log' | 'error', text: string): void {
+function postBufferedOutput(
+  runId: string,
+  method: 'log' | 'error',
+  text: string
+): void {
   for (const line of text.split('\n').filter((entry) => entry.trim() !== '')) {
-    ctx.postMessage({ type: 'console', method, args: [line] });
+    ctx.postMessage({ type: 'console', runId, method, args: [line] });
   }
 }
 
@@ -99,12 +137,18 @@ ctx.addEventListener('message', async (event) => {
   }
 
   if (msg.type === 'execute') {
-    const { code, timeout, userEnv } = msg as {
+    const { runId, code, userEnv, resultTruncationMarker } = msg as {
+      runId: string;
       code: string;
-      timeout: number;
       userEnv?: Record<string, string>;
+      resultTruncationMarker?: string;
     };
+    const marker =
+      typeof resultTruncationMarker === 'string' && resultTruncationMarker.length > 0
+        ? resultTruncationMarker
+        : FALLBACK_RESULT_TRUNCATION_MARKER;
     const startTime = performance.now();
+    activeRunId = runId;
 
     try {
       const py = (await loadPyodide()) as PyodideRuntime;
@@ -143,21 +187,7 @@ def __mc(line, expr_fn):
         return None
       `);
 
-      // Set up timeout
-      let timedOut = false;
-      const timeoutId = setTimeout(() => {
-        timedOut = true;
-        ctx.postMessage({
-          type: 'error',
-          error: { message: `Execution timed out after ${timeout / 1000}s` },
-        });
-        ctx.postMessage({
-          type: 'done',
-          executionTime: performance.now() - startTime,
-        });
-      }, timeout);
-
-      // Run the Python code
+      // RL-078: deadline enforcement is parent-owned. We just run.
       let result: unknown;
       let errorText: string | null = null;
 
@@ -185,19 +215,17 @@ _lingua_state
           ? (JSON.parse(streamState) as { stdout: string; stderr: string; magic?: Array<{ line: number; value: string }> })
           : { stdout: '', stderr: '' };
 
-      clearTimeout(timeoutId);
-      if (timedOut) return;
-
-      postBufferedOutput('log', streams.stdout);
-      postBufferedOutput('error', streams.stderr);
+      postBufferedOutput(runId, 'log', streams.stdout);
+      postBufferedOutput(runId, 'error', streams.stderr);
 
       // Send magic comment results
       if (streams.magic) {
         for (const entry of streams.magic) {
           ctx.postMessage({
             type: 'magic-comment',
+            runId,
             line: entry.line,
-            value: entry.value,
+            value: truncate(entry.value, marker),
           });
         }
       }
@@ -210,7 +238,8 @@ _lingua_state
         if (resultStr !== 'None') {
           ctx.postMessage({
             type: 'result',
-            value: resultStr,
+            runId,
+            value: truncate(resultStr, marker),
           });
         }
       }
@@ -219,6 +248,7 @@ _lingua_state
         const parsed = parsePythonError(streams.stderr || errorText);
         ctx.postMessage({
           type: 'error',
+          runId,
           error: {
             message: parsed.message,
             line: parsed.line,
@@ -228,6 +258,7 @@ _lingua_state
 
       ctx.postMessage({
         type: 'done',
+        runId,
         executionTime: performance.now() - startTime,
       });
     } catch (err) {
@@ -236,6 +267,7 @@ _lingua_state
 
       ctx.postMessage({
         type: 'error',
+        runId,
         error: {
           message: parsed.message,
           line: parsed.line,
@@ -244,8 +276,11 @@ _lingua_state
 
       ctx.postMessage({
         type: 'done',
+        runId,
         executionTime: performance.now() - startTime,
       });
+    } finally {
+      activeRunId = null;
     }
   }
 });

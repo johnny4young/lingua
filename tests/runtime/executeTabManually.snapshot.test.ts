@@ -51,6 +51,7 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     setExecutionSource: vi.fn(),
     setFullOutput: vi.fn(),
     setIsAutoRunning: vi.fn(),
+    setIsManualRunning: vi.fn(),
     setLineResults: vi.fn(),
     setDiagnostics: vi.fn(),
   };

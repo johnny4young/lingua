@@ -1,3 +1,4 @@
+import i18next from 'i18next';
 import type {
   LanguageRunner,
   ExecutionContext,
@@ -11,9 +12,20 @@ import { transformPythonMagicComments, detectPythonMagicComments } from '../util
 import { injectPythonLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
 import { resolveUserEnvForRunner } from './go';
+import {
+  appendCappedConsole,
+  capStderrIfOverflowing,
+  runnerStoppedResult,
+  runnerTimeoutResult,
+  type TranslateFn,
+} from './limits';
 
 const DEFAULT_TIMEOUT = 60_000; // Python needs more time for initial load
 const PYODIDE_LOAD_TIMEOUT = 90_000;
+const PYODIDE_LOAD_CANCELLED = '__LINGUA_PYODIDE_LOAD_CANCELLED__';
+
+const t: TranslateFn = (key, options) =>
+  i18next.t(key, options ?? {}) as string;
 
 function workerLoadErrorMessage(event: Event): string {
   const maybeMessage = (event as { message?: unknown }).message;
@@ -32,6 +44,17 @@ export class PythonRunner implements LanguageRunner {
   private ready = false;
   private pyodideLoaded = false;
   private loadingPromise: Promise<void> | null = null;
+  private loadingCancel: (() => void) | null = null;
+  /**
+   * RL-078 — opaque token of the currently-running execute() call.
+   * Parent message handler drops worker replies whose `runId` does
+   * not match. The Pyodide worker is persistent across runs, so the
+   * runId guard is the only way to disambiguate buffered output
+   * from a previous run that was killed by the parent timer.
+   */
+  private currentRunId: string | null = null;
+  /** RL-078 — see JavaScriptRunner.cancelInFlight. */
+  private cancelInFlight: (() => void) | null = null;
 
   async init(): Promise<void> {
     this.ready = true;
@@ -55,26 +78,44 @@ export class PythonRunner implements LanguageRunner {
         { type: 'module' }
       );
     }
+    const worker = this.worker;
 
-    if (!this.loadingPromise) {
-      this.loadingPromise = new Promise<void>((resolve, reject) => {
+    let loadingPromise = this.loadingPromise;
+    if (!loadingPromise) {
+      loadingPromise = new Promise<void>((resolve, reject) => {
         let timeoutId: ReturnType<typeof globalThis.setTimeout> | null =
           globalThis.setTimeout(() => {
             cleanup();
-            this.worker?.terminate();
-            this.worker = null;
+            worker.terminate();
+            if (this.worker === worker) {
+              this.worker = null;
+            }
             this.pyodideLoaded = false;
             this.loadingPromise = null;
             reject(new Error(`Timed out loading Pyodide after ${PYODIDE_LOAD_TIMEOUT / 1000}s`));
           }, PYODIDE_LOAD_TIMEOUT);
 
         const cleanup = () => {
-          this.worker?.removeEventListener('message', handler);
-          this.worker?.removeEventListener('error', errorHandler);
+          worker.removeEventListener('message', handler);
+          worker.removeEventListener('error', errorHandler);
           if (timeoutId !== null) {
             globalThis.clearTimeout(timeoutId);
             timeoutId = null;
           }
+          if (this.loadingCancel === cancelLoading) {
+            this.loadingCancel = null;
+          }
+        };
+
+        const cancelLoading = () => {
+          cleanup();
+          worker.terminate();
+          if (this.worker === worker) {
+            this.worker = null;
+          }
+          this.pyodideLoaded = false;
+          this.loadingPromise = null;
+          reject(new Error(PYODIDE_LOAD_CANCELLED));
         };
 
         const handler = (event: MessageEvent) => {
@@ -85,26 +126,39 @@ export class PythonRunner implements LanguageRunner {
             resolve();
           } else if (msg.type === 'error') {
             cleanup();
+            worker.terminate();
+            if (this.worker === worker) {
+              this.worker = null;
+            }
+            this.pyodideLoaded = false;
+            this.loadingPromise = null;
             reject(new Error(msg.error?.message ?? 'Failed to load Pyodide'));
           }
         };
 
         const errorHandler = (event: Event) => {
           cleanup();
-          this.worker?.terminate();
-          this.worker = null;
+          worker.terminate();
+          if (this.worker === worker) {
+            this.worker = null;
+          }
           this.pyodideLoaded = false;
           this.loadingPromise = null;
           reject(new Error(workerLoadErrorMessage(event)));
         };
 
-        this.worker!.addEventListener('message', handler);
-        this.worker!.addEventListener('error', errorHandler);
-        this.worker!.postMessage({ type: 'init' });
+        this.loadingCancel = cancelLoading;
+        worker.addEventListener('message', handler);
+        worker.addEventListener('error', errorHandler);
       });
+      this.loadingPromise = loadingPromise;
+      worker.postMessage({ type: 'init' });
     }
 
-    await this.loadingPromise;
+    await loadingPromise;
+    if (!this.worker) {
+      throw new Error('Python worker failed to load');
+    }
     return this.worker;
   }
 
@@ -115,11 +169,22 @@ export class PythonRunner implements LanguageRunner {
     const magicResults: MagicCommentResult[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
+    // Independent caps per stream — see JavaScriptRunner.
+    let droppedStdout = 0;
+    let droppedStderr = 0;
+    let stderrByteTruncated = false;
+
+    if (this.currentRunId !== null || this.cancelInFlight !== null) {
+      this.stop();
+    }
 
     let worker: Worker;
     try {
       worker = await this.ensurePyodide();
     } catch (err) {
+      if (err instanceof Error && err.message === PYODIDE_LOAD_CANCELLED) {
+        return runnerStoppedResult(t, { stdout, stderr });
+      }
       return {
         stdout: [],
         stderr: [],
@@ -139,17 +204,63 @@ export class PythonRunner implements LanguageRunner {
     const hasMagic = detectPythonMagicComments(processedCode).length > 0;
     const transformedCode = hasMagic ? transformPythonMagicComments(processedCode) : processedCode;
 
+    const runId = crypto.randomUUID();
+    this.currentRunId = runId;
+
     return new Promise<ExecutionResult>((resolve) => {
+      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+      let resolved = false;
+
+      const finish = (value: ExecutionResult) => {
+        if (resolved) return;
+        resolved = true;
+        if (timeoutHandle !== null) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = null;
+        }
+        worker.removeEventListener('message', handler);
+        if (this.currentRunId === runId) {
+          this.currentRunId = null;
+        }
+        if (this.cancelInFlight === cancelInFlight) {
+          this.cancelInFlight = null;
+        }
+        resolve(value);
+      };
+
+      const cancelInFlight = () => {
+        finish(runnerStoppedResult(t, { stdout, stderr }));
+      };
+      this.cancelInFlight = cancelInFlight;
+
       const handler = (event: MessageEvent<WorkerResponse>) => {
         const msg = event.data;
+        // RL-078 runId guard. Drop buffered output from a previous,
+        // killed run; the persistent Pyodide worker can otherwise
+        // leak stale stdout / stderr into the next call.
+        if (!('runId' in msg) || msg.runId !== runId) return;
+        if (this.currentRunId !== runId) return;
 
         switch (msg.type) {
           case 'console': {
             const output: ConsoleOutput = { type: msg.method, args: msg.args, line: msg.line };
             if (msg.method === 'error') {
-              stderr.push(output);
+              if (!stderrByteTruncated) {
+                droppedStderr = appendCappedConsole(
+                  stderr,
+                  output,
+                  droppedStderr,
+                  t
+                );
+                stderrByteTruncated = capStderrIfOverflowing(stderr, t);
+              }
             } else {
-              stdout.push(output);
+              droppedStdout = appendCappedConsole(
+                stdout,
+                output,
+                droppedStdout,
+                t
+              );
             }
             break;
           }
@@ -163,8 +274,7 @@ export class PythonRunner implements LanguageRunner {
             error = msg.error;
             break;
           case 'done':
-            worker.removeEventListener('message', handler);
-            resolve({
+            finish({
               stdout,
               stderr,
               result,
@@ -177,6 +287,23 @@ export class PythonRunner implements LanguageRunner {
       };
 
       worker.addEventListener('message', handler);
+
+      // RL-078 — parent-owned kill timer. Pyodide can't yield a
+      // CPU-bound `while True: pass` from inside the worker, so the
+      // only deterministic recovery is to terminate the worker and
+      // recreate it on the next execute(). We clear `pyodideLoaded`
+      // and `loadingPromise` so `ensurePyodide()` rebuilds from
+      // scratch instead of returning a dead handle.
+      timeoutHandle = setTimeout(() => {
+        worker.terminate();
+        if (this.worker === worker) {
+          this.worker = null;
+          this.pyodideLoaded = false;
+          this.loadingPromise = null;
+        }
+        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }));
+      }, timeout);
+
       // RL-011 Slice D third increment — pipe the resolved user env
       // into the Pyodide worker so user code's `os.environ` reflects
       // the global / project / tab tiers. Empty record keeps the
@@ -184,19 +311,32 @@ export class PythonRunner implements LanguageRunner {
       const userEnv = resolveUserEnvForRunner();
       worker.postMessage({
         type: 'execute',
+        runId,
         code: transformedCode,
         timeout,
+        resultTruncationMarker: t('runner.truncated.result'),
         userEnv,
       });
     });
   }
 
   stop(): void {
+    if (this.loadingCancel) {
+      const cancelLoading = this.loadingCancel;
+      this.loadingCancel = null;
+      cancelLoading();
+    }
     if (this.worker) {
       this.worker.terminate();
       this.worker = null;
       this.pyodideLoaded = false;
       this.loadingPromise = null;
+    }
+    this.currentRunId = null;
+    if (this.cancelInFlight) {
+      const cancel = this.cancelInFlight;
+      this.cancelInFlight = null;
+      cancel();
     }
   }
 }

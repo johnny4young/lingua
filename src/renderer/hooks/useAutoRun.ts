@@ -19,6 +19,7 @@ export const AUTO_RUN_DEBOUNCE_MS = 1200;
 export function useAutoRun() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef(false);
+  const runTokenRef = useRef(0);
   const lastCodeRef = useRef('');
 
   const activeTabId = useEditorStore((s) => s.activeTabId);
@@ -32,6 +33,8 @@ export function useAutoRun() {
   useEffect(() => {
     // Skip if no tab or empty code
     if (!activeTab || !code.trim()) {
+      runTokenRef.current += 1;
+      abortRef.current = true;
       useResultStore.getState().clear();
       return;
     }
@@ -44,8 +47,26 @@ export function useAutoRun() {
       clearTimeout(timerRef.current);
     }
     abortRef.current = true;
+    const runToken = runTokenRef.current + 1;
+    runTokenRef.current = runToken;
 
     timerRef.current = setTimeout(async () => {
+      const isRunStale = () =>
+        abortRef.current ||
+        runToken !== runTokenRef.current ||
+        useResultStore.getState().isManualRunning;
+      const shouldDiscardAutoResult = () =>
+        isRunStale() || useResultStore.getState().executionSource !== 'auto';
+      const finishAutoRunning = () => {
+        if (runToken === runTokenRef.current && !abortRef.current) {
+          useResultStore.getState().setIsAutoRunning(false);
+        }
+      };
+
+      if (runToken !== runTokenRef.current || useResultStore.getState().isManualRunning) {
+        return;
+      }
+
       lastCodeRef.current = code;
       abortRef.current = false;
 
@@ -87,8 +108,8 @@ export function useAutoRun() {
 
         try {
           const validation = validateDocument(language, code);
-          if (abortRef.current) {
-            setIsAutoRunning(false);
+          if (shouldDiscardAutoResult()) {
+            finishAutoRunning();
             return;
           }
 
@@ -98,16 +119,14 @@ export function useAutoRun() {
           setDiagnostics(validation.diagnostics);
           setExecutionTime(validation.executionTime);
         } catch (err) {
-          if (!abortRef.current) {
+          if (!shouldDiscardAutoResult()) {
             setError({
               message: err instanceof Error ? err.message : String(err),
             });
             setDiagnostics([]);
           }
         } finally {
-          if (!abortRef.current) {
-            setIsAutoRunning(false);
-          }
+          finishAutoRunning();
         }
         return;
       }
@@ -124,16 +143,18 @@ export function useAutoRun() {
 
       try {
         const { runner } = await runnerManager.prepareRunner(language);
-        if (!runner || abortRef.current) {
-          setIsAutoRunning(false);
+        if (!runner || shouldDiscardAutoResult()) {
+          finishAutoRunning();
           return;
         }
 
         const result: ExecutionResult = await runner.execute(code);
 
-        // If another execution was triggered while we were running, discard
-        if (abortRef.current) {
-          setIsAutoRunning(false);
+        // If another execution was triggered while we were running, discard.
+        // This includes completed manual flows: once the panel's source is no
+        // longer this auto-run, the stale auto result must not write into it.
+        if (shouldDiscardAutoResult()) {
+          finishAutoRunning();
           return;
         }
 
@@ -149,16 +170,14 @@ export function useAutoRun() {
         }
         setExecutionTime(result.executionTime);
       } catch (err) {
-        if (!abortRef.current) {
+        if (!shouldDiscardAutoResult()) {
           setError({
             message: err instanceof Error ? err.message : String(err),
           });
           setDiagnostics([]);
         }
       } finally {
-        if (!abortRef.current) {
-          setIsAutoRunning(false);
-        }
+        finishAutoRunning();
       }
     }, AUTO_RUN_DEBOUNCE_MS);
 
