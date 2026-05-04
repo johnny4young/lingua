@@ -15,7 +15,7 @@
 
 ---
 
-## 1. Status at a glance (2026-05-02)
+## 1. Status at a glance (2026-05-03)
 
 Mirrors the authoritative `Status` column in
 [`ROADMAP.md`](./ROADMAP.md) §4. **When discrepancies appear, ROADMAP wins.**
@@ -28,6 +28,7 @@ Mirrors the authoritative `Status` column in
 | Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Shipped (2026-05-01) | Language-pack registry — closed by the Slice C closeout. See §7. |
 | Iter 6 | [`RL-077`](./ROADMAP.md) | Shipped (2026-05-02) | Capability-based filesystem IPC sandbox — Slice 1 + Slice 2 both landed. See §8. |
+| Iter 7 | [`RL-078`](./ROADMAP.md) | Shipped (2026-05-03) | Parent-owned execution timeouts + output / resource limits. See §9. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -37,10 +38,10 @@ Gated / deferred tickets are NOT in this table — they live exclusively in
 Value-per-day priority. The full reasoning is in
 [`ROADMAP.md`](./ROADMAP.md) §5; this list only names the next pulls.
 
-1. **Security launch hardening** — `RL-077` is closed; pick `RL-078`,
-   then `RL-079`, then `RL-083` in that order. This reduces worker hang
-   risk, trusted native-execution ambiguity, and runtime/CDN/CSP risk
-   before public distribution.
+1. **Security launch hardening** — `RL-077` and `RL-078` are closed;
+   pick `RL-079`, then `RL-083` in that order. This reduces trusted
+   native-execution ambiguity and runtime/CDN/CSP risk before public
+   distribution.
 2. **Launch blockers** — after the hardening set, pull `RL-063`
    (linguacode.dev download page). `RL-061` is shipped; `RL-059` remains
    `Partial` only as the historical verifier + bridge parent.
@@ -199,7 +200,13 @@ Shipped on 2026-05-02 — see [`RL-077`](./PLAN.md#rl-077-capability-based-files
 
 ---
 
-## 9. Cross-iteration concerns
+## 9. Iter 7 / RL-078 — Parent-owned execution timeouts + resource limits
+
+Shipped on 2026-05-03 — see [`RL-078`](./PLAN.md#rl-078-parent-owned-execution-timeouts-and-outputresource-limits).
+
+---
+
+## 10. Cross-iteration concerns
 
 - **i18n parity** must stay green after each iter — both locales bump
   in the same commit that introduces a new key.
@@ -213,7 +220,7 @@ Shipped on 2026-05-02 — see [`RL-077`](./PLAN.md#rl-077-capability-based-files
   `tests/e2e/overlays.spec.ts` (or a sibling) with the smallest
   assertion that would fail on regression.
 
-## 10. Verification matrix (per iter, before the closing commit)
+## 11. Verification matrix (per iter, before the closing commit)
 
 | Check | Command | Must pass |
 |-------|---------|-----------|
@@ -226,7 +233,7 @@ Shipped on 2026-05-02 — see [`RL-077`](./PLAN.md#rl-077-capability-based-files
 | Desktop smoke | `npm run smoke:desktop` | when the iter touches desktop-only IPC |
 | Review skills | `typescript-react-reviewer` + `node` on the diff | zero HIGH blockers |
 
-## 11. Closure protocol
+## 12. Closure protocol
 
 When an iter closes, do three things in the final commit:
 

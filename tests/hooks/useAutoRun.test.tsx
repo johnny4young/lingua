@@ -136,4 +136,190 @@ describe('useAutoRun', () => {
     expect(runnerManager.prepareRunner).toHaveBeenCalledWith('go');
     expect(useResultStore.getState().executionSource).toBe('auto');
   });
+
+  it('does not let a pending auto-run cancel a manual execution', async () => {
+    useResultStore.setState({ isManualRunning: true });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'while (true) {}\n',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-js',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+
+    expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    expect(useResultStore.getState().executionSource).toBeNull();
+  });
+
+  it('does not let an in-flight auto-run overwrite a manual execution', async () => {
+    let resolveExecute!: (value: {
+      stdout: Array<{ type: 'log'; args: string[] }>;
+      stderr: [];
+      result: undefined;
+      executionTime: number;
+      error: null;
+    }) => void;
+    const execute = vi.fn(
+      () =>
+        new Promise<{
+          stdout: Array<{ type: 'log'; args: string[] }>;
+          stderr: [];
+          result: undefined;
+          executionTime: number;
+          error: null;
+        }>((resolve) => {
+          resolveExecute = resolve;
+        })
+    );
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: { execute },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'await new Promise(() => {})\n',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-js',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    useResultStore.setState({
+      isManualRunning: true,
+      executionSource: 'manual',
+      fullOutput: 'manual output',
+    });
+    useResultStore.setState({ isManualRunning: false });
+
+    await act(async () => {
+      resolveExecute({
+        stdout: [{ type: 'log', args: ['stale auto output'] }],
+        stderr: [],
+        result: undefined,
+        executionTime: 12,
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    expect(useResultStore.getState().executionSource).toBe('manual');
+    expect(useResultStore.getState().fullOutput).toBe('manual output');
+  });
+
+  it('does not let an older auto-run overwrite a newer auto-run', async () => {
+    const resolvers: Array<
+      (value: {
+        stdout: Array<{ type: 'log'; args: string[] }>;
+        stderr: [];
+        result: undefined;
+        executionTime: number;
+        error: null;
+      }) => void
+    > = [];
+    const execute = vi.fn(
+      () =>
+        new Promise<{
+          stdout: Array<{ type: 'log'; args: string[] }>;
+          stderr: [];
+          result: undefined;
+          executionTime: number;
+          error: null;
+        }>((resolve) => {
+          resolvers.push(resolve);
+        })
+    );
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: { execute },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'console.log("first")\n',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-js',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-js',
+            name: 'main.js',
+            language: 'javascript',
+            content: 'console.log("second")\n',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-js',
+      });
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    expect(execute).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      resolvers[1]?.({
+        stdout: [{ type: 'log', args: ['second auto output'] }],
+        stderr: [],
+        result: undefined,
+        executionTime: 9,
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    expect(useResultStore.getState().lineResults).toMatchObject([
+      { value: 'second auto output' },
+    ]);
+
+    await act(async () => {
+      resolvers[0]?.({
+        stdout: [{ type: 'log', args: ['stale first output'] }],
+        stderr: [],
+        result: undefined,
+        executionTime: 15,
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    expect(useResultStore.getState().lineResults).toMatchObject([
+      { value: 'second auto output' },
+    ]);
+  });
 });

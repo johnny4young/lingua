@@ -14,29 +14,38 @@ vi.stubGlobal(
     addEventListener(event: string, cb: (e: MessageEvent | ErrorEvent) => void) {
       if (event === 'message') {
         this.messageListeners.push(cb as (e: MessageEvent) => void);
-        // Simulate async worker: emit console output then done
-        setTimeout(() => {
-          for (const listener of this.messageListeners) {
-            listener(
-              new MessageEvent('message', {
-                data: { type: 'console', method: 'log', args: ['hello'] },
-              })
-            );
-          }
-          for (const listener of this.messageListeners) {
-            listener(
-              new MessageEvent('message', {
-                data: { type: 'done', executionTime: 1 },
-              })
-            );
-          }
-        }, 0);
       } else if (event === 'error') {
         this.errorListeners.push(cb as (e: ErrorEvent) => void);
       }
     }
 
-    postMessage() {}
+    postMessage(message: { runId?: string }) {
+      setTimeout(() => {
+        for (const listener of this.messageListeners) {
+          listener(
+            new MessageEvent('message', {
+              data: {
+                type: 'console',
+                runId: message.runId,
+                method: 'log',
+                args: ['hello'],
+              },
+            })
+          );
+        }
+        for (const listener of this.messageListeners) {
+          listener(
+            new MessageEvent('message', {
+              data: {
+                type: 'done',
+                runId: message.runId,
+                executionTime: 1,
+              },
+            })
+          );
+        }
+      }, 0);
+    }
     terminate() {}
   }
 );
@@ -89,6 +98,6 @@ describe('JavaScriptRunner execution integration', () => {
     // The promise still resolves because stop() terminates mid-flight;
     // the existing listeners are already wired up before stop() runs
     const result = await execPromise;
-    expect(result).toBeDefined();
+    expect(result.cancelled).toBe(true);
   });
 });

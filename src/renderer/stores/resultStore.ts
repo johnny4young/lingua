@@ -20,6 +20,8 @@ interface ResultState {
   executionTime: number | null;
   /** Whether auto-run is currently executing */
   isAutoRunning: boolean;
+  /** Whether a user-triggered run/validation is currently executing */
+  isManualRunning: boolean;
   /** Origin of the currently surfaced execution state */
   executionSource: 'manual' | 'auto' | null;
 
@@ -29,6 +31,7 @@ interface ResultState {
   setDiagnostics: (diagnostics: EditorDiagnostic[]) => void;
   setExecutionTime: (time: number | null) => void;
   setIsAutoRunning: (running: boolean) => void;
+  setIsManualRunning: (running: boolean) => void;
   setExecutionSource: (source: 'manual' | 'auto' | null) => void;
   clear: () => void;
 }
@@ -40,6 +43,7 @@ export const useResultStore = create<ResultState>((set) => ({
   diagnostics: [],
   executionTime: null,
   isAutoRunning: false,
+  isManualRunning: false,
   executionSource: null,
 
   setLineResults: (lineResults) => set({ lineResults }),
@@ -48,6 +52,7 @@ export const useResultStore = create<ResultState>((set) => ({
   setDiagnostics: (diagnostics) => set({ diagnostics }),
   setExecutionTime: (executionTime) => set({ executionTime }),
   setIsAutoRunning: (isAutoRunning) => set({ isAutoRunning }),
+  setIsManualRunning: (isManualRunning) => set({ isManualRunning }),
   setExecutionSource: (executionSource) => set({ executionSource }),
   clear: () =>
     set({

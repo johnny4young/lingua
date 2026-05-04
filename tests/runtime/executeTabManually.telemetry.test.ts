@@ -46,6 +46,7 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     setExecutionSource: vi.fn(),
     setFullOutput: vi.fn(),
     setIsAutoRunning: vi.fn(),
+    setIsManualRunning: vi.fn(),
     setLineResults: vi.fn(),
     setDiagnostics: vi.fn(),
   };
@@ -175,5 +176,31 @@ describe('executeTabManually — runner.executed telemetry (RL-065)', () => {
         durationBucketMs: 0,
       })
     );
+  });
+
+  it('does not emit runner.executed telemetry for user-cancelled runs', async () => {
+    mockRunnerManagerPrepare.mockResolvedValue({
+      runner: {
+        execute: mockRunnerExecute.mockResolvedValue({
+          stdout: [],
+          stderr: [],
+          result: undefined,
+          executionTime: 0,
+          cancelled: true,
+          error: { message: 'Execution stopped by user.' },
+        }),
+      },
+      initialized: false,
+    });
+
+    await executeTabManually({
+      id: 'tab-4',
+      name: 'main.js',
+      language: 'javascript',
+      content: 'while (true) {}',
+      isDirty: false,
+    });
+
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 });

@@ -46,12 +46,20 @@ describe('TypeScriptRunner', () => {
         this.listeners.set(type, handler);
       }
 
-      postMessage(): void {
+      postMessage(message: { runId?: string }): void {
         const handler = this.listeners.get('message');
         handler?.({
-          data: { type: 'console', method: 'log', args: ['hello'], line: 3 },
+          data: {
+            type: 'console',
+            runId: message.runId,
+            method: 'log',
+            args: ['hello'],
+            line: 3,
+          },
         } as MessageEvent);
-        handler?.({ data: { type: 'done', executionTime: 4 } } as MessageEvent);
+        handler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 4 },
+        } as MessageEvent);
       }
 
       terminate(): void {}
@@ -70,6 +78,122 @@ describe('TypeScriptRunner', () => {
       const result = await runner.execute('console.log("hello")');
 
       expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 3 }]);
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
+  it('does not let a stale transpile supersede a newer execution', async () => {
+    const esbuild = await import('esbuild-wasm');
+    let resolveFirstTranspile!: (value: { code: string; warnings: [] }) => void;
+    let transformCount = 0;
+    vi.mocked(esbuild.transform).mockImplementation(() => {
+      transformCount += 1;
+      if (transformCount === 1) {
+        return new Promise((resolve) => {
+          resolveFirstTranspile = resolve;
+        });
+      }
+      return Promise.resolve({ code: 'console.log("new")', warnings: [] });
+    });
+
+    const originalWorker = globalThis.Worker;
+    let workerCount = 0;
+
+    class MockWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {
+        workerCount += 1;
+      }
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+
+      postMessage(message: { runId?: string }): void {
+        this.listeners.get('message')?.({
+          data: { type: 'done', runId: message.runId, executionTime: 4 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new TypeScriptRunner();
+      await runner.init();
+
+      const staleRun = runner.execute('const value: number = 1');
+      await Promise.resolve();
+      const newerRun = runner.execute('const value: number = 2');
+
+      await expect(newerRun).resolves.toMatchObject({ error: undefined });
+
+      resolveFirstTranspile({ code: 'console.log("old")', warnings: [] });
+      await expect(staleRun).resolves.toMatchObject({
+        cancelled: true,
+        error: { message: 'Execution stopped by user.' },
+      });
+      expect(workerCount).toBe(1);
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
+  it('does not spawn a worker after stop() during transpilation', async () => {
+    const esbuild = await import('esbuild-wasm');
+    let resolveTranspile!: (value: { code: string; warnings: [] }) => void;
+    vi.mocked(esbuild.transform).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveTranspile = resolve;
+        })
+    );
+
+    const originalWorker = globalThis.Worker;
+    let workerCount = 0;
+
+    class MockWorker {
+      constructor(_url: URL | string, _options?: WorkerOptions) {
+        workerCount += 1;
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new TypeScriptRunner();
+      await runner.init();
+
+      const promise = runner.execute('const value: number = 1');
+      await Promise.resolve();
+      runner.stop();
+      resolveTranspile({ code: 'console.log("old")', warnings: [] });
+
+      await expect(promise).resolves.toMatchObject({
+        cancelled: true,
+        error: { message: 'Execution stopped by user.' },
+      });
+      expect(workerCount).toBe(0);
     } finally {
       Object.defineProperty(globalThis, 'Worker', {
         value: originalWorker,

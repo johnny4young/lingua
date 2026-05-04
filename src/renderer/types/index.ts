@@ -378,6 +378,12 @@ export interface ExecutionResult {
   stderr: ConsoleOutput[];
   result?: unknown;
   executionTime: number;
+  /**
+   * True when the user explicitly stopped execution. Cancelled runs
+   * are not successes and should not be recorded as normal history
+   * entries, but they also are not runtime errors in the user's code.
+   */
+  cancelled?: boolean;
   error?: ExecutionError;
   magicResults?: MagicCommentResult[];
 }
@@ -399,17 +405,51 @@ export interface LanguageRunner {
   isReady(): boolean;
 }
 
-/** Messages sent from the main thread to the worker */
+/**
+ * Messages sent from the main thread to the worker.
+ *
+ * RL-078 — every `execute` request carries an opaque `runId` minted
+ * by the parent. The worker echoes it on every reply so the parent
+ * can drop messages from a previous (terminated-by-timeout) run.
+ */
 export type WorkerRequest =
-  | { type: 'execute'; code: string; timeout: number }
+  | {
+      type: 'execute';
+      runId: string;
+      code: string;
+      timeout: number;
+      resultTruncationMarker: string;
+      userEnv?: Record<string, string>;
+    }
   | { type: 'stop' };
 
-/** Messages sent from the worker to the main thread */
+/**
+ * Messages sent from the worker to the main thread.
+ *
+ * The `runId` echo lives on every variant tied to a specific
+ * `execute` round; lifecycle messages (`loading` / `ready`) leave
+ * it optional because they may fire before the first run.
+ */
 export type WorkerResponse =
-  | { type: 'console'; method: ConsoleOutput['type']; args: string[]; line?: number }
-  | { type: 'result'; value?: unknown }
-  | { type: 'error'; error: ExecutionError }
-  | { type: 'done'; executionTime: number }
+  | {
+      type: 'console';
+      runId: string;
+      method: ConsoleOutput['type'];
+      args: string[];
+      line?: number;
+    }
+  | { type: 'result'; runId: string; value?: unknown }
+  | {
+      type: 'error';
+      /**
+       * Optional because the Python worker's lifecycle (`init`)
+       * branch reports a load failure before any `execute` request
+       * has supplied a runId. Active-run errors always include it.
+       */
+      runId?: string;
+      error: ExecutionError;
+    }
+  | { type: 'done'; runId: string; executionTime: number }
   | { type: 'loading'; stage: string }
   | { type: 'ready' }
-  | { type: 'magic-comment'; line: number; value: string };
+  | { type: 'magic-comment'; runId: string; line: number; value: string };

@@ -9,26 +9,44 @@ import type { BuiltInLanguage, FileTab } from '../types';
 import { extensionForLanguage } from '../utils/languageMeta';
 import { desktopSmokeApi } from '../utils/desktopSmoke';
 
-const SMOKE_CASES: Array<{
+/**
+ * RL-078 timeout-shaped smoke cases set `expectFailure` so the
+ * harness inverts the verification logic: success == the runner
+ * surfaced an error whose message matches `expectFailure` (the
+ * localized timeout string in either EN or ES). `runnerTimeoutMs`
+ * threads through `executeTabManually` to the runner's parent kill
+ * timer so the test runs in seconds instead of the language default.
+ */
+type SmokeCase = {
+  caseId: string;
   language: BuiltInLanguage;
   fileName: string;
   content: string;
-  expectText: string;
+  expectText?: string;
+  expectFailure?: RegExp;
+  /** Wall-clock budget on the entire `executeTabManually` round trip. */
   timeoutMs?: number;
-}> = [
+  /** Override the runner's parent-side deadline. */
+  runnerTimeoutMs?: number;
+};
+
+const SMOKE_CASES: SmokeCase[] = [
   {
+    caseId: 'javascript',
     language: 'javascript',
     fileName: 'smoke-javascript.js',
     content: 'console.log("smoke-javascript");\n',
     expectText: 'smoke-javascript',
   },
   {
+    caseId: 'typescript',
     language: 'typescript',
     fileName: 'smoke-typescript.ts',
     content: 'const label: string = "smoke-typescript";\nconsole.log(label);\n',
     expectText: 'smoke-typescript',
   },
   {
+    caseId: 'python',
     language: 'python',
     fileName: 'smoke-python.py',
     content: 'print("smoke-python")\n',
@@ -36,6 +54,7 @@ const SMOKE_CASES: Array<{
     timeoutMs: 120_000,
   },
   {
+    caseId: 'go',
     language: 'go',
     fileName: 'smoke-go.go',
     content:
@@ -43,14 +62,37 @@ const SMOKE_CASES: Array<{
     expectText: 'smoke-go',
   },
   {
+    caseId: 'rust',
     language: 'rust',
     fileName: 'smoke-rust.rs',
     content: 'fn main() {\n    println!("smoke-rust");\n}\n',
     expectText: 'smoke-rust',
   },
+  // RL-078 — verify the parent kill timer terminates a CPU-bound
+  // worker in JS and Python. Keep budgets tight so the smoke runner
+  // does not balloon by 90 s.
+  {
+    caseId: 'javascript-timeout',
+    language: 'javascript',
+    fileName: 'smoke-javascript-timeout.js',
+    content: 'while (true) {}\n',
+    expectFailure: /timed out|excedi[oó]/i,
+    runnerTimeoutMs: 3_000,
+    timeoutMs: 12_000,
+  },
+  {
+    caseId: 'python-timeout',
+    language: 'python',
+    fileName: 'smoke-python-timeout.py',
+    content: 'while True:\n    pass\n',
+    expectFailure: /timed out|excedi[oó]/i,
+    runnerTimeoutMs: 3_000,
+    timeoutMs: 20_000,
+  },
 ];
 
 interface SmokeCaseSummary {
+  caseId: string;
   language: BuiltInLanguage;
   ok: boolean;
   message: string;
@@ -62,7 +104,9 @@ interface SmokeProgressArtifact {
   generatedAt: string;
   status: 'started' | 'running-case' | 'completed' | 'failed';
   currentLanguage?: BuiltInLanguage;
+  currentCaseId?: string;
   completedLanguages?: BuiltInLanguage[];
+  completedCaseIds?: string[];
   error?: string;
 }
 
@@ -138,6 +182,8 @@ export function useDesktopSmoke(enabled: boolean) {
 
         useSettingsStore.setState({
           layoutPreset: 'horizontal',
+          // RL-078 timeout cases need the parent kill timer, not loop guards, to own termination.
+          loopProtection: false,
         });
         useUIStore.setState({
           sidebarVisible: false,
@@ -149,7 +195,9 @@ export function useDesktopSmoke(enabled: boolean) {
             generatedAt: new Date().toISOString(),
             status: 'running-case',
             currentLanguage: smokeCase.language,
+            currentCaseId: smokeCase.caseId,
             completedLanguages: summaries.map((summary) => summary.language),
+            completedCaseIds: summaries.map((summary) => summary.caseId),
           } satisfies SmokeProgressArtifact);
 
           useConsoleStore.getState().clear();
@@ -162,31 +210,64 @@ export function useDesktopSmoke(enabled: boolean) {
 
           await waitForUi();
           const execution = await withTimeout(
-            executeTabManually(tab),
+            executeTabManually(tab, {
+              executionTimeoutMs: smokeCase.runnerTimeoutMs,
+            }),
             smokeCase.timeoutMs ?? DEFAULT_CASE_TIMEOUT_MS,
-            `${smokeCase.language} smoke execution`
+            `${smokeCase.caseId} smoke execution`
           );
           await waitForUi();
 
-          const consoleEntries = useConsoleStore.getState().entries;
-          const sawExpectedOutput = consoleEntries.some((entry) =>
-            entry.content.includes(smokeCase.expectText)
+          const screenshotPath = await withTimeout(
+            api.capture(`desktop-smoke-${smokeCase.caseId}`),
+            10_000,
+            `${smokeCase.caseId} smoke screenshot capture`
           );
 
-          const screenshotPath = await withTimeout(
-            api.capture(`desktop-smoke-${smokeCase.language}`),
-            10_000,
-            `${smokeCase.language} smoke screenshot capture`
-          );
-          const ok = execution.ok && sawExpectedOutput;
+          let ok: boolean;
+          let message: string;
+          if (smokeCase.expectFailure) {
+            // Timeout-shaped case: the runner must report an error
+            // whose message matches the regex (covers both EN and
+            // ES copies) and the synthetic `executionTime` set by
+            // `runnerTimeoutResult` must equal the configured
+            // deadline. A real `done` reply would carry the actual
+            // runtime instead, which is the negative signal we use
+            // to detect that the parent kill timer never fired.
+            const matches =
+              !execution.ok &&
+              smokeCase.expectFailure.test(execution.message);
+            const expectedDeadline =
+              smokeCase.runnerTimeoutMs ?? DEFAULT_CASE_TIMEOUT_MS;
+            const killedByParent =
+              execution.executionTime === null ||
+              execution.executionTime <= expectedDeadline;
+            ok = matches && killedByParent;
+            message = ok
+              ? `Captured ${smokeCase.caseId} timeout error`
+              : !matches
+                ? `Expected timeout-shaped error, got: ${execution.message}`
+                : `Timeout case did not match parent kill timer (executionTime=${execution.executionTime}ms vs expected ${expectedDeadline}ms)`;
+          } else {
+            const consoleEntries = useConsoleStore.getState().entries;
+            const sawExpectedOutput = consoleEntries.some((entry) =>
+              smokeCase.expectText
+                ? entry.content.includes(smokeCase.expectText)
+                : false
+            );
+            ok = execution.ok && sawExpectedOutput;
+            message = ok
+              ? `Captured ${smokeCase.caseId} smoke output`
+              : execution.ok
+                ? `Expected output "${smokeCase.expectText ?? ''}" was missing from the console`
+                : execution.message;
+          }
+
           summaries.push({
+            caseId: smokeCase.caseId,
             language: smokeCase.language,
             ok,
-            message: ok
-              ? `Captured ${smokeCase.language} smoke output`
-              : execution.ok
-                ? `Expected output "${smokeCase.expectText}" was missing from the console`
-                : execution.message,
+            message,
             executionTime: execution.executionTime,
             screenshotPath,
           });
@@ -197,6 +278,7 @@ export function useDesktopSmoke(enabled: boolean) {
           generatedAt: new Date().toISOString(),
           status: 'completed',
           completedLanguages: summaries.map((summary) => summary.language),
+          completedCaseIds: summaries.map((summary) => summary.caseId),
         } satisfies SmokeProgressArtifact);
         await api.writeJsonArtifact('desktop-smoke-summary.json', {
           generatedAt: new Date().toISOString(),
@@ -209,6 +291,7 @@ export function useDesktopSmoke(enabled: boolean) {
           generatedAt: new Date().toISOString(),
           status: 'failed',
           completedLanguages: summaries.map((summary) => summary.language),
+          completedCaseIds: summaries.map((summary) => summary.caseId),
           error: error instanceof Error ? error.message : String(error),
         } satisfies SmokeProgressArtifact);
         await api.writeJsonArtifact('desktop-smoke-summary.json', {

@@ -4,7 +4,6 @@ import type {
   ExecutionResult,
   ConsoleOutput,
   ExecutionError,
-  WorkerResponse,
 } from '../types';
 import { parseGoExecutionError } from '../utils/executionDiagnostics';
 import { useEditorStore } from '../stores/editorStore';
@@ -12,6 +11,11 @@ import { useEnvVarsStore } from '../stores/envVarsStore';
 import { useProjectStore } from '../stores/projectStore';
 
 const DEFAULT_TIMEOUT = 30_000;
+
+type GoWorkerResponse =
+  | { type: 'console'; method: ConsoleOutput['type']; args: string[]; line?: number }
+  | { type: 'error'; error: ExecutionError }
+  | { type: 'done'; executionTime: number };
 
 /**
  * Resolve the effective user-space env for a subprocess runner.
@@ -114,7 +118,7 @@ export class GoRunner implements LanguageRunner {
         { type: 'classic' }
       );
 
-      this.worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
+      this.worker.addEventListener('message', (event: MessageEvent<GoWorkerResponse>) => {
         const msg = event.data;
 
         switch (msg.type) {

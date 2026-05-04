@@ -71,7 +71,13 @@ describe('PythonRunner — RL-011 Slice D env wiring', () => {
       if (message.type === 'execute') {
         // Synthesize a successful done so the runner promise resolves.
         const handler = this.listeners.get('message');
-        handler?.({ data: { type: 'done', executionTime: 1 } } as MessageEvent);
+        handler?.({
+          data: {
+            type: 'done',
+            runId: message.runId,
+            executionTime: 1,
+          },
+        } as MessageEvent);
       }
     }
 
@@ -141,6 +147,8 @@ describe('PythonRunner — RL-011 Slice D env wiring', () => {
 
     const executeMessage = postedMessages.find((m) => m.type === 'execute');
     expect(executeMessage).toBeDefined();
+    expect(executeMessage?.runId).toEqual(expect.any(String));
+    expect(executeMessage?.resultTruncationMarker).toBe('[result truncated]');
     expect(executeMessage?.userEnv).toMatchObject({
       SHARED: 'from-tab',
       GLOBAL_ONLY: 'g',
@@ -217,5 +225,114 @@ describe('PythonRunner — RL-011 Slice D env wiring', () => {
     expect(result.error?.message).toContain(
       'Failed to load Python runtime: worker script failed'
     );
+  });
+
+  it('can retry after the Python worker reports a Pyodide init error', async () => {
+    let workerCount = 0;
+    let terminateCount = 0;
+
+    class RecoveringWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      private readonly id: number;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {
+        workerCount += 1;
+        this.id = workerCount;
+      }
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+
+      removeEventListener(type: string): void {
+        this.listeners.delete(type);
+      }
+
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+        const handler = this.listeners.get('message');
+        if (message.type === 'init') {
+          handler?.({
+            data:
+              this.id === 1
+                ? { type: 'error', error: { message: 'Pyodide unavailable' } }
+                : { type: 'ready' },
+          } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          handler?.({
+            data: {
+              type: 'done',
+              runId: message.runId,
+              executionTime: 1,
+            },
+          } as MessageEvent);
+        }
+      }
+
+      terminate(): void {
+        terminateCount += 1;
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: RecoveringWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+
+    const first = await runner.execute('print("hi")');
+    const second = await runner.execute('print("hi again")');
+
+    expect(first.error?.message).toContain(
+      'Failed to load Python runtime: Pyodide unavailable'
+    );
+    expect(second.error).toBeUndefined();
+    expect(workerCount).toBe(2);
+    expect(terminateCount).toBe(1);
+  });
+
+  it('resolves as cancelled when stop() is pressed while Pyodide is loading', async () => {
+    let terminateCount = 0;
+    class HangingWorker {
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(): void {
+        // Keep the init request pending until stop() cancels it.
+      }
+
+      removeEventListener(): void {
+        // no-op for the test
+      }
+
+      postMessage(message: Record<string, unknown>): void {
+        postedMessages.push(message);
+      }
+
+      terminate(): void {
+        terminateCount += 1;
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: HangingWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const promise = runner.execute('print("hi")');
+    await Promise.resolve();
+    runner.stop();
+
+    const result = await promise;
+    expect(result.cancelled).toBe(true);
+    expect(result.error?.message).toBe('Execution stopped by user.');
+    expect(terminateCount).toBe(1);
   });
 });
