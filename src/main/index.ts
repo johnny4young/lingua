@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, session } from 'electron';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { extractLinguaDeepLinkUrl, type DeepLinkTarget } from '../shared/deepLinks';
@@ -28,6 +28,7 @@ import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
 import { createLicenseRuntime, parseEmbeddedPublicKey } from './license';
 import { registerLicenseHandlers } from './ipc/license';
+import { installOfflineSmokeFilter, isOfflineSmokeRequested } from './offlineSmoke';
 
 /**
  * Squirrel.Windows installer / uninstaller lifecycle hook. The
@@ -244,6 +245,13 @@ app.on('open-url', (event, url) => {
 });
 
 app.on('ready', async () => {
+  // RL-083 Slice 1 — install the offline-smoke webRequest filter
+  // before any window loads, so the very first renderer request is
+  // already gated. Production sessions never set the env var.
+  if (isOfflineSmokeRequested()) {
+    installOfflineSmokeFilter(session.defaultSession);
+  }
+
   const userDataDir = app.getPath('userData');
   const mirrorPath = resolveConsentMirrorPath(userDataDir);
   // Register the IPC writer first so the renderer's `setTelemetryConsent`

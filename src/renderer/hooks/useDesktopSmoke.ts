@@ -318,6 +318,32 @@ export function useDesktopSmoke(enabled: boolean) {
           });
         }
 
+        // RL-083 Slice 1 — offline-mode synthetic case. When the
+        // smoke is launched with --offline, the main-process
+        // webRequest filter cancels any non-loopback HTTP/HTTPS
+        // request and records the URL. The Python case already had
+        // to boot Pyodide off-disk to pass; this case makes the
+        // assertion explicit so an unrelated regression (e.g. a
+        // future analytics ping) does not slip past. Drop the
+        // optional-chain on `getOfflineBlocks` so a missing handler
+        // throws into the outer catch and fails the smoke loudly,
+        // rather than letting the offline gate silently report
+        // success.
+        if (config.offline) {
+          const blocked = await api.getOfflineBlocks();
+          const ok = blocked.length === 0;
+          summaries.push({
+            caseId: 'offline-no-cdn',
+            language: 'python',
+            ok,
+            message: ok
+              ? 'No remote URL was attempted during the offline smoke run'
+              : `Offline smoke blocked ${blocked.length} request(s): ${blocked.slice(0, 5).join(', ')}`,
+            executionTime: null,
+            screenshotPath: null,
+          });
+        }
+
         const success = summaries.every((summary) => summary.ok);
         await api.writeJsonArtifact('desktop-smoke-progress.json', {
           generatedAt: new Date().toISOString(),

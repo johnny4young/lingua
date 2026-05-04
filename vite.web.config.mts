@@ -13,6 +13,7 @@ import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
+import { RUNTIME_ASSETS } from './src/shared/runtimeAssets';
 
 // Seed `VITE_LINGUA_APP_VERSION` from `package.json#version` BEFORE
 // Vite reads `process.env` for env-substitution. Lets the telemetry
@@ -27,7 +28,13 @@ const base = process.env.VITE_BASE_PATH ?? '/';
 export default defineConfig({
   base,
   plugins: [react()],
-  define: getSharedBuildDefines(),
+  define: {
+    ...getSharedBuildDefines(),
+    // RL-083 Slice 1 is desktop-only. Keep the shared Python worker
+    // pointed at the CDN for web until Slice 2 chooses first-party
+    // hosting and tightens src/web/index.html + public/sw.js together.
+    __LINGUA_PYODIDE_INDEX_URL__: JSON.stringify(RUNTIME_ASSETS.pyodide.sourceUrl),
+  },
   root: path.resolve(__dirname, 'src/web'),
   // Repo-root `.env` / `.env.production` are the canonical source for
   // VITE_* values across all build configs (renderer, web, main). With

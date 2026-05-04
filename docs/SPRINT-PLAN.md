@@ -15,7 +15,7 @@
 
 ---
 
-## 1. Status at a glance (2026-05-03)
+## 1. Status at a glance (2026-05-04)
 
 Mirrors the authoritative `Status` column in
 [`ROADMAP.md`](./ROADMAP.md) §4. **When discrepancies appear, ROADMAP wins.**
@@ -30,6 +30,7 @@ Mirrors the authoritative `Status` column in
 | Iter 6 | [`RL-077`](./ROADMAP.md) | Shipped (2026-05-02) | Capability-based filesystem IPC sandbox — Slice 1 + Slice 2 both landed. See §8. |
 | Iter 7 | [`RL-078`](./ROADMAP.md) | Shipped (2026-05-03) | Parent-owned execution timeouts + output / resource limits. See §9. |
 | Iter 8 | [`RL-079`](./ROADMAP.md) | Shipped (2026-05-03) | Trusted native execution hardening for Go and Rust. See §10. |
+| Iter 9 | [`RL-083`](./ROADMAP.md) | Partial · Slice 1 shipped 2026-05-04 | Offline runtime assets + strict CSP — desktop vendor + integrity lock + offline smoke + desktop CSP tighten landed. Slice 2 (web first-party hosting + web CSP + SW prefetch) outstanding. See §11. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -40,8 +41,9 @@ Value-per-day priority. The full reasoning is in
 [`ROADMAP.md`](./ROADMAP.md) §5; this list only names the next pulls.
 
 1. **Security launch hardening** — `RL-077`, `RL-078`, and `RL-079`
-   are closed; pick `RL-083` to finish the security launch-blocker
-   set (runtime / CDN / CSP risk).
+   are closed; `RL-083` Slice 1 shipped 2026-05-04. Continue with
+   `RL-083` Slice 2 (web first-party hosting + web CSP + SW prefetch)
+   to close the security launch-blocker set.
 2. **Launch blockers** — after the hardening set, pull `RL-063`
    (linguacode.dev download page). `RL-061` is shipped; `RL-059` remains
    `Partial` only as the historical verifier + bridge parent.
@@ -212,7 +214,62 @@ Shipped on 2026-05-03 — see [`RL-079`](./PLAN.md#rl-079-trusted-native-executi
 
 ---
 
-## 11. Cross-iteration concerns
+## 11. Iter 9 / RL-083 — Offline runtime assets + strict CSP
+
+**One-liner**: Vendor Pyodide for desktop, lock its integrity, tighten
+the desktop CSP, and prove the result with an offline-mode desktop
+smoke. Defer the web surface to Slice 2.
+
+**11.1 Slice 1 — Shipped 2026-05-04**
+
+- Added `pyodide@0.26.4` as a runtime dep; copied curated runtime
+  files into `<renderer-out-dir>/pyodide/` via
+  `build/copyRuntimeAssetsPlugin.mts` (Vite plugin handles dev
+  middleware and packaged build).
+- Added `src/shared/runtimeAssets.ts` as the single asset registry
+  (id, version, source URL, paths, critical-files list) plus
+  `scripts/build-runtime-asset-manifest.mjs` and
+  `runtime-assets.lock.json` for the integrity snapshot. New scripts
+  `npm run build:runtime-assets` (write) and
+  `npm run check:runtime-assets` (assert).
+- Vitest mirror at `tests/shared/runtimeAssets.test.ts` fails red on
+  any drift between `node_modules/pyodide/` and the lock.
+- `python-worker.ts` now resolves desktop Pyodide through
+  `new URL('../pyodide/', import.meta.url).href` and imports
+  `${indexURL}pyodide.mjs` — same URL shape works in dev (Vite
+  middleware under `/src/renderer/pyodide/`) and packaged
+  (`file://.../pyodide/`). Removed desktop CDN fallback; web keeps an
+  explicit CDN define until Slice 2.
+- Desktop CSP in `index.html` dropped `https://cdn.jsdelivr.net` from
+  `script-src` and `connect-src`. Web `src/web/index.html` untouched.
+- New `LINGUA_DESKTOP_SMOKE_OFFLINE=1` mode wired through
+  `src/main/offlineSmoke.ts` + `src/main/index.ts` ready handler +
+  `src/main/ipc/desktopSmoke.ts` + preload + renderer hook
+  (`useDesktopSmoke.ts`). The synthetic `offline-no-cdn` summary case
+  asserts no remote URL was attempted. New
+  `npm run smoke:desktop:offline` script.
+- New `docs/RUNTIME_ASSETS_ADR.md` and indexed in
+  `docs/README.md` ADRs table.
+
+**11.2 Slice 2 — Outstanding**
+
+- Decide web hosting strategy: first-party `app.linguacode.dev/pyodide/`
+  vs explicit "first-Python-boot requires connectivity" limitation
+  doc. Cost / quota analysis on the Cloudflare layer drives the call.
+- Tighten `src/web/index.html` CSP once the chosen hosting is live.
+- Update `public/sw.js` cache strategy (precache vs runtime cache) to
+  match.
+- Extend the web smoke (or add a new one) to assert offline behavior.
+
+**11.3 Out of scope**
+
+- SBOM (`RL-085`) — separate ticket; this slice only adds an asset
+  manifest, not a full bill of materials.
+- Plugin manifest hardening (`RL-084`) — separate ticket.
+
+---
+
+## 12. Cross-iteration concerns
 
 - **i18n parity** must stay green after each iter — both locales bump
   in the same commit that introduces a new key.
@@ -226,7 +283,7 @@ Shipped on 2026-05-03 — see [`RL-079`](./PLAN.md#rl-079-trusted-native-executi
   `tests/e2e/overlays.spec.ts` (or a sibling) with the smallest
   assertion that would fail on regression.
 
-## 12. Verification matrix (per iter, before the closing commit)
+## 13. Verification matrix (per iter, before the closing commit)
 
 | Check | Command | Must pass |
 |-------|---------|-----------|
@@ -239,7 +296,7 @@ Shipped on 2026-05-03 — see [`RL-079`](./PLAN.md#rl-079-trusted-native-executi
 | Desktop smoke | `npm run smoke:desktop` | when the iter touches desktop-only IPC |
 | Review skills | `typescript-react-reviewer` + `node` on the diff | zero HIGH blockers |
 
-## 13. Closure protocol
+## 14. Closure protocol
 
 When an iter closes, do three things in the final commit:
 

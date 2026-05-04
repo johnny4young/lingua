@@ -1,8 +1,16 @@
 /**
  * Python execution Web Worker using Pyodide (CPython compiled to WASM).
  *
- * Loads Pyodide from CDN on first use, caches in memory for subsequent runs.
- * Captures stdout/stderr and sends to main thread.
+ * Loads Pyodide on first use, caches in memory for subsequent runs,
+ * captures stdout/stderr, and sends results to the main thread.
+ *
+ * RL-083 Slice 1 — desktop/dev resolve `pyodide.mjs` against the
+ * renderer build output (file:// in packaged Electron, the dev server
+ * origin in `npm run dev:desktop`). The build pipeline copies
+ * `node_modules/pyodide/*` to `<outDir>/pyodide/` via
+ * `build/copyRuntimeAssetsPlugin.mts`. The web build explicitly
+ * overrides the index URL to the CDN until Slice 2 picks the
+ * first-party hosting path.
  *
  * RL-078: this worker no longer schedules its own deadline. The
  * parent renderer thread owns a kill timer and calls
@@ -17,8 +25,39 @@ import { truncateSerialized } from '../runners/limits';
 
 const ctx = self as unknown as Worker;
 
-// Pyodide CDN URL
-const PYODIDE_CDN = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
+// Renderer-relative URL of the locally-served Pyodide directory.
+//
+// In packaged Electron the worker chunk lives at
+// `<outDir>/assets/workers-XYZ.js` and `../pyodide/` resolves to
+// `<outDir>/pyodide/`, where `build/copyRuntimeAssetsPlugin.mts`
+// copies the files at build time.
+//
+// In `npm run dev:desktop` Vite serves the worker source at
+// `/src/renderer/workers/python-worker.ts`, so `../pyodide/` lands at
+// `/src/renderer/pyodide/` — the same plugin's `configureServer`
+// middleware serves the same files there from `node_modules/pyodide/`.
+//
+// Keep this as a runtime URL instead of asking Vite to fingerprint a
+// directory. The copy plugin owns the actual files, and the web build
+// may override the URL to the CDN before this fallback is used.
+const RAW_PYODIDE_INDEX_URL = new URL(
+  /* @vite-ignore */ '../pyodide/',
+  import.meta.url
+).href;
+
+function withTrailingSlash(url: string): string {
+  return url.endsWith('/') ? url : `${url}/`;
+}
+
+function resolvePyodideIndexUrl(): string {
+  const configuredUrl =
+    typeof __LINGUA_PYODIDE_INDEX_URL__ === 'string'
+      ? __LINGUA_PYODIDE_INDEX_URL__.trim()
+      : '';
+  return withTrailingSlash(configuredUrl || RAW_PYODIDE_INDEX_URL);
+}
+
+const PYODIDE_INDEX_URL = resolvePyodideIndexUrl();
 
 let pyodide: unknown = null;
 let appliedUserEnvKeys: string[] = [];
@@ -48,11 +87,12 @@ async function loadPyodide(): Promise<unknown> {
   if (pyodide) return pyodide;
 
   // Module workers cannot use importScripts. Load Pyodide's ESM entry
-  // explicitly so Electron and Vite both execute the worker as a module.
+  // from the locally-served copy so Electron, the dev server, and the
+  // packaged renderer all read from the same origin.
   const { loadPyodide } = (await import(
-    /* @vite-ignore */ `${PYODIDE_CDN}pyodide.mjs`
+    /* @vite-ignore */ `${PYODIDE_INDEX_URL}pyodide.mjs`
   )) as PyodideLoaderModule;
-  pyodide = await loadPyodide({ indexURL: PYODIDE_CDN });
+  pyodide = await loadPyodide({ indexURL: PYODIDE_INDEX_URL });
 
   const runtime = pyodide as PyodideRuntime;
   // The user-code path redirects sys.stdout / sys.stderr into
@@ -122,7 +162,7 @@ ctx.addEventListener('message', async (event) => {
 
   if (msg.type === 'init') {
     try {
-      ctx.postMessage({ type: 'loading', stage: 'Downloading Pyodide runtime...' });
+      ctx.postMessage({ type: 'loading', stage: 'Loading Python runtime...' });
       await loadPyodide();
       ctx.postMessage({ type: 'ready' });
     } catch (err) {

@@ -4941,6 +4941,61 @@ These tickets capture the additional recommendations from the same review pass. 
 - Dependencies:
   - RL-078
 
+#### Slice 1 Status Update — 2026-05-04
+
+Slice 1 shipped. ROADMAP §4a status flipped to `Partial`.
+
+What landed:
+
+- Pyodide v0.26.4 added as a runtime npm dep; curated runtime files
+  copied from `node_modules/pyodide/` into the renderer output by
+  `build/copyRuntimeAssetsPlugin.mts`. Same plugin's `configureServer`
+  middleware serves the same files in dev so URLs are identical
+  across environments.
+- `src/shared/runtimeAssets.ts` introduced as the single registry
+  (asset id, version, source URL, paths, critical-files list).
+- `runtime-assets.lock.json` checked in; rebuilt by
+  `npm run build:runtime-assets` and asserted by
+  `npm run check:runtime-assets` (CLI) plus
+  `tests/shared/runtimeAssets.test.ts` (Vitest mirror).
+- `src/renderer/workers/python-worker.ts` resolves desktop Pyodide via
+  `new URL('../pyodide/', import.meta.url).href` and imports
+  `${indexURL}pyodide.mjs` — no desktop CDN fallback. The web build
+  keeps an explicit CDN index define until Slice 2 chooses first-party
+  hosting.
+- Desktop CSP in `index.html` no longer allowlists
+  `https://cdn.jsdelivr.net` (script-src + connect-src).
+- New `LINGUA_DESKTOP_SMOKE_OFFLINE=1` mode wired through
+  `src/main/offlineSmoke.ts` + the existing desktop-smoke IPC. The
+  renderer harness (`useDesktopSmoke.ts`) appends a synthetic
+  `offline-no-cdn` summary case; `npm run smoke:desktop:offline`
+  is the new entry point.
+- ADR at `docs/RUNTIME_ASSETS_ADR.md`, indexed under `docs/README.md`.
+
+Acceptance criteria coverage so far:
+
+- Python runs in packaged desktop without internet access — covered
+  via `npm run smoke:desktop:offline`.
+- Desktop Python init fails if it tries to reach a remote CDN —
+  enforced by the absence of `https://cdn.jsdelivr.net` in CSP and
+  by the offline smoke filter.
+- Web-mode behavior is documented — yes, in `docs/RUNTIME_ASSETS_ADR.md`
+  as an explicit "Slice 2 will pick the web strategy" note.
+- CSP blocks unapproved remote script/module imports — desktop only
+  in this slice; web tightening tracked under Slice 2.
+- Runtime asset version and integrity are testable in CI — yes, via
+  the Vitest integrity test plus the matching CLI script.
+
+Slice 2 (still open):
+
+- Decide web hosting strategy (first-party host on `app.linguacode.dev`
+  vs explicit "web requires connectivity for first Python boot"
+  limitation). Cost / quota analysis on Cloudflare drives the choice.
+- Tighten `src/web/index.html` CSP once the hosting is live.
+- Adjust `public/sw.js` cache strategy (precache vs runtime cache) to
+  match.
+- Extend or add a web smoke that asserts offline behavior.
+
 ### RL-084 Local plugin manifest hardening
 
 - Priority: `P1`

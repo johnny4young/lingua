@@ -212,6 +212,12 @@ type DeepLinkTarget =
 interface DesktopSmokeConfig {
   enabled: boolean;
   artifactDir: string | null;
+  /**
+   * RL-083 Slice 1 — true when the smoke harness is running with
+   * `LINGUA_DESKTOP_SMOKE_OFFLINE=1`. The renderer adds a final
+   * synthetic case that asserts no remote URL was attempted.
+   */
+  offline?: boolean;
 }
 
 // -------------------------------------------------------------- License types
@@ -482,6 +488,12 @@ interface LinguaAPI {
     capture: (name: string) => Promise<string | null>;
     writeJsonArtifact: (name: string, payload: unknown) => Promise<string | null>;
     finish: (success: boolean) => void;
+    /**
+     * RL-083 Slice 1 — list of URLs the offline-mode webRequest
+     * filter cancelled during the smoke run. Empty when offline mode
+     * is off or no requests were attempted.
+     */
+    getOfflineBlocks: () => Promise<readonly string[]>;
   };
 }
 
@@ -502,3 +514,4 @@ declare const __LINGUA_BUILD_DATE__: string | undefined;
 declare const __LINGUA_WEBSITE_URL__: string | undefined;
 declare const __LINGUA_LICENSE_PUBLIC_KEY_JWK__: string | undefined;
 declare const __LINGUA_LICENSE_SERVER_URL__: string | undefined;
+declare const __LINGUA_PYODIDE_INDEX_URL__: string | null | undefined;

@@ -4,9 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0c1017" />
+    <!--
+      RL-083 Slice 1 — desktop CSP no longer allowlists
+      cdn.jsdelivr.net. Pyodide assets ship inside the renderer
+      output via build/copyRuntimeAssetsPlugin.mts and load from the
+      same origin as the renderer (file:// when packaged,
+      http://localhost:5173 in dev). The web build keeps jsdelivr
+      until Slice 2 completes the first-party hosting decision; see
+      docs/RUNTIME_ASSETS_ADR.md.
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://cdn.jsdelivr.net https://licenses.linguacode.dev https://updates.linguacode.dev;"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://licenses.linguacode.dev https://updates.linguacode.dev;"
     />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>Lingua</title>

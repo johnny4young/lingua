@@ -58,6 +58,10 @@ describe('Script naming docs guard', () => {
       'build:web',
       'preview:web',
       'smoke:desktop',
+      // RL-083 Slice 1 — runtime-asset lock + offline desktop smoke
+      'smoke:desktop:offline',
+      'build:runtime-assets',
+      'check:runtime-assets',
       'test',
       'test:e2e:web',
       'test:smoke:web:license',
