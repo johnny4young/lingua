@@ -61,4 +61,16 @@ describe('public/sw.js — API origin cache bypass', () => {
     const bypassRegex = /if\s*\(\s*PASSTHROUGH_ORIGINS\.includes\(url\.origin\)\s*\)\s*\{[\s\S]*?return;[\s\S]*?\}/;
     expect(source).toMatch(bypassRegex);
   });
+
+  it('routes the version-pinned Pyodide prefix to cache-first before the generic CDN network-first branch', async () => {
+    const source = await readSwSource();
+    const pyodideBranch = source.indexOf('request.url.startsWith(PYODIDE_CACHE_PREFIX)');
+    const networkFirstBranch = source.indexOf('NETWORK_FIRST_ORIGINS.some');
+
+    expect(pyodideBranch).toBeGreaterThan(-1);
+    expect(networkFirstBranch).toBeGreaterThan(pyodideBranch);
+    expect(source.slice(pyodideBranch, networkFirstBranch)).toContain(
+      'event.respondWith(cacheFirst(request))'
+    );
+  });
 });

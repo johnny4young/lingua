@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
       CSP for the web build:
-      - Pyodide is fetched from cdn.jsdelivr.net at runtime
+      - Pyodide is fetched from cdn.jsdelivr.net at runtime. RL-083
+        Slice 2 chose cache-backed offline for web (see
+        docs/RUNTIME_ASSETS_ADR.md): public/sw.js cache-firsts the
+        version-pinned Pyodide URL so the first load primes the cache
+        and subsequent loads work offline.
       - blob: workers are needed for Monaco and JS/TS/Python web workers
       - 'unsafe-eval' is required by esbuild-wasm and Monaco language workers
       - licenses.linguacode.dev — RL-061 Slice 2.5 license-server endpoints

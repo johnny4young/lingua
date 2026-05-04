@@ -5,7 +5,9 @@
  * - Network-First for navigations so deployed builds do not strand users on
  *   stale cached HTML that points at deleted hashed assets.
  * - Cache-First for same-origin static assets (CSS, JS chunks, WASM).
- * - Network-First for CDN resources (Pyodide) to pick up updates.
+ * - Cache-First for the version-pinned Pyodide CDN prefix so Python
+ *   works offline after first load.
+ * - Network-First for any other CDN resources to pick up updates.
  *
  * The cache version is embedded at build time via Vite's import.meta.env,
  * but since this file is plain JS served from /public, we use a manual
@@ -13,20 +15,33 @@
  * force clients to refresh stale caches.
  */
 
-// Bumped to `v3` for RL-061 Slice 5 — the web build moved from
-// GitHub Pages (`<user>.github.io/lingua/`) to Cloudflare Pages
-// (`app.linguacode.dev/`). The previous `v2` cache was scoped under
-// `/lingua/`, so any user who reached the legacy GH Pages URL before
-// the migration has cached entries whose paths no longer match the
-// new asset hashes served at the subdomain root. Bumping the
-// version forces those clients to drop the stale caches on next
-// load. (For the v1→v2 history, see RL-061 Slice 2.5.)
-const CACHE_VERSION = 'v3';
+// Bumped to `v4` for RL-083 Slice 2 — the Pyodide jsdelivr URL moved
+// from network-first to cache-first so the web build is offline-tolerant
+// after the first Python load. Old `v3` clients hold network-first
+// responses for `cdn.jsdelivr.net` that would otherwise shadow the new
+// strategy until the next deploy; bumping the version forces eviction
+// on the next page load.
+//
+// History:
+// - v3 (RL-061 Slice 5): web moved from GitHub Pages (`/lingua/`) to
+//   Cloudflare Pages (`app.linguacode.dev/`). Prior `v2` had paths
+//   under `/lingua/` that no longer match the subdomain-rooted hashes.
+// - v2 (RL-061 Slice 2.5): cache scope changed.
+const CACHE_VERSION = 'v4';
 const CACHE_NAME = `lingua-${CACHE_VERSION}`;
 const BASE_PATH = new URL(self.registration.scope).pathname;
 
 // Resources to pre-cache on install (app shell)
 const APP_SHELL = [BASE_PATH, `${BASE_PATH}index.html`];
+
+// RL-083 Slice 2 — the version-pinned Pyodide CDN prefix uses
+// cache-first so the second visit (and every subsequent visit) does
+// not need network connectivity to run Python. Must stay in sync with
+// `RUNTIME_ASSETS.pyodide.sourceUrl` in `src/shared/runtimeAssets.ts`;
+// a vitest mirror in `tests/shared/runtimeAssets.test.ts` fails red on
+// drift. Other `cdn.jsdelivr.net` URLs (none today; defensive) keep
+// network-first so an unrelated CDN load picks up upstream changes.
+const PYODIDE_CACHE_PREFIX = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
 
 // CDN origins that should use Network-First (always try network, fall back to cache)
 const NETWORK_FIRST_ORIGINS = ['https://cdn.jsdelivr.net'];
@@ -89,6 +104,15 @@ self.addEventListener('fetch', event => {
 
   if (request.mode === 'navigate') {
     event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // RL-083 Slice 2 — version-pinned Pyodide URLs are cache-first so
+  // the renderer can boot Python offline after the first load. Match
+  // by full prefix, not by origin alone, so an unrelated jsdelivr URL
+  // (none today) stays on network-first below.
+  if (request.url.startsWith(PYODIDE_CACHE_PREFIX)) {
+    event.respondWith(cacheFirst(request));
     return;
   }
 
