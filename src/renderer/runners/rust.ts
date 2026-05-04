@@ -5,7 +5,7 @@ import type {
   ConsoleOutput,
 } from '../types';
 import { parseRustExecutionError } from '../utils/executionDiagnostics';
-import { resolveUserEnvForRunner } from './go';
+import { resolveNativeRunnerMessages, resolveUserEnvForRunner } from './go';
 
 export class RustRunner implements LanguageRunner {
   id = 'rust';
@@ -17,7 +17,7 @@ export class RustRunner implements LanguageRunner {
   private rustInstalled = false;
 
   async init(): Promise<void> {
-    const result = await window.lingua.rust.detect();
+    const result = await window.lingua.rust.detect(resolveUserEnvForRunner());
     this.rustInstalled = result.installed;
     this.ready = true;
 
@@ -45,10 +45,14 @@ export class RustRunner implements LanguageRunner {
     }
 
     // RL-011 Slice D — same resolver Go uses. processEnv stays empty
-    // in the renderer; the real merge over process.env happens in main
+    // in the renderer; the RL-079 host allowlist merge happens in main
     // so host secrets never cross the preload boundary.
     const userEnv = resolveUserEnvForRunner();
-    const runResult = await window.lingua.rust.run(code, userEnv);
+    const runResult = await window.lingua.rust.run(
+      code,
+      userEnv,
+      resolveNativeRunnerMessages()
+    );
 
     const stdout: ConsoleOutput[] = runResult.stdout
       .split('\n')

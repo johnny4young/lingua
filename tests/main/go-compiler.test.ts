@@ -72,32 +72,48 @@ describe('main go compiler helpers', () => {
   });
 });
 
-describe('main go compiler env resolver (RL-011 Slice D)', () => {
-  const PRESERVED = 'LINGUA_TEST_FIXTURE_KEEP';
+describe('main go compiler env resolver (RL-079 minimal allowlist)', () => {
+  const SECRET = 'LINGUA_SMOKE_SECRET';
   const INJECTED = 'LINGUA_TEST_FIXTURE_INJECT';
+  const ALLOWED = 'GOROOT';
+  const savedAllowed = process.env[ALLOWED];
 
   beforeEach(() => {
-    process.env[PRESERVED] = 'host-value';
+    // Seed a sentinel secret + an allowlisted host key. The new
+    // contract should drop the secret and surface the allowlisted key.
+    process.env[SECRET] = '__lingua_smoke_secret__';
+    process.env[ALLOWED] = '/usr/local/go';
     delete process.env[INJECTED];
   });
 
   afterEach(() => {
-    delete process.env[PRESERVED];
+    delete process.env[SECRET];
     delete process.env[INJECTED];
+    if (savedAllowed === undefined) {
+      delete process.env[ALLOWED];
+    } else {
+      process.env[ALLOWED] = savedAllowed;
+    }
   });
 
-  it('spreads process.env underneath the user env so host values stay visible', () => {
+  it('drops non-allowlisted host keys (the secret-leak gate)', () => {
+    const resolved = resolveGoCompileEnv();
+    expect('LINGUA_SMOKE_SECRET' in resolved).toBe(false);
+    expect(resolved[ALLOWED]).toBe('/usr/local/go');
+  });
+
+  it('layers user env on top of the allowlisted host env', () => {
     const resolved = resolveGoCompileEnv({ [INJECTED]: 'user-value' });
-    expect(resolved[PRESERVED]).toBe('host-value');
     expect(resolved[INJECTED]).toBe('user-value');
+    expect(resolved[ALLOWED]).toBe('/usr/local/go');
   });
 
-  it('lets the user env override overlapping host keys (user wins over host)', () => {
-    const resolved = resolveGoCompileEnv({ [PRESERVED]: 'overridden-by-user' });
-    expect(resolved[PRESERVED]).toBe('overridden-by-user');
+  it('lets user env override allowlisted host keys', () => {
+    const resolved = resolveGoCompileEnv({ [ALLOWED]: '/override/go' });
+    expect(resolved[ALLOWED]).toBe('/override/go');
   });
 
-  it('refuses to let userEnv overwrite GOOS / GOARCH — runner-owned keys stay wasm', () => {
+  it('refuses to let userEnv overwrite GOOS / GOARCH — runner-owned overrides win', () => {
     const resolved = resolveGoCompileEnv({
       GOOS: 'linux',
       GOARCH: 'amd64',
@@ -118,11 +134,10 @@ describe('main go compiler env resolver (RL-011 Slice D)', () => {
     expect('BAD' in resolved).toBe(false);
   });
 
-  it('produces a GOOS=js / GOARCH=wasm env even when userEnv is undefined', () => {
+  it('produces GOOS=js / GOARCH=wasm even when userEnv is undefined', () => {
     const resolved = resolveGoCompileEnv();
     expect(resolved.GOOS).toBe('js');
     expect(resolved.GOARCH).toBe('wasm');
-    expect(resolved[PRESERVED]).toBe('host-value');
   });
 });
 

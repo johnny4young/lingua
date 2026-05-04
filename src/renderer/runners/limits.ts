@@ -19,6 +19,17 @@
  */
 import type { ConsoleOutput, ExecutionError, ExecutionResult } from '../types';
 
+// RL-079: re-export the main-side native subprocess caps so renderer
+// surfaces stay co-located and a future bump can update both worker
+// and subprocess heaps in lockstep. The renderer caps below are
+// intentionally tighter (worker heap shares with the UI thread); see
+// the comment in `src/shared/runnerLimits.ts` for the asymmetry.
+export {
+  MAX_NATIVE_STDERR_BYTES,
+  MAX_COMPILE_OUTPUT_BYTES,
+  truncateBytes,
+} from '../../shared/runnerLimits';
+
 /** Entries kept per stdout or stderr stream, including the truncation marker. */
 export const MAX_CONSOLE_ENTRIES = 1000;
 

@@ -95,6 +95,12 @@ interface RustRunResult {
   error?: string;
 }
 
+interface NativeRunnerMessages {
+  compileOutputTruncated?: string;
+  stdoutTruncated?: string;
+  stderrTruncated?: string;
+}
+
 // ---------------------------------------------------------- Formatter types
 
 type FormatIpcResult =
@@ -325,18 +331,20 @@ interface LinguaAPI {
   forceClose: () => void;
 
   go: {
-    detect: () => Promise<GoDetectResult>;
+    detect: (userEnv?: Record<string, string>) => Promise<GoDetectResult>;
     compile: (
       sourceCode: string,
-      userEnv?: Record<string, string>
+      userEnv?: Record<string, string>,
+      messages?: NativeRunnerMessages
     ) => Promise<GoCompileResult>;
   };
 
   rust: {
-    detect: () => Promise<RustDetectResult>;
+    detect: (userEnv?: Record<string, string>) => Promise<RustDetectResult>;
     run: (
       sourceCode: string,
-      userEnv?: Record<string, string>
+      userEnv?: Record<string, string>,
+      messages?: NativeRunnerMessages
     ) => Promise<RustRunResult>;
   };
 

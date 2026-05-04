@@ -200,8 +200,20 @@ describe('GoRunner', () => {
     await runner.init();
     await runner.execute('package main\nfunc main() {}');
 
+    expect(mockDetect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        SHARED: 'from-tab',
+        GLOBAL_ONLY: 'g',
+        PROJECT_ONLY: 'p',
+        TAB_ONLY: 't',
+      })
+    );
     expect(mockCompile).toHaveBeenCalledTimes(1);
-    const [sourceCode, userEnv] = mockCompile.mock.calls[0] as [string, Record<string, string>];
+    const [sourceCode, userEnv, messages] = mockCompile.mock.calls[0] as [
+      string,
+      Record<string, string>,
+      NativeRunnerMessages,
+    ];
     expect(sourceCode).toContain('package main');
     // Tab wins over project + global for SHARED; tier-unique keys survive.
     expect(userEnv).toMatchObject({
@@ -209,6 +221,11 @@ describe('GoRunner', () => {
       GLOBAL_ONLY: 'g',
       PROJECT_ONLY: 'p',
       TAB_ONLY: 't',
+    });
+    expect(messages).toMatchObject({
+      compileOutputTruncated: expect.any(String),
+      stdoutTruncated: expect.any(String),
+      stderrTruncated: expect.any(String),
     });
   });
 
@@ -224,7 +241,13 @@ describe('GoRunner', () => {
     await runner.init();
     await runner.execute('package main\nfunc main() {}');
 
-    const [, userEnv] = mockCompile.mock.calls[0] as [string, Record<string, string>];
+    expect(mockDetect).toHaveBeenCalledWith({});
+    const [, userEnv, messages] = mockCompile.mock.calls[0] as [
+      string,
+      Record<string, string>,
+      NativeRunnerMessages,
+    ];
     expect(userEnv).toEqual({});
+    expect(messages.compileOutputTruncated).toEqual(expect.any(String));
   });
 });

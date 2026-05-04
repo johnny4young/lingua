@@ -29,6 +29,7 @@ Mirrors the authoritative `Status` column in
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Shipped (2026-05-01) | Language-pack registry — closed by the Slice C closeout. See §7. |
 | Iter 6 | [`RL-077`](./ROADMAP.md) | Shipped (2026-05-02) | Capability-based filesystem IPC sandbox — Slice 1 + Slice 2 both landed. See §8. |
 | Iter 7 | [`RL-078`](./ROADMAP.md) | Shipped (2026-05-03) | Parent-owned execution timeouts + output / resource limits. See §9. |
+| Iter 8 | [`RL-079`](./ROADMAP.md) | Shipped (2026-05-03) | Trusted native execution hardening for Go and Rust. See §10. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -38,10 +39,9 @@ Gated / deferred tickets are NOT in this table — they live exclusively in
 Value-per-day priority. The full reasoning is in
 [`ROADMAP.md`](./ROADMAP.md) §5; this list only names the next pulls.
 
-1. **Security launch hardening** — `RL-077` and `RL-078` are closed;
-   pick `RL-079`, then `RL-083` in that order. This reduces trusted
-   native-execution ambiguity and runtime/CDN/CSP risk before public
-   distribution.
+1. **Security launch hardening** — `RL-077`, `RL-078`, and `RL-079`
+   are closed; pick `RL-083` to finish the security launch-blocker
+   set (runtime / CDN / CSP risk).
 2. **Launch blockers** — after the hardening set, pull `RL-063`
    (linguacode.dev download page). `RL-061` is shipped; `RL-059` remains
    `Partial` only as the historical verifier + bridge parent.
@@ -206,7 +206,13 @@ Shipped on 2026-05-03 — see [`RL-078`](./PLAN.md#rl-078-parent-owned-execution
 
 ---
 
-## 10. Cross-iteration concerns
+## 10. Iter 8 / RL-079 — Trusted native execution hardening for Go and Rust
+
+Shipped on 2026-05-03 — see [`RL-079`](./PLAN.md#rl-079-trusted-native-execution-hardening-for-go-and-rust).
+
+---
+
+## 11. Cross-iteration concerns
 
 - **i18n parity** must stay green after each iter — both locales bump
   in the same commit that introduces a new key.
@@ -220,7 +226,7 @@ Shipped on 2026-05-03 — see [`RL-078`](./PLAN.md#rl-078-parent-owned-execution
   `tests/e2e/overlays.spec.ts` (or a sibling) with the smallest
   assertion that would fail on regression.
 
-## 11. Verification matrix (per iter, before the closing commit)
+## 12. Verification matrix (per iter, before the closing commit)
 
 | Check | Command | Must pass |
 |-------|---------|-----------|
@@ -233,7 +239,7 @@ Shipped on 2026-05-03 — see [`RL-078`](./PLAN.md#rl-078-parent-owned-execution
 | Desktop smoke | `npm run smoke:desktop` | when the iter touches desktop-only IPC |
 | Review skills | `typescript-react-reviewer` + `node` on the diff | zero HIGH blockers |
 
-## 12. Closure protocol
+## 13. Closure protocol
 
 When an iter closes, do three things in the final commit:
 

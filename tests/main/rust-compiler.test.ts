@@ -1,7 +1,7 @@
 /**
- * RL-011 Slice D second increment — Rust compile + run env merge.
+ * RL-079 — Rust compile + run env merge under the minimal allowlist.
  *
- * Same contract as go-compiler.test.ts, minus the runner-owned keys:
+ * Same shape as go-compiler.test.ts, minus the runner-owned keys:
  * Rust does not claim any env variables for itself, so the user env
  * is the last tier in the merge.
  */
@@ -20,29 +20,43 @@ vi.mock('electron', () => ({
 
 import { registerRustHandlers, resolveRustRunEnv } from '../../src/main/rust-compiler';
 
-describe('main rust compiler env resolver (RL-011 Slice D)', () => {
-  const PRESERVED = 'LINGUA_TEST_RUST_KEEP';
+describe('main rust compiler env resolver (RL-079 minimal allowlist)', () => {
+  const SECRET = 'LINGUA_SMOKE_SECRET';
   const INJECTED = 'LINGUA_TEST_RUST_INJECT';
+  const ALLOWED = 'CARGO_HOME';
+  const savedAllowed = process.env[ALLOWED];
 
   beforeEach(() => {
-    process.env[PRESERVED] = 'host-value';
+    process.env[SECRET] = '__lingua_smoke_secret__';
+    process.env[ALLOWED] = '/home/test/.cargo';
     delete process.env[INJECTED];
   });
 
   afterEach(() => {
-    delete process.env[PRESERVED];
+    delete process.env[SECRET];
     delete process.env[INJECTED];
+    if (savedAllowed === undefined) {
+      delete process.env[ALLOWED];
+    } else {
+      process.env[ALLOWED] = savedAllowed;
+    }
   });
 
-  it('spreads process.env underneath the user env so host values stay visible', () => {
+  it('drops non-allowlisted host keys (the secret-leak gate)', () => {
+    const resolved = resolveRustRunEnv();
+    expect('LINGUA_SMOKE_SECRET' in resolved).toBe(false);
+    expect(resolved[ALLOWED]).toBe('/home/test/.cargo');
+  });
+
+  it('layers user env on top of the allowlisted host env', () => {
     const resolved = resolveRustRunEnv({ [INJECTED]: 'user-value' });
-    expect(resolved[PRESERVED]).toBe('host-value');
     expect(resolved[INJECTED]).toBe('user-value');
+    expect(resolved[ALLOWED]).toBe('/home/test/.cargo');
   });
 
-  it('lets the user env override overlapping host keys (user wins over host)', () => {
-    const resolved = resolveRustRunEnv({ [PRESERVED]: 'overridden-by-user' });
-    expect(resolved[PRESERVED]).toBe('overridden-by-user');
+  it('lets user env override allowlisted host keys', () => {
+    const resolved = resolveRustRunEnv({ [ALLOWED]: '/override/cargo' });
+    expect(resolved[ALLOWED]).toBe('/override/cargo');
   });
 
   it('drops non-string user values defensively', () => {
@@ -55,16 +69,16 @@ describe('main rust compiler env resolver (RL-011 Slice D)', () => {
     expect('BAD' in resolved).toBe(false);
   });
 
-  it('produces just the host env when userEnv is undefined', () => {
+  it('produces only the allowlisted host env when userEnv is undefined', () => {
     const resolved = resolveRustRunEnv();
-    expect(resolved[PRESERVED]).toBe('host-value');
+    expect(resolved[ALLOWED]).toBe('/home/test/.cargo');
+    expect('LINGUA_SMOKE_SECRET' in resolved).toBe(false);
   });
 
-  it('does not clobber or inject any runner-owned key (Rust has none)', () => {
-    // The contract with Go pins GOOS/GOARCH as runner-owned. Rust
-    // intentionally has no equivalent — assert that the resolver
-    // leaves any key the user picked intact, even when it happens to
-    // look env-y.
+  it('lets user-set RUSTFLAGS / RUSTC_WRAPPER through (no runner-owned overrides for Rust)', () => {
+    // The user explicitly opts into RUSTFLAGS via the RL-011 user env
+    // tier; the resolver must not strip it. Compare to Go where GOOS
+    // / GOARCH are runner-owned.
     const resolved = resolveRustRunEnv({
       RUSTC_WRAPPER: '/usr/local/bin/sccache',
       RUSTFLAGS: '-C opt-level=0',

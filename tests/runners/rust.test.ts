@@ -180,10 +180,19 @@ describe('RustRunner', () => {
     await runner.init();
     await runner.execute('fn main() {}');
 
+    expect(mockDetect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        SHARED: 'from-tab',
+        GLOBAL_ONLY: 'g',
+        PROJECT_ONLY: 'p',
+        TAB_ONLY: 't',
+      })
+    );
     expect(mockRun).toHaveBeenCalledTimes(1);
-    const [sourceCode, userEnv] = mockRun.mock.calls[0] as [
+    const [sourceCode, userEnv, messages] = mockRun.mock.calls[0] as [
       string,
-      Record<string, string>
+      Record<string, string>,
+      NativeRunnerMessages,
     ];
     expect(sourceCode).toContain('fn main');
     expect(userEnv).toMatchObject({
@@ -191,6 +200,11 @@ describe('RustRunner', () => {
       GLOBAL_ONLY: 'g',
       PROJECT_ONLY: 'p',
       TAB_ONLY: 't',
+    });
+    expect(messages).toMatchObject({
+      compileOutputTruncated: expect.any(String),
+      stdoutTruncated: expect.any(String),
+      stderrTruncated: expect.any(String),
     });
   });
 
@@ -208,7 +222,13 @@ describe('RustRunner', () => {
     await runner.init();
     await runner.execute('fn main() {}');
 
-    const [, userEnv] = mockRun.mock.calls[0] as [string, Record<string, string>];
+    expect(mockDetect).toHaveBeenCalledWith({});
+    const [, userEnv, messages] = mockRun.mock.calls[0] as [
+      string,
+      Record<string, string>,
+      NativeRunnerMessages,
+    ];
     expect(userEnv).toEqual({});
+    expect(messages.stderrTruncated).toEqual(expect.any(String));
   });
 });

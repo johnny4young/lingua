@@ -5,7 +5,9 @@ import { useConsoleStore } from '@/stores/consoleStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useExecutionHistoryStore } from '@/stores/executionHistoryStore';
 import { useLicenseStore } from '@/stores/licenseStore';
+import { useNativeExecutionGateStore } from '@/stores/nativeExecutionGateStore';
 import { useResultStore } from '@/stores/resultStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import type { ExecutionResult } from '@/types';
 
 const {
@@ -61,6 +63,15 @@ describe('useRunner', () => {
       lastVerifiedAt: Date.now(),
     });
     useResultStore.setState(initialResultState, true);
+    // RL-079 — pre-acknowledge native execution by default so the
+    // existing Rust/Go test cases bypass the gate. The dedicated
+    // RL-079 describe block resets this to `false` to exercise the
+    // gate behaviour.
+    useSettingsStore.setState({ nativeExecutionAcknowledged: true });
+    useNativeExecutionGateStore.setState(
+      { pendingLanguage: null, pendingResume: null },
+      false
+    );
     mockIsSupported.mockReturnValue(true);
     mockNeedsInitialization.mockReturnValue(false);
   });
@@ -246,6 +257,200 @@ describe('useRunner', () => {
     expect(useEditorStore.getState().tabs[0]).toMatchObject({
       executionState: 'success',
       parseError: null,
+    });
+  });
+
+  describe('RL-079 native-execution gate', () => {
+    const initialGateState = useNativeExecutionGateStore.getState();
+    const initialSettings = useSettingsStore.getState();
+
+    beforeEach(() => {
+      useNativeExecutionGateStore.setState(initialGateState, true);
+      useSettingsStore.setState(
+        { ...initialSettings, nativeExecutionAcknowledged: false },
+        true
+      );
+    });
+
+    afterEach(() => {
+      useNativeExecutionGateStore.setState(initialGateState, true);
+      useSettingsStore.setState(initialSettings, true);
+    });
+
+    it('opens the gate without invoking the runner when Go is unacknowledged', async () => {
+      const execute = vi.fn();
+      mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-go',
+            name: 'main.go',
+            language: 'go',
+            content: 'package main',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-go',
+      });
+
+      const { result: hook } = renderHook(() => useRunner());
+
+      await act(async () => {
+        await hook.current.run();
+      });
+
+      expect(useNativeExecutionGateStore.getState().pendingLanguage).toBe('go');
+      expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('skips the gate when Rust is already acknowledged', async () => {
+      useSettingsStore.setState({ nativeExecutionAcknowledged: true });
+      const execute = vi.fn().mockResolvedValue({
+        stdout: [],
+        stderr: [],
+        executionTime: 1,
+      } satisfies ExecutionResult);
+      mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-rust',
+            name: 'main.rs',
+            language: 'rust',
+            content: 'fn main() {}',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-rust',
+      });
+
+      const { result: hook } = renderHook(() => useRunner());
+
+      await act(async () => {
+        await hook.current.run();
+      });
+
+      expect(useNativeExecutionGateStore.getState().pendingLanguage).toBeNull();
+      expect(execute).toHaveBeenCalledOnce();
+    });
+
+    it('re-opens the gate after the user resets the acknowledgement', async () => {
+      const execute = vi.fn().mockResolvedValue({
+        stdout: [],
+        stderr: [],
+        executionTime: 1,
+      } satisfies ExecutionResult);
+      mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-go',
+            name: 'main.go',
+            language: 'go',
+            content: 'package main',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-go',
+      });
+
+      const { result: hook } = renderHook(() => useRunner());
+
+      // First run: gate opens.
+      await act(async () => {
+        await hook.current.run();
+      });
+      expect(useNativeExecutionGateStore.getState().pendingLanguage).toBe('go');
+
+      // Acknowledge → resume runs.
+      useSettingsStore.getState().setNativeExecutionAcknowledged(true);
+      await act(async () => {
+        useNativeExecutionGateStore.getState().confirm();
+      });
+      expect(execute).toHaveBeenCalledOnce();
+
+      // Reset the acknowledgement → next run opens the gate again.
+      useSettingsStore.getState().setNativeExecutionAcknowledged(false);
+      await act(async () => {
+        await hook.current.run();
+      });
+      expect(useNativeExecutionGateStore.getState().pendingLanguage).toBe('go');
+      expect(execute).toHaveBeenCalledOnce();
+    });
+
+    it('does not gate non-native languages (JS / TS / Python)', async () => {
+      const execute = vi.fn().mockResolvedValue({
+        stdout: [],
+        stderr: [],
+        executionTime: 1,
+      } satisfies ExecutionResult);
+      mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-js',
+            name: 'main.js',
+            language: 'javascript',
+            content: 'console.log(1)',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-js',
+      });
+
+      const { result: hook } = renderHook(() => useRunner());
+
+      await act(async () => {
+        await hook.current.run();
+      });
+
+      expect(useNativeExecutionGateStore.getState().pendingLanguage).toBeNull();
+      expect(execute).toHaveBeenCalledOnce();
+    });
+
+    it('does not show the native trust modal for Go in web builds', async () => {
+      const originalLingua = window.lingua;
+      window.lingua = {
+        ...(originalLingua ?? ({} as LinguaAPI)),
+        platform: 'web',
+      } as typeof window.lingua;
+
+      const execute = vi.fn().mockResolvedValue({
+        stdout: [],
+        stderr: [],
+        executionTime: 1,
+      } satisfies ExecutionResult);
+      mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-go-web',
+            name: 'main.go',
+            language: 'go',
+            content: 'package main',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-go-web',
+      });
+
+      try {
+        const { result: hook } = renderHook(() => useRunner());
+
+        await act(async () => {
+          await hook.current.run();
+        });
+
+        expect(useNativeExecutionGateStore.getState().pendingLanguage).toBeNull();
+        expect(execute).toHaveBeenCalledOnce();
+      } finally {
+        window.lingua = originalLingua;
+      }
     });
   });
 

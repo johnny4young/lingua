@@ -144,6 +144,7 @@ export const useSettingsStore = create<SettingsState>()(
       restoreSession: false,
       formatOnSave: false,
       vimMode: false,
+      nativeExecutionAcknowledged: false,
       syncShellWithEditorTheme: true,
       executionHistorySnapshotEnabled: true,
       telemetryConsent: 'unset',
@@ -196,6 +197,8 @@ export const useSettingsStore = create<SettingsState>()(
       toggleRestoreSession: () => set((s) => ({ restoreSession: !s.restoreSession })),
       toggleFormatOnSave: () => set((s) => ({ formatOnSave: !s.formatOnSave })),
       toggleVimMode: () => set((s) => ({ vimMode: !s.vimMode })),
+      setNativeExecutionAcknowledged: (nativeExecutionAcknowledged) =>
+        set({ nativeExecutionAcknowledged }),
       toggleSyncShellWithEditorTheme: () =>
         set((s) => ({
           syncShellWithEditorTheme: !s.syncShellWithEditorTheme,
@@ -297,6 +300,7 @@ export const useSettingsStore = create<SettingsState>()(
         restoreSession: state.restoreSession,
         formatOnSave: state.formatOnSave,
         vimMode: state.vimMode,
+        nativeExecutionAcknowledged: state.nativeExecutionAcknowledged,
         syncShellWithEditorTheme: state.syncShellWithEditorTheme,
         executionHistorySnapshotEnabled: state.executionHistorySnapshotEnabled,
         telemetryConsent: state.telemetryConsent,
@@ -325,6 +329,14 @@ export const useSettingsStore = create<SettingsState>()(
             : hasSnapshotPreference
               ? false
               : currentState.executionHistorySnapshotEnabled;
+        const hasNativeExecutionAcknowledgement =
+          persisted != null && hasOwn(persisted, 'nativeExecutionAcknowledged');
+        const nativeExecutionAcknowledged =
+          typeof persisted?.nativeExecutionAcknowledged === 'boolean'
+            ? persisted.nativeExecutionAcknowledged
+            : hasNativeExecutionAcknowledgement
+              ? false
+              : currentState.nativeExecutionAcknowledged;
         const shortcutOverrides = sanitizeShortcutOverrides(merged.shortcutOverrides);
         const requestedKeymapPreset = isKnownKeymapPresetId(merged.keymapPreset)
           ? merged.keymapPreset
@@ -371,6 +383,7 @@ export const useSettingsStore = create<SettingsState>()(
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
           executionHistorySnapshotEnabled,
+          nativeExecutionAcknowledged,
           shortcutOverrides,
           keymapPreset: normalizedKeymapPreset,
           themePack: normalizedThemePack,

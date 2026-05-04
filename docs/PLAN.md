@@ -4793,8 +4793,8 @@ These tickets were promoted directly into PLAN and ROADMAP from the 2026-05-02 a
 ### RL-079 Trusted native execution hardening for Go and Rust
 
 - Priority: `P0`
-- Status: `Planned`
-- Readiness: `Implementation-ready from the 2026-05-02 review. Launch-blocking because Go/Rust desktop execution currently runs through local toolchains with the user's OS privileges and must be presented and constrained as trusted-code execution.`
+- Status: `Done`
+- Readiness: `Shipped 2026-05-03. Subprocess env for Go/Rust detection, `rustc`, `go build`, and the spawned native binary is now built by `buildNativeRunnerEnv` (`src/main/runners/nativeEnv.ts`) from a tight per-language allowlist (PATH, HOME, LANG, TMPDIR + the language-specific GOROOT/GOPATH/GOMODCACHE/GOCACHE/GOTMPDIR or CARGO_HOME/RUSTUP_HOME/RUSTC/CARGO; Windows essentials added via the platform branch). User env from RL-011 layers on top; runner-owned overrides (`GOOS=js`/`GOARCH=wasm`) win last. Temp dirs use `mkdtemp(...lingua-{go,rust}-)`. Compile output and runtime stderr are capped at 1 MiB via `src/shared/runnerLimits.ts` with localized truncation markers passed from the renderer. A first-run trust-boundary modal (`NativeExecutionWarning`) gates Go/Rust runs the first time per install via the new `nativeExecutionAcknowledged` flag in `settingsStore`; the user can reset the flag from Settings → Privacy. A new desktop smoke harness seeds `LINGUA_SMOKE_SECRET=__lingua_smoke_secret__` into the spawned Electron's env and runs `go-env-isolation` / `rust-env-isolation` cases that print the variable; the smoke fails if the sentinel appears in captured stdout, which would mean the env builder leaked it. 2160 unit / integration tests green (+31 new); per-language env-resolver tests (go-compiler, rust-compiler) updated to assert the secret-leak gate explicitly.`
 - Current gap:
   - Rust compiles and executes a native binary from main.
   - Go compiles through a local toolchain to WASM.
@@ -4819,6 +4819,16 @@ These tickets were promoted directly into PLAN and ROADMAP from the 2026-05-02 a
 - Dependencies:
   - RL-011 shipped env-var merge/store slices
   - RL-078 for parent-owned timeout behavior
+
+#### 2026-05-03 update — Slice 1 closeout
+
+- **Minimal env builder** (`src/main/runners/nativeEnv.ts`). `buildNativeRunnerEnv(toolchainKeys, userEnv, overrides)` picks ONLY allowlisted host keys from `process.env`, layers RL-011 user env on top, then applies runner-owned overrides last (`GOOS=js`/`GOARCH=wasm` for Go; none for Rust). Allowlists are tight: common = `[PATH, HOME, LANG, TMPDIR]`; Go-specific = `[GOROOT, GOPATH, GOMODCACHE, GOCACHE, GOTMPDIR]`; Rust-specific = `[CARGO_HOME, RUSTUP_HOME, RUSTC, CARGO]`; Windows essentials (`SYSTEMROOT, USERPROFILE, PATHEXT, COMSPEC`) added via platform branch. Reintroduce a key only when smoke surfaces it.
+- **mkdtemp temp dirs.** `src/main/{rust,go}-compiler.ts` use `mkdtemp(path.join(tmpdir(), 'lingua-{rust,go}-'))`, eliminating the collision window the previous `Date.now()` filename left open.
+- **Output caps at 1 MiB.** New `src/shared/runnerLimits.ts` exports `MAX_NATIVE_STDERR_BYTES = MAX_COMPILE_OUTPUT_BYTES = 1 MiB` plus `truncateBytes`. Both compilers slice + suffix overflow output with a localized marker. Renderer-side caps in `src/renderer/runners/limits.ts` (256 KiB) stay untouched — main and renderer have different memory pressure profiles.
+- **Trust-boundary acknowledgement.** `src/renderer/components/NativeExecutionWarning/NativeExecutionWarning.tsx` modal mounts at App level; `useRunner` opens the gate on Go/Rust runs when `settingsStore.nativeExecutionAcknowledged === false`. The shared gate state lives in `src/renderer/stores/nativeExecutionGateStore.ts` so every Run entry point (Toolbar, ConsolePanel, Cmd+Enter) sees the same modal. Acknowledge flips the persisted flag and resumes the run; Cancel and Escape clear the gate without flipping anything. A "Reset acknowledgement" row lives in Settings → Privacy.
+- **Secret-isolation smoke.** `scripts/run-desktop-smoke.mjs` seeds `LINGUA_SMOKE_SECRET=__lingua_smoke_secret__` into the spawned Electron's env. Two new smoke cases (`go-env-isolation`, `rust-env-isolation`) print `os.Getenv("LINGUA_SMOKE_SECRET")` / `std::env::var(...)`; the harness fails if the captured stdout contains the sentinel, which would mean the env builder leaked it.
+- **i18n.** 10 new keys (`runner.compileOutput.truncated`, `nativeExecution.modal.{title,body,confirm,cancel}`, `settings.nativeExecution.{title,description,acknowledged,notAcknowledged,reset}`) shipped en + es with tuteo.
+- **Tests.** New `tests/main/nativeEnv.test.ts` (12 cases) pins the allowlist + override layering. Existing `tests/main/{go,rust}-compiler.test.ts` rewritten to assert the secret-leak gate. New `tests/main/nativeDetectEnv.test.ts` (2 cases) pins filtered env on detection subprocesses. New `tests/components/NativeExecutionWarning.test.tsx` (5 cases) covers render + acknowledge + cancel + Escape. New `tests/hooks/useRunner.test.tsx` describe (5 cases) covers the gate behaviour including the reset edge case and the web-adapter bypass. `tests/stores/settingsStore.test.ts` gains 4 cases for the new field, including malformed persisted values failing closed. Total: 2160 unit / integration tests green (+31 new), 2 skipped.
 
 ### RL-080 Release-grade desktop CI and update validation gates
 
