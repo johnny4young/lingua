@@ -4859,6 +4859,57 @@ These tickets were promoted directly into PLAN and ROADMAP from the 2026-05-02 a
   - RL-078
   - RL-079
 
+#### Slice 1 Status Update — 2026-05-04
+
+Slice 1 shipped. ROADMAP §4f status flipped to `Partial`.
+
+What landed:
+
+- `update-server/test/index.test.ts` extended with 9 new tests covering
+  the desktop `/update/:platform/:version` feed:
+  - no-published-release → 204
+  - non-GET update probe → 405 without touching GitHub
+  - no-update (caller already on latest) → 204 + cache header
+  - darwin happy path → 200 + Squirrel.Mac JSON shape
+  - darwin missing-asset → 204
+  - win32 happy path with rewritten RELEASES → 200 + text/plain
+  - win32 missing RELEASES → 204
+  - win32 RELEASES asset content download fails → 502
+  - non-GET download proxy request → 405 without touching GitHub
+- New test helper `buildUpdateFetchMock` routes a single
+  `globalThis.fetch` mock across the GitHub list-releases endpoint,
+  the asset-id → 302-Location resolution, and the signed-S3 URL
+  download. Anything outside those three patterns throws so a stray
+  request surfaces as a hard test failure.
+- Worker test count: 25 → 34 (the 9 new update-feed tests plus the
+  existing /web/version + parseVersion + isNewer suites).
+- **Prerequisite fix**: `.github/workflows/ci.yml` now runs
+  `cd update-server && npm ci && npm run typecheck && npm test`
+  after the root vitest suite. Without this, the new tests and the
+  worker's separate TypeScript project would not gate PRs. The
+  license-server suite has the same gap but is intentionally out of
+  scope for this ticket.
+
+Acceptance criteria coverage so far:
+
+- "Update feed smoke covers the latest-version, no-update, and
+  missing-asset branches" — closed.
+- All other ACs (packaged desktop smoke vs release artifacts,
+  signing/notarization metadata verification, blocking audit on
+  release, SHA256SUMS verify, RELEASE.md ↔ workflow agreement) — open
+  in Slice 2..N.
+
+Slice 2..N (still open):
+
+- Packaged desktop smoke against `out/make/...` artifacts (where
+  runner support permits).
+- SHA256SUMS re-verify on publish (re-compute hashes on the
+  downloaded asset set and compare against the manifest).
+- `npm audit --audit-level=high` blocking specifically in
+  `release.yml` (daily CI keeps `continue-on-error: true`).
+- RELEASE.md ↔ `release.yml` audit so the documented checklist and
+  the workflow agree on mandatory gates.
+
 ### RL-081 Launch/legal/source-available documentation cleanup
 
 - Priority: `P1`

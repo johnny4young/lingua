@@ -31,6 +31,7 @@ Mirrors the authoritative `Status` column in
 | Iter 7 | [`RL-078`](./ROADMAP.md) | Shipped (2026-05-03) | Parent-owned execution timeouts + output / resource limits. See §9. |
 | Iter 8 | [`RL-079`](./ROADMAP.md) | Shipped (2026-05-03) | Trusted native execution hardening for Go and Rust. See §10. |
 | Iter 9 | [`RL-083`](./ROADMAP.md) | Shipped (2026-05-04) | Offline runtime assets + strict CSP — Slice 1 vendored Pyodide for desktop and tightened the desktop CSP; Slice 2 closed the web track with a cache-first SW for the version-pinned Pyodide URL plus a documented "first Python load needs network" limitation. See §11. |
+| Iter 10 | [`RL-080`](./ROADMAP.md) | Partial · Slice 1 shipped 2026-05-04 | Release-grade desktop CI + update gates — Slice 1 added 9 update-feed tests covering `/update/:platform/:version` plus the download proxy method guard, and wired the update-server typecheck + test suite into `ci.yml` (they had been ship-and-forget). Remaining: packaged desktop smoke vs release artifacts, SHA256SUMS re-verify on publish, blocking `npm audit` in `release.yml`, RELEASE.md ↔ workflow audit. See §12. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -46,8 +47,12 @@ Value-per-day priority. The full reasoning is in
 2. **Launch blockers** — pull `RL-063` (linguacode.dev download
    page) next. `RL-061` is shipped; `RL-059` remains `Partial` only as
    the historical verifier + bridge parent.
-3. **Release, legal, and compliance readiness** — `RL-080`, `RL-081`,
-   `RL-085`, and `RL-092` before a public launch announcement.
+3. **Release, legal, and compliance readiness** — `RL-080` is now
+   `Partial` after Slice 1 (update-feed smoke + ci.yml wiring); the
+   remaining sub-pieces (packaged desktop smoke vs release artifacts,
+   SHA256SUMS re-verify, blocking audit in `release.yml`, RELEASE.md
+   audit) come next. Then `RL-081`, `RL-085`, and `RL-092` before a
+   public launch announcement.
 4. **Runtime/platform surface hardening** — `RL-084`, `RL-087`, and
    `RL-091` once the core launch blockers are under control.
 5. **Product quality and supportability** — `RL-086`, `RL-088`,
@@ -219,7 +224,65 @@ Shipped on 2026-05-04 — see [`RL-083`](./PLAN.md#rl-083-offline-runtime-assets
 
 ---
 
-## 12. Cross-iteration concerns
+## 12. Iter 10 / RL-080 — Release-grade desktop CI + update gates
+
+**One-liner**: Promote release-critical desktop checks into automated
+gates: packaged smoke vs real artifacts, signing/notarization metadata
+verification, update-feed coverage, blocking audit, and verified
+checksums.
+
+**12.1 Slice 1 — Shipped 2026-05-04**
+
+- `update-server/test/index.test.ts` extended with a new describe
+  block for `GET /update/:platform/:version` plus download proxy method
+  coverage, covering the nine branches the handler exposes:
+  - no-published-release → 204
+  - non-GET update probe → 405 without touching GitHub
+  - no-update (caller already on latest tag) → 204 + cache header
+  - darwin happy path (release with `.zip` darwin asset) → 200 + Squirrel.Mac JSON
+  - darwin missing-asset (newer release without darwin `.zip`) → 204
+  - win32 happy path (RELEASES file present) → 200 + rewritten text/plain
+  - win32 missing RELEASES → 204
+  - win32 RELEASES asset content download fails → 502
+  - non-GET download proxy request → 405 without touching GitHub
+- New helpers in the test file: `buildUpdateFetchMock` routes a single
+  `globalThis.fetch` mock across the GitHub list-releases endpoint,
+  the asset-id → 302-Location resolution, and the signed-S3 URL
+  download (only the surfaces the handler actually touches; anything
+  else throws).
+- **Prerequisite fix**: `.github/workflows/ci.yml` now invokes the
+  update-server gates via `working-directory: update-server` + `npm
+  ci` + `npm run typecheck` + `npm test`. The worker had been
+  ship-and-forget; without this fix, the new update-feed tests and the
+  worker's separate TypeScript project would never gate PRs.
+
+**12.2 Slice 2 — Outstanding**
+
+- Packaged desktop smoke against release artifacts. The current
+  `npm run smoke:desktop` boots the dev server; the release pipeline
+  needs a smoke that runs against `out/make/...` artifacts where
+  runner support permits.
+- SHA256SUMS re-verify on publish: after the `Generate release
+  checksums` step in `release.yml`, re-compute the hashes and
+  compare to confirm the published asset set matches the manifest.
+- `npm audit --audit-level=high` blocking specifically in
+  `release.yml`. Daily CI keeps `continue-on-error: true`; release
+  workflow drops the override.
+- RELEASE.md ↔ workflow agreement audit. The release checklist and
+  the workflow file should agree on the mandatory gates; today they
+  may have drifted.
+
+**12.3 Out of scope**
+
+- macOS notarization end-to-end test (requires real APPLE_ID
+  credentials in CI; kept manual).
+- Windows signing end-to-end test (requires real WIN_CERT_FILE).
+- License-server suite CI wiring — same shape as update-server but
+  out of scope for this ticket. Track separately if needed.
+
+---
+
+## 13. Cross-iteration concerns
 
 - **i18n parity** must stay green after each iter — both locales bump
   in the same commit that introduces a new key.
@@ -233,7 +296,7 @@ Shipped on 2026-05-04 — see [`RL-083`](./PLAN.md#rl-083-offline-runtime-assets
   `tests/e2e/overlays.spec.ts` (or a sibling) with the smallest
   assertion that would fail on regression.
 
-## 13. Verification matrix (per iter, before the closing commit)
+## 14. Verification matrix (per iter, before the closing commit)
 
 | Check | Command | Must pass |
 |-------|---------|-----------|
@@ -246,7 +309,7 @@ Shipped on 2026-05-04 — see [`RL-083`](./PLAN.md#rl-083-offline-runtime-assets
 | Desktop smoke | `npm run smoke:desktop` | when the iter touches desktop-only IPC |
 | Review skills | `typescript-react-reviewer` + `node` on the diff | zero HIGH blockers |
 
-## 14. Closure protocol
+## 15. Closure protocol
 
 When an iter closes, do three things in the final commit:
 

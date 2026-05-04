@@ -29,6 +29,13 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
+          # RL-080 Slice 1 — also key the npm cache on the
+          # update-server lockfile so the worker's `npm ci` (added
+          # below) reuses cached deps instead of taking a 20-30s cold
+          # install on every CI run.
+          cache-dependency-path: |
+            package-lock.json
+            update-server/package-lock.json
       - run: npm ci
       - name: Type check
         run: npx tsc --noEmit
@@ -40,6 +47,18 @@ jobs:
         run: npm run check:i18n:copy
       - name: Tests
         run: npm test
+      # RL-080 Slice 1 — the update-server has its own tsconfig and
+      # vitest config outside the root TypeScript project. Wire both
+      # gates into CI so the `/update/:platform/:version` smoke landed
+      # for RL-080 actually gates pull requests. Run block uses only
+      # static npm commands — no github.event inputs are interpolated,
+      # so the workflow is not exposed to script injection.
+      - name: Update-server gates
+        working-directory: update-server
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
       - name: Build web
         run: npm run build:web
       - name: Security audit

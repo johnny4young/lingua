@@ -25,12 +25,18 @@ export default {
     // GET /update/:platform/:version
     const updateMatch = path.match(/^\/update\/(darwin|win32)\/(.+)$/);
     if (updateMatch) {
+      if (request.method !== 'GET') {
+        return methodNotAllowed();
+      }
       return handleUpdate(request, env, updateMatch[1], updateMatch[2]);
     }
 
     // GET /download/:assetId — proxy for Windows nupkg downloads
     const downloadMatch = path.match(/^\/download\/(\d+)$/);
     if (downloadMatch) {
+      if (request.method !== 'GET') {
+        return methodNotAllowed();
+      }
       return handleDownload(env, parseInt(downloadMatch[1], 10));
     }
 
@@ -258,5 +264,12 @@ function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+function methodNotAllowed(): Response {
+  return new Response('Method Not Allowed', {
+    status: 405,
+    headers: { Allow: 'GET' },
   });
 }
