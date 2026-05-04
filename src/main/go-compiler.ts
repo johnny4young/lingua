@@ -5,20 +5,44 @@
  * - Detecting local Go installation
  * - Compiling Go source code to WASM using GOOS=js GOARCH=wasm
  * - Locating wasm_exec.js from the Go installation
+ *
+ * RL-079 — the toolchain subprocess env is filtered through
+ * `buildNativeRunnerEnv` so secrets in `process.env` cannot reach the
+ * spawned `go build`. `GOOS=js` and `GOARCH=wasm` are runner-owned
+ * overrides that the user env tier cannot shadow. Temp dirs use
+ * `mkdtemp` for collision resistance, and compile output is capped at
+ * 1 MiB before being surfaced to the renderer.
  */
 
 import { ipcMain } from 'electron';
 import { execFile } from 'node:child_process';
-import { writeFile, readFile, mkdir, rm } from 'node:fs/promises';
+import { writeFile, readFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import {
+  MAX_COMPILE_OUTPUT_BYTES,
+  truncateBytes,
+} from '../shared/runnerLimits';
+import {
+  GO_TOOLCHAIN_KEYS,
+  buildNativeRunnerEnv,
+  combinedAllowlist,
+} from './runners/nativeEnv';
 
 const execFileAsync = promisify(execFile);
 const WASM_EXEC_RELATIVE_PATHS = [
   ['lib', 'wasm', 'wasm_exec.js'],
   ['misc', 'wasm', 'wasm_exec.js'],
 ] as const;
+
+const COMPILE_TRUNCATION_MARKER = '\n[Compile output truncated]';
+
+function compileTruncationMarker(messages?: NativeRunnerMessages): string {
+  return messages?.compileOutputTruncated
+    ? `\n${messages.compileOutputTruncated}`
+    : COMPILE_TRUNCATION_MARKER;
+}
 
 interface GoCompileResult {
   success: boolean;
@@ -66,14 +90,21 @@ export async function readWasmExecJs(
   );
 }
 
+export function resolveGoToolchainEnv(
+  userEnv?: Record<string, string>
+): NodeJS.ProcessEnv {
+  return buildNativeRunnerEnv(combinedAllowlist(GO_TOOLCHAIN_KEYS), userEnv);
+}
+
 /** Detect if Go is installed and return version info */
-async function detectGo(): Promise<GoDetectResult> {
+async function detectGo(userEnv?: Record<string, string>): Promise<GoDetectResult> {
   try {
-    const { stdout } = await execFileAsync('go', ['version']);
+    const env = resolveGoToolchainEnv(userEnv);
+    const { stdout } = await execFileAsync('go', ['version'], { env });
     const version = stdout.trim();
 
     // Get GOROOT for wasm_exec.js
-    const { stdout: goRoot } = await execFileAsync('go', ['env', 'GOROOT']);
+    const { stdout: goRoot } = await execFileAsync('go', ['env', 'GOROOT'], { env });
 
     return {
       installed: true,
@@ -88,36 +119,32 @@ async function detectGo(): Promise<GoDetectResult> {
   }
 }
 
-/** Compile Go source code to WASM */
 /**
- * Merge a user-space env record over `process.env` for the Go subprocess.
- * RL-011 Slice D contract: GOOS / GOARCH are runner-owned and
- * **cannot** be overridden by the user env — they would silently break
- * the WASM pipeline. Everything else the user set in the renderer's
- * env-vars store (already validated + sanitized there) flows through.
+ * Build the env passed to `go build`.
+ *
+ * RL-079 + RL-011 contract:
+ *  - Only allowlisted host keys flow through (`buildNativeRunnerEnv`).
+ *  - User env from RL-011 layers on top.
+ *  - `GOOS=js` / `GOARCH=wasm` are runner-owned overrides applied
+ *    last; user env cannot shadow them — they would silently break
+ *    the WASM pipeline.
  */
-export function resolveGoCompileEnv(userEnv?: Record<string, string>): NodeJS.ProcessEnv {
-  const safeUserEnv: Record<string, string> = {};
-  if (userEnv) {
-    for (const [key, value] of Object.entries(userEnv)) {
-      if (typeof value !== 'string') continue;
-      safeUserEnv[key] = value;
-    }
-  }
-  return {
-    ...process.env,
-    ...safeUserEnv,
-    // Runner-owned — these must win over anything the user set.
-    GOOS: 'js',
-    GOARCH: 'wasm',
-  };
+export function resolveGoCompileEnv(
+  userEnv?: Record<string, string>
+): NodeJS.ProcessEnv {
+  return buildNativeRunnerEnv(
+    combinedAllowlist(GO_TOOLCHAIN_KEYS),
+    userEnv,
+    { GOOS: 'js', GOARCH: 'wasm' }
+  );
 }
 
 async function compileGoToWasm(
   sourceCode: string,
-  userEnv?: Record<string, string>
+  userEnv?: Record<string, string>,
+  messages?: NativeRunnerMessages
 ): Promise<GoCompileResult> {
-  const goInfo = await detectGo();
+  const goInfo = await detectGo(userEnv);
   if (!goInfo.installed || !goInfo.goRoot) {
     return {
       success: false,
@@ -125,14 +152,14 @@ async function compileGoToWasm(
     };
   }
 
-  // Create a temp directory for compilation
-  const tempDir = path.join(tmpdir(), `lingua-go-${Date.now()}`);
+  // RL-079 — `mkdtemp` returns a unique directory with 6 random suffix
+  // chars, eliminating the collision window a `Date.now()` filename
+  // would leave open for two concurrent runs.
+  const tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-go-'));
   const sourceFile = path.join(tempDir, 'main.go');
   const wasmFile = path.join(tempDir, 'main.wasm');
 
   try {
-    await mkdir(tempDir, { recursive: true });
-
     // Write source code
     await writeFile(sourceFile, sourceCode, 'utf-8');
 
@@ -167,7 +194,11 @@ async function compileGoToWasm(
 
     // Try to extract Go compiler error
     const stderr = (err as { stderr?: string })?.stderr;
-    const errorMsg = stderr ?? message;
+    const errorMsg = truncateBytes(
+      stderr ?? message,
+      MAX_COMPILE_OUTPUT_BYTES,
+      compileTruncationMarker(messages)
+    );
 
     return {
       success: false,
@@ -182,14 +213,19 @@ async function compileGoToWasm(
 
 /** Register all Go-related IPC handlers */
 export function registerGoHandlers(): void {
-  ipcMain.handle('go:detect', async () => {
-    return detectGo();
+  ipcMain.handle('go:detect', async (_event, userEnv?: Record<string, string>) => {
+    return detectGo(userEnv);
   });
 
   ipcMain.handle(
     'go:compile',
-    async (_event, sourceCode: string, userEnv?: Record<string, string>) => {
-      return compileGoToWasm(sourceCode, userEnv);
+    async (
+      _event,
+      sourceCode: string,
+      userEnv?: Record<string, string>,
+      messages?: NativeRunnerMessages
+    ) => {
+      return compileGoToWasm(sourceCode, userEnv, messages);
     }
   );
 }

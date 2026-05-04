@@ -13,6 +13,7 @@ import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardShortcutsModal';
 import { SnippetsModal } from './components/Snippets';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
+import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
@@ -354,6 +355,7 @@ function AppChrome({
       )}
       <StatusNoticeBanner />
       <FirstRunConsentModal />
+      <NativeExecutionWarning />
     </>
   );
 }

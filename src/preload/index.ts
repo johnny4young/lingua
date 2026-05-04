@@ -26,21 +26,31 @@ contextBridge.exposeInMainWorld('lingua', {
 
   // Go runner IPC
   go: {
-    detect: () => ipcRenderer.invoke('go:detect'),
+    detect: (userEnv?: Record<string, string>) =>
+      ipcRenderer.invoke('go:detect', userEnv),
     // RL-011 Slice D: userEnv flows through to the Go subprocess and is
-    // merged over process.env in main. The renderer-side env-vars store
-    // already validated + sanitized the record before handing it off.
-    compile: (sourceCode: string, userEnv?: Record<string, string>) =>
-      ipcRenderer.invoke('go:compile', sourceCode, userEnv),
+    // merged over the minimal RL-079 host allowlist in main. The
+    // renderer-side env-vars store already validated + sanitized the
+    // record before handing it off.
+    compile: (
+      sourceCode: string,
+      userEnv?: Record<string, string>,
+      messages?: NativeRunnerMessages
+    ) => ipcRenderer.invoke('go:compile', sourceCode, userEnv, messages),
   },
 
   // Rust runner IPC
   rust: {
-    detect: () => ipcRenderer.invoke('rust:detect'),
+    detect: (userEnv?: Record<string, string>) =>
+      ipcRenderer.invoke('rust:detect', userEnv),
     // RL-011 Slice D — userEnv flows through to rustc + spawn. The
-    // renderer-side envVarsStore already sanitized the record.
-    run: (sourceCode: string, userEnv?: Record<string, string>) =>
-      ipcRenderer.invoke('rust:run', sourceCode, userEnv),
+    // renderer-side envVarsStore already sanitized the record; main
+    // only adds the RL-079 host allowlist under it.
+    run: (
+      sourceCode: string,
+      userEnv?: Record<string, string>,
+      messages?: NativeRunnerMessages
+    ) => ipcRenderer.invoke('rust:run', sourceCode, userEnv, messages),
   },
 
   // Formatter IPC — gofmt / rustfmt / python pipe source via stdin

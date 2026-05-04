@@ -63,6 +63,13 @@ async function main() {
             : process.env.LINGUA_ELECTRON_LAUNCHER,
         LINGUA_DESKTOP_SMOKE: '1',
         LINGUA_SMOKE_ARTIFACT_DIR: artifactDir,
+        // RL-079 — sentinel secret seeded into Electron's process.env.
+        // The go-env-isolation / rust-env-isolation smoke cases run a
+        // user-toolchain subprocess that prints the value of this
+        // variable; the smoke harness fails if the captured stdout
+        // contains the secret, which would mean the env builder
+        // leaked it. Real CI environments do not set this name.
+        LINGUA_SMOKE_SECRET: '__lingua_smoke_secret__',
       },
     }
   );

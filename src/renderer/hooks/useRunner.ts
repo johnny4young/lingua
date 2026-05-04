@@ -4,9 +4,12 @@ import { executeTabManually } from '../runtime/executeTabManually';
 import { runnerManager } from '../runners';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useEditorStore } from '../stores/editorStore';
+import { useNativeExecutionGateStore } from '../stores/nativeExecutionGateStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import type { Language } from '../types';
 import { currentEffectiveTier } from './useEntitlement';
 import { isLanguageAllowed } from '../../shared/entitlements';
+import { requiresNativeExecutionAcknowledgement } from '../utils/nativeExecution';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { trackEvent } from '../utils/telemetry';
 
@@ -40,6 +43,21 @@ export function useRunner() {
       void trackEvent('feature.blocked', {
         entitlement: 'languages-extended',
         tier: currentEffectiveTier(),
+      });
+      return;
+    }
+
+    // RL-079 — gate the first Go/Rust run behind the trust-boundary
+    // modal. The gate store opens the modal mounted at App level; the
+    // modal flips the persisted flag, then invokes the resume
+    // callback registered here, which retries this `run()` so the
+    // gate now sees the acknowledged flag and falls through.
+    if (
+      requiresNativeExecutionAcknowledgement(activeTab.language) &&
+      !useSettingsStore.getState().nativeExecutionAcknowledged
+    ) {
+      useNativeExecutionGateStore.getState().request(activeTab.language, () => {
+        void run(options);
       });
       return;
     }

@@ -5,6 +5,7 @@ import type {
   ConsoleOutput,
   ExecutionError,
 } from '../types';
+import i18next from 'i18next';
 import { parseGoExecutionError } from '../utils/executionDiagnostics';
 import { useEditorStore } from '../stores/editorStore';
 import { useEnvVarsStore } from '../stores/envVarsStore';
@@ -21,9 +22,9 @@ type GoWorkerResponse =
  * Resolve the effective user-space env for a subprocess runner.
  * RL-011 Slice D — reads the global + project + tab tiers from the
  * renderer store and composes them with an empty `processEnv` (the host
- * env gets merged on the main-process side so secrets don't cross the
- * preload). Exported so the future Rust / Python slices can reuse the
- * exact same resolver without re-deriving the tier lookup.
+ * env allowlist gets merged on the main-process side so secrets don't
+ * cross the preload). Exported so Rust can reuse the exact same resolver
+ * without re-deriving the tier lookup.
  */
 export function resolveUserEnvForRunner(): Record<string, string> {
   // RL-011 contract: user-defined env vars are a desktop-only feature.
@@ -43,6 +44,14 @@ export function resolveUserEnvForRunner(): Record<string, string> {
   return { ...resolveEffectiveEnv({}, currentProject?.id ?? null, activeTabId) };
 }
 
+export function resolveNativeRunnerMessages(): NativeRunnerMessages {
+  return {
+    compileOutputTruncated: i18next.t('runner.compileOutput.truncated'),
+    stdoutTruncated: i18next.t('runner.truncated.stdout'),
+    stderrTruncated: i18next.t('runner.truncated.stderr'),
+  };
+}
+
 export class GoRunner implements LanguageRunner {
   id = 'go';
   name = 'Go';
@@ -55,7 +64,7 @@ export class GoRunner implements LanguageRunner {
 
   async init(): Promise<void> {
     // Check if Go is installed via IPC
-    const result = await window.lingua.go.detect();
+    const result = await window.lingua.go.detect(resolveUserEnvForRunner());
     this.goInstalled = result.installed;
     this.ready = true;
 
@@ -87,10 +96,14 @@ export class GoRunner implements LanguageRunner {
     // Step 1: Compile Go to WASM via IPC (main process).
     // RL-011 Slice D — resolve the user-space env (global + project +
     // tab) and hand it to main so `go build` sees it. processEnv stays
-    // `{}` on the renderer side: the real process.env merge happens in
-    // main so host secrets never cross the preload boundary.
+    // `{}` on the renderer side: the RL-079 host allowlist merge happens
+    // in main so host secrets never cross the preload boundary.
     const userEnv = resolveUserEnvForRunner();
-    const compileResult = await window.lingua.go.compile(code, userEnv);
+    const compileResult = await window.lingua.go.compile(
+      code,
+      userEnv,
+      resolveNativeRunnerMessages()
+    );
 
     if (!compileResult.success || !compileResult.wasmBytes || !compileResult.wasmExecJs) {
       return {

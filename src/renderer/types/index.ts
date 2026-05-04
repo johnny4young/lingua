@@ -233,6 +233,13 @@ export interface SettingsState {
    */
   vimMode: boolean;
   /**
+   * RL-079 — once-per-install acknowledgement for the trust-boundary
+   * modal that appears before the first Go/Rust native execution.
+   * Persisted so the user only sees the warning until they accept;
+   * resettable from Settings → Account → Privacy.
+   */
+  nativeExecutionAcknowledged: boolean;
+  /**
    * When on, the dark/light shell polarity follows the current editor
    * theme's polarity (so picking VS Light auto-flips the console and result
    * panels to light). When off, the explicit `theme` setting is honored.
@@ -302,6 +309,8 @@ export interface SettingsState {
   toggleRestoreSession: () => void;
   toggleFormatOnSave: () => void;
   toggleVimMode: () => void;
+  /** RL-079 — flip the native-execution acknowledgement flag. */
+  setNativeExecutionAcknowledged: (value: boolean) => void;
   toggleSyncShellWithEditorTheme: () => void;
   toggleExecutionHistorySnapshot: () => void;
   setTelemetryConsent: (next: 'granted' | 'declined') => void;

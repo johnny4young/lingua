@@ -5,6 +5,7 @@ import { runnerManager } from '@/runners';
 import { useEditorStore } from '@/stores/editorStore';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { useResultStore } from '@/stores/resultStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 vi.mock('@/runners', () => ({
   runnerManager: {
@@ -47,6 +48,11 @@ describe('useAutoRun', () => {
       lastVerifiedAt: Date.now(),
     });
     useResultStore.setState(initialResult, true);
+    // RL-079 — pre-acknowledge native execution so the existing
+    // Go/Rust auto-run cases bypass the gate. The dedicated RL-079
+    // test below explicitly resets this to `false` to exercise the
+    // gate behaviour.
+    useSettingsStore.setState({ nativeExecutionAcknowledged: true });
     vi.mocked(runnerManager.isSupported).mockReturnValue(true);
   });
 
@@ -321,5 +327,39 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().lineResults).toMatchObject([
       { value: 'second auto output' },
     ]);
+  });
+
+  it('RL-079 — does NOT auto-run Go when native execution is unacknowledged', async () => {
+    // The trust-boundary modal lives behind manual Run; auto-run on a
+    // Go tab the user never opted into would silently invoke the
+    // host toolchain. The gate must short-circuit before
+    // `prepareRunner` is even reached.
+    Object.defineProperty(window, 'lingua', {
+      configurable: true,
+      writable: true,
+      value: { platform: 'darwin' },
+    });
+    useSettingsStore.setState({ nativeExecutionAcknowledged: false });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-go-unacked',
+          name: 'main.go',
+          language: 'go',
+          content: 'package main\nfunc main() {}\n',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-go-unacked',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+
+    expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    expect(useResultStore.getState().executionSource).toBeNull();
   });
 });

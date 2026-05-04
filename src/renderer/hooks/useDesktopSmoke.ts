@@ -24,6 +24,13 @@ type SmokeCase = {
   content: string;
   expectText?: string;
   expectFailure?: RegExp;
+  /**
+   * RL-079 — substring whose presence in any captured console entry
+   * fails the case. Used by the env-isolation smokes to assert that
+   * a sentinel secret seeded into `process.env` did NOT leak through
+   * the env builder into the spawned subprocess.
+   */
+  forbidText?: string;
   /** Wall-clock budget on the entire `executeTabManually` round trip. */
   timeoutMs?: number;
   /** Override the runner's parent-side deadline. */
@@ -88,6 +95,30 @@ const SMOKE_CASES: SmokeCase[] = [
     expectFailure: /timed out|excedi[oó]/i,
     runnerTimeoutMs: 3_000,
     timeoutMs: 20_000,
+  },
+  // RL-079 — verify the env-leak gate end-to-end with a real
+  // subprocess. `scripts/run-desktop-smoke.mjs` seeds
+  // `LINGUA_SMOKE_SECRET=__lingua_smoke_secret__` into the spawned
+  // Electron's env. The smoke case prints `LINGUA_SMOKE_SECRET`; the
+  // assertion below requires the captured stdout to NOT contain the
+  // secret (i.e. `buildNativeRunnerEnv` filtered it out).
+  {
+    caseId: 'go-env-isolation',
+    language: 'go',
+    fileName: 'smoke-go-env-isolation.go',
+    content:
+      'package main\n\nimport (\n\t"fmt"\n\t"os"\n)\n\nfunc main() {\n\tfmt.Println("ENV:", os.Getenv("LINGUA_SMOKE_SECRET"))\n}\n',
+    forbidText: '__lingua_smoke_secret__',
+    expectText: 'ENV:',
+  },
+  {
+    caseId: 'rust-env-isolation',
+    language: 'rust',
+    fileName: 'smoke-rust-env-isolation.rs',
+    content:
+      'fn main() {\n    println!("ENV: {}", std::env::var("LINGUA_SMOKE_SECRET").unwrap_or_default());\n}\n',
+    forbidText: '__lingua_smoke_secret__',
+    expectText: 'ENV:',
   },
 ];
 
@@ -184,6 +215,11 @@ export function useDesktopSmoke(enabled: boolean) {
           layoutPreset: 'horizontal',
           // RL-078 timeout cases need the parent kill timer, not loop guards, to own termination.
           loopProtection: false,
+          // RL-079 — pre-acknowledge native execution so the trust
+          // modal never blocks the smoke runner. The acknowledgement
+          // exists explicitly to require the user's intent, but the
+          // smoke is automation, not a human.
+          nativeExecutionAcknowledged: true,
         });
         useUIStore.setState({
           sidebarVisible: false,
@@ -255,12 +291,21 @@ export function useDesktopSmoke(enabled: boolean) {
                 ? entry.content.includes(smokeCase.expectText)
                 : false
             );
-            ok = execution.ok && sawExpectedOutput;
+            // RL-079 — env-isolation gate: a sentinel secret must NOT
+            // appear anywhere in captured console output.
+            const leakedForbidden =
+              smokeCase.forbidText !== undefined &&
+              consoleEntries.some((entry) =>
+                entry.content.includes(smokeCase.forbidText!)
+              );
+            ok = execution.ok && sawExpectedOutput && !leakedForbidden;
             message = ok
               ? `Captured ${smokeCase.caseId} smoke output`
-              : execution.ok
-                ? `Expected output "${smokeCase.expectText ?? ''}" was missing from the console`
-                : execution.message;
+              : leakedForbidden
+                ? `${smokeCase.caseId} leaked sentinel secret into stdout`
+                : execution.ok
+                  ? `Expected output "${smokeCase.expectText ?? ''}" was missing from the console`
+                  : execution.message;
           }
 
           summaries.push({

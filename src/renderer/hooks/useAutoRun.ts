@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
+import { useSettingsStore } from '../stores/settingsStore';
 import { runnerManager } from '../runners';
 import type { ExecutionResult } from '../types';
 import { toExecutionPresentation } from '../utils/executionPresentation';
 import { toExecutionDiagnostics } from '../utils/executionDiagnostics';
 import { executionModeForLanguage, languageCapabilityBadgeKey } from '../utils/languageMeta';
+import { requiresNativeExecutionAcknowledgement } from '../utils/nativeExecution';
 import { validateDocument } from '../validation';
 import { currentEffectiveTier } from './useEntitlement';
 import { isLanguageAllowed } from '../../shared/entitlements';
@@ -97,6 +99,20 @@ export function useAutoRun() {
       }
 
       if (desktopOnlyGate || proLanguageGate) {
+        clear();
+        return;
+      }
+
+      // RL-079 — silently bail when Go/Rust haven't been acknowledged
+      // yet. Auto-run runs on every keystroke; surfacing the trust
+      // modal here would surprise the user with a dialog they didn't
+      // ask for. The first manual Run shows the modal; once they
+      // acknowledge, auto-run takes over for subsequent edits.
+      if (
+        executionMode === 'run' &&
+        requiresNativeExecutionAcknowledgement(language) &&
+        !useSettingsStore.getState().nativeExecutionAcknowledged
+      ) {
         clear();
         return;
       }

@@ -5,16 +5,52 @@
  * - Detecting local Rust installation (`rustc`)
  * - Compiling Rust source code to a native binary via `rustc`
  * - Running the compiled binary and capturing stdout/stderr
+ *
+ * RL-079 — the subprocess env is filtered through
+ * `buildNativeRunnerEnv` so secrets in `process.env` (CI tokens,
+ * OPENAI_API_KEY, etc.) cannot reach the spawned `rustc` or the
+ * compiled user binary. Temp dirs use `mkdtemp` for collision
+ * resistance, and stderr / stdout are capped at 1 MiB before being
+ * surfaced to the renderer so a runaway compile or runtime cannot
+ * flood the IPC channel.
  */
 
 import { ipcMain } from 'electron';
 import { execFile, spawn } from 'node:child_process';
-import { writeFile, mkdir, rm } from 'node:fs/promises';
+import { writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import {
+  MAX_COMPILE_OUTPUT_BYTES,
+  MAX_NATIVE_STDERR_BYTES,
+  truncateBytes,
+} from '../shared/runnerLimits';
+import {
+  RUST_TOOLCHAIN_KEYS,
+  buildNativeRunnerEnv,
+  combinedAllowlist,
+} from './runners/nativeEnv';
 
 const execFileAsync = promisify(execFile);
+
+const COMPILE_TRUNCATION_MARKER = '\n[Compile output truncated]';
+const RUNTIME_STDOUT_TRUNCATION_MARKER = '\n[stdout truncated]';
+const RUNTIME_STDERR_TRUNCATION_MARKER = '\n[stderr truncated]';
+
+function truncationMarkers(messages?: NativeRunnerMessages) {
+  return {
+    compile: messages?.compileOutputTruncated
+      ? `\n${messages.compileOutputTruncated}`
+      : COMPILE_TRUNCATION_MARKER,
+    stdout: messages?.stdoutTruncated
+      ? `\n${messages.stdoutTruncated}`
+      : RUNTIME_STDOUT_TRUNCATION_MARKER,
+    stderr: messages?.stderrTruncated
+      ? `\n${messages.stderrTruncated}`
+      : RUNTIME_STDERR_TRUNCATION_MARKER,
+  };
+}
 
 interface RustDetectResult {
   installed: boolean;
@@ -32,33 +68,25 @@ interface RustRunResult {
 }
 
 /**
- * Merge a user-space env record over `process.env` for the Rust
- * compile + run subprocess. RL-011 Slice D second increment.
+ * Build the env passed to `rustc` and the compiled binary.
  *
- * Unlike Go's compile path there are no runner-owned keys that must
- * be immovable — rustc respects the host toolchain on its own and the
- * spawned binary reads whatever env we hand it. We still drop non-
- * string user values defensively; the renderer's envVarsStore already
- * rejects them up front, but the IPC boundary is untrusted.
+ * RL-079: only allowlisted host keys flow through; the user-tier env
+ * from RL-011 layers on top. There are no runner-owned overrides for
+ * Rust — rustc respects the host toolchain on its own and the
+ * spawned binary gets whatever the user explicitly configured.
  */
-export function resolveRustRunEnv(userEnv?: Record<string, string>): NodeJS.ProcessEnv {
-  const safeUserEnv: Record<string, string> = {};
-  if (userEnv) {
-    for (const [key, value] of Object.entries(userEnv)) {
-      if (typeof value !== 'string') continue;
-      safeUserEnv[key] = value;
-    }
-  }
-  return {
-    ...process.env,
-    ...safeUserEnv,
-  };
+export function resolveRustRunEnv(
+  userEnv?: Record<string, string>
+): NodeJS.ProcessEnv {
+  return buildNativeRunnerEnv(combinedAllowlist(RUST_TOOLCHAIN_KEYS), userEnv);
 }
 
 /** Detect if Rust (rustc) is installed and return version info */
-async function detectRust(): Promise<RustDetectResult> {
+async function detectRust(userEnv?: Record<string, string>): Promise<RustDetectResult> {
   try {
-    const { stdout } = await execFileAsync('rustc', ['--version']);
+    const { stdout } = await execFileAsync('rustc', ['--version'], {
+      env: resolveRustRunEnv(userEnv),
+    });
     return { installed: true, version: stdout.trim() };
   } catch {
     return {
@@ -71,9 +99,10 @@ async function detectRust(): Promise<RustDetectResult> {
 /** Compile and run Rust source code natively */
 async function runRustCode(
   sourceCode: string,
-  userEnv?: Record<string, string>
+  userEnv?: Record<string, string>,
+  messages?: NativeRunnerMessages
 ): Promise<RustRunResult> {
-  const rustInfo = await detectRust();
+  const rustInfo = await detectRust(userEnv);
   if (!rustInfo.installed) {
     return {
       success: false,
@@ -85,7 +114,10 @@ async function runRustCode(
     };
   }
 
-  const tempDir = path.join(tmpdir(), `lingua-rust-${Date.now()}`);
+  // RL-079 — `mkdtemp` returns a unique directory under the OS temp
+  // root with 6 random suffix chars, eliminating the collision window
+  // a `Date.now()` filename would leave open for two concurrent runs.
+  const tempDir = await mkdtemp(path.join(tmpdir(), 'lingua-rust-'));
   const sourceFile = path.join(tempDir, 'main.rs');
   const binaryFile = path.join(
     tempDir,
@@ -93,12 +125,10 @@ async function runRustCode(
   );
 
   try {
-    await mkdir(tempDir, { recursive: true });
     await writeFile(sourceFile, sourceCode, 'utf-8');
 
-    // RL-011 Slice D — resolve once and use for both compile + spawn
-    // so `rustc` and the user binary see the same environment.
     const mergedEnv = resolveRustRunEnv(userEnv);
+    const markers = truncationMarkers(messages);
 
     // --- Compile ---
     const compileStart = Date.now();
@@ -108,8 +138,13 @@ async function runRustCode(
         timeout: 60_000, // compilation can be slow on first run
       });
     } catch (compileErr) {
-      const stderr =
+      const stderrRaw =
         (compileErr as { stderr?: string })?.stderr ?? String(compileErr);
+      const stderr = truncateBytes(
+        stderrRaw,
+        MAX_COMPILE_OUTPUT_BYTES,
+        markers.compile
+      );
       return {
         success: false,
         stdout: '',
@@ -125,15 +160,35 @@ async function runRustCode(
       const start = Date.now();
       let stdout = '';
       let stderr = '';
+      let stdoutTruncated = false;
+      let stderrTruncated = false;
 
       const child = spawn(binaryFile, [], { env: mergedEnv, timeout: 30_000 });
 
       child.stdout.on('data', (chunk: Buffer) => {
+        if (stdoutTruncated) return;
         stdout += chunk.toString();
+        if (stdout.length > MAX_NATIVE_STDERR_BYTES) {
+          stdout = truncateBytes(
+            stdout,
+            MAX_NATIVE_STDERR_BYTES,
+            markers.stdout
+          );
+          stdoutTruncated = true;
+        }
       });
 
       child.stderr.on('data', (chunk: Buffer) => {
+        if (stderrTruncated) return;
         stderr += chunk.toString();
+        if (stderr.length > MAX_NATIVE_STDERR_BYTES) {
+          stderr = truncateBytes(
+            stderr,
+            MAX_NATIVE_STDERR_BYTES,
+            markers.stderr
+          );
+          stderrTruncated = true;
+        }
       });
 
       child.on('close', (code: number | null) => {
@@ -169,11 +224,17 @@ async function runRustCode(
 
 /** Register all Rust-related IPC handlers */
 export function registerRustHandlers(): void {
-  ipcMain.handle('rust:detect', async () => detectRust());
+  ipcMain.handle('rust:detect', async (_event, userEnv?: Record<string, string>) =>
+    detectRust(userEnv)
+  );
 
   ipcMain.handle(
     'rust:run',
-    async (_event, sourceCode: string, userEnv?: Record<string, string>) =>
-      runRustCode(sourceCode, userEnv),
+    async (
+      _event,
+      sourceCode: string,
+      userEnv?: Record<string, string>,
+      messages?: NativeRunnerMessages
+    ) => runRustCode(sourceCode, userEnv, messages),
   );
 }

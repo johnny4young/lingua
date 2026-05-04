@@ -580,4 +580,57 @@ describe('settingsStore', () => {
 
     expect(useSettingsStore.getState().language).toBe('system');
   });
+
+  describe('RL-079 — nativeExecutionAcknowledged', () => {
+    it('defaults to false on a fresh store', () => {
+      expect(useSettingsStore.getState().nativeExecutionAcknowledged).toBe(false);
+    });
+
+    it('flips via setNativeExecutionAcknowledged', () => {
+      useSettingsStore.getState().setNativeExecutionAcknowledged(true);
+      expect(useSettingsStore.getState().nativeExecutionAcknowledged).toBe(true);
+      useSettingsStore.getState().setNativeExecutionAcknowledged(false);
+      expect(useSettingsStore.getState().nativeExecutionAcknowledged).toBe(false);
+    });
+
+    it('rehydrates from localStorage when previously acknowledged', async () => {
+      localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({
+          state: {
+            nativeExecutionAcknowledged: true,
+          },
+          version: 0,
+        })
+      );
+
+      await (
+        useSettingsStore as typeof useSettingsStore & {
+          persist: { rehydrate: () => Promise<void> };
+        }
+      ).persist.rehydrate();
+
+      expect(useSettingsStore.getState().nativeExecutionAcknowledged).toBe(true);
+    });
+
+    it('fails closed when the persisted acknowledgement is malformed', async () => {
+      localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({
+          state: {
+            nativeExecutionAcknowledged: 'true',
+          },
+          version: 0,
+        })
+      );
+
+      await (
+        useSettingsStore as typeof useSettingsStore & {
+          persist: { rehydrate: () => Promise<void> };
+        }
+      ).persist.rehydrate();
+
+      expect(useSettingsStore.getState().nativeExecutionAcknowledged).toBe(false);
+    });
+  });
 });
