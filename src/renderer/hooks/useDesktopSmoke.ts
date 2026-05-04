@@ -198,6 +198,19 @@ export function useDesktopSmoke(enabled: boolean) {
         return;
       }
 
+      // RL-080 Slice 3 — packaged-subset gate: when the smoke runs
+      // against a release `.app` (CI release pipeline), we narrow
+      // SMOKE_CASES to javascript + python — the runtime-critical
+      // pair that proves the binary boots, the renderer chunks load,
+      // and the vendored Pyodide runs offline. The full 9-case matrix
+      // already runs against the dev server in `npm run smoke:desktop`,
+      // so the release gate trades coverage for runtime budget
+      // (~2 min instead of ~3-4) and still catches packaging bugs.
+      const PACKAGED_SUBSET_IDS = new Set(['javascript', 'python']);
+      const cases = config.packagedSubset
+        ? SMOKE_CASES.filter((entry) => PACKAGED_SUBSET_IDS.has(entry.caseId))
+        : SMOKE_CASES;
+
       const summaries: SmokeCaseSummary[] = [];
 
       try {
@@ -226,7 +239,7 @@ export function useDesktopSmoke(enabled: boolean) {
           consoleVisible: true,
         });
 
-        for (const smokeCase of SMOKE_CASES) {
+        for (const smokeCase of cases) {
           await api.writeJsonArtifact('desktop-smoke-progress.json', {
             generatedAt: new Date().toISOString(),
             status: 'running-case',

@@ -120,7 +120,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | [`RL-064`](./PLAN.md#rl-064-launch-asset-kit-phase-2) | Launch asset kit | `Partial` | Screenshots + press-kit drafted. Remaining: 60-second demo video + press templates. |
 | [`RL-065`](./PLAN.md#rl-065-privacy-respecting-launch-telemetry) | Privacy-respecting telemetry | `Partial` | First-run consent + event allowlist + overlay.opened / runner.executed / feature.blocked wired. Remaining: event export pipeline. |
 | [`RL-066`](./PLAN.md#rl-066-seo-landing-pages-for-language-specific-intents) | SEO landing pages | `Partial` | `seo-pages/` drafts landed. Remaining: build step that promotes drafts into linguacode.dev sub-routes. |
-| [`RL-080`](./PLAN.md#rl-080-release-grade-desktop-ci-and-update-validation-gates) | Release-grade desktop CI + update gates | `Partial` | Slice 1 (2026-05-04) — `update-server/test/index.test.ts` now covers the desktop `/update/:platform/:version` feed and download proxy with 9 tests; worker typecheck + tests wired into `ci.yml`. Slice 2 (2026-05-04) — `release.yml` gains a release-blocking production dependency audit job (the 3 platform builds and web deploy depend on it), full audit advisory output, a `Verify release checksums` step that runs `shasum -a 256 -c SHA256SUMS.txt` against the downloaded payload, and `RELEASE.md` is in lockstep via the `releaseChecklist.test.ts` + `releaseWorkflow.test.ts` guards. Remaining: packaged desktop smoke against release artifacts (Slice 3). |
 | [`RL-081`](./PLAN.md#rl-081-launchlegalsource-available-documentation-cleanup) | Launch/legal/source-available docs cleanup | `Planned` | Align source-available posture, Shepherd licensing, legal/privacy/security docs, and launch copy. |
 | [`RL-084`](./PLAN.md#rl-084-local-plugin-manifest-hardening) | Local plugin manifest hardening | `Planned` | Enforce manifest schema, runtime allowlist, compatibility validation, diagnostics, and no arbitrary plugin code. |
 | [`RL-085`](./PLAN.md#rl-085-sbom-and-third-party-license-compliance) | SBOM + third-party license compliance | `Planned` | Generate release SBOM, third-party notices, and license-policy gates for commercial distribution. |
@@ -171,7 +170,7 @@ agent should follow when §3's tiebreakers don't resolve.
 
 1. **Security launch hardening.** `RL-077`, `RL-078`, `RL-079`, and `RL-083` are all closed (last closure 2026-05-04 — Slice 2 picked cache-first SW + documented "first Python load needs network" limitation as the chosen web strategy). The launch-blocker set is clear.
 2. **Launch blockers.** Pull `RL-063` (linguacode.dev download page) next. `RL-061` shipped fully on 2026-04-30 (now in §6 archive). `RL-059` stays `Partial` only as the historical parent for verifier + bridge work now shipped.
-3. **Release, legal, and compliance readiness.** `RL-080`, `RL-081`, `RL-085`, and `RL-092` should land before a public launch announcement so packaged builds, update feeds, signing/notarization, source-available posture, privacy/security docs, third-party notices, dependency licensing, and release security sign-off agree.
+3. **Release, legal, and compliance readiness.** `RL-080` is now `Done` (Slice 3 closure 2026-05-04 — offline packaged macOS smoke gate added to `release.yml`). Continue with `RL-081`, `RL-085`, and `RL-092` before a public launch announcement so packaged builds, update feeds, signing/notarization, source-available posture, privacy/security docs, third-party notices, dependency licensing, and release security sign-off agree.
 4. **Runtime/platform surface hardening.** `RL-084`, `RL-087`, and `RL-091` harden the local plugin model, watcher reliability, and backend operations after the core launch blockers are under control.
 5. **Product quality and supportability.** `RL-086`, `RL-088`, `RL-089`, and `RL-090` add performance budgets, accessibility QA, profile backup/restore, and recovery UX.
 6. **Utilities polish.** `RL-068` / `RL-072` remaining slices — short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
@@ -191,7 +190,7 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>45 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>46 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
@@ -199,7 +198,7 @@ implementation detail lives in `docs/PLAN.md#RL-XXX`.
 `RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`,
 `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-067`, `RL-068`,
 `RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`, `RL-077`,
-`RL-078`, `RL-079`, `RL-083`.
+`RL-078`, `RL-079`, `RL-080`, `RL-083`.
 
 </details>
 

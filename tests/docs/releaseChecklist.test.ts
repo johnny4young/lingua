@@ -48,8 +48,19 @@ describe('RELEASE.md release checklist (RL-016)', () => {
   });
 
   it('requires the packaged desktop smoke before promotion', () => {
+    // Pre-RL-080-Slice-3 the gate was "the human runs npm run
+    // smoke:desktop against the downloaded .app". Slice 3 promoted
+    // that into the `Packaged desktop smoke` CI step (release-blocking
+    // offline, 2-runtime-case subset plus no-CDN assertion). The
+    // checklist still names the local smoke as a sanity option and
+    // still references the artifact directory for the optional local
+    // run, but the primary gate is now the CI step visible in the
+    // workflow summary.
     expect(checklist).toContain('npm run smoke:desktop');
     expect(checklist).toContain('output/playwright/desktop-smoke');
+    expect(checklist).toMatch(/Packaged desktop smoke/u);
+    expect(checklist).toMatch(/release-blocking[^\n]*offline|offline[^\n]*release-blocking/iu);
+    expect(checklist).toMatch(/no-CDN assertion|no-cdn assertion/iu);
   });
 
   it('requires a post-publish smoke before the announcement', () => {

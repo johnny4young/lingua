@@ -16,6 +16,19 @@ function isDesktopSmokeEnabled(): boolean {
   );
 }
 
+/**
+ * RL-080 Slice 3 — packaged-subset gate. When the smoke harness is
+ * launched against a release artifact (the `.app` bundle on macOS),
+ * we run a reduced 2-case subset (javascript + python) instead of the
+ * full 9-case matrix. The full matrix already runs against the dev
+ * server in `npm run smoke:desktop`; the packaged run is a release
+ * gate that proves the binary boots and the runtime-critical paths
+ * (renderer load + Pyodide vendored offline) still work end-to-end.
+ */
+function isPackagedSubsetRequested(): boolean {
+  return process.env.LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET === '1';
+}
+
 function getArtifactDir(): string | null {
   const artifactDir =
     process.env.LINGUA_SMOKE_ARTIFACT_DIR ??
@@ -48,6 +61,7 @@ export function registerDesktopSmokeHandlers(): void {
     enabled: isDesktopSmokeEnabled(),
     artifactDir: getArtifactDir(),
     offline: isOfflineSmokeRequested(),
+    packagedSubset: isPackagedSubsetRequested(),
   }));
 
   ipcMain.handle('desktop-smoke:get-offline-blocks', async () => {

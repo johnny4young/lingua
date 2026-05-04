@@ -234,6 +234,23 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # RL-080 Slice 3 — packaged macOS smoke gate. Runs the smoke
+      # harness against the actual `Lingua.app` produced by
+      # `make:desktop:mac` (the one signed + verified above), proving
+      # the binary boots, the renderer chunks load, and the vendored
+      # Pyodide runtime executes offline. Reduced to a 2-runtime-case
+      # subset (javascript + python) plus the offline no-CDN assertion
+      # so the step stays under ~2 minutes; the full 9-case matrix
+      # already runs against the dev server in `npm run smoke:desktop`.
+      # Bloqueante — a failure aborts the release before publish runs.
+      # Run block uses only static npm / bash commands; no github.event
+      # interpolation.
+      - name: Packaged desktop smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run smoke:desktop:packaged
+
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:

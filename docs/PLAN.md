@@ -4988,6 +4988,93 @@ Slice 3 (still open):
   packaged binary (macOS-latest can; ubuntu/windows need separate
   thinking).
 
+#### Slice 3 Status Update — 2026-05-04 (closes RL-080)
+
+Slice 3 shipped. ROADMAP §4f row removed; §6 archive count 45 → 46.
+RL-080 fully `Done`.
+
+Implementation cuts taken (vs the original RL-080 acceptance criteria):
+
+- **macOS only** — Slice 3 lands the gate on `build-macos`. Windows
+  and Linux packaged smoke are NOT in scope. The release blocker for
+  desktop centres on the macOS artifact (the primary distribution
+  target); win/linux packaged smoke can be added later as separate
+  sub-slices if needed. The "where runner support permits" wording in
+  the AC explicitly allows this scoping.
+- **2-runtime-case subset, not the full 9-case matrix** — packaged
+  smoke runs only the `javascript` and `python` runtime cases plus the
+  offline no-CDN assertion. Rationale: the dev-server smoke
+  (pre-merge CI) already runs all 9 cases; the packaged smoke's job is
+  to prove the binary boots, the renderer chunks load, and the vendored
+  Pyodide runtime works offline. Adding Go/Rust/timeout/env-isolation
+  here would push the step over ~2 minutes for marginal signal.
+
+What landed:
+
+- `scripts/run-desktop-smoke.mjs` extended with a
+  `--against-packaged <path>` flag. Path can be a `.app` directory, a
+  darwin `.zip`, or a directory the script walks (`out/make` is the
+  CI default). When set, the script:
+  - Skips the Vite dev-server + run-electron-desktop launcher.
+  - Extracts the zip via `ditto -xk --rsrc` (codesign-preserving).
+  - Strips the `com.apple.quarantine` xattr so Gatekeeper does not
+    block the launch in a non-interactive runner.
+  - Spawns `Lingua.app/Contents/MacOS/Lingua` directly with the
+    existing `--lingua-desktop-smoke` + `--lingua-smoke-artifact-dir`
+    flags.
+  - Sets `LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET=1` in the spawned
+    process env.
+- `src/main/ipc/desktopSmoke.ts` reads the new env var via a
+  `isPackagedSubsetRequested()` helper and exposes it as
+  `packagedSubset` on the `desktop-smoke:get-config` IPC response.
+- `src/types.d.ts` extends `DesktopSmokeConfig` with
+  `packagedSubset?: boolean`.
+- `src/renderer/hooks/useDesktopSmoke.ts` filters `SMOKE_CASES` to
+  the 2-runtime-case subset (`javascript` + `python`) when
+  `config.packagedSubset === true`. The packaged command also passes
+  `--offline`, so the existing offline no-CDN synthetic assertion runs
+  after the Python case. Sin la flag, los 9 cases siguen ejecutándose
+  como hoy.
+- `package.json` adds `npm run smoke:desktop:packaged` (defaults to
+  `--offline --against-packaged out/make`).
+- `.github/workflows/release.yml` `build-macos` job adds a
+  `Packaged desktop smoke` step after `Verify macOS signing` and
+  before `Upload macOS artifacts`. **Bloqueante** — sin
+  `continue-on-error`. Si el binario no boota o un case falla, todo
+  el job falla y el publish job no corre (`needs:` chain).
+- `RELEASE.md` step 10 updated: el packaged smoke ya corre en CI; el
+  smoke local sigue siendo opcional. Validation checklist agrega un
+  bullet específico para el `Packaged desktop smoke` step.
+- Test guards:
+  - `tests/docs/releaseChecklist.test.ts` pinea el wording nuevo +
+    la mención del subset bloqueante.
+  - `tests/docs/releaseWorkflow.test.ts` pinea el `Packaged desktop
+    smoke` step, su orden relativa (después de `Verify macOS signing`,
+    antes de `Upload macOS artifacts`), y verifica que NO tenga
+    `continue-on-error: true`.
+  - `tests/docs/scriptCommands.test.ts` agrega
+    `smoke:desktop:packaged` al canonical script list.
+  - `tests/ipc/desktopSmoke.test.ts` agrega un caso para
+    `LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET=1` que verifica el
+    `packagedSubset: true` en la config.
+
+Acceptance criteria — final state:
+
+- "A release cannot be promoted without green desktop package
+  validation for target platforms." — closed for macOS (the primary
+  target). Windows/Linux packaged smoke remain a future enhancement
+  (added to BACKLOG if/when prioritised; not blocking today).
+- All other ACs already closed in Slice 1 + Slice 2.
+
+Risk acknowledged for Slice 3:
+
+- Headless `Lingua.app` on `macos-latest`: Electron should arrange a
+  display via the runner's simulated graphics. If the first push of
+  the workflow reveals a display or Gatekeeper edge case, a
+  follow-up commit within the same `Done` ticket can adjust the
+  flags (e.g. `--no-sandbox`, force-relaunch on a specific runtime
+  setting). Not a design ambiguity — a CI quirk to discover.
+
 ### RL-081 Launch/legal/source-available documentation cleanup
 
 - Priority: `P1`
