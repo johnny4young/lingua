@@ -120,7 +120,7 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | [`RL-064`](./PLAN.md#rl-064-launch-asset-kit-phase-2) | Launch asset kit | `Partial` | Screenshots + press-kit drafted. Remaining: 60-second demo video + press templates. |
 | [`RL-065`](./PLAN.md#rl-065-privacy-respecting-launch-telemetry) | Privacy-respecting telemetry | `Partial` | First-run consent + event allowlist + overlay.opened / runner.executed / feature.blocked wired. Remaining: event export pipeline. |
 | [`RL-066`](./PLAN.md#rl-066-seo-landing-pages-for-language-specific-intents) | SEO landing pages | `Partial` | `seo-pages/` drafts landed. Remaining: build step that promotes drafts into linguacode.dev sub-routes. |
-| [`RL-081`](./PLAN.md#rl-081-launchlegalsource-available-documentation-cleanup) | Launch/legal/source-available docs cleanup | `Planned` | Align source-available posture, Shepherd licensing, legal/privacy/security docs, and launch copy. |
+| [`RL-081`](./PLAN.md#rl-081-launchlegalsource-available-documentation-cleanup) | Launch/legal/source-available docs cleanup | `Planned` | Align source-available posture, dependency-license readiness, legal/privacy/security docs, and launch copy. |
 | [`RL-084`](./PLAN.md#rl-084-local-plugin-manifest-hardening) | Local plugin manifest hardening | `Planned` | Enforce manifest schema, runtime allowlist, compatibility validation, diagnostics, and no arbitrary plugin code. |
 | [`RL-085`](./PLAN.md#rl-085-sbom-and-third-party-license-compliance) | SBOM + third-party license compliance | `Planned` | Generate release SBOM, third-party notices, and license-policy gates for commercial distribution. |
 
@@ -128,7 +128,7 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-039`](./PLAN.md#rl-039-add-guided-lessons-docs-and-app-galleries-for-students) | Guided lessons + app galleries | `Partial` | Guided tour (Shepherd) + seeded lesson drafts in `docs/lessons`. Remaining: in-app lesson browser + progression. |
+| [`RL-039`](./PLAN.md#rl-039-add-guided-lessons-docs-and-app-galleries-for-students) | Guided lessons + app galleries | `Partial` | Built-in guided tour + seeded lesson drafts in `docs/lessons`. Remaining: in-app lesson browser + progression. |
 | [`RL-041`](./PLAN.md#rl-041-add-static-site-export-and-one-click-publish-for-web-projects) | Static site export + publish | `Planned` | Export JS/TS/HTML projects as self-contained static ZIP; one-click publish to GitHub Pages. |
 | [`RL-046`](./PLAN.md#rl-046-add-gamification-achievements-and-progress-tracking-for-students) | Gamification + achievements | `Planned` | Achievement catalog, per-user progress, streaks. |
 

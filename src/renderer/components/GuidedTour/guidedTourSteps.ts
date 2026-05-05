@@ -1,9 +1,36 @@
 import type { TFunction } from 'i18next';
-import type { Step, StepOptions, Tour } from 'shepherd.js';
 import {
   GUIDED_TOUR_SELECTORS,
   waitForGuidedTourSelector,
 } from './guidedTourSelectors';
+
+export type GuidedTourButtonKind = 'skip' | 'back' | 'next' | 'finish';
+
+export type GuidedTourPlacement =
+  | 'bottom'
+  | 'bottom-end'
+  | 'right'
+  | 'right-start'
+  | 'top';
+
+export interface GuidedTourAdvanceOn {
+  selector: string;
+  event: keyof HTMLElementEventMap;
+}
+
+export interface GuidedTourStepOptions {
+  id: string;
+  title: string;
+  text: string;
+  attachTo: {
+    selector: string;
+    on: GuidedTourPlacement;
+  };
+  beforeShowPromise?: () => Promise<void>;
+  advanceOn?: GuidedTourAdvanceOn;
+  canClickTarget?: boolean;
+  buttons: GuidedTourButtonKind[];
+}
 
 interface GuidedTourStepControls {
   closeOverlay: () => void;
@@ -23,93 +50,9 @@ interface BuildGuidedTourStepsOptions extends GuidedTourStepControls {
 
 export const DONT_SHOW_AGAIN_TESTID = 'guided-tour-dont-show-again';
 
-/**
- * Injects a "Don't show again" checkbox into Shepherd's footer. Shepherd owns
- * the DOM for each step; we attach the checkbox via the `when.show` lifecycle
- * hook so it gets rebuilt whenever the step is reopened (preventing stale
- * listeners). The handler calls the settings store directly so toggling is
- * persisted immediately — no extra confirm-on-close path to keep in sync.
- */
-export function attachDontShowAgain(
-  step: Step,
-  t: TFunction,
-  getSuppressTourAutoStart: () => boolean,
-  setSuppressTourAutoStart: (value: boolean) => void
-): void {
-  // Shepherd 15 exposes the mounted step root through `getElement()`; older
-  // versions used `step.el`. Keep both in the fallback chain so the injection
-  // stays robust across minor upgrades.
-  const element =
-    step.getElement?.() ??
-    (step as unknown as { el?: HTMLElement | null }).el ??
-    null;
-  if (!element) return;
-  const footer = element.querySelector<HTMLElement>('.shepherd-footer');
-  if (!footer) return;
-  if (footer.querySelector(`[data-testid="${DONT_SHOW_AGAIN_TESTID}"]`)) return;
-
-  const wrapper = document.createElement('label');
-  wrapper.className = 'guided-tour-dont-show-again';
-  wrapper.setAttribute('data-testid', DONT_SHOW_AGAIN_TESTID);
-
-  const input = document.createElement('input');
-  input.type = 'checkbox';
-  input.className = 'guided-tour-dont-show-again-input';
-  input.checked = getSuppressTourAutoStart();
-  input.addEventListener('change', () => {
-    setSuppressTourAutoStart(input.checked);
-  });
-
-  const text = document.createElement('span');
-  text.textContent = t('tour.options.dontShowAgain');
-
-  wrapper.append(input, text);
-  footer.prepend(wrapper);
-}
-
-function backButton(t: TFunction) {
+function attachTo(selector: string, on: GuidedTourPlacement): GuidedTourStepOptions['attachTo'] {
   return {
-    action(this: Tour) {
-      this.back();
-    },
-    classes: 'guided-tour-button guided-tour-button-secondary shepherd-button-secondary',
-    text: t('tour.buttons.back'),
-  };
-}
-
-function nextButton(t: TFunction) {
-  return {
-    action(this: Tour) {
-      this.next();
-    },
-    classes: 'guided-tour-button guided-tour-button-primary',
-    text: t('tour.buttons.next'),
-  };
-}
-
-function finishButton(t: TFunction) {
-  return {
-    action(this: Tour) {
-      this.complete();
-    },
-    classes: 'guided-tour-button guided-tour-button-primary',
-    text: t('tour.buttons.finish'),
-  };
-}
-
-function skipButton(t: TFunction) {
-  return {
-    action(this: Tour) {
-      void this.cancel();
-    },
-    classes: 'guided-tour-button guided-tour-button-ghost shepherd-button-secondary',
-    text: t('tour.buttons.skip'),
-  };
-}
-
-function attachTo(selector: string, on: NonNullable<StepOptions['attachTo']>['on']): StepOptions['attachTo'] {
-  return {
-    element: () => document.querySelector<HTMLElement>(selector),
+    selector,
     on,
   };
 }
@@ -123,33 +66,22 @@ export function buildGuidedTourSteps({
   ensureSidebarVisible,
   getSuppressTourAutoStart,
   setSuppressTourAutoStart,
-}: BuildGuidedTourStepsOptions): StepOptions[] {
-  function handleStepShow(this: Step) {
-    // Defer to the next tick so Shepherd has finished mounting the step's
-    // DOM before we look up the footer. In Shepherd 15 `getElement()` can
-    // return null during the synchronous show() callback. The tour-level
-    // MutationObserver in `GuidedTourProvider` is the primary injection
-    // path; this hook is kept as a belt-and-suspenders fallback since
-    // `attachDontShowAgain` is idempotent.
-    attachDontShowAgain(this, t, getSuppressTourAutoStart, setSuppressTourAutoStart);
-  }
-  const whenShow = { show: handleStepShow };
-  const withCheckbox = (options: StepOptions): StepOptions => ({
-    ...options,
-    when: {
-      ...(options.when ?? {}),
-      ...whenShow,
-    },
-  });
+}: BuildGuidedTourStepsOptions): GuidedTourStepOptions[] {
+  // Keep these callbacks in the signature so the builder owns the complete tour
+  // contract. The provider reads the current checkbox state directly when it
+  // renders each step, so no DOM injection hook is needed.
+  void getSuppressTourAutoStart;
+  void setSuppressTourAutoStart;
+
   return [
-    withCheckbox({
+    {
       id: 'tour-editor',
       title: t('tour.step.editor.title'),
       text: t('tour.step.editor.text'),
       attachTo: attachTo(GUIDED_TOUR_SELECTORS.editor, 'right-start'),
-      buttons: [skipButton(t), nextButton(t)],
-    }),
-    withCheckbox({
+      buttons: ['skip', 'next'],
+    },
+    {
       id: 'tour-run',
       title: t('tour.step.run.title'),
       text: t('tour.step.run.text'),
@@ -159,9 +91,9 @@ export function buildGuidedTourSteps({
         event: 'click',
       },
       canClickTarget: true,
-      buttons: [skipButton(t), backButton(t)],
-    }),
-    withCheckbox({
+      buttons: ['skip', 'back'],
+    },
+    {
       id: 'tour-console',
       title: t('tour.step.console.title'),
       text: t('tour.step.console.text'),
@@ -171,9 +103,9 @@ export function buildGuidedTourSteps({
         ensureConsoleVisible();
         await waitForGuidedTourSelector(GUIDED_TOUR_SELECTORS.console);
       },
-      buttons: [skipButton(t), backButton(t), nextButton(t)],
-    }),
-    withCheckbox({
+      buttons: ['skip', 'back', 'next'],
+    },
+    {
       id: 'tour-explorer',
       title: t('tour.step.explorer.title'),
       text: t('tour.step.explorer.text'),
@@ -183,9 +115,9 @@ export function buildGuidedTourSteps({
         ensureSidebarVisible();
         await waitForGuidedTourSelector(GUIDED_TOUR_SELECTORS.explorer);
       },
-      buttons: [skipButton(t), backButton(t), nextButton(t)],
-    }),
-    withCheckbox({
+      buttons: ['skip', 'back', 'next'],
+    },
+    {
       id: 'tour-toolbar',
       title: t('tour.step.toolbar.title'),
       text: t('tour.step.toolbar.text'),
@@ -194,9 +126,9 @@ export function buildGuidedTourSteps({
         closeOverlay();
         await waitForGuidedTourSelector(GUIDED_TOUR_SELECTORS.toolbarActions);
       },
-      buttons: [skipButton(t), backButton(t), nextButton(t)],
-    }),
-    withCheckbox({
+      buttons: ['skip', 'back', 'next'],
+    },
+    {
       id: 'tour-snippets',
       title: t('tour.step.snippets.title'),
       text: t('tour.step.snippets.text'),
@@ -206,9 +138,9 @@ export function buildGuidedTourSteps({
         openSnippets();
         await waitForGuidedTourSelector(GUIDED_TOUR_SELECTORS.snippetsSave);
       },
-      buttons: [skipButton(t), backButton(t), nextButton(t)],
-    }),
-    withCheckbox({
+      buttons: ['skip', 'back', 'next'],
+    },
+    {
       id: 'tour-command-palette',
       title: t('tour.step.commandPalette.title'),
       text: t('tour.step.commandPalette.text'),
@@ -218,7 +150,7 @@ export function buildGuidedTourSteps({
         openPalette();
         await waitForGuidedTourSelector(GUIDED_TOUR_SELECTORS.commandPaletteSearch);
       },
-      buttons: [skipButton(t), backButton(t), finishButton(t)],
-    }),
+      buttons: ['skip', 'back', 'finish'],
+    },
   ];
 }

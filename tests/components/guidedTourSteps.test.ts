@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
-import type { Step } from 'shepherd.js';
 import {
   DONT_SHOW_AGAIN_TESTID,
   buildGuidedTourSteps,
@@ -42,68 +41,41 @@ describe('buildGuidedTourSteps', () => {
       event: 'click',
     });
     expect(runStep?.canClickTarget).toBe(true);
-    expect(runStep?.buttons?.some((button) => button.text === 'Next')).toBe(false);
+    expect(runStep?.buttons).toEqual(['skip', 'back']);
   });
 
-  it('attaches a when.show hook on every step that injects the don’t-show-again checkbox', () => {
+  it('uses stable button kinds that the provider can render with local controls', () => {
+    const steps = buildStepsWithHarness();
+
+    expect(steps[0]?.buttons).toEqual(['skip', 'next']);
+    expect(steps.at(-1)?.buttons).toEqual(['skip', 'back', 'finish']);
+    expect(DONT_SHOW_AGAIN_TESTID).toBe('guided-tour-dont-show-again');
+  });
+
+  it('runs step preparation callbacks before surfacing dependent UI', async () => {
+    document.body.innerHTML = '<div id="guided-tour-console"></div>';
+    const closeOverlay = vi.fn();
+    const ensureConsoleVisible = vi.fn();
+    const steps = buildStepsWithHarness({
+      closeOverlay,
+      ensureConsoleVisible,
+    });
+
+    await steps[2]?.beforeShowPromise?.();
+
+    expect(closeOverlay).toHaveBeenCalledTimes(1);
+    expect(ensureConsoleVisible).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the suppress-tour callbacks in the builder contract', () => {
     const setSuppress = vi.fn();
     const getSuppress = vi.fn(() => false);
-    const steps = buildStepsWithHarness({
+    buildStepsWithHarness({
       getSuppressTourAutoStart: getSuppress,
       setSuppressTourAutoStart: setSuppress,
     });
 
-    for (const step of steps) {
-      expect(typeof step.when?.show).toBe('function');
-    }
-
-    // Simulate Shepherd rendering the first step: build a minimal DOM that
-    // matches the markup Shepherd produces (.shepherd-footer inside the step
-    // element) and invoke the lifecycle hook with that DOM attached.
-    const stepEl = document.createElement('div');
-    const footer = document.createElement('div');
-    footer.className = 'shepherd-footer';
-    stepEl.append(footer);
-
-    const fakeStep = { getElement: () => stepEl } as unknown as Step;
-    const hook = steps[0].when?.show;
-    hook?.call(fakeStep);
-
-    const checkbox = footer.querySelector<HTMLInputElement>(
-      `[data-testid="${DONT_SHOW_AGAIN_TESTID}"] input[type="checkbox"]`
-    );
-    expect(checkbox).toBeTruthy();
-    expect(checkbox?.checked).toBe(false);
-
-    checkbox!.checked = true;
-    checkbox!.dispatchEvent(new Event('change'));
-    expect(setSuppress).toHaveBeenCalledWith(true);
-
-    // Re-running the hook must be idempotent — the checkbox is not duplicated.
-    hook?.call(fakeStep);
-    expect(
-      footer.querySelectorAll(`[data-testid="${DONT_SHOW_AGAIN_TESTID}"]`).length
-    ).toBe(1);
-  });
-
-  it('reflects the current persisted suppress flag when the step opens', () => {
-    const steps = buildStepsWithHarness({
-      getSuppressTourAutoStart: () => true,
-      setSuppressTourAutoStart: vi.fn(),
-    });
-
-    const stepEl = document.createElement('div');
-    const footer = document.createElement('div');
-    footer.className = 'shepherd-footer';
-    stepEl.append(footer);
-
-    const fakeStep = { getElement: () => stepEl } as unknown as Step;
-    steps[0].when?.show?.call(fakeStep);
-
-    const checkbox = footer.querySelector<HTMLInputElement>(
-      `[data-testid="${DONT_SHOW_AGAIN_TESTID}"] input[type="checkbox"]`
-    );
-    expect(checkbox?.checked).toBe(true);
+    expect(getSuppress).not.toHaveBeenCalled();
+    expect(setSuppress).not.toHaveBeenCalled();
   });
 });
-

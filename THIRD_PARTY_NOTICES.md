@@ -28,18 +28,16 @@ SBOM plus transitive license report as tracked by `RL-085`.
 | `react-dom` | MIT |
 | `react-i18next` | MIT |
 | `react-resizable-panels` | MIT |
-| `shepherd.js` | AGPL-3.0 unless commercially licensed |
 | `spark-md5` | WTFPL OR MIT |
 | `sql-formatter` | MIT |
 | `terser` | BSD-2-Clause |
 | `zustand` | MIT |
 
-## Public-Release Blocker
+## Public-Release Notes
 
-`shepherd.js` is a runtime dependency used by the guided tour and currently
-declares `AGPL-3.0`. A public commercial Lingua distribution must resolve this
-before release by purchasing the appropriate commercial license, replacing the
-dependency, or excluding the guided-tour feature from public builds.
+The guided tour is implemented in-repo and does not ship a separate AGPL or
+commercial-license tour dependency. Continue to audit runtime and packaged
+dependencies before every public release.
 
 ## Release Requirement
 

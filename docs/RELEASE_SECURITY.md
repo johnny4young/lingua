@@ -49,8 +49,8 @@ release checklist.
 
 - Confirm `THIRD_PARTY_NOTICES.md` and the generated SBOM/license report are
   current.
-- Confirm `shepherd.js` has a commercial license or is excluded from public
-  builds.
+- Confirm public builds do not introduce AGPL/commercial runtime dependencies
+  without an explicit license decision.
 - Confirm no disallowed runtime license ships in packaged artifacts.
 
 ## Public Documentation Claims

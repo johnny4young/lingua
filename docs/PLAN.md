@@ -2203,28 +2203,23 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 - Dependencies:
   - RL-052 (About view provides the natural anchor for a "What's New" link)
 
-### RL-054 Add interactive guided tour with Shepherd.js
+### RL-054 Add interactive guided tour
 
 - Priority: `P2`
 - Status: `Done`
-- Readiness: `Completed on 2026-04-16 — Shepherd commercial license still required before public release`
+- Readiness: `Completed on 2026-04-16; public-release dependency blocker removed on 2026-05-04 by replacing Shepherd with the in-repo tour runtime`
 - Current progress:
-  - Lingua now wraps the renderer in a dedicated guided-tour provider backed by Shepherd.js (vanilla API, no `react-shepherd` wrapper)
+  - Lingua now wraps the renderer in a dedicated guided-tour provider backed by a small in-repo runtime
   - The onboarding flow now covers the editor, Run button, console, project explorer, toolbar, snippet library, and command palette in a seven-step sequence
-  - The Run step uses a real `advanceOn` click so the tour waits for a genuine execution instead of advancing on a fake next button
+  - The Run step uses a real click listener so the tour waits for a genuine execution instead of advancing on a fake next button
   - Launch points now exist in both the About section and the Command Palette, and first-launch auto-start is gated by persisted `settingsStore.hasCompletedTour`
-  - Shepherd styling is now bridged into Lingua's surface tokens so the modal, spotlight, and controls match the app shell instead of shipping the stock library look
+  - Tour styling is bridged into Lingua's surface tokens so the modal, spotlight, and controls match the app shell
 - Licensing note:
-  - Shepherd.js is free for open-source, personal, and non-commercial projects
-  - **Lingua is source-available commercial software, not open source** — a paid Shepherd license or replacement is required before public commercial distribution
-  - Business license: $50 lifetime (up to 5 projects, 1 month support)
-  - Enterprise license: $300 lifetime (unlimited projects, 6 months support)
-  - Purchase at https://www.shepherdjs.dev/pricing before any public release
-  - Development and prototyping can proceed; license must be acquired before distribution
+  - The former Shepherd dependency was removed before public release readiness work continued.
+  - The guided tour is implemented in-repo, so there is no separate commercial tour dependency to purchase for public builds.
 - Scope:
-  - Install `shepherd.js` and `react-shepherd` as dependencies
   - Create a `GuidedTour` module under `src/renderer/components/GuidedTour/`
-  - Implement a `TourProvider` wrapper using `react-shepherd`'s context provider
+  - Implement a `TourProvider` wrapper that exposes `startTour`, `isTourActive`, and `hasCompletedTour` through context
   - Define tour steps for core features:
     - Step 1: Editor area — explain code editing, language selection
     - Step 2: Run button — `advanceOn` click event so the user actually runs code to proceed
@@ -2233,11 +2228,11 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
     - Step 5: Toolbar — explain layout options, settings access
     - Step 6: Snippets — show how to save and reuse code
     - Step 7: Command Palette — demonstrate keyboard-driven navigation
-  - Use `canClickTarget: true` so users interact with real UI elements during the tour
-  - Use `advanceOn` to auto-advance when the user completes an interactive action (e.g., clicking Run, opening a file, saving a snippet)
+  - Allow selected steps to interact with real UI elements during the tour
+  - Auto-advance when the user completes an interactive action such as clicking Run
   - Use `beforeShowPromise` for steps that need async setup (e.g., ensuring a tab is open before highlighting it)
   - Style the tour modal/backdrop to match Lingua's design system (oklch colors, surface tokens, rounded corners)
-  - Use SVG backdrop with spotlight cutout for visually highlighting the target element
+  - Use a spotlight overlay for visually highlighting the target element
   - Add "Start guided tour" to the Command Palette
   - Add a "Take a tour" button in the About section (RL-052)
   - Store tour completion status in `settingsStore` so it is not shown repeatedly
@@ -2250,13 +2245,12 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
   - Users can skip, go back, or exit the tour at any step
   - Tour completion is persisted so it does not repeat on every launch
   - The tour is launchable from Command Palette and from the About section
-  - Shepherd.js commercial license is purchased before any public release of Lingua
+  - Public builds do not include a separate AGPL/commercial guided-tour dependency
 - Related tasks:
   - RL-039 (guided lessons for students) is a separate educational content system; this tour is product onboarding
   - The tour infrastructure could later be reused by RL-039 for lesson walkthroughs
 - Dependencies:
   - RL-052 (About section provides the "Take a tour" entry point)
-  - Shepherd.js commercial license (Business $50 or Enterprise $300)
 
 ### RL-055 Add file-extension-based language detection when opening files
 
@@ -2492,7 +2486,7 @@ for evaluation, security review, and contributor collaboration, but the license
 is not an open-source license and production, paid, hosted, redistributed, or
 at-scale use requires a commercial license. This affects:
 - Third-party library licensing: any dependency with copyleft or AGPL terms must be replaced, excluded from public builds, or commercially licensed
-- Shepherd.js requires a commercial license ($50 Business or $300 Enterprise) or replacement before public commercial distribution — see RL-054 and RL-085
+- The guided tour no longer carries a separate Shepherd dependency; continue to enforce this through the RL-085 SBOM/license gate
 - Intro.js (AGPL) is explicitly excluded from consideration
 - MIT / Apache 2.0 / BSD / ISC dependencies remain compatible with the current source-available commercial posture, subject to notices and SBOM coverage
 
@@ -4688,7 +4682,7 @@ Ship these before Phase 2 distribution. Every item is a blocker for charging for
 | RL-044 | Inline data visualization | RL-020, RL-019 | Large |
 | RL-039 | Guided lessons & galleries | RL-023, RL-024 | Large |
 | RL-046 | Gamification & progress tracking | RL-023 | Medium |
-| RL-054 | Guided tour (Shepherd.js, needs license) | RL-052 | Medium |
+| RL-054 | Guided tour | RL-052 | Medium |
 | RL-035 | Tauri 2 feasibility spike | RL-021 ✅, RL-030 | Medium |
 
 ---
@@ -5089,20 +5083,20 @@ Risk acknowledged for Slice 3:
 - Readiness: `Implementation-ready from the 2026-05-02 review. Launch-critical because product, license, public/private repo posture, and third-party commercial-license obligations must agree before distribution.`
 - Current gap:
   - Product copy describes a public source-available repo posture while launch state may still be private or staged.
-  - The guided-tour dependency carries an explicit commercial-license requirement before public distribution.
+  - The previous guided-tour commercial-license blocker was removed, but the dependency/license gate still needs repeatable SBOM and policy checks.
   - Some documentation links still point to local absolute paths.
   - Privacy/security/legal docs need to line up with telemetry, crash reporting, licensing, and checkout behavior.
 - Scope:
   - Reconcile README, LICENSE, pricing copy, and launch docs around the exact source-available posture for launch.
   - Decide and document whether the repo is public at launch, private until launch, or source-available under a staged access model.
-  - Resolve Shepherd commercial-license readiness before public distribution, or disable/remove public-build tour code until the license is in place.
+  - Keep runtime dependency license readiness documented and block any new AGPL/commercial dependency without an explicit decision.
   - Replace local absolute documentation links with repo-relative links.
   - Add or update `SECURITY.md`, `PRIVACY.md`, and launch/legal notes for telemetry, crash reporting, license verification, device tracking, and support windows.
   - Align license-tier claims with the live checkout/download surface.
 - Acceptance criteria:
   - No launch-facing doc claims a repo/public/source posture that is false for the release.
   - No checked-in documentation link points to a machine-local absolute path.
-  - Public builds either carry the required Shepherd license or exclude the guided-tour dependency/feature.
+  - Public builds do not include AGPL/commercial runtime dependencies without an explicit license decision.
   - Privacy and security docs describe what data is collected, what is never collected, how telemetry/crash consent works, and how license device tracking works.
   - Pricing/license claims in README, PLAN, ROADMAP, LICENSE, and marketing docs agree with the live checkout flow.
 - Dependencies:
@@ -5296,13 +5290,13 @@ Optional follow-ups (not blocking; tracked outside RL-083):
   - Audit runtime and packaged dependencies separately from dev-only dependencies.
   - Add a license-policy allow/deny list.
   - Fail release CI when a dependency introduces a disallowed license or missing notice.
-  - Track commercial-license obligations, including guided-tour dependencies, as explicit release prerequisites.
+  - Track commercial-license obligations as explicit release prerequisites.
 - Acceptance criteria:
   - Release artifacts include or link to an SBOM.
   - Third-party notices cover all packaged runtime dependencies.
   - CI/release checks fail on disallowed licenses.
   - Dev-only dependencies are not incorrectly treated as packaged obligations.
-  - Shepherd or any equivalent commercial-license dependency is either licensed for public distribution or excluded from public builds.
+  - Any AGPL or commercial-license dependency is either licensed for public distribution or excluded from public builds.
 - Dependencies:
   - RL-081
 

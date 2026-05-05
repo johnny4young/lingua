@@ -1,5 +1,4 @@
 @import 'tailwindcss';
-@import 'shepherd.js/dist/css/shepherd.css';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -682,72 +681,87 @@
   }
 
   /* Guided tour */
-  .guided-tour-step.shepherd-element {
+  .guided-tour-layer {
+    @apply pointer-events-none fixed inset-0 z-[90];
+  }
+
+  .guided-tour-overlay {
+    @apply fixed inset-0;
+    background: var(--tour-overlay);
+  }
+
+  .guided-tour-spotlight {
+    @apply pointer-events-none fixed rounded-[1.25rem];
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--app-primary) 82%, transparent),
+      0 0 0 10px color-mix(in srgb, var(--app-primary) 18%, transparent),
+      0 0 0 9999px color-mix(in srgb, var(--tour-overlay) 94%, transparent),
+      0 24px 70px color-mix(in srgb, var(--app-primary) 20%, transparent);
+  }
+
+  .guided-tour-step {
     --tour-surface: color-mix(in srgb, var(--app-surface) 90%, transparent);
     --tour-surface-strong: color-mix(in srgb, var(--app-surface-strong) 86%, transparent);
     --tour-border: color-mix(in srgb, var(--app-border-strong) 92%, transparent);
     --tour-shadow: 0 32px 120px color-mix(in srgb, var(--app-background) 52%, black);
-    @apply max-w-[25rem] rounded-[1.6rem] border text-foreground;
+    @apply pointer-events-auto fixed max-w-[25rem] overflow-hidden rounded-[1.6rem] border text-foreground;
+    width: min(25rem, calc(100vw - 2rem));
     overflow: visible;
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--tour-surface-strong) 82%, white 4%),
       var(--tour-surface)
-    ) !important;
-    border-color: var(--tour-border) !important;
+    );
+    border-color: var(--tour-border);
     color: var(--app-foreground) !important;
     box-shadow:
       0 0 0 1px color-mix(in srgb, var(--app-ring) 36%, transparent),
-      var(--tour-shadow) !important;
+      var(--tour-shadow);
     backdrop-filter: blur(24px);
   }
 
-  .guided-tour-step .shepherd-content {
-    @apply rounded-[1.6rem] bg-transparent p-0;
-    background: transparent !important;
-  }
-
-  .guided-tour-step .shepherd-header {
+  .guided-tour-header {
     @apply items-start gap-3 border-b px-5 py-4;
-    border-color: color-mix(in srgb, var(--app-border) 85%, transparent) !important;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    border-color: color-mix(in srgb, var(--app-border) 85%, transparent);
     background:
       linear-gradient(
         180deg,
         color-mix(in srgb, var(--app-primary-soft) 56%, transparent),
         color-mix(in srgb, var(--tour-surface-strong) 84%, transparent)
-      ) !important;
+      );
   }
 
-  .guided-tour-step .shepherd-title {
-    @apply font-display text-xl font-semibold tracking-[-0.04em];
-    color: var(--app-foreground) !important;
+  .guided-tour-title {
+    @apply font-display text-xl font-semibold;
+    color: var(--app-foreground);
+    letter-spacing: 0;
   }
 
-  .guided-tour-step .shepherd-text {
+  .guided-tour-text {
     @apply px-5 py-4 text-sm leading-6;
-    color: var(--app-muted) !important;
+    color: var(--app-muted);
   }
 
-  .guided-tour-step .shepherd-footer {
+  .guided-tour-footer {
     @apply flex flex-wrap items-center justify-between gap-2 border-t px-5 py-4;
-    border-color: color-mix(in srgb, var(--app-border) 85%, transparent) !important;
-    background: color-mix(in srgb, var(--tour-surface-strong) 78%, transparent) !important;
+    border-color: color-mix(in srgb, var(--app-border) 85%, transparent);
+    background: color-mix(in srgb, var(--tour-surface-strong) 78%, transparent);
   }
 
-  .guided-tour-step .shepherd-cancel-icon {
-    @apply text-muted transition-colors hover:text-foreground;
-    color: var(--app-muted) !important;
+  .guided-tour-close {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-strong hover:text-foreground;
+    color: var(--app-muted);
   }
 
-  .guided-tour-step .shepherd-arrow:before,
-  .guided-tour-step .shepherd-arrow::before {
-    background: var(--tour-surface) !important;
-    border-color: var(--tour-border) !important;
-    box-shadow: -1px -1px 0 color-mix(in srgb, var(--tour-border) 82%, transparent);
+  .guided-tour-actions {
+    @apply ml-auto flex flex-wrap items-center justify-end gap-2;
   }
 
   .guided-tour-button {
-    @apply inline-flex min-h-10 items-center justify-center rounded-xl border px-3.5 py-2 text-xs font-semibold tracking-[0.02em] transition-all duration-200;
+    @apply inline-flex min-h-10 items-center justify-center rounded-xl border px-3.5 py-2 text-xs font-semibold transition-all duration-200;
+    letter-spacing: 0;
   }
 
   .guided-tour-button-primary {
@@ -781,21 +795,12 @@
     border-radius: 1rem;
   }
 
-  .shepherd-modal-overlay-container.shepherd-modal-is-visible {
-    background: transparent !important;
-    opacity: 1 !important;
-  }
-
-  .shepherd-modal-overlay-container.shepherd-modal-is-visible path {
-    fill: var(--tour-overlay) !important;
-  }
-
-  .light .guided-tour-step.shepherd-element,
-  :root .guided-tour-step.shepherd-element {
+  .light .guided-tour-step,
+  :root .guided-tour-step {
     --tour-shadow: 0 32px 120px color-mix(in srgb, var(--app-background) 24%, black);
   }
 
-  .dark .guided-tour-step.shepherd-element {
+  .dark .guided-tour-step {
     --tour-surface: color-mix(in srgb, var(--app-surface) 94%, transparent);
     --tour-surface-strong: color-mix(in srgb, var(--app-surface-strong) 92%, transparent);
   }

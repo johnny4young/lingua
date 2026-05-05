@@ -63,4 +63,18 @@ describe('public documentation hygiene', () => {
       expect(existsSync(resolve(ROOT, file)), file).toBe(true);
     }
   });
+
+  it('keeps the guided tour free of external AGPL/commercial tour dependencies', () => {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(ROOT, 'package.json'), 'utf-8')
+    ) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const lockfile = readFileSync(resolve(ROOT, 'package-lock.json'), 'utf-8');
+
+    expect(packageJson.dependencies?.['shepherd.js']).toBeUndefined();
+    expect(packageJson.devDependencies?.['shepherd.js']).toBeUndefined();
+    expect(lockfile).not.toContain('"node_modules/shepherd.js"');
+  });
 });
