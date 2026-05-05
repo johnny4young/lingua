@@ -15,7 +15,7 @@ Lingua is a commercial product distributed under a source-available license — 
 - **Pro Lifetime** — the Pro entitlement set with lifetime updates.
 - **Team / Education** — seat-based licensing and free access for verified students and educators.
 
-The full tier matrix, entitlements, and pricing currently live in [`docs/PLAN.md` Section 13](./docs/PLAN.md). The download page and checkout will live at [`linguacode.dev`](https://linguacode.dev) once `RL-063` ships.
+The public pricing summary lives in [`docs/press-kit/pricing-one-pager.md`](./docs/press-kit/pricing-one-pager.md). The download page and checkout will live at [`linguacode.dev`](https://linguacode.dev) once `RL-063` ships.
 
 ## Who it is for
 
@@ -57,6 +57,10 @@ The full tier matrix, entitlements, and pricing currently live in [`docs/PLAN.md
 | `LINGUA_CRASH_REPORTER_DISABLED` | main runtime | Set to `1` to disable crash reporting regardless of user choice |
 - Repeatable desktop smoke validation with artifact output under `output/playwright/desktop-smoke`
 
+Use [`.env.example`](./.env.example) as the safe template for local overrides.
+Never commit private keys, API tokens, signing certificates, webhook secrets, or
+real customer license tokens.
+
 ## Editor diagnostics and results
 
 - Monaco JavaScript and TypeScript diagnostics target the same ES2022 + Web Worker runtime contract used by execution
@@ -69,11 +73,11 @@ The full tier matrix, entitlements, and pricing currently live in [`docs/PLAN.md
 
 ## Release notes and onboarding surfaces
 
-- [`docs/CHANGELOG.md`](./docs/CHANGELOG.md) now follows a Keep a Changelog-style semver structure so release notes stay readable in git and in-product
+- [`CHANGELOG.md`](./CHANGELOG.md) now follows a Keep a Changelog-style semver structure so release notes stay readable in git and in-product
 - The renderer bundles parsed changelog data at build time, so the desktop and web shells can show release notes without direct file-system access
 - A dedicated What's New overlay is available from both the Command Palette and the About section, and it auto-opens once when the app sees a newer version than the last one stored locally
 - A Shepherd-based guided tour now opens from the About section, the Command Palette, or automatically after first-launch gating when the user has not completed onboarding yet
-- Lingua is a closed-source commercial product, so Shepherd's commercial license still must be purchased before public distribution even though the tour is already integrated in development builds
+- Lingua is a source-available commercial product, so Shepherd's commercial license still must be purchased before public distribution even though the tour is already integrated in development builds
 
 ## Theme behavior
 
@@ -151,6 +155,9 @@ Architecture deep dive:
 - [`docs/VIM_MODE_ADR.md`](./docs/VIM_MODE_ADR.md) records the RL-037 Vim mode integration decisions (monaco-vim as the lazy-loaded layer, focus-gated keystroke ownership, English-only status bar posture) and the rollback + revisit triggers.
 - [`docs/DEBUGGER_ADR.md`](./docs/DEBUGGER_ADR.md) plans the RL-027 debugger MVP — JS/TS first via Monaco, then Python via pdb, Go via Delve, Rust via lldb — with a bounded feature budget (breakpoints, step, watch, stack, variables) and explicit out-of-scope list.
 - [`RELEASE.md`](./RELEASE.md) is the RL-016 release checklist — preconditions, 14 numbered release steps including the packaged desktop smoke and post-publish smoke, the validation gate, and the rollback plan.
+- [`docs/PUBLIC_RELEASE_CHECKLIST.md`](./docs/PUBLIC_RELEASE_CHECKLIST.md) gates changing the source repository visibility to public.
+- [`docs/RELEASE_SECURITY.md`](./docs/RELEASE_SECURITY.md) is the security sign-off checklist for public releases.
+- [`SECURITY.md`](./SECURITY.md), [`PRIVACY.md`](./PRIVACY.md), [`CONTRIBUTING.md`](./CONTRIBUTING.md), and [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) cover public security reporting, privacy posture, contribution rules, and runtime dependency notices.
 - [`docs/press-kit/`](./docs/press-kit/) holds the Phase 2 launch asset boilerplate (en + es) — product descriptions, pricing one-pager, founder bio, Show HN / Product Hunt / subreddit drafts.
 - [`docs/seo-pages/`](./docs/seo-pages/) holds the RL-066 SEO landing page scaffolds (five language-intent pages) ready for `linguacode.dev` to consume once the domain ships.
 - [`docs/lessons/`](./docs/lessons/) holds the RL-039 first-slice guided lesson scaffolds (en + es) — read-only Markdown today, picked up by the future interactive lesson runner.
@@ -495,13 +502,15 @@ Stable channel policy:
 
 - The repository currently stays on a draft-first release policy. Promotion to a non-draft release is a human step after validation.
 - To publish, open GitHub Actions, run the `Release` workflow manually, and provide the stable tag/version to create from `main` and publish.
-- Use [RELEASE.md](/Users/johnny4young/Personal/github/lingua/RELEASE.md) as the operator checklist for version tags, signing prerequisites, verification, and promotion.
+- Use [RELEASE.md](./RELEASE.md) as the operator checklist for version tags, signing prerequisites, verification, and promotion.
+- Use [docs/RELEASE_SECURITY.md](./docs/RELEASE_SECURITY.md) for the public-release security sign-off before promotion.
 
 ## Notes for contributors
 
 - The repository currently documents product status in `docs/PLAN.md`, not as a historical implementation roadmap
 - Plugin support is currently limited to local language manifests that resolve to bundled runtimes
 - If you change shortcuts, runner behavior, or workflow behavior, update the documentation in the same change
+- Do not add machine-local absolute links to committed Markdown
 
 ## License
 

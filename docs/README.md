@@ -77,6 +77,8 @@ only superseded by a new ADR that names the one it replaces.
 | Whether a capability is web, desktop, or hybrid | [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) |
 | Why a non-obvious decision was made | the matching `*_ADR.md` |
 | What we test and how | [`TEST_PLAN.md`](./TEST_PLAN.md) |
+| Public repository publication checklist | [`PUBLIC_RELEASE_CHECKLIST.md`](./PUBLIC_RELEASE_CHECKLIST.md) |
+| Public release security sign-off | [`RELEASE_SECURITY.md`](./RELEASE_SECURITY.md) |
 | Launch / marketing collateral | [`press-kit/`](./press-kit), [`seo-pages/`](./seo-pages) |
 | Student / classroom lesson drafts | [`lessons/`](./lessons) |
 
@@ -87,8 +89,9 @@ only superseded by a new ADR that names the one it replaces.
   It is a product surface, not an engineering doc.
 - End-user documentation — installation, licensing, feature tours —
   lives on linguacode.dev, not here.
-- README / LICENSE / RELEASE live at the repo root because they are
-  npm / GitHub surfaces.
+- README / LICENSE / RELEASE / SECURITY / PRIVACY / CONTRIBUTING /
+  THIRD_PARTY_NOTICES live at the repo root because they are npm /
+  GitHub / public-release surfaces.
 
 ## Conventions
 

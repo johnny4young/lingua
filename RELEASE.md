@@ -48,6 +48,7 @@ This repository uses a draft-first manual release process, with the release tag 
 ## Validation checklist
 
 - Release-blocking production dependency audit passed (`npm audit --omit=dev --audit-level=high` in the `security-audit` job); the same job also prints full dependency audit output as advisory signal for build-tool drift
+- Release security checklist completed (`docs/RELEASE_SECURITY.md`)
 - macOS build completed
 - Windows build completed
 - Linux build completed

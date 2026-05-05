@@ -2216,7 +2216,7 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
   - Shepherd styling is now bridged into Lingua's surface tokens so the modal, spotlight, and controls match the app shell instead of shipping the stock library look
 - Licensing note:
   - Shepherd.js is free for open-source, personal, and non-commercial projects
-  - **Lingua is closed-source commercial software** — a paid license is required
+  - **Lingua is source-available commercial software, not open source** — a paid Shepherd license or replacement is required before public commercial distribution
   - Business license: $50 lifetime (up to 5 projects, 1 month support)
   - Enterprise license: $300 lifetime (unlimited projects, 6 months support)
   - Purchase at https://www.shepherdjs.dev/pricing before any public release
@@ -2487,23 +2487,30 @@ The product has been renamed from "RunLang" to "Lingua" across the entire codeba
 
 ### Source code status
 
-Lingua is **closed-source commercial software**. The repository is private and the code is not publicly available. This affects:
-- Third-party library licensing: any dependency with copyleft or AGPL terms must be replaced or commercially licensed
-- Shepherd.js requires a commercial license ($50 Business or $300 Enterprise) — see RL-054
+Lingua is **source-available commercial software**. The repository may be public
+for evaluation, security review, and contributor collaboration, but the license
+is not an open-source license and production, paid, hosted, redistributed, or
+at-scale use requires a commercial license. This affects:
+- Third-party library licensing: any dependency with copyleft or AGPL terms must be replaced, excluded from public builds, or commercially licensed
+- Shepherd.js requires a commercial license ($50 Business or $300 Enterprise) or replacement before public commercial distribution — see RL-054 and RL-085
 - Intro.js (AGPL) is explicitly excluded from consideration
-- All MIT / Apache 2.0 / BSD dependencies are safe for closed-source use
+- MIT / Apache 2.0 / BSD / ISC dependencies remain compatible with the current source-available commercial posture, subject to notices and SBOM coverage
 
 ### Domain strategy
 
 | Domain | Priority | Rationale |
 |--------|----------|-----------|
-| `linguacode.dev` | Primary | Perfect fit: "Lingua" + "run" = execute languages. Cheap (~$3-5/year). `.run` TLD is underused |
+| `linguacode.dev` | Primary | Clear developer-product name that leaves room for app, docs, license, update, and marketing subdomains |
 | `lingua.dev` | Secondary | Premium developer TLD. Verify availability — may be registered |
 | `getlingua.dev` | Fallback | Classic SaaS landing pattern if `lingua.dev` is unavailable |
 | `lingua.app` | Alternative | Good for desktop app marketing. Google-managed TLD |
-| `linguacode.dev` | Legacy alias | Referenced in early strategy drafts (Phase 1 of the go-to-market plan). If registered, 301-redirects to the primary. Do not ship the download page under this host before a redirect rule is in place |
+| `lingua.run` | Legacy alias | Referenced in early strategy drafts. If registered, 301-redirect it to the primary. New launch copy should not point here. |
 
-Note on reconciliation: The go-to-market plan in Section 14 uses `linguacode.dev` as the single source of truth for the download/landing page so all Phase 1 / 2 / 3 assets (HN post, Product Hunt, ads, SEO landing pages) point to one canonical origin. `linguacode.dev` is accepted as a legacy alias only; new copy must link to `linguacode.dev`.
+Note on reconciliation: The go-to-market plan in Section 14 uses
+`linguacode.dev` as the single source of truth for the download/landing page so
+all Phase 1 / 2 / 3 assets (HN post, Product Hunt, ads, SEO landing pages)
+point to one canonical origin. Earlier `lingua.run` references are legacy and
+must be replaced or redirected.
 
 ### Pricing model (research-backed recommendation)
 
@@ -3461,10 +3468,10 @@ What's next:
   - Removed the MIT license declaration from `package.json` in favor of `SEE LICENSE IN LICENSE`
   - Rewrote the README header to ship a License badge pointing at the new file, a `## Pricing and licensing` section naming the four tiers, and a `## Who it is for` audience paragraph
   - Guard test in `tests/docs/license.test.ts` fails CI if anyone removes the LICENSE, drops the README posture section, or reintroduces an MIT badge
-- Current gap:
-  - The `README.md` carries an MIT badge that links to a `LICENSE` file that does not exist in the repo.
-  - The plan declares Lingua closed-source commercial. The public-facing README must match the real distribution posture before the repo is published.
-  - The README does not explicitly state the pricing model or the relationship between the GitHub repo and the paid product.
+- Historical gap:
+  - Earlier drafts carried MIT/open-source language and described the repo as private/closed-source.
+  - The public-facing README, LICENSE, and launch docs must keep matching the real source-available commercial distribution posture before the repo is published.
+  - Pricing and repo/product relationship claims must stay aligned with the live checkout and download surface.
 - Scope:
   - Decide and document one of the two consistent postures:
     1. **Source-available / commercial (recommended for Phase 1):** ship a proprietary `LICENSE` file (e.g. "Lingua Commercial License — Personal & Evaluation Use"), remove the MIT badge, and add a short "Pricing and licensing" section near the top of the README.
@@ -3496,7 +3503,7 @@ What's next:
     - FAQ covering: refund policy, offline behavior, education program, license transfer, system requirements.
   - Page is English-only at first; localization is deferred to RL-032 / RL-018.
   - Deploy pipeline: GitHub Pages on a `lingua-site` directory or a separate repo; TLS via Cloudflare.
-  - Redirect `linguacode.dev` to `linguacode.dev` if the legacy domain is registered.
+  - Redirect any registered legacy domain to `linguacode.dev`.
 - Acceptance criteria:
   - Visiting `linguacode.dev` shows the download page with a working checkout link.
   - The latest release version is pulled from GitHub releases at build time, not hardcoded.
@@ -5094,7 +5101,7 @@ Risk acknowledged for Slice 3:
   - Align license-tier claims with the live checkout/download surface.
 - Acceptance criteria:
   - No launch-facing doc claims a repo/public/source posture that is false for the release.
-  - No checked-in documentation link points to `/Users/...` or another local machine path.
+  - No checked-in documentation link points to a machine-local absolute path.
   - Public builds either carry the required Shepherd license or exclude the guided-tour dependency/feature.
   - Privacy and security docs describe what data is collected, what is never collected, how telemetry/crash consent works, and how license device tracking works.
   - Pricing/license claims in README, PLAN, ROADMAP, LICENSE, and marketing docs agree with the live checkout flow.

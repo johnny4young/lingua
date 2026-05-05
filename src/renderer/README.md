@@ -7,32 +7,32 @@ This is a **reference + explanation** page for Lingua's renderer. Use it as the 
 - where to change shared styling
 - what to update together when renderer behavior changes
 
-For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE.md](/Users/johnny4young/Personal/github/lingua/docs/ARCHITECTURE.md).
+For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE.md](../../docs/ARCHITECTURE.md).
 
 ## Entry points
 
 | File                                                                           | Responsibility                                                   |
 | ------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| [main.tsx](/Users/johnny4young/Personal/github/lingua/src/renderer/main.tsx)   | React bootstrap, i18n/theme startup, app mount                   |
-| [App.tsx](/Users/johnny4young/Personal/github/lingua/src/renderer/App.tsx)     | Top-level shell orchestration and modal wiring                   |
-| [index.css](/Users/johnny4young/Personal/github/lingua/src/renderer/index.css) | Global design tokens, shell primitives, shared component classes |
-| [monaco.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/monaco.ts) | Monaco language registration, workers, completion bootstrap      |
+| [main.tsx](main.tsx)   | React bootstrap, i18n/theme startup, app mount                   |
+| [App.tsx](App.tsx)     | Top-level shell orchestration and modal wiring                   |
+| [index.css](index.css) | Global design tokens, shell primitives, shared component classes |
+| [monaco.ts](monaco.ts) | Monaco language registration, workers, completion bootstrap      |
 
 ## Folder map
 
 | Path                                                                                | What belongs there                                                        |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [`components/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components) | User-visible UI grouped by feature surface                                |
-| [`stores/`](/Users/johnny4young/Personal/github/lingua/src/renderer/stores)         | Zustand stores and pure helpers that own renderer state                   |
-| [`hooks/`](/Users/johnny4young/Personal/github/lingua/src/renderer/hooks)           | React hooks that coordinate stores, runners, shortcuts, and shell effects |
-| [`runners/`](/Users/johnny4young/Personal/github/lingua/src/renderer/runners)       | Language-specific execution adapters and result shaping                   |
-| [`validation/`](/Users/johnny4young/Personal/github/lingua/src/renderer/validation) | Validate-only document checks for non-runnable development files          |
-| [`workers/`](/Users/johnny4young/Personal/github/lingua/src/renderer/workers)       | Web Worker entry points for JS/TS/Python/Go browser execution             |
-| [`utils/`](/Users/johnny4young/Personal/github/lingua/src/renderer/utils)           | Framework-agnostic helpers and renderer-specific utilities                |
-| [`data/`](/Users/johnny4young/Personal/github/lingua/src/renderer/data)             | Static templates and catalog data                                         |
-| [`i18n/`](/Users/johnny4young/Personal/github/lingua/src/renderer/i18n)             | Translation bootstrap and locale files                                    |
-| [`themes/`](/Users/johnny4young/Personal/github/lingua/src/renderer/themes)         | Monaco/editor theme definitions                                           |
-| [`plugins/`](/Users/johnny4young/Personal/github/lingua/src/renderer/plugins)       | Renderer-side plugin catalog, diagnostics, and safe runtime hooks         |
+| [`components/`](components) | User-visible UI grouped by feature surface                                |
+| [`stores/`](stores)         | Zustand stores and pure helpers that own renderer state                   |
+| [`hooks/`](hooks)           | React hooks that coordinate stores, runners, shortcuts, and shell effects |
+| [`runners/`](runners)       | Language-specific execution adapters and result shaping                   |
+| [`validation/`](validation) | Validate-only document checks for non-runnable development files          |
+| [`workers/`](workers)       | Web Worker entry points for JS/TS/Python/Go browser execution             |
+| [`utils/`](utils)           | Framework-agnostic helpers and renderer-specific utilities                |
+| [`data/`](data)             | Static templates and catalog data                                         |
+| [`i18n/`](i18n)             | Translation bootstrap and locale files                                    |
+| [`themes/`](themes)         | Monaco/editor theme definitions                                           |
+| [`plugins/`](plugins)       | Renderer-side plugin catalog, diagnostics, and safe runtime hooks         |
 
 ## Component surfaces
 
@@ -40,16 +40,16 @@ The renderer is intentionally split by feature instead of by component type.
 
 | Feature folder                                                                                                    | Main files                                            | Notes                                                          |
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
-| [`components/Layout/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/Layout)                 | `AppLayout.tsx`                                       | Owns shell composition, panel layout, sidebar/drawer behavior  |
-| [`components/Editor/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `ResultPanel.tsx` | Owns Monaco, tabs, inline result surface, completion providers |
-| [`components/FileTree/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/FileTree)             | `FileTree.tsx`, `FileTreeNode.tsx`                    | Owns project explorer rendering and inline tree interactions   |
-| [`components/Toolbar/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/Toolbar)               | `Toolbar.tsx`                                         | Owns primary shell actions and status affordances              |
-| [`components/Settings/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
-| [`components/CommandPalette/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/CommandPalette) | `CommandPalette.tsx`, `commandPaletteModel.ts`        | UI plus command catalog/model logic                            |
-| [`components/Console/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/Console)               | `ConsolePanel.tsx`                                    | Runtime logs, filters, output actions                          |
-| [`components/QuickOpen/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/QuickOpen)           | `QuickOpen.tsx`                                       | Project file search and open flows                             |
-| [`components/Snippets/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/Snippets)             | `SnippetsModal.tsx`                                   | Snippet browser and insert flow                                |
-| [`components/ui/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/ui)                         | `chrome.tsx`, `keyboard.ts`                           | Shared presentational primitives only                          |
+| [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`                                       | Owns shell composition, panel layout, sidebar/drawer behavior  |
+| [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `ResultPanel.tsx` | Owns Monaco, tabs, inline result surface, completion providers |
+| [`components/FileTree/`](components/FileTree)             | `FileTree.tsx`, `FileTreeNode.tsx`                    | Owns project explorer rendering and inline tree interactions   |
+| [`components/Toolbar/`](components/Toolbar)               | `Toolbar.tsx`                                         | Owns primary shell actions and status affordances              |
+| [`components/Settings/`](components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
+| [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `commandPaletteModel.ts`        | UI plus command catalog/model logic                            |
+| [`components/Console/`](components/Console)               | `ConsolePanel.tsx`                                    | Runtime logs, filters, output actions                          |
+| [`components/QuickOpen/`](components/QuickOpen)           | `QuickOpen.tsx`                                       | Project file search and open flows                             |
+| [`components/Snippets/`](components/Snippets)             | `SnippetsModal.tsx`                                   | Snippet browser and insert flow                                |
+| [`components/ui/`](components/ui)                         | `chrome.tsx`, `keyboard.ts`                           | Shared presentational primitives only                          |
 
 ## State ownership
 
@@ -57,14 +57,14 @@ Use the closest store that already owns the product concept instead of adding cr
 
 | Store                                                                                               | Owns                                                              |
 | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [editorStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/editorStore.ts)     | tabs, active editor session, file/language metadata               |
-| [resultStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/resultStore.ts)     | inline results, validation markers, result timing, reveal behavior |
-| [consoleStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/consoleStore.ts)   | console entries and runtime output filters                        |
-| [projectStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
-| [settingsStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/settingsStore.ts) | persisted renderer preferences                                    |
-| [uiStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/uiStore.ts)             | transient shell visibility and modal state                        |
-| [updateStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/updateStore.ts)     | updater status, messages, last-check timing                       |
-| [pluginStore.ts](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/pluginStore.ts)     | local plugin discovery and diagnostics surface                    |
+| [editorStore.ts](stores/editorStore.ts)     | tabs, active editor session, file/language metadata               |
+| [resultStore.ts](stores/resultStore.ts)     | inline results, validation markers, result timing, reveal behavior |
+| [consoleStore.ts](stores/consoleStore.ts)   | console entries and runtime output filters                        |
+| [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
+| [settingsStore.ts](stores/settingsStore.ts) | persisted renderer preferences                                    |
+| [uiStore.ts](stores/uiStore.ts)             | transient shell visibility and modal state                        |
+| [updateStore.ts](stores/updateStore.ts)     | updater status, messages, last-check timing                       |
+| [pluginStore.ts](stores/pluginStore.ts)     | local plugin discovery and diagnostics surface                    |
 
 ## Naming conventions
 
@@ -124,9 +124,9 @@ Extract a helper when the logic:
 
 Examples already in the codebase:
 
-- [`projectTree.ts`](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/projectTree.ts) for file-tree shaping
-- [`executionPresentation.ts`](/Users/johnny4young/Personal/github/lingua/src/renderer/utils/executionPresentation.ts) for output formatting
-- [`runnerOutput.ts`](/Users/johnny4young/Personal/github/lingua/src/renderer/hooks/runnerOutput.ts) for console/loading messages
+- [`projectTree.ts`](stores/projectTree.ts) for file-tree shaping
+- [`executionPresentation.ts`](utils/executionPresentation.ts) for output formatting
+- [`runnerOutput.ts`](hooks/runnerOutput.ts) for console/loading messages
 
 ## Styling rules
 
@@ -134,7 +134,7 @@ Examples already in the codebase:
 
 | Need                                              | Preferred location                                                             |
 | ------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Global tokens, shell classes, repeated primitives | [index.css](/Users/johnny4young/Personal/github/lingua/src/renderer/index.css) |
+| Global tokens, shell classes, repeated primitives | [index.css](index.css) |
 | One-off component layout/detail styling           | inline Tailwind classes in the owning component                                |
 | Shared visual primitives                          | `components/ui` plus a matching class in `index.css` if reused widely          |
 
@@ -170,28 +170,28 @@ If you add a new global class, place it in the closest subsection instead of app
 
 Touch these areas together:
 
-- [`hooks/useRunner.ts`](/Users/johnny4young/Personal/github/lingua/src/renderer/hooks/useRunner.ts)
-- [`stores/resultStore.ts`](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/resultStore.ts)
-- the relevant file in [`runners/`](/Users/johnny4young/Personal/github/lingua/src/renderer/runners)
-- [`utils/executionPresentation.ts`](/Users/johnny4young/Personal/github/lingua/src/renderer/utils/executionPresentation.ts) when output formatting changes
+- [`hooks/useRunner.ts`](hooks/useRunner.ts)
+- [`stores/resultStore.ts`](stores/resultStore.ts)
+- the relevant file in [`runners/`](runners)
+- [`utils/executionPresentation.ts`](utils/executionPresentation.ts) when output formatting changes
 
 ### Change editor behavior
 
 Touch these areas together:
 
-- [`components/Editor/CodeEditor.tsx`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/Editor/CodeEditor.tsx)
-- [`components/Editor/editorOptions.ts`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/Editor/editorOptions.ts)
-- [`monaco.ts`](/Users/johnny4young/Personal/github/lingua/src/renderer/monaco.ts)
-- completion providers in [`components/Editor/completionProviders/`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/Editor/completionProviders)
+- [`components/Editor/CodeEditor.tsx`](components/Editor/CodeEditor.tsx)
+- [`components/Editor/editorOptions.ts`](components/Editor/editorOptions.ts)
+- [`monaco.ts`](monaco.ts)
+- completion providers in [`components/Editor/completionProviders/`](components/Editor/completionProviders)
 
 ### Change shell or modal behavior
 
 Touch these areas together:
 
-- [`App.tsx`](/Users/johnny4young/Personal/github/lingua/src/renderer/App.tsx) for top-level overlay ownership
-- [`components/Layout/AppLayout.tsx`](/Users/johnny4young/Personal/github/lingua/src/renderer/components/Layout/AppLayout.tsx) for shell layout and panel structure
-- [`stores/uiStore.ts`](/Users/johnny4young/Personal/github/lingua/src/renderer/stores/uiStore.ts) for transient shell state
-- [`index.css`](/Users/johnny4young/Personal/github/lingua/src/renderer/index.css) if the change introduces a shared shell primitive
+- [`App.tsx`](App.tsx) for top-level overlay ownership
+- [`components/Layout/AppLayout.tsx`](components/Layout/AppLayout.tsx) for shell layout and panel structure
+- [`stores/uiStore.ts`](stores/uiStore.ts) for transient shell state
+- [`index.css`](index.css) if the change introduces a shared shell primitive
 
 ## Testing map
 
@@ -223,5 +223,5 @@ Keep tests close to the behavior they validate, even though the repository uses 
 
 ## Related documents
 
-- [README.md](/Users/johnny4young/Personal/github/lingua/README.md) for setup, build, validation, and release operations
-- [ARCHITECTURE.md](/Users/johnny4young/Personal/github/lingua/docs/ARCHITECTURE.md) for project lifecycle, file-system IPC, and watch-state flow
+- [README.md](../../README.md) for setup, build, validation, and release operations
+- [ARCHITECTURE.md](../../docs/ARCHITECTURE.md) for project lifecycle, file-system IPC, and watch-state flow

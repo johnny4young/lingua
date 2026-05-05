@@ -53,6 +53,8 @@ Thumbs.db
 .eslintcache
 .cache
 
-# Claude Code per-developer worktrees
-.claude/worktrees/
+# Claude Code per-developer state, including local command skills such as:
+# .claude/skills/lingua-review/
+# .claude/skills/lingua-ship/
+.claude/
 prod-keypair.json
