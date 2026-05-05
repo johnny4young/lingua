@@ -34,6 +34,7 @@ Mirrors the authoritative `Status` column in
 | Iter 10 | [`RL-080`](./ROADMAP.md) | Shipped (2026-05-04) | Release-grade desktop CI + update gates — Slice 1 (update-feed tests + ci.yml worker wiring) + Slice 2 (release-blocking audit + checksum re-verify + RELEASE.md sync) + Slice 3 (offline packaged macOS smoke gate). All ACs closed. See §12. |
 | Iter 11 | [`RL-085`](./ROADMAP.md) | Shipped (2026-05-05) | SBOM + third-party license compliance — release SBOM and transitive license report generation, strict runtime license-policy gate, CI/release workflow wiring, and release notice sync. See §13. |
 | Iter 12 | [`RL-092`](./ROADMAP.md) | Shipped (2026-05-05) | Release security review checklist — `docs/RELEASE_SECURITY.md` plus a guard test now pin the security sign-off surface. See §14. |
+| Iter 13 | [`RL-063`](./ROADMAP.md) | Shipped (2026-05-05) | Marketing site live at https://linguacode.dev from the separate `lingua-marketing` repo (Astro 6 + Tailwind v4 + Cloudflare Pages, EN+ES). Cascades closed `RL-064` (press-kit ZIP at `/press`), `RL-066` (six SEO landing pages live; ranking measurement post-launch), and `RL-081` (live checkout/download copy aligned with desktop entitlement). See §15 + `MARKETING_SITE_ADR.md`. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -46,12 +47,14 @@ Value-per-day priority. The full reasoning is in
 1. **Security launch hardening** — closed. `RL-077`, `RL-078`,
    `RL-079`, and `RL-083` are all `Done` (RL-083 Slice 2 closed
    2026-05-04 — see §11). Move on.
-2. **Launch blockers** — pull `RL-063` (linguacode.dev download
-   page) next. `RL-061` is shipped; `RL-059` remains `Partial` only as
-   the historical verifier + bridge parent.
-3. **Release, legal, and compliance readiness** — `RL-080`, `RL-085`,
-   and `RL-092` are `Done`. Continue the remaining `RL-081`
-   live-surface alignment after `RL-063`.
+2. **Launch blockers** — closed. `RL-063` shipped 2026-05-05 (site live
+   at https://linguacode.dev from the separate `lingua-marketing` repo;
+   see `docs/MARKETING_SITE_ADR.md`). `RL-061` is shipped; `RL-059`
+   remains `Partial` only as the historical verifier + bridge parent.
+3. **Release, legal, and compliance readiness** — closed. `RL-080`,
+   `RL-085`, `RL-092`, and `RL-081` are all `Done` (RL-081 closed
+   2026-05-05 once the live `linguacode.dev` surface aligned with the
+   desktop entitlement copy).
 4. **Runtime/platform surface hardening** — `RL-084`, `RL-087`, and
    `RL-091` once the core launch blockers are under control.
 5. **Product quality and supportability** — `RL-086`, `RL-088`,
@@ -65,8 +68,9 @@ Value-per-day priority. The full reasoning is in
 9. **Notebook + rich output** — `RL-043` + `RL-044` as a paired slice.
 10. **Personalization + lessons** — `RL-039` in-app lesson browser,
     then `RL-041` static export.
-11. **Growth / SEO / marketing / docs IA** — `RL-032`, `RL-066`, and
-    `RL-082` after launch blockers ship.
+11. **Growth / SEO / marketing / docs IA** — `RL-032` and `RL-082`
+    continue as polish after the core launch ships (`RL-066` closed
+    2026-05-05 with the marketing-site cascade).
 
 Anything Gated (none currently) stops the flow and raises a question to
 the user — do not speculate a workaround.
@@ -240,7 +244,13 @@ Shipped on 2026-05-05 — see [`RL-092`](./PLAN.md#rl-092-release-security-revie
 
 ---
 
-## 15. Cross-iteration concerns
+## 15. Iter 13 / RL-063 — Marketing site closure (cascades RL-064, RL-066, RL-081)
+
+Shipped on 2026-05-05 — see [`RL-063`](./PLAN.md#rl-063-download-landing-page-at-linguacodedev) and [`MARKETING_SITE_ADR.md`](./MARKETING_SITE_ADR.md). The marketing surface lives in a separate repo (`lingua-marketing`) on Astro 6 + Tailwind v4 + Cloudflare Pages and auto-deploys from `main` to https://linguacode.dev. The closure cascades: `RL-064` Done (press-kit ZIP shipped at `/press`), `RL-066` Done (six SEO landing pages live in EN+ES with sitemap + JSON-LD; ranking measurement deferred to post-launch tracking), `RL-081` Done (live checkout/download/pricing surface aligned with desktop entitlement copy).
+
+---
+
+## 16. Cross-iteration concerns
 
 - **i18n parity** must stay green after each iter — both locales bump
   in the same commit that introduces a new key.
@@ -254,7 +264,7 @@ Shipped on 2026-05-05 — see [`RL-092`](./PLAN.md#rl-092-release-security-revie
   `tests/e2e/overlays.spec.ts` (or a sibling) with the smallest
   assertion that would fail on regression.
 
-## 16. Verification matrix (per iter, before the closing commit)
+## 17. Verification matrix (per iter, before the closing commit)
 
 | Check | Command | Must pass |
 |-------|---------|-----------|
@@ -267,7 +277,7 @@ Shipped on 2026-05-05 — see [`RL-092`](./PLAN.md#rl-092-release-security-revie
 | Desktop smoke | `npm run smoke:desktop` | when the iter touches desktop-only IPC |
 | Review skills | `typescript-react-reviewer` + `node` on the diff | zero HIGH blockers |
 
-## 17. Closure protocol
+## 18. Closure protocol
 
 When an iter closes, do three things in the final commit:
 

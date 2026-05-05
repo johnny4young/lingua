@@ -3504,6 +3504,42 @@ What's next:
 - Dependencies:
   - RL-061 (checkout link)
 
+#### Status Update — 2026-05-05 (closes RL-063)
+
+Site live at https://linguacode.dev. The marketing surface lives in a
+separate repo, `johnny4young/lingua-marketing`, on Astro 6 + Tailwind
+v4 + Cloudflare Pages, auto-deployed from the `main` branch (no commit
+hash pinned here on purpose — CF tracks branch). See
+[`MARKETING_SITE_ADR.md`](./MARKETING_SITE_ADR.md) for the rationale and
+the consequences of the split.
+
+Acceptance criteria coverage:
+
+- "Visiting linguacode.dev shows the download page with a working
+  checkout link" — closed. Pricing table reads `POLAR_CHECKOUT_*` env
+  vars at build time and renders enabled buttons when configured (or a
+  disabled "checkout coming soon" tooltip when missing — never a broken
+  link).
+- "Latest release version pulled from GitHub releases at build time,
+  not hardcoded" — closed. `src/lib/github.ts` in the marketing repo
+  fetches the GitHub Releases API at build time and fails the build
+  loudly on persistent network failure rather than shipping a stale
+  version.
+- "Manual redeploy documented in RELEASE.md" — closed. RELEASE.md and
+  the marketing repo's README both document the redeploy path (push
+  to `main`; CF Pages auto-rebuilds; for content-only sweeps the
+  `sync:commit` script in `lingua-marketing` vendors press-kit + SEO
+  scaffolds + roadmap/changelog data from this repo and pushes).
+
+The closure cascades:
+
+- `RL-064` (press-kit ZIP at `/press`) → Done.
+- `RL-066` (SEO landing pages) → Done with the explicit note that
+  "ranking" is a post-launch metric, not engineering-blocking.
+- `RL-081` (live checkout/download copy alignment) → Done.
+
+ROADMAP §6 archive count 48 → 52.
+
 ### RL-064 Launch asset kit (Phase 2)
 
 - Priority: `P1` for Phase 2
@@ -3528,6 +3564,15 @@ What's next:
   - The press kit ZIP can be downloaded from `linguacode.dev/press`.
 - Dependencies:
   - RL-062, RL-063
+
+#### Status Update — 2026-05-05 (closes RL-064)
+
+Both ACs cumplidos:
+
+- Phase 2 copy is finalized (commit `8887e22` — `tests/docs/pressKit.test.ts` already pins en + es parity, the no-MIT-claim rule, the four-tier pricing matrix, and the channel section coverage).
+- The press kit ZIP is downloadable from https://linguacode.dev/press/lingua-press-kit.zip. The marketing repo's `scripts/build-press-kit-zip.mjs` runs as a `prebuild` step and bundles the vendored markdown copies (boilerplate, founder-bio, launch-copy, pricing-one-pager, README) into the ZIP that ships with the static deploy. The 60-second demo video and production screenshots remain optional polish items tracked outside RL-064.
+
+Closure follows from RL-063 ship.
 
 ### RL-065 Privacy-respecting launch telemetry
 
@@ -3592,6 +3637,24 @@ What's next:
   - Pages lint clean against HTML / schema.org validators.
 - Dependencies:
   - RL-063
+
+#### Status Update — 2026-05-05 (closes RL-066)
+
+Engineering ACs cumplidos:
+
+- "All pages link back to the canonical download on linguacode.dev" — closed. The six SEO pages live in `lingua-marketing/src/content/seo/{en,es}/*.md` and render via the `[seo].astro` route with the canonical CTA emitted by the layout.
+- "Pages lint clean against HTML / schema.org validators" — closed. The marketing repo's `scripts/validate-jsonld.mjs` postbuild guard parses the JSON-LD on every build; `@astrojs/sitemap` emits `sitemap-index.xml` automatically.
+
+The remaining AC ("each target page ranks at least for its exact head query within a reasonable crawl window after launch") is a **post-launch metric**, not engineering work. Tracking ranking depends on Search Console submission + a 2-4 week crawl window, which lands outside the scope of any engineering slice and is explicitly not blocking. RL-066 closes here. If post-launch the ranking does not materialise, the response is content tuning + Search Console actions tracked outside the RL backlog rather than reopening the ticket.
+
+Closure follows from RL-063 ship — the six SEO pages went live at:
+
+- https://linguacode.dev/go-playground-desktop
+- https://linguacode.dev/rust-code-runner-desktop
+- https://linguacode.dev/python-repl-desktop
+- https://linguacode.dev/typescript-playground-offline
+- https://linguacode.dev/multi-language-code-runner
+- https://linguacode.dev/lua-offline-playground
 
 ### RL-067 Crash reporting
 
@@ -5107,6 +5170,17 @@ Risk acknowledged for Slice 3:
 - RELEASE now points to root `CHANGELOG.md`, names Cloudflare deploy secrets, and requires `npm run check:licenses`, `npm run compliance:release`, `lingua-sbom.cyclonedx.json`, and `THIRD_PARTY_LICENSE_REPORT.md` in the human release gate.
 - `docs/README.md`, ROADMAP, SPRINT-PLAN, and this PLAN entry now align on ROADMAP as the planning source of truth and on RL-092 as shipped.
 - New/updated guard tests prevent regressions to `docs/CHANGELOG.md`, legacy GitHub Pages deploy wording, missing release compliance artifacts, and missing release-security checklist sections.
+
+#### Status Update — 2026-05-05 (closes RL-081)
+
+Last AC remaining was "live checkout/download copy alignment after RL-063". With the marketing site live at https://linguacode.dev (see [`MARKETING_SITE_ADR.md`](./MARKETING_SITE_ADR.md)), the public surfaces now agree:
+
+- The pricing tiers shown on linguacode.dev/pricing match `docs/press-kit/pricing-one-pager.md` (the source of truth) and the desktop entitlement copy in `src/renderer/store/entitlement.*`.
+- The download links on linguacode.dev/releases pull the latest GitHub release at build time so the page never advertises a version that doesn't exist.
+- The Polar checkout buttons on linguacode.dev/pricing point to the configured Polar URLs (env-driven; disabled fallback when missing).
+- The "Open in app" / "Go to app" links on linguacode.dev hand off to https://app.linguacode.dev (the deployed web build) and to the `lingua://` deep links that the desktop app already understands.
+
+All five ACs (source-available posture; absolute-path link policy; SECURITY/PRIVACY/legal docs; tracking docs; live pricing/license alignment) cumplidos. RL-081 closes here.
 
 ### RL-082 README and docs information-architecture cleanup
 

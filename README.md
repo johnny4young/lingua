@@ -6,9 +6,14 @@
 
 **Multi-language desktop code runner — JavaScript, TypeScript, Python, Go, and Rust in one offline-first Monaco-powered app.** Lingua combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds. It is the multi-language answer to RunJS: the same "open, write, run" ergonomics, but with Go, Rust, and Python as first-class citizens instead of JavaScript-only.
 
+**Marketing site:** [linguacode.dev](https://linguacode.dev) — downloads, pricing, press kit, language-specific landing pages.
+**Web app:** [app.linguacode.dev](https://app.linguacode.dev) — the in-browser build.
+
+The marketing site lives in a separate repo (`johnny4young/lingua-marketing`); see [`docs/MARKETING_SITE_ADR.md`](./docs/MARKETING_SITE_ADR.md) for the rationale.
+
 ## Pricing and licensing
 
-Lingua is a commercial product distributed under a source-available license — see [`LICENSE`](./LICENSE) for the full text. The repository is public so the community can read the source, audit security, and submit contributions; production, paid, hosted, redistributed, educational-at-scale, or other commercial use requires a separate commercial license from the Licensor. The public checkout/download surface is planned for `linguacode.dev`; until that ships, this repository grants only the evaluation and personal-use rights described in `LICENSE`.
+Lingua is a commercial product distributed under a source-available license — see [`LICENSE`](./LICENSE) for the full text. The repository is public so the community can read the source, audit security, and submit contributions; production, paid, hosted, redistributed, educational-at-scale, or other commercial use requires a separate commercial license from the Licensor. The public checkout and download surface is live at [`linguacode.dev`](https://linguacode.dev); the rights granted by this repository remain those described in `LICENSE`.
 
 Planned launch tiers:
 
@@ -17,7 +22,7 @@ Planned launch tiers:
 - **Pro** — paid Pro entitlement set without a monthly subscription.
 - **Education** — free renewable access for verified students and educators.
 
-The planned public pricing summary lives in [`docs/press-kit/pricing-one-pager.md`](./docs/press-kit/pricing-one-pager.md). The download page and checkout are planned for [`linguacode.dev`](https://linguacode.dev) once `RL-063` ships.
+The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacode.dev/pricing) (canonical surface) and mirrors [`docs/press-kit/pricing-one-pager.md`](./docs/press-kit/pricing-one-pager.md) for in-repo reference.
 
 ## Who it is for
 

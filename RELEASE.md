@@ -82,3 +82,4 @@ This repository uses a draft-first manual release process, with the release tag 
 - Draft-first publishing
 - macOS artifacts are ZIP-only in the active path
 - The checklist above is the acceptance gate for RL-016. Any change to the gate must update this file and `tests/docs/releaseChecklist.test.ts` in the same commit.
+- Marketing site at [linguacode.dev](https://linguacode.dev) lives in a separate repo (`johnny4young/lingua-marketing`) with an independent deploy cadence; see [`docs/MARKETING_SITE_ADR.md`](./docs/MARKETING_SITE_ADR.md). Releases of this repo do not redeploy the marketing site, and content fixes there do not require a release tag here.

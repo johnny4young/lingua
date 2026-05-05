@@ -62,6 +62,7 @@ only superseded by a new ADR that names the one it replaces.
 | [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) | Environment variables for execution contexts (global / project / tab tiers) | `RL-011` |
 | [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) | Declarative language-pack registry | `RL-038` |
 | [`LICENSING_ADR.md`](./LICENSING_ADR.md) | Vendor (Polar.sh), license-server stack, device-binding, trial, and release/update strategy | `RL-059`, `RL-061` |
+| [`MARKETING_SITE_ADR.md`](./MARKETING_SITE_ADR.md) | Marketing site lives in a separate repo (`lingua-marketing`), Astro 6 + Tailwind v4 + Cloudflare Pages, auto-deployed to https://linguacode.dev from `main` | `RL-063` |
 | [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md) | Vendoring + integrity-locking runtime assets (Pyodide); desktop offline posture; per-surface CSP rules | `RL-083` |
 | [`TAURI_SPIKE_ADR.md`](./TAURI_SPIKE_ADR.md) | Tauri 2 feasibility spike | `RL-035` |
 | [`VIM_MODE_ADR.md`](./VIM_MODE_ADR.md) | Vim mode integration inside the personalization slice | `RL-037` |

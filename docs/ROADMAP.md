@@ -72,7 +72,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
 | [`RL-059`](./PLAN.md#rl-059-license-key-infrastructure) | License-key infrastructure | `Partial` | Ed25519 verifier + Settings section + main-side IPC bridge with device id (Slice 0 shipped 2026-04-25). Remaining: Polar webhook + email delivery (now lives under `RL-061`). |
-| [`RL-063`](./PLAN.md#rl-063-download-landing-page-at-linguacodedev) | Download landing page at linguacode.dev | `Planned` | Static marketing page with OS-aware download + pricing. Re-scoped around the new `lingua-marketing` repo (BACKLOG entry, 2026-04-30) so the dedicated Astro+CF Pages site at `linguacode.dev` covers Home, Features, Pricing, Docs, and the "Go to app" link to `app.linguacode.dev`. |
 
 ### 4b. Editor, runtime and workflow (P1)
 
@@ -117,10 +116,7 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-064`](./PLAN.md#rl-064-launch-asset-kit-phase-2) | Launch asset kit | `Partial` | Screenshots + press-kit drafted. Remaining: 60-second demo video + press templates. |
 | [`RL-065`](./PLAN.md#rl-065-privacy-respecting-launch-telemetry) | Privacy-respecting telemetry | `Partial` | First-run consent + event allowlist + overlay.opened / runner.executed / feature.blocked wired. Remaining: event export pipeline. |
-| [`RL-066`](./PLAN.md#rl-066-seo-landing-pages-for-language-specific-intents) | SEO landing pages | `Partial` | `seo-pages/` drafts landed. Remaining: build step that promotes drafts into linguacode.dev sub-routes. |
-| [`RL-081`](./PLAN.md#rl-081-launchlegalsource-available-documentation-cleanup) | Launch/legal/source-available docs cleanup | `Partial` | Public repo/source-available docs sweep shipped 2026-05-05: README, RELEASE, security/privacy/public docs, release compliance, and Cloudflare web deploy wording now agree. Remaining: live checkout/download copy alignment after `RL-063`. |
 | [`RL-084`](./PLAN.md#rl-084-local-plugin-manifest-hardening) | Local plugin manifest hardening | `Planned` | Enforce manifest schema, runtime allowlist, compatibility validation, diagnostics, and no arbitrary plugin code. |
 
 ### 4g. Personalization and surface polish (P2)
@@ -167,8 +163,8 @@ Value-per-day priority, skipping parked tickets. This is the order an
 agent should follow when §3's tiebreakers don't resolve.
 
 1. **Security launch hardening.** `RL-077`, `RL-078`, `RL-079`, and `RL-083` are all closed (last closure 2026-05-04 — Slice 2 picked cache-first SW + documented "first Python load needs network" limitation as the chosen web strategy). The launch-blocker set is clear.
-2. **Launch blockers.** Pull `RL-063` (linguacode.dev download page) next. `RL-061` shipped fully on 2026-04-30 (now in §6 archive). `RL-059` stays `Partial` only as the historical parent for verifier + bridge work now shipped.
-3. **Release, legal, and compliance readiness.** `RL-080`, `RL-085`, and `RL-092` are now `Done` (RL-092 closed 2026-05-05 with the release-security checklist guard). Continue the remaining `RL-081` live-surface alignment after `RL-063` so checkout/download/pricing claims match the hosted launch path.
+2. **Launch blockers.** Closed. `RL-063` shipped 2026-05-05 — site live at https://linguacode.dev from the separate `lingua-marketing` repo (see `MARKETING_SITE_ADR.md`). `RL-061` shipped 2026-04-30. `RL-059` stays `Partial` only as the historical parent for verifier + bridge work now shipped.
+3. **Release, legal, and compliance readiness.** Closed. `RL-080`, `RL-085`, `RL-092`, and `RL-081` are all `Done` (RL-081 closed 2026-05-05 once the live `linguacode.dev` surface aligned with the desktop entitlement copy). The launch-readiness bucket has no outstanding blockers in this repo.
 4. **Runtime/platform surface hardening.** `RL-084`, `RL-087`, and `RL-091` harden the local plugin model, watcher reliability, and backend operations after the core launch blockers are under control.
 5. **Product quality and supportability.** `RL-086`, `RL-088`, `RL-089`, and `RL-090` add performance budgets, accessibility QA, profile backup/restore, and recovery UX.
 6. **Utilities polish.** `RL-068` / `RL-072` remaining slices — short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
@@ -176,7 +172,7 @@ agent should follow when §3's tiebreakers don't resolve.
 8. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
 9. **Notebook + rich output.** `RL-043` + `RL-044` are a paired slice. Only after the runtime contract from §4 is stable.
 10. **Personalization + lessons.** `RL-039` in-app lesson browser, `RL-041` static export.
-11. **Growth / SEO / marketing / docs IA.** `RL-032`, `RL-066`, and `RL-082` after the launch blockers ship so they aren't obsolete by then.
+11. **Growth / SEO / marketing / docs IA.** `RL-066` closed 2026-05-05 (six SEO sub-pages live in EN+ES on `linguacode.dev`; ranking-window measurement deferred to post-launch tracking, not engineering-blocking). `RL-032` and `RL-082` continue as polish work after the core launch ships.
 
 Never start a row tagged `Gated` until its gate clears. When the top of
 this list is blocked, drop down the list rather than improvise.
@@ -188,15 +184,16 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>48 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>52 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
 `RL-022`, `RL-028`, `RL-030`, `RL-034`, `RL-037`, `RL-038`, `RL-040`,
 `RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`,
-`RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-067`, `RL-068`,
-`RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`, `RL-077`,
-`RL-078`, `RL-079`, `RL-080`, `RL-083`, `RL-085`, `RL-092`.
+`RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-063`, `RL-064`,
+`RL-066`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`, `RL-074`,
+`RL-075`, `RL-076`, `RL-077`, `RL-078`, `RL-079`, `RL-080`, `RL-081`,
+`RL-083`, `RL-085`, `RL-092`.
 
 </details>
 
