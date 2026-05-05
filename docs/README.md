@@ -35,17 +35,19 @@ Items never demote. Closed tickets stay closed.
 
 ## Reading order (new contributors)
 
-1. [`ARCHITECTURE.md`](./ARCHITECTURE.md) — process model (main vs. renderer),
+1. [`DEVELOPMENT.md`](./DEVELOPMENT.md) — contributor workflow (clone, dev/test/smoke/build commands, Pro testing locally, automation/delivery).
+2. [`ARCHITECTURE.md`](./ARCHITECTURE.md) — process model (main vs. renderer),
    IPC filesystem bridge, watch-state, project lifecycle.
-2. [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) — which execution class
+3. [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) — which execution class
    (browser WASM, browser interpreter, WebContainer, desktop native, hybrid)
    owns each capability today. Don't propose WASM-first migrations outside
    the promotion rules listed there.
-3. [`ROADMAP.md`](./ROADMAP.md) — what is in progress right now and what
+4. [`USAGE.md`](./USAGE.md) — end-user product reference (keyboard shortcuts, deep links, plugin format, browser-only limitations, update behavior).
+5. [`ROADMAP.md`](./ROADMAP.md) — what is in progress right now and what
    the next ticket is.
-4. [`PLAN.md`](./PLAN.md) — drill into specific `RL-XXX` sections when
+6. [`PLAN.md`](./PLAN.md) — drill into specific `RL-XXX` sections when
    you need the deep context behind a decision.
-5. [`TEST_PLAN.md`](./TEST_PLAN.md) — test strategy, coverage targets,
+7. [`TEST_PLAN.md`](./TEST_PLAN.md) — test strategy, coverage targets,
    how unit / component / Playwright / desktop smoke tests divide labor.
 
 ## Architecture Decision Records (ADRs)
@@ -72,6 +74,8 @@ only superseded by a new ADR that names the one it replaces.
 
 | If you need… | Go to |
 |---|---|
+| Contributor workflow (dev/test/smoke/build commands, Pro testing locally) | [`DEVELOPMENT.md`](./DEVELOPMENT.md) |
+| Keyboard shortcuts, deep links, plugin manifest format, browser-only limitations | [`USAGE.md`](./USAGE.md) |
 | The list of pending work | [`ROADMAP.md`](./ROADMAP.md) |
 | What a slice actually shipped | the task's `Status` / scope cell in `ROADMAP.md`; use `PLAN.md` only for deep historical context |
 | How two subsystems talk | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
@@ -88,9 +92,12 @@ only superseded by a new ADR that names the one it replaces.
 - `CHANGELOG.md` lives at the repo root because the web + desktop builds
   read it at build time and surface it in the **What's New** overlay.
   It is a product surface, not an engineering doc.
-- End-user documentation — installation, licensing, feature tours —
-  lives on linguacode.dev, not here.
-- README / LICENSE / RELEASE / SECURITY / PRIVACY / CONTRIBUTING /
+- End-user installation, licensing tours, and feature walkthroughs live
+  on linguacode.dev. The terse in-repo end-user reference (shortcuts,
+  deep links, plugin format) lives at [`USAGE.md`](./USAGE.md).
+- README is a concise entry point at the repo root; the deep contributor
+  workflow (dev/test/smoke/build) lives in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
+- LICENSE / RELEASE / SECURITY / PRIVACY / CONTRIBUTING /
   THIRD_PARTY_NOTICES live at the repo root because they are npm /
   GitHub / public-release surfaces.
 

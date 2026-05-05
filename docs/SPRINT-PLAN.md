@@ -35,6 +35,7 @@ Mirrors the authoritative `Status` column in
 | Iter 11 | [`RL-085`](./ROADMAP.md) | Shipped (2026-05-05) | SBOM + third-party license compliance — release SBOM and transitive license report generation, strict runtime license-policy gate, CI/release workflow wiring, and release notice sync. See §13. |
 | Iter 12 | [`RL-092`](./ROADMAP.md) | Shipped (2026-05-05) | Release security review checklist — `docs/RELEASE_SECURITY.md` plus a guard test now pin the security sign-off surface. See §14. |
 | Iter 13 | [`RL-063`](./ROADMAP.md) | Shipped (2026-05-05) | Marketing site live at https://linguacode.dev from the separate `lingua-marketing` repo (Astro 6 + Tailwind v4 + Cloudflare Pages, EN+ES). Cascades closed `RL-064` (press-kit ZIP at `/press`), `RL-066` (six SEO landing pages live; ranking measurement post-launch), and `RL-081` (live checkout/download copy aligned with desktop entitlement). See §15 + `MARKETING_SITE_ADR.md`. |
+| Iter 14 | [`RL-082`](./ROADMAP.md) | Shipped (2026-05-05) | README + docs information-architecture cleanup — README slimmed from 537 → ~130 lines, contributor workflow consolidated into `docs/DEVELOPMENT.md`, end-user reference into `docs/USAGE.md`, docs index updated, `tests/docs/publicDocs.test.ts` absolute-path guard widened beyond the macOS user-home prefix to cover Linux, sandbox, and Windows drive-letter paths. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -68,9 +69,10 @@ Value-per-day priority. The full reasoning is in
 9. **Notebook + rich output** — `RL-043` + `RL-044` as a paired slice.
 10. **Personalization + lessons** — `RL-039` in-app lesson browser,
     then `RL-041` static export.
-11. **Growth / SEO / marketing / docs IA** — `RL-032` and `RL-082`
-    continue as polish after the core launch ships (`RL-066` closed
-    2026-05-05 with the marketing-site cascade).
+11. **Growth / SEO / marketing / docs IA** — `RL-082` closed 2026-05-05
+    (README slim-down + `DEVELOPMENT.md` + `USAGE.md`). `RL-032`
+    continues as the remaining polish ticket after the core launch ships
+    (`RL-066` closed 2026-05-05 with the marketing-site cascade).
 
 Anything Gated (none currently) stops the flow and raises a question to
 the user — do not speculate a workaround.

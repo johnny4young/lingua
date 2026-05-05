@@ -5213,6 +5213,24 @@ All five ACs (source-available posture; absolute-path link policy; SECURITY/PRIV
   - RL-081 remains the broader legal/source-available cleanup track, but no
     longer blocks this shipped dependency/license gate.
 
+### Status Update — 2026-05-05 (closes RL-082)
+
+The README + docs information-architecture cleanup landed today. Status flips `Planned → Done`.
+
+- `README.md` slim-down: 537 → 129 lines (~76% reduction). Kept: pitch, marketing/web/ADR cross-link, pricing summary, who-it-is-for, current capabilities (compressed), runtime model (compressed), requirements, quickstart, "where to read next" link block, license summary, Windows symlinks gotcha. Dropped from README: full editor-diagnostics narrative, theme behavior, full developer-utility list (kept one-liner), full release operator detail (already in `RELEASE.md`), keyboard shortcuts table, deep links, plugin manifest, browser limitations, browser file access, full quality-checks/i18n/UI smoke/desktop dev/Pro testing/desktop smoke/build/automation walkthrough.
+- `docs/DEVELOPMENT.md` (new, ~240 lines): consolidates Quickstart → Configuration env vars → Quality checks → i18n contributor workflow → UI smoke (web) → Desktop dev → Testing Pro → Desktop smoke validation → Shell layout → Build commands → Automation and delivery.
+- `docs/USAGE.md` (new, ~110 lines): consolidates Keyboard shortcuts → Desktop deep links → Update behavior → Local plugins → Browser-only limitations → Browser file access. End-user reference, terse on purpose; the marketing site at `linguacode.dev` owns the deep tutorial surface.
+- `docs/README.md` index: registers `DEVELOPMENT.md` and `USAGE.md` in the "Reading order" list (DEVELOPMENT.md first; USAGE.md after CAPABILITY_MATRIX.md) and the "Where things live" table; the "Out of scope" note now reflects the README-as-entry-point posture.
+- `tests/docs/publicDocs.test.ts`: the machine-local-path regex widened from the macOS user-home prefix only to also catch the Linux user-home prefix, the root home, common Linux third-party app prefixes, the macOS sandbox path, and Windows drive-letter paths. Pre-flight scan confirmed no committed Markdown file in the repo trips the new pattern. Same file gains an RL-082 README spotter test that pins the union of strings other doc guards depend on (the 5 `npm run dev:*` / `smoke:desktop` commands from `scriptCommands.test.ts`, the marketing-site references from `marketingSite.test.ts`, and the Cloudflare Pages + app subdomain deploy posture from this same file's combined-publicDocs assertion).
+- ROADMAP.md: RL-082 row moved out of §4h; §4h is now a closed-section note. Archive count `52 → 53`. §5 sequence #11 updated.
+- SPRINT-PLAN.md: §1 gains an Iter 14 row marked `Shipped (2026-05-05)`; §2 sequence #11 updated.
+
+ACs cumplidos:
+- README is a concise, stable entry point rather than the full operating manual ✓
+- Existing developer workflows remain discoverable through the docs index (`docs/DEVELOPMENT.md`, `docs/USAGE.md`, `docs/ARCHITECTURE.md`, `docs/CAPABILITY_MATRIX.md`) ✓
+- No release/security/licensing guidance is duplicated across files; `RELEASE.md` / `SECURITY.md` / `PRIVACY.md` / `THIRD_PARTY_NOTICES.md` remain the single source of truth ✓
+- Markdown docs pass the strengthened local-absolute-path guard ✓
+
 ---
 
 ## Second-pass product, security, and operations hardening from the 2026-05-02 review

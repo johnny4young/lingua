@@ -129,9 +129,7 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 ### 4h. Documentation and repo hygiene (P2)
 
-| ID | Title | Status | Scope one-liner |
-|----|-------|:------:|-----------------|
-| [`RL-082`](./PLAN.md#rl-082-readme-and-docs-information-architecture-cleanup) | README + docs information architecture cleanup | `Planned` | Split README into concise entry point plus indexed development, release, security, privacy, and licensing docs. |
+_All rows in this section are closed; see §6 archive. RL-082 closed 2026-05-05 (README slimmed to ~130 lines, `DEVELOPMENT.md` + `USAGE.md` introduced)._
 
 ### 4i. Security, resilience, and product quality (P2)
 
@@ -172,7 +170,7 @@ agent should follow when §3's tiebreakers don't resolve.
 8. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
 9. **Notebook + rich output.** `RL-043` + `RL-044` are a paired slice. Only after the runtime contract from §4 is stable.
 10. **Personalization + lessons.** `RL-039` in-app lesson browser, `RL-041` static export.
-11. **Growth / SEO / marketing / docs IA.** `RL-066` closed 2026-05-05 (six SEO sub-pages live in EN+ES on `linguacode.dev`; ranking-window measurement deferred to post-launch tracking, not engineering-blocking). `RL-032` and `RL-082` continue as polish work after the core launch ships.
+11. **Growth / SEO / marketing / docs IA.** `RL-066` closed 2026-05-05 (six SEO sub-pages live in EN+ES on `linguacode.dev`; ranking-window measurement deferred to post-launch tracking, not engineering-blocking). `RL-082` closed 2026-05-05 (README slim-down + `DEVELOPMENT.md` + `USAGE.md`). `RL-032` continues as the remaining polish ticket in this lane after the core launch ships.
 
 Never start a row tagged `Gated` until its gate clears. When the top of
 this list is blocked, drop down the list rather than improvise.
@@ -184,7 +182,7 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>52 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>53 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
@@ -193,7 +191,7 @@ implementation detail lives in `docs/PLAN.md#RL-XXX`.
 `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-063`, `RL-064`,
 `RL-066`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`, `RL-074`,
 `RL-075`, `RL-076`, `RL-077`, `RL-078`, `RL-079`, `RL-080`, `RL-081`,
-`RL-083`, `RL-085`, `RL-092`.
+`RL-082`, `RL-083`, `RL-085`, `RL-092`.
 
 </details>
 
