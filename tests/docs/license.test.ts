@@ -44,26 +44,35 @@ describe('repository license posture (RL-062)', () => {
     expect(readme).toContain('linguacode.dev');
   });
 
-  it('README does not imply the public checkout is already live', () => {
+  it('README declares the post-RL-063 live-checkout posture', () => {
+    // Before RL-063 shipped (2026-05-05) the README said "checkout
+    // planned … once `RL-063` ships". Now the marketing site is live
+    // at linguacode.dev, so the README must say so. The licensing
+    // posture itself ("separate commercial license from the Licensor")
+    // and the rejection of the "purchased via …" pattern still hold.
     const readme = readFileSync(README_PATH, 'utf-8');
     expect(readme).toContain('separate commercial license from the Licensor');
-    expect(readme).toMatch(/checkout.*planned|planned.*checkout/i);
-    expect(readme).toContain('once `RL-063` ships');
+    expect(readme).toMatch(/checkout (and download surface )?is live/i);
+    expect(readme).toContain('linguacode.dev');
     expect(readme).not.toMatch(/commercial license purchased via/i);
   });
 
-  it('README and LICENSE name the public launch tiers', () => {
+  it('README and LICENSE name the public launch tiers (post-2026-05-05 model)', () => {
     const readme = readFileSync(README_PATH, 'utf-8');
     const license = readFileSync(LICENSE_PATH, 'utf-8');
 
-    for (const tier of ['Free', 'Monthly', 'Pro', 'Education']) {
-      expect(readme).toContain(tier);
-      expect(license).toContain(tier);
+    // Canonical tiers as of the linguacode.dev launch on 2026-05-05:
+    // Free, Pro, Pro Lifetime, Team, Education. The legacy "Monthly"
+    // tier was renamed to "Pro" and the one-time tier became "Pro
+    // Lifetime"; the press kit + this test now reflect that.
+    for (const tier of ['Free', 'Pro', 'Pro Lifetime', 'Team', 'Education']) {
+      expect(readme, `README must mention ${tier}`).toContain(tier);
+      expect(license, `LICENSE must mention ${tier}`).toContain(tier);
     }
 
-    expect(readme).not.toContain('Pro Lifetime');
-    expect(readme).not.toContain('Team / Education');
-    expect(license).not.toContain('Pro Lifetime');
+    // The legacy "Monthly" tier name must not survive the rewrite.
+    expect(readme).not.toMatch(/^- \*\*Monthly\*\*/mu);
+    expect(license).not.toMatch(/\bMonthly tier\b/u);
   });
 
   it('package.json no longer claims the MIT license', () => {

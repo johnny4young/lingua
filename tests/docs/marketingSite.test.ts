@@ -89,9 +89,17 @@ describe('RL-063 — marketing site cross-repo provenance', () => {
     }
   });
 
-  it('ROADMAP §6 archive count is 52 (the 48 baseline + the 4 ticket cascade)', () => {
+  it('ROADMAP §6 archive count is at least 52 (the 48 baseline + the 4 ticket cascade)', () => {
+    // The cascade itself bumped 48 → 52. Tickets that close after this
+    // slice — RL-082 (2026-05-05) and onwards — push the count higher.
+    // Assert the count is 52 or more so this test stops being a
+    // ratchet that needs bumping for every unrelated closure, while
+    // still defending against an accidental drop.
     const roadmap = readFileSync(ROADMAP_PATH, 'utf-8');
-    expect(roadmap).toMatch(/<strong>52 `Done` tickets<\/strong>/u);
+    const countMatch = roadmap.match(/<strong>(\d+) `Done` tickets<\/strong>/u);
+    expect(countMatch, 'no archive count pill found in ROADMAP §6').not.toBeNull();
+    const count = countMatch ? Number(countMatch[1]) : 0;
+    expect(count).toBeGreaterThanOrEqual(52);
   });
 
   it('ROADMAP active backlog no longer carries any of the four cascading tickets', () => {
