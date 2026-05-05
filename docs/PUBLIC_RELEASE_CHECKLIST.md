@@ -42,10 +42,11 @@ change commit ids and require force-pushing private branches/tags.
 
 ## Secret Scan Gate
 
-- Run a dedicated history scanner such as `gitleaks` or `trufflehog` over all
-  refs.
-- Review matches manually; dummy test secrets and public keys are acceptable,
-  production private material is not.
+- Run Gitleaks over the full git history:
+  `go run github.com/zricethezav/gitleaks/v8@latest git --no-banner --redact .`.
+- Keep `.gitleaks.toml` scoped to deterministic fixtures only. Dummy test
+  secrets and public keys are acceptable; production private material is not.
+- Review any new match manually before expanding the allowlist.
 - Rotate any production secret that ever appeared in git, even if history is
   rewritten before publication.
 

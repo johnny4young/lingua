@@ -1,0 +1,32 @@
+title = "Lingua Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Trial server tests use a deterministic dummy token fixture."
+condition = "AND"
+regexTarget = "match"
+paths = ['''tests/services/trialServer\.test\.ts''']
+regexes = ['''tok_1\.signature''']
+
+[[allowlists]]
+description = "Polar webhook tests use a documented whsec_ test fixture."
+condition = "AND"
+regexTarget = "match"
+paths = ['''license-server/test/webhooks\.test\.ts''']
+regexes = ['''whsec_dGVzdC1zZWNyZXQ=''']
+
+[[allowlists]]
+description = "cURL converter tests use alice:secret as a local parser fixture."
+condition = "AND"
+regexTarget = "match"
+paths = ['''tests/utils/curlToCode\.test\.ts''']
+regexes = ['''alice:secret''']
+
+[[allowlists]]
+description = "README feature copy says license-key infrastructure; it is not a key."
+condition = "AND"
+regexTarget = "line"
+paths = ['''README\.md''']
+regexes = ['''Commercial license-key infrastructure''']
