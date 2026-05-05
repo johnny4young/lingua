@@ -51,15 +51,29 @@ describe('docs/press-kit (RL-064)', () => {
     }
   });
 
-  it('pricing-one-pager names the four tiers and education access', () => {
+  it('pricing-one-pager names the five tiers + verified prices + in-app education flow (2026-05-05 model)', () => {
     const pricing = readFileSync(resolve(KIT_DIR, 'pricing-one-pager.md'), 'utf-8');
-    for (const tier of ['Free', 'Monthly', 'Pro', 'Education']) {
+    // The five public tiers shipped on linguacode.dev as of 2026-05-05.
+    // Legacy "Monthly" naming is gone — the monthly tier is now named
+    // simply "Pro" and the one-time tier is "Pro Lifetime".
+    for (const tier of ['Free', 'Pro', 'Pro Lifetime', 'Team', 'Education']) {
       expect(pricing).toContain(tier);
     }
-    expect(pricing).toContain('Mensual');
+    // Verified prices live on the site; the press kit must not drift.
+    expect(pricing).toContain('$5');
+    expect(pricing).toContain('$59');
+    expect(pricing).toContain('$3');
+    // Spanish mirror — Education translates to Educativa. Tier names
+    // Pro / Pro Lifetime / Team stay in English by design (they're
+    // product names, not common-noun copy).
     expect(pricing).toContain('Educativa');
-    expect(pricing).not.toContain('Pro Lifetime');
-    expect(pricing).not.toMatch(/\bTeam\b/u);
+    // Education flow is in-app only — no `linguacode.dev/education`
+    // landing page is coming. Reject the legacy phrasing.
+    expect(pricing).not.toMatch(/linguacode\.dev\/education/u);
+    // Legacy "Monthly" / "Mensual" tier names must not survive the
+    // rewrite as table-row tier identifiers.
+    expect(pricing).not.toMatch(/^\|\s*Monthly\s*\|/mu);
+    expect(pricing).not.toMatch(/^\|\s*Mensual\s*\|/mu);
   });
 
   it('does not describe ungated utilities or shortcut/theme customization as Pro-only yet', () => {

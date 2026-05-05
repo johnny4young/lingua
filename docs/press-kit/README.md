@@ -8,8 +8,8 @@ directly from this directory.
 
 - `boilerplate.md` — company + product descriptions at three lengths
   (25, 50, 150 words). Copy paste into articles and outreach.
-- `pricing-one-pager.md` — Free / Monthly / Pro / Education matrix
-  for press and partners.
+- `pricing-one-pager.md` — Free / Pro / Pro Lifetime / Team /
+  Education matrix for press and partners.
 - `founder-bio.md` — short + medium founder bio.
 - `launch-copy.md` — drafts for Show HN, Product Hunt, r/golang,
   r/rust, r/Python.
@@ -25,9 +25,9 @@ directly from this directory.
    anchor to the [PLAN.md](../PLAN.md) RL entries.
 2. **Match the posture in `LICENSE`.** Source-available commercial —
    never claim "open source" or "MIT".
-3. **Pricing matches [PLAN.md](../PLAN.md) Section 13** (Free, Monthly,
-   Pro, Education). If any of these change, update this kit in the
-   same commit.
+3. **Pricing matches [PLAN.md](../PLAN.md) Section 13** (Free, Pro,
+   Pro Lifetime, Team, Education). If any of these change, update
+   this kit in the same commit.
 4. **Spanish mirror**: every customer-facing string file ships `en`
    and `es` variants in the same file, delimited by `## English` /
    `## Español` headers.

@@ -48,9 +48,10 @@ Shared machinery:
 ## Pricing
 
 Free tier runs JavaScript, TypeScript, and Python with a single open
-tab and up to 5 saved snippets. Pro unlocks Go, Rust, and unlimited
-tabs/snippets. One-time purchase or Pro Lifetime available. Education
-access is free.
+tab and up to 5 saved snippets. Pro is a $5/month subscription. Pro
+Lifetime ($59 once) and Team ($3/seat/month) are also available.
+14-day trial without a credit card. Education is free for verified
+students and educators.
 
 ## Download
 
