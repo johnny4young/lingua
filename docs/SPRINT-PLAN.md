@@ -22,7 +22,7 @@ Mirrors the authoritative `Status` column in
 
 | Iter | Ticket | Status | Scope |
 |------|--------|:------:|-------|
-| Iter 1 | [`RL-072`](./ROADMAP.md) | Shipping · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Expand Developer Utilities to DevUtils parity — full panel set shipped (29 panels). RL-068 closeout adds YAML ↔ JSON, JSON ↔ CSV, Markdown Preview (sanitized HTML output, no remote image fetch), and SQL Formatter (ANSI / PostgreSQL / MySQL dialects). RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
+| Iter 1 | [`RL-072`](./ROADMAP.md) | Partial · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Developer Utilities reached DevUtils parity with 29 panels. RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Shipped (2026-05-01) | Execution history — closed by Slice 7 (Compare two runs, code-only diff). See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
 | Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
@@ -33,6 +33,7 @@ Mirrors the authoritative `Status` column in
 | Iter 9 | [`RL-083`](./ROADMAP.md) | Shipped (2026-05-04) | Offline runtime assets + strict CSP — Slice 1 vendored Pyodide for desktop and tightened the desktop CSP; Slice 2 closed the web track with a cache-first SW for the version-pinned Pyodide URL plus a documented "first Python load needs network" limitation. See §11. |
 | Iter 10 | [`RL-080`](./ROADMAP.md) | Shipped (2026-05-04) | Release-grade desktop CI + update gates — Slice 1 (update-feed tests + ci.yml worker wiring) + Slice 2 (release-blocking audit + checksum re-verify + RELEASE.md sync) + Slice 3 (offline packaged macOS smoke gate). All ACs closed. See §12. |
 | Iter 11 | [`RL-085`](./ROADMAP.md) | Shipped (2026-05-05) | SBOM + third-party license compliance — release SBOM and transitive license report generation, strict runtime license-policy gate, CI/release workflow wiring, and release notice sync. See §13. |
+| Iter 12 | [`RL-092`](./ROADMAP.md) | Shipped (2026-05-05) | Release security review checklist — `docs/RELEASE_SECURITY.md` plus a guard test now pin the security sign-off surface. See §14. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -48,9 +49,9 @@ Value-per-day priority. The full reasoning is in
 2. **Launch blockers** — pull `RL-063` (linguacode.dev download
    page) next. `RL-061` is shipped; `RL-059` remains `Partial` only as
    the historical verifier + bridge parent.
-3. **Release, legal, and compliance readiness** — `RL-080` and
-   `RL-085` are `Done`. Pull `RL-081` or `RL-092` next, before a
-   public launch announcement.
+3. **Release, legal, and compliance readiness** — `RL-080`, `RL-085`,
+   and `RL-092` are `Done`. Continue the remaining `RL-081`
+   live-surface alignment after `RL-063`.
 4. **Runtime/platform surface hardening** — `RL-084`, `RL-087`, and
    `RL-091` once the core launch blockers are under control.
 5. **Product quality and supportability** — `RL-086`, `RL-088`,
@@ -78,11 +79,10 @@ the user — do not speculate a workaround.
 ROADMAP §4e marks as "remaining" plus the JWT verify/sign and Base64
 file-upload slices from RL-071.
 
-**Context**: 16 panels shipped (JSON, Base64, URL, UUID, Hash, Timestamp,
-JWT, Regex, Color, Diff, Number Base, Beautify/Minify, URL Parser,
-String Case, HTML Entity, String Inspector). The remaining work is the
-small-scope trailing slices — use them as "warm-up" work when blocked
-on a launch ticket.
+**Context**: The full 29-panel DevUtils parity set shipped on
+2026-04-24 through the RL-068 / RL-070 / RL-071 closeouts. The only
+utility item still open here is the RL-072 QR-read mode, pending a
+camera-vs-upload product decision.
 
 **3.1 Sequencing (2 commits, ~1.5 days)**:
 
@@ -234,7 +234,13 @@ Shipped on 2026-05-05 — see [`RL-085`](./PLAN.md#rl-085-sbom-and-third-party-l
 
 ---
 
-## 14. Cross-iteration concerns
+## 14. Iter 12 / RL-092 — Release security review checklist
+
+Shipped on 2026-05-05 — see [`RL-092`](./PLAN.md#rl-092-release-security-review-checklist). The slice added `docs/RELEASE_SECURITY.md` as the public-release security sign-off and `tests/docs/releaseSecurity.test.ts` as the guard for Electron/preload, IPC/filesystem, runners, update artifacts, licensing, telemetry/crash reporting, dependency notices, and public docs claims.
+
+---
+
+## 15. Cross-iteration concerns
 
 - **i18n parity** must stay green after each iter — both locales bump
   in the same commit that introduces a new key.
@@ -248,7 +254,7 @@ Shipped on 2026-05-05 — see [`RL-085`](./PLAN.md#rl-085-sbom-and-third-party-l
   `tests/e2e/overlays.spec.ts` (or a sibling) with the smallest
   assertion that would fail on regression.
 
-## 15. Verification matrix (per iter, before the closing commit)
+## 16. Verification matrix (per iter, before the closing commit)
 
 | Check | Command | Must pass |
 |-------|---------|-----------|
@@ -261,7 +267,7 @@ Shipped on 2026-05-05 — see [`RL-085`](./PLAN.md#rl-085-sbom-and-third-party-l
 | Desktop smoke | `npm run smoke:desktop` | when the iter touches desktop-only IPC |
 | Review skills | `typescript-react-reviewer` + `node` on the diff | zero HIGH blockers |
 
-## 15. Closure protocol
+## 17. Closure protocol
 
 When an iter closes, do three things in the final commit:
 

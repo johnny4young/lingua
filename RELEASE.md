@@ -7,7 +7,7 @@ This repository uses a draft-first manual release process, with the release tag 
 - CI is green on `main`
 - No open P0 incidents in `docs/PLAN.md`
 - Release tag will be a stable tag in the form `vX.Y.Z`
-- `package.json` `version` and `docs/CHANGELOG.md` have both been bumped to the target version in a merged commit
+- `package.json` `version` and root [`CHANGELOG.md`](./CHANGELOG.md) have both been bumped to the target version in a merged commit
 - GitHub Actions secrets are configured:
   - macOS:
     - `APPLE_ID`
@@ -19,25 +19,30 @@ This repository uses a draft-first manual release process, with the release tag 
   - Windows:
     - `WIN_CERT_FILE`
     - `WIN_CERT_PASSWORD`
+  - Cloudflare web deploy:
+    - `CLOUDFLARE_API_TOKEN`
+    - `CLOUDFLARE_ACCOUNT_ID`
+    - `CLOUDFLARE_ZONE_ID` (optional; cache purge only)
 - Apple Developer signing and notarization credentials are still valid
 - Windows code-signing certificate is still valid
 
 ## Release steps
 
-1. Update versioned product changes in the repository as needed (final doc sweep, `docs/CHANGELOG.md`, any release-gated copy).
+1. Update versioned product changes in the repository as needed (final doc sweep, root `CHANGELOG.md`, any release-gated copy).
 2. Commit and merge the release-ready state into `main`.
 3. Open GitHub Actions and run the `Release` workflow manually.
 4. Provide `release_tag`, the stable tag/version to create and publish, for example `vX.Y.Z`.
 5. Wait for the `Release` GitHub Actions workflow to complete.
 6. Inspect the workflow summary:
    - Production dependency audit (release-blocking `npm audit --omit=dev --audit-level=high`)
+   - Third-party license policy and release compliance artifact generation
    - macOS signing verification
    - Packaged desktop smoke (RL-080 Slice 3 — release-blocking offline 2-runtime-case subset against the produced `Lingua.app`)
    - Windows signing verification
    - generated checksums
    - re-verified checksums (`shasum -c SHA256SUMS.txt`)
 7. Open the draft GitHub Release created by the workflow.
-8. Verify attached artifacts and `SHA256SUMS.txt`.
+8. Verify attached artifacts, `SHA256SUMS.txt`, `lingua-sbom.cyclonedx.json`, and `THIRD_PARTY_LICENSE_REPORT.md`.
 9. Verify release notes and artifact naming.
 10. CI already runs the **packaged desktop smoke** against the macOS `.app` inside the `build-macos` job (the `Packaged desktop smoke` step, RL-080 Slice 3). It is a **release-blocking offline** 2-runtime-case subset (javascript + python, plus the no-CDN assertion) that proves the binary boots, the renderer chunks load, and the vendored Pyodide runtime works offline. The full 9-case matrix (JS, TS, Python, Go, Rust + the RL-078 timeout cases + the RL-079 env-isolation cases) still runs against the dev server in `npm run smoke:desktop` as part of pre-merge CI. Optionally, download the macOS artifact locally and run `npm run smoke:desktop` for a sanity check against the dev server, or `npm run smoke:desktop:packaged` for the same packaged subset CI ran.
 11. Confirm the workflow summary lists the packaged smoke as `passed`. Optional: if you ran a local smoke, confirm the artifacts under `output/playwright/desktop-smoke` captured a screenshot + console log for each runner with zero unexpected errors.
@@ -48,6 +53,8 @@ This repository uses a draft-first manual release process, with the release tag 
 ## Validation checklist
 
 - Release-blocking production dependency audit passed (`npm audit --omit=dev --audit-level=high` in the `security-audit` job); the same job also prints full dependency audit output as advisory signal for build-tool drift
+- Third-party license policy passed (`npm run check:licenses`)
+- Release compliance artifacts generated (`npm run compliance:release`)
 - Release security checklist completed (`docs/RELEASE_SECURITY.md`)
 - macOS build completed
 - Windows build completed
@@ -56,6 +63,8 @@ This repository uses a draft-first manual release process, with the release tag 
 - Windows signing verification passed
 - `SHA256SUMS.txt` is attached or present in the release payload
 - `SHA256SUMS.txt` re-verified against the downloaded payload during `publish` (`shasum -a 256 -c SHA256SUMS.txt`)
+- `lingua-sbom.cyclonedx.json` is attached or present in the release payload
+- `THIRD_PARTY_LICENSE_REPORT.md` is attached or present in the release payload
 - Packaged desktop smoke passed in CI (the `Packaged desktop smoke` step in `build-macos`, RL-080 Slice 3 — release-blocking offline, 2-runtime-case subset against the actual `.app`)
 - `npm run smoke:desktop` passed against the dev server in pre-merge CI (the existing 9-case matrix gate)
 - Post-publish smoke succeeded against the channel-distributed artifact

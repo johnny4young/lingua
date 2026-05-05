@@ -20,7 +20,7 @@ and where the credential lives:
 - **Where it runs**: local CPU / GPU on the user's machine, or remote
   via an API.
 - **Who pays**: the user (BYO key), Lingua (hosted-credit pool baked
-  into Pro Monthly), or both modes coexist.
+  into Monthly), or both modes coexist.
 - **Where the secret lives**: Electron main process keychain
   (Keychain on macOS, DPAPI on Windows, libsecret on Linux), the
   renderer's localStorage (insecure), or our license-server (we
@@ -68,12 +68,12 @@ sending prompts to a third party they would not have chosen otherwise.
 
 ### Option C — Cloud-only via Lingua's hosted credits
 
-- Lingua resells tokens at a margin baked into Pro Monthly.
+- Lingua resells tokens at a margin baked into Monthly.
 - We proxy through one or more vendors via `licenses.linguacode.dev`
   (or a separate `ai.linguacode.dev`).
 - Single subscription pays for everything.
 
-Cons: kills Lifetime tier margin (recurring cost vs one-time payment).
+Cons: kills Pro tier margin (recurring cost vs one-time payment).
 Defeats the privacy promise (every prompt now flows through us). Adds
 a SPOF: an outage at our proxy disables AI for every user. Capacity
 planning becomes our problem.
@@ -83,11 +83,11 @@ planning becomes our problem.
 - Local model is the default for Free + everyone with a capable
   machine.
 - BYO key is an alternative for users who already pay for OpenAI / etc.
-- Hosted credits are a Pro Monthly add-on for users who want the
+- Hosted credits are a Monthly add-on for users who want the
   managed experience.
 
 Pros: every user gets an AI experience without forcing them onto our
-bill. Lifetime users self-select to BYO or local without margin damage.
+bill. Pro users self-select to BYO or local without margin damage.
 Privacy story still defensible because BYO and local are first-class.
 
 Cons: more code to write than any single-mode design. Three sets of
@@ -132,7 +132,7 @@ optional, with the renderer never seeing a credential.
      provider"; main reads the key from the keychain, calls the API,
      streams chunks back. Renderer never sees the key.
 
-3. **Hosted credits** (Pro Monthly + Team only)
+3. **Hosted credits** (Monthly only)
    - Lingua proxies through one or more vendors via a new
      `ai.linguacode.dev` Cloudflare Worker (sibling of
      `licenses.linguacode.dev`).
@@ -142,8 +142,8 @@ optional, with the renderer never seeing a credential.
    - Initial vendor: **OpenRouter** (single-vendor lock-in is
      reversible because OpenRouter abstracts the underlying provider).
      We swap to direct vendor accounts later if margin requires it.
-   - Hosted access is Pro-Monthly + Team only. Lifetime + Trial +
-     Education + Free explicitly excluded — same logic as the
+   - Hosted access is Monthly only. Pro + Trial + Education + Free are
+     explicitly excluded — same logic as the
      `LICENSING_ADR` Decision 3 pricing matrix: recurring cost demands
      recurring revenue.
 
@@ -152,15 +152,14 @@ optional, with the renderer never seeing a credential.
 | Tier | Local | BYO key | Hosted credits |
 |---|:---:|:---:|:---:|
 | Free | ✓ | ✓ | ✗ |
-| Pro Monthly | ✓ | ✓ | ✓ (1M tokens / mo, GPT-4o-mini class) |
-| Pro Lifetime | ✓ | ✓ | ✗ |
-| Team | ✓ | ✓ | ✓ (configurable shared pool) |
-| Trial (14d) | ✓ | ✓ | ✓ (100K tokens, one-shot) |
-| Education (1yr renewable) | ✓ | ✓ | ✓ (100K tokens / mo) |
+| Monthly | ✓ | ✓ | ✓ (1M tokens / mo, GPT-4o-mini class) |
+| Pro | ✓ | ✓ | ✗ |
+| Trial (14d) | ✓ | ✓ | ✗ |
+| Education (1yr renewable) | ✓ | ✓ | ✗ |
 
 This matrix folds back into [`PLAN.md` §16.5](./PLAN.md) and into the
 revenue economics: hosted credits are the recurring spend that
-justifies recurring revenue, and Lifetime preserves margin by
+justifies recurring revenue, and Pro preserves margin by
 excluding hosted credits while still getting a great AI experience
 through Local + BYO.
 
@@ -172,7 +171,7 @@ user opens a tab).
 
 Provider chosen from a single Settings page. Model + endpoint
 configurable per-provider. Token usage displayed in the License
-section for Pro Monthly + Team users.
+section for Monthly users.
 
 Per-feature surfaces (cross-language port, test gen, error explainer,
 etc.) all use the same underlying `window.lingua.ai.complete(prompt,
@@ -201,8 +200,8 @@ license token itself carries `tier` and `expires_at` signed by us.
 
 ### What this enables
 
-- A user with no API account can paste any token through Trial /
-  Education / Pro Monthly and get cloud-quality AI for the cost they
+- A user with no API account can paste a Monthly token and get
+  cloud-quality AI for the recurring subscription cost they
   already pay.
 - A user with a 16GB+ machine can disable cloud entirely and run
   everything locally.
@@ -225,7 +224,7 @@ license token itself carries `tier` and `expires_at` signed by us.
 - An `ai_usage` D1 table on the licensing worker (or the new ai
   worker — TBD when the slice graduates).
 - Recurring vendor cost: OpenRouter or direct OpenAI / Anthropic
-  invoices. Pro Monthly subscription has to gross enough to cover
+  invoices. Monthly subscription has to gross enough to cover
   the average user's hosted-credit consumption + 30-50% margin.
 
 ### Failure modes considered
@@ -238,7 +237,7 @@ license token itself carries `tier` and `expires_at` signed by us.
 - **Hosted credits exhausted** — proxy returns
   `{ ok: false, reason: 'quota-exceeded', resetsAt }`. Renderer shows
   remaining-budget pill + suggested upgrade flow.
-- **Proxy down** — Pro Monthly user with hosted credits sees an
+- **Proxy down** — Monthly user with hosted credits sees an
   outage notice with an "use BYO instead" button that opens the
   Settings page.
 - **Vendor outage** (OpenRouter down) — proxy fails over to a
@@ -315,7 +314,7 @@ locally and unblock end-to-end smoke for Slice C onwards:
 - Set Cloudflare secrets:
   - `AI_VENDOR_API_KEY` (OpenRouter or direct vendor)
   - Cron schedule for monthly quota reset
-- Decide hosted-credit allotment per Pro Monthly tier (1M tokens
+- Decide hosted-credit allotment per Monthly tier (1M tokens
   GPT-4o-mini equivalent is the placeholder; tune after observed
   consumption data).
 - Update the marketing site pricing page with AI-feature copy once

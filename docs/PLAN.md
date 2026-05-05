@@ -1627,7 +1627,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - A `keymapPreset` setting plus a new `src/renderer/data/keymapPresets.ts` catalog ship the first alternate keymap ("Sublime Text-inspired") alongside the default. The shortcuts overlay exposes the preset selector in its description header; applying a preset replaces user overrides wholesale, while any manual edit afterwards flips the active preset back to `default` so the UI stays honest. The store's merge hook validates the persisted preset id and falls back to `default` on unknown values — same defensive pattern used for `language`
   - A `themePack` setting plus a new `src/renderer/data/themePacks.ts` catalog ship the first built-in theme pack ("Solarized Daylight") alongside the default. Settings → Appearance exposes the pack selector as the first row; applying a pack swaps theme, editorTheme, font, size, ligatures, layout, and shell sync in one call but intentionally leaves safety/workflow prefs (loopProtection, formatOnSave, restoreSession) alone. Any manual appearance edit flips the pack back to `default`; unknown persisted ids are sanitized in the merge hook
   - Shortcut overrides now ship an export/import pair in the modal footer, symmetric with the theme-preset import/export. The schema lives in `src/renderer/utils/shortcutPreset.ts` (v1 discriminated union with `invalid-json`/`invalid-shape`/`unsupported-version` failure reasons), reuses the same FS bridge (`window.lingua.fs.saveDialog|selectFile|read|write`), and sanitizes parsed combos through the same editable-combo guard plus duplicate-binding filter as the persist merge
-  - 2026-04-20 update: `VIM_MODE_ADR.md` lands the design for the Vim-mode slice. Accepts `monaco-vim` as the lazy-loaded keybindings layer gated by a single `settings.vimMode` toggle; commits to editor-focus-only keystroke ownership so `Ctrl/Cmd+P` Quick Open and other global shortcuts keep working outside Monaco; adopts the English-only status bar as the shipping posture with a documented escape hatch. Ships a six-row verification matrix, a single-toggle rollback path, five revisit triggers, and cross-links to `BUILD_SYSTEM_ADR.md` + `LANGUAGE_PACK_ADR.md` + `CAPABILITY_MATRIX.md`. `tests/docs/vimModeAdr.test.ts` pins the decision sections, the Quick Open conflict resolution, the `:q` / `:w` safety clauses, and the adjacent ADR cross-links
+  - 2026-04-20 update: `VIM_MODE_ADR.md` lands the design for the Vim-mode slice. Accepts `monaco-vim` as the lazy-loaded keybindings layer gated by a single `settings.vimMode` toggle; commits to editor-focus-only keystroke ownership so `Ctrl/Cmd+P` Quick Open and other global shortcuts keep working outside Monaco. The ADR was updated when the 2026-05-01 implementation shipped: Lingua now owns a localized status-bar subclass instead of accepting upstream English-only mode labels. Ships a six-row verification matrix, a single-toggle rollback path, five revisit triggers, and cross-links to `BUILD_SYSTEM_ADR.md` + `LANGUAGE_PACK_ADR.md` + `CAPABILITY_MATRIX.md`. `tests/docs/vimModeAdr.test.ts` pins the decision sections, the Quick Open conflict resolution, the `:q` / `:w` safety clauses, and the adjacent ADR cross-links
   - 2026-04-20 bis update: Vim mode first implementation increment. `settings.vimMode: boolean` + `toggleVimMode()` land in `SettingsState` with persist-partialize inclusion; default `false`. `EditorSection` renders a new Row with the toggle, plus a status note explaining that this slice only ships the flag and that Vim keybindings activate in a follow-up slice. `Toggle` now accepts an optional `aria-label` so multiple toggles in the same section can be uniquely identified in tests and by assistive tech. Copy ships in en + es (`editor.vimMode.label / hint / pendingNote`). Three new component tests pin the default-off state, the flip + persistence, and the Spanish locale; the settings store test extends the toggle coverage. The monaco-vim lazy integration is the next slice
   - 2026-05-01 update — Vim mode integration closeout. `monaco-vim@^0.4.4` (MIT, ~60 KB min+gz) is lazy-imported through a module-scoped promise so toggling on/off rapidly never re-fetches the chunk. `CodeEditor.tsx` gains a useEffect that, when `vimMode === true`, calls `initVimMode(editor, statusNode, LocalizedStatusBar)` and stashes the returned adapter; the cleanup disposes it on toggle-off, on tab change, and on editor unmount. A new `src/renderer/components/Editor/VimStatusBar.tsx` hosts the `<div>` the Vim layer writes into, hidden via `display:none` when the toggle is off so layout stays stable. A new `src/renderer/components/Editor/vimStatusBarFactory.ts` subclasses upstream `VimStatusBar` and overrides `setMode({ mode, subMode })` to emit i18n strings — `editor.vimMode.statusBar.{normal,insert,visual,visualLine,visualBlock,replace}` keys ship in en + es with tuteo (`-- INSERTAR --`, `-- VISUAL LÍNEA --`, etc). The factory routes through a `translateRef` from `CodeEditor` so locale switches reflect on the next mode change without re-initializing the Vim adapter and dropping the user's buffer position. `commandPaletteModel.ts` accepts a new `onToggleVimMode` callback + a `vimModeEnabled` flag and emits a `action-toggle-vim-mode` command whose description flips between "Turn on" / "Turn off" copy based on the current state; `App.tsx` wires it to `useSettingsStore.getState().toggleVimMode()`. `EditorSection` drops the now-misleading `pendingNote` row. Macros are NOT a separate code path — monaco-vim already ships full `q<letter>…q` recording + `@<letter>` replay through its `MacroModeState`, so the original RL-037 "macro recording and playback (simple sequences)" AC is satisfied by enabling the Vim layer. Six new tests pin the localized `setMode` mapping (`vimStatusBarFactory.test.ts`), four new tests cover the palette toggle command (hidden without callback, fires on activation, description flips on enabled flag, ES tuteo), and three new Playwright specs (`vimMode.spec.ts`) drive the actual lazy-loaded integration end-to-end (toggle from Settings activates the localized status bar, `i hello Esc` round-trip writes into the editor, palette toggle flips the flag and shows the status bar). The existing `EditorSection.vimMode.test.tsx` adjusts to assert the pending-note span is gone. RL-037 flips from `Partial` to `Done` — the legacy 2026-04-20 bis "pendingNote / hint about a follow-up slice" copy is now historical and the toggle does what it advertises
 - Acceptance criteria:
@@ -2508,31 +2508,31 @@ must be replaced or redirected.
 
 ### Pricing model (research-backed recommendation)
 
-**Strategy: Freemium with monthly + lifetime paid licenses**
+**Strategy: Freemium with Monthly + Pro + Education**
 
 Rationale:
 - Product is desktop-first and local-first, but Phase 1 now includes a
   license-server for activation, device limits, trials, and renewal refresh.
 - A monthly plan funds ongoing maintenance and support without forcing
   every serious user into a high up-front price.
-- A lifetime plan still fits the desktop-tool buyer who prefers a
-  one-time purchase.
-- Team stays as a small metered pilot so device limits and seat handling
-  can be validated before broader marketing.
+- A Pro plan still fits the desktop-tool buyer who prefers a one-time
+  purchase instead of a recurring subscription.
+- Education stays as a first-class public tier because the student /
+  teacher audience is core to Lingua's positioning.
 
-The launch checkout surface now tracks the `LICENSING_ADR.md` decision:
-three purchasable Polar products (`lingua_monthly`, `lingua_lifetime`,
-`lingua_team`), plus Free, Trial, and Education paths that do NOT live
-in the Polar catalog (server-minted via dedicated endpoints).
+The launch checkout surface now tracks the public tier decision: Free,
+Monthly, Pro, and Education. Trial and Recovery can still mint
+temporary/support tokens internally, but they are not public pricing
+tiers. Current backend slugs may keep legacy names until a dedicated
+server migration renames them; public copy should use the tier names in
+the table below.
 
 | Tier | Price | Polar.sh product | Includes |
 |------|-------|------------------|----------|
-| **Lingua Free** | $0 | n/a (no purchase needed) | Editor completo, 5 lenguajes base (JS/TS/Python/Go/Rust), auto-run, magic comments, 1 tab, dark/light theme, ejecución ilimitada |
-| **Lingua Pro Monthly** | TBD monthly | `lingua_monthly` | Todo Free + tabs ilimitados, snippets, npm packages, 15+ lenguajes, dev utilities, variable inspector, temas extra, custom fonts, deep links, execution history, benchmarking. Updates while the subscription is active. |
-| **Lingua Pro Lifetime** | TBD one-time | `lingua_lifetime` | Todo Pro + actualizaciones de por vida incluyendo major versions |
-| **Lingua Team** | metered / per-seat pilot | `lingua_team` | Todo Pro Lifetime + configurable device limit, team snippet library, priority support. Pilot with a small cohort before listing publicly |
-| **Lingua Trial** | $0 for 14 days | n/a (`/trials/start`) | Full Pro entitlements for one device, with email + device + IP anti-abuse |
-| **Lingua Education** | $0 for 1 year (renewable) | n/a (`/education/start` + `/education/renew`) | Full Pro entitlements for verified students/educators (.edu email and/or GitHub Education API). Renewable on annual re-validation; same hard-3 device limit + remove flow as paid tiers. Endpoints land in Slice 4 of `RL-061`. |
+| **Lingua Free** | $0 | n/a (no purchase needed) | JS/TS/Python, 1 tab, 5 snippets, editor, built-in developer utilities, keyboard shortcut editor, theme preset import/export, local-first shell |
+| **Lingua Monthly** | TBD monthly | `lingua_monthly` | Full paid entitlement set while the subscription is active: unlimited tabs/snippets, Go/Rust, format-on-save for supported languages, execution history, and paid feature gates |
+| **Lingua Pro** | TBD one-time | `lingua_pro` public plan (legacy backend slug may remain `lingua_lifetime` until migration) | Full paid entitlement set without a monthly subscription; support/update window documented at checkout |
+| **Lingua Education** | $0 for 1 year (renewable) | n/a (`/education/start` + `/education/renew`) | Full paid entitlements for verified students/educators (.edu email and/or GitHub Education API). Renewable on annual re-validation; same hard-3 device limit + remove flow as paid tiers. |
 
 Premium-only features:
 - Unlimited tabs (Free: 1 tab)
@@ -2547,7 +2547,6 @@ Premium-only features:
 
 Future monetization channels:
 - Premium challenge/lesson packs
-- Team licenses (per-seat) — piloted as **Lingua Team** in the table above
 - Cloud sync subscription ($2-3/month, optional)
 
 ---
@@ -2561,7 +2560,7 @@ This section operationalizes the "Estrategia de Lanzamiento" (strategic alignmen
 Goal: the product can accept money and gate Pro features behind a validated license without a cloud backend.
 
 Concrete deliverables:
-- Polar.sh storefront with 3 purchasable products (`lingua_monthly`, `lingua_lifetime`, `lingua_team`). Free has no checkout, and Trial is minted by `/trials/start` rather than a Polar product.
+- Polar.sh storefront with the public paid products (`lingua_monthly` and the Pro one-time product). Free and Education have no checkout; Trial is an internal onboarding flow minted by `/trials/start`, not a public tier.
 - License-key issuance on purchase, offline-verifiable inside the app.
 - Public GitHub presence with a README that states the pitch, pricing, licensing model, and download link honestly.
 - Landing/download page live on the primary domain (`linguacode.dev`).
@@ -2667,23 +2666,23 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 - Readiness: `All slices shipped (Slice 0 → Slice 5, 2026-04-25 through 2026-04-30). Launch-blocker scope fully closed; unblocks RL-063 (re-scoped around the new lingua-marketing repo). See LICENSING_ADR.md and the §Status Update blocks below.`
 - 2026-04-26 update — Slice 1:
   - `license-server/` directory ships as a sibling Cloudflare Worker beside `update-server/`. Hono router + D1 schema migration + `GET /health` + 501 stubs for the four Slice-2 endpoints (`/trials/start`, `/licenses/activate`, `/licenses/status`, `/licenses/devices/remove`) + `/webhooks/polar`.
-  - `migrations/0001_initial.sql` defines the three Slice 1 tables — `licenses`, `devices`, `trials` — from LICENSING_ADR Decision 2. It reserves constrained product/tier values for `lingua_trial` and `lingua_education`; the separate `educations` anti-abuse table still lands with Slice 4 alongside the education endpoints. Includes the `device_limit INTEGER NOT NULL DEFAULT 3` column for the Team configurable-limit logic landing in Slice 2.
+  - `migrations/0001_initial.sql` defines the three Slice 1 tables — `licenses`, `devices`, `trials` — from LICENSING_ADR Decision 2. It reserves constrained product/tier values for `lingua_trial` and `lingua_education`; the separate `educations` anti-abuse table still lands with Slice 4 alongside the education endpoints. Includes the `device_limit INTEGER NOT NULL DEFAULT 3` column used by the activation cap.
   - Every non-webhook endpoint validates request shape (UTF-8 byte caps, email pattern, OS enum, required fields) before returning the 501. `/webhooks/polar` intentionally returns 501 without reading the body until Slice 2 adds signature verification. Slice 2 will replace the 501 branches with real D1 reads/writes + Polar signature verification + Resend email delivery without revisiting the request contract.
   - Tagged-union response shape (`{ ok: true, ...payload }` / `{ ok: false, reason, message?, issues? }`) matches the `licenseStore` IPC bridge contract from RL-059 Slice 0 — Slice 2's wiring code passes server responses through without remapping.
   - `wrangler.toml` declares the D1 binding with a placeholder `database_id` that the maintainer fills in via `wrangler d1 create lingua-licenses` (documented in `license-server/README.md`).
   - Vitest suite covers 40 cases across health, trials, licenses, webhooks, migration constraints, method mismatches, and unknown-route fallthrough. Runs against `app.request(...)` directly (no miniflare) — Slice 2 will adopt `@cloudflare/vitest-pool-workers` when D1 + KV emulation lands.
   - Maintainer-side prerequisites for Slice 2 (Polar account + sandbox products, Resend domain verification, Cloudflare D1 provisioning, secrets, custom domain `licenses.linguacode.dev`) are listed in `license-server/README.md`.
-- 2026-04-25 update:
-  - The pricing tiers chosen for launch are `lingua_monthly` (subscription), `lingua_lifetime` (one-time), and `lingua_team` (metered) — Pro one-time is dropped. Trial is a separate `tier: 'trial'` minted by `/trials/start`, not a Polar product.
+- 2026-04-25 update, amended 2026-05-05:
+  - The public pricing tiers chosen for launch are Free, Monthly, Pro, and Education. `lingua_monthly` backs Monthly; the one-time Pro product may still use the legacy `lingua_lifetime` backend slug until a dedicated migration renames it. Trial is a separate internal `tier: 'trial'` minted by `/trials/start`, not a public pricing tier.
   - The implementation lives in a new sibling Cloudflare Worker `license-server/`, not inside `update-server/`. Decision and trade-offs captured in `docs/LICENSING_ADR.md`.
   - Email delivery uses Resend (already configured by the maintainer). Server consumes `RESEND_API_KEY` as a Cloudflare secret.
-  - The license-server is the source of truth for max-3-devices (configurable for Team via Polar product `metadata.device_limit`). Self-service device removal is done by the renderer with the license token as auth — no separate user account in Phase 1.
-- Scope (rewritten 2026-04-25; education SKU added 2026-04-26):
-  - Polar products: `lingua_monthly` (subscription), `lingua_lifetime` (one-time), `lingua_team` (metered, with optional `metadata.device_limit`).
-  - Server-minted tiers (NO Polar product, NO checkout): `lingua_trial` (14d, 1-shot) and `lingua_education` (1yr, renewable on educational email re-validation).
+  - The license-server is the source of truth for max-3-devices. Self-service device removal is done by the renderer with the license token as auth — no separate user account in Phase 1.
+- Scope (rewritten 2026-04-25; education SKU added 2026-04-26; public tier names amended 2026-05-05):
+  - Polar products: `lingua_monthly` (subscription) and a Pro one-time product (legacy backend slug may remain `lingua_lifetime` until migration).
+  - Server-minted paths (NO Polar product, NO checkout): `lingua_trial` (14d internal onboarding flow) and `lingua_education` (1yr public Education tier, renewable on educational email re-validation).
   - Sibling Cloudflare Worker `license-server/` deployed at `licenses.linguacode.dev` with D1 persistence (`licenses`, `devices`, `trials`, `educations` tables — full schema in `docs/LICENSING_ADR.md`). The `educations` table mirrors `trials` (UNIQUE email + UNIQUE device_id) and lands in Slice 4 alongside the endpoints.
   - HTTP endpoints: `POST /webhooks/polar`, `POST /trials/start`, `POST /education/start`, `POST /education/renew`, `POST /licenses/activate`, `GET /licenses/status` (returns `refreshedToken` post-renewal so Monthly stays offline-friendly), `POST /licenses/devices/remove`, `GET /health`.
-  - Webhook handlers: `order.paid` (the only event that mints/refreshes paid Polar tokens; lifetime by order id, Monthly/Team by subscription id after payment), `order.refunded`, `subscription.created` (ack + wait for paid order), `subscription.updated` (cancel/uncancel status only), `subscription.canceled` (sets `status=cancel_at_period_end`).
+  - Webhook handlers: `order.paid` (the only event that mints/refreshes paid Polar tokens; Pro one-time by order id, Monthly by subscription id after payment), `order.refunded`, `subscription.created` (ack + wait for paid order), `subscription.updated` (cancel/uncancel status only), `subscription.canceled` (sets `status=cancel_at_period_end`).
   - 14-day trial with anti-abuse: `UNIQUE(email)` + `UNIQUE(device_id)` in the `trials` table + per-IP rate limit on `/trials/start`. Email verification deferred to a Phase 2 follow-up if observed abuse exceeds ~5% of trial volume.
   - 1-year education tier with anti-abuse: same UNIQUE pattern in the `educations` table + per-IP rate limit. Email validated against `.edu` domain (and/or GitHub Education API — locked in Slice 4). Renewal is explicit — `POST /education/renew` re-runs the email validation and extends `expires_at` by 365d. No silent renewal; if validation lapses, license expires gracefully.
   - Renderer surfaces tracked under sibling slices of RL-059: device-management UI in Settings → License (lists active devices with remove + rename), Trial CTA, **Education CTA** (Slice 4), "Buy Pro" / "Enter license key" entry points.
@@ -2712,8 +2711,8 @@ real D1-backed implementations:
   HMAC-SHA256 signature verification with constant-time compare,
   ±5min replay window, base64 secret unwrapping for the `whsec_`
   prefix; tagged-union `PolarKnownEvent` for the 5 event types we
-  care about; `deviceLimitForProduct` honors `metadata.device_limit`
-  for the team SKU only.
+  care about; device-limit helpers retain legacy test coverage but
+  the public launch tiers all use the hard-3 default.
 - `license-server/src/lib/db.ts` — typed D1 query helpers for
   `licenses` and `devices`, all surface-aware (`WHERE surface = ?`).
 - `license-server/src/lib/resend.ts` — minimal HTTP fetch wrapper
@@ -2872,7 +2871,7 @@ verification rule):
 1. Build production web (`npm run build:web`); `preview:web`; paste
    the real Polar token from yesterday's smoke (license id
    `04074d85-…`); confirm status pill flips through `verifying` →
-   `active · pro_lifetime`; confirm DevTools Network shows POST to
+   `active · Pro`; confirm DevTools Network shows POST to
    `licenses.linguacode.dev/licenses/activate` with `surface: 'web'`
    and a UUID `deviceId`; confirm `localStorage` has `lingua-license`
    + `lingua-device-id`; confirm `caches.keys()` does not contain
@@ -4473,18 +4472,16 @@ recurring expense that justifies recurring revenue:
 | Tier | AI access |
 |---|---|
 | Free | BYO-key + local Ollama only. No hosted credits. |
-| Pro Monthly | + N hosted tokens / month (e.g. 1M tokens GPT-4o-mini-equivalent ≈ $1 vendor cost). Subscription justifies the recurring spend. |
-| Pro Lifetime | BYO-key + local only. No hosted credits — recurring token cost would erase one-time-purchase margin. |
-| Team | Shared hosted-credit pool, configurable cap. |
-| Trial | Hosted credits limited (e.g. 100K tokens for 14 days). |
-| Education | Hosted credits limited (e.g. 100K / month, renewable on annual re-validation). |
+| Monthly | + N hosted tokens / month (e.g. 1M tokens GPT-4o-mini-equivalent ≈ $1 vendor cost). Subscription justifies the recurring spend. |
+| Pro | BYO-key + local only. No hosted credits — recurring token cost would erase one-time-purchase margin. |
+| Trial | No hosted credits; local + BYO key only. |
+| Education | No hosted credits; local + BYO key only. |
 
-This is the cleanest answer to the recurring question "how does Lifetime
-not eat margin": **Lifetime gets the offline product but not the
+This is the cleanest answer to the recurring question "how does Pro
+not eat margin": **Pro gets the offline product but not the
 ongoing cloud spend**. Users who want managed AI tokens self-select
-into Monthly. The AI bridge is also the lever that makes Education
-worth the year of free Pro: students get the same AI access cap as
-trial users, capped to keep abuse contained.
+into Monthly. Education remains valuable through the full offline paid
+entitlement set without adding recurring hosted-token cost.
 
 ### 16.6 v2.0 must-haves vs v2.1+
 
@@ -5079,13 +5076,13 @@ Risk acknowledged for Slice 3:
 ### RL-081 Launch/legal/source-available documentation cleanup
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Implementation-ready from the 2026-05-02 review. Launch-critical because product, license, public/private repo posture, and third-party commercial-license obligations must agree before distribution.`
+- Status: `Partial`
+- Readiness: `Public repo/source-available docs sweep shipped on 2026-05-05. README, RELEASE, SECURITY, PRIVACY, public docs, release compliance, and Cloudflare web deploy wording now agree. Remaining launch-critical work: align live checkout/download/pricing copy after RL-063 ships.`
 - Current gap:
-  - Product copy describes a public source-available repo posture while launch state may still be private or staged.
-  - The previous guided-tour commercial-license blocker was removed, but the dependency/license gate still needs repeatable SBOM and policy checks.
-  - Some documentation links still point to local absolute paths.
-  - Privacy/security/legal docs need to line up with telemetry, crash reporting, licensing, and checkout behavior.
+  - The repository docs now describe the public source-available posture; the remaining risk is hosted launch copy drift once the `linguacode.dev` download/checkout surface goes live.
+  - The guided-tour commercial-license blocker was removed and the SBOM/license gate shipped under RL-085; keep those release compliance artifacts wired into every release path.
+  - Machine-local absolute documentation links are guarded by `tests/docs/publicDocs.test.ts`.
+  - Privacy/security/legal docs now line up with telemetry, crash reporting, licensing, and device tracking; re-check after RL-063 introduces the live checkout/download surface.
 - Scope:
   - Reconcile README, LICENSE, pricing copy, and launch docs around the exact source-available posture for launch.
   - Decide and document whether the repo is public at launch, private until launch, or source-available under a staged access model.
@@ -5103,6 +5100,13 @@ Risk acknowledged for Slice 3:
   - RL-059
   - RL-061
   - RL-063
+
+#### 2026-05-05 update — public docs sweep
+
+- README now describes the 29-panel Developer Utilities catalog, Cloudflare Pages web deployment at `app.linguacode.dev`, web update polling through `updates.linguacode.dev/web/version`, release compliance artifacts, and the localized Vim status-bar implementation.
+- RELEASE now points to root `CHANGELOG.md`, names Cloudflare deploy secrets, and requires `npm run check:licenses`, `npm run compliance:release`, `lingua-sbom.cyclonedx.json`, and `THIRD_PARTY_LICENSE_REPORT.md` in the human release gate.
+- `docs/README.md`, ROADMAP, SPRINT-PLAN, and this PLAN entry now align on ROADMAP as the planning source of truth and on RL-092 as shipped.
+- New/updated guard tests prevent regressions to `docs/CHANGELOG.md`, legacy GitHub Pages deploy wording, missing release compliance artifacts, and missing release-security checklist sections.
 
 ### RL-082 README and docs information-architecture cleanup
 
@@ -5443,22 +5447,28 @@ Optional follow-ups (not blocking; tracked outside RL-083):
 ### RL-092 Release security review checklist
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Implementation-ready from the 2026-05-02 review. Complements RL-080 automation with a focused security sign-off ritual for Electron, IPC, runtimes, updater, licensing, telemetry, and docs.`
-- Current gap:
-  - RELEASE.md has a strong operational checklist, but there is no dedicated security review checklist that maps to Lingua's riskiest surfaces.
+- Status: `Done`
+- Readiness: `Shipped 2026-05-05. RELEASE.md links to docs/RELEASE_SECURITY.md, and tests/docs/releaseSecurity.test.ts guards the required security sign-off sections and concrete controls.`
+- Current state:
+  - `docs/RELEASE_SECURITY.md` maps the public-release security sign-off to Lingua's riskiest surfaces.
+  - `tests/docs/releaseSecurity.test.ts` fails if the checklist is removed or loses required headings / controls.
 - Scope:
-  - Add a release security checklist document or a dedicated section in RELEASE.md.
-  - Cover Electron security settings, preload surface changes, IPC authorization, filesystem capability checks, runner trust boundaries, updater behavior, license verification, telemetry/crash consent, dependency/license review, and public docs claims.
-  - Add a guard test that fails if the security checklist is removed or loses required headings.
+  - Shipped: release security checklist document linked from RELEASE.md.
+  - Shipped: coverage for Electron security settings, preload surface changes, IPC authorization, filesystem capability checks, runner trust boundaries, updater behavior, license verification, telemetry/crash consent, dependency/license review, and public docs claims.
+  - Shipped: guard test that fails if the security checklist is removed or loses required headings.
 - Acceptance criteria:
-  - Each public release has an explicit security sign-off checklist.
-  - Checklist includes Electron, preload/IPC, filesystem, JS/TS/Python workers, Go/Rust native execution, updater, licensing, telemetry/crash reporting, dependencies, and docs/legal claims.
-  - Release cannot be marked ready until checklist ownership is assigned and complete.
+  - Each public release has an explicit security sign-off checklist. ✅
+  - Checklist includes Electron, preload/IPC, filesystem, JS/TS/Python workers, Go/Rust native execution, updater, licensing, telemetry/crash reporting, dependencies, and docs/legal claims. ✅
+  - Release cannot be marked ready until checklist ownership is assigned and complete. ✅
 - Dependencies:
   - RL-077
   - RL-078
   - RL-079
   - RL-080
-  - RL-081
   - RL-085
+
+#### 2026-05-05 update — closeout
+
+- `docs/RELEASE_SECURITY.md` is the release-owner checklist for Electron/preload, IPC/filesystem, runners, update artifacts, licensing, telemetry/crash reporting, dependency notices, and public documentation claims.
+- `RELEASE.md` links the security sign-off from the validation checklist.
+- `tests/docs/releaseSecurity.test.ts` pins the section headings and concrete controls, including `rootId`/`relativePath`, opaque watcher ids, filtered native environment, `SHA256SUMS.txt`, license-token handling, payload redaction, license-policy check, and SBOM artifact.

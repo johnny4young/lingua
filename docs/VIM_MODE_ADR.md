@@ -4,7 +4,7 @@
 | ------ | ----------------- |
 | Decision | Add an opt-in Vim keybindings layer via the `monaco-vim` package, lazy-loaded behind a single Settings toggle. Vim only hijacks keystrokes when the Monaco editor owns focus; global shortcuts (Quick Open, Command Palette) keep working elsewhere. |
 | Date | 2026-04-20 |
-| Implementation start | First slice landed on 2026-04-20 bis — `settings.vimMode` flag + Settings toggle. No `monaco-vim` integration yet; flipping the flag today does not change editor behavior. The Monaco-side lazy-load ships in the next slice. |
+| Implementation | Shipped on 2026-05-01 — `settings.vimMode` toggles the lazy `monaco-vim` layer, the localized status-bar subclass, safe `:w` / `:q` routing, and the macro smoke coverage. |
 
 ## Context
 

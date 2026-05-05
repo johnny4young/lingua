@@ -44,6 +44,28 @@ describe('repository license posture (RL-062)', () => {
     expect(readme).toContain('linguacode.dev');
   });
 
+  it('README does not imply the public checkout is already live', () => {
+    const readme = readFileSync(README_PATH, 'utf-8');
+    expect(readme).toContain('separate commercial license from the Licensor');
+    expect(readme).toMatch(/checkout.*planned|planned.*checkout/i);
+    expect(readme).toContain('once `RL-063` ships');
+    expect(readme).not.toMatch(/commercial license purchased via/i);
+  });
+
+  it('README and LICENSE name the public launch tiers', () => {
+    const readme = readFileSync(README_PATH, 'utf-8');
+    const license = readFileSync(LICENSE_PATH, 'utf-8');
+
+    for (const tier of ['Free', 'Monthly', 'Pro', 'Education']) {
+      expect(readme).toContain(tier);
+      expect(license).toContain(tier);
+    }
+
+    expect(readme).not.toContain('Pro Lifetime');
+    expect(readme).not.toContain('Team / Education');
+    expect(license).not.toContain('Pro Lifetime');
+  });
+
   it('package.json no longer claims the MIT license', () => {
     const pkg = JSON.parse(readFileSync(PACKAGE_PATH, 'utf-8')) as {
       license: string;

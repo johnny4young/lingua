@@ -1,6 +1,6 @@
 # Lingua — Roadmap
 
-> **Updated:** 2026-05-02
+> **Updated:** 2026-05-05
 > Canonical status board. Single source of truth for the `Status` column
 > on every `RL-XXX` ticket. When any other doc disagrees, this one wins.
 >
@@ -120,7 +120,7 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | [`RL-064`](./PLAN.md#rl-064-launch-asset-kit-phase-2) | Launch asset kit | `Partial` | Screenshots + press-kit drafted. Remaining: 60-second demo video + press templates. |
 | [`RL-065`](./PLAN.md#rl-065-privacy-respecting-launch-telemetry) | Privacy-respecting telemetry | `Partial` | First-run consent + event allowlist + overlay.opened / runner.executed / feature.blocked wired. Remaining: event export pipeline. |
 | [`RL-066`](./PLAN.md#rl-066-seo-landing-pages-for-language-specific-intents) | SEO landing pages | `Partial` | `seo-pages/` drafts landed. Remaining: build step that promotes drafts into linguacode.dev sub-routes. |
-| [`RL-081`](./PLAN.md#rl-081-launchlegalsource-available-documentation-cleanup) | Launch/legal/source-available docs cleanup | `Planned` | Align source-available posture, dependency-license readiness, legal/privacy/security docs, and launch copy. |
+| [`RL-081`](./PLAN.md#rl-081-launchlegalsource-available-documentation-cleanup) | Launch/legal/source-available docs cleanup | `Partial` | Public repo/source-available docs sweep shipped 2026-05-05: README, RELEASE, security/privacy/public docs, release compliance, and Cloudflare web deploy wording now agree. Remaining: live checkout/download copy alignment after `RL-063`. |
 | [`RL-084`](./PLAN.md#rl-084-local-plugin-manifest-hardening) | Local plugin manifest hardening | `Planned` | Enforce manifest schema, runtime allowlist, compatibility validation, diagnostics, and no arbitrary plugin code. |
 
 ### 4g. Personalization and surface polish (P2)
@@ -147,7 +147,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | [`RL-089`](./PLAN.md#rl-089-user-profile-backup-export-and-restore) | User profile backup/export/restore | `Planned` | Versioned profile export/import for safe user-owned settings, snippets, shortcuts, themes, layout, and env vars. |
 | [`RL-090`](./PLAN.md#rl-090-error-boundaries-and-recovery-ux) | Error boundaries + recovery UX | `Planned` | Add shell error boundaries, safe-mode boot, reset flows, redacted error export, and support recovery docs. |
 | [`RL-091`](./PLAN.md#rl-091-license-and-update-server-observability-and-runbooks) | License/update server observability + runbooks | `Planned` | Add metrics, redacted logs, alerts, and incident runbooks for licensing, recovery, webhooks, and update feeds. |
-| [`RL-092`](./PLAN.md#rl-092-release-security-review-checklist) | Release security review checklist | `Planned` | Add security sign-off for Electron, preload/IPC, filesystem, runners, updater, licensing, telemetry, dependencies, and docs. |
 
 ### 4j. Research-backed spikes and future
 
@@ -169,7 +168,7 @@ agent should follow when §3's tiebreakers don't resolve.
 
 1. **Security launch hardening.** `RL-077`, `RL-078`, `RL-079`, and `RL-083` are all closed (last closure 2026-05-04 — Slice 2 picked cache-first SW + documented "first Python load needs network" limitation as the chosen web strategy). The launch-blocker set is clear.
 2. **Launch blockers.** Pull `RL-063` (linguacode.dev download page) next. `RL-061` shipped fully on 2026-04-30 (now in §6 archive). `RL-059` stays `Partial` only as the historical parent for verifier + bridge work now shipped.
-3. **Release, legal, and compliance readiness.** `RL-080` and `RL-085` are now `Done` (RL-085 closed 2026-05-05 — SBOM + third-party license report artifacts and policy gates wired into CI/release). Continue with `RL-081` and `RL-092` before a public launch announcement so packaged builds, update feeds, signing/notarization, source-available posture, privacy/security docs, dependency licensing, and release security sign-off agree.
+3. **Release, legal, and compliance readiness.** `RL-080`, `RL-085`, and `RL-092` are now `Done` (RL-092 closed 2026-05-05 with the release-security checklist guard). Continue the remaining `RL-081` live-surface alignment after `RL-063` so checkout/download/pricing claims match the hosted launch path.
 4. **Runtime/platform surface hardening.** `RL-084`, `RL-087`, and `RL-091` harden the local plugin model, watcher reliability, and backend operations after the core launch blockers are under control.
 5. **Product quality and supportability.** `RL-086`, `RL-088`, `RL-089`, and `RL-090` add performance budgets, accessibility QA, profile backup/restore, and recovery UX.
 6. **Utilities polish.** `RL-068` / `RL-072` remaining slices — short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
@@ -189,7 +188,7 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>47 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>48 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
@@ -197,7 +196,7 @@ implementation detail lives in `docs/PLAN.md#RL-XXX`.
 `RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`,
 `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-067`, `RL-068`,
 `RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`, `RL-077`,
-`RL-078`, `RL-079`, `RL-080`, `RL-083`, `RL-085`.
+`RL-078`, `RL-079`, `RL-080`, `RL-083`, `RL-085`, `RL-092`.
 
 </details>
 

@@ -91,6 +91,13 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toMatch(/shasum\s+-a\s+256\s+-c\s+SHA256SUMS\.txt/u);
   });
 
+  it('requires the RL-085 release compliance artifacts', () => {
+    expect(checklist).toContain('npm run check:licenses');
+    expect(checklist).toContain('npm run compliance:release');
+    expect(checklist).toContain('lingua-sbom.cyclonedx.json');
+    expect(checklist).toContain('THIRD_PARTY_LICENSE_REPORT.md');
+  });
+
   it('ships a rollback plan that keeps the release in draft on failure', () => {
     expect(checklist).toContain('## Rollback plan');
     expect(checklist).toMatch(/draft/i);
