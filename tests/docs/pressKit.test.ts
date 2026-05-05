@@ -53,10 +53,13 @@ describe('docs/press-kit (RL-064)', () => {
 
   it('pricing-one-pager names the four tiers and education access', () => {
     const pricing = readFileSync(resolve(KIT_DIR, 'pricing-one-pager.md'), 'utf-8');
-    for (const tier of ['Free', 'Pro (one-time)', 'Pro Lifetime', 'Team']) {
+    for (const tier of ['Free', 'Monthly', 'Pro', 'Education']) {
       expect(pricing).toContain(tier);
     }
-    expect(pricing).toContain('Education');
+    expect(pricing).toContain('Mensual');
+    expect(pricing).toContain('Educativa');
+    expect(pricing).not.toContain('Pro Lifetime');
+    expect(pricing).not.toMatch(/\bTeam\b/u);
   });
 
   it('does not describe ungated utilities or shortcut/theme customization as Pro-only yet', () => {

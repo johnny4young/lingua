@@ -64,6 +64,18 @@ describe('public documentation hygiene', () => {
     }
   });
 
+  it('keeps public docs on the current web deploy and release-note paths', () => {
+    const publicDocs = ['README.md', 'RELEASE.md', 'docs/README.md']
+      .map((file) => readFileSync(resolve(ROOT, file), 'utf-8'))
+      .join('\n');
+
+    expect(publicDocs).not.toContain('docs/CHANGELOG.md');
+    expect(publicDocs).not.toContain('Deploy web version to GitHub Pages');
+    expect(publicDocs).not.toContain('VITE_BASE_PATH=/lingua/');
+    expect(publicDocs).toContain('Cloudflare Pages');
+    expect(publicDocs).toContain('app.linguacode.dev');
+  });
+
   it('keeps the guided tour free of external AGPL/commercial tour dependencies', () => {
     const packageJson = JSON.parse(
       readFileSync(resolve(ROOT, 'package.json'), 'utf-8')

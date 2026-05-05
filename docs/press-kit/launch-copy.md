@@ -33,9 +33,9 @@ Built-in goodies:
   from a browser into the app
 
 Source-available (commercial license) on GitHub. Free tier is single-
-tab + 5 snippets + JS/TS/Python. Pro is a one-time buy that unlocks
-unlimited tabs and snippets plus Go + Rust, and the Lifetime tier adds
-lifetime updates. Education access is free.
+tab + 5 snippets + JS/TS/Python. Monthly and Pro unlock unlimited tabs
+and snippets plus Go + Rust. Education access is free for verified
+students and teachers.
 
 Honest limitations today:
 - Go and Rust need their toolchains installed locally — web build
@@ -72,8 +72,8 @@ Hi! I'm the maker of Lingua. A few things the tagline doesn't fit:
   etc.) are first-class — Cmd+K → search → open.
 - Keyboard shortcuts are rebindable with a preset import/export flow,
   and theme presets round-trip as JSON.
-- Free tier is single-tab + 5 snippets + JS/TS/Python. Pro unlocks
-  unlimited tabs/snippets + Go/Rust for a one-time buy.
+- Free tier is single-tab + 5 snippets + JS/TS/Python. Monthly and
+  Pro unlock unlimited tabs/snippets + Go/Rust.
 
 Happy to answer anything here.
 

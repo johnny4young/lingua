@@ -8,14 +8,16 @@
 
 ## Pricing and licensing
 
-Lingua is a commercial product distributed under a source-available license — see [`LICENSE`](./LICENSE) for the full text. The repository is public so the community can read the source, audit security, and submit contributions; production, paid, or at-scale use requires a commercial license.
+Lingua is a commercial product distributed under a source-available license — see [`LICENSE`](./LICENSE) for the full text. The repository is public so the community can read the source, audit security, and submit contributions; production, paid, hosted, redistributed, educational-at-scale, or other commercial use requires a separate commercial license from the Licensor. The public checkout/download surface is planned for `linguacode.dev`; until that ships, this repository grants only the evaluation and personal-use rights described in `LICENSE`.
 
-- **Free tier** — personal evaluation, self-learning, single-user non-commercial use with the default feature set.
-- **Pro (one-time)** — unlocks Pro entitlements for a major version with 12 months of updates.
-- **Pro Lifetime** — the Pro entitlement set with lifetime updates.
-- **Team / Education** — seat-based licensing and free access for verified students and educators.
+Planned launch tiers:
 
-The public pricing summary lives in [`docs/press-kit/pricing-one-pager.md`](./docs/press-kit/pricing-one-pager.md). The download page and checkout will live at [`linguacode.dev`](https://linguacode.dev) once `RL-063` ships.
+- **Free app mode** — personal evaluation, self-learning, and single-user non-commercial local use with the default feature set.
+- **Monthly** — subscription access to the paid entitlement set while the subscription is active.
+- **Pro** — paid Pro entitlement set without a monthly subscription.
+- **Education** — free renewable access for verified students and educators.
+
+The planned public pricing summary lives in [`docs/press-kit/pricing-one-pager.md`](./docs/press-kit/pricing-one-pager.md). The download page and checkout are planned for [`linguacode.dev`](https://linguacode.dev) once `RL-063` ships.
 
 ## Who it is for
 
@@ -34,7 +36,7 @@ The public pricing summary lives in [`docs/press-kit/pricing-one-pager.md`](./do
 - Shared hover/focus tooltips across toolbar, editor tabs, console controls, command palette utilities, and file tree actions
 - About section in Settings with bundled product metadata, GitHub/license links, update entry points, and a linked What's New surface
 - Interactive guided tour for editor, console, explorer, snippets, and command palette onboarding, launchable from About or the Command Palette
-- Built-in developer utilities, available from the toolbar and Command Palette, covering JSON formatting, Base64/URL transforms, UUID generation, hashing, timestamp conversion, JWT decoding, regex testing, hex/rgb/hsl color conversion, and line-level diffing
+- Built-in developer utilities, available from the toolbar and Command Palette, covering 29 focused panels across encoding, parsing, conversion, hashing, JWT, regex, color, text inspection, QR generation, code conversion, Markdown, SQL, YAML, CSV, and diff workflows
 - Auto-run, magic comments, loop protection, and hide-undefined controls for dynamic languages
 - Optional format-on-save using Prettier (JS, TS, JSON, CSS) and desktop-only gofmt, rustfmt, and Python formatters (ruff preferred, black fallback), with a dismissable status banner for parse errors and missing binaries
 - Curated developer fonts (JetBrains Mono, Fira Code, Cascadia Code, Source Code Pro, IBM Plex Mono, Consolas, Menlo, Monaco, Courier New, System Monospace) with a ligature toggle that self-disables for stacks without programmer ligatures, plus a live preview card in Settings
@@ -91,15 +93,22 @@ real customer license tokens.
 - The current slice is lazy-loaded so it does not inflate the main editor bundle before you open it
 - Current utilities:
   - JSON formatter / validator / tree viewer
-  - Base64 encode/decode
-  - URL encode/decode
+  - Base64 encode/decode and Base64 image data-URI preview
+  - URL encode/decode and URL parser/inspector
   - UUID generator
-  - Hash generator (`SHA-1`, `SHA-256`)
+  - Hash generator for text or files (`MD5`, `SHA-1`, `SHA-256`, `SHA-384`, `SHA-512`) plus HMAC over the SHA family
   - Unix timestamp converter
-  - JWT decoder
-  - Regex tester with live matches and capture groups
+  - JWT decode, verify, and sign for HS, RS, ES, and PS algorithm families
+  - Regex match and replace with live matches, capture groups, and replacement counts
   - Color converter across hex, rgb, and hsl with a live swatch preview
   - Line-level diff viewer with add/remove markers and a summary
+  - Number-base converter
+  - Beautify/minify for JSON, JavaScript, HTML, CSS, SCSS, LESS, and XML
+  - String case converter, HTML entity encode/decode, string inspector, and backslash escape/unescape
+  - QR code generator, random string generator, and Lorem Ipsum generator
+  - SVG to CSS data-URI converter, HTML to JSX converter, and cURL to code converter
+  - YAML <-> JSON and JSON <-> CSV converters
+  - Markdown preview sanitizer and SQL formatter
 
 ## Runtime model
 
@@ -152,7 +161,7 @@ Architecture deep dive:
 - [`docs/LANGUAGE_PACK_ADR.md`](./docs/LANGUAGE_PACK_ADR.md) documents the declarative `LanguagePack` descriptor and the three-slice migration plan for built-in + Lua language support.
 - [`docs/ENV_VARS_ADR.md`](./docs/ENV_VARS_ADR.md) records the RL-011 env-var scoping decisions (which runtimes, web-mode answer, tab > project > global precedence) and the four-slice implementation roadmap.
 - [`docs/VITE_UPGRADE_ADR.md`](./docs/VITE_UPGRADE_ADR.md) plans the Vite 5 → 7 bump with the impact matrix, four blocker peer-range checks, the verification matrix, and the rollback plan.
-- [`docs/VIM_MODE_ADR.md`](./docs/VIM_MODE_ADR.md) records the RL-037 Vim mode integration decisions (monaco-vim as the lazy-loaded layer, focus-gated keystroke ownership, English-only status bar posture) and the rollback + revisit triggers.
+- [`docs/VIM_MODE_ADR.md`](./docs/VIM_MODE_ADR.md) records the RL-037 Vim mode integration decisions (monaco-vim as the lazy-loaded layer, focus-gated keystroke ownership, localized status-bar subclass) and the rollback + revisit triggers.
 - [`docs/DEBUGGER_ADR.md`](./docs/DEBUGGER_ADR.md) plans the RL-027 debugger MVP — JS/TS first via Monaco, then Python via pdb, Go via Delve, Rust via lldb — with a bounded feature budget (breakpoints, step, watch, stack, variables) and explicit out-of-scope list.
 - [`RELEASE.md`](./RELEASE.md) is the RL-016 release checklist — preconditions, 14 numbered release steps including the packaged desktop smoke and post-publish smoke, the validation gate, and the rollback plan.
 - [`docs/PUBLIC_RELEASE_CHECKLIST.md`](./docs/PUBLIC_RELEASE_CHECKLIST.md) gates changing the source repository visibility to public.
@@ -184,7 +193,7 @@ npm run build:web
 npm run smoke:desktop
 ```
 
-These are the main local verification commands. CI also runs a non-blocking `npm audit`.
+These are the main local verification commands. CI also runs the third-party license policy gate and a high-severity `npm audit`; release runs add the production-only blocking audit plus SBOM/license artifact generation.
 
 Desktop smoke notes:
 
@@ -354,7 +363,7 @@ npm run preview:web
 ```
 
 The local web build defaults to `/` as its base path.
-The GitHub Pages deployment workflow builds `dist/web` with `VITE_BASE_PATH=/lingua/` when the manual deploy workflow is run.
+The Cloudflare Pages deployment workflow builds `dist/web` for the subdomain root at `app.linguacode.dev`; `linguacode.dev` remains reserved for the dedicated marketing/download site.
 
 ## Keyboard shortcuts
 
@@ -391,19 +400,20 @@ Notes:
 
 ## Automation and delivery
 
-- CI runs web build, type checking, linting, tests, and a non-blocking `npm audit`
-- GitHub Pages deploy is manual via the `Deploy web version to GitHub Pages` workflow
-- The Pages build uses `/lingua/` as the web base path so static assets, the manifest, and the service worker resolve correctly under the repository subpath
+- CI runs web build, type checking, linting, tests, i18n guards, third-party license policy, and high-severity audit checks
+- Cloudflare Pages deploy is manual or release-orchestrated via the `Deploy web build to Cloudflare Pages` workflow and serves `app.linguacode.dev` from the root path
 - GitHub Release publishing is manual via the `Release` workflow, which accepts a single stable tag input in the form `vX.Y.Z`, creates that tag from `main`, and publishes from it
 - Update server deployment is manual via the `Deploy Update Server` workflow
-- Packaged macOS and Windows builds enable `update-electron-app`, which checks GitHub Releases for updates
+- Release workflow runs the production dependency audit, release compliance artifact generation, per-platform build gates, checksum generation/re-verification, draft GitHub Release upload, and optional web deploy from the validated release tag
+- Packaged macOS and Windows builds use the desktop updater against the stable GitHub Release channel
 - The active release/update channel policy is stable-only; prerelease tags are rejected by the release workflow
 
 ## Update behavior
 
 - Automatic updates are only active in packaged desktop builds on macOS and Windows
-- Linux and web builds report updates as unavailable
-- The renderer now exposes update state in Settings and a manual "Check for Updates" command in the command palette, which opens Settings so the current state and message are visible immediately
+- Linux desktop builds report updates as unavailable
+- Web builds poll `updates.linguacode.dev/web/version` and show a reload banner when the deployed web tag is strictly newer than the running bundle
+- The renderer exposes update state in Settings and a manual "Check for Updates" command in the command palette, which opens Settings so the current state and message are visible immediately
 - Restart-to-apply is only enabled after the main process reports that an update has been downloaded
 - The updater currently targets the stable GitHub Release channel only
 
@@ -430,7 +440,7 @@ Current install directory:
 
 - Go compilation stays unavailable in the browser build and returns an explicit desktop-only message
 - Rust compilation stays unavailable in the browser build and returns an explicit desktop-only message
-- Automatic updates stay unavailable in the browser build
+- Desktop-style automatic updates stay unavailable in the browser build; web update detection uses the hosted version endpoint and reload banner
 - Local plugin discovery stays unavailable in the browser build
 - External file watching stays unavailable in the browser build
 
@@ -482,6 +492,10 @@ Stable channel policy:
   - `WIN_CERT_PASSWORD`
 - GitHub publishing:
   - `GITHUB_TOKEN`
+- Cloudflare web deploy:
+  - `CLOUDFLARE_API_TOKEN`
+  - `CLOUDFLARE_ACCOUNT_ID`
+  - `CLOUDFLARE_ZONE_ID` (optional; cache purge only)
 
 ### Secret formats
 
@@ -497,6 +511,7 @@ Stable channel policy:
 - Linux publishes package artifacts built by the Debian and RPM makers.
 - GitHub Release publication remains draft-first until signing and verification are proven stable in CI.
 - The release workflow generates a `SHA256SUMS.txt` manifest before publishing.
+- The release workflow uploads `lingua-sbom.cyclonedx.json` and `THIRD_PARTY_LICENSE_REPORT.md` alongside the packaged artifacts.
 
 ### Release operations
 
@@ -514,4 +529,4 @@ Stable channel policy:
 
 ## License
 
-Lingua is a commercial product distributed under a source-available license. The full terms live in [`LICENSE`](./LICENSE); the short version is: the repository is public for evaluation, contributor review, and security auditing, but production, paid, or at-scale use requires a commercial license purchased via [`linguacode.dev`](https://linguacode.dev). Redistributing packaged binaries or competing hosted offerings is not permitted.
+Lingua is a commercial product distributed under a source-available license. The full terms live in [`LICENSE`](./LICENSE); the short version is: the repository is public for evaluation, contributor review, and security auditing, but production, paid, hosted, redistributed, educational-at-scale, or other commercial use requires a separate commercial license from the Licensor. The public checkout is planned for [`linguacode.dev`](https://linguacode.dev) once `RL-063` ships. Redistributing packaged binaries or competing hosted offerings is not permitted.

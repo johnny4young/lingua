@@ -71,8 +71,8 @@ only superseded by a new ADR that names the one it replaces.
 
 | If you need… | Go to |
 |---|---|
-| The list of pending work | [`PLAN.md`](./PLAN.md) |
-| What a slice actually shipped | the task's `Readiness` field in `PLAN.md` |
+| The list of pending work | [`ROADMAP.md`](./ROADMAP.md) |
+| What a slice actually shipped | the task's `Status` / scope cell in `ROADMAP.md`; use `PLAN.md` only for deep historical context |
 | How two subsystems talk | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | Whether a capability is web, desktop, or hybrid | [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) |
 | Why a non-obvious decision was made | the matching `*_ADR.md` |

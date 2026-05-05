@@ -9,11 +9,11 @@ change in [PLAN.md](../PLAN.md).
 | Tier | Price | Best for | Includes |
 |------|-------|----------|----------|
 | Free | $0 | Trying Lingua, single-file scratchpads | 1 open tab at a time, up to 5 saved snippets, JavaScript / TypeScript / Python runners, Monaco editor + syntax highlighting, built-in developer utilities, keyboard shortcut editor, theme preset import/export, full app shell |
-| Pro (one-time) | one-time fee, major version | Developers running real multi-language work | Everything in Free plus unlimited tabs and snippets, Go and Rust runners, format-on-save for every supported language, 12 months of app updates |
-| Pro Lifetime | one-time fee | Users who want to pay once and stay supported forever | Everything in Pro plus lifetime app updates and priority email support |
-| Team | per seat, annual | Teams and agencies | Everything in Pro Lifetime plus seat management, SSO when it ships, and invoicing |
+| Monthly | monthly subscription | Developers who want paid features while actively using Lingua | Everything in Free plus unlimited tabs and snippets, Go and Rust runners, format-on-save for every supported language, and updates while the subscription is active |
+| Pro | one-time fee | Developers who prefer a non-subscription license | Everything in Monthly for the covered major version, with the support/update window documented at checkout |
+| Education | $0 for 1 year, renewable | Verified students and educators | Full paid entitlements for verified educational use, renewable with annual re-validation |
 
-**Education**: Free Pro access for verified students and educators.
+Education access is free for verified students and educators.
 Apply via `linguacode.dev/education` once the landing page ships.
 
 ## Español
@@ -21,11 +21,11 @@ Apply via `linguacode.dev/education` once the landing page ships.
 | Tier | Precio | Ideal para | Incluye |
 |------|--------|------------|---------|
 | Free | $0 | Probar Lingua, scratchpads de un solo archivo | 1 pestaña a la vez, hasta 5 snippets guardados, runners de JavaScript / TypeScript / Python, editor Monaco + resaltado de sintaxis, utilidades integradas para desarrolladores, editor de atajos, import/export de presets de tema, shell completo de la app |
-| Pro (pago único) | pago único por versión mayor | Desarrolladores con trabajo multi-lenguaje real | Todo lo de Free más pestañas y snippets ilimitados, runners de Go y Rust, format-on-save para cada lenguaje soportado, 12 meses de actualizaciones |
-| Pro Lifetime | pago único | Usuarios que quieren pagar una vez y seguir soportados para siempre | Todo lo de Pro más actualizaciones de por vida y soporte por email prioritario |
-| Team | por asiento, anual | Equipos y agencias | Todo lo de Pro Lifetime más gestión de asientos, SSO cuando llegue, y facturación |
+| Mensual | suscripción mensual | Desarrolladores que quieren funciones de pago mientras usan Lingua activamente | Todo lo de Free más pestañas y snippets ilimitados, runners de Go y Rust, format-on-save para cada lenguaje soportado y actualizaciones mientras la suscripción esté activa |
+| Pro | pago único | Desarrolladores que prefieren una licencia sin suscripción | Todo lo de Mensual para la versión mayor cubierta, con la ventana de soporte/actualizaciones documentada en checkout |
+| Educativa | $0 por 1 año, renovable | Estudiantes y profesores verificados | Entitlements de pago completos para uso educativo verificado, renovables con revalidación anual |
 
-**Educación**: acceso Pro gratuito para estudiantes y profesores
+El acceso educativo es gratuito para estudiantes y profesores
 verificados. Solicítalo en `linguacode.dev/education` cuando la landing
 page esté en vivo.
 
