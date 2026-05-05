@@ -70,6 +70,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
 
   it('ships a validation checklist with signing, checksums, and the smoke gate', () => {
     expect(checklist).toContain('## Validation checklist');
+    expect(checklist).toContain('docs/RELEASE_SECURITY.md');
     expect(checklist).toMatch(/macOS signing verification/i);
     expect(checklist).toMatch(/Windows signing verification/i);
     expect(checklist).toContain('SHA256SUMS.txt');
