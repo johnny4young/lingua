@@ -5125,7 +5125,8 @@ Risk acknowledged for Slice 3:
   - No release/security/licensing guidance is duplicated in a way that can drift silently.
   - Markdown docs pass the local-absolute-path guard.
 - Dependencies:
-  - RL-081
+  - RL-081 remains the broader legal/source-available cleanup track, but no
+    longer blocks this shipped dependency/license gate.
 
 ---
 
@@ -5279,24 +5280,26 @@ Optional follow-ups (not blocking; tracked outside RL-083):
 ### RL-085 SBOM and third-party license compliance
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Implementation-ready from the 2026-05-02 review. Commercial-distribution readiness item; especially important for source-available licensing and dependencies with commercial-license obligations.`
-- Current gap:
-  - The project has commercial/source-available licensing goals, but release artifacts need a repeatable dependency/license inventory.
-  - Third-party notices and license compatibility checks should be release gates, not ad hoc manual review.
+- Status: `Done`
+- Readiness: `Shipped 2026-05-05. Commercial-distribution dependency/license gate is now repeatable and wired into CI/release.`
+- Current state:
+  - `npm run check:licenses` reviews production package-lock entries against a strict allowlist and fails on missing, unreviewed, copyleft, commercial, or proprietary license expressions.
+  - `npm run license:report` regenerates `docs/THIRD_PARTY_LICENSE_REPORT.md` from `package-lock.json` plus installed package metadata.
+  - `npm run compliance:release` writes `output/release-compliance/lingua-sbom.cyclonedx.json` and `output/release-compliance/THIRD_PARTY_LICENSE_REPORT.md` for release upload.
+  - CI runs the license policy gate; `release.yml` uploads the SBOM and license report as draft GitHub Release assets.
 - Scope:
-  - Generate a Software Bill of Materials for release builds.
-  - Add or update `THIRD_PARTY_NOTICES.md`.
-  - Audit runtime and packaged dependencies separately from dev-only dependencies.
-  - Add a license-policy allow/deny list.
-  - Fail release CI when a dependency introduces a disallowed license or missing notice.
-  - Track commercial-license obligations as explicit release prerequisites.
+  - Shipped: Software Bill of Materials generation for release builds.
+  - Shipped: `THIRD_PARTY_NOTICES.md` now links to the transitive generated report.
+  - Shipped: Runtime/packaged dependency audit is separated from dev-only audit noise.
+  - Shipped: License-policy allowlist and blocked-expression gate.
+  - Shipped: CI/release failure on disallowed licenses or missing notices.
+  - Shipped: Commercial-license obligations remain explicit release prerequisites.
 - Acceptance criteria:
-  - Release artifacts include or link to an SBOM.
-  - Third-party notices cover all packaged runtime dependencies.
-  - CI/release checks fail on disallowed licenses.
-  - Dev-only dependencies are not incorrectly treated as packaged obligations.
-  - Any AGPL or commercial-license dependency is either licensed for public distribution or excluded from public builds.
+  - Release artifacts include or link to an SBOM. ✅
+  - Third-party notices cover all packaged runtime dependencies. ✅
+  - CI/release checks fail on disallowed licenses. ✅
+  - Dev-only dependencies are not incorrectly treated as packaged obligations. ✅
+  - Any AGPL or commercial-license dependency is either licensed for public distribution or excluded from public builds. ✅
 - Dependencies:
   - RL-081
 

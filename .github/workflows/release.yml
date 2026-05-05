@@ -104,16 +104,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_REF }}
-          # `npm audit` only needs the working tree (package.json +
-          # package-lock.json). Skip the full-history fetch the
-          # platform builds do — keeps this fail-fast job under a
-          # minute on a cold cache.
+          # The audit/compliance gates only need the working tree.
+          # Skip the full-history fetch the platform builds do —
+          # keeps this fail-fast job under a minute on a cold cache.
           fetch-depth: 1
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      - name: Check third-party license policy
+        run: npm run check:licenses
+      - name: Generate release compliance artifacts
+        run: npm run compliance:release
+      - name: Upload release compliance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-artifacts
+          path: output/release-compliance/*
+          if-no-files-found: error
       - name: Run blocking production npm audit
         run: npm audit --omit=dev --audit-level=high
       - name: Run advisory full npm audit
@@ -483,6 +492,8 @@ jobs:
               -name '*.zip' -o -name '*.exe' -o -name '*.deb' \
               -o -name '*.rpm' -o -name '*.nupkg' \
               -o -name 'RELEASES' -o -name 'SHA256SUMS.txt' \
+              -o -name 'lingua-sbom.cyclonedx.json' \
+              -o -name 'THIRD_PARTY_LICENSE_REPORT.md' \
             \) | sort)
 
           if (( ${#assets[@]} == 0 )); then

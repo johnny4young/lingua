@@ -47,8 +47,11 @@ release checklist.
 
 ## Dependencies And Notices
 
-- Confirm `THIRD_PARTY_NOTICES.md` and the generated SBOM/license report are
-  current.
+- Confirm `npm run check:licenses` passes.
+- Confirm `npm run compliance:release` generated `lingua-sbom.cyclonedx.json`
+  and `THIRD_PARTY_LICENSE_REPORT.md`.
+- Confirm `THIRD_PARTY_NOTICES.md` and
+  `docs/THIRD_PARTY_LICENSE_REPORT.md` are current.
 - Confirm public builds do not introduce AGPL/commercial runtime dependencies
   without an explicit license decision.
 - Confirm no disallowed runtime license ships in packaged artifacts.

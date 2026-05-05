@@ -64,6 +64,11 @@ describe('Script naming docs guard', () => {
       'smoke:desktop:packaged',
       'build:runtime-assets',
       'check:runtime-assets',
+      // RL-085 — public-release SBOM + third-party license compliance
+      'sbom:release',
+      'check:licenses',
+      'license:report',
+      'compliance:release',
       'test',
       'test:e2e:web',
       'test:smoke:web:license',

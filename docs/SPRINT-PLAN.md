@@ -15,7 +15,7 @@
 
 ---
 
-## 1. Status at a glance (2026-05-04)
+## 1. Status at a glance (2026-05-05)
 
 Mirrors the authoritative `Status` column in
 [`ROADMAP.md`](./ROADMAP.md) §4. **When discrepancies appear, ROADMAP wins.**
@@ -32,6 +32,7 @@ Mirrors the authoritative `Status` column in
 | Iter 8 | [`RL-079`](./ROADMAP.md) | Shipped (2026-05-03) | Trusted native execution hardening for Go and Rust. See §10. |
 | Iter 9 | [`RL-083`](./ROADMAP.md) | Shipped (2026-05-04) | Offline runtime assets + strict CSP — Slice 1 vendored Pyodide for desktop and tightened the desktop CSP; Slice 2 closed the web track with a cache-first SW for the version-pinned Pyodide URL plus a documented "first Python load needs network" limitation. See §11. |
 | Iter 10 | [`RL-080`](./ROADMAP.md) | Shipped (2026-05-04) | Release-grade desktop CI + update gates — Slice 1 (update-feed tests + ci.yml worker wiring) + Slice 2 (release-blocking audit + checksum re-verify + RELEASE.md sync) + Slice 3 (offline packaged macOS smoke gate). All ACs closed. See §12. |
+| Iter 11 | [`RL-085`](./ROADMAP.md) | Shipped (2026-05-05) | SBOM + third-party license compliance — release SBOM and transitive license report generation, strict runtime license-policy gate, CI/release workflow wiring, and release notice sync. See §13. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -47,9 +48,9 @@ Value-per-day priority. The full reasoning is in
 2. **Launch blockers** — pull `RL-063` (linguacode.dev download
    page) next. `RL-061` is shipped; `RL-059` remains `Partial` only as
    the historical verifier + bridge parent.
-3. **Release, legal, and compliance readiness** — `RL-080` is `Done`
-   (Slice 3 closed 2026-05-04). Pull `RL-081`, `RL-085`, or `RL-092`
-   next, before a public launch announcement.
+3. **Release, legal, and compliance readiness** — `RL-080` and
+   `RL-085` are `Done`. Pull `RL-081` or `RL-092` next, before a
+   public launch announcement.
 4. **Runtime/platform surface hardening** — `RL-084`, `RL-087`, and
    `RL-091` once the core launch blockers are under control.
 5. **Product quality and supportability** — `RL-086`, `RL-088`,
@@ -227,7 +228,13 @@ Shipped on 2026-05-04 — see [`RL-080`](./PLAN.md#rl-080-release-grade-desktop-
 
 ---
 
-## 13. Cross-iteration concerns
+## 13. Iter 11 / RL-085 — SBOM + third-party license compliance
+
+Shipped on 2026-05-05 — see [`RL-085`](./PLAN.md#rl-085-sbom-and-third-party-license-compliance). The slice added `npm run check:licenses`, `npm run license:report`, `npm run compliance:release`, a generated transitive runtime license report, CI/release license gates, and release-uploaded SBOM/license artifacts.
+
+---
+
+## 14. Cross-iteration concerns
 
 - **i18n parity** must stay green after each iter — both locales bump
   in the same commit that introduces a new key.
@@ -241,7 +248,7 @@ Shipped on 2026-05-04 — see [`RL-080`](./PLAN.md#rl-080-release-grade-desktop-
   `tests/e2e/overlays.spec.ts` (or a sibling) with the smallest
   assertion that would fail on regression.
 
-## 14. Verification matrix (per iter, before the closing commit)
+## 15. Verification matrix (per iter, before the closing commit)
 
 | Check | Command | Must pass |
 |-------|---------|-----------|

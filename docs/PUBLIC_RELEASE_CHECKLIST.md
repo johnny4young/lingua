@@ -53,10 +53,16 @@ change commit ids and require force-pushing private branches/tags.
 ## Dependency And License Gate
 
 - Confirm public builds do not include AGPL/commercial runtime dependencies
-  without an explicit license decision.
-- Generate a transitive SBOM.
-- Generate a transitive license report.
-- Keep `THIRD_PARTY_NOTICES.md` in sync with packaged runtime dependencies.
+  without an explicit license decision: `npm run check:licenses`.
+- Generate release compliance artifacts:
+  `npm run compliance:release`.
+- Generate the committed transitive license report:
+  `npm run license:report`.
+- Generate a CycloneDX SBOM when a standalone stdout artifact is needed:
+  `npm run sbom:release`.
+- Keep `THIRD_PARTY_NOTICES.md` and
+  `docs/THIRD_PARTY_LICENSE_REPORT.md` in sync with packaged runtime
+  dependencies.
 
 ## Publication Gate
 
