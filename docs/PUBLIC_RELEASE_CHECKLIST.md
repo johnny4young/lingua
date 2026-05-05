@@ -51,9 +51,8 @@ change commit ids and require force-pushing private branches/tags.
 
 ## Dependency And License Gate
 
-- Resolve `shepherd.js` before public commercial distribution: purchase the
-  commercial license, replace it, or exclude the guided-tour feature from public
-  builds.
+- Confirm public builds do not include AGPL/commercial runtime dependencies
+  without an explicit license decision.
 - Generate a transitive SBOM.
 - Generate a transitive license report.
 - Keep `THIRD_PARTY_NOTICES.md` in sync with packaged runtime dependencies.

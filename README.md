@@ -76,8 +76,8 @@ real customer license tokens.
 - [`CHANGELOG.md`](./CHANGELOG.md) now follows a Keep a Changelog-style semver structure so release notes stay readable in git and in-product
 - The renderer bundles parsed changelog data at build time, so the desktop and web shells can show release notes without direct file-system access
 - A dedicated What's New overlay is available from both the Command Palette and the About section, and it auto-opens once when the app sees a newer version than the last one stored locally
-- A Shepherd-based guided tour now opens from the About section, the Command Palette, or automatically after first-launch gating when the user has not completed onboarding yet
-- Lingua is a source-available commercial product, so Shepherd's commercial license still must be purchased before public distribution even though the tour is already integrated in development builds
+- A built-in guided tour now opens from the About section, the Command Palette, or automatically after first-launch gating when the user has not completed onboarding yet
+- The guided tour is implemented in-repo so public builds do not carry a separate commercial tour dependency
 
 ## Theme behavior
 
