@@ -26,11 +26,20 @@ function unregisterManagedPlugins(): void {
 }
 
 async function normalizePluginRecord(record: InstalledPluginRecord): Promise<PluginStoreRecord> {
+  // RL-084 — main now emits `unknown` directly when a manifest's
+  // pluginId is not in the bundled allowlist. The renderer used to
+  // re-map `loaded` → `unavailable` for that case; that mapping is
+  // gone. The remaining defensive path catches the unlikely scenario
+  // where main returns `loaded` but the renderer can't find a loader
+  // (e.g., a pruned build that lost a runtime). Keep that path as
+  // `unavailable` so the user sees a recoverable diagnostic instead
+  // of a silent no-op.
   if (record.status === 'loaded' && !hasBundledPlugin(record.pluginId)) {
     return {
       ...record,
       status: 'unavailable',
       message: `Plugin "${record.pluginId}" is installed, but this build does not provide a matching bundled runtime.`,
+      diagnostic: { key: 'unavailable', params: { pluginId: record.pluginId } },
       displayName: record.pluginId,
       managedByApp: false,
     };

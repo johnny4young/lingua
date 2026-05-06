@@ -5383,7 +5383,7 @@ Optional follow-ups (not blocking; tracked outside RL-083):
 ### RL-084 Local plugin manifest hardening
 
 - Priority: `P1`
-- Status: `Planned`
+- Status: `Done`
 - Readiness: `Implementation-ready from the 2026-05-02 review. Important before plugin support expands beyond conservative local manifests.`
 - Current gap:
   - The plugin model intentionally avoids arbitrary third-party code loading today.
@@ -5402,6 +5402,37 @@ Optional follow-ups (not blocking; tracked outside RL-083):
   - Plugin docs and README claims match the enforced policy.
 - Dependencies:
   - Existing local plugin discovery implementation
+
+### Status Update — 2026-05-06 (closes RL-084)
+
+Plugin manifest hardening landed today. Status flips `Planned → Done`.
+
+What shipped:
+
+- New `src/shared/plugins/manifest.ts` is the single source of truth for the manifest contract. Pure module — no Electron, no React. Defines `PluginInstallStatus` (now includes `unknown`), structured `PluginDiagnostic` metadata for localized renderer copy, `InstalledPluginManifest`, `InstalledPluginRecord`, `BUNDLED_PLUGIN_IDS = ['lua']`, `PLUGIN_ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/u`, `PLUGIN_VERSION_PATTERN = /^\d+(?:\.\d+){0,2}$/u`, `MAX_PLUGIN_ID_LENGTH = 64`, `PLUGIN_API_VERSION = 1`, `MANIFEST_FILE_NAME = 'plugin.json'`. The `validatePluginManifest()` function is the validator both main and renderer consult.
+- `src/main/plugins.ts` now imports the shared validator and passes the bundled allowlist as a `Set`. `pluginManifestHelpers` keeps its existing exports (re-exporting from the shared module) so external consumers don't break.
+- `src/renderer/plugins/catalog.ts` reads `BUNDLED_PLUGIN_IDS` from the shared module; the loader-map type assertion enforces that every loader key is in the allowlist at compile time, and runtime lookup uses own-property checks so inherited object properties are never treated as plugin ids.
+- `src/renderer/stores/pluginStore.ts` simplified — main now emits `unknown` directly for non-bundled ids; the renderer's `unavailable` re-mapping survives only as a defensive fallback for the (unlikely) drift case where main returns `loaded` but the renderer can't find a loader.
+- `src/types.d.ts` ambient declarations re-aliased to the shared module exports — single source of truth, zero churn for existing consumers.
+- New plugin diagnostic i18n keys per locale (en + es with neutral LatAm tuteo): `plugins.state.unknown` plus localized copy for object-shape, missing id, unsafe id, unknown fields, invalid field type, malformed version, API version, app-version range, unknown runtime, disabled, loaded, load-failed, and unavailable diagnostics.
+- Tests across validator, catalog, main, store, and UI layers:
+  - **Capa 1** (validator unit): `tests/shared/plugins/manifest.test.ts` — schema, path-safety table (9 unsafe ids rejected), strict-schema rejection, typed diagnostic metadata, numeric version-string validation, allowlist (unknown vs disabled), apiVersion + version range, happy path, record-shape consistency.
+  - **Capa 2** (main integration): 8 cases in `tests/main/plugins.test.ts` — discovers the 5 statuses (loaded / disabled / incompatible / unknown / invalid) with real disk fixtures, plus dedicated cases for path-traversal rejection and unknown-fields rejection.
+  - **Catalog guard**: `tests/plugins/catalog.test.ts` — pins the allowlist export and proves inherited object properties like `constructor` / `toString` do not resolve as bundled plugin ids.
+  - **Capa 2** (store): 4 cases in `tests/stores/pluginStore.test.ts` — passes through `unknown` from main, falls back to `unavailable` only on the defensive runtime-mismatch path.
+  - **Capa 3** (component UI): `tests/components/Settings/PluginsSection.test.tsx` (NEW FILE) — empty state, every status with badge + diagnostic copy, structured diagnostic localization on locale flip en→es with tuteo verification, container constraint at 320px width with break-all wrapping, refresh button click handler.
+- `docs/USAGE.md` "Local plugins" section gained explicit manifest rules (safe-identifier pattern, strict schema, complete diagnostic-status reference) and the policy statement: "The plugin model is intentionally manifest-only. There is no facility to load arbitrary plugin executable code."
+
+What deliberately did NOT ship in this slice:
+
+- **Standalone Playwright Electron smoke** for plugin discovery. The plan's capa 4 originally proposed `scripts/smoke-plugin-discovery.mjs`. Implementation hit two blockers: Node ESM cannot import `.ts` directly without `tsx`/`ts-node` (not in devDeps), and `src/main/plugins.ts` imports `electron` (only available in Electron processes). The integration coverage moved into `tests/main/plugins.test.ts` instead — the 6-fixture flow lives there as a vitest test that runs on every `npm test`. Visual verification of the running desktop UI remains a 5-minute manual checklist before commit (already in the plan).
+
+ACs cumplidos:
+
+- ✅ Invalid, incompatible, disabled, unknown, and unavailable plugin manifests produce distinct diagnostics — verified by capa 1 (validator), capa 2 (main + store integration), and capa 3 (UI).
+- ✅ A plugin manifest cannot cause arbitrary code loading or resolve a runtime outside the bundled allowlist — enforced by the path-safety regex, strict schema, and allowlist check in the shared validator.
+- ✅ Tests cover malformed JSON, schema mismatch, path traversal-like ids, incompatible version ranges, and disabled plugins — all in capa 1 + capa 2.
+- ✅ Plugin docs and README claims match the enforced policy — `docs/USAGE.md` updated.
 
 ### RL-085 SBOM and third-party license compliance
 

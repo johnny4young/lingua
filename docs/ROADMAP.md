@@ -117,7 +117,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
 | [`RL-065`](./PLAN.md#rl-065-privacy-respecting-launch-telemetry) | Privacy-respecting telemetry | `Partial` | First-run consent + event allowlist + overlay.opened / runner.executed / feature.blocked wired. Remaining: event export pipeline. |
-| [`RL-084`](./PLAN.md#rl-084-local-plugin-manifest-hardening) | Local plugin manifest hardening | `Planned` | Enforce manifest schema, runtime allowlist, compatibility validation, diagnostics, and no arbitrary plugin code. |
 
 ### 4g. Personalization and surface polish (P2)
 
@@ -162,7 +161,7 @@ agent should follow when §3's tiebreakers don't resolve.
 1. **Security launch hardening.** `RL-077`, `RL-078`, `RL-079`, and `RL-083` are all closed (last closure 2026-05-04 — Slice 2 picked cache-first SW + documented "first Python load needs network" limitation as the chosen web strategy). The launch-blocker set is clear.
 2. **Launch blockers.** Closed. `RL-063` shipped 2026-05-05 — site live at https://linguacode.dev from the separate `lingua-marketing` repo (see `MARKETING_SITE_ADR.md`). `RL-061` shipped 2026-04-30. `RL-059` stays `Partial` only as the historical parent for verifier + bridge work now shipped.
 3. **Release, legal, and compliance readiness.** Closed. `RL-080`, `RL-085`, `RL-092`, and `RL-081` are all `Done` (RL-081 closed 2026-05-05 once the live `linguacode.dev` surface aligned with the desktop entitlement copy). The launch-readiness bucket has no outstanding blockers in this repo.
-4. **Runtime/platform surface hardening.** `RL-091` closed 2026-05-06 (structured logging + redaction + metrics catalog + readiness probes across both Cloudflare Workers + 5 incident runbooks + observability spec). `RL-084` (plugin manifest hardening) and `RL-087` (watcher reliability) remain in this lane.
+4. **Runtime/platform surface hardening.** `RL-091` closed 2026-05-06 (structured logging + redaction + metrics catalog + readiness probes across both Cloudflare Workers + 5 incident runbooks + observability spec). `RL-084` closed 2026-05-06 (shared validator + path-traversal guard + bundled-runtime allowlist + new `unknown` status + UI test coverage). `RL-087` (watcher reliability) remains in this lane.
 5. **Product quality and supportability.** `RL-086`, `RL-088`, `RL-089`, and `RL-090` add performance budgets, accessibility QA, profile backup/restore, and recovery UX.
 6. **Utilities polish.** `RL-069` Slice 1 shipped 2026-05-05 (productivity foundation — 2 shortcuts + fuzzy tool search). Remaining `RL-072` QR-read mode and `RL-069` Slice 2/3 are short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
 7. **Debugger + language intelligence.** `RL-027` Slice 1 (JS/TS debugger minimal) and `RL-026` adapter layer. These unblock `RL-042` and `RL-047`.
@@ -181,7 +180,7 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>54 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>55 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
@@ -190,7 +189,7 @@ implementation detail lives in `docs/PLAN.md#RL-XXX`.
 `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-063`, `RL-064`,
 `RL-066`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`, `RL-074`,
 `RL-075`, `RL-076`, `RL-077`, `RL-078`, `RL-079`, `RL-080`, `RL-081`,
-`RL-082`, `RL-083`, `RL-085`, `RL-091`, `RL-092`.
+`RL-082`, `RL-083`, `RL-084`, `RL-085`, `RL-091`, `RL-092`.
 
 </details>
 

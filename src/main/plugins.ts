@@ -1,24 +1,30 @@
 import { app, ipcMain } from 'electron';
 import { mkdir, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import {
+  BUNDLED_PLUGIN_IDS,
+  MANIFEST_FILE_NAME,
+  compareSemver,
+  validatePluginManifest,
+} from '../shared/plugins/manifest';
 
-const PLUGIN_API_VERSION = 1;
-const MANIFEST_NAME = 'plugin.json';
+/**
+ * RL-084 — main-side plugin discovery.
+ *
+ * Reads `<userData>/plugins/<id>/plugin.json` and runs each through
+ * the shared validator (`src/shared/plugins/manifest.ts`). The shared
+ * module owns the schema, the bundled-runtime allowlist, and the
+ * path-safety regex; this file only handles disk I/O + IPC plumbing.
+ */
 
-function compareVersions(a: string, b: string): number {
-  const left = a.split('.').map((part) => Number.parseInt(part, 10) || 0);
-  const right = b.split('.').map((part) => Number.parseInt(part, 10) || 0);
-  const max = Math.max(left.length, right.length);
-
-  for (let index = 0; index < max; index += 1) {
-    const lhs = left[index] ?? 0;
-    const rhs = right[index] ?? 0;
-    if (lhs > rhs) return 1;
-    if (lhs < rhs) return -1;
-  }
-
-  return 0;
-}
+/**
+ * Allowlist of bundled runtimes the validator consults. Wrapped in a
+ * Set so the validator's `O(1)` membership check is cheap. Mirrors
+ * the loader-map keys in `src/renderer/plugins/catalog.ts`; the
+ * shared module's `BUNDLED_PLUGIN_IDS` is the single source of truth
+ * for both.
+ */
+const ALLOWED_PLUGIN_IDS: ReadonlySet<string> = new Set(BUNDLED_PLUGIN_IDS);
 
 export function getPluginInstallDirectory(): string {
   return path.join(app.getPath('userData'), 'plugins');
@@ -27,98 +33,19 @@ export function getPluginInstallDirectory(): string {
 function validateManifest(
   manifest: unknown,
   manifestPath: string,
-  appVersion: string
+  appVersion: string,
 ): InstalledPluginRecord {
-  const installDirectory = path.dirname(manifestPath);
-
-  if (!manifest || typeof manifest !== 'object') {
-    return {
-      pluginId: path.basename(installDirectory),
-      manifestPath,
-      installDirectory,
-      apiVersion: null,
-      enabled: false,
-      status: 'invalid',
-      message: 'Manifest must be a JSON object.',
-    };
-  }
-
-  const candidate = manifest as Partial<InstalledPluginManifest>;
-
-  if (!candidate.pluginId || typeof candidate.pluginId !== 'string') {
-    return {
-      pluginId: path.basename(installDirectory),
-      manifestPath,
-      installDirectory,
-      apiVersion: typeof candidate.apiVersion === 'number' ? candidate.apiVersion : null,
-      enabled: false,
-      status: 'invalid',
-      message: 'Manifest must declare a string pluginId.',
-    };
-  }
-
-  if (candidate.apiVersion !== PLUGIN_API_VERSION) {
-    return {
-      pluginId: candidate.pluginId,
-      manifestPath,
-      installDirectory,
-      apiVersion: typeof candidate.apiVersion === 'number' ? candidate.apiVersion : null,
-      enabled: candidate.enabled !== false,
-      status: 'incompatible',
-      message: `Plugin API version ${String(candidate.apiVersion)} is not supported. Expected ${PLUGIN_API_VERSION}.`,
-    };
-  }
-
-  if (candidate.minAppVersion && compareVersions(appVersion, candidate.minAppVersion) < 0) {
-    return {
-      pluginId: candidate.pluginId,
-      manifestPath,
-      installDirectory,
-      apiVersion: candidate.apiVersion,
-      enabled: candidate.enabled !== false,
-      status: 'incompatible',
-      message: `Plugin requires app version >= ${candidate.minAppVersion}.`,
-    };
-  }
-
-  if (candidate.maxAppVersion && compareVersions(appVersion, candidate.maxAppVersion) > 0) {
-    return {
-      pluginId: candidate.pluginId,
-      manifestPath,
-      installDirectory,
-      apiVersion: candidate.apiVersion,
-      enabled: candidate.enabled !== false,
-      status: 'incompatible',
-      message: `Plugin requires app version <= ${candidate.maxAppVersion}.`,
-    };
-  }
-
-  if (candidate.enabled === false) {
-    return {
-      pluginId: candidate.pluginId,
-      manifestPath,
-      installDirectory,
-      apiVersion: candidate.apiVersion,
-      enabled: false,
-      status: 'disabled',
-      message: 'Plugin is installed but disabled in its manifest.',
-    };
-  }
-
-  return {
-    pluginId: candidate.pluginId,
+  return validatePluginManifest(manifest, {
     manifestPath,
-    installDirectory,
-    apiVersion: candidate.apiVersion,
-    enabled: true,
-    status: 'loaded',
-    message: 'Plugin manifest is valid.',
-  };
+    installDirectory: path.dirname(manifestPath),
+    appVersion,
+    allowedPluginIds: ALLOWED_PLUGIN_IDS,
+  });
 }
 
 export async function listInstalledPlugins(
   pluginDirectory = getPluginInstallDirectory(),
-  appVersion = app.getVersion()
+  appVersion = app.getVersion(),
 ): Promise<InstalledPluginRecord[]> {
   await mkdir(pluginDirectory, { recursive: true });
   const entries = await readdir(pluginDirectory, { withFileTypes: true });
@@ -128,7 +55,7 @@ export async function listInstalledPlugins(
     if (!entry.isDirectory()) continue;
 
     const installDirectory = path.join(pluginDirectory, entry.name);
-    const manifestPath = path.join(installDirectory, MANIFEST_NAME);
+    const manifestPath = path.join(installDirectory, MANIFEST_FILE_NAME);
 
     try {
       const raw = await readFile(manifestPath, 'utf-8');
@@ -146,6 +73,12 @@ export async function listInstalledPlugins(
           error instanceof Error
             ? `Failed to load plugin manifest: ${error.message}`
             : 'Failed to load plugin manifest.',
+        diagnostic: {
+          key: 'loadFailed',
+          params: {
+            errorMessage: error instanceof Error ? error.message : 'unknown error',
+          },
+        },
       });
     }
   }
@@ -159,6 +92,6 @@ export function registerPluginHandlers(): void {
 }
 
 export const pluginManifestHelpers = {
-  compareVersions,
+  compareVersions: compareSemver,
   validateManifest,
 };
