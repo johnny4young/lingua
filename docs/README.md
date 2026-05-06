@@ -84,6 +84,8 @@ only superseded by a new ADR that names the one it replaces.
 | What we test and how | [`TEST_PLAN.md`](./TEST_PLAN.md) |
 | Public repository publication checklist | [`PUBLIC_RELEASE_CHECKLIST.md`](./PUBLIC_RELEASE_CHECKLIST.md) |
 | Public release security sign-off | [`RELEASE_SECURITY.md`](./RELEASE_SECURITY.md) |
+| License + update server observability spec (metrics, alerts, dashboards) | [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) |
+| Operator runbooks (webhook replay, license recovery, refund handling, update rollback, GitHub degraded) | [`runbooks/`](./runbooks) |
 | Launch / marketing collateral | [`press-kit/`](./press-kit), [`seo-pages/`](./seo-pages) |
 | Student / classroom lesson drafts | [`lessons/`](./lessons) |
 
