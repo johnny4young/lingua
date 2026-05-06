@@ -8,6 +8,7 @@ import {
   formatShortcutCombo,
   formatShortcutToken,
   isEditableShortcutCombo,
+  isReservedShortcutCombo,
   keyboardEventToCombo,
   matchesCombo,
   resolveCombos,
@@ -43,12 +44,54 @@ describe('keyboardShortcuts catalog', () => {
       'nav-project-search',
       'overlay-command-palette',
       'overlay-settings',
+      'overlay-developer-utilities',
       'overlay-close',
       'view-toggle-sidebar',
       'view-toggle-console',
+      // RL-069 Slice 1 — Developer Utilities productivity shortcuts.
+      'utility-copy-output',
+      'utility-replace-clipboard',
     ]) {
       expect(ids.has(required)).toBe(true);
     }
+  });
+
+  it('declares the Developer Utilities launcher shortcut as Mod+K', () => {
+    const shortcut = KEYBOARD_SHORTCUTS.find(
+      (entry) => entry.id === 'overlay-developer-utilities'
+    );
+    expect(shortcut).toBeDefined();
+    expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'K'] }]);
+    expect(shortcut?.group).toBe('overlays');
+  });
+
+  it('declares a utilities group with both RL-069 Slice 1 output shortcuts', () => {
+    const groupIds = new Set(SHORTCUT_GROUPS.map((group) => group.id));
+    expect(groupIds.has('utilities')).toBe(true);
+
+    const utilityShortcuts = KEYBOARD_SHORTCUTS.filter(
+      (entry) => entry.group === 'utilities'
+    );
+    expect(utilityShortcuts.map((entry) => entry.id).sort()).toEqual([
+      'utility-copy-output',
+      'utility-replace-clipboard',
+    ]);
+
+    // The defaults stay editable (Mod-bearing) so they can travel
+    // through the keyboard shortcut editor without tripping the
+    // isEditableShortcutCombo guard.
+    for (const shortcut of utilityShortcuts) {
+      for (const combo of shortcut.combos) {
+        expect(combo.tokens).toContain('Mod');
+      }
+    }
+
+    expect(
+      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'utility-copy-output')?.combos
+    ).toEqual([{ tokens: ['Mod', 'Shift', 'C'] }]);
+    expect(
+      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'utility-replace-clipboard')?.combos
+    ).toEqual([{ tokens: ['Mod', 'Alt', 'R'] }]);
   });
 });
 
@@ -189,6 +232,14 @@ describe('matchesCombo', () => {
       })
     ).toBe(false);
   });
+
+  it('never matches the browser hard-refresh combo', () => {
+    expect(
+      matchesCombo(keyEvent({ key: 'r', metaKey: true, shiftKey: true }), {
+        tokens: ['Mod', 'Shift', 'R'],
+      })
+    ).toBe(false);
+  });
 });
 
 describe('resolveCombos', () => {
@@ -256,6 +307,13 @@ describe('isEditableShortcutCombo', () => {
   it('accepts combos that keep a non-text modifier', () => {
     expect(isEditableShortcutCombo({ tokens: ['Mod', 'S'] })).toBe(true);
     expect(isEditableShortcutCombo({ tokens: ['Alt', 'Enter'] })).toBe(true);
+  });
+
+  it('rejects browser-reserved hard-refresh combos', () => {
+    expect(isReservedShortcutCombo({ tokens: ['Mod', 'Shift', 'R'] })).toBe(true);
+    expect(isEditableShortcutCombo({ tokens: ['Mod', 'Shift', 'R'] })).toBe(false);
+    expect(isReservedShortcutCombo({ tokens: ['Mod', 'Alt', 'R'] })).toBe(false);
+    expect(isEditableShortcutCombo({ tokens: ['Mod', 'Alt', 'R'] })).toBe(true);
   });
 
   it('rejects plain keys and shift-only combos so typing is not stolen globally', () => {

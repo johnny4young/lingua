@@ -541,7 +541,7 @@ export function buildCommandPaletteModel({
           `action-developer-utility-${utility.id}`,
           translate(utility.actionLabelKey),
           translate(utility.descriptionKey),
-          [...utility.keywords, 'utility', 'developer', 'tool'],
+          [...utility.keywords, ...(utility.aliases ?? []), 'utility', 'developer', 'tool'],
           () => {
             onClose();
             onOpenDeveloperUtility(utility.id);

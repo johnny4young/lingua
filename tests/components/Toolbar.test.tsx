@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
+import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be hoisted before component imports
@@ -170,6 +171,11 @@ describe('Toolbar', () => {
     resetRunnerState();
     vi.clearAllMocks();
     setActiveProLicense();
+    useSettingsStore.getState().resetShortcutOverrides();
+    Object.defineProperty(window.navigator, 'platform', {
+      configurable: true,
+      value: 'Win32',
+    });
     uiStoreState.statusNotice = null;
     editorStoreState.tabs = [
       {
@@ -500,6 +506,21 @@ describe('Toolbar', () => {
     await user.click(screen.getByRole('button', { name: 'Developer utilities' }));
 
     expect(onOpenUtilities).toHaveBeenCalledOnce();
+  });
+
+  it('shows the active Developer Utilities shortcut in the toolbar tooltip', async () => {
+    const user = userEvent.setup();
+    useSettingsStore
+      .getState()
+      .setShortcutOverride('overlay-developer-utilities', [{ tokens: ['Mod', 'Alt', 'K'] }]);
+
+    render(<Toolbar />);
+
+    await user.hover(screen.getByRole('button', { name: 'Developer utilities' }));
+
+    expect((await screen.findByRole('tooltip')).textContent).toBe(
+      'Developer utilities (Ctrl+Alt+K)'
+    );
   });
 
   it('blocks developer utilities on the Free tier', async () => {

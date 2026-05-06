@@ -35,6 +35,16 @@ export interface DeveloperUtilityDefinition {
   actionLabelKey: string;
   descriptionKey: string;
   keywords: string[];
+  /**
+   * RL-069 Slice 1 — short-form lookup tokens for the fuzzy search.
+   *
+   * Keywords stay focused on synonyms a user might type when describing
+   * the tool ("validate", "encode"). Aliases are abbreviations and
+   * acronyms ("b64", "ts", "md") that don't read as descriptive
+   * keywords but make Cmd+K muscle memory faster. Optional — only
+   * panels with an obvious shorthand carry them.
+   */
+  aliases?: readonly string[];
 }
 
 export const DEFAULT_DEVELOPER_UTILITY_ID: DeveloperUtilityId = 'json';
@@ -53,6 +63,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.base64.label',
     descriptionKey: 'utilities.tool.base64.description',
     keywords: ['base64', 'encode', 'decode'],
+    aliases: ['b64'],
   },
   {
     id: 'url',
@@ -81,6 +92,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.hash.label',
     descriptionKey: 'utilities.tool.hash.description',
     keywords: ['hash', 'sha1', 'sha256', 'digest'],
+    aliases: ['md5', 'hmac'],
   },
   {
     id: 'timestamp',
@@ -88,6 +100,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.timestamp.label',
     descriptionKey: 'utilities.tool.timestamp.description',
     keywords: ['timestamp', 'unix', 'date', 'time'],
+    aliases: ['ts', 'epoch'],
   },
   {
     id: 'jwt',
@@ -95,6 +108,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.jwt.label',
     descriptionKey: 'utilities.tool.jwt.description',
     keywords: ['jwt', 'token', 'decode', 'claims'],
+    aliases: ['bearer'],
   },
   {
     id: 'regex',
@@ -102,6 +116,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.regex.label',
     descriptionKey: 'utilities.tool.regex.description',
     keywords: ['regex', 'regexp', 'pattern', 'match', 'capture'],
+    aliases: ['re'],
   },
   {
     id: 'color',
@@ -130,6 +145,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.beautifyMinify.label',
     descriptionKey: 'utilities.tool.beautifyMinify.description',
     keywords: ['beautify', 'minify', 'format', 'pretty', 'json', 'javascript', 'js'],
+    aliases: ['min'],
   },
   {
     id: 'string-case',
@@ -151,6 +167,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.stringInspector.label',
     descriptionKey: 'utilities.tool.stringInspector.description',
     keywords: ['unicode', 'codepoint', 'bytes', 'invisible', 'zero-width', 'bidi', 'homoglyph'],
+    aliases: ['inspector'],
   },
   {
     id: 'qr-code',
@@ -206,6 +223,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.loremIpsum.label',
     descriptionKey: 'utilities.tool.loremIpsum.description',
     keywords: ['lorem', 'ipsum', 'placeholder', 'dummy', 'mock', 'copy', 'text', 'latin'],
+    aliases: ['lipsum'],
   },
   {
     id: 'svg-to-css',
@@ -223,6 +241,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'image',
       'icon',
     ],
+    aliases: ['svg2css'],
   },
   {
     id: 'cron-parser',
@@ -247,6 +266,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.htmlToJsx.label',
     descriptionKey: 'utilities.tool.htmlToJsx.description',
     keywords: ['html', 'jsx', 'react', 'convert', 'migrate', 'component', 'classname'],
+    aliases: ['html2jsx'],
   },
   {
     id: 'curl-to-code',
@@ -267,6 +287,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'go',
       'javascript',
     ],
+    aliases: ['curl2code'],
   },
   {
     id: 'yaml-json',
@@ -274,6 +295,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.yamlJson.label',
     descriptionKey: 'utilities.tool.yamlJson.description',
     keywords: ['yaml', 'json', 'convert', 'parse', 'dump', 'serialize', 'config'],
+    aliases: ['y2j', 'j2y'],
   },
   {
     id: 'json-csv',
@@ -281,13 +303,18 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.jsonCsv.label',
     descriptionKey: 'utilities.tool.jsonCsv.description',
     keywords: ['json', 'csv', 'convert', 'tsv', 'export', 'spreadsheet', 'rfc-4180'],
+    aliases: ['j2c', 'c2j'],
   },
   {
     id: 'markdown-preview',
     titleKey: 'utilities.tool.markdownPreview.titleLabel',
     actionLabelKey: 'utilities.tool.markdownPreview.label',
     descriptionKey: 'utilities.tool.markdownPreview.description',
-    keywords: ['markdown', 'md', 'preview', 'gfm', 'render', 'docs', 'readme'],
+    // RL-069 Slice 1 — `md` moved from keywords to aliases so it
+    // serves as a fuzzy-search shorthand without duplicating the
+    // descriptive-keyword vocabulary.
+    keywords: ['markdown', 'preview', 'gfm', 'render', 'docs', 'readme'],
+    aliases: ['md'],
   },
   {
     id: 'sql-formatter',
@@ -295,6 +322,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.sqlFormatter.label',
     descriptionKey: 'utilities.tool.sqlFormatter.description',
     keywords: ['sql', 'format', 'beautify', 'mysql', 'postgresql', 'ansi', 'database'],
+    aliases: ['sqlfmt'],
   },
 ] as const;
 

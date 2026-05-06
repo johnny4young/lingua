@@ -1,5 +1,10 @@
 import { spawn } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
+import {
+  WEB_DEV_PRO_PORT,
+  buildViteDevServerArgs,
+  resolveVitePort,
+} from '../../scripts/dev-web-pro.mjs';
 
 /**
  * Smoke tests for `scripts/dev-web-pro.mjs`.
@@ -45,6 +50,29 @@ describe('scripts/dev-web-pro.mjs', () => {
 
     expect(payload.tier).toBe('team');
     expect(payload.issuedTo).toBe('ci@local');
+  });
+
+  it('launches vite on a strict port so the printed token cannot target a stale server', () => {
+    const args = buildViteDevServerArgs(['--host', '127.0.0.1'], ['--open']);
+
+    expect(args).toEqual([
+      expect.stringContaining('vite'),
+      '--config',
+      'vite.web.config.mts',
+      '--port',
+      WEB_DEV_PRO_PORT,
+      '--strictPort',
+      '--host',
+      '127.0.0.1',
+      '--open',
+    ]);
+  });
+
+  it('reports the overridden vite port in the launch banner', () => {
+    expect(resolveVitePort(['--host', '127.0.0.1'])).toBe(WEB_DEV_PRO_PORT);
+    expect(resolveVitePort(['--port', '5180'])).toBe('5180');
+    expect(resolveVitePort(['--port=5181'])).toBe('5181');
+    expect(resolveVitePort(['--port', '5180', '--port=5182'])).toBe('5182');
   });
 });
 

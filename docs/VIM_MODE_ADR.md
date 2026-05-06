@@ -20,8 +20,9 @@ Three questions need a written answer before any code lands:
    port. Settle on one and document why.
 2. **Focus + keystroke ownership.** Vim modes hijack single-letter
    keys in normal mode (`h`, `j`, `d`, `y`, `:`). Lingua already binds
-   global shortcuts (`Ctrl/Cmd+P` Quick Open, `Ctrl/Cmd+K` Command
-   Palette, `Ctrl/Cmd+,` Settings). Decide where the boundary is.
+   global shortcuts (`Ctrl/Cmd+P` Quick Open, `Ctrl/Cmd+Shift+P`
+   Command Palette, `Ctrl/Cmd+K` Developer Utilities, `Ctrl/Cmd+,`
+   Settings). Decide where the boundary is.
 3. **i18n posture.** `monaco-vim`'s status bar (`-- INSERT --`,
    `-- NORMAL --`) is English-only upstream. Decide whether we
    localize now, later, or never.
@@ -47,8 +48,8 @@ users who never flip it on.
   intercepts `h/j/k/l`, `i/a/o`, `:`, `/`, and the rest.
 - **Global shortcuts stay global.** When focus is on the Tab bar,
   the file tree, the console, a modal, or anywhere outside Monaco,
-  `Ctrl/Cmd+P`, `Ctrl/Cmd+K`, `Ctrl/Cmd+,`, etc. resolve exactly as
-  today. The existing `useGlobalShortcuts` hook already gates on
+  `Ctrl/Cmd+P`, `Ctrl/Cmd+Shift+P`, `Ctrl/Cmd+K`, `Ctrl/Cmd+,`, etc.
+  resolve exactly as today. The existing `useGlobalShortcuts` hook already gates on
   focus and is not modified by this slice.
 - **`Ctrl/Cmd+P` conflict.** Vim binds `Ctrl+P` as "previous
   completion" in insert mode. Lingua globally binds `Ctrl/Cmd+P` to

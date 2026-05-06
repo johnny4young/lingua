@@ -2,14 +2,23 @@ import { Search, Wrench, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  KEYBOARD_SHORTCUTS,
+  formatShortcutCombo,
+  resolveCombos,
+  resolveShortcutDisplayPlatform,
+} from '../../data/keyboardShortcuts';
+import {
   DEFAULT_DEVELOPER_UTILITY_ID,
   DEVELOPER_UTILITIES,
   findDeveloperUtility,
+  type DeveloperUtilityDefinition,
   type DeveloperUtilityId,
 } from '../../data/developerUtilities';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { Eyebrow } from '../ui/primitives';
 import { cn } from '../../utils/cn';
+import { fuzzyMatch } from '../../utils/fuzzyMatch';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { DeveloperUtilityPanel } from './UtilityPanels';
 
 /**
@@ -35,39 +44,166 @@ interface DeveloperUtilitiesModalProps {
   initialUtilityId?: DeveloperUtilityId;
 }
 
+const COPY_OUTPUT_SHORTCUT_HINT = {
+  id: 'utility-copy-output',
+  labelKey: 'utilities.shortcuts.copyOutput',
+} as const;
+
+function getShortcutDisplayPlatform() {
+  const runtimePlatform =
+    typeof window !== 'undefined' ? window.lingua?.platform ?? 'web' : 'web';
+  const navigatorPlatform =
+    typeof navigator !== 'undefined' ? navigator.platform : undefined;
+  return resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
+}
+
 export function DeveloperUtilitiesModal({
   onClose,
   initialUtilityId = DEFAULT_DEVELOPER_UTILITY_ID,
 }: DeveloperUtilitiesModalProps) {
   const { t } = useTranslation();
+  const shortcutOverrides = useSettingsStore((state) => state.shortcutOverrides);
   const [selectedUtilityId, setSelectedUtilityId] =
     useState<DeveloperUtilityId>(initialUtilityId);
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  const utilityButtonRefs = useRef(new Map<DeveloperUtilityId, HTMLButtonElement>());
+
+  const copyOutputShortcutHint = useMemo(() => {
+    const displayPlatform = getShortcutDisplayPlatform();
+    const definition = KEYBOARD_SHORTCUTS.find(
+      (entry) => entry.id === COPY_OUTPUT_SHORTCUT_HINT.id
+    );
+    if (!definition) return null;
+    const combo = resolveCombos(definition, shortcutOverrides)[0];
+    if (!combo) return null;
+    return {
+      labelKey: COPY_OUTPUT_SHORTCUT_HINT.labelKey,
+      combo: formatShortcutCombo(combo, displayPlatform),
+    };
+  }, [shortcutOverrides]);
 
   useEffect(() => {
     setSelectedUtilityId(initialUtilityId);
   }, [initialUtilityId]);
 
+  useEffect(() => {
+    searchRef.current?.focus();
+  }, []);
+
   const selectedUtility = findDeveloperUtility(selectedUtilityId);
 
   const filteredUtilities = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim();
     if (q.length === 0) return DEVELOPER_UTILITIES;
-    return DEVELOPER_UTILITIES.filter((utility) => {
-      // Match against title, description, and keywords. Title + description
-      // are i18n keys, so we look up the live translations.
-      const title = t(utility.titleKey).toLowerCase();
-      const desc = t(utility.descriptionKey).toLowerCase();
-      if (title.includes(q) || desc.includes(q)) return true;
-      return utility.keywords.some((kw) => kw.toLowerCase().includes(q));
-    });
+    // RL-069 Slice 1 — fuzzy match against title, description,
+    // keywords, and aliases. Score the best match across those fields
+    // so a hit on the title outranks a hit on a tangential keyword.
+    type Ranked = { utility: DeveloperUtilityDefinition; score: number };
+    const ranked: Ranked[] = [];
+    for (const utility of DEVELOPER_UTILITIES) {
+      const title = t(utility.titleKey);
+      const desc = t(utility.descriptionKey);
+      const candidates: { value: string; weight: number }[] = [
+        { value: title, weight: 1.0 },
+        { value: desc, weight: 0.6 },
+        ...utility.keywords.map((kw) => ({ value: kw, weight: 0.85 })),
+        ...(utility.aliases ?? []).map((alias) => ({ value: alias, weight: 0.95 })),
+      ];
+      let best = -Infinity;
+      for (const { value, weight } of candidates) {
+        const score = fuzzyMatch(q, value);
+        if (score === null) continue;
+        const weighted = score * weight;
+        if (weighted > best) best = weighted;
+      }
+      if (best > -Infinity) ranked.push({ utility, score: best });
+    }
+    ranked.sort((a, b) => b.score - a.score);
+    return ranked.map((r) => r.utility);
   }, [searchQuery, t]);
+
+  useEffect(() => {
+    if (filteredUtilities.length === 0) return;
+    if (filteredUtilities.some((utility) => utility.id === selectedUtilityId)) return;
+    const firstUtility = filteredUtilities[0];
+    if (firstUtility) {
+      setSelectedUtilityId(firstUtility.id);
+    }
+  }, [filteredUtilities, selectedUtilityId]);
+
+  const focusUtilityButton = (utilityId: DeveloperUtilityId) => {
+    window.requestAnimationFrame(() => {
+      utilityButtonRefs.current.get(utilityId)?.focus();
+    });
+  };
+
+  const selectUtilityAt = (index: number, shouldFocusButton: boolean) => {
+    const utility = filteredUtilities[index];
+    if (!utility) return;
+    setSelectedUtilityId(utility.id);
+    if (shouldFocusButton) {
+      focusUtilityButton(utility.id);
+    }
+  };
+
+  const selectRelativeUtility = (delta: number, shouldFocusButton: boolean) => {
+    if (filteredUtilities.length === 0) return;
+    const currentIndex = filteredUtilities.findIndex(
+      (utility) => utility.id === selectedUtilityId
+    );
+    const fallbackIndex = delta > 0 ? -1 : 0;
+    const baseIndex = currentIndex >= 0 ? currentIndex : fallbackIndex;
+    const nextIndex =
+      (baseIndex + delta + filteredUtilities.length) % filteredUtilities.length;
+    selectUtilityAt(nextIndex, shouldFocusButton);
+  };
 
   const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape' && searchQuery.length > 0) {
       event.stopPropagation();
       setSearchQuery('');
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      event.stopPropagation();
+      selectRelativeUtility(event.key === 'ArrowDown' ? 1 : -1, true);
+      return;
+    }
+    if (event.key === 'Enter' && filteredUtilities.length > 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      const currentIndex = filteredUtilities.findIndex(
+        (utility) => utility.id === selectedUtilityId
+      );
+      selectUtilityAt(Math.max(currentIndex, 0), true);
+    }
+  };
+
+  const handleUtilityKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      event.stopPropagation();
+      selectRelativeUtility(event.key === 'ArrowDown' ? 1 : -1, true);
+      return;
+    }
+    if (event.key === 'Home') {
+      event.preventDefault();
+      event.stopPropagation();
+      selectUtilityAt(0, true);
+      return;
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      event.stopPropagation();
+      selectUtilityAt(filteredUtilities.length - 1, true);
+      return;
+    }
+    if (event.key === 'Escape' && searchQuery.length > 0) {
+      event.stopPropagation();
+      setSearchQuery('');
+      searchRef.current?.focus();
     }
   };
 
@@ -103,6 +239,20 @@ export function DeveloperUtilitiesModal({
             <p className="mb-3 text-[12px] leading-[1.5] text-muted">
               {t('utilities.description')}
             </p>
+            {copyOutputShortcutHint ? (
+              <div
+                className="mb-3 flex flex-wrap items-center gap-2"
+                aria-label={t('utilities.shortcuts.outputAriaLabel')}
+                data-testid="utilities-sidebar-shortcuts"
+              >
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/70 px-2.5 py-1 text-[11px] leading-none text-muted">
+                  <span>{t(copyOutputShortcutHint.labelKey)}</span>
+                  <span className="kbd-shell border-border/70 bg-background-elevated text-[10px] text-foreground">
+                    {copyOutputShortcutHint.combo}
+                  </span>
+                </span>
+              </div>
+            ) : null}
             <div className="relative">
               <Search
                 size={12}
@@ -144,7 +294,15 @@ export function DeveloperUtilitiesModal({
                   <button
                     key={utility.id}
                     type="button"
+                    ref={(node) => {
+                      if (node) {
+                        utilityButtonRefs.current.set(utility.id, node);
+                      } else {
+                        utilityButtonRefs.current.delete(utility.id);
+                      }
+                    }}
                     onClick={() => setSelectedUtilityId(utility.id)}
+                    onKeyDown={handleUtilityKeyDown}
                     aria-pressed={isSelected}
                     data-testid={`utility-item-${utility.id}`}
                     className={cn(

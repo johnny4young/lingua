@@ -310,6 +310,12 @@ describe('buildCommandPaletteModel', () => {
     expect(urlParserAction?.label).toBe('Open URL Parser');
     expect(urlParserAction?.description).toContain('scheme, host, path, query, and fragment');
     expect(filterCommandPaletteCommands(withUtilities, 'inspect')).toContain(urlParserAction);
+    expect(filterCommandPaletteCommands(withUtilities, 'b64')).toContain(
+      withUtilities.find((c) => c.id === 'action-developer-utility-base64')
+    );
+    expect(filterCommandPaletteCommands(withUtilities, 'md')).toContain(
+      withUtilities.find((c) => c.id === 'action-developer-utility-markdown-preview')
+    );
 
     jsonAction?.action();
     urlParserAction?.action();

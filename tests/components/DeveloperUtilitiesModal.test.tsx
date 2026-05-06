@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { initI18n } from '../../src/renderer/i18n';
 import { DeveloperUtilitiesModal } from '../../src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal';
+import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
 vi.mock('../../src/renderer/components/ui/chrome', () => ({
   IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
@@ -26,6 +27,11 @@ describe('DeveloperUtilitiesModal', () => {
   beforeEach(async () => {
     initI18n('en');
     await i18next.changeLanguage('en');
+    useSettingsStore.getState().resetShortcutOverrides();
+    Object.defineProperty(window.navigator, 'platform', {
+      configurable: true,
+      value: 'Win32',
+    });
   });
 
   it('opens on the JSON utility by default', () => {
@@ -41,6 +47,55 @@ describe('DeveloperUtilitiesModal', () => {
 
     expect(screen.getByRole('heading', { name: 'Timestamp Converter' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Use current time' })).toBeTruthy();
+  });
+
+  it('focuses search on open and navigates utilities with arrow keys', async () => {
+    const user = userEvent.setup();
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
+
+    const search = screen.getByTestId('utilities-search-input');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(search);
+    });
+
+    await user.keyboard('{ArrowDown}');
+
+    const base64Item = screen.getByTestId('utility-item-base64');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(base64Item);
+    });
+    expect(screen.getByRole('heading', { name: 'Base64 Encoder' })).toBeTruthy();
+
+    await user.keyboard('{ArrowDown}');
+
+    const urlItem = screen.getByTestId('utility-item-url');
+    await waitFor(() => {
+      expect(document.activeElement).toBe(urlItem);
+    });
+    expect(screen.getByRole('heading', { name: 'URL Encoder' })).toBeTruthy();
+
+    await user.keyboard('{ArrowUp}');
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(base64Item);
+    });
+  });
+
+  it('surfaces only the copy output shortcut in the modal chrome', () => {
+    useSettingsStore
+      .getState()
+      .setShortcutOverride('utility-copy-output', [{ tokens: ['Mod', 'Alt', 'C'] }]);
+
+    render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
+
+    expect(screen.queryByLabelText('Developer utilities shortcuts')).toBeNull();
+    expect(screen.getByLabelText('Utility output shortcuts')).toBeTruthy();
+    expect(screen.queryByText('Open')).toBeNull();
+    expect(screen.getByText('Copy output')).toBeTruthy();
+    expect(screen.queryByText('Replace clipboard')).toBeNull();
+    expect(screen.queryByText('Ctrl+K')).toBeNull();
+    expect(screen.getByText('Ctrl+Alt+C')).toBeTruthy();
+    expect(screen.queryByText('Ctrl+Alt+R')).toBeNull();
   });
 
   it('switches utilities and updates derived output live', async () => {

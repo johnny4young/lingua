@@ -165,6 +165,12 @@ test.describe('Free tier gates', () => {
     await expect(page.getByTestId('developer-utilities-modal')).toHaveCount(0);
   });
 
+  test('developer utilities shortcut blocks the modal', async ({ page }) => {
+    await page.keyboard.press('Control+K');
+    await expectNoticeContains(page, 'built-in developer utilities');
+    await expect(page.getByTestId('developer-utilities-modal')).toHaveCount(0);
+  });
+
   test('license status pill reads "Free plan" and offers no clear affordance', async ({ page }) => {
     await openSettings(page);
     await openSettingsTab(page, 'account');

@@ -149,6 +149,11 @@ One command starts Vite on `http://localhost:5174` with a fresh dev
 public key injected into `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` and
 prints a signed token to the terminal.
 
+`dev:web:pro` uses Vite `--strictPort` on 5174. If the port is already
+occupied, stop the old web server and re-run the command; do not paste
+the newly printed token into an older 5174 tab, because that tab was
+built with a different public key.
+
 ```bash
 npm run dev:web:pro               # tier=pro, valid 30 days
 npm run dev:web:pro -- --tier team --days 7

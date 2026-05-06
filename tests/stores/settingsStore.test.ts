@@ -543,6 +543,7 @@ describe('settingsStore', () => {
             'unknown-id': [{ tokens: ['Mod', 'Q'] }],
             'file-save': 'not-an-array',
             'nav-quick-open': [{ tokens: [] }],
+            'nav-go-to-symbol': [{ tokens: ['Mod', 'Shift', 'R'] }],
             'view-toggle-console': [{ tokens: ['J'] }],
           },
         },

@@ -70,7 +70,7 @@ Hi! I'm the maker of Lingua. A few things the tagline doesn't fit:
 - Every runner ships with language-aware inline results (`//=>` magic
   comments) so the scratchpad feels like a REPL with context.
 - The developer utilities (JSON, regex, Base64, hash, JWT, color, diff,
-  etc.) are first-class — Cmd+K → search → open.
+  etc.) are first-class — Cmd+K opens the workspace, then search and run.
 - Keyboard shortcuts are rebindable with a preset import/export flow,
   and theme presets round-trip as JSON.
 - Free tier is single-tab + 5 snippets + JS/TS/Python. Pro, Pro

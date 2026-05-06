@@ -1,11 +1,15 @@
 import { useEffect, useEffectEvent, useMemo } from 'react';
 import {
   KEYBOARD_SHORTCUTS,
+  formatShortcutCombo,
   matchesCombo,
   resolveCombos,
+  resolveShortcutDisplayPlatform,
   type ShortcutDefinition,
 } from '../data/keyboardShortcuts';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useUIStore } from '../stores/uiStore';
+import { useUtilityOutputStore } from '../stores/utilityOutputStore';
 
 export type AppOverlay =
   | 'none'
@@ -31,6 +35,7 @@ interface UseGlobalShortcutsOptions {
   toggleConsole: () => void;
   overlay: AppOverlay;
   toggleOverlay: (overlay: Exclude<AppOverlay, 'none'>) => void;
+  openDeveloperUtilities: () => void;
   closeOverlay: () => void;
 }
 
@@ -67,9 +72,89 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'nav-project-search': () => options.toggleOverlay('search'),
     'overlay-command-palette': () => options.toggleOverlay('palette'),
     'overlay-settings': () => options.toggleOverlay('settings'),
+    'overlay-developer-utilities': () => options.openDeveloperUtilities(),
     'view-toggle-sidebar': () => options.toggleSidebar(),
     'view-toggle-console': () => options.toggleConsole(),
+    // RL-069 Slice 1 — Both shortcuts read the registered utility
+    // panel output via `useUtilityOutputStore` and write to the
+    // clipboard. Cmd+Alt+R semantically replaces the clipboard with
+    // the output (same write call as Copy Output today; the toast key
+    // signals intent to the user). Slice 2 will diverge them once
+    // detect()-driven Apply enters the picture.
+    'utility-copy-output': () => {
+      void writeUtilityOutputToClipboard('copy');
+    },
+    'utility-replace-clipboard': () => {
+      void writeUtilityOutputToClipboard('replace');
+    },
   };
+}
+
+// RL-069 Slice 1 — module-level in-flight flag. The shortcut handler
+// is fire-and-forget, so a fast double-press of Cmd+Shift+C while the
+// previous navigator.clipboard.writeText is still pending would queue
+// two independent toasts. Dropping the duplicate keeps the visual
+// feedback honest. Module-level state is acceptable here because the
+// helper is only invoked from the global shortcut handler — there is
+// no concurrent caller surface.
+let utilityClipboardInFlight = false;
+
+function getShortcutLabel(shortcutId: string): string | undefined {
+  const definition = KEYBOARD_SHORTCUTS.find((entry) => entry.id === shortcutId);
+  if (!definition) return undefined;
+  const combo = resolveCombos(
+    definition,
+    useSettingsStore.getState().shortcutOverrides
+  )[0];
+  if (!combo) return undefined;
+
+  const runtimePlatform =
+    typeof window !== 'undefined' ? window.lingua?.platform ?? 'web' : 'web';
+  const navigatorPlatform =
+    typeof navigator !== 'undefined' ? navigator.platform : undefined;
+  const displayPlatform = resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
+  return formatShortcutCombo(combo, displayPlatform);
+}
+
+async function writeUtilityOutputToClipboard(mode: 'copy' | 'replace'): Promise<void> {
+  if (utilityClipboardInFlight) return;
+  utilityClipboardInFlight = true;
+  try {
+    const provider = useUtilityOutputStore.getState().getProvider();
+    const pushNotice = useUIStore.getState().pushStatusNotice;
+
+    if (!provider) {
+      pushNotice({ tone: 'info', messageKey: 'utilities.toast.copyOutputEmpty' });
+      return;
+    }
+
+    const value = provider();
+    if (value === null || value === '') {
+      pushNotice({ tone: 'info', messageKey: 'utilities.toast.copyOutputEmpty' });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+      pushNotice({
+        tone: 'success',
+        messageKey:
+          mode === 'replace'
+            ? 'utilities.toast.replaceClipboardSuccess'
+            : 'utilities.toast.copyOutputSuccess',
+        values: {
+          shortcut:
+            getShortcutLabel(
+              mode === 'replace' ? 'utility-replace-clipboard' : 'utility-copy-output'
+            ) ?? '',
+        },
+      });
+    } catch {
+      pushNotice({ tone: 'error', messageKey: 'utilities.toast.copyOutputFailed' });
+    }
+  } finally {
+    utilityClipboardInFlight = false;
+  }
 }
 
 export function useGlobalShortcuts(options: UseGlobalShortcutsOptions) {

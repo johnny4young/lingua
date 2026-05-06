@@ -59,6 +59,15 @@ test.describe('Command palette', () => {
     await dismissWhatsNew(page);
   });
 
+  test('developer utility aliases open the matching utility action', async ({ page }) => {
+    await openPaletteAction(page, 'b64', /Open Base64 Encoder/i);
+
+    await expect(
+      page.getByRole('heading', { name: 'Base64 Encoder', exact: true })
+    ).toBeVisible();
+    await closeDeveloperUtilities(page);
+  });
+
   test('About palette entry routes into the About settings section', async ({ page }) => {
     await openPaletteAction(page, 'about', /About Lingua/i);
     await expect(page.getByRole('heading', { name: 'About', exact: true })).toBeVisible();
@@ -126,6 +135,75 @@ test.describe('Developer utilities modal (Pro)', () => {
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await expectTier(page, 'PRO');
+  });
+
+  test('opens from the global Mod+K shortcut', async ({ page }) => {
+    await page.getByRole('button', { name: 'Developer utilities' }).hover();
+    await expect(
+      page.getByRole('tooltip', { name: /Developer utilities \((⌘K|Ctrl\+K)\)/u })
+    ).toBeVisible();
+
+    await page.keyboard.press('Control+K');
+    await expect(page.getByTestId('developer-utilities-modal')).toBeVisible();
+    await expect(page.getByTestId('utilities-search-input')).toBeFocused();
+
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByTestId('utility-item-base64')).toBeFocused();
+    await expect(
+      page.getByRole('heading', { name: 'Base64 Encoder', exact: true })
+    ).toBeVisible();
+
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByTestId('utility-item-url')).toBeFocused();
+    await expect(
+      page.getByRole('heading', { name: 'URL Encoder', exact: true })
+    ).toBeVisible();
+
+    await expect(
+      page.getByRole('heading', { name: 'Built-in utilities', exact: true })
+    ).toBeVisible();
+    await expect(page.getByTestId('utilities-sidebar-shortcuts')).toContainText(
+      /Copy output.*(⌘⇧C|Ctrl\+Shift\+C)/u
+    );
+    await expect(page.getByText('Copy output')).toBeVisible();
+    await expect(page.getByText('Replace clipboard')).toBeHidden();
+
+    await closeDeveloperUtilities(page);
+  });
+
+  test('filters by aliases and copies registered output through shortcuts', async ({ page }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    await openDeveloperUtilities(page);
+
+    await page.getByTestId('utilities-search-input').fill('b64');
+    await expect(page.getByTestId('utility-item-base64')).toBeVisible();
+    await page.getByTestId('utility-item-base64').click();
+    await expect(
+      page.getByRole('heading', { name: 'Base64 Encoder', exact: true })
+    ).toBeVisible();
+
+    const expectedOutput = 'TGluZ3VhIHV0aWxpdGllcw==';
+
+    await page.keyboard.press('Control+Shift+C');
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe(expectedOutput);
+    await expect(
+      page.getByText(/Output copied to clipboard · (⌘⇧C|Ctrl\+Shift\+C)/u)
+    ).toBeVisible();
+
+    await page.evaluate(() => navigator.clipboard.writeText('old clipboard'));
+    const replaceShortcut =
+      process.platform === 'darwin' ? 'Meta+Alt+R' : 'Control+Alt+R';
+    await page.keyboard.press(replaceShortcut);
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe(expectedOutput);
+    await expect(
+      page.getByText(/Clipboard replaced with output · (⌘⌥R|Ctrl\+Alt\+R)/u)
+    ).toBeVisible();
+
+    await closeDeveloperUtilities(page);
   });
 
   test('Beautify/Minify panel round-trips JSON', async ({ page }) => {

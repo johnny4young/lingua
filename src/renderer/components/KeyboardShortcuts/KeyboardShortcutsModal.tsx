@@ -9,6 +9,7 @@ import {
   formatShortcutCombo,
   formatShortcutToken,
   isEditableShortcutCombo,
+  isReservedShortcutCombo,
   keyboardEventToCombo,
   resolveCombos,
   resolveShortcutDisplayPlatform,
@@ -238,6 +239,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
 
       const combo = keyboardEventToCombo(event);
       if (!combo) return;
+      if (isReservedShortcutCombo(combo)) return;
       event.preventDefault();
       event.stopPropagation();
 
