@@ -37,6 +37,7 @@ Mirrors the authoritative `Status` column in
 | Iter 13 | [`RL-063`](./ROADMAP.md) | Shipped (2026-05-05) | Marketing site live at https://linguacode.dev from the separate `lingua-marketing` repo (Astro 6 + Tailwind v4 + Cloudflare Pages, EN+ES). Cascades closed `RL-064` (press-kit ZIP at `/press`), `RL-066` (six SEO landing pages live; ranking measurement post-launch), and `RL-081` (live checkout/download copy aligned with desktop entitlement). See §15 + `MARKETING_SITE_ADR.md`. |
 | Iter 14 | [`RL-082`](./ROADMAP.md) | Shipped (2026-05-05) | README + docs information-architecture cleanup — README slimmed from 537 → ~130 lines, contributor workflow consolidated into `docs/DEVELOPMENT.md`, end-user reference into `docs/USAGE.md`, docs index updated, `tests/docs/publicDocs.test.ts` absolute-path guard widened beyond the macOS user-home prefix to cover Linux, sandbox, and Windows drive-letter paths. |
 | Iter 15 | [`RL-069`](./ROADMAP.md) | Slice 1 Shipped (2026-05-05) | DevUtils-class productivity layer — Slice 1 foundation: Developer Utilities opens with Cmd/Ctrl+K, utility-copy-output (Cmd+Shift+C) + utility-replace-clipboard (Cmd+Alt+R) shortcuts under a new `utilities` group, fuzzy tool search via new `fuzzyMatch` helper (replaces substring filter, walks aliases on 15 panels), output-provider plumbing wired in 5 panels (JSON, Base64, URL, JWT, UUID). Slice 2 = detect + Apply button; Slice 3 = clipboard-on-focus + history + favorites. |
+| Iter 16 | [`RL-091`](./ROADMAP.md) | Shipped (2026-05-06) | License + update server observability + runbooks — structured logging with sensitive-key redaction across both Cloudflare Workers, error classifier (client / server / upstream / storage), `/health/ready` readiness probes (D1, KV, Polar, Resend on license-server; GitHub on update-server), 5 operator runbooks under `docs/runbooks/`, and the metrics + alerts + dashboards spec at `docs/SERVER_OBSERVABILITY.md`. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -57,8 +58,9 @@ Value-per-day priority. The full reasoning is in
    `RL-085`, `RL-092`, and `RL-081` are all `Done` (RL-081 closed
    2026-05-05 once the live `linguacode.dev` surface aligned with the
    desktop entitlement copy).
-4. **Runtime/platform surface hardening** — `RL-084`, `RL-087`, and
-   `RL-091` once the core launch blockers are under control.
+4. **Runtime/platform surface hardening** — `RL-091` closed 2026-05-06
+   (server observability + runbooks); `RL-084` (plugin manifest hardening)
+   and `RL-087` (watcher reliability) remain in this lane.
 5. **Product quality and supportability** — `RL-086`, `RL-088`,
    `RL-089`, and `RL-090`.
 6. **Utilities polish** — `RL-069` Slice 1 shipped 2026-05-05 (productivity

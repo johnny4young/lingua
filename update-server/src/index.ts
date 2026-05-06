@@ -1,5 +1,12 @@
 import { getLatestRelease, getAssetDownloadURL, getAssetContent } from './github';
 import { isNewer } from './version';
+import { log, wrapRequestObservability } from './lib/observability';
+import {
+  evaluateReadiness,
+  resetReadinessProbeCacheForTests,
+  SERVER_NAME,
+  SERVER_VERSION,
+} from './lib/health';
 
 export interface Env {
   GITHUB_TOKEN: string;
@@ -12,56 +19,88 @@ const WEB_VERSION_CORS_HEADERS = {
   'Access-Control-Max-Age': '86400',
 } as const;
 
+// Re-export so tests can clear the probe cache between cases without
+// reaching into the lib path directly.
+export { resetReadinessProbeCacheForTests, SERVER_NAME, SERVER_VERSION };
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    const path = url.pathname;
-
-    // Health check
-    if (path === '/') {
-      return json({ status: 'ok', server: 'lingua-update-server' });
-    }
-
-    // GET /update/:platform/:version
-    const updateMatch = path.match(/^\/update\/(darwin|win32)\/(.+)$/);
-    if (updateMatch) {
-      if (request.method !== 'GET') {
-        return methodNotAllowed();
-      }
-      return handleUpdate(request, env, updateMatch[1], updateMatch[2]);
-    }
-
-    // GET /download/:assetId — proxy for Windows nupkg downloads
-    const downloadMatch = path.match(/^\/download\/(\d+)$/);
-    if (downloadMatch) {
-      if (request.method !== 'GET') {
-        return methodNotAllowed();
-      }
-      return handleDownload(env, parseInt(downloadMatch[1], 10));
-    }
-
-    // GET /web/version — RL-061 Slice 5
-    // Returns the latest published GitHub release tag so the web build's
-    // update banner can compare against its build-time pin. Cached for
-    // 5 minutes at the edge to absorb spikes from many concurrent tabs
-    // polling on the same cadence. Returns 204 (no body) when no
-    // release exists yet so the renderer's null-fallback stays clean.
-    if (path === '/web/version' && request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: WEB_VERSION_CORS_HEADERS });
-    }
-    if (path === '/web/version') {
-      if (request.method !== 'GET') {
-        return new Response('Method Not Allowed', {
-          status: 405,
-          headers: { ...WEB_VERSION_CORS_HEADERS, Allow: 'GET, OPTIONS' },
-        });
-      }
-      return handleWebVersion(request, env);
-    }
-
-    return new Response('Not Found', { status: 404 });
+    return wrapRequestObservability(request, () => routeRequest(request, env));
   },
 } satisfies ExportedHandler<Env>;
+
+async function routeRequest(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  // Liveness check — root and /health both return the minimal payload.
+  if (path === '/' || path === '/health') {
+    if (request.method !== 'GET') {
+      return methodNotAllowed();
+    }
+    return json({ ok: true, server: SERVER_NAME, version: SERVER_VERSION });
+  }
+
+  // Readiness check — probes upstream GitHub reachability with a 30s
+  // cache. RL-091 contract: always 200, the snapshot itself is the
+  // signal so dashboards can read the dependencies map regardless.
+  if (path === '/health/ready') {
+    if (request.method !== 'GET') {
+      return methodNotAllowed();
+    }
+    const snapshot = await evaluateReadiness(env);
+    log('health.ready', {
+      ok: snapshot.ok,
+      degraded: snapshot.degraded,
+    });
+    return json({
+      ok: snapshot.ok,
+      server: SERVER_NAME,
+      version: SERVER_VERSION,
+      degraded: snapshot.degraded,
+      dependencies: snapshot.dependencies,
+    });
+  }
+
+  // GET /update/:platform/:version
+  const updateMatch = path.match(/^\/update\/(darwin|win32)\/(.+)$/);
+  if (updateMatch) {
+    if (request.method !== 'GET') {
+      return methodNotAllowed();
+    }
+    return handleUpdate(request, env, updateMatch[1], updateMatch[2]);
+  }
+
+  // GET /download/:assetId — proxy for Windows nupkg downloads
+  const downloadMatch = path.match(/^\/download\/(\d+)$/);
+  if (downloadMatch) {
+    if (request.method !== 'GET') {
+      return methodNotAllowed();
+    }
+    return handleDownload(env, parseInt(downloadMatch[1], 10));
+  }
+
+  // GET /web/version — RL-061 Slice 5
+  // Returns the latest published GitHub release tag so the web build's
+  // update banner can compare against its build-time pin. Cached for
+  // 5 minutes at the edge to absorb spikes from many concurrent tabs
+  // polling on the same cadence. Returns 204 (no body) when no
+  // release exists yet so the renderer's null-fallback stays clean.
+  if (path === '/web/version' && request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: WEB_VERSION_CORS_HEADERS });
+  }
+  if (path === '/web/version') {
+    if (request.method !== 'GET') {
+      return new Response('Method Not Allowed', {
+        status: 405,
+        headers: { ...WEB_VERSION_CORS_HEADERS, Allow: 'GET, OPTIONS' },
+      });
+    }
+    return handleWebVersion(request, env);
+  }
+
+  return new Response('Not Found', { status: 404 });
+}
 
 // ---------------------------------------------------------------------------
 // Route handlers

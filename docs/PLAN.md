@@ -5566,6 +5566,33 @@ Optional follow-ups (not blocking; tracked outside RL-083):
   - RL-061
   - RL-080
 
+### Status Update — 2026-05-06 (closes RL-091)
+
+Operational readiness slice landed today. Status flips `Planned → Done`.
+
+What shipped:
+
+- **License-server observability layer** at `license-server/src/lib/observability.ts`. Pure module: typed `LogEvent`, `redact()` walking sensitive keys with depth cap, `classifyError()` returning `client | server | upstream | storage`, `log()` emitting structured JSON via `console.log`, `requestObservabilityMiddleware()` mounted globally in `src/index.ts`, plus `routeNameFromPath()` for low-cardinality dashboard labels. Sensitive-key denylist covers `token`, `signature`, `polarSignature`, `jwk`, `privateKey`, `apiKey`, `webhookSecret`, `emailBody`, `htmlBody`, `textBody`, and other variants.
+- **Update-server sister observability module** at `update-server/src/lib/observability.ts`. Same shape (intentional copy — Cloudflare Workers projects don't share TS easily without a custom build); narrower denylist (no Polar / Resend keys); `wrapRequestObservability()` higher-order wrapper because update-server doesn't use Hono.
+- **Readiness endpoints** `GET /health/ready` on both servers. License-server probes D1 (`SELECT 1`), KV (`get('__health_probe__')`), Polar (`HEAD api.polar.sh/healthz`), Resend (`HEAD api.resend.com/`); update-server probes GitHub (`GET api.github.com/zen`). All probes have a 1-1.5s timeout and 30s module-local cache so a 30s-poll synthetic monitor doesn't pile up. Always returns 200 — the `degraded[]` array is the signal so dashboards can read the snapshot regardless.
+- **Five operator runbooks** under `docs/runbooks/`: `webhook-replay.md` (Polar webhook replay procedure), `license-recovery.md` (manual recovery for blocked email delivery), `refund-handling.md` (Polar refund auto-deactivation + manual override + disputed-refund path), `update-rollback.md` (bad-release rollback with cache purge + hotfix path), `github-degraded.md` (cache-extended ride-out for upstream GitHub outages). Each runbook follows the Detection → Mitigation → Rollback → Customer-support note → Validation 5-section structure.
+- **Observability spec** at `docs/SERVER_OBSERVABILITY.md`: emitted event catalog (request envelopes, unhandled-error envelopes, readiness probes, and stable route labels), error-classification table, sensitive-key denylists per server, dashboard panel recommendations, alert thresholds with severity matrix (S0 page-immediately, S1 page-within-4h, S2 notify), and an explicit "no rotation today" disclosure.
+- **Tests**: expanded license-server observability coverage (redaction depth + cycle safety + key case-insensitivity + classification across 4 classes + handled response status classification + log JSON shape + middleware envelope + error re-throw); license-server readiness coverage (all-ok / Polar+Resend degraded / D1 throw / 200-on-degraded / 30s cache / 405 on POST); expanded update-server observability coverage (mirror shape plus GitHub 502 status classification); update-server health coverage (liveness + readiness, including backward-compat that `GET /` still works). Existing server package tests stay green — the middleware is transparent on the happy path.
+- **Docs index**: `docs/README.md` "Where things live" gains rows for `SERVER_OBSERVABILITY.md` (the metrics + alerts spec) and `runbooks/` (the 5 incident procedures).
+
+What was deliberately NOT done in this slice:
+
+- **Alert wiring to a paging vendor** (PagerDuty / OpsGenie / email gateway) — the spec defines thresholds + severities, but the wiring depends on a vendor selection that hasn't happened yet. The runbooks reference "the alert" abstractly so swapping vendors later doesn't invalidate them.
+- **Dashboards** themselves are specified (panel layout, queries) but not provisioned. Cloudflare's logging stack supports several dashboard backends; the spec doesn't pick one.
+- **Module deduplication between license-server and update-server** — the two `observability.ts` files are intentionally near-duplicates. Cloudflare Workers projects don't easily share TypeScript across project boundaries without a custom build step; copying ~150 lines is the lesser evil today. Documented in `SERVER_OBSERVABILITY.md`.
+
+ACs cumplidos:
+
+- Production operators can distinguish client / server / upstream / storage error classes ✓
+- No log line stores full license tokens, private keys, or sensitive user payloads ✓ (redactor is unit-tested against every sensitive key)
+- Runbooks include detection, mitigation, rollback, and customer-support notes ✓ (all 5 follow the same structure)
+- Health checks cover both liveness (`/health`) and dependency-degraded states (`/health/ready`) ✓
+
 ### RL-092 Release security review checklist
 
 - Priority: `P2`

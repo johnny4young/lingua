@@ -31,6 +31,7 @@ import { recoverRouter } from './handlers/recover';
 import { trialsRouter } from './handlers/trials';
 import { webhooksRouter } from './handlers/webhooks';
 import { jsonNoStore } from './lib/json';
+import { classifyError, log, requestObservabilityMiddleware } from './lib/observability';
 
 export interface Env {
   /**
@@ -81,6 +82,13 @@ export interface Env {
 }
 
 export const app = new Hono<{ Bindings: Env }>();
+
+// RL-091 — global observability middleware. Emits a request.received /
+// request.completed envelope per request with route name, status, and
+// duration. Sensitive fields are redacted by the logger before
+// emission. Mounted before any other middleware so the timing window
+// covers the full request lifecycle.
+app.use('*', requestObservabilityMiddleware());
 
 /**
  * CORS for browser-side activation calls from the web build. The
@@ -174,7 +182,17 @@ app.notFound((c) => errorResponse(c, 'not-found', { message: `unknown route: ${c
 // captures the original `console.error` so the maintainer can debug
 // without the response body leaking stack traces.
 app.onError((err, c) => {
+  // RL-091 — structured-log the unhandled error with classification so
+  // alerts can route by errorClass. The legacy `console.error` line
+  // stays as a human-readable fallback for `wrangler tail` sessions
+  // until the operator's dashboard is wired up.
   console.error('[license-server] unhandled error', err);
+  log('request.unhandled_error', {
+    path: c.req.path,
+    method: c.req.method,
+    errorClass: classifyError(err),
+    errorMessage: err instanceof Error ? err.message : String(err),
+  });
   return buildInternalErrorResponse(c);
 });
 
