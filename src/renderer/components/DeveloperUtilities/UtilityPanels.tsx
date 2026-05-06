@@ -1,7 +1,8 @@
 import { Palette } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
+import { useRegisterUtilityOutput } from '../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from './CopyButton';
 import { FileDropZone } from '../ui/FileDropZone';
 import {
@@ -276,6 +277,13 @@ function JsonUtilityPanel() {
   const [input, setInput] = useState('{\n  "name": "Lingua",\n  "tools": ["json", "base64"]\n}');
   const analysis = useMemo(() => analyzeJson(input), [input]);
 
+  // RL-069 Slice 1 — register the formatted JSON as the panel's
+  // canonical output for Cmd+Shift+C / Cmd+Alt+R. Invalid in-progress
+  // edits surface null so the shortcut shows the empty-output toast
+  // instead of copying malformed JSON.
+  const registerOutput = useCallback(() => analysis.formatted ?? null, [analysis.formatted]);
+  useRegisterUtilityOutput(registerOutput);
+
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
       <PanelSection
@@ -393,6 +401,16 @@ function Base64UtilityPanel() {
   const output = mode === 'encode' ? encodeBase64(input) : decoded.value ?? '';
   const errorKey = mode === 'decode' ? decoded.errorKey : null;
 
+  // RL-069 Slice 1 — encoded / decoded output flows through to the
+  // global Cmd+Shift+C handler. When the input has a decode error we
+  // intentionally surface null so the shortcut shows the empty toast
+  // instead of a malformed value.
+  const registerOutput = useCallback(
+    () => (errorKey ? null : output || null),
+    [errorKey, output]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
   return (
     <div className="grid gap-4">
       <div className="inline-flex w-fit overflow-hidden rounded-[1.2rem] border border-border/80 bg-surface-strong/88">
@@ -431,6 +449,14 @@ function UrlUtilityPanel() {
 
   const output = mode === 'encode' ? encodeUrlComponentValue(input) : decoded.value ?? '';
   const errorKey = mode === 'decode' ? decoded.errorKey : null;
+
+  // RL-069 Slice 1 — same convention as Base64: encoded / decoded
+  // value when valid, null when errored.
+  const registerOutput = useCallback(
+    () => (errorKey ? null : output || null),
+    [errorKey, output]
+  );
+  useRegisterUtilityOutput(registerOutput);
 
   return (
     <div className="grid gap-4">
@@ -975,6 +1001,13 @@ function UuidUtilityPanel() {
     setValues(Array.from({ length: 3 }, () => generateIdentifier(nextKind)));
   };
 
+  // RL-069 Slice 1 — the first generated identifier is the canonical
+  // copyable value; users can always Regenerate to refresh it. The
+  // existing per-row CopyButtons remain so a user can still grab any
+  // of the three explicitly.
+  const registerOutput = useCallback(() => values[0] ?? null, [values]);
+  useRegisterUtilityOutput(registerOutput);
+
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
       <PanelSection
@@ -1478,6 +1511,16 @@ function JwtDecodeSection({
 }) {
   const { t } = useTranslation();
   const analysis = useMemo(() => decodeJwt(input), [input]);
+
+  // RL-069 Slice 1 — register the decoded payload (the user-meaningful
+  // half of a decoded JWT) as the panel's output for Cmd+Shift+C.
+  // verify and sign sub-modes don't register in Slice 1; Slice 2 will
+  // unify all 3 modes once detect()-driven Apply lands.
+  const registerOutput = useCallback(
+    () => (analysis.payload ? JSON.stringify(analysis.payload, null, 2) : null),
+    [analysis.payload]
+  );
+  useRegisterUtilityOutput(registerOutput);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">

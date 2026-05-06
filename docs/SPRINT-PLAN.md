@@ -36,6 +36,7 @@ Mirrors the authoritative `Status` column in
 | Iter 12 | [`RL-092`](./ROADMAP.md) | Shipped (2026-05-05) | Release security review checklist — `docs/RELEASE_SECURITY.md` plus a guard test now pin the security sign-off surface. See §14. |
 | Iter 13 | [`RL-063`](./ROADMAP.md) | Shipped (2026-05-05) | Marketing site live at https://linguacode.dev from the separate `lingua-marketing` repo (Astro 6 + Tailwind v4 + Cloudflare Pages, EN+ES). Cascades closed `RL-064` (press-kit ZIP at `/press`), `RL-066` (six SEO landing pages live; ranking measurement post-launch), and `RL-081` (live checkout/download copy aligned with desktop entitlement). See §15 + `MARKETING_SITE_ADR.md`. |
 | Iter 14 | [`RL-082`](./ROADMAP.md) | Shipped (2026-05-05) | README + docs information-architecture cleanup — README slimmed from 537 → ~130 lines, contributor workflow consolidated into `docs/DEVELOPMENT.md`, end-user reference into `docs/USAGE.md`, docs index updated, `tests/docs/publicDocs.test.ts` absolute-path guard widened beyond the macOS user-home prefix to cover Linux, sandbox, and Windows drive-letter paths. |
+| Iter 15 | [`RL-069`](./ROADMAP.md) | Slice 1 Shipped (2026-05-05) | DevUtils-class productivity layer — Slice 1 foundation: Developer Utilities opens with Cmd/Ctrl+K, utility-copy-output (Cmd+Shift+C) + utility-replace-clipboard (Cmd+Alt+R) shortcuts under a new `utilities` group, fuzzy tool search via new `fuzzyMatch` helper (replaces substring filter, walks aliases on 15 panels), output-provider plumbing wired in 5 panels (JSON, Base64, URL, JWT, UUID). Slice 2 = detect + Apply button; Slice 3 = clipboard-on-focus + history + favorites. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -60,8 +61,9 @@ Value-per-day priority. The full reasoning is in
    `RL-091` once the core launch blockers are under control.
 5. **Product quality and supportability** — `RL-086`, `RL-088`,
    `RL-089`, and `RL-090`.
-6. **Utilities polish** — `RL-072` remaining QR-read mode and `RL-069`
-   productivity layer are good warm-up work when blocked on a launch item.
+6. **Utilities polish** — `RL-069` Slice 1 shipped 2026-05-05 (productivity
+   foundation). `RL-072` remaining QR-read mode and `RL-069` Slice 2/3 are
+   good warm-up work when blocked on a launch item.
 7. **Debugger + language intelligence** — `RL-027` Slice 1 and `RL-026`
    adapter layer; these unblock `RL-042` and `RL-047`.
 8. **Runtime mode expansion** — `RL-019` + `RL-020` after the runtime

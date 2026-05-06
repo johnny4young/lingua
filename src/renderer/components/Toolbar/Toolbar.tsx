@@ -13,13 +13,20 @@ import {
   Terminal,
   Wrench,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import type { Language } from '../../types';
+import {
+  KEYBOARD_SHORTCUTS,
+  formatShortcutCombo,
+  resolveCombos,
+  resolveShortcutDisplayPlatform,
+} from '../../data/keyboardShortcuts';
 import {
   executionModeForLanguage,
   languageCapabilityBadgeKey,
@@ -41,6 +48,14 @@ const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
   { id: 'rust', label: 'Rust' },
 ];
 
+function getToolbarShortcutDisplayPlatform() {
+  const runtimePlatform =
+    typeof window !== 'undefined' ? window.lingua?.platform ?? 'web' : 'web';
+  const navigatorPlatform =
+    typeof navigator !== 'undefined' ? navigator.platform : undefined;
+  return resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
+}
+
 interface ToolbarProps {
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
@@ -61,6 +76,7 @@ export function Toolbar({
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   const { sidebarVisible, consoleVisible, toggleSidebar, toggleConsole } = useUIStore();
+  const shortcutOverrides = useSettingsStore((state) => state.shortcutOverrides);
   const plugins = usePluginStore((state) => state.plugins);
   const effectiveTier = useEffectiveTier();
   const canUseDeveloperUtilities = useEntitlement('DEV_UTILITIES');
@@ -112,6 +128,18 @@ export function Toolbar({
         : executionMode === 'view'
           ? t('toolbar.viewOnly.title')
           : t('toolbar.run.title');
+  const utilitiesShortcutLabel = useMemo(() => {
+    const definition = KEYBOARD_SHORTCUTS.find(
+      (entry) => entry.id === 'overlay-developer-utilities'
+    );
+    if (!definition) return null;
+    const combo = resolveCombos(definition, shortcutOverrides)[0];
+    if (!combo) return null;
+    return formatShortcutCombo(combo, getToolbarShortcutDisplayPlatform());
+  }, [shortcutOverrides]);
+  const utilitiesTooltip = utilitiesShortcutLabel
+    ? t('toolbar.utilities.tooltip', { shortcut: utilitiesShortcutLabel })
+    : t('toolbar.utilities');
 
   const handleNewFile = (language: Language) => {
     if (!isLanguageAllowed(effectiveTier, language)) {
@@ -340,7 +368,8 @@ export function Toolbar({
         </IconButton>
         <IconButton
           onClick={handleOpenUtilities}
-          tooltip={t('toolbar.utilities')}
+          aria-label={t('toolbar.utilities')}
+          tooltip={utilitiesTooltip}
           active={canUseDeveloperUtilities && utilitiesOpen}
           aria-pressed={canUseDeveloperUtilities && utilitiesOpen}
           aria-haspopup="dialog"

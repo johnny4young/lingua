@@ -109,7 +109,7 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-069`](./PLAN.md#rl-069-devutils-class-productivity-layer-for-the-utilities-workspace) | DevUtils-class productivity layer | `Planned` | Smart input auto-detection, recent-inputs history, cross-tool piping. |
+| [`RL-069`](./PLAN.md#rl-069-devutils-class-productivity-layer-for-the-utilities-workspace) | DevUtils-class productivity layer | `Partial` | Slice 1 shipped 2026-05-05 — Developer Utilities opens with Cmd/Ctrl+K, utility-copy-output + utility-replace-clipboard shortcuts (Cmd+Shift+C / Cmd+Alt+R), fuzzy tool search with aliases on 15 panels, output providers wired in 5 panels (JSON, Base64, URL, JWT, UUID). Remaining: detect + Apply button (Slice 2), clipboard-on-focus + per-tool history + favorites (Slice 3). |
 | [`RL-072`](./PLAN.md#rl-072-specialty-utilities--qr--string-inspector) | Specialty utilities — QR + inspector | `Partial` | String Inspector shipped. QR code generate shipped on 2026-04-23 (PNG + download + L/M/Q/H levels). Remaining: QR code read mode (camera vs upload decision pending). |
 
 ### 4f. Launch operations (P1)
@@ -165,7 +165,7 @@ agent should follow when §3's tiebreakers don't resolve.
 3. **Release, legal, and compliance readiness.** Closed. `RL-080`, `RL-085`, `RL-092`, and `RL-081` are all `Done` (RL-081 closed 2026-05-05 once the live `linguacode.dev` surface aligned with the desktop entitlement copy). The launch-readiness bucket has no outstanding blockers in this repo.
 4. **Runtime/platform surface hardening.** `RL-084`, `RL-087`, and `RL-091` harden the local plugin model, watcher reliability, and backend operations after the core launch blockers are under control.
 5. **Product quality and supportability.** `RL-086`, `RL-088`, `RL-089`, and `RL-090` add performance budgets, accessibility QA, profile backup/restore, and recovery UX.
-6. **Utilities polish.** `RL-068` / `RL-072` remaining slices — short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
+6. **Utilities polish.** `RL-069` Slice 1 shipped 2026-05-05 (productivity foundation — 2 shortcuts + fuzzy tool search). Remaining `RL-072` QR-read mode and `RL-069` Slice 2/3 are short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
 7. **Debugger + language intelligence.** `RL-027` Slice 1 (JS/TS debugger minimal) and `RL-026` adapter layer. These unblock `RL-042` and `RL-047`.
 8. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
 9. **Notebook + rich output.** `RL-043` + `RL-044` are a paired slice. Only after the runtime contract from §4 is stable.

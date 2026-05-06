@@ -22,7 +22,13 @@ export interface ShortcutCombo {
   tokens: readonly ShortcutKeyToken[];
 }
 
-export type ShortcutGroupId = 'run' | 'file' | 'navigation' | 'overlays' | 'view';
+export type ShortcutGroupId =
+  | 'run'
+  | 'file'
+  | 'navigation'
+  | 'overlays'
+  | 'view'
+  | 'utilities';
 
 export interface ShortcutDefinition {
   id: string;
@@ -46,6 +52,9 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroupDefinition[] = [
   { id: 'navigation', labelKey: 'shortcuts.group.navigation' },
   { id: 'overlays', labelKey: 'shortcuts.group.overlays' },
   { id: 'view', labelKey: 'shortcuts.group.view' },
+  // RL-069 Slice 1 — copy / replace clipboard from the focused
+  // Developer Utilities panel without leaving the keyboard.
+  { id: 'utilities', labelKey: 'shortcuts.group.utilities' },
 ];
 
 export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
@@ -121,6 +130,14 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['settings', 'preferences'],
   },
   {
+    id: 'overlay-developer-utilities',
+    group: 'overlays',
+    labelKey: 'shortcuts.item.developerUtilities.label',
+    descriptionKey: 'shortcuts.item.developerUtilities.description',
+    combos: [{ tokens: ['Mod', 'K'] }],
+    keywords: ['developer', 'utilities', 'tools', 'devtools'],
+  },
+  {
     id: 'overlay-close',
     group: 'overlays',
     labelKey: 'shortcuts.item.closeOverlay.label',
@@ -140,6 +157,25 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'shortcuts.item.toggleConsole.label',
     combos: [{ tokens: ['Mod', 'Backslash'] }],
     keywords: ['console', 'output', 'toggle'],
+  },
+  // RL-069 Slice 1 — Developer Utilities productivity layer.
+  // Both shortcuts no-op silently (toast `copyOutputEmpty`) when the
+  // active utility panel has not registered an output provider yet.
+  {
+    id: 'utility-copy-output',
+    group: 'utilities',
+    labelKey: 'shortcuts.item.utilityCopyOutput.label',
+    descriptionKey: 'shortcuts.item.utilityCopyOutput.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'C'] }],
+    keywords: ['copy', 'output', 'clipboard', 'utility', 'utilities'],
+  },
+  {
+    id: 'utility-replace-clipboard',
+    group: 'utilities',
+    labelKey: 'shortcuts.item.utilityReplaceClipboard.label',
+    descriptionKey: 'shortcuts.item.utilityReplaceClipboard.description',
+    combos: [{ tokens: ['Mod', 'Alt', 'R'] }],
+    keywords: ['replace', 'clipboard', 'output', 'utility', 'utilities'],
   },
 ];
 
@@ -218,12 +254,23 @@ export function comboKey(combo: ShortcutCombo): string {
   return combo.tokens.map((token) => (token.length === 1 ? token.toUpperCase() : token)).join('+');
 }
 
+const RESERVED_BROWSER_COMBO_KEYS = new Set([
+  // Browser hard reload. Do not intercept or allow rebinding; users rely
+  // on the native refresh behavior during web development.
+  'Mod+Shift+R',
+]);
+
+export function isReservedShortcutCombo(combo: ShortcutCombo): boolean {
+  return RESERVED_BROWSER_COMBO_KEYS.has(comboKey(combo));
+}
+
 /**
  * Editable shortcuts must keep at least one non-text modifier so the global
  * listener never steals ordinary typing from the editor or from overlay
  * search fields. `Escape` remains non-editable and is handled separately.
  */
 export function isEditableShortcutCombo(combo: ShortcutCombo): boolean {
+  if (isReservedShortcutCombo(combo)) return false;
   return combo.tokens.includes('Mod') || combo.tokens.includes('Alt');
 }
 
@@ -291,6 +338,7 @@ export function matchesCombo(
 ): boolean {
   const produced = keyboardEventToCombo(event);
   if (!produced) return false;
+  if (isReservedShortcutCombo(produced)) return false;
   return comboKey(produced) === comboKey(combo);
 }
 

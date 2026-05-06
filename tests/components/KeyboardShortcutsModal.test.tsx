@@ -139,6 +139,20 @@ describe('KeyboardShortcutsModal', () => {
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('shortcuts.editor.invalidCombo');
   });
 
+  it('leaves browser hard-refresh shortcuts untouched while recording', async () => {
+    const user = userEvent.setup();
+    render(<KeyboardShortcutsModal onClose={vi.fn()} />);
+
+    await user.click(screen.getByTestId('shortcut-edit-view-toggle-sidebar'));
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'r', ctrlKey: true, shiftKey: true });
+    });
+
+    expect(useSettingsStore.getState().shortcutOverrides['view-toggle-sidebar']).toBeUndefined();
+    expect(useUIStore.getState().statusNotice).toBeNull();
+  });
+
   it('changing the preset selector applies the preset overrides to the store', async () => {
     const user = userEvent.setup();
     render(<KeyboardShortcutsModal onClose={vi.fn()} />);

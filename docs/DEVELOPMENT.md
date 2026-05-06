@@ -142,6 +142,8 @@ npm run dev:desktop:pro
 
 Both commands mint a throwaway dev public key + signed token, print the token to the terminal, and start the target surface with `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` already wired in. Copy the token into **Settings → License → Paste a license token** to unlock Pro locally.
 
+`dev:web:pro` binds Vite to port 5174 with `--strictPort`. If that port is already in use, stop the old web server and run the command again; otherwise the printed token would belong to a fresh keypair while the browser might still be pointed at an older server.
+
 The desktop wrapper also forwards the managed-launcher flags you already use on `dev:desktop`:
 
 ```bash

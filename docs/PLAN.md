@@ -3747,7 +3747,7 @@ Cross-cutting productivity layer that ships alongside the tools:
 - **Clipboard monitoring** — optional, disabled via Preferences
 - **Per-tool history** — previous inputs and outputs are recallable
 - **Favorites** — pin your most-used tools at the top
-- **Keyboard shortcuts** — `⌘⇧C` Copy Output, `⌘⇧R` Instant Replace
+- **Keyboard shortcuts** — `⌘⇧C` Copy Output, `⌘⌥R` Instant Replace
   Clipboard (replace clipboard with output); `⌥`-click the status bar
   icon instantly copies the current result
 - **Offline-first, privacy-first** — nothing leaves the machine; the
@@ -3800,7 +3800,7 @@ does not pursue are marked `Skip`):
 | Optional clipboard monitoring | ❌ | RL-069 (off by default, never background-polls) |
 | Per-tool history | ❌ | RL-069 |
 | Favorites + tool search within the workspace | ❌ | RL-069 |
-| `⌘⇧C` Copy Output / `⌘⇧R` Replace Clipboard shortcuts | ❌ | RL-069 |
+| `⌘⇧C` Copy Output / `⌘⌥R` Replace Clipboard shortcuts | ❌ | RL-069 |
 | HTML Preview | ❌ | Skip — subsumed by Markdown Preview (RL-068) + the RL-019 browser preview story |
 | PHP ↔ JSON, PHP Serialize/Unserialize | ❌ | Skip — out of audience for a JS/TS/Go/Python/Rust runner |
 | ERB Beautify/Minify | ❌ | Skip — out of audience |
@@ -3927,19 +3927,42 @@ does not pursue are marked `Skip`):
     - Searches tool name + category + common aliases (e.g. "jwt"
       matches "JWT Debugger")
   - Keyboard shortcuts (registered through the RL-037 shortcut editor):
+    - `Cmd/Ctrl+K` Open Developer Utilities
     - `Cmd/Ctrl+Shift+C` Copy Output from the focused utility panel
-    - `Cmd/Ctrl+Shift+R` Replace clipboard with the current output
+    - `Cmd+Alt+R` / `Ctrl+Alt+R` Replace clipboard with the current output
 - Acceptance criteria:
   - Clipboard auto-apply is opt-in; a fresh install never reads the
     clipboard without a user gesture
   - History and favorites survive reload when persistence is enabled
-  - Both new shortcuts appear in the Keyboard Shortcuts overlay and can
+  - The new shortcuts appear in the Keyboard Shortcuts overlay and can
     be rebound
   - The utilities modal continues to pass the RL-018 i18n copy check
 - Dependencies:
   - RL-045 ✅
   - RL-037 (keyboard shortcut editor) — for shortcut registration
   - RL-065 consent copy patterns — for the clipboard opt-in wording
+
+### Status Update — 2026-05-05 (RL-069 Slice 1)
+
+Slice 1 — productivity foundation — landed today. RL-069 stays `Partial`; remaining sub-slices defined below.
+
+What shipped:
+
+- New `overlay-developer-utilities` catalog entry (default `Mod+K`) plus a `utilities` shortcut group at `src/renderer/data/keyboardShortcuts.ts` with `utility-copy-output` (default `Mod+Shift+C`) and `utility-replace-clipboard` (default `Mod+Alt+R`). All three are rebindable through the existing keyboard shortcut editor (RL-037) and visible in the Keyboard Shortcuts overlay.
+- `DeveloperUtilitiesModal` now advertises the active Open / Copy output / Replace clipboard bindings in the workspace header, and the copy / replace success toasts include the active shortcut. Both surfaces read from the same shortcut catalog plus user overrides so rebound shortcuts stay discoverable.
+- New `src/renderer/utils/fuzzyMatch.ts` (subsequence + token-prefix scoring) replaces the prior substring filter at `DeveloperUtilitiesModal.tsx`. The modal now ranks utilities by best score across title (weight 1.0), description (0.6), keywords (0.85), and aliases (0.95).
+- New optional `aliases?: readonly string[]` field on `DeveloperUtilityDefinition`. Populated on 15 panels with obvious shorthand: `b64`, `ts`, `epoch`, `re`, `bearer`, `md5`, `hmac`, `min`, `inspector`, `lipsum`, `svg2css`, `html2jsx`, `curl2code`, `y2j`, `j2y`, `j2c`, `c2j`, `md`, `sqlfmt`. The `markdown-preview` keyword `md` moved into aliases to keep the disjointness contract enforced by the new catalog test.
+- New zustand store `src/renderer/stores/utilityOutputStore.ts` plus registration hook `src/renderer/hooks/useRegisterUtilityOutput.ts` plumb the active panel's output to the global shortcut handler. 5 panels register in this slice (JSON formatted output, Base64 encoded/decoded value, URL encoded/decoded value, JWT decoded payload, UUID first generated value). The other 24 panels deliberately fall through to the `copyOutputEmpty` toast — they get their providers in Slice 2 alongside `detect()`.
+- 14 new i18n keys per locale (en + es with neutral LatAm tuteo): `shortcuts.group.utilities`, three pairs of label/description for the new shortcuts, three header hint keys (`toolbar.utilities.tooltip`, `utilities.shortcuts.outputAriaLabel`, `utilities.shortcuts.copyOutput`), and four `utilities.toast.*` keys for success / replace-success / empty / failure feedback through the existing `useUIStore.pushStatusNotice` pipeline.
+- Tests: 12 new `fuzzyMatch` cases, 7 new `utilityOutputStore` + `useRegisterUtilityOutput` cases, 9 new `developerUtilities` catalog assertions (alias shape, disjointness, b64/ts/md presence), 2 new `keyboardShortcuts` assertions plus the 3 ids appended to the required-id list, and hook/modal/E2E coverage for shortcut-aware hints and toasts.
+- Gates green: lint, tsc, check:i18n, check:i18n:copy, full vitest (220/220 files, 2245 passed + 2 skipped), targeted `test:e2e:web` for Pro open + Free gate.
+
+What remains under RL-069:
+
+- **Slice 2** — `detect(input: string): boolean` per utility + ⚡ Apply button. The 24 unwired panels' output providers land here too so the new shortcuts cover the full 29-panel set.
+- **Slice 3** — clipboard-on-focus apply (Settings toggle, default off, RL-065 consent copy patterns), per-tool history (session-scoped + persist toggle + Clear), favorites (pin + drag-reorder).
+
+Each remaining slice closes under the same RL-069 id; no new RL ids are introduced. ROADMAP §4e Readiness reflects the Slice 1 closure plus the remaining roadmap.
 
 ### RL-070 Beautify / minify suite and code-conversion bundle
 

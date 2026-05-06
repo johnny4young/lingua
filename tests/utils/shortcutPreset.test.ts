@@ -47,6 +47,7 @@ describe('shortcutPreset', () => {
         'view-toggle-sidebar': [{ tokens: ['Mod', 'J'] }], // ok
         'unknown-id': [{ tokens: ['Mod', 'K'] }], // drop — unknown id
         'nav-quick-open': [{ tokens: [] }], // drop — empty
+        'nav-go-to-symbol': [{ tokens: ['Mod', 'Shift', 'R'] }], // drop — browser refresh
         // drop — non-editable (no Mod/Alt)
         'view-toggle-console': [{ tokens: ['K'] }],
         'file-save': 'not-an-array', // drop — wrong shape

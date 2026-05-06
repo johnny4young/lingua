@@ -256,6 +256,21 @@ function AppChrome({
     });
   }, []);
 
+  const handleOpenDeveloperUtility = (utilityId?: DeveloperUtilityId) => {
+    if (canUseDeveloperUtilities) {
+      openOverlay('utilities', utilityId);
+      return;
+    }
+    pushUpsellNotice({
+      messageKey: 'upsell.freeCeilingReached',
+      featureLabel: t('upsell.feature.devUtilities'),
+    });
+    void trackEvent('feature.blocked', {
+      entitlement: 'dev-utilities',
+      tier: effectiveTier,
+    });
+  };
+
   useGlobalShortcuts({
     isRunning,
     run,
@@ -272,27 +287,13 @@ function AppChrome({
     toggleConsole,
     overlay,
     toggleOverlay,
+    openDeveloperUtilities: () => handleOpenDeveloperUtility(),
     closeOverlay,
   });
 
   const handleStartGuidedTour = () => {
     closeOverlay();
     startTour();
-  };
-
-  const handleOpenDeveloperUtility = (utilityId?: DeveloperUtilityId) => {
-    if (canUseDeveloperUtilities) {
-      openOverlay('utilities', utilityId);
-      return;
-    }
-    pushUpsellNotice({
-      messageKey: 'upsell.freeCeilingReached',
-      featureLabel: t('upsell.feature.devUtilities'),
-    });
-    void trackEvent('feature.blocked', {
-      entitlement: 'dev-utilities',
-      tier: effectiveTier,
-    });
   };
 
   // RL-061 Slice 5 — surface the web-build update banner at the top
