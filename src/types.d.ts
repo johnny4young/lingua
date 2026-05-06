@@ -305,31 +305,17 @@ type LicenseRemoveDeviceResult =
   | { ok: false; reason: string; message?: string; issues?: string[] };
 
 // ------------------------------------------------------------- Plugin types
+//
+// RL-084 — single source of truth lives in `src/shared/plugins/manifest.ts`
+// alongside the validator + the bundled-runtime allowlist. The ambient
+// type aliases below keep existing call sites compiling without an
+// explicit import; new code is encouraged to import directly from the
+// shared module.
 
-type PluginInstallStatus =
-  | 'loaded'
-  | 'disabled'
-  | 'invalid'
-  | 'incompatible'
-  | 'unavailable';
-
-interface InstalledPluginManifest {
-  pluginId: string;
-  apiVersion: 1;
-  enabled?: boolean;
-  minAppVersion?: string;
-  maxAppVersion?: string;
-}
-
-interface InstalledPluginRecord {
-  pluginId: string;
-  manifestPath: string;
-  installDirectory: string;
-  apiVersion: number | null;
-  enabled: boolean;
-  status: PluginInstallStatus;
-  message: string;
-}
+type PluginInstallStatus = import('./shared/plugins/manifest').PluginInstallStatus;
+type InstalledPluginManifest = import('./shared/plugins/manifest').InstalledPluginManifest;
+type InstalledPluginRecord = import('./shared/plugins/manifest').InstalledPluginRecord;
+type PluginDiagnostic = import('./shared/plugins/manifest').PluginDiagnostic;
 
 // --------------------------------------------------------------- Main API
 

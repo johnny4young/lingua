@@ -77,9 +77,22 @@ Minimal manifest:
 Manifest rules:
 
 - `pluginId` must be a string and must match a bundled plugin runtime known to this build.
+- `pluginId` must follow the safe-identifier pattern: lowercase alphanumeric and hyphens only, starting with an alphanumeric character, max 64 characters. Path-like ids (`..`, `lua/foo`, `.hidden`), uppercase, whitespace, and special characters are rejected.
 - `apiVersion` is currently `1`.
 - `enabled: false` keeps the plugin installed but inactive.
-- `minAppVersion` and `maxAppVersion` gate compatibility against the running app version.
+- `minAppVersion` and `maxAppVersion` gate compatibility against the running app version and must be numeric version strings such as `1`, `1.2`, or `1.2.3`.
+- Manifests with extra unknown top-level fields are rejected as `invalid`. The schema is strict by design — only the fields documented above are accepted.
+
+Diagnostic statuses surfaced in Settings → Plugins:
+
+- `loaded` — manifest is valid, runtime is bundled, and the plugin is enabled.
+- `disabled` — manifest is valid but `enabled: false`.
+- `invalid` — manifest fails the schema (malformed JSON, missing or unsafe `pluginId`, unknown top-level fields).
+- `incompatible` — manifest references an unsupported `apiVersion` or an app-version range outside the running build.
+- `unknown` — manifest is well-formed, but its `pluginId` is not part of the bundled runtime allowlist for this build.
+- `unavailable` — defensive fallback: the manifest claims `loaded` but the build cannot find a matching loader. Should not occur with a healthy build.
+
+The plugin model is intentionally manifest-only. There is no facility to load arbitrary plugin executable code from a manifest; the bundled-runtime allowlist enforces that policy at validation time.
 
 ## Browser-only limitations
 

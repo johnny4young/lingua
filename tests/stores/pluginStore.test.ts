@@ -52,13 +52,44 @@ describe('pluginStore', () => {
     expect(pluginRegistry.get('lua')).toBeDefined();
   });
 
-  it('marks installed manifests without bundled runtimes as unavailable', async () => {
+  it('passes through the unknown status that main emits for non-bundled ids (RL-084)', async () => {
+    // RL-084 — main now classifies `pluginId: 'ruby'` as `unknown`
+    // directly via the shared validator's allowlist check. The
+    // store no longer downgrades; it just preserves the status.
     mockGetInstallDirectory.mockResolvedValue('/tmp/lingua/plugins');
     mockList.mockResolvedValue([
       {
         pluginId: 'ruby',
         manifestPath: '/tmp/lingua/plugins/ruby/plugin.json',
         installDirectory: '/tmp/lingua/plugins/ruby',
+        apiVersion: 1,
+        enabled: true,
+        status: 'unknown',
+        message: 'This build does not include a plugin named "ruby".',
+      },
+    ] satisfies InstalledPluginRecord[]);
+
+    await usePluginStore.getState().initialize();
+
+    const state = usePluginStore.getState();
+    expect(state.plugins[0]?.status).toBe('unknown');
+    expect(state.plugins[0]?.managedByApp).toBe(false);
+    expect(pluginRegistry.get('ruby')).toBeUndefined();
+  });
+
+  it('falls back to unavailable when main optimistically returns loaded for a runtime we can not load (RL-084 defensive path)', async () => {
+    // Defensive scenario — if a future build prunes the lua loader
+    // but main still has `lua` in its allowlist (config drift), main
+    // returns `loaded` and the renderer downgrades to `unavailable`.
+    // This shouldn't happen in practice because both sides read
+    // BUNDLED_PLUGIN_IDS from the shared module, but the path is
+    // worth keeping for graceful degradation.
+    mockGetInstallDirectory.mockResolvedValue('/tmp/lingua/plugins');
+    mockList.mockResolvedValue([
+      {
+        pluginId: 'pruned-runtime',
+        manifestPath: '/tmp/lingua/plugins/pruned-runtime/plugin.json',
+        installDirectory: '/tmp/lingua/plugins/pruned-runtime',
         apiVersion: 1,
         enabled: true,
         status: 'loaded',
@@ -70,8 +101,12 @@ describe('pluginStore', () => {
 
     const state = usePluginStore.getState();
     expect(state.plugins[0]?.status).toBe('unavailable');
+    expect(state.plugins[0]?.diagnostic).toEqual({
+      key: 'unavailable',
+      params: { pluginId: 'pruned-runtime' },
+    });
     expect(state.plugins[0]?.managedByApp).toBe(false);
-    expect(pluginRegistry.get('ruby')).toBeUndefined();
+    expect(pluginRegistry.get('pruned-runtime')).toBeUndefined();
   });
 
   it('unregisters previously managed plugins during refresh', async () => {

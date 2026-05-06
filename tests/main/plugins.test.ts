@@ -79,20 +79,33 @@ describe('main plugin discovery', () => {
     await rm(tempRoot, { recursive: true, force: true });
   });
 
-  it('discovers valid, disabled, incompatible, and broken manifests', async () => {
+  it('discovers valid, disabled, incompatible, unknown, and broken manifests', async () => {
+    // RL-084 — fixtures cover every distinct status the validator can
+    // emit. Two `lua` directories share the same pluginId by design;
+    // discovery returns one record per directory, sorted by pluginId,
+    // with the second one's directory name disambiguating in
+    // `manifestPath`. The disabled-flag is the only difference.
     await writeManifest(tempRoot, 'lua', {
       pluginId: 'lua',
       apiVersion: 1,
     });
-    await writeManifest(tempRoot, 'lua-disabled', {
-      pluginId: 'lua-disabled',
+    await writeManifest(tempRoot, 'lua-disabled-instance', {
+      pluginId: 'lua',
       apiVersion: 1,
       enabled: false,
     });
     await writeManifest(tempRoot, 'future-plugin', {
-      pluginId: 'future-plugin',
+      pluginId: 'lua',
       apiVersion: 1,
       minAppVersion: '9.0.0',
+    });
+    await writeManifest(tempRoot, 'incompatible-api', {
+      pluginId: 'lua',
+      apiVersion: 99,
+    });
+    await writeManifest(tempRoot, 'unknown-runtime', {
+      pluginId: 'ruby',
+      apiVersion: 1,
     });
     const brokenDirectory = path.join(tempRoot, 'broken-plugin');
     await mkdir(brokenDirectory, { recursive: true });
@@ -100,20 +113,58 @@ describe('main plugin discovery', () => {
 
     const plugins = await listInstalledPlugins(tempRoot, '0.1.0');
 
-    expect(plugins.map((plugin) => plugin.pluginId)).toEqual([
-      'broken-plugin',
-      'future-plugin',
-      'lua',
-      'lua-disabled',
-    ]);
-    expect(plugins.find((plugin) => plugin.pluginId === 'lua')?.status).toBe('loaded');
-    expect(plugins.find((plugin) => plugin.pluginId === 'lua-disabled')?.status).toBe('disabled');
-    expect(plugins.find((plugin) => plugin.pluginId === 'future-plugin')?.status).toBe(
-      'incompatible'
-    );
-    expect(plugins.find((plugin) => plugin.pluginId === 'broken-plugin')?.status).toBe(
-      'invalid'
-    );
+    const byDirectory = (dir: string) =>
+      plugins.find((plugin) => plugin.installDirectory.endsWith(dir));
+
+    expect(byDirectory('lua')?.status).toBe('loaded');
+    expect(byDirectory('lua-disabled-instance')?.status).toBe('disabled');
+    // Two flavours of incompatible: apiVersion mismatch (`99`) and
+    // version range out of bounds (`minAppVersion: 9.0.0` against
+    // `appVersion: 0.1.0`). Both surface as `incompatible` per the
+    // validator; the diagnostic message disambiguates.
+    expect(byDirectory('incompatible-api')?.status).toBe('incompatible');
+    expect(byDirectory('incompatible-api')?.message).toMatch(/API version 99/);
+    expect(byDirectory('future-plugin')?.status).toBe('incompatible');
+    expect(byDirectory('future-plugin')?.message).toMatch(/>= 9\.0\.0/);
+    expect(byDirectory('unknown-runtime')?.status).toBe('unknown');
+    expect(byDirectory('unknown-runtime')?.diagnostic).toEqual({
+      key: 'unknown',
+      params: { pluginId: 'ruby' },
+    });
+    expect(byDirectory('broken-plugin')?.status).toBe('invalid');
+    expect(byDirectory('broken-plugin')?.diagnostic?.key).toBe('loadFailed');
+  });
+
+  it('rejects manifests with path-traversal pluginIds as invalid', async () => {
+    // RL-084 — even if someone drops a manifest with `pluginId: '..'`
+    // into the plugins directory, the validator must catch it before
+    // any downstream consumer sees it.
+    await writeManifest(tempRoot, 'malicious', {
+      pluginId: '../traversal',
+      apiVersion: 1,
+    });
+
+    const plugins = await listInstalledPlugins(tempRoot, '0.1.0');
+    const record = plugins[0];
+    expect(record).toBeDefined();
+    expect(record?.status).toBe('invalid');
+    expect(record?.message).toMatch(/not a safe identifier/);
+  });
+
+  it('rejects manifests with unknown extra fields as invalid', async () => {
+    // RL-084 — defense in depth: a manifest that tries to smuggle
+    // an `executable` or `command` key gets rejected even if every
+    // documented field is well-formed.
+    await writeManifest(tempRoot, 'lua-with-extras', {
+      pluginId: 'lua',
+      apiVersion: 1,
+      executable: '/bin/sh',
+    });
+
+    const plugins = await listInstalledPlugins(tempRoot, '0.1.0');
+    const record = plugins[0];
+    expect(record?.status).toBe('invalid');
+    expect(record?.message).toMatch(/unknown fields: executable/);
   });
 });
 
