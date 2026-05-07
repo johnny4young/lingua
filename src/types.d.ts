@@ -315,6 +315,15 @@ type LicenseRemoveDeviceResult =
 type PluginInstallStatus = import('./shared/plugins/manifest').PluginInstallStatus;
 type InstalledPluginManifest = import('./shared/plugins/manifest').InstalledPluginManifest;
 type InstalledPluginRecord = import('./shared/plugins/manifest').InstalledPluginRecord;
+
+// ---------------------------------------------------------- Watcher types
+//
+// RL-087 — single source of truth lives in
+// `src/shared/fs/watcherDiagnostic.ts`. Ambient aliases keep existing
+// call sites compiling without explicit imports.
+
+type WatcherFailureKind = import('./shared/fs/watcherDiagnostic').WatcherFailureKind;
+type WatcherDiagnostic = import('./shared/fs/watcherDiagnostic').WatcherDiagnostic;
 type PluginDiagnostic = import('./shared/plugins/manifest').PluginDiagnostic;
 
 // --------------------------------------------------------------- Main API
@@ -446,9 +455,31 @@ interface LinguaAPI {
     ) => Promise<string>;
     mkdir: (rootId: string, relativePath: string) => Promise<boolean>;
     touch: (rootId: string, relativePath: string) => Promise<boolean>;
-    watchStart: (rootId: string, relativePath?: string) => Promise<string>;
+    /**
+     * RL-087 — returns either the `watchId` string on success or a
+     * tagged-union `{ ok: false, diagnostic }` shape when fs.watch
+     * registration fails (EACCES, EMFILE, ENOSPC, ENOENT). Callers
+     * should branch on the response shape. The diagnostic is also
+     * pushed via `onWatcherFailed` so passive subscribers update
+     * without polling the return value.
+     */
+    watchStart: (
+      rootId: string,
+      relativePath?: string
+    ) => Promise<string | { ok: false; diagnostic: WatcherDiagnostic }>;
     watchStop: (watchId: string) => Promise<boolean>;
     onChanged: (callback: (event: FsChangedEvent) => void) => () => void;
+    /**
+     * RL-087 — push subscription for typed watcher failures. Main emits
+     * one `WatcherDiagnostic` per failed `fs.watch()` registration.
+     */
+    onWatcherFailed: (callback: (diagnostic: WatcherDiagnostic) => void) => () => void;
+    /**
+     * RL-087 — informational push when the watcher reports a sustained
+     * burst of null-filename events (Linux inotify overflow, etc.).
+     * Renderer surfaces a warning-tone notice; not an error.
+     */
+    onWatcherDegraded: (callback: (diagnostic: WatcherDiagnostic) => void) => () => void;
   };
 
   updates: {

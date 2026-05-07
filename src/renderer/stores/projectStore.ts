@@ -34,6 +34,19 @@ import {
   type FileTreeNode,
 } from './projectTree';
 
+/**
+ * RL-087 — narrow the new tagged-union return shape from watchStart.
+ * Returns the watchId on success, or null when registration failed
+ * (and the typed diagnostic was already pushed via `onWatcherFailed`,
+ * so callers do not need to push it again).
+ */
+function unwrapWatchStart(
+  response: string | { ok: false; diagnostic: WatcherDiagnostic },
+): string | null {
+  if (typeof response === 'string') return response;
+  return null;
+}
+
 export type { FileTreeNode } from './projectTree';
 
 export interface RecentProject {
@@ -103,7 +116,9 @@ export const useProjectStore = create<ProjectState>()(
         try {
           const entries = await window.lingua.fs.readdir(result.rootId, '');
           nodes = entriesToNodes(entries);
-          newWatchId = await window.lingua.fs.watchStart(result.rootId, '');
+          newWatchId = unwrapWatchStart(
+            await window.lingua.fs.watchStart(result.rootId, ''),
+          );
         } catch (error) {
           if (newWatchId) {
             await window.lingua.fs.watchStop(newWatchId).catch(() => {});
@@ -179,7 +194,9 @@ export const useProjectStore = create<ProjectState>()(
         try {
           const entries = await window.lingua.fs.readdir(activeRootId, '');
           nodes = entriesToNodes(entries);
-          newWatchId = await window.lingua.fs.watchStart(activeRootId, '');
+          newWatchId = unwrapWatchStart(
+            await window.lingua.fs.watchStart(activeRootId, ''),
+          );
         } catch (error) {
           if (newWatchId) {
             await window.lingua.fs.watchStop(newWatchId).catch(() => {});

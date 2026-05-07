@@ -14,7 +14,7 @@
  * rejects writes.
  */
 
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { ipcMain, dialog, BrowserWindow, app } from 'electron';
 import {
   mkdir as mkdirFs,
   readFile,
@@ -30,6 +30,10 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { OPEN_FILE_FILTERS } from '../../shared/filePickerTypes';
 import { translateCommon } from '../../shared/i18n/runtime';
+import {
+  buildWatcherDiagnostic,
+  type WatcherDiagnostic,
+} from '../../shared/fs/watcherDiagnostic';
 import { isPathBlocked, isSafeEntryName } from './permissions';
 import {
   mintRootCapability,
@@ -134,10 +138,107 @@ function stopWatcherById(watchId: string): boolean {
   entry.stop();
   watchers.delete(watchId);
   watcherIdsByTarget.delete(entry.targetKey);
+  // RL-087 — drop the per-watcher burst tracker entry so a long
+  // session that opens + closes many projects under inotify load
+  // does not accumulate dead UUIDs in the map.
+  nullFilenameBursts.delete(watchId);
   return true;
 }
 
+/**
+ * RL-087 — purge every active watcher. Called from `before-quit` so
+ * Node's fs.watch handles never outlive the process.
+ */
+export function stopAllWatchers(): void {
+  for (const entry of watchers.values()) {
+    try {
+      entry.stop();
+    } catch {
+      // Best-effort cleanup — a stop that throws on shutdown should
+      // not block the rest of the registry from getting torn down.
+    }
+  }
+  watchers.clear();
+  watcherIdsByTarget.clear();
+  // Clear burst tracker too for parity with `stopWatcherById`.
+  // Moot in the `before-quit` path but matters when `stopAllWatchers`
+  // is reused for tests.
+  nullFilenameBursts.clear();
+}
+
+let beforeQuitListenerInstalled = false;
+
+/**
+ * RL-087 — install the `before-quit` handler exactly once. Called
+ * lazily from `registerFileSystemHandlers` because Electron's `app`
+ * is not safe to `app.on(...)` against in test setup that mocks the
+ * module without a real lifecycle.
+ */
+function ensureBeforeQuitCleanup(): void {
+  if (beforeQuitListenerInstalled) return;
+  if (typeof app?.on !== 'function') return;
+  app.on('before-quit', stopAllWatchers);
+  beforeQuitListenerInstalled = true;
+}
+
+/**
+ * RL-087 — null-filename burst tracker. Some platforms (Linux inotify
+ * under load) drop the entry name from `fs.watch` callbacks; a sustained
+ * burst suggests the watcher is overwhelmed. Track per-watchId and emit
+ * `fs:watcher-degraded` once per 5s window when the count crosses the
+ * threshold so the renderer can surface a degraded notice.
+ */
+const NULL_FILENAME_BURST_THRESHOLD = 20;
+const NULL_FILENAME_WINDOW_MS = 5_000;
+
+interface NullFilenameBurst {
+  count: number;
+  windowStart: number;
+  notifiedAt: number;
+}
+const nullFilenameBursts = new Map<string, NullFilenameBurst>();
+
+function recordNullFilenameBurst(watchId: string): boolean {
+  const now = Date.now();
+  const burst = nullFilenameBursts.get(watchId);
+  if (!burst || now - burst.windowStart > NULL_FILENAME_WINDOW_MS) {
+    nullFilenameBursts.set(watchId, { count: 1, windowStart: now, notifiedAt: 0 });
+    return false;
+  }
+  burst.count += 1;
+  if (
+    burst.count >= NULL_FILENAME_BURST_THRESHOLD &&
+    now - burst.notifiedAt > NULL_FILENAME_WINDOW_MS
+  ) {
+    burst.notifiedAt = now;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * RL-087 — exported for tests so we can simulate a burst without
+ * spinning up a real watcher.
+ */
+export function _resetWatcherBurstTrackerForTests(): void {
+  nullFilenameBursts.clear();
+}
+
+/**
+ * RL-087 — exported for tests that re-run `registerFileSystemHandlers`
+ * across cases. Without this, the `beforeQuitListenerInstalled` flag
+ * stays true between cases and the second `registerFileSystemHandlers`
+ * call becomes a silent no-op.
+ */
+export function _resetBeforeQuitInstallStateForTests(): void {
+  beforeQuitListenerInstalled = false;
+}
+
 export function registerFileSystemHandlers(): void {
+  // RL-087 — install the `before-quit` listener so watchers do not
+  // outlive the process. Idempotent; safe to call across hot-reload.
+  ensureBeforeQuitCleanup();
+
   const t = (
     language: string | undefined,
     key: string,
@@ -697,38 +798,62 @@ export function registerFileSystemHandlers(): void {
       }
       const watchId = randomUUID();
 
-      const watcher = watch(
-        absolutePath,
-        { recursive: true },
-        (eventType, filename) => {
-          if (event.sender.isDestroyed()) return;
-          if (filename === null) {
-            // Some platforms (notably Linux inotify under load) drop the
-            // changed entry's name. Surface the watched subtree itself
-            // as the change so renderer consumers refresh the right
-            // scope — emitting `''` (project root) here would mis-route
-            // events when the renderer ever watches a subdirectory.
+      // RL-087 — wrap fs.watch in try/catch so registration failures
+      // (EACCES, EMFILE, ENOSPC, ENOENT) surface as a typed diagnostic
+      // to the renderer instead of crashing the IPC handler.
+      let watcher: ReturnType<typeof watch>;
+      try {
+        watcher = watch(
+          absolutePath,
+          { recursive: true },
+          (eventType, filename) => {
+            if (event.sender.isDestroyed()) return;
+            if (filename === null) {
+              // Some platforms (notably Linux inotify under load) drop
+              // the changed entry's name. Surface the watched subtree
+              // itself so the renderer refreshes the right scope —
+              // emitting `''` (project root) would mis-route events
+              // when the renderer ever watches a subdirectory.
+              event.sender.send('fs:changed', {
+                rootId,
+                relativePath,
+                eventType,
+                filename: null,
+              });
+              // Track null-filename frequency. A sustained burst means
+              // the watcher is dropping events and the user should know
+              // the tree may go stale.
+              if (recordNullFilenameBurst(watchId)) {
+                const diagnostic: WatcherDiagnostic = {
+                  kind: 'system-limit',
+                  rootId,
+                  relativePath,
+                  errorMessage: 'Watcher reported a sustained burst of null-filename events.',
+                };
+                event.sender.send('fs:watcher-degraded', diagnostic);
+              }
+              return;
+            }
+            // The watcher reports filenames relative to the watched
+            // dir; convert to a path relative to the project root so
+            // the renderer always speaks the same coordinate space.
+            const fileName = String(filename);
+            const eventRelative = joinRelative(relativePath, fileName);
             event.sender.send('fs:changed', {
               rootId,
-              relativePath,
+              relativePath: eventRelative,
               eventType,
-              filename: null,
+              filename: fileName,
             });
-            return;
           }
-          // The watcher reports filenames relative to the watched dir;
-          // convert to a path relative to the project root so the
-          // renderer always speaks the same coordinate space.
-          const fileName = String(filename);
-          const eventRelative = joinRelative(relativePath, fileName);
-          event.sender.send('fs:changed', {
-            rootId,
-            relativePath: eventRelative,
-            eventType,
-            filename: fileName,
-          });
+        );
+      } catch (error) {
+        const diagnostic = buildWatcherDiagnostic(error, rootId, relativePath);
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('fs:watcher-failed', diagnostic);
         }
-      );
+        return { ok: false, diagnostic } as const;
+      }
 
       watchers.set(watchId, {
         rootId,

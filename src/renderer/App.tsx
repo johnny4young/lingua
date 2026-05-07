@@ -32,6 +32,7 @@ import { useDeepLinks } from './hooks/useDeepLinks';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
+import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { useEditorStore } from './stores/editorStore';
@@ -216,6 +217,7 @@ function AppChrome({
   useAutoRun();
   useProjectWatchSync();
   useProjectIndexSync();
+  useWatcherDiagnosticsSync();
   useAppTheme();
   useDesktopSmoke(smokeEnabled);
 

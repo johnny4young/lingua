@@ -169,6 +169,23 @@ contextBridge.exposeInMainWorld('lingua', {
       ipcRenderer.on('fs:changed', handler);
       return () => ipcRenderer.removeListener('fs:changed', handler);
     },
+    // RL-087 — typed watcher-failure subscription. Main emits this
+    // when fs.watch() throws on registration (EACCES, EMFILE, etc.).
+    onWatcherFailed: (callback: (diagnostic: WatcherDiagnostic) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: unknown) =>
+        callback(data as WatcherDiagnostic);
+      ipcRenderer.on('fs:watcher-failed', handler);
+      return () => ipcRenderer.removeListener('fs:watcher-failed', handler);
+    },
+    // RL-087 — informational degraded signal when the watcher reports
+    // a sustained burst of null-filename events (Linux inotify
+    // overflow). Renderer surfaces a warning-tone notice.
+    onWatcherDegraded: (callback: (diagnostic: WatcherDiagnostic) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: unknown) =>
+        callback(data as WatcherDiagnostic);
+      ipcRenderer.on('fs:watcher-degraded', handler);
+      return () => ipcRenderer.removeListener('fs:watcher-degraded', handler);
+    },
   },
 
   updates: {

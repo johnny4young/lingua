@@ -108,3 +108,11 @@ The plugin model is intentionally manifest-only. There is no facility to load ar
 - Browser file access supports open, read, write, rename, create, and delete flows.
 - File pickers stay scoped to code/text-oriented files so binary formats such as PDFs are not accidentally opened into the editor surface.
 - Browser file watching is not available, so external edits are not reflected automatically.
+
+## File watching
+
+- Lingua watches the active project directory for rename, create, and delete events and refreshes the file tree automatically.
+- macOS and Windows desktop builds use native recursive watching (FSEvents and ReadDirectoryChangesW). Linux desktop builds use inotify, which has per-user file-descriptor limits — projects with very large `node_modules` trees or many open watchers may exhaust the budget.
+- When the watcher fails to start (permission denied, system limit, missing path), Lingua surfaces a status notice in the explorer instead of silently desynchronizing the tree. The notice persists until you dismiss it; the file tree may not refresh automatically until the underlying issue is resolved (commonly: raising `ulimit -n`, fixing folder permissions, or restarting the app).
+- A degraded warning appears when the watcher reports a sustained burst of dropped event names (Linux inotify under load). Refresh the file tree manually if it looks stale.
+- Web builds do not watch the local filesystem at all; external edits are not reflected.
