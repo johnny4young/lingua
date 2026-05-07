@@ -28,4 +28,14 @@ describe('CI workflow', () => {
       /windows-path-hardening:[\s\S]*?npm test -- tests\/ipc\/permissions\.test\.ts/u
     );
   });
+
+  it('runs the performance budget check after the web build report', () => {
+    const buildIndex = workflow.indexOf('npm run build:web');
+    const reportIndex = workflow.indexOf('npm run performance:report');
+    const checkIndex = workflow.indexOf('npm run check:performance');
+
+    expect(buildIndex).toBeGreaterThan(-1);
+    expect(reportIndex).toBeGreaterThan(buildIndex);
+    expect(checkIndex).toBeGreaterThan(reportIndex);
+  });
 });

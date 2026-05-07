@@ -4,6 +4,41 @@ All notable changes to Lingua are documented here.
 
 The format follows Keep a Changelog and groups changes by release.
 
+## [0.2.4] — 2026-05-07
+
+### Added
+- **Profile backup and restore**: Export a versioned profile backup and restore it with explicit conflict handling, including replace confirmation and machine-bound data exclusions.
+- **Performance visibility**: Release validation now captures bundle size, runtime timings, and memory diagnostics before a build ships.
+- **Public-source readiness guidance**: Release, security, auto-update, Cloudflare, performance, and source-available publication checks are now documented in one place.
+- **Release notes guardrails**: Version and release-note checks now help keep the bundled What's New timeline aligned with the build users receive.
+
+### Changed
+- **Desktop watcher reliability**: Watcher diagnostics, opaque watch IDs, and degraded-event handling are now documented and covered more directly.
+- **Plugin hardening**: Built-in plugin catalog and manifest validation now reject malformed or prototype-derived ids more defensively.
+- **Release validation**: Performance budgets are now part of the normal web-build quality gate.
+
+### Fixed
+- **Overlay accessibility**: Modal overlays now preserve dialog boundaries, contain focus, and restore focus after close.
+- **Public repository hygiene**: Local-only maintainer automation is excluded from the public source tree without removing the maintainer's local commands.
+- **Auto-update docs**: Runbooks now match the desktop updater's one-hour check interval.
+
+## [0.2.3] — 2026-04-30
+
+### Fixed
+- **Web build stability**: Lifted the Node heap limit for the web build job so release builds stop failing from memory pressure.
+
+## [0.2.2] — 2026-04-30
+
+### Added
+- **Public release hygiene**: Added source-publication checklists, release security guidance, third-party notice reporting, and secret-scan configuration.
+- **Offline Python runtime validation**: Vendored Pyodide runtime assets with integrity checks so packaged desktop builds can prove Python runs without a CDN fallback.
+- **Desktop release verification**: Added production dependency audit, checksum verification, SBOM generation, and packaged macOS smoke coverage.
+
+### Changed
+- **Native execution trust boundary**: Go and Rust execution now require explicit acknowledgement and use a filtered environment across detection and run paths.
+- **Filesystem capability model**: Desktop file access moved to root-token plus relative-path IPC contracts with protected-path enforcement.
+- **Public web surfaces**: Repo docs now point to `linguacode.dev` and `app.linguacode.dev` as the live public surfaces.
+
 ## [0.2.1] — 2026-04-22
 
 ### Added

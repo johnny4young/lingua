@@ -14,7 +14,7 @@ function buildProfile(partial: Partial<LinguaProfile['data']>): LinguaProfile {
   return {
     schemaVersion: 1,
     exportedAt: '2026-05-07T14:30:00.000Z',
-    appVersion: '0.2.2',
+    appVersion: '0.2.4',
     data: {
       settings: partial.settings ?? {},
       snippets: partial.snippets ?? [],
@@ -190,7 +190,7 @@ describe('applyProfile', () => {
     const malicious = JSON.stringify({
       schemaVersion: 1,
       exportedAt: '2026-05-07T14:30:00.000Z',
-      appVersion: '0.2.2',
+      appVersion: '0.2.4',
       data: {
         settings: { vimMode: true, telemetryConsent: 'granted', licenseToken: 'fake.jwt' },
         snippets: [],

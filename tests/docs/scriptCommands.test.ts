@@ -73,6 +73,10 @@ describe('Script naming docs guard', () => {
       'performance:report',
       'performance:baseline',
       'check:performance',
+      // Public-release changelog helpers — draft notes from
+      // conventional commits and block version/changelog drift.
+      'changelog:draft',
+      'changelog:check',
       'test',
       'test:e2e:web',
       'test:smoke:web:license',

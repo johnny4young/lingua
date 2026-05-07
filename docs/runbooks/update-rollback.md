@@ -54,7 +54,7 @@ Most users already have the bad version. Rolling back doesn't fix their installs
 
 1. Land the fix on `main` and run the release workflow to publish vX.Y.(Z+1) (a hotfix).
 2. The hotfix release goes through the standard `release.yml` (signing + notarization + checksum verification + packaged smoke).
-3. Auto-update will re-pull on the next 4h check.
+3. Auto-update will re-pull on the next 1h check.
 4. For users who are stuck (app won't launch), publish a "Manual install" instruction on linguacode.dev/troubleshoot pointing at the previous good build's GitHub Release page.
 
 ## Rollback (re-publish previous release if Path A was wrong)
@@ -73,7 +73,7 @@ Template reply for users who already updated to the bad version:
 Hi <name>,
 
 We've identified an issue with version vX.Y.Z and are publishing a
-hotfix shortly. Your Lingua app will auto-update within 4 hours.
+hotfix shortly. Your Lingua app will auto-update within 1 hour.
 
 If your app won't launch:
   1. Download the previous version from
@@ -93,5 +93,5 @@ For pre-update users, point at the marketing-site banner.
 1. `https://updates.linguacode.dev/update/darwin/<previous_tag>` returns `204` (no update available — they're already current).
 2. `https://updates.linguacode.dev/update/darwin/<old_tag>` returns the GOOD release, not the rolled-back one.
 3. `https://updates.linguacode.dev/web/version` returns the good tag.
-4. Crash report rate returns to baseline within 4h (auto-update window) for the rolled-back cohort.
+4. Crash report rate returns to baseline within 1h (auto-update window) for the rolled-back cohort.
 5. Marketing-site banner is dismissed once the hotfix is live.

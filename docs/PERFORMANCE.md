@@ -49,9 +49,9 @@ The baseline stores current measurements plus conservative headroom:
 - `other`: baseline + 10%
 
 Normal CI runs `npm run performance:report` after `npm run build:web` so
-reviewers can see the table in logs. `npm run check:performance` is the
-blocking local gate for build outputs that exist on disk. A strict
-release/local check can require every baseline target with:
+reviewers can see the table in logs, then runs `npm run check:performance`
+as the explicit blocking budget gate for build outputs that exist on disk.
+A strict release/local check can require every baseline target with:
 
 ```bash
 node ./scripts/performance-report.mjs --check --require-all-targets

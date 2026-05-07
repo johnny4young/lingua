@@ -17,7 +17,7 @@ The update-server caches successful responses for 5 minutes. As long as a releas
 
 ### Path A — ride out the incident
 
-For most degradations (<1h), the existing 5-minute cache TTL plus the desktop client's 4h auto-update interval mean very few users actually feel the outage. Action: nothing. Just monitor.
+For most degradations (<1h), the existing 5-minute cache TTL plus the desktop client's 1h auto-update interval mean very few users actually feel the outage. Action: nothing. Just monitor.
 
 ### Path B — extend cache TTL temporarily
 

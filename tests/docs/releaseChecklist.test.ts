@@ -98,6 +98,14 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toContain('THIRD_PARTY_LICENSE_REPORT.md');
   });
 
+  it('links macOS signing setup and changelog/performance readiness gates', () => {
+    expect(checklist).toContain('docs/MACOS_SIGNING.md');
+    expect(checklist).toContain('npm run changelog:draft');
+    expect(checklist).toContain('npm run changelog:check');
+    expect(checklist).toContain('npm run check:performance');
+    expect(checklist).toMatch(/version.*CHANGELOG/i);
+  });
+
   it('ships a rollback plan that keeps the release in draft on failure', () => {
     expect(checklist).toContain('## Rollback plan');
     expect(checklist).toMatch(/draft/i);

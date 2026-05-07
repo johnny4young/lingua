@@ -63,6 +63,8 @@ jobs:
         run: npm run build:web
       - name: Performance report
         run: npm run performance:report
+      - name: Performance budget check
+        run: npm run check:performance
       - name: Third-party license policy
         run: npm run check:licenses
       - name: Security audit
