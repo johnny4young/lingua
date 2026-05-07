@@ -12,12 +12,12 @@ current question. **Every planning artefact lives in these four files —
 no external plan directory, no `.claude/plans/*`, no machine-local
 state.** If it is not in git, it does not count.
 
-| File | Role | Read when |
-|------|------|-----------|
-| [`ROADMAP.md`](./ROADMAP.md) | Canonical status + priority for every `RL-XXX` ticket. One compact table. | You need to know *what is the current state* or *what to pick next*. **This is the cheapest file — always read it first.** |
-| [`SPRINT-PLAN.md`](./SPRINT-PLAN.md) | Tactical per-commit detail for the 2–5 currently-active iters. Mirrors ROADMAP 1:1 but adds file lists + draft commit messages + edge-case matrices. | You are executing one of the active iters and need the per-commit sequence. |
-| [`PLAN.md`](./PLAN.md) | Deep scope + acceptance criteria + historical reasoning for every `RL-XXX`. Large (~3k lines). | You need one ticket's deep scope. Grep the single `### RL-XXX` section; never load the whole file. |
-| [`BACKLOG.md`](./BACKLOG.md) | Pre-commitment raw ideas without acceptance criteria. | You are capturing a new idea, or checking whether an inbound request already has a bullet. |
+| File                                 | Role                                                                                                                                                 | Read when                                                                                                                  |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| [`ROADMAP.md`](./ROADMAP.md)         | Canonical status + priority for every `RL-XXX` ticket. One compact table.                                                                            | You need to know _what is the current state_ or _what to pick next_. **This is the cheapest file — always read it first.** |
+| [`SPRINT-PLAN.md`](./SPRINT-PLAN.md) | Tactical per-commit detail for the 2–5 currently-active iters. Mirrors ROADMAP 1:1 but adds file lists + draft commit messages + edge-case matrices. | You are executing one of the active iters and need the per-commit sequence.                                                |
+| [`PLAN.md`](./PLAN.md)               | Deep scope + acceptance criteria + historical reasoning for every `RL-XXX`. Large (~3k lines).                                                       | You need one ticket's deep scope. Grep the single `### RL-XXX` section; never load the whole file.                         |
+| [`BACKLOG.md`](./BACKLOG.md)         | Pre-commitment raw ideas without acceptance criteria.                                                                                                | You are capturing a new idea, or checking whether an inbound request already has a bullet.                                 |
 
 **Authority:** when two of these disagree, the order of truth is
 `ROADMAP` > `SPRINT-PLAN` > `PLAN`. `BACKLOG` never contradicts the
@@ -65,43 +65,43 @@ Each ADR captures one design call with context, alternatives, and the
 decision. ADRs are **additive** — once filed they are not rewritten,
 only superseded by a new ADR that names the one it replaces.
 
-| ADR | Scope | Owning RL task |
-|-----|-------|----------------|
-| [`AI_BRIDGE_ADR.md`](./AI_BRIDGE_ADR.md) | Three-tier AI access (local Ollama, BYO key, hosted credit pool); keychain integration; tier-by-tier matrix | v2.0 (no `RL-NNN` yet — graduates from BACKLOG when sized) |
-| [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md) | Stay on Electron Forge vs. move to electron-vite / electron-builder | `RL-034` |
-| [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) | Debugger MVP — which backend and UI surface | `RL-027` |
-| [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) | Environment variables for execution contexts (global / project / tab tiers) | `RL-011` |
-| [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md) | Declarative language-pack registry | `RL-038` |
-| [`LICENSING_ADR.md`](./LICENSING_ADR.md) | Vendor (Polar.sh), license-server stack, device-binding, trial, and release/update strategy | `RL-059`, `RL-061` |
-| [`MARKETING_SITE_ADR.md`](./MARKETING_SITE_ADR.md) | Marketing site lives in a separate repo (`lingua-marketing`), Astro 6 + Tailwind v4 + Cloudflare Pages, auto-deployed to https://linguacode.dev from `main` | `RL-063` |
-| [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md) | Vendoring + integrity-locking runtime assets (Pyodide); desktop offline posture; per-surface CSP rules | `RL-083` |
-| [`TAURI_SPIKE_ADR.md`](./TAURI_SPIKE_ADR.md) | Tauri 2 feasibility spike | `RL-035` |
-| [`VIM_MODE_ADR.md`](./VIM_MODE_ADR.md) | Vim mode integration inside the personalization slice | `RL-037` |
-| [`VITE_UPGRADE_ADR.md`](./VITE_UPGRADE_ADR.md) | Vite major upgrade plan | `RL-033` |
+| ADR                                                | Scope                                                                                                                                                       | Owning RL task                                             |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [`AI_BRIDGE_ADR.md`](./AI_BRIDGE_ADR.md)           | Three-tier AI access (local Ollama, BYO key, hosted credit pool); keychain integration; tier-by-tier matrix                                                 | v2.0 (no `RL-NNN` yet — graduates from BACKLOG when sized) |
+| [`BUILD_SYSTEM_ADR.md`](./BUILD_SYSTEM_ADR.md)     | Stay on Electron Forge vs. move to electron-vite / electron-builder                                                                                         | `RL-034`                                                   |
+| [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md)             | Debugger MVP — which backend and UI surface                                                                                                                 | `RL-027`                                                   |
+| [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md)             | Environment variables for execution contexts (global / project / tab tiers)                                                                                 | `RL-011`                                                   |
+| [`LANGUAGE_PACK_ADR.md`](./LANGUAGE_PACK_ADR.md)   | Declarative language-pack registry                                                                                                                          | `RL-038`                                                   |
+| [`LICENSING_ADR.md`](./LICENSING_ADR.md)           | Vendor (Polar.sh), license-server stack, device-binding, trial, and release/update strategy                                                                 | `RL-059`, `RL-061`                                         |
+| [`MARKETING_SITE_ADR.md`](./MARKETING_SITE_ADR.md) | Marketing site lives in a separate repo (`lingua-marketing`), Astro 6 + Tailwind v4 + Cloudflare Pages, auto-deployed to https://linguacode.dev from `main` | `RL-063`                                                   |
+| [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md) | Vendoring + integrity-locking runtime assets (Pyodide); desktop offline posture; per-surface CSP rules                                                      | `RL-083`                                                   |
+| [`TAURI_SPIKE_ADR.md`](./TAURI_SPIKE_ADR.md)       | Tauri 2 feasibility spike                                                                                                                                   | `RL-035`                                                   |
+| [`VIM_MODE_ADR.md`](./VIM_MODE_ADR.md)             | Vim mode integration inside the personalization slice                                                                                                       | `RL-037`                                                   |
+| [`VITE_UPGRADE_ADR.md`](./VITE_UPGRADE_ADR.md)     | Vite major upgrade plan                                                                                                                                     | `RL-033`                                                   |
 
 ## Where things live
 
-| If you need… | Go to |
-|---|---|
-| Contributor workflow (dev/test/smoke/build commands, Pro testing locally) | [`DEVELOPMENT.md`](./DEVELOPMENT.md) |
-| Keyboard shortcuts, deep links, plugin manifest format, browser-only limitations | [`USAGE.md`](./USAGE.md) |
-| The list of pending work | [`ROADMAP.md`](./ROADMAP.md) |
-| What a slice actually shipped | the task's `Status` / scope cell in `ROADMAP.md`; use `PLAN.md` only for deep historical context |
-| How two subsystems talk | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| Whether a capability is web, desktop, or hybrid | [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) |
-| Why a non-obvious decision was made | the matching `*_ADR.md` |
-| What we test and how | [`TEST_PLAN.md`](./TEST_PLAN.md) |
-| Accessibility quality gate (axe scans, keyboard flows, manual screen-reader checklist) | [`A11Y.md`](./A11Y.md) |
-| Bundle/runtime performance budgets and local report workflow | [`PERFORMANCE.md`](./PERFORMANCE.md) |
-| Current public readiness audit and launch hardening queue | [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md) |
-| Public repository publication checklist | [`PUBLIC_RELEASE_CHECKLIST.md`](./PUBLIC_RELEASE_CHECKLIST.md) |
-| Public release security sign-off | [`RELEASE_SECURITY.md`](./RELEASE_SECURITY.md) |
-| macOS Developer ID signing and notarization setup | [`MACOS_SIGNING.md`](./MACOS_SIGNING.md) |
-| Windows Authenticode signing setup | [`WINDOWS_SIGNING.md`](./WINDOWS_SIGNING.md) |
-| License + update server observability spec (metrics, alerts, dashboards) | [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) |
-| Operator runbooks (webhook replay, license recovery, refund handling, update rollback, GitHub degraded) | [`runbooks/`](./runbooks) |
-| Launch / marketing collateral | [`press-kit/`](./press-kit), [`seo-pages/`](./seo-pages) |
-| Student / classroom lesson drafts | [`lessons/`](./lessons) |
+| If you need…                                                                                                                             | Go to                                                                                            |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Contributor workflow (dev/test/smoke/build commands, Pro testing locally)                                                                | [`DEVELOPMENT.md`](./DEVELOPMENT.md)                                                             |
+| Keyboard shortcuts, deep links, plugin manifest format, browser-only limitations                                                         | [`USAGE.md`](./USAGE.md)                                                                         |
+| The list of pending work                                                                                                                 | [`ROADMAP.md`](./ROADMAP.md)                                                                     |
+| What a slice actually shipped                                                                                                            | the task's `Status` / scope cell in `ROADMAP.md`; use `PLAN.md` only for deep historical context |
+| How two subsystems talk                                                                                                                  | [`ARCHITECTURE.md`](./ARCHITECTURE.md)                                                           |
+| Whether a capability is web, desktop, or hybrid                                                                                          | [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md)                                                 |
+| Why a non-obvious decision was made                                                                                                      | the matching `*_ADR.md`                                                                          |
+| What we test and how                                                                                                                     | [`TEST_PLAN.md`](./TEST_PLAN.md)                                                                 |
+| Accessibility quality gate (axe scans, keyboard flows, manual screen-reader checklist)                                                   | [`A11Y.md`](./A11Y.md)                                                                           |
+| Bundle/runtime performance budgets and local report workflow                                                                             | [`PERFORMANCE.md`](./PERFORMANCE.md)                                                             |
+| Current public readiness audit and launch hardening queue                                                                                | [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md)                                       |
+| Public repository publication checklist                                                                                                  | [`PUBLIC_RELEASE_CHECKLIST.md`](./PUBLIC_RELEASE_CHECKLIST.md)                                   |
+| Public release security sign-off                                                                                                         | [`RELEASE_SECURITY.md`](./RELEASE_SECURITY.md)                                                   |
+| macOS Developer ID signing and notarization setup                                                                                        | [`MACOS_SIGNING.md`](./MACOS_SIGNING.md)                                                         |
+| Windows Authenticode signing setup                                                                                                       | [`WINDOWS_SIGNING.md`](./WINDOWS_SIGNING.md)                                                     |
+| License + update server observability spec (metrics, alerts, dashboards)                                                                 | [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md)                                           |
+| Operator runbooks (webhook replay, license recovery, refund handling, desktop update draft validation, update rollback, GitHub degraded) | [`runbooks/`](./runbooks)                                                                        |
+| Launch / marketing collateral                                                                                                            | [`press-kit/`](./press-kit), [`seo-pages/`](./seo-pages)                                         |
+| Student / classroom lesson drafts                                                                                                        | [`lessons/`](./lessons)                                                                          |
 
 ## Out of scope for this folder
 

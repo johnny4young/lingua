@@ -69,6 +69,9 @@ describe('Script naming docs guard', () => {
       'check:licenses',
       'license:report',
       'compliance:release',
+      // Desktop auto-update feed validation — stable production feed
+      // or draft-channel staging feed evidence before release promotion.
+      'check:update-feed',
       // RL-086 — bundle/runtime performance budgets and reports
       'performance:report',
       'performance:baseline',
@@ -106,5 +109,6 @@ describe('Script naming docs guard', () => {
     expect(scripts).not.toHaveProperty('test:smoke:license-web:unit');
     expect(scripts['smoke:desktop:packaged']).toContain('--offline');
     expect(scripts['smoke:desktop:packaged']).toContain('--against-packaged out/make');
+    expect(scripts['check:update-feed']).toContain('validate-update-feed.mjs');
   });
 });

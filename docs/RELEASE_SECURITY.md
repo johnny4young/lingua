@@ -30,7 +30,11 @@ release checklist.
 - Confirm release workflow audit gates passed.
 - Confirm packaged smoke passed offline against the produced app.
 - Confirm `SHA256SUMS.txt` exists and was verified.
-- Confirm update-server responses do not expose draft or malformed versions.
+- Confirm production update-server responses do not expose draft or malformed
+  versions.
+- Confirm any macOS/Windows release ran
+  `docs/runbooks/desktop-update-draft-validation.md` against an isolated
+  `GITHUB_RELEASE_CHANNEL=draft` staging deployment before promotion.
 
 ## Licensing
 

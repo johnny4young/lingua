@@ -88,5 +88,9 @@ change commit ids and require force-pushing private branches/tags.
 - For Linux releases, confirm the GitHub Actions run uploaded
   `linux-package-validation` with Debian metadata, RPM metadata, Debian
   install, packaged launch smoke, and uninstall verification.
+- For macOS/Windows releases, complete
+  `docs/runbooks/desktop-update-draft-validation.md` and archive
+  `output/update-feed-validation/update-feed-validation.json` from the
+  staging draft-channel feed check.
 - Public docs and release-security checklist reviewed.
 - Repository visibility change approved by the maintainer.

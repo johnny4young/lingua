@@ -238,7 +238,7 @@ The local web build defaults to `/` as its base path. The Cloudflare Pages deplo
 - GitHub Release publishing is manual via the `Release` workflow, which accepts a single stable tag input in the form `vX.Y.Z`, creates that tag from `main`, and publishes from it.
 - Update server deployment is manual via the `Deploy Update Server` workflow.
 - The release workflow runs exact release-tag changelog validation, the production dependency audit, release compliance artifact generation, per-platform build gates, Linux package install/smoke/uninstall validation, checksum generation/re-verification, draft GitHub Release upload, and optional web deploy from the validated release tag.
-- Packaged macOS and Windows builds use the desktop updater against the stable GitHub Release channel.
-- The active release/update channel policy is stable-only; prerelease tags are rejected by the release workflow.
+- Packaged macOS and Windows builds use the desktop updater against the stable GitHub Release channel. Draft update validation must use an isolated update-server deployment with `GITHUB_RELEASE_CHANNEL=draft`, then `npm run check:update-feed -- --base-url <staging-updates> --old-version <previous> --expected-version <target>` to write `output/update-feed-validation/` evidence before promotion.
+- The active production release/update channel policy is stable-only; prerelease tags are rejected by the release workflow.
 
 For the full release operator checklist and required secrets, see [`RELEASE.md`](../RELEASE.md). For the public-release security sign-off, see [`docs/RELEASE_SECURITY.md`](./RELEASE_SECURITY.md).

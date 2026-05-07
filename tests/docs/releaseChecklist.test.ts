@@ -40,6 +40,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
       '12.',
       '13.',
       '14.',
+      '15.',
     ]) {
       expect(checklist).toContain(marker);
     }
@@ -64,6 +65,12 @@ describe('RELEASE.md release checklist (RL-016)', () => {
   it('requires a post-publish smoke before the announcement', () => {
     expect(checklist).toMatch(/post-publish smoke/i);
     expect(checklist).toMatch(/Do not announce before/i);
+  });
+
+  it('requires desktop update feed validation before macOS or Windows promotion', () => {
+    expect(checklist).toContain('docs/runbooks/desktop-update-draft-validation.md');
+    expect(checklist).toContain('npm run check:update-feed');
+    expect(checklist).toContain('output/update-feed-validation/update-feed-validation.json');
   });
 
   it('ships a validation checklist with signing, checksums, and the smoke gate', () => {

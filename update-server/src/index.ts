@@ -1,4 +1,9 @@
-import { getLatestRelease, getAssetDownloadURL, getAssetContent } from './github';
+import {
+  getLatestRelease,
+  getAssetDownloadURL,
+  getAssetContent,
+  type ReleaseChannel,
+} from './github';
 import { isNewer } from './version';
 import { log, wrapRequestObservability } from './lib/observability';
 import {
@@ -10,6 +15,11 @@ import {
 
 export interface Env {
   GITHUB_TOKEN: string;
+  /**
+   * Optional staging-only update channel. Production leaves this unset so the
+   * updater only sees non-draft, non-prerelease GitHub Releases.
+   */
+  GITHUB_RELEASE_CHANNEL?: string;
 }
 
 const CACHE_TTL = 300; // 5 minutes
@@ -22,6 +32,10 @@ const WEB_VERSION_CORS_HEADERS = {
 // Re-export so tests can clear the probe cache between cases without
 // reaching into the lib path directly.
 export { resetReadinessProbeCacheForTests, SERVER_NAME, SERVER_VERSION };
+
+export function resolveReleaseChannel(env: Pick<Env, 'GITHUB_RELEASE_CHANNEL'>): ReleaseChannel {
+  return env.GITHUB_RELEASE_CHANNEL === 'draft' ? 'draft' : 'stable';
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -71,8 +85,10 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
     return handleUpdate(request, env, updateMatch[1], updateMatch[2]);
   }
 
-  // GET /download/:assetId — proxy for Windows nupkg downloads
-  const downloadMatch = path.match(/^\/download\/(\d+)$/);
+  // GET /download/:assetId[/filename] — proxy for Windows nupkg downloads.
+  // The optional filename keeps version evidence visible in RELEASES without
+  // trusting the renderer/client to choose the asset id.
+  const downloadMatch = path.match(/^\/download\/(\d+)(?:\/[^/]+)?$/);
   if (downloadMatch) {
     if (request.method !== 'GET') {
       return methodNotAllowed();
@@ -110,15 +126,20 @@ async function handleUpdate(
   request: Request,
   env: Env,
   platform: string,
-  currentVersion: string,
+  currentVersion: string
 ): Promise<Response> {
+  const releaseChannel = resolveReleaseChannel(env);
+  const canUseCache = releaseChannel === 'stable';
+
   // Try to serve from cache first
   const cache = caches.default;
   const cacheKey = new Request(request.url, { method: 'GET' });
-  const cached = await cache.match(cacheKey);
-  if (cached) return cached;
+  if (canUseCache) {
+    const cached = await cache.match(cacheKey);
+    if (cached) return cached;
+  }
 
-  const release = await getLatestRelease(env.GITHUB_TOKEN);
+  const release = await getLatestRelease(env.GITHUB_TOKEN, releaseChannel);
   if (!release) {
     return new Response(null, { status: 204 });
   }
@@ -128,7 +149,9 @@ async function handleUpdate(
       status: 204,
       headers: { 'Cache-Control': `public, max-age=${CACHE_TTL}` },
     });
-    await cache.put(cacheKey, noUpdate.clone());
+    if (canUseCache) {
+      await cache.put(cacheKey, noUpdate.clone());
+    }
     return noUpdate;
   }
 
@@ -139,7 +162,7 @@ async function handleUpdate(
     response = await buildWin32Response(env, release, request.url);
   }
 
-  if (response.status === 200) {
+  if (response.status === 200 && canUseCache) {
     const toCache = response.clone();
     // Attach cache headers for Cloudflare edge
     const withHeaders = new Response(toCache.body, {
@@ -172,12 +195,10 @@ async function handleDownload(env: Env, assetId: number): Promise<Response> {
 async function buildDarwinResponse(
   env: Env,
   release: Awaited<ReturnType<typeof getLatestRelease>> & object,
-  _requestUrl: string,
+  _requestUrl: string
 ): Promise<Response> {
   // Find the macOS .zip asset
-  const zipAsset = release.assets.find(
-    (a) => a.name.includes('darwin') && a.name.endsWith('.zip'),
-  );
+  const zipAsset = release.assets.find(a => a.name.includes('darwin') && a.name.endsWith('.zip'));
 
   if (!zipAsset) {
     return new Response(null, { status: 204 });
@@ -194,26 +215,23 @@ async function buildDarwinResponse(
     url: downloadURL,
     name: release.name || release.tag_name,
     notes: release.body || '',
-    pub_date: release.published_at,
+    pub_date: release.published_at || release.created_at || '',
   });
 }
 
 async function buildWin32Response(
   env: Env,
   release: Awaited<ReturnType<typeof getLatestRelease>> & object,
-  requestUrl: string,
+  requestUrl: string
 ): Promise<Response> {
   // Find the RELEASES file asset
-  const releasesAsset = release.assets.find((a) => a.name === 'RELEASES');
+  const releasesAsset = release.assets.find(a => a.name === 'RELEASES');
   if (!releasesAsset) {
     return new Response(null, { status: 204 });
   }
 
   // Download the RELEASES file content
-  const releasesContent = await getAssetContent(
-    env.GITHUB_TOKEN,
-    releasesAsset.id,
-  );
+  const releasesContent = await getAssetContent(env.GITHUB_TOKEN, releasesAsset.id);
   if (!releasesContent) {
     return new Response('Failed to fetch RELEASES', { status: 502 });
   }
@@ -223,16 +241,16 @@ async function buildWin32Response(
   const baseUrl = new URL(requestUrl).origin;
   const rewritten = releasesContent
     .split('\n')
-    .map((line) => {
+    .map(line => {
       const trimmed = line.trim();
       if (!trimmed) return trimmed;
       // Find the nupkg asset by filename and rewrite to our proxy URL
       const parts = trimmed.split(' ');
       if (parts.length >= 2) {
         const filename = parts[1];
-        const nupkgAsset = release.assets.find((a) => a.name === filename);
+        const nupkgAsset = release.assets.find(a => a.name === filename);
         if (nupkgAsset) {
-          parts[1] = `${baseUrl}/download/${nupkgAsset.id}`;
+          parts[1] = `${baseUrl}/download/${nupkgAsset.id}/${encodeURIComponent(filename)}`;
         }
       }
       return parts.join(' ');
@@ -261,12 +279,16 @@ async function buildWin32Response(
  * that to `null` and skips the banner render entirely.
  */
 async function handleWebVersion(request: Request, env: Env): Promise<Response> {
+  const releaseChannel = resolveReleaseChannel(env);
+  const canUseCache = releaseChannel === 'stable';
   const cache = caches.default;
   const cacheKey = new Request(request.url, { method: 'GET' });
-  const cached = await cache.match(cacheKey);
-  if (cached) return cached;
+  if (canUseCache) {
+    const cached = await cache.match(cacheKey);
+    if (cached) return cached;
+  }
 
-  const release = await getLatestRelease(env.GITHUB_TOKEN);
+  const release = await getLatestRelease(env.GITHUB_TOKEN, releaseChannel);
   if (!release) {
     const empty = new Response(null, {
       status: 204,
@@ -275,13 +297,13 @@ async function handleWebVersion(request: Request, env: Env): Promise<Response> {
         'Cache-Control': `public, max-age=${CACHE_TTL}`,
       },
     });
-    await cache.put(cacheKey, empty.clone());
+    if (canUseCache) {
+      await cache.put(cacheKey, empty.clone());
+    }
     return empty;
   }
 
-  const version = release.tag_name.startsWith('v')
-    ? release.tag_name.slice(1)
-    : release.tag_name;
+  const version = release.tag_name.startsWith('v') ? release.tag_name.slice(1) : release.tag_name;
 
   const response = new Response(JSON.stringify({ version }), {
     status: 200,
@@ -291,7 +313,9 @@ async function handleWebVersion(request: Request, env: Env): Promise<Response> {
       'Cache-Control': `public, max-age=${CACHE_TTL}`,
     },
   });
-  await cache.put(cacheKey, response.clone());
+  if (canUseCache) {
+    await cache.put(cacheKey, response.clone());
+  }
   return response;
 }
 

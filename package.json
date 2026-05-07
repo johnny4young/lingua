@@ -24,6 +24,7 @@
     "check:licenses": "node ./scripts/check-third-party-licenses.mjs --check",
     "license:report": "node ./scripts/check-third-party-licenses.mjs --format markdown --write docs/THIRD_PARTY_LICENSE_REPORT.md",
     "compliance:release": "node ./scripts/write-release-compliance-artifacts.mjs",
+    "check:update-feed": "node ./scripts/validate-update-feed.mjs",
     "performance:report": "node ./scripts/performance-report.mjs",
     "performance:baseline": "node ./scripts/performance-report.mjs --write-baseline --require-all-targets",
     "check:performance": "node ./scripts/performance-report.mjs --check",
