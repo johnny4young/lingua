@@ -13,21 +13,23 @@ enable public macOS/Windows release jobs before signing credentials exist.
 ## Executive summary
 
 Lingua is close to public-source readiness, but it should not be treated as a
-fully public desktop release channel until the remaining signing and history
-gates are cleared. The web build and Linux packaging are the lowest-risk
-release paths. macOS and Windows should stay preflight-only until signing
-secrets are configured and a packaged smoke passes against signed artifacts.
+fully public desktop release channel until the remaining signing and
+auto-update gates are cleared. The web build and Linux packaging are the
+lowest-risk release paths. macOS and Windows should stay preflight-only until
+signing secrets are configured and a packaged smoke passes against signed
+artifacts.
 
 Highest-priority current actions:
 
 1. Keep version, tags, and `CHANGELOG.md` synchronized before the next tag.
 2. Keep local agent skills out of the public repository while preserving the
    maintainer's local commands.
-3. Run a full-history Gitleaks scan before changing repository visibility.
-4. Validate auto-update end-to-end against a draft release before promoting a
+3. Validate auto-update end-to-end against a draft release before promoting a
    public desktop release.
-5. Resolve product-tier copy drift between `docs/LICENSING_ADR.md` and older
-   launch collateral before the next marketing update.
+4. Configure macOS and Windows signing secrets before promoting signed desktop
+   artifacts.
+5. Re-run the public release checklist, including Gitleaks, immediately before
+   changing repository visibility.
 
 ## Current state
 
@@ -39,7 +41,7 @@ Highest-priority current actions:
 | Auto-update          | `src/main/updater.ts` checks on launch and then every one hour for `darwin` and `win32`. Electron's built-in updater does not support Linux.                                                                                              | Good, docs drift fixed          |
 | Cloudflare           | `update-server/` serves update feeds and `/web/version`; web deploy uses Cloudflare Pages through Wrangler; deploy workflow now uploads a `cloudflare-deploy-validation` artifact with Wrangler logs and live app/update endpoint checks. | Good                            |
 | Security docs        | `SECURITY.md`, `PRIVACY.md`, `docs/RELEASE_SECURITY.md`, and public checklist exist.                                                                                                                                                      | Good                            |
-| Secrets              | `.env.production` contains public build-time values only. Production private keys and signing material are expected as GitHub/Cloudflare secrets.                                                                                         | Good, pending full-history scan |
+| Secrets              | `.env.production` contains public build-time values only. Production private keys and signing material are expected as GitHub/Cloudflare secrets. Full-history Gitleaks scanned 213 commits on 2026-05-07 with no leaks found.           | Good                            |
 | Local skills         | `.agents/skills/lingua-review` and `.agents/skills/lingua-ship` were tracked; the readiness pass ignores and untracks them while leaving local files available.                                                                           | Improved                        |
 | Changelog automation | Draft/check scripts exist, CI runs `changelog:check`, and the release workflow requires the requested tag to match `package.json` and the top `CHANGELOG.md` release entry before publishing starts.                                      | Good                            |
 | License posture      | Source-available commercial; do not describe as open source.                                                                                                                                                                              | Good                            |
@@ -56,15 +58,17 @@ that is expected and should remain a fail-fast release preflight.
 
 **P1-1 — Full-history secret scan is required before visibility changes.**
 
-Current-tree checks are not enough because previous private commits can still
-become public. Run:
+Resolved on 2026-05-07. Full-history Gitleaks scanned 213 commits and
+approximately 6.70 MB with no leaks found:
 
 ```bash
 go run github.com/zricethezav/gitleaks/v8@latest git --no-banner --redact .
 ```
 
-Any production secret found in history must be rotated even if history is later
-rewritten before publication.
+Re-run this scan immediately before changing repository visibility because new
+commits can introduce history findings after this audit. Any production secret
+found in history must be rotated even if history is later rewritten before
+publication.
 
 **P1-2 — macOS and Windows releases must remain signing-gated.**
 
@@ -206,7 +210,7 @@ the draft script is an input, not the final release note.
 Before making the repository public:
 
 1. Run the full validation list in `docs/PUBLIC_RELEASE_CHECKLIST.md`.
-2. Run full-history Gitleaks and rotate any exposed production secret.
+2. Re-run full-history Gitleaks and rotate any exposed production secret.
 3. Confirm `.agents/skills/lingua-review` and `.agents/skills/lingua-ship` are
    not tracked.
 4. Confirm no generated artifacts, local screenshots, or machine-local absolute
@@ -255,7 +259,7 @@ criteria and priority are clear.
 10. For Linux releases, confirm the GitHub Actions run contains the
    `linux-package-validation` artifact with Debian/RPM metadata,
    packaged smoke output, and uninstall verification.
-11. Run full-history Gitleaks before visibility changes.
+11. Re-run full-history Gitleaks before visibility changes.
 12. Run `npm run smoke:desktop` before promoting a desktop release branch.
 13. Re-run `npm run performance:report` and confirm Runtime Observability is
     populated from `output/playwright/desktop-smoke/desktop-smoke-performance.json`.
