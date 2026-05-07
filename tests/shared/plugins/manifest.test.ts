@@ -15,7 +15,7 @@ const ALLOWED_IDS = new Set<string>(BUNDLED_PLUGIN_IDS);
 const baseOptions = (overrides: Partial<{ allowedPluginIds: ReadonlySet<string>; appVersion: string }> = {}) => ({
   manifestPath: '/tmp/lingua/plugins/lua/plugin.json',
   installDirectory: '/tmp/lingua/plugins/lua',
-  appVersion: '0.2.2',
+  appVersion: '0.2.4',
   allowedPluginIds: overrides.allowedPluginIds ?? ALLOWED_IDS,
   ...(overrides.appVersion ? { appVersion: overrides.appVersion } : {}),
 });

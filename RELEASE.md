@@ -24,11 +24,13 @@ This repository uses a draft-first manual release process, with the release tag 
     - `CLOUDFLARE_ACCOUNT_ID`
     - `CLOUDFLARE_ZONE_ID` (optional; cache purge only)
 - Apple Developer signing and notarization credentials are still valid
+- macOS signing setup has been checked against
+  [`docs/MACOS_SIGNING.md`](./docs/MACOS_SIGNING.md)
 - Windows code-signing certificate is still valid
 
 ## Release steps
 
-1. Update versioned product changes in the repository as needed (final doc sweep, root `CHANGELOG.md`, any release-gated copy).
+1. Draft release notes with `npm run changelog:draft`, then update versioned product changes in the repository as needed (final doc sweep, root `CHANGELOG.md`, any release-gated copy).
 2. Commit and merge the release-ready state into `main`.
 3. Open GitHub Actions and run the `Release` workflow manually.
 4. Provide `release_tag`, the stable tag/version to create and publish, for example `vX.Y.Z`.
@@ -53,6 +55,8 @@ This repository uses a draft-first manual release process, with the release tag 
 ## Validation checklist
 
 - Release-blocking production dependency audit passed (`npm audit --omit=dev --audit-level=high` in the `security-audit` job); the same job also prints full dependency audit output as advisory signal for build-tool drift
+- Changelog/version guard passed (`npm run changelog:check`)
+- Performance budget guard passed (`npm run check:performance`)
 - Third-party license policy passed (`npm run check:licenses`)
 - Release compliance artifacts generated (`npm run compliance:release`)
 - Release security checklist completed (`docs/RELEASE_SECURITY.md`)
@@ -69,6 +73,8 @@ This repository uses a draft-first manual release process, with the release tag 
 - `npm run smoke:desktop` passed against the dev server in pre-merge CI (the existing 9-case matrix gate)
 - Post-publish smoke succeeded against the channel-distributed artifact
 - Release remains draft until human review is complete
+- macOS signing and notarization evidence is attached or visible in the
+  workflow logs for any macOS artifact
 
 ## Rollback plan
 

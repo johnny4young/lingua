@@ -74,7 +74,9 @@ describe('public documentation hygiene', () => {
       'CONTRIBUTING.md',
       'THIRD_PARTY_NOTICES.md',
       'docs/PUBLIC_RELEASE_CHECKLIST.md',
+      'docs/PUBLIC_READINESS_AUDIT.md',
       'docs/RELEASE_SECURITY.md',
+      'docs/MACOS_SIGNING.md',
     ]) {
       expect(existsSync(resolve(ROOT, file)), file).toBe(true);
     }

@@ -55,6 +55,9 @@ Items never demote. Closed tickets stay closed.
 9. [`PERFORMANCE.md`](./PERFORMANCE.md) — bundle/runtime budgets,
    local report commands, CI performance logs, and desktop smoke
    runtime/memory metrics.
+10. [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md) —
+    current public-source readiness, release/security gaps, and the
+    pre-publication action queue.
 
 ## Architecture Decision Records (ADRs)
 
@@ -90,8 +93,10 @@ only superseded by a new ADR that names the one it replaces.
 | What we test and how | [`TEST_PLAN.md`](./TEST_PLAN.md) |
 | Accessibility quality gate (axe scans, keyboard flows, manual screen-reader checklist) | [`A11Y.md`](./A11Y.md) |
 | Bundle/runtime performance budgets and local report workflow | [`PERFORMANCE.md`](./PERFORMANCE.md) |
+| Current public readiness audit and launch hardening queue | [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md) |
 | Public repository publication checklist | [`PUBLIC_RELEASE_CHECKLIST.md`](./PUBLIC_RELEASE_CHECKLIST.md) |
 | Public release security sign-off | [`RELEASE_SECURITY.md`](./RELEASE_SECURITY.md) |
+| macOS Developer ID signing and notarization setup | [`MACOS_SIGNING.md`](./MACOS_SIGNING.md) |
 | License + update server observability spec (metrics, alerts, dashboards) | [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) |
 | Operator runbooks (webhook replay, license recovery, refund handling, update rollback, GitHub degraded) | [`runbooks/`](./runbooks) |
 | Launch / marketing collateral | [`press-kit/`](./press-kit), [`seo-pages/`](./seo-pages) |

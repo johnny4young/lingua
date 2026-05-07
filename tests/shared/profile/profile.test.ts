@@ -10,7 +10,7 @@ import {
 const VALID_V1: LinguaProfile = {
   schemaVersion: 1,
   exportedAt: '2026-05-07T14:30:00.000Z',
-  appVersion: '0.2.2',
+  appVersion: '0.2.4',
   data: {
     settings: {
       theme: 'dark',
@@ -78,7 +78,7 @@ describe('parseAndValidateProfile', () => {
     const malicious = {
       schemaVersion: 1,
       exportedAt: VALID_V1.exportedAt,
-      appVersion: '0.2.2',
+      appVersion: '0.2.4',
       data: {
         settings: {
           theme: 'dark',
@@ -107,7 +107,7 @@ describe('parseAndValidateProfile', () => {
     const malformed = {
       schemaVersion: 1,
       exportedAt: VALID_V1.exportedAt,
-      appVersion: '0.2.2',
+      appVersion: '0.2.4',
       data: {
         settings: {
           theme: 'dark',
@@ -131,7 +131,7 @@ describe('parseAndValidateProfile', () => {
     const malicious = {
       schemaVersion: 1,
       exportedAt: VALID_V1.exportedAt,
-      appVersion: '0.2.2',
+      appVersion: '0.2.4',
       data: {
         settings: {},
         snippets: [],

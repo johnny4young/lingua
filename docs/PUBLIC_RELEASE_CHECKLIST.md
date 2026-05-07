@@ -20,8 +20,10 @@ the source repository, while `RELEASE.md` gates product binaries.
 - `.env.example` exists and contains placeholders only.
 - Machine-local absolute Markdown links are blocked by
   `tests/docs/publicDocs.test.ts`.
-- Generated local artifacts and duplicated `.claude` skill files are removed
-  from the current tree.
+- Generated local artifacts and local agent command skills are removed from
+  the tracked tree. `.agents/skills/lingua-review` and
+  `.agents/skills/lingua-ship` may exist locally, but they must stay ignored
+  and untracked before publication.
 - `README.md`, `LICENSE`, press-kit copy, and roadmap docs agree on
   `linguacode.dev` as the public domain and source-available commercial as the
   repo posture.
@@ -34,8 +36,8 @@ change commit ids and require force-pushing private branches/tags.
 - Remove AI co-authorship trailers from historical commits that contain them.
 - Rewrite historical commits authored by tool identities to the maintainer
   identity, if that is the desired public history.
-- Remove duplicated `.claude` files and generated Playwright artifacts from
-  history if the public repository should never show them.
+- Remove duplicated `.claude` / `.agents` files and generated Playwright
+  artifacts from history if the public repository should never show them.
 - Delete or archive remote `claude/*` branches before visibility changes.
 - Decide whether existing private release tags should be recreated after the
   history rewrite.
@@ -72,5 +74,7 @@ change commit ids and require force-pushing private branches/tags.
 - `npm run check:i18n`
 - `npm run check:i18n:copy`
 - `npm run build:web`
+- `npm run changelog:check`
+- `npm run check:performance`
 - Public docs and release-security checklist reviewed.
 - Repository visibility change approved by the maintainer.

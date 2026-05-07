@@ -53,8 +53,12 @@ Thumbs.db
 .eslintcache
 .cache
 
-# Claude Code per-developer state, including local command skills such as:
+# Agent per-developer state, including local command skills such as:
 # .claude/skills/lingua-review/
 # .claude/skills/lingua-ship/
+# .agents/skills/lingua-review/
+# .agents/skills/lingua-ship/
 .claude/
+.agents/skills/lingua-review/
+.agents/skills/lingua-ship/
 prod-keypair.json
