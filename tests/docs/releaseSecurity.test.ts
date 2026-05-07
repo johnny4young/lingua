@@ -17,9 +17,7 @@ describe('docs/RELEASE_SECURITY.md release security checklist (RL-092)', () => {
     expect(readFileSync(RELEASE_PATH, 'utf-8')).toContain('docs/RELEASE_SECURITY.md');
   });
 
-  const checklist = existsSync(CHECKLIST_PATH)
-    ? readFileSync(CHECKLIST_PATH, 'utf-8')
-    : '';
+  const checklist = existsSync(CHECKLIST_PATH) ? readFileSync(CHECKLIST_PATH, 'utf-8') : '';
 
   it('keeps the required security review sections', () => {
     for (const heading of [
@@ -44,6 +42,8 @@ describe('docs/RELEASE_SECURITY.md release security checklist (RL-092)', () => {
       'watcher ids are opaque',
       'filtered environment',
       'SHA256SUMS.txt',
+      'desktop-update-draft-validation.md',
+      'GITHUB_RELEASE_CHANNEL=draft',
       'license tokens',
       'payload redaction',
       'npm run check:licenses',

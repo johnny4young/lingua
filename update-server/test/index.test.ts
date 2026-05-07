@@ -90,32 +90,64 @@ interface FixtureAsset {
   contentFails?: boolean;
 }
 
-interface UpdateFixture {
-  /** Set null to model "no released versions yet". */
-  release: { tag: string; assets: FixtureAsset[] } | null;
+interface FixtureRelease {
+  tag: string;
+  draft?: boolean;
+  prerelease?: boolean;
+  assets: FixtureAsset[];
+  publishedAt?: string | null;
+  createdAt?: string;
 }
 
-function createReleaseListBody(release: UpdateFixture['release']): string {
-  if (release === null) {
+interface UpdateFixture {
+  /** Set null to model "no released versions yet". */
+  release?: FixtureRelease | null;
+  releases?: FixtureRelease[];
+}
+
+function getFixtureReleases(fixture: UpdateFixture): FixtureRelease[] {
+  if (fixture.releases) return fixture.releases;
+  if (fixture.release) return [fixture.release];
+  return [];
+}
+
+function createReleaseListBody(fixture: UpdateFixture): string {
+  const releases = getFixtureReleases(fixture);
+  if (releases.length === 0) {
     return JSON.stringify([]);
   }
-  return JSON.stringify([
-    {
+  return JSON.stringify(
+    releases.map(release => ({
       tag_name: release.tag,
       name: `Release ${release.tag}`,
       body: `Notes for ${release.tag}`,
-      draft: false,
-      prerelease: false,
-      published_at: '2026-05-04T00:00:00Z',
-      assets: release.assets.map((asset) => ({
+      draft: release.draft ?? false,
+      prerelease: release.prerelease ?? false,
+      published_at:
+        release.publishedAt === undefined ? '2026-05-04T00:00:00Z' : release.publishedAt,
+      created_at: release.createdAt ?? '2026-05-03T00:00:00Z',
+      assets: release.assets.map(asset => ({
         id: asset.id,
         name: asset.name,
         size: 1,
         browser_download_url: `https://github.com/example/${asset.name}`,
         content_type: 'application/octet-stream',
       })),
-    },
-  ]);
+    }))
+  );
+}
+
+function findFixtureAsset(
+  fixture: UpdateFixture,
+  idOrUrl: number | string
+): FixtureAsset | undefined {
+  for (const release of getFixtureReleases(fixture)) {
+    const asset = release.assets.find(candidate =>
+      typeof idOrUrl === 'number' ? candidate.id === idOrUrl : candidate.downloadUrl === idOrUrl
+    );
+    if (asset) return asset;
+  }
+  return undefined;
 }
 
 /**
@@ -136,18 +168,16 @@ function buildUpdateFetchMock(fixture: UpdateFixture): FetchMock {
     const requestUrl = typeof input === 'string' ? input : (input as Request | URL).toString();
 
     if (requestUrl.endsWith('/repos/johnny4young/lingua/releases')) {
-      return new Response(createReleaseListBody(fixture.release), {
+      return new Response(createReleaseListBody(fixture), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
     }
 
-    const assetMatch = requestUrl.match(
-      /\/repos\/johnny4young\/lingua\/releases\/assets\/(\d+)$/u,
-    );
+    const assetMatch = requestUrl.match(/\/repos\/johnny4young\/lingua\/releases\/assets\/(\d+)$/u);
     if (assetMatch) {
       const id = Number.parseInt(assetMatch[1]!, 10);
-      const asset = fixture.release?.assets.find((a) => a.id === id);
+      const asset = findFixtureAsset(fixture, id);
       if (asset?.downloadUrl) {
         return new Response(null, {
           status: 302,
@@ -160,17 +190,15 @@ function buildUpdateFetchMock(fixture: UpdateFixture): FetchMock {
     }
 
     // The signed-S3 URL fetch — the second hop inside getAssetContent.
-    if (fixture.release) {
-      const asset = fixture.release.assets.find((a) => a.downloadUrl === requestUrl);
-      if (asset) {
-        if (asset.contentFails) {
-          return new Response('Forbidden', { status: 403 });
-        }
-        return new Response(asset.content ?? '', {
-          status: 200,
-          headers: { 'content-type': 'text/plain' },
-        });
+    const asset = findFixtureAsset(fixture, requestUrl);
+    if (asset) {
+      if (asset.contentFails) {
+        return new Response('Forbidden', { status: 403 });
       }
+      return new Response(asset.content ?? '', {
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+      });
     }
 
     throw new Error(`Unexpected fetch in test: ${requestUrl}`);
@@ -195,12 +223,12 @@ describe('GET /web/version', () => {
     vi.stubGlobal('caches', { default: mockCache });
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(createGitHubReleaseResponse('v0.2.1')) as FetchMock,
+      vi.fn().mockResolvedValue(createGitHubReleaseResponse('v0.2.1')) as FetchMock
     );
 
     const response = await worker.fetch(
       new Request('https://updates.linguacode.dev/web/version'),
-      createEnv(),
+      createEnv()
     );
 
     expect(response.status).toBe(200);
@@ -232,12 +260,12 @@ describe('GET /web/version', () => {
     vi.stubGlobal('caches', { default: mockCache });
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(createGitHubReleaseResponse(null)) as FetchMock,
+      vi.fn().mockResolvedValue(createGitHubReleaseResponse(null)) as FetchMock
     );
 
     const response = await worker.fetch(
       new Request('https://updates.linguacode.dev/web/version'),
-      createEnv(),
+      createEnv()
     );
 
     expect(response.status).toBe(204);
@@ -250,12 +278,12 @@ describe('GET /web/version', () => {
     vi.stubGlobal('caches', { default: mockCache });
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(createGitHubReleaseResponse('1.0.0')) as FetchMock,
+      vi.fn().mockResolvedValue(createGitHubReleaseResponse('1.0.0')) as FetchMock
     );
 
     const response = await worker.fetch(
       new Request('https://updates.linguacode.dev/web/version'),
-      createEnv(),
+      createEnv()
     );
 
     expect(response.status).toBe(200);
@@ -270,7 +298,7 @@ describe('GET /web/version', () => {
 
     const response = await worker.fetch(
       new Request('https://updates.linguacode.dev/web/version', { method: 'OPTIONS' }),
-      createEnv(),
+      createEnv()
     );
 
     expect(response.status).toBe(204);
@@ -281,10 +309,10 @@ describe('GET /web/version', () => {
 });
 
 describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
-  function callUpdate(platform: 'darwin' | 'win32', version: string) {
+  function callUpdate(platform: 'darwin' | 'win32', version: string, env: Env = createEnv()) {
     return worker.fetch(
       new Request(`https://updates.linguacode.dev/update/${platform}/${version}`),
-      createEnv(),
+      env
     );
   }
 
@@ -307,7 +335,7 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
       new Request('https://updates.linguacode.dev/update/darwin/0.2.0', {
         method: 'POST',
       }),
-      createEnv(),
+      createEnv()
     );
 
     expect(response.status).toBe(405);
@@ -324,9 +352,15 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
       buildUpdateFetchMock({
         release: {
           tag: 'v0.2.0',
-          assets: [{ id: 1, name: 'lingua-0.2.0-darwin-x64.zip', downloadUrl: 'https://signed.example/zip' }],
+          assets: [
+            {
+              id: 1,
+              name: 'lingua-0.2.0-darwin-x64.zip',
+              downloadUrl: 'https://signed.example/zip',
+            },
+          ],
         },
-      }),
+      })
     );
 
     const response = await callUpdate('darwin', '0.2.0');
@@ -374,10 +408,151 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
     // `'follow'`, getAssetDownloadURL would return null and the
     // handler would silently degrade to 204/502.
     const assetCall = fetchMock.mock.calls.find(([input]) =>
-      String(input).endsWith('/releases/assets/42'),
+      String(input).endsWith('/releases/assets/42')
     );
     expect(assetCall, 'asset-resolve fetch was never issued').toBeDefined();
     expect(assetCall![1]).toMatchObject({ redirect: 'manual' });
+  });
+
+  it('keeps the production update feed on stable releases when drafts exist', async () => {
+    const { mockCache } = createMockCacheStorage();
+    vi.stubGlobal('caches', { default: mockCache });
+    vi.stubGlobal(
+      'fetch',
+      buildUpdateFetchMock({
+        releases: [
+          {
+            tag: 'v0.4.0',
+            draft: true,
+            publishedAt: null,
+            assets: [
+              {
+                id: 44,
+                name: 'lingua-0.4.0-darwin-x64.zip',
+                downloadUrl: 'https://signed.example/draft-zip',
+              },
+            ],
+          },
+          {
+            tag: 'v0.3.0',
+            assets: [
+              {
+                id: 43,
+                name: 'lingua-0.3.0-darwin-x64.zip',
+                downloadUrl: 'https://signed.example/stable-zip',
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    const response = await callUpdate('darwin', '0.2.0');
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { url: string; name: string };
+    expect(body.url).toBe('https://signed.example/stable-zip');
+    expect(body.name).toBe('Release v0.3.0');
+  });
+
+  it('serves draft releases only when the staging channel env is enabled', async () => {
+    const { mockCache } = createMockCacheStorage();
+    vi.stubGlobal('caches', { default: mockCache });
+    vi.stubGlobal(
+      'fetch',
+      buildUpdateFetchMock({
+        releases: [
+          {
+            tag: 'v0.4.0',
+            draft: true,
+            publishedAt: null,
+            createdAt: '2026-05-06T00:00:00Z',
+            assets: [
+              {
+                id: 44,
+                name: 'lingua-0.4.0-darwin-x64.zip',
+                downloadUrl: 'https://signed.example/draft-zip',
+              },
+            ],
+          },
+          {
+            tag: 'v0.3.0',
+            assets: [
+              {
+                id: 43,
+                name: 'lingua-0.3.0-darwin-x64.zip',
+                downloadUrl: 'https://signed.example/stable-zip',
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    const response = await callUpdate('darwin', '0.2.0', {
+      ...createEnv(),
+      GITHUB_RELEASE_CHANNEL: 'draft',
+    });
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { url: string; name: string; pub_date: string };
+    expect(body.url).toBe('https://signed.example/draft-zip');
+    expect(body.name).toBe('Release v0.4.0');
+    expect(body.pub_date).toBe('2026-05-06T00:00:00Z');
+  });
+
+  it('does not let stable cache entries hide the draft staging channel', async () => {
+    const { mockCache, store } = createMockCacheStorage();
+    vi.stubGlobal('caches', { default: mockCache });
+    vi.stubGlobal(
+      'fetch',
+      buildUpdateFetchMock({
+        release: {
+          tag: 'v0.3.0',
+          assets: [
+            {
+              id: 43,
+              name: 'lingua-0.3.0-darwin-x64.zip',
+              downloadUrl: 'https://signed.example/stable-zip',
+            },
+          ],
+        },
+      })
+    );
+
+    const stableResponse = await callUpdate('darwin', '0.3.0');
+    expect(stableResponse.status).toBe(204);
+    expect(store.size).toBe(1);
+
+    vi.stubGlobal(
+      'fetch',
+      buildUpdateFetchMock({
+        release: {
+          tag: 'v0.4.0',
+          draft: true,
+          publishedAt: null,
+          createdAt: '2026-05-06T00:00:00Z',
+          assets: [
+            {
+              id: 44,
+              name: 'lingua-0.4.0-darwin-x64.zip',
+              downloadUrl: 'https://signed.example/draft-zip',
+            },
+          ],
+        },
+      })
+    );
+
+    const draftResponse = await callUpdate('darwin', '0.3.0', {
+      ...createEnv(),
+      GITHUB_RELEASE_CHANNEL: 'draft',
+    });
+
+    expect(draftResponse.status).toBe(200);
+    const body = (await draftResponse.json()) as { url: string; name: string };
+    expect(body.url).toBe('https://signed.example/draft-zip');
+    expect(body.name).toBe('Release v0.4.0');
+    expect(store.size).toBe(1);
   });
 
   it('returns 204 for darwin when the new release has no .zip darwin asset (missing-asset branch)', async () => {
@@ -397,7 +572,7 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
             },
           ],
         },
-      }),
+      })
     );
 
     const response = await callUpdate('darwin', '0.2.0');
@@ -435,14 +610,12 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
             },
           ],
         },
-      }),
+      })
     );
 
     // Derive the expected origin from the same Request the handler
     // sees so the test does not break the moment the base URL changes.
-    const baseOrigin = new URL(
-      'https://updates.linguacode.dev/update/win32/0.2.0',
-    ).origin;
+    const baseOrigin = new URL('https://updates.linguacode.dev/update/win32/0.2.0').origin;
     const response = await callUpdate('win32', '0.2.0');
 
     expect(response.status).toBe(200);
@@ -450,8 +623,8 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
     const text = await response.text();
     // The handler walks each line and rewrites the second token (the
     // filename) to /download/:assetId, preserving the SHA1 and size.
-    expect(text).toContain(`ABCDEF1234 ${baseOrigin}/download/100 12345`);
-    expect(text).toContain(`GHIJKL5678 ${baseOrigin}/download/101 678`);
+    expect(text).toContain(`ABCDEF1234 ${baseOrigin}/download/100/Lingua-0.3.0-full.nupkg 12345`);
+    expect(text).toContain(`GHIJKL5678 ${baseOrigin}/download/101/Lingua-0.3.0-delta.nupkg 678`);
   });
 
   it('returns 204 for win32 when the RELEASES file is absent (missing-asset branch)', async () => {
@@ -471,7 +644,7 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
             },
           ],
         },
-      }),
+      })
     );
 
     const response = await callUpdate('win32', '0.2.0');
@@ -497,7 +670,7 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
             },
           ],
         },
-      }),
+      })
     );
 
     const response = await callUpdate('win32', '0.2.0');
@@ -508,6 +681,32 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
 });
 
 describe('GET /download/:assetId', () => {
+  it('accepts the optional filename suffix used in rewritten RELEASES evidence', async () => {
+    vi.stubGlobal(
+      'fetch',
+      buildUpdateFetchMock({
+        release: {
+          tag: 'v0.3.0',
+          assets: [
+            {
+              id: 100,
+              name: 'Lingua-0.3.0-full.nupkg',
+              downloadUrl: 'https://signed.example/full.nupkg',
+            },
+          ],
+        },
+      })
+    );
+
+    const response = await worker.fetch(
+      new Request('https://updates.linguacode.dev/download/100/Lingua-0.3.0-full.nupkg'),
+      createEnv()
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('Location')).toBe('https://signed.example/full.nupkg');
+  });
+
   it('rejects non-GET download proxy requests before touching GitHub', async () => {
     const fetchMock = vi.fn() as FetchMock;
     vi.stubGlobal('fetch', fetchMock);
@@ -516,7 +715,7 @@ describe('GET /download/:assetId', () => {
       new Request('https://updates.linguacode.dev/download/42', {
         method: 'POST',
       }),
-      createEnv(),
+      createEnv()
     );
 
     expect(response.status).toBe(405);
@@ -547,7 +746,7 @@ describe('parseVersion', () => {
     'v',
     '0.2.x',
     'v0.2.1-rc.1',
-  ])('returns null for malformed: %s', (input) => {
+  ])('returns null for malformed: %s', input => {
     expect(parseVersion(input)).toBeNull();
   });
 });

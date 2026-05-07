@@ -40,7 +40,7 @@ const SENSITIVE_KEYS: ReadonlySet<string> = new Set(
     'password',
     'githubToken',
     'github_token',
-  ].map((key) => key.toLowerCase()),
+  ].map(key => key.toLowerCase())
 );
 
 const MAX_REDACT_DEPTH = 4;
@@ -54,7 +54,7 @@ export function redact(payload: unknown, depth = 0): unknown {
   if (typeof payload !== 'object') return payload;
 
   if (Array.isArray(payload)) {
-    return payload.map((item) => redact(item, depth + 1));
+    return payload.map(item => redact(item, depth + 1));
   }
 
   const out: Record<string, unknown> = {};
@@ -109,10 +109,7 @@ export function classifyError(err: unknown): ErrorClass {
  * responses for GitHub failures, so status-based classification keeps
  * those upstream outages visible in the normal request envelope.
  */
-export function classifyResponseStatus(
-  status: number,
-  routeName: string,
-): ErrorClass | undefined {
+export function classifyResponseStatus(status: number, routeName: string): ErrorClass | undefined {
   if (status < 400) return undefined;
   if (status < 500) return 'client';
   if (
@@ -153,7 +150,7 @@ export function routeNameFromPath(path: string): string {
   if (path === '/health/ready') return 'health.ready';
   if (path === '/web/version') return 'update.web_version';
   if (/^\/update\/(darwin|win32)\/.+$/.test(path)) return 'update.feed';
-  if (/^\/download\/\d+$/.test(path)) return 'update.asset_proxy';
+  if (/^\/download\/\d+(?:\/[^/]+)?$/.test(path)) return 'update.asset_proxy';
   return 'unknown';
 }
 
@@ -166,7 +163,7 @@ export function routeNameFromPath(path: string): string {
  */
 export async function wrapRequestObservability(
   request: Request,
-  fn: () => Promise<Response>,
+  fn: () => Promise<Response>
 ): Promise<Response> {
   const url = new URL(request.url);
   const routeName = routeNameFromPath(url.pathname);

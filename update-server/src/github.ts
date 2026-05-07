@@ -16,12 +16,28 @@ export interface Release {
   body: string;
   draft: boolean;
   prerelease: boolean;
-  published_at: string;
+  published_at: string | null;
+  created_at?: string;
   assets: ReleaseAsset[];
 }
 
-/** Fetch the latest published (non-draft, non-prerelease) release. */
-export async function getLatestRelease(token: string): Promise<Release | null> {
+export type ReleaseChannel = 'stable' | 'draft';
+
+export function pickLatestRelease(
+  releases: Release[],
+  channel: ReleaseChannel = 'stable'
+): Release | null {
+  if (channel === 'draft') {
+    return releases.find(r => r.draft && !r.prerelease) ?? null;
+  }
+  return releases.find(r => !r.draft && !r.prerelease) ?? null;
+}
+
+/** Fetch the latest release for the requested update channel. */
+export async function getLatestRelease(
+  token: string,
+  channel: ReleaseChannel = 'stable'
+): Promise<Release | null> {
   const res = await fetch(`${GITHUB_API}/repos/${OWNER}/${REPO}/releases`, {
     headers: {
       Authorization: `token ${token}`,
@@ -33,7 +49,7 @@ export async function getLatestRelease(token: string): Promise<Release | null> {
   if (!res.ok) return null;
 
   const releases: Release[] = await res.json();
-  return releases.find((r) => !r.draft && !r.prerelease) ?? null;
+  return pickLatestRelease(releases, channel);
 }
 
 /**
@@ -43,21 +59,15 @@ export async function getLatestRelease(token: string): Promise<Release | null> {
  * an asset with `Accept: application/octet-stream`. We capture the
  * Location header without following the redirect.
  */
-export async function getAssetDownloadURL(
-  token: string,
-  assetId: number,
-): Promise<string | null> {
-  const res = await fetch(
-    `${GITHUB_API}/repos/${OWNER}/${REPO}/releases/assets/${assetId}`,
-    {
-      headers: {
-        Authorization: `token ${token}`,
-        Accept: 'application/octet-stream',
-        'User-Agent': 'lingua-update-server/1.0',
-      },
-      redirect: 'manual',
+export async function getAssetDownloadURL(token: string, assetId: number): Promise<string | null> {
+  const res = await fetch(`${GITHUB_API}/repos/${OWNER}/${REPO}/releases/assets/${assetId}`, {
+    headers: {
+      Authorization: `token ${token}`,
+      Accept: 'application/octet-stream',
+      'User-Agent': 'lingua-update-server/1.0',
     },
-  );
+    redirect: 'manual',
+  });
 
   if (res.status === 302) {
     return res.headers.get('Location');
@@ -68,10 +78,7 @@ export async function getAssetDownloadURL(
 /**
  * Download raw text content of a private-repo asset (used for RELEASES file).
  */
-export async function getAssetContent(
-  token: string,
-  assetId: number,
-): Promise<string | null> {
+export async function getAssetContent(token: string, assetId: number): Promise<string | null> {
   const url = await getAssetDownloadURL(token, assetId);
   if (!url) return null;
 

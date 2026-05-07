@@ -33,18 +33,18 @@ Highest-priority current actions:
 
 ## Current state
 
-| Area                 | Evidence                                                                                                                                                                                                                                  | Status                          |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| Versioning           | `package.json` was behind `v0.2.3`; the readiness pass moved the working tree to `0.2.4` and added changelog entries for `0.2.2`, `0.2.3`, and `0.2.4`.                                                                                   | Improved                        |
-| Release CI           | `.github/workflows/release.yml` has draft-first release, selected-platform success gates, production audit, checksum verification, SBOM, Linux package validation, and signing preflights. macOS and Windows setup guides are linked from the release docs. | Good, credential-gated          |
-| CI performance       | CI prints `performance:report`, runs `check:performance` after `build:web`, and the report now folds in desktop smoke runtime observability when that artifact exists.                                                                     | Good                            |
-| Auto-update          | `src/main/updater.ts` checks on launch and then every one hour for `darwin` and `win32`. Electron's built-in updater does not support Linux.                                                                                              | Good, docs drift fixed          |
-| Cloudflare           | `update-server/` serves update feeds and `/web/version`; web deploy uses Cloudflare Pages through Wrangler; deploy workflow now uploads a `cloudflare-deploy-validation` artifact with Wrangler logs and live app/update endpoint checks. | Good                            |
-| Security docs        | `SECURITY.md`, `PRIVACY.md`, `docs/RELEASE_SECURITY.md`, and public checklist exist.                                                                                                                                                      | Good                            |
-| Secrets              | `.env.production` contains public build-time values only. Production private keys and signing material are expected as GitHub/Cloudflare secrets. Full-history Gitleaks scanned 213 commits on 2026-05-07 with no leaks found.           | Good                            |
-| Local skills         | `.agents/skills/lingua-review` and `.agents/skills/lingua-ship` were tracked; the readiness pass ignores and untracks them while leaving local files available.                                                                           | Improved                        |
-| Changelog automation | Draft/check scripts exist, CI runs `changelog:check`, and the release workflow requires the requested tag to match `package.json` and the top `CHANGELOG.md` release entry before publishing starts.                                      | Good                            |
-| License posture      | Source-available commercial; do not describe as open source.                                                                                                                                                                              | Good                            |
+| Area                 | Evidence                                                                                                                                                                                                                                                    | Status                  |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Versioning           | `package.json` was behind `v0.2.3`; the readiness pass moved the working tree to `0.2.4` and added changelog entries for `0.2.2`, `0.2.3`, and `0.2.4`.                                                                                                     | Improved                |
+| Release CI           | `.github/workflows/release.yml` has draft-first release, selected-platform success gates, production audit, checksum verification, SBOM, Linux package validation, and signing preflights. macOS and Windows setup guides are linked from the release docs. | Good, credential-gated  |
+| CI performance       | CI prints `performance:report`, runs `check:performance` after `build:web`, and the report now folds in desktop smoke runtime observability when that artifact exists.                                                                                      | Good                    |
+| Auto-update          | `src/main/updater.ts` checks on launch and then every one hour for `darwin` and `win32`. Electron's built-in updater does not support Linux. Draft validation now has a staging-only update channel, feed checker, and runbook.                             | Good, release-run gated |
+| Cloudflare           | `update-server/` serves update feeds and `/web/version`; web deploy uses Cloudflare Pages through Wrangler; deploy workflow now uploads a `cloudflare-deploy-validation` artifact with Wrangler logs and live app/update endpoint checks.                   | Good                    |
+| Security docs        | `SECURITY.md`, `PRIVACY.md`, `docs/RELEASE_SECURITY.md`, and public checklist exist.                                                                                                                                                                        | Good                    |
+| Secrets              | `.env.production` contains public build-time values only. Production private keys and signing material are expected as GitHub/Cloudflare secrets. Full-history Gitleaks scanned 213 commits on 2026-05-07 with no leaks found.                              | Good                    |
+| Local skills         | `.agents/skills/lingua-review` and `.agents/skills/lingua-ship` were tracked; the readiness pass ignores and untracks them while leaving local files available.                                                                                             | Improved                |
+| Changelog automation | Draft/check scripts exist, CI runs `changelog:check`, and the release workflow requires the requested tag to match `package.json` and the top `CHANGELOG.md` release entry before publishing starts.                                                        | Good                    |
+| License posture      | Source-available commercial; do not describe as open source.                                                                                                                                                                                                | Good                    |
 
 ## Findings
 
@@ -84,9 +84,17 @@ packaged smoke both pass against a draft release.
 
 **P1-3 — Auto-update needs an end-to-end draft-release validation.**
 
-Unit/workflow coverage proves the feed contract, but a real update cycle still
-needs a draft release with signed artifacts, `updates.linguacode.dev` feed
-checks, install, update, and rollback validation.
+Repo-side validation support landed on 2026-05-07. The update worker now keeps
+production on stable GitHub Releases by default and can serve draft releases
+only when an isolated staging deployment sets `GITHUB_RELEASE_CHANNEL=draft`.
+`npm run check:update-feed` validates the Squirrel.Mac JSON and Windows
+`RELEASES` feed shapes, writes evidence under
+`output/update-feed-validation/`, and is documented in
+`docs/runbooks/desktop-update-draft-validation.md`.
+
+This does not replace the live release gate: every public macOS/Windows release
+still needs a signed older install updating to the signed draft candidate
+through staging before the GitHub Release is promoted.
 
 **P1-4 — Product-tier copy drift in older launch collateral.**
 
@@ -148,11 +156,11 @@ commercial, not open source, MIT, Apache, or GPL.
 
 ## Release OS matrix
 
-| Target  | Current path                                                   | Public release recommendation                                                        |
-| ------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Web     | `npm run build:web` and Cloudflare Pages deploy.               | Validate first; already the lowest-friction public surface.                          |
-| Linux   | Electron Forge Deb/RPM makers plus CI package validation.      | Validate after web; no signing secrets needed, but no built-in Electron auto-update. |
-| macOS   | Electron Forge ZIP with Developer ID signing and notarization. | Keep blocked until Apple secrets are configured and packaged smoke passes.           |
+| Target  | Current path                                                                   | Public release recommendation                                                        |
+| ------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| Web     | `npm run build:web` and Cloudflare Pages deploy.                               | Validate first; already the lowest-friction public surface.                          |
+| Linux   | Electron Forge Deb/RPM makers plus CI package validation.                      | Validate after web; no signing secrets needed, but no built-in Electron auto-update. |
+| macOS   | Electron Forge ZIP with Developer ID signing and notarization.                 | Keep blocked until Apple secrets are configured and packaged smoke passes.           |
 | Windows | Electron Forge Squirrel maker with Authenticode signing through `windowsSign`. | Keep blocked until certificate strategy and signing secrets are configured.          |
 
 Relevant references:
@@ -234,7 +242,9 @@ criteria and priority are clear.
 - Signed Windows release readiness: choose Authenticode certificate strategy,
   verify installer signing, and run update smoke on a Windows VM.
 - Auto-update staging channel: test updates against draft or prerelease feeds
-  without exposing them to stable users.
+  without exposing them to stable users. The staging-only draft channel and
+  feed checker now exist; remaining work is provisioning the staging route and
+  running the first signed candidate through it.
 - Public security automation: scheduled Gitleaks, dependency audit triage, and
   release-security checklist artifact.
 - Startup performance thresholds: turn the observed launch-to-smoke-ready,
@@ -262,9 +272,11 @@ criteria and priority are clear.
    `cloudflare-deploy-validation` artifact with the Wrangler log and
    `web-validation.json`.
 10. For Linux releases, confirm the GitHub Actions run contains the
-   `linux-package-validation` artifact with Debian/RPM metadata,
-   packaged smoke output, and uninstall verification.
-11. Re-run full-history Gitleaks before visibility changes.
-12. Run `npm run smoke:desktop` before promoting a desktop release branch.
-13. Re-run `npm run performance:report` and confirm Runtime Observability is
+    `linux-package-validation` artifact with Debian/RPM metadata,
+    packaged smoke output, and uninstall verification.
+11. For macOS/Windows releases, run
+    `npm run check:update-feed -- --base-url "$STAGING_UPDATE_URL" --old-version "$OLD_VERSION" --expected-version "$EXPECTED_VERSION"` and confirm `output/update-feed-validation/update-feed-validation.json` records passing `darwin` / `win32` feed checks.
+12. Re-run full-history Gitleaks before visibility changes.
+13. Run `npm run smoke:desktop` before promoting a desktop release branch.
+14. Re-run `npm run performance:report` and confirm Runtime Observability is
     populated from `output/playwright/desktop-smoke/desktop-smoke-performance.json`.

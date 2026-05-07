@@ -27,7 +27,7 @@ describe('redact (update-server)', () => {
       redact({
         request: { headers: { authorization: 'Bearer xxx' } },
         assets: [{ apiKey: 'k1' }, { apiKey: 'k2' }],
-      }),
+      })
     ).toEqual({
       request: { headers: { authorization: '[redacted]' } },
       assets: [{ apiKey: '[redacted]' }, { apiKey: '[redacted]' }],
@@ -106,6 +106,7 @@ describe('routeNameFromPath (update-server)', () => {
     expect(routeNameFromPath('/update/darwin/0.2.0')).toBe('update.feed');
     expect(routeNameFromPath('/update/win32/0.1.5')).toBe('update.feed');
     expect(routeNameFromPath('/download/12345')).toBe('update.asset_proxy');
+    expect(routeNameFromPath('/download/12345/Lingua-0.2.5-full.nupkg')).toBe('update.asset_proxy');
     expect(routeNameFromPath('/something-else')).toBe('unknown');
   });
 });
@@ -144,8 +145,9 @@ describe('wrapRequestObservability (update-server)', () => {
 
   it('emits request.received and request.completed on the happy path', async () => {
     const request = new Request('https://updates.linguacode.dev/web/version');
-    const response = await wrapRequestObservability(request, async () =>
-      new Response('{"version":"0.1.0"}', { status: 200 }),
+    const response = await wrapRequestObservability(
+      request,
+      async () => new Response('{"version":"0.1.0"}', { status: 200 })
     );
     expect(response.status).toBe(200);
     expect(infoSpy.mock.calls).toHaveLength(2);
@@ -166,7 +168,7 @@ describe('wrapRequestObservability (update-server)', () => {
     await expect(
       wrapRequestObservability(request, async () => {
         throw failure;
-      }),
+      })
     ).rejects.toBe(failure);
 
     const completed = JSON.parse((infoSpy.mock.calls[1]?.[0] as string) ?? '{}');
@@ -177,8 +179,9 @@ describe('wrapRequestObservability (update-server)', () => {
 
   it('emits upstream errorClass when the handler returns a GitHub failure response', async () => {
     const request = new Request('https://updates.linguacode.dev/update/darwin/0.1.0');
-    const response = await wrapRequestObservability(request, async () =>
-      new Response('Bad gateway', { status: 502 }),
+    const response = await wrapRequestObservability(
+      request,
+      async () => new Response('Bad gateway', { status: 502 })
     );
 
     expect(response.status).toBe(502);
