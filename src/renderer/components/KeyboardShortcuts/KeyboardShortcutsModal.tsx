@@ -377,6 +377,9 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
   return (
     <OverlayBackdrop onClose={onClose}>
       <OverlayCard
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keyboard-shortcuts-modal-title"
         data-testid="keyboard-shortcuts-modal"
         className="relative flex h-[min(84vh,820px)] w-[min(96vw,920px)] max-w-none flex-col overflow-hidden"
       >
@@ -388,7 +391,10 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
               </div>
               <div>
                 <Eyebrow className="mb-0.5">{t('shortcuts.panelTitle')}</Eyebrow>
-                <h2 className="font-display text-[22px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground">
+                <h2
+                  id="keyboard-shortcuts-modal-title"
+                  className="font-display text-[22px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground"
+                >
                   {t('shortcuts.title')}
                 </h2>
                 <p className="mt-1 max-w-2xl text-[12.5px] leading-[1.5] text-muted">
@@ -463,7 +469,10 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
                   <section key={group.id}>
                     <Eyebrow>
                       {t(group.labelKey)}
-                      <span className="ml-2 text-muted/70 normal-case tracking-normal">
+                      {/* RL-088 — was `text-muted/70` at 4.26:1 contrast.
+                          Bumped to `text-muted` (full token) so the group
+                          count meets the WCAG 2.1 AA threshold (>=4.5:1). */}
+                      <span className="ml-2 text-muted normal-case tracking-normal">
                         · {items.length}
                       </span>
                     </Eyebrow>

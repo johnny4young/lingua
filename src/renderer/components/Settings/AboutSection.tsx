@@ -177,6 +177,7 @@ export function AboutSection({
             <Toggle
               value={!suppressTourAutoStart}
               onChange={() => setSuppressTourAutoStart(!suppressTourAutoStart)}
+              aria-label={t('about.actions.showTourOnStartup.label')}
             />
           </div>
         </div>

@@ -40,6 +40,7 @@ Mirrors the authoritative `Status` column in
 | Iter 16 | [`RL-091`](./ROADMAP.md) | Shipped (2026-05-06) | License + update server observability + runbooks — structured logging with sensitive-key redaction across both Cloudflare Workers, error classifier (client / server / upstream / storage), `/health/ready` readiness probes (D1, KV, Polar, Resend on license-server; GitHub on update-server), 5 operator runbooks under `docs/runbooks/`, and the metrics + alerts + dashboards spec at `docs/SERVER_OBSERVABILITY.md`. |
 | Iter 17 | [`RL-084`](./ROADMAP.md) | Shipped (2026-05-06) | Local plugin manifest hardening — shared validator at `src/shared/plugins/manifest.ts` (path-safety regex + strict schema + bundled-runtime allowlist), new `unknown` plugin status distinct from `unavailable`, distinct diagnostics for invalid / incompatible / disabled / unknown / unavailable manifests, and full UI test coverage at `tests/components/Settings/PluginsSection.test.tsx`. |
 | Iter 18 | [`RL-087`](./ROADMAP.md) | Shipped (2026-05-06) | Watcher reliability + filesystem edge cases — Shipped on 2026-05-06 — see RL-087. |
+| Iter 19 | [`RL-088`](./ROADMAP.md) | Shipped (2026-05-06) | Accessibility QA hardening — Shipped on 2026-05-06 — see RL-088. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -65,8 +66,11 @@ Value-per-day priority. The full reasoning is in
    2026-05-06 (plugin manifest hardening); `RL-087` closed 2026-05-06
    (watcher lifecycle audit + typed failure diagnostics + ignored-paths
    filter + USAGE.md platform-limitations section). Lane done.
-5. **Product quality and supportability** — `RL-086`, `RL-088`,
-   `RL-089`, and `RL-090`.
+5. **Product quality and supportability** — `RL-088` closed 2026-05-06
+   (axe-core gate + keyboard-only flows + OverlayBackdrop focus
+   restoration + manual screen-reader checklist at `docs/A11Y.md`).
+   Remaining: `RL-086` (performance budgets), `RL-089` (profile
+   backup/restore), `RL-090` (recovery UX).
 6. **Utilities polish** — `RL-069` Slice 1 shipped 2026-05-05 (productivity
    foundation). `RL-072` remaining QR-read mode and `RL-069` Slice 2/3 are
    good warm-up work when blocked on a launch item.

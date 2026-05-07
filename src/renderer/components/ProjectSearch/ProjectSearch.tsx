@@ -202,7 +202,12 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
 
   return (
     <OverlayBackdrop align="top" onClose={onClose}>
-      <OverlayCard className="w-full max-w-3xl">
+      <OverlayCard
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('shortcuts.item.projectSearch.label')}
+        className="w-full max-w-3xl"
+      >
         <div className="surface-header flex items-center gap-3 px-4 py-3">
           <Search size={16} className="shrink-0 text-muted" />
           <input

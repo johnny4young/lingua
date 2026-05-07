@@ -233,6 +233,9 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
   return (
     <OverlayBackdrop onClose={onClose}>
       <OverlayCard
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="snippets-modal-title"
         data-tour-id="snippets-modal"
         className="relative flex h-[min(82vh,760px)] w-full max-w-6xl flex-col overflow-hidden lg:flex-row"
       >
@@ -242,7 +245,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
               <BookCopy size={16} className="text-primary" />
               <div>
                 <p className="panel-title">{t('snippets.panelTitle')}</p>
-                <h2 className="text-sm font-semibold text-foreground">
+                <h2 id="snippets-modal-title" className="text-sm font-semibold text-foreground">
                   {t('snippets.header')}
                 </h2>
               </div>

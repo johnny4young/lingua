@@ -49,6 +49,9 @@ Items never demote. Closed tickets stay closed.
    you need the deep context behind a decision.
 7. [`TEST_PLAN.md`](./TEST_PLAN.md) — test strategy, coverage targets,
    how unit / component / Playwright / desktop smoke tests divide labor.
+8. [`A11Y.md`](./A11Y.md) — accessibility quality gate: automated
+   axe-core scans, keyboard-only flow tests, focus restoration, plus
+   a manual screen-reader checklist for VoiceOver / NVDA.
 
 ## Architecture Decision Records (ADRs)
 
@@ -82,6 +85,7 @@ only superseded by a new ADR that names the one it replaces.
 | Whether a capability is web, desktop, or hybrid | [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md) |
 | Why a non-obvious decision was made | the matching `*_ADR.md` |
 | What we test and how | [`TEST_PLAN.md`](./TEST_PLAN.md) |
+| Accessibility quality gate (axe scans, keyboard flows, manual screen-reader checklist) | [`A11Y.md`](./A11Y.md) |
 | Public repository publication checklist | [`PUBLIC_RELEASE_CHECKLIST.md`](./PUBLIC_RELEASE_CHECKLIST.md) |
 | Public release security sign-off | [`RELEASE_SECURITY.md`](./RELEASE_SECURITY.md) |
 | License + update server observability spec (metrics, alerts, dashboards) | [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) |

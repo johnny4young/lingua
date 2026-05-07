@@ -148,13 +148,21 @@ export function SettingsModal({
 
   return (
     <OverlayBackdrop onClose={onClose}>
-      <OverlayCard className="relative w-[min(96vw,1100px)] max-w-none">
+      <OverlayCard
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-modal-title"
+        className="relative w-[min(96vw,1100px)] max-w-none"
+      >
         {/* Header */}
         <div className="surface-header px-6 pt-5 pb-0">
           <div className="flex items-start justify-between gap-4">
             <div>
               <Eyebrow>{t('settings.title')}</Eyebrow>
-              <h2 className="font-display text-[22px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground">
+              <h2
+                id="settings-modal-title"
+                className="font-display text-[22px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground"
+              >
                 {t('settings.subtitle')}
               </h2>
               <p className="mt-1.5 max-w-2xl text-[12.5px] leading-[1.5] text-muted">

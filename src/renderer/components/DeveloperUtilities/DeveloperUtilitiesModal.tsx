@@ -210,6 +210,9 @@ export function DeveloperUtilitiesModal({
   return (
     <OverlayBackdrop onClose={onClose}>
       <OverlayCard
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="developer-utilities-modal-title"
         data-testid="developer-utilities-modal"
         className="relative flex h-[min(86vh,860px)] w-[min(96vw,1480px)] max-w-none flex-col overflow-hidden lg:flex-row"
       >
@@ -222,7 +225,10 @@ export function DeveloperUtilitiesModal({
                 </div>
                 <div>
                   <Eyebrow className="mb-0.5">{t('utilities.panelTitle')}</Eyebrow>
-                  <h2 className="text-sm font-semibold text-foreground">
+                  <h2
+                    id="developer-utilities-modal-title"
+                    className="text-sm font-semibold text-foreground"
+                  >
                     {t('utilities.title')}
                   </h2>
                 </div>

@@ -1,4 +1,13 @@
-import type { ButtonHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useId,
+  type ButtonHTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+  type SelectHTMLAttributes,
+} from 'react';
 import { cn } from '../../utils/cn';
 
 export function Section({
@@ -23,6 +32,15 @@ export function Section({
   );
 }
 
+/**
+ * RL-088 — Row binds its visible label to the interactive control
+ * inside `children` for screen readers. When `children` is a single
+ * React element that has not declared its own `aria-label` or
+ * `aria-labelledby`, Row clones it with `aria-labelledby` pointing at
+ * the visual label paragraph (which gets a stable `useId`). Multi-
+ * child clusters (button groups, action rows) are passed through
+ * unchanged.
+ */
 export function Row({
   label,
   hint,
@@ -34,6 +52,18 @@ export function Row({
   children: ReactNode;
   className?: string;
 }) {
+  const labelId = useId();
+
+  const onlyChild = Children.count(children) === 1 ? Children.only(children) : null;
+  const labelledChildren =
+    isValidElement(onlyChild) &&
+    !(onlyChild.props as { 'aria-label'?: string })['aria-label'] &&
+    !(onlyChild.props as { 'aria-labelledby'?: string })['aria-labelledby']
+      ? cloneElement(onlyChild as ReactElement<{ 'aria-labelledby'?: string }>, {
+          'aria-labelledby': labelId,
+        })
+      : children;
+
   return (
     <div
       className={cn(
@@ -42,10 +72,12 @@ export function Row({
       )}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p id={labelId} className="text-sm font-medium text-foreground">
+          {label}
+        </p>
         {hint && <p className="mt-1 text-xs leading-5 text-muted">{hint}</p>}
       </div>
-      <div className="sm:max-w-[52%] sm:min-w-[11rem]">{children}</div>
+      <div className="sm:max-w-[52%] sm:min-w-[11rem]">{labelledChildren}</div>
     </div>
   );
 }
@@ -55,11 +87,13 @@ export function Toggle({
   onChange,
   disabled = false,
   'aria-label': ariaLabel,
+  'aria-labelledby': ariaLabelledBy,
 }: {
   value: boolean;
   onChange: () => void;
   disabled?: boolean;
   'aria-label'?: string;
+  'aria-labelledby'?: string;
 }) {
   return (
     <button
@@ -68,6 +102,7 @@ export function Toggle({
       aria-checked={value}
       aria-disabled={disabled || undefined}
       aria-label={ariaLabel}
+      aria-labelledby={ariaLabel ? undefined : ariaLabelledBy}
       disabled={disabled}
       onClick={onChange}
       className={cn(

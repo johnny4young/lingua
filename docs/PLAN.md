@@ -5555,7 +5555,7 @@ coverage retained.
 ### RL-088 Accessibility QA hardening
 
 - Priority: `P2`
-- Status: `Planned`
+- Status: `Done`
 - Readiness: `Implementation-ready from the 2026-05-02 review. Product-quality item that builds on existing keyboard/focus work.`
 - Current gap:
   - The shell already has several keyboard and focus-trap behaviors, but there is no formal accessibility quality gate.
@@ -5573,6 +5573,75 @@ coverage retained.
   - Known screen-reader limitations are documented rather than hidden.
 - Dependencies:
   - None
+
+#### Status Update — 2026-05-06 (closes RL-088)
+
+Shipped in a single staged diff. All four acceptance criteria covered:
+
+- **Automated a11y gate** — new `tests/e2e/a11y.spec.ts` (23 cases)
+  runs axe-core scans across every overlay (Settings × 5 tabs,
+  Command Palette, Quick Open, Snippets, Developer Utilities,
+  Keyboard Shortcuts, What's New) plus the baseline editor shell.
+  HIGH/CRITICAL violations fail the build. WCAG 2.1 AA tag set;
+  `color-contrast` silenced because axe-core 4.11 does not fully
+  resolve `oklch()` tokens (verified via computed-style inspection
+  in dark mode — axe reports false positives against tokens the
+  browser actually renders correctly). Manual contrast checks for
+  both shells documented in `docs/A11Y.md`. Helper at
+  `tests/e2e/a11y.helpers.ts` wraps `@axe-core/playwright` with the
+  project default tags + excludes (Monaco, vim status bar) and a
+  readable violation formatter.
+- **Keyboard-only flows** — open/dismiss tests for Command Palette
+  (Cmd+Shift+P), Quick Open (Cmd+P), and Settings (Cmd+,) plus
+  arrow-key navigation across the Settings tablist.
+- **Focus restoration** — implemented centrally in `OverlayBackdrop`
+  (`src/renderer/components/ui/chrome.tsx`): captures the
+  previously-focused element on mount and restores it on unmount.
+  Verified for Settings, Snippets, and Developer Utilities by the
+  e2e suite. Silently skips when the previous element no longer
+  exists in the DOM.
+- **Documented limitations** — new `docs/A11Y.md` lists the
+  automation coverage matrix, excluded surfaces (Monaco editor,
+  vim status bar), the default-silenced color-contrast rule with
+  rationale, a manual VoiceOver / NVDA checklist for each major
+  surface, and the regression-reporting workflow.
+
+Inline a11y fixes applied during the slice (no design changes):
+
+- `src/renderer/components/Settings/shared.tsx` — `Row` now generates
+  a stable `useId` for the visible label and clones a single child
+  with `aria-labelledby` so Toggle / Select inherit the label
+  automatically. `Toggle` accepts and forwards `aria-labelledby`.
+- `src/renderer/components/Settings/{AboutSection,PrivacySection}.tsx`
+  — explicit `aria-label` on Toggle instances wrapped inside extra
+  `<div>`s where Row's auto-injection cannot reach them.
+- `src/renderer/components/Settings/EditorSection.tsx` — explicit
+  `aria-label` on the font-family and font-size Selects (wrapped
+  inside the Row layout grid for the previews / steppers).
+- `src/renderer/components/Editor/EditorEmptyState.tsx` — bumped the
+  desktop-only badge from `text-muted` (4.35:1, below AA) to
+  `text-foreground` plus `bg-foreground/15` so it now passes the
+  WCAG 2.1 AA threshold against tinted button backgrounds.
+- `src/renderer/components/Settings/WhatsNewSection.tsx` — added
+  `tabIndex={0}`, `role="region"`, and `aria-label` (i18n key
+  `whatsNew.region.label`) to the scrolling release-notes pane so
+  keyboard users can scroll without a focusable descendant.
+
+i18n: 1 new key per locale (`whatsNew.region.label`, en + es with
+neutral LatAm tuteo).
+
+Test count: 23 new e2e cases on top of the existing 94. Total
+e2e coverage: 117 cases. Unit / integration suite unchanged.
+
+Deferred follow-ups (documented in `docs/A11Y.md`, NOT in
+BACKLOG.md per the inline-fix policy — they are decisions, not
+unmet ACs):
+
+- Monaco editor surface. Inherits Monaco upstream a11y; users are
+  pointed at `accessibilitySupport: 'on'` in `docs/A11Y.md`.
+- axe-core OKLCH support. Track the upstream issue so the
+  `color-contrast` silence in `tests/e2e/a11y.helpers.ts` can be
+  removed once axe parses oklch correctly.
 
 ### RL-089 User profile backup, export, and restore
 

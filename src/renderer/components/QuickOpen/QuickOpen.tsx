@@ -199,7 +199,12 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
 
   return (
     <OverlayBackdrop align="top" onClose={onClose}>
-      <OverlayCard className="w-full max-w-xl">
+      <OverlayCard
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('shortcuts.item.quickOpen.label')}
+        className="w-full max-w-xl"
+      >
         <div className="surface-header flex items-center gap-3 px-4 py-3">
           <Search size={16} className="shrink-0 text-muted" />
           <input
