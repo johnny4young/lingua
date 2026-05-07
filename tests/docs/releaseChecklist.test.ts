@@ -15,9 +15,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(existsSync(CHECKLIST_PATH)).toBe(true);
   });
 
-  const checklist = existsSync(CHECKLIST_PATH)
-    ? readFileSync(CHECKLIST_PATH, 'utf-8')
-    : '';
+  const checklist = existsSync(CHECKLIST_PATH) ? readFileSync(CHECKLIST_PATH, 'utf-8') : '';
 
   it('documents the preconditions gate', () => {
     expect(checklist).toContain('## Preconditions');
@@ -112,6 +110,15 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toContain('app.linguacode.dev');
     expect(checklist).toContain('updates.linguacode.dev/web/version');
     expect(checklist).toMatch(/service-worker.*update-endpoint bypass/i);
+  });
+
+  it('requires Linux package validation evidence before Linux release promotion', () => {
+    expect(checklist).toContain('linux-package-validation');
+    expect(checklist).toContain('Debian metadata');
+    expect(checklist).toContain('RPM metadata');
+    expect(checklist).toContain('Debian install');
+    expect(checklist).toContain('packaged launch smoke');
+    expect(checklist).toContain('uninstall verification');
   });
 
   it('ships a rollback plan that keeps the release in draft on failure', () => {

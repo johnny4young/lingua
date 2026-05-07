@@ -385,7 +385,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm fakeroot
+          sudo apt-get install -y rpm fakeroot xvfb
 
       - name: Report Linux signing state
         run: |
@@ -404,11 +404,22 @@ jobs:
           fi
           echo "Verified Linux release artifacts in out/make"
 
+      - name: Validate Linux package install smoke
+        run: node ./scripts/validate-linux-release-artifacts.mjs
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-artifacts
           path: out/make/**/*
+          if-no-files-found: error
+
+      - name: Upload Linux package validation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-package-validation
+          path: output/linux-release-validation/**/*
           if-no-files-found: error
 
   publish:

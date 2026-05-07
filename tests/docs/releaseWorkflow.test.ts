@@ -26,14 +26,12 @@ describe('release workflow', () => {
     expect(existsSync(WORKFLOW_PATH)).toBe(true);
   });
 
-  const workflow = existsSync(WORKFLOW_PATH)
-    ? readFileSync(WORKFLOW_PATH, 'utf-8')
-    : '';
+  const workflow = existsSync(WORKFLOW_PATH) ? readFileSync(WORKFLOW_PATH, 'utf-8') : '';
   const deployWebWorkflow = existsSync(DEPLOY_WEB_WORKFLOW_PATH)
     ? readFileSync(DEPLOY_WEB_WORKFLOW_PATH, 'utf-8')
     : '';
   const packageJson = existsSync(PACKAGE_JSON_PATH)
-    ? JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as { scripts: Record<string, string> }
+    ? (JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as { scripts: Record<string, string> })
     : { scripts: {} };
 
   it('downloads pre-built artifacts before publishing', () => {
@@ -62,7 +60,9 @@ describe('release workflow', () => {
   it('refuses to clobber an existing published release', () => {
     expect(workflow).toMatch(/gh release view "\$\{RELEASE_TAG\}" --json isDraft --jq \.isDraft/u);
     expect(workflow).toContain('Release ${RELEASE_TAG} already exists and is not a draft');
-    expect(workflow).toMatch(/if \[\[ "\$\{release_is_draft\}" != "true" \]\]; then[\s\S]*?exit 1/u);
+    expect(workflow).toMatch(
+      /if \[\[ "\$\{release_is_draft\}" != "true" \]\]; then[\s\S]*?exit 1/u
+    );
   });
 
   it('verifies macOS, Windows, and Linux artifacts before publishing', () => {
@@ -71,14 +71,33 @@ describe('release workflow', () => {
     expect(workflow).toContain('Verify Linux artifacts');
   });
 
+  it('validates Linux package install, launch, and uninstall before upload', () => {
+    expect(workflow).toContain('sudo apt-get install -y rpm fakeroot xvfb');
+    expect(workflow).toContain('Validate Linux package install smoke');
+    expect(workflow).toContain('node ./scripts/validate-linux-release-artifacts.mjs');
+    const buildIndex = workflow.indexOf('Build Linux artifacts');
+    const validateIndex = workflow.indexOf('Validate Linux package install smoke');
+    const uploadIndex = workflow.indexOf('Upload Linux artifacts');
+    expect(buildIndex).toBeGreaterThan(0);
+    expect(validateIndex).toBeGreaterThan(buildIndex);
+    expect(uploadIndex).toBeGreaterThan(validateIndex);
+    expect(workflow).toContain('Upload Linux package validation');
+    expect(workflow).toContain('name: linux-package-validation');
+    expect(workflow).toContain('output/linux-release-validation/**/*');
+  });
+
   it('publishes only when every selected platform build succeeded', () => {
     expect(workflow).toContain("!inputs.release_macos || needs['build-macos'].result == 'success'");
-    expect(workflow).toContain("!inputs.release_windows || needs['build-windows'].result == 'success'");
+    expect(workflow).toContain(
+      "!inputs.release_windows || needs['build-windows'].result == 'success'"
+    );
     expect(workflow).toContain("!inputs.release_linux || needs['build-linux'].result == 'success'");
   });
 
   it('allows web-only releases without publishing partial desktop failures', () => {
-    expect(workflow).toContain('!inputs.release_macos && !inputs.release_windows && !inputs.release_linux');
+    expect(workflow).toContain(
+      '!inputs.release_macos && !inputs.release_windows && !inputs.release_linux'
+    );
     expect(workflow).toContain("needs.publish.result == 'success'");
   });
 
@@ -91,13 +110,13 @@ describe('release workflow', () => {
     // dev-only audit findings with no stable upstream fix.
     expect(workflow).toMatch(/security-audit:\s*\n\s*name: Security audit \(release-blocking\)/u);
     expect(workflow).toMatch(
-      /Run blocking production npm audit[\s\S]*?npm audit --omit=dev --audit-level=high/u,
+      /Run blocking production npm audit[\s\S]*?npm audit --omit=dev --audit-level=high/u
     );
     expect(workflow).toMatch(
-      /Run advisory full npm audit[\s\S]*?npm audit --audit-level=high[\s\S]*?continue-on-error: true/u,
+      /Run advisory full npm audit[\s\S]*?npm audit --audit-level=high[\s\S]*?continue-on-error: true/u
     );
     expect(workflow).toMatch(
-      /Check changelog and release version[\s\S]*?npm run changelog:check -- --release-tag "\$\{RELEASE_TAG\}" --from "\$\{RELEASE_TAG\}"/u,
+      /Check changelog and release version[\s\S]*?npm run changelog:check -- --release-tag "\$\{RELEASE_TAG\}" --from "\$\{RELEASE_TAG\}"/u
     );
 
     // Match either the inline-array form `needs: [prepare-release-tag,
@@ -109,11 +128,10 @@ describe('release workflow', () => {
     //
     // so a `prettier` / yamllint reformat that flips the shape does
     // NOT silently drop the audit dep on the build jobs.
-    const inlineDeps = workflow.match(/needs:\s*\[\s*prepare-release-tag\s*,\s*security-audit\s*\]/gu) ?? [];
+    const inlineDeps =
+      workflow.match(/needs:\s*\[\s*prepare-release-tag\s*,\s*security-audit\s*\]/gu) ?? [];
     const multiLineDeps =
-      workflow.match(
-        /needs:\s*\n\s*-\s*prepare-release-tag\s*\n\s*-\s*security-audit/gu,
-      ) ?? [];
+      workflow.match(/needs:\s*\n\s*-\s*prepare-release-tag\s*\n\s*-\s*security-audit/gu) ?? [];
     expect(inlineDeps.length + multiLineDeps.length).toBeGreaterThanOrEqual(3);
     expect(workflow).toMatch(/deploy-web:[\s\S]*?needs:\s*\[\s*publish\s*,\s*security-audit\s*\]/u);
     expect(workflow).toContain("needs.security-audit.result == 'success'");
@@ -140,7 +158,7 @@ describe('release workflow', () => {
     // `continue-on-error: true` would silently turn this gate
     // advisory; the regex catches that regression.
     const stepMatch = workflow.match(
-      /- name: Packaged desktop smoke\s*\n([\s\S]*?)(?=\n\s*-\s+name:|$)/u,
+      /- name: Packaged desktop smoke\s*\n([\s\S]*?)(?=\n\s*-\s+name:|$)/u
     );
     expect(stepMatch, 'Packaged desktop smoke step body not found').not.toBeNull();
     expect(stepMatch![1]).not.toMatch(/continue-on-error:\s*true/u);
@@ -170,8 +188,12 @@ describe('release workflow', () => {
     expect(workflow).toMatch(
       /uses:\s*\.\/\.github\/workflows\/deploy-web\.yml[\s\S]*?with:[\s\S]*?ref:\s*refs\/tags\/\$\{\{\s*inputs\.release_tag\s*\}\}/u
     );
-    expect(deployWebWorkflow).toMatch(/workflow_call:[\s\S]*?inputs:[\s\S]*?ref:[\s\S]*?default:\s*refs\/heads\/main/u);
-    expect(deployWebWorkflow).toMatch(/uses:\s*actions\/checkout@v4[\s\S]*?ref:\s*\$\{\{\s*inputs\.ref\s*\}\}/u);
+    expect(deployWebWorkflow).toMatch(
+      /workflow_call:[\s\S]*?inputs:[\s\S]*?ref:[\s\S]*?default:\s*refs\/heads\/main/u
+    );
+    expect(deployWebWorkflow).toMatch(
+      /uses:\s*actions\/checkout@v4[\s\S]*?ref:\s*\$\{\{\s*inputs\.ref\s*\}\}/u
+    );
   });
 
   it('records Cloudflare web deploy validation artifacts for every web release', () => {
@@ -183,8 +205,12 @@ describe('release workflow', () => {
     expect(deployWebWorkflow).toContain('https://app.linguacode.dev');
     expect(deployWebWorkflow).toContain('https://updates.linguacode.dev/web/version');
     expect(deployWebWorkflow).toContain('id="root"');
-    expect(deployWebWorkflow).toContain('Deployed app shell CSP does not allow the update banner endpoint');
-    expect(deployWebWorkflow).toContain('Deployed service worker does not bypass the update-version endpoint');
+    expect(deployWebWorkflow).toContain(
+      'Deployed app shell CSP does not allow the update banner endpoint'
+    );
+    expect(deployWebWorkflow).toContain(
+      'Deployed service worker does not bypass the update-version endpoint'
+    );
     expect(deployWebWorkflow).toContain('Upload Cloudflare deploy validation');
     expect(deployWebWorkflow).toContain('actions/upload-artifact@v4');
     expect(deployWebWorkflow).toContain('name: cloudflare-deploy-validation');
