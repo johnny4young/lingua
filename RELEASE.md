@@ -42,6 +42,7 @@ This repository uses a draft-first manual release process, with the release tag 
    - macOS signing verification
    - Packaged desktop smoke (RL-080 Slice 3 — release-blocking offline 2-runtime-case subset against the produced `Lingua.app`)
    - Windows signing verification
+   - Linux package validation (`linux-package-validation` artifact with Debian install smoke + RPM metadata)
    - generated checksums
    - re-verified checksums (`shasum -c SHA256SUMS.txt`)
    - Cloudflare deploy validation artifact for web releases
@@ -65,6 +66,7 @@ This repository uses a draft-first manual release process, with the release tag 
 - macOS build completed
 - Windows build completed
 - Linux build completed
+- Linux package validation artifact `linux-package-validation` is attached to the workflow run and records Debian metadata, RPM metadata, Debian install, packaged launch smoke, and uninstall verification
 - macOS signing verification passed
 - Windows signing verification passed
 - `SHA256SUMS.txt` is attached or present in the release payload

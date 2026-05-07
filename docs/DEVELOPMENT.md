@@ -28,13 +28,13 @@ Renderer architecture notes:
 
 Renderer + main-process build-time variables Lingua reads. The renderer keys are substituted into the bundle by Vite at build time; main-process keys are read by `defineConfig` at config-load time. See `vite.web.config.mts`, `vite.renderer.config.mts`, and `vite.main.config.mts` for the wiring.
 
-| Name | Scope | Purpose |
-| ---- | ----- | ------- |
+| Name                                 | Scope          | Purpose                                                                                                         |
+| ------------------------------------ | -------------- | --------------------------------------------------------------------------------------------------------------- |
 | `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` | renderer build | Ed25519 public key (JWK JSON) the app uses to verify paid-tier licenses. Missing key keeps every build on Free. |
-| `VITE_LINGUA_TELEMETRY_URL` | renderer build | HTTPS endpoint that receives redacted telemetry events when the user has opted in. Unset disables telemetry. |
-| `VITE_LINGUA_TELEMETRY_DISABLED` | renderer build | Set to `1` to disable telemetry regardless of user choice. |
-| `LINGUA_CRASH_REPORTER_URL` | main runtime | Minidump submission endpoint. Unset disables crash reporting. |
-| `LINGUA_CRASH_REPORTER_DISABLED` | main runtime | Set to `1` to disable crash reporting regardless of user choice. |
+| `VITE_LINGUA_TELEMETRY_URL`          | renderer build | HTTPS endpoint that receives redacted telemetry events when the user has opted in. Unset disables telemetry.    |
+| `VITE_LINGUA_TELEMETRY_DISABLED`     | renderer build | Set to `1` to disable telemetry regardless of user choice.                                                      |
+| `LINGUA_CRASH_REPORTER_URL`          | main runtime   | Minidump submission endpoint. Unset disables crash reporting.                                                   |
+| `LINGUA_CRASH_REPORTER_DISABLED`     | main runtime   | Set to `1` to disable crash reporting regardless of user choice.                                                |
 
 Use [`.env.example`](../.env.example) as the safe template for local overrides. Never commit private keys, API tokens, signing certificates, webhook secrets, or real customer license tokens.
 
@@ -237,7 +237,7 @@ The local web build defaults to `/` as its base path. The Cloudflare Pages deplo
 - Cloudflare Pages deploy is manual or release-orchestrated via the `Deploy web build to Cloudflare Pages` workflow and serves `app.linguacode.dev` from the root path. Each deploy uploads a `cloudflare-deploy-validation` artifact with the Wrangler log, app-shell check, service-worker update-endpoint bypass check, and `/web/version` response.
 - GitHub Release publishing is manual via the `Release` workflow, which accepts a single stable tag input in the form `vX.Y.Z`, creates that tag from `main`, and publishes from it.
 - Update server deployment is manual via the `Deploy Update Server` workflow.
-- The release workflow runs exact release-tag changelog validation, the production dependency audit, release compliance artifact generation, per-platform build gates, checksum generation/re-verification, draft GitHub Release upload, and optional web deploy from the validated release tag.
+- The release workflow runs exact release-tag changelog validation, the production dependency audit, release compliance artifact generation, per-platform build gates, Linux package install/smoke/uninstall validation, checksum generation/re-verification, draft GitHub Release upload, and optional web deploy from the validated release tag.
 - Packaged macOS and Windows builds use the desktop updater against the stable GitHub Release channel.
 - The active release/update channel policy is stable-only; prerelease tags are rejected by the release workflow.
 

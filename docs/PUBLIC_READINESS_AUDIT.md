@@ -31,18 +31,18 @@ Highest-priority current actions:
 
 ## Current state
 
-| Area | Evidence | Status |
-|------|----------|--------|
-| Versioning | `package.json` was behind `v0.2.3`; the readiness pass moved the working tree to `0.2.4` and added changelog entries for `0.2.2`, `0.2.3`, and `0.2.4`. | Improved |
-| Release CI | `.github/workflows/release.yml` has draft-first release, selected-platform success gates, production audit, checksum verification, SBOM, and signing preflights. | Good, credential-gated |
-| CI performance | CI prints `performance:report` and runs `check:performance` after `build:web`. | Good |
-| Auto-update | `src/main/updater.ts` checks on launch and then every one hour for `darwin` and `win32`. Electron's built-in updater does not support Linux. | Good, docs drift fixed |
-| Cloudflare | `update-server/` serves update feeds and `/web/version`; web deploy uses Cloudflare Pages through Wrangler; deploy workflow now uploads a `cloudflare-deploy-validation` artifact with Wrangler logs and live app/update endpoint checks. | Good |
-| Security docs | `SECURITY.md`, `PRIVACY.md`, `docs/RELEASE_SECURITY.md`, and public checklist exist. | Good |
-| Secrets | `.env.production` contains public build-time values only. Production private keys and signing material are expected as GitHub/Cloudflare secrets. | Good, pending full-history scan |
-| Local skills | `.agents/skills/lingua-review` and `.agents/skills/lingua-ship` were tracked; the readiness pass ignores and untracks them while leaving local files available. | Improved |
-| Changelog automation | Draft/check scripts exist, CI runs `changelog:check`, and the release workflow requires the requested tag to match `package.json` and the top `CHANGELOG.md` release entry before publishing starts. | Good |
-| License posture | Source-available commercial; do not describe as open source. | Good |
+| Area                 | Evidence                                                                                                                                                                                                                                  | Status                          |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Versioning           | `package.json` was behind `v0.2.3`; the readiness pass moved the working tree to `0.2.4` and added changelog entries for `0.2.2`, `0.2.3`, and `0.2.4`.                                                                                   | Improved                        |
+| Release CI           | `.github/workflows/release.yml` has draft-first release, selected-platform success gates, production audit, checksum verification, SBOM, Linux package validation, and signing preflights.                                                | Good, credential-gated          |
+| CI performance       | CI prints `performance:report` and runs `check:performance` after `build:web`.                                                                                                                                                            | Good                            |
+| Auto-update          | `src/main/updater.ts` checks on launch and then every one hour for `darwin` and `win32`. Electron's built-in updater does not support Linux.                                                                                              | Good, docs drift fixed          |
+| Cloudflare           | `update-server/` serves update feeds and `/web/version`; web deploy uses Cloudflare Pages through Wrangler; deploy workflow now uploads a `cloudflare-deploy-validation` artifact with Wrangler logs and live app/update endpoint checks. | Good                            |
+| Security docs        | `SECURITY.md`, `PRIVACY.md`, `docs/RELEASE_SECURITY.md`, and public checklist exist.                                                                                                                                                      | Good                            |
+| Secrets              | `.env.production` contains public build-time values only. Production private keys and signing material are expected as GitHub/Cloudflare secrets.                                                                                         | Good, pending full-history scan |
+| Local skills         | `.agents/skills/lingua-review` and `.agents/skills/lingua-ship` were tracked; the readiness pass ignores and untracks them while leaving local files available.                                                                           | Improved                        |
+| Changelog automation | Draft/check scripts exist, CI runs `changelog:check`, and the release workflow requires the requested tag to match `package.json` and the top `CHANGELOG.md` release entry before publishing starts.                                      | Good                            |
+| License posture      | Source-available commercial; do not describe as open source.                                                                                                                                                                              | Good                            |
 
 ## Findings
 
@@ -109,9 +109,12 @@ and uploads the evidence as the `cloudflare-deploy-validation` artifact.
 
 **P2-3 — Linux should be validated first.**
 
-Linux does not use Electron's built-in auto-updater and has no code-signing
-credential blocker in the current Forge path. Validate Debian/RPM generation,
-install, launch, and uninstall before spending cycles on signed desktop channels.
+Resolved on 2026-05-07. Linux now has a release-blocking package validation
+step after `npm run make:desktop:linux`: the job records Debian metadata, RPM
+metadata, installs the `.deb`, launches the installed binary under `xvfb` in
+packaged smoke mode, removes the Debian package, verifies the `lingua` binary is
+gone, and uploads the evidence as `linux-package-validation`. RPM remains
+metadata-validated on Ubuntu because the release runner is not an RPM distro.
 
 **P2-4 — Performance gates should keep startup-focused follow-up work visible.**
 
@@ -133,12 +136,12 @@ commercial, not open source, MIT, Apache, or GPL.
 
 ## Release OS matrix
 
-| Target | Current path | Public release recommendation |
-|--------|--------------|-------------------------------|
-| Web | `npm run build:web` and Cloudflare Pages deploy. | Validate first; already the lowest-friction public surface. |
-| Linux | Electron Forge Deb/RPM makers. | Validate after web; no signing secrets needed, but no built-in Electron auto-update. |
-| macOS | Electron Forge ZIP with Developer ID signing and notarization. | Keep blocked until Apple secrets are configured and packaged smoke passes. |
-| Windows | Electron Forge Squirrel maker with Authenticode signing. | Keep blocked until certificate strategy and signing secrets are configured. |
+| Target  | Current path                                                   | Public release recommendation                                                        |
+| ------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Web     | `npm run build:web` and Cloudflare Pages deploy.               | Validate first; already the lowest-friction public surface.                          |
+| Linux   | Electron Forge Deb/RPM makers plus CI package validation.      | Validate after web; no signing secrets needed, but no built-in Electron auto-update. |
+| macOS   | Electron Forge ZIP with Developer ID signing and notarization. | Keep blocked until Apple secrets are configured and packaged smoke passes.           |
+| Windows | Electron Forge Squirrel maker with Authenticode signing.       | Keep blocked until certificate strategy and signing secrets are configured.          |
 
 Relevant references:
 
@@ -242,5 +245,8 @@ criteria and priority are clear.
 8. For web releases, confirm the GitHub Actions run contains the
    `cloudflare-deploy-validation` artifact with the Wrangler log and
    `web-validation.json`.
-9. Run full-history Gitleaks before visibility changes.
-10. Run `npm run smoke:desktop` before promoting a desktop release branch.
+9. For Linux releases, confirm the GitHub Actions run contains the
+   `linux-package-validation` artifact with Debian/RPM metadata,
+   packaged smoke output, and uninstall verification.
+10. Run full-history Gitleaks before visibility changes.
+11. Run `npm run smoke:desktop` before promoting a desktop release branch.
