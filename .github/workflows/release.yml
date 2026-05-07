@@ -94,8 +94,8 @@ jobs:
   # overrides or alpha Forge packages. Gate the releasable dependency
   # graph, then keep the full graph visible as advisory output so the
   # release does not hide build-tool drift. The run block uses only
-  # static npm commands (no github.event interpolation of any kind),
-  # so there is no script-injection surface.
+  # static npm commands plus the already-validated RELEASE_TAG env
+  # value, so there is no script-injection surface.
   security-audit:
     name: Security audit (release-blocking)
     runs-on: ubuntu-latest
@@ -113,6 +113,8 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      - name: Check changelog and release version
+        run: npm run changelog:check -- --release-tag "${RELEASE_TAG}" --from "${RELEASE_TAG}"
       - name: Check third-party license policy
         run: npm run check:licenses
       - name: Generate release compliance artifacts

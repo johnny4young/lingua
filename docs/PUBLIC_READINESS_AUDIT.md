@@ -41,7 +41,7 @@ Highest-priority current actions:
 | Security docs | `SECURITY.md`, `PRIVACY.md`, `docs/RELEASE_SECURITY.md`, and public checklist exist. | Good |
 | Secrets | `.env.production` contains public build-time values only. Production private keys and signing material are expected as GitHub/Cloudflare secrets. | Good, pending full-history scan |
 | Local skills | `.agents/skills/lingua-review` and `.agents/skills/lingua-ship` were tracked; this phase ignores and untracks them while leaving local files available. | Improved |
-| Changelog automation | Added draft/check scripts so feature and fix commits are visible before release tagging. | Improved |
+| Changelog automation | Draft/check scripts exist, CI runs `changelog:check`, and the release workflow requires the requested tag to match `package.json` and the top `CHANGELOG.md` release entry before publishing starts. | Good |
 | License posture | Source-available commercial; do not describe as open source. | Good |
 
 ## Findings
@@ -91,8 +91,12 @@ leaving legacy backend slugs intact for token compatibility.
 
 **P2-1 — Changelog discipline needs to become part of every release branch.**
 
-Use `npm run changelog:draft` during release prep and `npm run changelog:check`
-in PR/CI gates when a branch changes user-facing behavior.
+Resolved on 2026-05-07. CI now runs `npm run changelog:check` after the
+i18n copy guard, and the release workflow runs
+`npm run changelog:check -- --release-tag "${RELEASE_TAG}" --from "${RELEASE_TAG}"`
+inside the release-blocking audit job. The script also validates that the
+requested release tag exactly matches `package.json` and the top `CHANGELOG.md`
+release heading.
 
 **P2-2 — Cloudflare deploy validation should be recorded per release.**
 
@@ -166,6 +170,11 @@ During feature or fix work:
 npm run changelog:draft
 npm run changelog:check
 ```
+
+CI runs `changelog:check` on every push and pull request. Release automation
+runs the same guard with `--release-tag` so a workflow input like `v0.2.4`
+cannot publish if the package version or top changelog entry still says a
+different version.
 
 Commit bodies can opt out of user-facing notes with:
 

@@ -30,13 +30,14 @@ This repository uses a draft-first manual release process, with the release tag 
 
 ## Release steps
 
-1. Draft release notes with `npm run changelog:draft`, then update versioned product changes in the repository as needed (final doc sweep, root `CHANGELOG.md`, any release-gated copy).
+1. Draft release notes with `npm run changelog:draft`, then update versioned product changes in the repository as needed (final doc sweep, root `CHANGELOG.md`, any release-gated copy). Run `npm run changelog:check` before merging the release-ready state.
 2. Commit and merge the release-ready state into `main`.
 3. Open GitHub Actions and run the `Release` workflow manually.
 4. Provide `release_tag`, the stable tag/version to create and publish, for example `vX.Y.Z`.
 5. Wait for the `Release` GitHub Actions workflow to complete.
 6. Inspect the workflow summary:
    - Production dependency audit (release-blocking `npm audit --omit=dev --audit-level=high`)
+   - Changelog/version guard with exact release-tag validation
    - Third-party license policy and release compliance artifact generation
    - macOS signing verification
    - Packaged desktop smoke (RL-080 Slice 3 — release-blocking offline 2-runtime-case subset against the produced `Lingua.app`)
