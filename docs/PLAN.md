@@ -5463,7 +5463,7 @@ ACs cumplidos:
 ### RL-086 Performance budgets and bundle/runtime observability
 
 - Priority: `P2`
-- Status: `Planned`
+- Status: `Done`
 - Readiness: `Implementation-ready from the 2026-05-02 review. Not a launch blocker, but important before adding more heavy runtime, debugger, AI, notebook, or rich-output features.`
 - Current gap:
   - Monaco, Pyodide, esbuild-wasm, Electron, utilities, guided tours, and future AI/debugger surfaces can grow bundle size and startup cost quickly.
@@ -5483,6 +5483,29 @@ ACs cumplidos:
   - Release notes can cite measured performance improvements or regressions from the baseline.
 - Dependencies:
   - None
+
+#### Status Update — 2026-05-07 (closes RL-086)
+
+Shipped as a dev/CI-only performance gate. The slice adds
+`scripts/performance-report.mjs` with three package scripts:
+`performance:report`, `performance:baseline`, and `check:performance`.
+The report reads `dist/web` plus the desktop renderer build when
+available, classifies assets into initial/runtime/worker/utility/lazy
+groups, calculates raw + gzip totals, writes
+`output/performance/performance-report.{json,md}`, and compares against
+the committed `docs/performance/baseline.json`.
+
+The desktop smoke harness now writes
+`desktop-smoke-performance.json` beside the existing progress/summary
+artifacts. It records total smoke wall time, first JS / TS / Python run
+timings, and main-process memory snapshots before the smoke cases and
+after each case. Memory collection is diagnostic: unsupported platforms
+return an explicit `unsupported` result rather than failing the smoke.
+
+CI now prints `npm run performance:report` after `npm run build:web`;
+the blocking local/release gate is `npm run check:performance`.
+`docs/PERFORMANCE.md` documents the report categories, budget policy,
+baseline refresh flow, investigation path, and the manual test checklist.
 
 ### RL-087 Watcher reliability and filesystem edge-case suite
 

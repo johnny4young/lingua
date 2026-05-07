@@ -69,6 +69,10 @@ describe('Script naming docs guard', () => {
       'check:licenses',
       'license:report',
       'compliance:release',
+      // RL-086 — bundle/runtime performance budgets and reports
+      'performance:report',
+      'performance:baseline',
+      'check:performance',
       'test',
       'test:e2e:web',
       'test:smoke:web:license',

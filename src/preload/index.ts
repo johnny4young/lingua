@@ -239,5 +239,7 @@ contextBridge.exposeInMainWorld('lingua', {
     finish: (success: boolean) => ipcRenderer.send('desktop-smoke:finish', success),
     getOfflineBlocks: () =>
       ipcRenderer.invoke('desktop-smoke:get-offline-blocks') as Promise<readonly string[]>,
+    getMemorySnapshot: () =>
+      ipcRenderer.invoke('desktop-smoke:get-memory-snapshot') as Promise<DesktopSmokeMemorySnapshot>,
   },
 });

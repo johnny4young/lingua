@@ -71,6 +71,39 @@ export function registerDesktopSmokeHandlers(): void {
     return getBlockedOfflineSmokeUrls();
   });
 
+  ipcMain.handle('desktop-smoke:get-memory-snapshot', async () => {
+    if (!isDesktopSmokeEnabled()) {
+      return { ok: false, reason: 'smoke-disabled' };
+    }
+
+    if (typeof process.memoryUsage !== 'function') {
+      return { ok: false, reason: 'unsupported' };
+    }
+
+    const processMemory = process.memoryUsage();
+    const appMetrics =
+      typeof app.getAppMetrics === 'function' ? app.getAppMetrics() : [];
+
+    return {
+      ok: true,
+      capturedAt: new Date().toISOString(),
+      process: {
+        rssBytes: processMemory.rss,
+        heapTotalBytes: processMemory.heapTotal,
+        heapUsedBytes: processMemory.heapUsed,
+        externalBytes: processMemory.external,
+        arrayBuffersBytes: processMemory.arrayBuffers,
+      },
+      chromium: appMetrics.map((metric) => ({
+        type: metric.type,
+        pid: metric.pid,
+        workingSetSizeBytes: metric.memory.workingSetSize * 1024,
+        peakWorkingSetSizeBytes: metric.memory.peakWorkingSetSize * 1024,
+        privateBytes: metric.memory.privateBytes,
+      })),
+    };
+  });
+
   ipcMain.handle('desktop-smoke:capture', async (event, name: string) => {
     if (!isDesktopSmokeEnabled()) {
       return null;

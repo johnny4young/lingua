@@ -8,11 +8,23 @@ const mockCapturePage = vi.fn().mockResolvedValue({
   toPNG: () => Buffer.from('png-bytes'),
 });
 const mockAppExit = vi.fn();
+const mockGetAppMetrics = vi.fn(() => [
+  {
+    type: 'Browser',
+    pid: 123,
+    memory: {
+      workingSetSize: 2048,
+      peakWorkingSetSize: 4096,
+      privateBytes: 1024,
+    },
+  },
+]);
 const originalArgv = process.argv;
 
 vi.mock('electron', () => ({
   app: {
     exit: mockAppExit,
+    getAppMetrics: mockGetAppMetrics,
   },
   ipcMain: {
     handle: (channel: string, handler: (...args: unknown[]) => unknown) => {
@@ -157,5 +169,68 @@ describe('desktop smoke IPC handlers', () => {
     } finally {
       delete process.env.LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET;
     }
+  });
+
+  it('returns memory metrics when smoke mode is enabled', async () => {
+    const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
+    registerDesktopSmokeHandlers();
+
+    const getMemorySnapshot = handlers.get('desktop-smoke:get-memory-snapshot');
+    const snapshot = await getMemorySnapshot?.();
+
+    expect(snapshot).toMatchObject({
+      ok: true,
+      process: {
+        rssBytes: expect.any(Number),
+        heapTotalBytes: expect.any(Number),
+        heapUsedBytes: expect.any(Number),
+      },
+      chromium: [
+        {
+          type: 'Browser',
+          pid: 123,
+          workingSetSizeBytes: 2048 * 1024,
+          peakWorkingSetSizeBytes: 4096 * 1024,
+          privateBytes: 1024,
+        },
+      ],
+    });
+  });
+
+  it('returns unsupported when process memoryUsage is unavailable', async () => {
+    const originalMemoryUsage = process.memoryUsage;
+    Object.defineProperty(process, 'memoryUsage', {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
+      registerDesktopSmokeHandlers();
+
+      const getMemorySnapshot = handlers.get('desktop-smoke:get-memory-snapshot');
+      expect(await getMemorySnapshot?.()).toEqual({
+        ok: false,
+        reason: 'unsupported',
+      });
+    } finally {
+      Object.defineProperty(process, 'memoryUsage', {
+        configurable: true,
+        value: originalMemoryUsage,
+      });
+    }
+  });
+
+  it('returns smoke-disabled when smoke mode is off', async () => {
+    delete process.env.LINGUA_DESKTOP_SMOKE;
+    process.argv = process.argv.filter((arg) => arg !== '--lingua-desktop-smoke');
+
+    const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
+    registerDesktopSmokeHandlers();
+
+    const getMemorySnapshot = handlers.get('desktop-smoke:get-memory-snapshot');
+    expect(await getMemorySnapshot?.()).toEqual({
+      ok: false,
+      reason: 'smoke-disabled',
+    });
   });
 });

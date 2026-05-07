@@ -41,6 +41,7 @@ Mirrors the authoritative `Status` column in
 | Iter 17 | [`RL-084`](./ROADMAP.md) | Shipped (2026-05-06) | Local plugin manifest hardening — shared validator at `src/shared/plugins/manifest.ts` (path-safety regex + strict schema + bundled-runtime allowlist), new `unknown` plugin status distinct from `unavailable`, distinct diagnostics for invalid / incompatible / disabled / unknown / unavailable manifests, and full UI test coverage at `tests/components/Settings/PluginsSection.test.tsx`. |
 | Iter 18 | [`RL-087`](./ROADMAP.md) | Shipped (2026-05-06) | Watcher reliability + filesystem edge cases — Shipped on 2026-05-06 — see RL-087. |
 | Iter 19 | [`RL-088`](./ROADMAP.md) | Shipped (2026-05-06) | Accessibility QA hardening — Shipped on 2026-05-06 — see RL-088. |
+| Iter 20 | [`RL-086`](./ROADMAP.md) | Shipped (2026-05-07) | Performance budgets + runtime observability — Shipped on 2026-05-07 — see RL-086. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -69,8 +70,9 @@ Value-per-day priority. The full reasoning is in
 5. **Product quality and supportability** — `RL-088` closed 2026-05-06
    (axe-core gate + keyboard-only flows + OverlayBackdrop focus
    restoration + manual screen-reader checklist at `docs/A11Y.md`).
-   Remaining: `RL-086` (performance budgets), `RL-089` (profile
-   backup/restore), `RL-090` (recovery UX).
+   `RL-086` closed 2026-05-07 with bundle/runtime budgets, CI logs,
+   and desktop smoke runtime/memory metrics. Remaining: `RL-089`
+   (profile backup/restore), `RL-090` (recovery UX).
 6. **Utilities polish** — `RL-069` Slice 1 shipped 2026-05-05 (productivity
    foundation). `RL-072` remaining QR-read mode and `RL-069` Slice 2/3 are
    good warm-up work when blocked on a launch item.
@@ -264,7 +266,13 @@ Shipped on 2026-05-05 — see [`RL-063`](./PLAN.md#rl-063-download-landing-page-
 
 ---
 
-## 16. Cross-iteration concerns
+## 16. Iter 20 / RL-086 — Performance budgets and runtime observability
+
+Shipped on 2026-05-07 — see [`RL-086`](./PLAN.md#rl-086-performance-budgets-and-bundleruntime-observability).
+
+---
+
+## 17. Cross-iteration concerns
 
 - **i18n parity** must stay green after each iter — both locales bump
   in the same commit that introduces a new key.
@@ -278,7 +286,7 @@ Shipped on 2026-05-05 — see [`RL-063`](./PLAN.md#rl-063-download-landing-page-
   `tests/e2e/overlays.spec.ts` (or a sibling) with the smallest
   assertion that would fail on regression.
 
-## 17. Verification matrix (per iter, before the closing commit)
+## 18. Verification matrix (per iter, before the closing commit)
 
 | Check | Command | Must pass |
 |-------|---------|-----------|
@@ -291,7 +299,7 @@ Shipped on 2026-05-05 — see [`RL-063`](./PLAN.md#rl-063-download-landing-page-
 | Desktop smoke | `npm run smoke:desktop` | when the iter touches desktop-only IPC |
 | Review skills | `typescript-react-reviewer` + `node` on the diff | zero HIGH blockers |
 
-## 18. Closure protocol
+## 19. Closure protocol
 
 When an iter closes, do three things in the final commit:
 

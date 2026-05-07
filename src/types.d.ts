@@ -229,6 +229,30 @@ interface DesktopSmokeConfig {
   packagedSubset?: boolean;
 }
 
+type DesktopSmokeMemorySnapshot =
+  | {
+      ok: true;
+      capturedAt: string;
+      process: {
+        rssBytes: number;
+        heapTotalBytes: number;
+        heapUsedBytes: number;
+        externalBytes: number;
+        arrayBuffersBytes: number;
+      };
+      chromium: Array<{
+        type: string;
+        pid: number;
+        workingSetSizeBytes: number;
+        peakWorkingSetSizeBytes: number;
+        privateBytes: number;
+      }>;
+    }
+  | {
+      ok: false;
+      reason: 'smoke-disabled' | 'unsupported';
+    };
+
 // -------------------------------------------------------------- License types
 
 interface LicensePayloadShape {
@@ -520,6 +544,7 @@ interface LinguaAPI {
      * is off or no requests were attempted.
      */
     getOfflineBlocks: () => Promise<readonly string[]>;
+    getMemorySnapshot: () => Promise<DesktopSmokeMemorySnapshot>;
   };
 }
 
