@@ -76,5 +76,10 @@ change commit ids and require force-pushing private branches/tags.
 - `npm run build:web`
 - `npm run changelog:check`
 - `npm run check:performance`
+- For web releases, confirm the GitHub Actions run uploaded
+  `cloudflare-deploy-validation` with the Wrangler log,
+  `app.linguacode.dev` app-shell check, service-worker
+  update-endpoint bypass check, and `updates.linguacode.dev/web/version`
+  response.
 - Public docs and release-security checklist reviewed.
 - Repository visibility change approved by the maintainer.

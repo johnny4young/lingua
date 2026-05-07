@@ -40,6 +40,21 @@ jobs:
 
       - run: npm ci
 
+      - name: Start Cloudflare deploy validation artifact
+        shell: bash
+        env:
+          DEPLOY_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p output/cloudflare-deploy-validation
+          {
+            echo "# Cloudflare deploy validation"
+            echo
+            echo "- Ref: ${DEPLOY_REF}"
+            echo "- Workflow run: ${GITHUB_RUN_ID}"
+            echo "- Started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > output/cloudflare-deploy-validation/README.md
+
       - name: Build web bundle
         env:
           # CF Pages serves the bundle at the subdomain root
@@ -58,13 +73,16 @@ jobs:
         run: npm run build:web
 
       - name: Deploy to Cloudflare Pages
+        shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          set -euo pipefail
           npx wrangler pages deploy dist/web \
             --project-name lingua-web \
-            --branch main
+            --branch main \
+            2>&1 | tee output/cloudflare-deploy-validation/wrangler-pages-deploy.log
 
       - name: Purge Cloudflare cache for app.linguacode.dev
         # Purges the entire linguacode.dev zone so any user with a
@@ -99,3 +117,110 @@ jobs:
             > /tmp/purge.json
           echo "Cache purge response:"
           cat /tmp/purge.json
+
+      - name: Validate deployed web surface
+        shell: bash
+        env:
+          APP_URL: https://app.linguacode.dev
+          WEB_VERSION_URL: https://updates.linguacode.dev/web/version
+          DEPLOY_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+
+          validation_dir="output/cloudflare-deploy-validation"
+          index_file="${validation_dir}/app-index.html"
+          sw_file="${validation_dir}/sw.js"
+          version_file="${validation_dir}/web-version.json"
+          summary_file="${validation_dir}/web-validation.md"
+          result_file="${validation_dir}/web-validation.json"
+
+          fetch_until_status() {
+            local label="$1"
+            local url="$2"
+            local output="$3"
+            local allowed_regex="$4"
+            local status=""
+
+            for attempt in 1 2 3 4 5 6; do
+              status="$(curl --silent --show-error --location --max-time 20 --output "${output}" --write-out "%{http_code}" "${url}" || true)"
+              if [[ "${status}" =~ ${allowed_regex} ]]; then
+                echo "${status}"
+                return 0
+              fi
+
+              echo "::warning::${label} returned ${status:-curl-error} on attempt ${attempt}; retrying." >&2
+              sleep 10
+            done
+
+            echo "::error::${label} did not return an expected status after retries. Last status: ${status:-curl-error}." >&2
+            return 1
+          }
+
+          index_status="$(fetch_until_status "App shell" "${APP_URL}/" "${index_file}" '^(200)$')"
+          sw_status="$(fetch_until_status "Service worker" "${APP_URL}/sw.js" "${sw_file}" '^(200)$')"
+          version_status="$(fetch_until_status "Version endpoint" "${WEB_VERSION_URL}" "${version_file}" '^(200|204)$')"
+
+          if [[ "${index_status}" != "200" ]]; then
+            echo "::error::Expected ${APP_URL}/ to return 200, got ${index_status}."
+            exit 1
+          fi
+
+          if [[ "${sw_status}" != "200" ]]; then
+            echo "::error::Expected ${APP_URL}/sw.js to return 200, got ${sw_status}."
+            exit 1
+          fi
+
+          if [[ "${version_status}" != "200" && "${version_status}" != "204" ]]; then
+            echo "::error::Expected ${WEB_VERSION_URL} to return 200 or 204, got ${version_status}."
+            exit 1
+          fi
+
+          if ! grep -q 'id="root"' "${index_file}"; then
+            echo "::error::Deployed app shell does not contain the React root."
+            exit 1
+          fi
+
+          if ! grep -q 'https://updates.linguacode.dev' "${index_file}"; then
+            echo "::error::Deployed app shell CSP does not allow the update banner endpoint."
+            exit 1
+          fi
+
+          if ! grep -q 'https://updates.linguacode.dev' "${sw_file}"; then
+            echo "::error::Deployed service worker does not bypass the update-version endpoint."
+            exit 1
+          fi
+
+          if [[ "${version_status}" == "200" ]] && ! grep -Eq '"version"[[:space:]]*:[[:space:]]*"[0-9]+\.[0-9]+\.[0-9]+"' "${version_file}"; then
+            echo "::error::Update version endpoint returned 200 without a semver version payload."
+            exit 1
+          fi
+
+          env \
+            VERSION_FILE="${version_file}" \
+            RESULT_FILE="${result_file}" \
+            DEPLOY_REF="${DEPLOY_REF}" \
+            APP_URL="${APP_URL}" \
+            WEB_VERSION_URL="${WEB_VERSION_URL}" \
+            INDEX_STATUS="${index_status}" \
+            SW_STATUS="${sw_status}" \
+            VERSION_STATUS="${version_status}" \
+            node -e 'const fs = require("node:fs"); const read = (name) => fs.existsSync(name) ? fs.readFileSync(name, "utf8").trim() : ""; const versionBody = read(process.env.VERSION_FILE); const match = versionBody.match(/"version"\s*:\s*"([^"]+)"/); fs.writeFileSync(process.env.RESULT_FILE, `${JSON.stringify({ ref: process.env.DEPLOY_REF, appUrl: process.env.APP_URL, versionUrl: process.env.WEB_VERSION_URL, indexStatus: process.env.INDEX_STATUS, serviceWorkerStatus: process.env.SW_STATUS, versionStatus: process.env.VERSION_STATUS, version: match?.[1] ?? null }, null, 2)}\n`);'
+
+          {
+            echo "# Web deploy validation"
+            echo
+            echo "| Check | Result |"
+            echo "|---|---|"
+            echo "| App shell | ${APP_URL}/ returned ${index_status} and includes #root |"
+            echo "| Update CSP | app shell allows updates.linguacode.dev |"
+            echo "| Service worker | sw.js bypasses updates.linguacode.dev |"
+            echo "| Version endpoint | ${WEB_VERSION_URL} returned ${version_status} |"
+          } > "${summary_file}"
+
+      - name: Upload Cloudflare deploy validation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflare-deploy-validation
+          path: output/cloudflare-deploy-validation/*
+          if-no-files-found: error
