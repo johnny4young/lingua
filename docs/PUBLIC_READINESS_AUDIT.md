@@ -35,7 +35,7 @@ Highest-priority current actions:
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
 | Versioning           | `package.json` was behind `v0.2.3`; the readiness pass moved the working tree to `0.2.4` and added changelog entries for `0.2.2`, `0.2.3`, and `0.2.4`.                                                                                   | Improved                        |
 | Release CI           | `.github/workflows/release.yml` has draft-first release, selected-platform success gates, production audit, checksum verification, SBOM, Linux package validation, and signing preflights.                                                | Good, credential-gated          |
-| CI performance       | CI prints `performance:report` and runs `check:performance` after `build:web`.                                                                                                                                                            | Good                            |
+| CI performance       | CI prints `performance:report`, runs `check:performance` after `build:web`, and the report now folds in desktop smoke runtime observability when that artifact exists.                                                                     | Good                            |
 | Auto-update          | `src/main/updater.ts` checks on launch and then every one hour for `darwin` and `win32`. Electron's built-in updater does not support Linux.                                                                                              | Good, docs drift fixed          |
 | Cloudflare           | `update-server/` serves update feeds and `/web/version`; web deploy uses Cloudflare Pages through Wrangler; deploy workflow now uploads a `cloudflare-deploy-validation` artifact with Wrangler logs and live app/update endpoint checks. | Good                            |
 | Security docs        | `SECURITY.md`, `PRIVACY.md`, `docs/RELEASE_SECURITY.md`, and public checklist exist.                                                                                                                                                      | Good                            |
@@ -118,9 +118,13 @@ metadata-validated on Ubuntu because the release runner is not an RPM distro.
 
 **P2-4 — Performance gates should keep startup-focused follow-up work visible.**
 
-The current bundle/runtime report is a good first gate. The next useful metrics
-are cold-start wall time, first editor interaction, first run per language, and
-post-run memory deltas across repeated runs.
+Resolved on 2026-05-07. The desktop smoke artifact now records
+launcher-to-smoke-ready timing, first editor interaction timing, first run per
+language, total smoke wall time, and memory snapshots. `performance:report`
+ingests that artifact when present and writes the normalized
+`runtimeObservability` section to `output/performance/performance-report.json`
+and `output/performance/performance-report.md`; web-only CI reports keep the
+section visible as unavailable instead of failing.
 
 ### P3 — cleanup before wider contributors arrive
 
@@ -224,10 +228,11 @@ criteria and priority are clear.
   without exposing them to stable users.
 - Public security automation: scheduled Gitleaks, dependency audit triage, and
   release-security checklist artifact.
-- Startup performance: measure cold start to editor-ready and first-run latency
-  per language on web and desktop.
-- Memory leak watch: repeated JS/TS/Python runs with before/after snapshots and
-  threshold-based drift warnings.
+- Startup performance thresholds: turn the observed launch-to-smoke-ready,
+  first editor interaction, and first-run language metrics into explicit release
+  budgets once a few stable smoke runs establish normal variance.
+- Memory leak watch: graduate the current before/after smoke snapshots into
+  repeated-run threshold warnings.
 - Product growth: AI bridge, HTTP client, SQL playground, GraphQL client,
   local snippet packs, classroom lessons, and a guided recovery UX should be
   evaluated as post-public-launch differentiators.
@@ -239,14 +244,18 @@ criteria and priority are clear.
    reported.
 3. Run `npm run build:web`.
 4. Run `npm run performance:report`.
-5. Run `npm run check:performance`.
-6. Run `npm run check:licenses`.
-7. Run `npm run compliance:release`.
-8. For web releases, confirm the GitHub Actions run contains the
+5. Confirm `output/performance/performance-report.md` includes Runtime
+   Observability, marked unavailable until a desktop smoke artifact exists.
+6. Run `npm run check:performance`.
+7. Run `npm run check:licenses`.
+8. Run `npm run compliance:release`.
+9. For web releases, confirm the GitHub Actions run contains the
    `cloudflare-deploy-validation` artifact with the Wrangler log and
    `web-validation.json`.
-9. For Linux releases, confirm the GitHub Actions run contains the
+10. For Linux releases, confirm the GitHub Actions run contains the
    `linux-package-validation` artifact with Debian/RPM metadata,
    packaged smoke output, and uninstall verification.
-10. Run full-history Gitleaks before visibility changes.
-11. Run `npm run smoke:desktop` before promoting a desktop release branch.
+11. Run full-history Gitleaks before visibility changes.
+12. Run `npm run smoke:desktop` before promoting a desktop release branch.
+13. Re-run `npm run performance:report` and confirm Runtime Observability is
+    populated from `output/playwright/desktop-smoke/desktop-smoke-performance.json`.

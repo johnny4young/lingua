@@ -12,6 +12,13 @@ const repoRoot = path.resolve(__dirname, '..');
 
 const DEFAULT_BASELINE_PATH = path.join(repoRoot, 'docs', 'performance', 'baseline.json');
 const DEFAULT_OUTPUT_DIR = path.join(repoRoot, 'output', 'performance');
+const DEFAULT_DESKTOP_SMOKE_PERFORMANCE_PATH = path.join(
+  repoRoot,
+  'output',
+  'playwright',
+  'desktop-smoke',
+  'desktop-smoke-performance.json'
+);
 
 const DEFAULT_TARGETS = [
   {
@@ -266,8 +273,137 @@ export function validateBaseline(baseline) {
   }
 }
 
+function numberOrNull(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function normalizeTimingRecord(value) {
+  if (!value || typeof value !== 'object') return null;
+
+  return {
+    runnerExecutionTimeMs: numberOrNull(value.runnerExecutionTimeMs),
+    executionWallTimeMs: numberOrNull(value.executionWallTimeMs),
+  };
+}
+
+function summarizeSmokeMemorySnapshots(memorySnapshots) {
+  const summary = {
+    totalSnapshots: Array.isArray(memorySnapshots) ? memorySnapshots.length : 0,
+    supportedSnapshots: 0,
+    unsupportedSnapshots: 0,
+    captureFailedSnapshots: 0,
+    firstRssBytes: null,
+    lastRssBytes: null,
+    rssDeltaBytes: null,
+    firstHeapUsedBytes: null,
+    lastHeapUsedBytes: null,
+    heapUsedDeltaBytes: null,
+    unsupportedReasons: [],
+  };
+
+  if (!Array.isArray(memorySnapshots)) return summary;
+
+  const supported = [];
+  const unsupportedReasons = new Set();
+  for (const entry of memorySnapshots) {
+    const snapshot = entry?.snapshot;
+    if (snapshot?.ok === true) {
+      summary.supportedSnapshots += 1;
+      supported.push(snapshot);
+      continue;
+    }
+
+    const reason =
+      typeof snapshot?.reason === 'string' ? snapshot.reason : 'unknown';
+    unsupportedReasons.add(reason);
+    if (reason === 'capture-failed') {
+      summary.captureFailedSnapshots += 1;
+    } else {
+      summary.unsupportedSnapshots += 1;
+    }
+  }
+
+  const first = supported[0];
+  const last = supported.at(-1);
+  if (first?.process && last?.process) {
+    summary.firstRssBytes = numberOrNull(first.process.rssBytes);
+    summary.lastRssBytes = numberOrNull(last.process.rssBytes);
+    summary.firstHeapUsedBytes = numberOrNull(first.process.heapUsedBytes);
+    summary.lastHeapUsedBytes = numberOrNull(last.process.heapUsedBytes);
+    if (summary.firstRssBytes !== null && summary.lastRssBytes !== null) {
+      summary.rssDeltaBytes = summary.lastRssBytes - summary.firstRssBytes;
+    }
+    if (summary.firstHeapUsedBytes !== null && summary.lastHeapUsedBytes !== null) {
+      summary.heapUsedDeltaBytes =
+        summary.lastHeapUsedBytes - summary.firstHeapUsedBytes;
+    }
+  }
+
+  summary.unsupportedReasons = [...unsupportedReasons].sort();
+  return summary;
+}
+
+export async function collectDesktopSmokePerformance(
+  filePath = DEFAULT_DESKTOP_SMOKE_PERFORMANCE_PATH
+) {
+  const resolvedPath = path.resolve(filePath);
+  if (!(await pathExists(resolvedPath))) {
+    return {
+      source: 'desktop-smoke',
+      path: resolvedPath,
+      available: false,
+      reason: 'missing-desktop-smoke-performance',
+    };
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(await readFile(resolvedPath, 'utf8'));
+  } catch (error) {
+    throw new Error(
+      `Desktop smoke performance artifact is not valid JSON at ${resolvedPath}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    throw new Error(
+      `Desktop smoke performance artifact must be a JSON object at ${resolvedPath}.`
+    );
+  }
+
+  const firstRunTimings = {};
+  if (payload.firstRunTimings && typeof payload.firstRunTimings === 'object') {
+    for (const [language, value] of Object.entries(payload.firstRunTimings)) {
+      const timing = normalizeTimingRecord(value);
+      if (timing) {
+        firstRunTimings[language] = timing;
+      }
+    }
+  }
+
+  return {
+    source: 'desktop-smoke',
+    path: resolvedPath,
+    available: true,
+    generatedAt:
+      typeof payload.generatedAt === 'string' ? payload.generatedAt : null,
+    artifactDir:
+      typeof payload.artifactDir === 'string' ? payload.artifactDir : null,
+    launcherToSmokeReadyMs: numberOrNull(payload.launcherToSmokeReadyMs),
+    firstEditorInteractionWallTimeMs: numberOrNull(
+      payload.firstEditorInteractionWallTimeMs
+    ),
+    totalSmokeWallTimeMs: numberOrNull(payload.totalSmokeWallTimeMs),
+    firstRunTimings,
+    memory: summarizeSmokeMemorySnapshots(payload.memorySnapshots),
+  };
+}
+
 export async function buildPerformanceReport({
   baselinePath = DEFAULT_BASELINE_PATH,
+  desktopSmokePerformancePath = DEFAULT_DESKTOP_SMOKE_PERFORMANCE_PATH,
   targets = DEFAULT_TARGETS,
   check = false,
   requireAllTargets = false,
@@ -294,6 +430,9 @@ export async function buildPerformanceReport({
   const violations = baseline
     ? compareWithBudgets(measurements, baseline, { requireAllTargets })
     : [];
+  const runtimeObservability = await collectDesktopSmokePerformance(
+    desktopSmokePerformancePath
+  );
 
   return {
     schemaVersion: measurements.schemaVersion,
@@ -302,6 +441,7 @@ export async function buildPerformanceReport({
     measurements: measurements.targets,
     budgets,
     violations,
+    runtimeObservability,
     baselinePath,
   };
 }
@@ -311,6 +451,12 @@ function formatBytes(bytes) {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
   return `${bytes} B`;
+}
+
+function formatMs(ms) {
+  if (!Number.isFinite(ms)) return 'n/a';
+  if (ms >= 1000) return `${(ms / 1000).toFixed(2)} s`;
+  return `${Math.round(ms)} ms`;
 }
 
 export function renderConsoleTable(report) {
@@ -335,6 +481,27 @@ export function renderConsoleTable(report) {
     }
     lines.push('');
   }
+
+  const runtime = report.runtimeObservability;
+  lines.push('Runtime observability (desktop-smoke)');
+  if (!runtime?.available) {
+    lines.push(`  unavailable: ${runtime?.reason ?? 'missing-runtime-artifact'}`);
+  } else {
+    lines.push(`  launch to smoke-ready: ${formatMs(runtime.launcherToSmokeReadyMs)}`);
+    lines.push(
+      `  first editor interaction: ${formatMs(runtime.firstEditorInteractionWallTimeMs)}`
+    );
+    lines.push(`  total smoke wall time: ${formatMs(runtime.totalSmokeWallTimeMs)}`);
+    for (const [language, timing] of Object.entries(runtime.firstRunTimings)) {
+      lines.push(
+        `  first ${language} run: ${formatMs(timing.executionWallTimeMs)} wall, ${formatMs(timing.runnerExecutionTimeMs)} runner`
+      );
+    }
+    lines.push(
+      `  memory snapshots: ${runtime.memory.supportedSnapshots}/${runtime.memory.totalSnapshots} supported, RSS delta ${formatBytes(runtime.memory.rssDeltaBytes)}`
+    );
+  }
+  lines.push('');
 
   if (report.violations.length === 0) {
     lines.push('Budget result: pass');
@@ -377,6 +544,41 @@ export function renderMarkdownReport(report) {
       lines.push(
         `- ${asset.path} (${asset.category}) - ${formatBytes(asset.bytes)} raw, ${formatBytes(asset.gzipBytes)} gzip`
       );
+    }
+    lines.push('');
+  }
+
+  const runtime = report.runtimeObservability;
+  lines.push('## Runtime Observability');
+  lines.push('');
+  if (!runtime?.available) {
+    lines.push(`Unavailable: ${runtime?.reason ?? 'missing-runtime-artifact'}.`);
+    lines.push('');
+  } else {
+    lines.push(`Source: \`${runtime.path}\``);
+    lines.push('');
+    lines.push('| Metric | Value |');
+    lines.push('|---|---:|');
+    lines.push(`| Launch to smoke-ready | ${formatMs(runtime.launcherToSmokeReadyMs)} |`);
+    lines.push(
+      `| First editor interaction | ${formatMs(runtime.firstEditorInteractionWallTimeMs)} |`
+    );
+    lines.push(`| Total smoke wall time | ${formatMs(runtime.totalSmokeWallTimeMs)} |`);
+    lines.push(`| Supported memory snapshots | ${runtime.memory.supportedSnapshots}/${runtime.memory.totalSnapshots} |`);
+    lines.push(`| RSS delta | ${formatBytes(runtime.memory.rssDeltaBytes)} |`);
+    lines.push(
+      `| Heap used delta | ${formatBytes(runtime.memory.heapUsedDeltaBytes)} |`
+    );
+    lines.push('');
+    lines.push('| Runtime | Wall | Runner |');
+    lines.push('|---|---:|---:|');
+    for (const [language, timing] of Object.entries(runtime.firstRunTimings)) {
+      lines.push(
+        `| ${language} | ${formatMs(timing.executionWallTimeMs)} | ${formatMs(timing.runnerExecutionTimeMs)} |`
+      );
+    }
+    if (Object.keys(runtime.firstRunTimings).length === 0) {
+      lines.push('| n/a | n/a | n/a |');
     }
     lines.push('');
   }
@@ -426,6 +628,11 @@ function parseArgs(argv) {
     baselinePath:
       argv.find((arg) => arg.startsWith('--baseline='))?.slice('--baseline='.length) ??
       DEFAULT_BASELINE_PATH,
+    desktopSmokePerformancePath:
+      argv
+        .find((arg) => arg.startsWith('--desktop-smoke-performance='))
+        ?.slice('--desktop-smoke-performance='.length) ??
+      DEFAULT_DESKTOP_SMOKE_PERFORMANCE_PATH,
   };
 }
 
@@ -447,6 +654,7 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const report = await buildPerformanceReport({
     baselinePath: path.resolve(options.baselinePath),
+    desktopSmokePerformancePath: path.resolve(options.desktopSmokePerformancePath),
     check: options.check,
     requireAllTargets: options.requireAllTargets,
   });

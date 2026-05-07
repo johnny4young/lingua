@@ -30,12 +30,23 @@ Assets are grouped into:
 Desktop smoke also writes
 `output/playwright/desktop-smoke/desktop-smoke-performance.json` with:
 
+- launcher-to-smoke-ready timing when the smoke harness controls the
+  Electron launch;
+- first editor interaction timing inside the renderer smoke hook;
 - first JavaScript, TypeScript, and Python run timings;
 - total smoke wall-clock duration;
 - memory snapshots before the smoke cases and after each case.
 
 Memory data is diagnostic. Platforms that cannot expose the metric
 return `unsupported` instead of failing the smoke.
+
+When that desktop smoke artifact exists, `performance:report` includes a
+`runtimeObservability` section in both
+`output/performance/performance-report.json` and
+`output/performance/performance-report.md`. When it does not exist,
+the report marks runtime observability as unavailable instead of
+failing; this keeps CI web builds readable while still surfacing the
+startup/runtime follow-up work in local release validation.
 
 ## Budget policy
 
@@ -73,16 +84,21 @@ npm run check:performance
 web-only refresh cannot accidentally delete desktop renderer budgets.
 Use `performance:report` for a non-mutating web-only report; it still
 marks the desktop renderer as unavailable when that build output is not
-present.
+present. Run `npm run smoke:desktop` before `performance:report` when
+you want the runtime observability section populated from a fresh smoke
+artifact.
 
 ## Investigating regressions
 
 1. Run `npm run performance:report`.
 2. Open `output/performance/performance-report.md`.
 3. Check the largest-assets list for the category that regressed.
-4. Confirm whether the file moved into `initial`; Pyodide and
+4. Check the Runtime Observability section for launch-to-smoke-ready,
+   first editor interaction, first-run language timing, and memory delta
+   drift.
+5. Confirm whether the file moved into `initial`; Pyodide and
    Developer Utilities chunks should not become initial assets.
-5. If the increase is intentional, document the reason in the ticket
+6. If the increase is intentional, document the reason in the ticket
    closeout before refreshing `docs/performance/baseline.json`.
 
 ## Manual test
@@ -92,14 +108,19 @@ present.
 3. Confirm the terminal shows a table with initial bundles, lazy
    chunks, workers, runtime assets, and utilities.
 4. Open `output/performance/performance-report.json` and confirm it
-   contains `generatedAt`, `budgets`, `measurements`, and `violations`.
+   contains `generatedAt`, `budgets`, `measurements`, `violations`, and
+   `runtimeObservability`.
 5. Run `npm run check:performance` and confirm it passes against the
    committed baseline.
 6. Run `npm run smoke:desktop`.
 7. Open `output/playwright/desktop-smoke/desktop-smoke-performance.json`
-   and confirm it includes JS, TS, Python timings and memory snapshots
-   or an `unsupported` memory result.
-8. Confirm Pyodide and Developer Utilities assets are not listed as
+   and confirm it includes launch-to-smoke-ready, first editor
+   interaction, JS, TS, Python timings, and memory snapshots or an
+   `unsupported` memory result.
+8. Run `npm run performance:report` again and confirm
+   `output/performance/performance-report.md` includes the Runtime
+   Observability section populated from the desktop smoke artifact.
+9. Confirm Pyodide and Developer Utilities assets are not listed as
    `initial` in the performance report.
-9. Confirm the report is readable from terminal or CI logs without
+10. Confirm the report is readable from terminal or CI logs without
    opening Lingua.

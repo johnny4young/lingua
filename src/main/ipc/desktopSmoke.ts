@@ -8,6 +8,7 @@ import {
 
 const DESKTOP_SMOKE_FLAG = '--lingua-desktop-smoke';
 const SMOKE_ARTIFACT_DIR_PREFIX = '--lingua-smoke-artifact-dir=';
+const SMOKE_LAUNCHED_AT_ENV = 'LINGUA_SMOKE_LAUNCHED_AT_MS';
 
 function isDesktopSmokeEnabled(): boolean {
   return (
@@ -38,6 +39,14 @@ function getArtifactDir(): string | null {
   return artifactDir ? path.resolve(artifactDir) : null;
 }
 
+function getLaunchedAtMs(): number | null {
+  const value = process.env[SMOKE_LAUNCHED_AT_ENV];
+  if (!value) return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 function sanitizeArtifactName(name: string): string {
   return name
     .trim()
@@ -57,12 +66,17 @@ async function ensureArtifactDir(): Promise<string | null> {
 }
 
 export function registerDesktopSmokeHandlers(): void {
-  ipcMain.handle('desktop-smoke:get-config', async () => ({
-    enabled: isDesktopSmokeEnabled(),
-    artifactDir: getArtifactDir(),
-    offline: isOfflineSmokeRequested(),
-    packagedSubset: isPackagedSubsetRequested(),
-  }));
+  ipcMain.handle('desktop-smoke:get-config', async () => {
+    const launchedAtMs = getLaunchedAtMs();
+
+    return {
+      enabled: isDesktopSmokeEnabled(),
+      artifactDir: getArtifactDir(),
+      offline: isOfflineSmokeRequested(),
+      packagedSubset: isPackagedSubsetRequested(),
+      ...(launchedAtMs === null ? {} : { launchedAtMs }),
+    };
+  });
 
   ipcMain.handle('desktop-smoke:get-offline-blocks', async () => {
     if (!isDesktopSmokeEnabled() || !isOfflineSmokeRequested()) {

@@ -140,6 +140,8 @@ interface SmokeMemoryArtifact {
 interface SmokePerformanceArtifact {
   generatedAt: string;
   artifactDir: string | null;
+  launcherToSmokeReadyMs: number | null;
+  firstEditorInteractionWallTimeMs: number | null;
   totalSmokeWallTimeMs: number;
   firstRunTimings: Record<
     string,
@@ -220,6 +222,8 @@ async function captureMemorySnapshot(label: string): Promise<SmokeMemoryArtifact
 function buildPerformanceArtifact(
   artifactDir: string | null,
   startedAt: number,
+  launcherToSmokeReadyMs: number | null,
+  firstEditorInteractionWallTimeMs: number | null,
   summaries: SmokeCaseSummary[],
   memorySnapshots: SmokeMemoryArtifact[]
 ): SmokePerformanceArtifact {
@@ -236,6 +240,8 @@ function buildPerformanceArtifact(
   return {
     generatedAt: new Date().toISOString(),
     artifactDir,
+    launcherToSmokeReadyMs,
+    firstEditorInteractionWallTimeMs,
     totalSmokeWallTimeMs: Math.round(performance.now() - startedAt),
     firstRunTimings,
     memorySnapshots,
@@ -263,6 +269,10 @@ export function useDesktopSmoke(enabled: boolean) {
         return;
       }
       const smokeStartedAt = performance.now();
+      const launcherToSmokeReadyMs =
+        typeof config.launchedAtMs === 'number' && Number.isFinite(config.launchedAtMs)
+          ? Math.max(0, Math.round(Date.now() - config.launchedAtMs))
+          : null;
 
       // RL-080 Slice 3 — packaged-subset gate: when the smoke runs
       // against a release `.app` (CI release pipeline), we narrow
@@ -279,6 +289,7 @@ export function useDesktopSmoke(enabled: boolean) {
 
       const summaries: SmokeCaseSummary[] = [];
       const memorySnapshots: SmokeMemoryArtifact[] = [];
+      let firstEditorInteractionWallTimeMs: number | null = null;
 
       try {
         await api.writeJsonArtifact('desktop-smoke-bootstrap.json', {
@@ -322,11 +333,17 @@ export function useDesktopSmoke(enabled: boolean) {
           useResultStore.getState().clear();
           useEditorStore.setState({ tabs: [], activeTabId: null });
 
+          const editorInteractionStartedAt = performance.now();
           const tab = createSmokeTab(smokeCase.language, smokeCase.fileName, smokeCase.content);
           const { addTab } = useEditorStore.getState();
           addTab(tab);
 
           await waitForUi();
+          if (firstEditorInteractionWallTimeMs === null) {
+            firstEditorInteractionWallTimeMs = Math.round(
+              performance.now() - editorInteractionStartedAt
+            );
+          }
           const executionStartedAt = performance.now();
           const execution = await withTimeout(
             executeTabManually(tab, {
@@ -446,7 +463,14 @@ export function useDesktopSmoke(enabled: boolean) {
         });
         await api.writeJsonArtifact(
           'desktop-smoke-performance.json',
-          buildPerformanceArtifact(config.artifactDir, smokeStartedAt, summaries, memorySnapshots)
+          buildPerformanceArtifact(
+            config.artifactDir,
+            smokeStartedAt,
+            launcherToSmokeReadyMs,
+            firstEditorInteractionWallTimeMs,
+            summaries,
+            memorySnapshots
+          )
         );
         api.finish(success);
       } catch (error) {
@@ -465,7 +489,14 @@ export function useDesktopSmoke(enabled: boolean) {
         });
         await api.writeJsonArtifact(
           'desktop-smoke-performance.json',
-          buildPerformanceArtifact(config.artifactDir, smokeStartedAt, summaries, memorySnapshots)
+          buildPerformanceArtifact(
+            config.artifactDir,
+            smokeStartedAt,
+            launcherToSmokeReadyMs,
+            firstEditorInteractionWallTimeMs,
+            summaries,
+            memorySnapshots
+          )
         );
         api.finish(false);
       }

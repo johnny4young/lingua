@@ -54,7 +54,7 @@ Items never demote. Closed tickets stay closed.
    a manual screen-reader checklist for VoiceOver / NVDA.
 9. [`PERFORMANCE.md`](./PERFORMANCE.md) — bundle/runtime budgets,
    local report commands, CI performance logs, and desktop smoke
-   runtime/memory metrics.
+   runtime/memory metrics folded into `runtimeObservability`.
 10. [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md) —
     current public-source readiness, release/security gaps, and the
     pre-publication action queue.

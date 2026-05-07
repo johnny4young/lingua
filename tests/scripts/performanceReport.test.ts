@@ -8,6 +8,7 @@ import {
   buildPerformanceReport,
   classifyAsset,
   collectBuildTarget,
+  collectDesktopSmokePerformance,
   compareWithBudgets,
   parseInitialAssetReferences,
   renderMarkdownReport,
@@ -34,6 +35,69 @@ async function createFixtureBuild() {
   await writeFile(path.join(root, 'assets', 'feature.js'), 'export const feature = true;', 'utf8');
   await writeFile(path.join(root, 'assets', 'runtime.wasm'), 'wasm', 'utf8');
   return root;
+}
+
+async function writeDesktopSmokePerformanceFixture(root: string) {
+  const artifactPath = path.join(root, 'desktop-smoke-performance.json');
+  await writeFile(
+    artifactPath,
+    JSON.stringify(
+      {
+        generatedAt: '2026-05-07T00:00:00.000Z',
+        artifactDir: root,
+        launcherToSmokeReadyMs: 1500,
+        firstEditorInteractionWallTimeMs: 240,
+        totalSmokeWallTimeMs: 12_000,
+        firstRunTimings: {
+          javascript: {
+            runnerExecutionTimeMs: 12,
+            executionWallTimeMs: 35,
+          },
+          typescript: {
+            runnerExecutionTimeMs: 40,
+            executionWallTimeMs: 90,
+          },
+          python: {
+            runnerExecutionTimeMs: null,
+            executionWallTimeMs: 6200,
+          },
+        },
+        memorySnapshots: [
+          {
+            label: 'before-cases',
+            snapshot: {
+              ok: true,
+              process: {
+                rssBytes: 1000,
+                heapUsedBytes: 200,
+              },
+            },
+          },
+          {
+            label: 'after-python',
+            snapshot: {
+              ok: true,
+              process: {
+                rssBytes: 1750,
+                heapUsedBytes: 260,
+              },
+            },
+          },
+          {
+            label: 'after-rust',
+            snapshot: {
+              ok: false,
+              reason: 'unsupported',
+            },
+          },
+        ],
+      },
+      null,
+      2
+    ),
+    'utf8'
+  );
+  return artifactPath;
 }
 
 describe('performance-report', () => {
@@ -132,6 +196,7 @@ describe('performance-report', () => {
           { id: 'web', label: 'Web', root, required: true },
           { id: 'renderer', label: 'Renderer', root: path.join(root, 'missing'), required: false },
         ],
+        desktopSmokePerformancePath: path.join(root, 'missing-desktop-smoke.json'),
       });
 
       expect(report.targets).toHaveLength(2);
@@ -141,9 +206,58 @@ describe('performance-report', () => {
       );
       expect(renderMarkdownReport(report)).toContain('Lingua Performance Report');
       expect(renderMarkdownReport(report)).toContain('Unavailable: missing-build-output.');
+      expect(report.runtimeObservability).toMatchObject({
+        available: false,
+        reason: 'missing-desktop-smoke-performance',
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  it('adds desktop smoke runtime metrics to the performance report', async () => {
+    const root = await createFixtureBuild();
+    try {
+      const desktopSmokePerformancePath = await writeDesktopSmokePerformanceFixture(root);
+      const report = await buildPerformanceReport({
+        baselinePath: path.join(root, 'missing-baseline.json'),
+        targets: [{ id: 'web', label: 'Web', root, required: true }],
+        desktopSmokePerformancePath,
+      });
+
+      expect(report.runtimeObservability).toMatchObject({
+        available: true,
+        launcherToSmokeReadyMs: 1500,
+        firstEditorInteractionWallTimeMs: 240,
+        totalSmokeWallTimeMs: 12_000,
+        firstRunTimings: {
+          javascript: {
+            runnerExecutionTimeMs: 12,
+            executionWallTimeMs: 35,
+          },
+        },
+        memory: {
+          totalSnapshots: 3,
+          supportedSnapshots: 2,
+          unsupportedSnapshots: 1,
+          rssDeltaBytes: 750,
+          heapUsedDeltaBytes: 60,
+        },
+      });
+      expect(renderMarkdownReport(report)).toContain('Runtime Observability');
+      expect(renderMarkdownReport(report)).toContain('Launch to smoke-ready');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('summarizes missing desktop smoke metrics as an unavailable optional source', async () => {
+    const missingPath = path.join(os.tmpdir(), 'missing-desktop-smoke-performance.json');
+
+    await expect(collectDesktopSmokePerformance(missingPath)).resolves.toMatchObject({
+      available: false,
+      reason: 'missing-desktop-smoke-performance',
+    });
   });
 
   it('blocks baseline refreshes when a required target artifact is unavailable', () => {
