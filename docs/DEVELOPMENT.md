@@ -50,7 +50,7 @@ npm run build:web
 npm run smoke:desktop
 ```
 
-These are the main local verification commands. CI also runs the third-party license policy gate and a high-severity `npm audit`; release runs add the production-only blocking audit plus SBOM/license artifact generation.
+These are the main local verification commands. CI also runs the changelog/version guard, the third-party license policy gate, and a high-severity `npm audit`; release runs add exact release-tag changelog validation, the production-only blocking audit, plus SBOM/license artifact generation.
 
 ## i18n contributor workflow
 
@@ -233,11 +233,11 @@ The local web build defaults to `/` as its base path. The Cloudflare Pages deplo
 
 ## Automation and delivery
 
-- CI runs web build, type checking, linting, tests, i18n guards, third-party license policy, and high-severity audit checks.
+- CI runs web build, type checking, linting, tests, i18n guards, changelog/version guard, third-party license policy, and high-severity audit checks.
 - Cloudflare Pages deploy is manual or release-orchestrated via the `Deploy web build to Cloudflare Pages` workflow and serves `app.linguacode.dev` from the root path.
 - GitHub Release publishing is manual via the `Release` workflow, which accepts a single stable tag input in the form `vX.Y.Z`, creates that tag from `main`, and publishes from it.
 - Update server deployment is manual via the `Deploy Update Server` workflow.
-- The release workflow runs the production dependency audit, release compliance artifact generation, per-platform build gates, checksum generation/re-verification, draft GitHub Release upload, and optional web deploy from the validated release tag.
+- The release workflow runs exact release-tag changelog validation, the production dependency audit, release compliance artifact generation, per-platform build gates, checksum generation/re-verification, draft GitHub Release upload, and optional web deploy from the validated release tag.
 - Packaged macOS and Windows builds use the desktop updater against the stable GitHub Release channel.
 - The active release/update channel policy is stable-only; prerelease tags are rejected by the release workflow.
 

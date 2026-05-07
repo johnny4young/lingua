@@ -96,6 +96,9 @@ describe('release workflow', () => {
     expect(workflow).toMatch(
       /Run advisory full npm audit[\s\S]*?npm audit --audit-level=high[\s\S]*?continue-on-error: true/u,
     );
+    expect(workflow).toMatch(
+      /Check changelog and release version[\s\S]*?npm run changelog:check -- --release-tag "\$\{RELEASE_TAG\}" --from "\$\{RELEASE_TAG\}"/u,
+    );
 
     // Match either the inline-array form `needs: [prepare-release-tag,
     // security-audit]` or the multi-line YAML form

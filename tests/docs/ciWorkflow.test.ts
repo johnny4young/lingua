@@ -38,4 +38,14 @@ describe('CI workflow', () => {
     expect(reportIndex).toBeGreaterThan(buildIndex);
     expect(checkIndex).toBeGreaterThan(reportIndex);
   });
+
+  it('runs the changelog guard before the test suite', () => {
+    const i18nCopyIndex = workflow.indexOf('npm run check:i18n:copy');
+    const changelogIndex = workflow.indexOf('npm run changelog:check');
+    const testsIndex = workflow.indexOf('npm test');
+
+    expect(i18nCopyIndex).toBeGreaterThan(-1);
+    expect(changelogIndex).toBeGreaterThan(i18nCopyIndex);
+    expect(testsIndex).toBeGreaterThan(changelogIndex);
+  });
 });

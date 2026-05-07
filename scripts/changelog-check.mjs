@@ -28,6 +28,20 @@ export function parseVersion(value) {
   return normalized.split('.').map((part) => Number(part));
 }
 
+function normalizeVersionText(value) {
+  const normalized = stripTagPrefix(value.trim());
+  parseVersion(normalized);
+  return normalized;
+}
+
+function tryNormalizeVersionText(value) {
+  try {
+    return normalizeVersionText(value);
+  } catch {
+    return null;
+  }
+}
+
 export function compareVersions(left, right) {
   const a = parseVersion(left);
   const b = parseVersion(right);
@@ -47,6 +61,7 @@ export function validateChangelogState({
   packageVersion,
   changelogText,
   latestTag = '',
+  releaseTag = '',
   commitsSinceLatestTag = [],
 }) {
   const errors = [];
@@ -61,6 +76,15 @@ export function validateChangelogState({
     errors.push(error.message);
   }
 
+  let expectedReleaseVersion = null;
+  if (releaseTag) {
+    try {
+      expectedReleaseVersion = normalizeVersionText(releaseTag);
+    } catch (error) {
+      errors.push(error.message);
+    }
+  }
+
   if (!topVersion) {
     errors.push('CHANGELOG.md is missing a top release heading.');
   } else if (topVersion !== packageVersion) {
@@ -69,21 +93,19 @@ export function validateChangelogState({
     );
   }
 
-  if (latestTag) {
-    try {
-      if (compareVersions(latestTag, packageVersion) > 0) {
-        errors.push(
-          `Latest git tag (${latestTag}) is newer than package.json version (${packageVersion}).`
-        );
-      }
-    } catch (error) {
-      errors.push(error.message);
+  const latestTagVersion = latestTag ? tryNormalizeVersionText(latestTag) : null;
+
+  if (latestTagVersion) {
+    if (compareVersions(latestTagVersion, packageVersion) > 0) {
+      errors.push(
+        `Latest git tag (${latestTag}) is newer than package.json version (${packageVersion}).`
+      );
     }
   }
 
-  if (latestTag && topVersion) {
+  if (latestTagVersion && topVersion) {
     try {
-      const changelogIsAheadOfTag = compareVersions(topVersion, latestTag) > 0;
+      const changelogIsAheadOfTag = compareVersions(topVersion, latestTagVersion) > 0;
       if (userFacingCommits.length > 0 && !changelogIsAheadOfTag) {
         errors.push(
           `${userFacingCommits.length} user-facing commit(s) since ${latestTag} need a new CHANGELOG.md release entry or "Changelog: none".`
@@ -91,6 +113,20 @@ export function validateChangelogState({
       }
     } catch {
       // Version-format errors were already collected above.
+    }
+  }
+
+  if (expectedReleaseVersion) {
+    if (packageVersion !== expectedReleaseVersion) {
+      errors.push(
+        `package.json version (${packageVersion}) must match release tag (${releaseTag}).`
+      );
+    }
+
+    if (topVersion && topVersion !== expectedReleaseVersion) {
+      errors.push(
+        `CHANGELOG.md top release (${topVersion}) must match release tag (${releaseTag}).`
+      );
     }
   }
 
@@ -103,9 +139,10 @@ export function validateChangelogState({
 }
 
 function printHelp() {
-  console.log(`Usage: npm run changelog:check -- [--from <ref>] [--to <ref>]
+  console.log(`Usage: npm run changelog:check -- [--from <ref>] [--to <ref>] [--release-tag <vX.Y.Z>]
 
 Checks that package.json, CHANGELOG.md, and the latest tag are not drifting.
+Use --release-tag in release automation to require an exact tag/version match.
 Use "Changelog: none" in a commit body for explicit non-user-facing fixes.`);
 }
 
@@ -115,6 +152,7 @@ export function main(argv = process.argv.slice(2), { cwd = repoRoot } = {}) {
     options: {
       from: { type: 'string' },
       to: { type: 'string', default: 'HEAD' },
+      'release-tag': { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
   });
@@ -124,7 +162,8 @@ export function main(argv = process.argv.slice(2), { cwd = repoRoot } = {}) {
     return 0;
   }
 
-  const latestTag = values.from ?? resolveLatestTag({ cwd });
+  const releaseTag = values['release-tag'] ?? '';
+  const latestTag = values.from ?? releaseTag ?? resolveLatestTag({ cwd });
   const packageJson = JSON.parse(
     readFileSync(path.join(cwd, 'package.json'), 'utf8')
   );
@@ -136,6 +175,7 @@ export function main(argv = process.argv.slice(2), { cwd = repoRoot } = {}) {
     packageVersion: packageJson.version,
     changelogText,
     latestTag,
+    releaseTag,
     commitsSinceLatestTag,
   });
 

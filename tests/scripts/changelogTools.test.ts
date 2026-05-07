@@ -93,4 +93,46 @@ describe('changelog automation scripts', () => {
 
     expect(result.ok).toBe(true);
   });
+
+  it('requires release automation to match the requested tag exactly', () => {
+    const result = validateChangelogState({
+      packageVersion: '0.2.5',
+      latestTag: 'v0.2.4',
+      releaseTag: 'v0.2.4',
+      changelogText: '## [0.2.5] — 2026-05-07\n',
+      commitsSinceLatestTag: [],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.join('\n')).toContain(
+      'package.json version (0.2.5) must match release tag (v0.2.4)'
+    );
+    expect(result.errors.join('\n')).toContain(
+      'CHANGELOG.md top release (0.2.5) must match release tag (v0.2.4)'
+    );
+  });
+
+  it('passes release automation when package, changelog, and tag match', () => {
+    const result = validateChangelogState({
+      packageVersion: '0.2.4',
+      latestTag: 'v0.2.4',
+      releaseTag: 'v0.2.4',
+      changelogText: '## [0.2.4] — 2026-05-07\n',
+      commitsSinceLatestTag: [],
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('allows non-version refs for the commit range while keeping release tags strict', () => {
+    const result = validateChangelogState({
+      packageVersion: '0.2.4',
+      latestTag: 'HEAD',
+      releaseTag: 'v0.2.4',
+      changelogText: '## [0.2.4] — 2026-05-07\n',
+      commitsSinceLatestTag: [],
+    });
+
+    expect(result.ok).toBe(true);
+  });
 });

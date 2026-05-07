@@ -19,7 +19,7 @@ jobs:
   # so failures still pinpoint exactly what broke. ~5 min saved per
   # run vs six parallel jobs.
   linux-gates:
-    name: Linux gates (build + typecheck + lint + i18n + test + audit)
+    name: Linux gates (build + typecheck + lint + i18n + changelog + test + audit)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +45,8 @@ jobs:
         run: npm run check:i18n
       - name: i18n copy guard
         run: npm run check:i18n:copy
+      - name: Changelog/version guard
+        run: npm run changelog:check
       - name: Tests
         run: npm test
       # RL-080 Slice 1 — the update-server has its own tsconfig and
