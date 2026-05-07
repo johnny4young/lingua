@@ -65,7 +65,14 @@ function shortcutOverridesEqual(
   return true;
 }
 
-function sanitizeShortcutOverrides(value: unknown): ShortcutOverrideMap {
+/**
+ * RL-089 — exported so the profile-import path can sanitize a
+ * crafted profile's `shortcutOverrides` map before writing it to the
+ * live store. The persist-middleware merge already runs this on
+ * rehydrate; the import path goes around persist and would otherwise
+ * leave un-validated overrides live for the rest of the session.
+ */
+export function sanitizeShortcutOverrides(value: unknown): ShortcutOverrideMap {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const knownIds = new Set(KEYBOARD_SHORTCUTS.map((entry) => entry.id));
   const out: Record<string, readonly ShortcutCombo[]> = {};

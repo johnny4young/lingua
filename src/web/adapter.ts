@@ -142,6 +142,12 @@ const webLingua: LinguaAPI = {
     markReady: () => {},
     onLink: () => () => {},
   },
+  // RL-089 — web has no native confirm modal. Resolve to 1 (cancel)
+  // so the renderer preserves current data and surfaces an explicit
+  // cancellation notice instead of silently doing nothing.
+  profile: {
+    confirmReplace: async () => 1,
+  },
 };
 
 // Expose on window — mirrors what the Electron preload does via contextBridge
