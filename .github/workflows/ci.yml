@@ -61,6 +61,8 @@ jobs:
           npm test
       - name: Build web
         run: npm run build:web
+      - name: Performance report
+        run: npm run performance:report
       - name: Third-party license policy
         run: npm run check:licenses
       - name: Security audit

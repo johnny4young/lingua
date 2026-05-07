@@ -52,6 +52,9 @@ Items never demote. Closed tickets stay closed.
 8. [`A11Y.md`](./A11Y.md) — accessibility quality gate: automated
    axe-core scans, keyboard-only flow tests, focus restoration, plus
    a manual screen-reader checklist for VoiceOver / NVDA.
+9. [`PERFORMANCE.md`](./PERFORMANCE.md) — bundle/runtime budgets,
+   local report commands, CI performance logs, and desktop smoke
+   runtime/memory metrics.
 
 ## Architecture Decision Records (ADRs)
 
@@ -86,6 +89,7 @@ only superseded by a new ADR that names the one it replaces.
 | Why a non-obvious decision was made | the matching `*_ADR.md` |
 | What we test and how | [`TEST_PLAN.md`](./TEST_PLAN.md) |
 | Accessibility quality gate (axe scans, keyboard flows, manual screen-reader checklist) | [`A11Y.md`](./A11Y.md) |
+| Bundle/runtime performance budgets and local report workflow | [`PERFORMANCE.md`](./PERFORMANCE.md) |
 | Public repository publication checklist | [`PUBLIC_RELEASE_CHECKLIST.md`](./PUBLIC_RELEASE_CHECKLIST.md) |
 | Public release security sign-off | [`RELEASE_SECURITY.md`](./RELEASE_SECURITY.md) |
 | License + update server observability spec (metrics, alerts, dashboards) | [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) |

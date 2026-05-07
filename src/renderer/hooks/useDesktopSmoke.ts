@@ -128,7 +128,27 @@ interface SmokeCaseSummary {
   ok: boolean;
   message: string;
   executionTime: number | null;
+  executionWallTimeMs: number;
   screenshotPath: string | null;
+}
+
+interface SmokeMemoryArtifact {
+  label: string;
+  snapshot: DesktopSmokeMemorySnapshot | { ok: false; reason: 'capture-failed'; message: string };
+}
+
+interface SmokePerformanceArtifact {
+  generatedAt: string;
+  artifactDir: string | null;
+  totalSmokeWallTimeMs: number;
+  firstRunTimings: Record<
+    string,
+    {
+      runnerExecutionTimeMs: number | null;
+      executionWallTimeMs: number;
+    }
+  >;
+  memorySnapshots: SmokeMemoryArtifact[];
 }
 
 interface SmokeProgressArtifact {
@@ -177,6 +197,51 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
   });
 }
 
+async function captureMemorySnapshot(label: string): Promise<SmokeMemoryArtifact> {
+  const api = desktopSmokeApi();
+  if (!api) {
+    return { label, snapshot: { ok: false, reason: 'capture-failed', message: 'Desktop smoke API unavailable' } };
+  }
+
+  try {
+    return { label, snapshot: await api.getMemorySnapshot() };
+  } catch (error) {
+    return {
+      label,
+      snapshot: {
+        ok: false,
+        reason: 'capture-failed',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+}
+
+function buildPerformanceArtifact(
+  artifactDir: string | null,
+  startedAt: number,
+  summaries: SmokeCaseSummary[],
+  memorySnapshots: SmokeMemoryArtifact[]
+): SmokePerformanceArtifact {
+  const firstRunTimings: SmokePerformanceArtifact['firstRunTimings'] = {};
+  for (const caseId of ['javascript', 'typescript', 'python']) {
+    const summary = summaries.find((entry) => entry.caseId === caseId);
+    if (!summary) continue;
+    firstRunTimings[caseId] = {
+      runnerExecutionTimeMs: summary.executionTime,
+      executionWallTimeMs: summary.executionWallTimeMs,
+    };
+  }
+
+  return {
+    generatedAt: new Date().toISOString(),
+    artifactDir,
+    totalSmokeWallTimeMs: Math.round(performance.now() - startedAt),
+    firstRunTimings,
+    memorySnapshots,
+  };
+}
+
 export function useDesktopSmoke(enabled: boolean) {
   const hasStartedRef = useRef(false);
 
@@ -197,6 +262,7 @@ export function useDesktopSmoke(enabled: boolean) {
       if (!config?.enabled) {
         return;
       }
+      const smokeStartedAt = performance.now();
 
       // RL-080 Slice 3 — packaged-subset gate: when the smoke runs
       // against a release `.app` (CI release pipeline), we narrow
@@ -212,6 +278,7 @@ export function useDesktopSmoke(enabled: boolean) {
         : SMOKE_CASES;
 
       const summaries: SmokeCaseSummary[] = [];
+      const memorySnapshots: SmokeMemoryArtifact[] = [];
 
       try {
         await api.writeJsonArtifact('desktop-smoke-bootstrap.json', {
@@ -239,6 +306,8 @@ export function useDesktopSmoke(enabled: boolean) {
           consoleVisible: true,
         });
 
+        memorySnapshots.push(await captureMemorySnapshot('before-cases'));
+
         for (const smokeCase of cases) {
           await api.writeJsonArtifact('desktop-smoke-progress.json', {
             generatedAt: new Date().toISOString(),
@@ -258,6 +327,7 @@ export function useDesktopSmoke(enabled: boolean) {
           addTab(tab);
 
           await waitForUi();
+          const executionStartedAt = performance.now();
           const execution = await withTimeout(
             executeTabManually(tab, {
               executionTimeoutMs: smokeCase.runnerTimeoutMs,
@@ -265,6 +335,7 @@ export function useDesktopSmoke(enabled: boolean) {
             smokeCase.timeoutMs ?? DEFAULT_CASE_TIMEOUT_MS,
             `${smokeCase.caseId} smoke execution`
           );
+          const executionWallTimeMs = Math.round(performance.now() - executionStartedAt);
           await waitForUi();
 
           const screenshotPath = await withTimeout(
@@ -327,8 +398,11 @@ export function useDesktopSmoke(enabled: boolean) {
             ok,
             message,
             executionTime: execution.executionTime,
+            executionWallTimeMs,
             screenshotPath,
           });
+
+          memorySnapshots.push(await captureMemorySnapshot(`after-${smokeCase.caseId}`));
         }
 
         // RL-083 Slice 1 — offline-mode synthetic case. When the
@@ -353,6 +427,7 @@ export function useDesktopSmoke(enabled: boolean) {
               ? 'No remote URL was attempted during the offline smoke run'
               : `Offline smoke blocked ${blocked.length} request(s): ${blocked.slice(0, 5).join(', ')}`,
             executionTime: null,
+            executionWallTimeMs: 0,
             screenshotPath: null,
           });
         }
@@ -369,6 +444,10 @@ export function useDesktopSmoke(enabled: boolean) {
           artifactDir: config.artifactDir,
           cases: summaries,
         });
+        await api.writeJsonArtifact(
+          'desktop-smoke-performance.json',
+          buildPerformanceArtifact(config.artifactDir, smokeStartedAt, summaries, memorySnapshots)
+        );
         api.finish(success);
       } catch (error) {
         await api.writeJsonArtifact('desktop-smoke-progress.json', {
@@ -384,6 +463,10 @@ export function useDesktopSmoke(enabled: boolean) {
           cases: summaries,
           error: error instanceof Error ? error.message : String(error),
         });
+        await api.writeJsonArtifact(
+          'desktop-smoke-performance.json',
+          buildPerformanceArtifact(config.artifactDir, smokeStartedAt, summaries, memorySnapshots)
+        );
         api.finish(false);
       }
     };
