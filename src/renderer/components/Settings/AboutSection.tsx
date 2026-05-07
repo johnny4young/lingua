@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppInfo } from '../../hooks/useAppInfo';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUpdateStore } from '../../stores/updateStore';
+import { ProfileSection } from './ProfileSection';
 import { Row, Section, Toggle } from './shared';
 
 function formatBuildDate(value: string | null, locale: string, unavailable: string): string {
@@ -70,6 +71,7 @@ export function AboutSection({
   const licenseType = appInfo?.licenseType ?? t('about.value.loading');
 
   return (
+    <>
     <Section
       id="settings-about"
       title={t('about.title')}
@@ -183,5 +185,8 @@ export function AboutSection({
         </div>
       </Row>
     </Section>
+
+    <ProfileSection />
+    </>
   );
 }

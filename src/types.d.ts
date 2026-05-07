@@ -350,6 +350,20 @@ type WatcherFailureKind = import('./shared/fs/watcherDiagnostic').WatcherFailure
 type WatcherDiagnostic = import('./shared/fs/watcherDiagnostic').WatcherDiagnostic;
 type PluginDiagnostic = import('./shared/plugins/manifest').PluginDiagnostic;
 
+// ----------------------------------------------------------- Profile types
+//
+// RL-089 — single source of truth lives in `src/shared/profile/profile.ts`.
+// Ambient aliases keep call sites compiling without explicit imports.
+
+type LinguaProfile = import('./shared/profile/profile').LinguaProfile;
+type ProfileImportPolicy = import('./shared/profile/profile').ProfileImportPolicy;
+type ProfileImportError = import('./shared/profile/profile').ProfileImportError;
+type ProfileParseResult = import('./shared/profile/profile').ProfileParseResult;
+interface ProfileConfirmReplaceCounts {
+  snippets: number;
+  envVars: number;
+}
+
 // --------------------------------------------------------------- Main API
 
 interface LinguaAPI {
@@ -545,6 +559,20 @@ interface LinguaAPI {
      */
     getOfflineBlocks: () => Promise<readonly string[]>;
     getMemorySnapshot: () => Promise<DesktopSmokeMemorySnapshot>;
+  };
+
+  /**
+   * RL-089 — destructive `replace` policy of the profile-restore flow
+   * gates behind a native confirm modal. Returns 0 to confirm, 1 to
+   * cancel (matches `app:confirm-close` convention). The web stub
+   * resolves to 1 (cancel) so the renderer preserves current data and
+   * surfaces an explicit cancellation notice.
+   */
+  profile: {
+    confirmReplace: (
+      counts: ProfileConfirmReplaceCounts,
+      language?: string
+    ) => Promise<number>;
   };
 }
 

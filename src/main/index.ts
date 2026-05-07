@@ -23,6 +23,7 @@ import { registerFileSystemHandlers } from './ipc/fileSystem';
 import { registerLocaleHandlers } from './ipc/locale';
 import { registerDesktopSmokeHandlers } from './ipc/desktopSmoke';
 import { registerEnvHandlers } from './ipc/env';
+import { registerProfileHandlers } from './ipc/profile';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -78,6 +79,7 @@ registerEnvHandlers();
 registerFileSystemHandlers();
 registerLocaleHandlers();
 registerPluginHandlers();
+registerProfileHandlers();
 registerUpdater();
 
 let forceQuit = false;

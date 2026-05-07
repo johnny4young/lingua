@@ -242,4 +242,12 @@ contextBridge.exposeInMainWorld('lingua', {
     getMemorySnapshot: () =>
       ipcRenderer.invoke('desktop-smoke:get-memory-snapshot') as Promise<DesktopSmokeMemorySnapshot>,
   },
+
+  // RL-089 — destructive `replace` policy of the profile-restore
+  // flow gates behind a native confirm modal. `merge` and `preserve`
+  // skip this round-trip and apply directly.
+  profile: {
+    confirmReplace: (counts: ProfileConfirmReplaceCounts, language?: string) =>
+      ipcRenderer.invoke('profile:confirm-replace', counts, language) as Promise<number>,
+  },
 });

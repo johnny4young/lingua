@@ -134,7 +134,6 @@ _All rows in this section are closed; see §6 archive. RL-082 closed 2026-05-05 
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-089`](./PLAN.md#rl-089-user-profile-backup-export-and-restore) | User profile backup/export/restore | `Planned` | Versioned profile export/import for safe user-owned settings, snippets, shortcuts, themes, layout, and env vars. |
 | [`RL-090`](./PLAN.md#rl-090-error-boundaries-and-recovery-ux) | Error boundaries + recovery UX | `Planned` | Add shell error boundaries, safe-mode boot, reset flows, redacted error export, and support recovery docs. |
 
 ### 4j. Research-backed spikes and future
@@ -159,7 +158,7 @@ agent should follow when §3's tiebreakers don't resolve.
 2. **Launch blockers.** Closed. `RL-063` shipped 2026-05-05 — site live at https://linguacode.dev from the separate `lingua-marketing` repo (see `MARKETING_SITE_ADR.md`). `RL-061` shipped 2026-04-30. `RL-059` stays `Partial` only as the historical parent for verifier + bridge work now shipped.
 3. **Release, legal, and compliance readiness.** Closed. `RL-080`, `RL-085`, `RL-092`, and `RL-081` are all `Done` (RL-081 closed 2026-05-05 once the live `linguacode.dev` surface aligned with the desktop entitlement copy). The launch-readiness bucket has no outstanding blockers in this repo.
 4. **Runtime/platform surface hardening.** `RL-091` closed 2026-05-06 (structured logging + redaction + metrics catalog + readiness probes across both Cloudflare Workers + 5 incident runbooks + observability spec). `RL-084` closed 2026-05-06 (shared validator + path-traversal guard + bundled-runtime allowlist + new `unknown` status + UI test coverage). `RL-087` closed 2026-05-06 (watcher lifecycle audit + typed failure diagnostics surfaced via status notice + `IGNORED_PATH_PREFIXES` shared module + `before-quit` cleanup + USAGE.md platform-limitations section). The §5 #4 hardening lane is now closed in full.
-5. **Product quality and supportability.** `RL-088` closed 2026-05-06 (axe-core gate via `tests/e2e/a11y.spec.ts`, keyboard-only flows, OverlayBackdrop focus restoration, plus the `docs/A11Y.md` manual checklist). `RL-086` closed 2026-05-07 (bundle/runtime performance budgets, baseline report, CI logs, and desktop smoke runtime/memory metrics). Remaining: `RL-089` (profile backup/restore), `RL-090` (recovery UX).
+5. **Product quality and supportability.** `RL-088` closed 2026-05-06 (axe-core gate via `tests/e2e/a11y.spec.ts`, keyboard-only flows, OverlayBackdrop focus restoration, plus the `docs/A11Y.md` manual checklist). `RL-086` closed 2026-05-07 (bundle/runtime performance budgets, baseline report, CI logs, and desktop smoke runtime/memory metrics). `RL-089` closed 2026-05-07 (versioned profile export/import with three conflict policies, replace-confirm modal, file picker + paste fallback, and explicit machine-bound exclusion list). Remaining: `RL-090` (recovery UX).
 6. **Utilities polish.** `RL-069` Slice 1 shipped 2026-05-05 (productivity foundation — 2 shortcuts + fuzzy tool search). Remaining `RL-072` QR-read mode and `RL-069` Slice 2/3 are short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
 7. **Debugger + language intelligence.** `RL-027` Slice 1 (JS/TS debugger minimal) and `RL-026` adapter layer. These unblock `RL-042` and `RL-047`.
 8. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
@@ -177,7 +176,7 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>58 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>59 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
@@ -186,7 +185,7 @@ implementation detail lives in `docs/PLAN.md#RL-XXX`.
 `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-063`, `RL-064`,
 `RL-066`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`, `RL-074`,
 `RL-075`, `RL-076`, `RL-077`, `RL-078`, `RL-079`, `RL-080`, `RL-081`,
-`RL-082`, `RL-083`, `RL-084`, `RL-085`, `RL-086`, `RL-087`, `RL-088`, `RL-091`, `RL-092`.
+`RL-082`, `RL-083`, `RL-084`, `RL-085`, `RL-086`, `RL-087`, `RL-088`, `RL-089`, `RL-091`, `RL-092`.
 
 </details>
 

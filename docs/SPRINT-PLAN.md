@@ -42,6 +42,7 @@ Mirrors the authoritative `Status` column in
 | Iter 18 | [`RL-087`](./ROADMAP.md) | Shipped (2026-05-06) | Watcher reliability + filesystem edge cases — Shipped on 2026-05-06 — see RL-087. |
 | Iter 19 | [`RL-088`](./ROADMAP.md) | Shipped (2026-05-06) | Accessibility QA hardening — Shipped on 2026-05-06 — see RL-088. |
 | Iter 20 | [`RL-086`](./ROADMAP.md) | Shipped (2026-05-07) | Performance budgets + runtime observability — Shipped on 2026-05-07 — see RL-086. |
+| Iter 21 | [`RL-089`](./ROADMAP.md) | Shipped (2026-05-07) | User profile backup, export, and restore — Shipped on 2026-05-07 — see RL-089. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -71,8 +72,11 @@ Value-per-day priority. The full reasoning is in
    (axe-core gate + keyboard-only flows + OverlayBackdrop focus
    restoration + manual screen-reader checklist at `docs/A11Y.md`).
    `RL-086` closed 2026-05-07 with bundle/runtime budgets, CI logs,
-   and desktop smoke runtime/memory metrics. Remaining: `RL-089`
-   (profile backup/restore), `RL-090` (recovery UX).
+   and desktop smoke runtime/memory metrics. `RL-089` closed
+   2026-05-07 with versioned profile export/import, three conflict
+   policies, replace-confirm modal, file picker + paste fallback,
+   and explicit machine-bound exclusion list. Remaining: `RL-090`
+   (recovery UX).
 6. **Utilities polish** — `RL-069` Slice 1 shipped 2026-05-05 (productivity
    foundation). `RL-072` remaining QR-read mode and `RL-069` Slice 2/3 are
    good warm-up work when blocked on a launch item.

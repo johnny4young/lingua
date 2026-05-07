@@ -5669,7 +5669,7 @@ unmet ACs):
 ### RL-089 User profile backup, export, and restore
 
 - Priority: `P2`
-- Status: `Planned`
+- Status: `Done`
 - Readiness: `Implementation-ready from the 2026-05-02 review. Valuable for commercial users moving between machines and for support/debugging.`
 - Current gap:
   - Settings, snippets, shortcut overrides, theme presets, layout state, and env-var scopes can drift across machines.
@@ -5688,6 +5688,83 @@ unmet ACs):
   - Tests cover migration from at least one older profile version.
 - Dependencies:
   - RL-081 for privacy/security copy alignment
+
+#### Status Update — 2026-05-07 (closes RL-089)
+
+Shipped in a single staged diff. All five acceptance criteria covered:
+
+- **Versioned profile schema** — new `src/shared/profile/profile.ts`
+  pure module with `PROFILE_SCHEMA_VERSION = 1`, `LinguaProfile`
+  type, `parseAndValidateProfile()`, `migrateProfile()`, and
+  `profileFilename()` (Windows-safe — colons stripped from the ISO
+  timestamp). Schema is allowlist-driven; any field not on the
+  whitelist is silently dropped on parse, including malicious
+  `licenseToken` / `telemetryConsent` payloads.
+- **Three conflict policies** — `replace` (overwrite wholesale),
+  `merge` (concat snippets with id collision rebinding to
+  `{id}-imported-{n}`; env-var keys use imported-wins), `preserve`
+  (only fill empty slots; current wins on collision). Settings are
+  singletons, so `merge` collapses to `replace` for them — surfaced
+  via a tooltip hint copy on the radio so users see the gap.
+- **Migration plumbing** — even at v1 every parse runs through
+  `migrateProfile()`. A v0 fixture (synthetic, since we never
+  shipped v0) lifts a flat `{settings, snippets, envVars}` shape
+  into the v1 envelope. v2 → v3 will land cleanly when needed.
+- **Settings UI** — new `<ProfileSection />` under Settings →
+  General. Export downloads `lingua-profile-2026-05-07T14-30-00.json`
+  via Blob URL + anchor click (no IPC; web-capable). Import accepts
+  a `<input type="file">` as the primary affordance plus a paste
+  textarea inside a disclosure ("Or paste JSON"); validates →
+  renders a dry-run summary (snippet/env-var/setting counts) →
+  user picks policy → Apply. The `replace` policy gates behind a
+  native confirm modal via the new `profile:confirm-replace` IPC
+  handler in `src/main/ipc/profile.ts` (mirrors `app:confirm-close`).
+  The web stub resolves to cancel; web users keep their data safe
+  because the file picker + dry-run preview already require
+  intentional confirmation.
+- **Explicit exclusion list** — license tokens, device IDs,
+  `telemetryConsent`, `nativeExecutionAcknowledged`,
+  `hasCompletedTour`, `lastSeenVersion`, `suppressTourAutoStart`,
+  recent files, sessions, plugin discovery state (machine-bound
+  paths), tab-scoped env vars (session-only), and
+  `pendingLinkedSnippetId` (transient UI state) are NEVER exported.
+  Allowlist enforcement at the schema layer means a future settings
+  field doesn't silently leak.
+
+i18n: 28 new keys per locale (en + es with neutral LatAm tuteo).
+Includes `profile.import.replaceCancelled` so the web stub's
+"replace requires native dialog" path surfaces an explicit notice
+instead of reading as a silent no-op.
+
+Defense-in-depth on import: `applySettings` now re-runs
+`sanitizeShortcutOverrides` (newly exported from settingsStore) so a
+crafted profile cannot install unknown shortcut IDs or oversized
+token arrays for the rest of the session. The persist-middleware
+merge already does this on rehydrate; the import path goes around
+persist via direct `setState`, so the sanitizer is repeated here.
+The shared profile parser also drops malformed portable settings
+before import, and env-var scopes run through `sanitizeScope` both
+at parse time and at direct apply time so reserved keys like `PATH`
+cannot be smuggled through a crafted backup.
+
+The `profile:confirm-replace` IPC handler validates `counts` shape
+(`Number(...)`, `Number.isFinite`, `Math.trunc`, `Math.max(0, ...)`)
+and returns 1 (cancel) when `BrowserWindow.fromWebContents` resolves to null
+(webview / utility process), so the renderer never gets stuck on a
+rejected promise.
+
+The `appVersion` field is exported for diagnostic context (issue
+reports include it) but is NEVER validated on import. Schema
+compatibility is governed exclusively by `schemaVersion`.
+
+Free-tier snippet ceiling is grandfathered on import: the existing
+`addSnippet` gate would refuse the 26th snippet on a Free account
+and silently drop user data. The importer writes snippets directly
+via `setState`, mirroring RL-060's existing grandfather rule.
+
+Test count: 13 (schema) + 4 (export) + 10 (import) + 10
+(component) + 2 (IPC) = 39 new test cases across 5 files. Existing
+web e2e suite stayed green.
 
 ### RL-090 Error boundaries and recovery UX
 
