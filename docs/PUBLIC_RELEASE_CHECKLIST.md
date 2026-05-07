@@ -46,6 +46,8 @@ change commit ids and require force-pushing private branches/tags.
 
 - Run Gitleaks over the full git history:
   `go run github.com/zricethezav/gitleaks/v8@latest git --no-banner --redact .`.
+- Last local audit run: 2026-05-07, 213 commits scanned, no leaks found. Re-run
+  immediately before changing repository visibility.
 - Keep `.gitleaks.toml` scoped to deterministic fixtures only. Dummy test
   secrets and public keys are acceptable; production private material is not.
 - Review any new match manually before expanding the allowlist.
