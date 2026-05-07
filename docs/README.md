@@ -97,6 +97,7 @@ only superseded by a new ADR that names the one it replaces.
 | Public repository publication checklist | [`PUBLIC_RELEASE_CHECKLIST.md`](./PUBLIC_RELEASE_CHECKLIST.md) |
 | Public release security sign-off | [`RELEASE_SECURITY.md`](./RELEASE_SECURITY.md) |
 | macOS Developer ID signing and notarization setup | [`MACOS_SIGNING.md`](./MACOS_SIGNING.md) |
+| Windows Authenticode signing setup | [`WINDOWS_SIGNING.md`](./WINDOWS_SIGNING.md) |
 | License + update server observability spec (metrics, alerts, dashboards) | [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md) |
 | Operator runbooks (webhook replay, license recovery, refund handling, update rollback, GitHub degraded) | [`runbooks/`](./runbooks) |
 | Launch / marketing collateral | [`press-kit/`](./press-kit), [`seo-pages/`](./seo-pages) |

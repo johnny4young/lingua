@@ -21,12 +21,15 @@ const desktopProtocol = {
 
 /** macOS notarization requires APPLE_ID, APPLE_ID_PASSWORD, APPLE_TEAM_ID */
 const osxNotarize =
-  isMac && process.env.APPLE_ID
+  isMac &&
+  process.env.APPLE_ID &&
+  process.env.APPLE_ID_PASSWORD &&
+  process.env.APPLE_TEAM_ID
     ? {
         tool: 'notarytool' as const,
         appleId: process.env.APPLE_ID,
-        appleIdPassword: process.env.APPLE_ID_PASSWORD!,
-        teamId: process.env.APPLE_TEAM_ID!,
+        appleIdPassword: process.env.APPLE_ID_PASSWORD,
+        teamId: process.env.APPLE_TEAM_ID,
       }
     : undefined;
 
@@ -37,11 +40,17 @@ const osxSign =
     : undefined;
 
 /** Windows Authenticode cert — requires WIN_CERT_FILE + WIN_CERT_PASSWORD */
-const winCert =
-  isWin && process.env.WIN_CERT_FILE
+const windowsSign =
+  isWin && process.env.WIN_CERT_FILE && process.env.WIN_CERT_PASSWORD
     ? {
-        certificateFile: process.env.WIN_CERT_FILE,
-        certificatePassword: process.env.WIN_CERT_PASSWORD,
+        windowsSign: {
+          certificateFile: process.env.WIN_CERT_FILE,
+          certificatePassword: process.env.WIN_CERT_PASSWORD,
+          description: 'Lingua',
+          website: 'https://linguacode.dev',
+          timestampServer: 'http://timestamp.digicert.com',
+          hashes: ['sha256'],
+        },
       }
     : {};
 
@@ -86,7 +95,7 @@ const config: ForgeConfig = {
   makers: [
     // Windows: Squirrel (auto-update aware, no UAC elevation required)
     new MakerSquirrel({
-      ...winCert,
+      ...windowsSign,
       name: 'Lingua',
       setupExe: 'LinguaSetup.exe',
       setupIcon: './assets/icon.ico',

@@ -17,6 +17,8 @@ the source repository, while `RELEASE.md` gates product binaries.
 
 - Public docs exist: `SECURITY.md`, `PRIVACY.md`, `CONTRIBUTING.md`,
   `THIRD_PARTY_NOTICES.md`, and `docs/RELEASE_SECURITY.md`.
+- Desktop signing setup is documented in `docs/MACOS_SIGNING.md` and
+  `docs/WINDOWS_SIGNING.md`.
 - `.env.example` exists and contains placeholders only.
 - Machine-local absolute Markdown links are blocked by
   `tests/docs/publicDocs.test.ts`.
