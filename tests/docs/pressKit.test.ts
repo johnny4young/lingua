@@ -51,29 +51,30 @@ describe('docs/press-kit (RL-064)', () => {
     }
   });
 
-  it('pricing-one-pager names the five tiers + verified prices + in-app education flow (2026-05-05 model)', () => {
+  it('pricing-one-pager names the four public tiers + verified prices + in-app education flow (2026-05-07 model)', () => {
     const pricing = readFileSync(resolve(KIT_DIR, 'pricing-one-pager.md'), 'utf-8');
-    // The five public tiers shipped on linguacode.dev as of 2026-05-05.
-    // Legacy "Monthly" naming is gone — the monthly tier is now named
-    // simply "Pro" and the one-time tier is "Pro Lifetime".
-    for (const tier of ['Free', 'Pro', 'Pro Lifetime', 'Team', 'Education']) {
+    // Canonical public tiers as of the 2026-05-07 launch-readiness
+    // cleanup: Free, Monthly, Pro, Education. Backend slugs stay
+    // stable, but public copy must not expose the old Lifetime/Team
+    // naming.
+    for (const tier of ['Free', 'Monthly', 'Pro', 'Education']) {
       expect(pricing).toContain(tier);
     }
     // Verified prices live on the site; the press kit must not drift.
     expect(pricing).toContain('$5');
     expect(pricing).toContain('$59');
-    expect(pricing).toContain('$3');
-    // Spanish mirror — Education translates to Educativa. Tier names
-    // Pro / Pro Lifetime / Team stay in English by design (they're
-    // product names, not common-noun copy).
+    expect(pricing).not.toContain('$3');
+    // Spanish mirror — Monthly translates to Mensual and Education
+    // translates to Educativa. Pro stays a product name.
+    expect(pricing).toContain('Mensual');
     expect(pricing).toContain('Educativa');
     // Education flow is in-app only — no `linguacode.dev/education`
     // landing page is coming. Reject the legacy phrasing.
     expect(pricing).not.toMatch(/linguacode\.dev\/education/u);
-    // Legacy "Monthly" / "Mensual" tier names must not survive the
-    // rewrite as table-row tier identifiers.
-    expect(pricing).not.toMatch(/^\|\s*Monthly\s*\|/mu);
-    expect(pricing).not.toMatch(/^\|\s*Mensual\s*\|/mu);
+    // Legacy Lifetime / Team tier names must not survive the public
+    // table-row identifiers.
+    expect(pricing).not.toMatch(/^\|\s*Pro Lifetime\s*\|/mu);
+    expect(pricing).not.toMatch(/^\|\s*Team\s*\|/mu);
   });
 
   it('does not describe ungated utilities or shortcut/theme customization as Pro-only yet', () => {

@@ -33,8 +33,8 @@ Built-in goodies:
   from a browser into the app
 
 Source-available (commercial license) on GitHub. Free tier is single-
-tab + 5 snippets + JS/TS/Python. Pro, Pro Lifetime, and Team unlock
-unlimited tabs and snippets, plus Go and Rust runners. Education
+tab + 5 snippets + JS/TS/Python. Monthly and Pro unlock unlimited
+tabs and snippets, plus Go and Rust runners. Education
 access is free for verified students and teachers. 14-day Pro trial
 available without a credit card — Settings → License inside the app.
 
@@ -73,9 +73,8 @@ Hi! I'm the maker of Lingua. A few things the tagline doesn't fit:
   etc.) are first-class — Cmd+K opens the workspace, then search and run.
 - Keyboard shortcuts are rebindable with a preset import/export flow,
   and theme presets round-trip as JSON.
-- Free tier is single-tab + 5 snippets + JS/TS/Python. Pro, Pro
-  Lifetime, and Team unlock unlimited tabs and snippets, plus Go and
-  Rust runners.
+- Free tier is single-tab + 5 snippets + JS/TS/Python. Monthly and Pro
+  unlock unlimited tabs and snippets, plus Go and Rust runners.
 
 Happy to answer anything here.
 

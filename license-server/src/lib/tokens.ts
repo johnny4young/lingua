@@ -6,8 +6,8 @@
  * entitlement matrix:
  *
  *   - `lingua_monthly`   → tier `'pro'`, expires_at = subscription period_end
- *   - `lingua_lifetime`  → tier `'pro_lifetime'`, expires_at = null
- *   - `lingua_team`      → tier `'team'`, expires_at = subscription period_end
+ *   - `lingua_lifetime`  → tier `'pro_lifetime'`, expires_at = null (public Pro)
+ *   - `lingua_team`      → tier `'team'`, expires_at = subscription period_end (legacy internal)
  *   - `lingua_trial`     → tier `'trial'` (Slice 4)
  *   - `lingua_education` → tier `'education'` (Slice 4)
  *

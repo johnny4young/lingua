@@ -27,9 +27,10 @@ Ticket: [`RL-061`](../docs/PLAN.md#rl-061-polarsh-integration).
   `subscription.created`, `subscription.updated`,
   `subscription.canceled`. Idempotent against `polar_order_id` /
   `polar_subscription_id` UNIQUE indexes. Mints Ed25519 tokens from
-  paid `order.paid` events only: one-time lifetime purchases by order
-  id, subscription Monthly/Team purchases or renewals by
-  subscription id. `subscription.created` waits for payment;
+  paid `order.paid` events only: one-time Pro purchases by order id,
+  Monthly subscription purchases or renewals by subscription id, and
+  legacy team-compatibility subscription events by subscription id.
+  `subscription.created` waits for payment;
   `subscription.updated` only updates cancel/uncancel status. Tokens
   persist via `src/lib/db.ts`; email sends via `src/lib/resend.ts`.
   The canonical Lingua SKU is read from
@@ -130,8 +131,8 @@ of them green to smoke end-to-end.
    | Polar product | `metadata.product_id` (required) | `metadata.device_limit` (optional) |
    |---|---|---|
    | Lingua — Monthly | `lingua_monthly` | — (hard 3) |
-   | Lingua — Pro Lifetime | `lingua_lifetime` | — (hard 3) |
-   | Lingua — Team | `lingua_team` | integer 1–1000, default 3 |
+   | Lingua — Pro | `lingua_lifetime` | — (hard 3) |
+   | Internal legacy team compatibility | `lingua_team` | integer 1–1000, default 3 |
 
    A product missing `metadata.product_id`, or carrying a value not
    in the table above, is acked 200 with
@@ -139,7 +140,7 @@ of them green to smoke end-to-end.
    product is loud in observability without triggering Polar's retry
    storm. The slug strings (`lingua_monthly`, `lingua_lifetime`,
    `lingua_team`) are treated as **immutable for the lifetime of the
-   deployment** — they are the public primary key of every license
+   deployment** — they are the persistent primary key of every license
    row in D1 and renaming them after launch would require a data
    migration.
 

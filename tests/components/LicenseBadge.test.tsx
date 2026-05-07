@@ -76,19 +76,23 @@ describe('LicenseBadge', () => {
     expect(badge.className).toMatch(/text-primary/);
   });
 
-  it('still shows PRO for pro_lifetime and team tiers (Settings surfaces the full tier)', () => {
+  it('still shows PRO for legacy paid tier ids while tooltips use public labels', () => {
     seedActiveTier('pro_lifetime');
     const { unmount } = render(<LicenseBadge />);
-    expect(screen.getByTestId('license-badge').textContent).toBe('PRO');
-    expect(screen.getByTestId('license-badge').getAttribute('data-license-tier')).toBe(
-      'pro_lifetime'
-    );
+    const lifetimeBadge = screen.getByTestId('license-badge');
+    expect(lifetimeBadge.textContent).toBe('PRO');
+    expect(lifetimeBadge.getAttribute('data-license-tier')).toBe('pro_lifetime');
+    expect(lifetimeBadge.getAttribute('title') ?? '').toContain('Pro');
+    expect(lifetimeBadge.getAttribute('title') ?? '').not.toContain('Lifetime');
     unmount();
 
     seedActiveTier('team');
     render(<LicenseBadge />);
-    expect(screen.getByTestId('license-badge').textContent).toBe('PRO');
-    expect(screen.getByTestId('license-badge').getAttribute('data-license-tier')).toBe('team');
+    const teamBadge = screen.getByTestId('license-badge');
+    expect(teamBadge.textContent).toBe('PRO');
+    expect(teamBadge.getAttribute('data-license-tier')).toBe('team');
+    expect(teamBadge.getAttribute('title') ?? '').toContain('Pro');
+    expect(teamBadge.getAttribute('title') ?? '').not.toContain('Team');
   });
 
   it('has tooltip labels for server-minted trial and education tiers', () => {
@@ -102,6 +106,14 @@ describe('LicenseBadge', () => {
     render(<LicenseBadge />);
     expect(screen.getByTestId('license-badge').textContent).toBe('PRO');
     expect(screen.getByTestId('license-badge').getAttribute('title') ?? '').toContain('Education');
+  });
+
+  it('uses Monthly as the public label for subscription tokens', () => {
+    seedActiveTier('pro');
+    render(<LicenseBadge />);
+    const badge = screen.getByTestId('license-badge');
+    expect(badge.textContent).toBe('PRO');
+    expect(badge.getAttribute('title') ?? '').toContain('Monthly');
   });
 
   it('falls back to FREE when the stored status is invalid (no silent upgrade)', () => {
@@ -136,5 +148,6 @@ describe('LicenseBadge', () => {
     const badge = screen.getByTestId('license-badge');
     expect(badge.textContent).toBe('PRO');
     expect(badge.getAttribute('title') ?? '').toMatch(/Nivel de licencia actual/);
+    expect(badge.getAttribute('title') ?? '').toContain('Mensual');
   });
 });

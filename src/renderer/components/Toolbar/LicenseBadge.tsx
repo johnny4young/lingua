@@ -12,9 +12,8 @@ import type { LicenseTier } from '../../../shared/license';
 
 function labelKeyForTier(tier: LicenseTier): string {
   if (tier === 'free') return 'license.badge.free';
-  // Pro, Pro Lifetime, and Team all render as PRO in the toolbar — the
-  // full variant is visible in Settings. Keeping the toolbar pill terse
-  // avoids truncation across locales.
+  // Paid tiers all render as PRO in the toolbar. Settings/tooltips use
+  // the current public labels while legacy tier ids remain token-compatible.
   return 'license.badge.pro';
 }
 

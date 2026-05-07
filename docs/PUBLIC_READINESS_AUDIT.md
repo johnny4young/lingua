@@ -80,12 +80,12 @@ Unit/workflow coverage proves the feed contract, but a real update cycle still
 needs a draft release with signed artifacts, `updates.linguacode.dev` feed
 checks, install, update, and rollback validation.
 
-**P1-4 — Product-tier copy drift remains in older launch collateral.**
+**P1-4 — Product-tier copy drift in older launch collateral.**
 
 `docs/LICENSING_ADR.md` defines the current public copy as Free, Monthly, Pro,
-and Education. Older public collateral still mentions Pro Lifetime and Team.
-Treat this as a marketing/legal copy decision before the next public pricing
-refresh.
+and Education. Resolved on 2026-05-07 by aligning README, LICENSE, press kit,
+SEO page scaffolds, renderer tier labels, email labels, and guard tests while
+leaving legacy backend slugs intact for token compatibility.
 
 ### P2 — should close during public launch hardening
 

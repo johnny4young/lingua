@@ -58,6 +58,18 @@ export function resolveVitePort(args = []) {
   return WEB_DEV_PRO_PORT;
 }
 
+export function buildViteDevServerEnv(publicKeyJwk, baseEnv = process.env) {
+  return {
+    ...baseEnv,
+    VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK: publicKeyJwk,
+    // Dev tokens are signed by a throwaway local keypair, so they must
+    // stay local-verify-only. If a maintainer has the production server
+    // URL exported in their shell, override it here instead of letting the
+    // real issuer reject the dev token with a misleading signature error.
+    VITE_LINGUA_LICENSE_SERVER_URL: '',
+  };
+}
+
 async function main() {
   const { tier, days, issuedTo, passthroughArgs, trailingArgs } = parseDevLicenseCliArgs(
     process.argv.slice(2),
@@ -84,10 +96,7 @@ async function main() {
 
   const child = spawn(process.execPath, viteArgs, {
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK: minted.publicKeyJwk,
-    },
+    env: buildViteDevServerEnv(minted.publicKeyJwk),
   });
 
   child.on('exit', (code) => {

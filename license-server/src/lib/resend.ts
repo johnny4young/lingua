@@ -156,9 +156,9 @@ export interface SendLicenseEmailInput {
 }
 
 const TIER_HUMAN: Record<SendLicenseEmailInput['tier'], string> = {
-  pro: 'Lingua Pro Monthly',
-  pro_lifetime: 'Lingua Pro Lifetime',
-  team: 'Lingua Team',
+  pro: 'Lingua Monthly',
+  pro_lifetime: 'Lingua Pro',
+  team: 'Lingua Pro',
   trial: 'Lingua Trial',
   education: 'Lingua Education',
 };

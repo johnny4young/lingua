@@ -9,9 +9,8 @@ change in [PLAN.md](../PLAN.md). Live source on https://linguacode.dev/pricing.
 | Tier | Price | Cadence | Best for | Includes |
 |------|-------|---------|----------|----------|
 | Free | $0 | forever | Trying Lingua, single-file scratchpads | 1 open tab at a time, up to 5 saved snippets, JavaScript / TypeScript / Python runners, Monaco editor + syntax highlighting, built-in developer utilities, keyboard shortcut editor, theme preset import/export, full app shell |
-| Pro | $5 | / month | Developers running real multi-language work | Everything in Free plus unlimited tabs and snippets, Go and Rust runners, format-on-save for every supported language, execution history, and every update while subscribed. Cancel anytime. |
-| Pro Lifetime | $59 | one-time | Pay once, stay supported forever | Same paid entitlements as Pro, perpetual access, every future update included, priority email support. No recurring bill. |
-| Team | $3 | / seat / month | Teams and agencies | Everything in Pro Lifetime plus seat management and invoicing. |
+| Monthly | $5 | / month | Developers running real multi-language work | Everything in Free plus unlimited tabs and snippets, Go and Rust runners, format-on-save for every supported language, execution history, and every update while subscribed. Cancel anytime. |
+| Pro | $59 | one-time | Developers who prefer to pay once | Same paid entitlements as Monthly without a recurring subscription. |
 | Education | $0 | / year | Verified students and educators (renewable) | Full paid entitlements for verified educational use, renewable annually |
 
 Education access is free for verified students and educators. Open
@@ -28,9 +27,8 @@ Settings → License → Try Lingua Pro free for 14 days.
 | Tier | Precio | Cadencia | Ideal para | Incluye |
 |------|--------|----------|------------|---------|
 | Free | $0 | siempre | Probar Lingua, scratchpads de un solo archivo | 1 pestaña a la vez, hasta 5 snippets guardados, runners de JavaScript / TypeScript / Python, editor Monaco + resaltado de sintaxis, utilidades integradas para desarrolladores, editor de atajos, import/export de presets de tema, shell completo de la app |
-| Pro | $5 | / mes | Desarrolladores que ejecutan trabajo multi-lenguaje real | Todo lo de Free más pestañas y snippets ilimitados, runners de Go y Rust, format-on-save para cada lenguaje soportado, historial de ejecución y cada actualización mientras la suscripción esté activa. Cancelas cuando quieras. |
-| Pro Lifetime | $59 | pago único | Pagar una vez, recibir soporte para siempre | Los mismos entitlements pagos que Pro, acceso perpetuo, todas las actualizaciones futuras incluidas, soporte prioritario por correo. Sin pagos recurrentes. |
-| Team | $3 | / asiento / mes | Equipos y agencias | Todo lo de Pro Lifetime más administración de asientos y facturación. |
+| Mensual | $5 | / mes | Desarrolladores que ejecutan trabajo multi-lenguaje real | Todo lo de Free más pestañas y snippets ilimitados, runners de Go y Rust, format-on-save para cada lenguaje soportado, historial de ejecución y cada actualización mientras la suscripción esté activa. Cancelas cuando quieras. |
+| Pro | $59 | pago único | Desarrolladores que prefieren pagar una vez | Los mismos entitlements de pago que Mensual sin una suscripción recurrente. |
 | Educativa | $0 | / año | Estudiantes y profesores verificados (renovable) | Entitlements de pago completos para uso educativo verificado, renovables anualmente |
 
 El acceso educativo es gratuito para estudiantes y profesores

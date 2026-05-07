@@ -18,9 +18,8 @@ Lingua is a commercial product distributed under a source-available license — 
 Public tiers:
 
 - **Free** — personal evaluation, self-learning, single-user non-commercial local use.
-- **Pro** ($5/month) — paid subscription unlocking the full feature set.
-- **Pro Lifetime** ($59 once) — same Pro entitlements without a recurring subscription.
-- **Team** ($3/seat/month) — Pro entitlements plus seat management.
+- **Monthly** ($5/month) — paid subscription unlocking the full feature set.
+- **Pro** ($59 once) — same paid entitlements without a recurring subscription.
 - **Education** — free, renewable, in-app verification for verified students and educators.
 
 The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacode.dev/pricing) (canonical surface) and mirrors [`docs/press-kit/pricing-one-pager.md`](./docs/press-kit/pricing-one-pager.md) for in-repo reference.

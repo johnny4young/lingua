@@ -57,22 +57,22 @@ describe('repository license posture (RL-062)', () => {
     expect(readme).not.toMatch(/commercial license purchased via/i);
   });
 
-  it('README and LICENSE name the public launch tiers (post-2026-05-05 model)', () => {
+  it('README and LICENSE name the public launch tiers (post-2026-05-07 model)', () => {
     const readme = readFileSync(README_PATH, 'utf-8');
     const license = readFileSync(LICENSE_PATH, 'utf-8');
 
-    // Canonical tiers as of the linguacode.dev launch on 2026-05-05:
-    // Free, Pro, Pro Lifetime, Team, Education. The legacy "Monthly"
-    // tier was renamed to "Pro" and the one-time tier became "Pro
-    // Lifetime"; the press kit + this test now reflect that.
-    for (const tier of ['Free', 'Pro', 'Pro Lifetime', 'Team', 'Education']) {
+    // Canonical public tiers after the 2026-05-07 launch-readiness
+    // cleanup: Free, Monthly, Pro, Education. Backend slugs stay
+    // stable; public/legal copy must not expose Lifetime/Team naming.
+    for (const tier of ['Free', 'Monthly', 'Pro', 'Education']) {
       expect(readme, `README must mention ${tier}`).toContain(tier);
       expect(license, `LICENSE must mention ${tier}`).toContain(tier);
     }
 
-    // The legacy "Monthly" tier name must not survive the rewrite.
-    expect(readme).not.toMatch(/^- \*\*Monthly\*\*/mu);
-    expect(license).not.toMatch(/\bMonthly tier\b/u);
+    expect(readme).not.toMatch(/^- \*\*Pro Lifetime\*\*/mu);
+    expect(readme).not.toMatch(/^- \*\*Team\*\*/mu);
+    expect(license).not.toMatch(/\bPro Lifetime\b/u);
+    expect(license).not.toMatch(/\bTeam\b/u);
   });
 
   it('package.json no longer claims the MIT license', () => {
