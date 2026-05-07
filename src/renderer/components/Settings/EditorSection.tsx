@@ -123,6 +123,7 @@ export function EditorSection() {
             value={fontFamily}
             onChange={(event) => handleFontFamilyChange(event.target.value)}
             data-testid="editor-font-family-select"
+            aria-label={t('editor.fontFamily.label')}
           >
             {FONT_FAMILIES.map((font) => (
               <option key={font.value} value={font.value}>
@@ -169,6 +170,7 @@ export function EditorSection() {
             value={fontSize}
             onChange={(event) => setFontSize(Number(event.target.value))}
             className="min-w-[7rem]"
+            aria-label={t('editor.fontSize.label')}
           >
             {FONT_SIZES.map((size) => (
               <option key={size} value={size}>

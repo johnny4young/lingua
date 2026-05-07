@@ -49,6 +49,7 @@ export function PrivacySection() {
             onChange={() =>
               setTelemetryConsent(telemetryConsent === 'granted' ? 'declined' : 'granted')
             }
+            aria-label={t('privacy.telemetry.label')}
           />
           <span
             data-testid="telemetry-status"

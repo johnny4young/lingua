@@ -13,6 +13,7 @@ import type {
   ButtonHTMLAttributes,
   CSSProperties,
   HTMLAttributes,
+  KeyboardEvent,
   ReactElement,
   ReactNode,
 } from 'react';
@@ -290,21 +291,109 @@ interface OverlayBackdropProps extends HTMLAttributes<HTMLDivElement> {
   onClose?: () => void;
 }
 
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'textarea:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) =>
+      !element.hasAttribute('disabled') &&
+      element.getAttribute('aria-hidden') !== 'true' &&
+      element.tabIndex !== -1
+  );
+}
+
 export function OverlayBackdrop({
   align = 'center',
   className,
   children,
   onClose,
+  onKeyDown,
   onClick,
   ...props
 }: OverlayBackdropProps) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(
+    typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+  );
+
+  useEffect(() => {
+    const previouslyFocused = previouslyFocusedRef.current;
+    const requestFrame =
+      typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : (callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0);
+    const cancelFrame =
+      typeof window.cancelAnimationFrame === 'function'
+        ? window.cancelAnimationFrame.bind(window)
+        : window.clearTimeout.bind(window);
+
+    const frame = requestFrame(() => {
+      const root = backdropRef.current;
+      if (!root || root.contains(document.activeElement)) return;
+      (getFocusableElements(root)[0] ?? root).focus({ preventScroll: true });
+    });
+
+    return () => {
+      cancelFrame(frame);
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        try {
+          previouslyFocused.focus({ preventScroll: true });
+        } catch {
+          // Best-effort — some elements (e.g. detached nodes during
+          // strict-mode double-mount) reject focus(); ignore silently.
+        }
+      }
+    };
+  }, []);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    onKeyDown?.(event);
+    if (event.defaultPrevented || event.key !== 'Tab') return;
+
+    const root = backdropRef.current;
+    if (!root) return;
+    const focusable = getFocusableElements(root);
+    if (focusable.length === 0) {
+      event.preventDefault();
+      root.focus({ preventScroll: true });
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && (active === first || !root.contains(active))) {
+      event.preventDefault();
+      last?.focus({ preventScroll: true });
+      return;
+    }
+
+    if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first?.focus({ preventScroll: true });
+    }
+  };
+
   return (
     <div
+      ref={backdropRef}
+      tabIndex={-1}
       className={cn(
         'overlay-backdrop',
         align === 'center' ? 'items-center justify-center p-4 sm:p-6' : 'items-start justify-center px-4 pt-[min(12vh,6rem)] sm:px-6',
         className
       )}
+      onKeyDown={handleKeyDown}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose?.();

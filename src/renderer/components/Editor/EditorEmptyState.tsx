@@ -109,7 +109,11 @@ export function EditorEmptyState() {
                   {showDesktopOnlyBadge ? (
                     <span
                       data-testid={`empty-state-desktop-only-${language}`}
-                      className="rounded-full bg-foreground/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted"
+                      // RL-088 — bumped from `text-muted` to `text-foreground` so the
+                      // 10px badge passes WCAG 2.1 AA contrast (>=4.5:1) on top of the
+                      // language button's tinted background. axe-core flagged the
+                      // previous combo at 4.35:1.
+                      className="rounded-full bg-foreground/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-foreground"
                     >
                       {t('language.capability.desktopOnly')}
                     </span>

@@ -38,6 +38,7 @@
   "whatsNew.subtitle": "Notas de release y cambios recientes",
   "whatsNew.description": "Revisa primero los cambios publicados m\u00e1s recientes y luego expande notas anteriores cuando necesites m\u00e1s contexto.",
   "whatsNew.close": "Cerrar novedades",
+  "whatsNew.region.label": "Contenido de las notas de la versión",
   "whatsNew.empty": "Todav\u00eda no hay notas de release incluidas en esta build.",
   "whatsNew.previous": "Notas de release anteriores",
   "whatsNew.entry.current": "Cambios destacados de la versi\u00f3n actual",

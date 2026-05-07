@@ -136,7 +136,12 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
 
   return (
     <OverlayBackdrop onClose={onClose}>
-      <OverlayCard className="relative flex h-[min(86vh,820px)] w-[min(96vw,1180px)] max-w-none flex-col overflow-hidden lg:flex-row">
+      <OverlayCard
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('whatsNew.title')}
+        className="relative flex h-[min(86vh,820px)] w-[min(96vw,1180px)] max-w-none flex-col overflow-hidden lg:flex-row"
+      >
         {/* Sidebar — version timeline */}
         <aside className="flex w-full shrink-0 flex-col border-b border-border/80 bg-background/55 lg:w-[280px] lg:border-b-0 lg:border-r">
           <div className="surface-header px-5 pt-5 pb-3">
@@ -265,7 +270,16 @@ export function WhatsNewSection({ entries, onClose }: WhatsNewSectionProps) {
             </IconButton>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-6 py-5">
+          {/* RL-088 — keyboard users without a focusable descendant cannot
+              scroll this region. Adding tabindex=0 + region role + aria-label
+              keeps it keyboard-reachable and announces context to screen
+              readers (axe rule: scrollable-region-focusable). */}
+          <div
+            className="flex-1 overflow-y-auto px-6 py-5"
+            tabIndex={0}
+            role="region"
+            aria-label={t('whatsNew.region.label')}
+          >
             {selectedEntry ? (
               <div className="space-y-5">
                 {selectedEntry.sections.map((section) => {
