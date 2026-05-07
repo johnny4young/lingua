@@ -44,6 +44,7 @@ This repository uses a draft-first manual release process, with the release tag 
    - Windows signing verification
    - generated checksums
    - re-verified checksums (`shasum -c SHA256SUMS.txt`)
+   - Cloudflare deploy validation artifact for web releases
 7. Open the draft GitHub Release created by the workflow.
 8. Verify attached artifacts, `SHA256SUMS.txt`, `lingua-sbom.cyclonedx.json`, and `THIRD_PARTY_LICENSE_REPORT.md`.
 9. Verify release notes and artifact naming.
@@ -73,6 +74,7 @@ This repository uses a draft-first manual release process, with the release tag 
 - Packaged desktop smoke passed in CI (the `Packaged desktop smoke` step in `build-macos`, RL-080 Slice 3 — release-blocking offline, 2-runtime-case subset against the actual `.app`)
 - `npm run smoke:desktop` passed against the dev server in pre-merge CI (the existing 9-case matrix gate)
 - Post-publish smoke succeeded against the channel-distributed artifact
+- Web release artifact `cloudflare-deploy-validation` is attached to the workflow run and records the Wrangler deploy log, `app.linguacode.dev` app-shell check, service-worker update-endpoint bypass, and `updates.linguacode.dev/web/version` response
 - Release remains draft until human review is complete
 - macOS signing and notarization evidence is attached or visible in the
   workflow logs for any macOS artifact

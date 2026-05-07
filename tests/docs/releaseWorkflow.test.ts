@@ -173,4 +173,20 @@ describe('release workflow', () => {
     expect(deployWebWorkflow).toMatch(/workflow_call:[\s\S]*?inputs:[\s\S]*?ref:[\s\S]*?default:\s*refs\/heads\/main/u);
     expect(deployWebWorkflow).toMatch(/uses:\s*actions\/checkout@v4[\s\S]*?ref:\s*\$\{\{\s*inputs\.ref\s*\}\}/u);
   });
+
+  it('records Cloudflare web deploy validation artifacts for every web release', () => {
+    expect(deployWebWorkflow).toContain('Start Cloudflare deploy validation artifact');
+    expect(deployWebWorkflow).toMatch(
+      /wrangler pages deploy dist\/web[\s\S]*?tee output\/cloudflare-deploy-validation\/wrangler-pages-deploy\.log/u
+    );
+    expect(deployWebWorkflow).toContain('Validate deployed web surface');
+    expect(deployWebWorkflow).toContain('https://app.linguacode.dev');
+    expect(deployWebWorkflow).toContain('https://updates.linguacode.dev/web/version');
+    expect(deployWebWorkflow).toContain('id="root"');
+    expect(deployWebWorkflow).toContain('Deployed app shell CSP does not allow the update banner endpoint');
+    expect(deployWebWorkflow).toContain('Deployed service worker does not bypass the update-version endpoint');
+    expect(deployWebWorkflow).toContain('Upload Cloudflare deploy validation');
+    expect(deployWebWorkflow).toContain('actions/upload-artifact@v4');
+    expect(deployWebWorkflow).toContain('name: cloudflare-deploy-validation');
+  });
 });

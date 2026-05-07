@@ -33,14 +33,14 @@ Highest-priority current actions:
 
 | Area | Evidence | Status |
 |------|----------|--------|
-| Versioning | `package.json` was behind `v0.2.3`; this phase moves the working tree to `0.2.4` and adds changelog entries for `0.2.2`, `0.2.3`, and `0.2.4`. | Improved |
+| Versioning | `package.json` was behind `v0.2.3`; the readiness pass moved the working tree to `0.2.4` and added changelog entries for `0.2.2`, `0.2.3`, and `0.2.4`. | Improved |
 | Release CI | `.github/workflows/release.yml` has draft-first release, selected-platform success gates, production audit, checksum verification, SBOM, and signing preflights. | Good, credential-gated |
-| CI performance | CI printed `performance:report`; this phase adds `check:performance` after `build:web`. | Improved |
+| CI performance | CI prints `performance:report` and runs `check:performance` after `build:web`. | Good |
 | Auto-update | `src/main/updater.ts` checks on launch and then every one hour for `darwin` and `win32`. Electron's built-in updater does not support Linux. | Good, docs drift fixed |
-| Cloudflare | `update-server/` serves update feeds and `/web/version`; web deploy uses Cloudflare Pages through Wrangler. | Good, needs live deploy validation |
+| Cloudflare | `update-server/` serves update feeds and `/web/version`; web deploy uses Cloudflare Pages through Wrangler; deploy workflow now uploads a `cloudflare-deploy-validation` artifact with Wrangler logs and live app/update endpoint checks. | Good |
 | Security docs | `SECURITY.md`, `PRIVACY.md`, `docs/RELEASE_SECURITY.md`, and public checklist exist. | Good |
 | Secrets | `.env.production` contains public build-time values only. Production private keys and signing material are expected as GitHub/Cloudflare secrets. | Good, pending full-history scan |
-| Local skills | `.agents/skills/lingua-review` and `.agents/skills/lingua-ship` were tracked; this phase ignores and untracks them while leaving local files available. | Improved |
+| Local skills | `.agents/skills/lingua-review` and `.agents/skills/lingua-ship` were tracked; the readiness pass ignores and untracks them while leaving local files available. | Improved |
 | Changelog automation | Draft/check scripts exist, CI runs `changelog:check`, and the release workflow requires the requested tag to match `package.json` and the top `CHANGELOG.md` release entry before publishing starts. | Good |
 | License posture | Source-available commercial; do not describe as open source. | Good |
 
@@ -100,9 +100,12 @@ release heading.
 
 **P2-2 — Cloudflare deploy validation should be recorded per release.**
 
-For web releases, validate `wrangler pages deploy` output, the version endpoint,
-service-worker cache behavior, and the update banner path against
-`app.linguacode.dev`.
+Resolved on 2026-05-07. The reusable `deploy-web` workflow now records
+`wrangler pages deploy` output, validates `https://app.linguacode.dev/`,
+validates the deployed service worker still bypasses
+`updates.linguacode.dev`, validates `https://updates.linguacode.dev/web/version`
+returns either `200` with semver JSON or `204` when no published release exists,
+and uploads the evidence as the `cloudflare-deploy-validation` artifact.
 
 **P2-3 — Linux should be validated first.**
 
@@ -236,5 +239,8 @@ criteria and priority are clear.
 5. Run `npm run check:performance`.
 6. Run `npm run check:licenses`.
 7. Run `npm run compliance:release`.
-8. Run full-history Gitleaks before visibility changes.
-9. Run `npm run smoke:desktop` before promoting a desktop release branch.
+8. For web releases, confirm the GitHub Actions run contains the
+   `cloudflare-deploy-validation` artifact with the Wrangler log and
+   `web-validation.json`.
+9. Run full-history Gitleaks before visibility changes.
+10. Run `npm run smoke:desktop` before promoting a desktop release branch.

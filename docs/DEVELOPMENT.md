@@ -234,7 +234,7 @@ The local web build defaults to `/` as its base path. The Cloudflare Pages deplo
 ## Automation and delivery
 
 - CI runs web build, type checking, linting, tests, i18n guards, changelog/version guard, third-party license policy, and high-severity audit checks.
-- Cloudflare Pages deploy is manual or release-orchestrated via the `Deploy web build to Cloudflare Pages` workflow and serves `app.linguacode.dev` from the root path.
+- Cloudflare Pages deploy is manual or release-orchestrated via the `Deploy web build to Cloudflare Pages` workflow and serves `app.linguacode.dev` from the root path. Each deploy uploads a `cloudflare-deploy-validation` artifact with the Wrangler log, app-shell check, service-worker update-endpoint bypass check, and `/web/version` response.
 - GitHub Release publishing is manual via the `Release` workflow, which accepts a single stable tag input in the form `vX.Y.Z`, creates that tag from `main`, and publishes from it.
 - Update server deployment is manual via the `Deploy Update Server` workflow.
 - The release workflow runs exact release-tag changelog validation, the production dependency audit, release compliance artifact generation, per-platform build gates, checksum generation/re-verification, draft GitHub Release upload, and optional web deploy from the validated release tag.

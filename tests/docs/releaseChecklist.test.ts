@@ -106,6 +106,14 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toMatch(/version.*CHANGELOG/i);
   });
 
+  it('requires Cloudflare deploy validation evidence for web releases', () => {
+    expect(checklist).toContain('cloudflare-deploy-validation');
+    expect(checklist).toContain('Wrangler deploy log');
+    expect(checklist).toContain('app.linguacode.dev');
+    expect(checklist).toContain('updates.linguacode.dev/web/version');
+    expect(checklist).toMatch(/service-worker.*update-endpoint bypass/i);
+  });
+
   it('ships a rollback plan that keeps the release in draft on failure', () => {
     expect(checklist).toContain('## Rollback plan');
     expect(checklist).toMatch(/draft/i);
