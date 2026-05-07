@@ -36,7 +36,7 @@ Highest-priority current actions:
 | Area                 | Evidence                                                                                                                                                                                                                                  | Status                          |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
 | Versioning           | `package.json` was behind `v0.2.3`; the readiness pass moved the working tree to `0.2.4` and added changelog entries for `0.2.2`, `0.2.3`, and `0.2.4`.                                                                                   | Improved                        |
-| Release CI           | `.github/workflows/release.yml` has draft-first release, selected-platform success gates, production audit, checksum verification, SBOM, Linux package validation, and signing preflights.                                                | Good, credential-gated          |
+| Release CI           | `.github/workflows/release.yml` has draft-first release, selected-platform success gates, production audit, checksum verification, SBOM, Linux package validation, and signing preflights. macOS and Windows setup guides are linked from the release docs. | Good, credential-gated          |
 | CI performance       | CI prints `performance:report`, runs `check:performance` after `build:web`, and the report now folds in desktop smoke runtime observability when that artifact exists.                                                                     | Good                            |
 | Auto-update          | `src/main/updater.ts` checks on launch and then every one hour for `darwin` and `win32`. Electron's built-in updater does not support Linux.                                                                                              | Good, docs drift fixed          |
 | Cloudflare           | `update-server/` serves update feeds and `/web/version`; web deploy uses Cloudflare Pages through Wrangler; deploy workflow now uploads a `cloudflare-deploy-validation` artifact with Wrangler logs and live app/update endpoint checks. | Good                            |
@@ -72,11 +72,15 @@ publication.
 
 **P1-2 — macOS and Windows releases must remain signing-gated.**
 
-The release workflow expects macOS Developer ID notarization secrets and Windows
-certificate secrets. Electron's `autoUpdater` supports macOS and Windows; the
-official Electron docs also require signing for macOS automatic updates. Do not
-promote macOS/Windows artifacts until signing verification and packaged smoke
-both pass.
+Repo-side setup is in place, but public macOS/Windows binaries remain
+credential-gated. The release workflow expects macOS Developer ID notarization
+secrets and Windows Authenticode certificate secrets, fails fast when they are
+missing, verifies signatures after each build, and keeps macOS behind the
+packaged smoke gate. `docs/MACOS_SIGNING.md` and `docs/WINDOWS_SIGNING.md`
+document the exact setup paths. Electron's `autoUpdater` supports macOS and
+Windows; the official Electron docs also require signing for macOS automatic
+updates. Do not promote macOS/Windows artifacts until signing verification and
+packaged smoke both pass against a draft release.
 
 **P1-3 — Auto-update needs an end-to-end draft-release validation.**
 
@@ -149,7 +153,7 @@ commercial, not open source, MIT, Apache, or GPL.
 | Web     | `npm run build:web` and Cloudflare Pages deploy.               | Validate first; already the lowest-friction public surface.                          |
 | Linux   | Electron Forge Deb/RPM makers plus CI package validation.      | Validate after web; no signing secrets needed, but no built-in Electron auto-update. |
 | macOS   | Electron Forge ZIP with Developer ID signing and notarization. | Keep blocked until Apple secrets are configured and packaged smoke passes.           |
-| Windows | Electron Forge Squirrel maker with Authenticode signing.       | Keep blocked until certificate strategy and signing secrets are configured.          |
+| Windows | Electron Forge Squirrel maker with Authenticode signing through `windowsSign`. | Keep blocked until certificate strategy and signing secrets are configured.          |
 
 Relevant references:
 
@@ -157,6 +161,7 @@ Relevant references:
 - [Electron Forge macOS signing](https://www.electronforge.io/guides/code-signing/code-signing-macos)
 - [Electron Forge Windows signing](https://www.electronforge.io/guides/code-signing/code-signing-windows)
 - [Apple Developer ID](https://developer.apple.com/developer-id/)
+- [Microsoft Windows code-signing options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)
 - [Cloudflare Wrangler Pages commands](https://developers.cloudflare.com/workers/wrangler/commands/pages/)
 - [Cloudflare Wrangler Workers commands](https://developers.cloudflare.com/workers/wrangler/commands/workers/)
 

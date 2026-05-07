@@ -26,7 +26,8 @@ This repository uses a draft-first manual release process, with the release tag 
 - Apple Developer signing and notarization credentials are still valid
 - macOS signing setup has been checked against
   [`docs/MACOS_SIGNING.md`](./docs/MACOS_SIGNING.md)
-- Windows code-signing certificate is still valid
+- Windows code-signing setup has been checked against
+  [`docs/WINDOWS_SIGNING.md`](./docs/WINDOWS_SIGNING.md)
 
 ## Release steps
 
@@ -80,6 +81,8 @@ This repository uses a draft-first manual release process, with the release tag 
 - Release remains draft until human review is complete
 - macOS signing and notarization evidence is attached or visible in the
   workflow logs for any macOS artifact
+- Windows Authenticode signing evidence is attached or visible in the workflow
+  logs for any Windows artifact
 
 ## Rollback plan
 

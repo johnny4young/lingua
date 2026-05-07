@@ -96,8 +96,9 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toContain('THIRD_PARTY_LICENSE_REPORT.md');
   });
 
-  it('links macOS signing setup and changelog/performance readiness gates', () => {
+  it('links desktop signing setup and changelog/performance readiness gates', () => {
     expect(checklist).toContain('docs/MACOS_SIGNING.md');
+    expect(checklist).toContain('docs/WINDOWS_SIGNING.md');
     expect(checklist).toContain('npm run changelog:draft');
     expect(checklist).toContain('npm run changelog:check');
     expect(checklist).toContain('npm run check:performance');
