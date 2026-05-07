@@ -39,6 +39,7 @@ Mirrors the authoritative `Status` column in
 | Iter 15 | [`RL-069`](./ROADMAP.md) | Slice 1 Shipped (2026-05-05) | DevUtils-class productivity layer — Slice 1 foundation: Developer Utilities opens with Cmd/Ctrl+K, utility-copy-output (Cmd+Shift+C) + utility-replace-clipboard (Cmd+Alt+R) shortcuts under a new `utilities` group, fuzzy tool search via new `fuzzyMatch` helper (replaces substring filter, walks aliases on 15 panels), output-provider plumbing wired in 5 panels (JSON, Base64, URL, JWT, UUID). Slice 2 = detect + Apply button; Slice 3 = clipboard-on-focus + history + favorites. |
 | Iter 16 | [`RL-091`](./ROADMAP.md) | Shipped (2026-05-06) | License + update server observability + runbooks — structured logging with sensitive-key redaction across both Cloudflare Workers, error classifier (client / server / upstream / storage), `/health/ready` readiness probes (D1, KV, Polar, Resend on license-server; GitHub on update-server), 5 operator runbooks under `docs/runbooks/`, and the metrics + alerts + dashboards spec at `docs/SERVER_OBSERVABILITY.md`. |
 | Iter 17 | [`RL-084`](./ROADMAP.md) | Shipped (2026-05-06) | Local plugin manifest hardening — shared validator at `src/shared/plugins/manifest.ts` (path-safety regex + strict schema + bundled-runtime allowlist), new `unknown` plugin status distinct from `unavailable`, distinct diagnostics for invalid / incompatible / disabled / unknown / unavailable manifests, and full UI test coverage at `tests/components/Settings/PluginsSection.test.tsx`. |
+| Iter 18 | [`RL-087`](./ROADMAP.md) | Shipped (2026-05-06) | Watcher reliability + filesystem edge cases — Shipped on 2026-05-06 — see RL-087. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -59,9 +60,11 @@ Value-per-day priority. The full reasoning is in
    `RL-085`, `RL-092`, and `RL-081` are all `Done` (RL-081 closed
    2026-05-05 once the live `linguacode.dev` surface aligned with the
    desktop entitlement copy).
-4. **Runtime/platform surface hardening** — `RL-091` closed 2026-05-06
-   (server observability + runbooks); `RL-084` closed 2026-05-06 (plugin
-   manifest hardening). `RL-087` (watcher reliability) remains in this lane.
+4. **Runtime/platform surface hardening** — closed in full. `RL-091`
+   closed 2026-05-06 (server observability + runbooks); `RL-084` closed
+   2026-05-06 (plugin manifest hardening); `RL-087` closed 2026-05-06
+   (watcher lifecycle audit + typed failure diagnostics + ignored-paths
+   filter + USAGE.md platform-limitations section). Lane done.
 5. **Product quality and supportability** — `RL-086`, `RL-088`,
    `RL-089`, and `RL-090`.
 6. **Utilities polish** — `RL-069` Slice 1 shipped 2026-05-05 (productivity

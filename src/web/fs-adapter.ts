@@ -574,7 +574,10 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return webFsAdapter.write(rootId, relativePath, '');
   },
 
-  watchStart: async (_rootId: string, _relativePath?: string): Promise<string> => {
+  watchStart: async (
+    _rootId: string,
+    _relativePath?: string,
+  ): Promise<string | { ok: false; diagnostic: WatcherDiagnostic }> => {
     return 'web-noop-watcher';
   },
 
@@ -584,6 +587,21 @@ export const webFsAdapter: LinguaAPI['fs'] = {
 
   onChanged: (_callback: (event: FsChangedEvent) => void): (() => void) => {
     // No-op on web — return a no-op unsubscribe function.
+    return () => {};
+  },
+
+  // RL-087 — web has no native watcher, so failure / degraded events
+  // never fire. The subscription methods exist to keep the renderer
+  // contract uniform across platforms (web, desktop, future targets).
+  onWatcherFailed: (
+    _callback: (diagnostic: WatcherDiagnostic) => void,
+  ): (() => void) => {
+    return () => {};
+  },
+
+  onWatcherDegraded: (
+    _callback: (diagnostic: WatcherDiagnostic) => void,
+  ): (() => void) => {
     return () => {};
   },
 };

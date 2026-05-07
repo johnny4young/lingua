@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { isIgnoredPath } from '../../shared/fs/ignoredPaths';
 import { useProjectIndexStore } from '../stores/projectIndexStore';
 import { useProjectStore } from '../stores/projectStore';
 
@@ -42,6 +43,15 @@ export function useProjectIndexSync(): void {
     const unsubscribeWatch = window.lingua?.fs?.onChanged?.((event) => {
       const { currentProject } = useProjectStore.getState();
       if (!currentProject || event.rootId !== currentProject.rootId) {
+        return;
+      }
+
+      // RL-087 — drop events from ignored directories before the
+      // debounce window even starts. A 100-file burst inside
+      // `node_modules/.cache/` would otherwise schedule a costly
+      // re-index. The shared module owns the prefix list so
+      // future search/index features inherit the same policy.
+      if (event.relativePath && isIgnoredPath(event.relativePath)) {
         return;
       }
 

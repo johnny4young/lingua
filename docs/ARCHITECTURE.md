@@ -105,8 +105,8 @@ sequenceDiagram
     Store->>Preload: watchStart(rootId, '')
     Preload->>Main: fs:watch-start
     Main->>Native: fs.watch(root, recursive)
-    Main-->>Preload: watchId
-    Preload-->>Store: watchId
+    Main-->>Preload: watchId or typed watcher diagnostic
+    Preload-->>Store: watchId or null
 
     Store-->>UI: currentProject + nodes + watchId
 ```
@@ -142,6 +142,7 @@ It does five important things:
 Technical reason for doing all of this in one action:
 
 - it keeps “active root”, “active tree”, and “active watcher” aligned as one atomic state transition
+- if watcher registration fails, the project still opens with `watchId = null` while a typed status notice explains that automatic refresh is unavailable
 
 #### `refreshTree()`
 
@@ -252,26 +253,30 @@ Most file operations use `invoke/handle` because they are command-like and need 
 | `rename(rootId, oldRelativePath, newName)` | `fs:rename` | validated rename inside the same parent      |
 | `mkdir(rootId, relativePath)`   | `fs:mkdir`            | safe directory creation                            |
 | `touch(rootId, relativePath)`   | `fs:touch`            | create empty file                                  |
-| `watchStart(rootId, relativePath)` | `fs:watch-start`   | create native watcher with an opaque watchId       |
+| `watchStart(rootId, relativePath)` | `fs:watch-start`   | create native watcher with an opaque watchId, or return a typed watcher diagnostic |
 | `watchStop(watchId)`            | `fs:watch-stop`       | close native watcher                               |
 
 ### Event-style IPC
 
-The one push-style channel in this architecture is:
+The push-style filesystem channels in this architecture are:
 
 - `fs:changed`
+- `fs:watcher-failed`
+- `fs:watcher-degraded`
 
 Flow:
 
 1. The main process listens with `fs.watch(...)`.
 2. When Node emits an event, the main process sends `fs:changed` back to the originating renderer with `{ rootId, relativePath, eventType, filename }`.
-3. The preload bridge exposes that as `window.lingua.fs.onChanged(callback)`.
-4. The renderer hook decides whether to refresh the active project tree.
+3. If watcher registration fails, the main process sends `fs:watcher-failed` with a typed diagnostic.
+4. If the watcher reports sustained null-filename bursts, the main process sends `fs:watcher-degraded`.
+5. The preload bridge exposes these as `window.lingua.fs.onChanged(callback)`, `onWatcherFailed(callback)`, and `onWatcherDegraded(callback)`.
+6. Renderer hooks decide whether to refresh the active project tree or surface a status notice.
 
 This split is important:
 
 - `invoke/handle` is used for explicit user commands
-- `onChanged` is used for asynchronous external changes
+- event subscriptions are used for asynchronous external changes and watcher-health diagnostics
 
 ### Security and safety layer
 
@@ -318,17 +323,18 @@ The desktop watch flow is:
 6. The renderer calls `refreshTree()`.
 7. `refreshTree()` rebuilds the tree while preserving expanded paths.
 
-### Why the watch ID is the project root path
+### Why watch IDs are opaque
 
-The current implementation returns the watched root path itself as the watcher ID.
+The current implementation returns an opaque UUID as the watcher ID.
 
 That works because:
 
 - the app only needs one watcher per project root
-- watchers are internally keyed by directory path in the main-process `Map`
+- watchers are internally keyed by `(rootId, resolved path)` in the main-process `Map`
 - stopping a watcher conceptually means “stop watching this root”
+- the renderer does not retain absolute filesystem paths as watcher IDs
 
-This is intentionally simple. It is not trying to model multiple independent watchers under the same root.
+This is intentionally simple. It is not trying to model multiple independent watchers under the same root, and it keeps local paths out of renderer-owned watcher state.
 
 ### Why watch events trigger a full refresh instead of patching a node
 

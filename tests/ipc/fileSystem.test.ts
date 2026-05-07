@@ -35,6 +35,10 @@ vi.mock('electron', () => ({
     showMessageBox,
   },
   BrowserWindow: { fromWebContents: vi.fn() },
+  // RL-087 — fileSystem.ts now installs a `before-quit` listener via
+  // `app.on(...)` for watcher cleanup. The handler is idempotent, so
+  // a noop spy here is sufficient for this suite.
+  app: { on: vi.fn() },
 }));
 
 import { registerFileSystemHandlers } from '../../src/main/ipc/fileSystem';

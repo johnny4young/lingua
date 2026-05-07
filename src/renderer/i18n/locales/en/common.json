@@ -1403,5 +1403,10 @@
   "utilities.tool.sqlFormatter.error.empty": "Paste a SQL statement above to see it formatted.",
   "utilities.tool.sqlFormatter.error.tooLarge": "Input exceeds the {{limitKb}} KB limit for formatting.",
   "utilities.tool.sqlFormatter.error.parseFailure": "Could not parse the SQL input.",
-  "utilities.tool.sqlFormatter.error.loadFailure": "Failed to load the SQL formatter module."
+  "utilities.tool.sqlFormatter.error.loadFailure": "Failed to load the SQL formatter module.",
+  "explorer.watcher.failed.permission-denied": "File watcher could not start: permission denied. The file tree may not refresh automatically.",
+  "explorer.watcher.failed.system-limit": "File watcher hit a system limit. The file tree may not refresh until you restart the app.",
+  "explorer.watcher.failed.path-not-found": "File watcher target was not found. The file tree may be stale.",
+  "explorer.watcher.failed.unknown": "File watcher encountered an error. The file tree may not refresh automatically.",
+  "explorer.watcher.degraded": "File watching is degraded. Refresh the file tree manually if it looks stale."
 }

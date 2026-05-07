@@ -5487,7 +5487,7 @@ ACs cumplidos:
 ### RL-087 Watcher reliability and filesystem edge-case suite
 
 - Priority: `P2`
-- Status: `Planned`
+- Status: `Done`
 - Readiness: `Implementation-ready from the 2026-05-02 review. Important because project file watching is core UX and cross-platform watcher behavior is intentionally treated as coarse invalidation.`
 - Current gap:
   - The architecture correctly treats watcher events as invalidation signals, but the edge-case suite is still thin.
@@ -5506,6 +5506,51 @@ ACs cumplidos:
   - Platform-specific limitations are documented.
 - Dependencies:
   - RL-077
+
+#### Status Update — 2026-05-06 (closes RL-087)
+
+Shipped in a single staged diff. All five acceptance criteria covered:
+
+- **Watcher lifecycle audit** — new `tests/main/watcherLifecycle.test.ts`
+  (14 cases) drives open + close + dedup + project-switch + degraded-burst
+  + `before-quit` scenarios against a mocked `node:fs.watch`. The lifecycle module
+  exposes `stopAllWatchers()` (purges the registry), an idempotent
+  `ensureBeforeQuitCleanup()` lazy installer, and two test-only resets
+  (`_resetBeforeQuitInstallStateForTests`, `_resetWatcherBurstTrackerForTests`).
+- **Burst-handling boundary** — new `src/shared/fs/ignoredPaths.ts`
+  with `IGNORED_PATH_PREFIXES` (node_modules, .git, .vite, dist, out,
+  .next, build, __pycache__, .pytest_cache) and `isIgnoredPath()` that
+  normalizes Windows backslashes. Applied at the renderer
+  `useProjectIndexSync` boundary so 50-event bursts under
+  `node_modules/` schedule zero re-index work, and mixed bursts only
+  rebuild for the visible slice. Covered by 9 unit tests + 8 hook
+  integration tests.
+- **Typed registration-failure diagnostics** — new
+  `src/shared/fs/watcherDiagnostic.ts` classifies errno codes into
+  `permission-denied | system-limit | path-not-found | unknown`. Main
+  wraps `fs.watch()` in try/catch, returns `{ ok: false, diagnostic }`
+  on failure, and emits `fs:watcher-failed` over IPC. Renderer's new
+  `useWatcherDiagnosticsSync` hook subscribes and pushes a sticky
+  `tone: 'error'` status notice via `useUIStore.pushStatusNotice` with
+  the kind-specific i18n key. The `fs:watcher-degraded` channel
+  surfaces a `tone: 'warning'` notice when null-filename bursts cross
+  the 20-event / 5-second threshold (Linux inotify overflow).
+- **Cleanup on app quit** — `app.on('before-quit', stopAllWatchers)`
+  installed lazily on first `registerFileSystemHandlers()` call,
+  idempotent across hot-reload.
+- **Platform limitations doc** — new `docs/USAGE.md` "File watching"
+  section covering macOS/Windows native vs Linux inotify, FD-limit
+  exhaustion symptoms, and the documented manual-refresh fallback.
+
+i18n: 5 new keys per locale (en + es with neutral LatAm tuteo) for the
+4 failure-kind variants + 1 degraded variant. Web `fs-adapter` exposes
+`onWatcherFailed` / `onWatcherDegraded` as no-op subscriptions so the
+renderer contract is uniform across targets.
+
+Test count: 14 (main lifecycle) + 10 (renderer hook) + 8 (index sync
+filter) + 11 (classifier) + 9 (ignored paths) = 52 new test cases
+across 5 files. Existing `tests/ipc/fileSystem.test.ts` happy-path
+coverage retained.
 
 ### RL-088 Accessibility QA hardening
 

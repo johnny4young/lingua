@@ -1403,5 +1403,10 @@
   "utilities.tool.sqlFormatter.error.empty": "Pega una sentencia SQL arriba para verla formateada.",
   "utilities.tool.sqlFormatter.error.tooLarge": "La entrada supera el límite de {{limitKb}} KB para el formateo.",
   "utilities.tool.sqlFormatter.error.parseFailure": "No se pudo parsear el SQL ingresado.",
-  "utilities.tool.sqlFormatter.error.loadFailure": "Falló la carga del módulo formateador SQL."
+  "utilities.tool.sqlFormatter.error.loadFailure": "Falló la carga del módulo formateador SQL.",
+  "explorer.watcher.failed.permission-denied": "El observador de archivos no pudo iniciar: permiso denegado. El árbol de archivos puede no actualizarse automáticamente.",
+  "explorer.watcher.failed.system-limit": "El observador de archivos alcanzó un límite del sistema. El árbol de archivos puede no actualizarse hasta que reinicies la app.",
+  "explorer.watcher.failed.path-not-found": "No se encontró la ruta del observador de archivos. El árbol de archivos puede estar desactualizado.",
+  "explorer.watcher.failed.unknown": "El observador de archivos encontró un error. El árbol de archivos puede no actualizarse automáticamente.",
+  "explorer.watcher.degraded": "El observador de archivos está degradado. Actualiza el árbol manualmente si se ve desactualizado."
 }
