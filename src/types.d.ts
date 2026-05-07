@@ -213,6 +213,13 @@ interface DesktopSmokeConfig {
   enabled: boolean;
   artifactDir: string | null;
   /**
+   * Epoch milliseconds captured by the smoke launcher immediately
+   * before spawning Electron. Present only when the harness controls
+   * the process launch, so packaged/local runs can estimate cold-start
+   * time to the renderer smoke hook.
+   */
+  launchedAtMs?: number;
+  /**
    * RL-083 Slice 1 — true when the smoke harness is running with
    * `LINGUA_DESKTOP_SMOKE_OFFLINE=1`. The renderer adds a final
    * synthetic case that asserts no remote URL was attempted.

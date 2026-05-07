@@ -241,6 +241,7 @@ async function main() {
       process.exit(1);
     }
     console.log(`[desktop-smoke] packaged mode: launching ${binary}`);
+    const launchedAtMs = Date.now();
     child = spawn(
       binary,
       [
@@ -254,6 +255,7 @@ async function main() {
           ...process.env,
           LINGUA_DESKTOP_SMOKE: '1',
           LINGUA_SMOKE_ARTIFACT_DIR: artifactDir,
+          LINGUA_SMOKE_LAUNCHED_AT_MS: String(launchedAtMs),
           LINGUA_SMOKE_SECRET: '__lingua_smoke_secret__',
           LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET: '1',
           ...(offlineMode ? { LINGUA_DESKTOP_SMOKE_OFFLINE: '1' } : {}),
@@ -261,6 +263,7 @@ async function main() {
       },
     );
   } else {
+    const launchedAtMs = Date.now();
     child = spawn(
       process.execPath,
       [
@@ -281,6 +284,7 @@ async function main() {
               : process.env.LINGUA_ELECTRON_LAUNCHER,
           LINGUA_DESKTOP_SMOKE: '1',
           LINGUA_SMOKE_ARTIFACT_DIR: artifactDir,
+          LINGUA_SMOKE_LAUNCHED_AT_MS: String(launchedAtMs),
           // RL-079 — sentinel secret seeded into Electron's process.env.
           // The go-env-isolation / rust-env-isolation smoke cases run a
           // user-toolchain subprocess that prints the value of this

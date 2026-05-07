@@ -58,6 +58,7 @@ describe('desktop smoke IPC handlers', () => {
     listeners.clear();
     process.env.LINGUA_DESKTOP_SMOKE = '1';
     process.env.LINGUA_SMOKE_ARTIFACT_DIR = '/tmp/lingua-smoke';
+    delete process.env.LINGUA_SMOKE_LAUNCHED_AT_MS;
   });
 
   afterEach(() => {
@@ -169,6 +170,19 @@ describe('desktop smoke IPC handlers', () => {
     } finally {
       delete process.env.LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET;
     }
+  });
+
+  it('returns the launcher timestamp when the smoke harness provides it', async () => {
+    process.env.LINGUA_SMOKE_LAUNCHED_AT_MS = '1770000000000';
+
+    const { registerDesktopSmokeHandlers } = await import('#src/main/ipc/desktopSmoke');
+    registerDesktopSmokeHandlers();
+
+    const getConfig = handlers.get('desktop-smoke:get-config');
+    expect(await getConfig?.()).toMatchObject({
+      enabled: true,
+      launchedAtMs: 1770000000000,
+    });
   });
 
   it('returns memory metrics when smoke mode is enabled', async () => {

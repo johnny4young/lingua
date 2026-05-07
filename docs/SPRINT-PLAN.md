@@ -272,7 +272,7 @@ Shipped on 2026-05-05 — see [`RL-063`](./PLAN.md#rl-063-download-landing-page-
 
 ## 16. Iter 20 / RL-086 — Performance budgets and runtime observability
 
-Shipped on 2026-05-07 — see [`RL-086`](./PLAN.md#rl-086-performance-budgets-and-bundleruntime-observability).
+Shipped on 2026-05-07 — see [`RL-086`](./PLAN.md#rl-086-performance-budgets-and-bundleruntime-observability). Public-readiness follow-up folded desktop smoke runtime metrics into `performance:report` as `runtimeObservability`.
 
 ---
 

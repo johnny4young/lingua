@@ -5506,6 +5506,18 @@ the blocking local/release gate is `npm run check:performance`.
 `docs/PERFORMANCE.md` documents the report categories, budget policy,
 baseline refresh flow, investigation path, and the manual test checklist.
 
+#### Status Update — 2026-05-07 (public-readiness follow-up)
+
+The public-readiness hardening pass made the startup/runtime metrics visible in
+the central performance report instead of leaving them only in the desktop
+smoke folder. `desktop-smoke-performance.json` now includes
+launcher-to-smoke-ready and first editor interaction timings alongside the
+existing total smoke wall time, first JS / TS / Python run timings, and memory
+snapshots. `performance:report` ingests that artifact when present and writes a
+normalized `runtimeObservability` section to
+`output/performance/performance-report.{json,md}`; web-only CI runs keep the
+section visible as unavailable until a smoke artifact exists.
+
 ### RL-087 Watcher reliability and filesystem edge-case suite
 
 - Priority: `P2`
