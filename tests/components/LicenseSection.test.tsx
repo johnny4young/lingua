@@ -80,7 +80,7 @@ describe('LicenseSection', () => {
       'token.value'
     );
     render(<LicenseSection />);
-    expect(screen.getByTestId('license-status-pill').textContent).toContain('Active — Pro');
+    expect(screen.getByTestId('license-status-pill').textContent).toContain('Active — Monthly');
     expect(screen.getByTestId('license-clear')).toBeTruthy();
   });
 

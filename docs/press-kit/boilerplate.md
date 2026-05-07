@@ -29,7 +29,7 @@ JWT decoder, color converter, diff viewer) are built in, so the app
 replaces the half-dozen browser tabs that usually sit alongside a code
 runner. Snippets, project indexing, quick-open, project search, and
 customizable shortcuts keep the workflow fast. Public tiers are Free,
-Pro (monthly), Pro Lifetime, Team, and Education, with paid access
+Monthly, Pro, and Education, with paid access
 unlocked via a signed license key verified offline — no phone-home
 required. Education access is free for verified students and teachers.
 The repository is source-available for evaluation and contributor
@@ -65,7 +65,7 @@ vienen incluidas, así la app reemplaza las media docena de pestañas del
 navegador que suelen acompañar a un ejecutor de código. Snippets,
 indexación de proyecto, apertura rápida, búsqueda de proyecto y atajos
 de teclado personalizables mantienen el flujo rápido. Los tiers públicos
-son Free, Pro (mensual), Pro Lifetime, Team y Educativa, con acceso de
+son Free, Mensual, Pro y Educativa, con acceso de
 pago activado por una licencia firmada verificada offline — sin
 phone-home. El acceso educativo es gratuito para estudiantes y
 profesores verificados. El repositorio es source-available para

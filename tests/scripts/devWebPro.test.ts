@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   WEB_DEV_PRO_PORT,
+  buildViteDevServerEnv,
   buildViteDevServerArgs,
   resolveVitePort,
 } from '../../scripts/dev-web-pro.mjs';
@@ -66,6 +67,17 @@ describe('scripts/dev-web-pro.mjs', () => {
       '127.0.0.1',
       '--open',
     ]);
+  });
+
+  it('forces the license server off so dev tokens are local-verify-only', () => {
+    const env = buildViteDevServerEnv('{"kty":"OKP"}', {
+      VITE_LINGUA_LICENSE_SERVER_URL: 'https://licenses.linguacode.dev',
+      OTHER_ENV: 'kept',
+    });
+
+    expect(env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK).toBe('{"kty":"OKP"}');
+    expect(env.VITE_LINGUA_LICENSE_SERVER_URL).toBe('');
+    expect(env.OTHER_ENV).toBe('kept');
   });
 
   it('reports the overridden vite port in the launch banner', () => {

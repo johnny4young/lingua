@@ -121,7 +121,7 @@ exports[`email templates render against fixture vars > recoveryToken.html 1`] = 
         <p><a class="button" href="lingua://license?token=eyJsaWNlbnNlSWQiOiJsaWNfMSJ9.AAAAAAAAAAAAAAAAAAAAAA">Activate Pro</a></p>
         <p>Or paste this token manually:</p>
         <div class="token-box">eyJsaWNlbnNlSWQiOiJsaWNfMSJ9.AAAAAAAAAAAAAAAAAAAAAA</div>
-        <p>Plan: <strong>Lingua Pro Lifetime</strong>. Valid until: <strong>May 13, 2026</strong>.</p>
+        <p>Plan: <strong>Lingua Pro</strong>. Valid until: <strong>May 13, 2026</strong>.</p>
         <p class="muted">You are receiving this email because someone confirmed a recovery request from student@stanford.edu. If this was not you, contact support to investigate.</p>
       </div>
     </div>

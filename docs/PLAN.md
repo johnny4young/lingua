@@ -2508,32 +2508,31 @@ must be replaced or redirected.
 
 ### Pricing model (live on linguacode.dev as of 2026-05-05)
 
-**Strategy: Freemium with Pro (subscription) + Pro Lifetime + Team + Education**
+**Strategy: Freemium with Monthly + Pro + Education**
 
 Rationale:
 - Product is desktop-first and local-first; the license-server backs
   activation, device limits, 14-day trials, and renewal refresh.
-- A monthly Pro plan funds ongoing maintenance and support without forcing
+- A Monthly plan funds ongoing maintenance and support without forcing
   every serious user into a high up-front price.
-- A Pro Lifetime one-time purchase fits the desktop-tool buyer who
-  prefers no recurring bill and includes every future update.
-- Team adds seat management and invoicing for agencies and small teams.
+- A Pro one-time purchase fits the desktop-tool buyer who prefers no
+  recurring bill while keeping the public tier name simple.
 - Education stays as a first-class public tier because the student /
   teacher audience is core to Lingua's positioning, and is now in-app
   only (no `/education` landing page).
 
-The public checkout surface lists Free, Pro, Pro Lifetime, Team, and
-Education. Trial and Recovery still mint temporary/support tokens
-internally, but they are not public pricing tiers. Backend slugs map
-1:1 to the live products: `lingua_monthly` (Pro), `lingua_lifetime`
-(Pro Lifetime), `lingua_team` (Team).
+The public checkout surface lists Free, Monthly, Pro, and Education.
+Trial and Recovery still mint temporary/support tokens internally, but
+they are not public pricing tiers. Backend slugs remain stable for
+token/data compatibility: `lingua_monthly` backs Monthly,
+`lingua_lifetime` backs Pro, and legacy `lingua_team` support remains
+internal-only unless a future enterprise tier is explicitly approved.
 
 | Tier | Price | Polar.sh product | Includes |
 |------|-------|------------------|----------|
 | **Lingua Free** | $0 forever | n/a (no purchase needed) | JS/TS/Python, 1 tab, 5 snippets, editor, built-in developer utilities, keyboard shortcut editor, theme preset import/export, local-first shell |
-| **Lingua Pro** | $5 / month | `lingua_monthly` | Full paid entitlement set while the subscription is active: unlimited tabs/snippets, Go/Rust, format-on-save for supported languages, execution history, and paid feature gates. Cancel anytime; every update while subscribed. |
-| **Lingua Pro Lifetime** | $59 one-time | `lingua_lifetime` | Same paid entitlement set as Pro, perpetual access, every future update included, priority email support. No recurring bill. |
-| **Lingua Team** | $3 / seat / month | `lingua_team` | Everything in Pro Lifetime plus seat management and invoicing. |
+| **Lingua Monthly** | $5 / month | `lingua_monthly` | Full paid entitlement set while the subscription is active: unlimited tabs/snippets, Go/Rust, format-on-save for supported languages, execution history, and paid feature gates. Cancel anytime; every update while subscribed. |
+| **Lingua Pro** | $59 one-time | `lingua_lifetime` | Same paid entitlement set as Monthly without a recurring subscription. |
 | **Lingua Education** | $0 / year (renewable) | n/a (in-app `/education/start` + `/education/renew`) | Full paid entitlements for verified students/educators. Validation: any `.edu` plus the explicit allow-list `.ac.uk`, `.edu.mx`, `.edu.au`, `.edu.ca`, `.edu.br`, `.ac.in` (see `license-server/src/lib/educationEmail.ts`). In-app flow only — Settings → License → Educational license. Same hard-3 device limit + remove flow as paid tiers. |
 
 Premium-only features:
@@ -2679,13 +2678,13 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - `wrangler.toml` declares the D1 binding with a placeholder `database_id` that the maintainer fills in via `wrangler d1 create lingua-licenses` (documented in `license-server/README.md`).
   - Vitest suite covers 40 cases across health, trials, licenses, webhooks, migration constraints, method mismatches, and unknown-route fallthrough. Runs against `app.request(...)` directly (no miniflare) — Slice 2 will adopt `@cloudflare/vitest-pool-workers` when D1 + KV emulation lands.
   - Maintainer-side prerequisites for Slice 2 (Polar account + sandbox products, Resend domain verification, Cloudflare D1 provisioning, secrets, custom domain `licenses.linguacode.dev`) are listed in `license-server/README.md`.
-- 2026-04-25 update, amended 2026-05-05:
-  - The public pricing tiers chosen for launch are Free ($0), Pro ($5/month, `lingua_monthly`), Pro Lifetime ($59 one-time, `lingua_lifetime`), Team ($3/seat/month, `lingua_team`), and Education ($0/year renewable, in-app only). Trial is a separate internal `tier: 'trial'` minted by `/trials/start`, not a public pricing tier.
+- 2026-04-25 update, amended 2026-05-07:
+  - The public pricing tiers chosen for launch are Free ($0), Monthly ($5/month, `lingua_monthly`), Pro ($59 one-time, `lingua_lifetime`), and Education ($0/year renewable, in-app only). Trial is a separate internal `tier: 'trial'` minted by `/trials/start`, not a public pricing tier. The `lingua_team` slug remains a legacy internal compatibility path, not a public tier.
   - The implementation lives in a new sibling Cloudflare Worker `license-server/`, not inside `update-server/`. Decision and trade-offs captured in `docs/LICENSING_ADR.md`.
   - Email delivery uses Resend (already configured by the maintainer). Server consumes `RESEND_API_KEY` as a Cloudflare secret.
   - The license-server is the source of truth for max-3-devices. Self-service device removal is done by the renderer with the license token as auth — no separate user account in Phase 1.
-- Scope (rewritten 2026-04-25; education SKU added 2026-04-26; public tier names + prices amended 2026-05-05):
-  - Polar products: `lingua_monthly` (Pro subscription, $5/month), `lingua_lifetime` (Pro Lifetime, $59 one-time), and `lingua_team` (Team, $3/seat/month).
+- Scope (rewritten 2026-04-25; education SKU added 2026-04-26; public tier names + prices amended 2026-05-07):
+  - Polar products: `lingua_monthly` (Monthly subscription, $5/month) and `lingua_lifetime` (Pro, $59 one-time). Legacy `lingua_team` webhook/token handling stays in place for compatibility but is not a public pricing product.
   - Server-minted paths (NO Polar product, NO checkout): `lingua_trial` (14d internal onboarding flow) and `lingua_education` (1yr public Education tier, renewable on educational email re-validation).
   - Sibling Cloudflare Worker `license-server/` deployed at `licenses.linguacode.dev` with D1 persistence (`licenses`, `devices`, `trials`, `educations` tables — full schema in `docs/LICENSING_ADR.md`). The `educations` table mirrors `trials` (UNIQUE email + UNIQUE device_id) and lands in Slice 4 alongside the endpoints.
   - HTTP endpoints: `POST /webhooks/polar`, `POST /trials/start`, `POST /education/start`, `POST /education/renew`, `POST /licenses/activate`, `GET /licenses/status` (returns `refreshedToken` post-renewal so Monthly stays offline-friendly), `POST /licenses/devices/remove`, `GET /health`.
@@ -3553,7 +3552,7 @@ ROADMAP §6 archive count 48 → 52.
 - Status: `Partial`
 - Readiness: `Copy + press kit scaffold landed on 2026-04-19; 60-second demo, production screenshots, and the linguacode.dev/press ZIP still depend on RL-063`
 - Current progress:
-  - `docs/press-kit/` ships `README.md` + `boilerplate.md` (25/50/150 words, en + es) + `pricing-one-pager.md` (four-tier matrix + education, en + es) + `launch-copy.md` (Show HN + Product Hunt + r/golang + r/rust + r/Python drafts) + `founder-bio.md` (40/100 words, en + es)
+  - `docs/press-kit/` ships `README.md` + `boilerplate.md` (25/50/150 words, en + es) + `pricing-one-pager.md` (Free, Monthly, Pro, Education matrix, en + es) + `launch-copy.md` (Show HN + Product Hunt + r/golang + r/rust + r/Python drafts) + `founder-bio.md` (40/100 words, en + es)
   - Every claim cross-checked against `PLAN.md` Done items; no feature outruns implementation, no "MIT" / "open-source" claim survives
   - Guard test `tests/docs/pressKit.test.ts` pins file presence, en + es parity, channel section coverage, pricing tiers, and the no-MIT-claim rule
   - Remaining: demo video recording, production screenshots, and the downloadable ZIP that hangs off `linguacode.dev/press` (blocked on RL-063)
@@ -3576,7 +3575,7 @@ ROADMAP §6 archive count 48 → 52.
 
 Both ACs cumplidos:
 
-- Phase 2 copy is finalized (commit `8887e22` — `tests/docs/pressKit.test.ts` already pins en + es parity, the no-MIT-claim rule, the four-tier pricing matrix, and the channel section coverage).
+- Phase 2 copy is finalized (commit `8887e22`, pricing copy refreshed 2026-05-07 — `tests/docs/pressKit.test.ts` already pins en + es parity, the no-MIT-claim rule, the Free / Monthly / Pro / Education pricing matrix, and the channel section coverage).
 - The press kit ZIP is downloadable from https://linguacode.dev/press/lingua-press-kit.zip. The marketing repo's `scripts/build-press-kit-zip.mjs` runs as a `prebuild` step and bundles the vendored markdown copies (boilerplate, founder-bio, launch-copy, pricing-one-pager, README) into the ZIP that ships with the static deploy. The 60-second demo video and production screenshots remain optional polish items tracked outside RL-064.
 
 Closure follows from RL-063 ship.

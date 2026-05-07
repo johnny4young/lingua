@@ -48,10 +48,10 @@ Shared machinery:
 ## Pricing
 
 Free tier runs JavaScript, TypeScript, and Python with a single open
-tab and up to 5 saved snippets. Pro is a $5/month subscription. Pro
-Lifetime ($59 once) and Team ($3/seat/month) are also available.
-14-day trial without a credit card. Education is free for verified
-students and educators.
+tab and up to 5 saved snippets. Monthly is a $5/month subscription.
+Pro is $59 once for the same paid entitlements without a recurring
+subscription. 14-day trial without a credit card. Education is free
+for verified students and educators.
 
 ## Download
 

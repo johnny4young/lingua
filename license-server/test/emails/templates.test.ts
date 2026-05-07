@@ -28,7 +28,7 @@ const FIXTURE_ISSUED_TO = 'student@stanford.edu';
 const FIXTURE_DEEP_LINK = 'lingua://license?token=eyJsaWNlbnNlSWQiOiJsaWNfMSJ9.AAAAAAAAAAAAAAAAAAAAAA';
 const FIXTURE_CONFIRM_LINK = 'https://licenses.linguacode.dev/education/confirm?confirm=11111111-2222-3333-4444-555555555555';
 const FIXTURE_EXPIRES_ON = 'May 13, 2026';
-const FIXTURE_TIER_LABEL = 'Lingua Pro Lifetime';
+const FIXTURE_TIER_LABEL = 'Lingua Pro';
 
 describe('email templates render against fixture vars', () => {
   it('trial.html', () => {
