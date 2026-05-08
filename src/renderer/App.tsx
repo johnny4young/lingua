@@ -16,6 +16,7 @@ import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { isFactoryMode, isSafeMode } from './utils/safeBoot';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
 import { CHANGELOG_ENTRIES } from './data/changelog';
 import {
@@ -49,6 +50,28 @@ const DeveloperUtilitiesModal = lazy(async () => {
   const module = await import('./components/DeveloperUtilities');
   return { default: module.DeveloperUtilitiesModal };
 });
+
+function FactoryRecoveryNotice() {
+  const { t } = useTranslation();
+  const [visible] = useState(() => isFactoryMode());
+
+  if (!visible) return null;
+
+  return (
+    <aside
+      role="status"
+      data-testid="factory-recovery-notice"
+      className="fixed left-1/2 top-4 z-[70] w-[min(42rem,calc(100vw-2rem))] -translate-x-1/2 rounded-[1rem] border border-warning/60 bg-background-elevated px-4 py-3 shadow-2xl shadow-black/30"
+    >
+      <p className="text-sm font-semibold text-foreground">
+        {t('recovery.factoryNotice.title')}
+      </p>
+      <p className="mt-1 text-sm leading-6 text-muted">
+        {t('recovery.factoryNotice.body')}
+      </p>
+    </aside>
+  );
+}
 
 function AppChrome({
   overlay,
@@ -89,12 +112,18 @@ function AppChrome({
   const hasHandledWhatsNewRef = useRef(false);
   const hasHandledAutoTourRef = useRef(false);
 
-  // Restore session on first mount if setting is enabled
+  // Restore session on first mount if setting is enabled.
+  // RL-090 — safe mode skips session restore so a corrupted persisted
+  // tab state cannot keep the renderer in a crash loop.
   useEffect(() => {
     if (hasRestoredSessionRef.current || smokeEnabled) {
       return;
     }
     hasRestoredSessionRef.current = true;
+
+    if (isSafeMode()) {
+      return;
+    }
 
     const { restoreSession } = useSettingsStore.getState();
     if (restoreSession) {
@@ -128,6 +157,10 @@ function AppChrome({
   }, [smokeEnabled]);
 
   useEffect(() => {
+    // RL-090 — safe mode skips plugin discovery so a broken plugin
+    // manifest cannot keep the renderer in a crash loop. The user
+    // can re-enable plugins by reloading without `?safe-mode=1`.
+    if (isSafeMode()) return;
     void initializePlugins();
   }, [initializePlugins]);
 
@@ -356,6 +389,7 @@ function AppChrome({
       {overlay === 'keyboard-shortcuts' && (
         <KeyboardShortcutsModal onClose={closeOverlay} />
       )}
+      <FactoryRecoveryNotice />
       <StatusNoticeBanner />
       <FirstRunConsentModal />
       <NativeExecutionWarning />
@@ -400,7 +434,7 @@ export function App() {
   };
 
   return (
-    <ErrorBoundary scope="app" regionName="Lingua">
+    <ErrorBoundary region="shell">
       <GuidedTourProvider
         controls={{
           closeOverlay,

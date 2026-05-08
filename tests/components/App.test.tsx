@@ -222,6 +222,7 @@ describe('App', () => {
     mockEditorState.activeTabId = 'tab-1';
     mockEditorState.tabs = [];
     mockEditorState.saveTabById.mockResolvedValue(true);
+    localStorage.clear();
 
     Object.defineProperty(window, 'lingua', {
       value: {
@@ -382,6 +383,9 @@ describe('App', () => {
   // WebUpdateBanner. The native autoupdater handles updates.
   it('does NOT mount the WebUpdateBanner on desktop builds', async () => {
     render(<App />);
+    await waitFor(() => {
+      expect(mockGetAppInfo).toHaveBeenCalled();
+    });
     expect(document.querySelector('[data-testid="web-update-banner"]')).toBeNull();
   });
 
@@ -396,6 +400,21 @@ describe('App', () => {
     });
 
     render(<App />);
+    await waitFor(() => {
+      expect(mockGetAppInfo).toHaveBeenCalled();
+    });
     expect(document.querySelector('[data-testid="web-update-banner"]')).not.toBeNull();
+  });
+
+  it('shows the factory recovery notice when the boot-loop marker is active', async () => {
+    localStorage.setItem('lingua-factory-mode', '1');
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(mockGetAppInfo).toHaveBeenCalled();
+    });
+    expect(document.querySelector('[data-testid="factory-recovery-notice"]')).not.toBeNull();
+    expect(document.body.textContent).toContain('Factory recovery active');
   });
 });

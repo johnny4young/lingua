@@ -250,4 +250,12 @@ contextBridge.exposeInMainWorld('lingua', {
     confirmReplace: (counts: ProfileConfirmReplaceCounts, language?: string) =>
       ipcRenderer.invoke('profile:confirm-replace', counts, language) as Promise<number>,
   },
+
+  // RL-090 — recovery surface in Settings → Account.
+  recovery: {
+    confirmReset: (scope: RecoveryResetScope, language?: string) =>
+      ipcRenderer.invoke('recovery:confirm-reset', scope, language) as Promise<number>,
+    revealFolder: () =>
+      ipcRenderer.invoke('recovery:reveal-folder') as Promise<RecoveryRevealFolderResult>,
+  },
 });

@@ -148,6 +148,14 @@ const webLingua: LinguaAPI = {
   profile: {
     confirmReplace: async () => 1,
   },
+  // RL-090 — recovery surface. Web has no native confirm dialog
+  // (returns 1 = cancel; RecoverySection surfaces an inline notice)
+  // and no shell.openPath equivalent (revealFolder reports unsupported
+  // so the button hides on web).
+  recovery: {
+    confirmReset: async () => 1,
+    revealFolder: async () => ({ ok: false, reason: 'unsupported' as const }),
+  },
 };
 
 // Expose on window — mirrors what the Electron preload does via contextBridge

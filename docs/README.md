@@ -55,7 +55,11 @@ Items never demote. Closed tickets stay closed.
 9. [`PERFORMANCE.md`](./PERFORMANCE.md) — bundle/runtime budgets,
    local report commands, CI performance logs, and desktop smoke
    runtime/memory metrics folded into `runtimeObservability`.
-10. [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md) —
+10. [`RECOVERY.md`](./RECOVERY.md) — error boundaries, safe-mode
+    boot (`?safe-mode=1`), boot-loop counter / factory mode, the
+    Recovery surface in Settings → Account, and the manual recovery
+    folder paths per platform.
+11. [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md) —
     current public-source readiness, release/security gaps, and the
     pre-publication action queue.
 
@@ -93,6 +97,7 @@ only superseded by a new ADR that names the one it replaces.
 | What we test and how                                                                                                                     | [`TEST_PLAN.md`](./TEST_PLAN.md)                                                                 |
 | Accessibility quality gate (axe scans, keyboard flows, manual screen-reader checklist)                                                   | [`A11Y.md`](./A11Y.md)                                                                           |
 | Bundle/runtime performance budgets and local report workflow                                                                             | [`PERFORMANCE.md`](./PERFORMANCE.md)                                                             |
+| Recovery flows (error boundaries, safe mode, factory mode, reset surface)                                                                | [`RECOVERY.md`](./RECOVERY.md)                                                                   |
 | Current public readiness audit and launch hardening queue                                                                                | [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md)                                       |
 | Public repository publication checklist                                                                                                  | [`PUBLIC_RELEASE_CHECKLIST.md`](./PUBLIC_RELEASE_CHECKLIST.md)                                   |
 | Public release security sign-off                                                                                                         | [`RELEASE_SECURITY.md`](./RELEASE_SECURITY.md)                                                   |
