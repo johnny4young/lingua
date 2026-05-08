@@ -41,7 +41,7 @@ test.describe('Pro tier unlocks — live apply flow', () => {
     await expectTier(page, 'FREE');
 
     await openSettings(page);
-    await applyDevLicense(page, 'Active — Pro');
+    await applyDevLicense(page, 'Active — Monthly');
     await expectTier(page, 'PRO');
 
     // Paid theme + font should now take effect instead of reverting.
