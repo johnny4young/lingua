@@ -126,10 +126,10 @@ test.describe('Spanish locale — Pro flows', () => {
     await expectTier(page, 'PRO');
   });
 
-  test('license status pill reads "Activa — Pro" after seeded login', async ({ page }) => {
+  test('license status pill reads "Activa — Mensual" after seeded login', async ({ page }) => {
     await openSettings(page);
     await openSettingsTab(page, 'account');
-    await expect(page.getByTestId('license-status-pill')).toContainText('Activa — Pro');
+    await expect(page.getByTestId('license-status-pill')).toContainText('Activa — Mensual');
   });
 
   test('run completes, history popover is localized, settings shows 1 run recorded', async ({
@@ -179,7 +179,7 @@ test.describe('Spanish locale — live apply', () => {
     await gotoApp(page);
     await openSettings(page);
 
-    await applyDevLicense(page, 'Activa — Pro');
+    await applyDevLicense(page, 'Activa — Mensual');
     await expectNoticeContains(page, 'Licencia activada');
     await expectTier(page, 'PRO');
   });
@@ -213,7 +213,7 @@ test.describe('Compact viewport — 390×844', () => {
     await closeSettings(page);
   });
 
-  test('Pro license pill stays legible at 390px width', async ({ page }) => {
+  test('Monthly license pill stays legible at 390px width', async ({ page }) => {
     await seedSession(page, { language: 'es', primeProLicense: true });
     await gotoApp(page);
     await expectTier(page, 'PRO');
@@ -221,7 +221,7 @@ test.describe('Compact viewport — 390×844', () => {
     await openSettings(page);
     await page.setViewportSize({ width: 390, height: 844 });
     await openSettingsTab(page, 'account');
-    await expect(page.getByTestId('license-status-pill')).toContainText('Activa — Pro');
+    await expect(page.getByTestId('license-status-pill')).toContainText('Activa — Mensual');
     await expectNoHorizontalOverflow(page);
   });
 });

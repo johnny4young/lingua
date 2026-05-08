@@ -199,7 +199,7 @@ test.describe('Settings — License flows', () => {
     await openSettings(page);
     await openSettingsTab(page, 'account');
 
-    await applyDevLicense(page, 'Active — Pro');
+    await applyDevLicense(page, 'Active — Monthly');
     await expectTier(page, 'PRO');
     await expectNoticeContains(page, 'License activated');
 
@@ -210,7 +210,7 @@ test.describe('Settings — License flows', () => {
     // Re-applying the same token should succeed — validates the token is
     // still valid for the session and Clear doesn't invalidate anything
     // beyond the current install.
-    await applyDevLicense(page, 'Active — Pro');
+    await applyDevLicense(page, 'Active — Monthly');
     await expectTier(page, 'PRO');
   });
 
