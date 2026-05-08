@@ -24,6 +24,7 @@ import { registerLocaleHandlers } from './ipc/locale';
 import { registerDesktopSmokeHandlers } from './ipc/desktopSmoke';
 import { registerEnvHandlers } from './ipc/env';
 import { registerProfileHandlers } from './ipc/profile';
+import { registerRecoveryHandlers } from './ipc/recovery';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -80,6 +81,7 @@ registerFileSystemHandlers();
 registerLocaleHandlers();
 registerPluginHandlers();
 registerProfileHandlers();
+registerRecoveryHandlers();
 registerUpdater();
 
 let forceQuit = false;

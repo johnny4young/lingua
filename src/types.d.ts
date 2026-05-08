@@ -371,6 +371,18 @@ interface ProfileConfirmReplaceCounts {
   envVars: number;
 }
 
+// ---------------------------------------------------------- Recovery types
+//
+// RL-090 — error boundaries + recovery UX. The renderer-side helpers
+// live in `src/renderer/utils/safeBoot.ts` and
+// `src/renderer/utils/redactedErrorReport.ts`. Ambient aliases keep
+// the IPC + web-stub call sites compiling without explicit imports.
+
+type RecoveryResetScope = 'settings' | 'snippets' | 'envVars' | 'session' | 'factory';
+type RecoveryRevealFolderResult =
+  | { ok: true }
+  | { ok: false; reason: 'unsupported' | 'open-failed'; message?: string };
+
 // --------------------------------------------------------------- Main API
 
 interface LinguaAPI {
@@ -580,6 +592,21 @@ interface LinguaAPI {
       counts: ProfileConfirmReplaceCounts,
       language?: string
     ) => Promise<number>;
+  };
+
+  /**
+   * RL-090 — recovery surface (Settings → Account → Recovery).
+   * `confirmReset` returns 0 (Reset) or 1 (Cancel). `revealFolder`
+   * opens the OS file browser at the userData path so a user with
+   * a corrupted persisted state can wipe files manually. Web stubs
+   * both to safe no-ops.
+   */
+  recovery: {
+    confirmReset: (
+      scope: RecoveryResetScope,
+      language?: string
+    ) => Promise<number>;
+    revealFolder: () => Promise<RecoveryRevealFolderResult>;
   };
 }
 

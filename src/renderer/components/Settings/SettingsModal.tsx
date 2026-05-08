@@ -17,6 +17,7 @@ import { LayoutSection } from './LayoutSection';
 import { LicenseSection } from './LicenseSection';
 import { PluginsSection } from './PluginsSection';
 import { PrivacySection } from './PrivacySection';
+import { RecoverySection } from './RecoverySection';
 import { UpdatesSection } from './UpdatesSection';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { Eyebrow } from '../ui/primitives';
@@ -141,6 +142,7 @@ export function SettingsModal({
           <div className="space-y-6">
             <LicenseSection />
             <PrivacySection />
+            <RecoverySection />
           </div>
         );
     }

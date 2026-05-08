@@ -5780,7 +5780,7 @@ web e2e suite stayed green.
 ### RL-090 Error boundaries and recovery UX
 
 - Priority: `P2`
-- Status: `Planned`
+- Status: `Done`
 - Readiness: `Implementation-ready from the 2026-05-02 review. Product-quality item for commercial reliability and support.`
 - Current gap:
   - Crash reporting can capture failures when enabled, but user-facing recovery for renderer failures and corrupted persisted state should be explicit.
@@ -5799,6 +5799,74 @@ web e2e suite stayed green.
 - Dependencies:
   - RL-065 for telemetry/crash consent model
   - RL-081 for privacy/security copy alignment
+
+#### Status Update — 2026-05-07 (closes RL-090)
+
+Shipped in a single staged diff with all four ACs covered plus the
+seven approved fold-ins (A through G). Closes the §5 #5 "Product
+quality and supportability" lane in full.
+
+- **Top-level React error boundary** (`src/renderer/components/ErrorBoundary.tsx`)
+  is a class component (boundaries cannot be hooks) wrapping the
+  shell at `src/renderer/App.tsx:403` with `region="shell"`. The
+  fallback UI shows the localized region label, the redacted
+  `errorName: errorMessage`, and three buttons: copy redacted error
+  report, reload in safe mode (`?safe-mode=1`), and reset to defaults
+  (only when the boundary's `onReset` prop is wired). On catch, the
+  boundary marks the next boot for safe mode and feeds the boot-loop
+  counter so escalation paths fire automatically.
+- **Safe-mode helpers** (`src/renderer/utils/safeBoot.ts`) cover
+  `isSafeMode` / `isFactoryMode` / `resolveRecoveryState`,
+  `markCrashOnNextBoot`, `recordCrash` (with a 60s rolling window /
+  3-crash threshold escalating to factory mode), `applyFactoryReset`
+  (wipes everything except `lingua-license`), and
+  `applyRecoveryStateAttr` (mirrors `<html data-recovery-state>` for
+  e2e). Wired into `src/renderer/main.tsx` before `createRoot`.
+- **Global error listeners** in `src/renderer/main.tsx` handle
+  `window.onerror` + `window.onunhandledrejection` so async + event-
+  handler errors (which React boundaries do NOT catch) feed the same
+  crash counter and safe-mode mark.
+- **Redacted error report** (`src/renderer/utils/redactedErrorReport.ts`)
+  produces the deterministic JSON shape with `redactStack` stripping
+  macOS / Windows / `file://` absolute paths down to `<asset>:line:col`,
+  truncating messages to 500 chars, capping stack at 20 frames, and
+  always including `appVersion` + `platform` + `locale`.
+  `copyErrorReportToClipboard` tries `navigator.clipboard.writeText`
+  first, falls back to a hidden textarea + `document.execCommand('copy')`
+  for Electron `file://` and Permissions Policy denial paths.
+- **Recovery surface** (`src/renderer/components/Settings/RecoverySection.tsx`)
+  lives under Settings → Account → Recovery. Five scoped resets
+  (settings, snippets, envVars, session, factory) + a "Reload in safe
+  mode" button + an "Open recovery folder" button (desktop-only,
+  hidden on web). Settings reset preserves `telemetryConsent` and
+  `nativeExecutionAcknowledged` so the user is never re-prompted
+  post-reset; factory reset preserves only `lingua-license`. Each
+  destructive action gates behind the new `recovery:confirm-reset`
+  IPC.
+- **Recovery IPC** (`src/main/ipc/recovery.ts`) exposes
+  `recovery:confirm-reset` (per-scope dialog copy via i18n) and
+  `recovery:reveal-folder` (opens `app.getPath('userData')` via
+  `shell.openPath`). Web stub returns 1 (cancel) +
+  `{ ok: false, reason: 'unsupported' }` so the renderer surfaces an
+  inline notice and hides the reveal-folder button on web.
+- **Safe-mode skip** wired in `src/renderer/App.tsx`: session restore
+  and plugin discovery short-circuit when `isSafeMode()` returns true,
+  so a corrupted persisted tab list or a faulty plugin manifest cannot
+  loop the renderer into a crash. Factory-mode boots now surface a
+  visible recovery notice while the stale recovery marks are retained
+  only when the current boot records another crash.
+- **`docs/RECOVERY.md`** documents error boundaries, safe-mode boot,
+  the boot-loop counter / factory mode, the Recovery surface, the
+  manual recovery folder paths per platform (macOS / Windows / Linux),
+  and the redacted-error-report flow for support tickets. Registered
+  in `docs/README.md` under the docs index.
+
+i18n: 35 new keys per locale (en + es with neutral LatAm tuteo —
+`Restablece`, `Recarga`, `Restaurar`, `Copia`, no voseo, no Spanglish).
+
+Test count: 13 (safeBoot) + 12 (redactedErrorReport) + 7 (ErrorBoundary)
++ 8 (RecoverySection) + 1 (App factory notice) + 2 (recovery IPC) = 43
+new test cases across 6 files. Full Vitest suite passed with these additions.
 
 ### RL-091 License and update server observability and runbooks
 
