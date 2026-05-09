@@ -111,7 +111,12 @@ export function UuidUtilityPanel() {
             spellCheck={false}
           />
         </div>
-        <UtilityToolbar utilityId="uuid" primary={decoderInput} run={runApply} />
+        <UtilityToolbar
+          utilityId="uuid"
+          primary={decoderInput}
+          run={runApply}
+          setPrimary={setDecoderInput}
+        />
         {decoderInput.trim() === '' ? (
           <StatusMessage message={t('utilities.tool.uuid.decode.idle')} />
         ) : decoded === null ? (

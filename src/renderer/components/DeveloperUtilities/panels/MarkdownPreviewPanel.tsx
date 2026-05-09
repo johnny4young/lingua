@@ -83,7 +83,12 @@ export function MarkdownPreviewPanel() {
             className="min-h-[18rem] font-mono"
           />
         </div>
-        <UtilityToolbar utilityId="markdown-preview" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="markdown-preview"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

@@ -115,7 +115,12 @@ export function BackslashEscapePanel() {
             message={t('utilities.tool.backslashEscape.sqlWildcardHint')}
           />
         ) : null}
-        <UtilityToolbar utilityId="backslash-escape" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="backslash-escape"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

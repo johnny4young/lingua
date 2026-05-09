@@ -179,7 +179,12 @@ export function QrCodePanel() {
         </select>
       </div>
 
-      <UtilityToolbar utilityId="qr-code" primary={payload} run={runApply} />
+      <UtilityToolbar
+        utilityId="qr-code"
+        primary={payload}
+        run={runApply}
+        setPrimary={setPayload}
+      />
 
       {mode === 'generate' ? (
         <>

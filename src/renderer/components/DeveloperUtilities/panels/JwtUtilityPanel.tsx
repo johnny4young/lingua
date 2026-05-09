@@ -44,7 +44,12 @@ export function JwtUtilityPanel() {
             <option value="sign">{t('utilities.tool.jwt.mode.sign')}</option>
           </select>
         </div>
-        <UtilityToolbar utilityId="jwt" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="jwt"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       {mode === 'decode' ? (

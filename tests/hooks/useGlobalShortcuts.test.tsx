@@ -1,5 +1,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { initI18n } from '@/i18n';
+import {
+  takePendingClipboardApply,
+  useClipboardOnFocus,
+} from '@/hooks/useClipboardOnFocus';
 import { useGlobalShortcuts, type AppOverlay } from '@/hooks/useGlobalShortcuts';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -39,6 +45,15 @@ function dispatchKeyDown(init: KeyboardEventInit & { key: string }) {
   act(() => {
     window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }));
   });
+}
+
+function mockClipboardRead(value: string) {
+  const readText = vi.fn().mockResolvedValue(value);
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { readText },
+  });
+  return readText;
 }
 
 describe('useGlobalShortcuts', () => {
@@ -109,5 +124,78 @@ describe('useGlobalShortcuts', () => {
     const open = renderShortcuts({ overlay: 'settings' });
     dispatchKeyDown({ key: 'Escape' });
     expect(open.closeOverlay).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useClipboardOnFocus', () => {
+  beforeEach(async () => {
+    initI18n('en');
+    await i18next.changeLanguage('en');
+    useSettingsStore.setState({ utilitiesClipboardOnFocusConsent: 'granted' }, false);
+    useUIStore.setState({ statusNotice: null });
+    takePendingClipboardApply();
+  });
+
+  it('does not read the clipboard when the toolbar has no apply target setter', async () => {
+    const readText = mockClipboardRead('Lingua');
+
+    renderHook(() =>
+      useClipboardOnFocus('hash', () => true, vi.fn(), { enabled: false })
+    );
+
+    await Promise.resolve();
+    expect(readText).not.toHaveBeenCalled();
+    expect(takePendingClipboardApply()).toBeNull();
+  });
+
+  it('exposes a pending clipboard apply while mounted', async () => {
+    mockClipboardRead('{"a":1}');
+    const applyClipboardValue = vi.fn();
+
+    renderHook(() =>
+      useClipboardOnFocus(
+        'json',
+        (value) => value.startsWith('{'),
+        applyClipboardValue
+      )
+    );
+
+    await waitFor(() => {
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'info',
+        messageKey: 'utilities.toast.clipboardDetected',
+      });
+    });
+
+    const pending = takePendingClipboardApply();
+    expect(pending).toMatchObject({
+      utilityId: 'json',
+      value: '{"a":1}',
+    });
+    pending?.applyClipboardValue(pending.value);
+    expect(applyClipboardValue).toHaveBeenCalledWith('{"a":1}');
+  });
+
+  it('clears stale pending clipboard values on unmount', async () => {
+    mockClipboardRead('{"stale":true}');
+    const applyClipboardValue = vi.fn();
+
+    const { unmount } = renderHook(() =>
+      useClipboardOnFocus(
+        'json',
+        (value) => value.startsWith('{'),
+        applyClipboardValue
+      )
+    );
+
+    await waitFor(() => {
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'utilities.toast.clipboardDetected'
+      );
+    });
+
+    unmount();
+
+    expect(takePendingClipboardApply()).toBeNull();
   });
 });

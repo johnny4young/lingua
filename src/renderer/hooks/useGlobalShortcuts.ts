@@ -11,6 +11,8 @@ import {
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { useUtilityOutputStore } from '../stores/utilityOutputStore';
+import { takePendingClipboardApply } from './useClipboardOnFocus';
+import { trackEvent } from '../utils/telemetry';
 
 export type AppOverlay =
   | 'none'
@@ -127,6 +129,31 @@ function runUtilityApplyFromInput(): void {
   const handler = useUtilityOutputStore.getState().getApplyHandler();
   const pushNotice = useUIStore.getState().pushStatusNotice;
 
+  // RL-069 Slice 3 — when a clipboard-on-focus value is pending, fold
+  // it in BEFORE running the panel's apply. The panel's handler
+  // applies the clipboard value as input first, then runs apply
+  // against it. This keeps the gesture single-keystroke for the user.
+  const pending = takePendingClipboardApply();
+  if (pending) {
+    try {
+      pending.applyClipboardValue(pending.value);
+    } catch {
+      // Swallow — the panel's own validation should have run; we
+      // surface the failure via the apply path that follows.
+    }
+    void trackEvent('utility.clipboard.applied', {
+      utilityId: pending.utilityId,
+    });
+    pushNotice({
+      tone: 'success',
+      messageKey: 'utilities.toast.clipboardApplied',
+      values: {
+        toolName: i18next.t(`utilities.tool.${camelToolKey(pending.utilityId)}.titleLabel`),
+      },
+    });
+    return;
+  }
+
   if (!handler) {
     pushNotice({
       tone: 'info',
@@ -163,6 +190,15 @@ function runUtilityApplyFromInput(): void {
       messageKey: 'utilities.toast.applyUnavailable',
     });
   }
+}
+
+/**
+ * Convert a kebab-case utility id to the camelCase i18n segment
+ * (`html-entity` → `htmlEntity`). The catalog uses kebab ids; the
+ * i18n key tree uses camel.
+ */
+function camelToolKey(id: string): string {
+  return id.replace(/-([a-z])/g, (_match, ch: string) => ch.toUpperCase());
 }
 
 async function writeUtilityOutputToClipboard(mode: 'copy' | 'replace'): Promise<void> {

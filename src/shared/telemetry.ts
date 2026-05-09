@@ -17,6 +17,12 @@ export const TELEMETRY_EVENTS = [
   'overlay.opened',
   'feature.blocked',
   'update.checked',
+  // RL-069 Slice 3 — Developer Utilities productivity layer adoption.
+  // Counts only; no content, no input/output payloads, no tool ids
+  // beyond a fixed enum bucket already on the catalog.
+  'utility.favorite.pinned',
+  'utility.history.cleared',
+  'utility.clipboard.applied',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -51,6 +57,12 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'overlay.opened': ['overlayId'],
   'feature.blocked': ['entitlement', 'tier'],
   'update.checked': ['status'],
+  // RL-069 Slice 3 — `utilityId` is the catalog enum value (a fixed
+  // string set, not user data). `count` is the post-action favorites
+  // length so we can see adoption without tracking per-tool.
+  'utility.favorite.pinned': ['utilityId', 'count'],
+  'utility.history.cleared': ['utilityId', 'scope'],
+  'utility.clipboard.applied': ['utilityId'],
 };
 
 const DENY_SUBSTRINGS = [

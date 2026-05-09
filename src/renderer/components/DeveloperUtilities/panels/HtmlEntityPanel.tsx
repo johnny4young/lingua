@@ -79,7 +79,12 @@ export function HtmlEntityPanel() {
             spellCheck={false}
           />
         </div>
-        <UtilityToolbar utilityId="html-entity" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="html-entity"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

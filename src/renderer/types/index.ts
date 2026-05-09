@@ -263,6 +263,13 @@ export interface SettingsState {
    * from re-appearing after a decline.
    */
   telemetryConsent: 'unset' | 'granted' | 'declined';
+  /**
+   * RL-069 Slice 3 — clipboard-on-focus apply consent. Default `unset`,
+   * promoted to `granted` or `declined` by the explicit Settings toggle.
+   * The same three-state pattern as `telemetryConsent` so a decline
+   * sticks across reloads and the feature never reads without opt-in.
+   */
+  utilitiesClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
   language: AppLanguage;
   lastSeenVersion: string | null;
   hasCompletedTour: boolean;
@@ -314,6 +321,8 @@ export interface SettingsState {
   toggleSyncShellWithEditorTheme: () => void;
   toggleExecutionHistorySnapshot: () => void;
   setTelemetryConsent: (next: 'granted' | 'declined') => void;
+  /** RL-069 Slice 3 — flip clipboard-on-focus consent (granted/declined). */
+  setUtilitiesClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
   /**
    * Apply a theme preset (editor theme, shell theme, typography, layout)
    * loaded from an exported JSON document. Non-theme settings (loop

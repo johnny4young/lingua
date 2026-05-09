@@ -63,7 +63,12 @@ export function JsonUtilityPanel() {
             />
           </div>
         )}
-        <UtilityToolbar utilityId="json" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="json"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

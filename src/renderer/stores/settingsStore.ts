@@ -155,6 +155,7 @@ export const useSettingsStore = create<SettingsState>()(
       syncShellWithEditorTheme: true,
       executionHistorySnapshotEnabled: true,
       telemetryConsent: 'unset',
+      utilitiesClipboardOnFocusConsent: 'unset',
       language: 'system',
       lastSeenVersion: null,
       hasCompletedTour: false,
@@ -218,6 +219,11 @@ export const useSettingsStore = create<SettingsState>()(
         // Mirror to main so `bootCrashReporter` can read consent at the
         // next app boot, before createWindow().
         syncConsentMirror(telemetryConsent);
+      },
+      // RL-069 Slice 3 — clipboard-on-focus consent. Local-only; no
+      // mirror to main because the feature is renderer-scoped.
+      setUtilitiesClipboardOnFocusConsent: (utilitiesClipboardOnFocusConsent) => {
+        set({ utilitiesClipboardOnFocusConsent });
       },
       applyThemePreset: (preset) =>
         set((state) => ({
@@ -311,6 +317,7 @@ export const useSettingsStore = create<SettingsState>()(
         syncShellWithEditorTheme: state.syncShellWithEditorTheme,
         executionHistorySnapshotEnabled: state.executionHistorySnapshotEnabled,
         telemetryConsent: state.telemetryConsent,
+        utilitiesClipboardOnFocusConsent: state.utilitiesClipboardOnFocusConsent,
         language: state.language,
         lastSeenVersion: state.lastSeenVersion,
         hasCompletedTour: state.hasCompletedTour,

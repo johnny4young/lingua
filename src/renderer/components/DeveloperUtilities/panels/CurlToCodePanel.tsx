@@ -68,7 +68,12 @@ export function CurlToCodePanel() {
             className="min-h-[12rem] font-mono"
           />
         </div>
-        <UtilityToolbar utilityId="curl-to-code" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="curl-to-code"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

@@ -113,7 +113,12 @@ export function UrlParserPanel() {
             tone={parsed.error === 'invalid' ? 'error' : 'muted'}
           />
         ) : null}
-        <UtilityToolbar utilityId="url-parser" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="url-parser"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       {isParsedUrl(parsed) ? (

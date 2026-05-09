@@ -19,6 +19,7 @@ import { PluginsSection } from './PluginsSection';
 import { PrivacySection } from './PrivacySection';
 import { RecoverySection } from './RecoverySection';
 import { UpdatesSection } from './UpdatesSection';
+import { UtilitiesSection } from './UtilitiesSection';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { Eyebrow } from '../ui/primitives';
 import { cn } from '../../utils/cn';
@@ -128,6 +129,7 @@ export function SettingsModal({
           <div className="space-y-6">
             <EditorSection />
             <ExecutionHistorySection />
+            <UtilitiesSection />
             <PluginsSection />
           </div>
         );

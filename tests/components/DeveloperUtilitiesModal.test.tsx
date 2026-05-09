@@ -102,7 +102,10 @@ describe('DeveloperUtilitiesModal', () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
 
-    await user.click(screen.getByRole('button', { name: /Base64 Encoder/ }));
+    // Use the testid because RL-069 Slice 3 adds a sibling
+    // FavoriteToggleButton whose aria-label also contains "Base64
+    // Encoder" (e.g. "Pin Base64 Encoder to favorites").
+    await user.click(screen.getByTestId('utility-item-base64'));
 
     expect(screen.getByRole('heading', { name: 'Base64 Encoder' })).toBeTruthy();
     expect((screen.getByLabelText('Output') as HTMLTextAreaElement).value).toBe(

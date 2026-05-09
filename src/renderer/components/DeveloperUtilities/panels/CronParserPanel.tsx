@@ -120,7 +120,12 @@ export function CronParserPanel() {
             onChange={(event) => handleCountChange(event.target.valueAsNumber)}
           />
         </label>
-        <UtilityToolbar utilityId="cron-parser" primary={expression} run={runApply} />
+        <UtilityToolbar
+          utilityId="cron-parser"
+          primary={expression}
+          run={runApply}
+          setPrimary={setExpression}
+        />
       </PanelSection>
 
       <PanelSection

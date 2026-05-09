@@ -110,7 +110,12 @@ export function YamlJsonPanel() {
             className="min-h-[14rem] font-mono"
           />
         </div>
-        <UtilityToolbar utilityId="yaml-json" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="yaml-json"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

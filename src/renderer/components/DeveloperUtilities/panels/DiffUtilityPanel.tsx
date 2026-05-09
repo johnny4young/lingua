@@ -90,6 +90,7 @@ export function DiffUtilityPanel() {
             primary={left}
             secondary={right}
             run={runApply}
+            setPrimary={setLeft}
           />
         </div>
         {segments.length === 0 ? (
