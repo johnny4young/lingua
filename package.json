@@ -109,6 +109,7 @@
     "fengari": "^0.1.5",
     "i18next": "^26.0.8",
     "js-yaml": "^4.1.1",
+    "jsqr": "^1.4.0",
     "lucide-react": "^1.11.0",
     "marked": "^18.0.2",
     "monaco-editor": "^0.55.1",
