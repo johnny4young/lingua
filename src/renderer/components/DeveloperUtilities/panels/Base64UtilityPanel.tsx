@@ -1,8 +1,12 @@
-import { TwoPaneTransformPanel } from '../panelPrimitives';
+import { TwoPaneTransformPanel, UtilityToolbar } from '../panelPrimitives';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
-import { decodeBase64, encodeBase64 } from '../../../utils/developerUtilities';
+import {
+  decodeBase64,
+  detectsAsBase64,
+  encodeBase64,
+} from '../../../utils/developerUtilities';
 
 export function Base64UtilityPanel() {
   const { t } = useTranslation();
@@ -23,6 +27,14 @@ export function Base64UtilityPanel() {
   );
   useRegisterUtilityOutput(registerOutput);
 
+  // RL-069 Slice 2 — Apply auto-flips the mode based on detect:
+  // a base64-shaped input switches to decode; anything else stays in
+  // encode. The user pastes once, presses Apply (or Mod+Shift+A), and
+  // sees the right direction without touching the toggle.
+  const runApply = useCallback(() => {
+    setMode(detectsAsBase64(input) ? 'decode' : 'encode');
+  }, [input]);
+
   return (
     <div className="grid gap-4">
       <div className="inline-flex w-fit overflow-hidden rounded-[1.2rem] border border-border/80 bg-surface-strong/88">
@@ -41,6 +53,7 @@ export function Base64UtilityPanel() {
           {t('utilities.actions.decode')}
         </button>
       </div>
+      <UtilityToolbar utilityId="base64" primary={input} run={runApply} />
       <TwoPaneTransformPanel
         title={t('utilities.tool.base64.title')}
         description={t('utilities.tool.base64.panelDescription')}

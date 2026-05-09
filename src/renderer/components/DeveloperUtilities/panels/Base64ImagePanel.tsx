@@ -1,9 +1,11 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { FileDropZone } from '../../ui/FileDropZone';
 import { BASE64_IMAGE_MAX_BYTES, decodeDataUri, encodeFileToDataUri, formatByteSize } from '../../../utils/base64Image';
+import { detectsAsDataUri } from '../../../utils/developerUtilities';
 import type { Base64ImageDecodeResult, Base64ImageEncodeResult } from '../../../utils/base64Image';
 
 type Base64ImageMode = 'encode' | 'decode';
@@ -38,6 +40,28 @@ export function Base64ImagePanel() {
     if (decodeInput.trim() === '') return null;
     const result = decodeDataUri(decodeInput);
     return result.ok ? { ok: true, value: result } : { ok: false, value: result };
+  }, [decodeInput]);
+
+  // RL-069 Slice 2 — encode mode exposes the data URI; decode mode
+  // exposes a 1-line summary. Errors fall through to null.
+  const registerOutput = useCallback(() => {
+    if (mode === 'encode') {
+      return encoded?.dataUri ?? null;
+    }
+    if (decoded && decoded.ok) {
+      return `${decoded.value.mime} · ${formatByteSize(decoded.value.byteSize)}`;
+    }
+    return null;
+  }, [mode, encoded, decoded]);
+  useRegisterUtilityOutput(registerOutput);
+
+  // Apply auto-flips to decode when the input looks like a data: URI.
+  const runApply = useCallback(() => {
+    if (detectsAsDataUri(decodeInput)) {
+      setMode('decode');
+    } else {
+      setMode('encode');
+    }
   }, [decodeInput]);
 
   const handleFile = async (file: File | null | undefined) => {
@@ -104,6 +128,8 @@ export function Base64ImagePanel() {
             <option value="decode">{t('utilities.tool.base64Image.mode.decode')}</option>
           </select>
         </label>
+
+        <UtilityToolbar utilityId="base64-image" primary={decodeInput} run={runApply} />
 
         {mode === 'encode' ? (
           <div className="grid gap-2">

@@ -177,6 +177,17 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     combos: [{ tokens: ['Mod', 'Alt', 'R'] }],
     keywords: ['replace', 'clipboard', 'output', 'utility', 'utilities'],
   },
+  // RL-069 Slice 2 — fires the ⚡ Apply-from-input button on the
+  // focused utility panel. Default Mod+Shift+A keeps Mod+Enter free
+  // for the editor's `run-toggle` shortcut.
+  {
+    id: 'utility-apply-from-input',
+    group: 'utilities',
+    labelKey: 'shortcuts.item.utilityApplyFromInput.label',
+    descriptionKey: 'shortcuts.item.utilityApplyFromInput.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'A'] }],
+    keywords: ['apply', 'detect', 'smart', 'paste', 'utility', 'utilities'],
+  },
 ];
 
 /** Platform-aware label for the `Mod` token. Defaults to Ctrl on unknown shells. */

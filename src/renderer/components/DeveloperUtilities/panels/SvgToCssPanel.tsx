@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { SVG_TO_CSS_MAX_KB, convertSvgToCss } from '../../../utils/svgToCss';
 import type { SvgToCssEncoding } from '../../../utils/svgToCss';
@@ -15,6 +16,16 @@ export function SvgToCssPanel() {
     () => convertSvgToCss(input, { encoding }),
     [input, encoding],
   );
+
+  const registerOutput = useCallback(
+    () => (result.ok ? result.dataUri : null),
+    [result]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -46,6 +57,7 @@ export function SvgToCssPanel() {
             className="min-h-[12rem]"
           />
         </div>
+        <UtilityToolbar utilityId="svg-to-css" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

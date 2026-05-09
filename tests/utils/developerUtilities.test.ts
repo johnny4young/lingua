@@ -11,6 +11,28 @@ import {
   decodeBase64,
   decodeJwt,
   decodeUrlComponentValue,
+  detectsAsAbsoluteUrl,
+  detectsAsBackslashEscaped,
+  detectsAsBase64,
+  detectsAsColor,
+  detectsAsCron,
+  detectsAsCurl,
+  detectsAsDataUri,
+  detectsAsEncodedHtmlEntity,
+  detectsAsHashable,
+  detectsAsHtml,
+  detectsAsHtmlEntity,
+  detectsAsJson,
+  detectsAsJwt,
+  detectsAsMarkdown,
+  detectsAsNumber,
+  detectsAsRegex,
+  detectsAsSql,
+  detectsAsSvg,
+  detectsAsTimestamp,
+  detectsAsUrlEncoded,
+  detectsAsUuid,
+  detectsAsYaml,
   encodeBase64,
   encodeUrlComponentValue,
   hashText,
@@ -366,5 +388,137 @@ describe('developerUtilities', () => {
     const huge = 'x'.repeat(50_000);
     const diff = computeLineDiff(huge, `${huge}y`);
     expect(diff.truncated).toBe(true);
+  });
+});
+
+describe('detectsAs* predicates (RL-069 Slice 2)', () => {
+  it('detectsAsJson recognises only structural payloads', () => {
+    expect(detectsAsJson('{"a":1}')).toBe(true);
+    expect(detectsAsJson('[1,2]')).toBe(true);
+    // Valid JSON literal but not a value worth running the formatter on.
+    expect(detectsAsJson('"a string"')).toBe(false);
+    expect(detectsAsJson('not json at all')).toBe(false);
+    expect(detectsAsJson('   ')).toBe(false);
+  });
+
+  it('detectsAsBase64 enforces a valid 4-aligned shape', () => {
+    expect(detectsAsBase64('TGluZ3Vh')).toBe(true);
+    expect(detectsAsBase64('TGluZ3Vh==')).toBe(false);
+    expect(detectsAsBase64('!!! not base64')).toBe(false);
+    expect(detectsAsBase64('')).toBe(false);
+  });
+
+  it('detectsAsUrlEncoded requires at least one percent-escape', () => {
+    expect(detectsAsUrlEncoded('hello%20world')).toBe(true);
+    expect(detectsAsUrlEncoded('hello world')).toBe(false);
+  });
+
+  it('detectsAsAbsoluteUrl validates the URL constructor', () => {
+    expect(detectsAsAbsoluteUrl('https://lingua.dev/path?x=1')).toBe(true);
+    expect(detectsAsAbsoluteUrl('/relative/path')).toBe(false);
+    expect(detectsAsAbsoluteUrl('not a url')).toBe(false);
+  });
+
+  it('detectsAsJwt matches the canonical three-segment shape', () => {
+    expect(detectsAsJwt('aaa.bbb.ccc')).toBe(true);
+    expect(detectsAsJwt('aaa.bbb')).toBe(false);
+    expect(detectsAsJwt('not a jwt')).toBe(false);
+  });
+
+  it('detectsAsUuid matches the canonical 8-4-4-4-12 form', () => {
+    expect(detectsAsUuid('550e8400-e29b-41d4-a716-446655440000')).toBe(true);
+    expect(detectsAsUuid('not-a-uuid')).toBe(false);
+  });
+
+  it('detectsAsTimestamp accepts epoch seconds and ISO strings', () => {
+    expect(detectsAsTimestamp('1700000000')).toBe(true);
+    expect(detectsAsTimestamp('2024-01-15T10:00:00Z')).toBe(true);
+    expect(detectsAsTimestamp('not a date')).toBe(false);
+  });
+
+  it('detectsAsRegex compiles the pattern via RegExp', () => {
+    expect(detectsAsRegex('(\\d+)')).toBe(true);
+    expect(detectsAsRegex('(unclosed')).toBe(false);
+    expect(detectsAsRegex('')).toBe(false);
+  });
+
+  it('detectsAsColor accepts hex / rgb / hsl', () => {
+    expect(detectsAsColor('#4f46e5')).toBe(true);
+    expect(detectsAsColor('rgb(79, 70, 229)')).toBe(true);
+    expect(detectsAsColor('hsl(245, 75%, 58%)')).toBe(true);
+    expect(detectsAsColor('not a color')).toBe(false);
+  });
+
+  it('detectsAsNumber accepts decimal, hex, octal, binary literals', () => {
+    expect(detectsAsNumber('255')).toBe(true);
+    expect(detectsAsNumber('0xff')).toBe(true);
+    expect(detectsAsNumber('0b1010')).toBe(true);
+    expect(detectsAsNumber('1_000')).toBe(true);
+    expect(detectsAsNumber('abc')).toBe(false);
+    expect(detectsAsNumber('0b102')).toBe(false);
+    expect(detectsAsNumber('0o9')).toBe(false);
+    expect(detectsAsNumber('not a number')).toBe(false);
+  });
+
+  it('detectsAsHtml fires on tag-shaped input', () => {
+    expect(detectsAsHtml('<div>hello</div>')).toBe(true);
+    expect(detectsAsHtml('plain text')).toBe(false);
+  });
+
+  it('detectsAsHtmlEntity distinguishes encoded entities from raw HTML', () => {
+    expect(detectsAsHtmlEntity('&lt;p&gt;hello&lt;/p&gt;')).toBe(true);
+    expect(detectsAsHtmlEntity('<p>hello</p>')).toBe(true);
+    expect(detectsAsEncodedHtmlEntity('&lt;p&gt;hello&lt;/p&gt;')).toBe(true);
+    expect(detectsAsEncodedHtmlEntity('<p>hello</p>')).toBe(false);
+  });
+
+  it('detectsAsSvg fires only on <svg> roots', () => {
+    expect(detectsAsSvg('<svg viewBox="0 0 24 24"></svg>')).toBe(true);
+    expect(detectsAsSvg('<div></div>')).toBe(false);
+  });
+
+  it('detectsAsDataUri requires a data URI prefix', () => {
+    expect(detectsAsDataUri('data:image/png;base64,iVBORw0KGgo=')).toBe(true);
+    expect(detectsAsDataUri('iVBORw0KGgo=')).toBe(false);
+  });
+
+  it('detectsAsBackslashEscaped requires an escape sequence', () => {
+    expect(detectsAsBackslashEscaped('hello\\nworld')).toBe(true);
+    expect(detectsAsBackslashEscaped('plain')).toBe(false);
+  });
+
+  it('detectsAsCron matches both classic and macro forms', () => {
+    expect(detectsAsCron('*/5 * * * *')).toBe(true);
+    expect(detectsAsCron('@hourly')).toBe(true);
+    expect(detectsAsCron('not cron')).toBe(false);
+  });
+
+  it('detectsAsCurl requires the leading curl token', () => {
+    expect(detectsAsCurl('curl https://example.com')).toBe(true);
+    expect(detectsAsCurl('https://example.com')).toBe(false);
+  });
+
+  it('detectsAsMarkdown notices headings, lists, and code fences', () => {
+    expect(detectsAsMarkdown('# Title')).toBe(true);
+    expect(detectsAsMarkdown('- bullet')).toBe(true);
+    expect(detectsAsMarkdown('plain prose')).toBe(false);
+  });
+
+  it('detectsAsYaml biases toward indented mappings', () => {
+    expect(detectsAsYaml('name: lingua')).toBe(true);
+    expect(detectsAsYaml('{"name": "lingua"}')).toBe(false);
+  });
+
+  it('detectsAsSql fires on common verbs', () => {
+    expect(detectsAsSql('SELECT * FROM users')).toBe(true);
+    expect(detectsAsSql('select id from t')).toBe(true);
+    expect(detectsAsSql('not sql')).toBe(false);
+  });
+
+  it('detectsAsHashable accepts any non-empty input', () => {
+    expect(detectsAsHashable('Lingua')).toBe(true);
+    expect(detectsAsHashable('a')).toBe(true);
+    expect(detectsAsHashable('   ')).toBe(false);
+    expect(detectsAsHashable('')).toBe(false);
   });
 });

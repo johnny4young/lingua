@@ -1,6 +1,7 @@
 import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityTextarea } from '../panelPrimitives';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { LOREM_IPSUM_MAX_PARAGRAPHS, LOREM_IPSUM_MAX_SENTENCES, LOREM_IPSUM_MAX_WORDS, generateLorem } from '../../../utils/loremIpsum';
 import type { LoremIpsumUnit } from '../../../utils/loremIpsum';
@@ -42,6 +43,10 @@ export function LoremIpsumPanel() {
   const handleGenerate = () => {
     setOutput(generateLorem({ unit, count, startWithClassic }));
   };
+
+  // RL-069 Slice 2 — pure generator: no detect, no Apply button.
+  const registerOutput = useCallback(() => output || null, [output]);
+  useRegisterUtilityOutput(registerOutput);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

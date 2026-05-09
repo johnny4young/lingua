@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityInput } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { MAX_BASE, MIN_BASE, formatInBase, isValidBase, parseInAnyBase } from '../../../utils/numberBase';
 
 interface NumberBaseView {
@@ -81,6 +82,25 @@ export function NumberBaseUtilityPanel() {
     setInvalidId(null);
   };
 
+  // RL-069 Slice 2 — decimal is the canonical interchange format for
+  // copy. Hex / binary / octal stay reachable through the per-row
+  // CopyButtons.
+  const registerOutput = useCallback(
+    () => formatInBase(value, 10) || null,
+    [value]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    // No-op trigger; live conversion already runs on every change.
+    setEditingId(null);
+  }, []);
+
+  // The toolbar consults `detect` against the decimal view's draft, but
+  // we feed it the rendered decimal so detect actually sees a digit
+  // string when the user pasted into a different base.
+  const toolbarPrimary = rendered.decimal;
+
   return (
     <PanelSection
       title={t('utilities.tool.numberBase.title')}
@@ -133,6 +153,7 @@ export function NumberBaseUtilityPanel() {
       ) : (
         <StatusMessage message={t('utilities.status.live')} />
       )}
+      <UtilityToolbar utilityId="number-base" primary={toolbarPrimary} run={runApply} />
     </PanelSection>
   );
 }

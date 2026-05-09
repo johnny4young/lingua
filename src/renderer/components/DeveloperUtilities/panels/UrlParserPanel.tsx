@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { isParsedUrl, parseUrl } from '../../../utils/urlParser';
 import type { ParsedQueryParam } from '../../../utils/urlParser';
@@ -74,6 +75,18 @@ export function UrlParserPanel() {
 
   const parsed = useMemo(() => parseUrl(input), [input]);
 
+  // RL-069 Slice 2 — origin is the most useful clipboard target for
+  // a parsed URL; href stays available via the per-row CopyButton.
+  const registerOutput = useCallback(
+    () => (isParsedUrl(parsed) ? parsed.origin || parsed.href || null : null),
+    [parsed]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
+
   return (
     <div className="grid gap-4">
       <PanelSection
@@ -100,6 +113,7 @@ export function UrlParserPanel() {
             tone={parsed.error === 'invalid' ? 'error' : 'muted'}
           />
         ) : null}
+        <UtilityToolbar utilityId="url-parser" primary={input} run={runApply} />
       </PanelSection>
 
       {isParsedUrl(parsed) ? (

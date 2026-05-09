@@ -51,6 +51,8 @@ describe('keyboardShortcuts catalog', () => {
       // RL-069 Slice 1 — Developer Utilities productivity shortcuts.
       'utility-copy-output',
       'utility-replace-clipboard',
+      // RL-069 Slice 2 — Apply-from-input shortcut.
+      'utility-apply-from-input',
     ]) {
       expect(ids.has(required)).toBe(true);
     }
@@ -65,7 +67,7 @@ describe('keyboardShortcuts catalog', () => {
     expect(shortcut?.group).toBe('overlays');
   });
 
-  it('declares a utilities group with both RL-069 Slice 1 output shortcuts', () => {
+  it('declares a utilities group with all three RL-069 productivity shortcuts', () => {
     const groupIds = new Set(SHORTCUT_GROUPS.map((group) => group.id));
     expect(groupIds.has('utilities')).toBe(true);
 
@@ -73,6 +75,7 @@ describe('keyboardShortcuts catalog', () => {
       (entry) => entry.group === 'utilities'
     );
     expect(utilityShortcuts.map((entry) => entry.id).sort()).toEqual([
+      'utility-apply-from-input',
       'utility-copy-output',
       'utility-replace-clipboard',
     ]);
@@ -92,6 +95,11 @@ describe('keyboardShortcuts catalog', () => {
     expect(
       KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'utility-replace-clipboard')?.combos
     ).toEqual([{ tokens: ['Mod', 'Alt', 'R'] }]);
+    // RL-069 Slice 2 — Mod+Shift+A keeps Mod+Enter free for the
+    // editor's run-toggle shortcut.
+    expect(
+      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'utility-apply-from-input')?.combos
+    ).toEqual([{ tokens: ['Mod', 'Shift', 'A'] }]);
   });
 });
 

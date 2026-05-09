@@ -1,6 +1,7 @@
 import { FieldLabel, PanelSection, StatusMessage, UtilityInput } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { buildCharset, generateRandomStrings } from '../../../utils/randomString';
 import type { CharsetToggles } from '../../../utils/randomString';
@@ -30,6 +31,12 @@ export function RandomStringPanel() {
 
   const charset = useMemo(() => buildCharset(toggles), [toggles]);
   const charsetEmpty = charset.length === 0;
+
+  // RL-069 Slice 2 — pure generator: no detect, no Apply button.
+  // The first generated string is the canonical output for
+  // Cmd+Shift+C; users can always Generate again to refresh.
+  const registerOutput = useCallback(() => values[0] ?? null, [values]);
+  useRegisterUtilityOutput(registerOutput);
 
   const handleGenerate = () => {
     const result = generateRandomStrings(length, count, charset);

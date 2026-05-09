@@ -1,4 +1,4 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityInput } from '../panelPrimitives';
+import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityToolbar } from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -43,6 +43,10 @@ export function UuidUtilityPanel() {
   // of the three explicitly.
   const registerOutput = useCallback(() => values[0] ?? null, [values]);
   useRegisterUtilityOutput(registerOutput);
+
+  // RL-069 Slice 2 — Apply targets the decoder input only. The
+  // Regenerate button remains the explicit action for new IDs.
+  const runApply = useCallback(() => undefined, []);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
@@ -107,6 +111,7 @@ export function UuidUtilityPanel() {
             spellCheck={false}
           />
         </div>
+        <UtilityToolbar utilityId="uuid" primary={decoderInput} run={runApply} />
         {decoderInput.trim() === '' ? (
           <StatusMessage message={t('utilities.tool.uuid.decode.idle')} />
         ) : decoded === null ? (

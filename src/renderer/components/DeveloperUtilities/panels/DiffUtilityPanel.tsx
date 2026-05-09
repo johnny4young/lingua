@@ -1,6 +1,7 @@
-import { PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { computeDiff, summarizeDiff } from '../../../utils/diff';
 import type { DiffGranularity, DiffSegment } from '../../../utils/diff';
 
@@ -15,6 +16,19 @@ export function DiffUtilityPanel() {
     [left, right, granularity]
   );
   const summary = useMemo(() => summarizeDiff(segments), [segments]);
+
+  // RL-069 Slice 2 — emit a unified-style summary line "+A −B =C" so
+  // Cmd+Shift+C lands a quick clipboard-friendly snapshot instead of
+  // dumping the entire diff.
+  const registerOutput = useCallback(() => {
+    if (segments.length === 0) return null;
+    return `+${summary.add} −${summary.remove} =${summary.equal}`;
+  }, [segments, summary]);
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setGranularity((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4">
@@ -70,6 +84,12 @@ export function DiffUtilityPanel() {
               removed: summary.remove,
               same: summary.equal,
             })}
+          />
+          <UtilityToolbar
+            utilityId="diff"
+            primary={left}
+            secondary={right}
+            run={runApply}
           />
         </div>
         {segments.length === 0 ? (

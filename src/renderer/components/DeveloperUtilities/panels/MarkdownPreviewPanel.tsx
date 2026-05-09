@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useEffect, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { MARKDOWN_PREVIEW_MAX_KB, renderMarkdownPreview } from '../../../utils/markdownPreview';
 import type { MarkdownPreviewResult } from '../../../utils/markdownPreview';
@@ -46,6 +47,16 @@ export function MarkdownPreviewPanel() {
     };
   }, [input, gfm]);
 
+  const registerOutput = useCallback(
+    () => (result && result.ok ? result.html : null),
+    [result]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
+
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <PanelSection
@@ -72,6 +83,7 @@ export function MarkdownPreviewPanel() {
             className="min-h-[18rem] font-mono"
           />
         </div>
+        <UtilityToolbar utilityId="markdown-preview" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

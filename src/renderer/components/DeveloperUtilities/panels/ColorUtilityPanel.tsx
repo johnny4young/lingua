@@ -1,7 +1,8 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityInput } from '../panelPrimitives';
+import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityToolbar } from '../panelPrimitives';
 import { Palette } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { analyzeColor } from '../../../utils/developerUtilities';
 
@@ -36,6 +37,16 @@ export function ColorUtilityPanel() {
   const [input, setInput] = useState('#4f46e5');
   const analysis = useMemo(() => analyzeColor(input), [input]);
   const swatch = analysis.hex ?? 'transparent';
+
+  // RL-069 Slice 2 — Hex is the most universally pasteable. Surface
+  // null when the input failed to parse so the shortcut returns the
+  // empty toast instead of a misleading "transparent".
+  const registerOutput = useCallback(() => analysis.hex ?? null, [analysis.hex]);
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
@@ -78,6 +89,7 @@ export function ColorUtilityPanel() {
         ) : (
           <StatusMessage tone="success" message={t('utilities.tool.color.valid')} />
         )}
+        <UtilityToolbar utilityId="color" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

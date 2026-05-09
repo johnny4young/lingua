@@ -1,8 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { JSON_CSV_DELIMITERS, JSON_CSV_MAX_KB, convertCsvToJson, convertJsonToCsv } from '../../../utils/jsonCsv';
+import { detectsAsJson } from '../../../utils/developerUtilities';
 import type { CsvToJsonResult, JsonCsvDelimiter, JsonToCsvResult } from '../../../utils/jsonCsv';
 
 type JsonCsvMode = 'json-to-csv' | 'csv-to-json';
@@ -43,6 +45,23 @@ export function JsonCsvPanel() {
   const input = isJsonToCsv ? jsonInput : csvInput;
   const setInput = isJsonToCsv ? setJsonInput : setCsvInput;
   const result = isJsonToCsv ? jsonResult : csvResult;
+
+  const registerOutput = useCallback(
+    () => (result.ok ? result.output : null),
+    [result]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  // Apply auto-flips direction based on input shape: JSON → CSV.
+  const runApply = useCallback(() => {
+    if (detectsAsJson(input)) {
+      setJsonInput(input);
+      setMode('json-to-csv');
+      return;
+    }
+    setCsvInput(input);
+    setMode('csv-to-json');
+  }, [input]);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -101,6 +120,7 @@ export function JsonCsvPanel() {
             className="min-h-[14rem] font-mono"
           />
         </div>
+        <UtilityToolbar utilityId="json-csv" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

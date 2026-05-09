@@ -3963,6 +3963,22 @@ What remains under RL-069:
 
 Each remaining slice closes under the same RL-069 id; no new RL ids are introduced. ROADMAP §4e Readiness reflects the Slice 1 closure plus the remaining roadmap.
 
+### Status Update — 2026-05-09 (RL-069 Slice 2)
+
+Slice 2 — detect + Apply + 29-panel coverage — landed today. RL-069 stays `Partial`; Slice 3 (clipboard-on-focus + per-tool history + favorites) is the remaining sub-slice.
+
+What shipped:
+
+- New optional `detect?: (inputs: { primary: string; secondary?: string }) => boolean` field on `DeveloperUtilityDefinition` at `src/renderer/data/developerUtilities.ts`. Populated on 27 panels; the two pure generators (random-string, lorem-ipsum) opt out and the toolbar hides the Apply button accordingly. Signature is the generalised form so dual-input panels (regex, diff) participate without a future migration.
+- New `detectsAs*` predicate suite in `src/renderer/utils/developerUtilities.ts` co-located with the existing `analyze*` exports. Covers JSON / base64 / URL-encoded / absolute URL / JWT / UUID / timestamp / regex / hex+RGB+HSL / number / HTML / SVG / data-URI / backslash-escaped / cron / curl / markdown / YAML / CSV / SQL / hashable / inspectable text / case-convertible / beautifiable.
+- Extended `utilityOutputStore` with an `applyHandler` slot mirroring the existing `provider` slot, plus a new `useRegisterUtilityApply` hook in `src/renderer/hooks/useRegisterUtilityOutput.ts`. Same reference-equality cleanup pattern as Slice 1, so a sibling panel that takes over registration is not cleared by an unmount race.
+- New `<UtilityToolbar>` primitive in `src/renderer/components/DeveloperUtilities/panelPrimitives.tsx`. The toolbar self-registers an apply descriptor (reading the catalog's detect by id) and renders the ⚡ Apply button with `enabled` derived from `detect({ primary, secondary })`. Pure-generator panels skip the toolbar entirely.
+- New `utility-apply-from-input` shortcut in `src/renderer/data/keyboardShortcuts.ts` (group `utilities`, default Mod+Shift+A — Mod+Enter is intentionally avoided to keep the editor's `run-toggle` shortcut free). Handler in `src/renderer/hooks/useGlobalShortcuts.ts` reads the registered apply descriptor at dispatch time and surfaces a localized success / unavailable toast. The success toast interpolates the tool name via `i18next.t(toolNameKey)`.
+- 23 panel wirings: every catalog entry that does not opt out now calls `useRegisterUtilityOutput` (returning the canonical output or `null` on error / empty) and renders one `<UtilityToolbar utilityId="..." primary={input} run={runApply} />`. Bidirectional panels (Base64, URL, HtmlEntity, BackslashEscape, YamlJson, JsonCsv, Base64Image) use detect-driven mode-flip in their `runApply`. Live-rendered single-input panels keep `runApply` as an idempotent no-op so the success toast confirms the keyboard gesture without churning state.
+- 6 new `utilities.*` keys per locale plus 2 new `shortcuts.item.utilityApplyFromInput.*` keys per locale. Spanish copy uses neutral LatAm tuteo (`Aplica desde la entrada`, `Apliqué {{toolName}} a la entrada actual`).
+- Tests: extended `tests/data/developerUtilities.test.ts` with a `detect` block (presence on 27 panels + carve-outs + secondary-input contract); rewrote `tests/components/DeveloperUtilityPanelRegistry.test.ts` to assert every panel module imports `useRegisterUtilityOutput` and every non-generator panel renders `<UtilityToolbar>`; appended `detectsAs*` coverage to `tests/utils/developerUtilities.test.ts`; extended `tests/stores/utilityOutputStore.test.ts` with apply-handler lifecycle assertions; added `tests/components/UtilityToolbarApply.test.tsx` covering Apply behavior across 6 panel shapes plus raw / encoded HTML entities and bidirectional input retention; added `tests/e2e/utilitiesApply.spec.ts` with 9 Playwright assertions covering the JSON Apply path end-to-end, generator carve-outs, UUID detect gating, Diff dual-input requirement, Mod+Shift+A shortcut + localized toast, Spanish locale, and console-clean across 13 panel transitions.
+- Gates green: lint, tsc, check:i18n, check:i18n:copy, full vitest (247 files / 2621 passed + 2 skipped), full Playwright web e2e (128 specs across 9 files including the new `utilitiesApply` smoke).
+
 ### RL-070 Beautify / minify suite and code-conversion bundle
 
 - Priority: `P3`

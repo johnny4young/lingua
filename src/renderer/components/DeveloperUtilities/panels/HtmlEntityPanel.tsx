@@ -1,8 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { decodeHtmlEntities, encodeHtmlEntities } from '../../../utils/htmlEntity';
+import { detectsAsEncodedHtmlEntity } from '../../../utils/developerUtilities';
 import type { EncodeStrategy } from '../../../utils/htmlEntity';
 
 type HtmlEntityMode = 'encode-minimal' | 'encode-named' | 'encode-numeric' | 'decode';
@@ -25,6 +27,18 @@ export function HtmlEntityPanel() {
           : 'named';
     return { output: encodeHtmlEntities(input, strategy), unresolvedCount: 0 };
   }, [input, mode]);
+
+  // RL-069 Slice 2 — register the encoded / decoded value.
+  const registerOutput = useCallback(() => output || null, [output]);
+  useRegisterUtilityOutput(registerOutput);
+
+  // Apply auto-flips between encode-named and decode based on whether
+  // the input contains entities. The two intermediate encode modes
+  // (minimal / numeric) are explicit user choices; we don't override
+  // them here.
+  const runApply = useCallback(() => {
+    setMode(detectsAsEncodedHtmlEntity(input) ? 'decode' : 'encode-named');
+  }, [input]);
 
   return (
     <div className="grid gap-4">
@@ -65,6 +79,7 @@ export function HtmlEntityPanel() {
             spellCheck={false}
           />
         </div>
+        <UtilityToolbar utilityId="html-entity" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

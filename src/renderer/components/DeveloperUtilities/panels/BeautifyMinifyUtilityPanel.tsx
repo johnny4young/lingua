@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useEffect, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { formatSource } from '../../../utils/formatters';
 import { minifySource } from '../../../utils/minify';
@@ -65,6 +66,18 @@ export function BeautifyMinifyUtilityPanel() {
     setErrorKey(null);
   };
 
+  // RL-069 Slice 2 — output null while errored so the shortcut surfaces
+  // the empty-output toast instead of stale content.
+  const registerOutput = useCallback(
+    () => (errorKey ? null : output || null),
+    [errorKey, output]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
+
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <PanelSection
@@ -124,6 +137,7 @@ export function BeautifyMinifyUtilityPanel() {
         {language === 'xml' && mode === 'minify' ? (
           <StatusMessage message={t('utilities.tool.beautifyMinify.xmlMinifyHint')} />
         ) : null}
+        <UtilityToolbar utilityId="beautify-minify" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

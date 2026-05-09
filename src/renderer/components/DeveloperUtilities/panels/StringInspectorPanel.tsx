@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { inspect as inspectString } from '../../../utils/stringInspector';
 import type { CharacterCategory, WarningKind } from '../../../utils/stringInspector';
 
@@ -8,6 +9,20 @@ export function StringInspectorPanel() {
   const { t } = useTranslation();
   const [input, setInput] = useState('hello\u200Bworld');
   const report = useMemo(() => inspectString(input), [input]);
+
+  // RL-069 Slice 2 \u2014 the panel's value is its analysis; the canonical
+  // copyable output is a one-line summary "Nx graphemes \u00B7 Mx UTF-16 \u00B7
+  // Bx bytes" so a quick Cmd+Shift+C lands the headline numbers in
+  // the clipboard.
+  const registerOutput = useCallback(() => {
+    if (input.length === 0) return null;
+    return `${report.counts.graphemesApprox} graphemes \u00B7 ${report.counts.charactersUtf16} UTF-16 \u00B7 ${report.counts.bytesUtf8} bytes`;
+  }, [input, report.counts]);
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4">
@@ -42,6 +57,7 @@ export function StringInspectorPanel() {
             testid="string-inspector-utf8"
           />
         </div>
+        <UtilityToolbar utilityId="string-inspector" primary={input} run={runApply} />
       </PanelSection>
 
       {report.warnings.length > 0 ? (

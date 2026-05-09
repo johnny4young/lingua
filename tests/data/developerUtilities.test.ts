@@ -88,4 +88,59 @@ describe('DEVELOPER_UTILITIES catalog', () => {
       expect(findById('markdown-preview')?.aliases).toContain('md');
     });
   });
+
+  describe('detect (RL-069 Slice 2)', () => {
+    // Pure generators that intentionally have no `detect` predicate.
+    // The toolbar hides the ⚡ Apply button for these panels.
+    const GENERATOR_IDS: ReadonlySet<DeveloperUtilityDefinition['id']> = new Set([
+      'random-string',
+      'lorem-ipsum',
+    ]);
+
+    it('declares detect on every non-generator panel', () => {
+      for (const utility of DEVELOPER_UTILITIES) {
+        if (GENERATOR_IDS.has(utility.id)) {
+          expect(utility.detect, `${utility.id} should opt out`).toBeUndefined();
+          continue;
+        }
+        expect(typeof utility.detect, `${utility.id} should declare detect`).toBe('function');
+      }
+    });
+
+    it('detect predicates accept the generalised inputs shape', () => {
+      // The signature was widened in Slice 2 to support diff and regex,
+      // which need both a primary and a secondary value. Every other
+      // panel ignores `secondary` — passing it must still be safe.
+      for (const utility of DEVELOPER_UTILITIES) {
+        if (!utility.detect) continue;
+        const result = utility.detect({ primary: '', secondary: '' });
+        expect(typeof result, `${utility.id} must return a boolean`).toBe('boolean');
+      }
+    });
+
+    it('detect returns false for the empty-input baseline', () => {
+      // String Inspector still rejects the truly empty baseline, while
+      // keeping whitespace-only characters inspectable because those
+      // codepoints are exactly what the tool helps users diagnose.
+      for (const utility of DEVELOPER_UTILITIES) {
+        if (!utility.detect) continue;
+        expect(utility.detect({ primary: '' }), `${utility.id} on empty`).toBe(false);
+      }
+    });
+
+    it('base64-image detects data URIs, not raw base64 payloads', () => {
+      const base64Image = DEVELOPER_UTILITIES.find((u) => u.id === 'base64-image');
+      expect(base64Image?.detect?.({ primary: 'data:image/png;base64,iVBORw0KGgo=' })).toBe(true);
+      expect(base64Image?.detect?.({ primary: 'iVBORw0KGgo=' })).toBe(false);
+    });
+
+    it('regex and diff use the secondary input', () => {
+      const regex = DEVELOPER_UTILITIES.find((u) => u.id === 'regex');
+      const diff = DEVELOPER_UTILITIES.find((u) => u.id === 'diff');
+      expect(regex?.detect?.({ primary: '\\d+' })).toBe(false);
+      expect(regex?.detect?.({ primary: '\\d+', secondary: 'abc 123' })).toBe(true);
+      expect(diff?.detect?.({ primary: 'left' })).toBe(false);
+      expect(diff?.detect?.({ primary: 'left', secondary: 'right' })).toBe(true);
+    });
+  });
 });

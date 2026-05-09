@@ -1,4 +1,4 @@
-import { FieldLabel, JsonTreeNode, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
+import { FieldLabel, JsonTreeNode, PanelSection, StatusMessage, UtilityToolbar, UtilityTextarea } from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -12,6 +12,14 @@ export function JwtUtilityPanel() {
   const [input, setInput] = useState(
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJsaW5ndWEiLCJyb2xlIjoiZGV2In0.signature'
   );
+
+  // RL-069 Slice 2 — Apply forces the panel into decode mode against
+  // the current token. Verify and Sign sub-modes have their own
+  // explicit "Run" buttons; the productivity gesture targets the
+  // common case (paste a token, see its claims).
+  const runApply = useCallback(() => {
+    setMode('decode');
+  }, []);
 
   return (
     <div className="grid gap-4">
@@ -36,6 +44,7 @@ export function JwtUtilityPanel() {
             <option value="sign">{t('utilities.tool.jwt.mode.sign')}</option>
           </select>
         </div>
+        <UtilityToolbar utilityId="jwt" primary={input} run={runApply} />
       </PanelSection>
 
       {mode === 'decode' ? (

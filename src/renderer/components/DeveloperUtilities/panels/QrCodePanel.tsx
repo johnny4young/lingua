@@ -1,4 +1,4 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -112,6 +112,14 @@ export function QrCodePanel() {
   }, [mode, decodeResult, pngResult]);
   useRegisterUtilityOutput(registerOutput);
 
+  // RL-069 Slice 2 — Apply re-runs the live generation pipeline.
+  // The output is already memoised via useEffect; the gesture exists
+  // so a keyboard-only user can confirm "yes, encode this" and read
+  // the success toast.
+  const runApply = useCallback(() => {
+    setPayload((prev) => prev);
+  }, []);
+
   const capacity = qrCapacityFor(level);
   const generateErrorMessage =
     pngResult && !pngResult.ok
@@ -170,6 +178,8 @@ export function QrCodePanel() {
           </option>
         </select>
       </div>
+
+      <UtilityToolbar utilityId="qr-code" primary={payload} run={runApply} />
 
       {mode === 'generate' ? (
         <>

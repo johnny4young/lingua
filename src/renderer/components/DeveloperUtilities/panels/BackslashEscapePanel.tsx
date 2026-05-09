@@ -1,8 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { escapeWithPreset, unescapeWithPreset } from '../../../utils/backslashEscape';
+import { detectsAsBackslashEscaped } from '../../../utils/developerUtilities';
 import type { BackslashPreset, UnescapeReason } from '../../../utils/backslashEscape';
 
 type BackslashMode = 'escape' | 'unescape';
@@ -42,6 +44,18 @@ export function BackslashEscapePanel() {
     }
     return { output: '', errorKey: reasonKey(result.reason), errorPosition: result.position };
   }, [input, mode, preset]);
+
+  const registerOutput = useCallback(
+    () => (errorKey ? null : output || null),
+    [errorKey, output]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  // Apply auto-flips between escape and unescape based on whether the
+  // input contains existing escape sequences.
+  const runApply = useCallback(() => {
+    setMode(detectsAsBackslashEscaped(input) ? 'unescape' : 'escape');
+  }, [input]);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -101,6 +115,7 @@ export function BackslashEscapePanel() {
             message={t('utilities.tool.backslashEscape.sqlWildcardHint')}
           />
         ) : null}
+        <UtilityToolbar utilityId="backslash-escape" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

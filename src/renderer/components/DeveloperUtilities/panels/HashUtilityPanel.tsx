@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityTextarea } from '../panelPrimitives';
-import { useEffect, useRef, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { FileDropZone } from '../../ui/FileDropZone';
 import { HASH_ALGORITHMS, HASH_FILE_MAX_BYTES, HASH_FILE_MAX_MB, HMAC_ALGORITHMS, computeHash } from '../../../utils/developerUtilities';
@@ -98,6 +99,22 @@ export function HashUtilityPanel() {
   };
 
   const algorithmOptions = mode === 'hmac' ? HMAC_ALGORITHMS : HASH_ALGORITHMS;
+
+  // RL-069 Slice 2 — Hex digest is the canonical output. Surface null
+  // when the result is missing or errored so Cmd+Shift+C falls through
+  // to the empty-output toast.
+  const registerOutput = useCallback(
+    () => (result && result.ok ? result.hex : null),
+    [result]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    // No-op trigger; the live `useEffect` already (re)computes the
+    // digest whenever any input changes. The success toast acks the
+    // gesture for keyboard-driven users.
+    setText((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -210,6 +227,11 @@ export function HashUtilityPanel() {
             />
           </div>
         )}
+        <UtilityToolbar
+          utilityId="hash"
+          primary={source === 'text' ? text : file?.name ?? ''}
+          run={runApply}
+        />
       </PanelSection>
 
       <PanelSection
