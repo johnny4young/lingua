@@ -30,7 +30,7 @@ Mirrors the authoritative `Status` column in
 | Iter 6 | [`RL-077`](./ROADMAP.md) | Shipped (2026-05-02) | Capability-based filesystem IPC sandbox — Slice 1 + Slice 2 both landed. See §8. |
 | Iter 7 | [`RL-078`](./ROADMAP.md) | Shipped (2026-05-03) | Parent-owned execution timeouts + output / resource limits. See §9. |
 | Iter 8 | [`RL-079`](./ROADMAP.md) | Shipped (2026-05-03) | Trusted native execution hardening for Go and Rust. See §10. |
-| Iter 9 | [`RL-083`](./ROADMAP.md) | Shipped (2026-05-04) | Offline runtime assets + strict CSP — Slice 1 vendored Pyodide for desktop and tightened the desktop CSP; Slice 2 closed the web track with a cache-first SW for the version-pinned Pyodide URL plus a documented "first Python load needs network" limitation. See §11. |
+| Iter 9 | [`RL-083`](./ROADMAP.md) | Shipped (2026-05-04); hardened (2026-05-08) | Offline runtime assets + strict CSP — Slice 1 vendored Pyodide for desktop and tightened the desktop CSP; Slice 2 originally closed the web track with a cache-first CDN strategy. The 2026-05-08 hardening follow-up moved web Pyodide to same-origin copied runtime assets. See §11. |
 | Iter 10 | [`RL-080`](./ROADMAP.md) | Shipped (2026-05-04) | Release-grade desktop CI + update gates — Slice 1 (update-feed tests + ci.yml worker wiring) + Slice 2 (release-blocking audit + checksum re-verify + RELEASE.md sync) + Slice 3 (offline packaged macOS smoke gate). All ACs closed. See §12. |
 | Iter 11 | [`RL-085`](./ROADMAP.md) | Shipped (2026-05-05) | SBOM + third-party license compliance — release SBOM and transitive license report generation, strict runtime license-policy gate, CI/release workflow wiring, and release notice sync. See §13. |
 | Iter 12 | [`RL-092`](./ROADMAP.md) | Shipped (2026-05-05) | Release security review checklist — `docs/RELEASE_SECURITY.md` plus a guard test now pin the security sign-off surface. See §14. |
@@ -54,8 +54,8 @@ Value-per-day priority. The full reasoning is in
 [`ROADMAP.md`](./ROADMAP.md) §5; this list only names the next pulls.
 
 1. **Security launch hardening** — closed. `RL-077`, `RL-078`,
-   `RL-079`, and `RL-083` are all `Done` (RL-083 Slice 2 closed
-   2026-05-04 — see §11). Move on.
+   `RL-079`, and `RL-083` are all `Done` (RL-083 was hardened on
+   2026-05-08 to self-host web Pyodide assets — see §11). Move on.
 2. **Launch blockers** — closed. `RL-063` shipped 2026-05-05 (site live
    at https://linguacode.dev from the separate `lingua-marketing` repo;
    see `docs/MARKETING_SITE_ADR.md`). `RL-061` is shipped; `RL-059`
@@ -252,7 +252,7 @@ Shipped on 2026-05-03 — see [`RL-079`](./PLAN.md#rl-079-trusted-native-executi
 
 ## 11. Iter 9 / RL-083 — Offline runtime assets + strict CSP
 
-Shipped on 2026-05-04 — see [`RL-083`](./PLAN.md#rl-083-offline-runtime-assets-and-strict-csp). Slice 1 vendored Pyodide for desktop and tightened the desktop CSP; Slice 2 closed the web track with cache-first SW + documented limitation. ADR: [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md).
+Shipped on 2026-05-04 — see [`RL-083`](./PLAN.md#rl-083-offline-runtime-assets-and-strict-csp). Slice 1 vendored Pyodide for desktop and tightened the desktop CSP; Slice 2 originally closed the web track with cache-first SW + documented limitation. Hardened on 2026-05-08: web now uses the same copied, same-origin Pyodide runtime assets as desktop, and the web CSP no longer allows jsDelivr. ADR: [`RUNTIME_ASSETS_ADR.md`](./RUNTIME_ASSETS_ADR.md).
 
 ---
 

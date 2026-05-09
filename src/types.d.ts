@@ -478,7 +478,24 @@ interface LinguaAPI {
       absolutePath: string
     ) => Promise<
       | { ok: true; rootId: string; rootPath: string }
-      | { ok: false; error: 'blocked' | 'not-found' | 'not-a-directory' }
+      | {
+          ok: false;
+          error: 'blocked' | 'not-found' | 'not-a-directory' | 'not-approved';
+        }
+    >;
+    reopenFile: (
+      absolutePath: string
+    ) => Promise<
+      | {
+          ok: true;
+          rootId: string;
+          rootPath: string;
+          fileRelativePath: string;
+        }
+      | {
+          ok: false;
+          error: 'blocked' | 'not-found' | 'not-a-file' | 'not-approved';
+        }
     >;
     revokeRoot: (rootId: string) => Promise<boolean>;
     readdir: (rootId: string, relativePath: string) => Promise<FsDirEntry[]>;

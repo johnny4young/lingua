@@ -15,8 +15,7 @@
  *     emailDelivered: boolean, emailReason?: string }
  *
  * Response shape (failure tagged-union):
- *   { ok: false, reason: 'trial-exists-email', canRecover: true }
- *   { ok: false, reason: 'trial-exists-device' }
+ *   { ok: false, reason: 'trial-unavailable', canRecover: true }
  *   { ok: false, reason: 'rate-limited', retryAfter: number }
  *   { ok: false, reason: 'invalid-input', issues: string[] }
  *   { ok: false, reason: 'not-implemented', message: string }
@@ -121,13 +120,17 @@ trialsRouter.post('/start', async (c) => {
   if (existingByEmail) {
     return jsonNoStore(c, {
       ok: false,
-      reason: 'trial-exists-email',
+      reason: 'trial-unavailable',
       canRecover: true,
     });
   }
   const existingByDevice = await findTrialByDeviceId(c.env.DB, deviceId);
   if (existingByDevice) {
-    return jsonNoStore(c, { ok: false, reason: 'trial-exists-device' });
+    return jsonNoStore(c, {
+      ok: false,
+      reason: 'trial-unavailable',
+      canRecover: true,
+    });
   }
 
   const issuedAt = Math.floor(Date.now() / 1000);

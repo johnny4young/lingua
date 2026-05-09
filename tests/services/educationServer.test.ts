@@ -109,12 +109,12 @@ describe('startEducation', () => {
     expect(result).toMatchObject({ ok: false, reason: 'confirmation-email-failed' });
   });
 
-  it('maps email-already-active + canRecover through', async () => {
+  it('maps education-unavailable + canRecover through', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
           ok: false,
-          reason: 'email-already-active',
+          reason: 'education-unavailable',
           canRecover: true,
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
@@ -130,7 +130,7 @@ describe('startEducation', () => {
     });
     expect(result).toMatchObject({
       ok: false,
-      reason: 'email-already-active',
+      reason: 'education-unavailable',
       canRecover: true,
     });
   });

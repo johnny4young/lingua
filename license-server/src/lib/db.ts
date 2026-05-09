@@ -255,6 +255,72 @@ export async function countActiveDevices(
   return row?.n ?? 0;
 }
 
+export async function insertDeviceIfSlotAvailable(
+  db: D1Database,
+  input: InsertDeviceInput,
+  deviceLimit: number
+): Promise<{ affected: number }> {
+  const now = Math.floor(Date.now() / 1000);
+  const result = await db
+    .prepare(
+      `INSERT INTO devices (
+        id, license_id, device_id, device_name, os, surface,
+        activated_at, last_seen_at, removed_at
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, NULL
+      WHERE (
+        SELECT COUNT(*) FROM devices
+        WHERE license_id = ? AND surface = ? AND removed_at IS NULL
+      ) < ?
+      AND NOT EXISTS (
+        SELECT 1 FROM devices
+        WHERE license_id = ? AND device_id = ? AND surface = ? AND removed_at IS NULL
+      )`
+    )
+    .bind(
+      input.id,
+      input.licenseId,
+      input.deviceId,
+      input.deviceName,
+      input.os,
+      input.surface,
+      now,
+      now,
+      input.licenseId,
+      input.surface,
+      deviceLimit,
+      input.licenseId,
+      input.deviceId,
+      input.surface
+    )
+    .run();
+  return { affected: result.meta?.changes ?? 0 };
+}
+
+export async function reactivateDeviceIfSlotAvailable(
+  db: D1Database,
+  deviceRowId: string,
+  licenseId: string,
+  surface: Surface,
+  deviceName: string,
+  os: string,
+  deviceLimit: number
+): Promise<{ affected: number }> {
+  const now = Math.floor(Date.now() / 1000);
+  const result = await db
+    .prepare(
+      `UPDATE devices SET removed_at = NULL, last_seen_at = ?, device_name = ?, os = ?
+       WHERE id = ? AND removed_at IS NOT NULL
+       AND (
+         SELECT COUNT(*) FROM devices
+         WHERE license_id = ? AND surface = ? AND removed_at IS NULL
+       ) < ?`
+    )
+    .bind(now, deviceName, os, deviceRowId, licenseId, surface, deviceLimit)
+    .run();
+  return { affected: result.meta?.changes ?? 0 };
+}
+
 export async function touchDeviceLastSeen(
   db: D1Database,
   deviceRowId: string

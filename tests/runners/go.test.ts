@@ -117,9 +117,11 @@ describe('GoRunner', () => {
         this.listeners.set(type, handler);
       }
 
-      postMessage(): void {
+      postMessage(message: { runId: string }): void {
         const handler = this.listeners.get('message');
-        handler?.({ data: { type: 'done', executionTime: 1 } } as MessageEvent);
+        handler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 1 },
+        } as MessageEvent);
       }
 
       terminate(): void {}
@@ -150,6 +152,58 @@ describe('GoRunner', () => {
   it('should stop without error when no worker is running', () => {
     const runner = new GoRunner();
     expect(() => runner.stop()).not.toThrow();
+  });
+
+  it('times out from the parent thread when the Go worker never replies', async () => {
+    vi.useFakeTimers();
+    mockDetect.mockResolvedValue({
+      installed: true,
+      version: 'go1.22.0',
+      goRoot: '/usr/local/go',
+    });
+    mockCompile.mockResolvedValue({
+      success: true,
+      wasmBytes: [0],
+      wasmExecJs: 'runtime',
+    });
+
+    const originalWorker = globalThis.Worker;
+    const terminate = vi.fn();
+
+    class SilentWorker {
+      addEventListener(): void {}
+      postMessage(): void {}
+      terminate(): void {
+        terminate();
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: SilentWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new GoRunner();
+      await runner.init();
+      const pending = runner.execute('package main\nfunc main() {}', { timeout: 50 });
+
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(50);
+      const result = await pending;
+
+      expect(terminate).toHaveBeenCalledOnce();
+      expect(result.executionTime).toBe(50);
+      expect(result.error?.message).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
   });
 
   it('should call detect on init', async () => {

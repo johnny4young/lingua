@@ -678,18 +678,17 @@ describe('LicenseSection', () => {
     );
   });
 
-  it('hands off the trial duplicate-email canRecover flag to RecoveryCta as a prefill', async () => {
+  it('hands off the trial unavailable canRecover flag to RecoveryCta as a prefill', async () => {
     // Pin the parent → child wiring: when TrialCta fires
     // onRequestRecovery (because the worker said `canRecover: true`),
     // the LicenseSection captures the email into local state and
     // RecoveryCta picks it up as `prefilledEmail`. A regression here
-    // would silently break the "we already have a trial under this
-    // email — recover it" affordance that LICENSING_ADR Decision 5
-    // promises duplicate-email users.
+    // would silently break the "recover if you may already have a
+    // token" affordance without making the server enumerate accounts.
     const user = userEvent.setup();
     vi.mocked(startTrial).mockResolvedValue({
       ok: false,
-      reason: 'trial-exists-email',
+      reason: 'trial-unavailable',
       canRecover: true,
     });
     render(<LicenseSection />);
@@ -702,10 +701,10 @@ describe('LicenseSection', () => {
 
     await waitFor(() =>
       expect(useUIStore.getState().statusNotice?.messageKey).toBe(
-        'license.trial.notice.duplicateEmail',
+        'license.trial.notice.unavailable',
       ),
     );
-    // The duplicate-email branch routed the address into the
+    // The generic unavailable branch routed the address into the
     // recovery form so the user can finish recovery in one click.
     await waitFor(() =>
       expect((screen.getByTestId('recovery-email-input') as HTMLInputElement).value).toBe(

@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   HTML_TO_JSX_MAX_BYTES,
+  HTML_TO_JSX_MAX_DEPTH,
   convertHtmlToJsx,
 } from '../../src/renderer/utils/htmlToJsx';
 
@@ -134,6 +135,25 @@ describe('convertHtmlToJsx', () => {
   it('rejects payloads larger than the byte cap with the tooLarge error key', () => {
     const huge = '<div>' + 'x'.repeat(HTML_TO_JSX_MAX_BYTES + 16) + '</div>';
     expect(convertHtmlToJsx(huge)).toMatchObject({
+      ok: false,
+      errorKey: 'utilities.tool.htmlToJsx.error.tooLarge',
+    });
+  });
+
+  it('measures the byte cap before trimming whitespace padding', () => {
+    const padded = `${' '.repeat(HTML_TO_JSX_MAX_BYTES + 16)}<p>tiny</p>`;
+    expect(convertHtmlToJsx(padded)).toMatchObject({
+      ok: false,
+      errorKey: 'utilities.tool.htmlToJsx.error.tooLarge',
+    });
+  });
+
+  it('rejects deeply nested DOMs before recursive rendering can overflow', () => {
+    const deep =
+      '<div>'.repeat(HTML_TO_JSX_MAX_DEPTH + 10) +
+      'x' +
+      '</div>'.repeat(HTML_TO_JSX_MAX_DEPTH + 10);
+    expect(convertHtmlToJsx(deep)).toMatchObject({
       ok: false,
       errorKey: 'utilities.tool.htmlToJsx.error.tooLarge',
     });

@@ -1,11 +1,10 @@
 # Runtime Assets ADR
 
 > Owning ticket: `RL-083` — Offline runtime assets + strict CSP.
-> Status: Closed 2026-05-04. Slice 1 vendored Pyodide for desktop and
-> tightened the desktop CSP. Slice 2 picked the web strategy: load
-> from the upstream CDN with a cache-first service worker so the
-> first Python load primes the cache and subsequent loads work
-> offline. See "Web (Slice 2 — cache-backed offline)" below.
+> Status: Closed 2026-05-04; hardened 2026-05-08. Slice 1 vendored
+> Pyodide for desktop and tightened the desktop CSP. Slice 2 originally
+> used a cache-first CDN strategy for web; the hardening follow-up moved
+> web onto the same copied, same-origin Pyodide asset tree.
 
 ## Context
 
@@ -70,47 +69,25 @@ runtime asset.
   records the URL. The renderer's smoke loop appends a synthetic
   `offline-no-cdn` case that fails if any URL was blocked.
 
-### Web (Slice 2 — cache-backed offline)
+### Web (hardened same-origin runtime assets)
 
-The web build keeps loading Pyodide from `cdn.jsdelivr.net` (the
-shared worker is built with `__LINGUA_PYODIDE_INDEX_URL__` set to the
-upstream URL in `vite.web.config.mts`), but `public/sw.js` switches
-the version-pinned prefix from network-first to **cache-first** so the
-second visit and every subsequent visit do not need network
-connectivity to run Python.
+The web build now uses the same `copyRuntimeAssetsPlugin()` as the
+desktop renderer. `vite.web.config.mts` sets
+`__LINGUA_PYODIDE_INDEX_URL__` to `null`, so `python-worker.ts` resolves
+Pyodide through `new URL('../pyodide/', import.meta.url)` and Vite copies
+the curated runtime files into `dist/web/pyodide/`.
 
 Concretely:
 
-- The constant `PYODIDE_CACHE_PREFIX` in `public/sw.js` mirrors
-  `RUNTIME_ASSETS.pyodide.sourceUrl`. A vitest gate in
-  `tests/shared/runtimeAssets.test.ts` fails red if the two drift, so
-  a Pyodide bump that touches the registry must also touch the SW.
-- Other `cdn.jsdelivr.net` URLs (none today; defensive future-proof)
-  stay on `network-first` so an unrelated CDN load picks up upstream
-  changes.
-- `CACHE_VERSION` was bumped to `v4` so existing clients drop the old
-  network-first responses on next reload — without the bump, users
-  running `v3` would keep the old strategy until cache eviction.
-
-**Documented limitation.** The very first Python load on web still
-needs connectivity. Subsequent loads (any time after the first
-successful Pyodide boot) work offline. This is the explicit gap the
-acceptance criteria allowed; we accept it as the chosen strategy.
-The only alternative that would close it (an SW install-time
-precache) would block the install on a ~13 MB download for users
-who never run Python — a worse trade-off than the current
-cache-on-first-use behavior.
-
-**Why CDN over self-hosting.** jsdelivr serves immutable,
-version-pinned URLs, so the substitution surface is constrained to
-the upstream provider. The cache-first strategy gives the
-offline-tolerance value without the bandwidth cost we would absorb by
-serving ~13 MB of Pyodide assets from our own infrastructure. This is
-the chosen strategy, not an interim step.
-
-**Web CSP.** `src/web/index.html` keeps `https://cdn.jsdelivr.net` in
-`script-src` and `connect-src` because that is where Pyodide loads
-from. The CSP comment cites this ADR.
+- `src/web/index.html` no longer allows `https://cdn.jsdelivr.net` in
+  `script-src` or `connect-src`.
+- `public/sw.js` no longer has a `PYODIDE_CACHE_PREFIX` or
+  `NETWORK_FIRST_ORIGINS` branch. Pyodide is a same-origin static
+  asset like other built chunks.
+- `CACHE_VERSION` was bumped to `v5` so existing clients drop the old
+  jsDelivr Pyodide cache entries on next activation.
+- `tests/shared/runtimeAssets.test.ts` now pins both renderer and web
+  configs to `JSON.stringify(null)` for `__LINGUA_PYODIDE_INDEX_URL__`.
 
 ## Consequences
 
@@ -125,12 +102,9 @@ from. The CSP comment cites this ADR.
 - The desktop CSP is provably stricter than before. Any future regression
   that tries to fetch a remote script will be blocked at the renderer
   AND at the offline-smoke gate in CI.
-- The web build's looser posture is documented as an explicit gap, not
-  a hidden one. After the first Python load, users keep working
-  offline. CDN compromise risk remains accepted for the web build and
-  is bounded only by the version-pinned jsdelivr URL plus the explicit
-  CSP allowlist; the local runtime-asset lock does not verify CDN
-  responses.
+- The web build no longer accepts CDN substitution risk for Pyodide.
+  Web deployments now serve the same locked runtime asset set the
+  desktop app ships.
 
 ## Alternatives considered
 

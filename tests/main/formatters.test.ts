@@ -94,7 +94,12 @@ describe('main/formatters', () => {
 
   it('falls back to black when ruff is unavailable for Python formatting', async () => {
     execFileMock.mockImplementation(
-      (binary: string, _args: readonly string[], callback: (error: Error | null) => void) => {
+      (
+        binary: string,
+        _args: readonly string[],
+        _options: unknown,
+        callback: (error: Error | null) => void
+      ) => {
         if (binary === 'ruff') {
           callback(new Error('not found'));
           return;
@@ -118,12 +123,28 @@ describe('main/formatters', () => {
     expect(pythonHandler).toBeTypeOf('function');
     const result = await pythonHandler?.({}, 'x=1');
 
-    expect(execFileMock).toHaveBeenNthCalledWith(1, 'ruff', ['--version'], expect.any(Function));
-    expect(execFileMock).toHaveBeenNthCalledWith(2, 'black', ['--version'], expect.any(Function));
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      1,
+      'ruff',
+      ['--version'],
+      expect.objectContaining({ env: expect.any(Object) }),
+      expect.any(Function)
+    );
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      2,
+      'black',
+      ['--version'],
+      expect.objectContaining({ env: expect.any(Object) }),
+      expect.any(Function)
+    );
     expect(spawnMock).toHaveBeenCalledWith(
       'black',
       ['--quiet', '-'],
-      expect.objectContaining({ stdio: ['pipe', 'pipe', 'pipe'], timeout: 15_000 })
+      expect.objectContaining({
+        stdio: ['pipe', 'pipe', 'pipe'],
+        timeout: 15_000,
+        env: expect.any(Object),
+      })
     );
     expect(result).toEqual({
       available: true,
@@ -134,7 +155,12 @@ describe('main/formatters', () => {
 
   it('returns binary-missing for Python when neither ruff nor black is installed', async () => {
     execFileMock.mockImplementation(
-      (_binary: string, _args: readonly string[], callback: (error: Error | null) => void) => {
+      (
+        _binary: string,
+        _args: readonly string[],
+        _options: unknown,
+        callback: (error: Error | null) => void
+      ) => {
         callback(new Error('not found'));
       }
     );
@@ -155,6 +181,38 @@ describe('main/formatters', () => {
       reason: 'binary-missing',
       error:
         'No Python formatter available on PATH. Install ruff (https://docs.astral.sh/ruff/) or black (https://pypi.org/project/black/) to enable Python formatting.',
+    });
+  });
+
+  it('fails instead of returning truncated formatter stdout as formatted code', async () => {
+    execFileMock.mockImplementation(
+      (
+        _binary: string,
+        _args: readonly string[],
+        _options: unknown,
+        callback: (error: Error | null) => void
+      ) => {
+        callback(null);
+      }
+    );
+    spawnMock.mockImplementation(() =>
+      createSpawnProcess({
+        stdout: 'x'.repeat(1024 * 1024 + 1),
+      })
+    );
+
+    const { registerFormatterHandlers } = await import('../../src/main/formatters');
+    registerFormatterHandlers();
+
+    const gofmtHandler = ipcHandlers.get('format:gofmt') as
+      | ((event: unknown, source: string) => Promise<FormatIpcResult>)
+      | undefined;
+
+    const result = await gofmtHandler?.({}, 'package main');
+    expect(result).toEqual({
+      available: true,
+      success: false,
+      error: 'Formatter output exceeded 1048576 byte limit.',
     });
   });
 });

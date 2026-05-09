@@ -414,6 +414,36 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
     expect(assetCall![1]).toMatchObject({ redirect: 'manual' });
   });
 
+  it('ignores Darwin zip assets that do not match the release versioned artifact name', async () => {
+    const { mockCache } = createMockCacheStorage();
+    vi.stubGlobal('caches', { default: mockCache });
+    vi.stubGlobal(
+      'fetch',
+      buildUpdateFetchMock({
+        release: {
+          tag: 'v0.3.0',
+          assets: [
+            {
+              id: 41,
+              name: 'lingua-0.2.9-darwin-x64.zip',
+              downloadUrl: 'https://signed.example/old-zip',
+            },
+            {
+              id: 42,
+              name: 'lingua-0.3.0-darwin-x64.zip.sha256',
+              downloadUrl: 'https://signed.example/checksum',
+            },
+          ],
+        },
+      })
+    );
+
+    const response = await callUpdate('darwin', '0.2.0');
+
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe('');
+  });
+
   it('keeps the production update feed on stable releases when drafts exist', async () => {
     const { mockCache } = createMockCacheStorage();
     vi.stubGlobal('caches', { default: mockCache });

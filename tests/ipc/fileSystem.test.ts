@@ -41,7 +41,10 @@ vi.mock('electron', () => ({
   app: { on: vi.fn() },
 }));
 
-import { registerFileSystemHandlers } from '../../src/main/ipc/fileSystem';
+import {
+  _resetFilesystemApprovalsForTests,
+  registerFileSystemHandlers,
+} from '../../src/main/ipc/fileSystem';
 import {
   clearRegistryForTests,
   mintRootCapability,
@@ -52,6 +55,7 @@ let tmpRoot: string;
 beforeEach(async () => {
   handlers.clear();
   clearRegistryForTests();
+  _resetFilesystemApprovalsForTests();
   showOpenDialog.mockReset();
   showSaveDialog.mockReset();
   showMessageBox.mockReset();
@@ -64,6 +68,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   clearRegistryForTests();
+  _resetFilesystemApprovalsForTests();
   await rm(tmpRoot, { recursive: true, force: true });
 });
 
@@ -78,6 +83,15 @@ async function invoke(
 
 function mintFor(rootPath: string): { rootId: string; rootPath: string } {
   return mintRootCapability(rootPath);
+}
+
+async function approveRoot(rootPath: string = tmpRoot): Promise<void> {
+  showOpenDialog.mockResolvedValue({
+    canceled: false,
+    filePaths: [rootPath],
+  });
+  await invoke('fs:select-directory');
+  showOpenDialog.mockReset();
 }
 
 // ---------------------------------------------------------------- pickers
@@ -142,7 +156,7 @@ describe('fs:select-file', () => {
     );
   });
 
-  it('mints a parent-dir capability and returns content atomically', async () => {
+  it('mints a single-file capability and returns content atomically', async () => {
     const filePath = path.join(tmpRoot, 'demo.ts');
     await writeFile(filePath, 'const x = 1;\n', 'utf-8');
     showOpenDialog.mockResolvedValue({
@@ -162,6 +176,25 @@ describe('fs:select-file', () => {
     expect(result.fileName).toBe('demo.ts');
     expect(result.content).toBe('const x = 1;\n');
     expect(result.rootPath).toBe(path.normalize(tmpRoot));
+  });
+
+  it('does not allow a picked-file capability to read siblings', async () => {
+    const filePath = path.join(tmpRoot, 'demo.ts');
+    await writeFile(filePath, 'const x = 1;\n', 'utf-8');
+    await writeFile(path.join(tmpRoot, 'sibling.ts'), 'const y = 2;\n', 'utf-8');
+    showOpenDialog.mockResolvedValue({
+      canceled: false,
+      filePaths: [filePath],
+    });
+
+    const result = (await invoke('fs:select-file')) as {
+      canceled: false;
+      rootId: string;
+    };
+
+    await expect(invoke('fs:read', result.rootId, 'sibling.ts')).rejects.toThrow(
+      'unsafe-path'
+    );
   });
 
   it.runIf(process.platform !== 'win32')(
@@ -195,7 +228,7 @@ describe('fs:save-dialog', () => {
     expect(result).toEqual({ canceled: true });
   });
 
-  it('mints a parent capability and returns the relative basename', async () => {
+  it('mints a single-file capability and returns the relative basename', async () => {
     const target = path.join(tmpRoot, 'saved.js');
     showSaveDialog.mockResolvedValue({ canceled: false, filePath: target });
     const result = (await invoke('fs:save-dialog', 'saved.js')) as {
@@ -207,6 +240,19 @@ describe('fs:save-dialog', () => {
     expect(result.canceled).toBe(false);
     expect(result.fileRelativePath).toBe('saved.js');
     expect(result.rootPath).toBe(path.normalize(tmpRoot));
+  });
+
+  it('does not allow a save-dialog capability to write siblings', async () => {
+    const target = path.join(tmpRoot, 'saved.js');
+    showSaveDialog.mockResolvedValue({ canceled: false, filePath: target });
+    const result = (await invoke('fs:save-dialog', 'saved.js')) as {
+      canceled: false;
+      rootId: string;
+    };
+
+    await expect(
+      invoke('fs:write', result.rootId, 'sibling.js', 'bad')
+    ).rejects.toThrow('unsafe-path');
   });
 
   it('rejects denylisted save targets before mint', async () => {
@@ -223,7 +269,8 @@ describe('fs:save-dialog', () => {
 // ------------------------------------------------------- root mgmt
 
 describe('fs:reopen-root', () => {
-  it('mints a fresh capability for an existing directory', async () => {
+  it('mints a fresh capability for an approved existing directory', async () => {
+    await approveRoot();
     const result = (await invoke('fs:reopen-root', tmpRoot)) as {
       ok: true;
       rootId: string;
@@ -234,9 +281,17 @@ describe('fs:reopen-root', () => {
     expect(result.rootPath).toBe(path.normalize(tmpRoot));
   });
 
-  it('returns ok=false / not-found for a missing path', async () => {
-    const ghost = path.join(tmpRoot, 'does-not-exist');
-    expect(await invoke('fs:reopen-root', ghost)).toEqual({
+  it('returns ok=false / not-approved for an arbitrary directory', async () => {
+    expect(await invoke('fs:reopen-root', tmpRoot)).toEqual({
+      ok: false,
+      error: 'not-approved',
+    });
+  });
+
+  it('returns ok=false / not-found for an approved path that disappeared', async () => {
+    await approveRoot();
+    await rm(tmpRoot, { recursive: true, force: true });
+    expect(await invoke('fs:reopen-root', tmpRoot)).toEqual({
       ok: false,
       error: 'not-found',
     });
@@ -250,14 +305,14 @@ describe('fs:reopen-root', () => {
   });
 
   it.runIf(process.platform !== 'win32')(
-    'returns ok=false / blocked when a reopened root symlinks to a denylisted path',
+    'returns ok=false / not-approved before probing arbitrary symlink roots',
     async () => {
       const link = path.join(tmpRoot, 'etc-link');
       await symlink('/etc', link);
 
       expect(await invoke('fs:reopen-root', link)).toEqual({
         ok: false,
-        error: 'blocked',
+        error: 'not-approved',
       });
     }
   );
@@ -267,7 +322,7 @@ describe('fs:reopen-root', () => {
     await writeFile(filePath, '', 'utf-8');
     expect(await invoke('fs:reopen-root', filePath)).toEqual({
       ok: false,
-      error: 'not-a-directory',
+      error: 'not-approved',
     });
   });
 
@@ -279,6 +334,61 @@ describe('fs:reopen-root', () => {
     expect(await invoke('fs:reopen-root', null)).toEqual({
       ok: false,
       error: 'not-found',
+    });
+  });
+});
+
+describe('fs:reopen-file', () => {
+  it('reopens an exact file approved through select-file', async () => {
+    const filePath = path.join(tmpRoot, 'demo.ts');
+    await writeFile(filePath, 'const x = 1;\n', 'utf-8');
+    showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [filePath] });
+    await invoke('fs:select-file');
+
+    const result = (await invoke('fs:reopen-file', filePath)) as {
+      ok: true;
+      rootId: string;
+      rootPath: string;
+      fileRelativePath: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(result.rootPath).toBe(path.normalize(tmpRoot));
+    expect(result.fileRelativePath).toBe('demo.ts');
+    expect(await invoke('fs:read', result.rootId, result.fileRelativePath)).toBe(
+      'const x = 1;\n'
+    );
+  });
+
+  it('reopens a file under an approved project root', async () => {
+    const filePath = path.join(tmpRoot, 'src', 'main.ts');
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, 'export {};\n', 'utf-8');
+    await approveRoot();
+
+    const result = (await invoke('fs:reopen-file', filePath)) as {
+      ok: true;
+      fileRelativePath: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(result.fileRelativePath).toBe('main.ts');
+  });
+
+  it('rejects arbitrary unapproved files without revealing existence', async () => {
+    const filePath = path.join(tmpRoot, 'demo.ts');
+    await writeFile(filePath, 'const x = 1;\n', 'utf-8');
+
+    expect(await invoke('fs:reopen-file', filePath)).toEqual({
+      ok: false,
+      error: 'not-approved',
+    });
+  });
+
+  it('returns not-a-file for approved directory paths', async () => {
+    await approveRoot();
+
+    expect(await invoke('fs:reopen-file', tmpRoot)).toEqual({
+      ok: false,
+      error: 'not-a-file',
     });
   });
 });

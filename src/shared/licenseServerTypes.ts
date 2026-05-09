@@ -201,8 +201,7 @@ export interface TrialStartSuccess {
 
 export type TrialStartFailureReason =
   | 'invalid-input'
-  | 'trial-exists-email'
-  | 'trial-exists-device'
+  | 'trial-unavailable'
   | 'rate-limited'
   | 'not-implemented'
   | 'server-error'
@@ -234,7 +233,6 @@ export interface EducationStartPending {
   ok: true;
   pending: true;
   message: string;
-  pendingId: string;
   expiresAt: number;
   emailDelivered: true;
 }
@@ -242,8 +240,7 @@ export interface EducationStartPending {
 export type EducationStartFailureReason =
   | 'invalid-input'
   | 'not-educational'
-  | 'email-already-active'
-  | 'device-already-active'
+  | 'education-unavailable'
   | 'rate-limited'
   | 'confirmation-email-failed'
   | 'not-implemented'

@@ -70,7 +70,7 @@ export interface FileTab {
    * save-as) or when the file was opened from inside the active
    * project tree. `relativePath` is the file path inside that root.
    * Both are required to read or write the file; both are undefined
-   * for untitled buffers and re-derived (via `fs:reopen-root`) when
+   * for untitled buffers and re-derived (via `fs:reopen-file`) when
    * the session-store restores a tab from a previous run.
    */
   rootId?: string;

@@ -67,23 +67,20 @@ describe('RL-083 — runtime-assets.lock.json integrity', () => {
     }
   });
 
-  it('keeps desktop on local assets and web on CDN with cache-first SW (RL-083 Slice 2)', async () => {
+  it('keeps desktop and web on copied local Pyodide assets', async () => {
     const rendererConfig = await readFile(rendererConfigPath, 'utf8');
     const webConfig = await readFile(webConfigPath, 'utf8');
 
     expect(rendererConfig).toContain('__LINGUA_PYODIDE_INDEX_URL__');
     expect(rendererConfig).toContain('JSON.stringify(null)');
     expect(webConfig).toContain('__LINGUA_PYODIDE_INDEX_URL__');
-    expect(webConfig).toContain('RUNTIME_ASSETS.pyodide.sourceUrl');
+    expect(webConfig).toContain('JSON.stringify(null)');
+    expect(webConfig).toContain('copyRuntimeAssetsPlugin()');
   });
 
-  it('service worker pins the locked Pyodide CDN prefix for cache-first', async () => {
+  it('service worker no longer pins or caches the Pyodide CDN prefix', async () => {
     const sw = await readFile(serviceWorkerPath, 'utf8');
-    const match = sw.match(/PYODIDE_CACHE_PREFIX\s*=\s*['"]([^'"]+)['"]/u);
-    expect(
-      match,
-      'public/sw.js must expose a PYODIDE_CACHE_PREFIX string constant'
-    ).not.toBeNull();
-    expect(match![1]).toBe(RUNTIME_ASSETS.pyodide.sourceUrl);
+    expect(sw).not.toContain('PYODIDE_CACHE_PREFIX');
+    expect(sw).not.toContain(RUNTIME_ASSETS.pyodide.sourceUrl);
   });
 });

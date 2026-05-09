@@ -39,8 +39,7 @@ function mapTrialReason(raw: unknown): TrialStartFailureReason {
   if (typeof raw !== 'string') return 'server-error';
   switch (raw) {
     case 'invalid-input':
-    case 'trial-exists-email':
-    case 'trial-exists-device':
+    case 'trial-unavailable':
     case 'rate-limited':
     case 'not-implemented':
       return raw;

@@ -141,7 +141,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 - Priority: `P0`
 - Status: `Done`
 - Readiness: `Completed on 2026-04-13`
-- Current gap:
+- Original gap:
   - Main and preload expose `fs:watch-start`, `fs:watch-stop`, and `fs:onChanged`
   - `projectStore` starts a watcher
   - Renderer never subscribes to `window.runlang.fs.onChanged`
@@ -4835,6 +4835,18 @@ These tickets were promoted directly into PLAN and ROADMAP from the 2026-05-02 a
 - **Web adapter mirror**: synthetic rootIds keyed to `FileSystemDirectoryHandle`s, traversal + NUL rejection, single-file-pick proxy directory that exposes only the chosen file. `reopenRoot` returns `{ ok: false, error: 'not-found' }` because FSA can't restore handles across sessions — the renderer drives the user back through `selectDirectory()`.
 - **Test coverage**: 35 cases in `tests/ipc/fileSystem.test.ts` (real tmpdir + real registry — no `node:fs/promises` mocking because `realpath` is required); 17 cases in `tests/web/fs-adapter.test.ts` (synthetic `FileSystemDirectoryHandle` factory, traversal + NUL rejection, revoke idempotency, listAllFiles recursion, searchInFiles binary skip).
 - **Architectural decisions (pre-decided in the Slice 2 plan)**: no backwards compatibility for legacy absolute-path tabs; recent projects persist `rootPath` only and re-mint on demand; capability tokens are process-scoped (never persisted); plugins inherit the capability model through `window.lingua.fs.*`; symlinked roots are supported (per-call `realpath` against the cached real root) but symlinks inside the root that point outside fail.
+
+#### Security hardening follow-up — 2026-05-08
+
+- `fs:select-file` and `fs:save-dialog` now mint single-file
+  capabilities instead of granting the whole parent directory.
+- `fs:reopen-root` only re-mints directories main previously recorded
+  from `selectDirectory()`. Arbitrary absolute paths return
+  `not-approved` before existence details are exposed.
+- New `fs:reopen-file` re-mints a single-file capability for files
+  previously approved directly or files under an approved project root.
+  Session restore, Quick Open recent files, and deep links use this
+  narrower path.
 - Current gap:
   - The preload bridge exposes broad `window.lingua.fs` operations to the renderer.
   - Main-side filesystem handlers block known sensitive paths, but several read/list/stat/search/watch flows still accept renderer-provided absolute paths.
@@ -5386,6 +5398,22 @@ Acceptance criteria — final state:
 - Runtime asset version and integrity are testable in CI: vitest gate
   asserts `runtime-assets.lock.json` integrity AND `public/sw.js`
   prefix sync. Closed.
+
+#### Security hardening follow-up — 2026-05-08
+
+The web runtime strategy was tightened after the security scan:
+
+- `vite.web.config.mts` now uses `copyRuntimeAssetsPlugin()` and sets
+  `__LINGUA_PYODIDE_INDEX_URL__` to `null`, so the web worker resolves
+  Pyodide from same-origin copied assets instead of jsDelivr.
+- `src/web/index.html` removed `https://cdn.jsdelivr.net` from
+  `script-src` and `connect-src`.
+- `public/sw.js` removed `PYODIDE_CACHE_PREFIX` and the CDN
+  network/cache branches; Pyodide is now a same-origin static asset.
+- `CACHE_VERSION` bumped `v4 → v5` so old clients evict cached CDN
+  responses on the next service-worker activation.
+- `tests/shared/runtimeAssets.test.ts` now pins both desktop and web
+  configs to local runtime assets.
 
 Optional follow-ups (not blocking; tracked outside RL-083):
 

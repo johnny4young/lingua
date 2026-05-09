@@ -462,6 +462,11 @@ describe('webFsAdapter — reopenRoot is unsupported on the web', async () => {
     const result = await webFsAdapter.reopenRoot('/anything');
     expect(result).toEqual({ ok: false, error: 'not-found' });
   });
+
+  it('returns ok=false / not-found for file reopen attempts too', async () => {
+    const result = await webFsAdapter.reopenFile('/anything.txt');
+    expect(result).toEqual({ ok: false, error: 'not-found' });
+  });
 });
 
 describe('webFsAdapter — revokeRoot', async () => {

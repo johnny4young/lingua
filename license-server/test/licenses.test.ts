@@ -151,6 +151,67 @@ describe('POST /licenses/activate', () => {
     const body = (await response.json()) as { ok: boolean; reason: string };
     expect(body).toMatchObject({ ok: false, reason: 'method-not-allowed' });
   });
+
+  it('rejects activation when the per-surface device slot is already full', async () => {
+    const keys = await generateEd25519Keypair();
+    const licenseId = 'lic_full';
+    const issuedAt = Math.floor(Date.now() / 1000);
+    const token = await signPayload(
+      {
+        licenseId,
+        productId: 'lingua_lifetime',
+        tier: 'pro_lifetime',
+        issuedTo: 'buyer@example.com',
+        issuedAt: new Date(issuedAt * 1000).toISOString(),
+        supportWindowEndsAt: new Date((issuedAt + 365 * 24 * 60 * 60) * 1000).toISOString(),
+        entitlements: ['tabs'],
+      },
+      keys.privateKeyJwk
+    );
+    const env = createMockEnv({ publicKeyJwk: keys.publicKeyJwk });
+    env.__db.licenses.set(licenseId, {
+      id: licenseId,
+      token,
+      product_id: 'lingua_lifetime',
+      tier: 'pro',
+      device_limit: 1,
+      issued_to: 'buyer@example.com',
+      issued_at: issuedAt,
+      expires_at: null,
+      support_window_ends_at: issuedAt + 365 * 24 * 60 * 60,
+      status: 'active',
+      polar_order_id: 'order_full',
+      polar_subscription_id: null,
+      created_at: issuedAt,
+      updated_at: issuedAt,
+    });
+    env.__db.devices.set('dev_existing', {
+      id: 'dev_existing',
+      license_id: licenseId,
+      device_id: 'already-active',
+      device_name: 'Existing Mac',
+      os: 'darwin',
+      surface: 'desktop',
+      activated_at: issuedAt,
+      last_seen_at: issuedAt,
+      removed_at: null,
+    });
+
+    const response = await app.request(
+      'http://localhost/licenses/activate',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ...ACTIVATE_BODY, token, deviceId: 'new-device' }),
+      },
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { ok: boolean; reason?: string };
+    expect(body).toMatchObject({ ok: false, reason: 'exhausted' });
+    expect(env.__db.devices.size).toBe(1);
+  });
 });
 
 describe('GET /licenses/status', () => {
@@ -233,7 +294,7 @@ describe('GET /licenses/status', () => {
   it('returns refreshedToken when a renewal replaced the persisted token for the same license row', async () => {
     const keys = await generateEd25519Keypair();
     const licenseId = 'lic_refresh';
-    const issuedAt = 1_700_000_000;
+    const issuedAt = Math.floor(Date.now() / 1000) - 60;
     const oldPayload: LicensePayload = {
       licenseId,
       productId: 'lingua_monthly',
@@ -278,6 +339,68 @@ describe('GET /licenses/status', () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { ok: boolean; refreshedToken?: string };
     expect(body).toMatchObject({ ok: true, refreshedToken: newToken });
+  });
+
+  it('rejects a historical token after its refresh grace window has elapsed', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-05T00:00:00.000Z'));
+      const keys = await generateEd25519Keypair();
+      const licenseId = 'lic_stale_replay';
+      const issuedAt = Math.floor(Date.parse('2025-12-01T00:00:00.000Z') / 1000);
+      const oldSupportWindowEndsAt = Math.floor(
+        Date.parse('2026-01-02T00:00:00.000Z') / 1000
+      );
+      const newSupportWindowEndsAt = Math.floor(
+        Date.parse('2026-03-01T00:00:00.000Z') / 1000
+      );
+      const oldPayload: LicensePayload = {
+        licenseId,
+        productId: 'lingua_monthly',
+        tier: 'pro',
+        issuedTo: 'buyer@example.com',
+        issuedAt: new Date(issuedAt * 1000).toISOString(),
+        supportWindowEndsAt: new Date(oldSupportWindowEndsAt * 1000).toISOString(),
+        entitlements: ['tabs'],
+      };
+      const oldToken = await signPayload(oldPayload, keys.privateKeyJwk);
+      const newToken = await signPayload(
+        {
+          ...oldPayload,
+          supportWindowEndsAt: new Date(newSupportWindowEndsAt * 1000).toISOString(),
+        },
+        keys.privateKeyJwk
+      );
+      const env = createMockEnv({ publicKeyJwk: keys.publicKeyJwk });
+      env.__db.licenses.set(licenseId, {
+        id: licenseId,
+        token: newToken,
+        product_id: 'lingua_monthly',
+        tier: 'pro',
+        device_limit: 3,
+        issued_to: 'buyer@example.com',
+        issued_at: issuedAt,
+        expires_at: newSupportWindowEndsAt,
+        support_window_ends_at: newSupportWindowEndsAt,
+        status: 'active',
+        polar_order_id: null,
+        polar_subscription_id: 'sub_stale',
+        created_at: issuedAt,
+        updated_at: newSupportWindowEndsAt,
+      });
+
+      const response = await app.request(
+        'http://localhost/licenses/status?deviceId=device-uuid&surface=desktop',
+        { headers: { authorization: `Bearer ${oldToken}` } },
+        env
+      );
+
+      expect(response.status).toBe(401);
+      const body = (await response.json()) as { ok: boolean; reason?: string };
+      expect(body).toMatchObject({ ok: false, reason: 'unknown-license' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('reports expired once a canceled subscription is outside the grace window', async () => {

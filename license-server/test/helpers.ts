@@ -305,6 +305,65 @@ class MockStatement {
       row.updated_at = updatedAt;
       return 1;
     }
+    if (q.startsWith('INSERT INTO devices') && q.includes('SELECT ?, ?, ?, ?, ?, ?, ?, ?, NULL')) {
+      const [
+        id,
+        license_id,
+        device_id,
+        device_name,
+        os,
+        surface,
+        activated_at,
+        last_seen_at,
+        countLicenseId,
+        countSurface,
+        deviceLimit,
+        existsLicenseId,
+        existsDeviceId,
+        existsSurface,
+      ] = this.boundParams as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        number,
+        number,
+        string,
+        string,
+        number,
+        string,
+        string,
+        string,
+      ];
+      const activeCount = [...this.db.devices.values()].filter(
+        (row) =>
+          row.license_id === countLicenseId &&
+          row.surface === countSurface &&
+          row.removed_at === null
+      ).length;
+      const activeDuplicate = [...this.db.devices.values()].some(
+        (row) =>
+          row.license_id === existsLicenseId &&
+          row.device_id === existsDeviceId &&
+          row.surface === existsSurface &&
+          row.removed_at === null
+      );
+      if (activeCount >= deviceLimit || activeDuplicate) return 0;
+      this.db.devices.set(id, {
+        id,
+        license_id,
+        device_id,
+        device_name,
+        os,
+        surface,
+        activated_at,
+        last_seen_at,
+        removed_at: null,
+      });
+      return 1;
+    }
     if (q.startsWith('INSERT INTO devices')) {
       const [
         id,
@@ -336,6 +395,27 @@ class MockStatement {
         last_seen_at,
         removed_at: null,
       });
+      return 1;
+    }
+    if (
+      q.startsWith('UPDATE devices SET removed_at = NULL') &&
+      q.includes('removed_at IS NOT NULL')
+    ) {
+      const [lastSeenAt, deviceName, os, id, licenseId, surface, deviceLimit] =
+        this.boundParams as [number, string, string, string, string, string, number];
+      const row = this.db.devices.get(id);
+      if (!row || row.removed_at === null) return 0;
+      const activeCount = [...this.db.devices.values()].filter(
+        (candidate) =>
+          candidate.license_id === licenseId &&
+          candidate.surface === surface &&
+          candidate.removed_at === null
+      ).length;
+      if (activeCount >= deviceLimit) return 0;
+      row.removed_at = null;
+      row.last_seen_at = lastSeenAt;
+      row.device_name = deviceName;
+      row.os = os;
       return 1;
     }
     if (q.startsWith('UPDATE devices SET removed_at = NULL')) {

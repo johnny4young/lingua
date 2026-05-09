@@ -159,13 +159,17 @@ educationRouter.post('/start', async (c) => {
   if (existingByEmail) {
     return jsonNoStore(c, {
       ok: false,
-      reason: 'email-already-active',
+      reason: 'education-unavailable',
       canRecover: true,
     });
   }
   const existingByDevice = await findEducationByDeviceId(c.env.DB, deviceId);
   if (existingByDevice) {
-    return jsonNoStore(c, { ok: false, reason: 'device-already-active' });
+    return jsonNoStore(c, {
+      ok: false,
+      reason: 'education-unavailable',
+      canRecover: true,
+    });
   }
 
   const pendingId = crypto.randomUUID();
@@ -193,7 +197,6 @@ educationRouter.post('/start', async (c) => {
     return jsonNoStore(c, {
       ok: false,
       reason: 'confirmation-email-failed',
-      pendingId,
       emailReason: emailResult.reason,
     });
   }
@@ -202,7 +205,6 @@ educationRouter.post('/start', async (c) => {
     ok: true,
     pending: true,
     message: 'Confirmation email sent. Check your inbox.',
-    pendingId,
     expiresAt: now + EDUCATION_PENDING_TTL_SECONDS,
     emailDelivered: true,
   });

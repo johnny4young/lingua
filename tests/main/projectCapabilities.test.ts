@@ -21,6 +21,7 @@ import os from 'node:os';
 import {
   clearRegistryForTests,
   lookupRoot,
+  mintFileCapability,
   mintRootCapability,
   resolveCapabilityPath,
   revokeRoot,
@@ -102,6 +103,31 @@ describe('resolveCapabilityPath happy path', () => {
     if (result.ok) {
       expect(result.absolutePath).toBe(path.join(realRoot, 'src', 'new-file.ts'));
     }
+  });
+});
+
+describe('single-file capabilities', () => {
+  it('resolves only the explicitly approved file', async () => {
+    await writeFile(path.join(tmpRoot, 'picked.txt'), 'ok', 'utf-8');
+    await writeFile(path.join(tmpRoot, 'sibling.txt'), 'no', 'utf-8');
+
+    const { rootId, rootPath, fileRelativePath } = mintFileCapability(
+      path.join(tmpRoot, 'picked.txt')
+    );
+    expect(rootPath).toBe(path.normalize(tmpRoot));
+    expect(fileRelativePath).toBe('picked.txt');
+
+    const allowed = await resolveCapabilityPath(rootId, 'picked.txt');
+    expect(allowed.ok).toBe(true);
+
+    await expect(resolveCapabilityPath(rootId, 'sibling.txt')).resolves.toEqual({
+      ok: false,
+      error: 'unsafe-path',
+    });
+    await expect(resolveCapabilityPath(rootId, '')).resolves.toEqual({
+      ok: false,
+      error: 'unsafe-path',
+    });
   });
 });
 

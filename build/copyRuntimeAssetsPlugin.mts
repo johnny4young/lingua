@@ -104,10 +104,11 @@ export function copyRuntimeAssetsPlugin(): Plugin {
     enforce: 'pre',
 
     configureServer(server: ViteDevServer) {
-      // Vite's config.root is the directory holding index.html, which
-      // for the renderer config IS the repo root — `node_modules/`
-      // lives at that same level, no parent traversal needed.
-      const sourceDir = path.resolve(server.config.root, pyodide.nodeModulesPath);
+      // Resolve from the repo cwd rather than Vite's HTML root. The
+      // renderer config uses the repo root, while the standalone web
+      // config uses `src/web`; both still share the top-level
+      // `node_modules/pyodide` install.
+      const sourceDir = path.resolve(process.cwd(), pyodide.nodeModulesPath);
       const urlPrefix = devUrlPrefix;
 
       server.middlewares.use(async (req, res, next) => {

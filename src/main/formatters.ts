@@ -10,8 +10,15 @@
 import { ipcMain } from 'electron';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
+import { buildNativeRunnerEnv, combinedAllowlist } from './runners/nativeEnv';
 
 const execFileAsync = promisify(execFile);
+const FORMATTER_TOOLCHAIN_KEYS = combinedAllowlist([]);
+const MAX_FORMATTER_OUTPUT_BYTES = 1024 * 1024;
+
+export function resolveFormatterEnv(): NodeJS.ProcessEnv {
+  return buildNativeRunnerEnv(FORMATTER_TOOLCHAIN_KEYS, undefined);
+}
 
 export interface FormatBinaryMissing {
   available: false;
@@ -42,13 +49,45 @@ async function isBinaryAvailable(binary: string): Promise<boolean> {
   }
 
   try {
-    await execFileAsync(binary, ['--version']);
+    await execFileAsync(binary, ['--version'], { env: resolveFormatterEnv() });
     availabilityCache.set(binary, true);
     return true;
   } catch {
     availabilityCache.set(binary, false);
     return false;
   }
+}
+
+interface CappedCapture {
+  text: string;
+  bytes: number;
+  truncated: boolean;
+}
+
+function appendCapped(capture: CappedCapture, chunk: Buffer): void {
+  const remaining = MAX_FORMATTER_OUTPUT_BYTES - capture.bytes;
+  if (remaining <= 0) {
+    capture.truncated = true;
+    return;
+  }
+  if (chunk.length > remaining) {
+    capture.text += chunk.subarray(0, remaining).toString();
+    capture.bytes += remaining;
+    capture.truncated = true;
+    return;
+  }
+  capture.text += chunk.toString();
+  capture.bytes += chunk.length;
+}
+
+function formatFailureText(
+  stderr: CappedCapture,
+  fallback: string
+): string {
+  const text = stderr.text.trim() || fallback;
+  return stderr.truncated
+    ? `${text}\n[formatter stderr truncated at ${MAX_FORMATTER_OUTPUT_BYTES} bytes]`
+    : text;
 }
 
 function runFormatter(
@@ -60,16 +99,17 @@ function runFormatter(
     const child = spawn(binary, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       timeout: 15_000,
+      env: resolveFormatterEnv(),
     });
 
-    let stdout = '';
-    let stderr = '';
+    const stdout: CappedCapture = { text: '', bytes: 0, truncated: false };
+    const stderr: CappedCapture = { text: '', bytes: 0, truncated: false };
 
     child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString();
+      appendCapped(stdout, chunk);
     });
     child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString();
+      appendCapped(stderr, chunk);
     });
 
     child.on('error', (err) => {
@@ -82,14 +122,25 @@ function runFormatter(
 
     child.on('close', (code) => {
       if (code === 0) {
-        resolve({ available: true, success: true, formatted: stdout });
+        if (stdout.truncated) {
+          resolve({
+            available: true,
+            success: false,
+            error: `Formatter output exceeded ${MAX_FORMATTER_OUTPUT_BYTES} byte limit.`,
+          });
+          return;
+        }
+        resolve({ available: true, success: true, formatted: stdout.text });
         return;
       }
 
       resolve({
         available: true,
         success: false,
-        error: stderr.trim() || `Formatter exited with code ${code ?? -1}`,
+        error: formatFailureText(
+          stderr,
+          `Formatter exited with code ${code ?? -1}`
+        ),
       });
     });
 
