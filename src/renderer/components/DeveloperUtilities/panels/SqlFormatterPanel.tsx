@@ -120,7 +120,12 @@ export function SqlFormatterPanel() {
             className="min-h-[14rem] font-mono"
           />
         </div>
-        <UtilityToolbar utilityId="sql-formatter" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="sql-formatter"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

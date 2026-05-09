@@ -120,7 +120,12 @@ export function JsonCsvPanel() {
             className="min-h-[14rem] font-mono"
           />
         </div>
-        <UtilityToolbar utilityId="json-csv" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="json-csv"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

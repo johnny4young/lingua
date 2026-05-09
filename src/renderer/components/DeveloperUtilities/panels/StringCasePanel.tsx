@@ -40,7 +40,12 @@ export function StringCasePanel() {
             spellCheck={false}
           />
         </div>
-        <UtilityToolbar utilityId="string-case" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="string-case"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

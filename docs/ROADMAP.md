@@ -109,7 +109,7 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-069`](./PLAN.md#rl-069-devutils-class-productivity-layer-for-the-utilities-workspace) | DevUtils-class productivity layer | `Partial` | Slice 1 shipped 2026-05-05 — Developer Utilities opens with Cmd/Ctrl+K, utility-copy-output + utility-replace-clipboard shortcuts (Cmd+Shift+C / Cmd+Alt+R), fuzzy tool search with aliases on 15 panels, output providers wired in 5 panels (JSON, Base64, URL, JWT, UUID). Slice 2 shipped 2026-05-09 — `detect()` predicate on 27 panels (random-string + lorem-ipsum opt out as generators), `<UtilityToolbar>` primitive with self-registering ⚡ Apply button, `utility-apply-from-input` shortcut (default Mod+Shift+A), output providers + Apply wired across all 23 remaining panels (29-panel coverage for Cmd+Shift+C / Cmd+Alt+R / Mod+Shift+A), bidirectional panels (Base64, URL, HtmlEntity, BackslashEscape, YamlJson, JsonCsv, Base64Image) auto-flip mode based on detect, and 9 Playwright assertions in `tests/e2e/utilitiesApply.spec.ts` cover the Apply gesture across panel shapes plus locale flip + console-clean. Remaining: clipboard-on-focus + per-tool history + favorites (Slice 3). |
+| [`RL-069`](./PLAN.md#rl-069-devutils-class-productivity-layer-for-the-utilities-workspace) | DevUtils-class productivity layer | `Done` | Slice 1 shipped 2026-05-05 (Cmd/Ctrl+K + Cmd+Shift+C/Cmd+Alt+R + fuzzy search + 5 output providers). Slice 2 shipped 2026-05-09 (`detect()` on 27 panels + `<UtilityToolbar>` + Mod+Shift+A + 29-panel coverage). Slice 3 shipped 2026-05-09 — `utilityHistoryStore` with isolated `lingua-utility-state` localStorage key + 10-entry FIFO cap + 16KB-per-entry truncation + 256KB total budget; `<UtilityHistoryDrawer>` rendered inside the toolbar so every non-generator panel inherits Recent runs + per-tool persist toggle + Clear; `<FavoritesRow>` + `<FavoriteToggleButton>` with `@dnd-kit/sortable` (mouse + keyboard a11y); `useClipboardOnFocus` hook with `utilitiesClipboardOnFocusConsent` three-state (RL-065 pattern); new `UtilitiesSection` Settings entry under the Editor tab (toggle + Clear-all-history with confirmation); 3 new RL-065 telemetry events (`utility.favorite.pinned`, `utility.history.cleared`, `utility.clipboard.applied`); 10 Playwright assertions in `tests/e2e/utilitiesPersonalize.spec.ts` cover pin/reorder/reload, history Apply + persist + Clear, Settings clipboard toggle, JWT + CRON + 6 more panels in the Apply rotation, Spanish locale, and console-clean. |
 | [`RL-072`](./PLAN.md#rl-072-specialty-utilities--qr--string-inspector) | Specialty utilities — QR + inspector | `Done` | String Inspector + QR generate shipped earlier. Final slice on 2026-05-08 added QR decode (drag-drop image), Copy-as-PNG, FG/BG color pickers with WCAG-AA contrast guard, high-contrast preset, SVG download alongside PNG, and `utilityOutputStore` wiring (Cmd+Shift+C / Cmd+Alt+R). Camera capture remains explicitly deferred per the original scope decision. |
 
 ### 4f. Launch operations (P1)
@@ -158,7 +158,7 @@ agent should follow when §3's tiebreakers don't resolve.
 3. **Release, legal, and compliance readiness.** Closed. `RL-080`, `RL-085`, `RL-092`, and `RL-081` are all `Done` (RL-081 closed 2026-05-05 once the live `linguacode.dev` surface aligned with the desktop entitlement copy). The launch-readiness bucket has no outstanding blockers in this repo.
 4. **Runtime/platform surface hardening.** `RL-091` closed 2026-05-06 (structured logging + redaction + metrics catalog + readiness probes across both Cloudflare Workers + 5 incident runbooks + observability spec). `RL-084` closed 2026-05-06 (shared validator + path-traversal guard + bundled-runtime allowlist + new `unknown` status + UI test coverage). `RL-087` closed 2026-05-06 (watcher lifecycle audit + typed failure diagnostics surfaced via status notice + `IGNORED_PATH_PREFIXES` shared module + `before-quit` cleanup + USAGE.md platform-limitations section). The §5 #4 hardening lane is now closed in full.
 5. **Product quality and supportability.** Closed in full. `RL-088` closed 2026-05-06 (axe-core gate via `tests/e2e/a11y.spec.ts`, keyboard-only flows, OverlayBackdrop focus restoration, plus the `docs/A11Y.md` manual checklist). `RL-086` closed 2026-05-07 (bundle/runtime performance budgets, baseline report, CI logs, desktop smoke runtime/memory metrics, and `runtimeObservability` folded into the central performance report). `RL-089` closed 2026-05-07 (versioned profile export/import with three conflict policies, replace-confirm modal, file picker + paste fallback, and explicit machine-bound exclusion list). `RL-090` closed 2026-05-07 (top-level error boundaries with redacted error report + clipboard fallback, global error listeners, safe-mode boot via `?safe-mode=1`, boot-loop counter escalating to factory mode after 3 crashes in 60s, RecoverySection with five scoped resets + reveal-folder, and `docs/RECOVERY.md` support documentation).
-6. **Utilities polish.** `RL-069` Slice 1 shipped 2026-05-05 (productivity foundation — 2 shortcuts + fuzzy tool search) and `RL-072` closed 2026-05-08 (QR decode + Copy-as-PNG + colors + SVG + utilityOutputStore wiring). Remaining `RL-069` Slice 2/3 are short cycles, isolated to Developer Utilities, no cross-cutting risk. Good warm-up work when blocked on a launch item.
+6. **Utilities polish.** Closed in full. `RL-072` closed 2026-05-08 (QR decode + Copy-as-PNG + colors + SVG + utilityOutputStore wiring). `RL-069` closed 2026-05-09 — Slice 1 (productivity foundation), Slice 2 (detect + Apply + 29-panel coverage), and Slice 3 (clipboard-on-focus + history + favorites with `@dnd-kit` drag-reorder + new `UtilitiesSection` Settings + RL-065 telemetry events) all shipped same day window. The lane is empty.
 7. **Debugger + language intelligence.** `RL-027` Slice 1 (JS/TS debugger minimal) and `RL-026` adapter layer. These unblock `RL-042` and `RL-047`.
 8. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
 9. **Notebook + rich output.** `RL-043` + `RL-044` are a paired slice. Only after the runtime contract from §4 is stable.
@@ -175,16 +175,17 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>60 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>61 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
 `RL-022`, `RL-028`, `RL-030`, `RL-034`, `RL-037`, `RL-038`, `RL-040`,
 `RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`,
 `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-063`, `RL-064`,
-`RL-066`, `RL-067`, `RL-068`, `RL-070`, `RL-071`, `RL-073`, `RL-074`,
-`RL-075`, `RL-076`, `RL-077`, `RL-078`, `RL-079`, `RL-080`, `RL-081`,
-`RL-082`, `RL-083`, `RL-084`, `RL-085`, `RL-086`, `RL-087`, `RL-088`, `RL-089`, `RL-090`, `RL-091`, `RL-092`.
+`RL-066`, `RL-067`, `RL-068`, `RL-069`, `RL-070`, `RL-071`, `RL-073`,
+`RL-074`, `RL-075`, `RL-076`, `RL-077`, `RL-078`, `RL-079`, `RL-080`,
+`RL-081`, `RL-082`, `RL-083`, `RL-084`, `RL-085`, `RL-086`, `RL-087`,
+`RL-088`, `RL-089`, `RL-090`, `RL-091`, `RL-092`.
 
 </details>
 

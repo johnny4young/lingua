@@ -50,7 +50,12 @@ export function UrlUtilityPanel() {
           {t('utilities.actions.decode')}
         </button>
       </div>
-      <UtilityToolbar utilityId="url" primary={input} run={runApply} />
+      <UtilityToolbar
+        utilityId="url"
+        primary={input}
+        run={runApply}
+        setPrimary={setInput}
+      />
       <TwoPaneTransformPanel
         title={t('utilities.tool.url.title')}
         description={t('utilities.tool.url.panelDescription')}

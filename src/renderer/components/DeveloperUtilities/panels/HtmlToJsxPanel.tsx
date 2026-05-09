@@ -58,7 +58,12 @@ export function HtmlToJsxPanel() {
           />
           <span>{t('utilities.tool.htmlToJsx.wrapFragment')}</span>
         </label>
-        <UtilityToolbar utilityId="html-to-jsx" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="html-to-jsx"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

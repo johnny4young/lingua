@@ -47,7 +47,12 @@ export function TimestampUtilityPanel() {
           >
             {t('utilities.tool.timestamp.actions.useNow')}
           </button>
-          <UtilityToolbar utilityId="timestamp" primary={input} run={runApply} />
+          <UtilityToolbar
+            utilityId="timestamp"
+            primary={input}
+            run={runApply}
+            setPrimary={setInput}
+          />
         </div>
         {analysis.errorKey ? (
           <StatusMessage message={t(analysis.errorKey)} tone="error" />

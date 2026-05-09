@@ -137,7 +137,12 @@ export function BeautifyMinifyUtilityPanel() {
         {language === 'xml' && mode === 'minify' ? (
           <StatusMessage message={t('utilities.tool.beautifyMinify.xmlMinifyHint')} />
         ) : null}
-        <UtilityToolbar utilityId="beautify-minify" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="beautify-minify"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

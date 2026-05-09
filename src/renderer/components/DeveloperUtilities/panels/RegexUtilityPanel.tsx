@@ -109,6 +109,7 @@ export function RegexUtilityPanel() {
           primary={pattern}
           secondary={input}
           run={runApply}
+          setPrimary={setPattern}
         />
       </PanelSection>
 

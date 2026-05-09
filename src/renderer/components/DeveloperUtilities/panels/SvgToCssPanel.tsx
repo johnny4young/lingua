@@ -57,7 +57,12 @@ export function SvgToCssPanel() {
             className="min-h-[12rem]"
           />
         </div>
-        <UtilityToolbar utilityId="svg-to-css" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="svg-to-css"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection

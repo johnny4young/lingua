@@ -57,7 +57,12 @@ export function StringInspectorPanel() {
             testid="string-inspector-utf8"
           />
         </div>
-        <UtilityToolbar utilityId="string-inspector" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="string-inspector"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       {report.warnings.length > 0 ? (

@@ -37,6 +37,10 @@ describe('TELEMETRY_EVENTS', () => {
       'overlay.opened',
       'runner.executed',
       'update.checked',
+      // RL-069 Slice 3 — Developer Utilities productivity layer.
+      'utility.clipboard.applied',
+      'utility.favorite.pinned',
+      'utility.history.cleared',
     ]);
   });
 });

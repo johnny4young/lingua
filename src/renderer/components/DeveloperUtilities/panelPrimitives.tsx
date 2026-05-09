@@ -8,6 +8,13 @@ import {
   type DeveloperUtilityId,
 } from '../../data/developerUtilities';
 import { useRegisterUtilityApply } from '../../hooks/useRegisterUtilityOutput';
+import { useClipboardOnFocus } from '../../hooks/useClipboardOnFocus';
+import {
+  useUtilityHistoryStore,
+  type UtilityHistoryEntry,
+} from '../../stores/utilityHistoryStore';
+import { useUtilityOutputStore } from '../../stores/utilityOutputStore';
+import { UtilityHistoryDrawer } from './UtilityHistoryDrawer';
 
 export function PanelSection({
   title,
@@ -152,6 +159,7 @@ export function UtilityToolbar({
   primary,
   secondary,
   run,
+  setPrimary,
   applyTestId = 'utility-apply-button',
   className,
   children,
@@ -160,6 +168,15 @@ export function UtilityToolbar({
   primary: string;
   secondary?: string;
   run: () => void;
+  /**
+   * RL-069 Slice 3 — when provided, the toolbar renders the
+   * `<UtilityHistoryDrawer>` and routes drawer entry clicks back to
+   * the panel via this setter. Pure-generator panels and panels with
+   * exotic input shapes (Hash file, Random String options) can omit
+   * this prop and the drawer is silently skipped — the existing copy
+   * shortcuts still work.
+   */
+  setPrimary?: (value: string) => void;
   applyTestId?: string;
   className?: string;
   children?: React.ReactNode;
@@ -179,7 +196,14 @@ export function UtilityToolbar({
   const handleApply = useCallback(() => {
     if (!detect || !enabled) return;
     run();
-  }, [detect, enabled, run]);
+    // RL-069 Slice 3 — fold the apply event into the per-tool history
+    // ring. The output snapshot is read from the registered output
+    // provider so we capture exactly what Cmd+Shift+C would copy at
+    // this moment, with no extra plumbing per panel.
+    const provider = useUtilityOutputStore.getState().getProvider();
+    const output = provider?.() ?? '';
+    useUtilityHistoryStore.getState().pushEntry(utilityId, primary, output);
+  }, [detect, enabled, run, utilityId, primary]);
 
   // Stable handler the global Mod+Shift+A shortcut consults. Re-created
   // on every render so the captured `run` / `enabled` stay fresh — same
@@ -191,11 +215,52 @@ export function UtilityToolbar({
       run: () => {
         if (!detect || !enabled) return;
         run();
+        // Mirror handleApply's history emission so Mod+Shift+A also
+        // accumulates entries — keyboard users get the same drawer
+        // populated as click users.
+        const provider = useUtilityOutputStore.getState().getProvider();
+        const output = provider?.() ?? '';
+        useUtilityHistoryStore.getState().pushEntry(utilityId, primary, output);
       },
     }),
-    [definition.titleKey, detect, enabled, run]
+    [definition.titleKey, detect, enabled, run, utilityId, primary]
   );
   useRegisterUtilityApply(applyHandler);
+
+  const handleHistoryEntry = useCallback(
+    (entry: UtilityHistoryEntry) => {
+      if (setPrimary) setPrimary(entry.input);
+    },
+    [setPrimary]
+  );
+
+  // RL-069 Slice 3 — when the user has granted clipboard-on-focus
+  // consent, fire the read once on panel mount. The hook short-
+  // circuits when consent is unset/declined or when setPrimary is
+  // missing (panels with exotic input shapes opt out by not passing
+  // setPrimary). The detect callback narrows the catalog's predicate
+  // to the panel-level shape with empty secondary so the hook
+  // matches the same surface the toolbar already governs.
+  const clipboardDetect = useCallback(
+    (clipboardValue: string) => {
+      if (!setPrimary || !detect) return false;
+      try {
+        return detect({ primary: clipboardValue });
+      } catch {
+        return false;
+      }
+    },
+    [detect, setPrimary]
+  );
+  const applyClipboardValue = useCallback(
+    (value: string) => {
+      if (setPrimary) setPrimary(value);
+    },
+    [setPrimary]
+  );
+  useClipboardOnFocus(utilityId, clipboardDetect, applyClipboardValue, {
+    enabled: Boolean(setPrimary),
+  });
 
   if (!detect) {
     // Generator panel — no Apply button, but still allow extras. This
@@ -218,21 +283,26 @@ export function UtilityToolbar({
   return (
     <div
       data-testid="utility-toolbar"
-      className={`flex flex-wrap items-center gap-2 ${className ?? ''}`}
+      className={`grid gap-2 ${className ?? ''}`}
     >
-      <button
-        type="button"
-        onClick={handleApply}
-        disabled={!enabled}
-        data-testid={applyTestId}
-        aria-label={t(labelKey)}
-        title={t(tooltipKey)}
-        className="inline-flex items-center gap-1.5 rounded-[0.95rem] border border-border/80 bg-background-elevated/88 px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-surface-strong/72 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <Zap size={12} aria-hidden="true" />
-        {t(labelKey)}
-      </button>
-      {children}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={handleApply}
+          disabled={!enabled}
+          data-testid={applyTestId}
+          aria-label={t(labelKey)}
+          title={t(tooltipKey)}
+          className="inline-flex items-center gap-1.5 rounded-[0.95rem] border border-border/80 bg-background-elevated/88 px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-surface-strong/72 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Zap size={12} aria-hidden="true" />
+          {t(labelKey)}
+        </button>
+        {children}
+      </div>
+      {setPrimary ? (
+        <UtilityHistoryDrawer utilityId={utilityId} onApplyEntry={handleHistoryEntry} />
+      ) : null}
     </div>
   );
 }

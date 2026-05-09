@@ -19,7 +19,10 @@ import { Eyebrow } from '../ui/primitives';
 import { cn } from '../../utils/cn';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
 import { DeveloperUtilityPanel } from './UtilityPanels';
+import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
+import { trackEvent } from '../../utils/telemetry';
 
 /**
  * RL-070 Sub-slice 3 — Adaptive utilities layout.
@@ -86,6 +89,27 @@ export function DeveloperUtilitiesModal({
   useEffect(() => {
     setSelectedUtilityId(initialUtilityId);
   }, [initialUtilityId]);
+
+  // RL-069 Slice 3 — emit favorite-pinned telemetry from a one-shot
+  // store subscription. We listen on the store so the trackEvent call
+  // lives in one place even when the user pins from the sidebar OR
+  // (potentially) from a future shortcut.
+  useEffect(() => {
+    let lastSize = useUtilityHistoryStore.getState().favorites.length;
+    return useUtilityHistoryStore.subscribe((state) => {
+      const nextSize = state.favorites.length;
+      if (nextSize > lastSize) {
+        const last = state.favorites[state.favorites.length - 1];
+        if (last) {
+          void trackEvent('utility.favorite.pinned', {
+            utilityId: last,
+            count: nextSize,
+          });
+        }
+      }
+      lastSize = nextSize;
+    });
+  }, []);
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -286,6 +310,10 @@ export function DeveloperUtilitiesModal({
               ) : null}
             </div>
           </div>
+          <FavoritesRow
+            selectedUtilityId={selectedUtilityId}
+            onSelect={setSelectedUtilityId}
+          />
           <div className="flex-1 overflow-y-auto p-2">
             {filteredUtilities.length === 0 ? (
               <div className="px-3 py-6 text-center">
@@ -297,53 +325,56 @@ export function DeveloperUtilitiesModal({
               filteredUtilities.map((utility) => {
                 const isSelected = utility.id === selectedUtilityId;
                 return (
-                  <button
+                  <div
                     key={utility.id}
-                    type="button"
-                    ref={(node) => {
-                      if (node) {
-                        utilityButtonRefs.current.set(utility.id, node);
-                      } else {
-                        utilityButtonRefs.current.delete(utility.id);
-                      }
-                    }}
-                    onClick={() => setSelectedUtilityId(utility.id)}
-                    onKeyDown={handleUtilityKeyDown}
-                    aria-pressed={isSelected}
-                    data-testid={`utility-item-${utility.id}`}
                     className={cn(
-                      'mb-1 flex w-full items-start gap-2.5 rounded-[1rem] px-3 py-2.5 text-left transition-colors',
-                      isSelected
-                        ? 'bg-primary-soft'
-                        : 'hover:bg-surface-strong/72'
+                      'group mb-1 flex w-full items-start gap-1 rounded-[1rem] pr-1.5 transition-colors',
+                      isSelected ? 'bg-primary-soft' : 'hover:bg-surface-strong/72'
                     )}
                   >
-                    <span
-                      className={cn(
-                        'mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full',
-                        isSelected ? 'bg-primary' : 'bg-transparent'
-                      )}
-                      aria-hidden="true"
-                    />
-                    <span className="flex flex-col">
+                    <button
+                      type="button"
+                      ref={(node) => {
+                        if (node) {
+                          utilityButtonRefs.current.set(utility.id, node);
+                        } else {
+                          utilityButtonRefs.current.delete(utility.id);
+                        }
+                      }}
+                      onClick={() => setSelectedUtilityId(utility.id)}
+                      onKeyDown={handleUtilityKeyDown}
+                      aria-pressed={isSelected}
+                      data-testid={`utility-item-${utility.id}`}
+                      className="flex flex-1 items-start gap-2.5 px-3 py-2.5 text-left"
+                    >
                       <span
                         className={cn(
-                          'text-[13px] font-semibold leading-tight',
-                          isSelected ? 'text-primary' : 'text-foreground'
+                          'mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full',
+                          isSelected ? 'bg-primary' : 'bg-transparent'
                         )}
-                      >
-                        {t(utility.titleKey)}
+                        aria-hidden="true"
+                      />
+                      <span className="flex flex-1 flex-col">
+                        <span
+                          className={cn(
+                            'text-[13px] font-semibold leading-tight',
+                            isSelected ? 'text-primary' : 'text-foreground'
+                          )}
+                        >
+                          {t(utility.titleKey)}
+                        </span>
+                        <span
+                          className={cn(
+                            'mt-0.5 text-[11.5px] leading-[1.45]',
+                            isSelected ? 'text-primary/80' : 'text-muted'
+                          )}
+                        >
+                          {t(utility.descriptionKey)}
+                        </span>
                       </span>
-                      <span
-                        className={cn(
-                          'mt-0.5 text-[11.5px] leading-[1.45]',
-                          isSelected ? 'text-primary/80' : 'text-muted'
-                        )}
-                      >
-                        {t(utility.descriptionKey)}
-                      </span>
-                    </span>
-                  </button>
+                    </button>
+                    <FavoriteToggleButton utilityId={utility.id} />
+                  </div>
                 );
               })
             )}

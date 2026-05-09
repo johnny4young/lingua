@@ -18,3 +18,27 @@ export async function writeToClipboard(text: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * RL-069 Slice 3 — read the clipboard once. Returns null on missing
+ * permission, missing API, empty contents, or any other failure. Never
+ * throws — callers treat null as "no clipboard content available" and
+ * stay silent rather than nagging the user with a permission prompt.
+ *
+ * The function is intentionally NOT cached — every focus event reads
+ * fresh so a paste between focus events is observed. There is no
+ * background polling — the caller decides when to invoke this.
+ */
+export async function readFromClipboard(): Promise<string | null> {
+  try {
+    const clipboard = globalThis.navigator?.clipboard;
+    if (!clipboard || typeof clipboard.readText !== 'function') {
+      return null;
+    }
+    const value = await clipboard.readText();
+    if (typeof value !== 'string' || value.length === 0) return null;
+    return value;
+  } catch {
+    return null;
+  }
+}

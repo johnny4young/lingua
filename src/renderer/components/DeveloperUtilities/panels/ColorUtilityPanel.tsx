@@ -89,7 +89,12 @@ export function ColorUtilityPanel() {
         ) : (
           <StatusMessage tone="success" message={t('utilities.tool.color.valid')} />
         )}
-        <UtilityToolbar utilityId="color" primary={input} run={runApply} />
+        <UtilityToolbar
+          utilityId="color"
+          primary={input}
+          run={runApply}
+          setPrimary={setInput}
+        />
       </PanelSection>
 
       <PanelSection
