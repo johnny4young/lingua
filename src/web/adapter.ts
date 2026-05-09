@@ -12,7 +12,7 @@
  */
 
 import { getActiveAppLanguage, getBrowserSystemLanguages } from '../renderer/i18n';
-import { canOpenExternalUrl, getBundledAppInfo } from '../shared/appInfo';
+import { getBundledAppInfo, normalizeExternalUrl } from '../shared/appInfo';
 import { translateCommon } from '../shared/i18n/runtime';
 import { webFsAdapter } from './fs-adapter';
 
@@ -109,11 +109,12 @@ const webLingua: LinguaAPI = {
   getSystemLanguages: async () => getBrowserSystemLanguages(),
   getAppInfo: async () => getBundledAppInfo(),
   openExternal: async (url: string) => {
-    if (!canOpenExternalUrl(url)) {
+    const normalizedUrl = normalizeExternalUrl(url);
+    if (normalizedUrl === null) {
       return false;
     }
 
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.open(normalizedUrl, '_blank', 'noopener,noreferrer');
     return true;
   },
   confirmClose: async () => 2, // Cancel by default to avoid silent data loss in web mode.
