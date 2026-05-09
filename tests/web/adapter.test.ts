@@ -60,8 +60,12 @@ describe('web adapter', () => {
   it('only opens safe external URLs in the browser build', async () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
+    await expect(window.lingua.openExternal(null as unknown as string)).resolves.toBe(false);
+    await expect(
+      window.lingua.openExternal({ href: 'https://github.com/johnny4young/lingua' } as unknown as string)
+    ).resolves.toBe(false);
     await expect(window.lingua.openExternal('javascript:alert(1)')).resolves.toBe(false);
-    await expect(window.lingua.openExternal('https://github.com/johnny4young/lingua')).resolves.toBe(
+    await expect(window.lingua.openExternal(' https://github.com/johnny4young/lingua ')).resolves.toBe(
       true
     );
 

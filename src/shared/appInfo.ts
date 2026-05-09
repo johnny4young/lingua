@@ -39,8 +39,8 @@ export function resolveLicenseType(license: string | undefined): string {
   return trimmed;
 }
 
-function normalizeUrl(value: string | undefined | null): string | null {
-  if (!value) {
+export function normalizeExternalUrl(value: unknown): string | null {
+  if (typeof value !== 'string') {
     return null;
   }
 
@@ -66,10 +66,10 @@ function repositoryUrlFromPackage(repository: PackageRepository | undefined): st
   }
 
   if (typeof repository === 'string') {
-    return normalizeUrl(repository);
+    return normalizeExternalUrl(repository);
   }
 
-  return normalizeUrl(repository.url);
+  return normalizeExternalUrl(repository.url);
 }
 
 function buildDateFromBundle(): string | null {
@@ -80,10 +80,10 @@ function buildDateFromBundle(): string | null {
 
 function websiteUrlFromBundle(): string | null {
   if (typeof __LINGUA_WEBSITE_URL__ === 'string') {
-    return normalizeUrl(__LINGUA_WEBSITE_URL__);
+    return normalizeExternalUrl(__LINGUA_WEBSITE_URL__);
   }
 
-  return normalizeUrl(metadata.homepage);
+  return normalizeExternalUrl(metadata.homepage);
 }
 
 export function getBundledAppInfo(overrides: Partial<AppInfo> = {}): AppInfo {
@@ -102,6 +102,6 @@ export function getBundledAppInfo(overrides: Partial<AppInfo> = {}): AppInfo {
   };
 }
 
-export function canOpenExternalUrl(value: string): boolean {
-  return normalizeUrl(value) !== null;
+export function canOpenExternalUrl(value: unknown): boolean {
+  return normalizeExternalUrl(value) !== null;
 }

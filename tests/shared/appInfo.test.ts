@@ -23,6 +23,9 @@ describe('appInfo helpers', () => {
     expect(canOpenExternalUrl('http://localhost:4173')).toBe(true);
     expect(canOpenExternalUrl('javascript:alert(1)')).toBe(false);
     expect(canOpenExternalUrl('file:///tmp/test')).toBe(false);
+    expect(canOpenExternalUrl(null)).toBe(false);
+    expect(canOpenExternalUrl({ href: 'https://github.com/johnny4young/lingua' })).toBe(false);
+    expect(canOpenExternalUrl(['https://github.com/johnny4young/lingua'])).toBe(false);
   });
 
   it('resolveLicenseType maps SEE LICENSE / UNLICENSED expressions to Commercial', () => {

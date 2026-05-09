@@ -1,5 +1,5 @@
 import { app, ipcMain, shell } from 'electron';
-import { canOpenExternalUrl, getBundledAppInfo } from '../../shared/appInfo';
+import { getBundledAppInfo, normalizeExternalUrl } from '../../shared/appInfo';
 
 export function registerAppInfoHandlers(): void {
   ipcMain.handle('app:get-info', () =>
@@ -8,12 +8,13 @@ export function registerAppInfoHandlers(): void {
     })
   );
 
-  ipcMain.handle('app:open-external', async (_event, url: string) => {
-    if (!canOpenExternalUrl(url)) {
+  ipcMain.handle('app:open-external', async (_event, url: unknown) => {
+    const normalizedUrl = normalizeExternalUrl(url);
+    if (normalizedUrl === null) {
       return false;
     }
 
-    await shell.openExternal(url);
+    await shell.openExternal(normalizedUrl);
     return true;
   });
 }
