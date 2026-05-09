@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { analyzeRegex, applyRegexReplace } from '../../../utils/developerUtilities';
 
@@ -18,6 +19,24 @@ export function RegexUtilityPanel() {
     () => applyRegexReplace(pattern, flags, input, replacement),
     [pattern, flags, input, replacement],
   );
+
+  // RL-069 Slice 2 — In match mode, output the matched values
+  // newline-joined; in replace mode, the substituted output. Falls
+  // back to null when nothing meaningful exists.
+  const registerOutput = useCallback(() => {
+    if (mode === 'replace' && replaceResult.ok && replaceResult.replacementCount > 0) {
+      return replaceResult.output;
+    }
+    if (mode === 'match' && analysis.matches.length > 0) {
+      return analysis.matches.map((m) => m.match).join('\n');
+    }
+    return null;
+  }, [mode, replaceResult, analysis.matches]);
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -85,6 +104,12 @@ export function RegexUtilityPanel() {
         {analysis.errorKey ? (
           <StatusMessage message={t(analysis.errorKey)} tone="error" />
         ) : null}
+        <UtilityToolbar
+          utilityId="regex"
+          primary={pattern}
+          secondary={input}
+          run={runApply}
+        />
       </PanelSection>
 
       {mode === 'match' ? (

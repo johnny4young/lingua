@@ -1,8 +1,10 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { YAML_JSON_INDENTS, convertJsonToYaml, convertYamlToJson } from '../../../utils/yamlJson';
+import { detectsAsJson } from '../../../utils/developerUtilities';
 import type { JsonToYamlResult, YamlJsonIndent, YamlToJsonResult } from '../../../utils/yamlJson';
 
 type YamlJsonMode = 'yaml-to-json' | 'json-to-yaml';
@@ -40,6 +42,23 @@ export function YamlJsonPanel() {
   const input = isYamlToJson ? yamlInput : jsonInput;
   const setInput = isYamlToJson ? setYamlInput : setJsonInput;
   const result = isYamlToJson ? yamlResult : jsonResult;
+
+  const registerOutput = useCallback(
+    () => (result.ok ? result.output : null),
+    [result]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  // Apply auto-flips direction based on input shape: JSON → YAML.
+  const runApply = useCallback(() => {
+    if (detectsAsJson(input)) {
+      setJsonInput(input);
+      setMode('json-to-yaml');
+      return;
+    }
+    setYamlInput(input);
+    setMode('yaml-to-json');
+  }, [input]);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -91,6 +110,7 @@ export function YamlJsonPanel() {
             className="min-h-[14rem] font-mono"
           />
         </div>
+        <UtilityToolbar utilityId="yaml-json" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

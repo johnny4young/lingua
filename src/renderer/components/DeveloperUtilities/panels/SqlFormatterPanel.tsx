@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useEffect, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { SQL_DIALECTS, SQL_FORMATTER_MAX_KB, formatSql } from '../../../utils/sqlFormatter';
 import type { FormatSqlResult, SqlDialect, SqlFormatOptions } from '../../../utils/sqlFormatter';
@@ -42,6 +43,16 @@ export function SqlFormatterPanel() {
       cancelled = true;
     };
   }, [input, dialect, tabWidth, keywordCase]);
+
+  const registerOutput = useCallback(
+    () => (result && result.ok ? result.output : null),
+    [result]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -109,6 +120,7 @@ export function SqlFormatterPanel() {
             className="min-h-[14rem] font-mono"
           />
         </div>
+        <UtilityToolbar utilityId="sql-formatter" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

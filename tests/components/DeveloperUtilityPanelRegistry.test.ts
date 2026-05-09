@@ -9,6 +9,11 @@ const ROUTER_PATH = resolve(
   '../../src/renderer/components/DeveloperUtilities/UtilityPanels.tsx'
 );
 
+const PANELS_DIR = resolve(
+  __dirname,
+  '../../src/renderer/components/DeveloperUtilities/panels'
+);
+
 describe('DeveloperUtilityPanel registry', () => {
   it('maps every utility catalog id to a panel component', () => {
     const catalogIds = DEVELOPER_UTILITIES.map((utility) => utility.id).sort();
@@ -25,5 +30,102 @@ describe('DeveloperUtilityPanel registry', () => {
     expect(source).not.toContain('useState(');
     expect(source).not.toContain('useEffect(');
     expect(source).not.toContain('useMemo(');
+  });
+
+  // RL-069 Slice 2 (fold G) — every panel registers an output provider
+  // so the global Cmd+Shift+C / Cmd+Alt+R shortcuts cover the full
+  // catalog. The static-source check catches a regression where a new
+  // panel forgot to wire `useRegisterUtilityOutput` without paying the
+  // cost of rendering all 29 panels.
+  it('every panel module imports useRegisterUtilityOutput', () => {
+    const panelFileByCatalogId: Record<string, string> = {
+      json: 'JsonUtilityPanel.tsx',
+      base64: 'Base64UtilityPanel.tsx',
+      url: 'UrlUtilityPanel.tsx',
+      'url-parser': 'UrlParserPanel.tsx',
+      uuid: 'UuidUtilityPanel.tsx',
+      hash: 'HashUtilityPanel.tsx',
+      timestamp: 'TimestampUtilityPanel.tsx',
+      jwt: 'JwtUtilityPanel.tsx',
+      regex: 'RegexUtilityPanel.tsx',
+      color: 'ColorUtilityPanel.tsx',
+      diff: 'DiffUtilityPanel.tsx',
+      'number-base': 'NumberBaseUtilityPanel.tsx',
+      'beautify-minify': 'BeautifyMinifyUtilityPanel.tsx',
+      'string-case': 'StringCasePanel.tsx',
+      'html-entity': 'HtmlEntityPanel.tsx',
+      'string-inspector': 'StringInspectorPanel.tsx',
+      'qr-code': 'QrCodePanel.tsx',
+      'backslash-escape': 'BackslashEscapePanel.tsx',
+      'random-string': 'RandomStringPanel.tsx',
+      'base64-image': 'Base64ImagePanel.tsx',
+      'lorem-ipsum': 'LoremIpsumPanel.tsx',
+      'svg-to-css': 'SvgToCssPanel.tsx',
+      'cron-parser': 'CronParserPanel.tsx',
+      'html-to-jsx': 'HtmlToJsxPanel.tsx',
+      'curl-to-code': 'CurlToCodePanel.tsx',
+      'yaml-json': 'YamlJsonPanel.tsx',
+      'json-csv': 'JsonCsvPanel.tsx',
+      'markdown-preview': 'MarkdownPreviewPanel.tsx',
+      'sql-formatter': 'SqlFormatterPanel.tsx',
+    };
+
+    for (const utility of DEVELOPER_UTILITIES) {
+      const fileName = panelFileByCatalogId[utility.id];
+      expect(fileName, `${utility.id} missing in test mapping`).toBeDefined();
+      const source = readFileSync(resolve(PANELS_DIR, fileName!), 'utf-8');
+      expect(
+        source.includes('useRegisterUtilityOutput'),
+        `${utility.id} (${fileName}) must call useRegisterUtilityOutput`
+      ).toBe(true);
+    }
+  });
+
+  // RL-069 Slice 2 — non-generator panels also wire UtilityToolbar so
+  // the ⚡ Apply button and Mod+Shift+A apply descriptor get
+  // registered. Generators (random-string, lorem-ipsum) intentionally
+  // skip the toolbar.
+  it('every non-generator panel renders a UtilityToolbar', () => {
+    const generators = new Set(['random-string', 'lorem-ipsum']);
+    const panelFileByCatalogId: Record<string, string> = {
+      json: 'JsonUtilityPanel.tsx',
+      base64: 'Base64UtilityPanel.tsx',
+      url: 'UrlUtilityPanel.tsx',
+      'url-parser': 'UrlParserPanel.tsx',
+      uuid: 'UuidUtilityPanel.tsx',
+      hash: 'HashUtilityPanel.tsx',
+      timestamp: 'TimestampUtilityPanel.tsx',
+      jwt: 'JwtUtilityPanel.tsx',
+      regex: 'RegexUtilityPanel.tsx',
+      color: 'ColorUtilityPanel.tsx',
+      diff: 'DiffUtilityPanel.tsx',
+      'number-base': 'NumberBaseUtilityPanel.tsx',
+      'beautify-minify': 'BeautifyMinifyUtilityPanel.tsx',
+      'string-case': 'StringCasePanel.tsx',
+      'html-entity': 'HtmlEntityPanel.tsx',
+      'string-inspector': 'StringInspectorPanel.tsx',
+      'qr-code': 'QrCodePanel.tsx',
+      'backslash-escape': 'BackslashEscapePanel.tsx',
+      'base64-image': 'Base64ImagePanel.tsx',
+      'svg-to-css': 'SvgToCssPanel.tsx',
+      'cron-parser': 'CronParserPanel.tsx',
+      'html-to-jsx': 'HtmlToJsxPanel.tsx',
+      'curl-to-code': 'CurlToCodePanel.tsx',
+      'yaml-json': 'YamlJsonPanel.tsx',
+      'json-csv': 'JsonCsvPanel.tsx',
+      'markdown-preview': 'MarkdownPreviewPanel.tsx',
+      'sql-formatter': 'SqlFormatterPanel.tsx',
+    };
+
+    for (const utility of DEVELOPER_UTILITIES) {
+      if (generators.has(utility.id)) continue;
+      const fileName = panelFileByCatalogId[utility.id];
+      expect(fileName, `${utility.id} missing in toolbar mapping`).toBeDefined();
+      const source = readFileSync(resolve(PANELS_DIR, fileName!), 'utf-8');
+      expect(
+        source.includes('<UtilityToolbar'),
+        `${utility.id} (${fileName}) must render <UtilityToolbar>`
+      ).toBe(true);
+    }
   });
 });

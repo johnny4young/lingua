@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityInput } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { analyzeTimestamp } from '../../../utils/developerUtilities';
 
@@ -8,6 +9,21 @@ export function TimestampUtilityPanel() {
   const { t } = useTranslation();
   const [input, setInput] = useState(() => String(Math.floor(Date.now() / 1000)));
   const analysis = useMemo(() => analyzeTimestamp(input), [input]);
+
+  // RL-069 Slice 2 — ISO 8601 is the most copy-worthy output for the
+  // shortcut. The other readouts (epoch s/ms, local) stay reachable
+  // through their per-row CopyButtons.
+  const registerOutput = useCallback(
+    () => analysis.iso ?? null,
+    [analysis.iso]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    // No-op for the live panel — Apply gives a deterministic moment
+    // for the success toast to confirm the gesture.
+    setInput((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
@@ -23,13 +39,16 @@ export function TimestampUtilityPanel() {
             onChange={(event) => setInput(event.target.value)}
           />
         </div>
-        <button
-          type="button"
-          className="button-secondary w-fit"
-          onClick={() => setInput(String(Math.floor(Date.now() / 1000)))}
-        >
-          {t('utilities.tool.timestamp.actions.useNow')}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="button-secondary w-fit"
+            onClick={() => setInput(String(Math.floor(Date.now() / 1000)))}
+          >
+            {t('utilities.tool.timestamp.actions.useNow')}
+          </button>
+          <UtilityToolbar utilityId="timestamp" primary={input} run={runApply} />
+        </div>
         {analysis.errorKey ? (
           <StatusMessage message={t(analysis.errorKey)} tone="error" />
         ) : null}

@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { CASE_KEY_LIST, formatAllCases } from '../../../utils/stringCase';
 import type { CaseKey } from '../../../utils/stringCase';
@@ -9,6 +10,18 @@ export function StringCasePanel() {
   const { t } = useTranslation();
   const [input, setInput] = useState('user profile page');
   const outputs = useMemo(() => formatAllCases(input), [input]);
+
+  // RL-069 Slice 2 — camelCase is the most common copy target across
+  // the case variants. Other variants stay reachable via CopyButton.
+  const registerOutput = useCallback(
+    () => outputs.camel || null,
+    [outputs.camel]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4">
@@ -27,6 +40,7 @@ export function StringCasePanel() {
             spellCheck={false}
           />
         </div>
+        <UtilityToolbar utilityId="string-case" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

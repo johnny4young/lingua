@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityTextarea } from '../panelPrimitives';
-import { useEffect, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityInput, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { CRON_PARSER_MAX_NEXT, parseCronExpression } from '../../../utils/cronParser';
 import type { CronParserLocale, ParseCronResult } from '../../../utils/cronParser';
@@ -77,6 +78,19 @@ export function CronParserPanel() {
     setNextCount(clamped);
   };
 
+  // RL-069 Slice 2 — emit the human-readable description (when
+  // available) as the canonical output so users can paste a sentence
+  // like "Every 5 minutes" alongside the cron string.
+  const registerOutput = useCallback(() => {
+    if (!result || !result.ok) return null;
+    return result.description ?? expression;
+  }, [result, expression]);
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setExpression((prev) => prev);
+  }, []);
+
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <PanelSection
@@ -106,6 +120,7 @@ export function CronParserPanel() {
             onChange={(event) => handleCountChange(event.target.valueAsNumber)}
           />
         </label>
+        <UtilityToolbar utilityId="cron-parser" primary={expression} run={runApply} />
       </PanelSection>
 
       <PanelSection

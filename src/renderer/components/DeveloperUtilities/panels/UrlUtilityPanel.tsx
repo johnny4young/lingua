@@ -1,8 +1,12 @@
-import { TwoPaneTransformPanel } from '../panelPrimitives';
+import { TwoPaneTransformPanel, UtilityToolbar } from '../panelPrimitives';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
-import { decodeUrlComponentValue, encodeUrlComponentValue } from '../../../utils/developerUtilities';
+import {
+  decodeUrlComponentValue,
+  detectsAsUrlEncoded,
+  encodeUrlComponentValue,
+} from '../../../utils/developerUtilities';
 
 export function UrlUtilityPanel() {
   const { t } = useTranslation();
@@ -20,6 +24,13 @@ export function UrlUtilityPanel() {
     [errorKey, output]
   );
   useRegisterUtilityOutput(registerOutput);
+
+  // RL-069 Slice 2 — Apply auto-flips the mode based on detect:
+  // input that contains percent-encoded sequences switches to decode;
+  // raw input stays in encode.
+  const runApply = useCallback(() => {
+    setMode(detectsAsUrlEncoded(input) ? 'decode' : 'encode');
+  }, [input]);
 
   return (
     <div className="grid gap-4">
@@ -39,6 +50,7 @@ export function UrlUtilityPanel() {
           {t('utilities.actions.decode')}
         </button>
       </div>
+      <UtilityToolbar utilityId="url" primary={input} run={runApply} />
       <TwoPaneTransformPanel
         title={t('utilities.tool.url.title')}
         description={t('utilities.tool.url.panelDescription')}

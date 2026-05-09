@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useMemo } from 'react';
+import i18next from 'i18next';
 import {
   KEYBOARD_SHORTCUTS,
   formatShortcutCombo,
@@ -87,6 +88,12 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'utility-replace-clipboard': () => {
       void writeUtilityOutputToClipboard('replace');
     },
+    // RL-069 Slice 2 — read the focused panel's apply descriptor and
+    // fire it. Disabled / missing descriptors fall through to a
+    // localized status notice so the keystroke is never silent.
+    'utility-apply-from-input': () => {
+      runUtilityApplyFromInput();
+    },
   };
 }
 
@@ -114,6 +121,48 @@ function getShortcutLabel(shortcutId: string): string | undefined {
     typeof navigator !== 'undefined' ? navigator.platform : undefined;
   const displayPlatform = resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
   return formatShortcutCombo(combo, displayPlatform);
+}
+
+function runUtilityApplyFromInput(): void {
+  const handler = useUtilityOutputStore.getState().getApplyHandler();
+  const pushNotice = useUIStore.getState().pushStatusNotice;
+
+  if (!handler) {
+    pushNotice({
+      tone: 'info',
+      messageKey: 'utilities.toast.applyUnavailable',
+    });
+    return;
+  }
+
+  const descriptor = handler();
+  if (!descriptor || !descriptor.enabled) {
+    pushNotice({
+      tone: 'info',
+      messageKey: 'utilities.toast.applyUnavailable',
+    });
+    return;
+  }
+
+  try {
+    descriptor.run();
+    // i18next.t is called eagerly here so the success toast can carry
+    // the translated tool name even though `pushStatusNotice` only
+    // forwards the value through i18next's interpolation pipeline. The
+    // toolNameKey itself is never displayed raw.
+    pushNotice({
+      tone: 'success',
+      messageKey: 'utilities.toast.applySuccess',
+      values: {
+        toolName: i18next.t(descriptor.toolNameKey),
+      },
+    });
+  } catch {
+    pushNotice({
+      tone: 'error',
+      messageKey: 'utilities.toast.applyUnavailable',
+    });
+  }
 }
 
 async function writeUtilityOutputToClipboard(mode: 'copy' | 'replace'): Promise<void> {

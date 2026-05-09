@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { CURL_TARGETS, CURL_TO_CODE_MAX_KB, convertCurlToCode } from '../../../utils/curlToCode';
 import type { ConvertCurlResult, CurlTarget } from '../../../utils/curlToCode';
@@ -22,6 +23,16 @@ export function CurlToCodePanel() {
     () => convertCurlToCode(input, { target }),
     [input, target]
   );
+
+  const registerOutput = useCallback(
+    () => (result.ok ? result.code : null),
+    [result]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -57,6 +68,7 @@ export function CurlToCodePanel() {
             className="min-h-[12rem] font-mono"
           />
         </div>
+        <UtilityToolbar utilityId="curl-to-code" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

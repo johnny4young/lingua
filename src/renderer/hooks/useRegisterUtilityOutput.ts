@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import {
   useUtilityOutputStore,
+  type UtilityApplyHandler,
   type UtilityOutputProvider,
 } from '../stores/utilityOutputStore';
 
@@ -35,4 +36,28 @@ export function useRegisterUtilityOutput(provider: UtilityOutputProvider): void 
       }
     };
   }, [provider]);
+}
+
+/**
+ * RL-069 Slice 2 — Per-panel registration helper for ⚡ Apply.
+ *
+ * Mirrors `useRegisterUtilityOutput` but registers an apply descriptor
+ * resolver rather than an output provider. The Mod+Shift+A shortcut
+ * reads through this getter at dispatch time so the descriptor is
+ * always fresh — disabled state, current input shape, and the
+ * imperative `run()` callback all reflect the latest render.
+ *
+ * Pure-generator panels (random-string, lorem-ipsum) skip this hook
+ * entirely; the Apply shortcut surfaces a "no Apply registered" toast
+ * when fired against them.
+ */
+export function useRegisterUtilityApply(handler: UtilityApplyHandler): void {
+  useEffect(() => {
+    useUtilityOutputStore.getState().setApplyHandler(handler);
+    return () => {
+      if (useUtilityOutputStore.getState().applyHandler === handler) {
+        useUtilityOutputStore.getState().clearApplyHandler();
+      }
+    };
+  }, [handler]);
 }

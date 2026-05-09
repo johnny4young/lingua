@@ -1,6 +1,7 @@
-import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
-import { useMemo, useState } from 'react';
+import { FieldLabel, PanelSection, StatusMessage, UtilityTextarea, UtilityToolbar } from '../panelPrimitives';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
 import { CopyButton } from '../CopyButton';
 import { HTML_TO_JSX_MAX_KB, convertHtmlToJsx } from '../../../utils/htmlToJsx';
 import type { HtmlToJsxResult } from '../../../utils/htmlToJsx';
@@ -20,6 +21,16 @@ export function HtmlToJsxPanel() {
     () => convertHtmlToJsx(input, { wrapInFragment }),
     [input, wrapInFragment]
   );
+
+  const registerOutput = useCallback(
+    () => (result.ok ? result.jsx : null),
+    [result]
+  );
+  useRegisterUtilityOutput(registerOutput);
+
+  const runApply = useCallback(() => {
+    setInput((prev) => prev);
+  }, []);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -47,6 +58,7 @@ export function HtmlToJsxPanel() {
           />
           <span>{t('utilities.tool.htmlToJsx.wrapFragment')}</span>
         </label>
+        <UtilityToolbar utilityId="html-to-jsx" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

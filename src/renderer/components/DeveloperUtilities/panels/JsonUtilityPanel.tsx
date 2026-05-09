@@ -1,4 +1,4 @@
-import { FieldLabel, JsonTreeNode, PanelSection, StatusMessage, UtilityTextarea } from '../panelPrimitives';
+import { FieldLabel, JsonTreeNode, PanelSection, StatusMessage, UtilityToolbar, UtilityTextarea } from '../panelPrimitives';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRegisterUtilityOutput } from '../../../hooks/useRegisterUtilityOutput';
@@ -16,6 +16,13 @@ export function JsonUtilityPanel() {
   // instead of copying malformed JSON.
   const registerOutput = useCallback(() => analysis.formatted ?? null, [analysis.formatted]);
   useRegisterUtilityOutput(registerOutput);
+
+  // RL-069 Slice 2 — Apply re-formats the input. For valid JSON the
+  // visible output is unchanged (the live memo already produced it),
+  // but the success toast confirms the gesture from the keyboard.
+  const runApply = useCallback(() => {
+    if (analysis.formatted) setInput(analysis.formatted);
+  }, [analysis.formatted]);
 
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
@@ -56,6 +63,7 @@ export function JsonUtilityPanel() {
             />
           </div>
         )}
+        <UtilityToolbar utilityId="json" primary={input} run={runApply} />
       </PanelSection>
 
       <PanelSection

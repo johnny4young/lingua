@@ -1,3 +1,31 @@
+import {
+  detectsAsAbsoluteUrl,
+  detectsAsBackslashEscaped,
+  detectsAsBase64,
+  detectsAsBeautifiable,
+  detectsAsCaseConvertible,
+  detectsAsColor,
+  detectsAsCron,
+  detectsAsCsv,
+  detectsAsCurl,
+  detectsAsDataUri,
+  detectsAsHashable,
+  detectsAsHtml,
+  detectsAsHtmlEntity,
+  detectsAsInspectableText,
+  detectsAsJson,
+  detectsAsJwt,
+  detectsAsMarkdown,
+  detectsAsNumber,
+  detectsAsRegex,
+  detectsAsSql,
+  detectsAsSvg,
+  detectsAsTimestamp,
+  detectsAsUrlEncoded,
+  detectsAsUuid,
+  detectsAsYaml,
+} from '../utils/developerUtilities';
+
 export type DeveloperUtilityId =
   | 'json'
   | 'base64'
@@ -29,6 +57,20 @@ export type DeveloperUtilityId =
   | 'markdown-preview'
   | 'sql-formatter';
 
+/**
+ * RL-069 Slice 2 — input shape passed to a utility's `detect` predicate.
+ *
+ * Most panels only consume `primary` (the single textarea / input).
+ * Diff and Regex consume both `primary` and `secondary` because they
+ * compare two values; the predicate fires only when both are present.
+ * Generators (random-string, lorem-ipsum) declare no `detect` at all
+ * and the toolbar hides the Apply button accordingly.
+ */
+export interface UtilityDetectInputs {
+  primary: string;
+  secondary?: string;
+}
+
 export interface DeveloperUtilityDefinition {
   id: DeveloperUtilityId;
   titleKey: string;
@@ -45,6 +87,18 @@ export interface DeveloperUtilityDefinition {
    * panels with an obvious shorthand carry them.
    */
   aliases?: readonly string[];
+  /**
+   * RL-069 Slice 2 — input-shape predicate used by the ⚡ Apply
+   * button and the Mod+Shift+A shortcut. When omitted, the panel
+   * is treated as a pure generator (random-string, lorem-ipsum)
+   * and the Apply button is hidden.
+   *
+   * Implementations stay synchronous and cheap — they fire on every
+   * keystroke for the disabled state. Where a parse step is
+   * unavoidable, the predicate reuses the existing analyzer (e.g.
+   * `detectsAsJson` calls `analyzeJson`).
+   */
+  detect?: (inputs: UtilityDetectInputs) => boolean;
 }
 
 export const DEFAULT_DEVELOPER_UTILITY_ID: DeveloperUtilityId = 'json';
@@ -56,6 +110,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.json.label',
     descriptionKey: 'utilities.tool.json.description',
     keywords: ['json', 'format', 'validate', 'viewer', 'pretty'],
+    detect: ({ primary }) => detectsAsJson(primary),
   },
   {
     id: 'base64',
@@ -64,6 +119,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.base64.description',
     keywords: ['base64', 'encode', 'decode'],
     aliases: ['b64'],
+    detect: ({ primary }) => detectsAsBase64(primary),
   },
   {
     id: 'url',
@@ -71,6 +127,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.url.label',
     descriptionKey: 'utilities.tool.url.description',
     keywords: ['url', 'encode', 'decode', 'querystring'],
+    detect: ({ primary }) => detectsAsUrlEncoded(primary),
   },
   {
     id: 'url-parser',
@@ -78,6 +135,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.urlParser.label',
     descriptionKey: 'utilities.tool.urlParser.description',
     keywords: ['url', 'parse', 'host', 'query', 'path', 'inspect'],
+    detect: ({ primary }) => detectsAsAbsoluteUrl(primary),
   },
   {
     id: 'uuid',
@@ -85,6 +143,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.uuid.label',
     descriptionKey: 'utilities.tool.uuid.description',
     keywords: ['uuid', 'guid', 'identifier', 'random'],
+    detect: ({ primary }) => detectsAsUuid(primary),
   },
   {
     id: 'hash',
@@ -93,6 +152,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.hash.description',
     keywords: ['hash', 'sha1', 'sha256', 'digest'],
     aliases: ['md5', 'hmac'],
+    detect: ({ primary }) => detectsAsHashable(primary),
   },
   {
     id: 'timestamp',
@@ -101,6 +161,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.timestamp.description',
     keywords: ['timestamp', 'unix', 'date', 'time'],
     aliases: ['ts', 'epoch'],
+    detect: ({ primary }) => detectsAsTimestamp(primary),
   },
   {
     id: 'jwt',
@@ -109,6 +170,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.jwt.description',
     keywords: ['jwt', 'token', 'decode', 'claims'],
     aliases: ['bearer'],
+    detect: ({ primary }) => detectsAsJwt(primary),
   },
   {
     id: 'regex',
@@ -117,6 +179,8 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.regex.description',
     keywords: ['regex', 'regexp', 'pattern', 'match', 'capture'],
     aliases: ['re'],
+    detect: ({ primary, secondary }) =>
+      detectsAsRegex(primary) && (secondary ?? '').length > 0,
   },
   {
     id: 'color',
@@ -124,6 +188,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.color.label',
     descriptionKey: 'utilities.tool.color.description',
     keywords: ['color', 'hex', 'rgb', 'hsl', 'palette', 'convert'],
+    detect: ({ primary }) => detectsAsColor(primary),
   },
   {
     id: 'diff',
@@ -131,6 +196,8 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.diff.label',
     descriptionKey: 'utilities.tool.diff.description',
     keywords: ['diff', 'compare', 'text', 'changes'],
+    detect: ({ primary, secondary }) =>
+      primary.length > 0 && (secondary ?? '').length > 0,
   },
   {
     id: 'number-base',
@@ -138,6 +205,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.numberBase.label',
     descriptionKey: 'utilities.tool.numberBase.description',
     keywords: ['number', 'base', 'binary', 'hex', 'octal', 'decimal', 'radix', 'convert'],
+    detect: ({ primary }) => detectsAsNumber(primary),
   },
   {
     id: 'beautify-minify',
@@ -146,6 +214,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.beautifyMinify.description',
     keywords: ['beautify', 'minify', 'format', 'pretty', 'json', 'javascript', 'js'],
     aliases: ['min'],
+    detect: ({ primary }) => detectsAsBeautifiable(primary),
   },
   {
     id: 'string-case',
@@ -153,6 +222,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.stringCase.label',
     descriptionKey: 'utilities.tool.stringCase.description',
     keywords: ['case', 'camel', 'snake', 'kebab', 'pascal', 'constant', 'title', 'sentence'],
+    detect: ({ primary }) => detectsAsCaseConvertible(primary),
   },
   {
     id: 'html-entity',
@@ -160,6 +230,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.htmlEntity.label',
     descriptionKey: 'utilities.tool.htmlEntity.description',
     keywords: ['html', 'entity', 'escape', 'ampersand', 'encode', 'decode'],
+    detect: ({ primary }) => detectsAsHtmlEntity(primary),
   },
   {
     id: 'string-inspector',
@@ -168,6 +239,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.stringInspector.description',
     keywords: ['unicode', 'codepoint', 'bytes', 'invisible', 'zero-width', 'bidi', 'homoglyph'],
     aliases: ['inspector'],
+    detect: ({ primary }) => detectsAsInspectableText(primary),
   },
   {
     id: 'qr-code',
@@ -175,6 +247,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.qrCode.label',
     descriptionKey: 'utilities.tool.qrCode.description',
     keywords: ['qr', 'qrcode', 'barcode', 'payload', 'scanner', 'url', 'share'],
+    detect: ({ primary }) => primary.trim().length > 0,
   },
   {
     id: 'backslash-escape',
@@ -192,6 +265,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'sql',
       'mysql',
     ],
+    detect: ({ primary }) => detectsAsBackslashEscaped(primary),
   },
   {
     id: 'random-string',
@@ -209,6 +283,9 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'charset',
       'secure',
     ],
+    // RL-069 Slice 2 — pure generator. No `detect`; the toolbar hides
+    // the ⚡ Apply button so the existing "Generate" control stays
+    // the single canonical action.
   },
   {
     id: 'base64-image',
@@ -216,6 +293,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     actionLabelKey: 'utilities.tool.base64Image.label',
     descriptionKey: 'utilities.tool.base64Image.description',
     keywords: ['base64', 'image', 'data-uri', 'png', 'jpeg', 'svg', 'encode', 'decode', 'preview'],
+    detect: ({ primary }) => detectsAsDataUri(primary),
   },
   {
     id: 'lorem-ipsum',
@@ -224,6 +302,9 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.loremIpsum.description',
     keywords: ['lorem', 'ipsum', 'placeholder', 'dummy', 'mock', 'copy', 'text', 'latin'],
     aliases: ['lipsum'],
+    // RL-069 Slice 2 — pure generator. No `detect`; the toolbar hides
+    // the ⚡ Apply button so the existing "Generate" control stays
+    // the single canonical action.
   },
   {
     id: 'svg-to-css',
@@ -242,6 +323,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'icon',
     ],
     aliases: ['svg2css'],
+    detect: ({ primary }) => detectsAsSvg(primary),
   },
   {
     id: 'cron-parser',
@@ -259,6 +341,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'quartz',
       'expression',
     ],
+    detect: ({ primary }) => detectsAsCron(primary),
   },
   {
     id: 'html-to-jsx',
@@ -267,6 +350,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.htmlToJsx.description',
     keywords: ['html', 'jsx', 'react', 'convert', 'migrate', 'component', 'classname'],
     aliases: ['html2jsx'],
+    detect: ({ primary }) => detectsAsHtml(primary),
   },
   {
     id: 'curl-to-code',
@@ -288,6 +372,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
       'javascript',
     ],
     aliases: ['curl2code'],
+    detect: ({ primary }) => detectsAsCurl(primary),
   },
   {
     id: 'yaml-json',
@@ -296,6 +381,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.yamlJson.description',
     keywords: ['yaml', 'json', 'convert', 'parse', 'dump', 'serialize', 'config'],
     aliases: ['y2j', 'j2y'],
+    detect: ({ primary }) => detectsAsJson(primary) || detectsAsYaml(primary),
   },
   {
     id: 'json-csv',
@@ -304,6 +390,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.jsonCsv.description',
     keywords: ['json', 'csv', 'convert', 'tsv', 'export', 'spreadsheet', 'rfc-4180'],
     aliases: ['j2c', 'c2j'],
+    detect: ({ primary }) => detectsAsJson(primary) || detectsAsCsv(primary),
   },
   {
     id: 'markdown-preview',
@@ -315,6 +402,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     // descriptive-keyword vocabulary.
     keywords: ['markdown', 'preview', 'gfm', 'render', 'docs', 'readme'],
     aliases: ['md'],
+    detect: ({ primary }) => detectsAsMarkdown(primary),
   },
   {
     id: 'sql-formatter',
@@ -323,6 +411,7 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     descriptionKey: 'utilities.tool.sqlFormatter.description',
     keywords: ['sql', 'format', 'beautify', 'mysql', 'postgresql', 'ansi', 'database'],
     aliases: ['sqlfmt'],
+    detect: ({ primary }) => detectsAsSql(primary),
   },
 ] as const;
 
