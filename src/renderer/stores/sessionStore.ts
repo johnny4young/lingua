@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
 import { useEditorStore } from './editorStore';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
-import { parentDirOf } from '../utils/filePath';
 
 interface SessionTab {
   name: string;
@@ -11,10 +10,9 @@ interface SessionTab {
   /** Content for in-memory tabs; empty string for disk-backed tabs (re-read on restore). */
   content: string;
   /**
-   * Display absolute path. Used at restore time to re-mint a capability
-   * for the file's parent directory via `fs:reopen-root` so the tab can
-   * read its own content under the new IPC contract. Never sent to a
-   * filesystem IPC handler directly.
+   * Display absolute path. Used at restore time only as an approval
+   * lookup key for `fs:reopen-file`; the renderer never performs disk
+   * I/O against this path directly.
    */
   filePath?: string;
 }
@@ -64,17 +62,15 @@ export const useSessionStore = create<SessionState>()(
           let relativePath: string | undefined;
 
           if (saved.filePath) {
-            // RL-077 — re-mint a capability for the persisted tab's parent
-            // directory and read the file under the new contract. If the
-            // mint fails (path no longer exists, denylisted, not a dir),
-            // fall through with empty content so the user does not lose
-            // the tab outright.
-            const { parent, basename } = parentDirOf(saved.filePath);
+            // RL-077 — re-mint a single-file capability for the
+            // persisted tab. If the mint fails (path no longer exists,
+            // denied, or not approved), fall through with empty content
+            // so the user does not lose the tab outright.
             try {
-              const reopen = await window.lingua.fs.reopenRoot(parent);
+              const reopen = await window.lingua.fs.reopenFile(saved.filePath);
               if (reopen.ok) {
                 rootId = reopen.rootId;
-                relativePath = basename;
+                relativePath = reopen.fileRelativePath;
                 content = await window.lingua.fs.read(rootId, relativePath);
               } else {
                 content = `// File not found: ${saved.name}\n`;

@@ -42,8 +42,22 @@ const ABSOLUTE_PATH_PATTERN =
   /(?:file:\/\/)?(?:\/(?:Users|home|tmp|var|opt|srv)\/[^\s:]*?\/|[A-Z]:\\(?:Users|Documents)\\[^\s:]*?\\)/giu;
 const FILE_URL_PATTERN = /file:\/\/[^\s:]+/giu;
 const QUERY_HASH_PATTERN = /[?#][^\s:)]+/giu;
+const BEARER_TOKEN_PATTERN = /\bBearer\s+[A-Za-z0-9._-]+/giu;
+const LICENSE_TOKEN_PATTERN = /\b[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/gu;
+const SECRET_QUERY_PATTERN =
+  /([?&](?:token|license|licenseToken|key|secret|signature)=)[^\s&)]*/giu;
 const MAX_MESSAGE_LENGTH = 500;
 const MAX_STACK_FRAMES = 20;
+
+export function redactSensitiveText(text: string): string {
+  return text
+    .replace(BEARER_TOKEN_PATTERN, 'Bearer <redacted>')
+    .replace(LICENSE_TOKEN_PATTERN, '<redacted-token>')
+    .replace(SECRET_QUERY_PATTERN, '$1<redacted>')
+    .replace(FILE_URL_PATTERN, '<asset>')
+    .replace(ABSOLUTE_PATH_PATTERN, '<asset>/')
+    .replace(QUERY_HASH_PATTERN, '');
+}
 
 /**
  * Strip absolute filesystem paths and `file://` URLs from a stack
@@ -55,10 +69,7 @@ export function redactStack(stack: string): string {
     .split('\n')
     .slice(0, MAX_STACK_FRAMES)
     .map((line) => {
-      let cleaned = line;
-      cleaned = cleaned.replace(FILE_URL_PATTERN, '<asset>');
-      cleaned = cleaned.replace(ABSOLUTE_PATH_PATTERN, '<asset>/');
-      cleaned = cleaned.replace(QUERY_HASH_PATTERN, '');
+      let cleaned = redactSensitiveText(line);
       // Collapse any remaining absolute-looking prefixes onto <asset>.
       cleaned = cleaned.replace(/(?:\/\S+\/)([\w.-]+:\d+:\d+)/giu, '<asset>/$1');
       return cleaned;
@@ -92,7 +103,10 @@ export function buildErrorReport(
     error instanceof Error
       ? error
       : new Error(typeof error === 'string' ? error : 'unknown error');
-  const truncatedMessage = errorObj.message.slice(0, MAX_MESSAGE_LENGTH);
+  const truncatedMessage = redactSensitiveText(errorObj.message).slice(
+    0,
+    MAX_MESSAGE_LENGTH
+  );
   const redacted = errorObj.stack ? redactStack(errorObj.stack) : '<no stack>';
   return {
     timestamp: now.toISOString(),

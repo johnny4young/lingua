@@ -16,7 +16,7 @@ import { Row } from './shared';
  *      the confirmation link in their inbox; the renderer never
  *      auto-pastes for education.
  *
- * Duplicate-email branch surfaces `email-already-active` plus a
+ * Duplicate branch surfaces `education-unavailable` plus a
  * `canRecover: true` flag — we hand that off to the parent via
  * `onRequestRecovery` so the LicenseSection can pre-fill RecoveryCta
  * with this email and give the user a one-click recovery affordance.
@@ -60,20 +60,14 @@ export function EducationCta({
             messageKey: 'license.education.notice.notEducational',
           });
           return;
-        case 'email-already-active':
+        case 'education-unavailable':
           pushStatusNotice({
             tone: 'info',
-            messageKey: 'license.education.notice.alreadyActive',
+            messageKey: 'license.education.notice.unavailable',
           });
           if (result.canRecover && onRequestRecovery) {
             onRequestRecovery(trimmed);
           }
-          return;
-        case 'device-already-active':
-          pushStatusNotice({
-            tone: 'error',
-            messageKey: 'license.education.notice.duplicateDevice',
-          });
           return;
         case 'rate-limited':
           pushStatusNotice({

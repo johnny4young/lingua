@@ -101,6 +101,8 @@ contextBridge.exposeInMainWorld('lingua', {
       ipcRenderer.invoke('fs:save-dialog', defaultName, defaultDir),
     reopenRoot: (absolutePath: string) =>
       ipcRenderer.invoke('fs:reopen-root', absolutePath),
+    reopenFile: (absolutePath: string) =>
+      ipcRenderer.invoke('fs:reopen-file', absolutePath),
     revokeRoot: (rootId: string) =>
       ipcRenderer.invoke('fs:revoke-root', rootId),
     readdir: (rootId: string, relativePath: string) =>

@@ -88,6 +88,14 @@ describe('renderMarkdownPreview', () => {
     });
   });
 
+  it('measures the byte cap before trimming whitespace padding', async () => {
+    const padded = `${' '.repeat(MARKDOWN_PREVIEW_MAX_BYTES + 16)}# tiny`;
+    expect(await renderMarkdownPreview(padded, { gfm: true })).toMatchObject({
+      ok: false,
+      errorKey: 'utilities.tool.markdownPreview.error.tooLarge',
+    });
+  });
+
   it('renders fenced code blocks with the language hint', async () => {
     const md = '```js\nconsole.log(1);\n```';
     const result = await renderMarkdownPreview(md, { gfm: true });

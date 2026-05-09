@@ -8,10 +8,10 @@
  *     telemetryConsent`) via the `readConsent` helper the renderer sets up.
  *   - The endpoint is env-configurable so dev / staging / prod can point at
  *     different back-ends with the same binary.
- *   - No user code, file paths, or project names are ever uploaded; that
- *     guarantee comes from `uploadToServer: true` paired with the absence
- *     of `extra` fields carrying user data (we only set `appVersion`, OS,
- *     and a coarse `company` tag).
+ *   - Lingua does not attach app-level user code, file paths, or project
+ *     names through `extra` fields. Electron still uploads diagnostic
+ *     minidumps to the configured endpoint, so the UI copy must describe
+ *     crash reporting as opt-in diagnostics rather than a no-data claim.
  *
  * This file is main-side only. The renderer already owns consent and
  * cannot call `crashReporter.start` directly, so the two processes

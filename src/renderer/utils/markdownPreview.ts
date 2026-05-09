@@ -52,7 +52,7 @@ export async function renderMarkdownPreview(
     return { ok: false, errorKey: 'utilities.tool.markdownPreview.error.empty' };
   }
 
-  if (new TextEncoder().encode(trimmed).byteLength > MARKDOWN_PREVIEW_MAX_BYTES) {
+  if (new TextEncoder().encode(source).byteLength > MARKDOWN_PREVIEW_MAX_BYTES) {
     return { ok: false, errorKey: 'utilities.tool.markdownPreview.error.tooLarge' };
   }
 

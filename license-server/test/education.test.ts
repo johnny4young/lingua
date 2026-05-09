@@ -53,6 +53,13 @@ function stubResendSuccess(): void {
   );
 }
 
+function latestEducationPendingId(env: ReturnType<typeof createMockEnv>): string {
+  const ids = [...env.__db.educationPending.keys()];
+  const id = ids[ids.length - 1];
+  if (!id) throw new Error('expected an education pending row');
+  return id;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -83,13 +90,11 @@ describe('POST /education/start', () => {
     const body = (await response.json()) as {
       ok: boolean;
       pending: boolean;
-      pendingId: string;
       expiresAt: number;
     };
     expect(body.ok).toBe(true);
     expect(env.__db.educationPending.size).toBe(1);
     const pending = [...env.__db.educationPending.values()][0]!;
-    expect(pending.id).toBe(body.pendingId);
     expect(pending.email).toBe(VALID_BODY.email);
     expect(pending.confirmed_at).toBeNull();
     // 24h expiry
@@ -97,7 +102,7 @@ describe('POST /education/start', () => {
     expect(body.expiresAt - Math.floor(Date.now() / 1000)).toBeLessThan(25 * 60 * 60);
   });
 
-  it('returns email-already-active + canRecover when the email already has an Education plan', async () => {
+  it('returns generic education-unavailable + canRecover when the email already has an Education plan', async () => {
     const env = createMockEnv();
     // Manually pre-seed an education row
     env.__db.educations.set('edu_1', {
@@ -111,10 +116,10 @@ describe('POST /education/start', () => {
     const response = await postJson('/education/start', VALID_BODY, env);
     expect(response.status).toBe(200);
     const body = (await response.json()) as { ok: boolean; reason: string; canRecover: boolean };
-    expect(body).toEqual({ ok: false, reason: 'email-already-active', canRecover: true });
+    expect(body).toEqual({ ok: false, reason: 'education-unavailable', canRecover: true });
   });
 
-  it('returns device-already-active when the device has an Education plan under a different email', async () => {
+  it('returns generic education-unavailable when the device has an Education plan under a different email', async () => {
     const env = createMockEnv();
     env.__db.educations.set('edu_1', {
       id: 'edu_1',
@@ -126,8 +131,12 @@ describe('POST /education/start', () => {
 
     const response = await postJson('/education/start', VALID_BODY, env);
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { ok: boolean; reason: string };
-    expect(body).toEqual({ ok: false, reason: 'device-already-active' });
+    const body = (await response.json()) as {
+      ok: boolean;
+      reason: string;
+      canRecover: boolean;
+    };
+    expect(body).toEqual({ ok: false, reason: 'education-unavailable', canRecover: true });
   });
 
   it('rate-limits the 4th hit per IP per day', async () => {
@@ -169,10 +178,12 @@ describe('GET /education/confirm', () => {
 
     // Seed via /start
     const startResponse = await postJson('/education/start', VALID_BODY, env);
-    const startBody = (await startResponse.json()) as { pendingId: string };
+    expect(startResponse.status).toBe(200);
+    await startResponse.json();
+    const pendingId = latestEducationPendingId(env);
 
     const confirmResponse = await getRequest(
-      `/education/confirm?confirm=${encodeURIComponent(startBody.pendingId)}`,
+      `/education/confirm?confirm=${encodeURIComponent(pendingId)}`,
       env
     );
     expect(confirmResponse.status).toBe(200);
@@ -198,13 +209,15 @@ describe('GET /education/confirm', () => {
     const env = createMockEnv({ privateKeyJwk, publicKeyJwk, resendApiKey: 're_test_key' });
 
     const startResponse = await postJson('/education/start', VALID_BODY, env);
-    const startBody = (await startResponse.json()) as { pendingId: string };
+    expect(startResponse.status).toBe(200);
+    await startResponse.json();
+    const pendingId = latestEducationPendingId(env);
 
-    await getRequest(`/education/confirm?confirm=${startBody.pendingId}`, env);
+    await getRequest(`/education/confirm?confirm=${pendingId}`, env);
     expect(env.__db.licenses.size).toBe(1);
 
     // Second click
-    const second = await getRequest(`/education/confirm?confirm=${startBody.pendingId}`, env);
+    const second = await getRequest(`/education/confirm?confirm=${pendingId}`, env);
     expect(second.status).toBe(200);
     const html = await second.text();
     expect(html).toContain('already active');
@@ -217,19 +230,23 @@ describe('GET /education/confirm', () => {
     const env = createMockEnv({ privateKeyJwk, publicKeyJwk, resendApiKey: 're_test_key' });
 
     const firstStart = await postJson('/education/start', VALID_BODY, env);
-    const firstBody = (await firstStart.json()) as { pendingId: string };
+    expect(firstStart.status).toBe(200);
+    await firstStart.json();
+    const firstPendingId = latestEducationPendingId(env);
     const secondStart = await postJson(
       '/education/start',
       { ...VALID_BODY, deviceId: 'same-student-second-pending' },
       env
     );
-    const secondBody = (await secondStart.json()) as { pendingId: string };
+    expect(secondStart.status).toBe(200);
+    await secondStart.json();
+    const secondPendingId = latestEducationPendingId(env);
 
-    await getRequest(`/education/confirm?confirm=${firstBody.pendingId}`, env);
+    await getRequest(`/education/confirm?confirm=${firstPendingId}`, env);
     expect(env.__db.licenses.size).toBe(1);
     expect(env.__db.educations.size).toBe(1);
 
-    const secondConfirm = await getRequest(`/education/confirm?confirm=${secondBody.pendingId}`, env);
+    const secondConfirm = await getRequest(`/education/confirm?confirm=${secondPendingId}`, env);
     expect(secondConfirm.status).toBe(200);
     const html = await secondConfirm.text();
     expect(html).toContain('already active');

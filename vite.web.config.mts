@@ -4,7 +4,7 @@
  * Differences from the Electron renderer config:
  *  - Entry point is src/web/main.tsx (not src/renderer/main.tsx)
  *  - Output goes to dist/web/ (served as a static site / PWA)
- *  - No Electron externals — everything must be bundled or CDN-loaded
+ *  - No Electron externals — everything must be bundled or copied locally
  *  - Public base defaults to '/' and can be overridden for GitHub Pages
  */
 
@@ -13,7 +13,7 @@ import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';
-import { RUNTIME_ASSETS } from './src/shared/runtimeAssets';
+import { copyRuntimeAssetsPlugin } from './build/copyRuntimeAssetsPlugin.mts';
 
 // Seed `VITE_LINGUA_APP_VERSION` from `package.json#version` BEFORE
 // Vite reads `process.env` for env-substitution. Lets the telemetry
@@ -27,13 +27,13 @@ const base = process.env.VITE_BASE_PATH ?? '/';
 
 export default defineConfig({
   base,
-  plugins: [react()],
+  plugins: [react(), copyRuntimeAssetsPlugin()],
   define: {
     ...getSharedBuildDefines(),
-    // RL-083 Slice 2 keeps web Pyodide on the version-pinned CDN URL.
-    // public/sw.js cache-firsts this same prefix after the first
-    // successful Python load.
-    __LINGUA_PYODIDE_INDEX_URL__: JSON.stringify(RUNTIME_ASSETS.pyodide.sourceUrl),
+    // The web build self-hosts Pyodide under dist/web/pyodide via the
+    // same runtime-asset copier as Electron, so the worker's
+    // `new URL('../pyodide/...')` path is the authority.
+    __LINGUA_PYODIDE_INDEX_URL__: JSON.stringify(null),
   },
   root: path.resolve(__dirname, 'src/web'),
   // Repo-root `.env` / `.env.production` are the canonical source for
@@ -87,7 +87,6 @@ export default defineConfig({
       },
     },
   },
-  // Allow fetching Pyodide from CDN during development
   server: {
     headers: {
       'Cross-Origin-Embedder-Policy': 'require-corp',

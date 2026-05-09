@@ -133,7 +133,9 @@ This is the central lifecycle transition.
 
 It does five important things:
 
-1. Mints or re-mints a root capability via `selectDirectory()` or `reopenRoot(rootPath)`.
+1. Mints or re-mints a root capability via `selectDirectory()` or an
+   approved `reopenRoot(rootPath)` entry. `reopenRoot` only accepts
+   paths main previously recorded from the directory picker.
 2. Reads the root directory with `readdir(rootId, '')`.
 3. Starts a new watcher with `watchStart(rootId, '')`.
 4. Stops and revokes the previous project root only after the new root loads.
@@ -242,8 +244,9 @@ Most file operations use `invoke/handle` because they are command-like and need 
 | Preload method                  | IPC channel           | Main responsibility                                |
 | ------------------------------- | --------------------- | -------------------------------------------------- |
 | `selectDirectory()`             | `fs:select-directory` | open native directory picker and mint a rootId     |
-| `selectFile()`                  | `fs:select-file`      | open native file picker and mint a parent rootId   |
-| `reopenRoot(rootPath)`          | `fs:reopen-root`      | re-mint a rootId for a persisted display path      |
+| `selectFile()`                  | `fs:select-file`      | open native file picker and mint a single-file rootId |
+| `reopenRoot(rootPath)`          | `fs:reopen-root`      | re-mint a rootId for a previously approved directory |
+| `reopenFile(filePath)`          | `fs:reopen-file`      | re-mint a single-file rootId for a previously approved file |
 | `revokeRoot(rootId)`            | `fs:revoke-root`      | release a process-scoped root capability           |
 | `readdir(rootId, relativePath)` | `fs:readdir`          | list entries, filter hidden items, sort dirs first |
 | `stat(rootId, relativePath)`    | `fs:stat`             | return metadata                                    |

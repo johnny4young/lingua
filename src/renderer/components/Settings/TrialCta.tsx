@@ -63,20 +63,14 @@ export function TrialCta({ onRequestRecovery }: { onRequestRecovery?: (email: st
       // Tagged-union failure mapping. We never surface server text;
       // the UI gets a translated key per reason.
       switch (result.reason) {
-        case 'trial-exists-email':
+        case 'trial-unavailable':
           pushStatusNotice({
             tone: 'info',
-            messageKey: 'license.trial.notice.duplicateEmail',
+            messageKey: 'license.trial.notice.unavailable',
           });
           if (result.canRecover && onRequestRecovery) {
             onRequestRecovery(trimmed);
           }
-          return;
-        case 'trial-exists-device':
-          pushStatusNotice({
-            tone: 'error',
-            messageKey: 'license.trial.notice.duplicateDevice',
-          });
           return;
         case 'rate-limited':
           pushStatusNotice({

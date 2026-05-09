@@ -10,13 +10,28 @@ import { parseGoExecutionError } from '../utils/executionDiagnostics';
 import { useEditorStore } from '../stores/editorStore';
 import { useEnvVarsStore } from '../stores/envVarsStore';
 import { useProjectStore } from '../stores/projectStore';
+import {
+  appendCappedConsole,
+  capStderrIfOverflowing,
+  runnerStoppedResult,
+  runnerTimeoutResult,
+  type TranslateFn,
+} from './limits';
 
 const DEFAULT_TIMEOUT = 30_000;
+const t: TranslateFn = (key, options) =>
+  i18next.t(key, options ?? {}) as string;
 
 type GoWorkerResponse =
-  | { type: 'console'; method: ConsoleOutput['type']; args: string[]; line?: number }
-  | { type: 'error'; error: ExecutionError }
-  | { type: 'done'; executionTime: number };
+  | {
+      type: 'console';
+      runId: string;
+      method: ConsoleOutput['type'];
+      args: string[];
+      line?: number;
+    }
+  | { type: 'error'; runId: string; error: ExecutionError }
+  | { type: 'done'; runId: string; executionTime: number };
 
 /**
  * Resolve the effective user-space env for a subprocess runner.
@@ -61,6 +76,8 @@ export class GoRunner implements LanguageRunner {
   private worker: Worker | null = null;
   private ready = false;
   private goInstalled = false;
+  private currentRunId: string | null = null;
+  private cancelInFlight: (() => void) | null = null;
 
   async init(): Promise<void> {
     // Check if Go is installed via IPC
@@ -122,25 +139,69 @@ export class GoRunner implements LanguageRunner {
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     let error: ExecutionError | undefined;
+    let droppedStdout = 0;
+    let droppedStderr = 0;
+    let stderrByteTruncated = false;
 
     this.stop();
+    const runId = crypto.randomUUID();
+    this.currentRunId = runId;
 
     return new Promise<ExecutionResult>((resolve) => {
       this.worker = new Worker(
         new URL('../workers/go-worker.ts', import.meta.url),
         { type: 'classic' }
       );
+      const worker = this.worker;
+      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+      let resolved = false;
+
+      const finish = (value: ExecutionResult) => {
+        if (resolved) return;
+        resolved = true;
+        if (timeoutHandle !== null) {
+          clearTimeout(timeoutHandle);
+          timeoutHandle = null;
+        }
+        if (this.currentRunId === runId) {
+          this.currentRunId = null;
+        }
+        if (this.cancelInFlight === cancelInFlight) {
+          this.cancelInFlight = null;
+        }
+        resolve(value);
+      };
+
+      const cancelInFlight = () => {
+        finish(runnerStoppedResult(t, { stdout, stderr }));
+      };
+      this.cancelInFlight = cancelInFlight;
 
       this.worker.addEventListener('message', (event: MessageEvent<GoWorkerResponse>) => {
         const msg = event.data;
+        if (msg.runId !== runId) return;
+        if (this.currentRunId !== runId) return;
 
         switch (msg.type) {
           case 'console': {
             const output: ConsoleOutput = { type: msg.method, args: msg.args, line: msg.line };
             if (msg.method === 'error') {
-              stderr.push(output);
+              if (!stderrByteTruncated) {
+                droppedStderr = appendCappedConsole(
+                  stderr,
+                  output,
+                  droppedStderr,
+                  t
+                );
+                stderrByteTruncated = capStderrIfOverflowing(stderr, t);
+              }
             } else {
-              stdout.push(output);
+              droppedStdout = appendCappedConsole(
+                stdout,
+                output,
+                droppedStdout,
+                t
+              );
             }
             break;
           }
@@ -148,29 +209,40 @@ export class GoRunner implements LanguageRunner {
             error = msg.error;
             break;
           case 'done':
-            resolve({
+            finish({
               stdout,
               stderr,
               result: undefined,
               executionTime: msg.executionTime,
               error,
             });
+            worker.terminate();
+            if (this.worker === worker) this.worker = null;
             break;
         }
       });
 
       this.worker.addEventListener('error', (event) => {
-        resolve({
+        finish({
           stdout,
           stderr,
           result: undefined,
           executionTime: 0,
           error: { message: event.message || 'Go worker error' },
         });
+        worker.terminate();
+        if (this.worker === worker) this.worker = null;
       });
+
+      timeoutHandle = setTimeout(() => {
+        worker.terminate();
+        if (this.worker === worker) this.worker = null;
+        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }));
+      }, timeout);
 
       this.worker.postMessage({
         type: 'execute',
+        runId,
         wasmBytes: compileResult.wasmBytes,
         wasmExecJs: compileResult.wasmExecJs,
         timeout,
@@ -182,6 +254,12 @@ export class GoRunner implements LanguageRunner {
     if (this.worker) {
       this.worker.terminate();
       this.worker = null;
+    }
+    this.currentRunId = null;
+    if (this.cancelInFlight) {
+      const cancel = this.cancelInFlight;
+      this.cancelInFlight = null;
+      cancel();
     }
   }
 }

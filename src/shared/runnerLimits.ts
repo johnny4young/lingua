@@ -29,6 +29,9 @@ export const MAX_NATIVE_STDERR_BYTES = 1024 * 1024;
 /** Cap on toolchain compile output captured in main. */
 export const MAX_COMPILE_OUTPUT_BYTES = 1024 * 1024;
 
+/** Cap on compiled Go WASM artifacts before crossing IPC into renderer. */
+export const MAX_GO_WASM_BYTES = 10 * 1024 * 1024;
+
 /**
  * Slice `value` to fit in `maxBytes` (UTF-16 code units, matching
  * `String.prototype.length`) and append `marker` so the user can tell

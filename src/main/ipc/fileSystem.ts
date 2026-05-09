@@ -34,8 +34,9 @@ import {
   buildWatcherDiagnostic,
   type WatcherDiagnostic,
 } from '../../shared/fs/watcherDiagnostic';
-import { isPathBlocked, isSafeEntryName } from './permissions';
+import { isPathBlocked, isPathWithinProject, isSafeEntryName } from './permissions';
 import {
+  mintFileCapability,
   mintRootCapability,
   resolveCapabilityPath,
   revokeRoot,
@@ -57,6 +58,107 @@ interface WatcherEntry {
 
 const watchers = new Map<string, WatcherEntry>();
 const watcherIdsByTarget = new Map<string, string>();
+
+interface FilesystemApprovalsFile {
+  version: 1;
+  roots: string[];
+  files: string[];
+}
+
+const FILESYSTEM_APPROVALS_FILENAME = 'filesystem-approvals.json';
+
+let filesystemApprovalsLoaded = false;
+let approvedRoots = new Set<string>();
+let approvedFiles = new Set<string>();
+
+function normalizeApprovalPath(absolutePath: string): string {
+  return path.normalize(path.resolve(absolutePath));
+}
+
+function approvalsFilePath(): string | null {
+  if (typeof app?.getPath !== 'function') return null;
+  try {
+    return path.join(app.getPath('userData'), FILESYSTEM_APPROVALS_FILENAME);
+  } catch {
+    return null;
+  }
+}
+
+async function loadFilesystemApprovals(): Promise<void> {
+  if (filesystemApprovalsLoaded) return;
+  filesystemApprovalsLoaded = true;
+  const filePath = approvalsFilePath();
+  if (!filePath) return;
+
+  try {
+    const raw = await readFile(filePath, 'utf-8');
+    const parsed = JSON.parse(raw) as Partial<FilesystemApprovalsFile>;
+    if (parsed.version !== 1) return;
+    approvedRoots = new Set(
+      (parsed.roots ?? [])
+        .filter((entry): entry is string => typeof entry === 'string')
+        .map(normalizeApprovalPath)
+    );
+    approvedFiles = new Set(
+      (parsed.files ?? [])
+        .filter((entry): entry is string => typeof entry === 'string')
+        .map(normalizeApprovalPath)
+    );
+  } catch {
+    // Missing or corrupt approval state should degrade to prompting the
+    // user again, not to reopening arbitrary paths.
+  }
+}
+
+async function persistFilesystemApprovals(): Promise<void> {
+  const filePath = approvalsFilePath();
+  if (!filePath) return;
+  try {
+    await mkdirFs(path.dirname(filePath), { recursive: true });
+    const payload: FilesystemApprovalsFile = {
+      version: 1,
+      roots: [...approvedRoots].sort(),
+      files: [...approvedFiles].sort(),
+    };
+    await writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf-8');
+  } catch {
+    // Persistence is convenience, not authority. The current process
+    // still keeps the approval; the next boot will require a fresh pick.
+  }
+}
+
+async function rememberApprovedRoot(absolutePath: string): Promise<void> {
+  await loadFilesystemApprovals();
+  approvedRoots.add(normalizeApprovalPath(absolutePath));
+  await persistFilesystemApprovals();
+}
+
+async function rememberApprovedFile(absolutePath: string): Promise<void> {
+  await loadFilesystemApprovals();
+  approvedFiles.add(normalizeApprovalPath(absolutePath));
+  await persistFilesystemApprovals();
+}
+
+async function hasApprovedRoot(absolutePath: string): Promise<boolean> {
+  await loadFilesystemApprovals();
+  return approvedRoots.has(normalizeApprovalPath(absolutePath));
+}
+
+async function hasApprovedFile(absolutePath: string): Promise<boolean> {
+  await loadFilesystemApprovals();
+  const normalized = normalizeApprovalPath(absolutePath);
+  if (approvedFiles.has(normalized)) return true;
+  for (const root of approvedRoots) {
+    if (isPathWithinProject(normalized, root)) return true;
+  }
+  return false;
+}
+
+export function _resetFilesystemApprovalsForTests(): void {
+  filesystemApprovalsLoaded = false;
+  approvedRoots = new Set();
+  approvedFiles = new Set();
+}
 
 /**
  * Directories and files to filter out of the file tree.
@@ -265,6 +367,7 @@ export function registerFileSystemHandlers(): void {
       throw new Error(`Access denied: cannot open protected path: ${chosen}`);
     }
     const { rootId, rootPath } = mintRootCapability(chosen);
+    await rememberApprovedRoot(chosen);
     return { canceled: false, rootId, rootPath } as const;
   });
 
@@ -283,9 +386,7 @@ export function registerFileSystemHandlers(): void {
     if (isPathBlocked(chosen, 'read')) {
       throw new Error(`Access denied: cannot read protected path: ${chosen}`);
     }
-    const parent = path.dirname(chosen);
-    const fileRelativePath = path.basename(chosen);
-    const { rootId, rootPath } = mintRootCapability(parent);
+    const { rootId, rootPath, fileRelativePath } = mintFileCapability(chosen);
     // Atomic read while we hold the freshly minted capability so the
     // renderer never has to make a second IPC call against an absolute
     // path it does not own.
@@ -301,6 +402,7 @@ export function registerFileSystemHandlers(): void {
       revokeRoot(rootId);
       throw error;
     }
+    await rememberApprovedFile(chosen);
     return {
       canceled: false,
       rootId,
@@ -327,9 +429,8 @@ export function registerFileSystemHandlers(): void {
           `Access denied: cannot save to protected path: ${result.filePath}`
         );
       }
-      const parent = path.dirname(result.filePath);
-      const fileRelativePath = path.basename(result.filePath);
-      const { rootId, rootPath } = mintRootCapability(parent);
+      const { rootId, rootPath, fileRelativePath } = mintFileCapability(result.filePath);
+      await rememberApprovedFile(result.filePath);
       return { canceled: false, rootId, rootPath, fileRelativePath } as const;
     }
   );
@@ -337,9 +438,8 @@ export function registerFileSystemHandlers(): void {
   // ---------------------------------------------------------------- root mgmt
 
   /**
-   * Re-mint a capability for an absolute root path the user previously
-   * approved (typically the persisted `currentProject.rootPath` in the
-   * renderer's project store, or a saved tab's parent directory). The
+   * Re-mint a capability for an absolute root path main has previously
+   * recorded from a native directory picker. The
    * path is denylist-checked and stat-probed so a stale entry that no
    * longer resolves on disk fails loudly instead of silently minting a
    * token that subsequent operations would reject anyway.
@@ -350,6 +450,9 @@ export function registerFileSystemHandlers(): void {
     }
     if (isPathBlocked(absolutePath, 'read')) {
       return { ok: false, error: 'blocked' } as const;
+    }
+    if (!(await hasApprovedRoot(absolutePath))) {
+      return { ok: false, error: 'not-approved' } as const;
     }
     // `stat` already throws ENOENT / ENOTDIR on missing paths, so a
     // separate `access` round-trip only widens the TOCTOU window with
@@ -373,6 +476,45 @@ export function registerFileSystemHandlers(): void {
       } as const;
     }
     return { ok: true, rootId, rootPath } as const;
+  });
+
+  /**
+   * Re-mint a single-file capability for a file main has previously
+   * recorded from a native file/save picker, or for a file inside a
+   * previously approved project root. This keeps saved tabs/recent
+   * files ergonomic without reopening a whole parent directory.
+   */
+  ipcMain.handle('fs:reopen-file', async (_event, absolutePath: string) => {
+    if (typeof absolutePath !== 'string' || absolutePath.length === 0) {
+      return { ok: false, error: 'not-found' } as const;
+    }
+    if (isPathBlocked(absolutePath, 'read')) {
+      return { ok: false, error: 'blocked' } as const;
+    }
+    if (!(await hasApprovedFile(absolutePath))) {
+      return { ok: false, error: 'not-approved' } as const;
+    }
+
+    let info;
+    try {
+      info = await statAsync(absolutePath);
+    } catch {
+      return { ok: false, error: 'not-found' } as const;
+    }
+    if (!info.isFile()) {
+      return { ok: false, error: 'not-a-file' } as const;
+    }
+
+    const { rootId, rootPath, fileRelativePath } = mintFileCapability(absolutePath);
+    const verification = await resolveCapabilityPath(rootId, fileRelativePath, 'read');
+    if (!verification.ok) {
+      revokeRoot(rootId);
+      return {
+        ok: false,
+        error: verification.error === 'blocked-path' ? 'blocked' : 'not-found',
+      } as const;
+    }
+    return { ok: true, rootId, rootPath, fileRelativePath } as const;
   });
 
   ipcMain.handle('fs:revoke-root', (_event, rootId: RootId) => {

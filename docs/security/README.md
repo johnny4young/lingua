@@ -1,0 +1,12 @@
+# Security Review Packets
+
+This directory stores dated security review packets: threat models, finding
+matrices, remediation notes, and validation evidence for repo-level security
+work. These files are historical analysis records. The current release gate
+remains `docs/RELEASE_SECURITY.md`.
+
+## Packets
+
+| Date | Scope |
+| ---- | ----- |
+| [`2026-05-09`](./2026-05-09) | Full-repo Codex Security remediation packet covering filesystem IPC, licensing, update feeds, runtime assets, parser/resource caps, plugin discovery, and diagnostics. |

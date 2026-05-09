@@ -220,7 +220,7 @@ describe('POST /trials/start — real flow (Slice 4)', () => {
     expect(env.__db.trials.size).toBe(1);
   });
 
-  it('returns trial-exists-email + canRecover: true when the email already has a trial', async () => {
+  it('returns generic trial-unavailable + canRecover when the email already has a trial', async () => {
     const { privateKeyJwk, publicKeyJwk } = await generateKeypair();
     const env = createMockEnv({ privateKeyJwk, publicKeyJwk });
 
@@ -236,10 +236,10 @@ describe('POST /trials/start — real flow (Slice 4)', () => {
     );
     expect(second.status).toBe(200);
     const body = (await second.json()) as { ok: boolean; reason: string; canRecover: boolean };
-    expect(body).toEqual({ ok: false, reason: 'trial-exists-email', canRecover: true });
+    expect(body).toEqual({ ok: false, reason: 'trial-unavailable', canRecover: true });
   });
 
-  it('returns trial-exists-device when the device id already has a trial', async () => {
+  it('returns generic trial-unavailable when the device id already has a trial', async () => {
     const { privateKeyJwk, publicKeyJwk } = await generateKeypair();
     const env = createMockEnv({ privateKeyJwk, publicKeyJwk });
 
@@ -253,8 +253,12 @@ describe('POST /trials/start — real flow (Slice 4)', () => {
       env
     );
     expect(second.status).toBe(200);
-    const body = (await second.json()) as { ok: boolean; reason: string };
-    expect(body).toEqual({ ok: false, reason: 'trial-exists-device' });
+    const body = (await second.json()) as {
+      ok: boolean;
+      reason: string;
+      canRecover: boolean;
+    };
+    expect(body).toEqual({ ok: false, reason: 'trial-unavailable', canRecover: true });
   });
 
   it('rate-limits the 4th hit per IP per day with retryAfter', async () => {

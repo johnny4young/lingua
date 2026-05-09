@@ -23,13 +23,13 @@ import {
 } from '../lib/validation';
 import { verifyLicenseToken, type LicensePayload } from '../lib/sign';
 import {
-  countActiveDevices,
   findDeviceByLicenseAndId,
   findLicenseById,
   findLicenseByToken,
-  insertDevice,
+  insertDeviceIfSlotAvailable,
   listAllActiveDevices,
   markDeviceRemoved,
+  reactivateDeviceIfSlotAvailable,
   touchDeviceLastSeen,
   type DeviceRow,
   type LicenseRow,
@@ -40,6 +40,7 @@ export const licensesRouter = new Hono<{ Bindings: Env }>();
 
 /** Mirrors `DEFAULT_GRACE_PERIOD_MS = 14 days` in `src/shared/license.ts`. */
 const GRACE_SECONDS = 14 * 24 * 60 * 60;
+const STALE_TOKEN_REFRESH_GRACE_SECONDS = 24 * 60 * 60;
 
 // -------------------------------------------- POST /licenses/activate
 
@@ -82,9 +83,31 @@ licensesRouter.post('/activate', async (c) => {
     });
   }
 
-  // Bucket-aware count.
-  const activeCount = await countActiveDevices(c.env.DB, license.id, surface);
-  if (activeCount >= license.device_limit) {
+  let mutation: { affected: number };
+  if (existing) {
+    // Reactivate via update — keeps history compact for users who
+    // remove + re-add the same machine.
+    mutation = await reactivateDeviceIfSlotAvailable(
+      c.env.DB,
+      existing.id,
+      license.id,
+      surface,
+      deviceName,
+      os,
+      license.device_limit
+    );
+  } else {
+    mutation = await insertDeviceIfSlotAvailable(c.env.DB, {
+      id: crypto.randomUUID(),
+      licenseId: license.id,
+      deviceId,
+      deviceName,
+      os,
+      surface,
+    }, license.device_limit);
+  }
+
+  if (mutation.affected === 0) {
     const allDevices = await listAllActiveDevices(c.env.DB, license.id);
     return jsonNoStore(c, {
       ok: false,
@@ -92,26 +115,6 @@ licensesRouter.post('/activate', async (c) => {
       surface,
       devices: groupDevicesBySurface(allDevices),
       deviceLimit: { desktop: license.device_limit, web: license.device_limit },
-    });
-  }
-
-  if (existing) {
-    // Reactivate via update — keeps history compact for users who
-    // remove + re-add the same machine.
-    await c.env.DB.prepare(
-      `UPDATE devices SET removed_at = NULL, last_seen_at = ?, device_name = ?, os = ?
-       WHERE id = ?`
-    )
-      .bind(Math.floor(Date.now() / 1000), deviceName, os, existing.id)
-      .run();
-  } else {
-    await insertDevice(c.env.DB, {
-      id: crypto.randomUUID(),
-      licenseId: license.id,
-      deviceId,
-      deviceName,
-      os,
-      surface,
     });
   }
 
@@ -290,7 +293,15 @@ async function findCurrentLicenseForToken(
   ) {
     return null;
   }
+  if (!isRefreshableHistoricalPayload(payload)) return null;
   return row;
+}
+
+function isRefreshableHistoricalPayload(payload: LicensePayload): boolean {
+  const supportWindowEndsAt = Math.floor(Date.parse(payload.supportWindowEndsAt) / 1000);
+  if (!Number.isFinite(supportWindowEndsAt)) return false;
+  const now = Math.floor(Date.now() / 1000);
+  return now <= supportWindowEndsAt + STALE_TOKEN_REFRESH_GRACE_SECONDS;
 }
 
 function jsonResponse(body: unknown, status: number): Response {

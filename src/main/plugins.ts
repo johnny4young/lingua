@@ -1,5 +1,5 @@
 import { app, ipcMain } from 'electron';
-import { mkdir, readdir, readFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import {
   BUNDLED_PLUGIN_IDS,
@@ -25,6 +25,8 @@ import {
  * for both.
  */
 const ALLOWED_PLUGIN_IDS: ReadonlySet<string> = new Set(BUNDLED_PLUGIN_IDS);
+const MAX_PLUGIN_SCAN_ENTRIES = 100;
+const MAX_PLUGIN_MANIFEST_BYTES = 64 * 1024;
 
 export function getPluginInstallDirectory(): string {
   return path.join(app.getPath('userData'), 'plugins');
@@ -48,16 +50,26 @@ export async function listInstalledPlugins(
   appVersion = app.getVersion(),
 ): Promise<InstalledPluginRecord[]> {
   await mkdir(pluginDirectory, { recursive: true });
-  const entries = await readdir(pluginDirectory, { withFileTypes: true });
+  const entries = (await readdir(pluginDirectory, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .slice(0, MAX_PLUGIN_SCAN_ENTRIES);
   const results: InstalledPluginRecord[] = [];
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-
     const installDirectory = path.join(pluginDirectory, entry.name);
     const manifestPath = path.join(installDirectory, MANIFEST_FILE_NAME);
 
     try {
+      const manifestStat = await stat(manifestPath);
+      if (!manifestStat.isFile()) {
+        throw new Error('plugin manifest is not a regular file');
+      }
+      if (manifestStat.size > MAX_PLUGIN_MANIFEST_BYTES) {
+        throw new Error(
+          `plugin manifest exceeds ${MAX_PLUGIN_MANIFEST_BYTES} byte limit`
+        );
+      }
       const raw = await readFile(manifestPath, 'utf-8');
       const parsed = JSON.parse(raw) as unknown;
       results.push(validateManifest(parsed, manifestPath, appVersion));

@@ -166,6 +166,31 @@ describe('main plugin discovery', () => {
     expect(record?.status).toBe('invalid');
     expect(record?.message).toMatch(/unknown fields: executable/);
   });
+
+  it('marks oversized manifests invalid without parsing them', async () => {
+    const installDirectory = path.join(tempRoot, 'huge');
+    await mkdir(installDirectory, { recursive: true });
+    await writeFile(path.join(installDirectory, 'plugin.json'), '{'.repeat(70_000), 'utf8');
+
+    const plugins = await listInstalledPlugins(tempRoot, '0.1.0');
+    expect(plugins[0]?.status).toBe('invalid');
+    expect(plugins[0]?.message).toMatch(/65536 byte limit/);
+  });
+
+  it('caps plugin directory scans to a bounded number of entries', async () => {
+    for (let index = 0; index < 101; index += 1) {
+      await writeManifest(tempRoot, `plugin-${String(index).padStart(3, '0')}`, {
+        pluginId: 'lua',
+        apiVersion: 1,
+      });
+    }
+
+    const plugins = await listInstalledPlugins(tempRoot, '0.1.0');
+    expect(plugins).toHaveLength(100);
+    expect(
+      plugins.some((plugin) => plugin.installDirectory.endsWith('plugin-100'))
+    ).toBe(false);
+  });
 });
 
 describe('main plugin IPC registration', () => {

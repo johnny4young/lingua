@@ -48,6 +48,12 @@ interface CapabilityEntry {
   rootPath: string;
   /** `realpath`-resolved root path, cached after first lookup. */
   realRootPath: string;
+  /**
+   * Optional single-file grant. Project roots leave this unset; file
+   * pickers bind the capability to exactly one relative path so a
+   * compromised renderer cannot reuse a picked-file grant for siblings.
+   */
+  allowedRelativePath?: string;
 }
 
 const REGISTRY = new Map<RootId, CapabilityEntry>();
@@ -88,6 +94,28 @@ export function mintRootCapability(absoluteRootPath: string): {
   const rootId = randomUUID();
   REGISTRY.set(rootId, { rootPath, realRootPath: '' });
   return { rootId, rootPath };
+}
+
+/**
+ * Mint a single-file capability. The root is the file's parent
+ * directory, but `resolveCapabilityPath` will only authorize the exact
+ * basename this function records.
+ */
+export function mintFileCapability(absoluteFilePath: string): {
+  rootId: RootId;
+  rootPath: string;
+  fileRelativePath: string;
+} {
+  const absolutePath = path.normalize(path.resolve(absoluteFilePath));
+  const rootPath = path.dirname(absolutePath);
+  const fileRelativePath = path.basename(absolutePath);
+  const rootId = randomUUID();
+  REGISTRY.set(rootId, {
+    rootPath,
+    realRootPath: '',
+    allowedRelativePath: fileRelativePath,
+  });
+  return { rootId, rootPath, fileRelativePath };
 }
 
 /** Returns the canonical root path for a known token, or `null`. */
@@ -210,6 +238,14 @@ export async function resolveCapabilityPath(
     return { ok: false, error: 'unsafe-path' };
   }
   if (containsUnsafeSegment(rel)) {
+    return { ok: false, error: 'unsafe-path' };
+  }
+
+  const normalizedRel = rel.replace(/\\/g, '/').replace(/^\/+/, '');
+  if (
+    entry.allowedRelativePath !== undefined &&
+    normalizedRel !== entry.allowedRelativePath
+  ) {
     return { ok: false, error: 'unsafe-path' };
   }
 

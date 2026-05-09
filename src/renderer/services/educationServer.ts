@@ -86,8 +86,7 @@ function mapStartReason(raw: unknown): EducationStartFailureReason {
   switch (raw) {
     case 'invalid-input':
     case 'not-educational':
-    case 'email-already-active':
-    case 'device-already-active':
+    case 'education-unavailable':
     case 'rate-limited':
     case 'confirmation-email-failed':
     case 'not-implemented':

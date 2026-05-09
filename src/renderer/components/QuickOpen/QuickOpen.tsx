@@ -9,7 +9,7 @@ import {
 import { useProjectStore, type FileTreeNode } from '../../stores/projectStore';
 import { useRecentFilesStore } from '../../stores/recentFilesStore';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
-import { joinAbsolute, parentDirOf } from '../../utils/filePath';
+import { joinAbsolute } from '../../utils/filePath';
 import type { Language } from '../../types';
 import { languageBadgeClass } from '../../utils/languageMeta';
 import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
@@ -153,18 +153,16 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
       return;
     }
 
-    // Recent files have an absolute path from a previous session. Re-mint
-    // a capability for the parent directory and open under the new
-    // contract so the renderer never hands main an absolute path.
-    const { parent, basename } = parentDirOf(file.path);
-    const reopen = await window.lingua.fs.reopenRoot(parent);
+    // Recent files have an absolute path from a previous session. Main
+    // reopens only the approved file, not the whole parent directory.
+    const reopen = await window.lingua.fs.reopenFile(file.path);
     if (!reopen.ok) {
       onClose();
       return;
     }
     await openFile(
       reopen.rootId,
-      basename,
+      reopen.fileRelativePath,
       file.name,
       file.language ?? PLAINTEXT_LANGUAGE,
       file.path

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildErrorReport,
   copyErrorReportToClipboard,
+  redactSensitiveText,
   redactStack,
 } from '@/utils/redactedErrorReport';
 
@@ -77,6 +78,29 @@ describe('buildErrorReport', () => {
     const huge = new Error('X'.repeat(2_000));
     const report = buildErrorReport(huge, 'editor');
     expect(report.errorMessage.length).toBe(500);
+  });
+
+  it('redacts paths and tokens from raw Error.message values', () => {
+    const error = new Error(
+      'Failed /Users/jane/project/secret.ts with Bearer abc.def.ghi and token=aaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbb'
+    );
+    const report = buildErrorReport(error, 'editor');
+    expect(report.errorMessage).not.toContain('/Users/jane');
+    expect(report.errorMessage).not.toContain('abc.def.ghi');
+    expect(report.errorMessage).not.toContain('aaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbb');
+    expect(report.errorMessage).toContain('Bearer <redacted>');
+  });
+});
+
+describe('redactSensitiveText', () => {
+  it('redacts file URLs, absolute paths, and secret query parameters', () => {
+    const redacted = redactSensitiveText(
+      'Open file:///Users/jane/project/foo.ts?token=secret from /Users/jane/project/foo.ts'
+    );
+    expect(redacted).not.toContain('file:///Users/jane');
+    expect(redacted).not.toContain('/Users/jane');
+    expect(redacted).not.toContain('secret');
+    expect(redacted).toContain('<asset>');
   });
 });
 

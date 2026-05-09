@@ -311,6 +311,10 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return { ok: false, error: 'not-found' } as const;
   },
 
+  reopenFile: async (_absolutePath: string) => {
+    return { ok: false, error: 'not-found' } as const;
+  },
+
   revokeRoot: async (rootId: string) => REGISTRY.delete(rootId),
 
   readdir: async (rootId: string, relativePath: string): Promise<FsDirEntry[]> => {

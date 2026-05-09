@@ -87,10 +87,10 @@ describe('startTrial', () => {
     );
   });
 
-  it('maps trial-exists-email + canRecover through to the failure shape', async () => {
+  it('maps trial-unavailable + canRecover through to the failure shape', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ ok: false, reason: 'trial-exists-email', canRecover: true }),
+        JSON.stringify({ ok: false, reason: 'trial-unavailable', canRecover: true }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       ),
     ) as FetchMock;
@@ -104,12 +104,12 @@ describe('startTrial', () => {
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.reason).toBe('trial-exists-email');
+      expect(result.reason).toBe('trial-unavailable');
       expect(result.canRecover).toBe(true);
     }
   });
 
-  it('maps trial-exists-device through to the failure shape', async () => {
+  it('collapses legacy duplicate reasons to server-error', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: false, reason: 'trial-exists-device' }), {
         status: 200,
@@ -124,7 +124,7 @@ describe('startTrial', () => {
       deviceName: 'n',
       os: 'darwin',
     });
-    expect(result).toMatchObject({ ok: false, reason: 'trial-exists-device' });
+    expect(result).toMatchObject({ ok: false, reason: 'server-error' });
   });
 
   it('maps rate-limited with retryAfter', async () => {

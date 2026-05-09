@@ -41,6 +41,9 @@ export type HtmlToJsxResult =
 
 export const HTML_TO_JSX_MAX_BYTES = 200 * 1024; // 200 KB
 export const HTML_TO_JSX_MAX_KB = Math.round(HTML_TO_JSX_MAX_BYTES / 1024);
+export const HTML_TO_JSX_MAX_DEPTH = 200;
+export const HTML_TO_JSX_MAX_NODES = 5_000;
+export const HTML_TO_JSX_MAX_OUTPUT_BYTES = 512 * 1024;
 
 /** Void HTML elements that must self-close in JSX. */
 const VOID_ELEMENTS = new Set([
@@ -142,7 +145,7 @@ export function convertHtmlToJsx(
     return { ok: false, errorKey: 'utilities.tool.htmlToJsx.error.empty' };
   }
 
-  const byteLength = new TextEncoder().encode(trimmed).byteLength;
+  const byteLength = new TextEncoder().encode(html).byteLength;
   if (byteLength > HTML_TO_JSX_MAX_BYTES) {
     return { ok: false, errorKey: 'utilities.tool.htmlToJsx.error.tooLarge' };
   }
@@ -175,21 +178,40 @@ export function convertHtmlToJsx(
   // single root, emit it at indent 0 regardless of the toggle so users
   // paste the raw element into JSX without stripping leading whitespace.
   const shouldWrap = (options.wrapInFragment ?? roots.length > 1) && roots.length > 1;
+  const renderContext: RenderContext = { nodes: 0, tooLarge: false };
   const rendered = roots
-    .map((node) => renderNode(node, shouldWrap ? 1 : 0))
+    .map((node) => renderNode(node, shouldWrap ? 1 : 0, renderContext))
     .filter((line) => line.length > 0)
     .join('\n');
+  if (renderContext.tooLarge) {
+    return { ok: false, errorKey: 'utilities.tool.htmlToJsx.error.tooLarge' };
+  }
 
   const jsx = shouldWrap ? ['<>', rendered, '</>'].join('\n') : rendered;
+  if (new TextEncoder().encode(jsx).byteLength > HTML_TO_JSX_MAX_OUTPUT_BYTES) {
+    return { ok: false, errorKey: 'utilities.tool.htmlToJsx.error.tooLarge' };
+  }
 
   return { ok: true, jsx, rootCount: roots.length };
+}
+
+interface RenderContext {
+  nodes: number;
+  tooLarge: boolean;
 }
 
 function isIgnorableWhitespace(node: Node): boolean {
   return node.nodeType === 3 /* TEXT_NODE */ && (node.textContent ?? '').trim().length === 0;
 }
 
-function renderNode(node: Node, indent: number): string {
+function renderNode(node: Node, indent: number, context: RenderContext): string {
+  if (context.tooLarge) return '';
+  context.nodes += 1;
+  if (context.nodes > HTML_TO_JSX_MAX_NODES || indent > HTML_TO_JSX_MAX_DEPTH) {
+    context.tooLarge = true;
+    return '';
+  }
+
   const pad = '  '.repeat(indent);
 
   if (node.nodeType === 3 /* TEXT_NODE */) {
@@ -228,7 +250,7 @@ function renderNode(node: Node, indent: number): string {
   }
 
   const children = Array.from(element.childNodes)
-    .map((child) => renderNode(child, indent + 1))
+    .map((child) => renderNode(child, indent + 1, context))
     .filter((line) => line.length > 0);
 
   if (children.length === 0) {

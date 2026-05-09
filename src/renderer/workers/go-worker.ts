@@ -14,7 +14,7 @@ declare function importScripts(...urls: string[]): void;
     const msg = event.data;
 
     if (msg.type === 'execute') {
-      const { wasmBytes, wasmExecJs, timeout } = msg;
+      const { runId, wasmBytes, wasmExecJs, timeout } = msg;
       const startTime = performance.now();
 
       try {
@@ -43,7 +43,7 @@ declare function importScripts(...urls: string[]): void;
             for (let i = 0; i < lines.length - 1; i++) {
               const line = lines[i];
               if (line && line.length > 0) {
-                ctx.postMessage({ type: 'console', method: 'log', args: [line] });
+                ctx.postMessage({ type: 'console', runId, method: 'log', args: [line] });
               }
             }
             stdoutBuffer = lines.at(-1) ?? '';
@@ -54,7 +54,7 @@ declare function importScripts(...urls: string[]): void;
             for (let i = 0; i < lines.length - 1; i++) {
               const line = lines[i];
               if (line && line.length > 0) {
-                ctx.postMessage({ type: 'console', method: 'error', args: [line] });
+                ctx.postMessage({ type: 'console', runId, method: 'error', args: [line] });
               }
             }
             stderrBuffer = lines.at(-1) ?? '';
@@ -76,10 +76,12 @@ declare function importScripts(...urls: string[]): void;
           timedOut = true;
           ctx.postMessage({
             type: 'error',
+            runId,
             error: { message: `Execution timed out after ${timeout / 1000}s` },
           });
           ctx.postMessage({
             type: 'done',
+            runId,
             executionTime: performance.now() - startTime,
           });
         }, timeout);
@@ -93,24 +95,27 @@ declare function importScripts(...urls: string[]): void;
 
         // Flush remaining buffers
         if (stdoutBuffer.length > 0) {
-          ctx.postMessage({ type: 'console', method: 'log', args: [stdoutBuffer] });
+          ctx.postMessage({ type: 'console', runId, method: 'log', args: [stdoutBuffer] });
         }
         if (stderrBuffer.length > 0) {
-          ctx.postMessage({ type: 'console', method: 'error', args: [stderrBuffer] });
+          ctx.postMessage({ type: 'console', runId, method: 'error', args: [stderrBuffer] });
         }
 
         ctx.postMessage({
           type: 'done',
+          runId,
           executionTime: performance.now() - startTime,
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         ctx.postMessage({
           type: 'error',
+          runId,
           error: { message },
         });
         ctx.postMessage({
           type: 'done',
+          runId,
           executionTime: performance.now() - startTime,
         });
       }

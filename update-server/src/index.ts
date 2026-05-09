@@ -2,6 +2,8 @@ import {
   getLatestRelease,
   getAssetDownloadURL,
   getAssetContent,
+  type Release,
+  type ReleaseAsset,
   type ReleaseChannel,
 } from './github';
 import { isNewer } from './version';
@@ -28,6 +30,23 @@ const WEB_VERSION_CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Max-Age': '86400',
 } as const;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function releaseVersion(release: Pick<Release, 'tag_name'>): string {
+  return release.tag_name.replace(/^v/u, '');
+}
+
+function findDarwinZipAsset(release: Release): ReleaseAsset | undefined {
+  const version = releaseVersion(release);
+  const pattern = new RegExp(
+    `^lingua-${escapeRegExp(version)}-darwin-(?:x64|arm64|universal)\\.zip$`,
+    'iu'
+  );
+  return release.assets.find(asset => pattern.test(asset.name));
+}
 
 // Re-export so tests can clear the probe cache between cases without
 // reaching into the lib path directly.
@@ -194,11 +213,10 @@ async function handleDownload(env: Env, assetId: number): Promise<Response> {
 
 async function buildDarwinResponse(
   env: Env,
-  release: Awaited<ReturnType<typeof getLatestRelease>> & object,
+  release: Release,
   _requestUrl: string
 ): Promise<Response> {
-  // Find the macOS .zip asset
-  const zipAsset = release.assets.find(a => a.name.includes('darwin') && a.name.endsWith('.zip'));
+  const zipAsset = findDarwinZipAsset(release);
 
   if (!zipAsset) {
     return new Response(null, { status: 204 });
@@ -221,7 +239,7 @@ async function buildDarwinResponse(
 
 async function buildWin32Response(
   env: Env,
-  release: Awaited<ReturnType<typeof getLatestRelease>> & object,
+  release: Release,
   requestUrl: string
 ): Promise<Response> {
   // Find the RELEASES file asset

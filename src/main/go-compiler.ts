@@ -16,12 +16,13 @@
 
 import { ipcMain } from 'electron';
 import { execFile } from 'node:child_process';
-import { writeFile, readFile, mkdtemp, rm } from 'node:fs/promises';
+import { writeFile, readFile, mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import {
   MAX_COMPILE_OUTPUT_BYTES,
+  MAX_GO_WASM_BYTES,
   truncateBytes,
 } from '../shared/runnerLimits';
 import {
@@ -176,6 +177,15 @@ async function compileGoToWasm(
       env: resolveGoCompileEnv(userEnv),
       timeout: 30_000,
     });
+
+    const wasmStat = await stat(wasmFile);
+    if (wasmStat.size > MAX_GO_WASM_BYTES) {
+      return {
+        success: false,
+        error: `Compiled Go WASM exceeded ${MAX_GO_WASM_BYTES} byte limit.`,
+        goVersion: goInfo.version,
+      };
+    }
 
     // Read the compiled WASM
     const wasmBuffer = await readFile(wasmFile);
