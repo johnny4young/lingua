@@ -4070,8 +4070,8 @@ Each remaining slice closes under the same RL-069 id; no new RL ids are introduc
 ### RL-072 Specialty utilities — QR + String Inspector
 
 - Priority: `P3`
-- Status: `Partial`
-- Readiness: `First slice shipped on 2026-04-22 — String Inspector landed; QR work remains planned`
+- Status: `Done`
+- Readiness: `Closed on 2026-05-08 — see § Status Update below.`
 - Why this matters:
   - QR code generate + read is a DevUtils staple and one of the more
     recognizable screenshots in competitor comparisons.
@@ -4095,6 +4095,21 @@ Each remaining slice closes under the same RL-069 id; no new RL ids are introduc
   - `String Inspector` landed as a pure renderer-side helper + panel with UTF-8 / UTF-16 counts, per-codepoint rows, and warnings for zero-width, BiDi, mixed-script, and homoglyph cases
   - The panel stays fully offline in the renderer, flags suspicious mixed-script tokens without penalizing legitimate single-script Cyrillic text, and ships en + es copy
   - Coverage spans helper tests, component tests, and targeted Playwright smoke in the Developer Utilities workspace
+- 2026-04-23 second slice:
+  - `QR Code generate` landed (PNG preview via `<img src={dataUrl}>`, error-correction levels L/M/Q/H, payload textarea + CopyButton, Download-as-PNG, capacity hint, oversized + empty branches localized)
+- **§ Status Update — 2026-05-08 closeout**:
+  - Final slice closes the ticket. Folded six approved candidates (A, B, C, D, E, F) plus the originally scoped QR-decode in one pass:
+    - **Decode mode** with drag-drop image upload powered by jsQR + the existing `<FileDropZone>` (10 MiB cap, decoded-bitmap pixel cap, MIME gate restricted to PNG/JPEG/WebP/GIF/BMP, seven discriminated `kind`s on failure).
+    - **Copy as PNG** writes a real `image/png` blob to the system clipboard via `navigator.clipboard.write([new ClipboardItem({...})])` with idle / success / unsupported / failed label cycling. Synchronous `atob` data-URL → Blob conversion sidesteps the renderer CSP `connect-src` directive (no `fetch(data:…)`).
+    - **FG / BG color pickers** with a WCAG-AA contrast guard (4.5:1) and a real-time ratio readout.
+    - **High-contrast preset** forces pure black on pure white, disabling the pickers; ideal for printed stickers and budget phone cameras.
+    - **SVG download** anchor alongside PNG, generated on every render via `generateQrSvgDataUrl` (UTF-8-safe base64 via `TextEncoder` with chunked `String.fromCharCode` for large emoji-heavy payloads).
+    - **`utilityOutputStore` wiring** (RL-069 Slice 1 contract) — Cmd+Shift+C / Cmd+Alt+R now target the active QR output: PNG data URL in generate mode, decoded text in decode mode.
+  - Camera capture remains explicitly deferred per the original RL-072 scope decision — file upload + drag-drop covers the recognizable QR-reader use case without requesting webcam permission.
+  - Pre-stage review caught and folded inline: (a) `fetch(dataUrl)` blocked by CSP `connect-src`, replaced with synchronous atob; (b) deprecated `unescape(encodeURIComponent(...))` swapped for `TextEncoder` + chunked base64; (c) wrong i18n description key on the "Decoded payload" PanelSection, replaced with a dedicated key in EN + ES.
+  - Live UI smoke caught a real production bug: `decodeQrFromFile` minted a `blob:` URL via `URL.createObjectURL`, which violates the renderer CSP `img-src 'self' data:`. Switched the image-load path to `FileReader.readAsDataURL` so the image source is a `data:` URL the existing CSP already permits. No CSP widening needed.
+  - Coverage: 50 unit + component tests (was 5), all green, plus the existing 119-test web e2e suite. Bundle delta ~60 KB gz from `qrcode` + `jsqr` + `@types/qrcode` — `npm run check:performance` passes the budget.
+  - Catalog count: panel was already registered under `qr-code` in `developerUtilities.ts`; no count delta.
 
 ### RL-073 Define Lingua's own editor-theme identity (syntax palette + light counterpart)
 

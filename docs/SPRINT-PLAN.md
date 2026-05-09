@@ -22,7 +22,7 @@ Mirrors the authoritative `Status` column in
 
 | Iter | Ticket | Status | Scope |
 |------|--------|:------:|-------|
-| Iter 1 | [`RL-072`](./ROADMAP.md) | Partial · RL-068 closeout landed 2026-04-24 (RL-068 + RL-070 + RL-071 Done) | Developer Utilities reached DevUtils parity with 29 panels. RL-072 only retains the QR-read mode, blocked on a camera-vs-upload decision. See §3 for the closing summary. |
+| Iter 1 | [`RL-072`](./ROADMAP.md) | Shipped (2026-05-08) | Specialty utilities — QR + inspector. Shipped on 2026-05-08 — see RL-072. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Shipped (2026-05-01) | Execution history — closed by Slice 7 (Compare two runs, code-only diff). See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Partial (ADR only) | Debugger MVP — JS/TS first slice. See §5. |
 | Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
@@ -100,16 +100,21 @@ the user — do not speculate a workaround.
 
 ---
 
-## 3. Iter 1 / RL-068 — Finish Developer Utilities DevUtils parity
+## 3. Iter 1 / RL-072 — Specialty utilities (QR + inspector)
 
-**One-liner**: Close the remaining ~2 DevUtils-equivalent panels that
-ROADMAP §4e marks as "remaining" plus the JWT verify/sign and Base64
-file-upload slices from RL-071.
+Shipped on 2026-05-08 — see RL-072. Final closeout slice landed QR
+decode (drag-drop image, jsQR), Copy-as-PNG, FG/BG color pickers with
+WCAG-AA 4.5:1 contrast guard, high-contrast preset, SVG download
+alongside PNG, and `utilityOutputStore` wiring (Cmd+Shift+C /
+Cmd+Alt+R). Camera capture remains explicitly deferred per the
+original scope decision.
 
-**Context**: The full 29-panel DevUtils parity set shipped on
-2026-04-24 through the RL-068 / RL-070 / RL-071 closeouts. The only
-utility item still open here is the RL-072 QR-read mode, pending a
-camera-vs-upload product decision.
+<details>
+<summary>Historical detail (collapsed — see commit history for the per-commit log)</summary>
+
+The earlier per-commit narrative covering RL-068 / RL-070 / RL-071
+DevUtils parity (Iter 1 commits 1–16) is preserved below for
+provenance; ROADMAP wins on Status conflicts.
 
 **3.1 Sequencing (2 commits, ~1.5 days)**:
 
@@ -175,6 +180,8 @@ feat(devutils): jwt verify and sign modes with Web Crypto
 - add utilities.tool.jwt.verify and utilities.tool.jwt.sign keys in en and es
 - unit round trip plus component + Playwright tests for mode switching
 ```
+
+</details>
 
 ---
 
