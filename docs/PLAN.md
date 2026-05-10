@@ -961,6 +961,36 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Dependencies:
   - RL-019
 
+### Status Update — 2026-05-09 (RL-027 Slice 1 partial)
+
+Slice 1 partial-staged today. RL-027 stays `Partial`; Slice 1.5 closes the remaining surfaces.
+
+What shipped:
+
+- New `src/renderer/stores/debuggerStore.ts` — runtime-agnostic Zustand `persist`-middlewared store on isolated `lingua-debugger-state` localStorage key. Holds `breakpoints` (with 100-bp global FIFO cap), `watches` (capped at 20, dedupe), `session`, `pausedFrame`. Discriminated `runtime: 'js' | 'python' | 'go' | 'rust'` so Slice 2+ adapters plug in without re-architecting.
+- New `src/renderer/runtime/debuggerInstrument.ts` — acorn + magic-string AST instrumentation. Injects `await __lingua_dbg_yield(line, () => locals)` before each top-level statement; descends into async function bodies via a queue-based walker; skips hoisted declarations (FunctionDeclaration / ClassDeclaration / Import/Export) and synchronous function bodies; emits a JS→JS source map while TS→JS source-map composition stays deferred to Slice 1.5.
+- New `src/renderer/runtime/debuggerWorkerBridge.ts` — runtime-agnostic worker-IPC bridge. `setActiveDebugWorker(worker)` registers from the runner; `postDebuggerMessage({type})` dispatches resume/step from the UI.
+- Extended `src/renderer/workers/js-worker.ts` with the pause/resume/step protocol. Worker exposes `__lingua_dbg_yield`, `__lingua_dbg_frame`, `__lingua_dbg_pop` as closure helpers on the async-function constructor. Pause condition: breakpoint hit OR step-mode armed (frame-depth aware for top-level and async function bodies: step-over pauses at next line in same-or-shallower frame; step-into anywhere; step-out when frame depth drops).
+- Wired both `JavaScriptRunner` and `TypeScriptRunner` for debug mode. Debug auto-activates when `debuggerEnabled === true` AND there's a breakpoint in the active tab. Loop-protection auto-disables under debug per ADR §4.
+- New `src/renderer/components/Debugger/DebuggerDrawer.tsx` — single drawer combining variables + call stack + watches placeholder + continue / step / detach buttons. **Component is built and tested but NOT mounted in `AppLayout.tsx`** — initial mount under the console panel created e2e regressions in 4 unrelated specs (proTierUnlocks, freeTierGates, localeParity, overlays). Mounting is deferred to Slice 1.5 alongside the BreakpointGutter so both surfaces land coherently without disrupting layout sensitive tests.
+- 4 new keyboard shortcuts (`debugger-continue`/F5, `debugger-step-over`/F10, `debugger-step-into`/F11, `debugger-step-out`/Shift+F11) wired in `useGlobalShortcuts.ts` to `postDebuggerMessage`.
+- `debuggerEnabled: boolean` field on `settingsStore` (default `true`) so Slice 1 internals can be exercised programmatically. The `EditorSection` toggle is intentionally hidden until Slice 1.5 mounts the BreakpointGutter + DebuggerDrawer user flow.
+- `acorn` + `magic-string` promoted from transitive (Vite/Rollup) to direct `dependencies` in `package.json`.
+- 16 new `debugger.*` + `shortcuts.item.debugger*` i18n keys per locale (en + es with neutral LatAm tuteo: `Continúa`, `Avanza`, `Entra`, `Sale`, `Suelta`).
+- 22 unit/component tests across `tests/stores/debuggerStore.test.ts` (FIFO eviction, invalid identity guards, persisted-state sanitization, condition storage, persist partialize), `tests/runtime/debuggerInstrument.test.ts` (async function-body descent, sync-body skip, hoist skip, source map, custom helper, malformed input, async/top-level await), and `tests/components/DebuggerDrawer.test.tsx` (hidden/idle/paused drawer states).
+- Gates green: lint, tsc, check:i18n, check:i18n:copy. Vitest 250 files / 2647 passed + 2 skipped.
+
+**Deferred to Slice 1.5** (per honest assessment of session budget):
+
+- **BreakpointGutter Monaco integration + DebuggerDrawer mount.** Users today set breakpoints by calling `useDebuggerStore.getState().toggleBreakpoint(tabId, line)` from devtools or programmatic surfaces. Gutter click UI + drawer mount land together in Slice 1.5 — they are the gating pieces for the blocking smoke UI spec, and the drawer mount needs a layout-aware home (overlay vs. console-stacked) that didn't fit cleanly in this slice without breaking 4 unrelated e2e specs.
+- **Settings toggle reveal.** The persisted `debuggerEnabled` flag exists for programmatic/internal Slice 1 coverage, but the visible Settings row stays hidden until users can set breakpoints from Monaco and inspect paused state from the mounted drawer.
+- **Conditional-breakpoint + watch-expression evaluation.** Predicates and watch expressions are stored on the session and surfaced to the UI as `pending` markers; evaluation lands in Slice 1.5 after a dedicated security review of the worker eval mechanism (the dynamic-function-constructor pattern triggered the security_reminder hook in this session).
+- **Telemetry events `debugger.attached` + `debugger.paused`.** Allowlist not extended this session; lands in Slice 1.5.
+- **TS source-map round-trip.** `instrumentForDebugger` accepts an `inputMap` option but Slice 1 does not yet compose magic-string's JS→JS map with esbuild's upstream TS→JS map. Practical impact: breakpoints set in a `.ts` file pause at the post-transpile line number, not the original TS line. JS code path is unaffected. Slice 1.5 wires the two-stage compose via `@jridgewell/trace-mapping` or equivalent.
+- **`languagePacks.capabilities.debugger` flip from `'planned'` to `'available'`.** Held until BreakpointGutter ships so the capability accurately reflects user-facing readiness.
+- **`docs/DEBUGGER_SLICE1.md` runbook + ADR amendment + CAPABILITY_MATRIX row.** Lands with Slice 1.5 alongside the smoke UI spec.
+- **Blocking e2e smoke spec at `tests/e2e/debuggerJs.spec.ts`.** Cannot pass without the gutter UI; user explicitly approved a "C" path that accepts this gap.
+
 ### RL-028 Add execution history, replay, and benchmarking tools
 
 - Priority: `P2`

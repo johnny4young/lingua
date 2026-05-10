@@ -7,6 +7,8 @@ import {
   useClipboardOnFocus,
 } from '@/hooks/useClipboardOnFocus';
 import { useGlobalShortcuts, type AppOverlay } from '@/hooks/useGlobalShortcuts';
+import { setActiveDebugWorker } from '@/runtime/debuggerWorkerBridge';
+import { useDebuggerStore } from '@/stores/debuggerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useUtilityOutputStore } from '@/stores/utilityOutputStore';
@@ -42,9 +44,16 @@ function renderShortcuts(options: HarnessOptions = {}) {
 }
 
 function dispatchKeyDown(init: KeyboardEventInit & { key: string }) {
+  let event!: KeyboardEvent;
   act(() => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }));
+    event = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+    window.dispatchEvent(event);
   });
+  return event;
 }
 
 function mockClipboardRead(value: string) {
@@ -59,6 +68,14 @@ function mockClipboardRead(value: string) {
 describe('useGlobalShortcuts', () => {
   beforeEach(() => {
     useSettingsStore.getState().resetShortcutOverrides();
+    useDebuggerStore.setState({
+      breakpoints: {},
+      breakpointOrder: [],
+      watches: [],
+      session: null,
+      pausedFrame: null,
+    });
+    setActiveDebugWorker(null);
     useUtilityOutputStore.getState().clearProvider();
     useUIStore.setState({ statusNotice: null });
     Object.defineProperty(window.navigator, 'platform', {
@@ -124,6 +141,35 @@ describe('useGlobalShortcuts', () => {
     const open = renderShortcuts({ overlay: 'settings' });
     dispatchKeyDown({ key: 'Escape' });
     expect(open.closeOverlay).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not steal debugger function keys when no paused session exists', () => {
+    renderShortcuts();
+    const event = dispatchKeyDown({ key: 'F5' });
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('routes debugger function keys only while paused', () => {
+    const postMessage = vi.fn();
+    setActiveDebugWorker({ postMessage } as unknown as Worker);
+    useDebuggerStore.setState({
+      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
+      pausedFrame: {
+        tabId: 'tab-1',
+        line: 2,
+        reason: 'user-breakpoint',
+        locals: {},
+        callStack: [],
+        watchResults: {},
+      },
+    });
+
+    renderShortcuts();
+    const event = dispatchKeyDown({ key: 'F10' });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(postMessage).toHaveBeenCalledWith({ type: 'step', mode: 'over' });
+    expect(useDebuggerStore.getState().pausedFrame).toBeNull();
   });
 });
 

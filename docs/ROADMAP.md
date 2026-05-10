@@ -92,7 +92,7 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
 | [`RL-026`](./PLAN.md#rl-026-add-language-intelligence-beyond-monacos-built-in-jsts-services) | Language intelligence beyond Monaco | `Planned` | Adapter for richer diagnostics/completion/hover/signature help per language. |
-| [`RL-027`](./PLAN.md#rl-027-add-debugger-mvp) | Debugger MVP | `Partial` | ADR landed; JS/TS first implementation slice still pending. |
+| [`RL-027`](./PLAN.md#rl-027-add-debugger-mvp) | Debugger MVP | `Partial` | ADR landed 2026-04-20. Slice 1 partial-staged 2026-05-09 — runtime-agnostic `debuggerStore` (persist + 100-bp FIFO cap + watches), acorn + magic-string source instrumentation, worker pause/resume/step protocol with frame-depth tracking, JS + TS runner debug-mode wiring, unmounted `DebuggerDrawer` UI (variables + call stack + watches placeholder + continue/step buttons), 4 keyboard shortcuts (F5 / F10 / F11 / Shift+F11), internal `debuggerEnabled` Settings flag, 16 i18n keys per locale. **Deferred from Slice 1**: BreakpointGutter Monaco UI (users today set breakpoints via the store API; gutter UI lands in Slice 1.5), mounted drawer + visible Settings toggle, conditional-breakpoint + watch-expression evaluation (security review pending), telemetry events, capability-matrix row, ADR amendment, `docs/DEBUGGER_SLICE1.md` runbook, blocking e2e smoke spec. Slice 1.5 closes the remaining surfaces. |
 | [`RL-042`](./PLAN.md#rl-042-expand-language-support-toward-15-languages) | Expand languages toward 15+ | `Partial` | Ruby, Java, Kotlin, Scala, Swift, C, C++ open in view/lint mode. Runnable tiers pending per-lang. |
 
 ### 4d. Execution deepening and tooling (P2)

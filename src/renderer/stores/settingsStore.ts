@@ -156,6 +156,7 @@ export const useSettingsStore = create<SettingsState>()(
       executionHistorySnapshotEnabled: true,
       telemetryConsent: 'unset',
       utilitiesClipboardOnFocusConsent: 'unset',
+      debuggerEnabled: true,
       language: 'system',
       lastSeenVersion: null,
       hasCompletedTour: false,
@@ -225,6 +226,9 @@ export const useSettingsStore = create<SettingsState>()(
       setUtilitiesClipboardOnFocusConsent: (utilitiesClipboardOnFocusConsent) => {
         set({ utilitiesClipboardOnFocusConsent });
       },
+      // RL-027 Slice 1 — debugger master switch.
+      toggleDebuggerEnabled: () =>
+        set((state) => ({ debuggerEnabled: !state.debuggerEnabled })),
       applyThemePreset: (preset) =>
         set((state) => ({
           theme: preset.theme,
@@ -318,6 +322,7 @@ export const useSettingsStore = create<SettingsState>()(
         executionHistorySnapshotEnabled: state.executionHistorySnapshotEnabled,
         telemetryConsent: state.telemetryConsent,
         utilitiesClipboardOnFocusConsent: state.utilitiesClipboardOnFocusConsent,
+        debuggerEnabled: state.debuggerEnabled,
         language: state.language,
         lastSeenVersion: state.lastSeenVersion,
         hasCompletedTour: state.hasCompletedTour,

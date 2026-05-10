@@ -13,6 +13,8 @@ import { useUIStore } from '../stores/uiStore';
 import { useUtilityOutputStore } from '../stores/utilityOutputStore';
 import { takePendingClipboardApply } from './useClipboardOnFocus';
 import { trackEvent } from '../utils/telemetry';
+import { isDebugWorkerActive, postDebuggerMessage } from '../runtime/debuggerWorkerBridge';
+import { useDebuggerStore } from '../stores/debuggerStore';
 
 export type AppOverlay =
   | 'none'
@@ -96,7 +98,34 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'utility-apply-from-input': () => {
       runUtilityApplyFromInput();
     },
+    // RL-027 Slice 1 — debugger control shortcuts. The `setPausedFrame(null)`
+    // call clears the paused UI immediately; the worker pushes a fresh
+    // frame if the next pause condition fires.
+    'debugger-continue': () => {
+      if (postDebuggerMessage({ type: 'resume' })) {
+        useDebuggerStore.getState().setPausedFrame(null);
+      }
+    },
+    'debugger-step-over': () => {
+      if (postDebuggerMessage({ type: 'step', mode: 'over' })) {
+        useDebuggerStore.getState().setPausedFrame(null);
+      }
+    },
+    'debugger-step-into': () => {
+      if (postDebuggerMessage({ type: 'step', mode: 'into' })) {
+        useDebuggerStore.getState().setPausedFrame(null);
+      }
+    },
+    'debugger-step-out': () => {
+      if (postDebuggerMessage({ type: 'step', mode: 'out' })) {
+        useDebuggerStore.getState().setPausedFrame(null);
+      }
+    },
   };
+}
+
+function canDispatchDebuggerShortcut(): boolean {
+  return isDebugWorkerActive() && useDebuggerStore.getState().pausedFrame !== null;
 }
 
 // RL-069 Slice 1 — module-level in-flight flag. The shortcut handler
@@ -265,6 +294,7 @@ export function useGlobalShortcuts(options: UseGlobalShortcutsOptions) {
     for (const definition of dispatchable) {
       const combos = resolveCombos(definition, overrides);
       if (!combos.some((combo) => matchesCombo(event, combo))) continue;
+      if (definition.group === 'debugger' && !canDispatchDebuggerShortcut()) continue;
       const action = actions[definition.id];
       if (!action) continue;
       event.preventDefault();

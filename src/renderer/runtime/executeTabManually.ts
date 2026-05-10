@@ -230,8 +230,8 @@ export async function executeTabManually(
     const result = await runner.execute(
       content,
       lifecycle.executionTimeoutMs !== undefined
-        ? { timeout: lifecycle.executionTimeoutMs }
-        : undefined
+        ? { timeout: lifecycle.executionTimeoutMs, tabId: activeTab.id }
+        : { tabId: activeTab.id }
     );
 
     if (result.cancelled) {

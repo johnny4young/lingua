@@ -101,6 +101,36 @@ describe('keyboardShortcuts catalog', () => {
       KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'utility-apply-from-input')?.combos
     ).toEqual([{ tokens: ['Mod', 'Shift', 'A'] }]);
   });
+
+  it('declares a debugger group with the four RL-027 Slice 1 control shortcuts', () => {
+    const groupIds = new Set(SHORTCUT_GROUPS.map((group) => group.id));
+    expect(groupIds.has('debugger')).toBe(true);
+
+    const debuggerShortcuts = KEYBOARD_SHORTCUTS.filter(
+      (entry) => entry.group === 'debugger'
+    );
+    expect(debuggerShortcuts.map((entry) => entry.id).sort()).toEqual([
+      'debugger-continue',
+      'debugger-step-into',
+      'debugger-step-out',
+      'debugger-step-over',
+    ]);
+
+    // Function-key combos mirror VS Code defaults exactly so muscle
+    // memory carries over.
+    expect(
+      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-continue')?.combos
+    ).toEqual([{ tokens: ['F5'] }]);
+    expect(
+      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-step-over')?.combos
+    ).toEqual([{ tokens: ['F10'] }]);
+    expect(
+      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-step-into')?.combos
+    ).toEqual([{ tokens: ['F11'] }]);
+    expect(
+      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-step-out')?.combos
+    ).toEqual([{ tokens: ['Shift', 'F11'] }]);
+  });
 });
 
 describe('formatShortcutToken', () => {

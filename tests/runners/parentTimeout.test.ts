@@ -11,6 +11,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { isDebugWorkerActive, setActiveDebugWorker } from '@/runtime/debuggerWorkerBridge';
+import { useDebuggerStore } from '@/stores/debuggerStore';
 
 interface PostedRequest {
   type: string;
@@ -67,6 +69,17 @@ beforeEach(() => {
   terminateCount = 0;
   respond = 'echo';
   extraEcho = [];
+  setActiveDebugWorker(null);
+  useDebuggerStore.setState(
+    {
+      breakpoints: {},
+      breakpointOrder: [],
+      watches: [],
+      session: null,
+      pausedFrame: null,
+    },
+    false
+  );
   vi.stubGlobal('Worker', ProgrammableWorker);
 });
 
@@ -212,6 +225,32 @@ describe('JavaScriptRunner — RL-078 parent-owned timeout', () => {
     expect(result.cancelled).toBe(true);
     expect(result.error?.message).toBe('Execution stopped by user.');
     expect(result.stdout).toHaveLength(0);
+  });
+
+  it('stop() clears an attached debugger session and worker bridge', async () => {
+    respond = 'silent';
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 1);
+    const { JavaScriptRunner } = await import('@/runners/javascript');
+    const runner = new JavaScriptRunner();
+    await runner.init();
+
+    const promise = runner.execute('const value = 1;', {
+      timeout: 60_000,
+      tabId: 'tab-1',
+    });
+    expect(useDebuggerStore.getState().session).toMatchObject({
+      runtime: 'js',
+      tabId: 'tab-1',
+    });
+    expect(isDebugWorkerActive()).toBe(true);
+
+    runner.stop();
+    const result = await promise;
+
+    expect(result.cancelled).toBe(true);
+    expect(useDebuggerStore.getState().session).toBeNull();
+    expect(useDebuggerStore.getState().pausedFrame).toBeNull();
+    expect(isDebugWorkerActive()).toBe(false);
   });
 });
 

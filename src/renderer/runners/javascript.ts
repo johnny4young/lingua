@@ -11,6 +11,9 @@ import type {
 import { transformJSMagicComments, detectJSMagicComments } from '../utils/magicComments';
 import { injectJSLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useDebuggerStore } from '../stores/debuggerStore';
+import { instrumentForDebugger } from '../runtime/debuggerInstrument';
+import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
 import {
   appendCappedConsole,
   capStderrIfOverflowing,
@@ -39,6 +42,7 @@ export class JavaScriptRunner implements LanguageRunner {
    * next run.
    */
   private currentRunId: string | null = null;
+  private debugSessionActive = false;
   /**
    * RL-078 — `stop()` ends an in-flight run by terminating the
    * worker. The closure that owns the resolve / cleanup pair lives
@@ -47,6 +51,13 @@ export class JavaScriptRunner implements LanguageRunner {
    * instead of leaving the renderer waiting on a dead worker.
    */
   private cancelInFlight: (() => void) | null = null;
+
+  private clearDebuggerSession(): void {
+    if (!this.debugSessionActive) return;
+    this.debugSessionActive = false;
+    useDebuggerStore.getState().detachSession();
+    setActiveDebugWorker(null);
+  }
 
   async init(): Promise<void> {
     this.ready = true;
@@ -69,13 +80,42 @@ export class JavaScriptRunner implements LanguageRunner {
     let droppedStderr = 0;
     let stderrByteTruncated = false;
 
-    // Apply loop protection if enabled
-    const { loopProtection, maxLoopIterations } = useSettingsStore.getState();
-    const processedCode = loopProtection ? injectJSLoopProtection(code, maxLoopIterations) : code;
+    // RL-027 Slice 1 — debug mode resolves the breakpoint set + watch
+    // list FIRST. If the user has the feature enabled and at least one
+    // breakpoint set in this tab, we instrument the source AND
+    // auto-disable loop-protection (per ADR §4 — pausing inside a loop
+    // would otherwise trip the auto-killer).
+    const settings = useSettingsStore.getState();
+    const debuggerSettings = settings.debuggerEnabled !== false;
+    const debugStore = useDebuggerStore.getState();
+    const tabBreakpoints = context?.tabId
+      ? debugStore.breakpointsForTab(context.tabId).filter((bp) => bp.enabled)
+      : [];
+    const debug = debuggerSettings && tabBreakpoints.length > 0;
+
+    const { loopProtection, maxLoopIterations } = settings;
+    const protectedCode =
+      loopProtection && !debug ? injectJSLoopProtection(code, maxLoopIterations) : code;
 
     // Transform magic comments before execution
-    const hasMagic = detectJSMagicComments(processedCode).length > 0;
-    const transformedCode = hasMagic ? transformJSMagicComments(processedCode) : processedCode;
+    const hasMagic = detectJSMagicComments(protectedCode).length > 0;
+    const magicTransformed = hasMagic ? transformJSMagicComments(protectedCode) : protectedCode;
+
+    let transformedCode = magicTransformed;
+    if (debug) {
+      try {
+        const instrumented = instrumentForDebugger(magicTransformed, {
+          filename: context?.tabId ?? 'user-code.js',
+        });
+        transformedCode = instrumented.code;
+      } catch {
+        // Instrumentation failure should NOT block a run — fall back
+        // to executing the un-instrumented source so the user still
+        // sees runtime errors instead of an opaque "instrumentation
+        // failed" screen.
+        transformedCode = magicTransformed;
+      }
+    }
 
     // Terminate any previous worker. `stop()` also bumps `currentRunId`
     // to null so any in-flight messages from the old worker are dropped.
@@ -158,6 +198,34 @@ export class JavaScriptRunner implements LanguageRunner {
           case 'error':
             error = msg.error;
             break;
+          case 'paused': {
+            // RL-027 Slice 1 — relay paused frames into the debugger
+            // store so the UI can render the variables / call stack.
+            const paused = msg as unknown as {
+              line: number;
+              reason: 'user-breakpoint' | 'step';
+              locals: Record<string, string>;
+              callStack: { functionName: string; line: number }[];
+              watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
+              conditionalPending?: boolean;
+            };
+            if (context?.tabId) {
+              useDebuggerStore.getState().setPausedFrame({
+                tabId: context.tabId,
+                line: paused.line,
+                reason: paused.reason,
+                locals: paused.locals,
+                callStack: paused.callStack,
+                watchResults: paused.watchResults,
+              });
+            }
+            // RL-027 Slice 1.5 — `conditionalPending` is dropped here;
+            // when conditional-bp evaluation lands, thread the flag
+            // into PausedFrame so the drawer can flag "predicate
+            // stored, evaluation pending".
+            void paused.conditionalPending;
+            break;
+          }
           case 'done':
             finish({
               stdout,
@@ -167,6 +235,8 @@ export class JavaScriptRunner implements LanguageRunner {
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
             });
+            // Detach the debugger session — the run is over.
+            this.clearDebuggerSession();
             // Worker is single-shot for JS; terminate so we don't leak.
             worker.terminate();
             if (this.worker === worker) this.worker = null;
@@ -184,6 +254,9 @@ export class JavaScriptRunner implements LanguageRunner {
             message: event.message || 'Worker error',
           },
         });
+        // RL-027 Slice 1 — clear the debugger bridge + session on
+        // crash so a follow-up F5/F10 doesn't post to a dead worker.
+        this.clearDebuggerSession();
         worker.terminate();
         if (this.worker === worker) this.worker = null;
       });
@@ -195,18 +268,34 @@ export class JavaScriptRunner implements LanguageRunner {
       timeoutHandle = setTimeout(() => {
         worker.terminate();
         if (this.worker === worker) this.worker = null;
+        // RL-027 Slice 1 — same cleanup as the crash path so an F5/F10
+        // after a timeout does not post to a dead worker.
+        this.clearDebuggerSession();
         finish(
           runnerTimeoutResult(timeout, t, { stdout, stderr })
         );
       }, timeout);
 
-      // Send execution request
+      if (debug && context?.tabId) {
+        this.debugSessionActive = true;
+        useDebuggerStore.getState().attachSession({
+          runtime: 'js',
+          tabId: context.tabId,
+          attachedAt: Date.now(),
+        });
+        setActiveDebugWorker(worker);
+      }
+      // Send execution request after registering the debug bridge so a
+      // pause on the first instrumented statement is resumable.
       worker.postMessage({
         type: 'execute',
         runId,
         code: transformedCode,
         timeout,
         resultTruncationMarker: t('runner.truncated.result'),
+        debug,
+        breakpoints: tabBreakpoints.map((bp) => ({ line: bp.line, condition: bp.condition })),
+        watches: debug ? debugStore.watches.map((w) => w.expression) : [],
       });
     });
   }
@@ -217,6 +306,7 @@ export class JavaScriptRunner implements LanguageRunner {
       this.worker = null;
     }
     this.currentRunId = null;
+    this.clearDebuggerSession();
     // Resolve any in-flight execute() promise so the renderer is
     // not left waiting on a worker we just killed.
     if (this.cancelInFlight) {

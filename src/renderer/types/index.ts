@@ -270,6 +270,15 @@ export interface SettingsState {
    * sticks across reloads and the feature never reads without opt-in.
    */
   utilitiesClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
+  /**
+   * RL-027 Slice 1 — debugger master switch. Default `true` (the
+   * feature is discoverable on first install). Off → the gutter no
+   * longer toggles breakpoints, the drawer stays hidden, and the JS
+   * runner skips instrumentation entirely so non-debug runs pay no
+   * overhead. Per ADR §Rollback this is the kill switch for the
+   * whole feature.
+   */
+  debuggerEnabled: boolean;
   language: AppLanguage;
   lastSeenVersion: string | null;
   hasCompletedTour: boolean;
@@ -323,6 +332,8 @@ export interface SettingsState {
   setTelemetryConsent: (next: 'granted' | 'declined') => void;
   /** RL-069 Slice 3 — flip clipboard-on-focus consent (granted/declined). */
   setUtilitiesClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
+  /** RL-027 Slice 1 — toggle the debugger master switch. */
+  toggleDebuggerEnabled: () => void;
   /**
    * Apply a theme preset (editor theme, shell theme, typography, layout)
    * loaded from an exported JSON document. Non-theme settings (loop
@@ -365,6 +376,13 @@ export interface SettingsState {
 export interface ExecutionContext {
   timeout?: number;
   env?: Record<string, string>;
+  /**
+   * RL-027 Slice 1 — tab id of the source being executed. The
+   * debugger runner reads breakpoints + watches from the debugger
+   * store keyed by this id, so a run on a different tab does not
+   * trigger pauses set on another tab.
+   */
+  tabId?: string;
 }
 
 export interface ExecutionError {
@@ -470,4 +488,17 @@ export type WorkerResponse =
   | { type: 'done'; runId: string; executionTime: number }
   | { type: 'loading'; stage: string }
   | { type: 'ready' }
-  | { type: 'magic-comment'; runId: string; line: number; value: string };
+  | { type: 'magic-comment'; runId: string; line: number; value: string }
+  | {
+      // RL-027 Slice 1 — debugger pause from the JS worker. Carries
+      // the source line, the locals snapshot, the call stack, and any
+      // watch-result placeholders for the UI drawer.
+      type: 'paused';
+      runId: string;
+      line: number;
+      reason: 'user-breakpoint' | 'step';
+      locals: Record<string, string>;
+      callStack: { functionName: string; line: number }[];
+      watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
+      conditionalPending?: boolean;
+    };
