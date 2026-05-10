@@ -9,6 +9,17 @@
  * `worker.terminate()` if user code does not yield in time. The
  * `runId` from each `execute` request is echoed on every reply so
  * the parent can drop messages from a previous (terminated) run.
+ *
+ * RL-027 Slice 1: when the renderer instrumented the source, the
+ * `execute` payload carries `{ debug: true, breakpoints, ... }`. The
+ * worker injects two closure helpers — `__lingua_dbg_yield(line, getLocals)`
+ * called before each statement, and `__lingua_dbg_frame(name, line)` /
+ * `__lingua_dbg_pop()` for frame-depth tracking that powers step-over
+ * / step-into / step-out. Pauses fire only when the breakpoint set
+ * contains the current line OR the current step mode dictates a stop;
+ * otherwise the yield function fast-paths to `Promise.resolve()`.
+ *
+ * Reference: `docs/PLAN.md` RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
  */
 
 // Make this file a module so TS doesn't merge its scope with other workers
@@ -113,16 +124,114 @@ function parseError(err: unknown): { message: string; line?: number; column?: nu
   return result;
 }
 
+/**
+ * RL-027 Slice 1 — debugger pause coordination.
+ *
+ * Slice 1 ships the pause/resume/step protocol with frame-depth
+ * tracking. Conditional breakpoint predicates and watch expressions
+ * are STORED on the session (so the UI surfaces them) but their
+ * evaluation lands in Slice 1.5 — the eval mechanism needs a
+ * dedicated security review pass that this slice doesn't budget.
+ * For Slice 1, conditional breakpoints always pause (as if the
+ * predicate were `true`), and watch results carry an
+ * `evaluation: 'pending'` marker so the UI can render the deferred
+ * state without misleading the user.
+ */
+type StepMode = 'none' | 'over' | 'into' | 'out';
+
+interface DebuggerSessionState {
+  enabled: boolean;
+  breakpoints: Map<number, { condition: string }>;
+  watches: string[];
+  stepMode: StepMode;
+  /** Frame depth at which the active step request was issued. */
+  stepDepth: number;
+  /** Live call stack — newest frame last. */
+  frames: { functionName: string; line: number }[];
+  /** Resolver for the pending `resume`/`step` await. */
+  resumeResolver: (() => void) | null;
+}
+
+function createSession(): DebuggerSessionState {
+  return {
+    enabled: false,
+    breakpoints: new Map(),
+    watches: [],
+    stepMode: 'none',
+    stepDepth: 0,
+    frames: [],
+    resumeResolver: null,
+  };
+}
+
+interface ExecuteMessage {
+  type: 'execute';
+  runId: string;
+  code: string;
+  resultTruncationMarker?: string;
+  debug?: boolean;
+  breakpoints?: { line: number; condition?: string }[];
+  watches?: string[];
+}
+
+function applyExecutePayload(session: DebuggerSessionState, msg: ExecuteMessage): void {
+  session.enabled = msg.debug === true;
+  session.breakpoints.clear();
+  if (Array.isArray(msg.breakpoints)) {
+    for (const bp of msg.breakpoints) {
+      if (typeof bp.line === 'number' && bp.line > 0) {
+        session.breakpoints.set(bp.line, { condition: bp.condition ?? '' });
+      }
+    }
+  }
+  session.watches = Array.isArray(msg.watches) ? msg.watches : [];
+  session.stepMode = 'none';
+  session.stepDepth = 0;
+  session.frames = [];
+  session.resumeResolver = null;
+}
+
+let activeSession: DebuggerSessionState | null = null;
+
 ctx.addEventListener('message', async (event) => {
   const msg = event.data;
 
+  // RL-027 Slice 1 — debugger control messages from main. These
+  // arrive WHILE a run is ongoing (the worker is paused awaiting a
+  // resume), so we route them ahead of the `execute` branch.
+  if (msg.type === 'resume' || msg.type === 'step') {
+    const session = activeSession;
+    if (!session || !session.resumeResolver) return;
+    if (msg.type === 'step') {
+      session.stepMode = (msg.mode as StepMode) ?? 'over';
+      session.stepDepth = session.frames.length;
+    } else {
+      session.stepMode = 'none';
+    }
+    const resolver = session.resumeResolver;
+    session.resumeResolver = null;
+    resolver();
+    return;
+  }
+
+  if (msg.type === 'set-breakpoints') {
+    const session = activeSession;
+    if (!session) return;
+    session.breakpoints.clear();
+    const bps = (msg as { breakpoints?: { line: number; condition?: string }[] }).breakpoints;
+    if (Array.isArray(bps)) {
+      for (const bp of bps) {
+        if (typeof bp.line === 'number' && bp.line > 0) {
+          session.breakpoints.set(bp.line, { condition: bp.condition ?? '' });
+        }
+      }
+    }
+    return;
+  }
+
   if (msg.type === 'execute') {
-    const { runId, code, resultTruncationMarker } = msg as {
-      type: 'execute';
-      runId: string;
-      code: string;
-      resultTruncationMarker?: string;
-    };
+    const exec = msg as ExecuteMessage;
+    const { runId, code, resultTruncationMarker } = exec;
     const marker =
       typeof resultTruncationMarker === 'string' && resultTruncationMarker.length > 0
         ? resultTruncationMarker
@@ -131,11 +240,12 @@ ctx.addEventListener('message', async (event) => {
 
     createConsoleProxy(runId, marker);
 
+    const session = createSession();
+    applyExecutePayload(session, exec);
+    activeSession = session;
+
     try {
-      // Execute user code using async Function constructor for top-level await support.
-      // RL-078: no in-worker timeout race — the parent terminates us.
       const executionPromise = (async () => {
-        // Magic comment helper: captures expression value and sends to main thread
         const __mc = (line: number, value: unknown) => {
           let serialized: string;
           try {
@@ -151,15 +261,95 @@ ctx.addEventListener('message', async (event) => {
           });
         };
 
-        // Wrap in async Function to support top-level await
+        // RL-027 Slice 1 — yield helper. Called before each
+        // instrumented statement. Fast path when debug is off OR
+        // no breakpoint matches AND no step mode is armed.
+        const __lingua_dbg_yield = async (
+          line: number,
+          getLocals: () => Record<string, unknown>
+        ): Promise<void> => {
+          if (!session.enabled) return;
+          const breakpoint = session.breakpoints.get(line);
+          const shouldPauseForStep =
+            session.stepMode === 'into' ||
+            (session.stepMode === 'over' &&
+              session.frames.length <= session.stepDepth) ||
+            (session.stepMode === 'out' && session.frames.length < session.stepDepth);
+
+          // Slice 1: predicates are stored but always treated as true
+          // (no eval until Slice 1.5's security review). The UI badge
+          // surfaces this as "predicate stored, evaluation pending".
+          const shouldPauseForBreakpoint = Boolean(breakpoint);
+
+          if (!shouldPauseForBreakpoint && !shouldPauseForStep) return;
+
+          const localsRaw = (() => {
+            try {
+              return getLocals();
+            } catch {
+              return {};
+            }
+          })();
+          const localsSerialized: Record<string, string> = {};
+          for (const [name, value] of Object.entries(localsRaw)) {
+            localsSerialized[name] = serialize([value], marker)[0]!;
+          }
+
+          // Slice 1: watch expressions echo back as `pending` markers.
+          // The Variables panel covers the actual locals; users who
+          // want richer expressions will get them in Slice 1.5.
+          const watchResults: Record<
+            string,
+            { value?: string; error?: string; pending?: boolean }
+          > = {};
+          for (const expr of session.watches) {
+            watchResults[expr] = { pending: true };
+          }
+
+          const reason: 'user-breakpoint' | 'step' = shouldPauseForBreakpoint
+            ? 'user-breakpoint'
+            : 'step';
+
+          ctx.postMessage({
+            type: 'paused',
+            runId,
+            line,
+            reason,
+            locals: localsSerialized,
+            callStack: [...session.frames].reverse(),
+            watchResults,
+            conditionalPending: Boolean(breakpoint?.condition),
+          });
+
+          await new Promise<void>((resolve) => {
+            session.resumeResolver = resolve;
+          });
+        };
+
+        const __lingua_dbg_frame = (
+          functionName: string,
+          line: number
+        ): void => {
+          session.frames.push({ functionName, line });
+        };
+
+        const __lingua_dbg_pop = (): void => {
+          session.frames.pop();
+        };
+
         const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-        const fn = new AsyncFunction('__mc', code);
-        return await fn(__mc);
+        const fn = new AsyncFunction(
+          '__mc',
+          '__lingua_dbg_yield',
+          '__lingua_dbg_frame',
+          '__lingua_dbg_pop',
+          code
+        );
+        return await fn(__mc, __lingua_dbg_yield, __lingua_dbg_frame, __lingua_dbg_pop);
       })();
 
       const result = await executionPromise;
 
-      // Send result if there is one
       if (result !== undefined) {
         ctx.postMessage({
           type: 'result',
@@ -183,6 +373,7 @@ ctx.addEventListener('message', async (event) => {
       ctx.postMessage({ type: 'done', runId, executionTime });
     } finally {
       restoreConsole();
+      activeSession = null;
     }
   }
 });

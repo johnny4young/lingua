@@ -119,6 +119,40 @@ describe('executeTabManually — runner.executed telemetry (RL-065)', () => {
         durationBucketMs: expect.any(Number),
       })
     );
+    expect(mockRunnerExecute).toHaveBeenCalledWith('console.log("hi")', {
+      tabId: 'tab-1',
+    });
+  });
+
+  it('passes timeout and tab id into the runner context', async () => {
+    mockRunnerManagerPrepare.mockResolvedValue({
+      runner: {
+        execute: mockRunnerExecute.mockResolvedValue({
+          stdout: [],
+          stderr: [],
+          result: undefined,
+          executionTime: 42,
+          error: undefined,
+        }),
+      },
+      initialized: false,
+    });
+
+    await executeTabManually(
+      {
+        id: 'tab-debug',
+        name: 'debug.js',
+        language: 'javascript',
+        content: 'const value = 1;',
+        isDirty: false,
+      },
+      { executionTimeoutMs: 1234 }
+    );
+
+    expect(mockRunnerExecute).toHaveBeenCalledWith('const value = 1;', {
+      timeout: 1234,
+      tabId: 'tab-debug',
+    });
   });
 
   it('fires runner.executed with status=error when the runner surfaces an error', async () => {

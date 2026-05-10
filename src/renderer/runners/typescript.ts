@@ -12,6 +12,9 @@ import type {
 import { transformJSMagicComments, detectJSMagicComments } from '../utils/magicComments';
 import { injectJSLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useDebuggerStore } from '../stores/debuggerStore';
+import { instrumentForDebugger } from '../runtime/debuggerInstrument';
+import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
 import {
   appendCappedConsole,
   capStderrIfOverflowing,
@@ -37,6 +40,7 @@ export class TypeScriptRunner implements LanguageRunner {
   private ready = false;
   /** RL-078 — see JavaScriptRunner.currentRunId. */
   private currentRunId: string | null = null;
+  private debugSessionActive = false;
   /** RL-078 — see JavaScriptRunner.cancelInFlight. */
   private cancelInFlight: (() => void) | null = null;
   /**
@@ -45,6 +49,13 @@ export class TypeScriptRunner implements LanguageRunner {
    * while esbuild is still resolving.
    */
   private executionGeneration = 0;
+
+  private clearDebuggerSession(): void {
+    if (!this.debugSessionActive) return;
+    this.debugSessionActive = false;
+    useDebuggerStore.getState().detachSession();
+    setActiveDebugWorker(null);
+  }
 
   async init(): Promise<void> {
     if (!esbuildInitialized) {
@@ -99,9 +110,19 @@ export class TypeScriptRunner implements LanguageRunner {
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
     const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
 
-    // Step 1: Apply loop protection if enabled
-    const { loopProtection, maxLoopIterations } = useSettingsStore.getState();
-    const processedCode = loopProtection ? injectJSLoopProtection(code, maxLoopIterations) : code;
+    // RL-027 Slice 1 — debug mode resolution mirrors the JS runner.
+    const settings = useSettingsStore.getState();
+    const debuggerSettings = settings.debuggerEnabled !== false;
+    const debugStore = useDebuggerStore.getState();
+    const tabBreakpoints = context?.tabId
+      ? debugStore.breakpointsForTab(context.tabId).filter((bp) => bp.enabled)
+      : [];
+    const debug = debuggerSettings && tabBreakpoints.length > 0;
+
+    // Step 1: Apply loop protection unless debug mode is active.
+    const { loopProtection, maxLoopIterations } = settings;
+    const processedCode =
+      loopProtection && !debug ? injectJSLoopProtection(code, maxLoopIterations) : code;
 
     // Step 1b: Transform magic comments before transpilation
     // (esbuild would strip the //=> comments during transpilation)
@@ -128,6 +149,19 @@ export class TypeScriptRunner implements LanguageRunner {
         executionTime: 0,
         error: transpileError,
       };
+    }
+
+    // RL-027 Slice 1 — instrument the transpiled JS when debug is on.
+    let instrumented = js;
+    if (debug) {
+      try {
+        const result = instrumentForDebugger(js, {
+          filename: context?.tabId ?? 'user-code.js',
+        });
+        instrumented = result.code;
+      } catch {
+        instrumented = js;
+      }
     }
 
     // Step 3: Execute the transpiled JS using the same JS worker
@@ -211,6 +245,26 @@ export class TypeScriptRunner implements LanguageRunner {
           case 'error':
             error = msg.error;
             break;
+          case 'paused': {
+            const paused = msg as unknown as {
+              line: number;
+              reason: 'user-breakpoint' | 'step';
+              locals: Record<string, string>;
+              callStack: { functionName: string; line: number }[];
+              watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
+            };
+            if (context?.tabId) {
+              useDebuggerStore.getState().setPausedFrame({
+                tabId: context.tabId,
+                line: paused.line,
+                reason: paused.reason,
+                locals: paused.locals,
+                callStack: paused.callStack,
+                watchResults: paused.watchResults,
+              });
+            }
+            break;
+          }
           case 'done':
             finish({
               stdout,
@@ -220,6 +274,7 @@ export class TypeScriptRunner implements LanguageRunner {
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
             });
+            this.clearDebuggerSession();
             worker.terminate();
             if (this.worker === worker) this.worker = null;
             break;
@@ -234,6 +289,8 @@ export class TypeScriptRunner implements LanguageRunner {
           executionTime: 0,
           error: { message: event.message || 'Worker error' },
         });
+        // RL-027 Slice 1 — same cleanup as the JS runner crash path.
+        this.clearDebuggerSession();
         worker.terminate();
         if (this.worker === worker) this.worker = null;
       });
@@ -242,15 +299,30 @@ export class TypeScriptRunner implements LanguageRunner {
       timeoutHandle = setTimeout(() => {
         worker.terminate();
         if (this.worker === worker) this.worker = null;
+        // RL-027 Slice 1 — clear the debugger bridge + session on
+        // timeout so a follow-up F5/F10 doesn't post to a dead worker.
+        this.clearDebuggerSession();
         finish(runnerTimeoutResult(timeout, t, { stdout, stderr }));
       }, timeout);
 
+      if (debug && context?.tabId) {
+        this.debugSessionActive = true;
+        useDebuggerStore.getState().attachSession({
+          runtime: 'js',
+          tabId: context.tabId,
+          attachedAt: Date.now(),
+        });
+        setActiveDebugWorker(worker);
+      }
       worker.postMessage({
         type: 'execute',
         runId,
-        code: js,
+        code: instrumented,
         timeout,
         resultTruncationMarker: t('runner.truncated.result'),
+        debug,
+        breakpoints: tabBreakpoints.map((bp) => ({ line: bp.line, condition: bp.condition })),
+        watches: debug ? debugStore.watches.map((w) => w.expression) : [],
       });
     });
   }
@@ -262,6 +334,7 @@ export class TypeScriptRunner implements LanguageRunner {
       this.worker = null;
     }
     this.currentRunId = null;
+    this.clearDebuggerSession();
     if (this.cancelInFlight) {
       const cancel = this.cancelInFlight;
       this.cancelInFlight = null;

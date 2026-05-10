@@ -28,7 +28,8 @@ export type ShortcutGroupId =
   | 'navigation'
   | 'overlays'
   | 'view'
-  | 'utilities';
+  | 'utilities'
+  | 'debugger';
 
 export interface ShortcutDefinition {
   id: string;
@@ -55,6 +56,8 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroupDefinition[] = [
   // RL-069 Slice 1 — copy / replace clipboard from the focused
   // Developer Utilities panel without leaving the keyboard.
   { id: 'utilities', labelKey: 'shortcuts.group.utilities' },
+  // RL-027 Slice 1 — debugger continue / step shortcuts.
+  { id: 'debugger', labelKey: 'shortcuts.group.debugger' },
 ];
 
 export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
@@ -187,6 +190,39 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     descriptionKey: 'shortcuts.item.utilityApplyFromInput.description',
     combos: [{ tokens: ['Mod', 'Shift', 'A'] }],
     keywords: ['apply', 'detect', 'smart', 'paste', 'utility', 'utilities'],
+  },
+  // RL-027 Slice 1 — debugger continue / step shortcuts.
+  {
+    id: 'debugger-continue',
+    group: 'debugger',
+    labelKey: 'shortcuts.item.debuggerContinue.label',
+    descriptionKey: 'shortcuts.item.debuggerContinue.description',
+    combos: [{ tokens: ['F5'] }],
+    keywords: ['debugger', 'continue', 'resume'],
+  },
+  {
+    id: 'debugger-step-over',
+    group: 'debugger',
+    labelKey: 'shortcuts.item.debuggerStepOver.label',
+    descriptionKey: 'shortcuts.item.debuggerStepOver.description',
+    combos: [{ tokens: ['F10'] }],
+    keywords: ['debugger', 'step', 'over'],
+  },
+  {
+    id: 'debugger-step-into',
+    group: 'debugger',
+    labelKey: 'shortcuts.item.debuggerStepInto.label',
+    descriptionKey: 'shortcuts.item.debuggerStepInto.description',
+    combos: [{ tokens: ['F11'] }],
+    keywords: ['debugger', 'step', 'into'],
+  },
+  {
+    id: 'debugger-step-out',
+    group: 'debugger',
+    labelKey: 'shortcuts.item.debuggerStepOut.label',
+    descriptionKey: 'shortcuts.item.debuggerStepOut.description',
+    combos: [{ tokens: ['Shift', 'F11'] }],
+    keywords: ['debugger', 'step', 'out'],
   },
 ];
 
