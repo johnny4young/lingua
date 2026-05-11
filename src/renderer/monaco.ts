@@ -20,6 +20,8 @@ import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { createGoCompletionProvider } from './components/Editor/completionProviders/goCompletions';
 import { createPythonCompletionProvider } from './components/Editor/completionProviders/pythonCompletions';
+import { createPythonHoverProvider } from './components/Editor/completionProviders/pythonHoverProvider';
+import { createPythonSignatureProvider } from './components/Editor/completionProviders/pythonSignatureProvider';
 import { createRustCompletionProvider } from './components/Editor/completionProviders/rustCompletions';
 import { createLuaCompletionProvider } from './components/Editor/completionProviders/luaCompletions';
 import {
@@ -207,6 +209,13 @@ export function registerLanguageCompletionProviders(m: Monaco): void {
   for (const [languageId, createProvider] of completionProviderFactories) {
     m.languages.registerCompletionItemProvider(languageId, createProvider(m));
   }
+
+  // RL-026 Slice 2 — Python hover + signature help. Both providers read
+  // from the same renderer-side symbol table built in
+  // `src/renderer/languageIntelligence/python.ts`. They self-gate to the
+  // python language id; other tabs ignore them.
+  m.languages.registerHoverProvider('python', createPythonHoverProvider());
+  m.languages.registerSignatureHelpProvider('python', createPythonSignatureProvider());
 }
 
 // The TypeScript contribution augments the global `monaco.languages` object

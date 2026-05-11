@@ -96,7 +96,10 @@ The matrix below rates each capability against these five classes:
 - **Use the lightest adapter that can ship in both shells first.** Python's
   RL-026 Slice 1 adapter runs in the renderer, emits Monaco markers under the
   `lingua-language-intelligence` owner, and augments completions from local
-  symbols without requiring a desktop bridge.
+  symbols without requiring a desktop bridge. Slice 2 layers hover (kind +
+  definition line + parameter list) and signature help (parameter list +
+  active-parameter tracking) on top of the same renderer symbol table — no
+  desktop bridge introduced for either capability.
 - **Keep desktop LSPs for languages that need the host toolchain.** Go and
   Rust still belong behind desktop adapters because useful diagnostics and
   signature help depend on `gopls` / `rust-analyzer` availability.
@@ -180,3 +183,4 @@ Missing all three, the desktop-native or browser-interpreter path stays.
 |------------|------------------|-------------------------------------------|
 | 2026-04-17 | RL-030 drafters  | Initial matrix and decision records landed |
 | 2026-05-11 | RL-026 Slice 1   | Python renderer adapter added for diagnostics and symbol-aware completions |
+| 2026-05-11 | RL-026 Slice 2   | Python renderer adapter extended with hover and signature help over a shared symbol table |

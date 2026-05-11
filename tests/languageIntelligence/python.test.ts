@@ -60,7 +60,7 @@ describe('Python language intelligence adapter', () => {
         'class ReportWriter:',
         '    pass',
         '',
-        'def write_report(items):',
+        'def write_report(items: list[str]):',
         '    total = len(items)',
         '    for item in items:',
         '        print(item)',
@@ -83,6 +83,8 @@ describe('Python language intelligence adapter', () => {
     );
     expect(result.completions.find((completion) => completion.label === 'fake')).toBeUndefined();
     expect(result.completions.find((completion) => completion.label === 'Hidden')).toBeUndefined();
+    expect(result.completions.find((completion) => completion.label === 'list')).toBeUndefined();
+    expect(result.completions.find((completion) => completion.label === 'str')).toBeUndefined();
   });
 
   it('does not mark an intentionally multiline block header before delimiters close', () => {
