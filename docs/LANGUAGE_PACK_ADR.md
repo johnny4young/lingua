@@ -49,7 +49,7 @@ source of truth for:
 | `executionMode` | `languageCapabilities.ts` | `LanguagePack.execution` (`run` \| `compile` \| `validate` \| `view`) |
 | `runnerId` | `runners/manager.ts` dispatch | `LanguagePack.runnerId` |
 | `formatter` | `src/renderer/utils/formatters.ts` | `LanguagePack.formatter` (`prettier` \| `ipc:gofmt` \| `ipc:rustfmt` \| `ipc:python` \| `none`) |
-| `lspSupport` | not modeled | `LanguagePack.capabilities.lsp` (`builtin` \| `desktop` \| `none`) |
+| `lspSupport` | not modeled | `LanguagePack.capabilities.lsp` (`builtin` \| `adapter` \| `desktop` \| `none`) |
 | `debuggerSupport` | not modeled | `LanguagePack.capabilities.debugger` (`none` \| `planned` \| `available`) |
 | `docsUrl` | scattered | `LanguagePack.docsUrl` |
 | `starterTemplateIds` | `data/templates.ts` | `LanguagePack.templateIds[]` |
@@ -68,7 +68,7 @@ export interface LanguagePack {
   runnerId: string | null;
   formatter: 'prettier' | 'ipc:gofmt' | 'ipc:rustfmt' | 'ipc:python' | 'none';
   capabilities: {
-    lsp: 'builtin' | 'desktop' | 'none';
+    lsp: 'builtin' | 'adapter' | 'desktop' | 'none';
     debugger: 'none' | 'planned' | 'available';
     runtimeDependencies?: readonly string[];
   };

@@ -24,8 +24,12 @@ const monacoMock = {
   editor: {},
   languages: {
     CompletionItemKind: {
+      Class: 6,
+      Function: 1,
       Keyword: 17,
+      Module: 9,
       Snippet: 27,
+      Variable: 4,
     },
     CompletionItemInsertTextRule: {
       InsertAsSnippet: 4,

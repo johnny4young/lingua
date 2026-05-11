@@ -937,6 +937,16 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - RL-030
   - RL-038
 
+#### 2026-05-11 Status Update
+
+- Slice 1 shipped the Python renderer adapter: editor-time diagnostics for
+  common block/delimiter syntax issues plus symbol-aware completions for local
+  functions, classes, imports, loop targets, parameters, and assignments.
+- Monaco markers use a dedicated `lingua-language-intelligence` owner so they
+  do not overwrite execution/result diagnostics.
+- Remaining scope: hover/signature help and desktop-LSP-backed adapters for
+  Go/Rust or other host-toolchain languages.
+
 ### RL-027 Add debugger MVP
 
 - Priority: `P2`

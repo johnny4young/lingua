@@ -37,7 +37,9 @@ describe('LANGUAGE_PACKS array integrity', () => {
       expect(pack.formatter, `formatter for ${pack.id}`).toMatch(
         /^(prettier|ipc:gofmt|ipc:rustfmt|ipc:python|none)$/
       );
-      expect(pack.capabilities.lsp, `lsp for ${pack.id}`).toMatch(/^(builtin|desktop|none)$/);
+      expect(pack.capabilities.lsp, `lsp for ${pack.id}`).toMatch(
+        /^(builtin|adapter|desktop|none)$/
+      );
       expect(pack.capabilities.debugger, `debugger for ${pack.id}`).toMatch(
         /^(available|planned|none)$/
       );
@@ -228,6 +230,13 @@ describe('LANGUAGE_PACKS array integrity', () => {
     const rustPack = getLanguagePackById('rust') as LanguagePack;
     expect(goPack.capabilities.runtimeDependencies).toContain('go');
     expect(rustPack.capabilities.runtimeDependencies).toContain('rustc');
+  });
+
+  it('marks Python language intelligence as the renderer adapter slice', () => {
+    const python = getLanguagePackById('python') as LanguagePack;
+    expect(python.capabilities.lsp).toBe('adapter');
+    expect(python.execution).toBe('run');
+    expect(python.runnerId).toBe('python');
   });
 });
 

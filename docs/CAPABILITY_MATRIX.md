@@ -70,6 +70,7 @@ The matrix below rates each capability against these five classes:
 | Deep-link protocol     | Out          | Out                 | Out          | **Primary**    | —      | Desktop native | `lingua://` protocol (see RL-040). Browsers cannot register custom protocols for the PWA without OS-level install |
 | Local AI inference     | Research     | Out                 | Out          | Research       | Research | Hybrid (undecided) | Tracked in RL-031. Browser WASM via transformers.js or webllm is viable for tiny models; larger models need desktop native with a local runtime (Ollama, llama.cpp). Decision pending a dedicated spike |
 | Formatter binaries     | Out          | Out                 | Research     | **Primary**    | —      | Desktop native for gofmt / rustfmt / Python; browser interpreter for Prettier | Desktop spawns gofmt, rustfmt, and Python formatters (`ruff format -` preferred, `black --quiet -` fallback) via `src/main/formatters.ts`. Prettier runs in the renderer via `prettier/standalone` for JS / TS / JSON / CSS in both web and desktop |
+| Language intelligence  | Stub         | **Shipping**        | Out          | Planned        | **Hybrid** | Hybrid | JS/TS keep Monaco's built-in service. Python now ships a renderer adapter for diagnostics and symbol-aware completions in web + desktop. Go/Rust remain planned desktop-LSP work under RL-026 |
 | Debugger (JS / TS)     | Out          | **Shipping**        | Out          | **Shipping**   | —      | Browser interpreter | Acorn + magic-string instrumentation in `src/renderer/runtime/debuggerInstrument.ts` rewrites user source to yield before each statement; the JS worker drives the pause loop. TS rides the same worker after esbuild transpile, with the TS→JS source map composed via `@jridgewell/trace-mapping` so breakpoints round-trip to original TS lines. Conditional-bp + watch-expression eval are deferred to Slice 1.5b behind a dedicated security review (see `DEBUGGER_ADR.md`) |
 | Debugger (Python)      | Research     | Out                 | Out          | Planned (`pdb` bridge) | — | Desktop native | Per `DEBUGGER_ADR.md` §1, the Python adapter spawns headless `python -u -m pdb` and pipes commands through main. Not started; tracked as Slice 2 in RL-027 |
 | Debugger (Go / Rust)   | Out          | Out                 | Out          | Planned (Delve / lldb) | — | Desktop native | Slice 3 (Go via Delve JSON-RPC) and Slice 4 (Rust via lldb-mi) in RL-027. Both require host toolchain installs |
@@ -90,6 +91,18 @@ The matrix below rates each capability against these five classes:
 - **Desktop-native CPython remains a research target**, only interesting if
   users demand arbitrary `pip install` beyond `micropip`. This pairs with
   RL-025 Phase B and should not begin before that item moves.
+
+### Language intelligence
+- **Use the lightest adapter that can ship in both shells first.** Python's
+  RL-026 Slice 1 adapter runs in the renderer, emits Monaco markers under the
+  `lingua-language-intelligence` owner, and augments completions from local
+  symbols without requiring a desktop bridge.
+- **Keep desktop LSPs for languages that need the host toolchain.** Go and
+  Rust still belong behind desktop adapters because useful diagnostics and
+  signature help depend on `gopls` / `rust-analyzer` availability.
+- **Do not mix execution markers with language-service markers.** Execution
+  failures keep the `lingua-execution` owner; language intelligence owns only
+  editor-time diagnostics.
 
 ### Go
 - **Hybrid is correct and should stay.** Compiles via `go build GOOS=js
@@ -166,3 +179,4 @@ Missing all three, the desktop-native or browser-interpreter path stays.
 | Date       | Reviewer         | Change                                    |
 |------------|------------------|-------------------------------------------|
 | 2026-04-17 | RL-030 drafters  | Initial matrix and decision records landed |
+| 2026-05-11 | RL-026 Slice 1   | Python renderer adapter added for diagnostics and symbol-aware completions |
