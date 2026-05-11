@@ -5,6 +5,8 @@ const jsSetCompilerOptions = vi.fn();
 const jsSetDiagnosticsOptions = vi.fn();
 const jsSetEagerModelSync = vi.fn();
 const registerCompletionItemProvider = vi.fn();
+const registerHoverProvider = vi.fn();
+const registerSignatureHelpProvider = vi.fn();
 const tsSetCompilerOptions = vi.fn();
 const tsSetDiagnosticsOptions = vi.fn();
 const tsSetEagerModelSync = vi.fn();
@@ -39,6 +41,8 @@ const monacoMock = {
     setMonarchTokensProvider: vi.fn(),
     setLanguageConfiguration: vi.fn(),
     registerCompletionItemProvider,
+    registerHoverProvider,
+    registerSignatureHelpProvider,
     typescript: {
       javascriptDefaults: {
         setCompilerOptions: jsSetCompilerOptions,
@@ -226,6 +230,14 @@ describe('registerLanguageCompletionProviders', () => {
       'lua',
       expect.any(Object)
     );
+
+    // RL-026 Slice 2 — Python also gets a hover + signature-help provider
+    // wired through the same registry guard, so double-registration is
+    // suppressed alongside the completion list.
+    expect(registerHoverProvider).toHaveBeenCalledTimes(1);
+    expect(registerHoverProvider).toHaveBeenCalledWith('python', expect.any(Object));
+    expect(registerSignatureHelpProvider).toHaveBeenCalledTimes(1);
+    expect(registerSignatureHelpProvider).toHaveBeenCalledWith('python', expect.any(Object));
   });
 
   it('registers built-in non-runtime language tokenizers once alongside completion providers', async () => {

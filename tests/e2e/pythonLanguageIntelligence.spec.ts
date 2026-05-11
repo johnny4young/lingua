@@ -68,4 +68,69 @@ test.describe('Python language intelligence (RL-026)', () => {
 
     await expect(page.locator('.monaco-editor .squiggly-error')).toHaveCount(1);
   });
+
+  test('surfaces hover info for a locally-defined function', async ({ page }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await createPythonTab(page);
+
+    await replaceEditorContent(
+      page,
+      [
+        'def compute_total(amount, tax):',
+        '    return amount + tax',
+        '',
+        'result = compute_total(1, 2)',
+      ].join('\n')
+    );
+
+    // Park the cursor inside the `compute_total` call on line 4, then ask
+    // Monaco to render the hover widget via its `Ctrl+K Ctrl+I` (or
+    // `Cmd+K Cmd+I` on macOS) keybinding — the same path the editor's
+    // built-in command surfaces. The mouse-dwell trigger is too flaky
+    // under Playwright to assert on directly.
+    await page.locator('.monaco-editor .view-line').nth(3).click();
+    await page.keyboard.press('Home');
+    for (let i = 0; i < 12; i += 1) {
+      // Walk past "result = " into "compute_total".
+      await page.keyboard.press('ArrowRight');
+    }
+
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modifier}+K`);
+    await page.keyboard.press(`${modifier}+I`);
+
+    const hover = page.locator('.monaco-editor .monaco-hover:not(.hidden)').first();
+    await expect(hover).toBeVisible();
+    await expect(hover).toContainText('compute_total');
+    await expect(hover).toContainText('Function');
+    await expect(hover).toContainText('line 1');
+  });
+
+  test('surfaces signature help when the cursor sits inside a call', async ({ page }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await createPythonTab(page);
+
+    await replaceEditorContent(
+      page,
+      [
+        'def compute_total(amount, tax):',
+        '    return amount + tax',
+        '',
+        '',
+      ].join('\n')
+    );
+
+    // Click into the empty line 4 then type a partial call.
+    await page.locator('.monaco-editor .view-line').nth(3).click();
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+End' : 'Control+End');
+    await page.keyboard.type('compute_total(', { delay: 20 });
+
+    const signature = page.locator('.parameter-hints-widget');
+    await expect(signature).toBeVisible();
+    await expect(signature).toContainText('compute_total');
+    await expect(signature).toContainText('amount');
+    await expect(signature).toContainText('tax');
+  });
 });

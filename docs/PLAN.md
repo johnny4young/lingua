@@ -944,8 +944,13 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   functions, classes, imports, loop targets, parameters, and assignments.
 - Monaco markers use a dedicated `lingua-language-intelligence` owner so they
   do not overwrite execution/result diagnostics.
-- Remaining scope: hover/signature help and desktop-LSP-backed adapters for
-  Go/Rust or other host-toolchain languages.
+- Slice 2 shipped the Python hover + signature help layer on top of the same
+  adapter: a shared `PythonSymbolTable` now feeds completions, hover (symbol
+  kind + definition line + parameter list for functions), and signature help
+  (parameter list, active-parameter tracking, multi-line + nested-call walk,
+  triggers on `(` and `,`).
+- Remaining scope: desktop-LSP-backed adapters for Go/Rust or other
+  host-toolchain languages.
 
 ### RL-027 Add debugger MVP
 

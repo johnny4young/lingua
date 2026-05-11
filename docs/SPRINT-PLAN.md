@@ -44,7 +44,7 @@ Mirrors the authoritative `Status` column in
 | Iter 20 | [`RL-086`](./ROADMAP.md) | Shipped (2026-05-07) | Performance budgets + runtime observability — Shipped on 2026-05-07 — see RL-086. |
 | Iter 21 | [`RL-089`](./ROADMAP.md) | Shipped (2026-05-07) | User profile backup, export, and restore — Shipped on 2026-05-07 — see RL-089. |
 | Iter 22 | [`RL-090`](./ROADMAP.md) | Shipped (2026-05-07) | Error boundaries + recovery UX — Shipped on 2026-05-07 — see RL-090. |
-| Iter 23 | [`RL-026`](./ROADMAP.md) | Slice 1 shipped (2026-05-11) | Language intelligence beyond Monaco — Python renderer adapter with diagnostics, symbol-aware completions, language-pack capability flip, CAPABILITY_MATRIX update, and web e2e smoke. Remaining: hover/signature help and Go/Rust desktop-LSP adapters. See §17. |
+| Iter 23 | [`RL-026`](./ROADMAP.md) | Slice 2 shipped (2026-05-11) | Language intelligence beyond Monaco — Slice 1 (diagnostics + symbol-aware completions) and Slice 2 (Python hover + signature help layered over the same renderer symbol table) both shipped on 2026-05-11. Remaining: Go/Rust desktop-LSP adapters. See §17. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -278,8 +278,15 @@ Slice 1 shipped on 2026-05-11: Python now has a renderer-side language
 intelligence adapter that emits Monaco diagnostics under
 `lingua-language-intelligence`, derives completions from local functions,
 classes, imports, parameters, loop targets, and assignments, and updates the
-language-pack capability model from desktop-only LSP to `adapter`. Remaining
-RL-026 work: hover/signature help and desktop-LSP-backed Go/Rust adapters.
+language-pack capability model from desktop-only LSP to `adapter`.
+
+Slice 2 shipped on 2026-05-11: the same renderer adapter now also exposes
+hover (kind label + definition line + parameter list for functions) and
+signature help (parameter list with active-parameter tracking on `(` and
+`,` triggers, multi-line + nested-call walk). Both consume a shared
+`PythonSymbolTable` so Slice 1 completion behaviour stays byte-identical.
+
+Remaining RL-026 work: desktop-LSP-backed Go/Rust adapters.
 
 ---
 
