@@ -23,6 +23,12 @@ export const TELEMETRY_EVENTS = [
   'utility.favorite.pinned',
   'utility.history.cleared',
   'utility.clipboard.applied',
+  // RL-027 Slice 1.5 — debugger session lifecycle. Payload is locked to
+  // `{ language, reasonBucket }` per DEBUGGER_ADR §4. No source, no code,
+  // no expression content, no breakpoint coordinates.
+  'debugger.attached',
+  'debugger.paused',
+  'debugger.detached',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -63,6 +69,18 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'utility.favorite.pinned': ['utilityId', 'count'],
   'utility.history.cleared': ['utilityId', 'scope'],
   'utility.clipboard.applied': ['utilityId'],
+  // RL-027 Slice 1.5 — `language` is the runtime adapter id (a closed
+  // enum: `js` / `python` / `go` / `rust`). `reasonBucket` is a closed
+  // set partitioned by event:
+  //   `debugger.attached` → `attach` (the only valid value today; if a
+  //     future slice adds a reattach path it MUST update this comment
+  //     and the runbook in `docs/DEBUGGER_SLICE1.md`).
+  //   `debugger.paused`   → `user-breakpoint` / `step` / `exception`.
+  //   `debugger.detached` → `user-detach` / `run-complete` / `crash` / `stop`.
+  // No expression content, no breakpoint line, no source snippet.
+  'debugger.attached': ['language', 'reasonBucket'],
+  'debugger.paused': ['language', 'reasonBucket'],
+  'debugger.detached': ['language', 'reasonBucket'],
 };
 
 const DENY_SUBSTRINGS = [

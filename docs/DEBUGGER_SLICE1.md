@@ -1,0 +1,180 @@
+# Debugger MVP — Slice 1 + 1.5 runbook (RL-027)
+
+> Operator-oriented walkthrough of the JS/TS debugger that ships in
+> Slice 1 (instrument + worker protocol) and Slice 1.5 (user-facing
+> surface). Read alongside [`DEBUGGER_ADR.md`](./DEBUGGER_ADR.md) for
+> the design rationale and [`PLAN.md` RL-027](./PLAN.md) for the
+> ticket-level scope and status.
+
+## What the user sees
+
+After Slice 1.5 ships:
+
+- A red dot in the Monaco gutter whenever a breakpoint is set on the
+  current tab. Click an empty gutter cell to add a breakpoint; click
+  an existing dot to remove it. The keyboard path is `Mod+Shift+B`
+  (Cmd+Shift+B on macOS / Ctrl+Shift+B elsewhere) — toggles the
+  breakpoint at the cursor line without leaving the editor.
+- A bottom-docked **Debugger drawer** that appears as soon as the
+  active tab has at least one breakpoint OR a debug session is
+  attached. The drawer header carries Continue (F5), Step Over (F10),
+  Step Into (F11), Step Out (Shift+F11), and Detach buttons. The
+  chevron at the top-left collapses/expands the drawer; the choice
+  persists across reloads.
+- A small "X breakpoints" pill on the toolbar's right side whenever
+  the active tab has at least one breakpoint. Clicking the pill opens
+  Settings.
+- Three new rows in **Settings → Editor**:
+  - **Debugger** — the master switch (`debuggerEnabled`).
+  - **Pause is disabled for all breakpoints** — keeps the gutter
+    marks visible but stops the worker from pausing on them.
+  - **Clear all breakpoints** — wipes the per-file store, after a
+    confirm prompt.
+
+## Enabling the debugger
+
+`debuggerEnabled` defaults to `true`. If a user has flipped it off,
+they re-enable it from Settings → Editor. The flag persists across
+sessions via `lingua-settings` localStorage.
+
+When the flag is off:
+
+- Gutter clicks are no-ops.
+- The drawer never mounts.
+- The toolbar pill never appears.
+- The keyboard shortcut is silently ignored.
+
+## Setting a breakpoint
+
+1. Open or create a JavaScript or TypeScript tab.
+2. Click the gutter to the LEFT of the line number, OR move the
+   cursor to the line and press `Mod+Shift+B`.
+3. The red dot appears in the gutter and the drawer mounts at the
+   bottom of the editor area.
+
+Breakpoints are capped at 100 global (FIFO eviction of the oldest).
+A user who hits the cap sees the oldest breakpoint silently drop —
+this is intentional so a misclick spam can't blow the localStorage
+budget. The cap is enforced at the store level; the UI does not
+warn.
+
+## Pausing a run
+
+1. With at least one breakpoint set, click **Run** (or `Mod+Enter`).
+2. The runner detects `debuggerEnabled` AND the tab has a breakpoint,
+   and switches into debug mode:
+   - Loop protection is disabled for the run (the ADR §4 mandates this
+     so a paused breakpoint inside a loop doesn't get killed).
+   - The JS source (or post-esbuild TS-as-JS) is instrumented with
+     `await __lingua_dbg_yield(line, () => locals)` before each
+     statement.
+   - The session is attached and the bridge is registered.
+3. When the worker hits a yield matching an enabled breakpoint, the
+   `paused` message is posted; the drawer flips to the paused state
+   with locals + call stack + watch placeholders.
+
+## Stepping
+
+- **Continue (F5)** — resumes until the next breakpoint or the run
+  finishes.
+- **Step Over (F10)** — runs the current line and pauses on the next
+  line in the same or shallower frame.
+- **Step Into (F11)** — pauses on the next yielded line anywhere,
+  including inside a function call.
+- **Step Out (Shift+F11)** — runs until the current frame returns.
+- **Detach** — terminates the debug session and resumes the worker.
+
+The shortcut gate (`canDispatchDebuggerShortcut` in
+`useGlobalShortcuts`) requires the worker to be paused before F5 /
+F10 / F11 / Shift+F11 fire, so they never compete with normal-mode
+keystrokes. `Mod+Shift+B` is exempt from the paused-worker gate, but
+still requires a debugger-capable JS / TS tab plus an editor cursor.
+
+## TS source-map composition (Slice 1.5 fold G)
+
+When the active tab is TypeScript, the runner asks esbuild for an
+external source map and passes it to `instrumentForDebugger` via the
+`inputMap` option. The instrumenter wraps the map in
+`@jridgewell/trace-mapping` and translates every AST line from the
+post-transpile JS coordinate to the original TS line via
+`originalPositionFor`. The yield helper therefore fires with the TS
+line number, which matches the user's breakpoint coordinates 1:1.
+
+For pure JS the translator is a passthrough — the AST's lines are
+already in the user's coordinate space.
+
+When the input map is malformed or missing, the translator falls
+back to the JS line. This is strictly less surprising than dropping
+the yield: the user still pauses, just at the post-transpile
+coordinate instead of the original.
+
+## Telemetry
+
+Three events join the allowlist per [ADR §4](./DEBUGGER_ADR.md):
+
+| Event | When it fires | Payload |
+|-------|---------------|---------|
+| `debugger.attached` | Runner attaches a session before posting `execute` | `{ language: 'js', reasonBucket: 'attach' }` |
+| `debugger.paused` | Worker yields and the renderer posts a paused frame | `{ language: 'js', reasonBucket: 'user-breakpoint' \| 'step' \| 'exception' }` |
+| `debugger.detached` | Session ends (run complete / crash / stop / user detach) | `{ language: 'js', reasonBucket: 'run-complete' \| 'crash' \| 'stop' \| 'user-detach' }` |
+
+Every payload is closed-enum. The redactor in `src/shared/telemetry.ts`
+drops any key that isn't on the per-event allowlist. No source, no
+breakpoint coordinates, no expression content.
+
+## Limitations carried over to Slice 1.5b
+
+- **Conditional-breakpoint predicate evaluation** is not yet wired —
+  the store accepts a `condition` string but the worker treats it as
+  always-true. Slice 1.5b will land the eval pass behind a dedicated
+  security note (the dynamic-Function-constructor pattern triggered
+  the security_reminder hook during Slice 1, and the carve-out in the
+  inline-fix policy keeps this deferred until the review).
+- **Watch-expression evaluation** has the same gate. The UI renders
+  watches as `pending` markers until the eval pass lands.
+- **Python / Go / Rust** adapters are still `'planned'` in
+  `LANGUAGE_PACKS`. The capability matrix row (this section's
+  sibling entry in [`CAPABILITY_MATRIX.md`](./CAPABILITY_MATRIX.md))
+  marks them desktop-only per the ADR.
+
+## Recovering a wedged session
+
+If the drawer is stuck in paused mode:
+
+1. Click **Detach** in the drawer header (fires
+   `debugger.detached` with `reasonBucket='user-detach'`).
+2. If the button doesn't respond, refresh the renderer; the
+   `session` and `pausedFrame` fields are NOT persisted, so a
+   reload always returns the drawer to its idle state.
+3. The breakpoints themselves DO persist; they survive the reload
+   unchanged.
+
+## Layout safety
+
+The drawer is mounted inside `EditorArea`, AFTER the editor/results
+group but inside the same vertical flex column. This placement was
+chosen because the original Slice 1 attempt to mount it inside
+`ConsolePanel` broke four unrelated e2e specs (`proTierUnlocks`,
+`freeTierGates`, `localeParity`, `overlays`) by re-flowing console
+DOM. The current home keeps the console layout byte-identical until
+a user actually engages the debugger, at which point the new DOM is
+added below the existing surface.
+
+## Related files
+
+- `src/renderer/stores/debuggerStore.ts` — the runtime-agnostic
+  state machine (breakpoints, watches, session, pausedFrame,
+  drawerCollapsed).
+- `src/renderer/runtime/debuggerInstrument.ts` — acorn + magic-string
+  AST instrumentation with trace-mapping composition for TS.
+- `src/renderer/runtime/debuggerWorkerBridge.ts` — postMessage shim
+  between the UI and the worker.
+- `src/renderer/runtime/editorAccess.ts` — module-level Monaco
+  editor ref so the shortcut bus can read the cursor line.
+- `src/renderer/hooks/useBreakpointGutter.ts` — Monaco glyph-margin
+  decorations + click-handler binding.
+- `src/renderer/components/Debugger/DebuggerDrawer.tsx` — paused-frame
+  panel with locals / call stack / watches.
+- `src/renderer/workers/js-worker.ts` — yield helper + pause loop.
+- `src/renderer/runners/javascript.ts` + `typescript.ts` — debug-mode
+  resolution + telemetry call-sites.

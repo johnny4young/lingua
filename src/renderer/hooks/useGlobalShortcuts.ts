@@ -15,6 +15,9 @@ import { takePendingClipboardApply } from './useClipboardOnFocus';
 import { trackEvent } from '../utils/telemetry';
 import { isDebugWorkerActive, postDebuggerMessage } from '../runtime/debuggerWorkerBridge';
 import { useDebuggerStore } from '../stores/debuggerStore';
+import { getActiveEditorCursorLine } from '../runtime/editorAccess';
+import { useEditorStore } from '../stores/editorStore';
+import { languageSupportsDebugger } from '../utils/languageMeta';
 
 export type AppOverlay =
   | 'none'
@@ -98,6 +101,19 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'utility-apply-from-input': () => {
       runUtilityApplyFromInput();
     },
+    // RL-027 Slice 1.5 fold C — keyboard-accessible breakpoint toggle.
+    // Reads the active tab + cursor line at dispatch time so the user
+    // can toggle the breakpoint at the current line without leaving the
+    // keyboard. The language-pack capability gate is enforced before
+    // dispatch so Python / Go / Rust tabs cannot create persisted
+    // breakpoints before their adapters ship.
+    'debugger-toggle-breakpoint': () => {
+      const activeTab = getActiveDebuggerTab();
+      if (!activeTab) return;
+      const line = getActiveEditorCursorLine();
+      if (!line) return;
+      useDebuggerStore.getState().toggleBreakpoint(activeTab.id, line);
+    },
     // RL-027 Slice 1 — debugger control shortcuts. The `setPausedFrame(null)`
     // call clears the paused UI immediately; the worker pushes a fresh
     // frame if the next pause condition fires.
@@ -124,8 +140,25 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
   };
 }
 
-function canDispatchDebuggerShortcut(): boolean {
+function canDispatchDebuggerShortcut(id: string): boolean {
+  // RL-027 Slice 1.5 fold C — the breakpoint-toggle shortcut works
+  // outside of any active debug session; the rest of the debugger
+  // group requires a paused worker so F5 / F10 / F11 / Shift+F11
+  // never compete with normal-mode keystrokes.
+  if (id === 'debugger-toggle-breakpoint') {
+    return useSettingsStore.getState().debuggerEnabled !== false &&
+      getActiveDebuggerTab() !== null &&
+      getActiveEditorCursorLine() !== null;
+  }
   return isDebugWorkerActive() && useDebuggerStore.getState().pausedFrame !== null;
+}
+
+function getActiveDebuggerTab(): { id: string; language: string } | null {
+  const { tabs, activeTabId } = useEditorStore.getState();
+  if (!activeTabId) return null;
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  if (!activeTab || !languageSupportsDebugger(activeTab.language)) return null;
+  return activeTab;
 }
 
 // RL-069 Slice 1 — module-level in-flight flag. The shortcut handler
@@ -294,7 +327,7 @@ export function useGlobalShortcuts(options: UseGlobalShortcutsOptions) {
     for (const definition of dispatchable) {
       const combos = resolveCombos(definition, overrides);
       if (!combos.some((combo) => matchesCombo(event, combo))) continue;
-      if (definition.group === 'debugger' && !canDispatchDebuggerShortcut()) continue;
+      if (definition.group === 'debugger' && !canDispatchDebuggerShortcut(definition.id)) continue;
       const action = actions[definition.id];
       if (!action) continue;
       event.preventDefault();

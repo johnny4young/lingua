@@ -24,26 +24,37 @@ describe('DebuggerDrawer', () => {
         watches: [],
         session: null,
         pausedFrame: null,
+        drawerCollapsed: false,
       },
       false
     );
   });
 
   it('stays hidden until a matching breakpoint or session exists', () => {
-    const { container } = render(<DebuggerDrawer activeTabId="tab-1" />);
+    const { container } = render(
+      <DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />
+    );
     expect(container.firstChild).toBeNull();
   });
 
   it('renders the idle drawer when the active tab has a breakpoint', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
 
-    render(<DebuggerDrawer activeTabId="tab-1" />);
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
 
     expect(screen.getByTestId('debugger-drawer')).toBeTruthy();
     expect(screen.getByTestId('debugger-empty').textContent).toContain(
       'Click the gutter on a JS or TS file to set a breakpoint.'
     );
     expect(screen.getByTestId('debugger-continue').hasAttribute('disabled')).toBe(true);
+  });
+
+  it('stays hidden for languages whose debugger adapter is not available', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+
+    const { container } = render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="python" />);
+
+    expect(container.firstChild).toBeNull();
   });
 
   it('renders paused locals and dispatches step controls', () => {
@@ -59,7 +70,7 @@ describe('DebuggerDrawer', () => {
       },
     });
 
-    render(<DebuggerDrawer activeTabId="tab-1" />);
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
 
     expect(screen.getByTestId('debugger-locals').textContent).toContain('value: 42');
     expect(screen.getByTestId('debugger-callstack').textContent).toContain('main');
@@ -71,5 +82,21 @@ describe('DebuggerDrawer', () => {
 
     expect(postDebuggerMessage).toHaveBeenCalledWith({ type: 'step', mode: 'over' });
     expect(useDebuggerStore.getState().pausedFrame).toBeNull();
+  });
+
+  it('chevron toggles drawerCollapsed and hides the body (Slice 1.5 fold B)', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+
+    const collapse = screen.getByTestId('debugger-collapse');
+    expect(collapse.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.queryByTestId('debugger-empty')).not.toBeNull();
+
+    fireEvent.click(collapse);
+
+    expect(useDebuggerStore.getState().drawerCollapsed).toBe(true);
+    expect(screen.queryByTestId('debugger-empty')).toBeNull();
+    expect(screen.getByTestId('debugger-collapse').getAttribute('aria-expanded')).toBe('false');
   });
 });

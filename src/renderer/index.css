@@ -813,6 +813,27 @@
     padding-left: 1rem;
   }
 
+  /* RL-027 Slice 1.5 — Monaco glyph-margin breakpoint dot. The class
+     is attached via Monaco IModelDeltaDecoration#glyphMarginClassName
+     from `useBreakpointGutter`. Disabled breakpoints render as an
+     outline ring so the user can still see them but execution does
+     not pause. Color tokens stay in the danger family so the dot
+     reads as "this halts the run". */
+  .monaco-editor .lingua-bp-glyph {
+    background-color: var(--app-danger, #e1495d);
+    border-radius: 999px;
+    width: 0.55rem !important;
+    height: 0.55rem !important;
+    margin-left: 0.3rem;
+    margin-top: 0.32rem;
+    cursor: pointer;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--app-danger, #e1495d) 60%, transparent);
+  }
+  .monaco-editor .lingua-bp-glyph--disabled {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--app-danger, #e1495d);
+  }
+
   /* ----------------------------------------------------------------- */
   /* Monaco overlays · Signal-Slate alignment                          */
   /*                                                                    */

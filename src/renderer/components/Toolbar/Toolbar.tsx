@@ -1,5 +1,6 @@
 import {
   BookCopy,
+  Bug,
   ChevronDown,
   FolderOpen,
   Loader2,
@@ -31,8 +32,10 @@ import {
   executionModeForLanguage,
   languageCapabilityBadgeKey,
   languageLabel,
+  languageSupportsDebugger,
 } from '../../utils/languageMeta';
 import { usePluginStore } from '../../stores/pluginStore';
+import { useDebuggerStore } from '../../stores/debuggerStore';
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
@@ -77,7 +80,20 @@ export function Toolbar({
   const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
   const { sidebarVisible, consoleVisible, toggleSidebar, toggleConsole } = useUIStore();
   const shortcutOverrides = useSettingsStore((state) => state.shortcutOverrides);
+  const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
   const plugins = usePluginStore((state) => state.plugins);
+  // RL-027 Slice 1.5 fold D — breakpoint count for the toolbar pill.
+  // Counts only the active tab so a user with 50 breakpoints across
+  // many files sees the count that matches the visible gutter dots.
+  const breakpointCount = useDebuggerStore((state) => {
+    const tabId = useEditorStore.getState().activeTabId;
+    if (!tabId) return 0;
+    let count = 0;
+    for (const bp of Object.values(state.breakpoints)) {
+      if (bp.tabId === tabId) count += 1;
+    }
+    return count;
+  });
   const effectiveTier = useEffectiveTier();
   const canUseDeveloperUtilities = useEntitlement('DEV_UTILITIES');
   const [isNewFileMenuOpen, setIsNewFileMenuOpen] = useState(false);
@@ -85,6 +101,7 @@ export function Toolbar({
   const { t } = useTranslation();
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const activeTabSupportsDebugger = languageSupportsDebugger(activeTab?.language);
   const hasTabs = tabs.length > 0;
   const languages = [
     ...BUILT_IN_LANGUAGES,
@@ -355,6 +372,31 @@ export function Toolbar({
             {t('toolbar.languageActive', { language: defaultNewFileLabel })}
           </div>
         )}
+        {activeTabSupportsDebugger && breakpointCount > 0 ? (
+          <Tooltip
+            content={
+              debuggerEnabled
+                ? t('debugger.toolbar.pill.activeHint')
+                : t('debugger.toolbar.pill.disabledHint')
+            }
+          >
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              data-testid="toolbar-breakpoint-pill"
+              aria-label={t('debugger.toolbar.pill', { count: breakpointCount })}
+              className={cn(
+                'status-pill inline-flex items-center gap-1 hover:bg-surface',
+                debuggerEnabled
+                  ? 'border-danger/40 text-danger'
+                  : 'border-border/60 text-muted'
+              )}
+            >
+              <Bug size={11} aria-hidden="true" />
+              <span>{t('debugger.toolbar.pill', { count: breakpointCount })}</span>
+            </button>
+          </Tooltip>
+        ) : null}
         <LicenseBadge onClick={onOpenSettings} />
 
         <IconButton onClick={onOpenQuickOpen} tooltip={t('toolbar.quickOpen')}>

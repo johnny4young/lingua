@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { postDebuggerMessage } from '../../runtime/debuggerWorkerBridge';
+import { trackEvent } from '../../utils/telemetry';
+import { languageSupportsDebugger } from '../../utils/languageMeta';
+import type { Language } from '../../types';
 
 /**
  * RL-027 Slice 1 — single drawer combining the four ADR §3 panels
@@ -21,12 +24,21 @@ import { postDebuggerMessage } from '../../runtime/debuggerWorkerBridge';
  *
  * Reference: docs/PLAN.md RL-027 Slice 1 and docs/DEBUGGER_ADR.md.
  */
-export function DebuggerDrawer({ activeTabId }: { activeTabId: string | null }) {
+export function DebuggerDrawer({
+  activeTabId,
+  activeLanguage,
+}: {
+  activeTabId: string | null;
+  activeLanguage: Language | null | undefined;
+}) {
   const { t } = useTranslation();
   const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
+  const supportsDebugger = languageSupportsDebugger(activeLanguage);
   const session = useDebuggerStore((state) => state.session);
   const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
   const detachSession = useDebuggerStore((state) => state.detachSession);
+  const drawerCollapsed = useDebuggerStore((state) => state.drawerCollapsed);
+  const toggleDrawerCollapsed = useDebuggerStore((state) => state.toggleDrawerCollapsed);
   const breakpointCount = useDebuggerStore((state) => {
     if (!activeTabId) return 0;
     let count = 0;
@@ -36,7 +48,7 @@ export function DebuggerDrawer({ activeTabId }: { activeTabId: string | null }) 
     return count;
   });
 
-  if (!debuggerEnabled) return null;
+  if (!debuggerEnabled || !supportsDebugger) return null;
   if (!session && breakpointCount === 0) return null;
 
   const isPaused = Boolean(pausedFrame);
@@ -53,6 +65,12 @@ export function DebuggerDrawer({ activeTabId }: { activeTabId: string | null }) 
     useDebuggerStore.getState().setPausedFrame(null);
   };
   const detach = () => {
+    // RL-027 Slice 1.5 fold E — emit a `debugger.detached` event with
+    // `reasonBucket='user-detach'`. The runners emit their own
+    // `run-complete` / `crash` / `stop` reasons; this branch covers the
+    // explicit user-initiated detach via the drawer button.
+    const language = session?.runtime ?? 'js';
+    void trackEvent('debugger.detached', { language, reasonBucket: 'user-detach' });
     detachSession();
     postDebuggerMessage({ type: 'resume' });
   };
@@ -64,6 +82,21 @@ export function DebuggerDrawer({ activeTabId }: { activeTabId: string | null }) 
     >
       <header className="flex items-center justify-between gap-2 px-4 py-2">
         <div className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+          <button
+            type="button"
+            data-testid="debugger-collapse"
+            onClick={toggleDrawerCollapsed}
+            aria-label={drawerCollapsed ? t('debugger.drawer.expand') : t('debugger.drawer.collapse')}
+            aria-expanded={!drawerCollapsed}
+            aria-controls="debugger-drawer-body"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-md text-muted hover:bg-surface hover:text-foreground"
+          >
+            {drawerCollapsed ? (
+              <ChevronUp size={11} aria-hidden="true" />
+            ) : (
+              <ChevronDown size={11} aria-hidden="true" />
+            )}
+          </button>
           <Bug size={14} aria-hidden="true" />
           <span>{t('debugger.title')}</span>
           {isPaused && pausedFrame ? (
@@ -128,12 +161,19 @@ export function DebuggerDrawer({ activeTabId }: { activeTabId: string | null }) 
           </button>
         </div>
       </header>
-      {!isPaused ? (
-        <p className="px-4 pb-3 text-xs text-muted" data-testid="debugger-empty">
+      {drawerCollapsed ? null : !isPaused ? (
+        <p
+          id="debugger-drawer-body"
+          className="px-4 pb-3 text-xs text-muted"
+          data-testid="debugger-empty"
+        >
           {t('debugger.empty')}
         </p>
       ) : (
-        <div className="grid gap-3 px-4 pb-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)]">
+        <div
+          id="debugger-drawer-body"
+          className="grid gap-3 px-4 pb-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)]"
+        >
           <DrawerSection
             title={t('debugger.paused.locals')}
             testid="debugger-locals"

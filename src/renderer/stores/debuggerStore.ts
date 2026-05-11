@@ -125,11 +125,23 @@ export interface DebuggerState {
   // Session state — NOT persisted.
   session: DebuggerSession | null;
   pausedFrame: PausedFrame | null;
+  /**
+   * Slice 1.5 fold B — drawer collapse state. Persists across reloads
+   * (folded users want it folded when they reopen) but defaults to
+   * expanded so first-time users discover the panel.
+   */
+  drawerCollapsed: boolean;
 
   // Mutators — breakpoints
   toggleBreakpoint: (tabId: string, line: number) => void;
   setBreakpointCondition: (tabId: string, line: number, condition: string) => void;
   setBreakpointEnabled: (tabId: string, line: number, enabled: boolean) => void;
+  /**
+   * Slice 1.5 fold F — batch-update `enabled` on every breakpoint. Used by
+   * the Settings "Pause is disabled for all breakpoints" toggle: a single
+   * mutator avoids tearing UI re-render across 100 individual calls.
+   */
+  setAllBreakpointsEnabled: (enabled: boolean) => void;
   clearAllBreakpoints: () => void;
   breakpointsForTab: (tabId: string) => Breakpoint[];
 
@@ -144,6 +156,9 @@ export interface DebuggerState {
   updateWatchResults: (
     results: Record<string, { value?: string; error?: string; pending?: boolean }>
   ) => void;
+
+  // Mutators — drawer collapse (fold B).
+  toggleDrawerCollapsed: () => void;
 }
 
 function bpKey(tabId: string, line: number): string {
@@ -232,6 +247,7 @@ export const useDebuggerStore = create<DebuggerState>()(
       watches: [],
       session: null,
       pausedFrame: null,
+      drawerCollapsed: false,
 
       toggleBreakpoint: (tabId, line) => {
         if (typeof tabId !== 'string' || tabId.length === 0 || !isPositiveLine(line)) {
@@ -299,6 +315,23 @@ export const useDebuggerStore = create<DebuggerState>()(
         set({ breakpoints: {}, breakpointOrder: [] });
       },
 
+      setAllBreakpointsEnabled: (enabled) => {
+        set((state) => {
+          const next: Record<string, Breakpoint> = {};
+          let changed = false;
+          for (const [key, bp] of Object.entries(state.breakpoints)) {
+            if (bp.enabled === enabled) {
+              next[key] = bp;
+              continue;
+            }
+            next[key] = { ...bp, enabled };
+            changed = true;
+          }
+          if (!changed) return state;
+          return { breakpoints: next };
+        });
+      },
+
       breakpointsForTab: (tabId) => {
         const all = get().breakpoints;
         const out: Breakpoint[] = [];
@@ -347,6 +380,10 @@ export const useDebuggerStore = create<DebuggerState>()(
           };
         });
       },
+
+      toggleDrawerCollapsed: () => {
+        set((state) => ({ drawerCollapsed: !state.drawerCollapsed }));
+      },
     }),
     {
       name: DEBUGGER_STORAGE_KEY,
@@ -358,6 +395,7 @@ export const useDebuggerStore = create<DebuggerState>()(
         breakpoints: state.breakpoints,
         breakpointOrder: state.breakpointOrder,
         watches: state.watches,
+        drawerCollapsed: state.drawerCollapsed,
       }),
       merge: (persisted, current) => {
         if (!persisted || typeof persisted !== 'object') return current;
@@ -372,6 +410,10 @@ export const useDebuggerStore = create<DebuggerState>()(
           breakpoints,
           breakpointOrder,
           watches,
+          drawerCollapsed:
+            typeof candidate.drawerCollapsed === 'boolean'
+              ? candidate.drawerCollapsed
+              : current.drawerCollapsed,
         };
       },
     }

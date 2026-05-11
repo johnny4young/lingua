@@ -1,5 +1,5 @@
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
@@ -13,6 +13,8 @@ import {
 } from '../../monaco';
 import { getDiagnosticKey } from '../../utils/editorExecutionDecorations';
 import { useInlineResults } from '../../hooks/useInlineResults';
+import { useBreakpointGutter } from '../../hooks/useBreakpointGutter';
+import { setActiveEditor } from '../../runtime/editorAccess';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
 import { defineCustomThemes } from './editorThemes';
@@ -81,11 +83,25 @@ export function CodeEditor() {
   const vimAdapterRef = useRef<VimAdapter | null>(null);
   const vimStatusBarRef = useRef<HTMLDivElement | null>(null);
   const lastRevealedDiagnosticKeyRef = useRef<string | null>(null);
+  // RL-027 Slice 1.5 — track the mounted editor + monaco namespace in
+  // state so effects can react to mount (refs alone don't re-render).
+  // The original refs stay in place for the existing inline-results
+  // hook that already reads them inside diagnostics-driven effects.
+  const [editorInstance, setEditorInstance] = useState<Parameters<OnMount>[0] | null>(null);
+  const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
   const { applyDecorations, clearDecorations, applyDiagnostics, clearMarkers } =
     useInlineResults();
   const effectiveFontLigatures = fontLigatures && fontStackSupportsLigatures(fontFamily);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  // RL-027 Slice 1.5 — glyph-margin breakpoint dots + click → toggle.
+  // The hook self-gates on `debuggerEnabled` AND `language ∈ {js, ts}`
+  // so non-debug tabs stay byte-identical in the DOM.
+  useBreakpointGutter(editorInstance, monacoInstance, {
+    activeTabId: activeTab?.id ?? null,
+    language: activeTab?.language,
+    toggleAriaLabel: (line) => t('debugger.gutter.toggle', { line }),
+  });
 
   const handleBeforeMount = useCallback((monaco: Monaco) => {
     defineCustomThemes(monaco);
@@ -97,6 +113,12 @@ export function CodeEditor() {
   const handleEditorMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    setEditorInstance(editor);
+    setMonacoInstance(monaco);
+    // RL-027 Slice 1.5 fold C — register the editor with the
+    // module-level ref the keyboard-shortcut bus consults to read
+    // the cursor line. Cleared in the matching unmount effect below.
+    setActiveEditor(editor);
 
     editor.onDidScrollChange((e) => {
       window.dispatchEvent(
@@ -105,6 +127,12 @@ export function CodeEditor() {
         })
       );
     });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      setActiveEditor(null);
+    };
   }, []);
 
   useEffect(() => {

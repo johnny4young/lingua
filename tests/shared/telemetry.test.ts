@@ -33,6 +33,11 @@ describe('TELEMETRY_EVENTS', () => {
   it('matches the allowed event names and does not grow without review', () => {
     expect([...TELEMETRY_EVENTS].sort()).toEqual([
       'app.launched',
+      // RL-027 Slice 1.5 — debugger session lifecycle. Closed-enum payload
+      // per DEBUGGER_ADR §4; the redactor drops anything off the contract.
+      'debugger.attached',
+      'debugger.detached',
+      'debugger.paused',
       'feature.blocked',
       'overlay.opened',
       'runner.executed',

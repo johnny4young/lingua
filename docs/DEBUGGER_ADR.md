@@ -76,11 +76,15 @@ existing RL-037 editable shortcut mapper.
   be disabled while the debugger is attached (it would kill any
   paused execution). Gate via a store flag the debugger sets on
   attach.
-- **Telemetry** — emit `debugger.attached` + `debugger.paused` as
-  new events. Both are `P1` additions to
+- **Telemetry** — emit `debugger.attached`, `debugger.paused`, and
+  `debugger.detached` as new events. All three are `P1` additions to
   `TELEMETRY_EVENTS`; payload stays to `language` + a coarse
-  `reasonBucket` (`user-breakpoint`, `step`, `exception`). No
-  source, no code, no expression content.
+  `reasonBucket` (`attach` for attached; `user-breakpoint` / `step` /
+  `exception` for paused; `user-detach` / `run-complete` / `crash` /
+  `stop` for detached). No source, no code, no expression content. The
+  third event (`debugger.detached`) was added in Slice 1.5 fold E so
+  dashboards can compute median session length from the attach→detach
+  pair.
 
 ## Implementation sketch (for the follow-up slices)
 
@@ -146,3 +150,36 @@ existing RL-037 editable shortcut mapper.
   to ship".
 - RL-011 Slice D and RL-038 Slice B are hard dependencies for the
   Go / Rust / Python slices.
+- `DEBUGGER_SLICE1.md` — operator runbook for Slice 1 + 1.5
+  (gutter UX, drawer mount, Settings rows, telemetry events,
+  TS source-map composition).
+
+## Slice 1 + 1.5 delivery notes (added 2026-05-11)
+
+- **Slice 1 partial shipped 2026-05-09.** Store + acorn instrumenter
+  + worker pause protocol + JS/TS runner wiring + unmounted drawer +
+  4 keyboard shortcuts. Three items were explicitly deferred to a
+  follow-up: BreakpointGutter Monaco UI, mounted drawer, visible
+  Settings toggle.
+- **Slice 1.5 shipped 2026-05-11.** Closes the user-facing surface
+  by mounting the breakpoint gutter, the drawer (inside `EditorArea`
+  rather than `ConsolePanel` to keep the existing console-area
+  e2e specs byte-identical until the user engages the debugger),
+  and the Settings master toggle. Adds three telemetry events
+  (`debugger.attached` / `debugger.paused` / `debugger.detached`),
+  flips JS+TS language-pack `capabilities.debugger` from `'planned'`
+  to `'available'`, and composes esbuild's TS→JS source map with
+  the instrumenter's JS→JS map via `@jridgewell/trace-mapping` so
+  breakpoints in `.ts` files pause at the user's TS line number.
+- **Folds A / B / D / E / F (Slice 1.5).** Settings adds a
+  Clear-all-breakpoints button (A) and a Pause-disabled toggle (F);
+  the drawer header carries a chevron that persists the collapsed
+  state (B); the toolbar shows a per-tab breakpoint pill (D); the
+  `debugger.detached` event joins the ADR-named pair so dashboards
+  can compute median session length (E).
+- **Slice 1.5b (still deferred).** Conditional-breakpoint predicate
+  evaluation and watch-expression evaluation. Both require the
+  worker eval pattern to clear a dedicated security review — the
+  dynamic-Function constructor pattern triggered the security
+  reminder during Slice 1 and the carve-out in the inline-fix
+  policy keeps the eval pass out of Slice 1.5.

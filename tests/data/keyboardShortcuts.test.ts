@@ -102,7 +102,7 @@ describe('keyboardShortcuts catalog', () => {
     ).toEqual([{ tokens: ['Mod', 'Shift', 'A'] }]);
   });
 
-  it('declares a debugger group with the four RL-027 Slice 1 control shortcuts', () => {
+  it('declares a debugger group with the Slice 1 control shortcuts and the Slice 1.5 toggle', () => {
     const groupIds = new Set(SHORTCUT_GROUPS.map((group) => group.id));
     expect(groupIds.has('debugger')).toBe(true);
 
@@ -114,6 +114,8 @@ describe('keyboardShortcuts catalog', () => {
       'debugger-step-into',
       'debugger-step-out',
       'debugger-step-over',
+      // RL-027 Slice 1.5 fold C — keyboard-accessible breakpoint toggle.
+      'debugger-toggle-breakpoint',
     ]);
 
     // Function-key combos mirror VS Code defaults exactly so muscle
@@ -130,6 +132,11 @@ describe('keyboardShortcuts catalog', () => {
     expect(
       KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-step-out')?.combos
     ).toEqual([{ tokens: ['Shift', 'F11'] }]);
+    // Slice 1.5 fold C — Mod+B is taken by `view-toggle-sidebar`, so the
+    // breakpoint toggle ships with Mod+Shift+B.
+    expect(
+      KEYBOARD_SHORTCUTS.find((entry) => entry.id === 'debugger-toggle-breakpoint')?.combos
+    ).toEqual([{ tokens: ['Mod', 'Shift', 'B'] }]);
   });
 });
 

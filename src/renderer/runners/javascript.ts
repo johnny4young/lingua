@@ -14,6 +14,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { instrumentForDebugger } from '../runtime/debuggerInstrument';
 import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
+import { trackEvent } from '../utils/telemetry';
 import {
   appendCappedConsole,
   capStderrIfOverflowing,
@@ -52,11 +53,29 @@ export class JavaScriptRunner implements LanguageRunner {
    */
   private cancelInFlight: (() => void) | null = null;
 
-  private clearDebuggerSession(): void {
+  private clearDebuggerSession(
+    reasonBucket:
+      | 'run-complete'
+      | 'crash'
+      | 'stop'
+      | 'user-detach' = 'run-complete'
+  ): void {
     if (!this.debugSessionActive) return;
     this.debugSessionActive = false;
+    // The drawer's user-detach path clears the store session and fires
+    // its own `debugger.detached` BEFORE the worker yields its final
+    // message. Skip the second telemetry fire here to avoid
+    // double-counting the same session end on a Stop/done that follows
+    // a user-initiated detach.
+    const userDetachedAlready = useDebuggerStore.getState().session === null;
     useDebuggerStore.getState().detachSession();
     setActiveDebugWorker(null);
+    // RL-027 Slice 1.5 fold E — `debugger.detached` carries `language`
+    // (closed enum) + `reasonBucket` (closed enum). No code, no
+    // breakpoint coordinates. Honors the ADR §4 privacy contract.
+    if (!userDetachedAlready) {
+      void trackEvent('debugger.detached', { language: 'js', reasonBucket });
+    }
   }
 
   async init(): Promise<void> {
@@ -218,6 +237,13 @@ export class JavaScriptRunner implements LanguageRunner {
                 callStack: paused.callStack,
                 watchResults: paused.watchResults,
               });
+              // RL-027 Slice 1.5 — `debugger.paused` carries the
+              // closed-enum reason bucket. No source, no expression
+              // content, no line numbers in the payload.
+              void trackEvent('debugger.paused', {
+                language: 'js',
+                reasonBucket: paused.reason,
+              });
             }
             // RL-027 Slice 1.5 — `conditionalPending` is dropped here;
             // when conditional-bp evaluation lands, thread the flag
@@ -236,7 +262,7 @@ export class JavaScriptRunner implements LanguageRunner {
               magicResults: magicResults.length > 0 ? magicResults : undefined,
             });
             // Detach the debugger session — the run is over.
-            this.clearDebuggerSession();
+            this.clearDebuggerSession('run-complete');
             // Worker is single-shot for JS; terminate so we don't leak.
             worker.terminate();
             if (this.worker === worker) this.worker = null;
@@ -256,7 +282,7 @@ export class JavaScriptRunner implements LanguageRunner {
         });
         // RL-027 Slice 1 — clear the debugger bridge + session on
         // crash so a follow-up F5/F10 doesn't post to a dead worker.
-        this.clearDebuggerSession();
+        this.clearDebuggerSession('crash');
         worker.terminate();
         if (this.worker === worker) this.worker = null;
       });
@@ -270,7 +296,7 @@ export class JavaScriptRunner implements LanguageRunner {
         if (this.worker === worker) this.worker = null;
         // RL-027 Slice 1 — same cleanup as the crash path so an F5/F10
         // after a timeout does not post to a dead worker.
-        this.clearDebuggerSession();
+        this.clearDebuggerSession('stop');
         finish(
           runnerTimeoutResult(timeout, t, { stdout, stderr })
         );
@@ -284,6 +310,10 @@ export class JavaScriptRunner implements LanguageRunner {
           attachedAt: Date.now(),
         });
         setActiveDebugWorker(worker);
+        // RL-027 Slice 1.5 — `debugger.attached` fires once per debug
+        // session so dashboard can derive median session length and
+        // attach→pause latency. ADR §4 payload contract.
+        void trackEvent('debugger.attached', { language: 'js', reasonBucket: 'attach' });
       }
       // Send execution request after registering the debug bridge so a
       // pause on the first instrumented statement is resumable.
@@ -306,7 +336,7 @@ export class JavaScriptRunner implements LanguageRunner {
       this.worker = null;
     }
     this.currentRunId = null;
-    this.clearDebuggerSession();
+    this.clearDebuggerSession('stop');
     // Resolve any in-flight execute() promise so the renderer is
     // not left waiting on a worker we just killed.
     if (this.cancelInFlight) {

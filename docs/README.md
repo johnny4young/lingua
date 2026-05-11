@@ -106,6 +106,7 @@ only superseded by a new ADR that names the one it replaces.
 | Windows Authenticode signing setup                                                                                                       | [`WINDOWS_SIGNING.md`](./WINDOWS_SIGNING.md)                                                     |
 | License + update server observability spec (metrics, alerts, dashboards)                                                                 | [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md)                                           |
 | Operator runbooks (webhook replay, license recovery, refund handling, desktop update draft validation, update rollback, GitHub degraded) | [`runbooks/`](./runbooks)                                                                        |
+| Debugger MVP operator runbook (gutter UX, drawer mount, Settings rows, telemetry, TS source maps)                                        | [`DEBUGGER_SLICE1.md`](./DEBUGGER_SLICE1.md)                                                     |
 | Launch / marketing collateral                                                                                                            | [`press-kit/`](./press-kit), [`seo-pages/`](./seo-pages)                                         |
 | Student / classroom lesson drafts                                                                                                        | [`lessons/`](./lessons)                                                                          |
 

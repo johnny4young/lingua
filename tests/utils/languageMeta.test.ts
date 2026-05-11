@@ -5,6 +5,7 @@ import {
   extensionForLanguage,
   languageCapabilityBadgeKey,
   languageForExtension,
+  languageSupportsDebugger,
   languageSupportsFileName,
   monacoLanguageFor,
 } from '@/utils/languageMeta';
@@ -130,6 +131,15 @@ describe('languageMeta', () => {
     expect(languageCapabilityBadgeKey('python')).toBeNull();
     // Plugin-only languages without a LANGUAGE_PACKS entry fall through to null.
     expect(languageCapabilityBadgeKey('unknown-language')).toBeNull();
+  });
+
+  it('exposes the debugger availability gate from language-pack capabilities', () => {
+    expect(languageSupportsDebugger('javascript')).toBe(true);
+    expect(languageSupportsDebugger('typescript')).toBe(true);
+    expect(languageSupportsDebugger('python')).toBe(false);
+    expect(languageSupportsDebugger('go')).toBe(false);
+    expect(languageSupportsDebugger('rust')).toBe(false);
+    expect(languageSupportsDebugger(null)).toBe(false);
   });
 
   it('routes infra files through plausible Monaco modes', () => {
