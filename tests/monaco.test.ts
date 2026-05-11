@@ -233,11 +233,14 @@ describe('registerLanguageCompletionProviders', () => {
 
     // RL-026 Slice 2 — Python also gets a hover + signature-help provider
     // wired through the same registry guard, so double-registration is
-    // suppressed alongside the completion list.
-    expect(registerHoverProvider).toHaveBeenCalledTimes(1);
+    // suppressed alongside the completion list. RL-026 Slice 3 adds the
+    // same pair for Rust (rust-analyzer via the LSP bridge).
+    expect(registerHoverProvider).toHaveBeenCalledTimes(2);
     expect(registerHoverProvider).toHaveBeenCalledWith('python', expect.any(Object));
-    expect(registerSignatureHelpProvider).toHaveBeenCalledTimes(1);
+    expect(registerHoverProvider).toHaveBeenCalledWith('rust', expect.any(Object));
+    expect(registerSignatureHelpProvider).toHaveBeenCalledTimes(2);
     expect(registerSignatureHelpProvider).toHaveBeenCalledWith('python', expect.any(Object));
+    expect(registerSignatureHelpProvider).toHaveBeenCalledWith('rust', expect.any(Object));
   });
 
   it('registers built-in non-runtime language tokenizers once alongside completion providers', async () => {

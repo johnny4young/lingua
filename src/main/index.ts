@@ -23,6 +23,7 @@ import { registerFileSystemHandlers } from './ipc/fileSystem';
 import { registerLocaleHandlers } from './ipc/locale';
 import { registerDesktopSmokeHandlers } from './ipc/desktopSmoke';
 import { registerEnvHandlers } from './ipc/env';
+import { registerLspHandlers, disposeRustLspBridge } from './ipc/lsp';
 import { registerProfileHandlers } from './ipc/profile';
 import { registerRecoveryHandlers } from './ipc/recovery';
 import { registerPluginHandlers } from './plugins';
@@ -79,6 +80,7 @@ registerDesktopSmokeHandlers();
 registerEnvHandlers();
 registerFileSystemHandlers();
 registerLocaleHandlers();
+registerLspHandlers();
 registerPluginHandlers();
 registerProfileHandlers();
 registerRecoveryHandlers();
@@ -286,6 +288,12 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  // RL-026 Slice 3 — make sure rust-analyzer's long-lived child does
+  // not outlive Lingua's main process.
+  disposeRustLspBridge();
 });
 
 app.on('activate', () => {

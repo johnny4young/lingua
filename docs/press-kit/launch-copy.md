@@ -125,6 +125,8 @@ crate. Full cargo crates work because the compiler is yours.
 What Rust-specific plumbing shipped:
 - `rustc --emit=bin` + spawn, native subprocess
 - `rustfmt` is the default format-on-save handler for `.rs` files
+- `rust-analyzer` powers desktop diagnostics, completions, hover, and
+  signature help when it is installed
 - Rust compile errors land as Monaco markers (line + span) instead of
   stderr blobs
 - Runtime stderr / stdout stream into the inline result panel so you
@@ -132,7 +134,8 @@ What Rust-specific plumbing shipped:
 
 Known limits:
 - Needs `rustc` on PATH (local toolchain)
-- No rust-analyzer integration today; only Monaco's keyword completion
+- Rust language intelligence needs `rust-analyzer` on PATH; Lingua
+  shows an install hint or restart action when it is missing or crashes
 
 Free tier doesn't include Rust execution (Pro unlock). Source-available
 on GitHub; download at https://linguacode.dev.

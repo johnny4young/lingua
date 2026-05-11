@@ -48,3 +48,22 @@ export function joinAbsolute(rootPath: string, relative: string): string {
   const trimmedRel = relative.replace(/^[\\/]+/, '').replace(/[\\/]/g, sep);
   return `${trimmedRoot}${sep}${trimmedRel}`;
 }
+
+export function pathToFileUri(absolutePath: string): string {
+  const normalized = absolutePath.replace(/\\/g, '/');
+  const prefix = normalized.startsWith('/') ? 'file://' : 'file:///';
+  return prefix + encodeURI(normalized).replace(/#/g, '%23').replace(/\?/g, '%3F');
+}
+
+export function rustLspModelPathForTab(tab: {
+  id: string;
+  name: string;
+  filePath?: string;
+}): string {
+  if (tab.filePath) return pathToFileUri(tab.filePath);
+
+  const fileName = tab.name.endsWith('.rs') ? tab.name : `${tab.name}.rs`;
+  return `file:///__lingua_unsaved__/${encodeURIComponent(tab.id)}/${encodeURIComponent(
+    fileName
+  )}`;
+}

@@ -5,6 +5,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
+import { rustLspModelPathForTab } from '../../utils/filePath';
 import { fontStackSupportsLigatures } from '../Settings/settingsOptions';
 import {
   configureMonaco,
@@ -15,6 +16,7 @@ import { getDiagnosticKey } from '../../utils/editorExecutionDecorations';
 import { useInlineResults } from '../../hooks/useInlineResults';
 import { useBreakpointGutter } from '../../hooks/useBreakpointGutter';
 import { useLanguageIntelligenceDiagnostics } from '../../hooks/useLanguageIntelligenceDiagnostics';
+import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
 import { setActiveEditor } from '../../runtime/editorAccess';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
@@ -96,6 +98,7 @@ export function CodeEditor() {
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
+  useRustLspDocumentSync(editorInstance, activeTab);
   // RL-027 Slice 1.5 — glyph-margin breakpoint dots + click → toggle.
   // The hook self-gates on `debuggerEnabled` AND `language ∈ {js, ts}`
   // so non-debug tabs stay byte-identical in the DOM.
@@ -250,12 +253,16 @@ export function CodeEditor() {
     return <EditorEmptyState />;
   }
 
+  const editorPath =
+    activeTab.language === 'rust' ? rustLspModelPathForTab(activeTab) : undefined;
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1">
         <MonacoEditor
           height="100%"
           language={monacoLanguageFor(activeTab.language)}
+          path={editorPath}
           value={activeTab.content}
           theme={editorTheme}
           beforeMount={handleBeforeMount}

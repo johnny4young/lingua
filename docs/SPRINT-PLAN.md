@@ -44,7 +44,7 @@ Mirrors the authoritative `Status` column in
 | Iter 20 | [`RL-086`](./ROADMAP.md) | Shipped (2026-05-07) | Performance budgets + runtime observability — Shipped on 2026-05-07 — see RL-086. |
 | Iter 21 | [`RL-089`](./ROADMAP.md) | Shipped (2026-05-07) | User profile backup, export, and restore — Shipped on 2026-05-07 — see RL-089. |
 | Iter 22 | [`RL-090`](./ROADMAP.md) | Shipped (2026-05-07) | Error boundaries + recovery UX — Shipped on 2026-05-07 — see RL-090. |
-| Iter 23 | [`RL-026`](./ROADMAP.md) | Slice 2 shipped (2026-05-11) | Language intelligence beyond Monaco — Slice 1 (diagnostics + symbol-aware completions) and Slice 2 (Python hover + signature help layered over the same renderer symbol table) both shipped on 2026-05-11. Remaining: Go/Rust desktop-LSP adapters. See §17. |
+| Iter 23 | [`RL-026`](./ROADMAP.md) | Slice 3 shipped (2026-05-11) | Language intelligence beyond Monaco — Slice 1 + Slice 2 (Python diagnostics + completions + hover + signature help) and Slice 3 (Rust via rust-analyzer over a main-process LSP bridge — diagnostics + completions + hover + signature help, capability-aware UI, single auto-restart on crash, env filtered via `buildNativeRunnerEnv`) all shipped on 2026-05-11. Remaining: Go via gopls (Slice 4 — same scaffold, swap launcher). See §17. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.
@@ -84,8 +84,9 @@ Value-per-day priority. The full reasoning is in
 6. **Utilities polish** — `RL-069` Slice 1 shipped 2026-05-05 (productivity
    foundation). `RL-072` remaining QR-read mode and `RL-069` Slice 2/3 are
    good warm-up work when blocked on a launch item.
-7. **Debugger + language intelligence** — `RL-027` Slice 1 and `RL-026`
-   adapter layer; these unblock `RL-042` and `RL-047`.
+7. **Debugger + language intelligence** — `RL-027` Slice 1.5 and `RL-026`
+   Slices 1 → 3 are shipped. Remaining work is `RL-027` Slice 1.5b and
+   `RL-026` Go via gopls; these unblock `RL-042` and `RL-047`.
 8. **Runtime mode expansion** — `RL-019` + `RL-020` after the runtime
    contract is stable.
 9. **Notebook + rich output** — `RL-043` + `RL-044` as a paired slice.
@@ -286,7 +287,39 @@ signature help (parameter list with active-parameter tracking on `(` and
 `,` triggers, multi-line + nested-call walk). Both consume a shared
 `PythonSymbolTable` so Slice 1 completion behaviour stays byte-identical.
 
-Remaining RL-026 work: desktop-LSP-backed Go/Rust adapters.
+Slice 3 shipped on 2026-05-11: Rust via rust-analyzer over a main-process
+LSP bridge. The slice introduces `src/main/lsp/lspProcess.ts` (generic
+JSON-RPC framing wrapper with partial-chunk reassembly + Unicode-safe
+Content-Length parsing), `src/main/lsp/rustAnalyzerLauncher.ts` (PATH
+detection with `~/.cargo/bin` fallback, initialize handshake, single
+auto-restart with 500ms backoff on crash, env filtered via
+`buildNativeRunnerEnv(combinedAllowlist(RUST_TOOLCHAIN_KEYS))`), and
+`src/main/ipc/lsp.ts` (start / restart / stop / status / request / notify
++ a push channel for `publishDiagnostics`). The renderer adapter
+(`src/renderer/languageIntelligence/rust.ts`) opens documents, debounces
+`didChange`, dispatches LSP completion / hover / signatureHelp requests,
+and parses incoming `publishDiagnostics` into the shared marker contract.
+Monaco wiring lands three providers (completions, hover, signatureHelp)
+self-gated on `isRustLspAvailable()` so the web build never tries to
+reach IPC. UX folds: a one-shot toast on first `'running'` transition
+(fold B), a conditional Settings → Editor row that mounts only when the
+status is `'unavailable'` or `'degraded'` (folds E + F merged — install
+hint with the rustup command, "Restart rust-analyzer" recovery button).
+Capability-aware: `useRustLspLifecycle` boots the LSP on first `.rs`
+tab, syncs status to `useRustLanguageStore`, and wires the diagnostics
+push to `setModelMarkers` under the `lingua-language-intelligence` marker
+owner. Focused tests (`tests/main/lsp/lspProcess.test.ts`,
+`tests/main/lsp/rustAnalyzerLauncher.test.ts`, `tests/main/lsp/lspIpc.test.ts`,
+`tests/languageIntelligence/rust.test.ts`,
+`tests/hooks/useRustLspLifecycle.test.tsx`,
+`tests/components/RustLanguageIntelligenceRow.test.tsx`,
+`tests/utils/filePath.test.ts`) cover framing, method allowlisting,
+detection, model URI sync, the adapter contract, and Settings render
+branches in both locales. ES copy in neutral LatAm tuteo (`Instálalo`,
+`Reinicia`, `Tócalo`).
+
+Remaining RL-026 work: Go via gopls (Slice 4 — same scaffold, swap
+launcher).
 
 ---
 

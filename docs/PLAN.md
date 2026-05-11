@@ -949,8 +949,34 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   kind + definition line + parameter list for functions), and signature help
   (parameter list, active-parameter tracking, multi-line + nested-call walk,
   triggers on `(` and `,`).
-- Remaining scope: desktop-LSP-backed adapters for Go/Rust or other
-  host-toolchain languages.
+- Slice 3 shipped Rust via rust-analyzer over a main-process LSP bridge.
+  New `src/main/lsp/{lspProcess.ts,rustAnalyzerLauncher.ts}` own the
+  generic JSON-RPC framing + Rust-specific spawn/initialize handshake,
+  with detection over PATH and a `~/.cargo/bin/rust-analyzer` fallback.
+  `src/main/ipc/lsp.ts` exposes start/restart/stop/status/request/notify
+  plus a push channel that re-broadcasts `publishDiagnostics`. The
+  renderer adapter (`src/renderer/languageIntelligence/rust.ts`) opens
+  documents, debounces `didChange`, dispatches completion/hover/
+  signatureHelp requests, and translates incoming diagnostics into the
+  shared marker contract. Three new Monaco providers (completions,
+  hover, signatureHelp) self-gate on `isRustLspAvailable()` so the web
+  build returns null without IPC. Lifecycle is owned by a single hook,
+  `useRustLspLifecycle`, that boots on first `.rs` tab open, fires a
+  one-shot toast when the launcher reports `'running'`, and writes
+  Monaco markers on each `publishDiagnostics`. The launcher reuses
+  `buildNativeRunnerEnv(combinedAllowlist(RUST_TOOLCHAIN_KEYS))` so host
+  secrets never reach rust-analyzer. UI folds B + E + F collapse into a
+  single conditional Settings → Editor row that mounts only when the
+  status is `'unavailable'` or `'degraded'` (install hint with the
+  rustup command, or a "Restart rust-analyzer" button). Capability-pack
+  descriptor unchanged (Rust stays `lsp: 'desktop'`); runtime state
+  lives in `useRustLanguageStore`. Focused tests cover JSON-RPC framing,
+  IPC method allowlisting, binary detection, model URI sync, the adapter
+  contract, and Settings render branches in both locales. `before-quit`
+  disposes the launcher so the long-lived child does not outlive
+  Lingua's main process.
+- Remaining scope: Go via gopls (Slice 4 — same scaffold, swap
+  launcher).
 
 ### RL-027 Add debugger MVP
 

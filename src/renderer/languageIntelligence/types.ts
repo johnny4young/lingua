@@ -73,3 +73,58 @@ export interface LanguageIntelligenceAdapter {
     column: number
   ): LanguageIntelligenceSignatureHelp | null;
 }
+
+/**
+ * Async streaming contract for adapters that delegate to a long-running
+ * out-of-process server (RL-026 Slice 3 — rust-analyzer). The contract is
+ * intentionally separate from the sync adapter so renderer-only adapters
+ * (Python) do not have to opt in. The same Monaco provider can route to
+ * either flavor based on the language id.
+ *
+ * Documents are referenced by an opaque `uri` (the renderer owns the
+ * mapping from tab to uri). Diagnostics are pushed via
+ * `subscribeDiagnostics` because LSP servers publish them after
+ * `textDocument/didChange` rather than answering a sync query. Completions,
+ * hover, and signature help are request/response so the Monaco providers
+ * can `await` them.
+ */
+export interface LspLanguageIntelligenceAdapter {
+  language: string;
+  /**
+   * Ensure the document is registered with the language server. Safe to
+   * call repeatedly with the same uri (the adapter dedupes internally).
+   */
+  openDocument(uri: string, content: string): void;
+  /**
+   * Tell the server about a content edit. The adapter is responsible for
+   * debouncing or queuing if the underlying transport is slow.
+   */
+  changeDocument(uri: string, content: string): void;
+  /**
+   * Mirror Monaco's tab close so the server can release per-document state.
+   */
+  closeDocument(uri: string): void;
+  /**
+   * Push diagnostics from the server to the caller. Returns an unsubscribe
+   * function. The same diagnostic uri is replaced (not appended) on each
+   * publish to mirror Monaco's marker-owner contract.
+   */
+  subscribeDiagnostics(
+    listener: (uri: string, diagnostics: readonly LanguageIntelligenceDiagnostic[]) => void
+  ): () => void;
+  provideCompletions(
+    uri: string,
+    line: number,
+    column: number
+  ): Promise<readonly LanguageIntelligenceCompletion[]>;
+  provideHover(
+    uri: string,
+    line: number,
+    column: number
+  ): Promise<LanguageIntelligenceHover | null>;
+  provideSignatureHelp(
+    uri: string,
+    line: number,
+    column: number
+  ): Promise<LanguageIntelligenceSignatureHelp | null>;
+}

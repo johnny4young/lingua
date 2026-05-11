@@ -40,10 +40,25 @@ const positionStub = {
 function getSuggestions(
   provider: ReturnType<typeof createGoCompletionProvider>
 ) {
-  return provider.provideCompletionItems(
+  const result = provider.provideCompletionItems(
     modelStub as never,
     positionStub as never
-  ).suggestions;
+  );
+  if (!result) return [];
+  return 'suggestions' in result ? result.suggestions : [];
+}
+
+async function getSuggestionsAsync(
+  provider: ReturnType<typeof createRustCompletionProvider>
+) {
+  const result = await provider.provideCompletionItems!(
+    modelStub as never,
+    positionStub as never,
+    undefined as never,
+    undefined as never
+  );
+  if (!result) return [];
+  return 'suggestions' in result ? result.suggestions : [];
 }
 
 describe('language completion providers', () => {
@@ -113,9 +128,9 @@ describe('language completion providers', () => {
     });
   });
 
-  it('returns Rust macro and block snippets with distinct labels', () => {
+  it('returns Rust macro and block snippets with distinct labels', async () => {
     const provider = createRustCompletionProvider(monacoStub as never);
-    const suggestions = getSuggestions(provider);
+    const suggestions = await getSuggestionsAsync(provider);
 
     const labels = suggestions.map((item) => item.label);
     expect(labels).toEqual(

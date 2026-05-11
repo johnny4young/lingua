@@ -11,6 +11,7 @@ import {
   FONT_SIZES,
   fontStackSupportsLigatures,
 } from './settingsOptions';
+import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
 import { Row, Section, Select, StepperButton, Toggle } from './shared';
 import { ThemePresetControls } from './ThemePresetControls';
 
@@ -336,6 +337,8 @@ export function EditorSection() {
           {t('debugger.settings.clearAll.button')}
         </button>
       </Row>
+
+      <RustLanguageIntelligenceRow />
 
       <ThemePresetControls />
     </Section>
