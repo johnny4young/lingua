@@ -1,4 +1,5 @@
 import type { Monaco } from '@monaco-editor/react';
+import { analyzePythonLanguageIntelligence } from '../../../languageIntelligence/python';
 import { createCompletionProvider } from './providerUtils';
 
 const PYTHON_COMPLETIONS = [
@@ -32,7 +33,11 @@ const PYTHON_COMPLETIONS = [
     label: 'class',
     kind: 'snippet',
     detail: 'Python class definition',
-    insertText: ['class ${1:Name}:', '    def __init__(self, ${2:args}):', '        ${0:pass}'].join('\n'),
+    insertText: [
+      'class ${1:Name}:',
+      '    def __init__(self, ${2:args}):',
+      '        ${0:pass}',
+    ].join('\n'),
   },
   {
     label: "if __name__ == '__main__'",
@@ -48,5 +53,7 @@ export function createPythonCompletionProvider(monaco: Monaco) {
   // normal alphanumeric quick suggestions for keyword prefixes.
   return createCompletionProvider(monaco, PYTHON_COMPLETIONS, {
     triggerCharacters: [' '],
+    getDynamicDefinitions: model =>
+      analyzePythonLanguageIntelligence(model.getValue()).completions,
   });
 }

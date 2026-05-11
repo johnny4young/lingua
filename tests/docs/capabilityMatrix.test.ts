@@ -33,11 +33,13 @@ const SHELL_CAPABILITIES = [
   'Deep-link protocol',
   'Local AI inference',
   'Formatter binaries',
+  'Language intelligence',
 ];
 
 const DECISION_SECTIONS = [
   'JavaScript and TypeScript',
   'Python',
+  'Language intelligence',
   'Go',
   'Rust',
   'Lua',

@@ -7,8 +7,12 @@ import { createLuaCompletionProvider } from '@/components/Editor/completionProvi
 const monacoStub = {
   languages: {
     CompletionItemKind: {
+      Class: 'class',
+      Function: 'function',
       Keyword: 'keyword',
+      Module: 'module',
       Snippet: 'snippet',
+      Variable: 'variable',
     },
     CompletionItemInsertTextRule: {
       InsertAsSnippet: 'insert-as-snippet',
@@ -22,6 +26,9 @@ const modelStub = {
       startColumn: 1,
       endColumn: 1,
     };
+  },
+  getValue() {
+    return '';
   },
 };
 
@@ -66,6 +73,43 @@ describe('language completion providers', () => {
     expect(suggestions.find((item) => item.label === 'def')).toMatchObject({
       kind: 'snippet',
       insertText: expect.stringContaining('${1:name}'),
+    });
+  });
+
+  it('returns Python symbols defined in the current model before static suggestions', () => {
+    const provider = createPythonCompletionProvider(monacoStub as never);
+    const suggestions = provider.provideCompletionItems(
+      {
+        ...modelStub,
+        getValue() {
+          return [
+            'import pathlib',
+            'from math import sqrt as root',
+            '',
+            'class InvoiceBuilder:',
+            '    pass',
+            '',
+            'def compute_total(amount):',
+            '    subtotal = amount',
+            '    return subtotal',
+          ].join('\n');
+        },
+      } as never,
+      positionStub as never
+    ).suggestions;
+
+    expect(suggestions.slice(0, 5).map((item) => item.label)).toEqual([
+      'pathlib',
+      'root',
+      'InvoiceBuilder',
+      'compute_total',
+      'amount',
+    ]);
+    expect(suggestions.find((item) => item.label === 'compute_total')).toMatchObject({
+      kind: 'function',
+    });
+    expect(suggestions.find((item) => item.label === 'InvoiceBuilder')).toMatchObject({
+      kind: 'class',
     });
   });
 

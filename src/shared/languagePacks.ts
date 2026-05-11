@@ -53,16 +53,16 @@ export type LanguagePackFormatter =
   | 'ipc:python'
   | 'none';
 
-export type LanguagePackLspSupport = 'builtin' | 'desktop' | 'none';
+export type LanguagePackLspSupport = 'builtin' | 'adapter' | 'desktop' | 'none';
 
 export type LanguagePackDebuggerSupport = 'available' | 'planned' | 'none';
 
 export interface LanguagePackCapabilities {
   /**
    * Where richer-than-Monaco language services come from. `builtin` =
-   * Monaco's bundled service (TS / JS), `desktop` = an LSP that needs
-   * a desktop bridge (RL-026), `none` = keyword + snippet completions
-   * only.
+   * Monaco's bundled service (TS / JS), `adapter` = a local renderer
+   * adapter, `desktop` = an LSP that needs a desktop bridge (RL-026),
+   * `none` = keyword + snippet completions only.
    */
   lsp: LanguagePackLspSupport;
   /** RL-027 debugger MVP gate. */
@@ -181,7 +181,7 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     execution: 'run',
     runnerId: 'python',
     formatter: 'ipc:python',
-    capabilities: { lsp: 'desktop', debugger: 'planned' },
+    capabilities: { lsp: 'adapter', debugger: 'planned' },
     docsUrl: 'https://docs.python.org/3/',
     templateIds: ['py-hello', 'py-list', 'py-sort', 'py-class'],
   },
