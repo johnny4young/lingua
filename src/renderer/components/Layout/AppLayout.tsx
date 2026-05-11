@@ -7,6 +7,7 @@ import { FileTree } from '../FileTree';
 import { EditorTabs } from '../Editor/EditorTabs';
 import { ResultPanel } from '../Editor/ResultPanel';
 import { ConsolePanel } from '../Console';
+import { DebuggerDrawer } from '../Debugger/DebuggerDrawer';
 import { Toolbar } from '../Toolbar';
 import { IconButton, OverlayBackdrop } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -69,6 +70,17 @@ function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' |
 
 function EditorArea() {
   const hasTabs = useEditorStore((s) => s.tabs.length > 0);
+  // RL-027 Slice 1.5 — `DebuggerDrawer` self-gates on `debuggerEnabled`
+  // + (session || breakpointCount > 0), so the additional render is a
+  // no-op until the user sets a breakpoint or starts a debug session.
+  // Mounting here (under the editor area, not inside ConsolePanel)
+  // keeps the layout-sensitive console e2e specs flagged in the Slice 1
+  // closeout — proTierUnlocks, freeTierGates, localeParity, overlays —
+  // byte-identical until the drawer is actually engaged.
+  const activeTabId = useEditorStore((s) => s.activeTabId);
+  const activeLanguage = useEditorStore(
+    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.language
+  );
   const editorResultsLayout = useDefaultLayout({
     id: 'lingua-editor-results-layout',
     panelIds: ['editor-panel', 'results-panel'],
@@ -78,7 +90,7 @@ function EditorArea() {
   return (
     <div id="guided-tour-editor" className="flex h-full flex-col">
       <EditorTabs />
-      <div className="flex-1">
+      <div className="min-h-0 flex-1">
         {hasTabs ? (
           <Group
             orientation="horizontal"
@@ -115,6 +127,7 @@ function EditorArea() {
           </Suspense>
         )}
       </div>
+      <DebuggerDrawer activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
     </div>
   );
 }

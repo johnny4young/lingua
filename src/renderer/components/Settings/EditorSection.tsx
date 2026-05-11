@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useDebuggerStore } from '../../stores/debuggerStore';
 import { trackEvent } from '../../utils/telemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import {
@@ -52,6 +53,22 @@ export function EditorSection() {
   );
   const toggleExecutionHistorySnapshot = useSettingsStore(
     (state) => state.toggleExecutionHistorySnapshot
+  );
+  const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
+  const toggleDebuggerEnabled = useSettingsStore((state) => state.toggleDebuggerEnabled);
+  // RL-027 Slice 1.5 — Settings Debugger rows: master toggle (base),
+  // "Pause is disabled for all breakpoints" (fold F), and Clear All
+  // (fold A). The disable-all toggle drives `setBreakpointEnabled` in
+  // batch via the new `setAllBreakpointsEnabled` mutator so the UI does
+  // not tear across 100 individual store updates.
+  const breakpointEntries = useDebuggerStore((state) => state.breakpoints);
+  const breakpointCount = Object.keys(breakpointEntries).length;
+  const allBreakpointsDisabled =
+    breakpointCount > 0 &&
+    Object.values(breakpointEntries).every((bp) => bp.enabled === false);
+  const clearAllBreakpoints = useDebuggerStore((state) => state.clearAllBreakpoints);
+  const setAllBreakpointsEnabled = useDebuggerStore(
+    (state) => state.setAllBreakpointsEnabled
   );
   const { t } = useTranslation();
   const ligaturesAvailable = fontStackSupportsLigatures(fontFamily);
@@ -268,6 +285,56 @@ export function EditorSection() {
           onChange={toggleVimMode}
           aria-label={t('editor.vimMode.label')}
         />
+      </Row>
+
+      <Row label={t('debugger.settings.label')} hint={t('debugger.settings.hint')}>
+        <Toggle
+          value={debuggerEnabled}
+          onChange={toggleDebuggerEnabled}
+          aria-label={t('debugger.settings.label')}
+        />
+      </Row>
+
+      <Row
+        label={t('debugger.settings.disableAll.label')}
+        hint={t('debugger.settings.disableAll.hint')}
+      >
+        <Toggle
+          value={allBreakpointsDisabled}
+          // The toggle shows "are all breakpoints currently disabled?".
+          // Pass the current value of that question to `setAllBreakpointsEnabled`:
+          // when `allBreakpointsDisabled === false` (some still pause) the
+          // user wants to disable all → call `setAllBreakpointsEnabled(false)`;
+          // when `true`, they're flipping it off → call with `true` to
+          // re-enable. Same expression covers both branches.
+          onChange={() => setAllBreakpointsEnabled(allBreakpointsDisabled)}
+          aria-label={t('debugger.settings.disableAll.label')}
+          disabled={breakpointCount === 0}
+        />
+      </Row>
+
+      <Row
+        label={t('debugger.settings.clearAll.label')}
+        hint={t('debugger.settings.clearAll.hint', { count: breakpointCount })}
+      >
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() => {
+            // The confirm() prompt is intentionally synchronous — same
+            // pattern as the Clear-all-history button in UtilitiesSection.
+            // No i18n-rendered modal here; the localized prompt copy
+            // travels through window.confirm directly.
+            if (window.confirm(t('debugger.settings.clearAll.confirm'))) {
+              clearAllBreakpoints();
+            }
+          }}
+          disabled={breakpointCount === 0}
+          data-testid="settings-debugger-clear-all"
+          aria-label={t('debugger.settings.clearAll.label')}
+        >
+          {t('debugger.settings.clearAll.button')}
+        </button>
       </Row>
 
       <ThemePresetControls />

@@ -14,6 +14,7 @@ beforeEach(() => {
       watches: [],
       session: null,
       pausedFrame: null,
+      drawerCollapsed: false,
     },
     false
   );
@@ -123,6 +124,45 @@ describe('debuggerStore (RL-027 Slice 1)', () => {
     expect(Object.keys(parsed.state.breakpoints)).toHaveLength(1);
     expect(parsed.state.watches).toHaveLength(1);
     expect(parsed.state.session).toBeUndefined();
+  });
+
+  it('setAllBreakpointsEnabled toggles every breakpoint in batch (Slice 1.5 fold F)', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 3);
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 7);
+    useDebuggerStore.getState().toggleBreakpoint('tab-2', 5);
+    useDebuggerStore.getState().setAllBreakpointsEnabled(false);
+    const bps = Object.values(useDebuggerStore.getState().breakpoints);
+    expect(bps).toHaveLength(3);
+    expect(bps.every((bp) => bp.enabled === false)).toBe(true);
+
+    useDebuggerStore.getState().setAllBreakpointsEnabled(true);
+    expect(
+      Object.values(useDebuggerStore.getState().breakpoints).every((bp) => bp.enabled === true)
+    ).toBe(true);
+  });
+
+  it('setAllBreakpointsEnabled returns the same reference when no change is needed', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 3);
+    const before = useDebuggerStore.getState().breakpoints;
+    useDebuggerStore.getState().setAllBreakpointsEnabled(true);
+    // All breakpoints already enabled — no mutation, same map reference.
+    expect(useDebuggerStore.getState().breakpoints).toBe(before);
+  });
+
+  it('toggleDrawerCollapsed flips the drawer state (Slice 1.5 fold B)', () => {
+    expect(useDebuggerStore.getState().drawerCollapsed).toBe(false);
+    useDebuggerStore.getState().toggleDrawerCollapsed();
+    expect(useDebuggerStore.getState().drawerCollapsed).toBe(true);
+    useDebuggerStore.getState().toggleDrawerCollapsed();
+    expect(useDebuggerStore.getState().drawerCollapsed).toBe(false);
+  });
+
+  it('persists drawerCollapsed across reloads (Slice 1.5 fold B)', async () => {
+    useDebuggerStore.getState().toggleDrawerCollapsed();
+    await Promise.resolve();
+    const raw = localStorage.getItem(DEBUGGER_STORAGE_KEY);
+    const parsed = JSON.parse(raw!) as { state: { drawerCollapsed?: boolean } };
+    expect(parsed.state.drawerCollapsed).toBe(true);
   });
 
   it('sanitizes persisted breakpoints and watches during rehydration', async () => {

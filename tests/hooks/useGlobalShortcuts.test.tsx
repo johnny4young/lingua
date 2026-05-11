@@ -7,7 +7,9 @@ import {
   useClipboardOnFocus,
 } from '@/hooks/useClipboardOnFocus';
 import { useGlobalShortcuts, type AppOverlay } from '@/hooks/useGlobalShortcuts';
+import { setActiveEditor } from '@/runtime/editorAccess';
 import { setActiveDebugWorker } from '@/runtime/debuggerWorkerBridge';
+import { useEditorStore } from '@/stores/editorStore';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -75,6 +77,12 @@ describe('useGlobalShortcuts', () => {
       session: null,
       pausedFrame: null,
     });
+    useEditorStore.setState({
+      tabs: [],
+      activeTabId: null,
+      pendingReveal: null,
+    });
+    setActiveEditor(null);
     setActiveDebugWorker(null);
     useUtilityOutputStore.getState().clearProvider();
     useUIStore.setState({ statusNotice: null });
@@ -170,6 +178,57 @@ describe('useGlobalShortcuts', () => {
     expect(event.defaultPrevented).toBe(true);
     expect(postMessage).toHaveBeenCalledWith({ type: 'step', mode: 'over' });
     expect(useDebuggerStore.getState().pausedFrame).toBeNull();
+  });
+
+  it('toggles a breakpoint from Mod+Shift+B only on debugger-capable languages', () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js',
+          name: 'untitled.js',
+          language: 'javascript',
+          content: 'console.log(1);',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-js',
+    });
+    setActiveEditor({
+      getPosition: () => ({ lineNumber: 3, column: 1 }),
+    } as never);
+
+    renderShortcuts();
+    const event = dispatchKeyDown({ key: 'b', ctrlKey: true, shiftKey: true });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(useDebuggerStore.getState().breakpoints['tab-js:3']).toMatchObject({
+      tabId: 'tab-js',
+      line: 3,
+    });
+  });
+
+  it('does not steal Mod+Shift+B or create breakpoints on planned debugger languages', () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-py',
+          name: 'untitled.py',
+          language: 'python',
+          content: 'print(1)',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-py',
+    });
+    setActiveEditor({
+      getPosition: () => ({ lineNumber: 2, column: 1 }),
+    } as never);
+
+    renderShortcuts();
+    const event = dispatchKeyDown({ key: 'b', ctrlKey: true, shiftKey: true });
+
+    expect(event.defaultPrevented).toBe(false);
+    expect(useDebuggerStore.getState().breakpoints).toEqual({});
   });
 });
 

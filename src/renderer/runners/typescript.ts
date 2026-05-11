@@ -15,6 +15,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { instrumentForDebugger } from '../runtime/debuggerInstrument';
 import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
+import { trackEvent } from '../utils/telemetry';
 import {
   appendCappedConsole,
   capStderrIfOverflowing,
@@ -50,11 +51,24 @@ export class TypeScriptRunner implements LanguageRunner {
    */
   private executionGeneration = 0;
 
-  private clearDebuggerSession(): void {
+  private clearDebuggerSession(
+    reasonBucket:
+      | 'run-complete'
+      | 'crash'
+      | 'stop'
+      | 'user-detach' = 'run-complete'
+  ): void {
     if (!this.debugSessionActive) return;
     this.debugSessionActive = false;
+    // See JavaScriptRunner.clearDebuggerSession — the drawer's user-detach
+    // path clears the store session before the worker's `done` message
+    // arrives, so we skip the second telemetry fire on the runner side.
+    const userDetachedAlready = useDebuggerStore.getState().session === null;
     useDebuggerStore.getState().detachSession();
     setActiveDebugWorker(null);
+    if (!userDetachedAlready) {
+      void trackEvent('debugger.detached', { language: 'js', reasonBucket });
+    }
   }
 
   async init(): Promise<void> {
@@ -71,14 +85,25 @@ export class TypeScriptRunner implements LanguageRunner {
     return this.ready;
   }
 
-  /** Transpile TypeScript to JavaScript using esbuild-wasm */
-  private async transpile(code: string): Promise<{ js: string; error?: ExecutionError }> {
+  /**
+   * Transpile TypeScript to JavaScript using esbuild-wasm.
+   *
+   * Slice 1.5 fold G — when `withMap` is true (debug runs only) we ask
+   * esbuild for an external source map so the debugger instrumenter
+   * can compose the TS→JS map with its own JS→JS map and pause at the
+   * user's TS line. The map costs ~2x bytes per call; non-debug runs
+   * stay on the cheap `sourcemap: false` path.
+   */
+  private async transpile(
+    code: string,
+    withMap = false
+  ): Promise<{ js: string; map?: string; error?: ExecutionError }> {
     try {
       const result = await esbuild.transform(code, {
         loader: 'tsx',
         target: 'es2022',
         format: 'esm',
-        sourcemap: false,
+        sourcemap: withMap ? 'external' : false,
       });
 
       if (result.warnings.length > 0) {
@@ -88,7 +113,7 @@ export class TypeScriptRunner implements LanguageRunner {
         }
       }
 
-      return { js: result.code };
+      return { js: result.code, map: withMap ? result.map : undefined };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
 
@@ -134,8 +159,11 @@ export class TypeScriptRunner implements LanguageRunner {
 
     // Step 2: Transpile TS -> JS. Transpile happens BEFORE the parent
     // kill timer arms; an esbuild parse error reports immediately and
-    // never spawns a worker.
-    const { js, error: transpileError } = await this.transpile(codeForTranspile);
+    // never spawns a worker. Slice 1.5 fold G — request the source map
+    // only on debug runs; the map is what the instrumenter composes
+    // with its own JS→JS map to pause at the user's TS line.
+    const { js, map: tsMap, error: transpileError } =
+      await this.transpile(codeForTranspile, debug);
 
     if (executionGeneration !== this.executionGeneration) {
       return runnerStoppedResult(t, { stdout: [], stderr: [] });
@@ -152,11 +180,16 @@ export class TypeScriptRunner implements LanguageRunner {
     }
 
     // RL-027 Slice 1 — instrument the transpiled JS when debug is on.
+    // Slice 1.5 fold G — pass the esbuild TS→JS map so the instrumenter
+    // can compose it with its own JS→JS map and emit yields that fire
+    // on the user's TS line numbers (which is what the breakpoint store
+    // already keeps).
     let instrumented = js;
     if (debug) {
       try {
         const result = instrumentForDebugger(js, {
           filename: context?.tabId ?? 'user-code.js',
+          inputMap: tsMap,
         });
         instrumented = result.code;
       } catch {
@@ -262,6 +295,10 @@ export class TypeScriptRunner implements LanguageRunner {
                 callStack: paused.callStack,
                 watchResults: paused.watchResults,
               });
+              void trackEvent('debugger.paused', {
+                language: 'js',
+                reasonBucket: paused.reason,
+              });
             }
             break;
           }
@@ -274,7 +311,7 @@ export class TypeScriptRunner implements LanguageRunner {
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
             });
-            this.clearDebuggerSession();
+            this.clearDebuggerSession('run-complete');
             worker.terminate();
             if (this.worker === worker) this.worker = null;
             break;
@@ -290,7 +327,7 @@ export class TypeScriptRunner implements LanguageRunner {
           error: { message: event.message || 'Worker error' },
         });
         // RL-027 Slice 1 — same cleanup as the JS runner crash path.
-        this.clearDebuggerSession();
+        this.clearDebuggerSession('crash');
         worker.terminate();
         if (this.worker === worker) this.worker = null;
       });
@@ -301,7 +338,7 @@ export class TypeScriptRunner implements LanguageRunner {
         if (this.worker === worker) this.worker = null;
         // RL-027 Slice 1 — clear the debugger bridge + session on
         // timeout so a follow-up F5/F10 doesn't post to a dead worker.
-        this.clearDebuggerSession();
+        this.clearDebuggerSession('stop');
         finish(runnerTimeoutResult(timeout, t, { stdout, stderr }));
       }, timeout);
 
@@ -313,6 +350,10 @@ export class TypeScriptRunner implements LanguageRunner {
           attachedAt: Date.now(),
         });
         setActiveDebugWorker(worker);
+        // RL-027 Slice 1.5 — `language: 'js'` is correct because the
+        // runtime adapter is the JS worker (TS transpiles through
+        // esbuild and runs in the same worker).
+        void trackEvent('debugger.attached', { language: 'js', reasonBucket: 'attach' });
       }
       worker.postMessage({
         type: 'execute',
@@ -334,7 +375,7 @@ export class TypeScriptRunner implements LanguageRunner {
       this.worker = null;
     }
     this.currentRunId = null;
-    this.clearDebuggerSession();
+    this.clearDebuggerSession('stop');
     if (this.cancelInFlight) {
       const cancel = this.cancelInFlight;
       this.cancelInFlight = null;

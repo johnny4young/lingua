@@ -191,6 +191,20 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     combos: [{ tokens: ['Mod', 'Shift', 'A'] }],
     keywords: ['apply', 'detect', 'smart', 'paste', 'utility', 'utilities'],
   },
+  // RL-027 Slice 1.5 fold C — keyboard-accessible breakpoint toggle.
+  // Mod+B is already taken by `view-toggle-sidebar`; Mod+Shift+B is
+  // free and reads close enough to VS Code's `F9` to feel familiar.
+  // The handler is gated separately from the continue/step shortcuts
+  // because it works whether or not a session is paused — see
+  // `canDispatchDebuggerShortcut` in `useGlobalShortcuts`.
+  {
+    id: 'debugger-toggle-breakpoint',
+    group: 'debugger',
+    labelKey: 'shortcuts.item.debuggerToggleBreakpoint.label',
+    descriptionKey: 'shortcuts.item.debuggerToggleBreakpoint.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'B'] }],
+    keywords: ['debugger', 'breakpoint', 'toggle'],
+  },
   // RL-027 Slice 1 — debugger continue / step shortcuts.
   {
     id: 'debugger-continue',

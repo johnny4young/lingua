@@ -1,5 +1,6 @@
 import { Parser } from 'acorn';
 import MagicString from 'magic-string';
+import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Acorn's exported types are loose; we cast to a structural shape per
@@ -60,14 +61,18 @@ type AcornNode = any;
  *
  * # Source map merge
  *
- * Slice 1 emits magic-string's JS→JS map only. The `inputMap` field
- * on `InstrumentOptions` is reserved but **not yet composed** — the
- * upstream esbuild TS→JS map is not threaded through this slice. As
- * a result, breakpoints set in `.ts` files map to post-instrumented
- * line numbers, not to the original TS source. Slice 1.5 wires the
- * full two-stage compose via `@jridgewell/trace-mapping` (or
- * equivalent) so a breakpoint at TS line N pauses at TS line N. For
- * the JS code path the single map is correct.
+ * Slice 1.5 fold G — when the caller passes `inputMap` (esbuild's
+ * TS→JS map from the TypeScript runner), we wrap it in a
+ * `@jridgewell/trace-mapping` `TraceMap` and translate every line we
+ * see in the AST from the post-transpile JS coordinate space back to
+ * the user's TS line via `originalPositionFor`. The translated line
+ * is what we inject into the yield helper call AND what we record in
+ * `instrumentedLines`, so the worker's breakpoint match against the
+ * user-typed breakpoints (which were always TS lines stored in
+ * `debuggerStore`) just works.
+ *
+ * For pure JS (no `inputMap`), the translator is a passthrough — the
+ * AST's line numbers are already in the user's coordinate space.
  *
  * # Performance
  *
@@ -111,11 +116,12 @@ export interface InstrumentOptions {
    */
   yieldHelperName?: string;
   /**
-   * Reserved for Slice 1.5 — when supplied, this is the upstream
-   * esbuild TS→JS map that the instrumenter will compose with its
-   * own JS→JS map so breakpoints round-trip back to the original TS
-   * source line. Slice 1 does not yet compose maps; passing
-   * `inputMap` is silently a no-op until Slice 1.5 wires it.
+   * Slice 1.5 fold G — when supplied, this is the upstream esbuild
+   * TS→JS source map. We wrap it in `@jridgewell/trace-mapping` and
+   * translate every JS line the AST yields to the original TS line
+   * before injecting the yield call. The yield helper therefore fires
+   * with the TS line, which the worker matches directly against the
+   * user's TS-line breakpoints stored in `debuggerStore`.
    */
   inputMap?: string;
   /**
@@ -126,6 +132,42 @@ export interface InstrumentOptions {
 }
 
 const DEFAULT_HELPER_NAME = '__lingua_dbg_yield';
+
+/**
+ * Slice 1.5 fold G — line translator. JS line in, user-source line
+ * out. Passes through when no input map was provided (pure-JS path).
+ * A failed lookup (e.g. line outside any segment in the map) falls
+ * back to returning the JS line, which is strictly less surprising
+ * than dropping the yield entirely — the user still pauses, just at
+ * the post-transpile coordinate instead of the original.
+ */
+type LineTranslator = (jsLine: number) => number;
+
+function buildLineTranslator(inputMap: string | undefined): LineTranslator {
+  if (!inputMap) {
+    return (line) => line;
+  }
+  let tracer: TraceMap;
+  try {
+    tracer = new TraceMap(inputMap);
+  } catch {
+    // Malformed input map — defensive fallback to passthrough rather
+    // than letting the constructor exception poison the run.
+    return (line) => line;
+  }
+  return (jsLine) => {
+    if (!Number.isInteger(jsLine) || jsLine <= 0) return jsLine;
+    try {
+      const original = originalPositionFor(tracer, { line: jsLine, column: 0 });
+      if (typeof original.line === 'number' && original.line > 0) {
+        return original.line;
+      }
+    } catch {
+      // ignore — map lookup is best-effort.
+    }
+    return jsLine;
+  };
+}
 
 /**
  * Local-scope discovery: walk the AST and collect the names declared
@@ -248,17 +290,18 @@ function instrumentBodies(
   ast: AcornNode,
   ms: MagicString,
   helperName: string,
-  recordedLines: Set<number>
+  recordedLines: Set<number>,
+  translateLine: LineTranslator
 ): void {
   const queue: AcornNode[] = [ast];
 
   while (queue.length > 0) {
     const node = queue.shift()!;
     const body = bodyStatements(node);
-    wrapAsyncFunctionBody(node, ms);
+    wrapAsyncFunctionBody(node, ms, translateLine);
 
     for (const stmt of body) {
-      injectYieldBefore(stmt, ms, helperName, recordedLines, node);
+      injectYieldBefore(stmt, ms, helperName, recordedLines, node, translateLine);
       // FunctionDeclaration / FunctionExpression / ArrowFunctionExpression
       // statements are themselves the bodies we want to descend into;
       // enqueue directly. Other statements get a recursive scan for
@@ -301,7 +344,8 @@ function injectYieldBefore(
   ms: MagicString,
   helperName: string,
   recordedLines: Set<number>,
-  parent: AcornNode
+  parent: AcornNode,
+  translateLine: LineTranslator
 ): void {
   // Don't instrument hoisted declarations — function declarations are
   // hoisted to the top of the scope before any statement runs, so a
@@ -330,18 +374,23 @@ function injectYieldBefore(
 
   if (!canAwaitInBody(parent)) return;
 
-  const line = stmt.loc?.start.line ?? 0;
-  if (line === 0) return;
+  const jsLine = stmt.loc?.start.line ?? 0;
+  if (jsLine === 0) return;
+
+  // Slice 1.5 fold G — translate JS line back to user source line so
+  // the yield helper fires with the breakpoint-matching coordinate.
+  const userLine = translateLine(jsLine);
+  if (!Number.isInteger(userLine) || userLine <= 0) return;
 
   const localObject = buildLocalSnapshotExpression(collectLocalIdentifiers(parent));
 
-  const yieldExpr = `await ${helperName}(${line}, () => ${localObject});`;
+  const yieldExpr = `await ${helperName}(${userLine}, () => ${localObject});`;
 
   // Inject BEFORE the statement. magic-string's `appendLeft` keeps
   // multiple injections at the same offset in source order, so the
   // yield ends up immediately before the original character.
   ms.appendLeft(stmt.start, `${yieldExpr}\n`);
-  recordedLines.add(line);
+  recordedLines.add(userLine);
 }
 
 function canAwaitInBody(parent: AcornNode): boolean {
@@ -371,17 +420,24 @@ function buildLocalSnapshotExpression(localNames: string[]): string {
   return `(() => { const __lingua_dbg_locals = {}; ${assignments} return __lingua_dbg_locals; })()`;
 }
 
-function wrapAsyncFunctionBody(node: AcornNode, ms: MagicString): void {
+function wrapAsyncFunctionBody(
+  node: AcornNode,
+  ms: MagicString,
+  translateLine: LineTranslator
+): void {
   if (!canAwaitInBody(node)) return;
   if (node.type === 'Program') return;
   const body = (node as { body?: AcornNode }).body;
   if (!body || body.type !== 'BlockStatement') return;
 
   const functionName = functionDisplayName(node);
-  const line = node.loc?.start.line ?? 0;
+  const jsLine = node.loc?.start.line ?? 0;
+  // Slice 1.5 fold G — frame headers also report user source lines so
+  // the call-stack panel matches the TS line the user sees in Monaco.
+  const userLine = translateLine(jsLine);
   ms.appendLeft(
     body.start + 1,
-    `\n__lingua_dbg_frame(${JSON.stringify(functionName)}, ${line});\ntry {`
+    `\n__lingua_dbg_frame(${JSON.stringify(functionName)}, ${userLine});\ntry {`
   );
   ms.prependRight(body.end - 1, `\n} finally { __lingua_dbg_pop(); }\n`);
 }
@@ -452,7 +508,8 @@ export function instrumentForDebugger(
 
   const ms = new MagicString(code, { filename });
   const recordedLines = new Set<number>();
-  instrumentBodies(ast, ms, helperName, recordedLines);
+  const translateLine = buildLineTranslator(options.inputMap);
+  instrumentBodies(ast, ms, helperName, recordedLines, translateLine);
 
   const map = ms.generateMap({
     source: filename,

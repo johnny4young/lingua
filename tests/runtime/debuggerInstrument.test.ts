@@ -71,4 +71,56 @@ describe('instrumentForDebugger (RL-027 Slice 1)', () => {
     );
     expect(result.instrumentedLines).toEqual([1, 2]);
   });
+
+  describe('TS source-map composition (RL-027 Slice 1.5 fold G)', () => {
+    // Each JS line N maps to source line N+1 in the original TS source.
+    // VLQ "AACA" decodes to deltas (genCol 0, srcIdx 0, srcLine 1, srcCol 0).
+    // First segment lands on (0, 0, 1, 0); subsequent `;AACA` segments
+    // advance srcLine by another +1 each. 1-indexed API lookups for
+    // generated lines 1/2/3 therefore return source lines 2/3/4.
+    const SHIFT_MAP_BY_ONE = JSON.stringify({
+      version: 3,
+      sources: ['original.ts'],
+      sourcesContent: [
+        'type X = number;\nconst a = 1;\nconst b = 2;\nconst c = a + b;\n',
+      ],
+      mappings: 'AACA;AACA;AACA',
+    });
+
+    it('translates AST line numbers to user-source line numbers via inputMap', () => {
+      const js = `const a = 1;\nconst b = 2;\nconst c = a + b;\n`;
+      const result = instrumentForDebugger(js, { inputMap: SHIFT_MAP_BY_ONE });
+      // Recorded lines are the TS coordinates the user sees in Monaco.
+      expect(result.instrumentedLines).toEqual([2, 3, 4]);
+      // Yield helper calls embed the translated line as the first arg.
+      expect(result.code).toContain('__lingua_dbg_yield(2,');
+      expect(result.code).toContain('__lingua_dbg_yield(3,');
+      expect(result.code).toContain('__lingua_dbg_yield(4,');
+      // The JS line numbers must NOT appear in the yields (otherwise a
+      // TS breakpoint on line 2 would never match — it would be looking
+      // for "1" instead of "2").
+      expect(result.code).not.toMatch(/__lingua_dbg_yield\(1,/);
+    });
+
+    it('falls back to JS line numbers when inputMap is malformed', () => {
+      const js = `const a = 1;\nconst b = 2;\n`;
+      const result = instrumentForDebugger(js, { inputMap: 'this is not a source map' });
+      // Translator returned passthrough; behavior matches the no-map path.
+      expect(result.instrumentedLines).toEqual([1, 2]);
+    });
+
+    it('passes through when inputMap is omitted (pure JS path)', () => {
+      const js = `const a = 1;\nconst b = 2;\n`;
+      const result = instrumentForDebugger(js);
+      expect(result.instrumentedLines).toEqual([1, 2]);
+    });
+
+    it('translates async function frame headers to user-source lines', () => {
+      // Async function declared on JS line 1 → TS line 2.
+      const js = `async function add(a, b) {\n  return a + b;\n}\nawait add(1, 2);\n`;
+      const result = instrumentForDebugger(js, { inputMap: SHIFT_MAP_BY_ONE });
+      // Frame header is emitted with the translated function line.
+      expect(result.code).toContain('__lingua_dbg_frame("add", 2);');
+    });
+  });
 });

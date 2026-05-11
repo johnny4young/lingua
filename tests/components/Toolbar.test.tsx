@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
+import { useDebuggerStore } from '../../src/renderer/stores/debuggerStore';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be hoisted before component imports
@@ -120,6 +121,7 @@ vi.mock('lucide-react', () => ({
   PanelBottom: () => null,
   FolderOpen: () => <span data-testid="icon-folder-open">📂</span>,
   Wrench: () => null,
+  Bug: () => null,
 }));
 
 import { Toolbar } from '../../src/renderer/components/Toolbar/Toolbar';
@@ -172,6 +174,18 @@ describe('Toolbar', () => {
     vi.clearAllMocks();
     setActiveProLicense();
     useSettingsStore.getState().resetShortcutOverrides();
+    useSettingsStore.setState({ debuggerEnabled: true }, false);
+    useDebuggerStore.setState(
+      {
+        breakpoints: {},
+        breakpointOrder: [],
+        watches: [],
+        session: null,
+        pausedFrame: null,
+        drawerCollapsed: false,
+      },
+      false
+    );
     Object.defineProperty(window.navigator, 'platform', {
       configurable: true,
       value: 'Win32',
@@ -232,6 +246,31 @@ describe('Toolbar', () => {
     render(<Toolbar />);
     expect(screen.getByRole('button', { name: 'New JavaScript' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'New file language menu' })).toBeTruthy();
+  });
+
+  it('shows the breakpoint pill only when the active language debugger is available', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 4);
+
+    render(<Toolbar />);
+
+    expect(screen.getByTestId('toolbar-breakpoint-pill').textContent).toContain('1 breakpoint');
+  });
+
+  it('hides persisted breakpoint affordances for planned debugger languages', () => {
+    editorStoreState.tabs = [
+      {
+        id: 'tab-1',
+        name: 'untitled.py',
+        language: 'python',
+        content: '',
+        isDirty: false,
+      },
+    ];
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 4);
+
+    render(<Toolbar />);
+
+    expect(screen.queryByTestId('toolbar-breakpoint-pill')).toBeNull();
   });
 
   it('shows the shared tooltip for the Run action on hover', async () => {

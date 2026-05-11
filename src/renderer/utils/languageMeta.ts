@@ -162,6 +162,11 @@ export function executionModeForLanguage(language: Language): 'run' | 'validate'
   return getLanguageMeta(language).executionMode;
 }
 
+export function languageSupportsDebugger(language: Language | null | undefined): boolean {
+  if (!language) return false;
+  return getLanguagePackById(language)?.capabilities.debugger === 'available';
+}
+
 /**
  * RL-038 Slice C capability-aware UI — returns a stable i18n key
  * describing the host-toolchain expectation for the given language,

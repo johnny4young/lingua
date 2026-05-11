@@ -991,6 +991,82 @@ What shipped:
 - **`docs/DEBUGGER_SLICE1.md` runbook + ADR amendment + CAPABILITY_MATRIX row.** Lands with Slice 1.5 alongside the smoke UI spec.
 - **Blocking e2e smoke spec at `tests/e2e/debuggerJs.spec.ts`.** Cannot pass without the gutter UI; user explicitly approved a "C" path that accepts this gap.
 
+### Status Update — 2026-05-11 (RL-027 Slice 1.5 shipped)
+
+Slice 1.5 staged today. RL-027 stays `Partial` — Slice 1.5b still owes
+conditional-breakpoint + watch-expression evaluation behind a dedicated
+security review.
+
+What shipped:
+
+- `src/renderer/hooks/useBreakpointGutter.ts` — Monaco glyph-margin
+  integration. Decorates the active tab's breakpoints as red dots (or
+  hollow rings when disabled), turns gutter clicks into
+  `toggleBreakpoint(tabId, line)`, and unmounts cleanly on tab or
+  editor changes. Self-gates on `debuggerEnabled` + JS/TS language.
+- `src/renderer/runtime/editorAccess.ts` — module-level Monaco ref so
+  the global shortcut bus can read the cursor line without piping a
+  React ref through the tree. `CodeEditor.tsx` registers on mount and
+  clears on unmount.
+- `Mod+Shift+B` shortcut (`debugger-toggle-breakpoint`) wired in
+  `keyboardShortcuts.ts` + `useGlobalShortcuts.ts`. The
+  `canDispatchDebuggerShortcut` gate now distinguishes this shortcut
+  from F5 / F10 / F11 / Shift+F11: the toggle only requires
+  `debuggerEnabled`, a debugger-capable JS / TS tab, and an editor
+  cursor (no paused session needed) while the step shortcuts keep the
+  original paused-frame gate.
+- `DebuggerDrawer` mounted inside `EditorArea` (sibling-after-editor,
+  NOT inside `ConsolePanel` — the latter was the Slice 1 layout fail
+  that broke 4 e2e specs). Drawer header gains a chevron that flips
+  `drawerCollapsed` in the store (persisted across reloads).
+- Settings → Editor gains three new rows: the master `debuggerEnabled`
+  toggle (base), a "Pause is disabled for all breakpoints" toggle that
+  drives the new `setAllBreakpointsEnabled` batch mutator (fold F), and
+  a Clear-all-breakpoints button behind a `window.confirm` prompt with
+  a plural-aware hint (fold A).
+- Toolbar gains a "X breakpoints" pill on the right side, color-coded
+  red when `debuggerEnabled` is true and muted when off (fold D).
+- Three new telemetry events join `TELEMETRY_EVENTS` per ADR §4:
+  `debugger.attached`, `debugger.paused`, `debugger.detached`. Payload
+  is closed-enum (`{ language: 'js', reasonBucket: '...' }`). The
+  `EVENT_PROPERTY_ALLOWLIST` is extended with the same shape so the
+  redactor drops anything off the contract. Fold E adds `detached` to
+  the ADR-named pair so dashboards can compute session length.
+- `instrumentForDebugger` accepts `inputMap` and composes it with the
+  magic-string JS→JS map via `@jridgewell/trace-mapping`. Yields fire
+  with the user's TS line number, which matches the breakpoint
+  coordinates 1:1 (fold G). Pure-JS path is untouched (translator is a
+  passthrough when no map). New `@jridgewell/trace-mapping` direct
+  dependency (~10 KB gzipped, MIT).
+- TS runner asks esbuild for an external source map only when `debug`
+  is true (zero cost on non-debug runs) and threads it as `inputMap`.
+- JS+TS language-pack `capabilities.debugger` flipped from `'planned'`
+  to `'available'`.
+- 30 new i18n keys per locale in tuteo (`Borra`, `Activa`, `Colapsa`,
+  `Pausa desactivada`, etc.). No voseo.
+- Three new docs: `docs/DEBUGGER_SLICE1.md` runbook (operator-oriented
+  walkthrough of the user surface + recovery paths), an amendment to
+  `DEBUGGER_ADR.md` with the delivery notes section, and three new
+  rows in `CAPABILITY_MATRIX.md` for the JS/TS / Python / Go/Rust
+  debugger lanes. `docs/README.md` indexes the new runbook.
+- 4 new test files cover the new surface: extended
+  `tests/stores/debuggerStore.test.ts` (drawer collapse + setAll +
+  persistence), extended `tests/runtime/debuggerInstrument.test.ts`
+  (source-map composition happy path + malformed-map fallback +
+  passthrough + frame-header translation), new
+  `tests/components/EditorSection.debugger.test.tsx` (master toggle +
+  Clear-all + Disable-all + ES tuteo), extended
+  `tests/components/DebuggerDrawer.test.tsx` (chevron collapse), and a
+  new `tests/e2e/debuggerJs.spec.ts` Playwright smoke pinning the
+  Settings row, the Spanish copy, and the console-error gate.
+
+Deferred to Slice 1.5b (still):
+
+- Conditional-breakpoint predicate + watch-expression evaluation. The
+  worker eval pattern (dynamic Function constructor) needs its own
+  security note before the eval pass lands. Inline-fix policy carve-out
+  on "security" keeps it out of 1.5.
+
 ### RL-028 Add execution history, replay, and benchmarking tools
 
 - Priority: `P2`

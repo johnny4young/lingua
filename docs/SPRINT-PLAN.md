@@ -24,7 +24,7 @@ Mirrors the authoritative `Status` column in
 |------|--------|:------:|-------|
 | Iter 1 | [`RL-072`](./ROADMAP.md) | Shipped (2026-05-08) | Specialty utilities — QR + inspector. Shipped on 2026-05-08 — see RL-072. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Shipped (2026-05-01) | Execution history — closed by Slice 7 (Compare two runs, code-only diff). See §4. |
-| Iter 3 | [`RL-027`](./ROADMAP.md) | Slice 1 partial (2026-05-09) | Debugger MVP — Slice 1 partial: store + instrument + worker pause/resume/step + JS/TS runner debug-mode wiring + unmounted Drawer UI + 4 shortcuts + internal Settings flag + 16 i18n keys + 22 unit/component tests. Deferred to Slice 1.5: BreakpointGutter Monaco UI, mounted drawer, visible Settings toggle, conditional-bp + watch eval (security review pending), telemetry events, runbook, ADR amendment, capability matrix row, blocking smoke UI. See §5. |
+| Iter 3 | [`RL-027`](./ROADMAP.md) | Slice 1.5 shipped (2026-05-11) | Debugger MVP — Slice 1.5 closes the user-facing surface: BreakpointGutter (gutter dots + click toggle + `Mod+Shift+B`), mounted `DebuggerDrawer` with chevron collapse, Settings rows (toggle + Disable-all + Clear-all), TS source-map composition, three telemetry events, language-pack capability flip, toolbar pill, runbook + ADR amendment + CAPABILITY_MATRIX rows + blocking e2e smoke. **Slice 1.5b still pending**: conditional-breakpoint + watch-expression evaluation (held behind dedicated security review). See §5. |
 | Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Shipped (2026-05-01) | Language-pack registry — closed by the Slice C closeout. See §7. |
 | Iter 6 | [`RL-077`](./ROADMAP.md) | Shipped (2026-05-02) | Capability-based filesystem IPC sandbox — Slice 1 + Slice 2 both landed. See §8. |
@@ -195,30 +195,12 @@ surfaces, 6 snapshot capture + Replay, 7 Compare two runs code diff).
 
 ## 5. Iter 3 / RL-027 — Debugger MVP (JS/TS first slice)
 
-**One-liner**: Minimal breakpoint + step debugger foundation for JS and
-TS tabs in the shared worker runtime. Web and Electron share this first
-adapter; Monaco gutter UI and the mounted drawer land in Slice 1.5.
-
-**Context**: The ADR (`docs/DEBUGGER_ADR.md`) picked JS/TS first with
-worker-side debugger hooks, then Python / Go / Rust desktop adapters.
-Slice 1 partial now has the store, AST instrumentation, worker protocol,
-runner wiring, internal Settings flag, and shortcut catalog. Slice 1.5
-mounts the user-facing Monaco gutter, debugger drawer, and visible
-Settings toggle.
-
-**5.1 Sequencing (5 commits, ~2 weeks)**:
-
-Slice 1.5 should close the remaining user-facing surfaces: breakpoint
-column gutter in Monaco, mounted paused-execution drawer with call stack
-and variables, conditional-breakpoint / watch evaluation after the security
-review, telemetry allowlist additions, runbook / ADR / capability-matrix
-sync, and the blocking UI smoke.
-
-**Open questions before Slice 1.5**:
-- Pyodide debugger parity — still out of Slice 1; decide before the
-  Python adapter work starts.
-- Source-map support for TypeScript — Slice 1 records the gap; Slice 1.5
-  should compose the esbuild TS→JS map with the instrumentation JS→JS map.
+Shipped on 2026-05-11 — see [`RL-027`](./ROADMAP.md) and
+[`docs/DEBUGGER_SLICE1.md`](./DEBUGGER_SLICE1.md) for the full operator
+runbook covering Slice 1 (store + instrumenter + worker protocol) and
+Slice 1.5 (gutter + drawer + Settings + TS source-map composition +
+telemetry). Conditional-breakpoint + watch-expression evaluation remain
+deferred to Slice 1.5b behind a dedicated security review.
 
 ---
 
