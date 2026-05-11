@@ -23,6 +23,8 @@ import { createPythonCompletionProvider } from './components/Editor/completionPr
 import { createPythonHoverProvider } from './components/Editor/completionProviders/pythonHoverProvider';
 import { createPythonSignatureProvider } from './components/Editor/completionProviders/pythonSignatureProvider';
 import { createRustCompletionProvider } from './components/Editor/completionProviders/rustCompletions';
+import { createRustHoverProvider } from './components/Editor/completionProviders/rustHoverProvider';
+import { createRustSignatureProvider } from './components/Editor/completionProviders/rustSignatureProvider';
 import { createLuaCompletionProvider } from './components/Editor/completionProviders/luaCompletions';
 import {
   csvConfiguration,
@@ -216,6 +218,12 @@ export function registerLanguageCompletionProviders(m: Monaco): void {
   // python language id; other tabs ignore them.
   m.languages.registerHoverProvider('python', createPythonHoverProvider());
   m.languages.registerSignatureHelpProvider('python', createPythonSignatureProvider());
+
+  // RL-026 Slice 3 — Rust hover + signature help via rust-analyzer.
+  // The providers self-gate on `isRustLspAvailable()`; the web build
+  // returns null without hitting IPC.
+  m.languages.registerHoverProvider('rust', createRustHoverProvider());
+  m.languages.registerSignatureHelpProvider('rust', createRustSignatureProvider());
 }
 
 // The TypeScript contribution augments the global `monaco.languages` object

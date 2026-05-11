@@ -20,6 +20,8 @@ your full crate ecosystem works because the compiler is yours.
 - Rust compile errors normalize into Monaco markers with source
   locations — no stderr blob dumps.
 - `rustfmt` is the default format-on-save handler for `.rs` files.
+- `rust-analyzer` powers desktop diagnostics, completions, hover, and
+  signature help when it is installed.
 - Panics stream into the result panel mapped back to the source line.
 - Inline `//=>` magic comments work the same way they do for the JS
   and TS runners.
@@ -28,8 +30,9 @@ your full crate ecosystem works because the compiler is yours.
 
 - You need `rustc` on PATH. The web build surfaces Rust execution as
   "desktop only" instead of pretending it works.
-- No rust-analyzer integration yet — only Monaco's keyword
-  completion. LSP work is tracked as RL-026.
+- Rust language intelligence needs `rust-analyzer` on PATH. If it is
+  missing or crashes, Lingua shows an install hint or restart action in
+  Settings.
 - No debugger yet — RL-027.
 - No cargo project mode: this is a scratchpad for single-file
   snippets, not a substitute for `cargo run` inside your workspace.

@@ -95,6 +95,27 @@ interface RustRunResult {
   error?: string;
 }
 
+// RL-026 Slice 3 — rust-analyzer launcher status surface. Mirrors the
+// shape returned by `src/main/lsp/rustAnalyzerLauncher.ts` so the
+// renderer and preload share a single contract.
+type RustAnalyzerStatus =
+  | { kind: 'unknown' }
+  | { kind: 'starting' }
+  | { kind: 'running'; version: string }
+  | { kind: 'missing'; reason: string }
+  | { kind: 'startup-failed'; error: string }
+  | { kind: 'degraded'; error: string }
+  | { kind: 'stopped' };
+
+// Minimal JSON-RPC notification shape used by the LSP bridge. The
+// renderer self-filters by `method`; everything off the contract is
+// ignored.
+interface LspNotification<P = unknown> {
+  jsonrpc: '2.0';
+  method: string;
+  params?: P;
+}
+
 interface NativeRunnerMessages {
   compileOutputTruncated?: string;
   stdoutTruncated?: string;
@@ -431,6 +452,23 @@ interface LinguaAPI {
 
   env: {
     snapshot: () => Promise<Record<string, string>>;
+  };
+
+  // RL-026 Slice 3 — Rust LSP bridge.
+  lsp: {
+    rust: {
+      start: () => Promise<RustAnalyzerStatus>;
+      restart: () => Promise<RustAnalyzerStatus>;
+      stop: () => Promise<{ kind: 'stopped' }>;
+      status: () => Promise<RustAnalyzerStatus>;
+      request: (
+        method: string,
+        params: unknown
+      ) => Promise<{ ok: true; result: unknown } | { ok: false; error: string }>;
+      notify: (method: string, params: unknown) => void;
+      onNotification: (callback: (notification: LspNotification) => void) => () => void;
+      onStatusChanged: (callback: (status: RustAnalyzerStatus) => void) => () => void;
+    };
   };
 
   fs: {

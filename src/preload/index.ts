@@ -81,6 +81,41 @@ contextBridge.exposeInMainWorld('lingua', {
       ipcRenderer.invoke('env:snapshot') as Promise<Record<string, string>>,
   },
 
+  // RL-026 Slice 3 — Rust language server bridge. The renderer never
+  // talks to rust-analyzer directly; high-level commands go through
+  // these handles and notifications stream back via `onNotification` /
+  // `onStatusChanged`. The launcher is owned by main.
+  lsp: {
+    rust: {
+      start: () => ipcRenderer.invoke('lsp:rust:start') as Promise<RustAnalyzerStatus>,
+      restart: () =>
+        ipcRenderer.invoke('lsp:rust:restart') as Promise<RustAnalyzerStatus>,
+      stop: () =>
+        ipcRenderer.invoke('lsp:rust:stop') as Promise<{ kind: 'stopped' }>,
+      status: () =>
+        ipcRenderer.invoke('lsp:rust:status') as Promise<RustAnalyzerStatus>,
+      request: (method: string, params: unknown) =>
+        ipcRenderer.invoke('lsp:rust:request', method, params) as Promise<
+          { ok: true; result: unknown } | { ok: false; error: string }
+        >,
+      notify: (method: string, params: unknown) => {
+        ipcRenderer.send('lsp:rust:notify', method, params);
+      },
+      onNotification: (callback: (notification: LspNotification) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: unknown) =>
+          callback(data as LspNotification);
+        ipcRenderer.on('lsp:rust:notification', handler);
+        return () => ipcRenderer.removeListener('lsp:rust:notification', handler);
+      },
+      onStatusChanged: (callback: (status: RustAnalyzerStatus) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: unknown) =>
+          callback(data as RustAnalyzerStatus);
+        ipcRenderer.on('lsp:rust:status', handler);
+        return () => ipcRenderer.removeListener('lsp:rust:status', handler);
+      },
+    },
+  },
+
   // App lifecycle IPC
   confirmClose: (dirtyFileNames: string[], language?: string) =>
     ipcRenderer.invoke('app:confirm-close', dirtyFileNames, language) as Promise<number>,

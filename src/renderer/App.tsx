@@ -29,6 +29,7 @@ import { useRunner } from './hooks/useRunner';
 import { useDesktopSmoke } from './hooks/useDesktopSmoke';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
@@ -105,6 +106,8 @@ function AppChrome({
   const appInfo = useAppInfo();
   const effectiveTier = useEffectiveTier();
   const canUseDeveloperUtilities = useEntitlement('DEV_UTILITIES');
+  // RL-026 Slice 3 — rust-analyzer lifecycle (boot, status, diagnostics, toast).
+  useRustLspLifecycle();
   const { hasCompletedTour, startTour } = useGuidedTour();
   const smokeEnabled = desktopSmokeEnabled();
   const hasHandledDeepLink = useDeepLinks({ openOverlay });
