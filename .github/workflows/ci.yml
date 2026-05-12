@@ -13,6 +13,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Opt v4 action runtimes (checkout, setup-node, upload-artifact) into
+# Node.js 24 ahead of the 2026-06-02 forced cutover. Silences the
+# Node.js 20 deprecation warning across every job.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   # All Linux gates collapsed into one job so we pay `npm ci` once per
   # run instead of six times. Each gate stays distinct as a named step

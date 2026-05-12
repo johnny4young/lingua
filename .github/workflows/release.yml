@@ -38,6 +38,13 @@ env:
   RELEASE_TAG: ${{ inputs.release_tag }}
   RELEASE_REF: refs/tags/${{ inputs.release_tag }}
   TARGET_REF: refs/heads/main
+  # Opt the v4 action runtimes (checkout, setup-node, upload-artifact)
+  # into Node.js 24 now instead of waiting for the 2026-06-02 forced
+  # cutover. Silences the "Node.js 20 actions are deprecated"
+  # warnings in every job's summary. Applies only to the v4 action
+  # internals — the project's own Node version stays driven by
+  # actions/setup-node@v4's `node-version` field.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   prepare-release-tag:
