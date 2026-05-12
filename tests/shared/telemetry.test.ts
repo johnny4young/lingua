@@ -88,6 +88,39 @@ describe('redactForTelemetry', () => {
     expect(droppedKeys).toContain('overlayId');
   });
 
+  it('strips suspicious free-form values even when the property key is allow-listed', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runner.executed',
+        properties: {
+          language: 'console.log(secret)',
+          status: 'ok',
+          durationBucketMs: 250,
+        },
+      })
+    );
+
+    expect(event.properties).toEqual({
+      status: 'ok',
+      durationBucketMs: 250,
+    });
+    expect(droppedKeys).toContain('language');
+  });
+
+  it('strips invalid enum and bucket values from allow-listed keys', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'update.checked',
+        properties: {
+          status: 'https://updates.linguacode.dev/releases/private',
+        },
+      })
+    );
+
+    expect(event.properties).toEqual({});
+    expect(droppedKeys).toContain('status');
+  });
+
   it('rounds timestamps to the minute to reduce fingerprintability', () => {
     const { event } = redactForTelemetry(buildEvent());
     expect(event.timestamp).toBe(Date.parse('2026-04-17T10:23:00.000Z'));

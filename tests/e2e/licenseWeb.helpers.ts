@@ -114,6 +114,31 @@ async function fulfillCorsPreflight(
 }
 
 async function installLicenseServerMock(page: Page): Promise<void> {
+  // RL-065 Slice 5 — every e2e build now has `VITE_LINGUA_TELEMETRY_URL`
+  // baked in (see playwright.license-web.config.mts). Tests that
+  // grant consent (telemetry.spec.ts) install their own /telemetry
+  // route to capture events; every other test seeds consent as
+  // `declined`, so no fire is expected. Belt-and-suspenders: this
+  // global stub returns 204 so an accidental fire never reaches the
+  // real production worker.
+  await page.route('**/updates.linguacode.dev/telemetry', async route => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 204,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+    });
+  });
+
   await page.route(`${LICENSE_SERVER_HOST}/licenses/status**`, async route => {
     if (await fulfillCorsPreflight(route)) return;
 

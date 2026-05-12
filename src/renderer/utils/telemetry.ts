@@ -19,22 +19,104 @@ import { useSettingsStore } from '../stores/settingsStore';
  * analytics beacon must never take the app down.
  */
 
-const ENDPOINT: string | null = readEndpoint();
-const KILL_SWITCH: boolean = readKillSwitch();
+// Lazy resolution: the endpoint + kill switch are read on first
+// access, not at module-load. Two reasons:
+//   1. Test ergonomics — `vi.stubEnv` + dynamic re-import need the
+//      values to be readable AFTER the stub fires, not baked into
+//      the module's top-level `const`.
+//   2. Robustness — module-load reads happen before bundlers can
+//      always guarantee the env is set (e.g. Forge spawning the
+//      renderer with a deferred `process.env` injection). Lazy
+//      read sidesteps that timing.
+const UNRESOLVED = Symbol('unresolved');
+let cachedEndpoint: string | null | typeof UNRESOLVED = UNRESOLVED;
+let cachedKillSwitch: boolean | typeof UNRESOLVED = UNRESOLVED;
+let invalidEndpointWarned = false;
 
-function readEndpoint(): string | null {
-  const url = import.meta.env?.VITE_LINGUA_TELEMETRY_URL;
-  return typeof url === 'string' && url.length > 0 ? url : null;
+/**
+ * Reset the cached endpoint + kill-switch + warning flag. Test-only —
+ * the production module reads each lazily and never resets.
+ */
+export function _resetEndpointCacheForTesting(): void {
+  cachedEndpoint = UNRESOLVED;
+  cachedKillSwitch = UNRESOLVED;
+  invalidEndpointWarned = false;
 }
 
-function readKillSwitch(): boolean {
+function warnInvalidEndpointOnce(raw: string, reason: 'parse' | 'scheme' | 'plaintext'): void {
+  if (invalidEndpointWarned) return;
+  invalidEndpointWarned = true;
+  const labels: Record<typeof reason, string> = {
+    parse: 'not a valid URL',
+    scheme: 'unsupported scheme (use http: against localhost or https: elsewhere)',
+    plaintext: 'http:// only allowed against localhost; use https:// for remote hosts',
+  };
+  console.warn(
+    `[telemetry] VITE_LINGUA_TELEMETRY_URL ignored: ${labels[reason]} — got ${JSON.stringify(raw)}`
+  );
+}
+
+/**
+ * Resolve the configured telemetry endpoint from the build-time
+ * `VITE_LINGUA_TELEMETRY_URL` define. Returns `null` when the value
+ * is missing, empty, malformed (rejected by the `URL` constructor),
+ * or uses a non-https scheme — telemetry never flies over plaintext
+ * to a misconfigured host.
+ *
+ * RL-065 Slice 5 fold F — a build-time typo (`http:/telemetry`)
+ * used to silently swallow events because the emitter accepted any
+ * non-empty string. The misconfigured-build warning above is fired
+ * once per launch so a developer running the web bundle locally can
+ * spot the error without it spamming the console.
+ */
+function resolveEndpoint(): string | null {
+  if (cachedEndpoint !== UNRESOLVED) return cachedEndpoint;
+  const raw = import.meta.env?.VITE_LINGUA_TELEMETRY_URL;
+  cachedEndpoint = parseEndpoint(raw);
+  return cachedEndpoint;
+}
+
+function parseEndpoint(raw: unknown): string | null {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    warnInvalidEndpointOnce(raw, 'parse');
+    return null;
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    warnInvalidEndpointOnce(raw, 'scheme');
+    return null;
+  }
+  // Plaintext is only allowed against the loopback host (`wrangler
+  // dev` binds `localhost` on macOS/Linux and `127.0.0.1` on some
+  // Windows configurations; both should diagnose as valid). A
+  // production-looking host on http:// is almost certainly a typo
+  // for https://.
+  const LOCALHOST_HOSTS: ReadonlySet<string> = new Set([
+    'localhost',
+    '127.0.0.1',
+    '[::1]',
+    '::1',
+  ]);
+  if (parsed.protocol === 'http:' && !LOCALHOST_HOSTS.has(parsed.hostname)) {
+    warnInvalidEndpointOnce(raw, 'plaintext');
+    return null;
+  }
+  return parsed.toString();
+}
+
+function resolveKillSwitch(): boolean {
+  if (cachedKillSwitch !== UNRESOLVED) return cachedKillSwitch;
   const raw = import.meta.env?.VITE_LINGUA_TELEMETRY_DISABLED;
-  return raw === '1' || raw === 'true';
+  cachedKillSwitch = raw === '1' || raw === 'true';
+  return cachedKillSwitch;
 }
 
 export function isTelemetryEnabled(): boolean {
-  if (KILL_SWITCH) return false;
-  if (!ENDPOINT) return false;
+  if (resolveKillSwitch()) return false;
+  if (!resolveEndpoint()) return false;
   return useSettingsStore.getState().telemetryConsent === 'granted';
 }
 
@@ -48,7 +130,8 @@ export async function emitTelemetryEvent(
   // `isTelemetryEnabled` already guards on the endpoint, the kill switch,
   // and user consent. Keeping the single guard here means there is only one
   // place to audit when the privacy contract changes.
-  if (!isTelemetryEnabled() || !ENDPOINT) return;
+  const endpoint = resolveEndpoint();
+  if (!isTelemetryEnabled() || !endpoint) return;
 
   const payload: TelemetryEvent = {
     event,
@@ -63,7 +146,7 @@ export async function emitTelemetryEvent(
   const { event: redacted } = redactForTelemetry(payload);
 
   try {
-    await fetch(ENDPOINT, {
+    await fetch(endpoint, {
       method: 'POST',
       mode: 'cors',
       credentials: 'omit',

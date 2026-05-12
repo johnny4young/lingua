@@ -1,0 +1,410 @@
+/**
+ * RL-065 Slice 5 — `/telemetry` ingest endpoint tests.
+ *
+ * Covers:
+ *   - Method negotiation: POST, OPTIONS preflight, 405 for everything else.
+ *   - Payload size cap (8 KB) on both the Content-Length and body paths.
+ *   - JSON parse + structural validation (missing/unknown event, bad
+ *     property bag).
+ *   - Allowlist enforcement: unknown property keys silently dropped
+ *     so a sneaky `sourceCode` field never reaches the log line.
+ *   - Fold A — `DENY_SUBSTRINGS` substring deny pass mirrored from
+ *     `src/shared/telemetry.ts`.
+ *   - Fold B — per-IP rate limit (5 req/s ceiling, CF Cache API).
+ *   - Fold C — parity test: `TELEMETRY_EVENT_NAMES` and
+ *     `EVENT_PROPERTY_ALLOWLIST` here must equal the renderer copies
+ *     in `src/shared/telemetry.ts`. Drift between the two is exactly
+ *     the failure mode this test guards.
+ */
+
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import worker, { type Env } from '../src/index';
+import {
+  DENY_SUBSTRINGS,
+  EVENT_PROPERTY_ALLOWLIST,
+  TELEMETRY_EVENT_NAMES,
+  checkRateLimit,
+  ipBucket,
+  keyLooksSensitive,
+} from '../src/telemetry';
+import {
+  TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
+} from '../../src/shared/telemetry';
+
+type FetchMock = Mock<typeof fetch>;
+
+function createMockCacheStorage(): { mockCache: Cache; store: Map<string, Response> } {
+  const store = new Map<string, Response>();
+  const mockCache: Cache = {
+    match: vi.fn(async (request: RequestInfo | URL) => {
+      const key = typeof request === 'string' ? request : (request as Request).url;
+      const cached = store.get(key);
+      return cached ? cached.clone() : undefined;
+    }),
+    put: vi.fn(async (request: RequestInfo | URL, response: Response) => {
+      const key = typeof request === 'string' ? request : (request as Request).url;
+      store.set(key, response.clone());
+    }),
+    add: vi.fn(),
+    addAll: vi.fn(),
+    delete: vi.fn(),
+    keys: vi.fn(),
+    matchAll: vi.fn(),
+  } as unknown as Cache;
+  return { mockCache, store };
+}
+
+function createEnv(): Env {
+  return { GITHUB_TOKEN: 'gh_test_token' };
+}
+
+function postTelemetry(body: unknown, init: RequestInit = {}, ip = '203.0.113.1') {
+  return worker.fetch(
+    new Request('https://updates.linguacode.dev/telemetry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': ip },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+      ...init,
+    }),
+    createEnv()
+  );
+}
+
+beforeEach(() => {
+  vi.unstubAllGlobals();
+  const { mockCache } = createMockCacheStorage();
+  vi.stubGlobal('caches', { default: mockCache });
+  // Telemetry handler never reaches out to GitHub; pin fetch to a
+  // throwing stub so an accidental call surfaces as a hard failure.
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => {
+      throw new Error('telemetry handler must not call fetch');
+    }) as FetchMock
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
+describe('POST /telemetry — method negotiation', () => {
+  it('returns 204 on OPTIONS preflight with CORS headers', async () => {
+    const response = await worker.fetch(
+      new Request('https://updates.linguacode.dev/telemetry', { method: 'OPTIONS' }),
+      createEnv()
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+    expect(response.headers.get('Access-Control-Allow-Methods')).toBe('POST, OPTIONS');
+    expect(response.headers.get('Access-Control-Allow-Headers')).toBe('Content-Type');
+  });
+
+  it('returns 405 with Allow: POST, OPTIONS for GET', async () => {
+    const response = await worker.fetch(
+      new Request('https://updates.linguacode.dev/telemetry'),
+      createEnv()
+    );
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get('Allow')).toBe('POST, OPTIONS');
+  });
+});
+
+describe('POST /telemetry — payload validation', () => {
+  it('returns 400 when the body is not valid JSON', async () => {
+    const response = await postTelemetry('not-json');
+    expect(response.status).toBe(400);
+  });
+
+  it('returns 400 when the body is missing the `event` field', async () => {
+    const response = await postTelemetry({ properties: { language: 'js' } });
+    expect(response.status).toBe(400);
+  });
+
+  it('returns 400 when `event` is not in the allowlist', async () => {
+    const response = await postTelemetry({ event: 'app.spied_on' });
+    expect(response.status).toBe(400);
+  });
+
+  it('returns 400 when `properties` is a non-object', async () => {
+    const response = await postTelemetry({
+      event: 'app.launched',
+      properties: 'not-an-object',
+    });
+    expect(response.status).toBe(400);
+  });
+
+  it('accepts an allowed event with no properties (returns 204)', async () => {
+    const response = await postTelemetry({ event: 'app.launched' });
+    expect(response.status).toBe(204);
+  });
+
+  it('accepts an allowed event with valid properties (returns 204)', async () => {
+    const response = await postTelemetry({
+      event: 'runner.executed',
+      properties: { language: 'js', status: 'ok', durationBucketMs: 250 },
+    });
+    expect(response.status).toBe(204);
+  });
+});
+
+describe('POST /telemetry — silent property drop (no signal leakage)', () => {
+  it('drops unknown property keys without surfacing a 400', async () => {
+    // The privacy contract: never signal "we saw your sneaky key" by
+    // reflecting a rejection. Drop + 204 is what the renderer
+    // redactor already does locally.
+    const response = await postTelemetry({
+      event: 'runner.executed',
+      properties: { language: 'js', status: 'ok', sourceCode: 'leak me' },
+    });
+    expect(response.status).toBe(204);
+  });
+
+  it('drops non-primitive property values silently', async () => {
+    const response = await postTelemetry({
+      event: 'runner.executed',
+      properties: { language: 'js', status: { nested: 'object' } },
+    });
+    expect(response.status).toBe(204);
+  });
+
+  it('drops suspicious free-form values even when the property key is allow-listed', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const response = await postTelemetry({
+      event: 'runner.executed',
+      properties: {
+        language: 'console.log(secret)',
+        status: 'ok',
+        durationBucketMs: 250,
+      },
+    });
+
+    expect(response.status).toBe(204);
+    const eventLine = consoleSpy.mock.calls
+      .map(call => String(call[0] ?? ''))
+      .find(line => line.includes('"telemetry.event"'));
+    expect(eventLine).toBeDefined();
+    const parsed = JSON.parse(eventLine!);
+    expect(parsed.properties).toEqual({
+      status: 'ok',
+      durationBucketMs: 250,
+    });
+    expect(eventLine).not.toContain('console.log(secret)');
+  });
+
+  it('drops invalid enum values from allow-listed keys', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const response = await postTelemetry({
+      event: 'update.checked',
+      properties: { status: 'full stacktrace with path /Users/me/app' },
+    });
+
+    expect(response.status).toBe(204);
+    const eventLine = consoleSpy.mock.calls
+      .map(call => String(call[0] ?? ''))
+      .find(line => line.includes('"telemetry.event"'));
+    expect(eventLine).toBeDefined();
+    const parsed = JSON.parse(eventLine!);
+    expect(parsed.properties).toEqual({});
+  });
+});
+
+describe('POST /telemetry — fold A: deny-substring guard', () => {
+  it('keyLooksSensitive returns true for every DENY_SUBSTRING entry', () => {
+    for (const deny of DENY_SUBSTRINGS) {
+      // Bare substring as the whole key (e.g., `token`).
+      expect(keyLooksSensitive(deny), `bare ${deny}`).toBe(true);
+      // Substring embedded inside a longer key (e.g., `myToken`).
+      expect(keyLooksSensitive(`my${deny}`), `prefixed ${deny}`).toBe(true);
+      expect(keyLooksSensitive(`${deny}Field`), `suffixed ${deny}`).toBe(true);
+    }
+  });
+
+  it('keyLooksSensitive is case-insensitive', () => {
+    // A property key like `SourceCode` (mixed case) must hit the
+    // substring check the same as `sourcecode`. Without this guard
+    // a future allowlist regression that ever permitted a
+    // capitalised sensitive key would slip through.
+    expect(keyLooksSensitive('SourceCode')).toBe(true);
+    expect(keyLooksSensitive('EMAIL_ADDRESS')).toBe(true);
+    expect(keyLooksSensitive('UserPath')).toBe(true);
+  });
+
+  it('keyLooksSensitive returns false for benign keys', () => {
+    expect(keyLooksSensitive('platform')).toBe(false);
+    expect(keyLooksSensitive('language')).toBe(false);
+    expect(keyLooksSensitive('status')).toBe(false);
+    expect(keyLooksSensitive('durationBucketMs')).toBe(false);
+  });
+
+  it('end-to-end: a sneaky deny key in a POST is silently dropped from the log line', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await postTelemetry({
+      event: 'runner.executed',
+      properties: { language: 'js', status: 'ok', sourceCode: 'leak me' },
+    });
+    const eventLine = consoleSpy.mock.calls
+      .map(call => String(call[0] ?? ''))
+      .find(line => line.includes('"telemetry.event"'));
+    expect(eventLine).toBeDefined();
+    expect(eventLine!.toLowerCase()).not.toContain('sourcecode');
+    expect(eventLine!.toLowerCase()).not.toContain('leak me');
+  });
+});
+
+describe('POST /telemetry — payload size cap (8 KB)', () => {
+  it('returns 413 when Content-Length declares an over-size body', async () => {
+    const response = await worker.fetch(
+      new Request('https://updates.linguacode.dev/telemetry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'content-length': String(9000),
+          'cf-connecting-ip': '203.0.113.1',
+        },
+        // Send the smallest body — the cap fires on the declared
+        // length before the body is read.
+        body: '{}',
+      }),
+      createEnv()
+    );
+    expect(response.status).toBe(413);
+  });
+
+  it('returns 413 when the read body exceeds the cap', async () => {
+    // 12 KB JSON payload — well above the 8 KB cap. Build by
+    // padding `properties.platform` with a long string so the JSON
+    // is still parseable.
+    const padding = 'x'.repeat(12 * 1024);
+    const response = await postTelemetry({
+      event: 'app.launched',
+      properties: { platform: padding },
+    });
+    expect(response.status).toBe(413);
+  });
+
+  it('returns 413 when a multi-byte body exceeds the byte cap', async () => {
+    const response = await postTelemetry({
+      event: 'app.launched',
+      properties: { platform: '😀'.repeat(3000) },
+    });
+    expect(response.status).toBe(413);
+  });
+});
+
+describe('POST /telemetry — fold B: per-IP rate limit', () => {
+  it('allows up to RATE_LIMIT_PER_SECOND requests in the same second', async () => {
+    const ip = '198.51.100.1';
+    const now = Math.floor(Date.now() / 1000);
+    const results = await Promise.all([
+      checkRateLimit({ ip, now, perSecond: 5 }),
+      checkRateLimit({ ip, now, perSecond: 5 }),
+      checkRateLimit({ ip, now, perSecond: 5 }),
+      checkRateLimit({ ip, now, perSecond: 5 }),
+      checkRateLimit({ ip, now, perSecond: 5 }),
+    ]);
+    // Sequential / serialised: every call returns allowed.
+    expect(results.every(allowed => allowed)).toBe(true);
+  });
+
+  it('blocks the 6th request in the same second', async () => {
+    const ip = '198.51.100.2';
+    const now = Math.floor(Date.now() / 1000);
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await checkRateLimit({ ip, now, perSecond: 5 });
+    }
+    const sixth = await checkRateLimit({ ip, now, perSecond: 5 });
+    expect(sixth).toBe(false);
+  });
+
+  it('returns 429 on the endpoint when the IP is over the ceiling', async () => {
+    const ip = '198.51.100.3';
+    // Burn the budget with a small ceiling, then assert the 6th
+    // POST hits 429 instead of 204.
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await postTelemetry({ event: 'app.launched' }, {}, ip);
+    }
+    const response = await postTelemetry({ event: 'app.launched' }, {}, ip);
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('1');
+  });
+
+  it('isolates rate-limit buckets per IP', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    // IP A burns its budget.
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await checkRateLimit({ ip: 'A', now, perSecond: 5 });
+    }
+    // IP B starts fresh.
+    const otherAllowed = await checkRateLimit({ ip: 'B', now, perSecond: 5 });
+    expect(otherAllowed).toBe(true);
+  });
+});
+
+describe('telemetry observability log line', () => {
+  it('writes a `telemetry.event` log line with the validated payload', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await postTelemetry({
+      event: 'runner.executed',
+      properties: { language: 'js', status: 'ok', durationBucketMs: 250 },
+    });
+    const eventLine = consoleSpy.mock.calls
+      .map(call => String(call[0] ?? ''))
+      .find(line => line.includes('"telemetry.event"'));
+    expect(eventLine, 'telemetry.event log line was never written').toBeDefined();
+    const parsed = JSON.parse(eventLine!);
+    expect(parsed.event).toBe('telemetry.event');
+    expect(parsed.eventName).toBe('runner.executed');
+    expect(parsed.properties).toEqual({
+      language: 'js',
+      status: 'ok',
+      durationBucketMs: 250,
+    });
+    // Privacy guard — never log any deny-substring key, even if a
+    // future allowlist regression let one through. (Asserts the
+    // log line directly rather than relying on the validator alone.)
+    for (const deny of DENY_SUBSTRINGS) {
+      expect(eventLine!.toLowerCase()).not.toContain(`"${deny}`);
+    }
+  });
+});
+
+describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
+  it('TELEMETRY_EVENT_NAMES matches the renderer authority verbatim', () => {
+    // Same order, same length, same entries. Drift here is exactly
+    // the failure mode the parity test guards.
+    expect([...TELEMETRY_EVENT_NAMES]).toEqual([...RENDERER_TELEMETRY_EVENTS]);
+  });
+
+  it('every renderer event has a property allowlist on the worker side', () => {
+    for (const event of RENDERER_TELEMETRY_EVENTS) {
+      expect(EVENT_PROPERTY_ALLOWLIST, `missing allowlist for ${event}`).toHaveProperty(event);
+    }
+  });
+
+  it('worker EVENT_PROPERTY_ALLOWLIST has no extra event keys', () => {
+    const rendererSet = new Set<string>(RENDERER_TELEMETRY_EVENTS);
+    for (const event of Object.keys(EVENT_PROPERTY_ALLOWLIST)) {
+      expect(rendererSet.has(event), `${event} on worker but not renderer`).toBe(true);
+    }
+  });
+});
+
+describe('ipBucket — privacy guard', () => {
+  it('truncates the last IPv4 octet', () => {
+    expect(ipBucket('203.0.113.42')).toBe('203.0.113.*');
+  });
+
+  it('truncates IPv6 to the first three hextets', () => {
+    expect(ipBucket('2001:db8:abcd:0012:0:0:0:1')).toBe('2001:db8:abcd::*');
+  });
+
+  it('returns `unknown` for malformed input', () => {
+    expect(ipBucket('garbage')).toBe('unknown');
+    expect(ipBucket('')).toBe('unknown');
+    expect(ipBucket('unknown')).toBe('unknown');
+  });
+});
