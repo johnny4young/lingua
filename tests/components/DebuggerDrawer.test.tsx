@@ -43,6 +43,7 @@ describe('DebuggerDrawer', () => {
     render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
 
     expect(screen.getByTestId('debugger-drawer')).toBeTruthy();
+    expect(screen.getByTestId('debugger-breakpoint-summary').textContent).toContain('1/1 active');
     expect(screen.getByTestId('debugger-empty').textContent).toContain(
       'Press Debug to run until the first enabled breakpoint.'
     );
@@ -58,6 +59,45 @@ describe('DebuggerDrawer', () => {
     expect(screen.getByTestId('debugger-empty').textContent).toContain(
       'All breakpoints are disabled.'
     );
+    expect(screen.getByTestId('debugger-breakpoint-summary').textContent).toContain('0/1 active');
+  });
+
+  it('manages breakpoint batches from the debugger panel', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+    useDebuggerStore.getState().toggleBreakpoint('tab-2', 9);
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    fireEvent.click(screen.getByTestId('debugger-toggle-all-breakpoints'));
+
+    expect(
+      Object.values(useDebuggerStore.getState().breakpoints).every((bp) => bp.enabled === false)
+    ).toBe(true);
+    expect(screen.getByTestId('debugger-toggle-all-breakpoints').textContent).toContain(
+      'Enable all'
+    );
+  });
+
+  it('clears all breakpoints from the debugger panel after confirmation', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+    useDebuggerStore.getState().toggleBreakpoint('tab-2', 9);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    fireEvent.click(screen.getByTestId('debugger-clear-all-breakpoints'));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(Object.keys(useDebuggerStore.getState().breakpoints)).toHaveLength(0);
+    confirmSpy.mockRestore();
+  });
+
+  it('uses neutral Spanish copy for breakpoint actions', async () => {
+    await i18next.changeLanguage('es');
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+
+    expect(screen.getByTestId('debugger-clear-all-breakpoints').textContent).toContain('Limpiar');
+    expect(screen.queryByText(/Borra/i)).toBeNull();
   });
 
   it('stays hidden for languages whose debugger adapter is not available', () => {

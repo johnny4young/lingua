@@ -1,4 +1,13 @@
-import { Bug, ChevronsRight, ChevronUp, ChevronDown, LogOut } from 'lucide-react';
+import {
+  Bug,
+  ChevronsRight,
+  ChevronUp,
+  ChevronDown,
+  CirclePause,
+  CirclePlay,
+  LogOut,
+  Trash2,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -39,6 +48,15 @@ export function DebuggerDrawer({
   const detachSession = useDebuggerStore((state) => state.detachSession);
   const drawerCollapsed = useDebuggerStore((state) => state.drawerCollapsed);
   const toggleDrawerCollapsed = useDebuggerStore((state) => state.toggleDrawerCollapsed);
+  const allBreakpoints = useDebuggerStore((state) => state.breakpoints);
+  const allBreakpointCount = Object.keys(allBreakpoints).length;
+  const allBreakpointsDisabled =
+    allBreakpointCount > 0 &&
+    Object.values(allBreakpoints).every((bp) => bp.enabled === false);
+  const clearAllBreakpoints = useDebuggerStore((state) => state.clearAllBreakpoints);
+  const setAllBreakpointsEnabled = useDebuggerStore(
+    (state) => state.setAllBreakpointsEnabled
+  );
   const breakpointCount = useDebuggerStore((state) => {
     if (!activeTabId) return 0;
     let count = 0;
@@ -68,6 +86,13 @@ export function DebuggerDrawer({
       ? 'debugger.empty.noEnabled'
       : 'debugger.empty.ready';
   const canStepOut = isPaused && (pausedFrame?.callStack.length ?? 0) > 0;
+  const breakpointSummary =
+    breakpointCount > 0
+      ? t('debugger.breakpoints.summary', {
+          enabled: enabledBreakpointCount,
+          count: breakpointCount,
+        })
+      : t('debugger.breakpoints.empty');
 
   const sendResume = () => {
     postDebuggerMessage({ type: 'resume' });
@@ -89,6 +114,14 @@ export function DebuggerDrawer({
     useDebuggerStore.getState().setPausedFrame(null);
     detachSession();
   };
+  const toggleAllBreakpoints = () => {
+    setAllBreakpointsEnabled(allBreakpointsDisabled);
+  };
+  const clearBreakpoints = () => {
+    if (window.confirm(t('debugger.breakpoints.clearAll.confirm'))) {
+      clearAllBreakpoints();
+    }
+  };
 
   return (
     <section
@@ -97,8 +130,8 @@ export function DebuggerDrawer({
         isPaused ? 'border-danger/45' : 'border-border/80'
       }`}
     >
-      <header className="flex items-center justify-between gap-2 px-4 py-2">
-        <div className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+      <header className="flex flex-col gap-2 px-4 py-2 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
           <button
             type="button"
             data-testid="debugger-collapse"
@@ -117,6 +150,19 @@ export function DebuggerDrawer({
           <Bug size={14} aria-hidden="true" />
           <span>{t('debugger.title')}</span>
           <span
+            data-testid="debugger-breakpoint-summary"
+            title={
+              allBreakpointCount > breakpointCount
+                ? t('debugger.breakpoints.globalHint', { count: allBreakpointCount })
+                : undefined
+            }
+            className={`status-pill border-transparent px-2 py-0.5 text-[10px] ${
+              enabledBreakpointCount > 0 ? 'bg-danger/10 text-danger' : 'bg-surface text-muted'
+            }`}
+          >
+            {breakpointSummary}
+          </span>
+          <span
             className={`status-pill border-transparent px-2 py-0.5 text-[10px] ${
               isPaused ? 'bg-danger/12 text-danger' : 'bg-surface text-muted'
             }`}
@@ -133,7 +179,33 @@ export function DebuggerDrawer({
             </span>
           ) : null}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
+          <button
+            type="button"
+            data-testid="debugger-toggle-all-breakpoints"
+            onClick={toggleAllBreakpoints}
+            disabled={allBreakpointCount === 0}
+            className="inline-flex items-center gap-1 rounded-[0.45rem] border border-border/80 px-2 py-1 text-xs font-medium text-muted hover:border-danger/50 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {allBreakpointsDisabled ? (
+              <CirclePlay size={11} aria-hidden="true" />
+            ) : (
+              <CirclePause size={11} aria-hidden="true" />
+            )}
+            {allBreakpointsDisabled
+              ? t('debugger.breakpoints.enableAll.button')
+              : t('debugger.breakpoints.disableAll.button')}
+          </button>
+          <button
+            type="button"
+            data-testid="debugger-clear-all-breakpoints"
+            onClick={clearBreakpoints}
+            disabled={allBreakpointCount === 0}
+            className="inline-flex items-center gap-1 rounded-[0.45rem] border border-border/80 px-2 py-1 text-xs font-medium text-muted hover:border-danger/50 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Trash2 size={11} aria-hidden="true" />
+            {t('debugger.breakpoints.clearAll.button')}
+          </button>
           <button
             type="button"
             data-testid="debugger-continue"

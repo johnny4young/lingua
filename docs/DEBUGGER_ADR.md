@@ -170,10 +170,10 @@ existing RL-037 editable shortcut mapper.
   to `'available'`, and composes esbuild's TS→JS source map with
   the instrumenter's JS→JS map via `@jridgewell/trace-mapping` so
   breakpoints in `.ts` files pause at the user's TS line number.
-- **Folds A / B / D / E / F (Slice 1.5).** Settings adds a
-  Clear-all-breakpoints button (A) and a Pause-disabled toggle (F);
-  the Debugger header carries a chevron that persists the collapsed
-  state (B); the toolbar shows a per-tab breakpoint pill (D); the
+- **Folds A / B / D / E / F (Slice 1.5).** The Debugger panel owns
+  Clear-all-breakpoints (A), Disable all / Enable all (F), and the
+  active file breakpoint count (D). The Debugger header carries a
+  chevron that persists the collapsed state (B); the
   `debugger.detached` event joins the ADR-named pair so dashboards
   can compute median session length (E).
 - **UX refinement shipped 2026-05-12.** The toolbar now groups

@@ -10,9 +10,9 @@ import { languageSupportsDebugger } from '../utils/languageMeta';
  *
  * Renders one dot per breakpoint in the active tab and turns clicks on
  * the gutter into `toggleBreakpoint(tabId, line)` calls. Disabled
- * breakpoints (set via the Settings "Pause is disabled for all
- * breakpoints" toggle from fold F) render as a hollow ring so users
- * still see them but they no longer pause execution.
+ * breakpoints (set via the Debugger panel's Disable all action) render
+ * as a hollow ring so users still see them but they no longer pause
+ * execution.
  *
  * Per the Debugger ADR (`docs/DEBUGGER_ADR.md` §1) the JS/TS adapter is
  * the first runtime to ship; this gutter only mounts dots for those

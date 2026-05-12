@@ -1086,17 +1086,16 @@ What shipped:
   `debuggerEnabled`, a debugger-capable JS / TS tab, and an editor
   cursor (no paused session needed) while the step shortcuts keep the
   original paused-frame gate.
-- `DebuggerDrawer` mounted inside `EditorArea` (sibling-after-editor,
-  NOT inside `ConsolePanel` — the latter was the Slice 1 layout fail
-  that broke 4 e2e specs). Drawer header gains a chevron that flips
-  `drawerCollapsed` in the store (persisted across reloads).
-- Settings → Editor gains three new rows: the master `debuggerEnabled`
-  toggle (base), a "Pause is disabled for all breakpoints" toggle that
-  drives the new `setAllBreakpointsEnabled` batch mutator (fold F), and
-  a Clear-all-breakpoints button behind a `window.confirm` prompt with
-  a plural-aware hint (fold A).
-- Toolbar gains a "X breakpoints" pill on the right side, color-coded
-  red when `debuggerEnabled` is true and muted when off (fold D).
+- `DebuggerDrawer` now lives in the existing bottom panel as a sibling
+  tab to Console, so the debugger reuses the bottom-panel splitter and
+  does not cover inline output. Drawer header gains a chevron that
+  flips `drawerCollapsed` in the store (persisted across reloads).
+- Settings → Editor keeps the stable master `debuggerEnabled` toggle.
+  Breakpoint management moved to the Debugger panel: enabled/total
+  status, Disable all / Enable all, and Clear behind a
+  `window.confirm` prompt.
+- Toolbar no longer owns breakpoint status. The bottom-panel Debugger
+  tab carries the active-file breakpoint count instead (fold D).
 - Three new telemetry events join `TELEMETRY_EVENTS` per ADR §4:
   `debugger.attached`, `debugger.paused`, `debugger.detached`. Payload
   is closed-enum (`{ language: 'js', reasonBucket: '...' }`). The
@@ -1113,8 +1112,8 @@ What shipped:
   is true (zero cost on non-debug runs) and threads it as `inputMap`.
 - JS+TS language-pack `capabilities.debugger` flipped from `'planned'`
   to `'available'`.
-- 30 new i18n keys per locale in tuteo (`Borra`, `Activa`, `Colapsa`,
-  `Pausa desactivada`, etc.). No voseo.
+- i18n keys per locale use neutral product copy in tuteo and keep
+  breakpoint actions out of Settings.
 - Three new docs: `docs/DEBUGGER_SLICE1.md` runbook (operator-oriented
   walkthrough of the user surface + recovery paths), an amendment to
   `DEBUGGER_ADR.md` with the delivery notes section, and three new
@@ -1125,11 +1124,12 @@ What shipped:
   persistence), extended `tests/runtime/debuggerInstrument.test.ts`
   (source-map composition happy path + malformed-map fallback +
   passthrough + frame-header translation), new
-  `tests/components/EditorSection.debugger.test.tsx` (master toggle +
-  Clear-all + Disable-all + ES tuteo), extended
-  `tests/components/DebuggerDrawer.test.tsx` (chevron collapse), and a
-  new `tests/e2e/debuggerJs.spec.ts` Playwright smoke pinning the
-  Settings row, the Spanish copy, and the console-error gate.
+  `tests/components/EditorSection.debugger.test.tsx` (master toggle
+  and breakpoint actions excluded from Settings), extended
+  `tests/components/DebuggerDrawer.test.tsx` (chevron collapse,
+  breakpoint status/actions), and a new `tests/e2e/debuggerJs.spec.ts`
+  Playwright smoke pinning the Settings row, Debugger-panel Spanish
+  copy, and the console-error gate.
 
 Deferred to Slice 1.5b (still):
 

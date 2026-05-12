@@ -137,9 +137,9 @@ export interface DebuggerState {
   setBreakpointCondition: (tabId: string, line: number, condition: string) => void;
   setBreakpointEnabled: (tabId: string, line: number, enabled: boolean) => void;
   /**
-   * Slice 1.5 fold F — batch-update `enabled` on every breakpoint. Used by
-   * the Settings "Pause is disabled for all breakpoints" toggle: a single
-   * mutator avoids tearing UI re-render across 100 individual calls.
+   * Slice 1.5 fold F — batch-update `enabled` on every breakpoint.
+   * Used by the Debugger panel's Disable all / Enable all control: a
+   * single mutator avoids tearing UI re-render across 100 individual calls.
    */
   setAllBreakpointsEnabled: (enabled: boolean) => void;
   clearAllBreakpoints: () => void;
