@@ -22,6 +22,7 @@
 import {
   closeSettings,
   createJavaScriptTab,
+  createTypeScriptTab,
   expect,
   gotoApp,
   openSettings,
@@ -111,5 +112,23 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
     await closeSettings(page);
 
     expect(errors).toEqual([]);
+  });
+});
+
+test.describe('Debugger TypeScript smoke (RL-027 Slice 1.5)', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+    await createTypeScriptTab(page);
+  });
+
+  test('keyboard breakpoint toggle works on a TypeScript tab', async ({ page }) => {
+    await expect(page.locator('.monaco-editor')).toBeVisible();
+    await page.locator('.monaco-editor').click({ position: { x: 120, y: 36 } });
+    await page.keyboard.press('Control+Shift+B');
+
+    await expect(page.locator('.monaco-editor .lingua-bp-glyph')).toHaveCount(1);
+    await expect(page.getByTestId('debugger-drawer')).toBeVisible();
+    await expect(page.getByTestId('toolbar-breakpoint-pill')).toContainText(/1 breakpoint/i);
   });
 });

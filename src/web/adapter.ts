@@ -135,12 +135,23 @@ const webLingua: LinguaAPI = {
   env: {
     snapshot: async () => ({}),
   },
-  // RL-026 Slice 3 — Rust LSP via rust-analyzer is desktop-only. The
-  // web build resolves every entry point to a stable `'missing'`
-  // status so the renderer renders the install hint and never tries
-  // to send JSON-RPC requests that have no transport.
+  // RL-026 Slice 3 + Slice 4 — desktop LSPs (rust-analyzer + gopls)
+  // are desktop-only. The web build resolves every entry point to a
+  // stable `'missing'` status so the renderer renders the install
+  // hint and never tries to send JSON-RPC requests that have no
+  // transport.
   lsp: {
     rust: {
+      start: async () => ({ kind: 'missing' as const, reason: 'web-build' }),
+      restart: async () => ({ kind: 'missing' as const, reason: 'web-build' }),
+      stop: async () => ({ kind: 'stopped' as const }),
+      status: async () => ({ kind: 'missing' as const, reason: 'web-build' }),
+      request: async () => ({ ok: false as const, error: 'web-build' }),
+      notify: () => {},
+      onNotification: () => () => {},
+      onStatusChanged: () => () => {},
+    },
+    go: {
       start: async () => ({ kind: 'missing' as const, reason: 'web-build' }),
       restart: async () => ({ kind: 'missing' as const, reason: 'web-build' }),
       stop: async () => ({ kind: 'stopped' as const }),

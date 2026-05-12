@@ -77,16 +77,27 @@ describe('resolveRustAnalyzerBinary', () => {
   });
 
   it('falls back to ~/.cargo/bin/rust-analyzer when PATH lookup fails', async () => {
-    execFileMock.mockImplementation(
-      (
-        _cmd: string,
-        _args: readonly string[],
-        _opts: unknown,
-        cb: (err: Error | null, stdout: string) => void
-      ) => {
-        cb(new Error('ENOENT'), '');
-      }
-    );
+    execFileMock
+      .mockImplementationOnce(
+        (
+          _cmd: string,
+          _args: readonly string[],
+          _opts: unknown,
+          cb: (err: Error | null, stdout: string) => void
+        ) => {
+          cb(new Error('ENOENT'), '');
+        }
+      )
+      .mockImplementationOnce(
+        (
+          _cmd: string,
+          _args: readonly string[],
+          _opts: unknown,
+          cb: (err: Error | null, stdout: string) => void
+        ) => {
+          cb(null, 'rust-analyzer 0.4.0\n');
+        }
+      );
     accessMock.mockResolvedValue(undefined);
 
     const { resolveRustAnalyzerBinary } = await import(
@@ -95,6 +106,37 @@ describe('resolveRustAnalyzerBinary', () => {
     const result = await resolveRustAnalyzerBinary();
     expect(result?.source).toBe('cargo-bin');
     expect(result?.command).toMatch(/\.cargo[\\/]+bin[\\/]+rust-analyzer/);
+  });
+
+  it('treats a rustup proxy without the rust-analyzer component as missing', async () => {
+    execFileMock
+      .mockImplementationOnce(
+        (
+          _cmd: string,
+          _args: readonly string[],
+          _opts: unknown,
+          cb: (err: Error | null, stdout: string) => void
+        ) => {
+          cb(new Error('ENOENT'), '');
+        }
+      )
+      .mockImplementationOnce(
+        (
+          _cmd: string,
+          _args: readonly string[],
+          _opts: unknown,
+          cb: (err: Error | null, stdout: string) => void
+        ) => {
+          cb(new Error("Unknown binary 'rust-analyzer'"), '');
+        }
+      );
+    accessMock.mockResolvedValue(undefined);
+
+    const { resolveRustAnalyzerBinary } = await import(
+      '../../../src/main/lsp/rustAnalyzerLauncher'
+    );
+    const result = await resolveRustAnalyzerBinary();
+    expect(result).toBeNull();
   });
 
   it('returns null when neither PATH nor cargo-bin contains the binary', async () => {

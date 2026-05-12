@@ -95,10 +95,11 @@ interface RustRunResult {
   error?: string;
 }
 
-// RL-026 Slice 3 — rust-analyzer launcher status surface. Mirrors the
-// shape returned by `src/main/lsp/rustAnalyzerLauncher.ts` so the
-// renderer and preload share a single contract.
-type RustAnalyzerStatus =
+// RL-026 Slice 3 + Slice 4 — desktop LSP launcher status surface.
+// `RustAnalyzerStatus` and `GoplsStatus` share the same discriminated
+// union so the renderer and preload can use a single contract; the
+// language-specific aliases exist for readability at the IPC handles.
+type LspLauncherStatus =
   | { kind: 'unknown' }
   | { kind: 'starting' }
   | { kind: 'running'; version: string }
@@ -106,6 +107,9 @@ type RustAnalyzerStatus =
   | { kind: 'startup-failed'; error: string }
   | { kind: 'degraded'; error: string }
   | { kind: 'stopped' };
+
+type RustAnalyzerStatus = LspLauncherStatus;
+type GoplsStatus = LspLauncherStatus;
 
 // Minimal JSON-RPC notification shape used by the LSP bridge. The
 // renderer self-filters by `method`; everything off the contract is
@@ -454,7 +458,7 @@ interface LinguaAPI {
     snapshot: () => Promise<Record<string, string>>;
   };
 
-  // RL-026 Slice 3 — Rust LSP bridge.
+  // RL-026 Slice 3 (Rust) + Slice 4 (Go) — desktop LSP bridges.
   lsp: {
     rust: {
       start: () => Promise<RustAnalyzerStatus>;
@@ -468,6 +472,19 @@ interface LinguaAPI {
       notify: (method: string, params: unknown) => void;
       onNotification: (callback: (notification: LspNotification) => void) => () => void;
       onStatusChanged: (callback: (status: RustAnalyzerStatus) => void) => () => void;
+    };
+    go: {
+      start: () => Promise<GoplsStatus>;
+      restart: () => Promise<GoplsStatus>;
+      stop: () => Promise<{ kind: 'stopped' }>;
+      status: () => Promise<GoplsStatus>;
+      request: (
+        method: string,
+        params: unknown
+      ) => Promise<{ ok: true; result: unknown } | { ok: false; error: string }>;
+      notify: (method: string, params: unknown) => void;
+      onNotification: (callback: (notification: LspNotification) => void) => () => void;
+      onStatusChanged: (callback: (status: GoplsStatus) => void) => () => void;
     };
   };
 

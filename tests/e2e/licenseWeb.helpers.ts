@@ -498,3 +498,11 @@ export async function createJavaScriptTab(page: Page): Promise<void> {
   await page.getByRole('button', { name: /new javascript|nuevo javascript/i }).click();
   await expect(page.getByRole('tab', { name: /JS .*\.js/i })).toBeVisible();
 }
+
+export async function createTypeScriptTab(page: Page): Promise<void> {
+  await page
+    .getByRole('button', { name: /new file language menu|menú de lenguaje para nuevo archivo/i })
+    .click();
+  await page.getByRole('menuitem', { name: /^TypeScript$/i }).click();
+  await expect(page.getByRole('tab', { name: /TS .*\.ts/i })).toBeVisible();
+}

@@ -11,6 +11,7 @@ import {
   FONT_SIZES,
   fontStackSupportsLigatures,
 } from './settingsOptions';
+import { GoLanguageIntelligenceRow } from './GoLanguageIntelligenceRow';
 import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
 import { Row, Section, Select, StepperButton, Toggle } from './shared';
 import { ThemePresetControls } from './ThemePresetControls';
@@ -339,6 +340,7 @@ export function EditorSection() {
       </Row>
 
       <RustLanguageIntelligenceRow />
+      <GoLanguageIntelligenceRow />
 
       <ThemePresetControls />
     </Section>

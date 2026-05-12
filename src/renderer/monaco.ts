@@ -22,6 +22,8 @@ import { createGoCompletionProvider } from './components/Editor/completionProvid
 import { createPythonCompletionProvider } from './components/Editor/completionProviders/pythonCompletions';
 import { createPythonHoverProvider } from './components/Editor/completionProviders/pythonHoverProvider';
 import { createPythonSignatureProvider } from './components/Editor/completionProviders/pythonSignatureProvider';
+import { createGoHoverProvider } from './components/Editor/completionProviders/goHoverProvider';
+import { createGoSignatureProvider } from './components/Editor/completionProviders/goSignatureProvider';
 import { createRustCompletionProvider } from './components/Editor/completionProviders/rustCompletions';
 import { createRustHoverProvider } from './components/Editor/completionProviders/rustHoverProvider';
 import { createRustSignatureProvider } from './components/Editor/completionProviders/rustSignatureProvider';
@@ -220,10 +222,13 @@ export function registerLanguageCompletionProviders(m: Monaco): void {
   m.languages.registerSignatureHelpProvider('python', createPythonSignatureProvider());
 
   // RL-026 Slice 3 — Rust hover + signature help via rust-analyzer.
-  // The providers self-gate on `isRustLspAvailable()`; the web build
+  // RL-026 Slice 4 — Go hover + signature help via gopls.
+  // Both pairs self-gate on `is<Lang>LspAvailable()`; the web build
   // returns null without hitting IPC.
   m.languages.registerHoverProvider('rust', createRustHoverProvider());
   m.languages.registerSignatureHelpProvider('rust', createRustSignatureProvider());
+  m.languages.registerHoverProvider('go', createGoHoverProvider());
+  m.languages.registerSignatureHelpProvider('go', createGoSignatureProvider());
 }
 
 // The TypeScript contribution augments the global `monaco.languages` object

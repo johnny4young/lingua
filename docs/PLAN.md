@@ -975,8 +975,38 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   contract, and Settings render branches in both locales. `before-quit`
   disposes the launcher so the long-lived child does not outlive
   Lingua's main process.
-- Remaining scope: Go via gopls (Slice 4 — same scaffold, swap
-  launcher).
+- Slice 4 shipped Go via gopls — same JSON-RPC scaffold, swapped
+  launcher, generalised lifecycle. New `src/main/lsp/goplsLauncher.ts`
+  detects gopls on PATH first, then `$GOPATH/bin/gopls` (first
+  delimiter-split entry per Go's documented behaviour), then
+  `~/go/bin/gopls`. The PATH-case detection captures the `gopls
+  version` output and threads it through `prefetchedVersion` so
+  `runStart` reuses the same probe instead of paying a second 5-second
+  `execFile` round trip. Env filtered via
+  `buildNativeRunnerEnv(combinedAllowlist(GO_TOOLCHAIN_KEYS))` — same
+  allowlist the Go compile path already uses. `src/main/ipc/lsp.ts`
+  flips from a single rust launcher to a Map keyed by language; the
+  request/notification allowlists are renamed
+  `ALLOWED_LSP_REQUESTS` / `ALLOWED_LSP_NOTIFICATIONS` (contents
+  unchanged — the LSP method set Lingua consumes is identical across
+  both languages). Each language registers a parallel set of
+  `lsp:<lang>:*` channels via `registerLanguageHandlers`. The renderer
+  lifecycle hook (`useRustLspLifecycle`) and Settings row
+  (`RustLanguageIntelligenceRow`) were lifted into shared
+  `useLspLifecycle` + `LanguageIntelligenceRow` helpers (fold B + C
+  of the Slice 4 plan); the language-specific facades stayed as thin
+  wrappers so callsites kept their names. New `useGoLspLifecycle` +
+  `GoLanguageIntelligenceRow` mount through the same shared helpers.
+  Go Monaco hover + signature providers are registered alongside the
+  rust pair; the existing `goCompletions` provider gained the
+  LSP-completion merge layer (static keywords + snippets stay
+  available even before gopls boots; semantic completions merge in
+  once it does). Web stub at `src/web/adapter.ts` exposes
+  `lsp.rust` + `lsp.go` symmetrically — both return `'missing'` with
+  reason `'web-build'`. New cross-language Playwright spec
+  `tests/e2e/languageIntelligence.spec.ts` (fold F) pins both rows on
+  the web build in EN + ES locales. ES copy in neutral LatAm tuteo
+  (`Instálalo`, `Reinicia`, `Tócalo`). Closes RL-026 in full.
 
 ### RL-027 Add debugger MVP
 

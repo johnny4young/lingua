@@ -91,7 +91,6 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-026`](./PLAN.md#rl-026-add-language-intelligence-beyond-monacos-built-in-jsts-services) | Language intelligence beyond Monaco | `Partial` | **Slice 3 shipped 2026-05-11** — Rust ships diagnostics + completions + hover + signature help via rust-analyzer over a main-process LSP bridge (`src/main/lsp/*`, `src/main/ipc/lsp.ts`); web build degrades honestly to `'missing: web-build'`; conditional `RustLanguageIntelligenceRow` surfaces the install hint or a "Restart rust-analyzer" recovery button. Slice 2 shipped same day for Python (hover + signature help on the renderer adapter). Remaining: Go via gopls (Slice 4 — same scaffold, swap launcher). |
 | [`RL-027`](./PLAN.md#rl-027-add-debugger-mvp) | Debugger MVP | `Partial` | ADR landed 2026-04-20. Slice 1 partial-staged 2026-05-09. **Slice 1.5 shipped 2026-05-11** — BreakpointGutter Monaco glyph-margin (red dots + click → toggle, `Mod+Shift+B` keyboard path), mounted `DebuggerDrawer` inside `EditorArea` with chevron collapse + persisted state, visible Settings → Editor → Debugger rows (master toggle, Disable-all, Clear-all with confirm), three telemetry events (`debugger.attached` / `debugger.paused` / `debugger.detached` with closed-enum payloads), JS+TS `capabilities.debugger` flipped to `'available'`, esbuild TS→JS source-map composition via `@jridgewell/trace-mapping` so TS breakpoints pause at user line, toolbar breakpoint-count pill, `docs/DEBUGGER_SLICE1.md` runbook, ADR amendment, CAPABILITY_MATRIX rows for JS/TS/Python/Go/Rust debuggers, and blocking e2e smoke in `tests/e2e/debuggerJs.spec.ts`. **Remaining for Slice 1.5b**: conditional-breakpoint predicate evaluation + watch-expression evaluation (deferred behind a dedicated security review of the worker eval pattern — the dynamic-Function constructor pattern hit the security_reminder hook during Slice 1, and the inline-fix policy carve-out keeps it out of 1.5). |
 | [`RL-042`](./PLAN.md#rl-042-expand-language-support-toward-15-languages) | Expand languages toward 15+ | `Partial` | Ruby, Java, Kotlin, Scala, Swift, C, C++ open in view/lint mode. Runnable tiers pending per-lang. |
 
@@ -159,7 +158,7 @@ agent should follow when §3's tiebreakers don't resolve.
 4. **Runtime/platform surface hardening.** `RL-091` closed 2026-05-06 (structured logging + redaction + metrics catalog + readiness probes across both Cloudflare Workers + 5 incident runbooks + observability spec). `RL-084` closed 2026-05-06 (shared validator + path-traversal guard + bundled-runtime allowlist + new `unknown` status + UI test coverage). `RL-087` closed 2026-05-06 (watcher lifecycle audit + typed failure diagnostics surfaced via status notice + `IGNORED_PATH_PREFIXES` shared module + `before-quit` cleanup + USAGE.md platform-limitations section). The §5 #4 hardening lane is now closed in full.
 5. **Product quality and supportability.** Closed in full. `RL-088` closed 2026-05-06 (axe-core gate via `tests/e2e/a11y.spec.ts`, keyboard-only flows, OverlayBackdrop focus restoration, plus the `docs/A11Y.md` manual checklist). `RL-086` closed 2026-05-07 (bundle/runtime performance budgets, baseline report, CI logs, desktop smoke runtime/memory metrics, and `runtimeObservability` folded into the central performance report). `RL-089` closed 2026-05-07 (versioned profile export/import with three conflict policies, replace-confirm modal, file picker + paste fallback, and explicit machine-bound exclusion list). `RL-090` closed 2026-05-07 (top-level error boundaries with redacted error report + clipboard fallback, global error listeners, safe-mode boot via `?safe-mode=1`, boot-loop counter escalating to factory mode after 3 crashes in 60s, RecoverySection with five scoped resets + reveal-folder, and `docs/RECOVERY.md` support documentation).
 6. **Utilities polish.** Closed in full. `RL-072` closed 2026-05-08 (QR decode + Copy-as-PNG + colors + SVG + utilityOutputStore wiring). `RL-069` closed 2026-05-09 — Slice 1 (productivity foundation), Slice 2 (detect + Apply + 29-panel coverage), and Slice 3 (clipboard-on-focus + history + favorites with `@dnd-kit` drag-reorder + new `UtilitiesSection` Settings + RL-065 telemetry events) all shipped same day window. The lane is empty.
-7. **Debugger + language intelligence.** `RL-027` Slice 1.5 and `RL-026` Slices 1 → 3 are shipped (Slice 3 closes Rust diagnostics + completions + hover + signature help via rust-analyzer). Remaining work is `RL-027` Slice 1.5b (conditional breakpoints + watch expressions behind security review) and `RL-026` Go via gopls. These unblock `RL-042` and `RL-047`.
+7. **Debugger + language intelligence.** `RL-026` closed 2026-05-11 — Slice 4 (Go via gopls — diagnostics + completions + hover + signature help) shipped alongside Slice 3 (Rust via rust-analyzer) earlier the same day; both run on the shared LSP scaffold (`src/main/lsp/lspProcess.ts`, `src/main/ipc/lsp.ts` allowlist) and the renderer lifecycle is owned by a shared `useLspLifecycle`. `RL-027` Slice 1.5 is shipped; only Slice 1.5b (conditional breakpoints + watch expressions behind security review) remains. These unblock `RL-042` and `RL-047`.
 8. **Runtime mode expansion.** `RL-019` + `RL-020` land together — the worker scratchpad + browser preview story. Depends on `RL-033` stabilization landing first if Vite is touched.
 9. **Notebook + rich output.** `RL-043` + `RL-044` are a paired slice. Only after the runtime contract from §4 is stable.
 10. **Personalization + lessons.** `RL-039` in-app lesson browser, `RL-041` static export.
@@ -175,17 +174,17 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>61 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>62 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
-`RL-022`, `RL-028`, `RL-030`, `RL-034`, `RL-037`, `RL-038`, `RL-040`,
-`RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`, `RL-056`,
-`RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-063`, `RL-064`,
-`RL-066`, `RL-067`, `RL-068`, `RL-069`, `RL-070`, `RL-071`, `RL-073`,
-`RL-074`, `RL-075`, `RL-076`, `RL-077`, `RL-078`, `RL-079`, `RL-080`,
-`RL-081`, `RL-082`, `RL-083`, `RL-084`, `RL-085`, `RL-086`, `RL-087`,
-`RL-088`, `RL-089`, `RL-090`, `RL-091`, `RL-092`.
+`RL-022`, `RL-026`, `RL-028`, `RL-030`, `RL-034`, `RL-037`, `RL-038`,
+`RL-040`, `RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`,
+`RL-056`, `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-063`,
+`RL-064`, `RL-066`, `RL-067`, `RL-068`, `RL-069`, `RL-070`, `RL-071`,
+`RL-073`, `RL-074`, `RL-075`, `RL-076`, `RL-077`, `RL-078`, `RL-079`,
+`RL-080`, `RL-081`, `RL-082`, `RL-083`, `RL-084`, `RL-085`, `RL-086`,
+`RL-087`, `RL-088`, `RL-089`, `RL-090`, `RL-091`, `RL-092`.
 
 </details>
 

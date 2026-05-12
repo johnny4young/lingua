@@ -81,10 +81,11 @@ contextBridge.exposeInMainWorld('lingua', {
       ipcRenderer.invoke('env:snapshot') as Promise<Record<string, string>>,
   },
 
-  // RL-026 Slice 3 — Rust language server bridge. The renderer never
-  // talks to rust-analyzer directly; high-level commands go through
-  // these handles and notifications stream back via `onNotification` /
-  // `onStatusChanged`. The launcher is owned by main.
+  // RL-026 Slice 3 + Slice 4 — desktop LSP bridges. The renderer
+  // never talks to rust-analyzer or gopls directly; high-level
+  // commands go through these handles and notifications stream back
+  // via `onNotification` / `onStatusChanged`. Both launchers are
+  // owned by main and disposed on `before-quit`.
   lsp: {
     rust: {
       start: () => ipcRenderer.invoke('lsp:rust:start') as Promise<RustAnalyzerStatus>,
@@ -112,6 +113,31 @@ contextBridge.exposeInMainWorld('lingua', {
           callback(data as RustAnalyzerStatus);
         ipcRenderer.on('lsp:rust:status', handler);
         return () => ipcRenderer.removeListener('lsp:rust:status', handler);
+      },
+    },
+    go: {
+      start: () => ipcRenderer.invoke('lsp:go:start') as Promise<GoplsStatus>,
+      restart: () => ipcRenderer.invoke('lsp:go:restart') as Promise<GoplsStatus>,
+      stop: () => ipcRenderer.invoke('lsp:go:stop') as Promise<{ kind: 'stopped' }>,
+      status: () => ipcRenderer.invoke('lsp:go:status') as Promise<GoplsStatus>,
+      request: (method: string, params: unknown) =>
+        ipcRenderer.invoke('lsp:go:request', method, params) as Promise<
+          { ok: true; result: unknown } | { ok: false; error: string }
+        >,
+      notify: (method: string, params: unknown) => {
+        ipcRenderer.send('lsp:go:notify', method, params);
+      },
+      onNotification: (callback: (notification: LspNotification) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: unknown) =>
+          callback(data as LspNotification);
+        ipcRenderer.on('lsp:go:notification', handler);
+        return () => ipcRenderer.removeListener('lsp:go:notification', handler);
+      },
+      onStatusChanged: (callback: (status: GoplsStatus) => void) => {
+        const handler = (_event: Electron.IpcRendererEvent, data: unknown) =>
+          callback(data as GoplsStatus);
+        ipcRenderer.on('lsp:go:status', handler);
+        return () => ipcRenderer.removeListener('lsp:go:status', handler);
       },
     },
   },
