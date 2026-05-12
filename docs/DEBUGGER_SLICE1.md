@@ -28,15 +28,13 @@ After Slice 1.5 ships:
   alternate actions. **Run** always executes normally and ignores
   breakpoints; **Debug** attaches the pause protocol and runs until
   the first enabled breakpoint.
-- A small "X breakpoints" pill on the toolbar's right side whenever
-  the active tab has at least one breakpoint. Clicking the pill opens
-  Settings.
-- Three new rows in **Settings → Editor**:
-  - **Debugger** — the master switch (`debuggerEnabled`).
-  - **Pause is disabled for all breakpoints** — keeps the gutter
-    marks visible but stops the worker from pausing on them.
-  - **Clear all breakpoints** — wipes the per-file store, after a
-    confirm prompt.
+- Breakpoint status lives in the **Debugger** tab, not the top
+  toolbar. The tab shows the active file count; the panel header shows
+  enabled/total status plus **Disable all / Enable all** and **Clear**
+  actions.
+- **Settings → Editor** keeps only the stable **Debugger** preference:
+  the master switch (`debuggerEnabled`). Breakpoint session actions
+  stay in the Debugger panel.
 
 ## Enabling the debugger
 
@@ -48,7 +46,6 @@ When the flag is off:
 
 - Gutter clicks are no-ops.
 - The Debugger tab never mounts.
-- The toolbar pill never appears.
 - The keyboard shortcut is silently ignored.
 
 ## Setting a breakpoint

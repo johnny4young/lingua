@@ -149,6 +149,22 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
   const setActiveBottomPanel = useUIStore((state) => state.setActiveBottomPanel);
+  const activeBreakpointCount = useDebuggerStore((state) => {
+    if (!activeTabId) return 0;
+    let count = 0;
+    for (const bp of Object.values(state.breakpoints)) {
+      if (bp.tabId === activeTabId) count += 1;
+    }
+    return count;
+  });
+  const enabledBreakpointCount = useDebuggerStore((state) => {
+    if (!activeTabId) return 0;
+    let count = 0;
+    for (const bp of Object.values(state.breakpoints)) {
+      if (bp.tabId === activeTabId && bp.enabled !== false) count += 1;
+    }
+    return count;
+  });
   const effectiveTab =
     debuggerAvailable && (!consoleVisible || activeBottomPanel === 'debugger')
       ? 'debugger'
@@ -167,17 +183,22 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background/65">
-      <div className="surface-header flex h-10 shrink-0 items-center gap-1 border-b border-border/70 px-3">
+      <div
+        role="tablist"
+        aria-label={t('bottomPanel.tabs.label')}
+        className="surface-header flex h-10 shrink-0 items-end gap-1 border-b border-border/80 bg-surface/80 px-2 pt-1"
+      >
         <button
           type="button"
+          role="tab"
           data-testid="bottom-panel-console-tab"
           aria-selected={effectiveTab === 'console'}
           onClick={() => selectTab('console')}
           className={cn(
-            'inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors',
+            'relative -mb-px inline-flex h-9 items-center gap-2 rounded-t-md border border-transparent px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors',
             effectiveTab === 'console'
-              ? 'bg-surface-strong text-foreground'
-              : 'text-muted hover:bg-surface-strong/70 hover:text-foreground'
+              ? 'border-border/80 border-b-background bg-background text-foreground shadow-[0_-1px_0_rgba(255,255,255,0.5)_inset]'
+              : 'text-muted hover:border-border/60 hover:bg-background/50 hover:text-foreground'
           )}
         >
           <Terminal size={12} aria-hidden="true" />
@@ -186,18 +207,36 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
         {debuggerAvailable ? (
           <button
             type="button"
+            role="tab"
             data-testid="bottom-panel-debugger-tab"
             aria-selected={effectiveTab === 'debugger'}
+            title={t('debugger.breakpoints.tabHint', {
+              enabled: enabledBreakpointCount,
+              count: activeBreakpointCount,
+            })}
             onClick={() => selectTab('debugger')}
             className={cn(
-              'inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors',
+              'relative -mb-px inline-flex h-9 items-center gap-2 rounded-t-md border border-transparent px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors',
               effectiveTab === 'debugger'
-                ? 'bg-danger/12 text-danger'
-                : 'text-muted hover:bg-danger/10 hover:text-danger'
+                ? 'border-border/80 border-b-background bg-background text-danger shadow-[0_-1px_0_rgba(255,255,255,0.5)_inset]'
+                : 'text-muted hover:border-border/60 hover:bg-background/50 hover:text-danger'
             )}
           >
             <Bug size={12} aria-hidden="true" />
             {t('bottomPanel.tabs.debugger')}
+            {activeBreakpointCount > 0 ? (
+              <span
+                data-testid="bottom-panel-debugger-count"
+                className={cn(
+                  'rounded border px-1.5 py-0.5 text-[10px] leading-none',
+                  enabledBreakpointCount > 0
+                    ? 'border-danger/30 bg-danger/10 text-danger'
+                    : 'border-border/70 bg-surface text-muted'
+                )}
+              >
+                {activeBreakpointCount}
+              </span>
+            ) : null}
           </button>
         ) : null}
       </div>

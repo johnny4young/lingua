@@ -82,18 +82,6 @@ export function Toolbar({
   const shortcutOverrides = useSettingsStore((state) => state.shortcutOverrides);
   const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
   const plugins = usePluginStore((state) => state.plugins);
-  // RL-027 Slice 1.5 fold D — breakpoint count for the toolbar pill.
-  // Counts only the active tab so a user with 50 breakpoints across
-  // many files sees the count that matches the visible gutter dots.
-  const breakpointCount = useDebuggerStore((state) => {
-    const tabId = useEditorStore.getState().activeTabId;
-    if (!tabId) return 0;
-    let count = 0;
-    for (const bp of Object.values(state.breakpoints)) {
-      if (bp.tabId === tabId) count += 1;
-    }
-    return count;
-  });
   const enabledBreakpointCount = useDebuggerStore((state) => {
     const tabId = useEditorStore.getState().activeTabId;
     if (!tabId) return 0;
@@ -536,33 +524,6 @@ export function Toolbar({
             {t('toolbar.languageActive', { language: defaultNewFileLabel })}
           </div>
         )}
-        {activeTabSupportsDebugger && breakpointCount > 0 ? (
-          <Tooltip
-            content={
-              !debuggerEnabled
-                ? t('debugger.toolbar.pill.disabledHint')
-                : enabledBreakpointCount === 0
-                  ? t('debugger.toolbar.pill.noEnabledHint')
-                  : t('debugger.toolbar.pill.activeHint')
-            }
-          >
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              data-testid="toolbar-breakpoint-pill"
-              aria-label={t('debugger.toolbar.pill', { count: breakpointCount })}
-              className={cn(
-                'status-pill inline-flex items-center gap-1 hover:bg-surface',
-                debuggerEnabled && enabledBreakpointCount > 0
-                  ? 'border-danger/40 text-danger'
-                  : 'border-border/60 text-muted'
-              )}
-            >
-              <Bug size={11} aria-hidden="true" />
-              <span>{t('debugger.toolbar.pill', { count: breakpointCount })}</span>
-            </button>
-          </Tooltip>
-        ) : null}
         <LicenseBadge onClick={onOpenSettings} />
 
         <IconButton onClick={onOpenQuickOpen} tooltip={t('toolbar.quickOpen')}>

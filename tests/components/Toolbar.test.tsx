@@ -250,12 +250,12 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: 'New file language menu' })).toBeTruthy();
   });
 
-  it('shows the breakpoint pill only when the active language debugger is available', () => {
+  it('keeps breakpoint state out of the top toolbar', () => {
     useDebuggerStore.getState().toggleBreakpoint('tab-1', 4);
 
     render(<Toolbar />);
 
-    expect(screen.getByTestId('toolbar-breakpoint-pill').textContent).toContain('1 breakpoint');
+    expect(screen.queryByTestId('toolbar-breakpoint-pill')).toBeNull();
   });
 
   it('groups Debug under the Run dropdown and requires an enabled breakpoint', async () => {
@@ -293,8 +293,8 @@ describe('Toolbar', () => {
     await user.click(screen.getByTestId('toolbar-run-menu-button'));
     const debugBtn = screen.getByTestId('toolbar-debug-button');
     expect((debugBtn as HTMLButtonElement).disabled).toBe(true);
-    await user.hover(screen.getByTestId('toolbar-breakpoint-pill'));
-    expect(screen.getByRole('tooltip').textContent).toContain('All breakpoints are disabled');
+    expect(debugBtn.getAttribute('title')).toContain('Set an enabled breakpoint');
+    expect(screen.queryByTestId('toolbar-breakpoint-pill')).toBeNull();
   });
 
   it('hides persisted breakpoint affordances for planned debugger languages', () => {

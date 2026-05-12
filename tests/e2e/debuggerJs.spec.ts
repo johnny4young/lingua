@@ -6,12 +6,12 @@ import type { Page } from '@playwright/test';
  * Drives the user-facing surface that the slice unlocks:
  *
  *   1. Gutter mark renders for a programmatically-set breakpoint.
- *   2. The Debugger tab is available in the bottom panel once a
- *      breakpoint is set, without stealing the output panel by default.
+ *   2. Breakpoint state stays in the bottom-panel Debugger tab,
+ *      without stealing the output panel by default.
  *   3. The Settings → Editor → Debugger row reads + writes the
  *      master `debuggerEnabled` flag.
- *   4. Spanish copy renders in neutral LatAm tuteo (`Depurador`,
- *      `Borra todos los puntos de interrupción`).
+ *   4. Spanish copy renders breakpoint actions in the Debugger panel,
+ *      not in Settings.
  *
  * Pausing the JS worker live in Playwright is non-trivial (the
  * worker yields awaits and the test harness has to keep the
@@ -81,7 +81,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
     await closeSettings(page);
   });
 
-  test('keyboard breakpoint toggle renders the gutter dot, toolbar pill, and debugger tab', async ({
+  test('keyboard breakpoint toggle renders the gutter dot and debugger tab state', async ({
     page,
   }) => {
     await expect(page.locator('.monaco-editor')).toBeVisible();
@@ -93,12 +93,14 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
 
     await expect(page.locator('.monaco-editor .lingua-bp-glyph')).toHaveCount(1);
     await expect(page.getByTestId('debugger-drawer')).toHaveCount(0);
-    await expect(page.getByTestId('toolbar-breakpoint-pill')).toContainText(/1 breakpoint/i);
+    await expect(page.getByTestId('toolbar-breakpoint-pill')).toHaveCount(0);
 
     await page.getByRole('button', { name: /toggle console/i }).click();
     await expect(page.getByTestId('bottom-panel-debugger-tab')).toBeVisible();
+    await expect(page.getByTestId('bottom-panel-debugger-count')).toContainText('1');
     await page.getByTestId('bottom-panel-debugger-tab').click();
     await expect(page.getByTestId('debugger-drawer')).toBeVisible();
+    await expect(page.getByTestId('debugger-breakpoint-summary')).toContainText('1/1');
 
     await openRunMenu(page);
     await expect(page.getByTestId('toolbar-debug-button')).toBeEnabled();
@@ -225,7 +227,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
     await expect(resultsPanel.getByText('1calling')).toBeVisible();
   });
 
-  test('Spanish copy renders the Debugger Settings rows in neutral LatAm tuteo', async ({
+  test('Spanish copy keeps breakpoint actions in the Debugger panel', async ({
     browser,
   }) => {
     // Spanish locale needs a fresh context — the `beforeEach` seeds
@@ -244,10 +246,19 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
       await expect(esPage.getByRole('switch', { name: /^Depurador$/ })).toBeVisible();
       await expect(
         esPage.getByRole('switch', { name: /Pausa desactivada para todos/i })
-      ).toBeVisible();
-      // Borra (tuteo) — not "Borrá" (voseo).
-      await expect(esPage.getByTestId('settings-debugger-clear-all')).toContainText(/Borra/);
+      ).toHaveCount(0);
+      await expect(esPage.getByTestId('settings-debugger-clear-all')).toHaveCount(0);
       await closeSettings(esPage);
+
+      await esPage.locator('.monaco-editor').click({ position: { x: 120, y: 36 } });
+      await esPage.keyboard.press('Control+Shift+B');
+      await esPage.getByRole('button', { name: /alternar consola/i }).click();
+      await esPage.getByTestId('bottom-panel-debugger-tab').click();
+
+      await expect(esPage.getByTestId('debugger-clear-all-breakpoints')).toContainText(
+        /Limpiar/
+      );
+      await expect(esPage.getByText(/Borra/)).toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -287,10 +298,11 @@ test.describe('Debugger TypeScript smoke (RL-027 Slice 1.5)', () => {
 
     await expect(page.locator('.monaco-editor .lingua-bp-glyph')).toHaveCount(1);
     await expect(page.getByTestId('debugger-drawer')).toHaveCount(0);
-    await expect(page.getByTestId('toolbar-breakpoint-pill')).toContainText(/1 breakpoint/i);
+    await expect(page.getByTestId('toolbar-breakpoint-pill')).toHaveCount(0);
 
     await page.getByRole('button', { name: /toggle console/i }).click();
     await expect(page.getByTestId('bottom-panel-debugger-tab')).toBeVisible();
+    await expect(page.getByTestId('bottom-panel-debugger-count')).toContainText('1');
 
     await openRunMenu(page);
     await expect(page.getByTestId('toolbar-debug-button')).toBeEnabled();
