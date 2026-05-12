@@ -3,6 +3,11 @@ name: Deploy Update Server
 on:
   workflow_dispatch:
 
+# Opt v4 action runtimes into Node.js 24 ahead of the 2026-06-02
+# forced cutover.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   deploy:
     name: Deploy Cloudflare Worker
