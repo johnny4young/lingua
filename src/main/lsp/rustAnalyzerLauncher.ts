@@ -90,6 +90,10 @@ export async function resolveRustAnalyzerBinary(): Promise<{
   for (const fallback of FALLBACK_BIN_PATHS) {
     try {
       await access(fallback);
+      await execFileAsync(fallback, ['--version'], {
+        env: buildLauncherEnv(),
+        timeout: 5000,
+      });
       return { command: fallback, source: 'cargo-bin' };
     } catch {
       continue;

@@ -16,6 +16,7 @@ import { getDiagnosticKey } from '../../utils/editorExecutionDecorations';
 import { useInlineResults } from '../../hooks/useInlineResults';
 import { useBreakpointGutter } from '../../hooks/useBreakpointGutter';
 import { useLanguageIntelligenceDiagnostics } from '../../hooks/useLanguageIntelligenceDiagnostics';
+import { useGoLspDocumentSync } from '../../hooks/useGoLspLifecycle';
 import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
 import { setActiveEditor } from '../../runtime/editorAccess';
 import { EditorEmptyState } from './EditorEmptyState';
@@ -99,6 +100,7 @@ export function CodeEditor() {
   const activeTab = tabs.find((t) => t.id === activeTabId);
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
   useRustLspDocumentSync(editorInstance, activeTab);
+  useGoLspDocumentSync(editorInstance, activeTab);
   // RL-027 Slice 1.5 — glyph-margin breakpoint dots + click → toggle.
   // The hook self-gates on `debuggerEnabled` AND `language ∈ {js, ts}`
   // so non-debug tabs stay byte-identical in the DOM.

@@ -29,6 +29,7 @@ import { useRunner } from './hooks/useRunner';
 import { useDesktopSmoke } from './hooks/useDesktopSmoke';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+import { useGoLspLifecycle } from './hooks/useGoLspLifecycle';
 import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
 import { useAutoRun } from './hooks/useAutoRun';
@@ -106,8 +107,12 @@ function AppChrome({
   const appInfo = useAppInfo();
   const effectiveTier = useEffectiveTier();
   const canUseDeveloperUtilities = useEntitlement('DEV_UTILITIES');
-  // RL-026 Slice 3 — rust-analyzer lifecycle (boot, status, diagnostics, toast).
+  // RL-026 Slice 3 — rust-analyzer lifecycle.
+  // RL-026 Slice 4 — gopls lifecycle. Same hook shape via the shared
+  // `useLspLifecycle`; the two languages have independent stores so a
+  // crash in one does not block the other.
   useRustLspLifecycle();
+  useGoLspLifecycle();
   const { hasCompletedTour, startTour } = useGuidedTour();
   const smokeEnabled = desktopSmokeEnabled();
   const hasHandledDeepLink = useDeepLinks({ openOverlay });

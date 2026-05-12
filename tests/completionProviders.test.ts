@@ -62,9 +62,9 @@ async function getSuggestionsAsync(
 }
 
 describe('language completion providers', () => {
-  it('returns Go fmt and snippet completions', () => {
+  it('returns Go fmt and snippet completions', async () => {
     const provider = createGoCompletionProvider(monacoStub as never);
-    const suggestions = getSuggestions(provider);
+    const suggestions = await getSuggestionsAsync(provider);
 
     expect(suggestions.map((item) => item.label)).toEqual(
       expect.arrayContaining(['fmt.Println', 'fmt.Sprintf', 'if err != nil'])

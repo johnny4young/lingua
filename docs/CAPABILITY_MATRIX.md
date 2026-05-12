@@ -70,7 +70,7 @@ The matrix below rates each capability against these five classes:
 | Deep-link protocol     | Out          | Out                 | Out          | **Primary**    | —      | Desktop native | `lingua://` protocol (see RL-040). Browsers cannot register custom protocols for the PWA without OS-level install |
 | Local AI inference     | Research     | Out                 | Out          | Research       | Research | Hybrid (undecided) | Tracked in RL-031. Browser WASM via transformers.js or webllm is viable for tiny models; larger models need desktop native with a local runtime (Ollama, llama.cpp). Decision pending a dedicated spike |
 | Formatter binaries     | Out          | Out                 | Research     | **Primary**    | —      | Desktop native for gofmt / rustfmt / Python; browser interpreter for Prettier | Desktop spawns gofmt, rustfmt, and Python formatters (`ruff format -` preferred, `black --quiet -` fallback) via `src/main/formatters.ts`. Prettier runs in the renderer via `prettier/standalone` for JS / TS / JSON / CSS in both web and desktop |
-| Language intelligence  | Stub         | **Shipping**        | Planned (gopls) | **Shipping (desktop)** | **Hybrid** | Hybrid | JS/TS keep Monaco's built-in service. Python ships a renderer adapter for diagnostics + completions + hover + signature help in web + desktop. Rust ships diagnostics + completions + hover + signature help via rust-analyzer over the desktop LSP bridge (`src/main/lsp/*`, RL-026 Slice 3) — capability gates on rust-analyzer detection, web build degrades to `'missing'`. Go via gopls is RL-026 Slice 4, same scaffold |
+| Language intelligence  | Stub         | **Shipping**        | **Shipping (desktop)** | **Shipping (desktop)** | **Hybrid** | Hybrid | JS/TS keep Monaco's built-in service. Python ships a renderer adapter for diagnostics + completions + hover + signature help in web + desktop. Rust + Go ship the same surface via rust-analyzer / gopls over the shared desktop LSP bridge (`src/main/lsp/*`, RL-026 Slice 3 + Slice 4); capability gates on binary detection, web build degrades to `'missing'`. RL-026 is now closed in full |
 | Debugger (JS / TS)     | Out          | **Shipping**        | Out          | **Shipping**   | —      | Browser interpreter | Acorn + magic-string instrumentation in `src/renderer/runtime/debuggerInstrument.ts` rewrites user source to yield before each statement; the JS worker drives the pause loop. TS rides the same worker after esbuild transpile, with the TS→JS source map composed via `@jridgewell/trace-mapping` so breakpoints round-trip to original TS lines. Conditional-bp + watch-expression eval are deferred to Slice 1.5b behind a dedicated security review (see `DEBUGGER_ADR.md`) |
 | Debugger (Python)      | Research     | Out                 | Out          | Planned (`pdb` bridge) | — | Desktop native | Per `DEBUGGER_ADR.md` §1, the Python adapter spawns headless `python -u -m pdb` and pipes commands through main. Not started; tracked as Slice 2 in RL-027 |
 | Debugger (Go / Rust)   | Out          | Out                 | Out          | Planned (Delve / lldb) | — | Desktop native | Slice 3 (Go via Delve JSON-RPC) and Slice 4 (Rust via lldb-mi) in RL-027. Both require host toolchain installs |
@@ -101,8 +101,11 @@ The matrix below rates each capability against these five classes:
   active-parameter tracking) on top of the same renderer symbol table — no
   desktop bridge introduced for either capability.
 - **Keep desktop LSPs for languages that need the host toolchain.** Go and
-  Rust still belong behind desktop adapters because useful diagnostics and
-  signature help depend on `gopls` / `rust-analyzer` availability.
+  Rust both ship desktop adapters over the shared `src/main/lsp/*`
+  bridge — diagnostics + completions + hover + signature help through
+  `gopls` / `rust-analyzer`. Both languages gate on local binary
+  detection (PATH first, then language-specific fallbacks) and degrade
+  honestly to `'missing'` on the web build.
 - **Do not mix execution markers with language-service markers.** Execution
   failures keep the `lingua-execution` owner; language intelligence owns only
   editor-time diagnostics.
