@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebuggerDrawer } from '@/components/Debugger/DebuggerDrawer';
@@ -74,6 +75,47 @@ describe('DebuggerDrawer', () => {
     ).toBe(true);
     expect(screen.getByTestId('debugger-toggle-all-breakpoints').textContent).toContain(
       'Enable all'
+    );
+  });
+
+  it('surfaces contextual tooltips for debugger status and controls', async () => {
+    const user = userEvent.setup();
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+    useDebuggerStore.setState({
+      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
+      pausedFrame: {
+        tabId: 'tab-1',
+        line: 2,
+        reason: 'user-breakpoint',
+        locals: {},
+        callStack: [{ functionName: 'main', line: 1 }],
+        watchResults: {},
+      },
+    });
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+
+    await user.hover(screen.getByTestId('debugger-breakpoint-summary'));
+    expect((await screen.findByRole('tooltip')).textContent).toContain(
+      '1 of 1 breakpoints are active'
+    );
+
+    await user.unhover(screen.getByTestId('debugger-breakpoint-summary'));
+    await waitFor(() => {
+      expect(screen.queryByRole('tooltip')).toBeNull();
+    });
+    await user.hover(screen.getByTestId('debugger-continue'));
+    expect((await screen.findByRole('tooltip')).textContent).toContain(
+      'Resume execution until the next breakpoint'
+    );
+
+    await user.unhover(screen.getByTestId('debugger-continue'));
+    await waitFor(() => {
+      expect(screen.queryByRole('tooltip')).toBeNull();
+    });
+    await user.hover(screen.getByTestId('debugger-step-into'));
+    expect((await screen.findByRole('tooltip')).textContent).toContain(
+      'Enter a local function call'
     );
   });
 

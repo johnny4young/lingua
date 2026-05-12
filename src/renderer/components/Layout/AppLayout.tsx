@@ -9,7 +9,7 @@ import { ResultPanel } from '../Editor/ResultPanel';
 import { ConsolePanel } from '../Console';
 import { DebuggerDrawer } from '../Debugger/DebuggerDrawer';
 import { Toolbar } from '../Toolbar';
-import { IconButton, OverlayBackdrop } from '../ui/chrome';
+import { IconButton, OverlayBackdrop, Tooltip } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useEditorStore } from '../../stores/editorStore';
@@ -186,58 +186,64 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
       <div
         role="tablist"
         aria-label={t('bottomPanel.tabs.label')}
-        className="surface-header flex h-10 shrink-0 items-end gap-1 border-b border-border/80 bg-surface/80 px-2 pt-1"
+        className="surface-header flex h-11 shrink-0 items-end gap-1 border-b border-border-strong/70 bg-surface-strong/70 px-2 pt-1"
       >
-        <button
-          type="button"
-          role="tab"
-          data-testid="bottom-panel-console-tab"
-          aria-selected={effectiveTab === 'console'}
-          onClick={() => selectTab('console')}
-          className={cn(
-            'relative -mb-px inline-flex h-9 items-center gap-2 rounded-t-md border border-transparent px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors',
-            effectiveTab === 'console'
-              ? 'border-border/80 border-b-background bg-background text-foreground shadow-[0_-1px_0_rgba(255,255,255,0.5)_inset]'
-              : 'text-muted hover:border-border/60 hover:bg-background/50 hover:text-foreground'
-          )}
-        >
-          <Terminal size={12} aria-hidden="true" />
-          {t('bottomPanel.tabs.console')}
-        </button>
-        {debuggerAvailable ? (
+        <Tooltip content={t('bottomPanel.tabs.consoleHint')} side="bottom">
           <button
             type="button"
             role="tab"
-            data-testid="bottom-panel-debugger-tab"
-            aria-selected={effectiveTab === 'debugger'}
-            title={t('debugger.breakpoints.tabHint', {
+            data-testid="bottom-panel-console-tab"
+            aria-selected={effectiveTab === 'console'}
+            onClick={() => selectTab('console')}
+            className={cn(
+              'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+              effectiveTab === 'console'
+                ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
+                : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
+            )}
+          >
+            <Terminal size={12} aria-hidden="true" />
+            {t('bottomPanel.tabs.console')}
+          </button>
+        </Tooltip>
+        {debuggerAvailable ? (
+          <Tooltip
+            content={t('bottomPanel.tabs.debuggerHint', {
               enabled: enabledBreakpointCount,
               count: activeBreakpointCount,
             })}
-            onClick={() => selectTab('debugger')}
-            className={cn(
-              'relative -mb-px inline-flex h-9 items-center gap-2 rounded-t-md border border-transparent px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors',
-              effectiveTab === 'debugger'
-                ? 'border-border/80 border-b-background bg-background text-danger shadow-[0_-1px_0_rgba(255,255,255,0.5)_inset]'
-                : 'text-muted hover:border-border/60 hover:bg-background/50 hover:text-danger'
-            )}
+            side="bottom"
           >
-            <Bug size={12} aria-hidden="true" />
-            {t('bottomPanel.tabs.debugger')}
-            {activeBreakpointCount > 0 ? (
-              <span
-                data-testid="bottom-panel-debugger-count"
-                className={cn(
-                  'rounded border px-1.5 py-0.5 text-[10px] leading-none',
-                  enabledBreakpointCount > 0
-                    ? 'border-danger/30 bg-danger/10 text-danger'
-                    : 'border-border/70 bg-surface text-muted'
-                )}
-              >
-                {activeBreakpointCount}
-              </span>
-            ) : null}
-          </button>
+            <button
+              type="button"
+              role="tab"
+              data-testid="bottom-panel-debugger-tab"
+              aria-selected={effectiveTab === 'debugger'}
+              onClick={() => selectTab('debugger')}
+              className={cn(
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                effectiveTab === 'debugger'
+                  ? 'border-border-strong border-t-danger border-b-background bg-background text-danger shadow-[0_1px_0_0_var(--app-background)]'
+                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-danger'
+              )}
+            >
+              <Bug size={12} aria-hidden="true" />
+              {t('bottomPanel.tabs.debugger')}
+              {activeBreakpointCount > 0 ? (
+                <span
+                  data-testid="bottom-panel-debugger-count"
+                  className={cn(
+                    'rounded border px-1.5 py-0.5 text-[10px] leading-none',
+                    enabledBreakpointCount > 0
+                      ? 'border-danger/30 bg-danger/10 text-danger'
+                      : 'border-border/70 bg-surface text-muted'
+                  )}
+                >
+                  {activeBreakpointCount}
+                </span>
+              ) : null}
+            </button>
+          </Tooltip>
         ) : null}
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
