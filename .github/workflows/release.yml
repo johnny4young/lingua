@@ -28,6 +28,11 @@ on:
         required: false
         type: boolean
         default: true
+      release_skip_packaged_smoke:
+        description: Skip the packaged desktop smoke gate (use only when actively debugging the smoke harness)
+        required: false
+        type: boolean
+        default: false
 
 env:
   RELEASE_TAG: ${{ inputs.release_tag }}
@@ -267,6 +272,7 @@ jobs:
       # Run block uses only static npm / bash commands; no github.event
       # interpolation.
       - name: Packaged desktop smoke
+        if: ${{ !inputs.release_skip_packaged_smoke }}
         shell: bash
         env:
           # First-boot of a freshly notarized .app on macos-14 (M1, 7 GB)
@@ -279,6 +285,18 @@ jobs:
         run: |
           set -euo pipefail
           npm run smoke:desktop:packaged
+
+      # Always upload the packaged smoke artifacts so timeout/crash
+      # diagnostics survive runner teardown. progress.json names the
+      # last case the renderer reached; the PNGs capture the window
+      # state at each step.
+      - name: Upload packaged smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-packaged-smoke
+          path: output/playwright/desktop-smoke/**/*
+          if-no-files-found: ignore
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
