@@ -99,18 +99,18 @@ export class JavaScriptRunner implements LanguageRunner {
     let droppedStderr = 0;
     let stderrByteTruncated = false;
 
-    // RL-027 Slice 1 — debug mode resolves the breakpoint set + watch
-    // list FIRST. If the user has the feature enabled and at least one
-    // breakpoint set in this tab, we instrument the source AND
-    // auto-disable loop-protection (per ADR §4 — pausing inside a loop
-    // would otherwise trip the auto-killer).
+    // RL-027 debugger refinement — debug mode is now an explicit UI
+    // intent. Normal Run ignores breakpoints so gutter marks do not
+    // silently change execution semantics; Debug instruments the source
+    // and auto-disables loop protection only when an enabled breakpoint
+    // exists in the active tab.
     const settings = useSettingsStore.getState();
     const debuggerSettings = settings.debuggerEnabled !== false;
     const debugStore = useDebuggerStore.getState();
     const tabBreakpoints = context?.tabId
       ? debugStore.breakpointsForTab(context.tabId).filter((bp) => bp.enabled)
       : [];
-    const debug = debuggerSettings && tabBreakpoints.length > 0;
+    const debug = context?.debug === true && debuggerSettings && tabBreakpoints.length > 0;
 
     const { loopProtection, maxLoopIterations } = settings;
     const protectedCode =
@@ -121,12 +121,14 @@ export class JavaScriptRunner implements LanguageRunner {
     const magicTransformed = hasMagic ? transformJSMagicComments(protectedCode) : protectedCode;
 
     let transformedCode = magicTransformed;
+    let sourceLineMap: Record<number, number> | undefined;
     if (debug) {
       try {
         const instrumented = instrumentForDebugger(magicTransformed, {
           filename: context?.tabId ?? 'user-code.js',
         });
         transformedCode = instrumented.code;
+        sourceLineMap = instrumented.sourceLineMap;
       } catch {
         // Instrumentation failure should NOT block a run — fall back
         // to executing the un-instrumented source so the user still
@@ -152,14 +154,30 @@ export class JavaScriptRunner implements LanguageRunner {
       const worker = this.worker;
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
       let resolved = false;
-
-      const finish = (value: ExecutionResult) => {
-        if (resolved) return;
-        resolved = true;
+      const clearDeadline = () => {
         if (timeoutHandle !== null) {
           clearTimeout(timeoutHandle);
           timeoutHandle = null;
         }
+      };
+      const armDeadline = () => {
+        clearDeadline();
+        timeoutHandle = setTimeout(() => {
+          worker.terminate();
+          if (this.worker === worker) this.worker = null;
+          // RL-027 Slice 1 — same cleanup as the crash path so an F5/F10
+          // after a timeout does not post to a dead worker.
+          this.clearDebuggerSession('stop');
+          finish(
+            runnerTimeoutResult(timeout, t, { stdout, stderr })
+          );
+        }, timeout);
+      };
+
+      const finish = (value: ExecutionResult) => {
+        if (resolved) return;
+        resolved = true;
+        clearDeadline();
         // Drop the runId so any latent worker reply is rejected.
         if (this.currentRunId === runId) {
           this.currentRunId = null;
@@ -206,6 +224,7 @@ export class JavaScriptRunner implements LanguageRunner {
                 t
               );
             }
+            context?.onConsole?.(output);
             break;
           }
           case 'magic-comment':
@@ -245,6 +264,10 @@ export class JavaScriptRunner implements LanguageRunner {
                 reasonBucket: paused.reason,
               });
             }
+            // A paused debugger is expected to wait indefinitely for
+            // user input. Keep the runaway-code deadline for active
+            // execution, but suspend it while Continue/Step is pending.
+            clearDeadline();
             // RL-027 Slice 1.5 — `conditionalPending` is dropped here;
             // when conditional-bp evaluation lands, thread the flag
             // into PausedFrame so the drawer can flag "predicate
@@ -252,6 +275,9 @@ export class JavaScriptRunner implements LanguageRunner {
             void paused.conditionalPending;
             break;
           }
+          case 'resumed':
+            armDeadline();
+            break;
           case 'done':
             finish({
               stdout,
@@ -289,18 +315,9 @@ export class JavaScriptRunner implements LanguageRunner {
 
       // RL-078 — parent-owned kill timer. If user code never yields,
       // the in-worker handlers above never fire; this timer is the
-      // only thing that can recover the UI. Terminating the worker
-      // also drops any future postMessage it may have queued.
-      timeoutHandle = setTimeout(() => {
-        worker.terminate();
-        if (this.worker === worker) this.worker = null;
-        // RL-027 Slice 1 — same cleanup as the crash path so an F5/F10
-        // after a timeout does not post to a dead worker.
-        this.clearDebuggerSession('stop');
-        finish(
-          runnerTimeoutResult(timeout, t, { stdout, stderr })
-        );
-      }, timeout);
+      // only thing that can recover the UI. Debug pauses clear and
+      // re-arm this deadline around user-controlled stepping.
+      armDeadline();
 
       if (debug && context?.tabId) {
         this.debugSessionActive = true;
@@ -326,6 +343,7 @@ export class JavaScriptRunner implements LanguageRunner {
         debug,
         breakpoints: tabBreakpoints.map((bp) => ({ line: bp.line, condition: bp.condition })),
         watches: debug ? debugStore.watches.map((w) => w.expression) : [],
+        sourceLineMap,
       });
     });
   }

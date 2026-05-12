@@ -56,9 +56,10 @@ Out of scope for the MVP:
 
 ### 3. UI shape
 
-Single collapsible drawer below the editor (same footprint as the
-console panel). When active it replaces the inline-results column
-on narrow layouts. Keyboard shortcuts mirror VS Code defaults
+Debugger content lives as a tab in the existing resizable bottom
+panel, alongside Console. This keeps the inline-results column
+visible while a run is paused and gives the user the same splitter
+to allocate vertical space. Keyboard shortcuts mirror VS Code defaults
 (`F5` continue, `F10` step over, `F11` step into, `Shift+F11` step
 out). The shortcuts bus already lives in
 `src/renderer/data/keyboardShortcuts.ts` so they plug in via the
@@ -106,7 +107,7 @@ existing RL-037 editable shortcut mapper.
 ## Rollback
 
 - Feature is opt-in behind a `settings.debuggerEnabled` flag
-  (future work). Flipping off removes the drawer and detaches any
+  (future work). Flipping off removes the Debugger tab and detaches any
   active session.
 - Each runtime slice ships behind its own capability gate so a
   broken Delve install does not affect JS/TS debugging.
@@ -137,7 +138,7 @@ existing RL-037 editable shortcut mapper.
   the JS/TS debugger relies on lives here.
 - `LANGUAGE_PACK_ADR.md` — future LanguagePacks that declare
   `capabilities.debugger: 'available' | 'planned'` gate the
-  debugger drawer per language.
+  Debugger tab per language.
 - `CAPABILITY_MATRIX.md` — codifies "Go/Rust/Python debugger is
   desktop only" as a matrix row.
 - `ENV_VARS_ADR.md` — Slice D env merger is the plumbing the
@@ -151,21 +152,19 @@ existing RL-037 editable shortcut mapper.
 - RL-011 Slice D and RL-038 Slice B are hard dependencies for the
   Go / Rust / Python slices.
 - `DEBUGGER_SLICE1.md` — operator runbook for Slice 1 + 1.5
-  (gutter UX, drawer mount, Settings rows, telemetry events,
+  (gutter UX, Debugger tab mount, Settings rows, telemetry events,
   TS source-map composition).
 
 ## Slice 1 + 1.5 delivery notes (added 2026-05-11)
 
 - **Slice 1 partial shipped 2026-05-09.** Store + acorn instrumenter
-  + worker pause protocol + JS/TS runner wiring + unmounted drawer +
+  + worker pause protocol + JS/TS runner wiring + unmounted debug surface +
   4 keyboard shortcuts. Three items were explicitly deferred to a
-  follow-up: BreakpointGutter Monaco UI, mounted drawer, visible
+  follow-up: BreakpointGutter Monaco UI, mounted debug surface, visible
   Settings toggle.
 - **Slice 1.5 shipped 2026-05-11.** Closes the user-facing surface
-  by mounting the breakpoint gutter, the drawer (inside `EditorArea`
-  rather than `ConsolePanel` to keep the existing console-area
-  e2e specs byte-identical until the user engages the debugger),
-  and the Settings master toggle. Adds three telemetry events
+  by mounting the breakpoint gutter, the Debugger panel, and the
+  Settings master toggle. Adds three telemetry events
   (`debugger.attached` / `debugger.paused` / `debugger.detached`),
   flips JS+TS language-pack `capabilities.debugger` from `'planned'`
   to `'available'`, and composes esbuild's TS→JS source map with
@@ -173,10 +172,21 @@ existing RL-037 editable shortcut mapper.
   breakpoints in `.ts` files pause at the user's TS line number.
 - **Folds A / B / D / E / F (Slice 1.5).** Settings adds a
   Clear-all-breakpoints button (A) and a Pause-disabled toggle (F);
-  the drawer header carries a chevron that persists the collapsed
+  the Debugger header carries a chevron that persists the collapsed
   state (B); the toolbar shows a per-tab breakpoint pill (D); the
   `debugger.detached` event joins the ADR-named pair so dashboards
   can compute median session length (E).
+- **UX refinement shipped 2026-05-12.** The toolbar now groups
+  **Run** and **Debug** into one split dropdown for JS/TS. Run ignores
+  breakpoints; Debug is explicit, requires an enabled breakpoint,
+  attaches the pause protocol, streams console output while paused,
+  suspends the parent timeout during the pause, maps instrumented
+  console lines back to the user's source, highlights the paused
+  source line, and renders the debugger as a tab in the existing
+  resizable bottom panel instead of a separate drawer below the
+  editor/results area. The same refinement promotes local JS/TS
+  functions during Debug so Step Into can enter normal functions
+  while Run remains byte-for-byte normal execution.
 - **Slice 1.5b (still deferred).** Conditional-breakpoint predicate
   evaluation and watch-expression evaluation. Both require the
   worker eval pattern to clear a dedicated security review — the

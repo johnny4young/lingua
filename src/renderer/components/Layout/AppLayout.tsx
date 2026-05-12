@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { X } from 'lucide-react';
+import { Bug, Terminal, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
@@ -13,6 +13,9 @@ import { IconButton, OverlayBackdrop } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { useDebuggerStore } from '../../stores/debuggerStore';
+import { languageSupportsDebugger } from '../../utils/languageMeta';
+import { cn } from '../../utils/cn';
 import type { LayoutPreset } from '../../types';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
@@ -70,17 +73,6 @@ function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' |
 
 function EditorArea() {
   const hasTabs = useEditorStore((s) => s.tabs.length > 0);
-  // RL-027 Slice 1.5 — `DebuggerDrawer` self-gates on `debuggerEnabled`
-  // + (session || breakpointCount > 0), so the additional render is a
-  // no-op until the user sets a breakpoint or starts a debug session.
-  // Mounting here (under the editor area, not inside ConsolePanel)
-  // keeps the layout-sensitive console e2e specs flagged in the Slice 1
-  // closeout — proTierUnlocks, freeTierGates, localeParity, overlays —
-  // byte-identical until the drawer is actually engaged.
-  const activeTabId = useEditorStore((s) => s.activeTabId);
-  const activeLanguage = useEditorStore(
-    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.language
-  );
   const editorResultsLayout = useDefaultLayout({
     id: 'lingua-editor-results-layout',
     panelIds: ['editor-panel', 'results-panel'],
@@ -127,7 +119,6 @@ function EditorArea() {
           </Suspense>
         )}
       </div>
-      <DebuggerDrawer activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
     </div>
   );
 }
@@ -144,10 +135,84 @@ function EditorLoadingState() {
 
 interface MainContentProps {
   showConsole: boolean;
+  showDebuggerPanel: boolean;
   layoutPreset: LayoutPreset;
 }
 
-function MainContent({ showConsole, layoutPreset }: MainContentProps) {
+function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
+  const { t } = useTranslation();
+  const activeTabId = useEditorStore((s) => s.activeTabId);
+  const activeLanguage = useEditorStore(
+    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.language
+  );
+  const consoleVisible = useUIStore((state) => state.consoleVisible);
+  const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
+  const openBottomPanel = useUIStore((state) => state.openBottomPanel);
+  const setActiveBottomPanel = useUIStore((state) => state.setActiveBottomPanel);
+  const effectiveTab =
+    debuggerAvailable && (!consoleVisible || activeBottomPanel === 'debugger')
+      ? 'debugger'
+      : 'console';
+
+  useEffect(() => {
+    if (activeBottomPanel === 'debugger' && !debuggerAvailable) {
+      setActiveBottomPanel('console');
+    }
+  }, [activeBottomPanel, debuggerAvailable, setActiveBottomPanel]);
+
+  const selectTab = (tab: 'console' | 'debugger') => {
+    if (tab === 'debugger' && !debuggerAvailable) return;
+    openBottomPanel(tab);
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-background/65">
+      <div className="surface-header flex h-10 shrink-0 items-center gap-1 border-b border-border/70 px-3">
+        <button
+          type="button"
+          data-testid="bottom-panel-console-tab"
+          aria-selected={effectiveTab === 'console'}
+          onClick={() => selectTab('console')}
+          className={cn(
+            'inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors',
+            effectiveTab === 'console'
+              ? 'bg-surface-strong text-foreground'
+              : 'text-muted hover:bg-surface-strong/70 hover:text-foreground'
+          )}
+        >
+          <Terminal size={12} aria-hidden="true" />
+          {t('bottomPanel.tabs.console')}
+        </button>
+        {debuggerAvailable ? (
+          <button
+            type="button"
+            data-testid="bottom-panel-debugger-tab"
+            aria-selected={effectiveTab === 'debugger'}
+            onClick={() => selectTab('debugger')}
+            className={cn(
+              'inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors',
+              effectiveTab === 'debugger'
+                ? 'bg-danger/12 text-danger'
+                : 'text-muted hover:bg-danger/10 hover:text-danger'
+            )}
+          >
+            <Bug size={12} aria-hidden="true" />
+            {t('bottomPanel.tabs.debugger')}
+          </button>
+        ) : null}
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {effectiveTab === 'debugger' ? (
+          <DebuggerDrawer activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
+        ) : (
+          <ConsolePanel />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MainContent({ showConsole, showDebuggerPanel, layoutPreset }: MainContentProps) {
   const verticalLayout = useDefaultLayout({
     id: 'lingua-main-vertical-layout',
     panelIds: ['workspace-panel', 'console-panel'],
@@ -159,7 +224,9 @@ function MainContent({ showConsole, layoutPreset }: MainContentProps) {
     storage: localStorage,
   });
 
-  if (!showConsole) return <EditorArea />;
+  const showBottomPanel = showConsole || showDebuggerPanel;
+
+  if (!showBottomPanel) return <EditorArea />;
 
   if (layoutPreset === 'vertical') {
     return (
@@ -174,7 +241,7 @@ function MainContent({ showConsole, layoutPreset }: MainContentProps) {
         </Panel>
         <ResizeHandle orientation="vertical" />
         <Panel id="console-panel" defaultSize="40%" minSize={260}>
-          <ConsolePanel />
+          <BottomPanel debuggerAvailable={showDebuggerPanel} />
         </Panel>
       </Group>
     );
@@ -193,7 +260,7 @@ function MainContent({ showConsole, layoutPreset }: MainContentProps) {
       </Panel>
       <ResizeHandle orientation="horizontal" />
       <Panel id="console-panel" defaultSize="30%" minSize={160}>
-        <ConsolePanel />
+        <BottomPanel debuggerAvailable={showDebuggerPanel} />
       </Panel>
     </Group>
   );
@@ -249,8 +316,27 @@ export function AppLayout({
     panelIds: ['sidebar-panel', 'content-panel'],
     storage: localStorage,
   });
+  const activeTabId = useEditorStore((s) => s.activeTabId);
+  const activeLanguage = useEditorStore(
+    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.language
+  );
+  const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
+  const debuggerSession = useDebuggerStore((state) => state.session);
+  const activeBreakpointCount = useDebuggerStore((state) => {
+    if (!activeTabId) return 0;
+    let count = 0;
+    for (const bp of Object.values(state.breakpoints)) {
+      if (bp.tabId === activeTabId) count += 1;
+    }
+    return count;
+  });
 
   const showConsole = consoleVisible && layoutPreset !== 'editor-only';
+  const showDebuggerPanel =
+    layoutPreset !== 'editor-only' &&
+    debuggerEnabled &&
+    languageSupportsDebugger(activeLanguage) &&
+    (debuggerSession?.tabId === activeTabId || (consoleVisible && activeBreakpointCount > 0));
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
   const isCompactDrawerOpen = sidebarVisible && isCompactShell;
   const handleExplorerNavigate = isCompactShell ? () => setSidebarVisible(false) : undefined;
@@ -413,14 +499,22 @@ export function AppLayout({
             {/* Main area */}
             <Panel id="content-panel" minSize={360}>
               <div className="surface-panel h-full min-w-0 overflow-hidden">
-                <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
+                <MainContent
+                  showConsole={showConsole}
+                  showDebuggerPanel={showDebuggerPanel}
+                  layoutPreset={layoutPreset}
+                />
               </div>
             </Panel>
           </Group>
         ) : (
           <div className="min-h-0 flex-1 p-2 pb-3 sm:p-3">
             <div className="surface-panel h-full min-w-0 overflow-hidden">
-              <MainContent showConsole={showConsole} layoutPreset={layoutPreset} />
+              <MainContent
+                showConsole={showConsole}
+                showDebuggerPanel={showDebuggerPanel}
+                layoutPreset={layoutPreset}
+              />
             </div>
           </div>
         )}

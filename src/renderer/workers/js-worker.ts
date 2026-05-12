@@ -60,7 +60,20 @@ function serialize(args: unknown[], marker: string): string[] {
   });
 }
 
-function createConsoleProxy(runId: string, marker: string) {
+function sourceLineFor(
+  generatedLine: number | undefined,
+  sourceLineMap: Record<number, number> | undefined
+): number | undefined {
+  if (generatedLine === undefined) return undefined;
+  const mapped = sourceLineMap?.[generatedLine];
+  return typeof mapped === 'number' && mapped > 0 ? mapped : generatedLine;
+}
+
+function createConsoleProxy(
+  runId: string,
+  marker: string,
+  sourceLineMap?: Record<number, number>
+) {
   const methods = ['log', 'warn', 'error', 'info'] as const;
   for (const method of methods) {
     console[method] = (...args: unknown[]) => {
@@ -73,7 +86,8 @@ function createConsoleProxy(runId: string, marker: string) {
         if (match?.[1]) {
           const rawLine = parseInt(match[1], 10);
           // Subtract the 2-line offset from the async function wrapper
-          line = rawLine > 2 ? rawLine - 2 : rawLine;
+          const generatedLine = rawLine > 2 ? rawLine - 2 : rawLine;
+          line = sourceLineFor(generatedLine, sourceLineMap);
         }
       } catch {
         // ignore
@@ -140,6 +154,7 @@ function parseError(err: unknown): { message: string; line?: number; column?: nu
 type StepMode = 'none' | 'over' | 'into' | 'out';
 
 interface DebuggerSessionState {
+  runId: string;
   enabled: boolean;
   breakpoints: Map<number, { condition: string }>;
   watches: string[];
@@ -152,8 +167,9 @@ interface DebuggerSessionState {
   resumeResolver: (() => void) | null;
 }
 
-function createSession(): DebuggerSessionState {
+function createSession(runId: string): DebuggerSessionState {
   return {
+    runId,
     enabled: false,
     breakpoints: new Map(),
     watches: [],
@@ -172,6 +188,7 @@ interface ExecuteMessage {
   debug?: boolean;
   breakpoints?: { line: number; condition?: string }[];
   watches?: string[];
+  sourceLineMap?: Record<number, number>;
 }
 
 function applyExecutePayload(session: DebuggerSessionState, msg: ExecuteMessage): void {
@@ -208,6 +225,7 @@ ctx.addEventListener('message', async (event) => {
     } else {
       session.stepMode = 'none';
     }
+    ctx.postMessage({ type: 'resumed', runId: session.runId });
     const resolver = session.resumeResolver;
     session.resumeResolver = null;
     resolver();
@@ -238,9 +256,9 @@ ctx.addEventListener('message', async (event) => {
         : FALLBACK_RESULT_TRUNCATION_MARKER;
     const startTime = performance.now();
 
-    createConsoleProxy(runId, marker);
+    createConsoleProxy(runId, marker, exec.sourceLineMap);
 
-    const session = createSession();
+    const session = createSession(runId);
     applyExecutePayload(session, exec);
     activeSession = session;
 

@@ -77,7 +77,7 @@ export function Toolbar({
   utilitiesOpen = false,
 }: ToolbarProps) {
   const { tabs, activeTabId, addTab } = useEditorStore();
-  const { run, stop, isRunning, isInitializing, loadingMessage } = useRunner();
+  const { run, stop, isRunning, isInitializing, loadingMessage, runMode } = useRunner();
   const { sidebarVisible, consoleVisible, toggleSidebar, toggleConsole } = useUIStore();
   const shortcutOverrides = useSettingsStore((state) => state.shortcutOverrides);
   const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
@@ -94,10 +94,23 @@ export function Toolbar({
     }
     return count;
   });
+  const enabledBreakpointCount = useDebuggerStore((state) => {
+    const tabId = useEditorStore.getState().activeTabId;
+    if (!tabId) return 0;
+    let count = 0;
+    for (const bp of Object.values(state.breakpoints)) {
+      if (bp.tabId === tabId && bp.enabled !== false) count += 1;
+    }
+    return count;
+  });
   const effectiveTier = useEffectiveTier();
   const canUseDeveloperUtilities = useEntitlement('DEV_UTILITIES');
   const [isNewFileMenuOpen, setIsNewFileMenuOpen] = useState(false);
   const newFileMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isRunMenuOpen, setIsRunMenuOpen] = useState(false);
+  const [selectedExecutionAction, setSelectedExecutionAction] =
+    useState<'run' | 'debug'>('run');
+  const runMenuRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
@@ -116,6 +129,7 @@ export function Toolbar({
   const defaultNewFileLabel = languageLabel(defaultNewFileLanguage);
   const activeLanguage = activeTab?.language ?? 'javascript';
   const executionMode = executionModeForLanguage(activeLanguage);
+  const showDebugAction = activeTabSupportsDebugger && executionMode === 'run';
   // RL-038 Slice C — when the active language needs a host toolchain
   // (Go, Rust) AND this is the web build, the Run button is honest about
   // the gap: disabled + a localized tooltip pointing at the desktop
@@ -145,6 +159,24 @@ export function Toolbar({
         : executionMode === 'view'
           ? t('toolbar.viewOnly.title')
           : t('toolbar.run.title');
+  const debugActionDisabled =
+    actionDisabled || !debuggerEnabled || enabledBreakpointCount === 0;
+  const debugLabel =
+    runMode === 'debug' && isRunning
+      ? loadingMessage ?? t('toolbar.debug.running')
+      : t('toolbar.debug.label');
+  const debugTooltip = !debuggerEnabled
+    ? t('toolbar.debug.disabledSettings')
+    : enabledBreakpointCount === 0
+      ? t('toolbar.debug.noBreakpoint')
+      : t('toolbar.debug.title');
+  const primaryActionIsDebug = showDebugAction && selectedExecutionAction === 'debug';
+  const primaryActionDisabled = primaryActionIsDebug ? debugActionDisabled : actionDisabled;
+  const primaryActionLabel = primaryActionIsDebug ? debugLabel : actionLabel;
+  const primaryActionTooltip = primaryActionIsDebug ? debugTooltip : actionTooltip;
+  const primaryActionClassName = primaryActionIsDebug
+    ? 'button-danger min-w-[7.4rem] justify-center rounded-r-none'
+    : 'button-primary min-w-[7.4rem] justify-center rounded-r-none bg-success text-background hover:bg-success/92';
   const utilitiesShortcutLabel = useMemo(() => {
     const definition = KEYBOARD_SHORTCUTS.find(
       (entry) => entry.id === 'overlay-developer-utilities'
@@ -193,23 +225,60 @@ export function Toolbar({
     });
   };
 
+  const runSelectedAction = () => {
+    if (primaryActionIsDebug) {
+      void run({ debug: true });
+      return;
+    }
+    void run();
+  };
+
+  const runFromMenu = (mode: 'run' | 'debug') => {
+    setSelectedExecutionAction(mode);
+    setIsRunMenuOpen(false);
+    if (mode === 'debug') {
+      void run({ debug: true });
+      return;
+    }
+    void run();
+  };
+
   useEffect(() => {
-    if (!isNewFileMenuOpen) {
+    if (!showDebugAction && selectedExecutionAction !== 'run') {
+      setSelectedExecutionAction('run');
+    }
+  }, [selectedExecutionAction, showDebugAction]);
+
+  useEffect(() => {
+    if (isRunning) {
+      setIsRunMenuOpen(false);
+    }
+  }, [isRunning]);
+
+  useEffect(() => {
+    if (!isNewFileMenuOpen && !isRunMenuOpen) {
       return;
     }
 
     const handlePointerDown = (event: PointerEvent) => {
-      const menuElement = newFileMenuRef.current;
-      if (!menuElement || menuElement.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const newFileMenuElement = newFileMenuRef.current;
+      const runMenuElement = runMenuRef.current;
+      if (
+        newFileMenuElement?.contains(target) ||
+        runMenuElement?.contains(target)
+      ) {
         return;
       }
 
       setIsNewFileMenuOpen(false);
+      setIsRunMenuOpen(false);
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsNewFileMenuOpen(false);
+        setIsRunMenuOpen(false);
       }
     };
 
@@ -220,7 +289,7 @@ export function Toolbar({
       document.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isNewFileMenuOpen]);
+  }, [isNewFileMenuOpen, isRunMenuOpen]);
 
   return (
     <div
@@ -247,37 +316,132 @@ export function Toolbar({
 
         <div className="toolbar-divider" />
 
-        <Tooltip
-          content={actionTooltip}
-          // Suppress the tooltip only for "disabled because there are no
-          // tabs / still running / view-only" — those cases carry no
-          // value. Keep it visible for the desktop-only + Pro-language
-          // gates so the user sees the explanation on hover.
-          disabled={actionDisabled && !desktopOnlyGate && !proLanguageGate}
-        >
-          <button
-            onClick={() => void run()}
-            disabled={actionDisabled}
-            data-tour-id="run-button"
-            data-testid="toolbar-run-button"
-            className="button-primary min-w-[7.4rem] justify-center bg-success text-background hover:bg-success/92"
-          >
-            {isInitializing ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <Play size={13} fill="currentColor" />
-            )}
-            {actionLabel}
-          </button>
-        </Tooltip>
+        {showDebugAction ? (
+          <div ref={runMenuRef} className="relative shrink-0">
+            <div className="inline-flex overflow-hidden rounded-xl">
+              <Tooltip
+                content={primaryActionTooltip}
+                disabled={
+                  primaryActionDisabled &&
+                  !desktopOnlyGate &&
+                  !proLanguageGate &&
+                  !primaryActionIsDebug
+                }
+              >
+                <button
+                  onClick={runSelectedAction}
+                  disabled={primaryActionDisabled}
+                  data-tour-id="run-button"
+                  data-testid="toolbar-run-button"
+                  className={primaryActionClassName}
+                >
+                  {isInitializing ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : primaryActionIsDebug ? (
+                    <Bug size={13} aria-hidden="true" />
+                  ) : (
+                    <Play size={13} fill="currentColor" />
+                  )}
+                  {primaryActionLabel}
+                </button>
+              </Tooltip>
+              <Tooltip content={t('toolbar.run.menu')}>
+                <button
+                  type="button"
+                  onClick={() => setIsRunMenuOpen((current) => !current)}
+                  disabled={isRunning || !hasTabs}
+                  data-testid="toolbar-run-menu-button"
+                  aria-label={t('toolbar.run.menu')}
+                  aria-haspopup="menu"
+                  aria-expanded={isRunMenuOpen}
+                  className={cn(
+                    'inline-flex w-10 items-center justify-center border-l px-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45',
+                    primaryActionIsDebug
+                      ? 'border-error/20 bg-error/12 text-error hover:bg-error/18'
+                      : 'border-white/15 bg-success text-background hover:bg-success/92'
+                  )}
+                >
+                  <ChevronDown size={13} />
+                </button>
+              </Tooltip>
+            </div>
 
-        {isRunning && (
-          <Tooltip content={t('toolbar.run.stop')}>
-            <button onClick={stop} className="button-danger">
-              <Square size={11} fill="currentColor" />
-              {t('toolbar.run.stop')}
+            {isRunMenuOpen ? (
+              <div
+                role="menu"
+                aria-label={t('toolbar.run.menu')}
+                className="surface-panel-strong absolute left-0 top-[calc(100%+0.55rem)] z-20 min-w-48 p-1.5"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => runFromMenu('run')}
+                  disabled={actionDisabled}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                    selectedExecutionAction === 'run'
+                      ? 'bg-success/12 text-success'
+                      : 'text-foreground hover:bg-surface-strong/78'
+                  )}
+                >
+                  <Play size={13} fill="currentColor" />
+                  {t('toolbar.run.label')}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => runFromMenu('debug')}
+                  disabled={debugActionDisabled}
+                  data-testid="toolbar-debug-button"
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                    selectedExecutionAction === 'debug'
+                      ? 'bg-danger/12 text-danger'
+                      : 'text-danger hover:bg-danger/10'
+                  )}
+                  title={debugActionDisabled ? debugTooltip : undefined}
+                >
+                  <Bug size={13} aria-hidden="true" />
+                  {t('toolbar.debug.label')}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <Tooltip
+            content={actionTooltip}
+            // Suppress the tooltip only for "disabled because there are no
+            // tabs / still running / view-only" — those cases carry no
+            // value. Keep it visible for the desktop-only + Pro-language
+            // gates so the user sees the explanation on hover.
+            disabled={actionDisabled && !desktopOnlyGate && !proLanguageGate}
+          >
+            <button
+              onClick={() => void run()}
+              disabled={actionDisabled}
+              data-tour-id="run-button"
+              data-testid="toolbar-run-button"
+              className="button-primary min-w-[7.4rem] justify-center bg-success text-background hover:bg-success/92"
+            >
+              {isInitializing ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Play size={13} fill="currentColor" />
+              )}
+              {actionLabel}
             </button>
           </Tooltip>
+        )}
+
+        {isRunning && (
+          <IconButton
+            onClick={stop}
+            tone="danger"
+            tooltip={t('toolbar.run.stop')}
+            data-testid="toolbar-stop-button"
+          >
+            <Square size={12} fill="currentColor" />
+          </IconButton>
         )}
 
         <IconButton
@@ -375,9 +539,11 @@ export function Toolbar({
         {activeTabSupportsDebugger && breakpointCount > 0 ? (
           <Tooltip
             content={
-              debuggerEnabled
-                ? t('debugger.toolbar.pill.activeHint')
-                : t('debugger.toolbar.pill.disabledHint')
+              !debuggerEnabled
+                ? t('debugger.toolbar.pill.disabledHint')
+                : enabledBreakpointCount === 0
+                  ? t('debugger.toolbar.pill.noEnabledHint')
+                  : t('debugger.toolbar.pill.activeHint')
             }
           >
             <button
@@ -387,7 +553,7 @@ export function Toolbar({
               aria-label={t('debugger.toolbar.pill', { count: breakpointCount })}
               className={cn(
                 'status-pill inline-flex items-center gap-1 hover:bg-surface',
-                debuggerEnabled
+                debuggerEnabled && enabledBreakpointCount > 0
                   ? 'border-danger/40 text-danger'
                   : 'border-border/60 text-muted'
               )}

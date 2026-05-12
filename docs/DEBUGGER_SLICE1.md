@@ -15,12 +15,19 @@ After Slice 1.5 ships:
   an existing dot to remove it. The keyboard path is `Mod+Shift+B`
   (Cmd+Shift+B on macOS / Ctrl+Shift+B elsewhere) — toggles the
   breakpoint at the cursor line without leaving the editor.
-- A bottom-docked **Debugger drawer** that appears as soon as the
-  active tab has at least one breakpoint OR a debug session is
-  attached. The drawer header carries Continue (F5), Step Over (F10),
-  Step Into (F11), Step Out (Shift+F11), and Detach buttons. The
-  chevron at the top-left collapses/expands the drawer; the choice
-  persists across reloads.
+- A **Debugger** tab inside the existing resizable bottom panel. It
+  becomes available when the panel is open and the active tab has at
+  least one breakpoint, and Debug opens it automatically when a
+  session attaches. It shares the same bottom-panel splitter as
+  Console. The header carries Continue (F5), Step Over (F10), Step
+  Into (F11), Step Out (Shift+F11), and Run to end buttons. The
+  chevron at the top-left collapses/expands the debugger body; the
+  choice persists across reloads.
+- A Run/Debug split dropdown for JavaScript and TypeScript tabs. The
+  primary side executes the selected mode and the chevron opens the
+  alternate actions. **Run** always executes normally and ignores
+  breakpoints; **Debug** attaches the pause protocol and runs until
+  the first enabled breakpoint.
 - A small "X breakpoints" pill on the toolbar's right side whenever
   the active tab has at least one breakpoint. Clicking the pill opens
   Settings.
@@ -40,7 +47,7 @@ sessions via `lingua-settings` localStorage.
 When the flag is off:
 
 - Gutter clicks are no-ops.
-- The drawer never mounts.
+- The Debugger tab never mounts.
 - The toolbar pill never appears.
 - The keyboard shortcut is silently ignored.
 
@@ -49,8 +56,8 @@ When the flag is off:
 1. Open or create a JavaScript or TypeScript tab.
 2. Click the gutter to the LEFT of the line number, OR move the
    cursor to the line and press `Mod+Shift+B`.
-3. The red dot appears in the gutter and the drawer mounts at the
-   bottom of the editor area.
+3. The red dot appears in the gutter. Opening the bottom panel exposes
+   the Debugger tab, and pressing Debug switches to it automatically.
 
 Breakpoints are capped at 100 global (FIFO eviction of the oldest).
 A user who hits the cap sees the oldest breakpoint silently drop —
@@ -60,9 +67,12 @@ warn.
 
 ## Pausing a run
 
-1. With at least one breakpoint set, click **Run** (or `Mod+Enter`).
-2. The runner detects `debuggerEnabled` AND the tab has a breakpoint,
-   and switches into debug mode:
+1. With at least one enabled breakpoint set, open the Run dropdown and
+   choose **Debug**. `Mod+Enter` / **Run** remains a normal execution
+   path and does not pause on breakpoints.
+2. The runner sees the explicit debug intent, `debuggerEnabled`, and
+   the active tab's enabled breakpoint set, then switches into debug
+   mode:
    - Loop protection is disabled for the run (the ADR §4 mandates this
      so a paused breakpoint inside a loop doesn't get killed).
    - The JS source (or post-esbuild TS-as-JS) is instrumented with
@@ -70,8 +80,12 @@ warn.
      statement.
    - The session is attached and the bridge is registered.
 3. When the worker hits a yield matching an enabled breakpoint, the
-   `paused` message is posted; the drawer flips to the paused state
-   with locals + call stack + watch placeholders.
+   `paused` message is posted; the Debugger tab flips to the paused state
+   with locals + call stack + watch placeholders, Monaco highlights
+   the entire paused line in the danger color, and any console output
+   emitted before the pause is already visible in the result panel.
+   The parent timeout is suspended until Continue / Step resumes the
+   worker, so an intentional pause does not surface as a 30 s timeout.
 
 ## Stepping
 
@@ -80,9 +94,14 @@ warn.
 - **Step Over (F10)** — runs the current line and pauses on the next
   line in the same or shallower frame.
 - **Step Into (F11)** — pauses on the next yielded line anywhere,
-  including inside a function call.
+  including inside local synchronous JS / TS functions. Debug mode
+  promotes those local functions and awaits direct calls so entering
+  `llamar(i)` works without changing normal Run semantics.
 - **Step Out (Shift+F11)** — runs until the current frame returns.
-- **Detach** — terminates the debug session and resumes the worker.
+  The control is disabled while paused at top level because there is
+  no active function frame to exit.
+- **Run to end** — clears the active debug breakpoints for this
+  worker and resumes, so execution finishes without stopping again.
 
 The shortcut gate (`canDispatchDebuggerShortcut` in
 `useGlobalShortcuts`) requires the worker to be paused before F5 /
@@ -139,26 +158,25 @@ breakpoint coordinates, no expression content.
 
 ## Recovering a wedged session
 
-If the drawer is stuck in paused mode:
+If the Debugger tab is stuck in paused mode:
 
-1. Click **Detach** in the drawer header (fires
-   `debugger.detached` with `reasonBucket='user-detach'`).
+1. Click **Run to end** in the Debugger header (fires
+   `debugger.detached` with `reasonBucket='user-detach'`, clears this
+   worker's breakpoint set, and resumes it).
 2. If the button doesn't respond, refresh the renderer; the
    `session` and `pausedFrame` fields are NOT persisted, so a
-   reload always returns the drawer to its idle state.
+   reload always returns the Debugger tab to its idle state.
 3. The breakpoints themselves DO persist; they survive the reload
    unchanged.
 
 ## Layout safety
 
-The drawer is mounted inside `EditorArea`, AFTER the editor/results
-group but inside the same vertical flex column. This placement was
-chosen because the original Slice 1 attempt to mount it inside
-`ConsolePanel` broke four unrelated e2e specs (`proTierUnlocks`,
-`freeTierGates`, `localeParity`, `overlays`) by re-flowing console
-DOM. The current home keeps the console layout byte-identical until
-a user actually engages the debugger, at which point the new DOM is
-added below the existing surface.
+The Debugger surface is mounted by `BottomPanel`, as a sibling tab to
+Console. The bottom panel is already resizable through
+`react-resizable-panels`, so debugger height is adjustable without a
+second custom splitter. This placement keeps the editor/results group
+intact while paused and avoids the earlier drawer competing with the
+inline output column.
 
 ## Related files
 

@@ -8,7 +8,7 @@ import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
 import { trackEvent } from '../utils/telemetry';
 import { bucketDurationMs } from '../../shared/telemetry';
-import type { FileTab, Language } from '../types';
+import type { ConsoleOutput, FileTab, Language } from '../types';
 import {
   getCompilationLoadingMessage,
   getCompilationMessage,
@@ -71,6 +71,11 @@ export interface ManualExecutionLifecycle {
    * surfaces leave this undefined and inherit each runner's default.
    */
   executionTimeoutMs?: number;
+  /**
+   * Explicit JS/TS debug intent. Normal manual runs leave this false so
+   * breakpoints remain passive editor marks until the user presses Debug.
+   */
+  debug?: boolean;
 }
 
 export interface ManualExecutionSummary {
@@ -102,6 +107,7 @@ export async function executeTabManually(
   const { language, content, name } = activeTab;
   const executionMode = executionModeForLanguage(language);
   const shouldRecordHistory = lifecycle.recordHistory !== false;
+  const debugRequested = lifecycle.debug === true;
 
   lifecycle.setCurrentLanguage?.(language);
 
@@ -188,7 +194,12 @@ export async function executeTabManually(
   setIsAutoRunning(false);
   setIsManualRunning(true);
   setDiagnostics([]);
-  addEntry({ type: 'info', content: `Running ${name}...` });
+  addEntry({
+    type: 'info',
+    content: debugRequested
+      ? (i18next.t('runner.debuggingFile', { name }) as string)
+      : `Running ${name}...`,
+  });
   lifecycle.setIsRunning?.(true);
 
   const shouldShowInitialization = runnerManager.needsInitialization(language);
@@ -227,12 +238,44 @@ export async function executeTabManually(
       addEntry(compilationMessage);
     }
 
-    const result = await runner.execute(
-      content,
-      lifecycle.executionTimeoutMs !== undefined
-        ? { timeout: lifecycle.executionTimeoutMs, tabId: activeTab.id }
-        : { tabId: activeTab.id }
-    );
+    const streamedStdout: ConsoleOutput[] = [];
+    const streamedStderr: ConsoleOutput[] = [];
+    let streamedConsoleCount = 0;
+    const streamConsoleOutput = (output: ConsoleOutput) => {
+      streamedConsoleCount += 1;
+      if (output.type === 'error') {
+        streamedStderr.push(output);
+      } else {
+        streamedStdout.push(output);
+      }
+      addEntry({
+        type: output.type,
+        content: output.args.join(' '),
+        line: output.line,
+      });
+
+      const presentation = toExecutionPresentation(language, content, {
+        stdout: streamedStdout,
+        stderr: streamedStderr,
+        result: undefined,
+        executionTime: 0,
+      });
+      setLineResults(presentation.lineResults);
+      setFullOutput(presentation.fullOutput);
+      setError(null);
+      setExecutionTime(null);
+    };
+
+    const executionContext = {
+      ...(lifecycle.executionTimeoutMs !== undefined
+        ? { timeout: lifecycle.executionTimeoutMs }
+        : {}),
+      tabId: activeTab.id,
+      onConsole: streamConsoleOutput,
+      ...(debugRequested ? { debug: true } : {}),
+    };
+
+    const result = await runner.execute(content, executionContext);
 
     if (result.cancelled) {
       const message =
@@ -246,7 +289,9 @@ export async function executeTabManually(
       setError(null);
       setDiagnostics([]);
       setExecutionTime(result.executionTime);
-      for (const output of [...result.stdout, ...result.stderr]) {
+      const cancelledOutputs =
+        streamedConsoleCount > 0 ? [] : [...result.stdout, ...result.stderr];
+      for (const output of cancelledOutputs) {
         addEntry({
           type: output.type,
           content: output.args.join(' '),
@@ -276,7 +321,12 @@ export async function executeTabManually(
     setDiagnostics(diagnostics);
     setExecutionTime(result.executionTime);
 
-    for (const entry of toConsoleEntries(result)) {
+    const consoleEntries = toConsoleEntries(result);
+    const entriesToAdd =
+      streamedConsoleCount > 0
+        ? consoleEntries.slice(result.stdout.length + result.stderr.length)
+        : consoleEntries;
+    for (const entry of entriesToAdd) {
       addEntry(entry);
     }
 

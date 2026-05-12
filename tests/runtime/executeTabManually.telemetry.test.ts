@@ -119,9 +119,13 @@ describe('executeTabManually — runner.executed telemetry (RL-065)', () => {
         durationBucketMs: expect.any(Number),
       })
     );
-    expect(mockRunnerExecute).toHaveBeenCalledWith('console.log("hi")', {
-      tabId: 'tab-1',
-    });
+    expect(mockRunnerExecute).toHaveBeenCalledWith(
+      'console.log("hi")',
+      expect.objectContaining({
+        tabId: 'tab-1',
+        onConsole: expect.any(Function),
+      })
+    );
   });
 
   it('passes timeout and tab id into the runner context', async () => {
@@ -149,10 +153,49 @@ describe('executeTabManually — runner.executed telemetry (RL-065)', () => {
       { executionTimeoutMs: 1234 }
     );
 
-    expect(mockRunnerExecute).toHaveBeenCalledWith('const value = 1;', {
-      timeout: 1234,
-      tabId: 'tab-debug',
+    expect(mockRunnerExecute).toHaveBeenCalledWith(
+      'const value = 1;',
+      expect.objectContaining({
+        timeout: 1234,
+        tabId: 'tab-debug',
+        onConsole: expect.any(Function),
+      })
+    );
+  });
+
+  it('passes debug intent only when the caller asks for a debug run', async () => {
+    mockRunnerManagerPrepare.mockResolvedValue({
+      runner: {
+        execute: mockRunnerExecute.mockResolvedValue({
+          stdout: [],
+          stderr: [],
+          result: undefined,
+          executionTime: 42,
+          error: undefined,
+        }),
+      },
+      initialized: false,
     });
+
+    await executeTabManually(
+      {
+        id: 'tab-debug',
+        name: 'debug.js',
+        language: 'javascript',
+        content: 'const value = 1;',
+        isDirty: false,
+      },
+      { debug: true }
+    );
+
+    expect(mockRunnerExecute).toHaveBeenCalledWith(
+      'const value = 1;',
+      expect.objectContaining({
+        tabId: 'tab-debug',
+        debug: true,
+        onConsole: expect.any(Function),
+      })
+    );
   });
 
   it('fires runner.executed with status=error when the runner surfaces an error', async () => {

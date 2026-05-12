@@ -47,6 +47,14 @@ export function DebuggerDrawer({
     }
     return count;
   });
+  const enabledBreakpointCount = useDebuggerStore((state) => {
+    if (!activeTabId) return 0;
+    let count = 0;
+    for (const bp of Object.values(state.breakpoints)) {
+      if (bp.tabId === activeTabId && bp.enabled !== false) count += 1;
+    }
+    return count;
+  });
 
   if (!debuggerEnabled || !supportsDebugger) return null;
   if (!session && breakpointCount === 0) return null;
@@ -55,6 +63,11 @@ export function DebuggerDrawer({
   const reasonKey = pausedFrame
     ? `debugger.paused.reason.${pausedFrame.reason}`
     : '';
+  const idleCopyKey =
+    breakpointCount > 0 && enabledBreakpointCount === 0
+      ? 'debugger.empty.noEnabled'
+      : 'debugger.empty.ready';
+  const canStepOut = isPaused && (pausedFrame?.callStack.length ?? 0) > 0;
 
   const sendResume = () => {
     postDebuggerMessage({ type: 'resume' });
@@ -71,14 +84,18 @@ export function DebuggerDrawer({
     // explicit user-initiated detach via the drawer button.
     const language = session?.runtime ?? 'js';
     void trackEvent('debugger.detached', { language, reasonBucket: 'user-detach' });
-    detachSession();
+    postDebuggerMessage({ type: 'set-breakpoints', breakpoints: [] });
     postDebuggerMessage({ type: 'resume' });
+    useDebuggerStore.getState().setPausedFrame(null);
+    detachSession();
   };
 
   return (
     <section
       data-testid="debugger-drawer"
-      className="border-t border-border/80 bg-background/55"
+      className={`flex h-full min-h-0 flex-col bg-background/55 ${
+        isPaused ? 'border-danger/45' : 'border-border/80'
+      }`}
     >
       <header className="flex items-center justify-between gap-2 px-4 py-2">
         <div className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -99,6 +116,13 @@ export function DebuggerDrawer({
           </button>
           <Bug size={14} aria-hidden="true" />
           <span>{t('debugger.title')}</span>
+          <span
+            className={`status-pill border-transparent px-2 py-0.5 text-[10px] ${
+              isPaused ? 'bg-danger/12 text-danger' : 'bg-surface text-muted'
+            }`}
+          >
+            {isPaused ? t('debugger.status.paused') : t('debugger.status.ready')}
+          </span>
           {isPaused && pausedFrame ? (
             <span className="text-xs font-normal text-muted">
               ·{' '}
@@ -144,7 +168,8 @@ export function DebuggerDrawer({
             type="button"
             data-testid="debugger-step-out"
             onClick={() => sendStep('out')}
-            disabled={!isPaused}
+            disabled={!canStepOut}
+            title={!canStepOut ? t('debugger.actions.stepOut.disabledHint') : undefined}
             className="inline-flex items-center gap-1 rounded-[0.7rem] border border-border/80 px-2 py-1 text-xs font-medium text-foreground hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ChevronUp size={11} aria-hidden="true" />
@@ -154,7 +179,9 @@ export function DebuggerDrawer({
             type="button"
             data-testid="debugger-detach"
             onClick={detach}
-            className="inline-flex items-center gap-1 rounded-[0.7rem] border border-border/80 px-2 py-1 text-xs font-medium text-muted hover:border-danger/50 hover:text-danger"
+            disabled={!session}
+            title={t('debugger.actions.detachHint')}
+            className="inline-flex items-center gap-1 rounded-[0.7rem] border border-border/80 px-2 py-1 text-xs font-medium text-muted hover:border-danger/50 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
           >
             <LogOut size={11} aria-hidden="true" />
             {t('debugger.actions.detach')}
@@ -164,22 +191,24 @@ export function DebuggerDrawer({
       {drawerCollapsed ? null : !isPaused ? (
         <p
           id="debugger-drawer-body"
-          className="px-4 pb-3 text-xs text-muted"
+          className="min-h-0 flex-1 px-4 pb-3 text-xs text-muted"
           data-testid="debugger-empty"
         >
-          {t('debugger.empty')}
+          {t(idleCopyKey)}
         </p>
       ) : (
         <div
           id="debugger-drawer-body"
-          className="grid gap-3 px-4 pb-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)]"
+          className="grid min-h-0 flex-1 gap-3 overflow-auto px-4 pb-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)]"
         >
           <DrawerSection
             title={t('debugger.paused.locals')}
             testid="debugger-locals"
           >
             {Object.keys(pausedFrame!.locals).length === 0 ? (
-              <p className="text-[11px] text-muted">—</p>
+              <p className="text-[11px] text-muted">
+                {t('debugger.paused.locals.empty')}
+              </p>
             ) : (
               <ul className="grid gap-1">
                 {Object.entries(pausedFrame!.locals).map(([name, value]) => (
@@ -196,7 +225,9 @@ export function DebuggerDrawer({
             testid="debugger-callstack"
           >
             {pausedFrame!.callStack.length === 0 ? (
-              <p className="text-[11px] text-muted">—</p>
+              <p className="text-[11px] text-muted">
+                {t('debugger.paused.callstack.empty')}
+              </p>
             ) : (
               <ol className="grid gap-1">
                 {pausedFrame!.callStack.map((frame, index) => (
@@ -215,7 +246,9 @@ export function DebuggerDrawer({
             testid="debugger-watches"
           >
             {Object.keys(pausedFrame!.watchResults).length === 0 ? (
-              <p className="text-[11px] text-muted">—</p>
+              <p className="text-[11px] text-muted">
+                {t('debugger.paused.watches.empty')}
+              </p>
             ) : (
               <ul className="grid gap-1">
                 {Object.entries(pausedFrame!.watchResults).map(([expr, result]) => (

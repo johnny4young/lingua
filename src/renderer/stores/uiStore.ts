@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 export type StatusNoticeTone = 'info' | 'success' | 'warning' | 'error';
+export type BottomPanelTab = 'console' | 'debugger';
 
 export interface StatusNotice {
   id: number;
@@ -15,9 +16,12 @@ export interface StatusNotice {
 interface UIState {
   sidebarVisible: boolean;
   consoleVisible: boolean;
+  activeBottomPanel: BottomPanelTab;
   statusNotice: StatusNotice | null;
   toggleSidebar: () => void;
   toggleConsole: () => void;
+  openBottomPanel: (tab: BottomPanelTab) => void;
+  setActiveBottomPanel: (tab: BottomPanelTab) => void;
   setSidebarVisible: (v: boolean) => void;
   setConsoleVisible: (v: boolean) => void;
   pushStatusNotice: (notice: Omit<StatusNotice, 'id'>) => void;
@@ -29,9 +33,16 @@ let statusNoticeCounter = 0;
 export const useUIStore = create<UIState>((set) => ({
   sidebarVisible: false,
   consoleVisible: false,
+  activeBottomPanel: 'console',
   statusNotice: null,
   toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
-  toggleConsole: () => set((s) => ({ consoleVisible: !s.consoleVisible })),
+  toggleConsole: () =>
+    set((s) => ({
+      activeBottomPanel: 'console',
+      consoleVisible: s.activeBottomPanel === 'console' ? !s.consoleVisible : true,
+    })),
+  openBottomPanel: (activeBottomPanel) => set({ activeBottomPanel, consoleVisible: true }),
+  setActiveBottomPanel: (activeBottomPanel) => set({ activeBottomPanel }),
   setSidebarVisible: (sidebarVisible) => set({ sidebarVisible }),
   setConsoleVisible: (consoleVisible) => set({ consoleVisible }),
   pushStatusNotice: (notice) => {

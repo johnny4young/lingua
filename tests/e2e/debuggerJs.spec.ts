@@ -1,20 +1,23 @@
+import type { Page } from '@playwright/test';
+
 /**
  * RL-027 Slice 1.5 — Debugger end-to-end smoke (JS).
  *
  * Drives the user-facing surface that the slice unlocks:
  *
  *   1. Gutter mark renders for a programmatically-set breakpoint.
- *   2. `DebuggerDrawer` mounts as soon as a breakpoint is set.
+ *   2. The Debugger tab is available in the bottom panel once a
+ *      breakpoint is set, without stealing the output panel by default.
  *   3. The Settings → Editor → Debugger row reads + writes the
  *      master `debuggerEnabled` flag.
  *   4. Spanish copy renders in neutral LatAm tuteo (`Depurador`,
- *      `Borra todos los puntos de quiebre`).
+ *      `Borra todos los puntos de interrupción`).
  *
  * Pausing the JS worker live in Playwright is non-trivial (the
  * worker yields awaits and the test harness has to keep the
  * microtask queue moving); the unit + component tests already
  * cover that path. This spec is the BLOCKING surface gate: it
- * proves the gutter mounts, the drawer mounts, and the Settings
+ * proves the gutter mounts, the bottom-panel Debugger tab mounts, and the Settings
  * row is reachable. Without it, the user-facing slice cannot
  * be considered shipped.
  */
@@ -28,9 +31,35 @@ import {
   openSettings,
   seedSession,
   test,
+  waitForRunCompleted,
 } from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
+
+async function replaceEditorText(page: Page, source: string) {
+  await page.locator('.monaco-editor').click({ position: { x: 140, y: 42 } });
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.insertText(source);
+}
+
+async function moveEditorCursorToLine(page: Page, line: number) {
+  await page.locator('.monaco-editor').click({ position: { x: 140, y: 42 } });
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
+  await page.keyboard.press('Home');
+  for (let index = 1; index < line; index += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+}
+
+async function openRunMenu(page: Page) {
+  await page.getByTestId('toolbar-run-menu-button').click();
+}
+
+async function clickDebug(page: Page) {
+  await openRunMenu(page);
+  await page.getByTestId('toolbar-debug-button').click();
+}
 
 test.describe('Debugger (RL-027 Slice 1.5)', () => {
   test.beforeEach(async ({ page }) => {
@@ -52,7 +81,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
     await closeSettings(page);
   });
 
-  test('keyboard breakpoint toggle renders the gutter dot, toolbar pill, and drawer', async ({
+  test('keyboard breakpoint toggle renders the gutter dot, toolbar pill, and debugger tab', async ({
     page,
   }) => {
     await expect(page.locator('.monaco-editor')).toBeVisible();
@@ -63,8 +92,137 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
     await page.keyboard.press('Control+Shift+B');
 
     await expect(page.locator('.monaco-editor .lingua-bp-glyph')).toHaveCount(1);
-    await expect(page.getByTestId('debugger-drawer')).toBeVisible();
+    await expect(page.getByTestId('debugger-drawer')).toHaveCount(0);
     await expect(page.getByTestId('toolbar-breakpoint-pill')).toContainText(/1 breakpoint/i);
+
+    await page.getByRole('button', { name: /toggle console/i }).click();
+    await expect(page.getByTestId('bottom-panel-debugger-tab')).toBeVisible();
+    await page.getByTestId('bottom-panel-debugger-tab').click();
+    await expect(page.getByTestId('debugger-drawer')).toBeVisible();
+
+    await openRunMenu(page);
+    await expect(page.getByTestId('toolbar-debug-button')).toBeEnabled();
+  });
+
+  test('Run ignores breakpoints while Debug pauses, highlights the line, and steps over', async ({
+    page,
+  }) => {
+    await replaceEditorText(
+      page,
+      [
+        'const value = 21;',
+        'const doubled = value * 2;',
+        'const label = `value:${doubled}`;',
+        'console.log(label);',
+      ].join('\n')
+    );
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Control+Shift+B');
+
+    await expect(page.locator('.monaco-editor .lingua-bp-glyph')).toHaveCount(1);
+
+    await page.getByTestId('toolbar-run-button').click();
+    await waitForRunCompleted(page);
+    await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(0);
+
+    await clickDebug(page);
+    await expect(page.getByText(/Paused at line 3/i)).toBeVisible();
+    await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(1);
+    await expect(page.getByTestId('debugger-locals')).toContainText('value: 21');
+    await expect(page.getByTestId('debugger-locals')).toContainText('doubled: 42');
+
+    await page.getByTestId('debugger-step-over').click();
+    await expect(page.getByText(/Paused at line 4/i)).toBeVisible();
+    await expect(page.getByTestId('debugger-locals')).toContainText('label: value:42');
+
+    await page.getByTestId('debugger-continue').click();
+    await waitForRunCompleted(page);
+    await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(0);
+  });
+
+  test('Debug streams prior logs while paused and resumes with the remaining output', async ({
+    page,
+  }) => {
+    await replaceEditorText(
+      page,
+      [
+        '// Welcome to Lingua',
+        'console.log("Hello, World!");',
+        '',
+        'i = "1";',
+        '',
+        'console.log(i + 1);',
+      ].join('\n')
+    );
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('Control+Shift+B');
+
+    await clickDebug(page);
+    await expect(page.getByText(/Paused at line 4/i)).toBeVisible();
+    const resultsPanel = page.locator('#results-panel');
+    await expect(resultsPanel.getByText('Hello, World!')).toBeVisible();
+    await expect(page.getByTestId('debugger-locals')).toContainText(
+      'No variables are available before this line.'
+    );
+    await expect(page.getByText(/time limit of 30 s/i)).toHaveCount(0);
+
+    await page.getByTestId('debugger-step-over').click();
+    await expect(page.getByText(/Paused at line 6/i)).toBeVisible();
+    await expect(page.getByTestId('debugger-locals')).toContainText('i: 1');
+
+    await page.getByTestId('debugger-continue').click();
+    await waitForRunCompleted(page);
+    await expect(resultsPanel.getByText('Hello, World!')).toBeVisible();
+    await expect(resultsPanel.getByText(/^11$/)).toBeVisible();
+    await expect(page.getByText(/time limit of 30 s/i)).toHaveCount(0);
+  });
+
+  test('Step Into enters a normal function and Step Out is only active inside it', async ({
+    page,
+  }) => {
+    await replaceEditorText(
+      page,
+      [
+        '// Welcome to Lingua',
+        'console.log("Hello, World!");',
+        '',
+        'let i = 1',
+        '',
+        'console.log( i + 20)',
+        '',
+        '',
+        'console.log(i +5)',
+        '',
+        'llamar(i);',
+        '',
+        '',
+        'function llamar(i){',
+        '  console.log(i + "calling")',
+        '}',
+      ].join('\n')
+    );
+
+    await moveEditorCursorToLine(page, 11);
+    await page.keyboard.press('Control+Shift+B');
+
+    await clickDebug(page);
+    await expect(page.getByText(/Paused at line 11/i)).toBeVisible();
+    await expect(page.getByTestId('debugger-step-out')).toBeDisabled();
+    const resultsPanel = page.locator('#results-panel');
+    await expect(resultsPanel.getByText('Hello, World!')).toBeVisible();
+    await expect(resultsPanel.getByText(/^21$/)).toBeVisible();
+    await expect(resultsPanel.getByText(/^6$/)).toBeVisible();
+
+    await page.getByTestId('debugger-step-into').click();
+    await expect(page.getByText(/Paused at line 15/i)).toBeVisible();
+    await expect(page.getByTestId('debugger-callstack')).toContainText('llamar');
+    await expect(page.getByTestId('debugger-step-out')).toBeEnabled();
+    await expect(page.getByTestId('debugger-locals')).toContainText('i: 1');
+
+    await page.getByTestId('debugger-step-out').click();
+    await waitForRunCompleted(page);
+    await expect(resultsPanel.getByText('1calling')).toBeVisible();
   });
 
   test('Spanish copy renders the Debugger Settings rows in neutral LatAm tuteo', async ({
@@ -128,7 +286,35 @@ test.describe('Debugger TypeScript smoke (RL-027 Slice 1.5)', () => {
     await page.keyboard.press('Control+Shift+B');
 
     await expect(page.locator('.monaco-editor .lingua-bp-glyph')).toHaveCount(1);
-    await expect(page.getByTestId('debugger-drawer')).toBeVisible();
+    await expect(page.getByTestId('debugger-drawer')).toHaveCount(0);
     await expect(page.getByTestId('toolbar-breakpoint-pill')).toContainText(/1 breakpoint/i);
+
+    await page.getByRole('button', { name: /toggle console/i }).click();
+    await expect(page.getByTestId('bottom-panel-debugger-tab')).toBeVisible();
+
+    await openRunMenu(page);
+    await expect(page.getByTestId('toolbar-debug-button')).toBeEnabled();
+  });
+
+  test('Debug pauses on the original TypeScript line with typed locals', async ({ page }) => {
+    await replaceEditorText(
+      page,
+      [
+        'const value: number = 21;',
+        'const doubled: number = value * 2;',
+        'console.log(doubled);',
+      ].join('\n')
+    );
+    await page.keyboard.press('Control+Shift+B');
+
+    await expect(page.locator('.monaco-editor .lingua-bp-glyph')).toHaveCount(1);
+    await clickDebug(page);
+
+    await expect(page.getByText(/Paused at line 3/i)).toBeVisible();
+    await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(1);
+    await expect(page.getByTestId('debugger-locals')).toContainText('doubled: 42');
+
+    await page.getByTestId('debugger-continue').click();
+    await waitForRunCompleted(page);
   });
 });

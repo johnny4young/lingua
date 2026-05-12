@@ -31,6 +31,7 @@ let mockRunnerState = {
   isRunning: false,
   isInitializing: false,
   loadingMessage: null as string | null,
+  runMode: null as 'run' | 'debug' | null,
 };
 
 vi.mock('../../src/renderer/hooks/useRunner', () => ({
@@ -137,6 +138,7 @@ function resetRunnerState(partial: Partial<typeof mockRunnerState> = {}) {
     isRunning: false,
     isInitializing: false,
     loadingMessage: null,
+    runMode: null,
     ...partial,
   };
 }
@@ -256,6 +258,45 @@ describe('Toolbar', () => {
     expect(screen.getByTestId('toolbar-breakpoint-pill').textContent).toContain('1 breakpoint');
   });
 
+  it('groups Debug under the Run dropdown and requires an enabled breakpoint', async () => {
+    const user = userEvent.setup();
+    render(<Toolbar />);
+
+    await user.click(screen.getByTestId('toolbar-run-menu-button'));
+    const debugBtn = screen.getByTestId('toolbar-debug-button');
+    expect(debugBtn.textContent).toContain('Debug');
+    expect((debugBtn as HTMLButtonElement).disabled).toBe(true);
+    expect(debugBtn.getAttribute('title')).toContain('Set an enabled breakpoint');
+  });
+
+  it('clicking Debug runs with explicit debug intent', async () => {
+    const user = userEvent.setup();
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 4);
+
+    render(<Toolbar />);
+
+    await user.click(screen.getByTestId('toolbar-run-menu-button'));
+    const debugBtn = screen.getByTestId('toolbar-debug-button');
+    expect((debugBtn as HTMLButtonElement).disabled).toBe(false);
+    await user.click(debugBtn);
+
+    expect(mockRun).toHaveBeenCalledWith({ debug: true });
+  });
+
+  it('keeps Debug disabled when all breakpoints are disabled', async () => {
+    const user = userEvent.setup();
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 4);
+    useDebuggerStore.getState().setAllBreakpointsEnabled(false);
+
+    render(<Toolbar />);
+
+    await user.click(screen.getByTestId('toolbar-run-menu-button'));
+    const debugBtn = screen.getByTestId('toolbar-debug-button');
+    expect((debugBtn as HTMLButtonElement).disabled).toBe(true);
+    await user.hover(screen.getByTestId('toolbar-breakpoint-pill'));
+    expect(screen.getByRole('tooltip').textContent).toContain('All breakpoints are disabled');
+  });
+
   it('hides persisted breakpoint affordances for planned debugger languages', () => {
     editorStoreState.tabs = [
       {
@@ -271,6 +312,7 @@ describe('Toolbar', () => {
     render(<Toolbar />);
 
     expect(screen.queryByTestId('toolbar-breakpoint-pill')).toBeNull();
+    expect(screen.queryByTestId('toolbar-debug-button')).toBeNull();
   });
 
   it('shows the shared tooltip for the Run action on hover', async () => {
@@ -395,7 +437,7 @@ describe('Toolbar', () => {
 
       await user.hover(runBtn);
       expect(screen.getByRole('tooltip').textContent).toContain(
-        'This runtime needs the desktop build of Lingua'
+        'Open this file in Lingua Desktop to run it with your local toolchain.'
       );
     } finally {
       Object.defineProperty(window, 'lingua', {
@@ -463,7 +505,7 @@ describe('Toolbar', () => {
       render(<Toolbar />);
       await user.hover(screen.getByTestId('toolbar-run-button'));
       expect(screen.getByRole('tooltip').textContent).toContain(
-        'Este runtime requiere la build de escritorio de Lingua'
+        'Abre este archivo en Lingua Desktop para ejecutarlo con tu cadena de herramientas local.'
       );
     } finally {
       Object.defineProperty(window, 'lingua', {

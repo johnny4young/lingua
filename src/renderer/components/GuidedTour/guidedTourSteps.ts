@@ -91,7 +91,7 @@ export function buildGuidedTourSteps({
         event: 'click',
       },
       canClickTarget: true,
-      buttons: ['skip', 'back'],
+      buttons: ['skip', 'back', 'next'],
     },
     {
       id: 'tour-console',

@@ -173,7 +173,7 @@ function GuidedTourRuntime({
         closeOverlay: () => controlsRef.current.closeOverlay(),
         openPalette: () => controlsRef.current.openPalette(),
         openSnippets: () => controlsRef.current.openSnippets(),
-        ensureConsoleVisible: () => useUIStore.getState().setConsoleVisible(true),
+        ensureConsoleVisible: () => useUIStore.getState().openBottomPanel('console'),
         ensureSidebarVisible: () => useUIStore.getState().setSidebarVisible(true),
         getSuppressTourAutoStart: () =>
           useSettingsStore.getState().suppressTourAutoStart,
@@ -312,7 +312,7 @@ function GuidedTourRuntime({
       addTab(createDefaultTab('javascript'));
     }
 
-    useUIStore.getState().setConsoleVisible(true);
+    useUIStore.getState().openBottomPanel('console');
 
     if (activeStepIndexRef.current !== null) {
       return;

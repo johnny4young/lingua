@@ -377,6 +377,17 @@ export interface ExecutionContext {
   timeout?: number;
   env?: Record<string, string>;
   /**
+   * Optional streaming hook for manual execution surfaces. Runners still
+   * return the full stdout/stderr arrays at completion; this hook lets
+   * the result panel show progress while a debug session is paused.
+   */
+  onConsole?: (output: ConsoleOutput) => void;
+  /**
+   * Explicit debugger intent from the UI. Normal Run must ignore
+   * breakpoints; only Debug should attach the worker pause protocol.
+   */
+  debug?: boolean;
+  /**
    * RL-027 Slice 1 — tab id of the source being executed. The
    * debugger runner reads breakpoints + watches from the debugger
    * store keyed by this id, so a run on a different tab does not
@@ -501,4 +512,5 @@ export type WorkerResponse =
       callStack: { functionName: string; line: number }[];
       watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
       conditionalPending?: boolean;
-    };
+    }
+  | { type: 'resumed'; runId: string };
