@@ -6,6 +6,7 @@ import { useConsoleStore } from '../stores/consoleStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useNativeExecutionGateStore } from '../stores/nativeExecutionGateStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useUIStore } from '../stores/uiStore';
 import type { Language } from '../types';
 import { currentEffectiveTier } from './useEntitlement';
 import { isLanguageAllowed } from '../../shared/entitlements';
@@ -15,12 +16,14 @@ import { trackEvent } from '../utils/telemetry';
 
 export interface RunOptions {
   recordHistory?: boolean;
+  debug?: boolean;
 }
 
 export function useRunner() {
   const [isRunning, setIsRunning] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+  const [runMode, setRunMode] = useState<'run' | 'debug' | null>(null);
   const currentLanguageRef = useRef<Language | null>(null);
 
   const run = useCallback(async (options: RunOptions = {}) => {
@@ -67,6 +70,10 @@ export function useRunner() {
     // the lifecycle wrapper below.
     const editor = useEditorStore.getState();
     editor.setTabExecutionState(activeTab.id, 'running');
+    setRunMode(options.debug ? 'debug' : 'run');
+    if (options.debug) {
+      useUIStore.getState().openBottomPanel('debugger');
+    }
 
     try {
       const summary = await executeTabManually(activeTab, {
@@ -77,6 +84,7 @@ export function useRunner() {
           currentLanguageRef.current = language;
         },
         recordHistory: options.recordHistory,
+        debug: options.debug,
       });
       // The execution summary is the canonical run outcome. Avoid
       // scanning the console store here: future console retention or
@@ -93,6 +101,8 @@ export function useRunner() {
       const message = err instanceof Error ? err.message : String(err);
       editor.setTabExecutionState(activeTab.id, 'error', oneLineTooltip(message));
       throw err;
+    } finally {
+      setRunMode(null);
     }
   }, []);
 
@@ -104,7 +114,7 @@ export function useRunner() {
     setLoadingMessage(null);
   }, []);
 
-  return { run, stop, isRunning, isInitializing, loadingMessage };
+  return { run, stop, isRunning, isInitializing, loadingMessage, runMode };
 }
 
 function oneLineTooltip(message: string): string | null {

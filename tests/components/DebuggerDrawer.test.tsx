@@ -44,9 +44,20 @@ describe('DebuggerDrawer', () => {
 
     expect(screen.getByTestId('debugger-drawer')).toBeTruthy();
     expect(screen.getByTestId('debugger-empty').textContent).toContain(
-      'Click the gutter on a JS or TS file to set a breakpoint.'
+      'Press Debug to run until the first enabled breakpoint.'
     );
     expect(screen.getByTestId('debugger-continue').hasAttribute('disabled')).toBe(true);
+  });
+
+  it('explains when every breakpoint is disabled', () => {
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 2);
+    useDebuggerStore.getState().setAllBreakpointsEnabled(false);
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+
+    expect(screen.getByTestId('debugger-empty').textContent).toContain(
+      'All breakpoints are disabled.'
+    );
   });
 
   it('stays hidden for languages whose debugger adapter is not available', () => {
@@ -74,6 +85,7 @@ describe('DebuggerDrawer', () => {
 
     expect(screen.getByTestId('debugger-locals').textContent).toContain('value: 42');
     expect(screen.getByTestId('debugger-callstack').textContent).toContain('main');
+    expect(screen.getByText('Paused')).toBeTruthy();
     expect(screen.getByTestId('debugger-watches').textContent).toContain(
       'Pending evaluation'
     );
@@ -81,6 +93,49 @@ describe('DebuggerDrawer', () => {
     fireEvent.click(screen.getByTestId('debugger-step-over'));
 
     expect(postDebuggerMessage).toHaveBeenCalledWith({ type: 'step', mode: 'over' });
+    expect(useDebuggerStore.getState().pausedFrame).toBeNull();
+  });
+
+  it('only enables step out while paused inside a function frame', () => {
+    useDebuggerStore.setState({
+      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
+      pausedFrame: {
+        tabId: 'tab-1',
+        line: 4,
+        reason: 'user-breakpoint',
+        locals: {},
+        callStack: [],
+        watchResults: {},
+      },
+    });
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+
+    expect(screen.getByTestId('debugger-step-out').hasAttribute('disabled')).toBe(true);
+  });
+
+  it('runs to the end by clearing breakpoints before resuming from detach', () => {
+    useDebuggerStore.setState({
+      session: { runtime: 'js', tabId: 'tab-1', attachedAt: 1 },
+      pausedFrame: {
+        tabId: 'tab-1',
+        line: 4,
+        reason: 'user-breakpoint',
+        locals: {},
+        callStack: [],
+        watchResults: {},
+      },
+    });
+
+    render(<DebuggerDrawer activeTabId="tab-1" activeLanguage="javascript" />);
+    fireEvent.click(screen.getByTestId('debugger-detach'));
+
+    expect(postDebuggerMessage).toHaveBeenNthCalledWith(1, {
+      type: 'set-breakpoints',
+      breakpoints: [],
+    });
+    expect(postDebuggerMessage).toHaveBeenNthCalledWith(2, { type: 'resume' });
+    expect(useDebuggerStore.getState().session).toBeNull();
     expect(useDebuggerStore.getState().pausedFrame).toBeNull();
   });
 

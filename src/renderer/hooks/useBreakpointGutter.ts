@@ -42,6 +42,7 @@ export function useBreakpointGutter(
 ): void {
   const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
   const breakpoints = useDebuggerStore((state) => state.breakpoints);
+  const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
   const decorationsRef = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);
 
   const { activeTabId, language, toggleAriaLabel } = options;
@@ -59,7 +60,11 @@ export function useBreakpointGutter(
     }
 
     const tabBreakpoints = Object.values(breakpoints).filter((bp) => bp.tabId === activeTabId);
-    if (tabBreakpoints.length === 0) {
+    const pausedLine =
+      pausedFrame?.tabId === activeTabId && Number.isInteger(pausedFrame.line)
+        ? pausedFrame.line
+        : null;
+    if (tabBreakpoints.length === 0 && pausedLine === null) {
       decorationsRef.current?.clear();
       decorationsRef.current = null;
       return;
@@ -74,12 +79,34 @@ export function useBreakpointGutter(
       },
     }));
 
+    if (pausedLine !== null && pausedLine > 0) {
+      decorations.push({
+        range: new monaco.Range(pausedLine, 1, pausedLine, 1),
+        options: {
+          isWholeLine: true,
+          className: 'lingua-debugger-paused-line',
+          linesDecorationsClassName: 'lingua-debugger-paused-line-marker',
+        },
+      });
+      editor.revealLineInCenterIfOutsideViewport(pausedLine);
+      editor.setPosition({ lineNumber: pausedLine, column: 1 });
+    }
+
     if (!decorationsRef.current) {
       decorationsRef.current = editor.createDecorationsCollection(decorations);
     } else {
       decorationsRef.current.set(decorations);
     }
-  }, [editor, monaco, debuggerEnabled, supportsDebugger, activeTabId, breakpoints, toggleAriaLabel]);
+  }, [
+    editor,
+    monaco,
+    debuggerEnabled,
+    supportsDebugger,
+    activeTabId,
+    breakpoints,
+    pausedFrame,
+    toggleAriaLabel,
+  ]);
 
   // Mouse-click pass — only one listener at a time. Re-binds when the
   // editor instance changes or when the active tab changes (the tabId

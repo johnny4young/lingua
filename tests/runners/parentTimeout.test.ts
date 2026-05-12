@@ -11,7 +11,11 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { isDebugWorkerActive, setActiveDebugWorker } from '@/runtime/debuggerWorkerBridge';
+import {
+  isDebugWorkerActive,
+  postDebuggerMessage,
+  setActiveDebugWorker,
+} from '@/runtime/debuggerWorkerBridge';
 import { useDebuggerStore } from '@/stores/debuggerStore';
 
 interface PostedRequest {
@@ -237,6 +241,7 @@ describe('JavaScriptRunner — RL-078 parent-owned timeout', () => {
     const promise = runner.execute('const value = 1;', {
       timeout: 60_000,
       tabId: 'tab-1',
+      debug: true,
     });
     expect(useDebuggerStore.getState().session).toMatchObject({
       runtime: 'js',
@@ -251,6 +256,119 @@ describe('JavaScriptRunner — RL-078 parent-owned timeout', () => {
     expect(useDebuggerStore.getState().session).toBeNull();
     expect(useDebuggerStore.getState().pausedFrame).toBeNull();
     expect(isDebugWorkerActive()).toBe(false);
+  });
+
+  it('suspends the parent timeout while a debug run is paused', async () => {
+    const streamed: string[] = [];
+    class PausingWorker {
+      private runId: string | undefined;
+
+      postMessage(msg: PostedRequest) {
+        if (msg.type === 'execute') {
+          lastPosted = msg;
+          this.runId = msg.runId;
+          queueMicrotask(() => {
+            for (const cb of messageListeners) {
+              cb(
+                new MessageEvent('message', {
+                  data: {
+                    type: 'console',
+                    method: 'log',
+                    args: ['before-pause'],
+                    line: 1,
+                    runId: this.runId,
+                  },
+                })
+              );
+              cb(
+                new MessageEvent('message', {
+                  data: {
+                    type: 'paused',
+                    line: 1,
+                    reason: 'user-breakpoint',
+                    locals: { value: '1' },
+                    callStack: [],
+                    watchResults: {},
+                    runId: this.runId,
+                  },
+                })
+              );
+            }
+          });
+          return;
+        }
+
+        if (msg.type === 'resume') {
+          queueMicrotask(() => {
+            for (const cb of messageListeners) {
+              cb(new MessageEvent('message', { data: { type: 'resumed', runId: this.runId } }));
+              cb(
+                new MessageEvent('message', {
+                  data: {
+                    type: 'console',
+                    method: 'log',
+                    args: ['after-resume'],
+                    line: 2,
+                    runId: this.runId,
+                  },
+                })
+              );
+              cb(new MessageEvent('message', { data: { type: 'done', executionTime: 5, runId: this.runId } }));
+            }
+          });
+        }
+      }
+
+      addEventListener(event: string, cb: (e: MessageEvent) => void) {
+        if (event === 'message') messageListeners.push(cb);
+      }
+
+      removeEventListener() {}
+
+      terminate() {
+        terminateCount += 1;
+      }
+    }
+
+    vi.stubGlobal('Worker', PausingWorker);
+    useDebuggerStore.getState().toggleBreakpoint('tab-1', 1);
+    const { JavaScriptRunner } = await import('@/runners/javascript');
+    const runner = new JavaScriptRunner();
+    await runner.init();
+
+    vi.useFakeTimers();
+    let settled = false;
+    const promise = runner
+      .execute('console.log("before-pause");\nconsole.log("after-resume");', {
+        timeout: 50,
+        tabId: 'tab-1',
+        debug: true,
+        onConsole: (output) => streamed.push(output.args.join(' ')),
+      })
+      .then((result) => {
+        settled = true;
+        return result;
+      });
+
+    await Promise.resolve();
+    expect(useDebuggerStore.getState().pausedFrame).toMatchObject({ line: 1 });
+    expect(streamed).toEqual(['before-pause']);
+
+    await vi.advanceTimersByTimeAsync(100);
+    expect(settled).toBe(false);
+    expect(terminateCount).toBe(0);
+
+    expect(postDebuggerMessage({ type: 'resume' })).toBe(true);
+    await Promise.resolve();
+    const result = await promise;
+    vi.useRealTimers();
+
+    expect(result.error).toBeUndefined();
+    expect(result.stdout.map((output) => output.args.join(' '))).toEqual([
+      'before-pause',
+      'after-resume',
+    ]);
+    expect(streamed).toEqual(['before-pause', 'after-resume']);
   });
 });
 

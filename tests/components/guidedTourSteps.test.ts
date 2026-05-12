@@ -41,7 +41,7 @@ describe('buildGuidedTourSteps', () => {
       event: 'click',
     });
     expect(runStep?.canClickTarget).toBe(true);
-    expect(runStep?.buttons).toEqual(['skip', 'back']);
+    expect(runStep?.buttons).toEqual(['skip', 'back', 'next']);
   });
 
   it('uses stable button kinds that the provider can render with local controls', () => {

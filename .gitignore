@@ -14,6 +14,7 @@ output/
 /PLAN.md
 /TEST_PLAN.md
 dev-license.json
+assets/icon.iconset/
 
 # Logs
 *.log

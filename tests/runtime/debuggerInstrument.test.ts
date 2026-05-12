@@ -12,20 +12,26 @@ describe('instrumentForDebugger (RL-027 Slice 1)', () => {
     expect(result.instrumentedLines).toEqual([1, 2, 3]);
   });
 
-  it('does NOT inject in front of the function declaration itself or inside sync bodies', () => {
+  it('promotes local sync functions so Step Into can pause inside them', () => {
     // Multi-line function so the declaration and body are clearly
     // separated. Line 1 is the FunctionDeclaration header (skipped);
-    // line 2 is the inner return statement (sync body, skipped); line
-    // 4 is the call site at top level (instrumented).
+    // line 2 is the inner return statement; lines 4 and 5 are call
+    // sites, including an expression statement that starts at column 0.
     const result = instrumentForDebugger(
-      `function add(a, b) {\n  return a + b;\n}\nconst x = add(1, 2);\n`
+      `function add(a, b) {\n  return a + b;\n}\nconst x = add(1, 2);\nadd(3, 4);\n`
     );
-    expect(result.instrumentedLines).toEqual([4]);
+    expect(result.instrumentedLines).toEqual([2, 4, 5]);
+    expect(result.code).toContain('async function add');
+    expect(result.code).toContain('const x = await add(1, 2);');
+    expect(result.code).toContain('await add(3, 4);');
+    expect(result.code).toContain('__lingua_dbg_yield(4');
+    expect(result.code).toContain('__lingua_dbg_yield(5');
+    expect(result.code).not.toContain('await await __lingua_dbg_yield');
     // The first statement of the program (FunctionDeclaration on line 1)
     // gets no yield because it's a hoisted declaration.
     const yieldsAtLine1 = (result.code.match(/__lingua_dbg_yield\(1,/g) ?? []).length;
     expect(yieldsAtLine1).toBe(0);
-    expect(result.code).not.toContain('__lingua_dbg_yield(2');
+    expect(result.code).toContain('__lingua_dbg_yield(2');
   });
 
   it('descends into async function bodies and tracks frame push/pop', () => {
@@ -48,10 +54,23 @@ describe('instrumentForDebugger (RL-027 Slice 1)', () => {
     expect(result.code).not.toContain('typeof later');
   });
 
+  it('tracks assignment-created globals so later pauses can inspect them', () => {
+    const result = instrumentForDebugger(
+      `console.log("hello");\ni = "1";\nconsole.log(i + 1);\n`
+    );
+    expect(result.code).toContain('try { __lingua_dbg_locals["i"] = i; } catch {}');
+  });
+
   it('produces a non-empty source map', () => {
     const result = instrumentForDebugger(`const a = 1;\n`);
     expect(result.map).toBeTruthy();
     expect(result.map).toContain('"version"');
+  });
+
+  it('maps generated debug lines back to source lines for console output', () => {
+    const result = instrumentForDebugger(`console.log("hello");\nconst value = 1;\n`);
+    expect(Object.values(result.sourceLineMap)).toContain(1);
+    expect(Object.values(result.sourceLineMap)).toContain(2);
   });
 
   it('uses a custom helper name when provided', () => {

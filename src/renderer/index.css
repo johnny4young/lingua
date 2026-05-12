@@ -834,6 +834,17 @@
     box-shadow: inset 0 0 0 1.5px var(--app-danger, #e1495d);
   }
 
+  .monaco-editor .lingua-debugger-paused-line {
+    background: color-mix(in srgb, var(--app-danger, #e1495d) 18%, transparent) !important;
+    outline: 1px solid color-mix(in srgb, var(--app-danger, #e1495d) 34%, transparent);
+    outline-offset: -1px;
+  }
+
+  .monaco-editor .lingua-debugger-paused-line-marker {
+    border-left: 2px solid var(--app-danger, #e1495d);
+    background: color-mix(in srgb, var(--app-danger, #e1495d) 24%, transparent);
+  }
+
   /* ----------------------------------------------------------------- */
   /* Monaco overlays · Signal-Slate alignment                          */
   /*                                                                    */

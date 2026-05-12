@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import forgeConfig from '../forge.config';
@@ -21,6 +21,14 @@ describe('forge config', () => {
         schemes: ['lingua'],
       },
     ]);
+  });
+
+  it('ships branded app icon assets for every packaged platform', () => {
+    expect(forgeConfig.packagerConfig.icon).toBe('./assets/icon');
+    expect(existsSync(resolve(__dirname, '../assets/icon.icns'))).toBe(true);
+    expect(existsSync(resolve(__dirname, '../assets/icon.ico'))).toBe(true);
+    expect(existsSync(resolve(__dirname, '../assets/icon.png'))).toBe(true);
+    expect(existsSync(resolve(__dirname, '../assets/icon.svg'))).toBe(true);
   });
 
   it('uses the modern Windows signing hook instead of legacy Squirrel certificate options', () => {

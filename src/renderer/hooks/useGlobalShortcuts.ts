@@ -150,7 +150,13 @@ function canDispatchDebuggerShortcut(id: string): boolean {
       getActiveDebuggerTab() !== null &&
       getActiveEditorCursorLine() !== null;
   }
-  return isDebugWorkerActive() && useDebuggerStore.getState().pausedFrame !== null;
+  if (!isDebugWorkerActive()) return false;
+  const pausedFrame = useDebuggerStore.getState().pausedFrame;
+  if (!pausedFrame) return false;
+  if (id === 'debugger-step-out') {
+    return pausedFrame.callStack.length > 0;
+  }
+  return true;
 }
 
 function getActiveDebuggerTab(): { id: string; language: string } | null {

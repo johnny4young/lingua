@@ -26,10 +26,10 @@ describe('web adapter', () => {
     const rustResult = await window.lingua.rust.run('fn main() {}');
 
     expect(goResult.error).toBe(
-      'La compilación de Go no está disponible en la versión web. Descarga la app de escritorio para compilar código Go.'
+      'La compilación de Go no está disponible en la versión web. Abre el archivo en Lingua Desktop para compilar código Go.'
     );
     expect(rustResult.stderr).toBe(
-      'La compilación de Rust no está disponible en la versión web. Descarga la app de escritorio para compilar código Rust.'
+      'La compilación de Rust no está disponible en la versión web. Abre el archivo en Lingua Desktop para compilar código Rust.'
     );
     expect(rustResult.error).toBe(
       'La compilación de Rust no está disponible en la versión web.'

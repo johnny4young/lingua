@@ -8,6 +8,11 @@ import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
 type AcornAst = any;
 type AcornNode = any;
 
+interface AwaitableDebugTargets {
+  names: Set<string>;
+  nodes: WeakSet<AcornNode>;
+}
+
 /**
  * RL-027 Slice 1 — Source instrumentation for the JS/TS debugger.
  *
@@ -102,6 +107,13 @@ export interface InstrumentResult {
    * about.
    */
   instrumentedLines: number[];
+  /**
+   * Best-effort map from generated/instrumented JS lines back to the
+   * user's source lines. The worker uses this for console output so
+   * logs emitted during a debug run stay aligned with Monaco instead
+   * of drifting after injected `await __lingua_dbg_yield(...)` calls.
+   */
+  sourceLineMap: Record<number, number>;
 }
 
 export interface InstrumentOptions {
@@ -276,9 +288,200 @@ function collectLocalIdentifiers(node: AcornNode): string[] {
         break;
       }
     }
+    collectAssignmentIdentifiers(stmt, add);
   }
 
   return [...seen];
+}
+
+function collectAssignmentIdentifiers(
+  node: AcornNode,
+  add: (name: string) => void
+): void {
+  if (!node || typeof node !== 'object') return;
+  if (isFunctionLike(node) && node.type !== 'MethodDefinition') return;
+
+  switch (node.type) {
+    case 'AssignmentExpression':
+      collectIdentifierPattern((node as { left: AcornNode }).left, add);
+      break;
+    case 'UpdateExpression':
+      collectIdentifierPattern((node as { argument: AcornNode }).argument, add);
+      break;
+  }
+
+  for (const key of Object.keys(node)) {
+    if (key === 'type' || key === 'start' || key === 'end' || key === 'loc') continue;
+    const value = (node as unknown as Record<string, unknown>)[key];
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (isAcornNode(item)) collectAssignmentIdentifiers(item as AcornNode, add);
+      }
+    } else if (isAcornNode(value)) {
+      collectAssignmentIdentifiers(value as AcornNode, add);
+    }
+  }
+}
+
+function collectIdentifierPattern(
+  node: AcornNode,
+  add: (name: string) => void
+): void {
+  if (!node || typeof node !== 'object') return;
+  switch (node.type) {
+    case 'Identifier':
+      add((node as { name: string }).name);
+      return;
+    case 'MemberExpression':
+      collectIdentifierPattern((node as { object: AcornNode }).object, add);
+      return;
+    case 'ObjectPattern':
+      for (const prop of (node as { properties: AcornNode[] }).properties) {
+        if (prop.type === 'Property') {
+          collectIdentifierPattern((prop as { value: AcornNode }).value, add);
+        } else if (prop.type === 'RestElement') {
+          collectIdentifierPattern((prop as { argument: AcornNode }).argument, add);
+        }
+      }
+      return;
+    case 'ArrayPattern':
+      for (const element of (node as { elements: (AcornNode | null)[] }).elements) {
+        if (element) collectIdentifierPattern(element, add);
+      }
+      return;
+    case 'AssignmentPattern':
+      collectIdentifierPattern((node as { left: AcornNode }).left, add);
+      return;
+    case 'RestElement':
+      collectIdentifierPattern((node as { argument: AcornNode }).argument, add);
+      return;
+  }
+}
+
+function collectAwaitableDebugTargets(ast: AcornNode): AwaitableDebugTargets {
+  const names = new Set<string>();
+  const nodes = new WeakSet<AcornNode>();
+
+  const visit = (node: AcornNode): void => {
+    if (!isAcornNode(node)) return;
+
+    if (node.type === 'FunctionDeclaration') {
+      const id = (node as { id?: { name?: string } | null }).id;
+      if (id?.name && canPromoteFunctionForDebug(node)) {
+        names.add(id.name);
+        nodes.add(node);
+      }
+    }
+
+    if (node.type === 'VariableDeclarator') {
+      const id = (node as { id?: AcornNode }).id;
+      const init = (node as { init?: AcornNode | null }).init;
+      if (id?.type === 'Identifier' && isFunctionLike(init) && canPromoteFunctionForDebug(init)) {
+        names.add((id as { name: string }).name);
+        nodes.add(init);
+      }
+    }
+
+    for (const key of Object.keys(node)) {
+      if (key === 'type' || key === 'start' || key === 'end' || key === 'loc') continue;
+      const value = (node as unknown as Record<string, unknown>)[key];
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (isAcornNode(item)) visit(item as AcornNode);
+        }
+      } else if (isAcornNode(value)) {
+        visit(value as AcornNode);
+      }
+    }
+  };
+
+  visit(ast);
+  return { names, nodes };
+}
+
+function canPromoteFunctionForDebug(node: AcornNode): boolean {
+  if (!isFunctionLike(node)) return false;
+  if (node.type === 'MethodDefinition') return false;
+  if ((node as { generator?: boolean }).generator === true) return false;
+  const body = (node as { body?: AcornNode }).body;
+  return !body || body.type === 'BlockStatement';
+}
+
+function markAwaitableDebugFunctions(
+  ast: AcornNode,
+  ms: MagicString,
+  targets: AwaitableDebugTargets
+): void {
+  const visit = (node: AcornNode): void => {
+    if (!isAcornNode(node)) return;
+    if (
+      targets.nodes.has(node) &&
+      (node as { async?: boolean }).async !== true &&
+      typeof node.start === 'number'
+    ) {
+      ms.appendLeft(node.start, 'async ');
+    }
+
+    for (const key of Object.keys(node)) {
+      if (key === 'type' || key === 'start' || key === 'end' || key === 'loc') continue;
+      const value = (node as unknown as Record<string, unknown>)[key];
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (isAcornNode(item)) visit(item as AcornNode);
+        }
+      } else if (isAcornNode(value)) {
+        visit(value as AcornNode);
+      }
+    }
+  };
+
+  visit(ast);
+}
+
+function awaitKnownDebugCalls(
+  ast: AcornNode,
+  ms: MagicString,
+  targets: AwaitableDebugTargets
+): void {
+  const visit = (
+    node: AcornNode,
+    parent: AcornNode | null,
+    awaitAllowed: boolean
+  ): void => {
+    if (!isAcornNode(node)) return;
+
+    let childAwaitAllowed = awaitAllowed;
+    if (isFunctionLike(node)) {
+      childAwaitAllowed =
+        ((node as { async?: boolean }).async === true || targets.nodes.has(node)) &&
+        (node as { generator?: boolean }).generator !== true;
+    }
+
+    if (
+      childAwaitAllowed &&
+      node.type === 'CallExpression' &&
+      parent?.type !== 'AwaitExpression'
+    ) {
+      const callee = (node as { callee?: AcornNode }).callee;
+      if (callee?.type === 'Identifier' && targets.names.has((callee as { name: string }).name)) {
+        ms.prependRight(node.start, 'await ');
+      }
+    }
+
+    for (const key of Object.keys(node)) {
+      if (key === 'type' || key === 'start' || key === 'end' || key === 'loc') continue;
+      const value = (node as unknown as Record<string, unknown>)[key];
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (isAcornNode(item)) visit(item as AcornNode, node, childAwaitAllowed);
+        }
+      } else if (isAcornNode(value)) {
+        visit(value as AcornNode, node, childAwaitAllowed);
+      }
+    }
+  };
+
+  visit(ast, null, true);
 }
 
 /**
@@ -291,17 +494,18 @@ function instrumentBodies(
   ms: MagicString,
   helperName: string,
   recordedLines: Set<number>,
-  translateLine: LineTranslator
+  translateLine: LineTranslator,
+  awaitableTargets: AwaitableDebugTargets
 ): void {
   const queue: AcornNode[] = [ast];
 
   while (queue.length > 0) {
     const node = queue.shift()!;
     const body = bodyStatements(node);
-    wrapAsyncFunctionBody(node, ms, translateLine);
+    wrapAsyncFunctionBody(node, ms, translateLine, awaitableTargets);
 
     for (const stmt of body) {
-      injectYieldBefore(stmt, ms, helperName, recordedLines, node, translateLine);
+      injectYieldBefore(stmt, ms, helperName, recordedLines, node, translateLine, awaitableTargets);
       // FunctionDeclaration / FunctionExpression / ArrowFunctionExpression
       // statements are themselves the bodies we want to descend into;
       // enqueue directly. Other statements get a recursive scan for
@@ -345,7 +549,8 @@ function injectYieldBefore(
   helperName: string,
   recordedLines: Set<number>,
   parent: AcornNode,
-  translateLine: LineTranslator
+  translateLine: LineTranslator,
+  awaitableTargets: AwaitableDebugTargets
 ): void {
   // Don't instrument hoisted declarations — function declarations are
   // hoisted to the top of the scope before any statement runs, so a
@@ -372,7 +577,7 @@ function injectYieldBefore(
     if ((parent as { generator?: boolean }).generator) return;
   }
 
-  if (!canAwaitInBody(parent)) return;
+  if (!canAwaitInBody(parent, awaitableTargets)) return;
 
   const jsLine = stmt.loc?.start.line ?? 0;
   if (jsLine === 0) return;
@@ -393,14 +598,17 @@ function injectYieldBefore(
   recordedLines.add(userLine);
 }
 
-function canAwaitInBody(parent: AcornNode): boolean {
+function canAwaitInBody(parent: AcornNode, awaitableTargets: AwaitableDebugTargets): boolean {
   if (parent.type === 'Program') return true;
   if (
     parent.type === 'FunctionDeclaration' ||
     parent.type === 'FunctionExpression' ||
     parent.type === 'ArrowFunctionExpression'
   ) {
-    return (parent as { async?: boolean; generator?: boolean }).async === true &&
+    return (
+      (parent as { async?: boolean }).async === true ||
+      awaitableTargets.nodes.has(parent)
+    ) &&
       (parent as { generator?: boolean }).generator !== true;
   }
   return false;
@@ -423,9 +631,10 @@ function buildLocalSnapshotExpression(localNames: string[]): string {
 function wrapAsyncFunctionBody(
   node: AcornNode,
   ms: MagicString,
-  translateLine: LineTranslator
+  translateLine: LineTranslator,
+  awaitableTargets: AwaitableDebugTargets
 ): void {
-  if (!canAwaitInBody(node)) return;
+  if (!canAwaitInBody(node, awaitableTargets)) return;
   if (node.type === 'Program') return;
   const body = (node as { body?: AcornNode }).body;
   if (!body || body.type !== 'BlockStatement') return;
@@ -509,7 +718,10 @@ export function instrumentForDebugger(
   const ms = new MagicString(code, { filename });
   const recordedLines = new Set<number>();
   const translateLine = buildLineTranslator(options.inputMap);
-  instrumentBodies(ast, ms, helperName, recordedLines, translateLine);
+  const awaitableTargets = collectAwaitableDebugTargets(ast);
+  markAwaitableDebugFunctions(ast, ms, awaitableTargets);
+  awaitKnownDebugCalls(ast, ms, awaitableTargets);
+  instrumentBodies(ast, ms, helperName, recordedLines, translateLine, awaitableTargets);
 
   const map = ms.generateMap({
     source: filename,
@@ -517,12 +729,45 @@ export function instrumentForDebugger(
     hires: true,
   });
 
+  const generatedCode = ms.toString();
+  const mapText = map.toString();
+
   return {
-    code: ms.toString(),
+    code: generatedCode,
     // magic-string's SourceMap.toString() inlines the map JSON; we
     // return JSON-encoded text so the caller can compose with
     // esbuild's upstream map without losing precision.
-    map: map.toString(),
+    map: mapText,
     instrumentedLines: [...recordedLines].sort((a, b) => a - b),
+    sourceLineMap: buildGeneratedLineMap(generatedCode, mapText, translateLine),
   };
+}
+
+function buildGeneratedLineMap(
+  generatedCode: string,
+  mapText: string,
+  translateLine: LineTranslator
+): Record<number, number> {
+  const out: Record<number, number> = {};
+  let tracer: TraceMap;
+  try {
+    tracer = new TraceMap(mapText);
+  } catch {
+    return out;
+  }
+
+  const lineCount = generatedCode.split('\n').length;
+  for (let line = 1; line <= lineCount; line += 1) {
+    try {
+      const original = originalPositionFor(tracer, { line, column: 0 });
+      if (typeof original.line !== 'number' || original.line <= 0) continue;
+      const userLine = translateLine(original.line);
+      if (Number.isInteger(userLine) && userLine > 0) {
+        out[line] = userLine;
+      }
+    } catch {
+      // Best effort only. Unmapped generated helper lines are ignored.
+    }
+  }
+  return out;
 }

@@ -135,14 +135,15 @@ export class TypeScriptRunner implements LanguageRunner {
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
     const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
 
-    // RL-027 Slice 1 — debug mode resolution mirrors the JS runner.
+    // RL-027 debugger refinement — debug mode resolution mirrors the JS
+    // runner: only an explicit Debug action attaches the pause protocol.
     const settings = useSettingsStore.getState();
     const debuggerSettings = settings.debuggerEnabled !== false;
     const debugStore = useDebuggerStore.getState();
     const tabBreakpoints = context?.tabId
       ? debugStore.breakpointsForTab(context.tabId).filter((bp) => bp.enabled)
       : [];
-    const debug = debuggerSettings && tabBreakpoints.length > 0;
+    const debug = context?.debug === true && debuggerSettings && tabBreakpoints.length > 0;
 
     // Step 1: Apply loop protection unless debug mode is active.
     const { loopProtection, maxLoopIterations } = settings;
@@ -185,6 +186,7 @@ export class TypeScriptRunner implements LanguageRunner {
     // on the user's TS line numbers (which is what the breakpoint store
     // already keeps).
     let instrumented = js;
+    let sourceLineMap: Record<number, number> | undefined;
     if (debug) {
       try {
         const result = instrumentForDebugger(js, {
@@ -192,6 +194,7 @@ export class TypeScriptRunner implements LanguageRunner {
           inputMap: tsMap,
         });
         instrumented = result.code;
+        sourceLineMap = result.sourceLineMap;
       } catch {
         instrumented = js;
       }
@@ -219,14 +222,28 @@ export class TypeScriptRunner implements LanguageRunner {
       const worker = this.worker;
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
       let resolved = false;
-
-      const finish = (value: ExecutionResult) => {
-        if (resolved) return;
-        resolved = true;
+      const clearDeadline = () => {
         if (timeoutHandle !== null) {
           clearTimeout(timeoutHandle);
           timeoutHandle = null;
         }
+      };
+      const armDeadline = () => {
+        clearDeadline();
+        timeoutHandle = setTimeout(() => {
+          worker.terminate();
+          if (this.worker === worker) this.worker = null;
+          // RL-027 Slice 1 — clear the debugger bridge + session on
+          // timeout so a follow-up F5/F10 doesn't post to a dead worker.
+          this.clearDebuggerSession('stop');
+          finish(runnerTimeoutResult(timeout, t, { stdout, stderr }));
+        }, timeout);
+      };
+
+      const finish = (value: ExecutionResult) => {
+        if (resolved) return;
+        resolved = true;
+        clearDeadline();
         if (this.currentRunId === runId) {
           this.currentRunId = null;
         }
@@ -267,6 +284,7 @@ export class TypeScriptRunner implements LanguageRunner {
                 t
               );
             }
+            context?.onConsole?.(output);
             break;
           }
           case 'magic-comment':
@@ -300,8 +318,12 @@ export class TypeScriptRunner implements LanguageRunner {
                 reasonBucket: paused.reason,
               });
             }
+            clearDeadline();
             break;
           }
+          case 'resumed':
+            armDeadline();
+            break;
           case 'done':
             finish({
               stdout,
@@ -332,15 +354,9 @@ export class TypeScriptRunner implements LanguageRunner {
         if (this.worker === worker) this.worker = null;
       });
 
-      // RL-078 — parent-owned kill timer.
-      timeoutHandle = setTimeout(() => {
-        worker.terminate();
-        if (this.worker === worker) this.worker = null;
-        // RL-027 Slice 1 — clear the debugger bridge + session on
-        // timeout so a follow-up F5/F10 doesn't post to a dead worker.
-        this.clearDebuggerSession('stop');
-        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }));
-      }, timeout);
+      // RL-078 — parent-owned kill timer. Debug pauses clear and
+      // re-arm this deadline around user-controlled stepping.
+      armDeadline();
 
       if (debug && context?.tabId) {
         this.debugSessionActive = true;
@@ -364,6 +380,7 @@ export class TypeScriptRunner implements LanguageRunner {
         debug,
         breakpoints: tabBreakpoints.map((bp) => ({ line: bp.line, condition: bp.condition })),
         watches: debug ? debugStore.watches.map((w) => w.expression) : [],
+        sourceLineMap,
       });
     });
   }
