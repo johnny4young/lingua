@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 export const APPROVED_LICENSE_EXPRESSIONS = [
   '(MPL-2.0 OR Apache-2.0)',
   '(WTFPL OR MIT)',
+  '0BSD',
   'Apache-2.0',
   'BSD-2-Clause',
   'BSD-3-Clause',

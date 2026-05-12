@@ -4,13 +4,14 @@ import {
   getBundledAppInfo,
   resolveLicenseType,
 } from '../../src/shared/appInfo';
+import pkg from '../../package.json';
 
 describe('appInfo helpers', () => {
   it('returns bundled product metadata with repository-derived license url', () => {
     const info = getBundledAppInfo();
 
     expect(info.productName).toBe('Lingua');
-    expect(info.version).toBe('0.2.4');
+    expect(info.version).toBe(pkg.version);
     // RL-062 flipped package.json to `SEE LICENSE IN LICENSE` so the About
     // panel shows a human-readable label instead of the raw SPDX expression.
     expect(info.licenseType).toBe('Commercial');

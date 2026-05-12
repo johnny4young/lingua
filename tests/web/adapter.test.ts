@@ -1,6 +1,7 @@
 import i18next from 'i18next';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../src/renderer/i18n';
+import pkg from '../../package.json';
 
 describe('web adapter', () => {
   beforeAll(async () => {
@@ -51,7 +52,7 @@ describe('web adapter', () => {
     const info = await window.lingua.getAppInfo();
 
     expect(info.productName).toBe('Lingua');
-    expect(info.version).toBe('0.2.4');
+    expect(info.version).toBe(pkg.version);
     expect(info.licenseType).toBe('Commercial');
     expect(info.repositoryUrl).toBe('https://github.com/johnny4young/lingua');
     expect(info.licenseUrl).toBe('https://github.com/johnny4young/lingua/blob/main/LICENSE');
