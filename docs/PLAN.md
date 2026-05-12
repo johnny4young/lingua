@@ -744,7 +744,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Status: `Planned`
 - Readiness: `Ready once loose-file flow and runtime capability UI are defined`
 - Why this is high leverage:
-  - RunJS wins partly because it combines Node.js and Browser APIs in a scratchpad-oriented product
+  - JS/TS users need the runtime contract to be explicit before they can trust whether APIs, imports, debugger behavior, and preview output match the environment they are targeting
   - The current app exposes only the worker-style JS/TS contract
 - Scope:
   - Add per-tab runtime mode selection for JS/TS:
@@ -755,11 +755,18 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Add a desktop Node runner via child process or utility process with explicit timeouts and sandbox boundaries
   - Add a browser-preview runtime backed by an iframe/webview-style isolated preview surface for DOM-oriented examples
   - Switch Monaco diagnostics/libs by runtime mode so the editor contract stays truthful
+  - Surface capability differences per mode, including:
+    - debugger availability
+    - import/dependency support
+    - DOM/browser API support
+    - Node built-in support
+    - output surface ownership
 - Acceptance criteria:
   - A JS/TS tab can switch runtime mode without opening Settings
   - Desktop Node mode can use Node built-ins explicitly
   - Browser Preview mode can render DOM output in a dedicated preview surface
   - Worker mode remains the fastest default for pure language experimentation
+  - The selected runtime mode explains its available APIs and debugger capability before execution starts
 - Dependencies:
   - RL-021
 
@@ -770,7 +777,12 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 - Readiness: `Ready to implement incrementally after RL-019 starts`
 - Scope:
   - Add smart auto-run with complete-code detection so incomplete edits do not execute too early
+  - Treat Scratchpad as a distinct workflow from Run and Debug:
+    - Run produces a single intentional execution result
+    - Debug pauses on breakpoints and exposes state
+    - Scratchpad continuously evaluates safe, complete edits for exploration
   - Expand magic comments into a richer inline-watch system that can pin and preserve selected expressions
+  - Add an optional expression auto-log mode for JS/TS scratchpad tabs so expression-oriented exploration does not require wrapping every value in `console.log(...)`
   - Add stdin / input support for supported runtimes
   - Add timeout presets and clearer abort state for long-running code
   - Preserve the last successful run so users can compare current output against the previous stable result
@@ -780,14 +792,47 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
     - Expandable objects and arrays with tree view
     - Auto-refresh after each execution
     - Available for JS/TS and Python from the first rollout
-    - Inspired by IPython `%whos`, Jupyter variable explorer, and marimo reactive state
+    - Optimized for fast scope inspection without entering a debugger session
 - Acceptance criteria:
   - Auto-run skips obviously incomplete code states
+  - Users can distinguish Run, Debug, and Scratchpad from the toolbar state and per-tab runtime controls
   - Users can rerun a previous execution from history
   - Supported runtimes can accept simple stdin text without custom code changes
   - Variable inspector shows current scope state after execution for JS/TS and Python
 - Dependencies:
   - RL-019
+
+#### Product experience recommendations — 2026-05-12
+
+This section captures product recommendations for the editor/runtime surface in
+Lingua's own terms. It does not create new `RL-XXX` tickets; each item maps
+onto the existing roadmap entries named below.
+
+| Priority | Recommendation | Primary ticket | Product outcome |
+|----------|----------------|----------------|-----------------|
+| `P0` | Make the JS/TS debugger first-class in both web and desktop while it stays on the worker interpreter path. | `RL-027` | Users can pause at a breakpoint, inspect local state, see the call stack, continue/step reliably, and keep prior output visible while paused. |
+| `P0` | Upgrade the console into a structured output timeline. | `RL-044` | Output entries carry level, source line, timestamp, expandable values, table rendering, error details, and click-to-source navigation. |
+| `P1` | Separate `Run`, `Debug`, and `Scratchpad` as distinct workflows instead of variants of the same button state. | `RL-019`, `RL-020` | Users understand whether Lingua will execute once, pause on breakpoints, or auto-evaluate complete edits. |
+| `P1` | Make Scratchpad mode fast, predictable, and state-aware. | `RL-020` | Auto-run can be paused, incomplete code is skipped, expression values can be surfaced automatically, and the last stable output remains available. |
+| `P2` | Group formatting controls by language capability. | `RL-010`, `RL-019` | Formatting options live near editor/runtime behavior and only appear when the active language can support them. |
+| `P2` | Keep AI assistance contextual, local-first, and opt-in. | `RL-031` | The assistant can use code/output/debugger context only after an explicit user action and never loads as a default background sidebar. |
+| `P2` | Add a diagnostic feedback flow. | `RL-065` | Issue reports can include app version, shell, language, runtime mode, capability state, and redacted recent errors without exposing source or secrets. |
+
+Implementation notes:
+
+- The JS/TS web debugger is viable because Lingua owns the worker runtime and
+  can cooperatively pause through AST instrumentation. TypeScript remains viable
+  when transpilation preserves source-map composition back to the original file.
+- This is not a native engine inspector. Web mode cannot attach to external
+  processes, expose Node built-ins, or inspect arbitrary browser execution
+  outside Lingua's controlled worker runtime.
+- Browser Preview / DOM debugging should remain a separate runtime-mode slice in
+  `RL-019`; do not merge DOM inspection into the pure JS/TS worker debugger.
+- Watch-expression and conditional-breakpoint evaluation must keep the existing
+  security gate from `RL-027` Slice 1.5b before evaluating user-provided
+  expressions in the worker.
+- Rich console work should land before charts/images so every runtime gets a
+  reliable value, error, and table contract before higher-level visualization.
 
 ### RL-021 Fix loose-file workflow and session continuity
 
@@ -1025,9 +1070,12 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - Variable inspector
   - Call stack panel
   - Console integration for paused sessions
-  - Start with JS/TS Node mode
+  - Start with JS/TS on the worker interpreter path so web and desktop share the same cooperative debugger contract
+  - Keep desktop Node debugging as a later runtime-mode concern after `RL-019` defines the Node execution boundary
 - Acceptance criteria:
-  - A user can pause execution at a breakpoint in JS/TS Node mode and inspect variables
+  - A user can pause execution at a breakpoint in JS/TS worker mode and inspect variables in web and desktop builds
+  - TypeScript breakpoints pause on original source lines through source-map composition
+  - Prior console output remains visible while the debug session is paused
   - Breakpoint state persists for reopened files in a project
 - Dependencies:
   - RL-019
@@ -1277,6 +1325,7 @@ Deferred to Slice 1.5b (still):
 - Product position:
   - This is not a general-purpose chat feature in the first rollout
   - The MVP is a constrained offline assistant for simple programming tasks only
+  - The assistant is opt-in and contextual, not a permanent default sidebar
   - The primary user value is:
     - generate a small algorithm in the selected language
     - explain the current code briefly
@@ -1296,6 +1345,7 @@ Deferred to Slice 1.5b (still):
   - Add streaming responses and explicit insert/copy actions
   - Keep automatic file editing out of MVP
   - Keep the feature fully optional and disableable
+  - Allow future contextual entry points to pass only the specific active context the user selected, such as current code, selected output, or the current debugger frame
 - Explicit non-goals for MVP:
   - no cloud providers
   - no arbitrary external API URLs
@@ -1304,6 +1354,8 @@ Deferred to Slice 1.5b (still):
   - no shell command execution
   - no background indexing or retrieval over the whole project
   - no plugin-facing AI API surface yet
+  - no automatic model download or load on app startup
+  - no implicit upload or persistence of code, output, or debugger state
 - Exact execution boundary:
   - Desktop only
   - Web build must surface the feature as unavailable rather than partially emulated
@@ -2106,10 +2158,24 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 - Status: `Planned`
 - Readiness: `Ready for design`
 - Why this matters:
-  - Jupyter, marimo, and Observable excel at inline visualization
+  - Structured output turns the console from a text sink into an inspection surface
   - Students and data-oriented developers expect charts, tables, and images in output
   - This makes the console panel dramatically more useful
 - Scope:
+  - Ship a structured console-entry model before higher-level visualization:
+    - level
+    - source line
+    - timestamp
+    - argument list
+    - expandable value preview
+    - optional runtime metadata
+  - Render common JS/TS values richly:
+    - plain objects
+    - arrays
+    - maps and sets
+    - errors
+    - dates
+    - promises
   - Detect structured output and render it richly:
     - Arrays of objects → auto-table
     - `{ type: 'chart', data: [...] }` → inline chart via a lightweight chart library
@@ -2121,6 +2187,8 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
     - `//=> chart` renders as chart
   - Keep visualization lightweight — use a small embedded library, not a full notebook framework
 - Acceptance criteria:
+  - Console entries preserve their level, source line, and source navigation target
+  - Expandable object/array/map/set/error previews work before chart/image rendering lands
   - An array of objects logged to console renders as a sortable table
   - Basic chart rendering works for JS/TS and Python
   - Image output renders inline in the console panel
