@@ -210,6 +210,16 @@ jobs:
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # Lift the Node.js heap so Vite/Rollup can finish bundling
+          # Monaco + Pyodide + i18n + plugins without an out-of-memory
+          # GC death-spiral. Same fix the web job uses
+          # (.github/workflows/deploy-web.yml). macos-14 runners ship
+          # with 7 GB RAM, so 4 GB leaves headroom for the OS and the
+          # parallel notarize subprocess. Forge swallows the Vite OOM
+          # exception and exits 0 without writing the ZIP if this is
+          # missing, which masks the failure until
+          # Verify macOS artifacts runs.
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Verify macOS artifacts
         shell: bash
@@ -323,6 +333,13 @@ jobs:
         env:
           WIN_CERT_FILE: ${{ env.WIN_CERT_FILE }}
           WIN_CERT_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+          # Same heap lift as the macOS + web bundling jobs — Vite/
+          # Rollup needs more than the Node default to finish the
+          # renderer bundle. Windows runners ship with more RAM than
+          # mac so we could go higher, but 4 GB matches the macOS
+          # cap and is comfortably above the ~2 GB the renderer
+          # bundle actually consumes.
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Verify Windows artifacts
         shell: bash
@@ -393,6 +410,11 @@ jobs:
 
       - name: Build Linux artifacts
         run: npm run make:desktop:linux
+        env:
+          # Same heap lift as the macOS + Windows + web bundling
+          # jobs — Vite/Rollup needs more than the Node default to
+          # finish the renderer bundle.
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Verify Linux artifacts
         shell: bash
