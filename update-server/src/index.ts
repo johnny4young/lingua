@@ -14,6 +14,7 @@ import {
   SERVER_NAME,
   SERVER_VERSION,
 } from './lib/health';
+import { handleTelemetry } from './telemetry';
 
 export interface Env {
   GITHUB_TOKEN: string;
@@ -132,6 +133,15 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
       });
     }
     return handleWebVersion(request, env);
+  }
+
+  // RL-065 Slice 5 — telemetry export endpoint. Method negotiation,
+  // CORS preflight, payload guard, rate limit, allowlist, and
+  // persistence all live inside `handleTelemetry`. The renderer
+  // POSTs here from `src/renderer/utils/telemetry.ts` only after the
+  // user has granted consent in Settings → Privacy.
+  if (path === '/telemetry') {
+    return handleTelemetry(request);
   }
 
   return new Response('Not Found', { status: 404 });

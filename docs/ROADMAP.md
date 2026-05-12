@@ -115,7 +115,8 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-065`](./PLAN.md#rl-065-privacy-respecting-launch-telemetry) | Privacy-respecting telemetry | `Partial` | First-run consent + event allowlist + overlay.opened / runner.executed / feature.blocked wired. Remaining: event export pipeline. |
+
+_All rows in this section are closed; see §6 archive. RL-065 closed 2026-05-12 with Slice 5 — telemetry export endpoint on `update-server` (POST /telemetry, allowlist+deny-pass+rate-limit, Workers Observability persistence, web-only env wiring, update.checked callsite, URL validation, Playwright consent-gate assertion, telemetry-pipeline.md runbook with the D1 promotion path)._
 
 ### 4g. Personalization and surface polish (P2)
 
@@ -174,17 +175,17 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>62 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>63 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
 `RL-022`, `RL-026`, `RL-028`, `RL-030`, `RL-034`, `RL-037`, `RL-038`,
 `RL-040`, `RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`,
 `RL-056`, `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-063`,
-`RL-064`, `RL-066`, `RL-067`, `RL-068`, `RL-069`, `RL-070`, `RL-071`,
-`RL-073`, `RL-074`, `RL-075`, `RL-076`, `RL-077`, `RL-078`, `RL-079`,
-`RL-080`, `RL-081`, `RL-082`, `RL-083`, `RL-084`, `RL-085`, `RL-086`,
-`RL-087`, `RL-088`, `RL-089`, `RL-090`, `RL-091`, `RL-092`.
+`RL-064`, `RL-065`, `RL-066`, `RL-067`, `RL-068`, `RL-069`, `RL-070`,
+`RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`, `RL-077`, `RL-078`,
+`RL-079`, `RL-080`, `RL-081`, `RL-082`, `RL-083`, `RL-084`, `RL-085`,
+`RL-086`, `RL-087`, `RL-088`, `RL-089`, `RL-090`, `RL-091`, `RL-092`.
 
 </details>
 

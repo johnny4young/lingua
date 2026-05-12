@@ -67,7 +67,18 @@ These labels appear in `request.received.route` and `request.completed.route`.
 | `update.feed` | `GET /update/:platform/:version` | Returned 502 responses are classified as `upstream`. |
 | `update.asset_proxy` | `GET /download/:assetId` | Returned 502 responses are classified as `upstream`. |
 | `update.web_version` | `GET /web/version` | Returned 502 responses are classified as `upstream`. |
+| `telemetry.ingest` | `POST /telemetry` and `OPTIONS /telemetry` | RL-065 Slice 5. 400 means malformed payload; 405 means non-POST; 413 means oversize; 429 means per-IP rate-limited. 204 on success. |
 | `unknown` | any unmatched path | Includes 404s for non-existent routes. |
+
+### update-server telemetry-ingest events (RL-065 Slice 5)
+
+In addition to the common `request.*` envelope, the `/telemetry`
+route emits two extra structured log lines:
+
+| Event name | Trigger | Payload | Notes |
+|---|---|---|---|
+| `telemetry.event` | Each successful validated POST. | `eventName` (one of `TELEMETRY_EVENT_NAMES`), `properties` (sanitized). | The single source for funnel queries. Workers Observability retains ~3 days on the standard plan; see `docs/runbooks/telemetry-pipeline.md` for the D1 promotion path. |
+| `telemetry.rate_limited` | Per-IP ceiling (5 req/sec) exceeded. | `ipBucket` (last IPv4 octet / last IPv6 hextets truncated). | Sustained spikes from one bucket indicate either a renderer instrumentation loop or abusive traffic. |
 
 ## Error classification
 

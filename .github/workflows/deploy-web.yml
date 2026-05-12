@@ -66,6 +66,15 @@ jobs:
           # (app.linguacode.dev/), not under a /lingua/ path prefix
           # as the legacy GH Pages deploy did.
           VITE_BASE_PATH: /
+          # RL-065 Slice 5 — point the web bundle at the telemetry
+          # ingest endpoint on the update-server worker. Only the
+          # web build sets this; the desktop release workflow leaves
+          # it unset so packaged desktop builds stay telemetry-off
+          # by default (the renderer emitter no-ops without an
+          # endpoint, per `src/renderer/utils/telemetry.ts`). Local
+          # developers can override via `.env.local` to point at
+          # `http://localhost:8787/telemetry` with `wrangler dev`.
+          VITE_LINGUA_TELEMETRY_URL: https://updates.linguacode.dev/telemetry
           # Lift the Node.js heap from the 4 GB default to 8 GB so
           # Vite/Rollup can finish bundling Monaco + i18n + plugins
           # without an out-of-memory GC death-spiral. The

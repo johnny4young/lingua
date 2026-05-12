@@ -3828,8 +3828,8 @@ Closure follows from RL-063 ship.
 ### RL-065 Privacy-respecting launch telemetry
 
 - Priority: `P1` for Phase 2
-- Status: `Partial`
-- Readiness: `Consent toggle + base event wiring completed on 2026-04-19; first-run desktop prompt shipped on 2026-04-20; overlay.opened callsites shipped on 2026-04-20 ter; runner.executed callsites shipped on 2026-04-20 quater; feature.blocked callsites (tab + snippet ceilings) shipped on 2026-04-20 quinquies`
+- Status: `Done`
+- Readiness: `Consent toggle + base event wiring completed on 2026-04-19; first-run desktop prompt shipped on 2026-04-20; overlay.opened callsites shipped on 2026-04-20 ter; runner.executed callsites shipped on 2026-04-20 quater; feature.blocked callsites (tab + snippet ceilings) shipped on 2026-04-20 quinquies; Slice 5 (export endpoint + persistence + runbook) shipped 2026-05-12 — see Status Update below`
 - 2026-04-19 update:
   - `createSessionId()` produces a 32-char hex id per launch; held in renderer module scope, never persisted, never transmitted as a user identifier
   - `resolveTelemetryBase()` assembles app version, OS bucket, license status, and sessionId from the live stores
@@ -3859,6 +3859,59 @@ Closure follows from RL-063 ship.
   - The consent choice is persisted and easy to revoke from Settings.
 - Dependencies:
   - None (can land independently of RL-059/RL-061)
+
+#### Status Update — 2026-05-12 (closes RL-065)
+
+Slice 5 lands the event export pipeline. `update-server` grew a
+`POST /telemetry` route (`update-server/src/telemetry.ts`) that
+validates every payload against a verbatim mirror of
+`TELEMETRY_EVENTS` + `EVENT_PROPERTY_ALLOWLIST` from
+`src/shared/telemetry.ts`, plus a `DENY_SUBSTRINGS` substring guard
+(fold A) and a 5-req/sec per-IP rate limit via the CF Cache API
+(fold B). Persistence is Workers Observability `console.log` — no
+new D1 / KV; retention is ~3 days on the standard plan and the
+runbook documents the promote-to-D1 path when that breaks (fold E).
+
+The web build wires `VITE_LINGUA_TELEMETRY_URL=https://updates.linguacode.dev/telemetry`
+via `.github/workflows/deploy-web.yml` only; the desktop release
+workflow leaves the env unset, so packaged desktop builds stay
+telemetry-off by default. Renderer `readEndpoint` gained a `new URL()`
++ scheme guard (fold F) so a build-time typo like `http:/telemetry`
+warns once and resolves to `null` instead of silently swallowing
+events. The autoupdater funnel now emits `update.checked` (closed
+enum `available` / `no-update` / `failure`) via a Zustand
+`useUpdateStore.subscribe` watcher on the `checking` → terminal
+transition (fold D) — no callsite is per-action, so the
+auto-update setInterval, the manual `Check now` button, and the
+state-changed broadcast all roll up into one event per check.
+
+Test coverage: `update-server/test/telemetry.test.ts` (~24
+assertions: methods, validation, payload size cap, allowlist
+silent-drop, deny-substring, rate-limit budget, `telemetry.event`
+log line, fold C parity vs `src/shared/telemetry.ts`),
+`tests/utils/telemetry.test.ts` extended with five URL-validation
+cases (fold F), `tests/stores/updateStore.telemetry.test.ts` covers
+the seven `update.checked` transition cases (fold D), and
+`tests/e2e/telemetry.spec.ts` locks the consent→POST and
+declined→silence gates behind Playwright (fold G).
+
+Acceptance criteria coverage:
+
+- "Telemetry is off by default" — `telemetryConsent` defaults to
+  `unset`, the renderer emitter no-ops on anything but `granted`.
+- "No payload ever contains user code or file content" — the
+  renderer redactor enforces, the server validator re-enforces,
+  the deny-substring guard catches future regressions, and the
+  parity test prevents drift between them.
+- "Consent is persisted and revocable from Settings" — unchanged
+  from earlier slices.
+- "Self-hosted endpoint" — single CF Worker
+  (`updates.linguacode.dev/telemetry`), no third-party vendor.
+- "Kill switch" — `VITE_LINGUA_TELEMETRY_DISABLED=1` (renderer),
+  comment out the route in `update-server/src/index.ts` (server),
+  unset `VITE_LINGUA_TELEMETRY_URL` (build-time kill).
+
+Operator surface: [`docs/runbooks/telemetry-pipeline.md`](./runbooks/telemetry-pipeline.md).
 
 ### RL-066 SEO landing pages for language-specific intents
 

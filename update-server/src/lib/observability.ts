@@ -149,6 +149,7 @@ export function routeNameFromPath(path: string): string {
   if (path === '/' || path === '/health') return 'health.live';
   if (path === '/health/ready') return 'health.ready';
   if (path === '/web/version') return 'update.web_version';
+  if (path === '/telemetry') return 'telemetry.ingest';
   if (/^\/update\/(darwin|win32)\/.+$/.test(path)) return 'update.feed';
   if (/^\/download\/\d+(?:\/[^/]+)?$/.test(path)) return 'update.asset_proxy';
   return 'unknown';

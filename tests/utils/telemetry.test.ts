@@ -47,3 +47,94 @@ describe('resolveTelemetryBase + trackEvent', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * RL-065 Slice 5 fold F — endpoint URL validation. A typo like
+ * `http:/telemetry` used to silently swallow every event because the
+ * emitter accepted any non-empty string. The module-load probe now
+ * runs the value through `new URL()` and an https-or-localhost
+ * scheme check; misconfigured values warn once and resolve to null
+ * so `isTelemetryEnabled()` stays false.
+ *
+ * `readEndpoint` is module-local, so the tests here exercise the
+ * behaviour through `vi.resetModules()` plus `vi.stubEnv` for the
+ * vite import.meta.env value. Each test re-imports the module to
+ * pick up a fresh endpoint resolution.
+ */
+describe('readEndpoint URL validation (fold F)', () => {
+  const initialSettings = useSettingsStore.getState();
+
+  beforeEach(async () => {
+    useSettingsStore.setState(initialSettings, true);
+    const { _resetEndpointCacheForTesting } = await import('@/utils/telemetry');
+    _resetEndpointCacheForTesting();
+  });
+
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    useSettingsStore.setState(initialSettings, true);
+    const { _resetEndpointCacheForTesting } = await import('@/utils/telemetry');
+    _resetEndpointCacheForTesting();
+    vi.restoreAllMocks();
+  });
+
+  it('rejects a malformed endpoint and stays disabled', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'http:/telemetry'); // missing slash
+    const { isTelemetryEnabled } = await import('@/utils/telemetry');
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
+    expect(isTelemetryEnabled()).toBe(false);
+    // Warning fires once for the misconfigured value so a developer
+    // hitting this in `npm run preview:web` can diagnose without it
+    // spamming the console.
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('telemetry');
+  });
+
+  it('rejects an ftp:// scheme and stays disabled', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'ftp://example.com/telemetry');
+    const { isTelemetryEnabled } = await import('@/utils/telemetry');
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
+    expect(isTelemetryEnabled()).toBe(false);
+  });
+
+  it('rejects http:// against a non-localhost host', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'http://example.com/telemetry');
+    const { isTelemetryEnabled } = await import('@/utils/telemetry');
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
+    expect(isTelemetryEnabled()).toBe(false);
+  });
+
+  it('accepts http://localhost for `wrangler dev` against a worker', async () => {
+    vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'http://localhost:8787/telemetry');
+    const { isTelemetryEnabled } = await import('@/utils/telemetry');
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
+    expect(isTelemetryEnabled()).toBe(true);
+  });
+
+  it('also accepts http://127.0.0.1 — wrangler dev binds the loopback IP on some platforms', async () => {
+    vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'http://127.0.0.1:8787/telemetry');
+    const { isTelemetryEnabled } = await import('@/utils/telemetry');
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
+    expect(isTelemetryEnabled()).toBe(true);
+  });
+
+  it('accepts a valid https endpoint and reports enabled when consent is granted', async () => {
+    vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'https://updates.linguacode.dev/telemetry');
+    const { isTelemetryEnabled } = await import('@/utils/telemetry');
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
+    expect(isTelemetryEnabled()).toBe(true);
+  });
+
+  it('warns at most once across multiple trackEvent calls in a single launch', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'http:/telemetry');
+    const { trackEvent } = await import('@/utils/telemetry');
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
+    await trackEvent('app.launched', { platform: 'darwin' });
+    await trackEvent('overlay.opened', { overlayId: 'whats-new' });
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+});

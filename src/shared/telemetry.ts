@@ -2,9 +2,9 @@
  * Privacy-respecting telemetry payload shape + redactor (RL-065).
  *
  * The product is local-first; telemetry only fires when the user has
- * explicitly opted in and the build honors the `LINGUA_TELEMETRY_DISABLED=1`
+ * explicitly opted in and the build honors the `VITE_LINGUA_TELEMETRY_DISABLED=1`
  * kill switch. This module owns the TypeScript surface for telemetry events
- * and, critically, the `ALLOWED_EVENT_NAMES` allowlist that prevents drift
+ * and, critically, the `TELEMETRY_EVENTS` allowlist that prevents drift
  * into "just this one field" expansions that creep toward user code capture.
  *
  * `redactForTelemetry` is exported so both the renderer emitter and the
@@ -62,6 +62,14 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'runner.executed': ['language', 'status', 'durationBucketMs'],
   'overlay.opened': ['overlayId'],
   'feature.blocked': ['entitlement', 'tier'],
+  // RL-065 Slice 5 — `status` is a closed enum:
+  //   `available`  → autoupdater reported an update is ready/downloading.
+  //   `no-update`  → autoupdater reported the build is already current.
+  //   `failure`    → autoupdater raised an error during the check.
+  // No version strings, no release notes, no error messages — those
+  // would be free-form text and risk leaking host detail. Fired by
+  // `src/renderer/stores/updateStore.ts` on every transition out of
+  // the `checking` state.
   'update.checked': ['status'],
   // RL-069 Slice 3 — `utilityId` is the catalog enum value (a fixed
   // string set, not user data). `count` is the post-action favorites
@@ -97,6 +105,27 @@ const DENY_SUBSTRINGS = [
   'project',
 ];
 
+const SAFE_TOKEN_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
+const RUNNER_STATUS_VALUES = new Set(['ok', 'error']);
+const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
+const UPDATE_CHECKED_STATUS_VALUES = new Set([
+  'available',
+  'no-update',
+  'failure',
+]);
+const HISTORY_CLEAR_SCOPES = new Set(['session', 'persisted', 'all']);
+const DEBUGGER_REASON_BUCKETS: Record<
+  Extract<
+    TelemetryEventName,
+    'debugger.attached' | 'debugger.paused' | 'debugger.detached'
+  >,
+  ReadonlySet<string>
+> = {
+  'debugger.attached': new Set(['attach']),
+  'debugger.paused': new Set(['user-breakpoint', 'step', 'exception']),
+  'debugger.detached': new Set(['user-detach', 'run-complete', 'crash', 'stop']),
+};
+
 function keyLooksSensitive(key: string): boolean {
   const lower = key.toLowerCase();
   return DENY_SUBSTRINGS.some((deny) => lower.includes(deny));
@@ -109,6 +138,64 @@ function valueLooksSensitive(value: unknown): boolean {
   const t = typeof value;
   if (t === 'string' || t === 'number' || t === 'boolean') return false;
   return true;
+}
+
+function isSafeToken(value: unknown): value is string {
+  return typeof value === 'string' && SAFE_TOKEN_RE.test(value);
+}
+
+function isSafeCount(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= 1000
+  );
+}
+
+function isAllowedValue(
+  event: TelemetryEventName,
+  key: string,
+  value: unknown
+): value is string | number | boolean {
+  switch (event) {
+    case 'app.launched':
+      return isSafeToken(value);
+    case 'runner.executed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'status') return typeof value === 'string' && RUNNER_STATUS_VALUES.has(value);
+      if (key === 'durationBucketMs') return typeof value === 'number' && DURATION_BUCKETS.has(value);
+      return false;
+    case 'overlay.opened':
+      return key === 'overlayId' && isSafeToken(value);
+    case 'feature.blocked':
+      return (key === 'entitlement' || key === 'tier') && isSafeToken(value);
+    case 'update.checked':
+      return typeof value === 'string' && UPDATE_CHECKED_STATUS_VALUES.has(value);
+    case 'utility.favorite.pinned':
+      if (key === 'utilityId') return isSafeToken(value);
+      if (key === 'count') return isSafeCount(value);
+      return false;
+    case 'utility.history.cleared':
+      if (key === 'utilityId') return isSafeToken(value);
+      if (key === 'scope') return typeof value === 'string' && HISTORY_CLEAR_SCOPES.has(value);
+      return false;
+    case 'utility.clipboard.applied':
+      return key === 'utilityId' && isSafeToken(value);
+    case 'debugger.attached':
+    case 'debugger.paused':
+    case 'debugger.detached':
+      if (key === 'language') return isSafeToken(value);
+      return (
+        key === 'reasonBucket' &&
+        typeof value === 'string' &&
+        DEBUGGER_REASON_BUCKETS[event].has(value)
+      );
+    default: {
+      const exhaustive: never = event;
+      return exhaustive;
+    }
+  }
 }
 
 export interface RedactionResult {
@@ -134,6 +221,10 @@ export function redactForTelemetry(event: TelemetryEvent): RedactionResult {
       continue;
     }
     if (keyLooksSensitive(key) || valueLooksSensitive(value)) {
+      droppedKeys.push(key);
+      continue;
+    }
+    if (!isAllowedValue(event.event, key, value)) {
       droppedKeys.push(key);
       continue;
     }
