@@ -4,23 +4,31 @@ All notable changes to Lingua are documented here.
 
 The format follows Keep a Changelog and groups changes by release.
 
-## [0.2.4] — 2026-05-07
+## [0.3.0] — 2026-05-11
 
 ### Added
-- **Profile backup and restore**: Export a versioned profile backup and restore it with explicit conflict handling, including replace confirmation and machine-bound data exclusions.
-- **Performance visibility**: Release validation now captures bundle size, runtime timings, and memory diagnostics before a build ships.
-- **Public-source readiness guidance**: Release, security, auto-update, Cloudflare, performance, and source-available publication checks are now documented in one place.
-- **Release notes guardrails**: Version and release-note checks now help keep the bundled What's New timeline aligned with the build users receive.
+- **Rich language intelligence for Python, Rust, and Go**: Inline diagnostics, completions, hover documentation, and parameter hints. Rust uses rust-analyzer and Go uses gopls when installed locally; Python runs in-process. Web build keeps these languages in validate-only mode.
+- **JS/TS debugger (preview)**: Click-to-toggle gutter breakpoints with `Mod+Shift+B`, a Debugger drawer with step controls, Settings entries to disable or clear all breakpoints, and TypeScript source-map composition so breakpoints stop at the line you authored.
+- **Developer utilities productivity layer**: `Cmd/Ctrl+K` launcher with fuzzy search, `Cmd+Shift+C` / `Cmd+Alt+R` to copy or replace utility output, per-tool history with persistence, drag-reorder favorites with full keyboard support, clipboard-on-focus consent, and Apply-from-input across 29 panels.
+- **QR utility closeout**: Drag-drop image decode, Copy-as-PNG, FG/BG color pickers with a WCAG-AA contrast guard, high-contrast preset, and SVG download.
+- **Recovery experience**: Safe-mode boot via `?safe-mode=1`, automatic factory mode after repeated crashes, a Settings recovery section with five scoped resets, and a reveal-folder shortcut.
+- **Profile backup and restore**: Versioned profile export and restore with explicit conflict handling, replace confirmation, and machine-bound data exclusions.
+- **Performance visibility**: Release validation captures bundle size, runtime timings, and memory diagnostics before a build ships.
+- **Release update feed gate**: Desktop release validation now includes a draft-channel update-feed check with archived evidence.
+- **Public-source readiness guidance**: Release, security, auto-update, Cloudflare, performance, and source-available publication checks documented in one place.
 
 ### Changed
-- **Desktop watcher reliability**: Watcher diagnostics, opaque watch IDs, and degraded-event handling are now documented and covered more directly.
-- **Plugin hardening**: Built-in plugin catalog and manifest validation now reject malformed or prototype-derived ids more defensively.
-- **Release validation**: Performance budgets are now part of the normal web-build quality gate.
+- **Desktop watcher reliability**: Watcher diagnostics, opaque watch IDs, and degraded-event handling are documented and covered more directly.
+- **Plugin hardening**: Built-in plugin catalog and manifest validation reject malformed or prototype-derived ids more defensively.
+- **Release validation**: Performance budgets are part of the normal web-build quality gate.
 
 ### Fixed
-- **Overlay accessibility**: Modal overlays now preserve dialog boundaries, contain focus, and restore focus after close.
-- **Public repository hygiene**: Local-only maintainer automation is excluded from the public source tree without removing the maintainer's local commands.
-- **Auto-update docs**: Runbooks now match the desktop updater's one-hour check interval.
+- **Trust-boundary hardening**: Filesystem capability checks and native runtime detection paths were tightened to keep host secrets out of subprocess environments.
+- **Overlay accessibility**: Modal overlays preserve dialog boundaries, contain focus, and restore focus after close.
+- **Auto-update docs**: Runbooks match the desktop updater's one-hour check interval.
+
+### Security
+- **Public-release secret scan**: A gitleaks scan now runs as part of release readiness.
 
 ## [0.2.3] — 2026-04-30
 
