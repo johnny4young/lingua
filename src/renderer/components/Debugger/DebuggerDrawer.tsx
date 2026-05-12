@@ -15,6 +15,14 @@ import { postDebuggerMessage } from '../../runtime/debuggerWorkerBridge';
 import { trackEvent } from '../../utils/telemetry';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
 import type { Language } from '../../types';
+import { Tooltip } from '../ui/chrome';
+
+const debuggerButtonBase =
+  'inline-flex items-center gap-1 rounded-md border border-border/80 bg-background/70 px-2 py-1 text-xs font-medium shadow-sm shadow-black/[0.02] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-55';
+const debuggerActionButton =
+  `${debuggerButtonBase} text-foreground hover:border-primary/50 hover:bg-surface-strong/65`;
+const debuggerDangerButton =
+  `${debuggerButtonBase} text-muted hover:border-danger/50 hover:bg-danger/5 hover:text-danger`;
 
 /**
  * RL-027 Slice 1 — single drawer combining the four ADR §3 panels
@@ -93,6 +101,27 @@ export function DebuggerDrawer({
           count: breakpointCount,
         })
       : t('debugger.breakpoints.empty');
+  const breakpointSummaryHint =
+    breakpointCount > 0
+      ? t('debugger.breakpoints.summaryHint', {
+          enabled: enabledBreakpointCount,
+          count: breakpointCount,
+          global: allBreakpointCount,
+        })
+      : t('debugger.breakpoints.emptyHint');
+  const statusHint = isPaused
+    ? t('debugger.status.pausedHint')
+    : t('debugger.status.readyHint');
+  const toggleBreakpointsHint =
+    allBreakpointCount === 0
+      ? t('debugger.breakpoints.emptyHint')
+      : allBreakpointsDisabled
+        ? t('debugger.breakpoints.enableAll.hint')
+        : t('debugger.breakpoints.disableAll.hint');
+  const clearBreakpointsHint =
+    allBreakpointCount === 0
+      ? t('debugger.breakpoints.emptyHint')
+      : t('debugger.breakpoints.clearAll.hint');
 
   const sendResume = () => {
     postDebuggerMessage({ type: 'resume' });
@@ -132,43 +161,52 @@ export function DebuggerDrawer({
     >
       <header className="flex flex-col gap-2 px-4 py-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-          <button
-            type="button"
-            data-testid="debugger-collapse"
-            onClick={toggleDrawerCollapsed}
-            aria-label={drawerCollapsed ? t('debugger.drawer.expand') : t('debugger.drawer.collapse')}
-            aria-expanded={!drawerCollapsed}
-            aria-controls="debugger-drawer-body"
-            className="inline-flex h-5 w-5 items-center justify-center rounded-md text-muted hover:bg-surface hover:text-foreground"
+          <Tooltip
+            content={
+              drawerCollapsed
+                ? t('debugger.drawer.expandHint')
+                : t('debugger.drawer.collapseHint')
+            }
           >
-            {drawerCollapsed ? (
-              <ChevronUp size={11} aria-hidden="true" />
-            ) : (
-              <ChevronDown size={11} aria-hidden="true" />
-            )}
-          </button>
+            <button
+              type="button"
+              data-testid="debugger-collapse"
+              onClick={toggleDrawerCollapsed}
+              aria-label={
+                drawerCollapsed ? t('debugger.drawer.expand') : t('debugger.drawer.collapse')
+              }
+              aria-expanded={!drawerCollapsed}
+              aria-controls="debugger-drawer-body"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-md text-muted hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              {drawerCollapsed ? (
+                <ChevronUp size={11} aria-hidden="true" />
+              ) : (
+                <ChevronDown size={11} aria-hidden="true" />
+              )}
+            </button>
+          </Tooltip>
           <Bug size={14} aria-hidden="true" />
           <span>{t('debugger.title')}</span>
-          <span
-            data-testid="debugger-breakpoint-summary"
-            title={
-              allBreakpointCount > breakpointCount
-                ? t('debugger.breakpoints.globalHint', { count: allBreakpointCount })
-                : undefined
-            }
-            className={`status-pill border-transparent px-2 py-0.5 text-[10px] ${
-              enabledBreakpointCount > 0 ? 'bg-danger/10 text-danger' : 'bg-surface text-muted'
-            }`}
-          >
-            {breakpointSummary}
-          </span>
-          <span
-            className={`status-pill border-transparent px-2 py-0.5 text-[10px] ${
-              isPaused ? 'bg-danger/12 text-danger' : 'bg-surface text-muted'
-            }`}
-          >
-            {isPaused ? t('debugger.status.paused') : t('debugger.status.ready')}
-          </span>
+          <Tooltip content={breakpointSummaryHint}>
+            <span
+              data-testid="debugger-breakpoint-summary"
+              className={`status-pill border-transparent px-2 py-0.5 text-[10px] ${
+                enabledBreakpointCount > 0 ? 'bg-danger/10 text-danger' : 'bg-surface text-muted'
+              }`}
+            >
+              {breakpointSummary}
+            </span>
+          </Tooltip>
+          <Tooltip content={statusHint}>
+            <span
+              className={`status-pill border-transparent px-2 py-0.5 text-[10px] ${
+                isPaused ? 'bg-danger/12 text-danger' : 'bg-surface text-muted'
+              }`}
+            >
+              {isPaused ? t('debugger.status.paused') : t('debugger.status.ready')}
+            </span>
+          </Tooltip>
           {isPaused && pausedFrame ? (
             <span className="text-xs font-normal text-muted">
               ·{' '}
@@ -180,84 +218,102 @@ export function DebuggerDrawer({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-1">
-          <button
-            type="button"
-            data-testid="debugger-toggle-all-breakpoints"
-            onClick={toggleAllBreakpoints}
-            disabled={allBreakpointCount === 0}
-            className="inline-flex items-center gap-1 rounded-[0.45rem] border border-border/80 px-2 py-1 text-xs font-medium text-muted hover:border-danger/50 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+          <Tooltip content={toggleBreakpointsHint}>
+            <button
+              type="button"
+              data-testid="debugger-toggle-all-breakpoints"
+              onClick={toggleAllBreakpoints}
+              disabled={allBreakpointCount === 0}
+              className={debuggerDangerButton}
+            >
+              {allBreakpointsDisabled ? (
+                <CirclePlay size={11} aria-hidden="true" />
+              ) : (
+                <CirclePause size={11} aria-hidden="true" />
+              )}
+              {allBreakpointsDisabled
+                ? t('debugger.breakpoints.enableAll.button')
+                : t('debugger.breakpoints.disableAll.button')}
+            </button>
+          </Tooltip>
+          <Tooltip content={clearBreakpointsHint}>
+            <button
+              type="button"
+              data-testid="debugger-clear-all-breakpoints"
+              onClick={clearBreakpoints}
+              disabled={allBreakpointCount === 0}
+              className={debuggerDangerButton}
+            >
+              <Trash2 size={11} aria-hidden="true" />
+              {t('debugger.breakpoints.clearAll.button')}
+            </button>
+          </Tooltip>
+          <Tooltip content={t('debugger.actions.continueHint')}>
+            <button
+              type="button"
+              data-testid="debugger-continue"
+              onClick={sendResume}
+              disabled={!isPaused}
+              className={debuggerActionButton}
+            >
+              <ChevronsRight size={11} aria-hidden="true" />
+              {t('debugger.actions.continue')}
+            </button>
+          </Tooltip>
+          <Tooltip content={t('debugger.actions.stepOverHint')}>
+            <button
+              type="button"
+              data-testid="debugger-step-over"
+              onClick={() => sendStep('over')}
+              disabled={!isPaused}
+              className={debuggerActionButton}
+            >
+              <ChevronDown size={11} aria-hidden="true" />
+              {t('debugger.actions.stepOver')}
+            </button>
+          </Tooltip>
+          <Tooltip content={t('debugger.actions.stepIntoHint')}>
+            <button
+              type="button"
+              data-testid="debugger-step-into"
+              onClick={() => sendStep('into')}
+              disabled={!isPaused}
+              className={debuggerActionButton}
+            >
+              <ChevronDown size={11} aria-hidden="true" />
+              {t('debugger.actions.stepInto')}
+            </button>
+          </Tooltip>
+          <Tooltip
+            content={
+              canStepOut
+                ? t('debugger.actions.stepOutHint')
+                : t('debugger.actions.stepOut.disabledHint')
+            }
           >
-            {allBreakpointsDisabled ? (
-              <CirclePlay size={11} aria-hidden="true" />
-            ) : (
-              <CirclePause size={11} aria-hidden="true" />
-            )}
-            {allBreakpointsDisabled
-              ? t('debugger.breakpoints.enableAll.button')
-              : t('debugger.breakpoints.disableAll.button')}
-          </button>
-          <button
-            type="button"
-            data-testid="debugger-clear-all-breakpoints"
-            onClick={clearBreakpoints}
-            disabled={allBreakpointCount === 0}
-            className="inline-flex items-center gap-1 rounded-[0.45rem] border border-border/80 px-2 py-1 text-xs font-medium text-muted hover:border-danger/50 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Trash2 size={11} aria-hidden="true" />
-            {t('debugger.breakpoints.clearAll.button')}
-          </button>
-          <button
-            type="button"
-            data-testid="debugger-continue"
-            onClick={sendResume}
-            disabled={!isPaused}
-            className="inline-flex items-center gap-1 rounded-[0.7rem] border border-border/80 px-2 py-1 text-xs font-medium text-foreground hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <ChevronsRight size={11} aria-hidden="true" />
-            {t('debugger.actions.continue')}
-          </button>
-          <button
-            type="button"
-            data-testid="debugger-step-over"
-            onClick={() => sendStep('over')}
-            disabled={!isPaused}
-            className="inline-flex items-center gap-1 rounded-[0.7rem] border border-border/80 px-2 py-1 text-xs font-medium text-foreground hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <ChevronDown size={11} aria-hidden="true" />
-            {t('debugger.actions.stepOver')}
-          </button>
-          <button
-            type="button"
-            data-testid="debugger-step-into"
-            onClick={() => sendStep('into')}
-            disabled={!isPaused}
-            className="inline-flex items-center gap-1 rounded-[0.7rem] border border-border/80 px-2 py-1 text-xs font-medium text-foreground hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <ChevronDown size={11} aria-hidden="true" />
-            {t('debugger.actions.stepInto')}
-          </button>
-          <button
-            type="button"
-            data-testid="debugger-step-out"
-            onClick={() => sendStep('out')}
-            disabled={!canStepOut}
-            title={!canStepOut ? t('debugger.actions.stepOut.disabledHint') : undefined}
-            className="inline-flex items-center gap-1 rounded-[0.7rem] border border-border/80 px-2 py-1 text-xs font-medium text-foreground hover:border-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <ChevronUp size={11} aria-hidden="true" />
-            {t('debugger.actions.stepOut')}
-          </button>
-          <button
-            type="button"
-            data-testid="debugger-detach"
-            onClick={detach}
-            disabled={!session}
-            title={t('debugger.actions.detachHint')}
-            className="inline-flex items-center gap-1 rounded-[0.7rem] border border-border/80 px-2 py-1 text-xs font-medium text-muted hover:border-danger/50 hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <LogOut size={11} aria-hidden="true" />
-            {t('debugger.actions.detach')}
-          </button>
+            <button
+              type="button"
+              data-testid="debugger-step-out"
+              onClick={() => sendStep('out')}
+              disabled={!canStepOut}
+              className={debuggerActionButton}
+            >
+              <ChevronUp size={11} aria-hidden="true" />
+              {t('debugger.actions.stepOut')}
+            </button>
+          </Tooltip>
+          <Tooltip content={t('debugger.actions.detachHint')}>
+            <button
+              type="button"
+              data-testid="debugger-detach"
+              onClick={detach}
+              disabled={!session}
+              className={debuggerDangerButton}
+            >
+              <LogOut size={11} aria-hidden="true" />
+              {t('debugger.actions.detach')}
+            </button>
+          </Tooltip>
         </div>
       </header>
       {drawerCollapsed ? null : !isPaused ? (
