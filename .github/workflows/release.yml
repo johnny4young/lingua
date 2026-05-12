@@ -268,6 +268,14 @@ jobs:
       # interpolation.
       - name: Packaged desktop smoke
         shell: bash
+        env:
+          # First-boot of a freshly notarized .app on macos-14 (M1, 7 GB)
+          # adds Gatekeeper ticket validation + JIT warm-up + Pyodide
+          # WASM init latency on top of the regular smoke duration.
+          # 180s (the script default) timed out; 360s covers the slow
+          # first launch with comfortable headroom. Local
+          # `npm run smoke:desktop:packaged` keeps the 180s default.
+          LINGUA_SMOKE_TIMEOUT_MS: '360000'
         run: |
           set -euo pipefail
           npm run smoke:desktop:packaged

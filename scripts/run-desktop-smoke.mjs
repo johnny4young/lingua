@@ -13,7 +13,17 @@ const repoRoot = path.resolve(__dirname, '..');
 const artifactDir = path.join(repoRoot, 'output', 'playwright', 'desktop-smoke');
 const progressPath = path.join(artifactDir, 'desktop-smoke-progress.json');
 const summaryPath = path.join(artifactDir, 'desktop-smoke-summary.json');
-const maxSmokeRuntimeMs = 180_000;
+// Default 180s covers the dev-server smoke flow. CI runs against a
+// freshly notarized .app (`--against-packaged`) on macos-14 M1 with
+// 7 GB RAM, where first-boot Gatekeeper ticket validation + JIT warm-up
+// + Pyodide WASM init add enough latency that 180s timed out. Allow
+// CI to override via env var without changing the local default.
+const DEFAULT_SMOKE_RUNTIME_MS = 180_000;
+const parsedTimeoutEnv = Number(process.env.LINGUA_SMOKE_TIMEOUT_MS);
+const maxSmokeRuntimeMs =
+  Number.isFinite(parsedTimeoutEnv) && parsedTimeoutEnv > 0
+    ? parsedTimeoutEnv
+    : DEFAULT_SMOKE_RUNTIME_MS;
 
 const AGAINST_PACKAGED_FLAG = '--against-packaged';
 
