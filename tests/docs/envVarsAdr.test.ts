@@ -2,6 +2,10 @@
  * RL-011 ADR guard — pins the three scoping decisions (which runtimes
  * accept env vars, web mode answer, scope precedence) so the
  * implementation slices can't ship against the wrong policy.
+ *
+ * Also pins (fold B of the 2026-05-12 close-out) that ROADMAP's §6
+ * Done archive lists RL-011, so a future revert that flips it back
+ * to Partial without ADR justification fails CI before it ships.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -9,6 +13,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const ADR_PATH = resolve(__dirname, '../../docs/ENV_VARS_ADR.md');
+const ROADMAP_PATH = resolve(__dirname, '../../docs/ROADMAP.md');
 
 describe('ENV_VARS_ADR.md', () => {
   it('exists under docs/', () => {
@@ -58,5 +63,35 @@ describe('ENV_VARS_ADR.md', () => {
     ]) {
       expect(adr).toContain(pointer);
     }
+  });
+});
+
+describe('ROADMAP — RL-011 archive membership (fold B, 2026-05-12)', () => {
+  const roadmap = existsSync(ROADMAP_PATH) ? readFileSync(ROADMAP_PATH, 'utf-8') : '';
+
+  it('RL-011 lives in the §6 Done archive list, not the active backlog', () => {
+    // The §6 archive is a fenced `<details>` block containing a
+    // comma-separated list of Done ids. Anchor on the literal
+    // `<summary>… Done tickets …</summary>` text inside the block
+    // so that if §6 ever gains an extra `<details>` block ahead of
+    // the Done list (e.g., a "partially shipped" summary), this
+    // assertion still resolves to the right block instead of
+    // terminating at the first stray `</details>`.
+    const archiveMatch = roadmap.match(
+      /## 6\. Closed tickets[\s\S]*?<summary>[\s\S]*?Done[\s\S]*?<\/summary>[\s\S]*?<\/details>/u
+    );
+    expect(archiveMatch, 'ROADMAP §6 Done archive block not found').not.toBeNull();
+    expect(archiveMatch![0]).toMatch(/`RL-011`/u);
+  });
+
+  it('RL-011 is NOT listed in any §4 active-backlog table row', () => {
+    // §4 active-backlog rows for `RL-XXX` have the canonical shape:
+    //   `| [`RL-XXX`](./PLAN.md#…) | <title> | `<status>` | … |`
+    // A row for RL-011 in §4 would mean the close-out got reverted
+    // or someone reintroduced it as Partial. The ADR's "Workers do
+    // not receive env vars" decision would need to be repealed
+    // before reopening the ticket, so failing here is intentional.
+    const activeRowPattern = /\|\s*\[`RL-011`\]\(\.\/PLAN\.md#rl-011[^)]*\)\s*\|/u;
+    expect(roadmap).not.toMatch(activeRowPattern);
   });
 });
