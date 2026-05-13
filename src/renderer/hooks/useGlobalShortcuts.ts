@@ -45,6 +45,15 @@ interface UseGlobalShortcutsOptions {
   toggleOverlay: (overlay: Exclude<AppOverlay, 'none'>) => void;
   openDeveloperUtilities: () => void;
   closeOverlay: () => void;
+  /**
+   * RL-019 Slice 1 fold D — cycle the active JS/TS tab through the
+   * implemented runtime modes. Slice 1 has only `worker`, so the
+   * cycle is a no-op for now; Slice 2/3 will pick up `node` and
+   * `browser-preview` automatically as they become implemented.
+   * Caller is responsible for the non-JS/TS guard (the helper in
+   * `App.tsx` checks `languageHasRuntimeModes` before calling).
+   */
+  cycleRuntimeMode: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -63,6 +72,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
       if (isRunning) stop();
       else void run();
     },
+    'run-cycle-runtime-mode': () => options.cycleRuntimeMode(),
     'file-save': () => {
       void options.saveActiveTab();
     },

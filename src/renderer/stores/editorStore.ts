@@ -18,16 +18,48 @@ import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { trackEvent } from '../utils/telemetry';
+import {
+  coerceRuntimeMode,
+  defaultRuntimeModeFor,
+  isRuntimeModeImplemented,
+  languageHasRuntimeModes,
+  type RuntimeMode,
+} from '../../shared/runtimeModes';
+
+function runtimeModeForNewTab(
+  language: Language,
+  explicit?: RuntimeMode
+): RuntimeMode | undefined {
+  if (!languageHasRuntimeModes(language)) return undefined;
+  if (explicit !== undefined) return coerceRuntimeMode(explicit, language) ?? undefined;
+  const settingsDefault = useSettingsStore.getState().defaultRuntimeMode;
+  return (
+    coerceRuntimeMode(settingsDefault, language) ??
+    defaultRuntimeModeFor(language) ??
+    undefined
+  );
+}
+
+function runtimeModeForRestoredTab(
+  language: Language,
+  persisted?: RuntimeMode
+): RuntimeMode | undefined {
+  return coerceRuntimeMode(persisted, language) ?? undefined;
+}
 
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
   const short = id.slice(0, 8);
+  // RL-019 Slice 1 — JS/TS tabs adopt the per-app default mode (fold
+  // B). Non-JS/TS tabs deliberately omit the field.
+  const runtimeMode = runtimeModeForNewTab(language);
   return {
     id,
     name: `untitled-${short}.${extensionForLanguage(language)}`,
     language,
     content: defaultCodeForLanguage(language),
     isDirty: false,
+    runtimeMode,
   };
 };
 
@@ -114,6 +146,7 @@ async function persistTab(
 
   const name = basename(absolutePath);
   const language = resolveFileLanguageOrPlaintext(name);
+  const runtimeMode = runtimeModeForRestoredTab(language, tab.runtimeMode);
   const nextTab: FileTab & { filePath: string; rootId: string; relativePath: string } = {
     ...tab,
     filePath: absolutePath,
@@ -121,6 +154,7 @@ async function persistTab(
     relativePath,
     name,
     language,
+    runtimeMode,
   };
   let content: string;
   try {
@@ -200,7 +234,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       });
       return;
     }
-    const newTab: FileTab = { ...tab, isDirty: false };
+    // RL-019 Slice 1 — defensively assign a runtime mode if the
+    // caller forgot. Most call sites go through `createDefaultTab`
+    // which already sets it, but `addTab({ ...tab, content })`
+    // callers might rebuild the object and lose the field.
+    const runtimeMode = runtimeModeForNewTab(tab.language, tab.runtimeMode);
+    const newTab: FileTab = { ...tab, isDirty: false, runtimeMode };
     set((state) => ({
       tabs: [...state.tabs, newTab],
       activeTabId: newTab.id,
@@ -209,7 +248,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   restoreTabs: (tabs, activeTabId) =>
     set({
-      tabs: tabs.map((tab) => ({ ...tab, isDirty: false })),
+      tabs: tabs.map((tab) => ({
+        ...tab,
+        isDirty: false,
+        // RL-019 Slice 1 — backfill missing runtime modes for JS/TS
+        // tabs restored from a pre-Slice-1 session. Non-JS/TS tabs
+        // never carry the field.
+        runtimeMode: runtimeModeForRestoredTab(tab.language, tab.runtimeMode),
+      })),
       activeTabId: activeTabId ?? null,
     }),
 
@@ -268,6 +314,55 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ),
     })),
 
+  setTabRuntimeMode: (id, mode) => {
+    const { tabs } = get();
+    const target = tabs.find((t) => t.id === id);
+    if (!target) return;
+    if (!languageHasRuntimeModes(target.language)) {
+      // Non-JS/TS tabs do not own a runtime-mode surface. Refuse
+      // silently — the selector is hidden so this branch is only
+      // reachable via a programmatic / palette / shortcut call.
+      return;
+    }
+    if (!isRuntimeModeImplemented(mode)) {
+      // RL-019 Slice 1 fold G — surface a status notice when the
+      // user (via shortcut, palette, or programmatic call) tries to
+      // switch into a mode that has not landed yet. The notice
+      // names the slice that will deliver it.
+      const noticeKey =
+        mode === 'node'
+          ? 'runtimeMode.notice.notImplementedNode'
+          : 'runtimeMode.notice.notImplementedBrowserPreview';
+      useUIStore.getState().pushStatusNotice({
+        tone: 'info',
+        messageKey: noticeKey,
+      });
+      return;
+    }
+    if (target.runtimeMode === mode) return;
+    set((state) => ({
+      tabs: state.tabs.map((t) =>
+        t.id === id ? { ...t, runtimeMode: mode } : t
+      ),
+    }));
+    // RL-019 Slice 1 fold G — confirm the change with a soft
+    // status-notice toast. The selector itself flips immediately;
+    // this is the audit trail for users who change modes via the
+    // keyboard cycle or the command palette.
+    useUIStore.getState().pushStatusNotice({
+      tone: 'info',
+      messageKey: 'runtimeMode.changedNotice',
+      values: { mode: i18next.t(`runtimeMode.mode.${mode === 'browser-preview' ? 'browserPreview' : mode}`) },
+    });
+    // RL-019 Slice 1 fold A — funnel telemetry for runtime-mode
+    // adoption. Both `mode` and `language` are closed enums; the
+    // shared allowlist + worker mirror enforce the contract.
+    void trackEvent('runtime.mode_changed', {
+      mode,
+      language: target.language,
+    });
+  },
+
   markSaved: (id) =>
     set((state) => ({
       tabs: state.tabs.map((t) =>
@@ -312,6 +407,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       rootId,
       relativePath,
       filePath,
+      // RL-019 Slice 1 — disk-backed JS/TS opens adopt the per-app
+      // default runtime mode; non-JS/TS files leave the field unset.
+      runtimeMode: runtimeModeForNewTab(language),
     };
 
     set((state) => ({
@@ -362,6 +460,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       rootId: result.rootId,
       relativePath: result.fileRelativePath,
       filePath,
+      // RL-019 Slice 1 — same JS/TS default mode as openFile().
+      runtimeMode: runtimeModeForNewTab(language),
     };
 
     set((state) => ({
@@ -482,10 +582,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         if (tab.id !== id) return tab;
         if (tab.name === trimmed) return tab;
         const language = resolveFileLanguageOrPlaintext(trimmed);
+        const runtimeMode = runtimeModeForRestoredTab(language, tab.runtimeMode);
         return {
           ...tab,
           name: trimmed,
           language,
+          runtimeMode,
           isDirty: true,
         };
       });

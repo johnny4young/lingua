@@ -41,6 +41,9 @@ describe('TELEMETRY_EVENTS', () => {
       'feature.blocked',
       'overlay.opened',
       'runner.executed',
+      // RL-019 Slice 1 — per-tab JS/TS runtime mode change.
+      // Closed-enum payload `{ mode, language }`; see RUNTIME_MODES_ADR.
+      'runtime.mode_changed',
       'update.checked',
       // RL-069 Slice 3 — Developer Utilities productivity layer.
       'utility.clipboard.applied',

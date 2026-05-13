@@ -19,21 +19,39 @@ vi.mock('../../src/renderer/data/templates', () => ({
   resolveTemplateDescription: () => 'Print a greeting',
 }));
 
-vi.mock('../../src/renderer/stores/editorStore', () => ({
-  useEditorStore: () => ({
+vi.mock('../../src/renderer/stores/editorStore', () => {
+  const buildState = () => ({
     addTab: vi.fn(),
     openFileFromDisk: vi.fn().mockResolvedValue(undefined),
     saveActiveTabAs: vi.fn().mockResolvedValue(undefined),
     duplicateActiveTab: vi.fn(),
-  }),
-  createDefaultTab: (language: string) => ({
-    id: `tab-${language}`,
-    name: `untitled-${language}`,
-    language,
-    content: '',
-    isDirty: false,
-  }),
-}));
+    // RL-019 Slice 1 — palette + selector consume these via
+    // `useEditorStore((s) => s.…)`. Empty tabs / null activeTabId
+    // keep the runtime-mode palette entries hidden (they require a
+    // non-null activeRuntimeMode anchored to a JS/TS tab) so the
+    // existing CommandPalette assertions stay valid.
+    tabs: [],
+    activeTabId: null,
+    setTabRuntimeMode: vi.fn(),
+  });
+  // Selector-aware mock: support both `useEditorStore()` and
+  // `useEditorStore((state) => state.something)` call shapes.
+  const useEditorStore = (selector?: (state: ReturnType<typeof buildState>) => unknown) => {
+    const state = buildState();
+    return typeof selector === 'function' ? selector(state) : state;
+  };
+  useEditorStore.getState = () => buildState();
+  return {
+    useEditorStore,
+    createDefaultTab: (language: string) => ({
+      id: `tab-${language}`,
+      name: `untitled-${language}`,
+      language,
+      content: '',
+      isDirty: false,
+    }),
+  };
+});
 
 vi.mock('../../src/renderer/stores/snippetsStore', () => ({
   useSnippetsStore: () => ({

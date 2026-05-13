@@ -70,6 +70,23 @@ interface BuildCommandPaletteModelArgs {
    * the enable variant).
    */
   vimModeEnabled?: boolean;
+  /**
+   * RL-019 Slice 1 fold E — fires when the user activates one of
+   * the "Switch runtime to X" palette entries. Optional; when
+   * omitted the three entries are hidden. The caller forwards to
+   * `editorStore.setTabRuntimeMode` which enforces the
+   * implementation-status guard and emits the
+   * `runtime.mode_changed` telemetry. The disabled options for
+   * `node` and `browser-preview` still surface so the user sees
+   * what's coming.
+   */
+  onSetRuntimeMode?: (mode: 'worker' | 'node' | 'browser-preview') => void;
+  /**
+   * Active tab's current runtime mode; used to highlight the
+   * "currently selected" entry. `null` for non-JS/TS tabs, which
+   * also suppresses the three runtime-mode entries entirely.
+   */
+  activeRuntimeMode?: 'worker' | 'node' | 'browser-preview' | null;
   updateStatus: UpdateStatus;
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   createDefaultTab: (language: Language) => FileTab;
@@ -300,6 +317,8 @@ export function buildCommandPaletteModel({
   onReplayEntry,
   onToggleVimMode,
   vimModeEnabled = false,
+  onSetRuntimeMode,
+  activeRuntimeMode = null,
   updateStatus,
   createTab,
   createDefaultTab,
@@ -441,6 +460,48 @@ export function buildCommandPaletteModel({
         onOpenSnippets();
       }
     ),
+    // RL-019 Slice 1 fold E — Switch runtime to {Worker | Node |
+    // Browser preview}. Only emitted when the caller wires
+    // `onSetRuntimeMode` AND the active tab actually owns the
+    // runtime-mode surface (JS/TS today, signalled by a non-null
+    // `activeRuntimeMode`). Disabled-mode entries (node /
+    // browser-preview in Slice 1) still emit so users can discover
+    // what's coming; `setTabRuntimeMode` surfaces a status notice
+    // when called with an unimplemented mode.
+    ...(onSetRuntimeMode && activeRuntimeMode !== null
+      ? ([
+          buildActionCommand(
+            'action-runtime-mode-worker',
+            translate('commandPalette.action.runtimeMode.worker.label'),
+            translate('commandPalette.action.runtimeMode.worker.description'),
+            ['runtime', 'mode', 'worker', 'sandbox', 'js', 'ts'],
+            () => {
+              onSetRuntimeMode('worker');
+              onClose();
+            }
+          ),
+          buildActionCommand(
+            'action-runtime-mode-node',
+            translate('commandPalette.action.runtimeMode.node.label'),
+            translate('commandPalette.action.runtimeMode.node.description'),
+            ['runtime', 'mode', 'node', 'desktop', 'fs', 'path'],
+            () => {
+              onSetRuntimeMode('node');
+              onClose();
+            }
+          ),
+          buildActionCommand(
+            'action-runtime-mode-browser-preview',
+            translate('commandPalette.action.runtimeMode.browserPreview.label'),
+            translate('commandPalette.action.runtimeMode.browserPreview.description'),
+            ['runtime', 'mode', 'browser', 'preview', 'iframe', 'dom'],
+            () => {
+              onSetRuntimeMode('browser-preview');
+              onClose();
+            }
+          ),
+        ] as CommandEntry[])
+      : []),
     buildActionCommand(
       'action-about',
       translate('commandPalette.action.about.label'),

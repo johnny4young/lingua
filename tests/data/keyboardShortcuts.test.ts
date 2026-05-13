@@ -31,10 +31,22 @@ describe('keyboardShortcuts catalog', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('keeps catalog defaults dispatchable by avoiding browser-reserved combos', () => {
+    for (const shortcut of KEYBOARD_SHORTCUTS) {
+      for (const combo of shortcut.combos) {
+        expect(
+          isReservedShortcutCombo(combo),
+          `${shortcut.id} declares reserved combo ${comboKey(combo)}`
+        ).toBe(false);
+      }
+    }
+  });
+
   it('covers the high-traffic shortcuts dispatched by useGlobalShortcuts', () => {
     const ids = new Set(KEYBOARD_SHORTCUTS.map((entry) => entry.id));
     for (const required of [
       'run-toggle',
+      'run-cycle-runtime-mode',
       'file-save',
       'file-save-as',
       'file-open',
@@ -56,6 +68,15 @@ describe('keyboardShortcuts catalog', () => {
     ]) {
       expect(ids.has(required)).toBe(true);
     }
+  });
+
+  it('declares the runtime-mode cycle shortcut as Mod+Alt+M', () => {
+    const shortcut = KEYBOARD_SHORTCUTS.find(
+      (entry) => entry.id === 'run-cycle-runtime-mode'
+    );
+    expect(shortcut).toBeDefined();
+    expect(shortcut?.group).toBe('run');
+    expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Alt', 'M'] }]);
   });
 
   it('declares the Developer Utilities launcher shortcut as Mod+K', () => {

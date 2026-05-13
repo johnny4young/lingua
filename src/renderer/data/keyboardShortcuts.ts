@@ -70,6 +70,18 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['run', 'stop', 'execute'],
   },
   {
+    // RL-019 Slice 1 fold D — cycle through the implemented JS/TS
+    // runtime modes on the active tab. Slice 1 only has `worker`, so
+    // the cycle is a no-op; Slice 2 and Slice 3 light up the same
+    // shortcut as `node` and `browser-preview` come online.
+    id: 'run-cycle-runtime-mode',
+    group: 'run',
+    labelKey: 'shortcuts.item.cycleRuntimeMode.label',
+    descriptionKey: 'shortcuts.item.cycleRuntimeMode.description',
+    combos: [{ tokens: ['Mod', 'Alt', 'M'] }],
+    keywords: ['runtime', 'mode', 'worker', 'node', 'browser', 'cycle'],
+  },
+  {
     id: 'file-save',
     group: 'file',
     labelKey: 'shortcuts.item.save.label',
