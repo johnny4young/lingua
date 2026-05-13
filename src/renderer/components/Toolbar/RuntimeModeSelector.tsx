@@ -37,7 +37,9 @@ const MODE_LABEL_KEY: Record<RuntimeMode, string> = {
 const MODE_HINT_KEY: Record<RuntimeMode, string> = {
   worker: 'runtimeMode.hint.worker',
   node: 'runtimeMode.hint.node.comingSoon',
-  'browser-preview': 'runtimeMode.hint.browserPreview.comingSoon',
+  // RL-019 Slice 3 — browser-preview is implemented now; use the
+  // shipping copy instead of the Slice 1 disabled-state hint.
+  'browser-preview': 'runtimeMode.hint.browserPreview.shipping',
 };
 
 const MODE_ICON: Record<RuntimeMode, typeof Cpu> = {

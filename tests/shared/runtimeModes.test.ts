@@ -51,11 +51,11 @@ describe('defaultRuntimeModeFor', () => {
   });
 });
 
-describe('isRuntimeModeImplemented (Slice 1)', () => {
-  it('only worker is implemented today', () => {
+describe('isRuntimeModeImplemented (after Slice 3)', () => {
+  it('worker (Slice 1) + browser-preview (Slice 3) are implemented; node still pending', () => {
     expect(isRuntimeModeImplemented('worker')).toBe(true);
+    expect(isRuntimeModeImplemented('browser-preview')).toBe(true);
     expect(isRuntimeModeImplemented('node')).toBe(false);
-    expect(isRuntimeModeImplemented('browser-preview')).toBe(false);
   });
 });
 
@@ -65,9 +65,10 @@ describe('coerceRuntimeMode (rehydrate defensive)', () => {
     expect(coerceRuntimeMode('worker', 'typescript')).toBe('worker');
   });
 
-  it('coerces unimplemented persisted values back to worker for JS/TS', () => {
+  it('preserves browser-preview now that Slice 3 implemented it; coerces still-unimplemented node back to worker', () => {
     expect(coerceRuntimeMode('node', 'javascript')).toBe('worker');
-    expect(coerceRuntimeMode('browser-preview', 'typescript')).toBe('worker');
+    // RL-019 Slice 3 — browser-preview is implemented; preserved.
+    expect(coerceRuntimeMode('browser-preview', 'typescript')).toBe('browser-preview');
   });
 
   it('coerces unknown strings to worker for JS/TS', () => {
@@ -113,17 +114,19 @@ describe('parity with telemetry RUNTIME_MODE_VALUES', () => {
 });
 
 describe('cycleRuntimeMode (fold D)', () => {
-  it('is a no-op when only one mode is implemented (Slice 1)', () => {
-    // Slice 1 ships only `worker`. The cycle helper guards against
-    // an infinite loop and returns `current` unchanged.
-    expect(cycleRuntimeMode('worker')).toBe('worker');
+  it('alternates between worker and browser-preview after Slice 3', () => {
+    // Slice 3 made browser-preview the second implemented mode.
+    // The cycle steps over `node` (still unimplemented) so users
+    // never land in a no-op runtime via the runtime-cycle shortcut.
+    expect(cycleRuntimeMode('worker')).toBe('browser-preview');
+    expect(cycleRuntimeMode('browser-preview')).toBe('worker');
   });
 
-  it('returns the only implemented mode when current is an unimplemented value', () => {
-    // Defensive — caller shouldn't hand `node` to the cycle helper
-    // today, but if a future regression does, the helper picks the
-    // first implemented option instead of crashing.
+  it('skip-unimplemented when current is `node` (defensive)', () => {
+    // Edge case: programmatic caller hands `node` (still
+    // unimplemented in Slice 3) to the cycle helper. The helper
+    // resolves to the first implemented option rather than
+    // looping.
     expect(cycleRuntimeMode('node')).toBe('worker');
-    expect(cycleRuntimeMode('browser-preview')).toBe('worker');
   });
 });

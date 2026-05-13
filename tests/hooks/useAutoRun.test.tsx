@@ -139,7 +139,9 @@ describe('useAutoRun', () => {
       await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
     });
 
-    expect(runnerManager.prepareRunner).toHaveBeenCalledWith('go');
+    // RL-019 Slice 1 — prepareRunner gained an optional
+    // runtimeMode arg. Non-JS/TS tabs leave runtimeMode undefined.
+    expect(runnerManager.prepareRunner).toHaveBeenCalledWith('go', undefined);
     expect(useResultStore.getState().executionSource).toBe('auto');
   });
 

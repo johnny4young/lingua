@@ -4,11 +4,13 @@ import { useConsoleStore } from '../stores/consoleStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useEditorStore } from '../stores/editorStore';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
 import { trackEvent } from '../utils/telemetry';
 import { bucketDurationMs } from '../../shared/telemetry';
 import type { ConsoleOutput, FileTab, Language } from '../types';
+import { collectBrowserPreviewSiblingSources } from './browserPreviewSiblings';
 import {
   getCompilationLoadingMessage,
   getCompilationMessage,
@@ -104,7 +106,7 @@ export async function executeTabManually(
     setDiagnostics,
   } = useResultStore.getState();
 
-  const { language, content, name } = activeTab;
+  const { language, content, name, runtimeMode } = activeTab;
   const executionMode = executionModeForLanguage(language);
   const shouldRecordHistory = lifecycle.recordHistory !== false;
   const debugRequested = lifecycle.debug === true;
@@ -202,7 +204,7 @@ export async function executeTabManually(
   });
   lifecycle.setIsRunning?.(true);
 
-  const shouldShowInitialization = runnerManager.needsInitialization(language);
+  const shouldShowInitialization = runnerManager.needsInitialization(language, runtimeMode);
   if (shouldShowInitialization) {
     lifecycle.setIsInitializing?.(true);
     const message = getInitializationMessage(language);
@@ -213,7 +215,22 @@ export async function executeTabManually(
   let runnerPrepared = false;
 
   try {
-    const { runner } = await runnerManager.prepareRunner(language);
+    // RL-019 Slice 3 fold A — feed sibling .css / .html tabs to
+    // the browser-preview runner BEFORE prepareRunner so the
+    // first execute() picks them up. Editor store is already a
+    // hard dep elsewhere in this module (other surfaces import
+    // it), so the static reference does not change bundle shape.
+    if (runtimeMode === 'browser-preview') {
+      try {
+        const editorState = useEditorStore.getState();
+        const siblingSources = collectBrowserPreviewSiblingSources(editorState.tabs, activeTab);
+        runnerManager.getBrowserPreviewRunner()?.setSiblingSources(siblingSources);
+      } catch {
+        /* if the sibling lookup throws, fall back to plain execution */
+      }
+    }
+
+    const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
     if (!runner) {
       addEntry({ type: 'error', content: `Failed to initialize ${language} runner.` });
       return {

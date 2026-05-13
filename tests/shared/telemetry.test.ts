@@ -168,6 +168,44 @@ describe('bucketOs + bucketDurationMs', () => {
   });
 });
 
+describe('runtime.mode_changed value validator (RL-019 Slice 1 + Slice 3)', () => {
+  it('accepts the closed RuntimeMode enum verbatim — worker / node / browser-preview', () => {
+    for (const mode of ['worker', 'node', 'browser-preview']) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'runtime.mode_changed',
+          properties: { mode, language: 'javascript' },
+        })
+      );
+      expect(event.properties.mode, `mode ${mode} should survive the redactor`).toBe(mode);
+      expect(event.properties.language).toBe('javascript');
+    }
+  });
+
+  it('drops unknown modes (defensive — Slice 4 would have to land the validator branch too)', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.mode_changed',
+        properties: { mode: 'unknown-future-mode', language: 'typescript' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('mode');
+    // language survives because typescript is a safe token.
+    expect(event.properties.language).toBe('typescript');
+  });
+
+  it('drops a non-safe-token language value (defense in depth)', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.mode_changed',
+        properties: { mode: 'browser-preview', language: '../../etc/passwd' },
+      })
+    );
+    expect(event.properties.mode).toBe('browser-preview');
+    expect(event.properties).not.toHaveProperty('language');
+  });
+});
+
 describe('createSessionId', () => {
   it('produces a 32-hex-char launch-scoped id', () => {
     const id = createSessionId();

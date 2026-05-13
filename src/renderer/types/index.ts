@@ -87,9 +87,9 @@ export interface FileTab {
   /**
    * RL-019 Slice 1 — explicit per-tab runtime mode for JS/TS tabs.
    * `'worker'` for all freshly created JS/TS tabs; `undefined` for
-   * every other language. Slice 2 will surface `'node'` once the
-   * desktop child-process backend lands; Slice 3 will surface
-   * `'browser-preview'` once the iframe-isolated preview pane lands.
+   * every other language. Slice 3 surfaced `'browser-preview'` for
+   * the iframe-isolated preview pane; Slice 2 will surface `'node'`
+   * once the desktop child-process backend lands.
    * See [`docs/RUNTIME_MODES_ADR.md`](../../docs/RUNTIME_MODES_ADR.md).
    */
   runtimeMode?: RuntimeMode;
@@ -148,8 +148,8 @@ export interface EditorState {
    * RL-019 Slice 1 — set the runtime mode for a JS/TS tab. No-op
    * (and a status-notice toast) when:
    *   - the tab does not own a runtime-mode surface (non-JS/TS), or
-   *   - the requested mode is not yet implemented (`'node'` /
-   *     `'browser-preview'` in Slice 1).
+   *   - the requested mode is not yet implemented (`'node'` until
+   *     Slice 2 lands).
    * Telemetry (`runtime.mode_changed`) fires on every successful
    * change.
    */

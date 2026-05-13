@@ -4,7 +4,7 @@
 |---------|------------|
 | Status  | Accepted   |
 | Date    | 2026-05-12 |
-| Slice   | 1 of 3     |
+| Slice   | 1 + 3 of 3 (Slice 2 still pending) |
 
 ## Context
 
@@ -41,11 +41,11 @@ The ticket also unlocks two downstream stories:
 
 ### 1. Three runtime modes, JS/TS only
 
-| Mode               | Surface           | Status (Slice 1) |
-|--------------------|-------------------|------------------|
-| `worker`           | Sandboxed Web Worker — no DOM, no Node built-ins | **Shipping** |
+| Mode               | Surface           | Status (post-Slice 3) |
+|--------------------|-------------------|-----------------------|
+| `worker`           | Sandboxed Web Worker — no DOM, no Node built-ins | **Shipping (Slice 1)** |
 | `node`             | Desktop child-process Node with built-ins (`fs`, `path`, `http`) | Planned (Slice 2) |
-| `browser-preview`  | Iframe-isolated context with DOM access + preview pane | Planned (Slice 3) |
+| `browser-preview`  | Iframe-isolated context with DOM access + preview pane | **Shipping (Slice 3)** |
 
 Other languages keep their existing single-runtime model. Adding
 `runtimeMode` to a Python / Go / Rust tab is out of scope here; the
@@ -94,13 +94,12 @@ plain product copy, while this ADR and the release plan keep the Slice
 When a user tries to switch to an unimplemented mode (via shortcut,
 palette, or programmatic call), the editor store rejects the write
 and pushes a status notice naming the slice that will land it
-(`runtimeMode.notice.notImplementedNode` /
-`runtimeMode.notice.notImplementedBrowserPreview`). We do NOT
-silently fall back to `worker` because that would (a) lie about
-the user's intent and (b) make Slice 2's debut surprising — users
-who clicked Node yesterday and got Worker silently would, the day
-Slice 2 lands, suddenly get a different runtime without their
-consent.
+(`runtimeMode.notice.notImplementedNode` after Slice 3). We do
+NOT silently fall back to `worker` because that would (a) lie
+about the user's intent and (b) make Slice 2's debut surprising —
+users who clicked Node yesterday and got Worker silently would,
+the day Slice 2 lands, suddenly get a different runtime without
+their consent.
 
 ### 5. Telemetry: closed enum, no expression content
 
@@ -185,6 +184,125 @@ sibling `NodeRunner`) and the dispatcher gains a small switch.
 | `src/renderer/hooks/useGlobalShortcuts.ts`            | Cycle dispatcher                                     |
 | `src/renderer/App.tsx`                                | Cycle implementation                                 |
 | `src/shared/telemetry.ts` + `update-server/src/telemetry.ts` | `runtime.mode_changed` event (fold A)         |
+
+## Slice 3 ship notes — 2026-05-12
+
+### Architecture
+
+- `src/renderer/runners/browserPreview.ts` — `BrowserPreviewRunner`
+  implementing `LanguageRunner`. Owns the postMessage protocol
+  with the iframe, the parent-side timeout kill, and the runId
+  guard against stale / spoofed messages.
+- `src/renderer/components/BrowserPreview/iframeBridge.ts` — pure
+  module owning the bridge script template, the discriminator
+  constant, the CSP string, and the document builder. Pure so the
+  unit test asserts the generated payload directly.
+- `src/renderer/components/BrowserPreview/BrowserPreviewPanel.tsx`
+  — React surface that mounts the iframe element ref into the
+  bridge so the runner can reach it.
+- `src/renderer/runtime/browserPreviewBridge.ts` — module-level
+  iframe-ref registry + tab activator. Mirrors the
+  `debuggerWorkerBridge.ts` pattern so reviewers recognise the
+  shape.
+
+### postMessage protocol
+
+Every message the bridge fires carries:
+
+```
+{ __lingua: 'browser-preview', runId, type, ...payload }
+```
+
+The parent (`BrowserPreviewRunner.execute`) rejects messages that
+fail any of:
+
+1. `event.origin` not in `{ 'null', window.location.origin }`.
+2. `data.__lingua` is not the discriminator.
+3. `data.runId` does not match the active run.
+
+The discriminator is public (user code could read it from the
+DevTools console of their own iframe) — the runId is the real
+anti-spoof gate. UUIDs are minted via `crypto.randomUUID()` and
+never reused across runs.
+
+Bridge message types:
+
+- `ready` — bridge installed, user code about to run. Parent
+  treats this as a "the iframe is alive" probe.
+- `console` — `{ method: 'log' | 'info' | 'warn' | 'error',
+  args: string[] }`. Args are pre-serialized inside the iframe
+  (`__linguaSerializeArg`) to match the JS Worker's serialization
+  shape, so console output round-trips identically across
+  runtimes.
+- `error` — uncaught error: `{ message, source?, lineno?,
+  colno?, stack? }`.
+- `unhandledrejection` — Promise rejection: `{ message }`.
+- `done` — execution complete. The trailing `<script>` posts this
+  via a `Promise.resolve().then(...)` so any pending sync
+  `console.*` flushes first.
+
+### Iframe sandbox + CSP
+
+- Iframe `sandbox="allow-scripts"` only. NOT `allow-same-origin`.
+  Iframe sees its origin as `null`; `document.cookie` is empty +
+  ignored; `localStorage` / `sessionStorage` throw on access. Our
+  app origin / IPC bridge / Pyodide assets stay unreachable from
+  user code.
+- Inline CSP meta tag:
+  `default-src 'none'; script-src 'unsafe-inline'; style-src
+  'unsafe-inline'; img-src data:`.
+  No `connect-src` → `fetch`/`XHR`/`WebSocket` blocked. No
+  `frame-src` → nested iframes blocked. The `unsafe-inline` on
+  script + style is intentional: user code IS the inline script,
+  and Fold A (multi-file seed) injects a sibling `.css` tab as
+  `<style>` inside the doc.
+
+### Timeout kill
+
+Parent owns `setTimeout(timeout)`. On fire, the parent assigns
+`iframe.srcdoc = ''`, which the browser treats as a full
+navigation — user code execution is terminated. The runner
+resolves with `runnerTimeoutResult(...)` and detaches the
+message listener.
+
+### Fold A — multi-file preview seed
+
+`executeTabManually` looks for sibling `.css` and `.html` tabs
+in the editor store BEFORE calling `runnerManager.prepareRunner`.
+If found, the runner's `setSiblingSources({ css, html })` push
+threads them into the next `srcdoc`:
+
+- `siblingCss` → `<style>` block in `<head>`.
+- `siblingHtml` → injected literally as the `<body>` seed
+  before the user-code script runs.
+
+Both are optional; a JS-only tab still works.
+
+### Fold F — inspect button
+
+The panel's "Open in window" button (`browserPreview.inspect.*`)
+serializes the current `iframe.srcdoc` as a top-level `data:` URL
+and opens it in a new browser window with `noopener,noreferrer`.
+Using `data:` keeps the inspected document on an opaque origin;
+Blob URLs inherit the creator origin in Chromium and would let
+preview code read Lingua's app-origin storage. Popup blockers can
+refuse the open; the panel surfaces `browserPreview.inspect.blocked`
+when that happens.
+
+## CSP posture per runtime mode (audit)
+
+This section is the per-mode CSP / sandbox contract that the
+release security review consults.
+
+| Mode | Origin | Network | DOM | Filesystem | Process | Notes |
+|------|--------|---------|-----|------------|---------|-------|
+| `worker` | Web Worker (same-origin) | Restricted by the app CSP; the JS runner does not call `fetch` from user code | None (`document` is `undefined` in a Worker) | None | None | The Pyodide worker for Python is a separate Worker with its own asset trust boundary; documented in `RUNTIME_ASSETS_ADR.md`. |
+| `node` (Slice 2) | Desktop child process | Inherits the desktop network stack — security review under RL-078 will scope the allowlist | None | Full Node `fs` API, gated by the user-env contract from RL-011 + RL-079 | Spawned via `child_process.spawn` with the per-language env allowlist from `nativeEnv.ts` | Not implemented in Slice 1 / 3. Slice 2 will land the threat model + sandboxing in a dedicated ADR amendment. |
+| `browser-preview` (Slice 3) | iframe sandbox without `allow-same-origin` → effective origin `null` | Blocked by the srcdoc CSP `default-src 'none'` (no `connect-src`) | Full DOM inside the iframe; cannot reach the parent's DOM | None (no FSA inside an opaque-origin iframe; `localStorage` throws) | None | The parent assigns the bridge runId so spoofed `postMessage` from user code is rejected. |
+
+The matrix is the reference for any future mode (e.g., a
+hypothetical WebContainer mode in `RL-029`). Every new mode adds
+a row before it lands a backend.
 
 ## Cross-references
 

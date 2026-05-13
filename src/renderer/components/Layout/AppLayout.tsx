@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { Bug, Terminal, X } from 'lucide-react';
+import { Bug, Eye, Terminal, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
@@ -8,6 +8,9 @@ import { EditorTabs } from '../Editor/EditorTabs';
 import { ResultPanel } from '../Editor/ResultPanel';
 import { ConsolePanel } from '../Console';
 import { DebuggerDrawer } from '../Debugger/DebuggerDrawer';
+import { BrowserPreviewPanel } from '../BrowserPreview';
+import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
+import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { Toolbar } from '../Toolbar';
 import { IconButton, OverlayBackdrop, Tooltip } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -136,6 +139,7 @@ function EditorLoadingState() {
 interface MainContentProps {
   showConsole: boolean;
   showDebuggerPanel: boolean;
+  showBrowserPreviewPanel: boolean;
   layoutPreset: LayoutPreset;
 }
 
@@ -145,10 +149,27 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   const activeLanguage = useEditorStore(
     (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.language
   );
+  const activeRuntimeMode = useEditorStore(
+    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.runtimeMode
+  );
+  // RL-019 Slice 3 — the Browser preview tab is only relevant for
+  // JS/TS tabs whose runtime mode is `browser-preview`. Other tabs
+  // hide the tab button entirely.
+  const browserPreviewAvailable =
+    languageHasRuntimeModes(activeLanguage) && activeRuntimeMode === 'browser-preview';
   const consoleVisible = useUIStore((state) => state.consoleVisible);
   const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
   const setActiveBottomPanel = useUIStore((state) => state.setActiveBottomPanel);
+
+  // RL-019 Slice 3 — register the activator so the
+  // BrowserPreviewRunner can switch to the preview tab before it
+  // assigns `srcdoc`. Cleanup clears the registration when the
+  // panel unmounts.
+  useEffect(() => {
+    registerBrowserPreviewActivator(openBottomPanel);
+    return () => registerBrowserPreviewActivator(null);
+  }, [openBottomPanel]);
   const activeBreakpointCount = useDebuggerStore((state) => {
     if (!activeTabId) return 0;
     let count = 0;
@@ -165,19 +186,25 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     }
     return count;
   });
-  const effectiveTab =
-    debuggerAvailable && (!consoleVisible || activeBottomPanel === 'debugger')
-      ? 'debugger'
-      : 'console';
+  const effectiveTab: 'console' | 'debugger' | 'browser-preview' =
+    browserPreviewAvailable && (activeBottomPanel === 'browser-preview' || !consoleVisible)
+      ? 'browser-preview'
+      : debuggerAvailable && (!consoleVisible || activeBottomPanel === 'debugger')
+        ? 'debugger'
+        : 'console';
 
   useEffect(() => {
     if (activeBottomPanel === 'debugger' && !debuggerAvailable) {
       setActiveBottomPanel('console');
     }
-  }, [activeBottomPanel, debuggerAvailable, setActiveBottomPanel]);
+    if (activeBottomPanel === 'browser-preview' && !browserPreviewAvailable) {
+      setActiveBottomPanel('console');
+    }
+  }, [activeBottomPanel, debuggerAvailable, browserPreviewAvailable, setActiveBottomPanel]);
 
-  const selectTab = (tab: 'console' | 'debugger') => {
+  const selectTab = (tab: 'console' | 'debugger' | 'browser-preview') => {
     if (tab === 'debugger' && !debuggerAvailable) return;
+    if (tab === 'browser-preview' && !browserPreviewAvailable) return;
     openBottomPanel(tab);
   };
 
@@ -245,10 +272,32 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             </button>
           </Tooltip>
         ) : null}
+        {browserPreviewAvailable ? (
+          <Tooltip content={t('bottomPanel.tabs.browserPreviewHint')} side="bottom">
+            <button
+              type="button"
+              role="tab"
+              data-testid="bottom-panel-browser-preview-tab"
+              aria-selected={effectiveTab === 'browser-preview'}
+              onClick={() => selectTab('browser-preview')}
+              className={cn(
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                effectiveTab === 'browser-preview'
+                  ? 'border-border-strong border-t-primary border-b-background bg-background text-primary shadow-[0_1px_0_0_var(--app-background)]'
+                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
+              )}
+            >
+              <Eye size={12} aria-hidden="true" />
+              {t('bottomPanel.tabs.browserPreview')}
+            </button>
+          </Tooltip>
+        ) : null}
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         {effectiveTab === 'debugger' ? (
           <DebuggerDrawer activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
+        ) : effectiveTab === 'browser-preview' ? (
+          <BrowserPreviewPanel />
         ) : (
           <ConsolePanel />
         )}
@@ -257,7 +306,12 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   );
 }
 
-function MainContent({ showConsole, showDebuggerPanel, layoutPreset }: MainContentProps) {
+function MainContent({
+  showConsole,
+  showDebuggerPanel,
+  showBrowserPreviewPanel,
+  layoutPreset,
+}: MainContentProps) {
   const verticalLayout = useDefaultLayout({
     id: 'lingua-main-vertical-layout',
     panelIds: ['workspace-panel', 'console-panel'],
@@ -269,7 +323,7 @@ function MainContent({ showConsole, showDebuggerPanel, layoutPreset }: MainConte
     storage: localStorage,
   });
 
-  const showBottomPanel = showConsole || showDebuggerPanel;
+  const showBottomPanel = showConsole || showDebuggerPanel || showBrowserPreviewPanel;
 
   if (!showBottomPanel) return <EditorArea />;
 
@@ -365,6 +419,9 @@ export function AppLayout({
   const activeLanguage = useEditorStore(
     (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.language
   );
+  const activeRuntimeMode = useEditorStore(
+    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.runtimeMode
+  );
   const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
   const debuggerSession = useDebuggerStore((state) => state.session);
   const activeBreakpointCount = useDebuggerStore((state) => {
@@ -382,6 +439,10 @@ export function AppLayout({
     debuggerEnabled &&
     languageSupportsDebugger(activeLanguage) &&
     (debuggerSession?.tabId === activeTabId || (consoleVisible && activeBreakpointCount > 0));
+  const showBrowserPreviewPanel =
+    layoutPreset !== 'editor-only' &&
+    languageHasRuntimeModes(activeLanguage) &&
+    activeRuntimeMode === 'browser-preview';
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
   const isCompactDrawerOpen = sidebarVisible && isCompactShell;
   const handleExplorerNavigate = isCompactShell ? () => setSidebarVisible(false) : undefined;
@@ -547,6 +608,7 @@ export function AppLayout({
                 <MainContent
                   showConsole={showConsole}
                   showDebuggerPanel={showDebuggerPanel}
+                  showBrowserPreviewPanel={showBrowserPreviewPanel}
                   layoutPreset={layoutPreset}
                 />
               </div>
@@ -558,6 +620,7 @@ export function AppLayout({
               <MainContent
                 showConsole={showConsole}
                 showDebuggerPanel={showDebuggerPanel}
+                showBrowserPreviewPanel={showBrowserPreviewPanel}
                 layoutPreset={layoutPreset}
               />
             </div>

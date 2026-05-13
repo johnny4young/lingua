@@ -8,6 +8,7 @@ import { useNativeExecutionGateStore } from '../stores/nativeExecutionGateStore'
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import type { Language } from '../types';
+import type { RuntimeMode } from '../../shared/runtimeModes';
 import { currentEffectiveTier } from './useEntitlement';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import { requiresNativeExecutionAcknowledgement } from '../utils/nativeExecution';
@@ -25,6 +26,10 @@ export function useRunner() {
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [runMode, setRunMode] = useState<'run' | 'debug' | null>(null);
   const currentLanguageRef = useRef<Language | null>(null);
+  // RL-019 Slice 3 — track the runtime mode that started the run so
+  // `stop()` can route to the right runner (browser-preview runs
+  // through BrowserPreviewRunner, not the language Worker).
+  const currentRuntimeModeRef = useRef<RuntimeMode | undefined>(undefined);
 
   const run = useCallback(async (options: RunOptions = {}) => {
     const { tabs, activeTabId } = useEditorStore.getState();
@@ -82,6 +87,10 @@ export function useRunner() {
         setLoadingMessage,
         setCurrentLanguage: (language) => {
           currentLanguageRef.current = language;
+          // RL-019 Slice 3 — capture the runtime mode at the start
+          // of the run so `stop()` can route to the right runner.
+          // Reset alongside language on lifecycle teardown.
+          currentRuntimeModeRef.current = language ? activeTab.runtimeMode : undefined;
         },
         recordHistory: options.recordHistory,
         debug: options.debug,
@@ -108,7 +117,7 @@ export function useRunner() {
 
   const stop = useCallback(() => {
     if (currentLanguageRef.current) {
-      runnerManager.stop(currentLanguageRef.current);
+      runnerManager.stop(currentLanguageRef.current, currentRuntimeModeRef.current);
     }
     setIsRunning(false);
     setLoadingMessage(null);

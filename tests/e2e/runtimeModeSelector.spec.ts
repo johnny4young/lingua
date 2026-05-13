@@ -35,7 +35,7 @@ test.describe('Runtime mode selector (RL-019 Slice 1)', () => {
     await expect(button).toContainText('Worker');
   });
 
-  test('dropdown lists three options; Node and Browser preview disabled', async ({ page }) => {
+  test('dropdown lists three options; only Node is disabled after Slice 3', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await dismissWhatsNew(page);
@@ -55,10 +55,10 @@ test.describe('Runtime mode selector (RL-019 Slice 1)', () => {
     await expect(node).toHaveAttribute('aria-disabled', 'true');
     await expect(node).toHaveAttribute('title', /coming soon.*desktop Node/i);
 
+    // RL-019 Slice 3 — Browser preview is now ENABLED. The tooltip
+    // surfaces the shipping copy instead of the comingSoon hint.
     await expect(browserPreview).toBeVisible();
-    await expect(browserPreview).toBeDisabled();
-    await expect(browserPreview).toHaveAttribute('aria-disabled', 'true');
-    await expect(browserPreview).toHaveAttribute('title', /coming soon.*iframe/i);
+    await expect(browserPreview).not.toBeDisabled();
 
     await page.keyboard.press('Escape');
     await expect(node).toBeHidden();
@@ -91,11 +91,16 @@ test.describe('Runtime mode selector (RL-019 Slice 1)', () => {
       options.map((option) => (option as HTMLOptionElement).value)
     );
     expect(optionValues).toEqual(['worker', 'node', 'browser-preview']);
-    // Only `worker` is enabled in Slice 1.
+    // RL-019 Slice 3 fold E — only `node` is disabled now.
+    // `browser-preview` lit up alongside `worker`.
     const disabledValues = await select.locator('option[disabled]').evaluateAll((options) =>
       options.map((option) => (option as HTMLOptionElement).value)
     );
-    expect(disabledValues).toEqual(['node', 'browser-preview']);
+    expect(disabledValues).toEqual(['node']);
+    await expect(select.locator('option[value="browser-preview"]')).toHaveAttribute(
+      'title',
+      /iframe-isolated preview with DOM/i
+    );
 
     await closeSettings(page);
   });

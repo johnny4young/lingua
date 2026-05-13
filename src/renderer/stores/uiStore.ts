@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export type StatusNoticeTone = 'info' | 'success' | 'warning' | 'error';
-export type BottomPanelTab = 'console' | 'debugger';
+export type BottomPanelTab = 'console' | 'debugger' | 'browser-preview';
 
 export interface StatusNotice {
   id: number;
