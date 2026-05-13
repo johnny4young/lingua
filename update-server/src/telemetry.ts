@@ -39,6 +39,7 @@ export const TELEMETRY_EVENT_NAMES = [
   'debugger.paused',
   'debugger.detached',
   'runtime.mode_changed',
+  'runtime.auto_run_gated',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -61,6 +62,7 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'debugger.paused': ['language', 'reasonBucket'],
   'debugger.detached': ['language', 'reasonBucket'],
   'runtime.mode_changed': ['mode', 'language'],
+  'runtime.auto_run_gated': ['language', 'reason'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -95,6 +97,9 @@ const HISTORY_CLEAR_SCOPES = new Set(['session', 'persisted', 'all']);
 // `src/shared/runtimeModes.ts`. The parity test asserts the worker
 // + renderer copies stay in sync.
 const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview']);
+// RL-020 Slice 1 — closed enum mirror of `AUTO_RUN_GATE_REASONS` in
+// `src/shared/telemetry.ts`. Locked to `'incomplete'` for Slice 1.
+const AUTO_RUN_GATE_REASONS = new Set(['incomplete']);
 const DEBUGGER_REASON_BUCKETS: Record<
   Extract<
     TelemetryEventName,
@@ -264,6 +269,11 @@ function isAllowedValue(
       if (key === 'mode')
         return typeof value === 'string' && RUNTIME_MODE_VALUES.has(value);
       if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'runtime.auto_run_gated':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'reason')
+        return typeof value === 'string' && AUTO_RUN_GATE_REASONS.has(value);
       return false;
     default: {
       const exhaustive: never = event;

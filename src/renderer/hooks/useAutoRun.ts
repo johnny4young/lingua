@@ -12,6 +12,8 @@ import { validateDocument } from '../validation';
 import { currentEffectiveTier } from './useEntitlement';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import { collectBrowserPreviewSiblingSources } from '../runtime/browserPreviewSiblings';
+import { isLikelyComplete } from '../../shared/autoRunGating';
+import { trackEvent } from '../utils/telemetry';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
 /**
@@ -86,6 +88,9 @@ export function useAutoRun() {
         setExecutionTime,
         setExecutionSource,
         setIsAutoRunning,
+        setAutoRunGateReason,
+        captureSuccessfulSnapshot,
+        restoreLastSuccessfulSnapshot,
       } = useResultStore.getState();
       const executionMode = executionModeForLanguage(language);
       const isWebBuild =
@@ -158,9 +163,44 @@ export function useAutoRun() {
         return;
       }
 
+      // RL-020 Slice 1 — auto-run completion gate. Skip the runner
+      // entirely when the buffer is in an obviously mid-edit state
+      // (open bracket, trailing operator, trailing keyword, ...) so
+      // the console / iframe stop flickering between SyntaxErrors
+      // while the user is still typing. Only the runner branch is
+      // gated — `validate` and `view` already returned above. JS / TS
+      // are the only languages flagged this slice; everything else
+      // gets `ready: true` and falls through unchanged.
+      const gate = isLikelyComplete(language, code);
+      if (!gate.ready && gate.reason === 'incomplete') {
+        // Preserve the last good output instead of clearing the
+        // panel — gives the user a stable reference while they
+        // finish the expression.
+        const restored = restoreLastSuccessfulSnapshot();
+        if (!restored) {
+          // Nothing to restore (first run on this tab): leave any
+          // existing state intact but make sure the error / spinner
+          // surfaces from a previous attempt don't linger.
+          setError(null);
+          setDiagnostics([]);
+        }
+        setAutoRunGateReason('incomplete');
+        setIsAutoRunning(false);
+        // Fold A — telemetry. Single emit per debounced run; the
+        // consent gate is already enforced upstream by `trackEvent`.
+        void trackEvent('runtime.auto_run_gated', {
+          language,
+          reason: 'incomplete',
+        });
+        return;
+      }
+      // Gate cleared. Stash the `ok` reason AFTER `clear()` so the
+      // store-level reset of `autoRunGateReason` (intentional on tab
+      // switch) does not nuke the reason we just set for this run.
       setIsAutoRunning(true);
       clear();
       setExecutionSource('auto');
+      setAutoRunGateReason(gate.reason);
 
       try {
         // RL-019 Slice 3 fold A — auto-run mirrors the manual path so
@@ -200,12 +240,17 @@ export function useAutoRun() {
         setFullOutput(presentation.fullOutput);
         setDiagnostics(toExecutionDiagnostics(language, result.error ?? null));
 
+        setExecutionTime(result.executionTime);
         if (result.error) {
           setError(result.error);
         } else {
           setError(null);
+          // RL-020 Slice 1 — capture the panel as the last good run
+          // so a future gated keystroke can restore it. Skip when
+          // the runner reported an error — that buffer isn't a
+          // restoration target.
+          captureSuccessfulSnapshot();
         }
-        setExecutionTime(result.executionTime);
       } catch (err) {
         if (!shouldDiscardAutoResult()) {
           setError({

@@ -967,8 +967,8 @@ Out of scope until Slice 2:
 ### RL-020 Make the scratchpad and REPL experience best-in-class
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Ready to implement incrementally after RL-019 starts`
+- Status: `Partial`
+- Readiness: `Slice 1 shipped 2026-05-13 — smart auto-run completion gate for JS/TS Scratchpad. Slices 2–9 (Run/Debug/Scratchpad distinction, magic-comment watches, auto-log, stdin, timeout presets, last-stable compare, per-tab history with rerun, variable inspector) remain.`
 - Scope:
   - Add smart auto-run with complete-code detection so incomplete edits do not execute too early
   - Treat Scratchpad as a distinct workflow from Run and Debug:
@@ -995,6 +995,108 @@ Out of scope until Slice 2:
   - Variable inspector shows current scope state after execution for JS/TS and Python
 - Dependencies:
   - RL-019
+
+#### Slice 1 — 2026-05-13 (smart auto-run completion gate)
+
+Slice 1 lands the first acceptance criterion (`Auto-run skips obviously
+incomplete code states`) for JS/TS Scratchpad. Non-JS/TS languages keep
+the existing auto-run cadence unchanged. The gate is renderer-only and
+zero-network — no Monaco worker call, no parse, no TS-service dep.
+
+Architecture:
+
+- New pure module `src/shared/autoRunGating.ts` exports
+  `isLikelyComplete(language, code): { ready: boolean; reason: 'empty'
+  | 'incomplete' | 'ok' }`. Single-pass scanner tracks bracket depth,
+  quote / template / block-comment state with collapse-to-spaces
+  comment stripping so the trailing-token sweep can run on the
+  comment-stripped string in O(n). The auto-pair-aware `hasAutoPairTrap`
+  helper walks every close bracket in the buffer and inspects the
+  previous significant token — catches `for (let i = )`, `const arr =
+  [1, ]`, `items.map((x) => )`, etc. that Monaco's auto-pair shape
+  hides from a naive bracket-balance check. Postfix `++` / `--` are
+  explicitly exempt so `for (...; i++)` stays ready.
+- `src/renderer/hooks/useAutoRun.ts` calls the gate after the
+  language-support check, before the runner branch. When
+  `ready === false` and `reason === 'incomplete'`, the hook
+  short-circuits — no `runnerManager.prepareRunner`, no
+  `runner.execute`, no `runner.executed` telemetry — restores the
+  last successful snapshot, sets `autoRunGateReason: 'incomplete'`,
+  and emits exactly one `runtime.auto_run_gated` event.
+- `src/renderer/stores/resultStore.ts` gains
+  `autoRunGateReason: AutoRunGateReason | null`,
+  `lastSuccessfulSnapshot: ResultSnapshot | null`,
+  `setAutoRunGateReason`, `captureSuccessfulSnapshot`, and
+  `restoreLastSuccessfulSnapshot`. Existing `clear()` resets both new
+  fields so a tab switch starts fresh.
+- `src/renderer/components/Editor/AutoRunGateNotice.tsx` renders an
+  ambient `status-pill` in the result panel header when
+  `autoRunGateReason === 'incomplete'`. Mounted in
+  `ResultPanel.tsx` next to the execution-time pill.
+- Fold A — telemetry. `runtime.auto_run_gated` added to
+  `TELEMETRY_EVENTS` + `EVENT_PROPERTY_ALLOWLIST` +
+  `isAllowedValue` in `src/shared/telemetry.ts`. Closed-enum
+  validator locks `reason` to `'incomplete'` for Slice 1. Mirror in
+  `update-server/src/telemetry.ts` + parity test
+  (`AUTO_RUN_GATE_REASONS` regex compare) in
+  `update-server/test/telemetry.test.ts`.
+- Fold E — `<AutoRunGateNotice>` reads the active tab's `runtimeMode`
+  and swaps the title + tooltip to the
+  `autoRun.gate.incomplete.titleBrowserPreview` /
+  `autoRun.gate.incomplete.descriptionBrowserPreview` keys when the
+  tab runs in `browser-preview` mode. A `data-gate-variant`
+  attribute (`default` / `browser-preview`) anchors the e2e
+  assertion.
+- Fold F — `tests/shared/autoRunGating.bench.test.ts` runs the gate
+  5 000× on a 5 KB realistic JS buffer; assertion locks under 750 ms
+  wall clock (~150 µs / call ceiling). Local: ~266 ms. Lives in the
+  default `npm test -- --run` gate, no extra script.
+
+i18n — 4 new keys per locale (2 base + 2 browser-preview). Spanish
+in tuteo (`Termina`, `intentará`, `recargará`).
+
+Tests:
+
+- `tests/shared/autoRunGating.test.ts` — 58 cases: language gating,
+  empty buffer, balanced cases (function declaration, nested
+  template, line + block comment after expression, identifiers
+  shadowing keywords like `piglet` / `awaiting`), incomplete cases
+  (open brackets / quotes / templates / block comments, trailing
+  operators, trailing keywords, mid-template-placeholder),
+  auto-pair shapes (`for (let i = )`, `const arr = [1, ]`,
+  `items.map((x) => )`, `if (x === )`, `const obj = { a: }`,
+  trailing keyword before close-paren), false-positive defenses
+  (`1 + 1` is ready, identifiers ending in keywords are ready,
+  strings shielding operators don't pollute the sweep, nested
+  template `}` doesn't leak).
+- `tests/shared/autoRunGating.bench.test.ts` — fold F perf lock.
+- `tests/hooks/useAutoRun.test.tsx` — gated-incomplete short-circuit,
+  ok-clears-reason, snapshot-restore on gated keystroke (first run
+  captures, second keystroke restores).
+- `tests/shared/telemetry.test.ts` — fold A validator: accepts
+  `incomplete`, accepts both `javascript` / `typescript`, drops
+  unknown reasons, drops non-safe-token language. Sorted-name list
+  gains `runtime.auto_run_gated`.
+- `update-server/test/telemetry.test.ts` — fold A worker-side
+  validator + `AUTO_RUN_GATE_REASONS` regex-compare parity test
+  (mirror of the existing `RUNTIME_MODE_VALUES` parity guard).
+- `tests/e2e/autoRunGating.spec.ts` — 3 Playwright cases: typing an
+  incomplete line surfaces the notice with `data-gate-variant
+  default`; completing the expression dismisses the notice; under
+  `runtimeMode === 'browser-preview'` the notice switches to
+  `data-gate-variant browser-preview` with the `Preview paused`
+  copy.
+
+Out of scope until Slice 2:
+
+- Run / Debug / Scratchpad distinct-workflow chrome (toolbar split
+  buttons, status indicators).
+- Magic-comment inline-watch expansion.
+- Expression auto-log mode.
+- stdin / input surface.
+- Timeout presets.
+- Per-tab execution history with rerun (depends on RL-028 surface).
+- Variable inspector panel.
 
 #### Product experience recommendations — 2026-05-12
 

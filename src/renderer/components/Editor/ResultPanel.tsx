@@ -7,6 +7,7 @@ import { useResultStore, type LineResult } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import { isInlineResultLanguage } from '../../utils/languageCapabilities';
+import { AutoRunGateNotice } from './AutoRunGateNotice';
 
 function LineResultRow({ result }: { result: LineResult }) {
   if (result.type === 'magic') {
@@ -177,6 +178,7 @@ export function ResultPanel() {
 
         <div className="flex items-center gap-2">
           {isAutoRunning && <Loader2 size={13} className="animate-spin text-primary" />}
+          <AutoRunGateNotice />
           {executionTime !== null && (
             <span className="status-pill tabular-nums">{formatExecTime(executionTime)}</span>
           )}

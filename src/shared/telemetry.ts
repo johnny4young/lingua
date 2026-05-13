@@ -33,6 +33,12 @@ export const TELEMETRY_EVENTS = [
   // payload `{ mode, language }`; no source, no tab id, no content.
   // See `docs/RUNTIME_MODES_ADR.md` for the policy.
   'runtime.mode_changed',
+  // RL-020 Slice 1 — auto-run completion gate fired. Closed enum
+  // payload `{ language, reason }`; no source, no tab id, no content.
+  // Today only `reason: 'incomplete'` ships; the validator is locked
+  // to that single value so a future expansion of the gate must
+  // amend this allowlist + the mirror in update-server.
+  'runtime.auto_run_gated',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -100,6 +106,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // future slices can extend the runtime-mode surface to other
   // languages without an allowlist churn.
   'runtime.mode_changed': ['mode', 'language'],
+  // RL-020 Slice 1 — `language` is the language-pack id (today only
+  // `javascript` / `typescript`). `reason` is a closed enum locked
+  // to `'incomplete'` for Slice 1.
+  'runtime.auto_run_gated': ['language', 'reason'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -131,6 +141,11 @@ const HISTORY_CLEAR_SCOPES = new Set(['session', 'persisted', 'all']);
 // stays a pure module without an import cycle. A parity test
 // asserts both stay in sync.
 const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview']);
+// RL-020 Slice 1 — closed enum for the auto-run gate reason. Today
+// only the renderer's `useAutoRun` emits `'incomplete'`; the validator
+// rejects anything else so a future heuristic-expansion has to amend
+// this Set + its mirror in `update-server/src/telemetry.ts`.
+const AUTO_RUN_GATE_REASONS = new Set(['incomplete']);
 const DEBUGGER_REASON_BUCKETS: Record<
   Extract<
     TelemetryEventName,
@@ -211,6 +226,11 @@ function isAllowedValue(
     case 'runtime.mode_changed':
       if (key === 'mode') return typeof value === 'string' && RUNTIME_MODE_VALUES.has(value);
       if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'runtime.auto_run_gated':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'reason')
+        return typeof value === 'string' && AUTO_RUN_GATE_REASONS.has(value);
       return false;
     default: {
       const exhaustive: never = event;

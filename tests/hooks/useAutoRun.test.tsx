@@ -331,6 +331,132 @@ describe('useAutoRun', () => {
     ]);
   });
 
+  it('RL-020 Slice 1 — gates an incomplete JS buffer and never calls the runner', async () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-incomplete',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'for (let i = ',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-js-incomplete',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+
+    expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    expect(useResultStore.getState().autoRunGateReason).toBe('incomplete');
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+  });
+
+  it('RL-020 Slice 1 — clears the gate reason when the buffer becomes complete', async () => {
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: {
+        execute: vi.fn().mockResolvedValue({
+          stdout: [{ type: 'log', args: ['0'] }],
+          stderr: [],
+          result: undefined,
+          executionTime: 4,
+          error: null,
+        }),
+      },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-complete',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'console.log(0);',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-js-complete',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+
+    expect(runnerManager.prepareRunner).toHaveBeenCalledWith('javascript', undefined);
+    expect(useResultStore.getState().autoRunGateReason).toBe('ok');
+  });
+
+  it('RL-020 Slice 1 — restores the last successful snapshot on a gated keystroke', async () => {
+    // Land a real run first so the snapshot captures naturally — the
+    // tab-switch useEffect intentionally clears the snapshot on
+    // mount, so we cannot just seed it via setState ahead of time.
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: {
+        execute: vi.fn().mockResolvedValue({
+          stdout: [{ type: 'log', args: ['42'] }],
+          stderr: [],
+          result: undefined,
+          executionTime: 7,
+          error: null,
+        }),
+      },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-snapshot',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'const x = 1;',
+          isDirty: false,
+        },
+      ],
+      activeTabId: 'tab-js-snapshot',
+    });
+
+    renderHook(() => useAutoRun());
+
+    // First debounce window: the complete buffer runs and the
+    // snapshot captures.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    const snapshotAfterRun = useResultStore.getState().lastSuccessfulSnapshot;
+    expect(snapshotAfterRun).not.toBeNull();
+    const goodLineResults = snapshotAfterRun!.lineResults;
+    expect(snapshotAfterRun!.executionTime).toBe(7);
+
+    // Now flip the buffer to an obviously-incomplete shape; the
+    // gate should short-circuit and restore the captured snapshot.
+    act(() => {
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-js-snapshot',
+            name: 'main.js',
+            language: 'javascript',
+            content: 'const x = ',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-js-snapshot',
+      });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+
+    expect(runnerManager.prepareRunner).toHaveBeenCalledTimes(1);
+    expect(useResultStore.getState().autoRunGateReason).toBe('incomplete');
+    expect(useResultStore.getState().lineResults).toEqual(goodLineResults);
+    expect(useResultStore.getState().executionTime).toBe(7);
+  });
+
   it('RL-079 — does NOT auto-run Go when native execution is unacknowledged', async () => {
     // The trust-boundary modal lives behind manual Run; auto-run on a
     // Go tab the user never opted into would silently invoke the
