@@ -370,7 +370,7 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 ### RL-011 Add an environment variables panel for execution contexts
 
 - Priority: `P2`
-- Status: `Partial`
+- Status: `Done` (closed 2026-05-12 — see Status Update below)
 - Readiness: `Scoping ADR, Slice A (pure merger), Slice B (store plumbing + snapshot bridge shell), Slice C first + second + third increments (global, tab, project tier editors + effective-env trace preview) shipped on 2026-04-20; Slice D first increment (Go compile IPC threads the effective user env, GOOS/GOARCH stay runner-owned) shipped on 2026-04-20 ter; Slice D second increment (Rust compile + spawn IPC threads the effective user env) shipped on 2026-04-20 quater; Slice D third increment (Python Pyodide worker boot bridges the user env into os.environ) shipped on 2026-04-20 quinquies — Slice D now closed for the three runtimes the ADR contemplates`
 - Current progress:
   - `ENV_VARS_ADR.md` answers the three blocking questions: Go/Rust/Python receive env in desktop; JS/TS Workers and the web build do not; the merge order is tab > project > global with empty-string-as-real-value POSIX semantics
@@ -389,6 +389,32 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
   - Which runtimes receive env vars in desktop mode ✅
   - Which env vars, if any, should exist in web mode ✅
   - Whether env vars are tab-scoped, project-scoped, or global ✅
+
+#### Status Update — 2026-05-12 (closes RL-011)
+
+ROADMAP § 4d previously said "Remaining: JS/TS desktop runner env
+threading." That line was stale TODO from before the ADR settled.
+The ADR is explicit and load-bearing:
+
+- `docs/ENV_VARS_ADR.md` § Decision: *"JS/TS Worker mode and the
+  web build remain env-var free."*
+- ADR capability table: *"JavaScript Worker: No — Workers cannot
+  read host env, and exposing `process.env` would be a misleading
+  polyfill."*
+
+There is no JS/TS desktop subprocess path in the repo —
+`src/renderer/runners/javascript.ts` and
+`src/renderer/runners/typescript.ts` are both Web Workers, so the
+JS/TS surface is structurally outside the ADR-contemplated set
+(Go / Rust / Python). Slice D closing those three runtimes already
+exhausted scope as written.
+
+Future JS/TS env-var support would arrive only if `RL-019`
+(explicit JS/TS runtime modes) lands a desktop Node-subprocess
+mode; in that case env threading belongs to RL-019, NOT a reopen of
+RL-011. `tests/docs/envVarsAdr.test.ts` now asserts the ROADMAP
+§6 archive lists `RL-011` so a future revert needs new ADR
+justification.
 
 ### RL-012 Package management
 

@@ -98,11 +98,12 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-011`](./PLAN.md#rl-011-add-an-environment-variables-panel-for-execution-contexts) | Env vars panel | `Partial` | Slice A/B/C shipped + Slice D for Go/Rust/Python. Remaining: JS/TS desktop runner env threading. |
 | [`RL-012`](./PLAN.md#rl-012-package-management) | Package management | `Planned` | Superseded in scope by `RL-025`. Keep open for reference until `RL-025` ships Slice A. |
 | [`RL-043`](./PLAN.md#rl-043-add-notebook--cell-based-execution-mode) | Notebook / cell-based execution | `Planned` | New notebook view alongside the editor with per-cell output. |
 | [`RL-044`](./PLAN.md#rl-044-add-inline-data-visualization-and-rich-output-rendering) | Inline data visualization + rich output | `Planned` | Detect structured output (tables, images, plots) and render richly. |
 | [`RL-048`](./PLAN.md#rl-048-add-integrated-terminal-for-desktop-mode) | Integrated terminal (desktop) | `Planned` | Embed xterm.js + node-pty panel in the desktop build. |
+
+_RL-011 closed 2026-05-12 — Slice A/B/C shipped the merger + store + Settings UI; Slice D shipped Go/Rust/Python subprocess env threading. JS/TS Workers and the web build are explicitly out of ADR scope (see [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) capability table). Any future JS/TS desktop env-var support belongs in [`RL-019`](#4b-editor-runtime-and-workflow-p1) (explicit JS/TS runtime modes — desktop Node mode would carry env threading), NOT a reopen of this ticket._
 
 ### 4e. Developer Utilities (`RL-045` parent is `Done`)
 
@@ -175,17 +176,18 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>63 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>64 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
-`RL-008`, `RL-009`, `RL-010`, `RL-016`, `RL-017`, `RL-018`, `RL-021`,
-`RL-022`, `RL-026`, `RL-028`, `RL-030`, `RL-034`, `RL-037`, `RL-038`,
-`RL-040`, `RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`, `RL-055`,
-`RL-056`, `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`, `RL-063`,
-`RL-064`, `RL-065`, `RL-066`, `RL-067`, `RL-068`, `RL-069`, `RL-070`,
-`RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`, `RL-077`, `RL-078`,
-`RL-079`, `RL-080`, `RL-081`, `RL-082`, `RL-083`, `RL-084`, `RL-085`,
-`RL-086`, `RL-087`, `RL-088`, `RL-089`, `RL-090`, `RL-091`, `RL-092`.
+`RL-008`, `RL-009`, `RL-010`, `RL-011`, `RL-016`, `RL-017`, `RL-018`,
+`RL-021`, `RL-022`, `RL-026`, `RL-028`, `RL-030`, `RL-034`, `RL-037`,
+`RL-038`, `RL-040`, `RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`,
+`RL-055`, `RL-056`, `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`,
+`RL-063`, `RL-064`, `RL-065`, `RL-066`, `RL-067`, `RL-068`, `RL-069`,
+`RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`, `RL-077`,
+`RL-078`, `RL-079`, `RL-080`, `RL-081`, `RL-082`, `RL-083`, `RL-084`,
+`RL-085`, `RL-086`, `RL-087`, `RL-088`, `RL-089`, `RL-090`, `RL-091`,
+`RL-092`.
 
 </details>
 
