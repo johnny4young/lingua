@@ -25,7 +25,7 @@ Mirrors the authoritative `Status` column in
 | Iter 1 | [`RL-072`](./ROADMAP.md) | Shipped (2026-05-08) | Specialty utilities — QR + inspector. Shipped on 2026-05-08 — see RL-072. |
 | Iter 2 | [`RL-028`](./ROADMAP.md) | Shipped (2026-05-01) | Execution history — closed by Slice 7 (Compare two runs, code-only diff). See §4. |
 | Iter 3 | [`RL-027`](./ROADMAP.md) | Slice 1.5 shipped (2026-05-11) | Debugger MVP — Slice 1.5 closes the user-facing surface: BreakpointGutter (gutter dots + click toggle + `Mod+Shift+B`), mounted `DebuggerDrawer` with chevron collapse, Settings rows (toggle + Disable-all + Clear-all), TS source-map composition, three telemetry events, language-pack capability flip, toolbar pill, runbook + ADR amendment + CAPABILITY_MATRIX rows + blocking e2e smoke. **Slice 1.5b still pending**: conditional-breakpoint + watch-expression evaluation (held behind dedicated security review). See §5. |
-| Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
+| Iter 4 | [`RL-061`](./ROADMAP.md) | Shipped · Slice 5 on 2026-04-30 closes the launch-blocker scope: web build migrated from GH Pages to **Cloudflare Pages** at `app.linguacode.dev`, `update-server` exposes `GET /web/version`, web build polls every 12h and surfaces a `WebUpdateBanner` (Reload + Dismiss) when the remote tag is strictly newer, `release.yml` gains per-platform skip inputs (`release_macos`/`release_windows`/`release_linux`/`release_web`) so web-only releases avoid the ~240-min full matrix. Parent ticket `RL-059` also closed 2026-05-12 as docs-sync (see `docs/PLAN.md#rl-059-license-key-infrastructure` Status Update). | License-key infrastructure. All slices shipped: Slice 0 (main bridge, 2026-04-25), Slice 1 (worker scaffold, 2026-04-26), Slice 2 (Polar+Resend, 2026-04-27), Slice 2.5 (web licenseStore, 2026-04-28), Slice 3 (web devices UI, 2026-04-28), Slice 3.5 (desktop bridge, 2026-04-29), Slice 4 (Trial+Education+Recovery, 2026-04-29), Slice 5 (release pipeline + web update banner, 2026-04-30). See [`LICENSING_ADR.md`](./LICENSING_ADR.md). |
 | Iter 5 | [`RL-038`](./ROADMAP.md) | Shipped (2026-05-01) | Language-pack registry — closed by the Slice C closeout. See §7. |
 | Iter 6 | [`RL-077`](./ROADMAP.md) | Shipped (2026-05-02) | Capability-based filesystem IPC sandbox — Slice 1 + Slice 2 both landed. See §8. |
 | Iter 7 | [`RL-078`](./ROADMAP.md) | Shipped (2026-05-03) | Parent-owned execution timeouts + output / resource limits. See §9. |
@@ -59,8 +59,12 @@ Value-per-day priority. The full reasoning is in
    2026-05-08 to self-host web Pyodide assets — see §11). Move on.
 2. **Launch blockers** — closed. `RL-063` shipped 2026-05-05 (site live
    at https://linguacode.dev from the separate `lingua-marketing` repo;
-   see `docs/MARKETING_SITE_ADR.md`). `RL-061` is shipped; `RL-059`
-   remains `Partial` only as the historical verifier + bridge parent.
+   see `docs/MARKETING_SITE_ADR.md`). `RL-061` shipped 2026-04-30.
+   `RL-059` closed 2026-05-12 as docs-sync — the named remaining scope
+   (Polar webhook + email delivery) shipped under `RL-061`; the
+   verifier + bridge scaffolding lives in production at
+   `src/main/license.ts` + `src/renderer/stores/licenseStore.ts` +
+   `src/shared/license.ts`.
 3. **Release, legal, and compliance readiness** — closed. `RL-080`,
    `RL-085`, `RL-092`, and `RL-081` are all `Done` (RL-081 closed
    2026-05-05 once the live `linguacode.dev` surface aligned with the
@@ -81,12 +85,15 @@ Value-per-day priority. The full reasoning is in
    error boundaries + safe-mode boot + boot-loop counter / factory
    mode + RecoverySection with five scoped resets + reveal-folder +
    `docs/RECOVERY.md`).
-6. **Utilities polish** — `RL-069` Slice 1 shipped 2026-05-05 (productivity
-   foundation). `RL-072` remaining QR-read mode and `RL-069` Slice 2/3 are
-   good warm-up work when blocked on a launch item.
-7. **Debugger + language intelligence** — `RL-027` Slice 1.5 and `RL-026`
-   Slices 1 → 3 are shipped. Remaining work is `RL-027` Slice 1.5b and
-   `RL-026` Go via gopls; these unblock `RL-042` and `RL-047`.
+6. **Utilities polish** — closed in full. `RL-072` closed 2026-05-08
+   (QR decode + Copy-as-PNG + colors + SVG + `utilityOutputStore`
+   wiring). `RL-069` closed 2026-05-09 across Slice 1 (productivity
+   foundation), Slice 2 (detect + Apply + 29-panel coverage), and
+   Slice 3 (clipboard-on-focus + history + favorites).
+7. **Debugger + language intelligence** — `RL-026` closed 2026-05-11
+   after Go via gopls shipped on the shared LSP scaffold; `RL-027`
+   Slice 1.5 is shipped. Remaining work is `RL-027` Slice 1.5b
+   (conditional breakpoints + watch expressions behind security review).
 8. **Runtime mode expansion** — `RL-019` + `RL-020` after the runtime
    contract is stable.
 9. **Notebook + rich output** — `RL-043` + `RL-044` as a paired slice.

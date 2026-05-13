@@ -2872,8 +2872,8 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
 ### RL-059 License-key infrastructure
 
 - Priority: `P0` for Phase 1
-- Status: `Partial`
-- Readiness: `Renderer verifier + Settings UI completed on 2026-04-19; main-side IPC bridge + device-id loader shipped on 2026-04-25 (Slice 0). Polar webhook + email delivery still pending under RL-061.`
+- Status: `Done` (closed 2026-05-12 — see Status Update below)
+- Readiness: `Renderer verifier + Settings UI completed on 2026-04-19; main-side IPC bridge + device-id loader shipped on 2026-04-25 (Slice 0). Polar webhook + email delivery shipped under RL-061 (closed 2026-04-30); see Status Update below.`
 - 2026-04-25 update — Slice 0:
   - `src/main/license.ts` lands the main-side runtime: persists the token at `userData/license.json` (atomic write, mode 0o600), persists an opaque per-install `deviceId` at `userData/device-id.json` (`crypto.randomUUID()` minted once), boots a verified snapshot before `createWindow()`, and self-heals if the on-disk token no longer verifies (wipes the file rather than surfacing a sticky `invalid` state).
   - `src/main/ipc/license.ts` exposes `license:get-state`, `license:apply-token`, `license:clear`, `license:revalidate` over `ipcMain.handle`. Every handler returns a tagged-union result so the renderer can ship a typed mirror.
@@ -2903,6 +2903,53 @@ Mapping to tasks: **RL-036 (promoted)**, **RL-066** (SEO landing pages), **RL-06
   - Tests cover signature validity, clock skew, tampered payload, and grace-period behavior.
 - Dependencies:
   - None (pure infra; can land before RL-060/RL-061).
+
+#### Status Update — 2026-05-12 (closes RL-059)
+
+ROADMAP § 4a + the Readiness line above previously named *"Polar
+webhook + email delivery still pending under RL-061"* as the only
+remaining scope. That work shipped under RL-061 across slices 0
+through 5 (final slice 2026-04-30):
+
+- Polar checkout + webhook delivery — RL-061 Slice 2.
+- Resend email delivery for license issuance + recovery — RL-061
+  Slice 2 + Slice 4.
+- Trial + Education tier issuance — RL-061 Slice 4.
+- Web licenseStore + device management UI — RL-061 Slice 2.5 + 3.
+- Desktop license bridge → renderer mirror — RL-061 Slice 3.5.
+- Release pipeline + web update banner — RL-061 Slice 5.
+
+ROADMAP § 5 sequence #2 telegraphed this close-out before it
+landed: as of the previous ROADMAP revision it read
+*"`RL-059` stays `Partial` only as the historical verifier + bridge
+parent."* This docs-sync slice flips that to past tense and closes
+the parent. The verifier + bridge scaffolding it parented lives in
+production at:
+
+- `src/main/license.ts` — atomic-write `userData/license.json` +
+  per-install `deviceId` + boot-time verified snapshot + IPC
+  handlers (`license:get-state`, `license:apply-token`,
+  `license:clear`, `license:revalidate`).
+- `src/renderer/stores/licenseStore.ts` — desktop/web auto-detect
+  mirror over the IPC bridge.
+- `src/shared/license.ts` — pure `verifyLicenseToken` over
+  Ed25519 WebCrypto, used by both renderer and main.
+
+Existing acceptance-criteria coverage (unchanged):
+
+- Valid signed license unlocks Pro entitlements end-to-end (Pro
+  smoke `tests/smoke/licenseWebSmoke.test.tsx` plus packaged
+  desktop smoke in CI).
+- Tampered or mis-signed tokens rejected with actionable error
+  (`tests/main/license.test.ts`, `tests/stores/licenseStore.test.ts`).
+- Uninstall/reset returns to Free
+  (`tests/main/license.test.ts` boot-wipe path).
+- Tests cover signature validity, clock skew, tampered payload,
+  grace-period (all sites above).
+
+Any future license-key infrastructure beyond what RL-061 shipped
+(e.g. extended recovery flows, refund automation) belongs in a
+NEW RL ticket, not a reopen here.
 
 ### RL-060 Feature-tier gating in the renderer
 

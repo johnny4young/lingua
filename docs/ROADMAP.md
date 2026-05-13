@@ -1,6 +1,6 @@
 # Lingua — Roadmap
 
-> **Updated:** 2026-05-05
+> **Updated:** 2026-05-12
 > Canonical status board. Single source of truth for the `Status` column
 > on every `RL-XXX` ticket. When any other doc disagrees, this one wins.
 >
@@ -71,7 +71,8 @@ All tickets with `Status ∈ {Partial, Planned, Research-backed spike}`. The
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-059`](./PLAN.md#rl-059-license-key-infrastructure) | License-key infrastructure | `Partial` | Ed25519 verifier + Settings section + main-side IPC bridge with device id (Slice 0 shipped 2026-04-25). Remaining: Polar webhook + email delivery (now lives under `RL-061`). |
+
+_All rows in this section are closed; see §6 archive. RL-059 closed 2026-05-12 as docs-sync — the Ed25519 verifier + Settings section + main-side IPC bridge with device id (Slice 0, 2026-04-25) plus the named remaining scope (Polar webhook + email delivery) all shipped historically; the latter lives entirely under [`RL-061`](./PLAN.md#rl-061-polarsh-integration) (closed 2026-04-30). RL-059's runtime descendants stay in production at `src/main/license.ts`, `src/renderer/stores/licenseStore.ts`, and `src/shared/license.ts`._
 
 ### 4b. Editor, runtime and workflow (P1)
 
@@ -155,7 +156,7 @@ Value-per-day priority, skipping parked tickets. This is the order an
 agent should follow when §3's tiebreakers don't resolve.
 
 1. **Security launch hardening.** `RL-077`, `RL-078`, `RL-079`, and `RL-083` are all closed. 2026-05-08 follow-up hardening moved web Pyodide from cache-first CDN loading to same-origin copied runtime assets, tightened filesystem re-open approvals, and extended Go/formatter/parser caps. The launch-blocker set is clear.
-2. **Launch blockers.** Closed. `RL-063` shipped 2026-05-05 — site live at https://linguacode.dev from the separate `lingua-marketing` repo (see `MARKETING_SITE_ADR.md`). `RL-061` shipped 2026-04-30. `RL-059` stays `Partial` only as the historical parent for verifier + bridge work now shipped.
+2. **Launch blockers.** Closed. `RL-063` shipped 2026-05-05 — site live at https://linguacode.dev from the separate `lingua-marketing` repo (see `MARKETING_SITE_ADR.md`). `RL-061` shipped 2026-04-30. `RL-059` closed 2026-05-12 as docs-sync — its named remaining scope (Polar webhook + email delivery) shipped under `RL-061`; the verifier + bridge scaffolding lives in production at `src/main/license.ts`, `src/renderer/stores/licenseStore.ts`, and `src/shared/license.ts`.
 3. **Release, legal, and compliance readiness.** Closed. `RL-080`, `RL-085`, `RL-092`, and `RL-081` are all `Done` (RL-081 closed 2026-05-05 once the live `linguacode.dev` surface aligned with the desktop entitlement copy). The launch-readiness bucket has no outstanding blockers in this repo.
 4. **Runtime/platform surface hardening.** `RL-091` closed 2026-05-06 (structured logging + redaction + metrics catalog + readiness probes across both Cloudflare Workers + 5 incident runbooks + observability spec). `RL-084` closed 2026-05-06 (shared validator + path-traversal guard + bundled-runtime allowlist + new `unknown` status + UI test coverage). `RL-087` closed 2026-05-06 (watcher lifecycle audit + typed failure diagnostics surfaced via status notice + `IGNORED_PATH_PREFIXES` shared module + `before-quit` cleanup + USAGE.md platform-limitations section). The §5 #4 hardening lane is now closed in full.
 5. **Product quality and supportability.** Closed in full. `RL-088` closed 2026-05-06 (axe-core gate via `tests/e2e/a11y.spec.ts`, keyboard-only flows, OverlayBackdrop focus restoration, plus the `docs/A11Y.md` manual checklist). `RL-086` closed 2026-05-07 (bundle/runtime performance budgets, baseline report, CI logs, desktop smoke runtime/memory metrics, and `runtimeObservability` folded into the central performance report). `RL-089` closed 2026-05-07 (versioned profile export/import with three conflict policies, replace-confirm modal, file picker + paste fallback, and explicit machine-bound exclusion list). `RL-090` closed 2026-05-07 (top-level error boundaries with redacted error report + clipboard fallback, global error listeners, safe-mode boot via `?safe-mode=1`, boot-loop counter escalating to factory mode after 3 crashes in 60s, RecoverySection with five scoped resets + reveal-folder, and `docs/RECOVERY.md` support documentation).
@@ -176,18 +177,18 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>64 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>65 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-011`, `RL-016`, `RL-017`, `RL-018`,
 `RL-021`, `RL-022`, `RL-026`, `RL-028`, `RL-030`, `RL-034`, `RL-037`,
 `RL-038`, `RL-040`, `RL-045`, `RL-051`, `RL-052`, `RL-053`, `RL-054`,
-`RL-055`, `RL-056`, `RL-057`, `RL-058`, `RL-060`, `RL-061`, `RL-062`,
-`RL-063`, `RL-064`, `RL-065`, `RL-066`, `RL-067`, `RL-068`, `RL-069`,
-`RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`, `RL-077`,
-`RL-078`, `RL-079`, `RL-080`, `RL-081`, `RL-082`, `RL-083`, `RL-084`,
-`RL-085`, `RL-086`, `RL-087`, `RL-088`, `RL-089`, `RL-090`, `RL-091`,
-`RL-092`.
+`RL-055`, `RL-056`, `RL-057`, `RL-058`, `RL-059`, `RL-060`, `RL-061`,
+`RL-062`, `RL-063`, `RL-064`, `RL-065`, `RL-066`, `RL-067`, `RL-068`,
+`RL-069`, `RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`,
+`RL-077`, `RL-078`, `RL-079`, `RL-080`, `RL-081`, `RL-082`, `RL-083`,
+`RL-084`, `RL-085`, `RL-086`, `RL-087`, `RL-088`, `RL-089`, `RL-090`,
+`RL-091`, `RL-092`.
 
 </details>
 
