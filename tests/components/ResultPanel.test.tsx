@@ -137,4 +137,23 @@ describe('ResultPanel', () => {
     expect(screen.getByText('File Status')).toBeTruthy();
     expect(screen.getByText('Editable without run or lint support')).toBeTruthy();
   });
+
+  it('announces the auto-run gate notice as polite status text', () => {
+    useResultStore.setState({
+      lineResults: [{ line: 1, value: 'hello', type: 'log' }],
+      error: null,
+      fullOutput: '',
+      executionTime: 12,
+      isAutoRunning: false,
+      executionSource: 'auto',
+      autoRunGateReason: 'incomplete',
+    });
+
+    render(<ResultPanel />);
+
+    const notice = screen.getByRole('status');
+    expect(notice.textContent).toMatch(/live updates paused/i);
+    expect(notice.getAttribute('aria-live')).toBe('polite');
+    expect(notice.getAttribute('data-gate-variant')).toBe('default');
+  });
 });

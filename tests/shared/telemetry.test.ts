@@ -43,6 +43,7 @@ describe('TELEMETRY_EVENTS', () => {
       'runner.executed',
       // RL-019 Slice 1 — per-tab JS/TS runtime mode change.
       // Closed-enum payload `{ mode, language }`; see RUNTIME_MODES_ADR.
+      'runtime.auto_run_gated',
       'runtime.mode_changed',
       'update.checked',
       // RL-069 Slice 3 — Developer Utilities productivity layer.
@@ -202,6 +203,54 @@ describe('runtime.mode_changed value validator (RL-019 Slice 1 + Slice 3)', () =
       })
     );
     expect(event.properties.mode).toBe('browser-preview');
+    expect(event.properties).not.toHaveProperty('language');
+  });
+});
+
+describe('runtime.auto_run_gated value validator (RL-020 Slice 1)', () => {
+  it('accepts the closed `incomplete` reason + a safe-token language', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.auto_run_gated',
+        properties: { language: 'javascript', reason: 'incomplete' },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'javascript',
+      reason: 'incomplete',
+    });
+  });
+
+  it('also accepts typescript as the language', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.auto_run_gated',
+        properties: { language: 'typescript', reason: 'incomplete' },
+      })
+    );
+    expect(event.properties.language).toBe('typescript');
+    expect(event.properties.reason).toBe('incomplete');
+  });
+
+  it('drops an unknown gate reason (defensive — future heuristic expansions amend the allowlist)', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.auto_run_gated',
+        properties: { language: 'javascript', reason: 'mysterious' },
+      })
+    );
+    expect(event.properties.language).toBe('javascript');
+    expect(event.properties).not.toHaveProperty('reason');
+  });
+
+  it('drops a non-safe-token language (defense in depth)', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.auto_run_gated',
+        properties: { language: '../etc/passwd', reason: 'incomplete' },
+      })
+    );
+    expect(event.properties.reason).toBe('incomplete');
     expect(event.properties).not.toHaveProperty('language');
   });
 });

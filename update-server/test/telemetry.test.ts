@@ -392,6 +392,60 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     }
   });
 
+  it('AUTO_RUN_GATE_REASONS stays in sync with the renderer enum (RL-020 Slice 1)', async () => {
+    // Mirror of the RUNTIME_MODE parity check: closed-enum lists for
+    // `runtime.auto_run_gated` live in two places (renderer + worker)
+    // and must stay aligned. A heuristic expansion that adds a new
+    // reason has to amend both Sets in the same commit.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /const\s+AUTO_RUN_GATE_REASONS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    // Slice 1 lock — only `'incomplete'` ships. If this assertion
+    // ever loosens, the comment in `useAutoRun.ts` must be updated
+    // and the renderer surface widened too.
+    expect(workerValues).toEqual(['incomplete']);
+  });
+
+  it('runtime.auto_run_gated accepts incomplete, drops unknown reasons (worker validator)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // Accept the closed enum.
+    const okResponse = await postTelemetry({
+      event: 'runtime.auto_run_gated',
+      properties: { language: 'javascript', reason: 'incomplete' },
+    });
+    expect(okResponse.status).toBe(204);
+    // Drop a future-shaped reason without surfacing a 400.
+    const futureResponse = await postTelemetry({
+      event: 'runtime.auto_run_gated',
+      properties: { language: 'typescript', reason: 'future-shape' },
+    });
+    expect(futureResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.auto_run_gated"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const future = eventLines
+      .map((line) => JSON.parse(line))
+      .find((parsed) => parsed.properties.language === 'typescript');
+    expect(future).toBeDefined();
+    expect(future.properties).not.toHaveProperty('reason');
+  });
+
   it('RUNTIME_MODE_VALUES stays in sync with the renderer enum (RL-019 Slice 1)', async () => {
     // Both the worker (`update-server/src/telemetry.ts`) and the
     // renderer (`src/shared/telemetry.ts`) maintain a private Set of
