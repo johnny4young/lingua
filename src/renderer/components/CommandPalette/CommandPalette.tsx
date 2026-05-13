@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import {
   type ExecutionHistoryEntry,
   useExecutionHistoryStore,
@@ -70,7 +71,14 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const { addTab, openFileFromDisk, saveActiveTabAs, duplicateActiveTab } = useEditorStore();
+  const { addTab, openFileFromDisk, saveActiveTabAs, duplicateActiveTab, setTabRuntimeMode } =
+    useEditorStore();
+  const activeTabId = useEditorStore((state) => state.activeTabId);
+  const tabs = useEditorStore((state) => state.tabs);
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const activeRuntimeMode = languageHasRuntimeModes(activeTab?.language)
+    ? (activeTab?.runtimeMode ?? 'worker')
+    : null;
   const { snippets } = useSnippetsStore();
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const executionHistory = useExecutionHistoryStore((state) => state.entries);
@@ -99,6 +107,16 @@ export function CommandPalette({
       onReplayEntry: canUseExecutionHistory ? onReplayEntry : undefined,
       onToggleVimMode,
       vimModeEnabled: vimMode,
+      // RL-019 Slice 1 fold E — palette wiring. Gate on
+      // `activeRuntimeMode !== null` (the JS/TS marker), not just
+      // `activeTabId`, so a Python / Go / Rust tab never wires the
+      // callback. The model already short-circuits when the field
+      // is null; this is the tighter invariant at the call site.
+      onSetRuntimeMode:
+        activeRuntimeMode !== null && activeTabId
+          ? (mode) => setTabRuntimeMode(activeTabId, mode)
+          : undefined,
+      activeRuntimeMode,
       updateStatus,
       createTab: addTab,
       createDefaultTab,
@@ -131,6 +149,9 @@ export function CommandPalette({
     onReplayEntry,
     onToggleVimMode,
     vimMode,
+    activeTabId,
+    activeRuntimeMode,
+    setTabRuntimeMode,
     addTab,
     setLayoutPreset,
     onClose,

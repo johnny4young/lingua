@@ -42,6 +42,8 @@ import { trackEvent } from '../../utils/telemetry';
 import { IconButton, Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
 import { LicenseBadge } from './LicenseBadge';
+import { RuntimeModeSelector } from './RuntimeModeSelector';
+import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 
 const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
   { id: 'javascript', label: 'JavaScript' },
@@ -519,6 +521,11 @@ export function Toolbar({
       </div>
 
       <div data-tour-id="toolbar-actions" className="flex min-w-0 items-center gap-1">
+        {/* RL-019 Slice 1 — per-tab JS/TS runtime mode selector.
+            Rendered only when the active tab owns the runtime-mode
+            surface (JS/TS today). The selector itself short-circuits
+            for non-JS/TS tabs as a second layer of defense. */}
+        {languageHasRuntimeModes(activeTab?.language) ? <RuntimeModeSelector /> : null}
         {activeTab && (
           <div className="status-pill hidden max-w-[14rem] truncate lg:flex">
             {t('toolbar.languageActive', { language: defaultNewFileLabel })}

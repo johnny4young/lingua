@@ -1,4 +1,5 @@
 import type { ShortcutCombo, ShortcutOverrideMap } from '../data/keyboardShortcuts';
+import type { RuntimeMode } from '../../shared/runtimeModes';
 
 export type AppLanguage = 'system' | 'en' | 'es';
 
@@ -83,6 +84,15 @@ export interface FileTab {
    * the next content edit so a stale message does not linger.
    */
   parseError?: string | null;
+  /**
+   * RL-019 Slice 1 — explicit per-tab runtime mode for JS/TS tabs.
+   * `'worker'` for all freshly created JS/TS tabs; `undefined` for
+   * every other language. Slice 2 will surface `'node'` once the
+   * desktop child-process backend lands; Slice 3 will surface
+   * `'browser-preview'` once the iframe-isolated preview pane lands.
+   * See [`docs/RUNTIME_MODES_ADR.md`](../../docs/RUNTIME_MODES_ADR.md).
+   */
+  runtimeMode?: RuntimeMode;
 }
 
 /**
@@ -134,6 +144,16 @@ export interface EditorState {
     state: TabExecutionState,
     parseError?: string | null
   ) => void;
+  /**
+   * RL-019 Slice 1 — set the runtime mode for a JS/TS tab. No-op
+   * (and a status-notice toast) when:
+   *   - the tab does not own a runtime-mode surface (non-JS/TS), or
+   *   - the requested mode is not yet implemented (`'node'` /
+   *     `'browser-preview'` in Slice 1).
+   * Telemetry (`runtime.mode_changed`) fires on every successful
+   * change.
+   */
+  setTabRuntimeMode: (id: string, mode: RuntimeMode) => void;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The
@@ -279,6 +299,14 @@ export interface SettingsState {
    * whole feature.
    */
   debuggerEnabled: boolean;
+  /**
+   * RL-019 Slice 1 fold B — default JS/TS runtime mode for newly
+   * created tabs. `'worker'` mirrors `defaultRuntimeModeFor()` and
+   * stays the only implemented option until Slice 2 lands. Settings
+   * → Editor exposes the selector; the value is per-app, not
+   * per-tab (each tab keeps its own choice).
+   */
+  defaultRuntimeMode: RuntimeMode;
   language: AppLanguage;
   lastSeenVersion: string | null;
   hasCompletedTour: boolean;
@@ -350,6 +378,13 @@ export interface SettingsState {
     syncShellWithEditorTheme?: boolean;
   }) => void;
   setLanguage: (language: AppLanguage) => void;
+  /**
+   * RL-019 Slice 1 fold B — set the per-app default JS/TS runtime
+   * mode for newly created tabs. Existing tabs keep their own
+   * runtime mode; only `createDefaultTab` reads this preference.
+   * Rejects (no-op) for modes that are not yet implemented.
+   */
+  setDefaultRuntimeMode: (mode: RuntimeMode) => void;
   setLastSeenVersion: (version: string | null) => void;
   setHasCompletedTour: (value: boolean) => void;
   setSuppressTourAutoStart: (value: boolean) => void;

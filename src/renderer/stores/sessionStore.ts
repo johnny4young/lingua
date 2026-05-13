@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
 import { useEditorStore } from './editorStore';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
+import { coerceRuntimeMode, type RuntimeMode } from '../../shared/runtimeModes';
 
 interface SessionTab {
   name: string;
@@ -15,6 +16,13 @@ interface SessionTab {
    * I/O against this path directly.
    */
   filePath?: string;
+  /**
+   * RL-019 Slice 1 — per-tab runtime mode for JS/TS tabs. Missing /
+   * unknown values are coerced back to `'worker'` for JS/TS at
+   * restore time via `coerceRuntimeMode`, so a tampered or
+   * pre-Slice-1 session entry never lands in an unimplemented mode.
+   */
+  runtimeMode?: RuntimeMode;
 }
 
 interface SessionState {
@@ -41,6 +49,10 @@ export const useSessionStore = create<SessionState>()(
           // content so the user does not lose unsaved work.
           content: tab.filePath ? '' : tab.content,
           filePath: tab.filePath,
+          // RL-019 Slice 1 — persist the runtime mode alongside the
+          // tab. Non-JS/TS tabs have `runtimeMode === undefined`, so
+          // the field is omitted from the serialized output.
+          runtimeMode: tab.runtimeMode,
         }));
         const activeIndex = tabs.findIndex((t) => t.id === activeTabId);
         set({ savedTabs, savedActiveIndex: activeIndex });
@@ -84,6 +96,13 @@ export const useSessionStore = create<SessionState>()(
             ? resolveFileLanguageOrPlaintext(saved.filePath)
             : saved.language;
 
+          // RL-019 Slice 1 — restore the runtime mode for JS/TS
+          // tabs, coercing missing / unknown / unimplemented values
+          // back to `'worker'`. Non-JS/TS tabs always coerce to
+          // `null`, so the spread below leaves `runtimeMode`
+          // undefined on the restored FileTab.
+          const restoredRuntimeMode = coerceRuntimeMode(saved.runtimeMode, language);
+
           restored.push({
             id: crypto.randomUUID(),
             name: saved.name,
@@ -92,6 +111,7 @@ export const useSessionStore = create<SessionState>()(
             filePath: saved.filePath,
             rootId,
             relativePath,
+            ...(restoredRuntimeMode !== null ? { runtimeMode: restoredRuntimeMode } : {}),
           });
         }
 

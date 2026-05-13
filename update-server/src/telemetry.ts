@@ -38,6 +38,7 @@ export const TELEMETRY_EVENT_NAMES = [
   'debugger.attached',
   'debugger.paused',
   'debugger.detached',
+  'runtime.mode_changed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -59,6 +60,7 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'debugger.attached': ['language', 'reasonBucket'],
   'debugger.paused': ['language', 'reasonBucket'],
   'debugger.detached': ['language', 'reasonBucket'],
+  'runtime.mode_changed': ['mode', 'language'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -89,6 +91,10 @@ const UPDATE_CHECKED_STATUS_VALUES = new Set([
   'failure',
 ]);
 const HISTORY_CLEAR_SCOPES = new Set(['session', 'persisted', 'all']);
+// RL-019 Slice 1 — closed enum mirroring `RuntimeMode` in
+// `src/shared/runtimeModes.ts`. The parity test asserts the worker
+// + renderer copies stay in sync.
+const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview']);
 const DEBUGGER_REASON_BUCKETS: Record<
   Extract<
     TelemetryEventName,
@@ -254,6 +260,11 @@ function isAllowedValue(
         typeof value === 'string' &&
         DEBUGGER_REASON_BUCKETS[event].has(value)
       );
+    case 'runtime.mode_changed':
+      if (key === 'mode')
+        return typeof value === 'string' && RUNTIME_MODE_VALUES.has(value);
+      if (key === 'language') return isSafeToken(value);
+      return false;
     default: {
       const exhaustive: never = event;
       return exhaustive;

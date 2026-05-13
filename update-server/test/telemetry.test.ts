@@ -391,6 +391,35 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       expect(rendererSet.has(event), `${event} on worker but not renderer`).toBe(true);
     }
   });
+
+  it('RUNTIME_MODE_VALUES stays in sync with the renderer enum (RL-019 Slice 1)', async () => {
+    // Both the worker (`update-server/src/telemetry.ts`) and the
+    // renderer (`src/shared/telemetry.ts`) maintain a private Set of
+    // the closed `RuntimeMode` values for the `runtime.mode_changed`
+    // event. The Set is duplicated by design (no import cycle); this
+    // parity test guards against drift so a Slice 2 addition of
+    // `'node'` lights up both sides together.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    // update-server vitest runs from `update-server/` cwd; the
+    // shared telemetry module sits two levels up at the repo root.
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /const\s+RUNTIME_MODE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+  });
 });
 
 describe('ipBucket — privacy guard', () => {

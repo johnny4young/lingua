@@ -64,8 +64,18 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     activeTabId: editorStoreState.activeTabId,
     addTab: mockAddTab,
     openFileFromDisk: mockOpenFileFromDisk,
+    // RL-019 Slice 1 — RuntimeModeSelector consumes this action via
+    // `useEditorStore((s) => s.setTabRuntimeMode)`. Mock as a no-op
+    // so the selector renders without throwing; tests that exercise
+    // mode changes go through the editor-store unit suite.
+    setTabRuntimeMode: vi.fn(),
   });
-  const useEditorStore = () => buildState();
+  // Selector-aware mock: support both `useEditorStore()` and
+  // `useEditorStore((state) => state.something)` call shapes.
+  const useEditorStore = (selector?: (state: ReturnType<typeof buildState>) => unknown) => {
+    const state = buildState();
+    return typeof selector === 'function' ? selector(state) : state;
+  };
   useEditorStore.getState = () => buildState();
   return {
     useEditorStore,
@@ -123,6 +133,10 @@ vi.mock('lucide-react', () => ({
   FolderOpen: () => <span data-testid="icon-folder-open">📂</span>,
   Wrench: () => null,
   Bug: () => null,
+  // RL-019 Slice 1 — RuntimeModeSelector consumes Cpu/Layers/Globe.
+  Cpu: () => null,
+  Layers: () => null,
+  Globe: () => null,
 }));
 
 import { Toolbar } from '../../src/renderer/components/Toolbar/Toolbar';
@@ -208,12 +222,12 @@ describe('Toolbar', () => {
 
   it('renders without crashing', () => {
     render(<Toolbar />);
-    expect(screen.getByRole('button', { name: /Run/ })).toBeTruthy();
+    expect(screen.getByTestId('toolbar-run-button')).toBeTruthy();
   });
 
   it('shows the Run button with "Run" label when not running', () => {
     render(<Toolbar />);
-    const runBtn = screen.getByRole('button', { name: /Run/ });
+    const runBtn = screen.getByTestId('toolbar-run-button');
     expect(runBtn).toBeTruthy();
     expect(runBtn.textContent).toContain('Run');
   });
@@ -319,7 +333,7 @@ describe('Toolbar', () => {
     const user = userEvent.setup();
     render(<Toolbar />);
 
-    await user.hover(screen.getByRole('button', { name: /Run/ }));
+    await user.hover(screen.getByTestId('toolbar-run-button'));
 
     expect(screen.getByRole('tooltip').textContent).toContain('Run (Cmd+Enter)');
   });
@@ -361,7 +375,7 @@ describe('Toolbar', () => {
   it('clicking Run button calls the run handler', async () => {
     const user = userEvent.setup();
     render(<Toolbar />);
-    const runBtn = screen.getByRole('button', { name: /Run/ });
+    const runBtn = screen.getByTestId('toolbar-run-button');
     await user.click(runBtn);
     expect(mockRun).toHaveBeenCalledTimes(1);
   });

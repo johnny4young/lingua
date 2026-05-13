@@ -45,6 +45,7 @@ Mirrors the authoritative `Status` column in
 | Iter 21 | [`RL-089`](./ROADMAP.md) | Shipped (2026-05-07) | User profile backup, export, and restore — Shipped on 2026-05-07 — see RL-089. |
 | Iter 22 | [`RL-090`](./ROADMAP.md) | Shipped (2026-05-07) | Error boundaries + recovery UX — Shipped on 2026-05-07 — see RL-090. |
 | Iter 23 | [`RL-026`](./ROADMAP.md) | Shipped (2026-05-11) | Language intelligence beyond Monaco — closed in full. Slice 1 + Slice 2 (Python diagnostics + completions + hover + signature help), Slice 3 (Rust via rust-analyzer), and Slice 4 (Go via gopls + shared `useLspLifecycle` / `LanguageIntelligenceRow` / launcher-Map IPC) all shipped on 2026-05-11. See §17. |
+| Iter 24 | [`RL-019`](./ROADMAP.md) | Slice 1 shipped (2026-05-12) | Explicit JS/TS runtime modes — Slice 1 lands the contract surface: `RuntimeMode` enum (`worker | node | browser-preview`), per-tab `FileTab.runtimeMode`, Toolbar selector with disabled-with-tooltip for the unimplemented two, Settings → Editor default-mode select, `Mod+Alt+M` cycle shortcut, three Command Palette entries, `runtime.mode_changed` telemetry, `docs/RUNTIME_MODES_ADR.md` + guard test. Slice 2 wires desktop Node; Slice 3 wires Browser preview. See §18. |
 
 Gated / deferred tickets are NOT in this table — they live exclusively in
 `ROADMAP.md` until the gate clears.

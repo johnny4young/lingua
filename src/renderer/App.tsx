@@ -39,6 +39,10 @@ import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { useEditorStore } from './stores/editorStore';
+import {
+  cycleRuntimeMode,
+  languageHasRuntimeModes,
+} from '../shared/runtimeModes';
 import { usePluginStore } from './stores/pluginStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -332,6 +336,18 @@ function AppChrome({
     toggleOverlay,
     openDeveloperUtilities: () => handleOpenDeveloperUtility(),
     closeOverlay,
+    cycleRuntimeMode: () => {
+      // RL-019 Slice 1 fold D — cycle the active JS/TS tab through
+      // the implemented runtime modes. No-op for non-JS/TS tabs and
+      // for tabs that are already on the only implemented mode.
+      const state = useEditorStore.getState();
+      const tab = state.tabs.find((t) => t.id === state.activeTabId);
+      if (!tab || !languageHasRuntimeModes(tab.language)) return;
+      const current = tab.runtimeMode ?? 'worker';
+      const next = cycleRuntimeMode(current);
+      if (next === current) return;
+      state.setTabRuntimeMode(tab.id, next);
+    },
   });
 
   const handleStartGuidedTour = () => {

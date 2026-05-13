@@ -78,7 +78,7 @@ _All rows in this section are closed; see §6 archive. RL-059 closed 2026-05-12 
 
 | ID | Title | Status | Scope one-liner |
 |----|-------|:------:|-----------------|
-| [`RL-019`](./PLAN.md#rl-019-add-explicit-jsts-runtime-modes-worker-scratchpad-desktop-node-and-browser-preview) | Explicit JS/TS runtime modes | `Planned` | Per-tab runtime selector: worker scratchpad / desktop Node / browser preview. |
+| [`RL-019`](./PLAN.md#rl-019-add-explicit-jsts-runtime-modes-worker-scratchpad-desktop-node-and-browser-preview) | Explicit JS/TS runtime modes | `Partial` | Slice 1 shipped 2026-05-12 — per-tab `RuntimeMode` state + Toolbar selector (Worker enabled; Node + Browser preview disabled with "Coming soon" tooltips), Settings → Editor default-mode select, `Mod+Alt+M` cycle shortcut, three Command Palette entries, telemetry event `runtime.mode_changed`, `docs/RUNTIME_MODES_ADR.md` + guard test, three CAPABILITY_MATRIX rows. Slice 2 wires the desktop Node child-process backend; Slice 3 wires the iframe-isolated browser-preview pane. |
 | [`RL-020`](./PLAN.md#rl-020-make-the-scratchpad-and-repl-experience-best-in-class) | Scratchpad / REPL excellence | `Planned` | Smart auto-run + multi-line editor history + quick inspect. |
 | [`RL-023`](./PLAN.md#rl-023-build-snippet-lab-and-algorithm-practice-mode) | Snippet Lab + algorithm practice | `Planned` | Tagged snippet collections + "compare two snippets" + saved assertions. |
 | [`RL-024`](./PLAN.md#rl-024-support-multi-file-playgrounds-assets-and-starter-galleries) | Multi-file playgrounds + starter galleries | `Planned` | Multi-file workspaces, static assets, per-language starter templates. |

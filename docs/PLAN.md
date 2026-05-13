@@ -767,8 +767,8 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-019 Add explicit JS/TS runtime modes: worker scratchpad, desktop Node, and browser preview
 
 - Priority: `P1`
-- Status: `Planned`
-- Readiness: `Ready once loose-file flow and runtime capability UI are defined`
+- Status: `Partial`
+- Readiness: `Slice 1 shipped 2026-05-12 — contract surface (RuntimeMode enum + Toolbar selector + Settings default + shortcut + palette + telemetry + ADR). Slice 2 wires desktop Node; Slice 3 wires Browser preview.`
 - Why this is high leverage:
   - JS/TS users need the runtime contract to be explicit before they can trust whether APIs, imports, debugger behavior, and preview output match the environment they are targeting
   - The current app exposes only the worker-style JS/TS contract
@@ -795,6 +795,80 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
   - The selected runtime mode explains its available APIs and debugger capability before execution starts
 - Dependencies:
   - RL-021
+
+#### Slice 1 — 2026-05-12 (contract surface)
+
+Slice 1 ships the contract surface only — three modes in the UI,
+but only `worker` is selectable. The other two render disabled with
+plain "Coming soon" tooltips so users see the runtime ambition
+without us shipping half-functional backends. See
+[`RUNTIME_MODES_ADR.md`](./RUNTIME_MODES_ADR.md) for the design
+rationale.
+
+What landed:
+
+- `src/shared/runtimeModes.ts` — closed `RuntimeMode` enum
+  (`worker | node | browser-preview`) plus pure helpers
+  (`defaultRuntimeModeFor`, `isRuntimeModeImplemented`,
+  `coerceRuntimeMode`, `cycleRuntimeMode`,
+  `languageHasRuntimeModes`).
+- `FileTab.runtimeMode?: RuntimeMode` — optional, defaulted to
+  `'worker'` for JS/TS tabs at creation time
+  (`createDefaultTab` / `addTab` / `openFile` /
+  `openFileFromDisk`). Non-JS/TS tabs never carry the field.
+- `editorStore.setTabRuntimeMode(id, mode)` — enforces the JS/TS
+  guard, rejects unimplemented modes with a localized status
+  notice, fires `runtime.mode_changed` telemetry on success,
+  no-op on same-mode writes.
+- `sessionStore` persists `runtimeMode` per tab; rehydrate uses
+  `coerceRuntimeMode` so a tampered or pre-Slice-1 entry coerces
+  back to `'worker'` for JS/TS.
+- `settingsStore.defaultRuntimeMode` (fold B) — per-app default
+  with a setter that rejects unimplemented modes. Persisted
+  alongside the rest of Settings.
+- `<RuntimeModeSelector>` (`src/renderer/components/Toolbar/`) —
+  JS/TS-only dropdown next to the Run button; disabled options
+  explain in plain product copy that the modes are coming soon.
+  Mounted via `languageHasRuntimeModes` guard in `Toolbar.tsx`.
+- Settings → Editor row (fold B) — default mode select; disabled
+  options render with explanatory text.
+- `Mod+Alt+M` keyboard shortcut (fold D) — registered in
+  `KEYBOARD_SHORTCUTS` and dispatched via `useGlobalShortcuts` to
+  cycle through implemented modes. Slice 1 is a no-op (only one
+  implemented mode); Slices 2 / 3 light it up automatically.
+- Three Command Palette entries (fold E) — "Switch runtime to
+  Worker / Node / Browser preview"; the unimplemented two land in
+  the palette so users discover the roadmap from the keyboard.
+- Telemetry event `runtime.mode_changed` (fold A) — closed enum
+  payload `{ mode, language }`; mirrored on the worker side at
+  `update-server/src/telemetry.ts` with parity-test coverage.
+- Three new rows in `docs/CAPABILITY_MATRIX.md` (fold C) for the
+  three runtime modes.
+- ADR `docs/RUNTIME_MODES_ADR.md` (fold F) documenting the
+  three-mode enum, JS/TS-only scope, `worker`-default rule,
+  disabled-with-tooltip vs. hidden decision, no-silent-fallback
+  rule, telemetry contract, and rollback plan. Guard test at
+  `tests/docs/runtimeModesAdr.test.ts`.
+- Status-notice toast (fold G) on every `setTabRuntimeMode`
+  success, so palette / shortcut changes get an audit trail.
+
+Test surface: ~36 new assertions across
+`tests/shared/runtimeModes.test.ts`,
+`tests/stores/editorStore.runtimeMode.test.ts`,
+`tests/docs/runtimeModesAdr.test.ts`, and
+`tests/e2e/runtimeModeSelector.spec.ts` (5 Playwright cases).
+
+What stays out of scope until later slices:
+
+- Slice 2 — desktop Node child-process backend
+  (`src/main/runners/nodeChild.ts` planned; rides RL-078
+  parent-owned timeouts + resource limits). The selector flips
+  the Node option from disabled to enabled in the same diff.
+- Slice 3 — iframe-isolated browser-preview pane
+  (`src/renderer/components/BrowserPreview/`); requires a
+  preview-panel surface alongside the console panel.
+- Monaco diagnostic / lib switching per mode — lands inside
+  Slice 2 / Slice 3 alongside their respective backends.
 
 ### RL-020 Make the scratchpad and REPL experience best-in-class
 

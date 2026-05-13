@@ -29,6 +29,10 @@ export const TELEMETRY_EVENTS = [
   'debugger.attached',
   'debugger.paused',
   'debugger.detached',
+  // RL-019 Slice 1 — per-tab JS/TS runtime mode change. Closed enum
+  // payload `{ mode, language }`; no source, no tab id, no content.
+  // See `docs/RUNTIME_MODES_ADR.md` for the policy.
+  'runtime.mode_changed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -89,6 +93,13 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'debugger.attached': ['language', 'reasonBucket'],
   'debugger.paused': ['language', 'reasonBucket'],
   'debugger.detached': ['language', 'reasonBucket'],
+  // RL-019 Slice 1 — `mode` is the closed `RuntimeMode` enum
+  // (`worker` / `node` / `browser-preview`). `language` is the
+  // language-pack id; today only `javascript` / `typescript` ever
+  // fires this event but the value-validator stays generic so
+  // future slices can extend the runtime-mode surface to other
+  // languages without an allowlist churn.
+  'runtime.mode_changed': ['mode', 'language'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -114,6 +125,12 @@ const UPDATE_CHECKED_STATUS_VALUES = new Set([
   'failure',
 ]);
 const HISTORY_CLEAR_SCOPES = new Set(['session', 'persisted', 'all']);
+// RL-019 Slice 1 — closed enum mirroring `RuntimeMode`. The
+// shared `runtimeModes.ts` module is the source of truth for the
+// production code; this Set is duplicated here so the redactor
+// stays a pure module without an import cycle. A parity test
+// asserts both stay in sync.
+const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview']);
 const DEBUGGER_REASON_BUCKETS: Record<
   Extract<
     TelemetryEventName,
@@ -191,6 +208,10 @@ function isAllowedValue(
         typeof value === 'string' &&
         DEBUGGER_REASON_BUCKETS[event].has(value)
       );
+    case 'runtime.mode_changed':
+      if (key === 'mode') return typeof value === 'string' && RUNTIME_MODE_VALUES.has(value);
+      if (key === 'language') return isSafeToken(value);
+      return false;
     default: {
       const exhaustive: never = event;
       return exhaustive;

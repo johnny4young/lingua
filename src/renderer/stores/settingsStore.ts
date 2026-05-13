@@ -20,6 +20,10 @@ import {
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
 import type { SettingsState } from '../types';
+import {
+  isRuntimeModeImplemented,
+  type RuntimeMode,
+} from '../../shared/runtimeModes';
 
 const DEFAULT_EDITOR_FONT_FAMILY = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace";
 
@@ -157,6 +161,10 @@ export const useSettingsStore = create<SettingsState>()(
       telemetryConsent: 'unset',
       utilitiesClipboardOnFocusConsent: 'unset',
       debuggerEnabled: true,
+      // RL-019 Slice 1 fold B — only `worker` is implemented today;
+      // the setter rejects anything else, so this stays a constant
+      // initial value until Slice 2 lands the desktop Node backend.
+      defaultRuntimeMode: 'worker',
       language: 'system',
       lastSeenVersion: null,
       hasCompletedTour: false,
@@ -244,6 +252,16 @@ export const useSettingsStore = create<SettingsState>()(
           themePack: DEFAULT_THEME_PACK_ID,
         })),
       setLanguage: (language) => set({ language }),
+      // RL-019 Slice 1 fold B — guard the setter so only implemented
+      // modes can be persisted as the per-app default. Unimplemented
+      // modes (`node`, `browser-preview` in Slice 1) are silently
+      // rejected; the selector renders them disabled so this branch
+      // is only reachable from programmatic / palette / shortcut
+      // entry points.
+      setDefaultRuntimeMode: (mode: RuntimeMode) => {
+        if (!isRuntimeModeImplemented(mode)) return;
+        set({ defaultRuntimeMode: mode });
+      },
       setLastSeenVersion: (lastSeenVersion) => set({ lastSeenVersion }),
       setHasCompletedTour: (hasCompletedTour) => set({ hasCompletedTour }),
       setSuppressTourAutoStart: (suppressTourAutoStart) => set({ suppressTourAutoStart }),
@@ -323,6 +341,7 @@ export const useSettingsStore = create<SettingsState>()(
         telemetryConsent: state.telemetryConsent,
         utilitiesClipboardOnFocusConsent: state.utilitiesClipboardOnFocusConsent,
         debuggerEnabled: state.debuggerEnabled,
+        defaultRuntimeMode: state.defaultRuntimeMode,
         language: state.language,
         lastSeenVersion: state.lastSeenVersion,
         hasCompletedTour: state.hasCompletedTour,
@@ -398,6 +417,16 @@ export const useSettingsStore = create<SettingsState>()(
               ? requestedThemePack
               : DEFAULT_THEME_PACK_ID;
 
+        // RL-019 Slice 1 — guard `defaultRuntimeMode` on rehydrate
+        // the same way `setDefaultRuntimeMode` does at runtime. A
+        // tampered localStorage entry with an unimplemented or
+        // unknown string would otherwise survive into the live
+        // store and surface a broken Select in Settings.
+        const normalizedDefaultRuntimeMode =
+          typeof merged.defaultRuntimeMode === 'string' &&
+          isRuntimeModeImplemented(merged.defaultRuntimeMode as never)
+            ? merged.defaultRuntimeMode
+            : currentState.defaultRuntimeMode;
         return {
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
@@ -406,6 +435,7 @@ export const useSettingsStore = create<SettingsState>()(
           shortcutOverrides,
           keymapPreset: normalizedKeymapPreset,
           themePack: normalizedThemePack,
+          defaultRuntimeMode: normalizedDefaultRuntimeMode,
         };
       },
       onRehydrateStorage: () => (state) => {

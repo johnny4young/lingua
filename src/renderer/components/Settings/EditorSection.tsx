@@ -14,6 +14,11 @@ import { GoLanguageIntelligenceRow } from './GoLanguageIntelligenceRow';
 import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
 import { Row, Section, Select, StepperButton, Toggle } from './shared';
 import { ThemePresetControls } from './ThemePresetControls';
+import {
+  RUNTIME_MODES,
+  isRuntimeModeImplemented,
+  type RuntimeMode,
+} from '../../../shared/runtimeModes';
 
 export function EditorSection() {
   const effectiveTier = useEffectiveTier();
@@ -43,6 +48,8 @@ export function EditorSection() {
   const toggleFormatOnSave = useSettingsStore((state) => state.toggleFormatOnSave);
   const vimMode = useSettingsStore((state) => state.vimMode);
   const toggleVimMode = useSettingsStore((state) => state.toggleVimMode);
+  const defaultRuntimeMode = useSettingsStore((state) => state.defaultRuntimeMode);
+  const setDefaultRuntimeMode = useSettingsStore((state) => state.setDefaultRuntimeMode);
   const syncShellWithEditorTheme = useSettingsStore(
     (state) => state.syncShellWithEditorTheme
   );
@@ -272,6 +279,42 @@ export function EditorSection() {
           onChange={toggleVimMode}
           aria-label={t('editor.vimMode.label')}
         />
+      </Row>
+
+      {/* RL-019 Slice 1 fold B — default JS/TS runtime mode for new
+          tabs. Disabled options (`node`, `browser-preview`) render
+          with explanatory tooltips so users see what's coming
+          before Slice 2 / Slice 3 land. */}
+      <Row
+        label={t('runtimeMode.settings.title')}
+        hint={t('runtimeMode.settings.description')}
+      >
+        <Select
+          value={defaultRuntimeMode}
+          onChange={(event) => setDefaultRuntimeMode(event.target.value as RuntimeMode)}
+          aria-label={t('runtimeMode.settings.title')}
+          data-testid="settings-default-runtime-mode"
+        >
+          {RUNTIME_MODES.map((mode) => {
+            const enabled = isRuntimeModeImplemented(mode);
+            const labelKey =
+              mode === 'browser-preview'
+                ? 'runtimeMode.mode.browserPreview'
+                : `runtimeMode.mode.${mode}`;
+            const hintKey =
+              mode === 'worker'
+                ? 'runtimeMode.hint.worker'
+                : mode === 'node'
+                  ? 'runtimeMode.hint.node.comingSoon'
+                  : 'runtimeMode.hint.browserPreview.comingSoon';
+            return (
+              <option key={mode} value={mode} disabled={!enabled} title={t(hintKey)}>
+                {t(labelKey)}
+                {enabled ? '' : ` — ${t(hintKey)}`}
+              </option>
+            );
+          })}
+        </Select>
       </Row>
 
       <Row label={t('debugger.settings.label')} hint={t('debugger.settings.hint')}>
