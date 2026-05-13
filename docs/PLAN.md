@@ -768,7 +768,7 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 
 - Priority: `P1`
 - Status: `Partial`
-- Readiness: `Slice 1 shipped 2026-05-12 — contract surface (RuntimeMode enum + Toolbar selector + Settings default + shortcut + palette + telemetry + ADR). Slice 2 wires desktop Node; Slice 3 wires Browser preview.`
+- Readiness: `Slice 1 shipped 2026-05-12 (contract surface). Slice 3 shipped 2026-05-12 (iframe-isolated Browser preview backend + bottom-panel tab + multi-file seed + inspect button + CSP audit). Slice 2 (desktop Node child-process backend) is the only remaining sub-slice.`
 - Why this is high leverage:
   - JS/TS users need the runtime contract to be explicit before they can trust whether APIs, imports, debugger behavior, and preview output match the environment they are targeting
   - The current app exposes only the worker-style JS/TS contract
@@ -869,6 +869,100 @@ What stays out of scope until later slices:
   preview-panel surface alongside the console panel.
 - Monaco diagnostic / lib switching per mode — lands inside
   Slice 2 / Slice 3 alongside their respective backends.
+
+#### Slice 3 — 2026-05-12 (browser preview backend)
+
+Slice 3 lands the iframe-isolated DOM runtime behind
+`runtimeMode === 'browser-preview'`. The Slice 1 selector +
+palette + shortcut + Settings select now light up the option;
+Slice 2 (desktop Node) is the only remaining sub-slice.
+
+What shipped:
+
+- `src/renderer/runners/browserPreview.ts` —
+  `BrowserPreviewRunner` implementing the existing
+  `LanguageRunner` contract. Owns the postMessage protocol
+  (runId-anchored, origin-guarded), the parent-owned timeout
+  kill, and the `setSiblingSources` push for fold A.
+- `src/renderer/components/BrowserPreview/iframeBridge.ts` —
+  pure module owning the bridge IIFE template, the discriminator
+  constant, the CSP literal, and `buildPreviewDocument`. Pure so
+  the unit test asserts the generated payload directly.
+- `src/renderer/components/BrowserPreview/BrowserPreviewPanel.tsx`
+  — bottom-panel surface that mounts the iframe element ref into
+  the bridge so the runner can write into `srcdoc`. Includes the
+  fold-F inspect button (opaque-origin data-URL `window.open`
+  round-trip) and the empty-state overlay for
+  non-browser-preview tabs.
+- `src/renderer/runtime/browserPreviewBridge.ts` — module-level
+  iframe-ref + bottom-panel activator registry. Mirrors the
+  RL-027 Slice 1 `debuggerWorkerBridge.ts` pattern.
+- `src/renderer/runners/manager.ts` — runtime-mode-aware dispatch.
+  `runtimeMode === 'browser-preview'` on a JS/TS tab routes to
+  the new runner; everything else falls through to the language
+  runner. Decision 6 in the ADR (registry stays language-keyed)
+  still holds — the override lives in a separate
+  `runtimeModeRunners` map so the language registry is
+  untouched.
+- `src/renderer/stores/uiStore.ts` — `BottomPanelTab` extended
+  with `'browser-preview'`. The AppLayout `BottomPanel` mounts
+  the tab conditionally on
+  `languageHasRuntimeModes(activeLanguage) && activeRuntimeMode
+  === 'browser-preview'`.
+- `src/renderer/runtime/executeTabManually.ts` — Fold A wiring.
+  Sibling `.css` / `.html` tabs in the active tab's project /
+  directory scope are looked up at run start and pushed into the
+  runner via `setSiblingSources` before the `prepareRunner` call.
+- `src/renderer/hooks/useRunner.ts` + `useAutoRun.ts` —
+  `currentRuntimeModeRef` tracks the active runtime mode so
+  `stop()` routes to the right runner; auto-run respects
+  per-tab `runtimeMode`.
+- `src/shared/runtimeModes.ts` —
+  `isRuntimeModeImplemented('browser-preview')` now returns
+  `true`. The cycle helper alternates between worker and
+  browser-preview (skipping the still-unimplemented `node`).
+- `src/renderer/components/Toolbar/RuntimeModeSelector.tsx` —
+  the browser-preview hint key flipped from
+  `runtimeMode.hint.browserPreview.comingSoon` to
+  `runtimeMode.hint.browserPreview.shipping`.
+- `docs/RUNTIME_MODES_ADR.md` — `Slice 3 ship notes` section
+  documenting the bridge protocol, sandbox attrs, srcdoc CSP,
+  timeout kill, fold A seed, and fold F inspect button. **Fold
+  B** adds a per-mode CSP audit table covering Worker, Node
+  (Slice 2), and Browser preview so a future security review
+  finds the contract in one place.
+- `docs/CAPABILITY_MATRIX.md` — JS/TS Browser preview row flips
+  from `Planned` to **Shipping**.
+- Telemetry — the closed-enum validator in `src/shared/telemetry.ts`
+  already accepts `'browser-preview'` from Slice 1; fold C adds
+  a regression test that asserts every `RuntimeMode` value
+  survives the redactor on the `runtime.mode_changed` event,
+  plus a defensive test that an unsafe-token language is dropped
+  by the validator.
+
+Test surface: 22 new assertions in
+`tests/runners/browserPreview.test.ts` (metadata, bridge script
+template, srcdoc payload + close-script escaping, isBridgeMessage
+type guard, runId guard, origin guard, console capture, error
+capture, fold-A sibling seed, timeout kill, stop cancellation),
+9 assertions in `tests/components/BrowserPreviewPanel.test.tsx`
+(register/unregister with the bridge, empty-state overlay paths,
+running/error status text, inspect-button success + blocked,
+Spanish locale), 5 Playwright cases in
+`tests/e2e/browserPreviewMode.spec.ts` (selector option enabled,
+panel tab appears, DOM render + console forwarding, empty-state
+overlay round trip), plus updated assertions in
+`tests/shared/runtimeModes.test.ts`,
+`tests/e2e/runtimeModeSelector.spec.ts`, and
+`tests/docs/runtimeModesAdr.test.ts`.
+
+Out of scope until Slice 2:
+
+- Desktop Node child-process backend. Selector / palette /
+  shortcut keep the `node` option disabled with the "Coming
+  soon" tooltip.
+- Monaco lib switching for Node mode (`@types/node` types,
+  CommonJS resolution hints). Lands with the backend.
 
 ### RL-020 Make the scratchpad and REPL experience best-in-class
 

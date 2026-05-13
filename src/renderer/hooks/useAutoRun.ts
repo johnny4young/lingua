@@ -11,6 +11,7 @@ import { requiresNativeExecutionAcknowledgement } from '../utils/nativeExecution
 import { validateDocument } from '../validation';
 import { currentEffectiveTier } from './useEntitlement';
 import { isLanguageAllowed } from '../../shared/entitlements';
+import { collectBrowserPreviewSiblingSources } from '../runtime/browserPreviewSiblings';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
 /**
@@ -31,6 +32,10 @@ export function useAutoRun() {
 
   const code = activeTab?.content ?? '';
   const language = activeTab?.language ?? 'javascript';
+  // RL-019 Slice 3 — auto-run respects the per-tab runtime mode so
+  // a tab set to Browser preview keeps using the iframe runner
+  // during live updates, not the language Worker.
+  const runtimeMode = activeTab?.runtimeMode;
 
   useEffect(() => {
     // Skip if no tab or empty code
@@ -158,7 +163,23 @@ export function useAutoRun() {
       setExecutionSource('auto');
 
       try {
-        const { runner } = await runnerManager.prepareRunner(language);
+        // RL-019 Slice 3 fold A — auto-run mirrors the manual path so
+        // sibling .css / .html tabs seed the iframe srcdoc on every
+        // keystroke. Without this, only the first manual Run sees the
+        // companions; auto-rerunning the JS tab would silently strip
+        // them. Kept inside the try so a sibling lookup throw cannot
+        // poison the run — fall back to plain execution.
+        if (runtimeMode === 'browser-preview') {
+          try {
+            const editorState = useEditorStore.getState();
+            const siblingSources = collectBrowserPreviewSiblingSources(editorState.tabs, activeTab);
+            runnerManager.getBrowserPreviewRunner()?.setSiblingSources(siblingSources);
+          } catch {
+            /* sibling lookup is best-effort; ignore */
+          }
+        }
+
+        const { runner } = await runnerManager.prepareRunner(language, runtimeMode);
         if (!runner || shouldDiscardAutoResult()) {
           finishAutoRunning();
           return;
@@ -202,7 +223,7 @@ export function useAutoRun() {
         clearTimeout(timerRef.current);
       }
     };
-  }, [code, language, activeTab, activeTabId]);
+  }, [code, language, runtimeMode, activeTab, activeTabId]);
 
   // Clear results when switching tabs
   useEffect(() => {

@@ -4,8 +4,11 @@ import { TypeScriptRunner } from './typescript';
 import { GoRunner } from './go';
 import { PythonRunner } from './python';
 import { RustRunner } from './rust';
+import { BrowserPreviewRunner } from './browserPreview';
 import { pluginRegistry } from '../plugins';
 import { LANGUAGE_PACKS } from '../../shared/languagePacks';
+import type { RuntimeMode } from '../../shared/runtimeModes';
+import { languageHasRuntimeModes } from '../../shared/runtimeModes';
 
 export interface RunnerPreparationResult {
   runner: LanguageRunner | null;
@@ -37,6 +40,18 @@ const BUILT_IN_RUNNER_FACTORIES: Record<string, () => LanguageRunner> = {
 export class RunnerManager {
   private runners: Map<string, LanguageRunner> = new Map();
   private initializing: Map<string, Promise<void>> = new Map();
+  /**
+   * RL-019 Slice 3 — runtime-mode-aware runners that override the
+   * default language-keyed dispatch when the active tab carries an
+   * explicit `runtimeMode`. The keys mirror the implemented
+   * RuntimeMode values; `'worker'` intentionally has no entry so
+   * the default language-keyed path stays the source of truth for
+   * the JS Worker, TS Worker, Python Pyodide worker, etc.
+   */
+  private runtimeModeRunners: Map<string, LanguageRunner> = new Map([
+    ['browser-preview', new BrowserPreviewRunner()],
+  ]);
+  private runtimeModeInitializing: Map<string, Promise<void>> = new Map();
 
   constructor() {
     for (const pack of LANGUAGE_PACKS) {
@@ -47,7 +62,36 @@ export class RunnerManager {
     }
   }
 
-  private async ensureRunner(language: string): Promise<LanguageRunner | null> {
+  /**
+   * Resolve the active runner for the given language + optional
+   * runtime mode. When the runtime mode names an implemented
+   * override AND the language owns the runtime-mode surface
+   * (JS / TS today), the runtime-mode runner wins. Otherwise we
+   * fall through to the language-keyed default.
+   */
+  private resolveRunnerKey(
+    language: string,
+    runtimeMode: RuntimeMode | undefined
+  ): { kind: 'runtime-mode'; mode: RuntimeMode } | { kind: 'language'; language: string } {
+    if (
+      runtimeMode &&
+      runtimeMode !== 'worker' &&
+      languageHasRuntimeModes(language) &&
+      this.runtimeModeRunners.has(runtimeMode)
+    ) {
+      return { kind: 'runtime-mode', mode: runtimeMode };
+    }
+    return { kind: 'language', language };
+  }
+
+  private async ensureRunner(
+    language: string,
+    runtimeMode?: RuntimeMode
+  ): Promise<LanguageRunner | null> {
+    const key = this.resolveRunnerKey(language, runtimeMode);
+    if (key.kind === 'runtime-mode') {
+      return this.runtimeModeRunners.get(key.mode) ?? null;
+    }
     const plugin = pluginRegistry.getByLanguage(language);
 
     if (!this.runners.has(language) && plugin) {
@@ -58,22 +102,34 @@ export class RunnerManager {
     return this.runners.get(language) ?? null;
   }
 
-  private async initializeRunner(language: string, runner: LanguageRunner): Promise<void> {
-    if (!this.initializing.has(language)) {
+  private async initializeRunner(
+    cacheKey: string,
+    runner: LanguageRunner,
+    initMap: Map<string, Promise<void>>
+  ): Promise<void> {
+    if (!initMap.has(cacheKey)) {
       const initPromise = runner.init().finally(() => {
-        this.initializing.delete(language);
+        initMap.delete(cacheKey);
       });
-      this.initializing.set(language, initPromise);
+      initMap.set(cacheKey, initPromise);
     }
 
-    const pendingInitialization = this.initializing.get(language);
+    const pendingInitialization = initMap.get(cacheKey);
     if (pendingInitialization) {
       await pendingInitialization;
     }
   }
 
   /** Check whether preparing a language will trigger initialization */
-  needsInitialization(language: string): boolean {
+  needsInitialization(language: string, runtimeMode?: RuntimeMode): boolean {
+    const key = this.resolveRunnerKey(language, runtimeMode);
+    if (key.kind === 'runtime-mode') {
+      const runtimeRunner = this.runtimeModeRunners.get(key.mode);
+      if (!runtimeRunner) return false;
+      if (this.runtimeModeInitializing.has(key.mode)) return true;
+      return !runtimeRunner.isReady();
+    }
+
     if (this.initializing.has(language)) {
       return true;
     }
@@ -87,23 +143,30 @@ export class RunnerManager {
   }
 
   /** Prepare the runner for execution, initializing it if needed */
-  async prepareRunner(language: string): Promise<RunnerPreparationResult> {
-    const runner = await this.ensureRunner(language);
+  async prepareRunner(
+    language: string,
+    runtimeMode?: RuntimeMode
+  ): Promise<RunnerPreparationResult> {
+    const runner = await this.ensureRunner(language, runtimeMode);
     if (!runner) {
       return { runner: null, initialized: false };
     }
 
     const initialized = !runner.isReady();
     if (initialized) {
-      await this.initializeRunner(language, runner);
+      const key = this.resolveRunnerKey(language, runtimeMode);
+      const cacheKey = key.kind === 'runtime-mode' ? key.mode : language;
+      const initMap =
+        key.kind === 'runtime-mode' ? this.runtimeModeInitializing : this.initializing;
+      await this.initializeRunner(cacheKey, runner, initMap);
     }
 
     return { runner, initialized };
   }
 
   /** Get the runner for a given language, initializing if needed */
-  async getRunner(language: string): Promise<LanguageRunner | null> {
-    const { runner } = await this.prepareRunner(language);
+  async getRunner(language: string, runtimeMode?: RuntimeMode): Promise<LanguageRunner | null> {
+    const { runner } = await this.prepareRunner(language, runtimeMode);
     return runner;
   }
 
@@ -111,9 +174,10 @@ export class RunnerManager {
   async execute(
     language: string,
     code: string,
-    context?: ExecutionContext
+    context?: ExecutionContext,
+    runtimeMode?: RuntimeMode
   ): Promise<ExecutionResult> {
-    const runner = await this.getRunner(language);
+    const runner = await this.getRunner(language, runtimeMode);
 
     if (runner) {
       return runner.execute(code, context);
@@ -131,16 +195,39 @@ export class RunnerManager {
   }
 
   /** Stop execution for a given language */
-  stop(language: string): void {
+  stop(language: string, runtimeMode?: RuntimeMode): void {
+    const key = this.resolveRunnerKey(language, runtimeMode);
+    if (key.kind === 'runtime-mode') {
+      const runtimeRunner = this.runtimeModeRunners.get(key.mode);
+      runtimeRunner?.stop();
+      return;
+    }
     const runner = this.runners.get(language);
     if (runner) {
       runner.stop();
     }
   }
 
+  /**
+   * RL-019 Slice 3 — accessor for the BrowserPreviewRunner. Lets
+   * `executeTabManually` push fold-A sibling sources before
+   * calling `execute()`. Returns `null` when the runner is not
+   * registered (defensive — Slice 3 always registers it).
+   */
+  getBrowserPreviewRunner(): BrowserPreviewRunner | null {
+    const runner = this.runtimeModeRunners.get('browser-preview');
+    return runner instanceof BrowserPreviewRunner ? runner : null;
+  }
+
   /** Stop all runners */
   stopAll(): void {
     for (const runner of this.runners.values()) {
+      runner.stop();
+    }
+    // RL-019 Slice 3 — runtime-mode-keyed runners (BrowserPreview
+    // today) also need stopping; otherwise an in-flight iframe run
+    // would keep streaming console events after a teardown.
+    for (const runner of this.runtimeModeRunners.values()) {
       runner.stop();
     }
   }

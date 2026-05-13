@@ -8,7 +8,7 @@
  *     `http`, `process`, ...) available. Slice 2 will wire the
  *     subprocess spawn + sandbox + timeouts. Disabled in Slice 1.
  *   - `browser-preview` — iframe-isolated context with DOM. Slice 3
- *     will land the preview pane. Disabled in Slice 1.
+ *     ships the preview pane.
  *
  * `defaultRuntimeModeFor(language)` returns `'worker'` for JS/TS and
  * `null` for every other language. Non-JS/TS tabs intentionally
@@ -17,9 +17,9 @@
  * capability contract from RL-038.
  *
  * `isRuntimeModeImplemented(mode)` gates writes from the UI / the
- * keyboard cycle helper / the command palette — only `'worker'`
- * passes today. Future slices flip `'node'` and `'browser-preview'`
- * to true when their backends land.
+ * keyboard cycle helper / the command palette — `'worker'` and
+ * `'browser-preview'` pass today. Slice 2 flips `'node'` once its
+ * desktop backend lands.
  */
 
 export const RUNTIME_MODES = ['worker', 'node', 'browser-preview'] as const;
@@ -49,12 +49,14 @@ export function defaultRuntimeModeFor(language: string | undefined): RuntimeMode
 }
 
 /**
- * Whether a mode is wired today. Slice 1 ships only `worker`; the
- * UI shows the other two as disabled and any programmatic write to
- * an unimplemented mode is rejected.
+ * Whether a mode is wired today. Slice 1 shipped `worker`; Slice 3
+ * adds `browser-preview` (RL-019 Slice 3, 2026-05-12). Slice 2 will
+ * flip `node` once the desktop Node child-process backend lands.
+ * The UI shows unimplemented modes as disabled and any programmatic
+ * write to one is rejected.
  */
 export function isRuntimeModeImplemented(mode: RuntimeMode): boolean {
-  return mode === 'worker';
+  return mode === 'worker' || mode === 'browser-preview';
 }
 
 /**
@@ -82,9 +84,9 @@ export function coerceRuntimeMode(
 /**
  * Return the next implemented mode after `current`, cycling through
  * `RUNTIME_MODES`. Used by the `Mod+Alt+M` shortcut (fold D). In
- * Slice 1 only `'worker'` is implemented, so the cycle is a no-op;
- * Slice 2/3 will land `'node'` and `'browser-preview'` and the same
- * helper picks up the new options automatically.
+ * Slice 3 added `'browser-preview'`, so the cycle alternates between
+ * the Worker and Browser preview paths while skipping `'node'` until
+ * Slice 2 lands it.
  */
 export function cycleRuntimeMode(current: RuntimeMode): RuntimeMode {
   const implemented = RUNTIME_MODES.filter(isRuntimeModeImplemented);

@@ -30,16 +30,46 @@ describe('RUNTIME_MODES_ADR.md (RL-019 Slice 1 fold F)', () => {
   it('records an accepted decision plus a date', () => {
     expect(adr).toMatch(/Status\s*\|\s*Accepted/i);
     expect(adr).toMatch(/Date\s*\|\s*2026-05-12/u);
-    expect(adr).toMatch(/Slice\s*\|\s*1 of 3/iu);
+    // Slice 1 + 3 are now shipping; Slice 2 still pending.
+    expect(adr).toMatch(/Slice\s*\|\s*1 \+ 3 of 3/iu);
   });
 
   it('locks the three-mode enum and their per-slice status', () => {
     for (const mode of ['worker', 'node', 'browser-preview']) {
       expect(adr).toContain(`\`${mode}\``);
     }
-    expect(adr).toMatch(/\*\*Shipping\*\*/u);
+    // After Slice 3 both Worker and Browser preview are shipping.
+    expect(adr).toMatch(/\*\*Shipping \(Slice 1\)\*\*/u);
+    expect(adr).toMatch(/\*\*Shipping \(Slice 3\)\*\*/u);
     expect(adr).toMatch(/Planned \(Slice 2\)/u);
-    expect(adr).toMatch(/Planned \(Slice 3\)/u);
+  });
+
+  it('records the Slice 3 ship notes (architecture + postMessage + sandbox + timeout)', () => {
+    expect(adr).toMatch(/## Slice 3 ship notes/u);
+    // Architecture references
+    expect(adr).toContain('src/renderer/runners/browserPreview.ts');
+    expect(adr).toContain('src/renderer/components/BrowserPreview/iframeBridge.ts');
+    expect(adr).toContain('src/renderer/components/BrowserPreview/BrowserPreviewPanel.tsx');
+    expect(adr).toContain('src/renderer/runtime/browserPreviewBridge.ts');
+    // Protocol anchors
+    expect(adr).toMatch(/postMessage protocol/iu);
+    expect(adr).toContain('__lingua');
+    expect(adr).toContain('runId');
+    // Sandbox + CSP
+    expect(adr).toMatch(/sandbox="allow-scripts"/u);
+    expect(adr).toMatch(/default-src 'none'/u);
+    expect(adr).toMatch(/script-src 'unsafe-inline'/u);
+    // Timeout kill
+    expect(adr).toMatch(/Timeout kill/iu);
+    expect(adr).toMatch(/iframe\.srcdoc = ''/u);
+  });
+
+  it('records the CSP posture per runtime mode audit', () => {
+    expect(adr).toMatch(/## CSP posture per runtime mode \(audit\)/u);
+    // The audit table covers all three modes.
+    expect(adr).toContain('`worker`');
+    expect(adr).toContain('`node` (Slice 2)');
+    expect(adr).toContain('`browser-preview` (Slice 3)');
   });
 
   it('records the JS/TS-only scope and the helper used to gate it', () => {
@@ -61,7 +91,7 @@ describe('RUNTIME_MODES_ADR.md (RL-019 Slice 1 fold F)', () => {
   it('records the no-silent-fallback rule for unimplemented modes', () => {
     expect(adr).toMatch(/No silent fallback to Worker/iu);
     expect(adr).toContain('runtimeMode.notice.notImplementedNode');
-    expect(adr).toContain('runtimeMode.notice.notImplementedBrowserPreview');
+    expect(adr).not.toContain('runtimeMode.notice.notImplementedBrowserPreview');
   });
 
   it('documents the telemetry payload contract verbatim', () => {

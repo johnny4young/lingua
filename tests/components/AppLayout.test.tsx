@@ -8,6 +8,7 @@ import { useUIStore } from '../../src/renderer/stores/uiStore';
 
 let compactShell = false;
 let editorTabs: unknown[] = [];
+let activeTabId: string | null = null;
 const matchMediaListeners = new Set<(event: MediaQueryListEvent) => void>();
 
 function setCompactShell(nextValue: boolean) {
@@ -97,13 +98,19 @@ vi.mock('../../src/renderer/components/Console', () => ({
   ConsolePanel: () => <div data-testid="console-panel">Console</div>,
 }));
 
+vi.mock('../../src/renderer/components/BrowserPreview', () => ({
+  BrowserPreviewPanel: () => <div data-testid="browser-preview-panel">Browser preview</div>,
+}));
+
 vi.mock('../../src/renderer/components/Editor/CodeEditor', () => ({
   CodeEditor: () => <div data-testid="code-editor">Code editor</div>,
 }));
 
 vi.mock('../../src/renderer/stores/editorStore', () => ({
-  useEditorStore: (selector?: (state: { tabs: unknown[] }) => unknown) => {
-    const state = { tabs: editorTabs };
+  useEditorStore: (
+    selector?: (state: { tabs: unknown[]; activeTabId: string | null }) => unknown
+  ) => {
+    const state = { tabs: editorTabs, activeTabId };
     return selector ? selector(state) : state;
   },
 }));
@@ -121,6 +128,7 @@ describe('AppLayout responsive shell', () => {
     localStorage.clear();
     compactShell = false;
     editorTabs = [];
+    activeTabId = null;
     matchMediaListeners.clear();
 
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -176,6 +184,28 @@ describe('AppLayout responsive shell', () => {
     expect(resultsPanel?.className).toContain('relative');
     expect(resultsPanel?.className).toContain('z-10');
     expect(resultsPanel?.className).toContain('overflow-hidden');
+  });
+
+  it('shows the Browser preview panel for an active browser-preview tab even when console is closed', async () => {
+    editorTabs = [
+      {
+        id: 'preview-tab',
+        language: 'javascript',
+        runtimeMode: 'browser-preview',
+      },
+    ];
+    activeTabId = 'preview-tab';
+    useUIStore.setState({
+      sidebarVisible: false,
+      consoleVisible: false,
+      activeBottomPanel: 'console',
+    });
+
+    await renderLayout();
+
+    expect(screen.getByTestId('bottom-panel-browser-preview-tab')).toBeTruthy();
+    expect(screen.getByTestId('browser-preview-panel')).toBeTruthy();
+    expect(screen.queryByTestId('console-panel')).toBeNull();
   });
 
   it('renders the explorer as a compact drawer on narrow shells', async () => {

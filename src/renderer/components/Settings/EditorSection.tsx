@@ -281,10 +281,9 @@ export function EditorSection() {
         />
       </Row>
 
-      {/* RL-019 Slice 1 fold B — default JS/TS runtime mode for new
-          tabs. Disabled options (`node`, `browser-preview`) render
-          with explanatory tooltips so users see what's coming
-          before Slice 2 / Slice 3 land. */}
+      {/* RL-019 — default JS/TS runtime mode for new tabs. Disabled
+          options still render with explanatory tooltips, while
+          shipped modes keep their operational hints in Settings. */}
       <Row
         label={t('runtimeMode.settings.title')}
         hint={t('runtimeMode.settings.description')}
@@ -306,7 +305,7 @@ export function EditorSection() {
                 ? 'runtimeMode.hint.worker'
                 : mode === 'node'
                   ? 'runtimeMode.hint.node.comingSoon'
-                  : 'runtimeMode.hint.browserPreview.comingSoon';
+                  : 'runtimeMode.hint.browserPreview.shipping';
             return (
               <option key={mode} value={mode} disabled={!enabled} title={t(hintKey)}>
                 {t(labelKey)}

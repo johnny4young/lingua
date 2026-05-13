@@ -327,15 +327,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!isRuntimeModeImplemented(mode)) {
       // RL-019 Slice 1 fold G — surface a status notice when the
       // user (via shortcut, palette, or programmatic call) tries to
-      // switch into a mode that has not landed yet. The notice
-      // names the slice that will deliver it.
-      const noticeKey =
-        mode === 'node'
-          ? 'runtimeMode.notice.notImplementedNode'
-          : 'runtimeMode.notice.notImplementedBrowserPreview';
+      // switch into a mode that has not landed yet. After Slice 3,
+      // Node is the only remaining unimplemented RuntimeMode.
       useUIStore.getState().pushStatusNotice({
         tone: 'info',
-        messageKey: noticeKey,
+        messageKey: 'runtimeMode.notice.notImplementedNode',
       });
       return;
     }
@@ -345,6 +341,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         t.id === id ? { ...t, runtimeMode: mode } : t
       ),
     }));
+    // Runtime-mode changes are an output-surface change too. Keep
+    // this centralized so the toolbar, Command Palette, and
+    // keyboard cycle all reveal the same destination panel.
+    useUIStore.getState().openBottomPanel(
+      mode === 'browser-preview' ? 'browser-preview' : 'console'
+    );
     // RL-019 Slice 1 fold G — confirm the change with a soft
     // status-notice toast. The selector itself flips immediately;
     // this is the audit trail for users who change modes via the

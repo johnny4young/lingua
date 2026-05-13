@@ -52,7 +52,11 @@ describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
   beforeEach(() => {
     mockTrackEvent.mockClear();
     useEditorStore.setState({ tabs: [], activeTabId: null });
-    useUIStore.setState({ statusNotice: null });
+    useUIStore.setState({
+      statusNotice: null,
+      activeBottomPanel: 'console',
+      consoleVisible: false,
+    });
     setActiveProLicense();
   });
 
@@ -122,14 +126,35 @@ describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
-  it('setTabRuntimeMode rejects browser-preview the same way', () => {
+  it('setTabRuntimeMode accepts browser-preview after Slice 3 and fires telemetry', () => {
+    // RL-019 Slice 3 — browser-preview is implemented now. The
+    // reject branch + notice only applies to `node` until Slice 2.
     const { addTab, setTabRuntimeMode } = useEditorStore.getState();
     const ts = createDefaultTab('typescript');
     addTab(ts);
     setTabRuntimeMode(ts.id, 'browser-preview');
-    const notice = useUIStore.getState().statusNotice;
-    expect(notice?.messageKey).toBe('runtimeMode.notice.notImplementedBrowserPreview');
-    expect(mockTrackEvent).not.toHaveBeenCalled();
+    const tab = useEditorStore.getState().tabs.find((t) => t.id === ts.id);
+    expect(tab?.runtimeMode).toBe('browser-preview');
+    expect(useUIStore.getState().activeBottomPanel).toBe('browser-preview');
+    expect(useUIStore.getState().consoleVisible).toBe(true);
+    expect(mockTrackEvent).toHaveBeenCalledWith('runtime.mode_changed', {
+      mode: 'browser-preview',
+      language: 'typescript',
+    });
+  });
+
+  it('setTabRuntimeMode returns to the console panel when switching back to Worker', () => {
+    const { addTab, setTabRuntimeMode } = useEditorStore.getState();
+    const js = createDefaultTab('javascript');
+    addTab({ ...js, runtimeMode: 'browser-preview' });
+    useUIStore.setState({ activeBottomPanel: 'browser-preview', consoleVisible: true });
+
+    setTabRuntimeMode(js.id, 'worker');
+
+    const tab = useEditorStore.getState().tabs.find((t) => t.id === js.id);
+    expect(tab?.runtimeMode).toBe('worker');
+    expect(useUIStore.getState().activeBottomPanel).toBe('console');
+    expect(useUIStore.getState().consoleVisible).toBe(true);
   });
 
   it('setTabRuntimeMode is a no-op when the mode is already current (no telemetry)', () => {

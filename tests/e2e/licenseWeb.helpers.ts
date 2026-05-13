@@ -63,14 +63,32 @@ function buildSeededSnippets(count: number): SeededSnippet[] {
   }));
 }
 
+// RL-019 Slice 3 — when the BrowserPreview panel mounts its
+// sandboxed iframe (`sandbox="allow-scripts"` without
+// `allow-same-origin`), Chromium logs a SecurityError if any
+// script inside the iframe tries to probe `navigator.serviceWorker`
+// (some libraries do this defensively at boot). The error is
+// benign for our threat model — the sandbox is the intent — so we
+// filter that specific message out of the console-error gate.
+const KNOWN_BENIGN_CONSOLE_ERROR_PATTERNS: RegExp[] = [
+  /Service worker is disabled because the context is sandboxed/i,
+  /Failed to read the '(localStorage|sessionStorage|serviceWorker)' property from 'Window'.*sandboxed/i,
+  /document is sandboxed and lacks the 'allow-same-origin'/i,
+];
+
 function trackConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
+  const isBenign = (text: string) =>
+    KNOWN_BENIGN_CONSOLE_ERROR_PATTERNS.some(pattern => pattern.test(text));
   page.on('console', message => {
     if (message.type() === 'error') {
-      errors.push(message.text());
+      const text = message.text();
+      if (isBenign(text)) return;
+      errors.push(text);
     }
   });
   page.on('pageerror', error => {
+    if (isBenign(error.message)) return;
     errors.push(error.message);
   });
   return errors;

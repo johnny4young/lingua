@@ -76,9 +76,8 @@ interface BuildCommandPaletteModelArgs {
    * omitted the three entries are hidden. The caller forwards to
    * `editorStore.setTabRuntimeMode` which enforces the
    * implementation-status guard and emits the
-   * `runtime.mode_changed` telemetry. The disabled options for
-   * `node` and `browser-preview` still surface so the user sees
-   * what's coming.
+   * `runtime.mode_changed` telemetry. Disabled future modes such
+   * as `node` still surface so the user sees what's coming.
    */
   onSetRuntimeMode?: (mode: 'worker' | 'node' | 'browser-preview') => void;
   /**
@@ -464,10 +463,10 @@ export function buildCommandPaletteModel({
     // Browser preview}. Only emitted when the caller wires
     // `onSetRuntimeMode` AND the active tab actually owns the
     // runtime-mode surface (JS/TS today, signalled by a non-null
-    // `activeRuntimeMode`). Disabled-mode entries (node /
-    // browser-preview in Slice 1) still emit so users can discover
-    // what's coming; `setTabRuntimeMode` surfaces a status notice
-    // when called with an unimplemented mode.
+    // `activeRuntimeMode`). Disabled-mode entries such as `node`
+    // still emit so users can discover what's coming;
+    // `setTabRuntimeMode` surfaces a status notice when called
+    // with an unimplemented mode.
     ...(onSetRuntimeMode && activeRuntimeMode !== null
       ? ([
           buildActionCommand(
