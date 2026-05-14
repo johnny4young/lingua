@@ -43,6 +43,10 @@ import {
   cycleRuntimeMode,
   languageHasRuntimeModes,
 } from '../shared/runtimeModes';
+import {
+  cycleWorkflowMode,
+  defaultWorkflowMode,
+} from '../shared/workflowMode';
 import { usePluginStore } from './stores/pluginStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -347,6 +351,20 @@ function AppChrome({
       const next = cycleRuntimeMode(current);
       if (next === current) return;
       state.setTabRuntimeMode(tab.id, next);
+    },
+    cycleWorkflowMode: () => {
+      // RL-020 Slice 2 fold A — cycle the active tab's workflow
+      // mode through the supported subset. Skips disabled segments
+      // so a Python tab cycles Run → Scratchpad → Run, never
+      // landing on Debug. No-op when there is no active tab or
+      // when the supported subset has size <= 1.
+      const state = useEditorStore.getState();
+      const tab = state.tabs.find((t) => t.id === state.activeTabId);
+      if (!tab) return;
+      const current = tab.workflowMode ?? defaultWorkflowMode(tab.language);
+      const next = cycleWorkflowMode(current, tab.language);
+      if (next === current) return;
+      state.setTabWorkflowMode(tab.id, next);
     },
   });
 

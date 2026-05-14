@@ -634,4 +634,124 @@ describe('settingsStore', () => {
       expect(useSettingsStore.getState().nativeExecutionAcknowledged).toBe(false);
     });
   });
+
+  describe('RL-020 Slice 2 — workflow mode defaults', () => {
+    it('seeds the three Scratchpad languages on a fresh store (fold C)', () => {
+      const defaults = useSettingsStore.getState().workflowModeDefaultsByLanguage;
+      expect(defaults).toEqual({
+        javascript: 'scratchpad',
+        typescript: 'scratchpad',
+        python: 'scratchpad',
+      });
+    });
+
+    it('setWorkflowModeDefault stores a supported override', () => {
+      useSettingsStore.getState().setWorkflowModeDefault('javascript', 'run');
+      expect(
+        useSettingsStore.getState().workflowModeDefaultsByLanguage.javascript
+      ).toBe('run');
+    });
+
+    it('setWorkflowModeDefault refuses an unsupported mode', () => {
+      useSettingsStore
+        .getState()
+        .setWorkflowModeDefault('python', 'debug' as never);
+      // Python does not support debug — the seed `scratchpad` stands.
+      expect(
+        useSettingsStore.getState().workflowModeDefaultsByLanguage.python
+      ).toBe('scratchpad');
+    });
+
+    it('setWorkflowModeDefault refuses languages outside the Settings surface', () => {
+      useSettingsStore.getState().setWorkflowModeDefault('rust', 'run');
+      expect(useSettingsStore.getState().workflowModeDefaultsByLanguage).toEqual({
+        javascript: 'scratchpad',
+        typescript: 'scratchpad',
+        python: 'scratchpad',
+      });
+    });
+
+    it('setWorkflowModeDefault(null) clears the override', () => {
+      useSettingsStore.getState().setWorkflowModeDefault('javascript', 'run');
+      useSettingsStore.getState().setWorkflowModeDefault('javascript', null);
+      expect(
+        useSettingsStore.getState().workflowModeDefaultsByLanguage.javascript
+      ).toBeUndefined();
+    });
+
+    it('rehydrates persisted overrides + reseeds blank slots (fold C)', async () => {
+      // Persist a single explicit override (Python → Run) and assert
+      // that the seed fills the remaining JS / TS slots without
+      // overwriting the user choice.
+      localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({
+          state: {
+            workflowModeDefaultsByLanguage: { python: 'run' },
+          },
+          version: 0,
+        })
+      );
+
+      await (
+        useSettingsStore as typeof useSettingsStore & {
+          persist: { rehydrate: () => Promise<void> };
+        }
+      ).persist.rehydrate();
+
+      expect(
+        useSettingsStore.getState().workflowModeDefaultsByLanguage
+      ).toEqual({
+        javascript: 'scratchpad',
+        typescript: 'scratchpad',
+        python: 'run',
+      });
+    });
+
+    it('sanitizes tampered persisted values on rehydrate', async () => {
+      localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({
+          state: {
+            workflowModeDefaultsByLanguage: {
+              rust: 'run',
+              ruby: 'run',
+              python: 'debug',
+              javascript: 'banana',
+            },
+          },
+          version: 0,
+        })
+      );
+
+      await (
+        useSettingsStore as typeof useSettingsStore & {
+          persist: { rehydrate: () => Promise<void> };
+        }
+      ).persist.rehydrate();
+
+      // `rust:run` and `ruby:run` are outside the Settings surface — drop.
+      // `python:debug` invalid (Python doesn't support debug) — drop.
+      // `javascript:banana` invalid (not a WorkflowMode) — drop.
+      // After sanitize the map is empty; the seed re-fills the
+      // three Scratchpad languages with their canonical defaults.
+      expect(
+        useSettingsStore.getState().workflowModeDefaultsByLanguage
+      ).toEqual({
+        javascript: 'scratchpad',
+        typescript: 'scratchpad',
+        python: 'scratchpad',
+      });
+    });
+
+    it('firstWorkflowModeSwitchAcknowledged defaults to false and flips via the setter (fold F)', () => {
+      expect(
+        useSettingsStore.getState().firstWorkflowModeSwitchAcknowledged
+      ).toBe(false);
+      useSettingsStore.getState().acknowledgeFirstWorkflowModeSwitch();
+      expect(
+        useSettingsStore.getState().firstWorkflowModeSwitchAcknowledged
+      ).toBe(true);
+    });
+  });
 });

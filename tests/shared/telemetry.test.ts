@@ -45,6 +45,9 @@ describe('TELEMETRY_EVENTS', () => {
       // Closed-enum payload `{ mode, language }`; see RUNTIME_MODES_ADR.
       'runtime.auto_run_gated',
       'runtime.mode_changed',
+      // RL-020 Slice 2 — per-tab workflow mode change. Closed-enum
+      // payload `{ language, from, to, trigger }`.
+      'runtime.workflow_mode_changed',
       'update.checked',
       // RL-069 Slice 3 — Developer Utilities productivity layer.
       'utility.clipboard.applied',
@@ -252,6 +255,93 @@ describe('runtime.auto_run_gated value validator (RL-020 Slice 1)', () => {
     );
     expect(event.properties.reason).toBe('incomplete');
     expect(event.properties).not.toHaveProperty('language');
+  });
+});
+
+describe('runtime.workflow_mode_changed value validator (RL-020 Slice 2)', () => {
+  it('accepts the closed enum payload for an explicit toolbar gesture', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.workflow_mode_changed',
+        properties: {
+          language: 'javascript',
+          from: 'scratchpad',
+          to: 'debug',
+          trigger: 'toolbar',
+        },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'javascript',
+      from: 'scratchpad',
+      to: 'debug',
+      trigger: 'toolbar',
+    });
+  });
+
+  it('accepts the language-change auto-correction trigger', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.workflow_mode_changed',
+        properties: {
+          language: 'rust',
+          from: 'debug',
+          to: 'run',
+          trigger: 'language_change',
+        },
+      })
+    );
+    expect(event.properties.trigger).toBe('language_change');
+  });
+
+  it('drops an unknown trigger value', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.workflow_mode_changed',
+        properties: {
+          language: 'javascript',
+          from: 'scratchpad',
+          to: 'run',
+          trigger: 'spyware',
+        },
+      })
+    );
+    expect(event.properties.from).toBe('scratchpad');
+    expect(event.properties.to).toBe('run');
+    expect(event.properties).not.toHaveProperty('trigger');
+  });
+
+  it('drops an unknown workflow mode', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.workflow_mode_changed',
+        properties: {
+          language: 'javascript',
+          from: 'scratchpad',
+          to: 'cyberspace',
+          trigger: 'toolbar',
+        },
+      })
+    );
+    expect(event.properties.from).toBe('scratchpad');
+    expect(event.properties).not.toHaveProperty('to');
+  });
+
+  it('drops a non-safe-token language', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.workflow_mode_changed',
+        properties: {
+          language: '../etc/passwd',
+          from: 'scratchpad',
+          to: 'run',
+          trigger: 'toolbar',
+        },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('language');
+    expect(event.properties.from).toBe('scratchpad');
+    expect(event.properties.to).toBe('run');
   });
 });
 

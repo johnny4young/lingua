@@ -8,6 +8,8 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import { isInlineResultLanguage } from '../../utils/languageCapabilities';
 import { AutoRunGateNotice } from './AutoRunGateNotice';
+import { WorkflowModeStatusPill } from './WorkflowModeStatusPill';
+import { defaultWorkflowMode } from '../../../shared/workflowMode';
 
 function LineResultRow({ result }: { result: LineResult }) {
   if (result.type === 'magic') {
@@ -158,8 +160,18 @@ export function ResultPanel() {
       : executionMode === 'view'
         ? 'results.view.description'
         : 'results.output.description';
+  // RL-020 Slice 2 fold G — mode-aware empty-state copy. In Run /
+  // Debug mode the user has to press Cmd+R, so a generic "Run to
+  // see output" reads stale. Scratchpad-mode tabs keep the live-
+  // updates copy; validate / view modes stay on their language-
+  // specific keys.
+  const workflowMode = activeTab
+    ? activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language)
+    : 'scratchpad';
   const emptyKey = dynamic
-    ? 'results.empty.inline'
+    ? workflowMode === 'scratchpad'
+      ? 'results.empty.inline'
+      : 'results.empty.manualWorkflow'
     : executionMode === 'validate'
       ? 'results.empty.validation'
       : executionMode === 'view'
@@ -179,6 +191,12 @@ export function ResultPanel() {
         <div className="flex items-center gap-2">
           {isAutoRunning && <Loader2 size={13} className="animate-spin text-primary" />}
           <AutoRunGateNotice />
+          {/* RL-020 Slice 2 fold B — workflow-mode pill next to the
+              execution-time slot. Surfaces "why didn't this run?"
+              answers without forcing the user to look at the
+              toolbar. Low-contrast so it never fights the
+              AutoRunGateNotice. */}
+          <WorkflowModeStatusPill />
           {executionTime !== null && (
             <span className="status-pill tabular-nums">{formatExecTime(executionTime)}</span>
           )}

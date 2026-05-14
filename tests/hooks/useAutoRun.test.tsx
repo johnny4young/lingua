@@ -457,6 +457,210 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionTime).toBe(7);
   });
 
+  it('RL-020 Slice 2 — does NOT auto-run when workflow mode is `run`', async () => {
+    // A complete JS buffer in Run mode must not auto-execute. The
+    // user opted out of Scratchpad behavior on this tab; the only
+    // way to produce output is the manual Run gesture.
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-run',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'console.log("hello");',
+          isDirty: false,
+          workflowMode: 'run',
+        },
+      ],
+      activeTabId: 'tab-js-run',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+
+    expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    expect(useResultStore.getState().executionSource).toBeNull();
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+  });
+
+  it('RL-020 Slice 2 — does NOT auto-run when workflow mode is `debug`', async () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-debug',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'console.log("hello");',
+          isDirty: false,
+          workflowMode: 'debug',
+        },
+      ],
+      activeTabId: 'tab-js-debug',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+
+    expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    expect(useResultStore.getState().executionSource).toBeNull();
+  });
+
+  it('RL-020 Slice 2 — clears a visible Scratchpad gate when switching to Run mode', async () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-gated-mode-switch',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'const x = ',
+          isDirty: false,
+          workflowMode: 'scratchpad',
+        },
+      ],
+      activeTabId: 'tab-js-gated-mode-switch',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+
+    expect(runnerManager.prepareRunner).not.toHaveBeenCalled();
+    expect(useResultStore.getState().autoRunGateReason).toBe('incomplete');
+
+    act(() => {
+      const tab = useEditorStore.getState().tabs[0]!;
+      useEditorStore.setState({
+        tabs: [{ ...tab, workflowMode: 'run' }],
+        activeTabId: tab.id,
+      });
+    });
+
+    expect(useResultStore.getState().autoRunGateReason).toBeNull();
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+    expect(useResultStore.getState().executionSource).toBeNull();
+  });
+
+  it('RL-020 Slice 2 — cancels an in-flight Scratchpad auto-run when switching to Run mode', async () => {
+    let resolveExecute!: (value: {
+      stdout: Array<{ type: 'log'; args: string[] }>;
+      stderr: [];
+      result: undefined;
+      executionTime: number;
+      error: null;
+    }) => void;
+    const execute = vi.fn(
+      () =>
+        new Promise<{
+          stdout: Array<{ type: 'log'; args: string[] }>;
+          stderr: [];
+          result: undefined;
+          executionTime: number;
+          error: null;
+        }>((resolve) => {
+          resolveExecute = resolve;
+        })
+    );
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: { execute },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-inflight-mode-switch',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'console.log("stale auto");',
+          isDirty: false,
+          workflowMode: 'scratchpad',
+        },
+      ],
+      activeTabId: 'tab-js-inflight-mode-switch',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(useResultStore.getState().isAutoRunning).toBe(true);
+    expect(useResultStore.getState().executionSource).toBe('auto');
+
+    act(() => {
+      const tab = useEditorStore.getState().tabs[0]!;
+      useEditorStore.setState({
+        tabs: [{ ...tab, workflowMode: 'run' }],
+        activeTabId: tab.id,
+      });
+    });
+
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+    expect(useResultStore.getState().executionSource).toBeNull();
+
+    await act(async () => {
+      resolveExecute({
+        stdout: [{ type: 'log', args: ['stale auto output'] }],
+        stderr: [],
+        result: undefined,
+        executionTime: 12,
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    expect(useResultStore.getState().lineResults).toEqual([]);
+    expect(useResultStore.getState().fullOutput).toBe('');
+    expect(useResultStore.getState().executionSource).toBeNull();
+  });
+
+  it('RL-020 Slice 2 — still auto-runs (and gates) when workflow mode is `scratchpad`', async () => {
+    // Sanity check that the workflow-mode short-circuit doesn't
+    // accidentally suppress Scratchpad-mode auto-run.
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: {
+        execute: vi.fn().mockResolvedValue({
+          stdout: [{ type: 'log', args: ['7'] }],
+          stderr: [],
+          result: undefined,
+          executionTime: 3,
+          error: null,
+        }),
+      },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-scratch',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'console.log(7);',
+          isDirty: false,
+          workflowMode: 'scratchpad',
+        },
+      ],
+      activeTabId: 'tab-js-scratch',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+
+    expect(runnerManager.prepareRunner).toHaveBeenCalledWith(
+      'javascript',
+      undefined
+    );
+  });
+
   it('RL-079 — does NOT auto-run Go when native execution is unacknowledged', async () => {
     // The trust-boundary modal lives behind manual Run; auto-run on a
     // Go tab the user never opted into would silently invoke the

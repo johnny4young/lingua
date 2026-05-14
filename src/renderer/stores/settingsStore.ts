@@ -24,8 +24,59 @@ import {
   isRuntimeModeImplemented,
   type RuntimeMode,
 } from '../../shared/runtimeModes';
+import {
+  isWorkflowMode,
+  supportsWorkflowMode,
+  type WorkflowMode,
+} from '../../shared/workflowMode';
 
 const DEFAULT_EDITOR_FONT_FAMILY = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace";
+
+/**
+ * RL-020 Slice 2 fold C — seeded defaults surfaced in Settings → Editor
+ * the first time the user reaches a Slice-2 build. Without this seed,
+ * a fresh install (no persisted defaults) would resolve every new tab
+ * via the shared `defaultWorkflowMode` helper and the Settings rows
+ * would look unset — making the per-language defaults feature
+ * invisible.
+ *
+ * Sparse on purpose: every key here matches the language whose default
+ * mode the shared helper already returns. The override is observably
+ * a no-op until the user changes it, but the Settings row now shows
+ * the chosen value as the active selection rather than "unset".
+ */
+const WORKFLOW_MODE_DEFAULT_SEED: Record<string, WorkflowMode> = {
+  javascript: 'scratchpad',
+  typescript: 'scratchpad',
+  python: 'scratchpad',
+};
+
+const SETTINGS_WORKFLOW_MODE_LANGUAGE_SET: ReadonlySet<string> = new Set(
+  Object.keys(WORKFLOW_MODE_DEFAULT_SEED)
+);
+
+/**
+ * Sanitize a persisted `workflowModeDefaultsByLanguage` map: drop
+ * languages outside the Settings surface, drop values that aren't
+ * valid `WorkflowMode` strings, drop modes the language does not
+ * support. Returns a fresh object so callers can hand it directly to
+ * the store without aliasing.
+ */
+function sanitizeWorkflowModeDefaults(
+  value: unknown
+): Record<string, WorkflowMode> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, WorkflowMode> = {};
+  for (const [language, rawMode] of Object.entries(
+    value as Record<string, unknown>
+  )) {
+    if (!SETTINGS_WORKFLOW_MODE_LANGUAGE_SET.has(language)) continue;
+    if (!isWorkflowMode(rawMode)) continue;
+    if (!supportsWorkflowMode(language, rawMode)) continue;
+    out[language] = rawMode;
+  }
+  return out;
+}
 
 const APP_LANGUAGES = ['system', 'en', 'es'] as const;
 
@@ -165,6 +216,12 @@ export const useSettingsStore = create<SettingsState>()(
       // the setter rejects anything else, so this stays a constant
       // initial value until Slice 2 lands the desktop Node backend.
       defaultRuntimeMode: 'worker',
+      // RL-020 Slice 2 — per-language workflow defaults. Initial
+      // value is the fold-C seed; the merge function below preserves
+      // user overrides on rehydrate and seeds missing keys.
+      workflowModeDefaultsByLanguage: { ...WORKFLOW_MODE_DEFAULT_SEED },
+      // RL-020 Slice 2 fold F — onboarding-toast acknowledgement.
+      firstWorkflowModeSwitchAcknowledged: false,
       language: 'system',
       lastSeenVersion: null,
       hasCompletedTour: false,
@@ -262,6 +319,29 @@ export const useSettingsStore = create<SettingsState>()(
         if (!isRuntimeModeImplemented(mode)) return;
         set({ defaultRuntimeMode: mode });
       },
+      // RL-020 Slice 2 — set or clear the per-language workflow
+      // default. `null` resets to the shared helper. The setter
+      // refuses any mode the language does not support so the
+      // Settings UI cannot smuggle an invalid combination through
+      // a programmatic call.
+      setWorkflowModeDefault: (language: string, mode: WorkflowMode | null) => {
+        if (!SETTINGS_WORKFLOW_MODE_LANGUAGE_SET.has(language)) return;
+        set((state) => {
+          const next = { ...state.workflowModeDefaultsByLanguage };
+          if (mode === null) {
+            delete next[language];
+          } else {
+            if (!isWorkflowMode(mode)) return state;
+            if (!supportsWorkflowMode(language, mode)) return state;
+            next[language] = mode;
+          }
+          return { workflowModeDefaultsByLanguage: next };
+        });
+      },
+      // RL-020 Slice 2 fold F — record that the onboarding toast has
+      // been seen so future workflow-mode switches stay silent.
+      acknowledgeFirstWorkflowModeSwitch: () =>
+        set({ firstWorkflowModeSwitchAcknowledged: true }),
       setLastSeenVersion: (lastSeenVersion) => set({ lastSeenVersion }),
       setHasCompletedTour: (hasCompletedTour) => set({ hasCompletedTour }),
       setSuppressTourAutoStart: (suppressTourAutoStart) => set({ suppressTourAutoStart }),
@@ -342,6 +422,9 @@ export const useSettingsStore = create<SettingsState>()(
         utilitiesClipboardOnFocusConsent: state.utilitiesClipboardOnFocusConsent,
         debuggerEnabled: state.debuggerEnabled,
         defaultRuntimeMode: state.defaultRuntimeMode,
+        workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
+        firstWorkflowModeSwitchAcknowledged:
+          state.firstWorkflowModeSwitchAcknowledged,
         language: state.language,
         lastSeenVersion: state.lastSeenVersion,
         hasCompletedTour: state.hasCompletedTour,
@@ -427,6 +510,22 @@ export const useSettingsStore = create<SettingsState>()(
           isRuntimeModeImplemented(merged.defaultRuntimeMode as never)
             ? merged.defaultRuntimeMode
             : currentState.defaultRuntimeMode;
+        // RL-020 Slice 2 fold C — sanitize the persisted defaults
+        // map and seed any missing Scratchpad-language keys so the
+        // Settings UI surfaces a populated row on upgrade. The
+        // user's prior overrides win over the seed; the seed only
+        // fills BLANK slots.
+        const sanitizedWorkflowDefaults = sanitizeWorkflowModeDefaults(
+          merged.workflowModeDefaultsByLanguage
+        );
+        const seededWorkflowDefaults: Record<string, WorkflowMode> = {
+          ...WORKFLOW_MODE_DEFAULT_SEED,
+          ...sanitizedWorkflowDefaults,
+        };
+        const firstWorkflowModeSwitchAcknowledged =
+          typeof merged.firstWorkflowModeSwitchAcknowledged === 'boolean'
+            ? merged.firstWorkflowModeSwitchAcknowledged
+            : currentState.firstWorkflowModeSwitchAcknowledged;
         return {
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
@@ -436,6 +535,8 @@ export const useSettingsStore = create<SettingsState>()(
           keymapPreset: normalizedKeymapPreset,
           themePack: normalizedThemePack,
           defaultRuntimeMode: normalizedDefaultRuntimeMode,
+          workflowModeDefaultsByLanguage: seededWorkflowDefaults,
+          firstWorkflowModeSwitchAcknowledged,
         };
       },
       onRehydrateStorage: () => (state) => {
