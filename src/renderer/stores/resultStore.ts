@@ -1,6 +1,22 @@
 import { create } from 'zustand';
-import type { EditorDiagnostic, ExecutionError } from '../types';
+import type {
+  EditorDiagnostic,
+  ExecutionError,
+  RuntimeTimeoutPreset,
+} from '../types';
 import type { AutoRunGateReason } from '../../shared/autoRunGating';
+
+/**
+ * RL-020 Slice 7 — terminator summary surfaced via `<RunStatusPill>`.
+ * Mirrors the canonical fields on `ExecutionResult` so the pill
+ * self-gates on a single object instead of re-deriving the kind
+ * from `error.message` string matching.
+ */
+export interface RunTerminationSummary {
+  kind: 'success' | 'error' | 'timeout' | 'stopped';
+  timeoutPreset?: RuntimeTimeoutPreset | 'override';
+  timeoutMs?: number;
+}
 
 export interface LineResult {
   line: number;
@@ -73,6 +89,20 @@ interface ResultState {
    * across tabs.
    */
   lastSuccessfulSnapshot: ResultSnapshot | null;
+  /**
+   * RL-020 Slice 7 — termination summary from the most recent run.
+   * `null` while no run has happened on this tab (the pill stays
+   * hidden). The success variant of the pill ALSO renders nothing,
+   * so the pill code checks `kind !== 'success'` before rendering.
+   */
+  runTermination: RunTerminationSummary | null;
+  /**
+   * RL-020 Slice 7 fold E — armed deadline for the in-flight run,
+   * as an absolute epoch ms. Used by the countdown pill (when the
+   * Settings toggle is on) to render `mm:ss` until termination.
+   * `null` while no run is in flight.
+   */
+  runDeadlineAt: number | null;
 
   setLineResults: (results: LineResult[]) => void;
   setFullOutput: (output: string) => void;
@@ -84,6 +114,16 @@ interface ResultState {
   setIsManualRunning: (running: boolean) => void;
   setExecutionSource: (source: 'manual' | 'auto' | null) => void;
   setAutoRunGateReason: (reason: AutoRunGateReason | null) => void;
+  /**
+   * RL-020 Slice 7 — write the run termination summary. `null`
+   * clears the field (pill goes back to its empty state).
+   */
+  setRunTermination: (summary: RunTerminationSummary | null) => void;
+  /**
+   * RL-020 Slice 7 fold E — set / clear the in-flight deadline used
+   * by the countdown pill.
+   */
+  setRunDeadlineAt: (epochMs: number | null) => void;
   /** RL-020 Slice 1 — capture the panel state as the last good run. */
   captureSuccessfulSnapshot: () => void;
   /** RL-020 Slice 1 — restore the last successful snapshot if any. */
@@ -111,6 +151,8 @@ export const useResultStore = create<ResultState>((set, get) => ({
   executionSource: null,
   autoRunGateReason: null,
   lastSuccessfulSnapshot: null,
+  runTermination: null,
+  runDeadlineAt: null,
 
   setLineResults: (lineResults) => set({ lineResults }),
   setFullOutput: (fullOutput) => set({ fullOutput }),
@@ -122,6 +164,8 @@ export const useResultStore = create<ResultState>((set, get) => ({
   setIsManualRunning: (isManualRunning) => set({ isManualRunning }),
   setExecutionSource: (executionSource) => set({ executionSource }),
   setAutoRunGateReason: (autoRunGateReason) => set({ autoRunGateReason }),
+  setRunTermination: (runTermination) => set({ runTermination }),
+  setRunDeadlineAt: (runDeadlineAt) => set({ runDeadlineAt }),
   captureSuccessfulSnapshot: () => {
     const { lineResults, fullOutput, stdinConsumed, executionTime } = get();
     set({
@@ -161,6 +205,10 @@ export const useResultStore = create<ResultState>((set, get) => ({
       // tab switch starts fresh.
       autoRunGateReason: null,
       lastSuccessfulSnapshot: null,
+      // RL-020 Slice 7 — tab switches drop the per-run pill state
+      // too so the new tab's panel header starts quiet.
+      runTermination: null,
+      runDeadlineAt: null,
     }),
   clearVisibleResults: () =>
     // RL-020 Slice 3 — same shape as `clear()` but DOES NOT touch
@@ -176,5 +224,10 @@ export const useResultStore = create<ResultState>((set, get) => ({
       executionTime: null,
       executionSource: null,
       autoRunGateReason: null,
+      // RL-020 Slice 7 — clear the pill on transient empty states
+      // too; the snapshot survives, but the pill never gets stuck
+      // displaying a stale variant.
+      runTermination: null,
+      runDeadlineAt: null,
     }),
 }));

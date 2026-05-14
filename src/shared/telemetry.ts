@@ -80,6 +80,12 @@ export const TELEMETRY_EVENTS = [
   // content, no consumed count, no source. The countBucket lives
   // on the panel only, not on the wire.
   'runtime.stdin_used',
+  // RL-020 Slice 7 — per-language timeout-preset change. Fires
+  // when the user sets a new preset via Settings → Editor or via
+  // the command palette. Closed-enum payload `{ language, preset }`;
+  // no source code, no tab id, no content. `preset` is the
+  // `RuntimeTimeoutPreset` closed enum.
+  'runtime.timeout_preset_changed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -188,6 +194,11 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // a small population by per-run shape; Slice 6 stays at adoption
   // level only.
   'runtime.stdin_used': ['language'],
+  // RL-020 Slice 7 — `language` is the language-pack id (`isSafeToken`);
+  // `preset` is the closed `RuntimeTimeoutPreset` enum
+  // (`quick` / `normal` / `long` / `extended`). Mirrored on
+  // update-server; the parity test asserts both sets stay aligned.
+  'runtime.timeout_preset_changed': ['language', 'preset'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -205,7 +216,29 @@ const DENY_SUBSTRINGS = [
 ];
 
 const SAFE_TOKEN_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
-const RUNNER_STATUS_VALUES = new Set(['ok', 'error']);
+// RL-020 Slice 7 — widened from `['ok', 'error']` to include the
+// two distinct termination kinds the renderer now distinguishes:
+// `'timeout'` (the worker hit the preset deadline) and `'stopped'`
+// (the user clicked Stop). Dashboards that already accepted only
+// `'ok'` / `'error'` keep working — the new values are rejected by
+// the old validator, so an old worker silently drops them, and the
+// parity test enforces the renderer + update-server stay in sync.
+const RUNNER_STATUS_VALUES = new Set([
+  'ok',
+  'error',
+  'timeout',
+  'stopped',
+]);
+// RL-020 Slice 7 — closed enum mirroring `RuntimeTimeoutPreset` in
+// `src/shared/runtimeTimeoutPresets.ts`. Duplicated here so the
+// redactor stays a pure module without an import cycle; a parity
+// test asserts both sides stay in sync.
+const RUNTIME_TIMEOUT_PRESET_VALUES = new Set([
+  'quick',
+  'normal',
+  'long',
+  'extended',
+]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
   'available',
@@ -381,6 +414,14 @@ function isAllowedValue(
       return false;
     case 'runtime.stdin_used':
       if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'runtime.timeout_preset_changed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'preset')
+        return (
+          typeof value === 'string' &&
+          RUNTIME_TIMEOUT_PRESET_VALUES.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;

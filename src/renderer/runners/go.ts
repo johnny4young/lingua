@@ -10,6 +10,11 @@ import { parseGoExecutionError } from '../utils/executionDiagnostics';
 import { useEditorStore } from '../stores/editorStore';
 import { useEnvVarsStore } from '../stores/envVarsStore';
 import { useProjectStore } from '../stores/projectStore';
+import { useSettingsStore } from '../stores/settingsStore';
+import {
+  resolveTimeoutMs,
+  type RuntimeTimeoutPreset,
+} from '../../shared/runtimeTimeoutPresets';
 import {
   appendCappedConsole,
   capStderrIfOverflowing,
@@ -18,7 +23,9 @@ import {
   type TranslateFn,
 } from './limits';
 
-const DEFAULT_TIMEOUT = 30_000;
+// RL-020 Slice 7 — the literal DEFAULT_TIMEOUT is gone; the runner
+// resolves the deadline from the per-language Settings preset on
+// every call to `execute()`.
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
 
@@ -95,7 +102,17 @@ export class GoRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
+    // RL-020 Slice 7 — resolve deadline from the per-language preset.
+    const settingsSnapshot = useSettingsStore.getState();
+    const callerOverrode = typeof context?.timeout === 'number';
+    const presetForLanguage: RuntimeTimeoutPreset | undefined =
+      settingsSnapshot.runtimeTimeoutPresetByLanguage?.['go'];
+    const timeout = callerOverrode
+      ? (context!.timeout as number)
+      : resolveTimeoutMs('go', presetForLanguage);
+    const timeoutPreset: RuntimeTimeoutPreset | 'override' = callerOverrode
+      ? 'override'
+      : presetForLanguage ?? 'normal';
 
     if (!this.goInstalled) {
       return {
@@ -107,6 +124,8 @@ export class GoRunner implements LanguageRunner {
           message:
             'Go is not installed on this system. Install Go from https://go.dev/dl/ and restart Lingua.',
         },
+        // RL-020 Slice 7 — host-not-installed counts as `'error'`.
+        kind: 'error',
       };
     }
 
@@ -132,6 +151,8 @@ export class GoRunner implements LanguageRunner {
           parseGoExecutionError(compileResult.error) ?? {
             message: 'Go compilation failed.',
           },
+        // RL-020 Slice 7 — compile failures count as `'error'`.
+        kind: 'error',
       };
     }
 
@@ -215,6 +236,9 @@ export class GoRunner implements LanguageRunner {
               result: undefined,
               executionTime: msg.executionTime,
               error,
+              kind: error ? 'error' : 'success',
+              timeoutPreset,
+              timeoutMs: timeout,
             });
             worker.terminate();
             if (this.worker === worker) this.worker = null;
@@ -229,6 +253,9 @@ export class GoRunner implements LanguageRunner {
           result: undefined,
           executionTime: 0,
           error: { message: event.message || 'Go worker error' },
+          kind: 'error',
+          timeoutPreset,
+          timeoutMs: timeout,
         });
         worker.terminate();
         if (this.worker === worker) this.worker = null;
@@ -237,7 +264,7 @@ export class GoRunner implements LanguageRunner {
       timeoutHandle = setTimeout(() => {
         worker.terminate();
         if (this.worker === worker) this.worker = null;
-        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }));
+        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
       }, timeout);
 
       this.worker.postMessage({

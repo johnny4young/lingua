@@ -850,4 +850,79 @@ describe('settingsStore', () => {
       expect(useSettingsStore.getState().showStdinPanel).toBe(true);
     });
   });
+
+  describe('RL-020 Slice 7 — runtimeTimeoutPresetByLanguage', () => {
+    it('seeds defaults (Python=long, others=normal)', () => {
+      expect(
+        useSettingsStore.getState().runtimeTimeoutPresetByLanguage
+      ).toEqual({
+        javascript: 'normal',
+        typescript: 'normal',
+        python: 'long',
+        go: 'normal',
+      });
+    });
+
+    it('setRuntimeTimeoutPreset writes a supported value', () => {
+      useSettingsStore
+        .getState()
+        .setRuntimeTimeoutPreset('javascript', 'quick');
+      expect(
+        useSettingsStore.getState().runtimeTimeoutPresetByLanguage.javascript
+      ).toBe('quick');
+    });
+
+    it('setRuntimeTimeoutPreset refuses unsupported languages', () => {
+      useSettingsStore.getState().setRuntimeTimeoutPreset('rust', 'quick');
+      expect(
+        useSettingsStore.getState().runtimeTimeoutPresetByLanguage.rust
+      ).toBeUndefined();
+    });
+
+    it('setRuntimeTimeoutPreset refuses unknown preset tokens', () => {
+      const before =
+        useSettingsStore.getState().runtimeTimeoutPresetByLanguage.python;
+      useSettingsStore
+        .getState()
+        // @ts-expect-error - exercising the runtime guard
+        .setRuntimeTimeoutPreset('python', 'forever');
+      expect(
+        useSettingsStore.getState().runtimeTimeoutPresetByLanguage.python
+      ).toBe(before);
+    });
+
+    it('drops tampered persisted entries on rehydrate', async () => {
+      localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({
+          state: {
+            runtimeTimeoutPresetByLanguage: {
+              javascript: 'extended',
+              rust: 'quick',
+              python: 'pizza',
+            },
+          },
+          version: 0,
+        })
+      );
+
+      await useSettingsStore.persist.rehydrate();
+      const stored =
+        useSettingsStore.getState().runtimeTimeoutPresetByLanguage;
+      expect(stored.javascript).toBe('extended');
+      expect(stored.rust).toBeUndefined();
+      // Tampered tokens drop and re-seed to the language default.
+      expect(stored.python).toBe('long');
+      expect(stored.typescript).toBe('normal');
+      expect(stored.go).toBe('normal');
+    });
+
+    it('toggleShowTimeoutCountdown flips the fold-E flag', () => {
+      expect(useSettingsStore.getState().showTimeoutCountdown).toBe(false);
+      useSettingsStore.getState().toggleShowTimeoutCountdown();
+      expect(useSettingsStore.getState().showTimeoutCountdown).toBe(true);
+      useSettingsStore.getState().toggleShowTimeoutCountdown();
+      expect(useSettingsStore.getState().showTimeoutCountdown).toBe(false);
+    });
+  });
 });

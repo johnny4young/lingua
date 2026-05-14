@@ -702,6 +702,79 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(future.properties).not.toHaveProperty('trigger');
   });
 
+  it('RUNNER_STATUS_VALUES stays in sync with the renderer enum (RL-020 Slice 7)', async () => {
+    // Slice 7 widened the renderer status enum from {ok, error} to
+    // {ok, error, timeout, stopped}. The worker mirror must keep
+    // pace so the dashboard distinguishes operator-stop from
+    // organic timeout from real errors.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe =
+      /const\s+RUNNER_STATUS_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual(['error', 'ok', 'stopped', 'timeout']);
+  });
+
+  it('RUNTIME_TIMEOUT_PRESET_VALUES stays in sync with the renderer (RL-020 Slice 7)', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe =
+      /const\s+RUNTIME_TIMEOUT_PRESET_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual(['extended', 'long', 'normal', 'quick']);
+  });
+
+  it('runtime.timeout_preset_changed accepts the closed payload (worker validator)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.timeout_preset_changed',
+      properties: { language: 'python', preset: 'long' },
+    });
+    expect(okResponse.status).toBe(204);
+    // Tampered preset is silently dropped (no 400).
+    const droppedResponse = await postTelemetry({
+      event: 'runtime.timeout_preset_changed',
+      properties: { language: 'python', preset: 'pizza' },
+    });
+    expect(droppedResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.timeout_preset_changed"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const dropped = eventLines
+      .map((line) => JSON.parse(line))
+      .find((parsed) => parsed.properties.preset === undefined);
+    expect(dropped).toBeDefined();
+  });
+
   it('RUNTIME_MODE_VALUES stays in sync with the renderer enum (RL-019 Slice 1)', async () => {
     // Both the worker (`update-server/src/telemetry.ts`) and the
     // renderer (`src/shared/telemetry.ts`) maintain a private Set of

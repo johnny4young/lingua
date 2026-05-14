@@ -15,6 +15,10 @@ import {
 } from '../utils/magicComments';
 import { injectPythonLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
+import {
+  resolveTimeoutMs,
+  type RuntimeTimeoutPreset,
+} from '../../shared/runtimeTimeoutPresets';
 import { resolveUserEnvForRunner } from './go';
 import {
   appendCappedConsole,
@@ -24,7 +28,12 @@ import {
   type TranslateFn,
 } from './limits';
 
-const DEFAULT_TIMEOUT = 60_000; // Python needs more time for initial load
+// RL-020 Slice 7 — the literal run-time DEFAULT_TIMEOUT is gone;
+// the runner resolves the deadline from the per-language Settings
+// preset (`long` by default for Python = 120 s) on every call. The
+// PYODIDE_LOAD_TIMEOUT below is independent — it bounds the
+// one-off bootstrap of the Pyodide runtime, not the per-run
+// execution window.
 const PYODIDE_LOAD_TIMEOUT = 90_000;
 const PYODIDE_LOAD_CANCELLED = '__LINGUA_PYODIDE_LOAD_CANCELLED__';
 
@@ -167,7 +176,21 @@ export class PythonRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
+    // RL-020 Slice 7 — resolve the per-run deadline from the
+    // language preset unless the caller passed an explicit override.
+    // The Pyodide bootstrap deadline is independent (see
+    // PYODIDE_LOAD_TIMEOUT above) — only the post-bootstrap run is
+    // bounded by this value.
+    const settingsSnapshot = useSettingsStore.getState();
+    const callerOverrode = typeof context?.timeout === 'number';
+    const presetForLanguage: RuntimeTimeoutPreset | undefined =
+      settingsSnapshot.runtimeTimeoutPresetByLanguage?.['python'];
+    const timeout = callerOverrode
+      ? (context!.timeout as number)
+      : resolveTimeoutMs('python', presetForLanguage);
+    const timeoutPreset: RuntimeTimeoutPreset | 'override' = callerOverrode
+      ? 'override'
+      : presetForLanguage ?? 'long';
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     const magicResults: MagicCommentResult[] = [];
@@ -200,6 +223,8 @@ export class PythonRunner implements LanguageRunner {
         error: {
           message: `Failed to load Python runtime: ${err instanceof Error ? err.message : String(err)}`,
         },
+        // RL-020 Slice 7 — bootstrap failures count as `'error'`.
+        kind: 'error',
       };
     }
 
@@ -318,6 +343,9 @@ export class PythonRunner implements LanguageRunner {
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
               stdinConsumed,
+              kind: error ? 'error' : 'success',
+              timeoutPreset,
+              timeoutMs: timeout,
             });
             break;
         }
@@ -338,7 +366,7 @@ export class PythonRunner implements LanguageRunner {
           this.pyodideLoaded = false;
           this.loadingPromise = null;
         }
-        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }));
+        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
       }, timeout);
 
       // RL-011 Slice D third increment — pipe the resolved user env

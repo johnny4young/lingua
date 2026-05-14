@@ -5,6 +5,7 @@ import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
+import { isRuntimeTimeoutSupportedLanguage } from '../../../shared/runtimeTimeoutPresets';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 import {
   type ExecutionHistoryEntry,
@@ -99,6 +100,10 @@ export function CommandPalette({
   const activeWorkflowMode = activeTab
     ? activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language)
     : null;
+  const activeTimeoutLanguage =
+    activeTab && isRuntimeTimeoutSupportedLanguage(activeTab.language)
+      ? activeTab.language
+      : null;
   const isAutoLogCommandEligible =
     activeTab !== undefined &&
     (activeTab.language === 'javascript' ||
@@ -225,6 +230,42 @@ export function CommandPalette({
           activeTab.language === 'typescript' ||
           activeTab.language === 'python') &&
         activeTab.runtimeMode !== 'browser-preview',
+      // RL-020 Slice 7 fold C — set the per-language timeout preset
+      // for the active language from the palette. Only surfaces on
+      // the supported language set.
+      activeTimeoutLanguage,
+      activeTimeoutPreset: activeTimeoutLanguage
+        ? (useSettingsStore.getState().runtimeTimeoutPresetByLanguage?.[
+            activeTimeoutLanguage
+          ] ?? null)
+        : null,
+      onSetActiveLanguageTimeoutPreset:
+        activeTimeoutLanguage
+          ? (preset) => {
+              useSettingsStore
+                .getState()
+                .setRuntimeTimeoutPreset(activeTimeoutLanguage, preset);
+            }
+          : undefined,
+      // RL-020 Slice 7 fold D — "Run with extended timeout"
+      // one-shot. Sets the per-tab override + triggers the manual
+      // run via the parent-provided runActiveTab callback. Hidden
+      // when the active tab isn't runnable or the parent didn't
+      // wire `onRerunLast` (we reuse that signal as the "manual run
+      // available" gate so the entry only surfaces where Run is
+      // actually possible).
+      onRunWithExtendedTimeout:
+        activeTimeoutLanguage && activeTabId && onRerunLast
+          ? () => {
+              // 5 min one-shot override. Mirrors the `extended` preset
+              // ceiling so the upper bound is consistent with the
+              // Settings copy.
+              useEditorStore
+                .getState()
+                .setTabNextRunTimeoutOverride(activeTabId, 300_000);
+              onRerunLast();
+            }
+          : undefined,
       // RL-020 Slice 4 fold G — pass the active tab id so the
       // model can surface the per-tab Recent runs group above the
       // legacy global one. `null` (no active tab) suppresses the
@@ -264,6 +305,7 @@ export function CommandPalette({
     vimMode,
     activeTabId,
     activeRuntimeMode,
+    activeTimeoutLanguage,
     setTabRuntimeMode,
     addTab,
     setLayoutPreset,

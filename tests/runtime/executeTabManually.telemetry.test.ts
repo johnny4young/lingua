@@ -9,11 +9,19 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockTrackEvent, mockRunnerManagerPrepare, mockRunnerExecute } = vi.hoisted(
+const {
+  mockTrackEvent,
+  mockRunnerManagerPrepare,
+  mockRunnerExecute,
+  mockSetRunTermination,
+  mockSetRunDeadlineAt,
+} = vi.hoisted(
   () => ({
     mockTrackEvent: vi.fn().mockResolvedValue(undefined),
     mockRunnerManagerPrepare: vi.fn(),
     mockRunnerExecute: vi.fn(),
+    mockSetRunTermination: vi.fn(),
+    mockSetRunDeadlineAt: vi.fn(),
   })
 );
 
@@ -50,6 +58,11 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     setLineResults: vi.fn(),
     setStdinConsumed: vi.fn(),
     setDiagnostics: vi.fn(),
+    // RL-020 Slice 7 — pill state setters; consumers must mock them
+    // or `executeTabManually` will throw `setRunDeadlineAt is not a
+    // function` on the result-store destructure.
+    setRunTermination: mockSetRunTermination,
+    setRunDeadlineAt: mockSetRunDeadlineAt,
   };
   return {
     useResultStore: {
@@ -78,15 +91,23 @@ vi.mock('../../src/renderer/utils/executionDiagnostics', () => ({
 }));
 
 import { executeTabManually } from '../../src/renderer/runtime/executeTabManually';
+import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
+import { defaultRuntimeTimeoutPresetSeed } from '../../src/shared/runtimeTimeoutPresets';
 
 describe('executeTabManually — runner.executed telemetry (RL-065)', () => {
   beforeEach(() => {
     mockTrackEvent.mockClear();
     mockRunnerManagerPrepare.mockReset();
     mockRunnerExecute.mockReset();
+    mockSetRunTermination.mockClear();
+    mockSetRunDeadlineAt.mockClear();
+    useSettingsStore.setState({
+      runtimeTimeoutPresetByLanguage: defaultRuntimeTimeoutPresetSeed(),
+    });
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -162,6 +183,51 @@ describe('executeTabManually — runner.executed telemetry (RL-065)', () => {
         onConsole: expect.any(Function),
       })
     );
+  });
+
+  it('arms the countdown deadline from the settings preset on manual runs without overrides', async () => {
+    const now = new Date('2026-05-14T12:00:00Z');
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    useSettingsStore.setState({
+      runtimeTimeoutPresetByLanguage: {
+        ...defaultRuntimeTimeoutPresetSeed(),
+        javascript: 'quick',
+      },
+    });
+    mockRunnerManagerPrepare.mockResolvedValue({
+      runner: {
+        execute: mockRunnerExecute.mockResolvedValue({
+          stdout: [],
+          stderr: [],
+          result: undefined,
+          executionTime: 42,
+          error: undefined,
+        }),
+      },
+      initialized: false,
+    });
+
+    await executeTabManually({
+      id: 'tab-countdown',
+      name: 'main.js',
+      language: 'javascript',
+      content: 'while (true) {}',
+      isDirty: false,
+    });
+
+    expect(mockRunnerExecute).toHaveBeenCalledWith(
+      'while (true) {}',
+      expect.objectContaining({
+        tabId: 'tab-countdown',
+        onConsole: expect.any(Function),
+      })
+    );
+    expect(mockSetRunDeadlineAt).toHaveBeenNthCalledWith(
+      1,
+      now.getTime() + 5_000
+    );
+    expect(mockSetRunDeadlineAt).toHaveBeenLastCalledWith(null);
   });
 
   it('passes debug intent only when the caller asks for a debug run', async () => {

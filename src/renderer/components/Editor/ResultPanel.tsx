@@ -12,6 +12,7 @@ import { WorkflowModeStatusPill } from './WorkflowModeStatusPill';
 import { AutoLogStatusPill } from './AutoLogStatusPill';
 import { StdinStatusPill } from './StdinStatusPill';
 import { RecentRunsPill } from './RecentRunsPill';
+import { RunStatusPill } from './RunStatusPill';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 
 function LineResultRow({
@@ -287,6 +288,10 @@ export function ResultPanel() {
           <AutoLogStatusPill />
           {/* RL-020 Slice 6 fold F — Stdin status pill. */}
           <StdinStatusPill />
+          {/* RL-020 Slice 7 — Run-status pill: timeout / stopped /
+              error / countdown. Self-gates on result.kind set by
+              the runners + setRunTermination from the run paths. */}
+          <RunStatusPill />
           {/* RL-020 Slice 4 — per-tab Recent Runs pill. */}
           <RecentRunsPill />
           {executionTime !== null && (

@@ -9,6 +9,11 @@ import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
 import { trackEvent } from '../utils/telemetry';
 import { bucketDurationMs } from '../../shared/telemetry';
+import { extractTimeoutMagicComment } from '../utils/magicComments';
+import {
+  isRuntimeTimeoutSupportedLanguage,
+  resolveTimeoutMs,
+} from '../../shared/runtimeTimeoutPresets';
 import type { ConsoleOutput, FileTab, Language } from '../types';
 import { collectBrowserPreviewSiblingSources } from './browserPreviewSiblings';
 import {
@@ -105,6 +110,8 @@ export async function executeTabManually(
     setLineResults,
     setStdinConsumed,
     setDiagnostics,
+    setRunTermination,
+    setRunDeadlineAt,
   } = useResultStore.getState();
 
   const { language, content, name, runtimeMode } = activeTab;
@@ -284,9 +291,27 @@ export async function executeTabManually(
       setExecutionTime(null);
     };
 
+    // RL-020 Slice 7 — resolve the per-run timeout in priority
+    // order: lifecycle override (desktop smoke / test) → one-shot
+    // tab override (fold D, palette "Run with extended timeout") →
+    // magic-comment `// @timeout 60s` (fold B) → undefined, which
+    // lets the runner read the Settings preset for the language.
+    const magicTimeoutMs = extractTimeoutMagicComment(language, content);
+    const resolvedTimeoutMs =
+      lifecycle.executionTimeoutMs ??
+      activeTab.nextRunTimeoutOverrideMs ??
+      magicTimeoutMs ??
+      undefined;
+    // Consume the one-shot tab override immediately so a subsequent
+    // run reverts to the persisted preset (or to a fresh magic
+    // comment if the buffer still carries one).
+    if (activeTab.nextRunTimeoutOverrideMs !== undefined) {
+      useEditorStore.getState().setTabNextRunTimeoutOverride(activeTab.id, null);
+    }
+
     const executionContext = {
-      ...(lifecycle.executionTimeoutMs !== undefined
-        ? { timeout: lifecycle.executionTimeoutMs }
+      ...(resolvedTimeoutMs !== undefined
+        ? { timeout: resolvedTimeoutMs }
         : {}),
       tabId: activeTab.id,
       onConsole: streamConsoleOutput,
@@ -297,7 +322,43 @@ export async function executeTabManually(
       ...(activeTab.stdinBuffer ? { stdin: activeTab.stdinBuffer } : {}),
     };
 
+    const settingsTimeoutMs = isRuntimeTimeoutSupportedLanguage(language)
+      ? resolveTimeoutMs(
+          language,
+          useSettingsStore.getState().runtimeTimeoutPresetByLanguage?.[language]
+        )
+      : undefined;
+    const deadlineTimeoutMs = resolvedTimeoutMs ?? settingsTimeoutMs;
+
+    // RL-020 Slice 7 fold E — set the in-flight deadline so the
+    // countdown pill can render `mm:ss` until termination. The
+    // resolved timeout the runner armed is either an explicit
+    // override or the active Settings preset for the language; the
+    // pill reads `useResultStore.runDeadlineAt` to compute the
+    // remaining time.
+    if (deadlineTimeoutMs !== undefined) {
+      setRunDeadlineAt(Date.now() + deadlineTimeoutMs);
+    }
+
     const result = await runner.execute(content, executionContext);
+    // Tear down the in-flight deadline immediately; the pill flips
+    // to the termination variant on the next render.
+    setRunDeadlineAt(null);
+    // RL-020 Slice 7 — propagate the termination summary to the
+    // result store so `<RunStatusPill>` can render the right
+    // variant. Runners that don't set `kind` default to a
+    // best-effort guess based on `error` / `cancelled`.
+    const terminationKind: 'success' | 'error' | 'timeout' | 'stopped' =
+      result.kind ?? (result.cancelled
+        ? 'stopped'
+        : result.error
+          ? 'error'
+          : 'success');
+    setRunTermination({
+      kind: terminationKind,
+      timeoutPreset: result.timeoutPreset,
+      timeoutMs: result.timeoutMs,
+    });
 
     if (result.cancelled) {
       const message =
@@ -355,6 +416,21 @@ export async function executeTabManually(
       addEntry(entry);
     }
 
+    // RL-020 Slice 7 fold G — `runner.executed.status` enum widens
+    // to distinguish `'timeout'` and `'stopped'` from generic
+    // `'error'`. Prefer the explicit `result.kind` set by the
+    // runner; fall back to the legacy boolean for runners that
+    // never set the field.
+    const runStatus: 'ok' | 'error' | 'timeout' | 'stopped' =
+      result.kind === 'timeout'
+        ? 'timeout'
+        : result.kind === 'stopped'
+          ? 'stopped'
+          : result.error
+            ? 'error'
+            : 'ok';
+    const historyStatus: 'ok' | 'error' =
+      runStatus === 'ok' ? 'ok' : 'error';
     // RL-028 first slice — record metadata always. RL-028 sixth slice —
     // attach the optional code snapshot when the user opted in AND the
     // active tier covers `EXECUTION_HISTORY`. `snapshotPayloadFor`
@@ -362,7 +438,7 @@ export async function executeTabManually(
     if (shouldRecordHistory) {
       useExecutionHistoryStore.getState().record({
         language,
-        status: result.error ? 'error' : 'ok',
+        status: historyStatus,
         durationMs: result.executionTime ?? null,
         snapshot: snapshotPayloadFor(content, language),
         // RL-020 Slice 4 — anchor the entry to the source tab so the
@@ -377,7 +453,7 @@ export async function executeTabManually(
     // anything beyond language/status/durationBucketMs.
     void trackEvent('runner.executed', {
       language,
-      status: result.error ? 'error' : 'ok',
+      status: runStatus,
       durationBucketMs: bucketDurationMs(result.executionTime ?? 0),
     });
     // RL-020 Slice 6 fold C — same adoption signal as the auto-run
@@ -402,6 +478,9 @@ export async function executeTabManually(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    // RL-020 Slice 7 — surface the failure via the pill too.
+    setRunDeadlineAt(null);
+    setRunTermination({ kind: 'error' });
     // RL-028 — record the failure so "Recent runs" still reflects the
     // error outcome. `durationMs: null` when timing never ran. The
     // snapshot still attaches when opted-in + Pro: a failure is the

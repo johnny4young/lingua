@@ -126,6 +126,39 @@ interface BuildCommandPaletteModelArgs {
    */
   stdinPanelAvailable?: boolean;
   /**
+   * RL-020 Slice 7 fold C — set the active language's timeout
+   * preset. Hidden when the active language isn't in the supported
+   * set (JS / TS / Python / Go) or when the caller didn't wire it.
+   */
+  onSetActiveLanguageTimeoutPreset?: (
+    preset: 'quick' | 'normal' | 'long' | 'extended'
+  ) => void;
+  /**
+   * RL-020 Slice 7 fold C — the language the palette will adjust.
+   * Used as a closed-enum gate so the action is only visible on
+   * supported languages.
+   */
+  activeTimeoutLanguage?:
+    | 'javascript'
+    | 'typescript'
+    | 'python'
+    | 'go'
+    | null;
+  /**
+   * RL-020 Slice 7 fold C — the active preset for the language
+   * above. Drives the dynamic description on each palette entry so
+   * the user sees which preset is currently active.
+   */
+  activeTimeoutPreset?: 'quick' | 'normal' | 'long' | 'extended' | null;
+  /**
+   * RL-020 Slice 7 fold D — fires the "Run with extended timeout"
+   * one-shot action. Caller is responsible for wiring the override
+   * into the next run via `setTabNextRunTimeoutOverride` and
+   * dispatching the run. Hidden when omitted or when the active
+   * language is not timeout-preset supported.
+   */
+  onRunWithExtendedTimeout?: () => void;
+  /**
    * RL-020 Slice 4 fold G — id of the active editor tab. Used to
    * surface a parallel "Recent runs (this tab)" group ranked above
    * the global recent-runs entries when at least one history entry
@@ -421,6 +454,10 @@ export function buildCommandPaletteModel({
   activeAutoLogResolved = false,
   onFocusStdinPanel,
   stdinPanelAvailable = false,
+  onSetActiveLanguageTimeoutPreset,
+  activeTimeoutLanguage = null,
+  activeTimeoutPreset = null,
+  onRunWithExtendedTimeout,
   activeTabId = null,
   updateStatus,
   createTab,
@@ -578,6 +615,55 @@ export function buildCommandPaletteModel({
             ['auto-log', 'autolog', 'inline', 'expression', 'scratchpad', 'toggle'],
             () => {
               onToggleAutoLogOnActiveTab();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-020 Slice 7 fold C — "Set execution timeout: Quick / Normal /
+    // Long / Extended" entries on the active language. Hidden when
+    // the active language isn't in the supported set or when the
+    // caller didn't wire `onSetActiveLanguageTimeoutPreset`. Active
+    // preset is suffixed with " · current" so the user sees which is
+    // selected without having to reach for Settings.
+    ...(onSetActiveLanguageTimeoutPreset && activeTimeoutLanguage
+      ? (['quick', 'normal', 'long', 'extended'] as const).map((preset) =>
+          buildActionCommand(
+            `action-set-timeout-${preset}`,
+            translate(`commandPalette.action.setTimeout.${preset}.label`),
+            preset === activeTimeoutPreset
+              ? translate('commandPalette.action.setTimeout.activeDescription')
+              : translate(`commandPalette.action.setTimeout.${preset}.description`),
+            [
+              'timeout',
+              'preset',
+              'execution',
+              'run',
+              'limit',
+              'deadline',
+              preset,
+            ],
+            () => {
+              onSetActiveLanguageTimeoutPreset(preset);
+              onClose();
+            }
+          )
+        )
+      : []),
+    // RL-020 Slice 7 fold D — one-shot "Run with extended timeout".
+    // Sets `nextRunTimeoutOverrideMs` on the active tab and
+    // dispatches the run; the override is consumed once. Hidden when
+    // the caller did not wire the handler or the active language is
+    // outside the timeout-preset supported set.
+    ...(onRunWithExtendedTimeout && activeTimeoutLanguage
+      ? [
+          buildActionCommand(
+            'action-run-with-extended-timeout',
+            translate('commandPalette.action.runExtendedTimeout.label'),
+            translate('commandPalette.action.runExtendedTimeout.description'),
+            ['run', 'extended', 'timeout', 'long', 'once', 'override'],
+            () => {
+              onRunWithExtendedTimeout();
               onClose();
             }
           ),
