@@ -42,14 +42,19 @@ export function AutoLogStatusPill() {
   if (!enabled) return null;
 
   const languageLabel = t(`autoLog.settings.${language}.label`);
+  // UI refinement — the file extension already says JS/TS; the pill
+  // only needs to communicate "auto-log is on". Drop the language
+  // tag from the visible label; keep it in the tooltip so screen
+  // readers and slow-discover users still get the full context.
   return (
     <span
       data-result-kind="autoLog-pill"
       title={t('autoLog.statusPill.tooltip', { language: languageLabel })}
-      className="status-pill inline-flex items-center gap-1 text-[10px] italic"
+      aria-label={t('autoLog.statusPill.tooltip', { language: languageLabel })}
+      className="inline-flex items-center gap-1 rounded-full bg-transparent px-1.5 text-[10px] italic text-muted"
     >
       <MoveRight size={10} aria-hidden="true" className="opacity-70" />
-      {t('autoLog.statusPill.label', { language: languageLabel })}
+      {t('autoLog.statusPill.shortLabel')}
     </span>
   );
 }

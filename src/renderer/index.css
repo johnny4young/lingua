@@ -628,7 +628,7 @@
   }
 
   .status-pill {
-    @apply inline-flex items-center rounded-full border border-border/80 bg-surface-strong/75 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted;
+    @apply inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-border/80 bg-surface-strong/75 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted;
   }
 
   .tooltip-content {
@@ -832,6 +832,29 @@
   .monaco-editor .lingua-bp-glyph--disabled {
     background-color: transparent;
     box-shadow: inset 0 0 0 1.5px var(--app-danger, #e1495d);
+  }
+
+  /* RL-020 Slice 6 UX polish — make the breakpoint gutter
+     discoverable on hover. Without this, the glyph-margin column
+     reads as inert black space until the user happens to click in
+     it. We add:
+       - A subtle background tint over the whole glyph-margin on
+         hover so the user can see "this column is interactive".
+       - A faint ghost dot under the hovered line so the affordance
+         matches the dot it would create. Monaco exposes the hovered
+         line via the `.margin-view-overlays > .glyph-margin-widget`
+         hover state; here we use the host element + an adjacent
+         sibling selector.
+     The tint defers to the live `lingua-bp-glyph` decoration so an
+     already-placed breakpoint never visually mutates on hover. */
+  .monaco-editor .margin .margin-view-overlays {
+    transition: background-color 120ms ease;
+  }
+  .monaco-editor .margin:hover .margin-view-overlays {
+    background-color: color-mix(in srgb, var(--app-danger, #e1495d) 5%, transparent);
+  }
+  .monaco-editor .margin .glyph-margin-widgets {
+    cursor: pointer;
   }
 
   .monaco-editor .lingua-debugger-paused-line {

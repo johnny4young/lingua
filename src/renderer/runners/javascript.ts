@@ -99,6 +99,11 @@ export class JavaScriptRunner implements LanguageRunner {
     const magicResults: MagicCommentResult[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
+    // RL-020 Slice 6 fold G — the worker echoes its stdin
+    // consumption summary as a `stdin-consumed` message; relay
+    // forward via the canonical ExecutionResult shape so the UI
+    // panel can surface "Used N of M lines".
+    let stdinConsumed: { count: number; total: number } | undefined;
     // Independent caps per stream — stdout overflowing should not
     // mute the truncation notice on stderr (and vice versa).
     let droppedStdout = 0;
@@ -262,6 +267,25 @@ export class JavaScriptRunner implements LanguageRunner {
             context?.onConsole?.(output);
             break;
           }
+          case 'stdin-consumed': {
+            // RL-020 Slice 6 fold G — defensively coerce to a
+            // bounded shape; the worker is trusted but the panel
+            // only renders integer counts.
+            const summary = msg as unknown as {
+              count: unknown;
+              total: unknown;
+            };
+            const count =
+              typeof summary.count === 'number' && Number.isInteger(summary.count)
+                ? Math.max(0, summary.count)
+                : 0;
+            const total =
+              typeof summary.total === 'number' && Number.isInteger(summary.total)
+                ? Math.max(0, summary.total)
+                : 0;
+            stdinConsumed = { count, total };
+            break;
+          }
           case 'magic-comment':
             // RL-020 Slice 5 — the kind table now carries `'arrow'`,
             // `'watch'`, or `'autoLog'`. The worker postMessage
@@ -329,6 +353,7 @@ export class JavaScriptRunner implements LanguageRunner {
               executionTime: msg.executionTime,
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
+              stdinConsumed,
             });
             // Detach the debugger session — the run is over.
             this.clearDebuggerSession('run-complete');
@@ -387,6 +412,10 @@ export class JavaScriptRunner implements LanguageRunner {
         breakpoints: tabBreakpoints.map((bp) => ({ line: bp.line, condition: bp.condition })),
         watches: debug ? debugStore.watches.map((w) => w.expression) : [],
         sourceLineMap,
+        // RL-020 Slice 6 — pre-set stdin buffer the worker installs
+        // as the source of `prompt()` / `readline()` answers. Empty
+        // / undefined leaves the native worker behavior in place.
+        stdin: context?.stdin,
       });
     });
   }

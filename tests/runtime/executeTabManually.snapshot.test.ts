@@ -53,6 +53,7 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     setIsAutoRunning: vi.fn(),
     setIsManualRunning: vi.fn(),
     setLineResults: vi.fn(),
+    setStdinConsumed: vi.fn(),
     setDiagnostics: vi.fn(),
   };
   return { useResultStore: { getState: () => state } };

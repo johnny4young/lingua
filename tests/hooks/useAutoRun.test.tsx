@@ -24,6 +24,7 @@ describe('useAutoRun', () => {
   const initialEditor = useEditorStore.getState();
   const initialLicense = useLicenseStore.getState();
   const initialResult = useResultStore.getState();
+  const initialSettings = useSettingsStore.getState();
   const originalLingua = window.lingua;
 
   beforeEach(() => {
@@ -31,6 +32,7 @@ describe('useAutoRun', () => {
     vi.clearAllMocks();
     useEditorStore.setState(initialEditor, true);
     useLicenseStore.setState(initialLicense, true);
+    useSettingsStore.setState(initialSettings, true);
     useLicenseStore.setState({
       token: 'test.token',
       status: {
@@ -66,6 +68,7 @@ describe('useAutoRun', () => {
     useEditorStore.setState(initialEditor, true);
     useLicenseStore.setState(initialLicense, true);
     useResultStore.setState(initialResult, true);
+    useSettingsStore.setState(initialSettings, true);
     Object.defineProperty(window, 'lingua', {
       configurable: true,
       writable: true,
@@ -413,6 +416,7 @@ describe('useAutoRun', () => {
           stdout: [{ type: 'log', args: ['42'] }],
           stderr: [],
           result: undefined,
+          stdinConsumed: { count: 1, total: 2 },
           executionTime: 7,
           error: null,
         }),
@@ -442,6 +446,7 @@ describe('useAutoRun', () => {
     expect(snapshotAfterRun).not.toBeNull();
     const goodLineResults = snapshotAfterRun!.lineResults;
     expect(snapshotAfterRun!.executionTime).toBe(7);
+    expect(snapshotAfterRun!.stdinConsumed).toEqual({ count: 1, total: 2 });
 
     // Now flip the buffer to an obviously-incomplete shape; the
     // gate should short-circuit and restore the captured snapshot.
@@ -467,6 +472,10 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().autoRunGateReason).toBe('incomplete');
     expect(useResultStore.getState().lineResults).toEqual(goodLineResults);
     expect(useResultStore.getState().executionTime).toBe(7);
+    expect(useResultStore.getState().stdinConsumed).toEqual({
+      count: 1,
+      total: 2,
+    });
   });
 
   it('RL-020 Slice 2 — does NOT auto-run when workflow mode is `run`', async () => {
@@ -799,6 +808,73 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenCalledTimes(2);
     expect(execute).toHaveBeenLastCalledWith('const x = 1;\nx + 1', {
       autoLog: true,
+    });
+  });
+
+  it('RL-020 Slice 6 — re-runs the same Scratchpad buffer when stdin changes', async () => {
+    const execute = vi.fn().mockResolvedValue({
+      stdout: [],
+      stderr: [],
+      result: undefined,
+      executionTime: 3,
+      error: null,
+      stdinConsumed: { count: 1, total: 1 },
+    });
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: { execute },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-stdin-toggle',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'prompt()',
+          isDirty: false,
+          workflowMode: 'scratchpad',
+        },
+      ],
+      activeTabId: 'tab-js-stdin-toggle',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenLastCalledWith('prompt()', {
+      autoLog: false,
+    });
+
+    act(() => {
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-js-stdin-toggle',
+            name: 'main.js',
+            language: 'javascript',
+            content: 'prompt()',
+            isDirty: false,
+            workflowMode: 'scratchpad',
+            stdinBuffer: 'Ada',
+          },
+        ],
+        activeTabId: 'tab-js-stdin-toggle',
+      });
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenLastCalledWith('prompt()', {
+      autoLog: false,
+      stdin: 'Ada',
+    });
+    expect(useResultStore.getState().stdinConsumed).toEqual({
+      count: 1,
+      total: 1,
     });
   });
 

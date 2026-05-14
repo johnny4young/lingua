@@ -10,6 +10,7 @@ import { isInlineResultLanguage } from '../../utils/languageCapabilities';
 import { AutoRunGateNotice } from './AutoRunGateNotice';
 import { WorkflowModeStatusPill } from './WorkflowModeStatusPill';
 import { AutoLogStatusPill } from './AutoLogStatusPill';
+import { StdinStatusPill } from './StdinStatusPill';
 import { RecentRunsPill } from './RecentRunsPill';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 
@@ -266,36 +267,32 @@ export function ResultPanel() {
 
   return (
     <div className="flex h-full flex-col bg-background/65">
-      <div className="surface-header flex h-12 shrink-0 items-center justify-between px-4">
-        <div>
+      <div className="surface-header flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2">
+        <div className="min-w-0">
           <span className="panel-title">{t(titleKey)}</span>
           <p className="mt-0.5 text-[11px] text-muted">
             {t(descriptionKey)}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-1">
           {isAutoRunning && <Loader2 size={13} className="animate-spin text-primary" />}
           <AutoRunGateNotice />
           {/* RL-020 Slice 2 fold B — workflow-mode pill next to the
-              execution-time slot. Surfaces "why didn't this run?"
-              answers without forcing the user to look at the
-              toolbar. Low-contrast so it never fights the
-              AutoRunGateNotice. */}
+              execution-time slot. Low-contrast so it never fights
+              the AutoRunGateNotice. */}
           <WorkflowModeStatusPill />
-          {/* RL-020 Slice 5 fold E — Auto-log status pill. Self-gates
-              on JS / TS + Scratchpad workflow mode + resolved
-              `autoLogEnabled` flag, so it stays silent everywhere
-              else. Renders next to the workflow-mode pill so the
-              two stay visually grouped. */}
+          {/* RL-020 Slice 5 fold E — Auto-log status pill, simplified
+              (no language tag — file extension already says JS/TS). */}
           <AutoLogStatusPill />
-          {/* RL-020 Slice 4 — per-tab Recent Runs pill. Self-gates
-              on entitlement + executionMode + non-empty tab
-              history; renders nothing for Free / view-only /
-              validate-only tabs or tabs with zero entries. */}
+          {/* RL-020 Slice 6 fold F — Stdin status pill. */}
+          <StdinStatusPill />
+          {/* RL-020 Slice 4 — per-tab Recent Runs pill. */}
           <RecentRunsPill />
           {executionTime !== null && (
-            <span className="status-pill tabular-nums">{formatExecTime(executionTime)}</span>
+            <span className="status-pill tabular-nums whitespace-nowrap">
+              {formatExecTime(executionTime)}
+            </span>
           )}
           {showUndefinedToggle && (
             <button

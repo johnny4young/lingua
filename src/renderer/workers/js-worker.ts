@@ -189,6 +189,54 @@ interface ExecuteMessage {
   breakpoints?: { line: number; condition?: string }[];
   watches?: string[];
   sourceLineMap?: Record<number, number>;
+  /**
+   * RL-020 Slice 6 — pre-set stdin buffer for `prompt()` /
+   * `readline()`. Newline-delimited. Empty / undefined leaves the
+   * native worker behavior in place (worker has no `prompt`, so
+   * calls throw `ReferenceError`).
+   */
+  stdin?: string;
+}
+
+/**
+ * RL-020 Slice 6 — line-by-line stdin reader. The worker constructs
+ * a fresh reader on each `execute` request; consumed lines are
+ * tracked locally and reported back to the main thread via the
+ * `stdin-consumed` reply right before `done`. `getCount()` and
+ * `getTotal()` feed the fold-G "Used N of M lines" surface.
+ */
+interface StdinReader {
+  consume: () => string | null;
+  getCount: () => number;
+  getTotal: () => number;
+}
+
+function createStdinReader(buffer: string | undefined): StdinReader {
+  if (!buffer || buffer.length === 0) {
+    return {
+      consume: () => null,
+      getCount: () => 0,
+      getTotal: () => 0,
+    };
+  }
+  // Split on `\n`; trim a trailing empty segment so the user typing
+  // `2\n3\n` is the same as `2\n3` (3 reads would return null on the
+  // 3rd call either way).
+  const rawLines = buffer.split('\n');
+  if (rawLines.length > 0 && rawLines[rawLines.length - 1] === '') {
+    rawLines.pop();
+  }
+  let cursor = 0;
+  return {
+    consume: () => {
+      if (cursor >= rawLines.length) return null;
+      const value = rawLines[cursor]!;
+      cursor += 1;
+      return value;
+    },
+    getCount: () => cursor,
+    getTotal: () => rawLines.length,
+  };
 }
 
 function applyExecutePayload(session: DebuggerSessionState, msg: ExecuteMessage): void {
@@ -261,6 +309,21 @@ ctx.addEventListener('message', async (event) => {
     const session = createSession(runId);
     applyExecutePayload(session, exec);
     activeSession = session;
+
+    // RL-020 Slice 6 — install line-by-line stdin readers. We
+    // capture the previous values so a follow-up run starts from a
+    // clean global scope (workers are single-shot today so this is
+    // belt-and-braces, but if a future runner reuses the same
+    // worker context the restoration keeps it honest).
+    const stdinReader = createStdinReader(exec.stdin);
+    const prevPrompt = (self as unknown as { prompt?: unknown }).prompt;
+    const prevReadline = (self as unknown as { readline?: unknown }).readline;
+    if (exec.stdin && exec.stdin.length > 0) {
+      const consumer = () => stdinReader.consume();
+      (self as unknown as { prompt: (message?: string) => string | null }).prompt =
+        consumer;
+      (self as unknown as { readline: () => string | null }).readline = consumer;
+    }
 
     try {
       const executionPromise = (async () => {
@@ -377,6 +440,17 @@ ctx.addEventListener('message', async (event) => {
       }
 
       const executionTime = performance.now() - startTime;
+      // RL-020 Slice 6 fold G — emit consumption summary BEFORE the
+      // `done` reply so the runner can stitch it onto the
+      // `ExecutionResult` the panel renders.
+      if (stdinReader.getTotal() > 0) {
+        ctx.postMessage({
+          type: 'stdin-consumed',
+          runId,
+          count: stdinReader.getCount(),
+          total: stdinReader.getTotal(),
+        });
+      }
       ctx.postMessage({ type: 'done', runId, executionTime });
     } catch (err) {
       const executionTime = performance.now() - startTime;
@@ -388,9 +462,39 @@ ctx.addEventListener('message', async (event) => {
         error: parsed,
       });
 
+      if (stdinReader.getTotal() > 0) {
+        ctx.postMessage({
+          type: 'stdin-consumed',
+          runId,
+          count: stdinReader.getCount(),
+          total: stdinReader.getTotal(),
+        });
+      }
       ctx.postMessage({ type: 'done', runId, executionTime });
     } finally {
       restoreConsole();
+      // Restore the previous prompt / readline bindings even though
+      // the worker is single-shot — keeps the worker test harness
+      // honest if a future test reuses the context. When the
+      // previous binding was `undefined` (the worker has no native
+      // `prompt`), DELETE the own property rather than re-assigning
+      // it to literal `undefined`; otherwise `'prompt' in self`
+      // would return `true` after restoration and a future
+      // "was patched?" check would misread the state.
+      const selfWithIO = self as unknown as {
+        prompt?: unknown;
+        readline?: unknown;
+      };
+      if (prevPrompt === undefined) {
+        delete selfWithIO.prompt;
+      } else {
+        selfWithIO.prompt = prevPrompt;
+      }
+      if (prevReadline === undefined) {
+        delete selfWithIO.readline;
+      } else {
+        selfWithIO.readline = prevReadline;
+      }
       activeSession = null;
     }
   }

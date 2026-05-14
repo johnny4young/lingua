@@ -54,6 +54,10 @@ describe('TELEMETRY_EVENTS', () => {
       // run. Closed-enum payload `{ language, hasArrow, hasWatch }`.
       'runtime.magic_comment_emitted',
       'runtime.mode_changed',
+      // RL-020 Slice 6 — bare-stdin adoption signal. Closed-enum
+      // payload `{ language }`. Sorts between `mode_changed` and
+      // `workflow_mode_changed` alphabetically.
+      'runtime.stdin_used',
       // RL-020 Slice 2 — per-tab workflow mode change. Closed-enum
       // payload `{ language, from, to, trigger }`.
       'runtime.workflow_mode_changed',
@@ -540,6 +544,37 @@ describe('runtime.auto_log_emitted value validator (RL-020 Slice 5 fold A)', () 
     );
     expect(event.properties).not.toHaveProperty('language');
     expect(event.properties.countBucket).toBe('2-5');
+  });
+});
+
+describe('runtime.stdin_used value validator (RL-020 Slice 6)', () => {
+  it('accepts the closed enum payload', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.stdin_used',
+        properties: { language: 'python' },
+      })
+    );
+    expect(event.properties).toEqual({ language: 'python' });
+  });
+  it('drops unknown property keys', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.stdin_used',
+        properties: { language: 'javascript', linesRead: 7 },
+      })
+    );
+    expect(event.properties).toEqual({ language: 'javascript' });
+    expect(droppedKeys).toContain('linesRead');
+  });
+  it('drops a non-safe-token language', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.stdin_used',
+        properties: { language: '../etc/passwd' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('language');
   });
 });
 

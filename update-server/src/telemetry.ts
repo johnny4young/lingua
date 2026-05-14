@@ -48,6 +48,9 @@ export const TELEMETRY_EVENT_NAMES = [
   // parity test enforces both arrays stay aligned at CI time.
   'runtime.auto_log_enabled',
   'runtime.auto_log_emitted',
+  // RL-020 Slice 6 — mirror of `runtime.stdin_used` in
+  // `src/shared/telemetry.ts`. The parity test enforces drift.
+  'runtime.stdin_used',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -76,6 +79,7 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.history_replay': ['language', 'status', 'surface'],
   'runtime.auto_log_enabled': ['language', 'enabled'],
   'runtime.auto_log_emitted': ['language', 'countBucket'],
+  'runtime.stdin_used': ['language'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -345,6 +349,9 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'countBucket')
         return typeof value === 'string' && AUTO_LOG_COUNT_BUCKETS.has(value);
+      return false;
+    case 'runtime.stdin_used':
+      if (key === 'language') return isSafeToken(value);
       return false;
     default: {
       const exhaustive: never = event;

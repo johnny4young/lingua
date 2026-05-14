@@ -129,6 +129,18 @@ export interface FileTab {
    * a stale override does not persist across language changes.
    */
   autoLogEnabled?: boolean;
+  /**
+   * RL-020 Slice 6 — per-tab pre-set stdin buffer consumed by JS / TS
+   * `prompt()` / `readline()` and Python `input()` during the next
+   * run. Newline-delimited; each call to `prompt()` / `input()`
+   * consumes one line. Empty / undefined ⇒ no patching, native worker
+   * behavior. In JS workers that means a bare `prompt()` is still
+   * undefined; after a non-empty buffer is exhausted the patched
+   * `prompt()` / `readline()` returns `null`.
+   * Cleared in `renameTab` when the new language has no worker-side
+   * stdin support (anything outside JS / TS / Python).
+   */
+  stdinBuffer?: string;
 }
 
 /**
@@ -208,6 +220,14 @@ export interface EditorState {
    *     this slice; setting the flag elsewhere would be misleading).
    */
   setTabAutoLogEnabled: (id: string, enabled: boolean | null) => void;
+  /**
+   * RL-020 Slice 6 — write the per-tab stdin buffer. `null` clears
+   * the field. No-op when:
+   *   - the tab does not exist;
+   *   - the tab's language is not JS / TS / Python (stdin is
+   *     worker-only this slice; the desktop runners stay TODO).
+   */
+  setTabStdinBuffer: (id: string, text: string | null) => void;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The
@@ -381,6 +401,14 @@ export interface SettingsState {
    */
   scratchpadAutoLogByLanguage: Record<string, boolean>;
   /**
+   * RL-020 Slice 6 fold D — master visibility toggle for the
+   * bottom-panel `stdin` tab. Default `true` (the tab is offered
+   * for JS / TS / Python tabs). When `false`, the BottomPanel
+   * strip skips the entry entirely, so users who never use stdin
+   * keep the leaner three-tab strip.
+   */
+  showStdinPanel: boolean;
+  /**
    * RL-020 Slice 2 fold F — one-shot acknowledgement flag for the
    * "Scratchpad auto-runs as you type; Run waits for Cmd+R"
    * onboarding toast. Set to `true` the first time the user switches
@@ -482,6 +510,11 @@ export interface SettingsState {
    */
   setScratchpadAutoLogDefault: (language: string, enabled: boolean) => void;
   /**
+   * RL-020 Slice 6 fold D — flip the master visibility toggle for
+   * the bottom-panel `stdin` tab.
+   */
+  toggleShowStdinPanel: () => void;
+  /**
    * RL-020 Slice 2 fold F — mark the workflow-mode onboarding toast
    * acknowledged. Idempotent. Called when the user explicitly
    * dismisses or just sees the toast.
@@ -542,6 +575,15 @@ export interface ExecutionContext {
    * auto-log.
    */
   autoLog?: boolean;
+  /**
+   * RL-020 Slice 6 — pre-set stdin buffer the worker consumes for
+   * `prompt()` / `readline()` (JS / TS) or `input()` (Python).
+   * Newline-delimited; each call consumes one line. Empty /
+   * undefined ⇒ native worker behavior. Layered onto the existing
+   * `runner.execute` contract; runners that do not consume stdin
+   * ignore the field harmlessly.
+   */
+  stdin?: string;
 }
 
 export interface ExecutionError {
@@ -593,6 +635,16 @@ export interface ExecutionResult {
   cancelled?: boolean;
   error?: ExecutionError;
   magicResults?: MagicCommentResult[];
+  /**
+   * RL-020 Slice 6 fold G — stdin consumption summary. Populated by
+   * runners whose worker pulled at least one line out of the pre-set
+   * buffer; the StdinInputPanel reads this to render
+   * "Used N of M line(s)". `total` is the number of lines in the
+   * buffer the worker received; `count` is how many lines the
+   * program actually read. Omitted entirely when the run didn't
+   * touch stdin.
+   */
+  stdinConsumed?: { count: number; total: number };
 }
 
 export interface ConsoleOutput {
@@ -673,4 +725,17 @@ export type WorkerResponse =
       watchResults: Record<string, { value?: string; error?: string; pending?: boolean }>;
       conditionalPending?: boolean;
     }
-  | { type: 'resumed'; runId: string };
+  | { type: 'resumed'; runId: string }
+  | {
+      /**
+       * RL-020 Slice 6 fold G — stdin consumption summary the worker
+       * posts right before `done`. `count` is the number of lines the
+       * program actually consumed; `total` is the size of the
+       * pre-set buffer the worker received. Omitted entirely when
+       * the buffer was empty.
+       */
+      type: 'stdin-consumed';
+      runId: string;
+      count: number;
+      total: number;
+    };

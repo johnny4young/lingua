@@ -103,6 +103,7 @@ export async function executeTabManually(
     setIsAutoRunning,
     setIsManualRunning,
     setLineResults,
+    setStdinConsumed,
     setDiagnostics,
   } = useResultStore.getState();
 
@@ -290,6 +291,10 @@ export async function executeTabManually(
       tabId: activeTab.id,
       onConsole: streamConsoleOutput,
       ...(debugRequested ? { debug: true } : {}),
+      // RL-020 Slice 6 — manual Run feeds the same pre-set buffer
+      // that auto-run uses. Runners that do not consume stdin
+      // ignore the field.
+      ...(activeTab.stdinBuffer ? { stdin: activeTab.stdinBuffer } : {}),
     };
 
     const result = await runner.execute(content, executionContext);
@@ -333,6 +338,9 @@ export async function executeTabManually(
     const presentation = toExecutionPresentation(language, content, result);
     setLineResults(presentation.lineResults);
     setFullOutput(presentation.fullOutput);
+    // RL-020 Slice 6 fold G — surface the consumption summary
+    // alongside the manual-run results, same as the auto-run path.
+    setStdinConsumed(result.stdinConsumed ?? null);
     setError(result.error ?? null);
     const diagnostics = toExecutionDiagnostics(language, result.error ?? null);
     setDiagnostics(diagnostics);
@@ -372,6 +380,18 @@ export async function executeTabManually(
       status: result.error ? 'error' : 'ok',
       durationBucketMs: bucketDurationMs(result.executionTime ?? 0),
     });
+    // RL-020 Slice 6 fold C — same adoption signal as the auto-run
+    // path. Both run surfaces share the same buffer and worker, so
+    // the same gate applies (≥1 line consumed, JS / TS / Python).
+    if (
+      result.stdinConsumed &&
+      result.stdinConsumed.count > 0 &&
+      (language === 'javascript' ||
+        language === 'typescript' ||
+        language === 'python')
+    ) {
+      void trackEvent('runtime.stdin_used', { language });
+    }
 
     return {
       mode: 'run',

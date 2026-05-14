@@ -68,6 +68,8 @@ export function EditorSection() {
   const setScratchpadAutoLogDefault = useSettingsStore(
     (state) => state.setScratchpadAutoLogDefault
   );
+  const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
+  const toggleShowStdinPanel = useSettingsStore((state) => state.toggleShowStdinPanel);
   const syncShellWithEditorTheme = useSettingsStore(
     (state) => state.syncShellWithEditorTheme
   );
@@ -410,6 +412,18 @@ export function EditorSection() {
             );
           })}
         </div>
+      </Row>
+
+      {/* RL-020 Slice 6 fold D — bottom-panel Input tab visibility.
+          The buffer state per tab is preserved either way; hiding the
+          tab keeps the leaner three-tab strip without losing data. */}
+      <Row label={t('stdin.settings.label')} hint={t('stdin.settings.hint')}>
+        <Toggle
+          value={showStdinPanel}
+          onChange={toggleShowStdinPanel}
+          aria-label={t('stdin.settings.label')}
+          data-testid="settings-show-stdin-panel"
+        />
       </Row>
 
       <Row label={t('debugger.settings.label')} hint={t('debugger.settings.hint')}>

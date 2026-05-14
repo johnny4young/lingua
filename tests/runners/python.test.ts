@@ -71,6 +71,16 @@ describe('PythonRunner — RL-011 Slice D env wiring', () => {
       if (message.type === 'execute') {
         // Synthesize a successful done so the runner promise resolves.
         const handler = this.listeners.get('message');
+        if (typeof message.stdin === 'string') {
+          handler?.({
+            data: {
+              type: 'stdin-consumed',
+              runId: message.runId,
+              count: 1,
+              total: 2,
+            },
+          } as MessageEvent);
+        }
         handler?.({
           data: {
             type: 'done',
@@ -164,6 +174,18 @@ describe('PythonRunner — RL-011 Slice D env wiring', () => {
 
     const executeMessage = postedMessages.find((m) => m.type === 'execute');
     expect(executeMessage?.userEnv).toEqual({});
+  });
+
+  it('forwards stdin and relays the worker consumption summary', async () => {
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute('name = input()', {
+      stdin: 'Ada\nGrace',
+    });
+
+    const executeMessage = postedMessages.find((m) => m.type === 'execute');
+    expect(executeMessage?.stdin).toBe('Ada\nGrace');
+    expect(result.stdinConsumed).toEqual({ count: 1, total: 2 });
   });
 
   it('keeps userEnv empty on the web build even when tiers have values', async () => {

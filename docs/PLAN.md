@@ -968,7 +968,7 @@ Out of scope until Slice 2:
 
 - Priority: `P1`
 - Status: `Partial`
-- Readiness: `Slice 1 shipped 2026-05-13 — smart auto-run completion gate for JS/TS Scratchpad. Slices 2–9 (Run/Debug/Scratchpad distinction, magic-comment watches, auto-log, stdin, timeout presets, last-stable compare, per-tab history with rerun, variable inspector) remain.`
+- Readiness: `Slices 1–6 shipped 2026-05-13/14 — auto-run completion gate, Run/Debug/Scratchpad workflow modes, magic-comment watches, per-tab history replay, JS/TS auto-log, and JS/TS/Python pre-set stdin are live. Remaining scope: timeout presets, last-stable compare polish, and variable inspector.`
 - Scope:
   - Add smart auto-run with complete-code detection so incomplete edits do not execute too early
   - Treat Scratchpad as a distinct workflow from Run and Debug:
@@ -1634,6 +1634,111 @@ Out of scope until Slice 6:
 
 - stdin / input surface.
 - Timeout presets.
+- Variable inspector panel.
+
+#### Slice 6 — 2026-05-14 (pre-set stdin / input for JS / TS / Python Scratchpad runners)
+
+Slice 6 lands the named acceptance criterion (`Supported runtimes
+can accept simple stdin text without custom code changes.`).
+JS / TS / Python only this slice; the Go / Rust desktop runners stay
+TODO because their pipelines (Go WASM, host-spawned Rust) don't
+match the child-process stdin model the original plan anticipated
+— fold B was descoped accordingly.
+
+Architecture:
+
+- **`src/renderer/types/index.ts`** — `FileTab.stdinBuffer?: string`,
+  `ExecutionContext.stdin?: string`, `EditorState.setTabStdinBuffer`,
+  `ExecutionResult.stdinConsumed?: { count; total }`, new
+  `'stdin-consumed'` arm on the `WorkerResponse` union, new
+  Settings field `showStdinPanel: boolean` + `toggleShowStdinPanel`.
+- **`src/renderer/stores/editorStore.ts`** — new
+  `dropStdinIfUnsupported` helper mirrors Slice 5's
+  `dropAutoLogIfUnsupported`; clears on `addTab` / `restoreTabs` /
+  `renameTab` for any language outside JS / TS / Python.
+- **`src/renderer/stores/uiStore.ts`** — `BottomPanelTab` widens 3 →
+  4 (`'console' | 'debugger' | 'browser-preview' | 'stdin'`).
+- **`src/renderer/stores/sessionStore.ts`** (fold A) — persists
+  `stdinBuffer` alongside the runtime mode; restore drops the
+  field for unsupported languages so a tampered persisted entry
+  can't leak the buffer onto a Rust / JSON tab.
+- **`src/renderer/stores/resultStore.ts`** — new `stdinConsumed`
+  field + setter; cleared on `clear` and `clearVisibleResults`.
+- **`src/renderer/runners/{javascript,typescript,python}.ts`** —
+  thread `context?.stdin` into the worker `execute` payload; relay
+  the new `stdin-consumed` worker reply onto `ExecutionResult`.
+- **`src/renderer/workers/js-worker.ts`** — installs
+  `globalThis.prompt` + `globalThis.readline` patches BEFORE user
+  code runs when the payload carries a buffer; consumer walks
+  line-by-line and returns `null` past EOF (matches browser
+  `prompt()` Cancel). Posts the consumption summary before `done`.
+  Worker is single-shot per run; the `finally` block restores the
+  previous bindings defensively.
+- **`src/renderer/workers/python-worker.ts`** — calls
+  `pyodide.setStdin({ stdin, isatty: false })`; the handler returns
+  `${line}\n` per call and `null` past EOF (Pyodide raises
+  `EOFError` — stock Python REPL behaviour). Resets the handler in
+  the `finally` so the persistent worker starts the next run
+  clean.
+- **`src/renderer/components/Editor/StdinInputPanel.tsx`** (fold G)
+  — bottom-panel body; renders the empty / unsupported-language /
+  active variants and the "Used N of M line(s)" pill when
+  `useResultStore.stdinConsumed` is populated.
+- **`src/renderer/components/Editor/StdinStatusPill.tsx`** (fold F)
+  — ambient pill in the result-panel header. Self-gates on the
+  Settings master toggle + language + non-empty buffer; counts
+  trimmed lines and renders `Stdin · N line(s)`.
+- **`src/renderer/components/Layout/AppLayout.tsx`** — registers
+  the new `Input` tab + `MessageSquare` icon; widens `effectiveTab`
+  / `selectTab` to include `'stdin'`; auto-recovers
+  `activeBottomPanel` back to `'console'` when stdin becomes
+  unavailable.
+- **`src/renderer/components/Settings/EditorSection.tsx`** (fold D)
+  — "Show stdin input tab" toggle below the workflow-mode +
+  auto-log rows. Per-tab buffers are preserved either way.
+- **`src/renderer/components/CommandPalette/{commandPaletteModel,CommandPalette}.tsx`**
+  (fold E) — `action-focus-stdin-panel` calls
+  `uiStore.openBottomPanel('stdin')`. Gated on the Settings master
+  toggle + JS / TS / Python + non-browser-preview runtime mode.
+- **`src/renderer/runtime/executeTabManually.ts`** + **`hooks/useAutoRun.ts`**
+  — pipe `activeTab.stdinBuffer` through; surface
+  `result.stdinConsumed` via the new setter; fire `runtime.stdin_used`
+  adoption telemetry (fold C) when the run actually consumed ≥1
+  line.
+- **Telemetry** — `'runtime.stdin_used'` (`{ language }`) registered
+  in `src/shared/telemetry.ts` + mirrored in
+  `update-server/src/telemetry.ts`; per-event validator drops
+  unknown keys + non-safe-token language values.
+
+i18n — 15 new keys per locale across `stdin.*` + the command-palette
+toggle copy. Spanish in tuteo (`Define`, `Déjalo`, `Escribe`).
+
+Tests:
+
+- `tests/stores/editorStore.stdin.test.ts` — setter + null /
+  empty-string clear + unsupported-language refusal + `renameTab`
+  cleanup + `restoreTabs` strip-on-unsupported.
+- `tests/stores/settingsStore.test.ts` — fold-D master toggle
+  default + flip.
+- `tests/components/StdinInputPanel.test.tsx` — empty /
+  unsupported / supported / consumed-pill render contract.
+- `tests/shared/telemetry.test.ts` — `runtime.stdin_used` validator.
+- `update-server/test/telemetry.test.ts` — worker-side validator +
+  drop-unknown-keys behavior test.
+- `tests/e2e/stdinScratchpad.spec.ts` — 5 Playwright cases (JS
+  `prompt()` consumption + status pill + empty-buffer native
+  behavior + master toggle hides the tab + ES locale tuteo).
+
+Out of scope until Slice 7:
+
+- Desktop Go / Rust child-process stdin (fold B descope — Go is
+  WASM, Rust spawns through a different pipeline; both need a
+  dedicated slice that integrates with the existing native-runner
+  resource-limit + kill paths).
+- Real-time mid-run prompts (the user types AFTER the run starts).
+- Browser preview iframe stdin (sandbox restriction).
+- Timeout presets.
+- Last-stable compare polish beyond the existing snapshot restore.
 - Variable inspector panel.
 
 #### Product experience recommendations — 2026-05-12

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { Bug, Eye, Terminal, X } from 'lucide-react';
+import { Bug, Eye, MessageSquare, Terminal, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
@@ -9,6 +9,7 @@ import { ResultPanel } from '../Editor/ResultPanel';
 import { ConsolePanel } from '../Console';
 import { DebuggerDrawer } from '../Debugger/DebuggerDrawer';
 import { BrowserPreviewPanel } from '../BrowserPreview';
+import { StdinInputPanel } from '../Editor/StdinInputPanel';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { Toolbar } from '../Toolbar';
@@ -140,6 +141,15 @@ interface MainContentProps {
   showConsole: boolean;
   showDebuggerPanel: boolean;
   showBrowserPreviewPanel: boolean;
+  /**
+   * RL-020 Slice 6 — true when the active tab + Settings combination
+   * permits the stdin panel AND the user has actively focused it via
+   * the command palette / palette focus action. Without this term in
+   * the `showBottomPanel` gate, `openBottomPanel('stdin')` from a
+   * console-closed state would set the store flag but never mount
+   * the panel.
+   */
+  showStdinTabBody: boolean;
   layoutPreset: LayoutPreset;
 }
 
@@ -157,6 +167,17 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   // hide the tab button entirely.
   const browserPreviewAvailable =
     languageHasRuntimeModes(activeLanguage) && activeRuntimeMode === 'browser-preview';
+  // RL-020 Slice 6 — the Input tab is offered for JS / TS / Python
+  // tabs whose runtime mode is NOT `browser-preview` (the iframe
+  // sandbox has no stdin surface). The user can also hide it
+  // globally via Settings → Editor (fold D).
+  const showStdinPanelSetting = useSettingsStore((state) => state.showStdinPanel);
+  const stdinAvailable =
+    showStdinPanelSetting &&
+    activeRuntimeMode !== 'browser-preview' &&
+    (activeLanguage === 'javascript' ||
+      activeLanguage === 'typescript' ||
+      activeLanguage === 'python');
   const consoleVisible = useUIStore((state) => state.consoleVisible);
   const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
@@ -186,12 +207,14 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     }
     return count;
   });
-  const effectiveTab: 'console' | 'debugger' | 'browser-preview' =
+  const effectiveTab: 'console' | 'debugger' | 'browser-preview' | 'stdin' =
     browserPreviewAvailable && (activeBottomPanel === 'browser-preview' || !consoleVisible)
       ? 'browser-preview'
       : debuggerAvailable && (!consoleVisible || activeBottomPanel === 'debugger')
         ? 'debugger'
-        : 'console';
+        : stdinAvailable && activeBottomPanel === 'stdin'
+          ? 'stdin'
+          : 'console';
 
   useEffect(() => {
     if (activeBottomPanel === 'debugger' && !debuggerAvailable) {
@@ -200,11 +223,23 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     if (activeBottomPanel === 'browser-preview' && !browserPreviewAvailable) {
       setActiveBottomPanel('console');
     }
-  }, [activeBottomPanel, debuggerAvailable, browserPreviewAvailable, setActiveBottomPanel]);
+    if (activeBottomPanel === 'stdin' && !stdinAvailable) {
+      setActiveBottomPanel('console');
+    }
+  }, [
+    activeBottomPanel,
+    debuggerAvailable,
+    browserPreviewAvailable,
+    stdinAvailable,
+    setActiveBottomPanel,
+  ]);
 
-  const selectTab = (tab: 'console' | 'debugger' | 'browser-preview') => {
+  const selectTab = (
+    tab: 'console' | 'debugger' | 'browser-preview' | 'stdin'
+  ) => {
     if (tab === 'debugger' && !debuggerAvailable) return;
     if (tab === 'browser-preview' && !browserPreviewAvailable) return;
+    if (tab === 'stdin' && !stdinAvailable) return;
     openBottomPanel(tab);
   };
 
@@ -292,12 +327,34 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             </button>
           </Tooltip>
         ) : null}
+        {stdinAvailable ? (
+          <Tooltip content={t('stdin.tab.hint')} side="bottom">
+            <button
+              type="button"
+              role="tab"
+              data-testid="bottom-panel-stdin-tab"
+              aria-selected={effectiveTab === 'stdin'}
+              onClick={() => selectTab('stdin')}
+              className={cn(
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                effectiveTab === 'stdin'
+                  ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
+                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
+              )}
+            >
+              <MessageSquare size={12} aria-hidden="true" />
+              {t('stdin.tab.label')}
+            </button>
+          </Tooltip>
+        ) : null}
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         {effectiveTab === 'debugger' ? (
           <DebuggerDrawer activeTabId={activeTabId ?? null} activeLanguage={activeLanguage} />
         ) : effectiveTab === 'browser-preview' ? (
           <BrowserPreviewPanel />
+        ) : effectiveTab === 'stdin' ? (
+          <StdinInputPanel />
         ) : (
           <ConsolePanel />
         )}
@@ -310,6 +367,7 @@ function MainContent({
   showConsole,
   showDebuggerPanel,
   showBrowserPreviewPanel,
+  showStdinTabBody,
   layoutPreset,
 }: MainContentProps) {
   const verticalLayout = useDefaultLayout({
@@ -323,7 +381,11 @@ function MainContent({
     storage: localStorage,
   });
 
-  const showBottomPanel = showConsole || showDebuggerPanel || showBrowserPreviewPanel;
+  const showBottomPanel =
+    showConsole ||
+    showDebuggerPanel ||
+    showBrowserPreviewPanel ||
+    showStdinTabBody;
 
   if (!showBottomPanel) return <EditorArea />;
 
@@ -443,6 +505,23 @@ export function AppLayout({
     layoutPreset !== 'editor-only' &&
     languageHasRuntimeModes(activeLanguage) &&
     activeRuntimeMode === 'browser-preview';
+  // RL-020 Slice 6 — when the user focuses the stdin tab from the
+  // command palette while the console drawer is collapsed,
+  // `openBottomPanel('stdin')` flips `activeBottomPanel` but does
+  // NOT set `consoleVisible: true` reliably across navigation. We
+  // include the stdin body in the MainContent gate so the bottom
+  // drawer renders for stdin even when none of the other panes is
+  // shown.
+  const activeBottomPanelForLayout = useUIStore((state) => state.activeBottomPanel);
+  const showStdinPanelSetting = useSettingsStore((state) => state.showStdinPanel);
+  const showStdinTabBody =
+    layoutPreset !== 'editor-only' &&
+    showStdinPanelSetting &&
+    activeBottomPanelForLayout === 'stdin' &&
+    activeRuntimeMode !== 'browser-preview' &&
+    (activeLanguage === 'javascript' ||
+      activeLanguage === 'typescript' ||
+      activeLanguage === 'python');
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
   const isCompactDrawerOpen = sidebarVisible && isCompactShell;
   const handleExplorerNavigate = isCompactShell ? () => setSidebarVisible(false) : undefined;
@@ -609,6 +688,7 @@ export function AppLayout({
                   showConsole={showConsole}
                   showDebuggerPanel={showDebuggerPanel}
                   showBrowserPreviewPanel={showBrowserPreviewPanel}
+                  showStdinTabBody={showStdinTabBody}
                   layoutPreset={layoutPreset}
                 />
               </div>
@@ -621,6 +701,7 @@ export function AppLayout({
                 showConsole={showConsole}
                 showDebuggerPanel={showDebuggerPanel}
                 showBrowserPreviewPanel={showBrowserPreviewPanel}
+                showStdinTabBody={showStdinTabBody}
                 layoutPreset={layoutPreset}
               />
             </div>

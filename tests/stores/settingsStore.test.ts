@@ -823,4 +823,31 @@ describe('settingsStore', () => {
       ).toEqual({ javascript: false, typescript: false });
     });
   });
+
+  describe('RL-020 Slice 6 — showStdinPanel master toggle (fold D)', () => {
+    it('defaults to true on a fresh store', () => {
+      expect(useSettingsStore.getState().showStdinPanel).toBe(true);
+    });
+    it('flips via the toggle', () => {
+      useSettingsStore.getState().toggleShowStdinPanel();
+      expect(useSettingsStore.getState().showStdinPanel).toBe(false);
+      useSettingsStore.getState().toggleShowStdinPanel();
+      expect(useSettingsStore.getState().showStdinPanel).toBe(true);
+    });
+
+    it('sanitizes tampered persisted values on rehydrate', async () => {
+      localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({
+          state: {
+            showStdinPanel: 'yes',
+          },
+          version: 0,
+        })
+      );
+
+      await useSettingsStore.persist.rehydrate();
+      expect(useSettingsStore.getState().showStdinPanel).toBe(true);
+    });
+  });
 });
