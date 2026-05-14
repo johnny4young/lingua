@@ -32,6 +32,9 @@ function renderShortcuts(options: HarnessOptions = {}) {
     toggleOverlay: vi.fn(),
     openDeveloperUtilities: vi.fn(),
     closeOverlay: vi.fn(),
+    cycleRuntimeMode: vi.fn(),
+    cycleWorkflowMode: vi.fn(),
+    toggleRecentRunsPopover: vi.fn(),
   };
 
   renderHook(() =>
@@ -117,6 +120,12 @@ describe('useGlobalShortcuts', () => {
     dispatchKeyDown({ key: 'k', ctrlKey: true });
     expect(calls.openDeveloperUtilities).toHaveBeenCalledTimes(1);
     expect(calls.toggleOverlay).not.toHaveBeenCalledWith('utilities');
+  });
+
+  it('toggles Recent Runs from Mod+Shift+H', () => {
+    const calls = renderShortcuts();
+    dispatchKeyDown({ key: 'h', ctrlKey: true, shiftKey: true });
+    expect(calls.toggleRecentRunsPopover).toHaveBeenCalledTimes(1);
   });
 
   it('includes the active utility shortcut in copy success notices', async () => {

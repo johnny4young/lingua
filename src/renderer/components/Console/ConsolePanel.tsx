@@ -231,7 +231,16 @@ export function ConsolePanel() {
 
   const handleReplayHistoryEntry = useCallback(
     (entry: ExecutionHistoryEntry) => {
-      replayHistoryEntry(entry, { isRunning, run });
+      // Gate telemetry on the actual dispatch — see App.tsx replay
+      // handler for rationale (already-running short-circuit, etc.).
+      const dispatched = replayHistoryEntry(entry, { isRunning, run });
+      if (dispatched) {
+        void trackEvent('runtime.history_replay', {
+          language: entry.language,
+          status: entry.status,
+          surface: 'popover',
+        });
+      }
     },
     [isRunning, run]
   );

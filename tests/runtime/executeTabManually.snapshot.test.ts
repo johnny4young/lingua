@@ -256,4 +256,33 @@ describe('executeTabManually — snapshot gate (RL-028)', () => {
     expect(entries[0]?.snapshot?.code).toBe('first');
     expect(entries[1]?.snapshot).toBeNull();
   });
+
+  it('RL-020 Slice 4 — records tabId on the success branch', async () => {
+    mockCurrentEffectiveTier.mockReturnValue('pro');
+    runOk();
+    await executeTabManually({
+      id: 'tab-perf',
+      name: 'perf.js',
+      language: 'javascript',
+      content: 'console.log("ok")',
+      isDirty: false,
+    });
+    const [entry] = useExecutionHistoryStore.getState().entries;
+    expect(entry?.tabId).toBe('tab-perf');
+  });
+
+  it('RL-020 Slice 4 — records tabId on the error branch too', async () => {
+    mockCurrentEffectiveTier.mockReturnValue('pro');
+    runError();
+    await executeTabManually({
+      id: 'tab-fail',
+      name: 'fail.py',
+      language: 'python',
+      content: 'print(oops)',
+      isDirty: false,
+    });
+    const [entry] = useExecutionHistoryStore.getState().entries;
+    expect(entry?.status).toBe('error');
+    expect(entry?.tabId).toBe('tab-fail');
+  });
 });

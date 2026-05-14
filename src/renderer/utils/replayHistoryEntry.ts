@@ -47,12 +47,16 @@ function replayTabName(entry: ExecutionHistoryEntry, language: Language): string
  *   - the entry has no captured snapshot (`replay.noSnapshot`),
  *   - the addTab tier ceiling rejected the new tab (`replay.openFailed`).
  *
- * Returns nothing; surfaces all feedback through `useUIStore` notices.
+ * Surfaces all feedback through `useUIStore` notices. Returns `true`
+ * when the replay run was dispatched, `false` when one of the
+ * refusal branches fired. RL-020 Slice 4 callers gate the
+ * `runtime.history_replay` telemetry on this return value so adoption
+ * metrics never count replays that didn't actually happen.
  */
 export function replayHistoryEntry(
   entry: ExecutionHistoryEntry,
   deps: ReplayHistoryEntryDeps
-): void {
+): boolean {
   const { isRunning, run } = deps;
 
   if (isRunning) {
@@ -60,7 +64,7 @@ export function replayHistoryEntry(
       tone: 'info',
       messageKey: 'executionHistory.replay.running',
     });
-    return;
+    return false;
   }
 
   if (!entry.snapshot) {
@@ -69,7 +73,7 @@ export function replayHistoryEntry(
       messageKey: 'executionHistory.replay.noSnapshot',
       values: { language: languageLabel(entry.language as Language) },
     });
-    return;
+    return false;
   }
 
   const language = entry.snapshot.language as Language;
@@ -88,8 +92,9 @@ export function replayHistoryEntry(
       messageKey: 'executionHistory.replay.openFailed',
       values: { language: languageLabel(language) },
     });
-    return;
+    return false;
   }
 
   void run({ recordHistory: false });
+  return true;
 }

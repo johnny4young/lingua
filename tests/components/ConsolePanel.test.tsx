@@ -14,6 +14,9 @@ const mockToggleFilter = vi.fn();
 const mockToggleTimestamps = vi.fn();
 const mockRun = vi.fn().mockResolvedValue(undefined);
 const mockPushStatusNotice = vi.fn();
+const { mockTrackEvent } = vi.hoisted(() => ({
+  mockTrackEvent: vi.fn(),
+}));
 
 let mockTabs: FileTab[] = [];
 let mockActiveTabId: string | null = null;
@@ -52,16 +55,31 @@ vi.mock('../../src/renderer/hooks/useRunner', () => ({
   }),
 }));
 
-vi.mock('../../src/renderer/stores/editorStore', () => ({
-  useEditorStore: {
-    getState: () => ({
+vi.mock('../../src/renderer/stores/editorStore', () => {
+  function editorStoreState() {
+    return {
       tabs: mockTabs,
       activeTabId: mockActiveTabId,
       addTab: mockAddTab,
       setActiveTab: mockSetActiveTab,
-    }),
-  },
-}));
+    };
+  }
+  // RL-020 Slice 4 — ExecutionHistoryPopover reads
+  // `useEditorStore((state) => state.activeTabId)` to surface the
+  // fold-C "This tab only" filter. The mock therefore needs to be
+  // callable as both a selector hook AND a `getState()` accessor so
+  // pre-existing call sites keep working.
+  const useEditorStore = ((
+    selector?: (state: ReturnType<typeof editorStoreState>) => unknown
+  ) => {
+    const state = editorStoreState();
+    return selector ? selector(state) : state;
+  }) as ((selector?: unknown) => unknown) & {
+    getState: () => ReturnType<typeof editorStoreState>;
+  };
+  useEditorStore.getState = editorStoreState;
+  return { useEditorStore };
+});
 
 vi.mock('../../src/renderer/stores/uiStore', () => ({
   useUIStore: {
@@ -69,6 +87,10 @@ vi.mock('../../src/renderer/stores/uiStore', () => ({
       pushStatusNotice: mockPushStatusNotice,
     }),
   },
+}));
+
+vi.mock('../../src/renderer/utils/telemetry', () => ({
+  trackEvent: mockTrackEvent,
 }));
 
 // Also mock lucide-react icons used by ConsolePanel
@@ -233,6 +255,11 @@ describe('ConsolePanel', () => {
     expect(mockActiveTabId).toBe(mockAddTab.mock.calls[0]?.[0].id);
     expect(mockRun).toHaveBeenCalledWith({ recordHistory: false });
     expect(mockSetActiveTab).not.toHaveBeenCalled();
+    expect(mockTrackEvent).toHaveBeenCalledWith('runtime.history_replay', {
+      language: 'javascript',
+      status: 'ok',
+      surface: 'popover',
+    });
   });
 
   it('keeps metadata-only history entries disabled because there is no snapshot to replay', async () => {

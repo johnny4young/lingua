@@ -357,6 +357,9 @@ export async function executeTabManually(
         status: result.error ? 'error' : 'ok',
         durationMs: result.executionTime ?? null,
         snapshot: snapshotPayloadFor(content, language),
+        // RL-020 Slice 4 — anchor the entry to the source tab so the
+        // per-tab pill can filter via `byTabId`.
+        tabId: activeTab.id,
       });
     }
 
@@ -389,6 +392,8 @@ export async function executeTabManually(
         status: 'error',
         durationMs: null,
         snapshot: snapshotPayloadFor(content, language),
+        // RL-020 Slice 4 — same tabId anchor on the error path.
+        tabId: activeTab.id,
       });
     }
 

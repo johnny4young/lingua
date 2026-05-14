@@ -47,6 +47,7 @@ import {
   cycleWorkflowMode,
   defaultWorkflowMode,
 } from '../shared/workflowMode';
+import { toggleRecentRunsPopover } from './runtime/recentRunsPopoverBridge';
 import { usePluginStore } from './stores/pluginStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -366,6 +367,19 @@ function AppChrome({
       if (next === current) return;
       state.setTabWorkflowMode(tab.id, next);
     },
+    toggleRecentRunsPopover: () => {
+      // RL-020 Slice 4 fold B — toggle the per-tab Recent Runs
+      // popover. The bridge returns `false` when no pill is mounted
+      // (Free tier, view-only tab, empty per-tab history); surface
+      // a passive notice so the keystroke is never silent.
+      const dispatched = toggleRecentRunsPopover();
+      if (!dispatched) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'executionHistory.tabPill.shortcutUnavailable',
+        });
+      }
+    },
   });
 
   const handleStartGuidedTour = () => {
@@ -405,7 +419,21 @@ function AppChrome({
           onOpenDeveloperUtility={(utilityId) => handleOpenDeveloperUtility(utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
           onRerunLast={() => void run()}
-          onReplayEntry={(entry) => replayHistoryEntry(entry, { isRunning, run })}
+          onReplayEntry={(entry) => {
+            // Gate telemetry on the actual replay dispatch so a refused
+            // call (already-running, no-snapshot, open-failed) does
+            // not inflate adoption counts. Same pattern in the pill +
+            // popover surfaces; centralizing here would require an
+            // extra closure layer for marginal gain.
+            const dispatched = replayHistoryEntry(entry, { isRunning, run });
+            if (dispatched) {
+              void trackEvent('runtime.history_replay', {
+                language: entry.language,
+                status: entry.status,
+                surface: 'palette',
+              });
+            }
+          }}
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
       )}

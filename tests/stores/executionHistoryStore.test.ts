@@ -254,4 +254,96 @@ describe('executionHistoryStore', () => {
     expect(entry.language).toBe('javascript');
     expect(entry.snapshot?.language).toBe('javascript');
   });
+
+  describe('RL-020 Slice 4 — tabId + byTabId selector', () => {
+    it('records tabId when the caller passes one and omits the field otherwise', () => {
+      const withTab = useExecutionHistoryStore.getState().record({
+        language: 'javascript',
+        status: 'ok',
+        durationMs: 5,
+        tabId: 'tab-js',
+      });
+      const withoutTab = useExecutionHistoryStore.getState().record({
+        language: 'python',
+        status: 'ok',
+        durationMs: 7,
+      });
+      expect(withTab.tabId).toBe('tab-js');
+      expect(withoutTab.tabId).toBeUndefined();
+    });
+
+    it('byTabId returns matching entries newest first', () => {
+      const { record, byTabId } = useExecutionHistoryStore.getState();
+      const a = record({ language: 'javascript', status: 'ok', durationMs: 1, tabId: 'tab-1', timestamp: 1_700_000_001_000 });
+      const b = record({ language: 'javascript', status: 'error', durationMs: 2, tabId: 'tab-2', timestamp: 1_700_000_002_000 });
+      const c = record({ language: 'javascript', status: 'ok', durationMs: 3, tabId: 'tab-1', timestamp: 1_700_000_003_000 });
+      const tab1 = byTabId('tab-1');
+      expect(tab1.map((e) => e.id)).toEqual([c.id, a.id]);
+      expect(tab1).toHaveLength(2);
+      expect(byTabId('tab-2').map((e) => e.id)).toEqual([b.id]);
+      expect(byTabId('missing')).toEqual([]);
+    });
+
+    it('byTabId excludes entries that never carried a tabId', () => {
+      const { record, byTabId } = useExecutionHistoryStore.getState();
+      record({ language: 'javascript', status: 'ok', durationMs: 1 });
+      const tagged = record({ language: 'javascript', status: 'ok', durationMs: 2, tabId: 'tab-1' });
+      const tab1 = byTabId('tab-1');
+      expect(tab1.map((e) => e.id)).toEqual([tagged.id]);
+    });
+
+    it('byTabId rejects an empty string up front', () => {
+      const { record, byTabId } = useExecutionHistoryStore.getState();
+      record({ language: 'javascript', status: 'ok', durationMs: 1, tabId: '' });
+      expect(byTabId('')).toEqual([]);
+    });
+  });
+
+  describe('RL-020 Slice 4 fold D — togglePin + pin-aware eviction', () => {
+    it('togglePin flips the pinned flag for an existing entry and no-ops on unknown ids', () => {
+      const { record, togglePin } = useExecutionHistoryStore.getState();
+      const entry = record({ language: 'javascript', status: 'ok', durationMs: 1 });
+      expect(entry.pinned).toBeUndefined();
+
+      togglePin(entry.id);
+      expect(useExecutionHistoryStore.getState().entries[0]?.pinned).toBe(true);
+
+      togglePin(entry.id);
+      expect(useExecutionHistoryStore.getState().entries[0]?.pinned).toBe(false);
+
+      // Unknown id: no entries should change.
+      const before = useExecutionHistoryStore.getState().entries;
+      togglePin('does-not-exist');
+      expect(useExecutionHistoryStore.getState().entries).toBe(before);
+    });
+
+    it('pin-aware FIFO eviction drops the oldest UNPINNED entry first', () => {
+      const { record, togglePin, entries } = useExecutionHistoryStore.getState();
+      const firstId = record({
+        language: 'javascript',
+        status: 'ok',
+        durationMs: 1,
+        timestamp: 1_700_000_000_000,
+      }).id;
+      togglePin(firstId);
+      // Push enough entries to overflow the buffer.
+      for (let i = 1; i <= MAX_HISTORY_ENTRIES; i += 1) {
+        useExecutionHistoryStore.getState().record({
+          language: 'javascript',
+          status: 'ok',
+          durationMs: i,
+          timestamp: 1_700_000_000_000 + i * 1000,
+        });
+      }
+      const after = useExecutionHistoryStore.getState().entries;
+      expect(after.length).toBe(MAX_HISTORY_ENTRIES);
+      // The pinned first entry survives.
+      expect(after.some((e) => e.id === firstId && e.pinned === true)).toBe(true);
+      // The oldest unpinned entry (the very first push AFTER the pinned
+      // one) is the one that was evicted.
+      expect(after.find((e) => e.durationMs === 1 && e.id !== firstId)).toBeUndefined();
+      // Sanity: rest of `entries` is still pre-existing length-aware.
+      expect(entries).toBeDefined();
+    });
+  });
 });

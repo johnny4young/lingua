@@ -47,8 +47,9 @@ afterEach(() => {
 describe('replayHistoryEntry helper', () => {
   it('refuses to replay while a run is already in progress and surfaces the running notice', () => {
     const run = vi.fn();
-    replayHistoryEntry(makeEntry(), { isRunning: true, run });
+    const dispatched = replayHistoryEntry(makeEntry(), { isRunning: true, run });
 
+    expect(dispatched).toBe(false);
     expect(run).not.toHaveBeenCalled();
     expect(useUIStore.getState().statusNotice?.messageKey).toBe(
       'executionHistory.replay.running'
@@ -59,8 +60,12 @@ describe('replayHistoryEntry helper', () => {
 
   it('refuses to replay when the entry has no snapshot and surfaces the noSnapshot notice', () => {
     const run = vi.fn();
-    replayHistoryEntry(makeEntry({ snapshot: null }), { isRunning: false, run });
+    const dispatched = replayHistoryEntry(makeEntry({ snapshot: null }), {
+      isRunning: false,
+      run,
+    });
 
+    expect(dispatched).toBe(false);
     expect(run).not.toHaveBeenCalled();
     expect(useUIStore.getState().statusNotice?.messageKey).toBe(
       'executionHistory.replay.noSnapshot'
@@ -70,8 +75,9 @@ describe('replayHistoryEntry helper', () => {
 
   it('opens a new tab with the captured snapshot and dispatches the run with recordHistory: false', () => {
     const run = vi.fn();
-    replayHistoryEntry(makeEntry(), { isRunning: false, run });
+    const dispatched = replayHistoryEntry(makeEntry(), { isRunning: false, run });
 
+    expect(dispatched).toBe(true);
     const tabs = useEditorStore.getState().tabs;
     expect(tabs).toHaveLength(1);
     expect(tabs[0]?.content).toBe('console.log("hi")');
@@ -95,8 +101,9 @@ describe('replayHistoryEntry helper', () => {
     });
     useEditorStore.setState({ addTab: spyAddTab as unknown as AddTab });
 
-    replayHistoryEntry(makeEntry(), { isRunning: false, run });
+    const dispatched = replayHistoryEntry(makeEntry(), { isRunning: false, run });
 
+    expect(dispatched).toBe(false);
     expect(spyAddTab).toHaveBeenCalledTimes(1);
     expect(run).not.toHaveBeenCalled();
     expect(useUIStore.getState().statusNotice?.messageKey).toBe(
@@ -109,8 +116,9 @@ describe('replayHistoryEntry helper', () => {
     const empty = makeEntry({
       snapshot: { code: '', language: 'javascript', truncated: false },
     });
-    replayHistoryEntry(empty, { isRunning: false, run });
+    const dispatched = replayHistoryEntry(empty, { isRunning: false, run });
 
+    expect(dispatched).toBe(true);
     expect(useEditorStore.getState().tabs[0]?.content).toBe('');
     expect(run).toHaveBeenCalledWith({ recordHistory: false });
   });

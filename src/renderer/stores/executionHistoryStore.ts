@@ -57,6 +57,23 @@ export interface ExecutionHistoryEntry {
    * applies whenever the toggle is off.
    */
   snapshot: ExecutionHistorySnapshot | null;
+  /**
+   * RL-020 Slice 4 — id of the editor tab that produced this run.
+   * Optional so pre-Slice-4 entries and any future tab-less call site
+   * (programmatic tests, future replay-by-script paths) continue to
+   * record without churn. The per-tab pill in the result panel uses
+   * `byTabId(tabId)` to filter; entries with `tabId: undefined` are
+   * never matched by that selector and stay visible only in the
+   * global popover / palette surfaces.
+   */
+  tabId?: string;
+  /**
+   * RL-020 Slice 4 fold D — user-pinned entry. When `true`, the FIFO
+   * eviction skips this entry: pinned rows survive past the 50-entry
+   * ring cap until the user explicitly unpins them. Default `false`
+   * for every recorded entry; the popover toggles it via `togglePin`.
+   */
+  pinned?: boolean;
 }
 
 export interface ExecutionHistoryRecord {
@@ -72,6 +89,12 @@ export interface ExecutionHistoryRecord {
    * contract.
    */
   snapshot?: { code: string; language: string } | null;
+  /**
+   * RL-020 Slice 4 — id of the editor tab that produced this run.
+   * Required by the per-tab pill but optional on the record contract
+   * so legacy / programmatic call sites stay compatible.
+   */
+  tabId?: string;
 }
 
 export const MAX_HISTORY_ENTRIES = 50;
@@ -132,6 +155,20 @@ export interface ExecutionHistoryState {
   record: (input: ExecutionHistoryRecord) => ExecutionHistoryEntry;
   clear: () => void;
   byLanguage: (language: string) => readonly ExecutionHistoryEntry[];
+  /**
+   * RL-020 Slice 4 — return only the entries recorded against this
+   * editor tab, newest first. Entries with `tabId: undefined` are
+   * excluded so the per-tab pill never surfaces legacy or
+   * programmatic entries the user didn't drive themselves.
+   */
+  byTabId: (tabId: string) => readonly ExecutionHistoryEntry[];
+  /**
+   * RL-020 Slice 4 fold D — toggle the `pinned` flag for an entry.
+   * No-op when `id` is unknown. Pinned entries skip FIFO eviction so
+   * the user can keep a sticky reference without grooming the ring
+   * buffer.
+   */
+  togglePin: (id: string) => void;
 }
 
 export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, get) => ({
@@ -150,14 +187,27 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
       durationMs: input.durationMs,
       timestamp,
       snapshot,
+      // RL-020 Slice 4 — `tabId` is optional on the record contract;
+      // omit the field entirely when the caller passed nothing so the
+      // serialized shape stays stable for legacy callers.
+      ...(input.tabId !== undefined ? { tabId: input.tabId } : {}),
     };
     set((state) => {
       const next = [...state.entries, entry];
-      // FIFO drop: the 51st push keeps only the newest 50.
-      const trimmed =
-        next.length > MAX_HISTORY_ENTRIES
-          ? next.slice(next.length - MAX_HISTORY_ENTRIES)
-          : next;
+      // RL-020 Slice 4 fold D — FIFO drop keeps the newest 50, but
+      // pinned entries are exempt. We drop the oldest UNPINNED entry
+      // first; if every slot is pinned the buffer is allowed to grow
+      // past `MAX_HISTORY_ENTRIES` (rare in practice — pinning every
+      // entry requires explicit per-row user action).
+      let trimmed: ExecutionHistoryEntry[] = next;
+      while (trimmed.length > MAX_HISTORY_ENTRIES) {
+        const oldestUnpinnedIdx = trimmed.findIndex((e) => !e.pinned);
+        if (oldestUnpinnedIdx < 0) break;
+        trimmed = [
+          ...trimmed.slice(0, oldestUnpinnedIdx),
+          ...trimmed.slice(oldestUnpinnedIdx + 1),
+        ];
+      }
       return { entries: trimmed };
     });
     return entry;
@@ -169,5 +219,26 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
 
   byLanguage: (language) => {
     return get().entries.filter((entry) => entry.language === language);
+  },
+
+  byTabId: (tabId) => {
+    if (!tabId) return [];
+    // Newest first so popover callers don't have to reverse.
+    return get()
+      .entries.filter((entry) => entry.tabId === tabId)
+      .slice()
+      .reverse();
+  },
+
+  togglePin: (id) => {
+    set((state) => {
+      let changed = false;
+      const entries = state.entries.map((entry) => {
+        if (entry.id !== id) return entry;
+        changed = true;
+        return { ...entry, pinned: !entry.pinned };
+      });
+      return changed ? { entries } : state;
+    });
   },
 }));

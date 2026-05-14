@@ -26,6 +26,15 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
   },
 }));
 
+// RL-020 Slice 4 — RecentRunsPill transitively imports useRunner →
+// executeTabManually → esbuild-wasm, which fails to initialize under
+// the jsdom test environment. The ResultPanel test doesn't exercise
+// the pill's behavior (the pill has its own dedicated tests); mock
+// it to a no-op render so the rest of the panel still mounts.
+vi.mock('../../src/renderer/components/Editor/RecentRunsPill', () => ({
+  RecentRunsPill: () => null,
+}));
+
 describe('ResultPanel', () => {
   const initialResultState = useResultStore.getState();
   const initialSettingsState = useSettingsStore.getState();

@@ -1373,6 +1373,145 @@ Out of scope until Slice 4:
 - Per-tab execution history with rerun (depends on RL-028 surface).
 - Variable inspector panel.
 
+#### Slice 4 — 2026-05-14 (per-tab execution history with one-click rerun)
+
+Slice 4 lands the fourth acceptance criterion (`Users can rerun a
+previous execution from history`) at the per-tab granularity. RL-028
+already shipped the 50-entry global ring buffer with optional code
+snapshots (Pro tier); Slice 4 adds a `tabId` axis, a one-click rerun
+affordance close to the editor, and a pin-and-keep mechanism so
+rare-but-valuable entries survive ring-buffer eviction.
+
+Architecture:
+
+- **`src/renderer/stores/executionHistoryStore.ts`** extends
+  `ExecutionHistoryEntry` with optional `tabId?: string` and
+  `pinned?: boolean`. The `record()` contract widens to accept
+  `tabId` and omit the field when absent (legacy callers stay
+  compatible). New `byTabId(tabId)` selector returns matching
+  entries newest-first and excludes legacy entries with
+  `tabId: undefined`. New `togglePin(id)` action flips the pinned
+  flag. The FIFO eviction loop is **pin-aware** — `findIndex` for
+  the oldest unpinned entry, drop it, repeat until size ≤ 50 OR
+  every remaining entry is pinned (rare; the buffer is allowed to
+  grow past 50 in that edge case rather than evict a pinned row).
+- **`src/renderer/runtime/executeTabManually.ts`** threads
+  `activeTab.id` into both the success-branch and error-branch
+  `store.record()` calls. Auto-run paths still do not record (the
+  RL-028 contract preserves intent: the 1.2 s debounced cadence
+  would otherwise flood the buffer).
+- **`src/renderer/components/Editor/RecentRunsPill.tsx`** — new
+  status-pill button mounted in the result-panel header next to
+  `<WorkflowModeStatusPill>`. Self-gates on:
+  - `useEntitlement('EXECUTION_HISTORY')` — Pro tier (Free tier
+    shows the fold E upsell variant);
+  - `executionModeForLanguage(language) === 'run'` (manual-run-
+    recording languages);
+  - non-empty per-tab history.
+  Click toggles a small popover listing up to 8 newest entries
+  with language badge, status icon (✓/✗), duration, relative-time
+  (fold F refreshes every 60s while the popover is open), a Pin
+  button (fold D), and a Replay button. Replay disabled when the
+  entry's `snapshot` is `null` (capture was off when the run
+  happened); a localized tooltip explains why. Escape and
+  outside-click close the popover. Replay dispatches via the
+  shared `replayHistoryEntry` helper and emits
+  `runtime.history_replay { surface: 'tab_pill' }` telemetry
+  (fold A).
+- **`src/renderer/runtime/recentRunsPopoverBridge.ts`** — new
+  module-level handle so the `Mod+Shift+H` global keyboard
+  shortcut can toggle the popover without piping a ref through
+  the renderer tree. Mirrors the `editorAccess` /
+  `debuggerWorkerBridge` pattern. The pill writes the opener on
+  mount and clears it on unmount; the dispatcher in `App.tsx`
+  reads it on demand and surfaces a localized status notice when
+  no pill is mounted (Free tier, view-only tab, empty per-tab
+  history).
+- **`src/renderer/components/Console/ExecutionHistoryPopover.tsx`**
+  gains a fold-C "This tab only" filter checkbox in the popover
+  header. State is scoped to the open popover (closing resets it)
+  and the predicate excludes legacy `tabId: undefined` entries so
+  the checkbox never surfaces for stale rows. Adds two new copy
+  keys for the toggle label and the filtered-empty state.
+- **`src/renderer/components/CommandPalette/commandPaletteModel.ts`**
+  surfaces a fold-G `recent-run-tab-*` parallel group of entries
+  whose `tabId` matches the active tab id, ranked ABOVE the legacy
+  global `recent-run-*` group. Same `MAX_RECENT_RUNS_IN_PALETTE`
+  ceiling so neither group dominates. `CommandPalette.tsx` passes
+  the active tab id through.
+- **Keyboard shortcut** — `keyboardShortcuts.ts` registers
+  `run-toggle-recent-runs` (`Mod+Shift+H`); `useGlobalShortcuts.ts`
+  gains a `toggleRecentRunsPopover` option; `App.tsx` wires the
+  dispatcher to `toggleRecentRunsPopover` from the bridge and
+  pushes the localized "no recent runs on this tab" notice when
+  the bridge returns `false`.
+- **Telemetry** — `runtime.history_replay` added to
+  `TELEMETRY_EVENTS` + `EVENT_PROPERTY_ALLOWLIST` +
+  `isAllowedValue` in `src/shared/telemetry.ts`. Closed-enum
+  payload `{ language, status, surface }` with
+  `HISTORY_REPLAY_SURFACES = { tab_pill, palette, popover }`.
+  Mirrored on the worker; parity test enforces the Set's contents
+  match the renderer's at CI time.
+- **Auto-run discipline** — auto-run code paths still do not call
+  `store.record()`. The pill stays hidden until the user fires a
+  manual gesture. Locks the RL-028 contract.
+- **Replay tab id propagation** — the existing
+  `replayHistoryEntry` helper opens a fresh tab with a fresh id
+  and runs with `recordHistory: false`, so the replayed run does
+  not append a second entry. The new tab's pill starts empty;
+  subsequent manual gestures on the replayed tab surface there.
+
+i18n — 19 new keys per locale: pill label (with i18next plural
+suffixes), tooltip, popover title, entry count, replay action,
+replay-unavailable hint, pin / unpin tooltips, Free-tier upsell
+label / tooltip, shortcut-unavailable notice, "this tab only"
+filter label + empty state, two `shortcuts.item.toggleRecentRuns.*`
+keys, two `commandPalette.recentRuns.onTab.*` keys. Spanish in
+tuteo (`haz clic`, `actívala`, `Volver a ejecutar`).
+
+Tests:
+
+- `tests/stores/executionHistoryStore.test.ts` — extends with
+  `tabId` recording / omission, `byTabId` newest-first / empty
+  string rejection / legacy entry exclusion, `togglePin` flip +
+  unknown-id no-op, pin-aware FIFO eviction (pinned entry
+  survives a 50-push overflow).
+- `tests/runtime/executeTabManually.snapshot.test.ts` — adds two
+  cases asserting `tabId` is recorded on both success + error
+  paths.
+- `tests/runtime/recentRunsPopoverBridge.test.ts` — new module
+  test: no-opener-no-op, registered-opener invocation, clear-on-
+  unregister.
+- `tests/components/commandPaletteModel.test.ts` — adds the fold G
+  per-tab group describe block: omitted when no `activeTabId`,
+  ranked ABOVE the global group when present, filters by tab id,
+  empty when no matching entries.
+- `tests/components/ResultPanel.test.tsx` — mocks `RecentRunsPill`
+  to a no-op so the existing tests bypass the new pill's
+  esbuild-wasm import chain.
+- `tests/components/ConsolePanel.test.tsx` — widens the
+  `useEditorStore` mock to support BOTH the selector-hook API and
+  the legacy `getState()` accessor (the new fold-C filter reads
+  `useEditorStore((state) => state.activeTabId)`).
+- `tests/shared/telemetry.test.ts` — new validator coverage for
+  `runtime.history_replay`: accepts the closed enum, drops
+  unknown `surface` / unknown `status` / non-safe-token language.
+- `update-server/test/telemetry.test.ts` — mirrored worker-side
+  validator behavior test + a `HISTORY_REPLAY_SURFACES` regex
+  parity guard that matches the renderer's closed-enum Set.
+- `tests/e2e/recentRunsPill.spec.ts` — 3 Playwright cases: auto-
+  run alone does NOT surface the pill / manual Run does; clicking
+  the pill opens the popover and per-tab isolation works
+  (different tab id → pill hidden); `Mod+Shift+H` toggles the
+  popover from the keyboard (fold B).
+
+Out of scope until Slice 5:
+
+- Expression auto-log mode.
+- stdin / input surface.
+- Timeout presets.
+- Variable inspector panel.
+
 #### Product experience recommendations — 2026-05-12
 
 This section captures product recommendations for the editor/runtime surface in

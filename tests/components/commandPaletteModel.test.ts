@@ -567,6 +567,92 @@ describe('buildCommandPaletteModel — recent runs (RL-028 third slice)', () => 
   });
 });
 
+describe('buildCommandPaletteModel — fold G: per-tab recent runs (RL-020 Slice 4)', () => {
+  function build(args: {
+    history: Array<{
+      id: string;
+      language: string;
+      status: 'ok' | 'error';
+      durationMs: number | null;
+      timestamp: number;
+      tabId?: string;
+    }>;
+    activeTabId?: string | null;
+  }) {
+    return buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      executionHistory: args.history,
+      activeTabId: args.activeTabId ?? null,
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    });
+  }
+
+  it('surfaces no per-tab group when activeTabId is omitted', () => {
+    const commands = build({
+      history: [
+        { id: 'a', language: 'javascript', status: 'ok', durationMs: 1, timestamp: 1, tabId: 'tab-1' },
+      ],
+    });
+    expect(commands.filter((c) => c.id.startsWith('recent-run-tab-'))).toEqual([]);
+  });
+
+  it('surfaces the per-tab group ABOVE the global group when entries match', () => {
+    const commands = build({
+      activeTabId: 'tab-1',
+      history: [
+        { id: 'a', language: 'javascript', status: 'ok', durationMs: 1, timestamp: 1, tabId: 'tab-1' },
+        { id: 'b', language: 'python', status: 'ok', durationMs: 2, timestamp: 2 }, // no tabId
+      ],
+    });
+    const ids = commands.map((c) => c.id);
+    const tabRunIdx = ids.findIndex((id) => id.startsWith('recent-run-tab-'));
+    const globalRunIdx = ids.findIndex((id) => id.startsWith('recent-run-') && !id.startsWith('recent-run-tab-'));
+    expect(tabRunIdx).toBeGreaterThanOrEqual(0);
+    expect(globalRunIdx).toBeGreaterThanOrEqual(0);
+    expect(tabRunIdx).toBeLessThan(globalRunIdx);
+  });
+
+  it('per-tab group only includes entries matching the active tab', () => {
+    const commands = build({
+      activeTabId: 'tab-1',
+      history: [
+        { id: 'a', language: 'javascript', status: 'ok', durationMs: 1, timestamp: 1, tabId: 'tab-1' },
+        { id: 'b', language: 'javascript', status: 'ok', durationMs: 1, timestamp: 2, tabId: 'tab-2' },
+      ],
+    });
+    const tabEntries = commands.filter((c) => c.id.startsWith('recent-run-tab-'));
+    expect(tabEntries.map((c) => c.id)).toEqual(['recent-run-tab-a']);
+  });
+
+  it('per-tab group is empty when the active tab has no matching history', () => {
+    const commands = build({
+      activeTabId: 'tab-ghost',
+      history: [
+        { id: 'a', language: 'javascript', status: 'ok', durationMs: 1, timestamp: 1, tabId: 'tab-1' },
+      ],
+    });
+    expect(commands.filter((c) => c.id.startsWith('recent-run-tab-'))).toEqual([]);
+  });
+});
+
 describe('buildCommandPaletteModel — re-run last action (RL-028 fourth slice)', () => {
   function buildWith(onRerunLast?: () => void) {
     return buildCommandPaletteModel({
