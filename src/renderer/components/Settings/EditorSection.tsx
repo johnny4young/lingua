@@ -19,6 +19,12 @@ import {
   isRuntimeModeImplemented,
   type RuntimeMode,
 } from '../../../shared/runtimeModes';
+import {
+  WORKFLOW_MODES,
+  defaultWorkflowMode,
+  supportsWorkflowMode,
+  type WorkflowMode,
+} from '../../../shared/workflowMode';
 
 export function EditorSection() {
   const effectiveTier = useEffectiveTier();
@@ -50,6 +56,12 @@ export function EditorSection() {
   const toggleVimMode = useSettingsStore((state) => state.toggleVimMode);
   const defaultRuntimeMode = useSettingsStore((state) => state.defaultRuntimeMode);
   const setDefaultRuntimeMode = useSettingsStore((state) => state.setDefaultRuntimeMode);
+  const workflowModeDefaultsByLanguage = useSettingsStore(
+    (state) => state.workflowModeDefaultsByLanguage
+  );
+  const setWorkflowModeDefault = useSettingsStore(
+    (state) => state.setWorkflowModeDefault
+  );
   const syncShellWithEditorTheme = useSettingsStore(
     (state) => state.syncShellWithEditorTheme
   );
@@ -314,6 +326,53 @@ export function EditorSection() {
             );
           })}
         </Select>
+      </Row>
+
+      {/* RL-020 Slice 2 — per-language default workflow mode.
+          Settings intentionally surfaces the lightweight in-process
+          languages first (JS / TS / Python); Go / Rust keep the
+          shared Scratchpad default until native-runner workflow
+          presets get their own product pass. Each Select lists
+          exactly the supported modes for the surfaced language. */}
+      <Row
+        label={t('settings.workflowMode.title')}
+        hint={t('settings.workflowMode.description')}
+      >
+        <div
+          data-testid="settings-workflow-mode-defaults"
+          className="grid gap-2"
+        >
+          {(['javascript', 'typescript', 'python'] as const).map((lang) => {
+            const stored = workflowModeDefaultsByLanguage[lang];
+            const value: WorkflowMode =
+              stored !== undefined ? stored : defaultWorkflowMode(lang);
+            return (
+              <label
+                key={lang}
+                className="flex items-center justify-between gap-2 text-xs text-foreground"
+              >
+                <span className="text-muted">
+                  {t(`workflowMode.languageLabel.${lang}`)}
+                </span>
+                <Select
+                  value={value}
+                  data-testid={`settings-workflow-mode-default-${lang}`}
+                  onChange={(event) =>
+                    setWorkflowModeDefault(lang, event.target.value as WorkflowMode)
+                  }
+                >
+                  {WORKFLOW_MODES.filter((mode) =>
+                    supportsWorkflowMode(lang, mode)
+                  ).map((mode) => (
+                    <option key={mode} value={mode}>
+                      {t(`workflowMode.${mode}.label`)}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            );
+          })}
+        </div>
       </Row>
 
       <Row label={t('debugger.settings.label')} hint={t('debugger.settings.hint')}>

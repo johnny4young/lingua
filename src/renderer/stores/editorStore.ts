@@ -25,6 +25,12 @@ import {
   languageHasRuntimeModes,
   type RuntimeMode,
 } from '../../shared/runtimeModes';
+import {
+  coerceWorkflowMode,
+  defaultWorkflowMode,
+  supportsWorkflowMode,
+  type WorkflowMode,
+} from '../../shared/workflowMode';
 
 function runtimeModeForNewTab(
   language: Language,
@@ -47,12 +53,59 @@ function runtimeModeForRestoredTab(
   return coerceRuntimeMode(persisted, language) ?? undefined;
 }
 
+/**
+ * RL-020 Slice 2 — resolve the workflow mode for a freshly created
+ * tab. Honours the per-language default the user set in Settings
+ * (when present) and falls through to the shared
+ * `defaultWorkflowMode` helper otherwise. The Settings lookup is
+ * tolerant: if the persisted default is no longer valid for the
+ * language (e.g. user upgraded from a build where `debug` was
+ * allowed for Python), `coerceWorkflowMode` snaps it back to a
+ * supported value.
+ */
+function workflowModeForNewTab(
+  language: Language,
+  explicit?: WorkflowMode
+): WorkflowMode {
+  if (explicit !== undefined) {
+    return coerceWorkflowMode(explicit, language);
+  }
+  const settingsDefault = useSettingsStore
+    .getState()
+    .workflowModeDefaultsByLanguage[language];
+  if (settingsDefault !== undefined) {
+    return coerceWorkflowMode(settingsDefault, language);
+  }
+  return defaultWorkflowMode(language);
+}
+
+/**
+ * RL-020 Slice 2 — resolve the workflow mode for a tab restored from
+ * a previous session. Same shape as the runtime-mode restore helper
+ * — `coerceWorkflowMode` snaps an unknown / unsupported persisted
+ * value back to the language's default so a tampered or stale
+ * localStorage entry cannot leave the live store in a bad shape.
+ */
+function workflowModeForRestoredTab(
+  language: Language,
+  persisted?: WorkflowMode
+): WorkflowMode {
+  return coerceWorkflowMode(persisted, language);
+}
+
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
   const short = id.slice(0, 8);
   // RL-019 Slice 1 — JS/TS tabs adopt the per-app default mode (fold
   // B). Non-JS/TS tabs deliberately omit the field.
   const runtimeMode = runtimeModeForNewTab(language);
+  // RL-020 Slice 2 — every tab carries an explicit workflow mode so
+  // the toolbar segmented control and `useAutoRun` short-circuit
+  // both have a single source of truth. Language-specific defaults
+  // come from `settingsStore.workflowModeDefaultsByLanguage` (when
+  // the user has overridden the shared helper) or the
+  // `defaultWorkflowMode` shared helper.
+  const workflowMode = workflowModeForNewTab(language);
   return {
     id,
     name: `untitled-${short}.${extensionForLanguage(language)}`,
@@ -60,6 +113,7 @@ export const createDefaultTab = (language: Language = 'javascript'): FileTab => 
     content: defaultCodeForLanguage(language),
     isDirty: false,
     runtimeMode,
+    workflowMode,
   };
 };
 
@@ -147,6 +201,12 @@ async function persistTab(
   const name = basename(absolutePath);
   const language = resolveFileLanguageOrPlaintext(name);
   const runtimeMode = runtimeModeForRestoredTab(language, tab.runtimeMode);
+  // RL-020 Slice 2 — re-resolve the workflow mode against the
+  // possibly-changed language (Save-As may flip `.js` → `.py`). The
+  // coerce helper snaps an unsupported choice back to the language
+  // default; this branch is the silent equivalent of the explicit
+  // language-change auto-correction in `renameTab`.
+  const workflowMode = workflowModeForRestoredTab(language, tab.workflowMode);
   const nextTab: FileTab & { filePath: string; rootId: string; relativePath: string } = {
     ...tab,
     filePath: absolutePath,
@@ -155,6 +215,7 @@ async function persistTab(
     name,
     language,
     runtimeMode,
+    workflowMode,
   };
   let content: string;
   try {
@@ -239,7 +300,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     // which already sets it, but `addTab({ ...tab, content })`
     // callers might rebuild the object and lose the field.
     const runtimeMode = runtimeModeForNewTab(tab.language, tab.runtimeMode);
-    const newTab: FileTab = { ...tab, isDirty: false, runtimeMode };
+    // RL-020 Slice 2 — same defensive backfill for the workflow
+    // mode. `duplicateActiveTab` for example forwards a tab through
+    // `addTab` without going through `createDefaultTab`.
+    const workflowMode = workflowModeForNewTab(tab.language, tab.workflowMode);
+    const newTab: FileTab = { ...tab, isDirty: false, runtimeMode, workflowMode };
     set((state) => ({
       tabs: [...state.tabs, newTab],
       activeTabId: newTab.id,
@@ -255,6 +320,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         // tabs restored from a pre-Slice-1 session. Non-JS/TS tabs
         // never carry the field.
         runtimeMode: runtimeModeForRestoredTab(tab.language, tab.runtimeMode),
+        // RL-020 Slice 2 — backfill missing workflow modes for tabs
+        // restored from a pre-Slice-2 session. Every tab carries
+        // the field in Slice 2 onwards; the coerce helper snaps a
+        // tampered persisted value back to the language default.
+        workflowMode: workflowModeForRestoredTab(tab.language, tab.workflowMode),
       })),
       activeTabId: activeTabId ?? null,
     }),
@@ -365,6 +435,46 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 
+  setTabWorkflowMode: (id, mode) => {
+    const { tabs } = get();
+    const target = tabs.find((t) => t.id === id);
+    if (!target) return;
+    // RL-020 Slice 2 — refuse modes the language does not support.
+    // The toolbar UI greys out unsupported segments so this branch
+    // is only reachable via a programmatic / palette / shortcut
+    // call. No status notice — the toolbar's tooltip already
+    // explains why the segment is disabled.
+    if (!supportsWorkflowMode(target.language, mode)) return;
+    const current = target.workflowMode ?? defaultWorkflowMode(target.language);
+    if (current === mode) return;
+    const shouldShowFirstSwitchNotice =
+      !useSettingsStore.getState().firstWorkflowModeSwitchAcknowledged &&
+      current === 'scratchpad' &&
+      mode !== 'scratchpad';
+    set((state) => ({
+      tabs: state.tabs.map((t) =>
+        t.id === id ? { ...t, workflowMode: mode } : t
+      ),
+    }));
+    if (shouldShowFirstSwitchNotice) {
+      useUIStore.getState().pushStatusNotice({
+        tone: 'info',
+        messageKey: 'workflowMode.firstSwitch.notice',
+      });
+      useSettingsStore.getState().acknowledgeFirstWorkflowModeSwitch();
+    }
+    // Telemetry — explicit user gesture (toolbar click, palette,
+    // keyboard cycle). The language-change auto-correction in
+    // `renameTab` emits with `trigger: 'language_change'` from its
+    // own call site.
+    void trackEvent('runtime.workflow_mode_changed', {
+      language: target.language,
+      from: current,
+      to: mode,
+      trigger: 'toolbar',
+    });
+  },
+
   markSaved: (id) =>
     set((state) => ({
       tabs: state.tabs.map((t) =>
@@ -412,6 +522,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // RL-019 Slice 1 — disk-backed JS/TS opens adopt the per-app
       // default runtime mode; non-JS/TS files leave the field unset.
       runtimeMode: runtimeModeForNewTab(language),
+      // RL-020 Slice 2 — disk-backed opens also adopt the per-app
+      // default workflow mode so the toolbar segment has a value to
+      // reflect on first render.
+      workflowMode: workflowModeForNewTab(language),
     };
 
     set((state) => ({
@@ -464,6 +578,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       filePath,
       // RL-019 Slice 1 — same JS/TS default mode as openFile().
       runtimeMode: runtimeModeForNewTab(language),
+      // RL-020 Slice 2 — same per-language workflow-mode default.
+      workflowMode: workflowModeForNewTab(language),
     };
 
     set((state) => ({
@@ -579,22 +695,54 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   renameTab: (id, name) => {
     const trimmed = name.trim();
     if (!trimmed) return;
+    // RL-020 Slice 2 fold D — when a rename auto-corrects the
+    // workflow mode (e.g. JS Debug → Rust forces Run because Rust
+    // has no debugger adapter), emit telemetry with
+    // `trigger: 'language_change'` so the audit trail covers the
+    // implicit transition, not just toolbar gestures.
+    const correctionsToEmit: Array<{
+      language: Language;
+      from: WorkflowMode;
+      to: WorkflowMode;
+    }> = [];
     set((state) => {
       const next = state.tabs.map((tab) => {
         if (tab.id !== id) return tab;
         if (tab.name === trimmed) return tab;
         const language = resolveFileLanguageOrPlaintext(trimmed);
         const runtimeMode = runtimeModeForRestoredTab(language, tab.runtimeMode);
+        const previousWorkflow =
+          tab.workflowMode ?? defaultWorkflowMode(tab.language);
+        const workflowMode = workflowModeForRestoredTab(
+          language,
+          tab.workflowMode
+        );
+        if (previousWorkflow !== workflowMode) {
+          correctionsToEmit.push({
+            language,
+            from: previousWorkflow,
+            to: workflowMode,
+          });
+        }
         return {
           ...tab,
           name: trimmed,
           language,
           runtimeMode,
+          workflowMode,
           isDirty: true,
         };
       });
       return { tabs: next };
     });
+    for (const correction of correctionsToEmit) {
+      void trackEvent('runtime.workflow_mode_changed', {
+        language: correction.language,
+        from: correction.from,
+        to: correction.to,
+        trigger: 'language_change',
+      });
+    }
   },
 
   /**

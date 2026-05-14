@@ -69,6 +69,7 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     // so the selector renders without throwing; tests that exercise
     // mode changes go through the editor-store unit suite.
     setTabRuntimeMode: vi.fn(),
+    setTabWorkflowMode: vi.fn(),
   });
   // Selector-aware mock: support both `useEditorStore()` and
   // `useEditorStore((state) => state.something)` call shapes.
@@ -137,6 +138,9 @@ vi.mock('lucide-react', () => ({
   Cpu: () => null,
   Layers: () => null,
   Globe: () => null,
+  // RL-020 Slice 2 — WorkflowModeSegment consumes Sparkles for the
+  // Scratchpad icon (Play + Bug are already declared above).
+  Sparkles: () => null,
 }));
 
 import { Toolbar } from '../../src/renderer/components/Toolbar/Toolbar';
@@ -528,6 +532,29 @@ describe('Toolbar', () => {
         value: originalLingua,
       });
     }
+  });
+
+  it('keeps unsupported workflow segments hoverable for their help text', () => {
+    editorStoreState.tabs = [
+      {
+        id: 'tab-python',
+        name: 'main.py',
+        language: 'python',
+        content: '',
+        isDirty: false,
+        workflowMode: 'scratchpad',
+      },
+    ];
+    editorStoreState.activeTabId = 'tab-python';
+
+    render(<Toolbar />);
+
+    const debugSegment = screen.getByTestId('workflow-mode-segment-debug');
+    expect(debugSegment.getAttribute('aria-disabled')).toBe('true');
+    expect(debugSegment).not.toHaveProperty('disabled', true);
+    expect(debugSegment.getAttribute('title')).toContain(
+      'Debug is only available for JavaScript and TypeScript today.'
+    );
   });
 
   it('localizes the capability badge when i18next is Spanish', async () => {

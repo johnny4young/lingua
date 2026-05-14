@@ -1098,6 +1098,137 @@ Out of scope until Slice 2:
 - Per-tab execution history with rerun (depends on RL-028 surface).
 - Variable inspector panel.
 
+#### Slice 2 — 2026-05-13 (per-tab workflow mode: Run / Debug / Scratchpad)
+
+Slice 2 lands the second acceptance criterion (`Users can distinguish
+Run, Debug, and Scratchpad from the toolbar state and per-tab runtime
+controls`). Every tab now carries an explicit `workflowMode` field;
+the editor toolbar mounts a 3-segment control next to the Run button;
+`useAutoRun` short-circuits as a true no-op for Run + Debug so the
+user opts into Scratchpad behavior on a per-tab basis.
+
+Architecture:
+
+- New pure module `src/shared/workflowMode.ts` exports the
+  `WorkflowMode` closed enum (`run` / `debug` / `scratchpad`) plus
+  `defaultWorkflowMode(language)`, `supportsWorkflowMode(language,
+  mode)`, `coerceWorkflowMode(value, language)`, and
+  `cycleWorkflowMode(current, language)` (skips unsupported
+  segments). Scratchpad-capable languages: JS / TS / Python / Go /
+  Rust (anything with an auto-run runner); debug-capable: JS / TS
+  (RL-027 adapter surface). Pure, no DOM, vitest-safe under node.
+- `src/renderer/types/index.ts` — `FileTab.workflowMode?: WorkflowMode`
+  field. Optional so pre-Slice-2 persisted tabs load cleanly; the
+  resolved selector falls through to `defaultWorkflowMode(language)`
+  when missing.
+- `src/renderer/stores/editorStore.ts` —
+  `workflowModeForNewTab(language, explicit?)` resolves per-tab seed
+  via Settings → shared default. `setTabWorkflowMode(id, mode)`
+  validates language support, no-ops on same-mode, and emits
+  `runtime.workflow_mode_changed { trigger: 'toolbar' }` on a
+  successful change. `renameTab` re-resolves the workflow mode when
+  the language flips (fold D): when the user's explicit mode is no
+  longer supported on the new language, the mode auto-corrects and
+  the store emits with `trigger: 'language_change'`. `restoreTabs`
+  + `persistTab` backfill the field.
+- `src/renderer/hooks/useAutoRun.ts` — workflow-mode short-circuit
+  at the TOP of the effect, BEFORE the empty-code branch. Run + Debug
+  modes do not touch `isAutoRunning`, do not advance `lastCodeRef`,
+  do not call `clear()`. The last manual run stays on screen
+  indefinitely. Validate-mode tabs (JSON / YAML) are unaffected
+  because they live downstream of the runner branch.
+- `src/renderer/stores/settingsStore.ts` —
+  `workflowModeDefaultsByLanguage: Record<Language, WorkflowMode>` +
+  `setWorkflowModeDefault(language, mode | null)`. Fold C — the merge
+  function sanitizes tampered persisted values (unknown language /
+  invalid mode) and seeds blank slots with `{ javascript: 'scratchpad',
+  typescript: 'scratchpad', python: 'scratchpad' }` so the Settings
+  rows surface a populated default on upgrade. Fold F —
+  `firstWorkflowModeSwitchAcknowledged` flag + setter.
+- `src/renderer/components/Toolbar/WorkflowModeSegment.tsx` — new
+  3-segment toggle (`Run | Debug | Scratchpad`) mounted next to the
+  RuntimeModeSelector. Click an enabled segment → fires the setter
+  + telemetry. Click a disabled segment → noop with hover-tooltip.
+  Collapses to a single label-pill when only one mode is supported
+  for the active language (plain-text tabs). Fold E — arrow keys
+  skip disabled segments while cycling supported ones; focus moves
+  with selection. Fold F — first time the user moves AWAY from
+  Scratchpad, surfaces a one-shot status notice explaining the
+  modes; the ack flag is persisted.
+- `src/renderer/components/Editor/WorkflowModeStatusPill.tsx` —
+  fold B. Low-contrast pill mounted in the result-panel header next
+  to the execution-time slot, mirroring the current workflow mode
+  for users whose toolbar is offscreen.
+- `src/renderer/components/Editor/ResultPanel.tsx` — fold G.
+  Mode-aware empty state: dynamic-language tabs in Run / Debug mode
+  show `Press Cmd+R to run` instead of the generic `Results appear
+  here as you type`.
+- `src/renderer/components/Settings/EditorSection.tsx` — new
+  `settings.workflowMode.title` Row with three Select rows for the
+  lightweight in-process languages (JS / TS / Python), pulling the
+  current value from `workflowModeDefaultsByLanguage` and writing
+  via `setWorkflowModeDefault`.
+- Fold A — `Mod+Shift+M` cycle shortcut. `keyboardShortcuts.ts`
+  registers `run-cycle-workflow-mode`; `useGlobalShortcuts.ts`
+  gains a `cycleWorkflowMode` option; `App.tsx` wires the dispatcher
+  to read the active tab + call `setTabWorkflowMode(next)`.
+- Telemetry — `runtime.workflow_mode_changed` added to
+  `TELEMETRY_EVENTS` + `EVENT_PROPERTY_ALLOWLIST` + `isAllowedValue`
+  in `src/shared/telemetry.ts`. Closed-enum validators:
+  `WORKFLOW_MODE_VALUES` (`run` / `debug` / `scratchpad`),
+  `WORKFLOW_MODE_CHANGE_TRIGGERS` (`toolbar` / `language_change`).
+  Property is named `trigger` (not `source`) so the DENY_SUBSTRINGS
+  pass does not strip it. Mirror in `update-server/src/telemetry.ts`
+  + two parity tests (regex-compare for both Sets) in
+  `update-server/test/telemetry.test.ts`.
+
+i18n — 16 keys per locale (2 shortcut reference keys + 3 segment
+labels + toggle description + 3 unsupported-reason keys + 3 language
+labels + first-switch notice + settings title + settings description
+and mode-aware empty state). Spanish in tuteo (`Elige`, `Cambia`,
+`Pulsa`).
+
+Tests:
+
+- `tests/shared/workflowMode.test.ts` — pure-module coverage:
+  defaults per language, supports matrix, coerce snap-back, cycle
+  with skip-disabled-segment behavior, single-mode short-circuit.
+- `tests/stores/editorStore.workflowMode.test.ts` — store-level
+  coverage: `createDefaultTab` defaults, `addTab` backfill,
+  `setTabWorkflowMode` valid + invalid + same-mode + nonexistent-tab
+  paths, fold-D auto-correction on language change with telemetry
+  assertion, `restoreTabs` backfill + tampered-value snap-back.
+- `tests/stores/settingsStore.test.ts` — fold-C seed + sanitize-on-
+  rehydrate + setter coverage; fold-F first-switch ack flag.
+- `tests/hooks/useAutoRun.test.tsx` — Run-mode short-circuit
+  (no `prepareRunner` call), Debug-mode short-circuit, Scratchpad
+  mode still gates incomplete buffers.
+- `tests/shared/telemetry.test.ts` — validator coverage:
+  `runtime.workflow_mode_changed` accepts the closed enum, drops
+  unknown `trigger` / `to` / non-safe-token language; sorted-name
+  list gains the event.
+- `update-server/test/telemetry.test.ts` — worker-side validator
+  smoke (accepts closed enum, drops unknown `trigger` silently with
+  204) + two parity guards: `WORKFLOW_MODE_VALUES` and
+  `WORKFLOW_MODE_CHANGE_TRIGGERS` regex-compare against the
+  renderer authority.
+- `tests/components/Toolbar.test.tsx` — extends the lucide-react
+  mock with the `Sparkles` icon used by `WorkflowModeSegment`.
+- `tests/e2e/workflowMode.spec.ts` — 3 Playwright cases: 3-segment
+  toggle renders with Scratchpad active on a fresh JS tab; clicking
+  Run silences auto-run on subsequent keystrokes (gate notice never
+  appears); switching back to Scratchpad re-enables the Slice-1
+  gate.
+
+Out of scope until Slice 3:
+
+- Magic-comment inline-watch expansion.
+- Expression auto-log mode.
+- stdin / input surface.
+- Timeout presets.
+- Per-tab execution history with rerun (depends on RL-028 surface).
+- Variable inspector panel.
+
 #### Product experience recommendations — 2026-05-12
 
 This section captures product recommendations for the editor/runtime surface in

@@ -1,5 +1,6 @@
 import type { ShortcutCombo, ShortcutOverrideMap } from '../data/keyboardShortcuts';
 import type { RuntimeMode } from '../../shared/runtimeModes';
+import type { WorkflowMode } from '../../shared/workflowMode';
 
 export type AppLanguage = 'system' | 'en' | 'es';
 
@@ -93,6 +94,25 @@ export interface FileTab {
    * See [`docs/RUNTIME_MODES_ADR.md`](../../docs/RUNTIME_MODES_ADR.md).
    */
   runtimeMode?: RuntimeMode;
+  /**
+   * RL-020 Slice 2 — explicit per-tab workflow mode. Three values:
+   *
+   *   - `scratchpad` — auto-run fires on debounced keystrokes
+   *     (gated by the Slice 1 completion heuristic). Default for
+   *     Scratchpad-capable languages (JS / TS / Python today).
+   *   - `run` — auto-run is OFF. Manual Cmd+R still works. Default
+   *     for compiled / validate / view-only tabs and the fall-back
+   *     for any language whose explicit mode is no longer
+   *     supported after a language change.
+   *   - `debug` — auto-run is OFF; the user intends to step
+   *     through breakpoints. Only valid for languages with a
+   *     debugger adapter (JS / TS today).
+   *
+   * Optional so pre-Slice-2 persisted tabs load cleanly — the
+   * resolved selector falls through to
+   * `defaultWorkflowMode(language)` when the field is absent.
+   */
+  workflowMode?: WorkflowMode;
 }
 
 /**
@@ -154,6 +174,15 @@ export interface EditorState {
    * change.
    */
   setTabRuntimeMode: (id: string, mode: RuntimeMode) => void;
+  /**
+   * RL-020 Slice 2 — set the workflow mode for a tab. No-op when:
+   *   - the tab does not exist;
+   *   - the language does not support the requested mode (e.g.
+   *     `debug` on a Rust tab).
+   * Telemetry (`runtime.workflow_mode_changed`) fires on every
+   * successful change with `trigger: 'toolbar'`.
+   */
+  setTabWorkflowMode: (id: string, mode: WorkflowMode) => void;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The
@@ -307,6 +336,25 @@ export interface SettingsState {
    * per-tab (each tab keeps its own choice).
    */
   defaultRuntimeMode: RuntimeMode;
+  /**
+   * RL-020 Slice 2 — per-language workflow-mode defaults applied to
+   * NEWLY CREATED tabs. Existing tabs keep their explicit choice;
+   * this map only governs new-tab seeding via `createDefaultTab`.
+   * Missing keys fall through to the shared
+   * `defaultWorkflowMode(language)` helper, so a sparse map is
+   * sufficient — fold C migration seeds the three Scratchpad
+   * languages on upgrade so the Settings UI surfaces them visibly.
+   */
+  workflowModeDefaultsByLanguage: Record<string, WorkflowMode>;
+  /**
+   * RL-020 Slice 2 fold F — one-shot acknowledgement flag for the
+   * "Scratchpad auto-runs as you type; Run waits for Cmd+R"
+   * onboarding toast. Set to `true` the first time the user switches
+   * a tab away from Scratchpad; the toast never re-fires after that.
+   * Resettable from Settings → Account → Privacy (next slice) so
+   * users can re-trigger the tour on a fresh install.
+   */
+  firstWorkflowModeSwitchAcknowledged: boolean;
   language: AppLanguage;
   lastSeenVersion: string | null;
   hasCompletedTour: boolean;
@@ -385,6 +433,19 @@ export interface SettingsState {
    * Rejects (no-op) for modes that are not yet implemented.
    */
   setDefaultRuntimeMode: (mode: RuntimeMode) => void;
+  /**
+   * RL-020 Slice 2 — set the default workflow mode for a language.
+   * No-op when the language does not support the requested mode.
+   * `null` clears the user override and falls back to the shared
+   * `defaultWorkflowMode(language)` helper.
+   */
+  setWorkflowModeDefault: (language: string, mode: WorkflowMode | null) => void;
+  /**
+   * RL-020 Slice 2 fold F — mark the workflow-mode onboarding toast
+   * acknowledged. Idempotent. Called when the user explicitly
+   * dismisses or just sees the toast.
+   */
+  acknowledgeFirstWorkflowModeSwitch: () => void;
   setLastSeenVersion: (version: string | null) => void;
   setHasCompletedTour: (value: boolean) => void;
   setSuppressTourAutoStart: (value: boolean) => void;

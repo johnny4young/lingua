@@ -13,6 +13,7 @@ import { currentEffectiveTier } from './useEntitlement';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import { collectBrowserPreviewSiblingSources } from '../runtime/browserPreviewSiblings';
 import { isLikelyComplete } from '../../shared/autoRunGating';
+import { defaultWorkflowMode } from '../../shared/workflowMode';
 import { trackEvent } from '../utils/telemetry';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
@@ -38,8 +39,43 @@ export function useAutoRun() {
   // a tab set to Browser preview keeps using the iframe runner
   // during live updates, not the language Worker.
   const runtimeMode = activeTab?.runtimeMode;
+  // RL-020 Slice 2 — auto-run only fires when the active tab is in
+  // Scratchpad workflow mode. Run + Debug modes are manual-gesture
+  // workflows where the user does NOT want background reruns. The
+  // resolved selector falls through to `defaultWorkflowMode` for
+  // tabs missing the field (pre-Slice-2 persisted state).
+  const workflowMode =
+    activeTab?.workflowMode ?? defaultWorkflowMode(language);
 
   useEffect(() => {
+    // RL-020 Slice 2 — workflow-mode short-circuit FIRST. When the
+    // user is in Run or Debug mode this hook is a TRUE no-op: we do
+    // not touch `isAutoRunning`, do not advance `lastCodeRef`, do
+    // not call `clear()`. Even the empty-code branch below stays
+    // dormant — the user's last manual run stays on screen
+    // indefinitely. Manual Run gestures and the Debug drawer
+    // produce output through their own paths.
+    if (workflowMode !== 'scratchpad') {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      abortRef.current = true;
+      runTokenRef.current += 1;
+
+      const resultState = useResultStore.getState();
+      if (resultState.isAutoRunning) {
+        resultState.setIsAutoRunning(false);
+      }
+      if (resultState.autoRunGateReason !== null) {
+        resultState.setAutoRunGateReason(null);
+      }
+      if (resultState.executionSource === 'auto') {
+        resultState.setExecutionSource(null);
+      }
+      return;
+    }
+
     // Skip if no tab or empty code
     if (!activeTab || !code.trim()) {
       runTokenRef.current += 1;
@@ -268,7 +304,7 @@ export function useAutoRun() {
         clearTimeout(timerRef.current);
       }
     };
-  }, [code, language, runtimeMode, activeTab, activeTabId]);
+  }, [code, language, runtimeMode, workflowMode, activeTab, activeTabId]);
 
   // Clear results when switching tabs
   useEffect(() => {

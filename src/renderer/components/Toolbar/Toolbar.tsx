@@ -43,6 +43,7 @@ import { IconButton, Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
 import { LicenseBadge } from './LicenseBadge';
 import { RuntimeModeSelector } from './RuntimeModeSelector';
+import { WorkflowModeSegment } from './WorkflowModeSegment';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 
 const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
@@ -521,6 +522,12 @@ export function Toolbar({
       </div>
 
       <div data-tour-id="toolbar-actions" className="flex min-w-0 items-center gap-1">
+        {/* RL-020 Slice 2 — per-tab workflow-mode segmented control.
+            Renders for every tab; collapses to a single label-pill
+            when only one mode is supported (plain-text tabs). The
+            control itself owns its visibility logic so the Toolbar
+            stays oblivious to per-language capability axes. */}
+        {activeTab ? <WorkflowModeSegment /> : null}
         {/* RL-019 Slice 1 — per-tab JS/TS runtime mode selector.
             Rendered only when the active tab owns the runtime-mode
             surface (JS/TS today). The selector itself short-circuits

@@ -446,6 +446,96 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(future.properties).not.toHaveProperty('reason');
   });
 
+  it('WORKFLOW_MODE_VALUES stays in sync with the renderer enum (RL-020 Slice 2)', async () => {
+    // Parity guard for the closed `WorkflowMode` enum used by
+    // `runtime.workflow_mode_changed`. Adding a new mode (e.g. a
+    // future `notebook` workflow) has to amend BOTH the worker
+    // mirror in `update-server/src/telemetry.ts` and the renderer
+    // copy in `src/shared/telemetry.ts` in the same commit.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /const\s+WORKFLOW_MODE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    // Slice 2 lock — three workflow modes ship. If this loosens,
+    // the renderer surface (segmented control + Settings rows)
+    // must widen too.
+    expect(workerValues).toEqual(['debug', 'run', 'scratchpad']);
+  });
+
+  it('WORKFLOW_MODE_CHANGE_TRIGGERS stays in sync with the renderer enum (RL-020 Slice 2)', async () => {
+    // Parity guard for the `trigger` closed enum. Adding a new
+    // trigger (e.g. `'command_palette'`, `'settings_default'`)
+    // requires updating both mirrors AND the comment in the
+    // allowlist in the same commit.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /const\s+WORKFLOW_MODE_CHANGE_TRIGGERS\s*=\s*new\s+Set\(\s*\[([\s\S]+?)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual(['language_change', 'toolbar']);
+  });
+
+  it('runtime.workflow_mode_changed accepts the closed enum, drops unknown trigger values', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.workflow_mode_changed',
+      properties: {
+        language: 'javascript',
+        from: 'scratchpad',
+        to: 'debug',
+        trigger: 'toolbar',
+      },
+    });
+    expect(okResponse.status).toBe(204);
+    // Drop a future-shaped source without surfacing a 400.
+    const futureResponse = await postTelemetry({
+      event: 'runtime.workflow_mode_changed',
+      properties: {
+        language: 'typescript',
+        from: 'scratchpad',
+        to: 'run',
+        trigger: 'spyware',
+      },
+    });
+    expect(futureResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.workflow_mode_changed"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const future = eventLines
+      .map((line) => JSON.parse(line))
+      .find((parsed) => parsed.properties.language === 'typescript');
+    expect(future).toBeDefined();
+    expect(future.properties).not.toHaveProperty('trigger');
+  });
+
   it('RUNTIME_MODE_VALUES stays in sync with the renderer enum (RL-019 Slice 1)', async () => {
     // Both the worker (`update-server/src/telemetry.ts`) and the
     // renderer (`src/shared/telemetry.ts`) maintain a private Set of

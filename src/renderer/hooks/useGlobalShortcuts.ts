@@ -54,6 +54,14 @@ interface UseGlobalShortcutsOptions {
    * `App.tsx` checks `languageHasRuntimeModes` before calling).
    */
   cycleRuntimeMode: () => void;
+  /**
+   * RL-020 Slice 2 fold A — cycle the active tab's workflow mode
+   * (Run → Debug → Scratchpad → Run) while skipping unsupported
+   * segments for the language. Caller in `App.tsx` resolves the
+   * active tab + supported subset and calls
+   * `setTabWorkflowMode`.
+   */
+  cycleWorkflowMode: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -73,6 +81,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
       else void run();
     },
     'run-cycle-runtime-mode': () => options.cycleRuntimeMode(),
+    'run-cycle-workflow-mode': () => options.cycleWorkflowMode(),
     'file-save': () => {
       void options.saveActiveTab();
     },

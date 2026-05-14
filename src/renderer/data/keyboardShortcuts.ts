@@ -82,6 +82,18 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['runtime', 'mode', 'worker', 'node', 'browser', 'cycle'],
   },
   {
+    // RL-020 Slice 2 fold A — cycle the active tab's workflow mode
+    // (Run → Debug → Scratchpad → Run) while skipping unsupported
+    // segments for the language. Mirrors the `Mod+Shift+B`
+    // breakpoint-toggle pattern from RL-027 Slice 1.5.
+    id: 'run-cycle-workflow-mode',
+    group: 'run',
+    labelKey: 'shortcuts.item.cycleWorkflowMode.label',
+    descriptionKey: 'shortcuts.item.cycleWorkflowMode.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'M'] }],
+    keywords: ['workflow', 'mode', 'run', 'debug', 'scratchpad', 'cycle'],
+  },
+  {
     id: 'file-save',
     group: 'file',
     labelKey: 'shortcuts.item.save.label',

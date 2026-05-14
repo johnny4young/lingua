@@ -39,6 +39,14 @@ export const TELEMETRY_EVENTS = [
   // to that single value so a future expansion of the gate must
   // amend this allowlist + the mirror in update-server.
   'runtime.auto_run_gated',
+  // RL-020 Slice 2 — per-tab workflow mode change. Closed enum
+  // payload `{ language, from, to, trigger }`; no source code, no
+  // tab id, no content. `from` + `to` are the WorkflowMode enum;
+  // `trigger` tags what caused the change (toolbar click vs. the
+  // language-change auto-correction in renameTab). Property is
+  // named `trigger` (not `source`) so the DENY_SUBSTRINGS pass
+  // does not strip it on the way out.
+  'runtime.workflow_mode_changed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -110,6 +118,17 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `javascript` / `typescript`). `reason` is a closed enum locked
   // to `'incomplete'` for Slice 1.
   'runtime.auto_run_gated': ['language', 'reason'],
+  // RL-020 Slice 2 — `language` is the language-pack id (any
+  // string passing `isSafeToken`). `from` + `to` are the
+  // `WorkflowMode` closed enum (`run` / `debug` / `scratchpad`).
+  // `trigger` is a closed enum tagging what caused the change:
+  // `'toolbar'` — explicit segmented-control click; `'language_change'`
+  // — the user renamed a tab and the previous mode is no longer
+  // supported, so the store auto-corrected to a valid default. The
+  // field is named `trigger` (not `source`) because the DENY_SUBSTRINGS
+  // pass below treats `source` as a code-bearing flag and would strip
+  // it even though the value is a closed enum.
+  'runtime.workflow_mode_changed': ['language', 'from', 'to', 'trigger'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -146,6 +165,23 @@ const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview']);
 // rejects anything else so a future heuristic-expansion has to amend
 // this Set + its mirror in `update-server/src/telemetry.ts`.
 const AUTO_RUN_GATE_REASONS = new Set(['incomplete']);
+// RL-020 Slice 2 — closed enum mirroring `WorkflowMode` in
+// `src/shared/workflowMode.ts`. Duplicated here so this redactor
+// stays a pure module without an import cycle; a parity test
+// asserts both stay in sync.
+const WORKFLOW_MODE_VALUES = new Set(['run', 'debug', 'scratchpad']);
+// RL-020 Slice 2 — closed enum for the `trigger` property on
+// `runtime.workflow_mode_changed`. `toolbar` is an explicit user
+// gesture; `language_change` is the auto-correction emitted by
+// `renameTab` when the new language no longer supports the previous
+// mode. A future slice that adds Settings-driven retroactive
+// propagation would extend this Set + the mirror in
+// `update-server/src/telemetry.ts` in the same commit (the parity
+// test enforces both sides at CI time).
+const WORKFLOW_MODE_CHANGE_TRIGGERS = new Set([
+  'toolbar',
+  'language_change',
+]);
 const DEBUGGER_REASON_BUCKETS: Record<
   Extract<
     TelemetryEventName,
@@ -231,6 +267,15 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'reason')
         return typeof value === 'string' && AUTO_RUN_GATE_REASONS.has(value);
+      return false;
+    case 'runtime.workflow_mode_changed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'from' || key === 'to')
+        return typeof value === 'string' && WORKFLOW_MODE_VALUES.has(value);
+      if (key === 'trigger')
+        return (
+          typeof value === 'string' && WORKFLOW_MODE_CHANGE_TRIGGERS.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;

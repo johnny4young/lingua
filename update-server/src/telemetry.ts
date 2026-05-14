@@ -40,6 +40,7 @@ export const TELEMETRY_EVENT_NAMES = [
   'debugger.detached',
   'runtime.mode_changed',
   'runtime.auto_run_gated',
+  'runtime.workflow_mode_changed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -63,6 +64,7 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'debugger.detached': ['language', 'reasonBucket'],
   'runtime.mode_changed': ['mode', 'language'],
   'runtime.auto_run_gated': ['language', 'reason'],
+  'runtime.workflow_mode_changed': ['language', 'from', 'to', 'trigger'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -100,6 +102,17 @@ const RUNTIME_MODE_VALUES = new Set(['worker', 'node', 'browser-preview']);
 // RL-020 Slice 1 — closed enum mirror of `AUTO_RUN_GATE_REASONS` in
 // `src/shared/telemetry.ts`. Locked to `'incomplete'` for Slice 1.
 const AUTO_RUN_GATE_REASONS = new Set(['incomplete']);
+// RL-020 Slice 2 — closed enum mirror of `WORKFLOW_MODE_VALUES` in
+// `src/shared/telemetry.ts`. The parity test asserts the worker +
+// renderer copies stay in sync.
+const WORKFLOW_MODE_VALUES = new Set(['run', 'debug', 'scratchpad']);
+// RL-020 Slice 2 — closed enum mirror of `WORKFLOW_MODE_CHANGE_TRIGGERS`
+// in `src/shared/telemetry.ts`. Mirrors the trigger taxonomy so the
+// worker drops events whose `trigger` field is unknown to either side.
+const WORKFLOW_MODE_CHANGE_TRIGGERS = new Set([
+  'toolbar',
+  'language_change',
+]);
 const DEBUGGER_REASON_BUCKETS: Record<
   Extract<
     TelemetryEventName,
@@ -274,6 +287,15 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'reason')
         return typeof value === 'string' && AUTO_RUN_GATE_REASONS.has(value);
+      return false;
+    case 'runtime.workflow_mode_changed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'from' || key === 'to')
+        return typeof value === 'string' && WORKFLOW_MODE_VALUES.has(value);
+      if (key === 'trigger')
+        return (
+          typeof value === 'string' && WORKFLOW_MODE_CHANGE_TRIGGERS.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;
