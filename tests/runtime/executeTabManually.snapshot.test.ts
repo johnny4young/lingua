@@ -55,6 +55,10 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     setLineResults: vi.fn(),
     setStdinConsumed: vi.fn(),
     setDiagnostics: vi.fn(),
+    // RL-020 Slice 7 — pill state setters required by the
+    // executeTabManually result-store destructure.
+    setRunTermination: vi.fn(),
+    setRunDeadlineAt: vi.fn(),
   };
   return { useResultStore: { getState: () => state } };
 });

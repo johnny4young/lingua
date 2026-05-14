@@ -17,6 +17,10 @@ import {
 } from '../utils/magicComments';
 import { injectJSLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
+import {
+  resolveTimeoutMs,
+  type RuntimeTimeoutPreset,
+} from '../../shared/runtimeTimeoutPresets';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { instrumentForDebugger } from '../runtime/debuggerInstrument';
 import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
@@ -29,7 +33,10 @@ import {
   type TranslateFn,
 } from './limits';
 
-const DEFAULT_TIMEOUT = 30_000; // 30 seconds
+// RL-020 Slice 7 — the literal `DEFAULT_TIMEOUT` is gone; the
+// runner reads the per-language preset from settings every time
+// `execute()` is called so a Settings change picks up on the very
+// next run without restarting the worker.
 
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
@@ -93,7 +100,6 @@ export class JavaScriptRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     const magicResults: MagicCommentResult[] = [];
@@ -116,6 +122,21 @@ export class JavaScriptRunner implements LanguageRunner {
     // and auto-disables loop protection only when an enabled breakpoint
     // exists in the active tab.
     const settings = useSettingsStore.getState();
+    // RL-020 Slice 7 — resolve the run-time deadline from the
+    // per-language preset whenever the caller did NOT pass an
+    // explicit timeout. Caller overrides (one-shot extended,
+    // magic-comment `// @timeout`) keep the original number and
+    // the pill tooltip drops the preset name via the `'override'`
+    // sentinel.
+    const callerOverrode = typeof context?.timeout === 'number';
+    const presetForLanguage: RuntimeTimeoutPreset | undefined =
+      settings.runtimeTimeoutPresetByLanguage?.['javascript'];
+    const timeout = callerOverrode
+      ? (context!.timeout as number)
+      : resolveTimeoutMs('javascript', presetForLanguage);
+    const timeoutPreset: RuntimeTimeoutPreset | 'override' = callerOverrode
+      ? 'override'
+      : presetForLanguage ?? 'normal';
     const debuggerSettings = settings.debuggerEnabled !== false;
     const debugStore = useDebuggerStore.getState();
     const tabBreakpoints = context?.tabId
@@ -209,7 +230,7 @@ export class JavaScriptRunner implements LanguageRunner {
           // after a timeout does not post to a dead worker.
           this.clearDebuggerSession('stop');
           finish(
-            runnerTimeoutResult(timeout, t, { stdout, stderr })
+            runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset)
           );
         }, timeout);
       };
@@ -354,6 +375,15 @@ export class JavaScriptRunner implements LanguageRunner {
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
               stdinConsumed,
+              // RL-020 Slice 7 — explicit kind so the result-panel
+              // pill self-gates on a field instead of regexing the
+              // error message. `'success'` when there is no thrown
+              // error; `'error'` otherwise (timeout / stop paths
+              // never reach this branch because they finish() via
+              // `runnerTimeoutResult` / `runnerStoppedResult`).
+              kind: error ? 'error' : 'success',
+              timeoutPreset,
+              timeoutMs: timeout,
             });
             // Detach the debugger session — the run is over.
             this.clearDebuggerSession('run-complete');
@@ -373,6 +403,12 @@ export class JavaScriptRunner implements LanguageRunner {
           error: {
             message: event.message || 'Worker error',
           },
+          // RL-020 Slice 7 — worker crashes count as `'error'` in
+          // the pill so the user sees the "Run failed" variant
+          // instead of a silent state.
+          kind: 'error',
+          timeoutPreset,
+          timeoutMs: timeout,
         });
         // RL-027 Slice 1 — clear the debugger bridge + session on
         // crash so a follow-up F5/F10 doesn't post to a dead worker.

@@ -13,8 +13,13 @@ import { currentEffectiveTier } from './useEntitlement';
 import { isLanguageAllowed } from '../../shared/entitlements';
 import { collectBrowserPreviewSiblingSources } from '../runtime/browserPreviewSiblings';
 import { isLikelyComplete } from '../../shared/autoRunGating';
+import {
+  defaultRuntimeTimeoutPreset,
+  presetToMs,
+} from '../../shared/runtimeTimeoutPresets';
 import { defaultWorkflowMode } from '../../shared/workflowMode';
 import { trackEvent } from '../utils/telemetry';
+import { extractTimeoutMagicComment } from '../utils/magicComments';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
 export type AutoLogCountBucket = '1' | '2-5' | '6-20' | '20-plus';
@@ -210,6 +215,8 @@ export function useAutoRun() {
         setIsAutoRunning,
         setAutoRunGateReason,
         setStdinConsumed,
+        setRunTermination,
+        setRunDeadlineAt,
         captureSuccessfulSnapshot,
         restoreLastSuccessfulSnapshot,
       } = useResultStore.getState();
@@ -352,9 +359,61 @@ export function useAutoRun() {
         // JS / TS so the payload is symmetric.
         // RL-020 Slice 6 — the stdin buffer rides on the same
         // context. Runners that don't consume it ignore it.
+        // RL-020 Slice 7 fold B — honor the magic-comment timeout
+        // on auto-run too (the directive is part of the buffer, so
+        // the user's expectation is that it applies whenever the
+        // buffer runs). Fold D — auto-run also consumes the per-tab
+        // one-shot override armed via the "Run with extended
+        // timeout" palette command, so the override fires on the
+        // very next auto-run if the user happens to be typing on a
+        // Scratchpad-mode tab.
+        const magicTimeoutMs = extractTimeoutMagicComment(language, code);
+        const oneShotOverrideMs =
+          typeof activeTab?.nextRunTimeoutOverrideMs === 'number'
+            ? activeTab.nextRunTimeoutOverrideMs
+            : null;
+        const overrideMs =
+          oneShotOverrideMs ?? magicTimeoutMs ?? null;
+        // RL-020 Slice 7 fold E — set the in-flight deadline before
+        // execute() resolves so the countdown pill can render.
+        // Resolution mirrors the runner: explicit override wins;
+        // otherwise read the per-language Settings preset, falling
+        // back to the language default when the map key is missing
+        // (a fresh install before rehydration completes, or a
+        // tampered persisted state).
+        const settingsForDeadline = useSettingsStore.getState();
+        const presetForDeadline =
+          settingsForDeadline.runtimeTimeoutPresetByLanguage?.[language] ??
+          defaultRuntimeTimeoutPreset(language);
+        const armedDeadlineMs =
+          overrideMs ?? presetToMs(presetForDeadline);
+        setRunDeadlineAt(Date.now() + armedDeadlineMs);
+
+        // Consume the one-shot override the moment we pass it onto
+        // the runner — symmetric to the manual run path.
+        if (oneShotOverrideMs !== null && activeTabId) {
+          useEditorStore
+            .getState()
+            .setTabNextRunTimeoutOverride(activeTabId, null);
+        }
+
         const result: ExecutionResult = await runner.execute(code, {
           autoLog: autoLogEnabled,
           ...(stdinBuffer !== undefined ? { stdin: stdinBuffer } : {}),
+          ...(overrideMs !== null ? { timeout: overrideMs } : {}),
+        });
+        setRunDeadlineAt(null);
+        // RL-020 Slice 7 — propagate the termination kind.
+        const terminationKind: 'success' | 'error' | 'timeout' | 'stopped' =
+          result.kind ?? (result.cancelled
+            ? 'stopped'
+            : result.error
+              ? 'error'
+              : 'success');
+        setRunTermination({
+          kind: terminationKind,
+          timeoutPreset: result.timeoutPreset,
+          timeoutMs: result.timeoutMs,
         });
 
         // If another execution was triggered while we were running, discard.

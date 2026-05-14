@@ -30,6 +30,13 @@ import {
   supportsWorkflowMode,
   type WorkflowMode,
 } from '../../shared/workflowMode';
+import {
+  defaultRuntimeTimeoutPresetSeed,
+  isRuntimeTimeoutPreset,
+  isRuntimeTimeoutSupportedLanguage,
+  RUNTIME_TIMEOUT_SUPPORTED_LANGUAGE_SET,
+  type RuntimeTimeoutPreset,
+} from '../../shared/runtimeTimeoutPresets';
 
 const DEFAULT_EDITOR_FONT_FAMILY = "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace";
 
@@ -70,6 +77,28 @@ const SCRATCHPAD_AUTO_LOG_DEFAULT_SEED: Record<string, boolean> = {
 const SETTINGS_AUTO_LOG_LANGUAGE_SET: ReadonlySet<string> = new Set(
   Object.keys(SCRATCHPAD_AUTO_LOG_DEFAULT_SEED)
 );
+
+/**
+ * RL-020 Slice 7 — sanitize a persisted
+ * `runtimeTimeoutPresetByLanguage` map: drop languages outside the
+ * Slice-7 supported set; drop non-enum preset tokens. Returns a
+ * fresh object so callers can hand it to the store without
+ * aliasing.
+ */
+function sanitizeRuntimeTimeoutPresets(
+  value: unknown
+): Record<string, RuntimeTimeoutPreset> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, RuntimeTimeoutPreset> = {};
+  for (const [language, raw] of Object.entries(
+    value as Record<string, unknown>
+  )) {
+    if (!isRuntimeTimeoutSupportedLanguage(language)) continue;
+    if (!isRuntimeTimeoutPreset(raw)) continue;
+    out[language] = raw;
+  }
+  return out;
+}
 
 /**
  * Sanitize a persisted `scratchpadAutoLogByLanguage` map: drop
@@ -262,6 +291,16 @@ export const useSettingsStore = create<SettingsState>()(
       // disabling the tab does NOT clear per-tab `stdinBuffer`
       // values so re-enabling the tab restores the existing input.
       showStdinPanel: true,
+      // RL-020 Slice 7 — per-language run-time preset. Seed honors
+      // the pre-Slice-7 hardcoded DEFAULT_TIMEOUT per runner
+      // (JS / TS / Go = 30 s = `normal`; Python = 120 s = `long`).
+      // Rust is intentionally absent — its desktop kill path is in
+      // main and unchanged.
+      runtimeTimeoutPresetByLanguage: defaultRuntimeTimeoutPresetSeed(),
+      // RL-020 Slice 7 fold E — countdown pill in the result panel
+      // header while a run is in flight. Default OFF so the panel
+      // stays quiet by default.
+      showTimeoutCountdown: false,
       // RL-020 Slice 2 fold F — onboarding-toast acknowledgement.
       firstWorkflowModeSwitchAcknowledged: false,
       language: 'system',
@@ -409,6 +448,41 @@ export const useSettingsStore = create<SettingsState>()(
       // visibility. Per-tab buffers are preserved either way.
       toggleShowStdinPanel: () =>
         set((s) => ({ showStdinPanel: !s.showStdinPanel })),
+      // RL-020 Slice 7 — write the per-language preset. Rejects
+      // unsupported languages + unknown preset tokens so the
+      // closed-enum contract holds even against programmatic
+      // callers (palette, scripted tests). Fires
+      // `runtime.timeout_preset_changed` (fold A) on actual
+      // change only — idempotent calls do not re-emit.
+      setRuntimeTimeoutPreset: (
+        language: string,
+        preset: RuntimeTimeoutPreset
+      ) => {
+        if (!RUNTIME_TIMEOUT_SUPPORTED_LANGUAGE_SET.has(language)) return;
+        if (!isRuntimeTimeoutPreset(preset)) return;
+        let changed = false;
+        set((state) => {
+          if (state.runtimeTimeoutPresetByLanguage[language] === preset) {
+            return state;
+          }
+          changed = true;
+          return {
+            runtimeTimeoutPresetByLanguage: {
+              ...state.runtimeTimeoutPresetByLanguage,
+              [language]: preset,
+            },
+          };
+        });
+        if (changed) {
+          void trackEvent('runtime.timeout_preset_changed', {
+            language,
+            preset,
+          });
+        }
+      },
+      // RL-020 Slice 7 fold E — flip the countdown-pill toggle.
+      toggleShowTimeoutCountdown: () =>
+        set((s) => ({ showTimeoutCountdown: !s.showTimeoutCountdown })),
       // RL-020 Slice 2 fold F — record that the onboarding toast has
       // been seen so future workflow-mode switches stay silent.
       acknowledgeFirstWorkflowModeSwitch: () =>
@@ -496,6 +570,8 @@ export const useSettingsStore = create<SettingsState>()(
         workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
         scratchpadAutoLogByLanguage: state.scratchpadAutoLogByLanguage,
         showStdinPanel: state.showStdinPanel,
+        runtimeTimeoutPresetByLanguage: state.runtimeTimeoutPresetByLanguage,
+        showTimeoutCountdown: state.showTimeoutCountdown,
         firstWorkflowModeSwitchAcknowledged:
           state.firstWorkflowModeSwitchAcknowledged,
         language: state.language,
@@ -614,6 +690,21 @@ export const useSettingsStore = create<SettingsState>()(
           typeof merged.showStdinPanel === 'boolean'
             ? merged.showStdinPanel
             : currentState.showStdinPanel;
+        // RL-020 Slice 7 — sanitize + seed the per-language preset
+        // map. Tampered tokens never survive; missing language keys
+        // fall back to the language default seed so the Settings UI
+        // always shows a row for every supported language.
+        const sanitizedTimeoutPresets = sanitizeRuntimeTimeoutPresets(
+          merged.runtimeTimeoutPresetByLanguage
+        );
+        const seededTimeoutPresets: Record<string, RuntimeTimeoutPreset> = {
+          ...defaultRuntimeTimeoutPresetSeed(),
+          ...sanitizedTimeoutPresets,
+        };
+        const showTimeoutCountdown =
+          typeof merged.showTimeoutCountdown === 'boolean'
+            ? merged.showTimeoutCountdown
+            : currentState.showTimeoutCountdown;
         return {
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
@@ -626,6 +717,8 @@ export const useSettingsStore = create<SettingsState>()(
           workflowModeDefaultsByLanguage: seededWorkflowDefaults,
           scratchpadAutoLogByLanguage: seededAutoLog,
           showStdinPanel,
+          runtimeTimeoutPresetByLanguage: seededTimeoutPresets,
+          showTimeoutCountdown,
           firstWorkflowModeSwitchAcknowledged,
         };
       },

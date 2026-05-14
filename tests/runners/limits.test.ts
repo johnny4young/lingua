@@ -101,17 +101,42 @@ describe('runnerTimeoutResult', () => {
   it('builds a deterministic timeout-shaped ExecutionResult with translated copy', () => {
     const stdout: ConsoleOutput[] = [{ type: 'log', args: ['before stall'] }];
     const stderr: ConsoleOutput[] = [];
+    // RL-020 Slice 7 fold F — the timeout result appends the
+    // "open Settings" hint when the run used a Settings-driven
+    // preset (not an explicit caller override). The 4th arg is
+    // omitted here, which is treated like the preset path.
     const result = runnerTimeoutResult(3_000, t, { stdout, stderr });
-    expect(result.error?.message).toBe('runner.timeout.message{seconds=3}');
+    expect(result.error?.message).toBe(
+      'runner.timeout.message{seconds=3} runtime.timeout.hint.openSettings'
+    );
     expect(result.executionTime).toBe(3_000);
     expect(result.stdout).toBe(stdout);
     expect(result.stderr).toBe(stderr);
     expect(result.result).toBeUndefined();
+    // RL-020 Slice 7 — explicit kind + duration carried on the
+    // result so the renderer pill self-gates without regex.
+    expect(result.kind).toBe('timeout');
+    expect(result.timeoutMs).toBe(3_000);
   });
 
   it('rounds sub-second timeouts up to a 1-second floor for display', () => {
     const result = runnerTimeoutResult(250, t, { stdout: [], stderr: [] });
-    expect(result.error?.message).toBe('runner.timeout.message{seconds=1}');
+    expect(result.error?.message).toBe(
+      'runner.timeout.message{seconds=1} runtime.timeout.hint.openSettings'
+    );
+  });
+
+  it('drops the Settings hint when the run used an explicit override', () => {
+    const result = runnerTimeoutResult(
+      90_000,
+      t,
+      { stdout: [], stderr: [] },
+      'override'
+    );
+    // No hint suffix when the run was driven by an explicit
+    // caller-supplied timeout (one-shot extended, magic-comment).
+    expect(result.error?.message).toBe('runner.timeout.message{seconds=90}');
+    expect(result.timeoutPreset).toBe('override');
   });
 });
 

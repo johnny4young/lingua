@@ -52,6 +52,11 @@ import {
   type BridgeMessage,
 } from '../components/BrowserPreview/iframeBridge';
 import { getActiveBrowserPreviewIframe, activateBrowserPreviewTab } from '../runtime/browserPreviewBridge';
+import { useSettingsStore } from '../stores/settingsStore';
+import {
+  resolveTimeoutMs,
+  type RuntimeTimeoutPreset,
+} from '../../shared/runtimeTimeoutPresets';
 import {
   appendCappedConsole,
   capStderrIfOverflowing,
@@ -60,7 +65,11 @@ import {
   type TranslateFn,
 } from './limits';
 
-const DEFAULT_TIMEOUT = 30_000;
+// RL-020 Slice 7 — the literal DEFAULT_TIMEOUT is gone; the browser
+// preview runner inherits the host tab's JS / TS preset on every
+// call to `execute()`. The JS host is canonical: when the user
+// renames the tab to TS or HTML/CSS, the runner is dispatched per
+// language and the JS preset is the right reference.
 
 const t: TranslateFn = (key, options) =>
   i18next.t(key, options ?? {}) as string;
@@ -101,7 +110,20 @@ export class BrowserPreviewRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
+    // RL-020 Slice 7 — browser preview inherits the JS preset (the
+    // canonical host language for the iframe). When the host tab is
+    // TS, the preset under `'typescript'` wins because the runner is
+    // already dispatched per language.
+    const settingsSnapshot = useSettingsStore.getState();
+    const callerOverrode = typeof context?.timeout === 'number';
+    const presetForLanguage: RuntimeTimeoutPreset | undefined =
+      settingsSnapshot.runtimeTimeoutPresetByLanguage?.['javascript'];
+    const timeout = callerOverrode
+      ? (context!.timeout as number)
+      : resolveTimeoutMs('javascript', presetForLanguage);
+    const timeoutPreset: RuntimeTimeoutPreset | 'override' = callerOverrode
+      ? 'override'
+      : presetForLanguage ?? 'normal';
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     let droppedStdout = 0;
@@ -127,6 +149,8 @@ export class BrowserPreviewRunner implements LanguageRunner {
         error: {
           message: t('browserPreview.error.panelMissing'),
         },
+        // RL-020 Slice 7 — panel-missing counts as `'error'`.
+        kind: 'error',
       };
     }
 
@@ -258,6 +282,9 @@ export class BrowserPreviewRunner implements LanguageRunner {
               result: undefined,
               executionTime: Date.now() - startMs,
               error: executionError,
+              kind: executionError ? 'error' : 'success',
+              timeoutPreset,
+              timeoutMs: timeout,
             });
             break;
         }
@@ -271,7 +298,7 @@ export class BrowserPreviewRunner implements LanguageRunner {
         } catch {
           /* iframe may be detached; ignore */
         }
-        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }));
+        finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
       }, timeout);
 
       // Build the srcdoc and assign it. The iframe `load` event
@@ -307,6 +334,9 @@ export class BrowserPreviewRunner implements LanguageRunner {
                 ? assignError.message
                 : 'Failed to load browser preview document.',
           },
+          kind: 'error',
+          timeoutPreset,
+          timeoutMs: timeout,
         });
       }
     });

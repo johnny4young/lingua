@@ -25,6 +25,12 @@ import {
   supportsWorkflowMode,
   type WorkflowMode,
 } from '../../../shared/workflowMode';
+import {
+  RUNTIME_TIMEOUT_PRESETS,
+  RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES,
+  defaultRuntimeTimeoutPreset,
+  type RuntimeTimeoutPreset,
+} from '../../../shared/runtimeTimeoutPresets';
 
 export function EditorSection() {
   const effectiveTier = useEffectiveTier();
@@ -70,6 +76,18 @@ export function EditorSection() {
   );
   const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
   const toggleShowStdinPanel = useSettingsStore((state) => state.toggleShowStdinPanel);
+  const runtimeTimeoutPresetByLanguage = useSettingsStore(
+    (state) => state.runtimeTimeoutPresetByLanguage
+  );
+  const setRuntimeTimeoutPreset = useSettingsStore(
+    (state) => state.setRuntimeTimeoutPreset
+  );
+  const showTimeoutCountdown = useSettingsStore(
+    (state) => state.showTimeoutCountdown
+  );
+  const toggleShowTimeoutCountdown = useSettingsStore(
+    (state) => state.toggleShowTimeoutCountdown
+  );
   const syncShellWithEditorTheme = useSettingsStore(
     (state) => state.syncShellWithEditorTheme
   );
@@ -412,6 +430,78 @@ export function EditorSection() {
             );
           })}
         </div>
+      </Row>
+
+      {/* RL-020 Slice 7 — per-language execution timeout preset.
+          Four supported languages (JS / TS / Python / Go). Rust is
+          intentionally absent because its desktop kill path is in
+          main and unchanged. */}
+      <Row
+        label={t('runtime.timeout.section.title')}
+        hint={t('runtime.timeout.section.description')}
+      >
+        <div
+          data-testid="settings-runtime-timeout-presets"
+          className="grid gap-2"
+        >
+          {RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES.map((lang) => {
+            const stored = runtimeTimeoutPresetByLanguage[lang];
+            const value: RuntimeTimeoutPreset =
+              stored !== undefined ? stored : defaultRuntimeTimeoutPreset(lang);
+            return (
+              <label
+                key={lang}
+                className="flex items-center justify-between gap-2 text-xs text-foreground"
+              >
+                <span className="text-muted">
+                  {t('runtime.timeout.row.label', {
+                    language: t(`workflowMode.languageLabel.${lang}`),
+                  })}
+                </span>
+                <Select
+                  value={value}
+                  data-testid={`settings-runtime-timeout-preset-${lang}`}
+                  // RL-020 Slice 7 — the localized preset labels carry
+                  // a parenthetical duration (`Quick (5s)` /
+                  // `Rápida (5s)`). Tablet widths truncate the
+                  // default `Select` so the duration disappears.
+                  // Lock a minimum width so the trailing parenthesis
+                  // always survives even on a 1024-wide viewport.
+                  className="min-w-[8rem]"
+                  onChange={(event) =>
+                    setRuntimeTimeoutPreset(
+                      lang,
+                      event.target.value as RuntimeTimeoutPreset
+                    )
+                  }
+                  aria-label={t('runtime.timeout.row.label', {
+                    language: t(`workflowMode.languageLabel.${lang}`),
+                  })}
+                >
+                  {RUNTIME_TIMEOUT_PRESETS.map((preset) => (
+                    <option key={preset} value={preset}>
+                      {t(`runtime.timeout.preset.${preset}.label`)}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            );
+          })}
+        </div>
+      </Row>
+
+      {/* RL-020 Slice 7 fold E — countdown pill toggle. Default OFF
+          so the result panel header stays quiet by default. */}
+      <Row
+        label={t('runtime.timeout.countdown.label')}
+        hint={t('runtime.timeout.countdown.hint')}
+      >
+        <Toggle
+          value={showTimeoutCountdown}
+          onChange={toggleShowTimeoutCountdown}
+          aria-label={t('runtime.timeout.countdown.label')}
+          data-testid="settings-show-timeout-countdown"
+        />
       </Row>
 
       {/* RL-020 Slice 6 fold D — bottom-panel Input tab visibility.

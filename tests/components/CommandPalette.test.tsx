@@ -33,6 +33,9 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     tabs: [],
     activeTabId: null,
     setTabRuntimeMode: vi.fn(),
+    setTabAutoLogEnabled: vi.fn(),
+    updateContent: vi.fn(),
+    setTabNextRunTimeoutOverride: vi.fn(),
   });
   // Selector-aware mock: support both `useEditorStore()` and
   // `useEditorStore((state) => state.something)` call shapes.
@@ -59,11 +62,26 @@ vi.mock('../../src/renderer/stores/snippetsStore', () => ({
   }),
 }));
 
-vi.mock('../../src/renderer/stores/settingsStore', () => ({
-  useSettingsStore: () => ({
+vi.mock('../../src/renderer/stores/settingsStore', () => {
+  const settingsState = {
     setLayoutPreset: vi.fn(),
-  }),
-}));
+    vimMode: false,
+    showStdinPanel: true,
+    scratchpadAutoLogByLanguage: { javascript: false, typescript: false },
+    runtimeTimeoutPresetByLanguage: {
+      javascript: 'normal',
+      typescript: 'normal',
+      python: 'long',
+      go: 'normal',
+    },
+    setRuntimeTimeoutPreset: vi.fn(),
+  };
+  const useSettingsStore = (
+    selector?: (state: typeof settingsState) => unknown
+  ) => (typeof selector === 'function' ? selector(settingsState) : settingsState);
+  useSettingsStore.getState = () => settingsState;
+  return { useSettingsStore };
+});
 
 vi.mock('../../src/renderer/stores/updateStore', () => ({
   useUpdateStore: () => ({

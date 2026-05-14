@@ -18,6 +18,10 @@ import {
 } from '../utils/magicComments';
 import { injectJSLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
+import {
+  resolveTimeoutMs,
+  type RuntimeTimeoutPreset,
+} from '../../shared/runtimeTimeoutPresets';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { instrumentForDebugger } from '../runtime/debuggerInstrument';
 import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
@@ -30,7 +34,9 @@ import {
   type TranslateFn,
 } from './limits';
 
-const DEFAULT_TIMEOUT = 30_000;
+// RL-020 Slice 7 — the literal DEFAULT_TIMEOUT is gone; the runner
+// resolves the deadline from the per-language Settings preset on
+// every call to `execute()`.
 
 let esbuildInitialized = false;
 
@@ -139,11 +145,20 @@ export class TypeScriptRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    const timeout = context?.timeout ?? DEFAULT_TIMEOUT;
-
     // RL-027 debugger refinement — debug mode resolution mirrors the JS
     // runner: only an explicit Debug action attaches the pause protocol.
     const settings = useSettingsStore.getState();
+    // RL-020 Slice 7 — resolve timeout from the per-language preset
+    // unless the caller passed an explicit override.
+    const callerOverrode = typeof context?.timeout === 'number';
+    const presetForLanguage: RuntimeTimeoutPreset | undefined =
+      settings.runtimeTimeoutPresetByLanguage?.['typescript'];
+    const timeout = callerOverrode
+      ? (context!.timeout as number)
+      : resolveTimeoutMs('typescript', presetForLanguage);
+    const timeoutPreset: RuntimeTimeoutPreset | 'override' = callerOverrode
+      ? 'override'
+      : presetForLanguage ?? 'normal';
     const debuggerSettings = settings.debuggerEnabled !== false;
     const debugStore = useDebuggerStore.getState();
     const tabBreakpoints = context?.tabId
@@ -212,6 +227,9 @@ export class TypeScriptRunner implements LanguageRunner {
         result: undefined,
         executionTime: 0,
         error: transpileError,
+        // RL-020 Slice 7 — transpile failures count as `'error'` so
+        // the result-panel pill surfaces a clear failure variant.
+        kind: 'error',
       };
     }
 
@@ -275,7 +293,7 @@ export class TypeScriptRunner implements LanguageRunner {
           // RL-027 Slice 1 — clear the debugger bridge + session on
           // timeout so a follow-up F5/F10 doesn't post to a dead worker.
           this.clearDebuggerSession('stop');
-          finish(runnerTimeoutResult(timeout, t, { stdout, stderr }));
+          finish(runnerTimeoutResult(timeout, t, { stdout, stderr }, timeoutPreset));
         }, timeout);
       };
 
@@ -392,6 +410,9 @@ export class TypeScriptRunner implements LanguageRunner {
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
               stdinConsumed,
+              kind: error ? 'error' : 'success',
+              timeoutPreset,
+              timeoutMs: timeout,
             });
             this.clearDebuggerSession('run-complete');
             worker.terminate();
@@ -407,6 +428,9 @@ export class TypeScriptRunner implements LanguageRunner {
           result: undefined,
           executionTime: 0,
           error: { message: event.message || 'Worker error' },
+          kind: 'error',
+          timeoutPreset,
+          timeoutMs: timeout,
         });
         // RL-027 Slice 1 — same cleanup as the JS runner crash path.
         this.clearDebuggerSession('crash');

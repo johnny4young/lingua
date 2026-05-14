@@ -17,7 +17,12 @@
  * we drop late entries past the budget rather than throttle, which
  * keeps the implementation deterministic and easy to reason about.
  */
-import type { ConsoleOutput, ExecutionError, ExecutionResult } from '../types';
+import type {
+  ConsoleOutput,
+  ExecutionError,
+  ExecutionResult,
+  RuntimeTimeoutPreset,
+} from '../types';
 
 // RL-079: re-export the main-side native subprocess caps so renderer
 // surfaces stay co-located and a future bump can update both worker
@@ -122,18 +127,33 @@ export function truncateSerialized(value: string, marker: string): string {
 export function runnerTimeoutResult(
   timeoutMs: number,
   t: TranslateFn,
-  collected: { stdout: ConsoleOutput[]; stderr: ConsoleOutput[] }
+  collected: { stdout: ConsoleOutput[]; stderr: ConsoleOutput[] },
+  timeoutPreset?: RuntimeTimeoutPreset | 'override'
 ): ExecutionResult {
   const seconds = Math.max(1, Math.round(timeoutMs / 1000));
-  const error: ExecutionError = {
-    message: t('runner.timeout.message', { seconds }),
-  };
+  // RL-020 Slice 7 fold F — point users at the Settings field they
+  // need so the timed-out message becomes actionable. The hint copy
+  // is appended only when the run did NOT come from an explicit
+  // caller override; for one-shot extended runs and magic-comment
+  // overrides the Settings field is not the place to adjust.
+  const baseMessage = t('runner.timeout.message', { seconds });
+  const message =
+    timeoutPreset === 'override'
+      ? baseMessage
+      : `${baseMessage} ${t('runtime.timeout.hint.openSettings')}`;
+  const error: ExecutionError = { message };
   return {
     stdout: collected.stdout,
     stderr: collected.stderr,
     result: undefined,
     executionTime: timeoutMs,
     error,
+    // RL-020 Slice 7 — explicit kind + preset + duration so the
+    // renderer's <RunStatusPill> renders the right variant + tooltip
+    // without string-matching on `error.message`.
+    kind: 'timeout',
+    timeoutPreset,
+    timeoutMs,
   };
 }
 
@@ -156,5 +176,9 @@ export function runnerStoppedResult(
     error: {
       message: t('runner.stopped.message'),
     },
+    // RL-020 Slice 7 — explicit `'stopped'` kind so the renderer
+    // can render the dedicated <RunStatusPill> variant instead of
+    // re-deriving stop vs. timeout vs. error from `error.message`.
+    kind: 'stopped',
   };
 }

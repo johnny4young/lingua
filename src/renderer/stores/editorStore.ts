@@ -127,6 +127,23 @@ function dropStdinIfUnsupported<T extends FileTab>(tab: T): T {
   return rest as T;
 }
 
+/**
+ * RL-020 Slice 7 fold D — drop the per-tab one-shot extended
+ * timeout when the tab no longer points at the code the user was
+ * inspecting. Rename to a different language is the canonical case:
+ * the user pressed "Run with extended timeout" while looking at a
+ * JS buffer; renaming the tab to Go shouldn't silently apply the
+ * one-shot to the next Go run. Cleared in `renameTab` and on
+ * Save-As (`persistTab`) too, alongside the symmetric autoLog +
+ * stdin drops.
+ */
+function dropNextRunTimeoutOverride<T extends FileTab>(tab: T): T {
+  if (tab.nextRunTimeoutOverrideMs === undefined) return tab;
+  const { nextRunTimeoutOverrideMs: _drop, ...rest } = tab;
+  void _drop;
+  return rest as T;
+}
+
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
   const short = id.slice(0, 8);
@@ -257,10 +274,16 @@ async function persistTab(
   const {
     autoLogEnabled: _staleAutoLogEnabled,
     stdinBuffer: _staleStdinBuffer,
+    // RL-020 Slice 7 — the per-tab one-shot extended-timeout
+    // override is always scoped to the code the user was looking
+    // at when they armed it. A Save-As that retitles or changes
+    // language drops the override.
+    nextRunTimeoutOverrideMs: _staleNextRunTimeoutOverride,
     ...tabWithoutDropped
   } = tab;
   void _staleAutoLogEnabled;
   void _staleStdinBuffer;
+  void _staleNextRunTimeoutOverride;
   const nextTab: FileTab & { filePath: string; rootId: string; relativePath: string } = {
     ...tabWithoutDropped,
     filePath: absolutePath,
@@ -600,6 +623,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
+  // RL-020 Slice 7 fold D — set / clear the one-shot extended-timeout
+  // override on a tab. `null` or a non-positive number clears the
+  // field. Positive numbers are stored as-is and consumed at most
+  // once by `executeTabManually`.
+  setTabNextRunTimeoutOverride: (id, timeoutMs) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== id) return t;
+        const isValid =
+          typeof timeoutMs === 'number' && Number.isFinite(timeoutMs) && timeoutMs > 0;
+        if (!isValid) {
+          if (t.nextRunTimeoutOverrideMs === undefined) return t;
+          const { nextRunTimeoutOverrideMs: _drop, ...rest } = t;
+          void _drop;
+          return rest;
+        }
+        return { ...t, nextRunTimeoutOverrideMs: timeoutMs };
+      }),
+    }));
+  },
+
   markSaved: (id) =>
     set((state) => ({
       tabs: state.tabs.map((t) =>
@@ -863,12 +907,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           isDirty: true,
         };
         if (languageSupportsAutoLog(language)) {
-          return {
+          // RL-020 Slice 7 — the per-tab one-shot extended timeout
+          // override is always scoped to the code the user was
+          // looking at when they armed it. A rename to ANY new
+          // language clears the override, even if the new language
+          // still supports auto-log. The user can re-arm via the
+          // palette if they want to.
+          return dropNextRunTimeoutOverride({
             ...renamed,
             autoLogEnabled: tab.autoLogEnabled,
-          };
+          });
         }
-        return dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed));
+        return dropNextRunTimeoutOverride(
+          dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed))
+        );
       });
       return { tabs: next };
     });

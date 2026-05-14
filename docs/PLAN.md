@@ -1773,6 +1773,171 @@ Implementation notes:
 - Rich console work should land before charts/images so every runtime gets a
   reliable value, error, and table contract before higher-level visualization.
 
+#### Slice 7 — 2026-05-14 (timeout presets + clearer abort state)
+
+Slice 7 lands the named scope item *"Add timeout presets and clearer
+abort state for long-running code."* The pre-Slice-7 hardcoded
+`DEFAULT_TIMEOUT` constants per runner (30 s JS / TS / Go,
+60 s Python, no per-language Settings entry) become a configurable
+per-language preset that the user picks from Settings; the runner
+reads `useSettingsStore.getState()` on every `execute()` so a
+Settings change picks up on the very next run without restarting the
+worker. A new `<RunStatusPill>` ambient pill self-gates on a fresh
+`result.kind` field so the result-panel header distinguishes
+`timeout` / `stopped` / `error` / `countdown` without regexing the
+error message.
+
+Architecture:
+
+- **`src/shared/runtimeTimeoutPresets.ts`** — closed-enum
+  `RuntimeTimeoutPreset` (`quick` 5 s / `normal` 30 s / `long` 120 s
+  / `extended` 300 s). `resolveTimeoutMs(language, preset)` is the
+  single source of truth for "how many ms for (language, preset)?";
+  unknown preset falls back to the language default
+  (`defaultRuntimeTimeoutPreset(language)` — `'long'` for Python,
+  `'normal'` for the others). `RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES`
+  is the closed Settings-surface set
+  (`javascript` / `typescript` / `python` / `go`); Rust is
+  intentionally out — its desktop child-process pipeline owns its
+  own kill in main and threading a preset through IPC is a separate
+  slice.
+- **`src/renderer/types/index.ts`** — `RuntimeTimeoutPreset` re-export,
+  `SettingsState.runtimeTimeoutPresetByLanguage: Record<string,
+  RuntimeTimeoutPreset>`, `SettingsState.showTimeoutCountdown:
+  boolean` (fold E), `setRuntimeTimeoutPreset(language, preset)` +
+  `toggleShowTimeoutCountdown()`. `FileTab.nextRunTimeoutOverrideMs?`
+  (fold D one-shot) + `setTabNextRunTimeoutOverride(id, ms | null)`
+  editor action. `ExecutionContext.timeoutPreset?` carried through
+  to `runnerTimeoutResult`. `ExecutionResult.kind?: 'success' |
+  'error' | 'timeout' | 'stopped'` plus `timeoutPreset` +
+  `timeoutMs` so the pill self-gates without string-matching
+  `error.message`.
+- **`src/renderer/stores/settingsStore.ts`** — seed
+  (`defaultRuntimeTimeoutPresetSeed()`), persist + sanitize on
+  rehydrate (tampered tokens drop, missing keys re-seed to the
+  language default). `setRuntimeTimeoutPreset` fires
+  `runtime.timeout_preset_changed` adoption telemetry (fold A) on
+  actual change only — idempotent calls do not re-emit.
+- **`src/renderer/stores/editorStore.ts`** — `dropNextRunTimeoutOverride`
+  helper symmetric to `dropAutoLogIfUnsupported` /
+  `dropStdinIfUnsupported`. `renameTab` and `persistTab` (Save-As)
+  unconditionally clear the override so a JS one-shot doesn't fire
+  on a renamed Go tab.
+- **`src/renderer/stores/resultStore.ts`** — `runTermination:
+  RunTerminationSummary | null` (the `<RunStatusPill>` source of
+  truth) + `runDeadlineAt: number | null` (epoch ms armed by the
+  run dispatcher; the countdown pill reads it). `clear` and
+  `clearVisibleResults` both reset the pair so tab switches and
+  transient empty-buffer states start quiet.
+- **`src/renderer/runners/{javascript,typescript,python,go,browserPreview}.ts`**
+  — drop the literal `DEFAULT_TIMEOUT`, read
+  `useSettingsStore.getState().runtimeTimeoutPresetByLanguage[lang]`,
+  resolve via `resolveTimeoutMs`. Caller `context.timeout` still
+  wins (one-shot extended, magic-comment override); the runner sets
+  `timeoutPreset: 'override'` in that case so the pill tooltip
+  drops the preset name. Every code path sets `result.kind` —
+  success / error / timeout / stopped.
+- **`src/renderer/runners/limits.ts`** — `runnerTimeoutResult` accepts
+  the new `timeoutPreset` argument; appends a fold-F "open Settings"
+  hint to the timed-out message when the run used a Settings preset
+  (not an explicit caller override). `runnerStoppedResult` sets
+  `kind: 'stopped'`.
+- **`src/renderer/components/Editor/RunStatusPill.tsx`** — ambient
+  pill, italic low-contrast chrome mirroring
+  `<AutoLogStatusPill>` / `<StdinStatusPill>` (no border, no
+  background, never button-styled). Variants: `timeout`
+  (`AlarmClock`), `stopped` (`Square`), `error` (`AlertTriangle`),
+  `countdown` (`Hourglass`, fold E — wins over termination
+  variants while a run is in flight + the Settings toggle is on).
+  The `setInterval` driving the countdown tears down the instant
+  `runDeadlineAt` clears so an idle pill never holds a timer.
+- **`src/renderer/components/Settings/EditorSection.tsx`** — new
+  "Execution timeout" sub-section: one `<Select>` per supported
+  language (JS / TS / Python / Go). Mounted between the auto-log
+  row and the stdin toggle. The countdown master toggle sits
+  immediately below the section so users who never want the
+  in-flight pill can leave it off (default).
+- **`src/renderer/runtime/executeTabManually.ts`** — resolves the
+  effective timeout in priority order:
+  `lifecycle.executionTimeoutMs` (smoke / test) → tab one-shot
+  override → magic-comment override → undefined (runner reads the
+  Settings preset). Sets `runDeadlineAt` before `runner.execute`,
+  clears it after, propagates `result.kind` + preset + ms to the
+  pill via `setRunTermination`. `runner.executed.status` widens
+  to map `kind` → `'timeout' | 'stopped' | 'error' | 'ok'`.
+- **`src/renderer/hooks/useAutoRun.ts`** — symmetric one-shot consume
+  (fold D edge case: a Scratchpad-mode tab where the user fires
+  the "Run with extended timeout" palette action mid-typing —
+  auto-run consumes the override on the very next debounce so the
+  manual run doesn't race the auto-run). Magic-comment override
+  works in both run paths. Pre-arms `runDeadlineAt` from the
+  language preset (with `defaultRuntimeTimeoutPreset` fallback)
+  even when the override is absent so the countdown pill always
+  has a deadline to render when the toggle is on.
+- **`src/renderer/utils/magicComments.ts`** — fold B
+  `extractTimeoutMagicComment(language, code)`. First matching
+  `// @timeout 60s` / `# @timeout 60s` directive wins; suffix
+  parsing accepts `ms` / `s` / `m` (and the long forms); caps at
+  600 s = the `extended` preset ceiling; rejects ≤ 0 ms, non-JS /
+  TS / Python languages, and non-numeric values. No `eval`, no
+  RegExp DoS shape — the regex is non-backtracking and bounded.
+- **`src/renderer/components/CommandPalette/`** — fold C four entries
+  (`Set execution timeout: Quick / Normal / Long / Extended`) +
+  fold D one-shot (`Run with extended timeout (one shot)`).
+  Entries hide when the active language isn't in the supported
+  set; the active preset's entry surfaces "Currently selected for
+  this language" as its description so the palette honestly
+  previews the next state.
+- **`src/shared/telemetry.ts`** + **`update-server/src/telemetry.ts`**
+  — `RUNNER_STATUS_VALUES` widens from `['ok', 'error']` to
+  `['ok', 'error', 'timeout', 'stopped']`. New event
+  `runtime.timeout_preset_changed` with `['language', 'preset']`
+  allowlist. New `RUNTIME_TIMEOUT_PRESET_VALUES` closed Set
+  mirrored across renderer + worker; parity test enforces drift.
+- **i18n** — 22 new keys per locale under `runtime.timeout.*` (preset
+  labels + Settings copy + status-pill tooltips +
+  countdown copy + "open Settings" hint) and
+  `commandPalette.action.setTimeout.*` /
+  `commandPalette.action.runExtendedTimeout.*`. Spanish is neutral
+  LatAm tuteo (`Ajusta`, `Cancelaste`, `Mira`, `Interrumpe`,
+  `Ejecuta` — no voseo imperatives).
+
+Tests:
+
+- `tests/shared/runtimeTimeoutPresets.test.ts` — enum + resolver +
+  fallback coverage.
+- `tests/shared/extractTimeoutMagicComment.test.ts` — directive
+  parser + language gate + cap behavior.
+- `tests/components/RunStatusPill.test.tsx` — three termination
+  variants + countdown + hidden-on-success.
+- `tests/stores/settingsStore.test.ts` — new
+  `runtimeTimeoutPresetByLanguage` block: seeds, setter, rehydrate
+  sanitizer, countdown toggle.
+- `tests/runners/limits.test.ts` — `runnerTimeoutResult` kind + ms
+  + the override branch that drops the Settings hint.
+- `tests/shared/telemetry.test.ts` — sorted-name list adds the new
+  event between `stdin_used` and `workflow_mode_changed` (per
+  alphabetical order); validator + widened status enum coverage.
+- `update-server/test/telemetry.test.ts` — parity test on the
+  widened `RUNNER_STATUS_VALUES` Set + the new
+  `RUNTIME_TIMEOUT_PRESET_VALUES` mirror + a worker validator
+  smoke for `runtime.timeout_preset_changed`.
+- `tests/e2e/timeoutPreset.spec.ts` — 3 Playwright cases: JS preset
+  `'quick'` (5 s) trips the timeout pill on an infinite loop within
+  ~7 s; magic-comment `// @timeout 2s` overrides a `'extended'`
+  preset; the preset persists across reload.
+- `tests/runtime/executeTabManually.{telemetry,snapshot}.test.ts`
+  result-store mocks gain `setRunTermination` + `setRunDeadlineAt`
+  vi.fn() entries so the destructure does not throw at runtime.
+
+Out of scope (fold-B descope rationale): Rust desktop
+child-process timeout preset — the kill path lives in main IPC and
+the renderer-side Settings preset does not reach the spawned
+process; that wiring is a separate slice. Pyodide bootstrap
+deadline (`PYODIDE_LOAD_TIMEOUT = 90_000` in `python.ts`) is
+unchanged — only the post-bootstrap run is bounded by the
+language preset; the Settings copy explicitly calls this out.
+
 ### RL-021 Fix loose-file workflow and session continuity
 
 - Priority: `P1`

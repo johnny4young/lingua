@@ -86,6 +86,62 @@ function detectJSLine(line: string): MagicCommentLine | null {
 }
 
 /**
+ * RL-020 Slice 7 fold B — `// @timeout 60s` (JS / TS) and `# @timeout
+ * 60s` (Python). The first matching directive wins; later directives
+ * are ignored so a forgotten copy-paste doesn't keep extending the
+ * deadline silently.
+ *
+ * Accepted suffixes:
+ *   - bare integer (`5`, `30`) → seconds
+ *   - `s` / `sec` / `seconds` → seconds
+ *   - `ms` / `millis` / `milliseconds` → milliseconds
+ *   - `m` / `min` / `minutes` → minutes
+ *
+ * Returns null when no directive is present, when the value is
+ * non-numeric, when the result would be ≤ 0 ms, or when the value
+ * exceeds 600 s — the upper cap matches the `'extended'` preset.
+ * Any caller-supplied `context.timeout` already overrides this, so
+ * the override is strictly additive to the Settings preset.
+ */
+const TIMEOUT_DIRECTIVE_RE =
+  /(?:\/\/|#)\s*@timeout\s+(\d+(?:\.\d+)?)\s*(ms|millis|milliseconds|s|sec|seconds|m|min|minutes)?\b/i;
+
+export function extractTimeoutMagicComment(
+  language: string,
+  code: string
+): number | null {
+  // Limit to the JS / TS / Python comment dialects — other languages
+  // have their own comment syntax and the directive is intentionally
+  // narrow to the worker runners that consume it.
+  const supports =
+    language === 'javascript' ||
+    language === 'typescript' ||
+    language === 'python';
+  if (!supports) return null;
+  const match = code.match(TIMEOUT_DIRECTIVE_RE);
+  if (!match) return null;
+  const rawValue = match[1];
+  const unit = (match[2] ?? 's').toLowerCase();
+  if (!rawValue) return null;
+  const value = parseFloat(rawValue);
+  if (!Number.isFinite(value) || value <= 0) return null;
+  let ms = 0;
+  if (unit === 'ms' || unit === 'millis' || unit === 'milliseconds') {
+    ms = value;
+  } else if (unit === 'm' || unit === 'min' || unit === 'minutes') {
+    ms = value * 60_000;
+  } else {
+    ms = value * 1_000;
+  }
+  if (ms <= 0) return null;
+  // Cap at the extended preset ceiling so a runaway directive cannot
+  // delay the kill timer beyond a sensible bound.
+  const MAX_MS = 600_000;
+  if (ms > MAX_MS) return MAX_MS;
+  return Math.round(ms);
+}
+
+/**
  * Detect magic comment lines in JS/TS source code.
  */
 export function detectJSMagicComments(code: string): MagicCommentLine[] {

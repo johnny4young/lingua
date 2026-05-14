@@ -51,6 +51,8 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-020 Slice 6 — mirror of `runtime.stdin_used` in
   // `src/shared/telemetry.ts`. The parity test enforces drift.
   'runtime.stdin_used',
+  // RL-020 Slice 7 — mirror of `runtime.timeout_preset_changed`.
+  'runtime.timeout_preset_changed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -80,6 +82,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.auto_log_enabled': ['language', 'enabled'],
   'runtime.auto_log_emitted': ['language', 'countBucket'],
   'runtime.stdin_used': ['language'],
+  // RL-020 Slice 7 — mirror of `runtime.timeout_preset_changed`.
+  'runtime.timeout_preset_changed': ['language', 'preset'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -102,7 +106,24 @@ export const DENY_SUBSTRINGS = [
 ] as const;
 
 const SAFE_TOKEN_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
-const RUNNER_STATUS_VALUES = new Set(['ok', 'error']);
+// RL-020 Slice 7 — widened to mirror the renderer (`'timeout'` and
+// `'stopped'` are the two distinct termination kinds the renderer
+// now reports). The parity test asserts both Sets stay in lockstep.
+const RUNNER_STATUS_VALUES = new Set([
+  'ok',
+  'error',
+  'timeout',
+  'stopped',
+]);
+// RL-020 Slice 7 — closed-enum mirror of
+// `RUNTIME_TIMEOUT_PRESET_VALUES` in `src/shared/telemetry.ts`.
+// The parity test asserts both Sets stay aligned.
+const RUNTIME_TIMEOUT_PRESET_VALUES = new Set([
+  'quick',
+  'normal',
+  'long',
+  'extended',
+]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
   'available',
@@ -352,6 +373,14 @@ function isAllowedValue(
       return false;
     case 'runtime.stdin_used':
       if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'runtime.timeout_preset_changed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'preset')
+        return (
+          typeof value === 'string' &&
+          RUNTIME_TIMEOUT_PRESET_VALUES.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;

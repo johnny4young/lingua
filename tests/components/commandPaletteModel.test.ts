@@ -567,6 +567,110 @@ describe('buildCommandPaletteModel — recent runs (RL-028 third slice)', () => 
   });
 });
 
+describe('buildCommandPaletteModel — timeout actions (RL-020 Slice 7)', () => {
+  function buildTimeoutCommands(args: {
+    onSetActiveLanguageTimeoutPreset?: Parameters<
+      typeof buildCommandPaletteModel
+    >[0]['onSetActiveLanguageTimeoutPreset'];
+    activeTimeoutLanguage?: Parameters<
+      typeof buildCommandPaletteModel
+    >[0]['activeTimeoutLanguage'];
+    activeTimeoutPreset?: Parameters<
+      typeof buildCommandPaletteModel
+    >[0]['activeTimeoutPreset'];
+    onRunWithExtendedTimeout?: () => void;
+    onClose?: () => void;
+  }) {
+    return buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      onSetActiveLanguageTimeoutPreset: args.onSetActiveLanguageTimeoutPreset,
+      activeTimeoutLanguage: args.activeTimeoutLanguage ?? null,
+      activeTimeoutPreset: args.activeTimeoutPreset ?? null,
+      onRunWithExtendedTimeout: args.onRunWithExtendedTimeout,
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: args.onClose ?? vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    });
+  }
+
+  it('hides per-language timeout preset commands without a supported language', () => {
+    const commands = buildTimeoutCommands({
+      onSetActiveLanguageTimeoutPreset: vi.fn(),
+    });
+
+    expect(
+      commands.filter((command) => command.id.startsWith('action-set-timeout-'))
+    ).toEqual([]);
+  });
+
+  it('exposes timeout preset commands for a supported active language', () => {
+    const setPreset = vi.fn();
+    const onClose = vi.fn();
+    const commands = buildTimeoutCommands({
+      onSetActiveLanguageTimeoutPreset: setPreset,
+      activeTimeoutLanguage: 'javascript',
+      activeTimeoutPreset: 'normal',
+      onClose,
+    });
+
+    const quick = commands.find((command) => command.id === 'action-set-timeout-quick');
+    const normal = commands.find(
+      (command) => command.id === 'action-set-timeout-normal'
+    );
+
+    expect(quick).toBeDefined();
+    expect(normal?.description).toBe('Currently selected for this language.');
+    quick?.action();
+    expect(setPreset).toHaveBeenCalledWith('quick');
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('hides the one-shot extended run action without a supported language', () => {
+    const commands = buildTimeoutCommands({
+      onRunWithExtendedTimeout: vi.fn(),
+    });
+
+    expect(
+      commands.find((command) => command.id === 'action-run-with-extended-timeout')
+    ).toBeUndefined();
+  });
+
+  it('fires the one-shot extended run action for a supported language', () => {
+    const runExtended = vi.fn();
+    const onClose = vi.fn();
+    const commands = buildTimeoutCommands({
+      activeTimeoutLanguage: 'python',
+      onRunWithExtendedTimeout: runExtended,
+      onClose,
+    });
+
+    const action = commands.find(
+      (command) => command.id === 'action-run-with-extended-timeout'
+    );
+
+    expect(action).toBeDefined();
+    action?.action();
+    expect(runExtended).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
 describe('buildCommandPaletteModel — fold G: per-tab recent runs (RL-020 Slice 4)', () => {
   function build(args: {
     history: Array<{

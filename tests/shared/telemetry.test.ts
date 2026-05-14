@@ -58,6 +58,9 @@ describe('TELEMETRY_EVENTS', () => {
       // payload `{ language }`. Sorts between `mode_changed` and
       // `workflow_mode_changed` alphabetically.
       'runtime.stdin_used',
+      // RL-020 Slice 7 — per-language timeout preset change.
+      // Closed-enum payload `{ language, preset }`.
+      'runtime.timeout_preset_changed',
       // RL-020 Slice 2 — per-tab workflow mode change. Closed-enum
       // payload `{ language, from, to, trigger }`.
       'runtime.workflow_mode_changed',
@@ -575,6 +578,72 @@ describe('runtime.stdin_used value validator (RL-020 Slice 6)', () => {
       })
     );
     expect(event.properties).not.toHaveProperty('language');
+  });
+});
+
+describe('runtime.timeout_preset_changed value validator (RL-020 Slice 7)', () => {
+  it('accepts the closed enum payload', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.timeout_preset_changed',
+        properties: { language: 'python', preset: 'long' },
+      })
+    );
+    expect(event.properties).toEqual({ language: 'python', preset: 'long' });
+  });
+  it('drops an unknown preset token', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.timeout_preset_changed',
+        properties: { language: 'javascript', preset: 'forever' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('preset');
+    expect(droppedKeys).toContain('preset');
+  });
+  it('drops unknown property keys', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.timeout_preset_changed',
+        properties: { language: 'typescript', preset: 'quick', when: 42 },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'typescript',
+      preset: 'quick',
+    });
+    expect(droppedKeys).toContain('when');
+  });
+});
+
+describe('runner.executed status enum (RL-020 Slice 7)', () => {
+  it('accepts the four-state widened enum', () => {
+    for (const status of ['ok', 'error', 'timeout', 'stopped'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'runner.executed',
+          properties: {
+            language: 'javascript',
+            status,
+            durationBucketMs: 250,
+          },
+        })
+      );
+      expect(event.properties.status).toBe(status);
+    }
+  });
+  it('drops anything outside the closed set', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runner.executed',
+        properties: {
+          language: 'javascript',
+          status: 'partial',
+          durationBucketMs: 250,
+        },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('status');
   });
 });
 

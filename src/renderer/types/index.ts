@@ -1,6 +1,9 @@
 import type { ShortcutCombo, ShortcutOverrideMap } from '../data/keyboardShortcuts';
 import type { RuntimeMode } from '../../shared/runtimeModes';
 import type { WorkflowMode } from '../../shared/workflowMode';
+import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
+
+export type { RuntimeTimeoutPreset };
 
 export type AppLanguage = 'system' | 'en' | 'es';
 
@@ -141,6 +144,16 @@ export interface FileTab {
    * stdin support (anything outside JS / TS / Python).
    */
   stdinBuffer?: string;
+  /**
+   * RL-020 Slice 7 fold D — one-shot extended-timeout override for
+   * the NEXT run on this tab. Set by the command palette
+   * "Run with extended timeout" entry. `executeTabManually` reads
+   * the value, threads it onto `ExecutionContext.timeout`, and
+   * clears the field immediately so a subsequent run reverts to
+   * the persisted preset. Per-tab so switching tabs cannot
+   * accidentally carry the override.
+   */
+  nextRunTimeoutOverrideMs?: number;
 }
 
 /**
@@ -228,6 +241,13 @@ export interface EditorState {
    *     worker-only this slice; the desktop runners stay TODO).
    */
   setTabStdinBuffer: (id: string, text: string | null) => void;
+  /**
+   * RL-020 Slice 7 fold D — set / clear the one-shot extended-timeout
+   * override for the next run on the given tab. `executeTabManually`
+   * consumes the value once and clears it. `null` clears the field
+   * without consuming.
+   */
+  setTabNextRunTimeoutOverride: (id: string, timeoutMs: number | null) => void;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The
@@ -409,6 +429,22 @@ export interface SettingsState {
    */
   showStdinPanel: boolean;
   /**
+   * RL-020 Slice 7 — per-language execution timeout preset. Keys are
+   * the four languages whose runners read the preset
+   * (`javascript`, `typescript`, `python`, `go`). Values are the
+   * closed-enum `RuntimeTimeoutPreset` tokens. Unknown keys / values
+   * are stripped on rehydrate. Rust is intentionally absent — its
+   * desktop child-process kill path lives in main and is unchanged.
+   */
+  runtimeTimeoutPresetByLanguage: Record<string, RuntimeTimeoutPreset>;
+  /**
+   * RL-020 Slice 7 fold E — show a live `mm:ss` countdown in the
+   * result-panel pill while a run is in flight. Default `false` so
+   * the panel stays quiet by default; users who want the visual cue
+   * during long runs opt in via Settings → Editor.
+   */
+  showTimeoutCountdown: boolean;
+  /**
    * RL-020 Slice 2 fold F — one-shot acknowledgement flag for the
    * "Scratchpad auto-runs as you type; Run waits for Cmd+R"
    * onboarding toast. Set to `true` the first time the user switches
@@ -515,6 +551,21 @@ export interface SettingsState {
    */
   toggleShowStdinPanel: () => void;
   /**
+   * RL-020 Slice 7 — set the per-language timeout preset. Rejects
+   * (no-op) for languages outside the supported set
+   * (`javascript`, `typescript`, `python`, `go`) and for unknown
+   * preset tokens. Fires `runtime.timeout_preset_changed` telemetry
+   * (fold A) with closed-enum `{ language, preset }` payload.
+   */
+  setRuntimeTimeoutPreset: (
+    language: string,
+    preset: RuntimeTimeoutPreset
+  ) => void;
+  /**
+   * RL-020 Slice 7 fold E — flip the countdown-in-pill toggle.
+   */
+  toggleShowTimeoutCountdown: () => void;
+  /**
    * RL-020 Slice 2 fold F — mark the workflow-mode onboarding toast
    * acknowledged. Idempotent. Called when the user explicitly
    * dismisses or just sees the toast.
@@ -584,6 +635,17 @@ export interface ExecutionContext {
    * ignore the field harmlessly.
    */
   stdin?: string;
+  /**
+   * RL-020 Slice 7 — the resolved preset that produced the active
+   * `timeout`. Used by `runnerTimeoutResult` to populate the
+   * `RunStatusPill` tooltip with the human-readable preset name
+   * ("Run hit the quick limit (5s)"). When `'override'` the run is
+   * using an explicit caller-supplied timeout (one-shot extended,
+   * magic-comment `// @timeout`, etc.) instead of a Settings
+   * preset, and the tooltip falls back to the duration without
+   * naming a preset.
+   */
+  timeoutPreset?: RuntimeTimeoutPreset | 'override';
 }
 
 export interface ExecutionError {
@@ -645,6 +707,28 @@ export interface ExecutionResult {
    * touch stdin.
    */
   stdinConsumed?: { count: number; total: number };
+  /**
+   * RL-020 Slice 7 — explicit termination kind. The renderer's
+   * `<RunStatusPill>` self-gates on this field rather than
+   * reverse-engineering the kind from `error.message`. `'success'`
+   * is the default when no `error` and no `cancelled` flag fires;
+   * `'timeout'` is set by `runnerTimeoutResult`, `'stopped'` by
+   * `runnerStoppedResult`, `'error'` by any other thrown / errored
+   * path.
+   */
+  kind?: 'success' | 'error' | 'timeout' | 'stopped';
+  /**
+   * RL-020 Slice 7 — when `kind === 'timeout'`, names the preset
+   * that fired the limit. `'override'` when the run was driven by
+   * an explicit caller timeout (one-shot extended / magic-comment).
+   */
+  timeoutPreset?: RuntimeTimeoutPreset | 'override';
+  /**
+   * RL-020 Slice 7 — the actual timeout in ms that armed the run.
+   * Surfaces in the `RunStatusPill` tooltip + the timed-out result
+   * message.
+   */
+  timeoutMs?: number;
 }
 
 export interface ConsoleOutput {
