@@ -5,6 +5,7 @@ import {
   type ExecutionHistoryEntry,
   useExecutionHistoryStore,
 } from '../../stores/executionHistoryStore';
+import { useEditorStore } from '../../stores/editorStore';
 import { IconButton } from '../ui/chrome';
 
 interface ExecutionHistoryPopoverProps {
@@ -73,21 +74,37 @@ export function ExecutionHistoryPopover({
   const { t } = useTranslation();
   const entries = useExecutionHistoryStore((state) => state.entries);
   const clear = useExecutionHistoryStore((state) => state.clear);
+  const activeTabId = useEditorStore((state) => state.activeTabId);
   const [open, setOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  // RL-020 Slice 4 fold C — "This tab only" filter toggle. Defaults
+  // off so the historical popover behavior is preserved; the user
+  // opts into per-tab filtering. State stays open-scoped — closing
+  // and reopening the popover resets the filter (consistent with the
+  // existing selection-reset hygiene below).
+  const [thisTabOnly, setThisTabOnly] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const popoverId = useId();
+  // Apply the fold C filter at the source so every downstream
+  // computation (compare candidates, list render, empty state)
+  // honors it consistently.
+  const visibleEntries = useMemo(() => {
+    if (!thisTabOnly || !activeTabId) return entries;
+    return entries.filter((entry) => entry.tabId === activeTabId);
+  }, [entries, thisTabOnly, activeTabId]);
   const selectableEntryIds = useMemo(() => {
     return new Set(
-      entries
+      visibleEntries
         .filter((entry) => entry.snapshot !== null)
         .map((entry) => entry.id)
     );
-  }, [entries]);
+  }, [visibleEntries]);
   const selectedEntries = useMemo(() => {
-    return entries.filter((entry) => selectedIds.has(entry.id) && entry.snapshot !== null);
-  }, [entries, selectedIds]);
+    return visibleEntries.filter(
+      (entry) => selectedIds.has(entry.id) && entry.snapshot !== null
+    );
+  }, [visibleEntries, selectedIds]);
 
   // Refresh relative timestamps every 30s while the popover is visible — the
   // store itself never changes purely because of clock drift, so we drive
@@ -124,18 +141,28 @@ export function ExecutionHistoryPopover({
   // the next open starts fresh. Reopening with stale selection would
   // surprise the user, especially after they `Clear`ed the buffer.
   useEffect(() => {
-    setSelectedIds((current) => {
-      if (!open) {
-        return current.size === 0 ? current : new Set();
+    if (!open) {
+      if (selectedIds.size > 0) {
+        setSelectedIds(new Set());
       }
-
+      // RL-020 Slice 4 fold C — also reset the per-tab filter on
+      // close so a fresh open starts with the global view, matching
+      // the implementer-documented contract above and avoiding the
+      // surprising "empty popover" you'd otherwise see after a Clear
+      // followed by reopening.
+      if (thisTabOnly) {
+        setThisTabOnly(false);
+      }
+      return;
+    }
+    setSelectedIds((current) => {
       const next = new Set<string>();
       for (const id of current) {
         if (selectableEntryIds.has(id)) next.add(id);
       }
       return next.size === current.size ? current : next;
     });
-  }, [open, selectableEntryIds]);
+  }, [open, selectableEntryIds, selectedIds.size, thisTabOnly]);
 
   const handleRerun = useCallback(
     (entry: ExecutionHistoryEntry) => {
@@ -185,7 +212,21 @@ export function ExecutionHistoryPopover({
     setOpen((current) => !current);
   };
 
-  const hasEntries = entries.length > 0;
+  const hasEntries = visibleEntries.length > 0;
+  // Show the fold C toggle only when there's something on the source
+  // tab to filter against; otherwise checking it would surface zero
+  // entries and confuse the user. Mirror the same predicate as
+  // `visibleEntries` (require an explicit non-undefined `tabId`
+  // matching the active tab) so the checkbox never surfaces just
+  // because a legacy entry's `undefined` field happened to compare
+  // truthy. Identity-equality already excludes undefined here, but
+  // the explicit guard makes the intent unmissable.
+  const tabHasEntries = useMemo(() => {
+    if (!activeTabId) return false;
+    return entries.some(
+      (entry) => entry.tabId !== undefined && entry.tabId === activeTabId
+    );
+  }, [entries, activeTabId]);
   const compareEnabled =
     onCompare !== undefined && selectedIds.size === 2 && selectedEntries.length === 2;
   const compareDisabledHintKey = useMemo(() => {
@@ -228,13 +269,30 @@ export function ExecutionHistoryPopover({
             ) : null}
           </header>
 
+          {tabHasEntries ? (
+            <label
+              className="flex items-center gap-2 border-b border-border/60 bg-background-elevated/60 px-4 py-2 text-[11px] uppercase tracking-[0.08em] text-muted"
+              data-testid="execution-history-this-tab-toggle"
+            >
+              <input
+                type="checkbox"
+                checked={thisTabOnly}
+                onChange={(event) => setThisTabOnly(event.target.checked)}
+                className="h-3 w-3"
+              />
+              <span>{t('executionHistory.filter.thisTabOnly')}</span>
+            </label>
+          ) : null}
+
           {!hasEntries ? (
             <p className="px-4 py-6 text-sm text-muted" data-testid="execution-history-empty">
-              {t('executionHistory.empty')}
+              {thisTabOnly
+                ? t('executionHistory.filter.thisTabOnly.empty')
+                : t('executionHistory.empty')}
             </p>
           ) : (
             <ul className="max-h-[18rem] overflow-y-auto">
-              {[...entries].reverse().map((entry) => {
+              {[...visibleEntries].reverse().map((entry) => {
                 const canReplay = entry.snapshot !== null;
                 const canSelect = entry.snapshot !== null;
                 const checked = selectedIds.has(entry.id);

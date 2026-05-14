@@ -44,6 +44,9 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-019 Slice 1 — per-tab JS/TS runtime mode change.
       // Closed-enum payload `{ mode, language }`; see RUNTIME_MODES_ADR.
       'runtime.auto_run_gated',
+      // RL-020 Slice 4 — execution-history replay dispatched.
+      // Closed-enum payload `{ language, status, surface }`.
+      'runtime.history_replay',
       // RL-020 Slice 3 — magic-comment results emitted on a clean
       // run. Closed-enum payload `{ language, hasArrow, hasWatch }`.
       'runtime.magic_comment_emitted',
@@ -405,6 +408,69 @@ describe('runtime.magic_comment_emitted value validator (RL-020 Slice 3)', () =>
     expect(event.properties).not.toHaveProperty('language');
     expect(event.properties.hasArrow).toBe(true);
     expect(event.properties.hasWatch).toBe(false);
+  });
+});
+
+describe('runtime.history_replay value validator (RL-020 Slice 4)', () => {
+  it('accepts the closed enum payload from the tab pill', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.history_replay',
+        properties: { language: 'javascript', status: 'ok', surface: 'tab_pill' },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'javascript',
+      status: 'ok',
+      surface: 'tab_pill',
+    });
+  });
+
+  it('accepts the palette and popover surfaces', () => {
+    for (const surface of ['palette', 'popover'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'runtime.history_replay',
+          properties: { language: 'python', status: 'error', surface },
+        })
+      );
+      expect(event.properties.surface).toBe(surface);
+    }
+  });
+
+  it('drops an unknown surface value', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.history_replay',
+        properties: { language: 'javascript', status: 'ok', surface: 'sneaky_widget' },
+      })
+    );
+    expect(event.properties.language).toBe('javascript');
+    expect(event.properties.status).toBe('ok');
+    expect(event.properties).not.toHaveProperty('surface');
+  });
+
+  it('drops an unknown status value', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.history_replay',
+        properties: { language: 'javascript', status: 'half', surface: 'tab_pill' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('status');
+    expect(event.properties.surface).toBe('tab_pill');
+  });
+
+  it('drops a non-safe-token language', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.history_replay',
+        properties: { language: '../etc/passwd', status: 'ok', surface: 'tab_pill' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('language');
+    expect(event.properties.status).toBe('ok');
+    expect(event.properties.surface).toBe('tab_pill');
   });
 });
 

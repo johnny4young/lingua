@@ -47,6 +47,8 @@ describe('keyboardShortcuts catalog', () => {
     for (const required of [
       'run-toggle',
       'run-cycle-runtime-mode',
+      'run-cycle-workflow-mode',
+      'run-toggle-recent-runs',
       'file-save',
       'file-save-as',
       'file-open',
@@ -77,6 +79,15 @@ describe('keyboardShortcuts catalog', () => {
     expect(shortcut).toBeDefined();
     expect(shortcut?.group).toBe('run');
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Alt', 'M'] }]);
+  });
+
+  it('declares the Recent Runs popover shortcut as Mod+Shift+H', () => {
+    const shortcut = KEYBOARD_SHORTCUTS.find(
+      (entry) => entry.id === 'run-toggle-recent-runs'
+    );
+    expect(shortcut).toBeDefined();
+    expect(shortcut?.group).toBe('run');
+    expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Shift', 'H'] }]);
   });
 
   it('declares the Developer Utilities launcher shortcut as Mod+K', () => {

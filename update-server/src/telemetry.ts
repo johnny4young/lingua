@@ -42,6 +42,7 @@ export const TELEMETRY_EVENT_NAMES = [
   'runtime.auto_run_gated',
   'runtime.workflow_mode_changed',
   'runtime.magic_comment_emitted',
+  'runtime.history_replay',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -67,6 +68,7 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.auto_run_gated': ['language', 'reason'],
   'runtime.workflow_mode_changed': ['language', 'from', 'to', 'trigger'],
   'runtime.magic_comment_emitted': ['language', 'hasArrow', 'hasWatch'],
+  'runtime.history_replay': ['language', 'status', 'surface'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -114,6 +116,15 @@ const WORKFLOW_MODE_VALUES = new Set(['run', 'debug', 'scratchpad']);
 const WORKFLOW_MODE_CHANGE_TRIGGERS = new Set([
   'toolbar',
   'language_change',
+]);
+// RL-020 Slice 4 — closed enum mirror of `HISTORY_REPLAY_SURFACES`
+// in `src/shared/telemetry.ts`. Adding a new replay surface in the
+// renderer must amend both this Set + the renderer copy in the same
+// commit; the parity test enforces it at CI time.
+const HISTORY_REPLAY_SURFACES = new Set([
+  'tab_pill',
+  'palette',
+  'popover',
 ]);
 const DEBUGGER_REASON_BUCKETS: Record<
   Extract<
@@ -303,6 +314,13 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'hasArrow' || key === 'hasWatch')
         return typeof value === 'boolean';
+      return false;
+    case 'runtime.history_replay':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'status')
+        return typeof value === 'string' && RUNNER_STATUS_VALUES.has(value);
+      if (key === 'surface')
+        return typeof value === 'string' && HISTORY_REPLAY_SURFACES.has(value);
       return false;
     default: {
       const exhaustive: never = event;

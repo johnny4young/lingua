@@ -94,6 +94,18 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['workflow', 'mode', 'run', 'debug', 'scratchpad', 'cycle'],
   },
   {
+    // RL-020 Slice 4 fold B — toggle the per-tab Recent Runs popover.
+    // No-op when no pill is mounted (Free tier, view-only tab, or
+    // empty per-tab history). Dispatcher in `App.tsx` consults the
+    // `recentRunsPopoverBridge` module.
+    id: 'run-toggle-recent-runs',
+    group: 'run',
+    labelKey: 'shortcuts.item.toggleRecentRuns.label',
+    descriptionKey: 'shortcuts.item.toggleRecentRuns.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'H'] }],
+    keywords: ['history', 'recent', 'runs', 'replay', 'popover'],
+  },
+  {
     id: 'file-save',
     group: 'file',
     labelKey: 'shortcuts.item.save.label',

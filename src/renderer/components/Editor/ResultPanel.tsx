@@ -9,6 +9,7 @@ import { executionModeForLanguage } from '../../utils/languageMeta';
 import { isInlineResultLanguage } from '../../utils/languageCapabilities';
 import { AutoRunGateNotice } from './AutoRunGateNotice';
 import { WorkflowModeStatusPill } from './WorkflowModeStatusPill';
+import { RecentRunsPill } from './RecentRunsPill';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 
 function LineResultRow({ result, watchTooltip, watchAriaLabel, watchEmptyCopy }: {
@@ -241,6 +242,11 @@ export function ResultPanel() {
               toolbar. Low-contrast so it never fights the
               AutoRunGateNotice. */}
           <WorkflowModeStatusPill />
+          {/* RL-020 Slice 4 — per-tab Recent Runs pill. Self-gates
+              on entitlement + executionMode + non-empty tab
+              history; renders nothing for Free / view-only /
+              validate-only tabs or tabs with zero entries. */}
+          <RecentRunsPill />
           {executionTime !== null && (
             <span className="status-pill tabular-nums">{formatExecTime(executionTime)}</span>
           )}

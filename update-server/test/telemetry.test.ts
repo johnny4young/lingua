@@ -502,6 +502,55 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(['language_change', 'toolbar']);
   });
 
+  it('HISTORY_REPLAY_SURFACES stays in sync with the renderer enum (RL-020 Slice 4)', async () => {
+    // Parity guard for the closed `surface` enum used by
+    // `runtime.history_replay`. Adding a new replay surface (e.g.
+    // `'sidebar'`) requires updating BOTH the worker mirror and the
+    // renderer copy in the same commit.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /const\s+HISTORY_REPLAY_SURFACES\s*=\s*new\s+Set\(\s*\[([\s\S]+?)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual(['palette', 'popover', 'tab_pill']);
+  });
+
+  it('runtime.history_replay accepts the closed enum, drops unknown surface (RL-020 Slice 4)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.history_replay',
+      properties: { language: 'javascript', status: 'ok', surface: 'tab_pill' },
+    });
+    expect(okResponse.status).toBe(204);
+    const futureResponse = await postTelemetry({
+      event: 'runtime.history_replay',
+      properties: { language: 'python', status: 'ok', surface: 'sidebar' },
+    });
+    expect(futureResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.history_replay"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const future = eventLines
+      .map((line) => JSON.parse(line))
+      .find((parsed) => parsed.properties.language === 'python');
+    expect(future).toBeDefined();
+    expect(future.properties).not.toHaveProperty('surface');
+  });
+
   it('runtime.magic_comment_emitted accepts boolean flags, drops non-boolean (RL-020 Slice 3)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({

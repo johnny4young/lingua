@@ -54,6 +54,14 @@ export const TELEMETRY_EVENTS = [
   // panel, so adoption of `//=>` vs `// @watch` is observable
   // without per-comment noise.
   'runtime.magic_comment_emitted',
+  // RL-020 Slice 4 — execution-history replay dispatched. Closed
+  // enum payload `{ language, status, surface }`; no source code,
+  // no expression content, no timestamp. `surface` tags WHICH UI
+  // surface drove the replay (`tab_pill`, `palette`, `popover`) so
+  // adoption per affordance is observable. Fired once per replay
+  // dispatch, gated by the same EXECUTION_HISTORY entitlement that
+  // controls the replay surfaces.
+  'runtime.history_replay',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -142,6 +150,11 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // validator allows only true / false values; integers or strings
   // are dropped silently.
   'runtime.magic_comment_emitted': ['language', 'hasArrow', 'hasWatch'],
+  // RL-020 Slice 4 — `language` is the language-pack id; `status`
+  // is the closed `ExecutionStatus` enum (`ok` / `error`);
+  // `surface` is the closed `HistoryReplaySurface` enum (see
+  // `HISTORY_REPLAY_SURFACES` below).
+  'runtime.history_replay': ['language', 'status', 'surface'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -194,6 +207,16 @@ const WORKFLOW_MODE_VALUES = new Set(['run', 'debug', 'scratchpad']);
 const WORKFLOW_MODE_CHANGE_TRIGGERS = new Set([
   'toolbar',
   'language_change',
+]);
+// RL-020 Slice 4 — closed enum for the `surface` property on
+// `runtime.history_replay`. `tab_pill` is the per-tab RecentRunsPill
+// shipped this slice; `palette` is the command-palette Replay
+// action shipped in RL-028 Slice 6; `popover` is the
+// ExecutionHistoryPopover Replay button. Mirrored on the worker.
+const HISTORY_REPLAY_SURFACES = new Set([
+  'tab_pill',
+  'palette',
+  'popover',
 ]);
 const DEBUGGER_REASON_BUCKETS: Record<
   Extract<
@@ -294,6 +317,13 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'hasArrow' || key === 'hasWatch')
         return typeof value === 'boolean';
+      return false;
+    case 'runtime.history_replay':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'status')
+        return typeof value === 'string' && RUNNER_STATUS_VALUES.has(value);
+      if (key === 'surface')
+        return typeof value === 'string' && HISTORY_REPLAY_SURFACES.has(value);
       return false;
     default: {
       const exhaustive: never = event;

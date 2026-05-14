@@ -100,6 +100,15 @@ interface BuildCommandPaletteModelArgs {
    */
   onAddWatchToCurrentLine?: () => void;
   activeWatchLanguage?: Language | null;
+  /**
+   * RL-020 Slice 4 fold G — id of the active editor tab. Used to
+   * surface a parallel "Recent runs (this tab)" group ranked above
+   * the global recent-runs entries when at least one history entry
+   * has a matching `tabId`. Optional; when omitted or null, the
+   * per-tab group is suppressed and only the legacy global entries
+   * surface (existing behavior preserved).
+   */
+  activeTabId?: string | null;
   updateStatus: UpdateStatus;
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   createDefaultTab: (language: Language) => FileTab;
@@ -265,6 +274,55 @@ function buildRecentRunCommand(
 }
 
 /**
+ * RL-020 Slice 4 fold G — parallel "Recent runs (this tab)" entry.
+ * Same shape as `buildRecentRunCommand` but labels itself with a
+ * dedicated copy key so the palette result list visibly distinguishes
+ * per-tab entries from the legacy global group. The action is
+ * identical (focuses the language tab), letting users use either
+ * group interchangeably.
+ */
+function buildRecentRunOnTabCommand(
+  entry: ExecutionHistoryEntry,
+  onClose: () => void,
+  translate: (key: string, options?: Record<string, unknown>) => string,
+  onFocusLanguageTab?: (language: Language) => void
+): CommandEntry {
+  const statusKey =
+    entry.status === 'ok'
+      ? 'commandPalette.recentRuns.status.ok'
+      : 'commandPalette.recentRuns.status.error';
+  const languageName = languageLabel(entry.language as Language);
+  const label = translate('commandPalette.recentRuns.onTab.label', {
+    language: languageName,
+    status: translate(statusKey),
+    duration: formatExecTime(entry.durationMs ?? 0),
+  });
+  const description = translate('commandPalette.recentRuns.onTab.description');
+
+  return {
+    id: `recent-run-tab-${entry.id}`,
+    category: 'action',
+    label,
+    description,
+    language: entry.language as Language,
+    keywords: normalizeKeywords([
+      label,
+      description,
+      entry.language,
+      entry.status,
+      'recent',
+      'run',
+      'tab',
+      'this',
+    ]),
+    action: () => {
+      onFocusLanguageTab?.(entry.language as Language);
+      onClose();
+    },
+  };
+}
+
+/**
  * RL-028 Slice 6 trailer — per-entry Replay command.
  *
  * Emitted only for snapshot-bearing entries so the user can fuzzy-search
@@ -334,6 +392,7 @@ export function buildCommandPaletteModel({
   activeRuntimeMode = null,
   onAddWatchToCurrentLine,
   activeWatchLanguage = null,
+  activeTabId = null,
   updateStatus,
   createTab,
   createDefaultTab,
@@ -369,6 +428,18 @@ export function buildCommandPaletteModel({
     .slice(-MAX_RECENT_RUNS_IN_PALETTE)
     .reverse();
 
+  // RL-020 Slice 4 fold G — per-tab recent runs ranked above the
+  // global group when the active tab has at least one matching
+  // entry. Same `MAX_RECENT_RUNS_IN_PALETTE` ceiling so neither
+  // group dominates the palette.
+  const recentRunOnTabEntries =
+    activeTabId !== null && activeTabId !== undefined
+      ? (executionHistory ?? [])
+          .filter((entry) => entry.tabId === activeTabId)
+          .slice(-MAX_RECENT_RUNS_IN_PALETTE)
+          .reverse()
+      : [];
+
   // Per-entry Replay commands share the same recent-history window before
   // metadata-only entries drop out, so stale snapshots cannot outrank the
   // latest executions just because newer entries did not capture code.
@@ -385,6 +456,11 @@ export function buildCommandPaletteModel({
     ),
     ...snippets.map((snippet) =>
       buildSnippetCommand(snippet, createTab, createDefaultTab, onClose, translate)
+    ),
+    // RL-020 Slice 4 fold G — per-tab group FIRST so the user sees
+    // "what I just ran on this tab" before the global recents.
+    ...recentRunOnTabEntries.map((entry) =>
+      buildRecentRunOnTabCommand(entry, onClose, translate, onFocusLanguageTab)
     ),
     ...recentRunEntries.map((entry) =>
       buildRecentRunCommand(entry, onClose, translate, onFocusLanguageTab)

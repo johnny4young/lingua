@@ -62,6 +62,15 @@ interface UseGlobalShortcutsOptions {
    * `setTabWorkflowMode`.
    */
   cycleWorkflowMode: () => void;
+  /**
+   * RL-020 Slice 4 fold B — toggle the per-tab Recent Runs popover
+   * in the result-panel header. Dispatched via the
+   * `recentRunsPopoverBridge` module so the handler does not need
+   * to pipe a ref through the renderer tree. When no pill is
+   * mounted (Free tier, view-only tab, empty per-tab history) the
+   * caller surfaces a localized status notice instead.
+   */
+  toggleRecentRunsPopover: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -82,6 +91,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     },
     'run-cycle-runtime-mode': () => options.cycleRuntimeMode(),
     'run-cycle-workflow-mode': () => options.cycleWorkflowMode(),
+    'run-toggle-recent-runs': () => options.toggleRecentRunsPopover(),
     'file-save': () => {
       void options.saveActiveTab();
     },
