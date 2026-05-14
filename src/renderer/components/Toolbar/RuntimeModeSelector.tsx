@@ -86,24 +86,27 @@ export function RuntimeModeSelector() {
 
   const currentMode: RuntimeMode = activeTab.runtimeMode ?? 'worker';
   const currentLabel = t(MODE_LABEL_KEY[currentMode]);
+  const CurrentIcon = MODE_ICON[currentMode];
+  const compactTooltip = t('runtimeMode.compactTooltip', {
+    label: t('runtimeMode.label'),
+    mode: currentLabel,
+  });
 
   return (
     <div ref={containerRef} className="relative shrink-0" data-testid="runtime-mode-selector">
-      <Tooltip content={t('runtimeMode.menuTitle')}>
+      <Tooltip content={compactTooltip}>
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
           data-testid="runtime-mode-selector-button"
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label={t('runtimeMode.label')}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-surface-strong/88 px-3 py-1.5 text-xs font-semibold tracking-[0.02em] text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          aria-label={compactTooltip}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-border/60 bg-surface-strong/70 px-2.5 py-1.5 text-xs font-medium tracking-[0.01em] text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <span className="text-[0.7rem] uppercase tracking-[0.08em] text-muted">
-            {t('runtimeMode.label')}
-          </span>
+          <CurrentIcon size={12} aria-hidden="true" className="opacity-70" />
           <span>{currentLabel}</span>
-          <ChevronDown size={12} />
+          <ChevronDown size={11} className="opacity-60" />
         </button>
       </Tooltip>
       {open ? (

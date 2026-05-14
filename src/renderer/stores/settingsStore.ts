@@ -257,6 +257,11 @@ export const useSettingsStore = create<SettingsState>()(
       // opt-in (a quietly enabled flag could surprise a user with a
       // wall of inline values on first open).
       scratchpadAutoLogByLanguage: { ...SCRATCHPAD_AUTO_LOG_DEFAULT_SEED },
+      // RL-020 Slice 6 fold D — bottom-panel `stdin` tab is offered
+      // by default. The user can hide it from Settings → Editor;
+      // disabling the tab does NOT clear per-tab `stdinBuffer`
+      // values so re-enabling the tab restores the existing input.
+      showStdinPanel: true,
       // RL-020 Slice 2 fold F — onboarding-toast acknowledgement.
       firstWorkflowModeSwitchAcknowledged: false,
       language: 'system',
@@ -400,6 +405,10 @@ export const useSettingsStore = create<SettingsState>()(
           void trackEvent('runtime.auto_log_enabled', { language, enabled });
         }
       },
+      // RL-020 Slice 6 fold D — flip the bottom-panel stdin tab
+      // visibility. Per-tab buffers are preserved either way.
+      toggleShowStdinPanel: () =>
+        set((s) => ({ showStdinPanel: !s.showStdinPanel })),
       // RL-020 Slice 2 fold F — record that the onboarding toast has
       // been seen so future workflow-mode switches stay silent.
       acknowledgeFirstWorkflowModeSwitch: () =>
@@ -486,6 +495,7 @@ export const useSettingsStore = create<SettingsState>()(
         defaultRuntimeMode: state.defaultRuntimeMode,
         workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
         scratchpadAutoLogByLanguage: state.scratchpadAutoLogByLanguage,
+        showStdinPanel: state.showStdinPanel,
         firstWorkflowModeSwitchAcknowledged:
           state.firstWorkflowModeSwitchAcknowledged,
         language: state.language,
@@ -600,6 +610,10 @@ export const useSettingsStore = create<SettingsState>()(
           typeof merged.firstWorkflowModeSwitchAcknowledged === 'boolean'
             ? merged.firstWorkflowModeSwitchAcknowledged
             : currentState.firstWorkflowModeSwitchAcknowledged;
+        const showStdinPanel =
+          typeof merged.showStdinPanel === 'boolean'
+            ? merged.showStdinPanel
+            : currentState.showStdinPanel;
         return {
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
@@ -611,6 +625,7 @@ export const useSettingsStore = create<SettingsState>()(
           defaultRuntimeMode: normalizedDefaultRuntimeMode,
           workflowModeDefaultsByLanguage: seededWorkflowDefaults,
           scratchpadAutoLogByLanguage: seededAutoLog,
+          showStdinPanel,
           firstWorkflowModeSwitchAcknowledged,
         };
       },

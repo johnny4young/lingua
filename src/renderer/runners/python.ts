@@ -173,6 +173,9 @@ export class PythonRunner implements LanguageRunner {
     const magicResults: MagicCommentResult[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
+    // RL-020 Slice 6 fold G — Pyodide worker's stdin consumption
+    // summary; mirror of the JS runner shape.
+    let stdinConsumed: { count: number; total: number } | undefined;
     // Independent caps per stream — see JavaScriptRunner.
     let droppedStdout = 0;
     let droppedStderr = 0;
@@ -287,6 +290,19 @@ export class PythonRunner implements LanguageRunner {
               kind: magicKindByLine[msg.line] ?? 'arrow',
             });
             break;
+          case 'stdin-consumed': {
+            const summary = msg as unknown as { count: unknown; total: unknown };
+            const count =
+              typeof summary.count === 'number' && Number.isInteger(summary.count)
+                ? Math.max(0, summary.count)
+                : 0;
+            const total =
+              typeof summary.total === 'number' && Number.isInteger(summary.total)
+                ? Math.max(0, summary.total)
+                : 0;
+            stdinConsumed = { count, total };
+            break;
+          }
           case 'result':
             result = msg.value;
             break;
@@ -301,6 +317,7 @@ export class PythonRunner implements LanguageRunner {
               executionTime: msg.executionTime,
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
+              stdinConsumed,
             });
             break;
         }
@@ -336,6 +353,11 @@ export class PythonRunner implements LanguageRunner {
         timeout,
         resultTruncationMarker: t('runner.truncated.result'),
         userEnv,
+        // RL-020 Slice 6 — pre-set stdin buffer forwarded into Pyodide
+        // via `pyodide.setStdin`. Empty / undefined leaves the
+        // default handler in place, which preserves Pyodide's stock
+        // EOFError on bare `input()` calls.
+        stdin: context?.stdin,
       });
     });
   }

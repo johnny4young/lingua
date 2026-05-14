@@ -205,6 +205,26 @@ export function CommandPalette({
               ] === true
             : activeTab.autoLogEnabled === true
           : false,
+      // RL-020 Slice 6 fold E — focus the Input bottom-panel tab.
+      // Hidden when the master Settings toggle is OFF or when the
+      // active tab's language can't consume stdin (anything outside
+      // JS / TS / Python, or runtime mode browser-preview).
+      onFocusStdinPanel:
+        activeTab &&
+        useSettingsStore.getState().showStdinPanel &&
+        (activeTab.language === 'javascript' ||
+          activeTab.language === 'typescript' ||
+          activeTab.language === 'python') &&
+        activeTab.runtimeMode !== 'browser-preview'
+          ? () => useUIStore.getState().openBottomPanel('stdin')
+          : undefined,
+      stdinPanelAvailable:
+        !!activeTab &&
+        useSettingsStore.getState().showStdinPanel &&
+        (activeTab.language === 'javascript' ||
+          activeTab.language === 'typescript' ||
+          activeTab.language === 'python') &&
+        activeTab.runtimeMode !== 'browser-preview',
       // RL-020 Slice 4 fold G — pass the active tab id so the
       // model can surface the per-tab Recent runs group above the
       // legacy global one. `null` (no active tab) suppresses the

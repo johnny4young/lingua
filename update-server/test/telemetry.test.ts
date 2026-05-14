@@ -619,6 +619,31 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(future.properties).not.toHaveProperty('countBucket');
   });
 
+  it('runtime.stdin_used accepts the closed payload, drops unknown keys (RL-020 Slice 6)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.stdin_used',
+      properties: { language: 'python' },
+    });
+    expect(okResponse.status).toBe(204);
+    // Future / drift payload: an extra `linesRead` integer would be
+    // a privacy regression. Validator drops it silently with 204.
+    const futureResponse = await postTelemetry({
+      event: 'runtime.stdin_used',
+      properties: { language: 'javascript', linesRead: 7 },
+    });
+    expect(futureResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.stdin_used"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const future = eventLines
+      .map((line) => JSON.parse(line))
+      .find((parsed) => parsed.properties.language === 'javascript');
+    expect(future).toBeDefined();
+    expect(future.properties).not.toHaveProperty('linesRead');
+  });
+
   it('runtime.magic_comment_emitted accepts boolean flags, drops non-boolean (RL-020 Slice 3)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({

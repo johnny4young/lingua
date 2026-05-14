@@ -241,6 +241,10 @@ export class TypeScriptRunner implements LanguageRunner {
     const magicResults: MagicCommentResult[] = [];
     let result: unknown;
     let error: ExecutionError | undefined;
+    // RL-020 Slice 6 fold G — see JavaScriptRunner; the same JS
+    // worker hosts the TS path post-transpile, so the same
+    // `stdin-consumed` message arrives here too.
+    let stdinConsumed: { count: number; total: number } | undefined;
     // Independent caps per stream — see JavaScriptRunner.
     let droppedStdout = 0;
     let droppedStderr = 0;
@@ -322,6 +326,22 @@ export class TypeScriptRunner implements LanguageRunner {
             context?.onConsole?.(output);
             break;
           }
+          case 'stdin-consumed': {
+            const summary = msg as unknown as {
+              count: unknown;
+              total: unknown;
+            };
+            const count =
+              typeof summary.count === 'number' && Number.isInteger(summary.count)
+                ? Math.max(0, summary.count)
+                : 0;
+            const total =
+              typeof summary.total === 'number' && Number.isInteger(summary.total)
+                ? Math.max(0, summary.total)
+                : 0;
+            stdinConsumed = { count, total };
+            break;
+          }
           case 'magic-comment':
             magicResults.push({
               line: msg.line,
@@ -371,6 +391,7 @@ export class TypeScriptRunner implements LanguageRunner {
               executionTime: msg.executionTime,
               error,
               magicResults: magicResults.length > 0 ? magicResults : undefined,
+              stdinConsumed,
             });
             this.clearDebuggerSession('run-complete');
             worker.terminate();
@@ -420,6 +441,7 @@ export class TypeScriptRunner implements LanguageRunner {
         breakpoints: tabBreakpoints.map((bp) => ({ line: bp.line, condition: bp.condition })),
         watches: debug ? debugStore.watches.map((w) => w.expression) : [],
         sourceLineMap,
+        stdin: context?.stdin,
       });
     });
   }

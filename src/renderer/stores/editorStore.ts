@@ -104,6 +104,29 @@ function dropAutoLogIfUnsupported<T extends FileTab>(tab: T): T {
   return rest as T;
 }
 
+/**
+ * RL-020 Slice 6 — the worker-side stdin patch ships for the three
+ * languages whose runner goes through a worker today: JS / TS via
+ * `js-worker.ts` and Python via `python-worker.ts`. Go / Rust runners
+ * are WASM-based (Go) or compile-and-run on the host; threading
+ * stdin into those is a follow-up because the patch surface is
+ * different.
+ */
+function languageSupportsStdin(language: Language): boolean {
+  return (
+    language === 'javascript' ||
+    language === 'typescript' ||
+    language === 'python'
+  );
+}
+
+function dropStdinIfUnsupported<T extends FileTab>(tab: T): T {
+  if (languageSupportsStdin(tab.language)) return tab;
+  const { stdinBuffer: _drop, ...rest } = tab;
+  void _drop;
+  return rest as T;
+}
+
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
   const short = id.slice(0, 8);
@@ -224,10 +247,22 @@ async function persistTab(
   const autoLogEnabled = languageSupportsAutoLog(language)
     ? tab.autoLogEnabled
     : undefined;
-  const { autoLogEnabled: _staleAutoLogEnabled, ...tabWithoutAutoLog } = tab;
+  // RL-020 Slice 6 — same Save-As cleanup for the stdin buffer.
+  // `foo.js` → `foo.go` must drop the JS-only buffer so the worker
+  // never receives a value it can't honor and the tab stops
+  // surfacing the Input panel.
+  const stdinBuffer = languageSupportsStdin(language)
+    ? tab.stdinBuffer
+    : undefined;
+  const {
+    autoLogEnabled: _staleAutoLogEnabled,
+    stdinBuffer: _staleStdinBuffer,
+    ...tabWithoutDropped
+  } = tab;
   void _staleAutoLogEnabled;
+  void _staleStdinBuffer;
   const nextTab: FileTab & { filePath: string; rootId: string; relativePath: string } = {
-    ...tabWithoutAutoLog,
+    ...tabWithoutDropped,
     filePath: absolutePath,
     rootId,
     relativePath,
@@ -236,6 +271,7 @@ async function persistTab(
     runtimeMode,
     workflowMode,
     ...(autoLogEnabled !== undefined ? { autoLogEnabled } : {}),
+    ...(stdinBuffer !== undefined ? { stdinBuffer } : {}),
   };
   let content: string;
   try {
@@ -324,12 +360,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     // mode. `duplicateActiveTab` for example forwards a tab through
     // `addTab` without going through `createDefaultTab`.
     const workflowMode = workflowModeForNewTab(tab.language, tab.workflowMode);
-    const newTab = dropAutoLogIfUnsupported({
-      ...tab,
-      isDirty: false,
-      runtimeMode,
-      workflowMode,
-    });
+    const newTab = dropStdinIfUnsupported(
+      dropAutoLogIfUnsupported({
+        ...tab,
+        isDirty: false,
+        runtimeMode,
+        workflowMode,
+      })
+    );
     set((state) => ({
       tabs: [...state.tabs, newTab],
       activeTabId: newTab.id,
@@ -339,7 +377,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   restoreTabs: (tabs, activeTabId) =>
     set({
       tabs: tabs.map((tab) =>
-        dropAutoLogIfUnsupported({
+        dropStdinIfUnsupported(dropAutoLogIfUnsupported({
           ...tab,
           isDirty: false,
           // RL-019 Slice 1 — backfill missing runtime modes for JS/TS
@@ -354,7 +392,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             tab.language,
             tab.workflowMode
           ),
-        })
+        }))
       ),
       activeTabId: activeTabId ?? null,
     }),
@@ -542,6 +580,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         enabled,
       });
     }
+  },
+
+  setTabStdinBuffer: (id, text) => {
+    const target = get().tabs.find((t) => t.id === id);
+    if (!target) return;
+    if (!languageSupportsStdin(target.language)) return;
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== id) return t;
+        if (text === null || text === '') {
+          if (t.stdinBuffer === undefined) return t;
+          const { stdinBuffer: _drop, ...rest } = t;
+          void _drop;
+          return rest;
+        }
+        return { ...t, stdinBuffer: text };
+      }),
+    }));
   },
 
   markSaved: (id) =>
@@ -812,7 +868,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             autoLogEnabled: tab.autoLogEnabled,
           };
         }
-        return dropAutoLogIfUnsupported(renamed);
+        return dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed));
       });
       return { tabs: next };
     });

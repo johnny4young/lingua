@@ -74,6 +74,12 @@ export const TELEMETRY_EVENTS = [
   // result. `countBucket` is a closed enum (`1`, `2-5`, `6-20`,
   // `20-plus`) so the redactor never has to accept raw counts.
   'runtime.auto_log_emitted',
+  // RL-020 Slice 6 — bare-stdin adoption signal. Fires once per
+  // run whose worker consumed ≥1 line from the pre-set stdin
+  // buffer. Closed-enum payload: `{ language }`; no buffer
+  // content, no consumed count, no source. The countBucket lives
+  // on the panel only, not on the wire.
+  'runtime.stdin_used',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -177,6 +183,11 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // in `useAutoRun.ts`. The renderer / worker validators reject
   // anything else.
   'runtime.auto_log_emitted': ['language', 'countBucket'],
+  // RL-020 Slice 6 — language-only payload. Bucketed counts would
+  // give the consumed-line distribution but also risk fingerprinting
+  // a small population by per-run shape; Slice 6 stays at adoption
+  // level only.
+  'runtime.stdin_used': ['language'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -367,6 +378,9 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'countBucket')
         return typeof value === 'string' && AUTO_LOG_COUNT_BUCKETS.has(value);
+      return false;
+    case 'runtime.stdin_used':
+      if (key === 'language') return isSafeToken(value);
       return false;
     default: {
       const exhaustive: never = event;

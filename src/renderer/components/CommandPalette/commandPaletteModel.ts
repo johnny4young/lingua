@@ -112,6 +112,20 @@ interface BuildCommandPaletteModelArgs {
   onToggleAutoLogOnActiveTab?: () => void;
   activeAutoLogResolved?: boolean;
   /**
+   * RL-020 Slice 6 fold E — focus the Input tab on the bottom
+   * panel from the command palette. The caller in `CommandPalette.tsx`
+   * calls `openBottomPanel('stdin')`; the action is hidden when the
+   * active tab's language is not JS / TS / Python or when the
+   * master `showStdinPanel` Settings toggle is OFF.
+   */
+  onFocusStdinPanel?: () => void;
+  /**
+   * RL-020 Slice 6 fold E — true when the language + Settings flag
+   * combination permits the stdin panel; the model uses this to
+   * gate the palette entry's visibility.
+   */
+  stdinPanelAvailable?: boolean;
+  /**
    * RL-020 Slice 4 fold G — id of the active editor tab. Used to
    * surface a parallel "Recent runs (this tab)" group ranked above
    * the global recent-runs entries when at least one history entry
@@ -405,6 +419,8 @@ export function buildCommandPaletteModel({
   activeWatchLanguage = null,
   onToggleAutoLogOnActiveTab,
   activeAutoLogResolved = false,
+  onFocusStdinPanel,
+  stdinPanelAvailable = false,
   activeTabId = null,
   updateStatus,
   createTab,
@@ -520,6 +536,23 @@ export function buildCommandPaletteModel({
             ['watch', 'pin', 'magic', 'comment', 'inline', 'expression'],
             () => {
               onAddWatchToCurrentLine();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-020 Slice 6 fold E — focus the Input bottom-panel tab from
+    // the command palette. Hidden when the master toggle is OFF or
+    // when the active tab's language doesn't support stdin.
+    ...(onFocusStdinPanel && stdinPanelAvailable
+      ? [
+          buildActionCommand(
+            'action-focus-stdin-panel',
+            translate('commandPalette.action.toggleStdin.label'),
+            translate('commandPalette.action.toggleStdin.shown'),
+            ['stdin', 'input', 'panel', 'prompt', 'readline'],
+            () => {
+              onFocusStdinPanel();
               onClose();
             }
           ),

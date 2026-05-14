@@ -166,8 +166,8 @@ export function Toolbar({
   const primaryActionLabel = primaryActionIsDebug ? debugLabel : actionLabel;
   const primaryActionTooltip = primaryActionIsDebug ? debugTooltip : actionTooltip;
   const primaryActionClassName = primaryActionIsDebug
-    ? 'button-danger min-w-[7.4rem] justify-center rounded-r-none'
-    : 'button-primary min-w-[7.4rem] justify-center rounded-r-none bg-success text-background hover:bg-success/92';
+    ? 'button-danger inline-flex h-10 w-10 items-center justify-center rounded-l-xl rounded-r-none'
+    : 'button-primary inline-flex h-10 w-10 items-center justify-center rounded-l-xl rounded-r-none bg-success text-background hover:bg-success/92';
   const utilitiesShortcutLabel = useMemo(() => {
     const definition = KEYBOARD_SHORTCUTS.find(
       (entry) => entry.id === 'overlay-developer-utilities'
@@ -324,16 +324,16 @@ export function Toolbar({
                   disabled={primaryActionDisabled}
                   data-tour-id="run-button"
                   data-testid="toolbar-run-button"
+                  aria-label={primaryActionLabel}
                   className={primaryActionClassName}
                 >
                   {isInitializing ? (
-                    <Loader2 size={13} className="animate-spin" />
+                    <Loader2 size={15} className="animate-spin" />
                   ) : primaryActionIsDebug ? (
-                    <Bug size={13} aria-hidden="true" />
+                    <Bug size={15} aria-hidden="true" />
                   ) : (
-                    <Play size={13} fill="currentColor" />
+                    <Play size={15} fill="currentColor" />
                   )}
-                  {primaryActionLabel}
                 </button>
               </Tooltip>
               <Tooltip content={t('toolbar.run.menu')}>
@@ -412,14 +412,15 @@ export function Toolbar({
               disabled={actionDisabled}
               data-tour-id="run-button"
               data-testid="toolbar-run-button"
-              className="button-primary min-w-[7.4rem] justify-center bg-success text-background hover:bg-success/92"
+              aria-label={actionLabel}
+              title={actionLabel}
+              className="button-primary inline-flex h-10 w-10 items-center justify-center rounded-xl bg-success text-background hover:bg-success/92"
             >
               {isInitializing ? (
-                <Loader2 size={13} className="animate-spin" />
+                <Loader2 size={15} className="animate-spin" />
               ) : (
-                <Play size={13} fill="currentColor" />
+                <Play size={15} fill="currentColor" />
               )}
-              {actionLabel}
             </button>
           </Tooltip>
         )}
@@ -435,32 +436,31 @@ export function Toolbar({
           </IconButton>
         )}
 
-        <IconButton
-          onClick={() => void useEditorStore.getState().openFileFromDisk()}
-          tooltip={t('toolbar.openFile')}
-        >
-          <FolderOpen size={15} />
-        </IconButton>
+        {/* UI refinement — workflow + runtime selectors live with the
+            Run button. They configure HOW + WHERE the run executes,
+            so the whole execution cluster reads as one group. */}
+        {activeTab ? <WorkflowModeSegment /> : null}
+        {languageHasRuntimeModes(activeTab?.language) ? <RuntimeModeSelector /> : null}
 
         <div className="toolbar-divider" />
 
         <div ref={newFileMenuRef} className="relative shrink-0">
-          <div className="inline-flex overflow-hidden rounded-[1.35rem] border border-border/80 bg-surface-strong/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="inline-flex h-10 overflow-hidden rounded-xl border border-border/70 bg-surface-strong/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <Tooltip content={t('toolbar.newFile.primaryTitle', { language: defaultNewFileLabel })}>
               <button
                 onClick={() => handleNewFile(defaultNewFileLanguage)}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold tracking-[0.02em] text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                aria-label={t('toolbar.newFile.primary', { language: defaultNewFileLabel })}
+                className="inline-flex h-full w-10 items-center justify-center text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
-                <Plus size={13} />
-                {t('toolbar.newFile.primary', { language: defaultNewFileLabel })}
+                <Plus size={15} />
               </button>
             </Tooltip>
-            <div className="my-1 w-px bg-border/80" aria-hidden="true" />
+            <div className="my-1 w-px bg-border/70" aria-hidden="true" />
             <Tooltip content={t('toolbar.newFile.menuTitle')}>
               <button
                 onClick={() => setIsNewFileMenuOpen((currentValue) => !currentValue)}
-                className={`inline-flex items-center justify-center px-3 text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                  isNewFileMenuOpen ? 'text-primary' : ''
+                className={`inline-flex h-full w-8 items-center justify-center text-foreground transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                  isNewFileMenuOpen ? 'text-primary' : 'text-muted'
                 }`}
                 aria-label={t('toolbar.newFile.menuAriaLabel')}
                 aria-haspopup="menu"
@@ -521,25 +521,16 @@ export function Toolbar({
         </div>
       </div>
 
-      <div data-tour-id="toolbar-actions" className="flex min-w-0 items-center gap-1">
-        {/* RL-020 Slice 2 — per-tab workflow-mode segmented control.
-            Renders for every tab; collapses to a single label-pill
-            when only one mode is supported (plain-text tabs). The
-            control itself owns its visibility logic so the Toolbar
-            stays oblivious to per-language capability axes. */}
-        {activeTab ? <WorkflowModeSegment /> : null}
-        {/* RL-019 Slice 1 — per-tab JS/TS runtime mode selector.
-            Rendered only when the active tab owns the runtime-mode
-            surface (JS/TS today). The selector itself short-circuits
-            for non-JS/TS tabs as a second layer of defense. */}
-        {languageHasRuntimeModes(activeTab?.language) ? <RuntimeModeSelector /> : null}
-        {activeTab && (
-          <div className="status-pill hidden max-w-[14rem] truncate lg:flex">
-            {t('toolbar.languageActive', { language: defaultNewFileLabel })}
-          </div>
-        )}
+      <div data-tour-id="toolbar-actions" className="flex min-w-0 items-center gap-2 pl-3 sm:gap-2 sm:pl-4">
         <LicenseBadge onClick={onOpenSettings} />
 
+        <IconButton
+          onClick={() => void useEditorStore.getState().openFileFromDisk()}
+          tooltip={t('toolbar.openFile')}
+          aria-label={t('toolbar.openFile')}
+        >
+          <FolderOpen size={15} />
+        </IconButton>
         <IconButton onClick={onOpenQuickOpen} tooltip={t('toolbar.quickOpen')}>
           <Search size={15} />
         </IconButton>

@@ -30,6 +30,7 @@ export interface LineResult {
 export interface ResultSnapshot {
   lineResults: LineResult[];
   fullOutput: string;
+  stdinConsumed: { count: number; total: number } | null;
   executionTime: number | null;
 }
 
@@ -38,6 +39,14 @@ interface ResultState {
   lineResults: LineResult[];
   /** Full output text for compiled languages */
   fullOutput: string;
+  /**
+   * RL-020 Slice 6 fold G — stdin consumption summary from the last
+   * run that pulled any line out of the pre-set buffer. `null` when
+   * the last run did not touch stdin (or no run has happened yet on
+   * the active tab); the StdinInputPanel renders the "Used N of M
+   * lines" pill only when this is populated.
+   */
+  stdinConsumed: { count: number; total: number } | null;
   /** Execution error if any */
   error: ExecutionError | null;
   /** Monaco markers for execution or validation diagnostics */
@@ -67,6 +76,7 @@ interface ResultState {
 
   setLineResults: (results: LineResult[]) => void;
   setFullOutput: (output: string) => void;
+  setStdinConsumed: (summary: { count: number; total: number } | null) => void;
   setError: (error: ExecutionError | null) => void;
   setDiagnostics: (diagnostics: EditorDiagnostic[]) => void;
   setExecutionTime: (time: number | null) => void;
@@ -92,6 +102,7 @@ interface ResultState {
 export const useResultStore = create<ResultState>((set, get) => ({
   lineResults: [],
   fullOutput: '',
+  stdinConsumed: null,
   error: null,
   diagnostics: [],
   executionTime: null,
@@ -103,6 +114,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
 
   setLineResults: (lineResults) => set({ lineResults }),
   setFullOutput: (fullOutput) => set({ fullOutput }),
+  setStdinConsumed: (stdinConsumed) => set({ stdinConsumed }),
   setError: (error) => set({ error }),
   setDiagnostics: (diagnostics) => set({ diagnostics }),
   setExecutionTime: (executionTime) => set({ executionTime }),
@@ -111,13 +123,14 @@ export const useResultStore = create<ResultState>((set, get) => ({
   setExecutionSource: (executionSource) => set({ executionSource }),
   setAutoRunGateReason: (autoRunGateReason) => set({ autoRunGateReason }),
   captureSuccessfulSnapshot: () => {
-    const { lineResults, fullOutput, executionTime } = get();
+    const { lineResults, fullOutput, stdinConsumed, executionTime } = get();
     set({
       lastSuccessfulSnapshot: {
         // Defensive copy of lineResults so a later mutation of the
         // live array does not retroactively edit the snapshot.
         lineResults: [...lineResults],
         fullOutput,
+        stdinConsumed,
         executionTime,
       },
     });
@@ -128,6 +141,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
     set({
       lineResults: [...snapshot.lineResults],
       fullOutput: snapshot.fullOutput,
+      stdinConsumed: snapshot.stdinConsumed,
       executionTime: snapshot.executionTime,
       error: null,
       diagnostics: [],
@@ -138,6 +152,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
     set({
       lineResults: [],
       fullOutput: '',
+      stdinConsumed: null,
       error: null,
       diagnostics: [],
       executionTime: null,
@@ -155,6 +170,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
     set({
       lineResults: [],
       fullOutput: '',
+      stdinConsumed: null,
       error: null,
       diagnostics: [],
       executionTime: null,

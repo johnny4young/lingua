@@ -25,6 +25,13 @@ interface LastAutoRunInput {
   runtimeMode: string | undefined;
   workflowMode: string;
   autoLogEnabled: boolean;
+  /**
+   * RL-020 Slice 6 — the pre-set stdin buffer is part of the run's
+   * effective input. Editing the panel without touching the code
+   * must still re-run; including the buffer in the dedup key keeps
+   * the auto-run honest about which inputs changed.
+   */
+  stdinBuffer: string | undefined;
 }
 
 /**
@@ -89,6 +96,11 @@ export function useAutoRun() {
     (activeTab?.autoLogEnabled === undefined
       ? autoLogByLanguage[language] === true
       : activeTab.autoLogEnabled === true);
+  // RL-020 Slice 6 — pre-set stdin buffer threaded into the runner.
+  // The buffer survives auto-run cycles; the worker re-reads it
+  // from scratch on every invocation (no cross-run consumption
+  // state).
+  const stdinBuffer = activeTab?.stdinBuffer;
 
   useEffect(() => {
     // RL-020 Slice 2 — workflow-mode short-circuit FIRST. When the
@@ -146,7 +158,8 @@ export function useAutoRun() {
       lastRunInput.language === language &&
       lastRunInput.runtimeMode === runtimeMode &&
       lastRunInput.workflowMode === workflowMode &&
-      lastRunInput.autoLogEnabled === autoLogEnabled
+      lastRunInput.autoLogEnabled === autoLogEnabled &&
+      lastRunInput.stdinBuffer === stdinBuffer
     ) {
       return;
     }
@@ -182,6 +195,7 @@ export function useAutoRun() {
         runtimeMode,
         workflowMode,
         autoLogEnabled,
+        stdinBuffer,
       };
       abortRef.current = false;
 
@@ -195,6 +209,7 @@ export function useAutoRun() {
         setExecutionSource,
         setIsAutoRunning,
         setAutoRunGateReason,
+        setStdinConsumed,
         captureSuccessfulSnapshot,
         restoreLastSuccessfulSnapshot,
       } = useResultStore.getState();
@@ -335,8 +350,11 @@ export function useAutoRun() {
         // auto-log flag. Other runners ignore the field, but the
         // resolved gate already restricts `autoLogEnabled` to
         // JS / TS so the payload is symmetric.
+        // RL-020 Slice 6 — the stdin buffer rides on the same
+        // context. Runners that don't consume it ignore it.
         const result: ExecutionResult = await runner.execute(code, {
           autoLog: autoLogEnabled,
+          ...(stdinBuffer !== undefined ? { stdin: stdinBuffer } : {}),
         });
 
         // If another execution was triggered while we were running, discard.
@@ -384,6 +402,11 @@ export function useAutoRun() {
         }
         setLineResults(nextLineResults);
         setFullOutput(presentation.fullOutput);
+        // RL-020 Slice 6 fold G — propagate the worker's consumption
+        // summary into the result store so the bottom-panel Input
+        // pill can render "Used N of M". `null` clears the badge
+        // when this run had no buffer or read zero lines.
+        setStdinConsumed(result.stdinConsumed ?? null);
         setDiagnostics(toExecutionDiagnostics(language, result.error ?? null));
 
         setExecutionTime(result.executionTime);
@@ -437,6 +460,21 @@ export function useAutoRun() {
               });
             }
           }
+          // RL-020 Slice 6 fold C — adoption signal for the stdin
+          // affordance. Fires once per run whose worker actually
+          // pulled at least one line out of the buffer; an unused
+          // pre-set buffer stays silent. Closed-enum payload
+          // (`language` only) matches the privacy posture of the
+          // sibling auto-log events.
+          if (
+            result.stdinConsumed &&
+            result.stdinConsumed.count > 0 &&
+            (language === 'javascript' ||
+              language === 'typescript' ||
+              language === 'python')
+          ) {
+            void trackEvent('runtime.stdin_used', { language });
+          }
         }
       } catch (err) {
         if (!shouldDiscardAutoResult()) {
@@ -461,6 +499,7 @@ export function useAutoRun() {
     runtimeMode,
     workflowMode,
     autoLogEnabled,
+    stdinBuffer,
     activeTab,
     activeTabId,
   ]);

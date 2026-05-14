@@ -229,18 +229,20 @@ describe('Toolbar', () => {
     expect(screen.getByTestId('toolbar-run-button')).toBeTruthy();
   });
 
-  it('shows the Run button with "Run" label when not running', () => {
+  it('shows the Run button with "Run" accessible label when not running', () => {
+    // RL-020 UI refinement — the Run button is icon-only; the label
+    // moves to `aria-label` so screen readers still announce it.
     render(<Toolbar />);
     const runBtn = screen.getByTestId('toolbar-run-button');
     expect(runBtn).toBeTruthy();
-    expect(runBtn.textContent).toContain('Run');
+    expect(runBtn.getAttribute('aria-label')).toContain('Run');
   });
 
-  it('shows "Running..." label and disables Run button when running', () => {
+  it('shows "Running..." accessible label and disables Run button when running', () => {
     resetRunnerState({ isRunning: true });
     render(<Toolbar />);
     const runBtn = screen.getByRole('button', { name: /Running/ });
-    expect(runBtn.textContent).toContain('Running...');
+    expect(runBtn.getAttribute('aria-label')).toContain('Running...');
     expect(runBtn).toHaveProperty('disabled', true);
   });
 

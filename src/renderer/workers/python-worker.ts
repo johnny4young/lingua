@@ -73,6 +73,19 @@ type PyodideRuntime = {
   runPythonAsync(code: string): Promise<unknown>;
   setStdout?: (options: { batched: (text: string) => void }) => void;
   setStderr?: (options: { batched: (text: string) => void }) => void;
+  /**
+   * RL-020 Slice 6 — Pyodide ≥ 0.24 stdin redirect API. The callback
+   * returns one chunk at a time (string per `input()` line in
+   * practice); returning `null` / `undefined` signals EOF and
+   * Pyodide raises `EOFError` in the user's code (stock Python
+   * REPL behavior). Calling `setStdin()` with no arg resets back
+   * to Pyodide's default handler.
+   */
+  setStdin?: (options?: {
+    stdin?: () => string | null | undefined;
+    error?: boolean;
+    isatty?: boolean;
+  }) => void;
   globals: {
     set(name: string, value: unknown): void;
     delete?(name: string): void;
@@ -177,11 +190,18 @@ ctx.addEventListener('message', async (event) => {
   }
 
   if (msg.type === 'execute') {
-    const { runId, code, userEnv, resultTruncationMarker } = msg as {
+    const { runId, code, userEnv, resultTruncationMarker, stdin } = msg as {
       runId: string;
       code: string;
       userEnv?: Record<string, string>;
       resultTruncationMarker?: string;
+      /**
+       * RL-020 Slice 6 — pre-set stdin buffer. Newline-delimited;
+       * `input()` consumes one line per call. Empty / undefined
+       * leaves Pyodide's default handler so a bare `input()` call
+       * raises `EOFError` (stock Python REPL behavior).
+       */
+      stdin?: string;
     };
     const marker =
       typeof resultTruncationMarker === 'string' && resultTruncationMarker.length > 0
@@ -190,8 +210,43 @@ ctx.addEventListener('message', async (event) => {
     const startTime = performance.now();
     activeRunId = runId;
 
+    // RL-020 Slice 6 — line-by-line stdin reader. We split the
+    // buffer up front so per-`input()` consumption is O(1) and the
+    // consumed count is observable for the fold-G summary.
+    const rawStdinLines =
+      typeof stdin === 'string' && stdin.length > 0
+        ? (() => {
+            const parts = stdin.split('\n');
+            if (parts.length > 0 && parts[parts.length - 1] === '') {
+              parts.pop();
+            }
+            return parts;
+          })()
+        : [];
+    let stdinCursor = 0;
+    const stdinTotal = rawStdinLines.length;
+
     try {
       const py = (await loadPyodide()) as PyodideRuntime;
+
+      // RL-020 Slice 6 — install the stdin handler ONLY when the
+      // user typed something into the panel. Empty / undefined
+      // leaves Pyodide's stock handler (which raises EOFError on
+      // bare `input()`) — matches the documented panel hint.
+      if (stdinTotal > 0 && typeof py.setStdin === 'function') {
+        py.setStdin({
+          stdin: () => {
+            if (stdinCursor >= rawStdinLines.length) return null;
+            const value = rawStdinLines[stdinCursor]!;
+            stdinCursor += 1;
+            // Pyodide expects the next chunk of stdin including the
+            // line terminator; appending `\n` matches `input()`'s
+            // line semantics.
+            return `${value}\n`;
+          },
+          isatty: false,
+        });
+      }
 
       // RL-011 Slice D third increment — bridge user-space env into
       // Pyodide's os.environ so user code can call os.getenv(...) just
@@ -296,6 +351,17 @@ _lingua_state
         });
       }
 
+      // RL-020 Slice 6 fold G — emit consumption summary BEFORE
+      // `done` so the runner can stitch it onto `ExecutionResult`.
+      if (stdinTotal > 0) {
+        ctx.postMessage({
+          type: 'stdin-consumed',
+          runId,
+          count: stdinCursor,
+          total: stdinTotal,
+        });
+      }
+
       ctx.postMessage({
         type: 'done',
         runId,
@@ -314,6 +380,15 @@ _lingua_state
         },
       });
 
+      if (stdinTotal > 0) {
+        ctx.postMessage({
+          type: 'stdin-consumed',
+          runId,
+          count: stdinCursor,
+          total: stdinTotal,
+        });
+      }
+
       ctx.postMessage({
         type: 'done',
         runId,
@@ -321,6 +396,13 @@ _lingua_state
       });
     } finally {
       activeRunId = null;
+      // RL-020 Slice 6 — restore Pyodide's stock stdin handler so
+      // the next run starts on a clean baseline (the worker is
+      // persistent unlike js-worker.ts).
+      if (stdinTotal > 0 && pyodide) {
+        const runtime = pyodide as PyodideRuntime;
+        runtime.setStdin?.();
+      }
     }
   }
 });

@@ -23,6 +23,15 @@ interface SessionTab {
    * pre-Slice-1 session entry never lands in an unimplemented mode.
    */
   runtimeMode?: RuntimeMode;
+  /**
+   * RL-020 Slice 6 fold A — per-tab pre-set stdin buffer. Persisted
+   * so a tab that ships an `input()` example survives a reload
+   * alongside the editor content. Restored only for tabs whose
+   * resolved language still supports stdin (JS / TS / Python); the
+   * editorStore drops the field on rename / restore for any other
+   * language.
+   */
+  stdinBuffer?: string;
 }
 
 interface SessionState {
@@ -53,6 +62,13 @@ export const useSessionStore = create<SessionState>()(
           // tab. Non-JS/TS tabs have `runtimeMode === undefined`, so
           // the field is omitted from the serialized output.
           runtimeMode: tab.runtimeMode,
+          // RL-020 Slice 6 fold A — persist the per-tab stdin buffer
+          // so an exploration session that ships pre-set input
+          // survives a reload. The editor store drops the field on
+          // rename / restore for languages that don't support it,
+          // so a tampered persisted entry can't leak the buffer onto
+          // a Rust / Go / JSON tab.
+          stdinBuffer: tab.stdinBuffer,
         }));
         const activeIndex = tabs.findIndex((t) => t.id === activeTabId);
         set({ savedTabs, savedActiveIndex: activeIndex });
@@ -103,6 +119,20 @@ export const useSessionStore = create<SessionState>()(
           // undefined on the restored FileTab.
           const restoredRuntimeMode = coerceRuntimeMode(saved.runtimeMode, language);
 
+          // RL-020 Slice 6 fold A — restore the buffer only when the
+          // resolved language still supports stdin. The editorStore
+          // restore path also drops it via `dropStdinIfUnsupported`,
+          // but trimming here keeps the in-memory tab structure
+          // honest about which fields are live.
+          const stdinSupported =
+            language === 'javascript' ||
+            language === 'typescript' ||
+            language === 'python';
+          const restoredStdinBuffer =
+            stdinSupported && typeof saved.stdinBuffer === 'string'
+              ? saved.stdinBuffer
+              : undefined;
+
           restored.push({
             id: crypto.randomUUID(),
             name: saved.name,
@@ -112,6 +142,9 @@ export const useSessionStore = create<SessionState>()(
             rootId,
             relativePath,
             ...(restoredRuntimeMode !== null ? { runtimeMode: restoredRuntimeMode } : {}),
+            ...(restoredStdinBuffer !== undefined
+              ? { stdinBuffer: restoredStdinBuffer }
+              : {}),
           });
         }
 

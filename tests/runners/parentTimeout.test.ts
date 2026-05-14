@@ -22,6 +22,7 @@ interface PostedRequest {
   type: string;
   runId?: string;
   code?: string;
+  stdin?: string;
   timeout?: number;
   resultTruncationMarker?: string;
 }
@@ -30,7 +31,13 @@ let lastPosted: PostedRequest | null = null;
 let messageListeners: Array<(e: MessageEvent) => void> = [];
 let terminateCount = 0;
 let respond: 'silent' | 'echo' | 'no-runid' = 'echo';
-let extraEcho: Array<{ type: string; method?: string; args?: string[] }> = [];
+let extraEcho: Array<{
+  type: string;
+  method?: string;
+  args?: string[];
+  count?: number;
+  total?: number;
+}> = [];
 
 class ProgrammableWorker {
   postMessage(msg: PostedRequest) {
@@ -123,6 +130,21 @@ describe('JavaScriptRunner — RL-078 parent-owned timeout', () => {
     await runner.init();
     await runner.execute('void 0', { timeout: 1_000 });
     expect(lastPosted?.resultTruncationMarker).toBe('[result truncated]');
+  });
+
+  it('threads stdin into the JS worker and relays the consumption summary', async () => {
+    extraEcho = [{ type: 'stdin-consumed', count: 2, total: 3 }];
+    const { JavaScriptRunner } = await import('@/runners/javascript');
+    const runner = new JavaScriptRunner();
+    await runner.init();
+
+    const result = await runner.execute('prompt()', {
+      timeout: 1_000,
+      stdin: 'Ada\nGrace\nLinus',
+    });
+
+    expect(lastPosted?.stdin).toBe('Ada\nGrace\nLinus');
+    expect(result.stdinConsumed).toEqual({ count: 2, total: 3 });
   });
 
   it('rejects worker replies whose runId does not match the active run', async () => {
@@ -403,5 +425,20 @@ describe('TypeScriptRunner — RL-078 parent-owned timeout', () => {
 
     expect(result.error?.message).toMatch(/timed out|excedi[oó]/i);
     expect(terminateCount).toBeGreaterThan(0);
+  });
+
+  it('threads stdin through the TS transpile path into the shared JS worker', async () => {
+    extraEcho = [{ type: 'stdin-consumed', count: 1, total: 1 }];
+    const { TypeScriptRunner } = await import('@/runners/typescript');
+    const runner = new TypeScriptRunner();
+    await runner.init();
+
+    const result = await runner.execute('const value: string | null = prompt();', {
+      timeout: 1_000,
+      stdin: 'typed input',
+    });
+
+    expect(lastPosted?.stdin).toBe('typed input');
+    expect(result.stdinConsumed).toEqual({ count: 1, total: 1 });
   });
 });
