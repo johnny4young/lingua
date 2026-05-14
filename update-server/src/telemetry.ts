@@ -41,6 +41,7 @@ export const TELEMETRY_EVENT_NAMES = [
   'runtime.mode_changed',
   'runtime.auto_run_gated',
   'runtime.workflow_mode_changed',
+  'runtime.magic_comment_emitted',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -65,6 +66,7 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.mode_changed': ['mode', 'language'],
   'runtime.auto_run_gated': ['language', 'reason'],
   'runtime.workflow_mode_changed': ['language', 'from', 'to', 'trigger'],
+  'runtime.magic_comment_emitted': ['language', 'hasArrow', 'hasWatch'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -296,6 +298,11 @@ function isAllowedValue(
         return (
           typeof value === 'string' && WORKFLOW_MODE_CHANGE_TRIGGERS.has(value)
         );
+      return false;
+    case 'runtime.magic_comment_emitted':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'hasArrow' || key === 'hasWatch')
+        return typeof value === 'boolean';
       return false;
     default: {
       const exhaustive: never = event;

@@ -1229,6 +1229,150 @@ Out of scope until Slice 3:
 - Per-tab execution history with rerun (depends on RL-028 surface).
 - Variable inspector panel.
 
+#### Slice 3 — 2026-05-14 (`@watch` magic-comment pin)
+
+Slice 3 lands the third acceptance criterion (`Inline watch expressions
+via magic comments persist their values across reruns`). The existing
+`//=>` (`#=>` for Python) arrow syntax stays unchanged; the new
+`// @watch <expr>` (`# @watch <expr>` for Python) syntax produces a
+pinned watch that renders with a Pin icon and survives the Slice 1
+snapshot-restore + the Slice 2 workflow-mode short-circuit by
+construction.
+
+Architecture:
+
+- **`src/renderer/utils/magicComments.ts`** extends to a discriminated
+  union: `MagicCommentLine = { line, expression, kind: 'arrow' |
+  'watch', preserve }`. The watch regex (`JS_WATCH_RE`,
+  `PY_WATCH_RE`) is tried BEFORE the arrow regex so a pathological
+  `// @watch x //=> y` line resolves to a watch (not an arrow). The
+  Python watch parser refuses lines whose preserve text ends with
+  `:` (control-flow header — `if`, `for`, `def`, `class`,
+  `with`, `try`) because appending `; __mc(...)` after the colon
+  would eat the indented body in the transform pass.
+  `transformJSMagicComments` preserves the prefix code for watch
+  lines (`const x = 5; // @watch x * 2` → `const x = 5; void
+  (__mc(line, ...x * 2...))`). The matching Python transform keeps
+  the original indentation so watches inside function bodies stay
+  syntactically valid.
+- **`magicCommentKindsByLine(language, code)`** — new helper returns
+  a sparse `Record<lineNumber, MagicCommentKind>`. Runners consume
+  this map at result-stitching time to tag each `magic-comment`
+  worker message with the correct kind; the worker postMessage
+  protocol is deliberately kind-agnostic, so no worker change.
+- **`MagicCommentResult.kind?: 'arrow' | 'watch'`** — optional field
+  on the result type. Runners populate it from `kindByLine`; legacy
+  consumers that ignore the field keep working.
+- **`LineResult.type`** widens from 6 to 7 variants (adds `'watch'`).
+  `executionPresentation.toLineResults` maps `magicResult.kind ===
+  'watch'` → `type: 'watch'`, else `type: 'magic'`.
+- **`<LineResultRow>` in `ResultPanel.tsx`** gains a watch branch
+  with a `<Pin>` lucide icon, `data-result-kind="watch"` for e2e
+  anchors, an `aria-label` from `magic.watch.ariaLabel`, a `title`
+  tooltip from `magic.watch.tooltip`, and an inner
+  `aria-live="polite"` region (fold F) so screen readers announce
+  value updates. The watch branch renders the `magic.watch.empty`
+  copy ("no value yet") when the watched expression is `undefined`
+  so a pinned watch never silently disappears (fold G).
+- **`isUndefinedResult`** short-circuits on `type === 'watch'` so the
+  `hideUndefined` setting never filters out a pinned watch. Arrow
+  results behave unchanged.
+- **`useAutoRun`** (fold C) — on an errored run, splice
+  previous-snapshot watch entries into `nextLineResults` for any
+  watch line that did NOT emit a fresh value this time. The Set of
+  fresh watch lines is built per-run; double-add is impossible. On
+  a clean run with at least one magic result, emit the new
+  `runtime.magic_comment_emitted { language, hasArrow, hasWatch }`
+  telemetry (fold A). The discriminator uses POSITIVE matches
+  (`kind === 'arrow'`, `kind === 'watch'`) so a future runner that
+  emits magic results without a `kind` field doesn't inflate
+  arrow-adoption counts.
+- **`resultStore.clearVisibleResults`** — new store action that
+  clears `lineResults`, `fullOutput`, `error`, `diagnostics`,
+  `executionTime`, `executionSource`, and `autoRunGateReason` but
+  PRESERVES `lastSuccessfulSnapshot`. `useAutoRun` calls this on
+  the empty-buffer branch so a Cmd+A → Backspace → type cycle does
+  not wipe the Slice 1 snapshot. The full `clear()` still fires on
+  tab switch via the second useEffect.
+- **`src/renderer/utils/appendWatch.ts`** (fold E) — new pure
+  helper. `appendWatchToLine(line, language)` is idempotent on
+  already-watched lines, promotes an arrow on the same line into a
+  watch, refuses comment-only / empty / control-flow-header lines,
+  and uses a declaration-aware expression heuristic: `const b = 2;`
+  → watches `b` (the bound identifier), not the full statement.
+  `appendWatchAtLine(source, lineNumber, language)` applies this
+  to a full buffer.
+- **Command palette** (fold E) — `commandPaletteModel.ts` adds the
+  `action-add-watch` entry, surfaced only when the active tab's
+  language is JS / TS / Python AND the caller wires
+  `onAddWatchToCurrentLine`. `CommandPalette.tsx` reads the editor
+  cursor + line text via `getActiveEditorCursorLine` /
+  `getActiveEditorLineText`, calls `appendWatchAtLine`, and writes
+  the updated buffer back via `editorStore.updateContent`. On a
+  no-op result (empty line / control-flow header) the palette
+  surfaces a localized status notice instead of mutating the
+  buffer silently.
+- **`runtime/editorAccess.ts`** gains `getActiveEditorLineText` —
+  reads the active Monaco editor's current line content. Same
+  module-level handle pattern as the existing
+  `getActiveEditorCursorLine`.
+- **`src/shared/languagePacks.ts`** — JS / TS / Python `defaultCode`
+  refreshed. Each seed now demonstrates BOTH `//=>` (or `#=>`) and
+  `// @watch` (or `# @watch`) side-by-side so a fresh tab surfaces
+  the feature without typing.
+- **Telemetry** — `runtime.magic_comment_emitted` added to
+  `TELEMETRY_EVENTS` + `EVENT_PROPERTY_ALLOWLIST` + `isAllowedValue`
+  in `src/shared/telemetry.ts`. Booleans only for `hasArrow` /
+  `hasWatch`. Mirror in `update-server/src/telemetry.ts` + parity
+  enforced by the existing TELEMETRY_EVENT_NAMES parity test +
+  worker-side validator behavior test.
+
+i18n — 6 new keys per locale: 3 watch keys
+(`magic.watch.tooltip`, `magic.watch.ariaLabel`, `magic.watch.empty`)
++ 3 palette keys (`commandPalette.action.addWatch.label` /
+`.description` / `.unsupported`). Spanish in tuteo (`Pulsa`,
+`Fija`, `sobrevive`).
+
+Tests:
+
+- `tests/utils/magicComments.test.ts` — extends with `@watch` JS +
+  Python detect / transform / kind-table cases; precedence
+  (watch wins over arrow on a shared line); idempotence;
+  control-flow header rejection.
+- `tests/utils/magicComments.bench.test.ts` — fold D parser bench:
+  10 000 detect calls + 100 transform calls on a 5 KB realistic
+  buffer < 400 ms (~40 µs / call).
+- `tests/utils/appendWatch.test.ts` — fold E helper coverage:
+  declaration heuristic, idempotence, arrow promotion,
+  language-specific spacer + comment shape, control-flow rejection.
+- `tests/components/ResultPanel.test.tsx` — adds a watch-render
+  case + a hideUndefined-exemption case.
+- `tests/shared/languagePacks.test.ts` — locks the JS / TS /
+  Python `defaultCode` to contain BOTH arrow and `@watch`
+  markers so a future template refresh that drops the demo fails
+  the build.
+- `tests/shared/telemetry.test.ts` — extends with
+  `runtime.magic_comment_emitted` validator coverage (accepts the
+  closed enum, drops non-boolean flags, drops non-safe-token
+  languages).
+- `update-server/test/telemetry.test.ts` — mirror worker-side
+  validator smoke for the new event.
+- `tests/stores/editorStore.test.ts` — updates the default-template
+  assertion to check the `@watch` marker survives.
+- `tests/e2e/magicWatch.spec.ts` — 3 Playwright cases: fresh tab
+  surfaces the seeded arrow + watch; breaking the buffer fires
+  the Slice 1 gate AND the watch persists via snapshot restore;
+  completing the buffer refreshes the watch and dismisses the
+  gate.
+
+Out of scope until Slice 4:
+
+- Expression auto-log mode.
+- stdin / input surface.
+- Timeout presets.
+- Per-tab execution history with rerun (depends on RL-028 surface).
+- Variable inspector panel.
+
 #### Product experience recommendations — 2026-05-12
 
 This section captures product recommendations for the editor/runtime surface in

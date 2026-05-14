@@ -502,6 +502,30 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(['language_change', 'toolbar']);
   });
 
+  it('runtime.magic_comment_emitted accepts boolean flags, drops non-boolean (RL-020 Slice 3)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.magic_comment_emitted',
+      properties: { language: 'javascript', hasArrow: true, hasWatch: true },
+    });
+    expect(okResponse.status).toBe(204);
+    const futureResponse = await postTelemetry({
+      event: 'runtime.magic_comment_emitted',
+      properties: { language: 'python', hasArrow: 'yes', hasWatch: 1 },
+    });
+    expect(futureResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.magic_comment_emitted"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const future = eventLines
+      .map((line) => JSON.parse(line))
+      .find((parsed) => parsed.properties.language === 'python');
+    expect(future).toBeDefined();
+    expect(future.properties).not.toHaveProperty('hasArrow');
+    expect(future.properties).not.toHaveProperty('hasWatch');
+  });
+
   it('runtime.workflow_mode_changed accepts the closed enum, drops unknown trigger values', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({

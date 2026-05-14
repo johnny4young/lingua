@@ -152,8 +152,16 @@ export class TypeScriptRunner implements LanguageRunner {
 
     // Step 1b: Transform magic comments before transpilation
     // (esbuild would strip the //=> comments during transpilation)
-    const hasMagic = detectJSMagicComments(processedCode).length > 0;
+    const magicEntries = detectJSMagicComments(processedCode);
+    const hasMagic = magicEntries.length > 0;
     const codeForTranspile = hasMagic ? transformJSMagicComments(processedCode) : processedCode;
+    // RL-020 Slice 3 — per-line kind side-table keyed by the
+    // PRE-transpile line number (which is what `__mc` carries into
+    // the worker; the transpile pass preserves that argument as-is).
+    const magicKindByLine: Record<number, 'arrow' | 'watch'> = {};
+    for (const entry of magicEntries) {
+      magicKindByLine[entry.line] = entry.kind;
+    }
 
     this.stop();
     const executionGeneration = ++this.executionGeneration;
@@ -288,7 +296,11 @@ export class TypeScriptRunner implements LanguageRunner {
             break;
           }
           case 'magic-comment':
-            magicResults.push({ line: msg.line, value: msg.value });
+            magicResults.push({
+              line: msg.line,
+              value: msg.value,
+              kind: magicKindByLine[msg.line] ?? 'arrow',
+            });
             break;
           case 'result':
             result = msg.value;

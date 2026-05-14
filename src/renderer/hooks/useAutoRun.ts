@@ -80,7 +80,13 @@ export function useAutoRun() {
     if (!activeTab || !code.trim()) {
       runTokenRef.current += 1;
       abortRef.current = true;
-      useResultStore.getState().clear();
+      useResultStore.getState().setIsAutoRunning(false);
+      // RL-020 Slice 3 — preserve `lastSuccessfulSnapshot` through
+      // an empty-buffer transit (Cmd+A → Backspace → type) so the
+      // Slice 1 gate's restore path still has something to fall
+      // back to once the user retypes. The full `clear()` still
+      // fires on tab switch via the second useEffect below.
+      useResultStore.getState().clearVisibleResults();
       return;
     }
 
@@ -272,7 +278,29 @@ export function useAutoRun() {
         }
 
         const presentation = toExecutionPresentation(language, code, result);
-        setLineResults(presentation.lineResults);
+        // RL-020 Slice 3 fold C — when the run errors AND any watched
+        // line did not emit this time, splice the last successful
+        // value for that line back into `lineResults` so a pinned
+        // watch survives runtime errors on other lines. Only applies
+        // to error runs; clean runs replace the array wholesale.
+        let nextLineResults = presentation.lineResults;
+        if (result.error) {
+          const previousSnapshot = useResultStore.getState().lastSuccessfulSnapshot;
+          if (previousSnapshot) {
+            const freshWatchLines = new Set(
+              nextLineResults
+                .filter((entry) => entry.type === 'watch')
+                .map((entry) => entry.line)
+            );
+            const persistedWatches = previousSnapshot.lineResults.filter(
+              (entry) => entry.type === 'watch' && !freshWatchLines.has(entry.line)
+            );
+            if (persistedWatches.length > 0) {
+              nextLineResults = [...nextLineResults, ...persistedWatches];
+            }
+          }
+        }
+        setLineResults(nextLineResults);
         setFullOutput(presentation.fullOutput);
         setDiagnostics(toExecutionDiagnostics(language, result.error ?? null));
 
@@ -286,6 +314,30 @@ export function useAutoRun() {
           // the runner reported an error — that buffer isn't a
           // restoration target.
           captureSuccessfulSnapshot();
+          // RL-020 Slice 3 fold A — emit telemetry once per clean
+          // run that produced at least one magic-comment result, so
+          // adoption of `//=>` vs `// @watch` is visible. The
+          // closed-enum payload is `{ language, hasArrow, hasWatch }`;
+          // the renderer + worker validators reject anything else.
+          if (result.magicResults && result.magicResults.length > 0) {
+            // Use positive discriminators for both flags so a future
+            // runner that emits magic results without an explicit
+            // `kind` field doesn't inflate the arrow adoption count
+            // by accident. An entry with `kind === undefined`
+            // contributes to NEITHER flag — telemetry stays honest
+            // until the runner is updated to tag its results.
+            const hasArrow = result.magicResults.some(
+              (entry) => entry.kind === 'arrow'
+            );
+            const hasWatch = result.magicResults.some(
+              (entry) => entry.kind === 'watch'
+            );
+            void trackEvent('runtime.magic_comment_emitted', {
+              language,
+              hasArrow,
+              hasWatch,
+            });
+          }
         }
       } catch (err) {
         if (!shouldDiscardAutoResult()) {

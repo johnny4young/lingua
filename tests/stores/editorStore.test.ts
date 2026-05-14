@@ -88,7 +88,12 @@ describe('editorStore', () => {
     const tab = createDefaultTab('javascript');
     expect(tab.language).toBe('javascript');
     expect(tab.name).toMatch(/\.js$/);
-    expect(tab.content).toContain('console.log');
+    // RL-020 Slice 3 — the Scratchpad seed showcases `//=>` + the
+    // pinned `// @watch` instead of a `console.log`. Asserting the
+    // marker survives template refreshes (a contributor reverting
+    // the demo would fail this test).
+    expect(tab.content).toContain('@watch');
+    expect(tab.content).toContain('//=>');
     expect(tab.id).toBeTruthy();
   });
 

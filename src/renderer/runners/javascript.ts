@@ -117,8 +117,15 @@ export class JavaScriptRunner implements LanguageRunner {
       loopProtection && !debug ? injectJSLoopProtection(code, maxLoopIterations) : code;
 
     // Transform magic comments before execution
-    const hasMagic = detectJSMagicComments(protectedCode).length > 0;
+    const magicEntries = detectJSMagicComments(protectedCode);
+    const hasMagic = magicEntries.length > 0;
     const magicTransformed = hasMagic ? transformJSMagicComments(protectedCode) : protectedCode;
+    // RL-020 Slice 3 — side-table the worker reads is per-line. The
+    // worker postMessage protocol stays kind-agnostic.
+    const magicKindByLine: Record<number, 'arrow' | 'watch'> = {};
+    for (const entry of magicEntries) {
+      magicKindByLine[entry.line] = entry.kind;
+    }
 
     let transformedCode = magicTransformed;
     let sourceLineMap: Record<number, number> | undefined;
@@ -228,7 +235,11 @@ export class JavaScriptRunner implements LanguageRunner {
             break;
           }
           case 'magic-comment':
-            magicResults.push({ line: msg.line, value: msg.value });
+            magicResults.push({
+              line: msg.line,
+              value: msg.value,
+              kind: magicKindByLine[msg.line] ?? 'arrow',
+            });
             break;
           case 'result':
             result = msg.value;

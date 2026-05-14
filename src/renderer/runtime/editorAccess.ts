@@ -32,3 +32,22 @@ export function getActiveEditorCursorLine(): number | null {
   if (!position || typeof position.lineNumber !== 'number') return null;
   return position.lineNumber > 0 ? position.lineNumber : null;
 }
+
+/**
+ * RL-020 Slice 3 fold E — read the active editor's current line text
+ * (without trailing newline). Used by the "Pin watch on current line"
+ * command-palette action to derive a sensible default expression
+ * from whatever the user's cursor sits on. Returns `null` when no
+ * editor is registered or when the cursor line is out of range.
+ */
+export function getActiveEditorLineText(): string | null {
+  const editor = ref.editor;
+  if (!editor) return null;
+  const position = editor.getPosition();
+  if (!position || typeof position.lineNumber !== 'number') return null;
+  const model = editor.getModel();
+  if (!model) return null;
+  const line = position.lineNumber;
+  if (line < 1 || line > model.getLineCount()) return null;
+  return model.getLineContent(line);
+}

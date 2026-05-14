@@ -240,6 +240,28 @@ describe('LANGUAGE_PACKS array integrity', () => {
   });
 });
 
+describe('RL-020 Slice 3 — Scratchpad default templates demo arrow + watch', () => {
+  it.each([['javascript'], ['typescript'], ['python']])(
+    '%s default template contains both arrow and @watch markers',
+    (langId) => {
+      const pack = LANGUAGE_PACKS.find((p) => p.id === langId);
+      expect(pack, `language pack for ${langId}`).toBeDefined();
+      // Arrow marker — `//=>` for JS/TS, `#=>` for Python.
+      const arrowMarker = langId === 'python' ? '#=>' : '//=>';
+      expect(
+        pack!.defaultCode.includes(arrowMarker),
+        `${langId} default should demo the ${arrowMarker} arrow`
+      ).toBe(true);
+      // Watch marker — `// @watch` for JS/TS, `# @watch` for Python.
+      const watchMarker = langId === 'python' ? '# @watch' : '// @watch';
+      expect(
+        pack!.defaultCode.includes(watchMarker),
+        `${langId} default should demo the ${watchMarker} pin`
+      ).toBe(true);
+    }
+  );
+});
+
 describe('templateIds contract (RL-038 Slice C polish)', () => {
   it('every runnable built-in pack declares at least one starter template', () => {
     for (const pack of LANGUAGE_PACKS) {
