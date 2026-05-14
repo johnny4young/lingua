@@ -8,7 +8,13 @@ import type {
   MagicCommentResult,
   WorkerResponse,
 } from '../types';
-import { transformJSMagicComments, detectJSMagicComments } from '../utils/magicComments';
+import {
+  transformJSMagicComments,
+  detectJSMagicComments,
+  detectJSAutoLogLines,
+  transformJSAutoLog,
+  type MagicCommentKind,
+} from '../utils/magicComments';
 import { injectJSLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useDebuggerStore } from '../stores/debuggerStore';
@@ -122,16 +128,38 @@ export class JavaScriptRunner implements LanguageRunner {
     const magicTransformed = hasMagic ? transformJSMagicComments(protectedCode) : protectedCode;
     // RL-020 Slice 3 — side-table the worker reads is per-line. The
     // worker postMessage protocol stays kind-agnostic.
-    const magicKindByLine: Record<number, 'arrow' | 'watch'> = {};
+    const magicKindByLine: Record<number, MagicCommentKind> = {};
     for (const entry of magicEntries) {
       magicKindByLine[entry.line] = entry.kind;
     }
+    // RL-020 Slice 5 — opt-in auto-log pass after the magic-comment
+    // transform. The detector excludes lines already claimed by an
+    // arrow / watch (magic-comment precedence is preserved), and the
+    // transform replaces each bare expression with a single
+    // `__mc(line, value)` capture so side effects do not run twice.
+    // Debug runs deliberately
+    // SKIP the auto-log transform — pause / step semantics already
+    // produce a richer view of the program state, and silent
+    // injections under a paused frame would surprise the user.
+    let codeWithAutoLog = magicTransformed;
+    if (context?.autoLog === true && !debug) {
+      const magicLines = new Set<number>(magicEntries.map((entry) => entry.line));
+      const autoLogLines = detectJSAutoLogLines(protectedCode, magicLines);
+      if (autoLogLines.length > 0) {
+        codeWithAutoLog = transformJSAutoLog(magicTransformed, autoLogLines);
+        for (const line of autoLogLines) {
+          if (!(line in magicKindByLine)) {
+            magicKindByLine[line] = 'autoLog';
+          }
+        }
+      }
+    }
 
-    let transformedCode = magicTransformed;
+    let transformedCode = codeWithAutoLog;
     let sourceLineMap: Record<number, number> | undefined;
     if (debug) {
       try {
-        const instrumented = instrumentForDebugger(magicTransformed, {
+        const instrumented = instrumentForDebugger(codeWithAutoLog, {
           filename: context?.tabId ?? 'user-code.js',
         });
         transformedCode = instrumented.code;
@@ -141,7 +169,7 @@ export class JavaScriptRunner implements LanguageRunner {
         // to executing the un-instrumented source so the user still
         // sees runtime errors instead of an opaque "instrumentation
         // failed" screen.
-        transformedCode = magicTransformed;
+        transformedCode = codeWithAutoLog;
       }
     }
 
@@ -235,6 +263,10 @@ export class JavaScriptRunner implements LanguageRunner {
             break;
           }
           case 'magic-comment':
+            // RL-020 Slice 5 — the kind table now carries `'arrow'`,
+            // `'watch'`, or `'autoLog'`. The worker postMessage
+            // protocol stays kind-agnostic; the runner stitches the
+            // kind back in via this side table.
             magicResults.push({
               line: msg.line,
               value: msg.value,

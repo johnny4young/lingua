@@ -1,6 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAutoRun, AUTO_RUN_DEBOUNCE_MS } from '@/hooks/useAutoRun';
+import {
+  useAutoRun,
+  AUTO_RUN_DEBOUNCE_MS,
+  bucketAutoLogCount,
+} from '@/hooks/useAutoRun';
 import { runnerManager } from '@/runners';
 import { useEditorStore } from '@/stores/editorStore';
 import { useLicenseStore } from '@/stores/licenseStore';
@@ -67,6 +71,14 @@ describe('useAutoRun', () => {
       writable: true,
       value: originalLingua,
     });
+  });
+
+  it('RL-020 Slice 5 — buckets auto-log counts into the telemetry allowlist', () => {
+    expect(bucketAutoLogCount(0)).toBe('1');
+    expect(bucketAutoLogCount(1)).toBe('1');
+    expect(bucketAutoLogCount(5)).toBe('2-5');
+    expect(bucketAutoLogCount(20)).toBe('6-20');
+    expect(bucketAutoLogCount(21)).toBe('20-plus');
   });
 
   it('does not auto-run desktop-only languages on the web build (RL-038 Slice C)', async () => {
@@ -732,6 +744,62 @@ describe('useAutoRun', () => {
       'javascript',
       undefined
     );
+  });
+
+  it('RL-020 Slice 5 — re-runs the same Scratchpad buffer when auto-log is toggled', async () => {
+    const execute = vi.fn().mockResolvedValue({
+      stdout: [],
+      stderr: [],
+      result: undefined,
+      executionTime: 3,
+      error: null,
+    });
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: { execute },
+    });
+    useSettingsStore.setState({
+      scratchpadAutoLogByLanguage: { javascript: false, typescript: false },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-auto-log-toggle',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'const x = 1;\nx + 1',
+          isDirty: false,
+          workflowMode: 'scratchpad',
+        },
+      ],
+      activeTabId: 'tab-js-auto-log-toggle',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenLastCalledWith('const x = 1;\nx + 1', {
+      autoLog: false,
+    });
+
+    act(() => {
+      useSettingsStore.setState({
+        scratchpadAutoLogByLanguage: {
+          javascript: true,
+          typescript: false,
+        },
+      });
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenLastCalledWith('const x = 1;\nx + 1', {
+      autoLog: true,
+    });
   });
 
   it('RL-079 — does NOT auto-run Go when native execution is unacknowledged', async () => {

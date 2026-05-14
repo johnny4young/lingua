@@ -19,6 +19,7 @@ import {
 } from '../data/themePacks';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
+import { trackEvent } from '../utils/telemetry';
 import type { SettingsState } from '../types';
 import {
   isRuntimeModeImplemented,
@@ -54,6 +55,37 @@ const WORKFLOW_MODE_DEFAULT_SEED: Record<string, WorkflowMode> = {
 const SETTINGS_WORKFLOW_MODE_LANGUAGE_SET: ReadonlySet<string> = new Set(
   Object.keys(WORKFLOW_MODE_DEFAULT_SEED)
 );
+
+/**
+ * RL-020 Slice 5 — opt-in seed for the bare-expression auto-log mode.
+ * JS / TS only. Default OFF so a fresh install never floods the
+ * result panel with inline values until the user explicitly enables
+ * the feature in Settings → Editor.
+ */
+const SCRATCHPAD_AUTO_LOG_DEFAULT_SEED: Record<string, boolean> = {
+  javascript: false,
+  typescript: false,
+};
+
+const SETTINGS_AUTO_LOG_LANGUAGE_SET: ReadonlySet<string> = new Set(
+  Object.keys(SCRATCHPAD_AUTO_LOG_DEFAULT_SEED)
+);
+
+/**
+ * Sanitize a persisted `scratchpadAutoLogByLanguage` map: drop
+ * languages outside the JS / TS pair, coerce non-boolean values to
+ * `false`. Returns a fresh object so callers can hand it directly
+ * to the store without aliasing.
+ */
+function sanitizeScratchpadAutoLog(value: unknown): Record<string, boolean> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, boolean> = {};
+  for (const [language, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (!SETTINGS_AUTO_LOG_LANGUAGE_SET.has(language)) continue;
+    out[language] = raw === true;
+  }
+  return out;
+}
 
 /**
  * Sanitize a persisted `workflowModeDefaultsByLanguage` map: drop
@@ -220,6 +252,11 @@ export const useSettingsStore = create<SettingsState>()(
       // value is the fold-C seed; the merge function below preserves
       // user overrides on rehydrate and seeds missing keys.
       workflowModeDefaultsByLanguage: { ...WORKFLOW_MODE_DEFAULT_SEED },
+      // RL-020 Slice 5 — per-language auto-log defaults. JS / TS
+      // only; default OFF so the inline-results experience stays
+      // opt-in (a quietly enabled flag could surprise a user with a
+      // wall of inline values on first open).
+      scratchpadAutoLogByLanguage: { ...SCRATCHPAD_AUTO_LOG_DEFAULT_SEED },
       // RL-020 Slice 2 fold F — onboarding-toast acknowledgement.
       firstWorkflowModeSwitchAcknowledged: false,
       language: 'system',
@@ -338,6 +375,31 @@ export const useSettingsStore = create<SettingsState>()(
           return { workflowModeDefaultsByLanguage: next };
         });
       },
+      // RL-020 Slice 5 — flip the per-language auto-log default.
+      // The setter is the only authoritative entry point for the
+      // map; it rejects unsupported languages and emits the
+      // `runtime.auto_log_enabled` adoption signal on every flip
+      // (idempotent calls do not re-emit). The telemetry call is
+      // gated upstream by the user's consent state via
+      // `trackEvent`; no consent gate duplication is needed here.
+      setScratchpadAutoLogDefault: (language: string, enabled: boolean) => {
+        if (!SETTINGS_AUTO_LOG_LANGUAGE_SET.has(language)) return;
+        let changed = false;
+        set((state) => {
+          const current = state.scratchpadAutoLogByLanguage[language] === true;
+          if (current === enabled) return state;
+          changed = true;
+          return {
+            scratchpadAutoLogByLanguage: {
+              ...state.scratchpadAutoLogByLanguage,
+              [language]: enabled,
+            },
+          };
+        });
+        if (changed) {
+          void trackEvent('runtime.auto_log_enabled', { language, enabled });
+        }
+      },
       // RL-020 Slice 2 fold F — record that the onboarding toast has
       // been seen so future workflow-mode switches stay silent.
       acknowledgeFirstWorkflowModeSwitch: () =>
@@ -423,6 +485,7 @@ export const useSettingsStore = create<SettingsState>()(
         debuggerEnabled: state.debuggerEnabled,
         defaultRuntimeMode: state.defaultRuntimeMode,
         workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
+        scratchpadAutoLogByLanguage: state.scratchpadAutoLogByLanguage,
         firstWorkflowModeSwitchAcknowledged:
           state.firstWorkflowModeSwitchAcknowledged,
         language: state.language,
@@ -522,6 +585,17 @@ export const useSettingsStore = create<SettingsState>()(
           ...WORKFLOW_MODE_DEFAULT_SEED,
           ...sanitizedWorkflowDefaults,
         };
+        // RL-020 Slice 5 — sanitize the auto-log map the same way the
+        // workflow defaults are sanitized + seeded on rehydrate. A
+        // tampered persisted entry never survives into the live store
+        // and missing keys default to `false`.
+        const sanitizedAutoLog = sanitizeScratchpadAutoLog(
+          merged.scratchpadAutoLogByLanguage
+        );
+        const seededAutoLog: Record<string, boolean> = {
+          ...SCRATCHPAD_AUTO_LOG_DEFAULT_SEED,
+          ...sanitizedAutoLog,
+        };
         const firstWorkflowModeSwitchAcknowledged =
           typeof merged.firstWorkflowModeSwitchAcknowledged === 'boolean'
             ? merged.firstWorkflowModeSwitchAcknowledged
@@ -536,6 +610,7 @@ export const useSettingsStore = create<SettingsState>()(
           themePack: normalizedThemePack,
           defaultRuntimeMode: normalizedDefaultRuntimeMode,
           workflowModeDefaultsByLanguage: seededWorkflowDefaults,
+          scratchpadAutoLogByLanguage: seededAutoLog,
           firstWorkflowModeSwitchAcknowledged,
         };
       },

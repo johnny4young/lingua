@@ -18,6 +18,8 @@ import { describe, it, expect } from 'vitest';
 import {
   detectJSMagicComments,
   transformJSMagicComments,
+  detectJSAutoLogLines,
+  transformJSAutoLog,
 } from '@/utils/magicComments';
 
 function buildBuffer(minBytes: number): string {
@@ -71,5 +73,53 @@ describe('magicComments bench — 5 KB / 10 000 iterations', () => {
 
     expect(lastLength).toBeGreaterThan(0);
     expect(elapsedMs).toBeLessThan(400);
+  });
+});
+
+describe('RL-020 Slice 5 fold F — auto-log detector bench', () => {
+  it('detect + transform stay under 750 ms across 5 000 iterations on a 5 KB buffer', () => {
+    // Realistic mix: declarations, bare expressions, function
+    // bodies, arrows, watches, multi-line objects. The detector
+    // must walk the buffer once per call; transform only runs when
+    // there are candidate lines, so we batch one transform per 100
+    // detector calls (same shape as the Slice 3 bench above).
+    const sample = [
+      'const xs = [1, 2, 3, 4, 5];',
+      'xs.length',
+      'function compute(a, b) {',
+      '  return { a, b, sum: a + b };',
+      '}',
+      'const acc = compute(1, 2);',
+      'acc.sum + xs.length',
+      '// commentary',
+      'const greet = (name) => `hello ${name}`;',
+      'greet("world")',
+      '',
+    ].join('\n');
+    let buffer = '';
+    while (buffer.length < 5_000) buffer += sample;
+
+    for (let i = 0; i < 100; i++) {
+      const lines = detectJSAutoLogLines(buffer);
+      transformJSAutoLog(buffer, lines);
+    }
+
+    const now = () =>
+      typeof performance !== 'undefined' && performance.now
+        ? performance.now()
+        : Date.now();
+
+    const startMs = now();
+    let lastCount = 0;
+    for (let i = 0; i < 5_000; i++) {
+      const lines = detectJSAutoLogLines(buffer);
+      lastCount = lines.length;
+      if (i % 100 === 0) {
+        transformJSAutoLog(buffer, lines);
+      }
+    }
+    const elapsedMs = now() - startMs;
+    expect(lastCount).toBeGreaterThan(0);
+    expect(elapsedMs).toBeLessThan(750);
   });
 });

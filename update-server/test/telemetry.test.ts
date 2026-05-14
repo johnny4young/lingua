@@ -551,6 +551,74 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(future.properties).not.toHaveProperty('surface');
   });
 
+  it('AUTO_LOG_COUNT_BUCKETS stays in sync with the renderer enum (RL-020 Slice 5)', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /const\s+AUTO_LOG_COUNT_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual(['1', '2-5', '20-plus', '6-20']);
+  });
+
+  it('runtime.auto_log_enabled accepts boolean enabled, drops non-boolean (RL-020 Slice 5)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.auto_log_enabled',
+      properties: { language: 'javascript', enabled: true },
+    });
+    expect(okResponse.status).toBe(204);
+    const futureResponse = await postTelemetry({
+      event: 'runtime.auto_log_enabled',
+      properties: { language: 'typescript', enabled: 'yes' },
+    });
+    expect(futureResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.auto_log_enabled"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const future = eventLines
+      .map((line) => JSON.parse(line))
+      .find((parsed) => parsed.properties.language === 'typescript');
+    expect(future).toBeDefined();
+    expect(future.properties).not.toHaveProperty('enabled');
+  });
+
+  it('runtime.auto_log_emitted accepts the closed bucket enum, drops unknown values (RL-020 Slice 5)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.auto_log_emitted',
+      properties: { language: 'javascript', countBucket: '2-5' },
+    });
+    expect(okResponse.status).toBe(204);
+    const futureResponse = await postTelemetry({
+      event: 'runtime.auto_log_emitted',
+      properties: { language: 'typescript', countBucket: 'too-many' },
+    });
+    expect(futureResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.auto_log_emitted"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const future = eventLines
+      .map((line) => JSON.parse(line))
+      .find((parsed) => parsed.properties.language === 'typescript');
+    expect(future).toBeDefined();
+    expect(future.properties).not.toHaveProperty('countBucket');
+  });
+
   it('runtime.magic_comment_emitted accepts boolean flags, drops non-boolean (RL-020 Slice 3)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({

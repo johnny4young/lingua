@@ -113,6 +113,22 @@ export interface FileTab {
    * `defaultWorkflowMode(language)` when the field is absent.
    */
   workflowMode?: WorkflowMode;
+  /**
+   * RL-020 Slice 5 fold C — explicit per-tab auto-log override on
+   * top of the per-language Settings default. Three resolved
+   * states:
+   *
+   *   - `true` — auto-log fires on this tab even when the
+   *     language default is OFF.
+   *   - `false` — auto-log is silenced on this tab even when the
+   *     language default is ON.
+   *   - `undefined` — fall through to
+   *     `scratchpadAutoLogByLanguage[language]`.
+   *
+   * Cleared in `renameTab` when the new language is not JS / TS so
+   * a stale override does not persist across language changes.
+   */
+  autoLogEnabled?: boolean;
 }
 
 /**
@@ -183,6 +199,15 @@ export interface EditorState {
    * successful change with `trigger: 'toolbar'`.
    */
   setTabWorkflowMode: (id: string, mode: WorkflowMode) => void;
+  /**
+   * RL-020 Slice 5 fold C — set the per-tab auto-log override.
+   * `null` clears the override so the tab falls back to the
+   * per-language Settings default. The mutation is a no-op if:
+   *   - the tab does not exist;
+   *   - the tab's language is not JS / TS (auto-log is JS/TS-only
+   *     this slice; setting the flag elsewhere would be misleading).
+   */
+  setTabAutoLogEnabled: (id: string, enabled: boolean | null) => void;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The
@@ -347,6 +372,15 @@ export interface SettingsState {
    */
   workflowModeDefaultsByLanguage: Record<string, WorkflowMode>;
   /**
+   * RL-020 Slice 5 — per-language opt-in for the bare-expression
+   * auto-log mode. Keys are `'javascript'` and `'typescript'` (the
+   * two languages whose worker runner threads the auto-log
+   * transform). Other keys are stripped on rehydrate; non-boolean
+   * values are coerced to `false`. Per-tab overrides via
+   * `FileTab.autoLogEnabled` (fold C) win over this default.
+   */
+  scratchpadAutoLogByLanguage: Record<string, boolean>;
+  /**
    * RL-020 Slice 2 fold F — one-shot acknowledgement flag for the
    * "Scratchpad auto-runs as you type; Run waits for Cmd+R"
    * onboarding toast. Set to `true` the first time the user switches
@@ -441,6 +475,13 @@ export interface SettingsState {
    */
   setWorkflowModeDefault: (language: string, mode: WorkflowMode | null) => void;
   /**
+   * RL-020 Slice 5 — set the per-language default for bare-expression
+   * auto-log mode. No-op for any language outside the JS / TS pair.
+   * Emits `runtime.auto_log_enabled` telemetry with closed-enum
+   * payload `{ language, enabled }`.
+   */
+  setScratchpadAutoLogDefault: (language: string, enabled: boolean) => void;
+  /**
    * RL-020 Slice 2 fold F — mark the workflow-mode onboarding toast
    * acknowledged. Idempotent. Called when the user explicitly
    * dismisses or just sees the toast.
@@ -490,6 +531,17 @@ export interface ExecutionContext {
    * trigger pauses set on another tab.
    */
   tabId?: string;
+  /**
+   * RL-020 Slice 5 — JS / TS auto-log mode. When `true` the JS / TS
+   * runner runs a second source transform that replaces every
+   * top-level bare expression statement with an `__mc(line, value)`
+   * capture (after the magic-comment transform) so values surface
+   * inline without the user typing a `//=>` and side effects run
+   * once. Only the
+   * auto-run path passes this flag; manual Run + Debug never
+   * auto-log.
+   */
+  autoLog?: boolean;
 }
 
 export interface ExecutionError {
@@ -515,15 +567,17 @@ export interface MagicCommentResult {
   line: number;
   value: string;
   /**
-   * RL-020 Slice 3 — which magic-comment shape produced this entry.
-   * `'arrow'` for the original `//=>` / `#=>` ad-hoc peek; `'watch'`
-   * for the `// @watch <expr>` / `# @watch <expr>` pinned watch.
-   * Runners populate this from `magicCommentKindsByLine(language,
-   * source)` before dispatch. Optional so a future runner that emits
-   * magic results without a transform pass (e.g. a future REPL
-   * adapter) doesn't have to backfill the field.
+   * RL-020 Slice 3 / Slice 5 — which magic-comment shape produced
+   * this entry. `'arrow'` for the original `//=>` / `#=>` ad-hoc
+   * peek; `'watch'` for the `// @watch <expr>` / `# @watch <expr>`
+   * pinned watch; `'autoLog'` for the JS / TS bare-expression
+   * auto-log surface added in Slice 5. Runners populate this from
+   * `magicCommentKindsByLine(language, source, options)` before
+   * dispatch. Optional so a future runner that emits magic results
+   * without a transform pass (e.g. a future REPL adapter) doesn't
+   * have to backfill the field.
    */
-  kind?: 'arrow' | 'watch';
+  kind?: 'arrow' | 'watch' | 'autoLog';
 }
 
 export interface ExecutionResult {

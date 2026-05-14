@@ -62,6 +62,12 @@ export function EditorSection() {
   const setWorkflowModeDefault = useSettingsStore(
     (state) => state.setWorkflowModeDefault
   );
+  const scratchpadAutoLogByLanguage = useSettingsStore(
+    (state) => state.scratchpadAutoLogByLanguage
+  );
+  const setScratchpadAutoLogDefault = useSettingsStore(
+    (state) => state.setScratchpadAutoLogDefault
+  );
   const syncShellWithEditorTheme = useSettingsStore(
     (state) => state.syncShellWithEditorTheme
   );
@@ -369,6 +375,37 @@ export function EditorSection() {
                     </option>
                   ))}
                 </Select>
+              </label>
+            );
+          })}
+        </div>
+      </Row>
+
+      {/* RL-020 Slice 5 — per-language opt-in for the bare-expression
+          auto-log mode. JS / TS only this slice. Default OFF so the
+          first install never surfaces a wall of inline values before
+          the user explicitly enables the feature. */}
+      <Row
+        label={t('autoLog.settings.title')}
+        hint={t('autoLog.settings.description')}
+      >
+        <div data-testid="settings-auto-log-defaults" className="grid gap-2">
+          {(['javascript', 'typescript'] as const).map((lang) => {
+            const enabled = scratchpadAutoLogByLanguage[lang] === true;
+            return (
+              <label
+                key={lang}
+                className="flex items-center justify-between gap-2 text-xs text-foreground"
+              >
+                <span className="text-muted">
+                  {t(`autoLog.settings.${lang}.label`)}
+                </span>
+                <Toggle
+                  value={enabled}
+                  onChange={() => setScratchpadAutoLogDefault(lang, !enabled)}
+                  aria-label={t(`autoLog.settings.${lang}.label`)}
+                  data-testid={`settings-auto-log-default-${lang}`}
+                />
               </label>
             );
           })}

@@ -1512,6 +1512,130 @@ Out of scope until Slice 5:
 - Timeout presets.
 - Variable inspector panel.
 
+#### Slice 5 — 2026-05-14 (expression auto-log mode for JS / TS Scratchpad tabs)
+
+Slice 5 lands the fourth acceptance criterion (`Optional expression
+auto-log mode for JS / TS scratchpad tabs so expression-oriented
+exploration does not require wrapping every value in
+`console.log(...)`.`). Auto-log is opt-in, default OFF, JS / TS only,
+and additive on top of the existing magic-comment scaffolding —
+worker protocol unchanged.
+
+Architecture:
+
+- **`src/renderer/utils/magicComments.ts`** — extends `MagicCommentKind`
+  with `'autoLog'`. Adds `detectJSAutoLogLines(code, magicSet)`: a
+  per-line bracket / quote / template / regex / comment state machine
+  (mirror of `autoRunGating.ts`) yielding 1-based line numbers of
+  top-level bare expression statements. Adds `transformJSAutoLog(code,
+  lines)` that replaces each named expression statement with
+  `void (__mc(line, await (async () => { try { return (<expr>); }
+  catch(__e) { return ... } })()));` so side-effecting expressions
+  execute once, top-level `await` stays legal inside the runner's
+  async function body, and trailing `//` comments stay outside the
+  captured expression. The detector takes a `magicLines` skip set so
+  arrow / watch lines retain precedence via a single source of truth.
+  `magicCommentKindsByLine` gains a `{ autoLog?: boolean }` option
+  that merges auto-log line kinds into the runner's side table.
+- **`src/renderer/types/index.ts`** — `MagicCommentResult.kind`
+  widens 2 → 3 (`'arrow' | 'watch' | 'autoLog'`). `FileTab` gains
+  `autoLogEnabled?: boolean` (fold C). `ExecutionContext` gains
+  `autoLog?: boolean`. `SettingsState` gains
+  `scratchpadAutoLogByLanguage: Record<string, boolean>` +
+  `setScratchpadAutoLogDefault`. `EditorState` gains
+  `setTabAutoLogEnabled(id, enabled | null)` whose `null` clears the
+  override; the setter refuses non-JS/TS languages.
+- **`src/renderer/runners/javascript.ts` + `src/renderer/runners/typescript.ts`**
+  — read `context.autoLog`; when `true` AND `debug` is `false`, run
+  `transformJSAutoLog` AFTER `transformJSMagicComments` and merge
+  auto-log line kinds into `magicKindByLine`. Debug runs deliberately
+  skip the transform (the worker pause / step semantics already
+  produce a richer view, and the implicit injection would surprise a
+  user under a paused frame). TypeScript transpile preserves the
+  `__mc` call's first argument (the line number) verbatim.
+- **`src/renderer/stores/settingsStore.ts`** — `scratchpadAutoLogByLanguage`
+  seed `{ javascript: false, typescript: false }`,
+  `setScratchpadAutoLogDefault(language, enabled)` rejects unsupported
+  languages and emits `runtime.auto_log_enabled` telemetry on every
+  flip (idempotent calls do not re-emit), `sanitizeScratchpadAutoLog`
+  fold-C-pattern on rehydrate drops unknown languages and coerces
+  non-boolean values to `false`.
+- **`src/renderer/stores/editorStore.ts`** — `setTabAutoLogEnabled(id,
+  enabled | null)` writes the per-tab override; `renameTab` clears
+  the field when the new language is outside the JS / TS pair, and
+  add / restore / Save As paths strip unsupported stale flags so an
+  override never leaks across language changes.
+- **`src/renderer/hooks/useAutoRun.ts`** — gate resolution: language
+  ∈ {JS, TS} AND workflow mode === 'scratchpad' AND (per-tab
+  override if defined else per-language Settings default). Resolved
+  value flows into the runner via `ExecutionContext.autoLog`. Fold A:
+  per-run `runtime.auto_log_emitted { language, countBucket }`
+  emission via `bucketAutoLogCount` (closed enum: `'1'`, `'2-5'`,
+  `'6-20'`, `'20-plus'`). Fold G: extends the Slice 3 fold-C splice-
+  back to ALSO splice `autoLog` rows from the last successful
+  snapshot when an error run did not refresh them.
+- **`src/renderer/components/Editor/ResultPanel.tsx`** — new
+  `<LineResultRow>` branch for `type === 'autoLog'`: `MoveRight`
+  lucide icon (fold B), `data-result-kind="autoLog"`,
+  `aria-label="Auto-logged value"` + `title="Bare expression value
+  (auto-log mode)"`, low-contrast italic body. `isUndefinedResult`
+  returns `true` for `autoLog` rows whose value is `'undefined'` so
+  the existing `hideUndefined` filter applies (different from
+  `'watch'` which is exempt — auto-log floods the UI, the filter
+  must work).
+- **`src/renderer/components/Editor/AutoLogStatusPill.tsx`** (fold E)
+  — new tiny pill in the result-panel header next to
+  `<WorkflowModeStatusPill>` + `<RecentRunsPill>`. Self-gates on the
+  same resolved gate `useAutoRun` uses; surfaces "Auto-log · JS" so
+  a user who suddenly sees inline values everywhere has an obvious
+  pointer back to Settings.
+- **`src/renderer/components/CommandPalette/commandPaletteModel.ts`**
+  (fold D) — `action-toggle-auto-log` entry surfaces only for JS / TS
+  active tabs; flips the per-tab override against the resolved gate
+  state (per-tab override wins over Settings default).
+- **`src/renderer/components/Settings/EditorSection.tsx`** — new
+  Settings row below the workflow-mode row with two `Toggle`s for
+  JavaScript and TypeScript.
+- **Telemetry** — `'runtime.auto_log_enabled'` (`{ language, enabled }`,
+  boolean) and `'runtime.auto_log_emitted'` (`{ language,
+  countBucket }`, closed-enum bucket via `AUTO_LOG_COUNT_BUCKETS`)
+  registered in both `src/shared/telemetry.ts` and the worker mirror
+  at `update-server/src/telemetry.ts`. A new parity test enforces
+  the `AUTO_LOG_COUNT_BUCKETS` Set stays aligned at CI time.
+
+i18n — 14 new keys per locale (Settings title + description + 2
+language labels + result tooltip / aria-label + status pill label +
+tooltip + 5 command-palette keys). Spanish in tuteo (`Activa`,
+`Pulsa`, no `Activá` / `Pulsá`).
+
+Tests:
+
+- `tests/utils/magicComments.test.ts` — auto-log detector + transform
+  + `magicCommentKindsByLine({ autoLog: true })` coverage; positive
+  + negative + precedence cases.
+- `tests/utils/magicComments.bench.test.ts` — fold F bench lock:
+  5 000 detector calls + 50 transform calls on a 5 KB realistic
+  buffer under 750 ms (~150 µs / call).
+- `tests/utils/executionPresentation.test.ts` — maps `kind: 'autoLog'`
+  → `type: 'autoLog'`.
+- `tests/components/ResultPanel.test.tsx` — autoLog render case +
+  `hideUndefined` filter case.
+- `tests/stores/settingsStore.test.ts` — seed + setter + rehydrate
+  + sanitize coverage.
+- `tests/stores/editorStore.autoLog.test.ts` — setter + null clear
+  + non-JS/TS rejection + renameTab cleanup.
+- `tests/shared/telemetry.test.ts` — validator coverage for both
+  new events.
+- `update-server/test/telemetry.test.ts` — worker-side validator
+  smoke + `AUTO_LOG_COUNT_BUCKETS` parity guard.
+- `tests/e2e/autoLogScratchpad.spec.ts` — 3 Playwright cases.
+
+Out of scope until Slice 6:
+
+- stdin / input surface.
+- Timeout presets.
+- Variable inspector panel.
+
 #### Product experience recommendations — 2026-05-12
 
 This section captures product recommendations for the editor/runtime surface in

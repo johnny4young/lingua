@@ -5,6 +5,8 @@ import {
   detectPythonMagicComments,
   transformPythonMagicComments,
   magicCommentKindsByLine,
+  detectJSAutoLogLines,
+  transformJSAutoLog,
 } from '@/utils/magicComments';
 
 describe('JS/TS magic comments', () => {
@@ -158,6 +160,150 @@ describe('JS/TS magic comments', () => {
     it('returns the same shape under typescript', () => {
       const map = magicCommentKindsByLine('typescript', 'x //=> peek');
       expect(map).toEqual({ 1: 'arrow' });
+    });
+    it('merges autoLog kinds when options.autoLog is true', () => {
+      const code = ['const a = 1;', 'a + 2', 'a //=>'].join('\n');
+      const map = magicCommentKindsByLine('javascript', code, { autoLog: true });
+      // Line 1 is a declaration, skipped. Line 2 is a bare
+      // expression, auto-logged. Line 3 is an arrow that wins over
+      // auto-log via the magic-line skip set.
+      expect(map).toEqual({ 2: 'autoLog', 3: 'arrow' });
+    });
+    it('leaves Python untouched even when autoLog is true', () => {
+      const code = 'x = 1\nx';
+      const map = magicCommentKindsByLine('python', code, { autoLog: true });
+      expect(map).toEqual({});
+    });
+  });
+
+  describe('RL-020 Slice 5 — JS/TS auto-log detector', () => {
+    it('flags a bare identifier expression', () => {
+      expect(detectJSAutoLogLines('x')).toEqual([1]);
+    });
+    it('flags an arithmetic expression', () => {
+      expect(detectJSAutoLogLines('1 + 1')).toEqual([1]);
+    });
+    it('flags a method call expression', () => {
+      expect(detectJSAutoLogLines('[1,2,3].length')).toEqual([1]);
+    });
+    it('flags optional-chain expressions', () => {
+      expect(detectJSAutoLogLines('foo?.bar')).toEqual([1]);
+    });
+    it('flags `await fetch(...)` at top level', () => {
+      // `await` is operator-prefixed; the leading keyword is not in
+      // the skip set so the expression auto-logs.
+      expect(detectJSAutoLogLines('await fetch("/")')).toEqual([1]);
+    });
+    it('flags `new Date()` at top level', () => {
+      expect(detectJSAutoLogLines('new Date()')).toEqual([1]);
+    });
+    it('skips declarations', () => {
+      expect(detectJSAutoLogLines('const x = 5;')).toEqual([]);
+      expect(detectJSAutoLogLines('let y = 6;')).toEqual([]);
+      expect(detectJSAutoLogLines('var z = 7;')).toEqual([]);
+    });
+    it('skips control-flow statements', () => {
+      expect(detectJSAutoLogLines('if (x) { y }')).toEqual([]);
+      expect(detectJSAutoLogLines('for (const i of xs) {}')).toEqual([]);
+      expect(detectJSAutoLogLines('while (x) { y }')).toEqual([]);
+      expect(detectJSAutoLogLines('return 1;')).toEqual([]);
+    });
+    it('skips single-line async function + async class declarations', () => {
+      expect(
+        detectJSAutoLogLines('async function f() { return 1; }')
+      ).toEqual([]);
+      expect(detectJSAutoLogLines('async class Foo {}')).toEqual([]);
+    });
+    it('skips multi-line expressions (line ending with `,`)', () => {
+      const code = 'const a = {\n  x: 1,\n};';
+      // None of the three lines is a bare top-level expression: line
+      // 1 is a declaration, line 2 ends with a continuation `,`,
+      // line 3 closes the object literal.
+      expect(detectJSAutoLogLines(code)).toEqual([]);
+    });
+    it('skips lines inside a function body', () => {
+      const code = 'function f() {\n  x\n}';
+      expect(detectJSAutoLogLines(code)).toEqual([]);
+    });
+    it('skips empty + whitespace-only + comment-only lines', () => {
+      const code = '\n   \n// just a comment\n/* block */';
+      expect(detectJSAutoLogLines(code)).toEqual([]);
+    });
+    it('skips lines already claimed by a magic comment when the skip set is supplied', () => {
+      const code = ['x //=>', 'y', 'z // @watch z'].join('\n');
+      // Caller passes the magic-comment lines (1 and 3) so the
+      // detector only yields line 2.
+      const detected = detectJSAutoLogLines(code, new Set([1, 3]));
+      expect(detected).toEqual([2]);
+    });
+    it('skips JSX-opening lines conservatively', () => {
+      const code = '<Foo />';
+      expect(detectJSAutoLogLines(code)).toEqual([]);
+    });
+    it('combines positive + negative cases in a single buffer', () => {
+      const code = [
+        'const a = 1;',
+        'a + 2',
+        'function f() { return 1; }',
+        '[1,2,3].length',
+        '// trailing comment',
+      ].join('\n');
+      expect(detectJSAutoLogLines(code)).toEqual([2, 4]);
+    });
+  });
+
+  describe('RL-020 Slice 5 — JS/TS auto-log transform', () => {
+    it('replaces a bare expression line with a single `__mc(line, ...)` capture', () => {
+      const out = transformJSAutoLog('x + 1', [1]);
+      expect(out).toContain('__mc(1,');
+      expect(out).toContain('return (x + 1)');
+      expect(out).not.toContain('x + 1; void');
+    });
+    it('preserves untargeted lines byte-for-byte', () => {
+      const code = ['const a = 1;', 'a + 2'].join('\n');
+      const out = transformJSAutoLog(code, [2]);
+      expect(out.split('\n')[0]).toBe('const a = 1;');
+      expect(out.split('\n')[1]).toContain('__mc(2,');
+    });
+    it('is a no-op when the line list is empty', () => {
+      const code = 'a + 2';
+      expect(transformJSAutoLog(code, [])).toBe(code);
+    });
+    it('preserves a trailing line comment outside the captured expression', () => {
+      const out = transformJSAutoLog('x + 1 // keep this note', [1]);
+      expect(out).toContain('return (x + 1)');
+      expect(out).toContain('// keep this note');
+      expect(out).not.toContain('return (x + 1 // keep this note)');
+    });
+    it('does not treat // inside strings as a trailing comment', () => {
+      const out = transformJSAutoLog('"https://linguacode.dev"', [1]);
+      expect(out).toContain('return ("https://linguacode.dev")');
+    });
+    it('executes side-effecting expressions only once', async () => {
+      const out = transformJSAutoLog('let calls = 0;\n++calls', [2]);
+      const captured: Array<{ line: number; value: unknown }> = [];
+      const AsyncFunction = Object.getPrototypeOf(
+        async function () {}
+      ).constructor as new (
+        ...args: string[]
+      ) => (__mc: (line: number, value: unknown) => void) => Promise<number>;
+      const fn = new AsyncFunction('__mc', `${out}\nreturn calls;`);
+      const calls = await fn((line, value) => captured.push({ line, value }));
+      expect(calls).toBe(1);
+      expect(captured).toEqual([{ line: 2, value: 1 }]);
+    });
+    it('wraps top-level await without breaking the parent block boundary', async () => {
+      const out = transformJSAutoLog('await Promise.resolve(1)', [1]);
+      expect(out).toContain('return (await Promise.resolve(1))');
+      const captured: Array<{ line: number; value: unknown }> = [];
+      const AsyncFunction = Object.getPrototypeOf(
+        async function () {}
+      ).constructor as new (
+        ...args: string[]
+      ) => (__mc: (line: number, value: unknown) => void) => Promise<void>;
+      const fn = new AsyncFunction('__mc', out);
+      await fn((line, value) => captured.push({ line, value }));
+      expect(captured).toEqual([{ line: 1, value: 1 }]);
     });
   });
 });

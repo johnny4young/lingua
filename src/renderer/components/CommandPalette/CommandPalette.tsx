@@ -5,6 +5,7 @@ import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
+import { defaultWorkflowMode } from '../../../shared/workflowMode';
 import {
   type ExecutionHistoryEntry,
   useExecutionHistoryStore,
@@ -80,14 +81,29 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const { addTab, openFileFromDisk, saveActiveTabAs, duplicateActiveTab, setTabRuntimeMode, updateContent } =
-    useEditorStore();
+  const {
+    addTab,
+    openFileFromDisk,
+    saveActiveTabAs,
+    duplicateActiveTab,
+    setTabRuntimeMode,
+    setTabAutoLogEnabled,
+    updateContent,
+  } = useEditorStore();
   const activeTabId = useEditorStore((state) => state.activeTabId);
   const tabs = useEditorStore((state) => state.tabs);
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const activeRuntimeMode = languageHasRuntimeModes(activeTab?.language)
     ? (activeTab?.runtimeMode ?? 'worker')
     : null;
+  const activeWorkflowMode = activeTab
+    ? activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language)
+    : null;
+  const isAutoLogCommandEligible =
+    activeTab !== undefined &&
+    (activeTab.language === 'javascript' ||
+      activeTab.language === 'typescript') &&
+    activeWorkflowMode === 'scratchpad';
   // RL-020 Slice 3 fold E — surface the active tab's language to the
   // palette model so the "Pin watch on current line" action only
   // appears for JS / TS / Python.
@@ -165,6 +181,30 @@ export function CommandPalette({
             }
           : undefined,
       activeWatchLanguage,
+      // RL-020 Slice 5 fold D — toggle auto-log on the active JS / TS
+      // tab. Resolution mirrors `useAutoRun`: per-tab override wins
+      // over per-language Settings default. Callback flips the
+      // RESOLVED state's opposite via `setTabAutoLogEnabled` so the
+      // toolbar segment + status pill update on the next render.
+      onToggleAutoLogOnActiveTab:
+        activeTabId && activeTab && isAutoLogCommandEligible
+          ? () => {
+              const settings = useSettingsStore.getState();
+              const resolved =
+                activeTab.autoLogEnabled === undefined
+                  ? settings.scratchpadAutoLogByLanguage[activeTab.language] === true
+                  : activeTab.autoLogEnabled === true;
+              setTabAutoLogEnabled(activeTabId, !resolved);
+            }
+          : undefined,
+      activeAutoLogResolved:
+        activeTab && isAutoLogCommandEligible
+          ? activeTab.autoLogEnabled === undefined
+            ? useSettingsStore.getState().scratchpadAutoLogByLanguage[
+                activeTab.language
+              ] === true
+            : activeTab.autoLogEnabled === true
+          : false,
       // RL-020 Slice 4 fold G — pass the active tab id so the
       // model can surface the per-tab Recent runs group above the
       // legacy global one. `null` (no active tab) suppresses the
@@ -223,6 +263,7 @@ export function CommandPalette({
     activeWatchLanguage,
     updateContent,
     activeTab,
+    setTabAutoLogEnabled,
     i18n.language,
   ]);
 

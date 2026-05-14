@@ -17,6 +17,33 @@ import { defaultWorkflowMode } from '../../shared/workflowMode';
 import { trackEvent } from '../utils/telemetry';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
+export type AutoLogCountBucket = '1' | '2-5' | '6-20' | '20-plus';
+
+interface LastAutoRunInput {
+  code: string;
+  language: string;
+  runtimeMode: string | undefined;
+  workflowMode: string;
+  autoLogEnabled: boolean;
+}
+
+/**
+ * RL-020 Slice 5 fold A — bucket an auto-log emission count into a
+ * closed-enum string so the redactor accepts the payload through the
+ * existing safe-token allowlist. Buckets mirror the orders of
+ * magnitude a user is most likely to hit: a one-off exploration
+ * (`1`), a small scratchpad (`2-5`), a longer session (`6-20`), and
+ * an outlier 50-line block (`20-plus`). The renderer + worker
+ * telemetry validators lock the closed set; a future expansion
+ * amends both copies in the same commit (the parity test enforces
+ * it at CI time).
+ */
+export function bucketAutoLogCount(count: number): AutoLogCountBucket {
+  if (count <= 1) return '1';
+  if (count <= 5) return '2-5';
+  if (count <= 20) return '6-20';
+  return '20-plus';
+}
 /**
  * Auto-run the active tab's code after a short pause in typing.
  * For dynamic languages: captures per-line results.
@@ -26,7 +53,7 @@ export function useAutoRun() {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef(false);
   const runTokenRef = useRef(0);
-  const lastCodeRef = useRef('');
+  const lastRunInputRef = useRef<LastAutoRunInput | null>(null);
 
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const activeTab = useEditorStore((s) => {
@@ -46,6 +73,22 @@ export function useAutoRun() {
   // tabs missing the field (pre-Slice-2 persisted state).
   const workflowMode =
     activeTab?.workflowMode ?? defaultWorkflowMode(language);
+  // RL-020 Slice 5 — auto-log gate resolution. Per-tab override
+  // (fold C) wins over the per-language Settings default; the
+  // resolved value flows into the runner via `ExecutionContext.autoLog`.
+  // Only JS / TS Scratchpad-mode tabs are eligible; everything else
+  // resolves to `false` so the runner never runs the auto-log
+  // transform on non-Scratchpad runs (manual paths route through
+  // `executeTabManually` which deliberately omits the flag).
+  const autoLogByLanguage = useSettingsStore(
+    (s) => s.scratchpadAutoLogByLanguage
+  );
+  const autoLogEnabled =
+    (language === 'javascript' || language === 'typescript') &&
+    workflowMode === 'scratchpad' &&
+    (activeTab?.autoLogEnabled === undefined
+      ? autoLogByLanguage[language] === true
+      : activeTab.autoLogEnabled === true);
 
   useEffect(() => {
     // RL-020 Slice 2 — workflow-mode short-circuit FIRST. When the
@@ -62,6 +105,7 @@ export function useAutoRun() {
       }
       abortRef.current = true;
       runTokenRef.current += 1;
+      lastRunInputRef.current = null;
 
       const resultState = useResultStore.getState();
       if (resultState.isAutoRunning) {
@@ -80,6 +124,7 @@ export function useAutoRun() {
     if (!activeTab || !code.trim()) {
       runTokenRef.current += 1;
       abortRef.current = true;
+      lastRunInputRef.current = null;
       useResultStore.getState().setIsAutoRunning(false);
       // RL-020 Slice 3 — preserve `lastSuccessfulSnapshot` through
       // an empty-buffer transit (Cmd+A → Backspace → type) so the
@@ -90,8 +135,21 @@ export function useAutoRun() {
       return;
     }
 
-    // Skip if code didn't change
-    if (code === lastCodeRef.current) return;
+    // Skip if the effective auto-run input did not change. This is
+    // intentionally broader than code: toggling auto-log, changing
+    // runtime mode, or returning to Scratchpad must re-run the same
+    // buffer because the execution surface changed.
+    const lastRunInput = lastRunInputRef.current;
+    if (
+      lastRunInput &&
+      lastRunInput.code === code &&
+      lastRunInput.language === language &&
+      lastRunInput.runtimeMode === runtimeMode &&
+      lastRunInput.workflowMode === workflowMode &&
+      lastRunInput.autoLogEnabled === autoLogEnabled
+    ) {
+      return;
+    }
 
     // Cancel any pending execution
     if (timerRef.current) {
@@ -118,7 +176,13 @@ export function useAutoRun() {
         return;
       }
 
-      lastCodeRef.current = code;
+      lastRunInputRef.current = {
+        code,
+        language,
+        runtimeMode,
+        workflowMode,
+        autoLogEnabled,
+      };
       abortRef.current = false;
 
       const {
@@ -267,7 +331,13 @@ export function useAutoRun() {
           return;
         }
 
-        const result: ExecutionResult = await runner.execute(code);
+        // RL-020 Slice 5 — only JS / TS auto-run paths thread the
+        // auto-log flag. Other runners ignore the field, but the
+        // resolved gate already restricts `autoLogEnabled` to
+        // JS / TS so the payload is symmetric.
+        const result: ExecutionResult = await runner.execute(code, {
+          autoLog: autoLogEnabled,
+        });
 
         // If another execution was triggered while we were running, discard.
         // This includes completed manual flows: once the panel's source is no
@@ -283,20 +353,32 @@ export function useAutoRun() {
         // value for that line back into `lineResults` so a pinned
         // watch survives runtime errors on other lines. Only applies
         // to error runs; clean runs replace the array wholesale.
+        //
+        // RL-020 Slice 5 fold G — extend the splice-back to
+        // `autoLog` rows as well. The Slice 1 snapshot already
+        // captures them; without this extension a transient runtime
+        // error on one line would flicker every auto-log row in the
+        // panel to empty until the next clean run.
         let nextLineResults = presentation.lineResults;
         if (result.error) {
           const previousSnapshot = useResultStore.getState().lastSuccessfulSnapshot;
           if (previousSnapshot) {
-            const freshWatchLines = new Set(
+            const stickyKinds: ReadonlySet<string> = new Set([
+              'watch',
+              'autoLog',
+            ]);
+            const freshStickyLines = new Set(
               nextLineResults
-                .filter((entry) => entry.type === 'watch')
-                .map((entry) => entry.line)
+                .filter((entry) => stickyKinds.has(entry.type))
+                .map((entry) => `${entry.type}:${entry.line}`)
             );
-            const persistedWatches = previousSnapshot.lineResults.filter(
-              (entry) => entry.type === 'watch' && !freshWatchLines.has(entry.line)
+            const persistedSticky = previousSnapshot.lineResults.filter(
+              (entry) =>
+                stickyKinds.has(entry.type) &&
+                !freshStickyLines.has(`${entry.type}:${entry.line}`)
             );
-            if (persistedWatches.length > 0) {
-              nextLineResults = [...nextLineResults, ...persistedWatches];
+            if (persistedSticky.length > 0) {
+              nextLineResults = [...nextLineResults, ...persistedSticky];
             }
           }
         }
@@ -337,6 +419,23 @@ export function useAutoRun() {
               hasArrow,
               hasWatch,
             });
+            // RL-020 Slice 5 fold A — per-run adoption signal for
+            // auto-log emissions. Bucketed count so the redactor
+            // accepts the payload through the closed-enum allowlist
+            // (raw counts would require widening `isSafeCount`
+            // policy for this event specifically). Fires at most
+            // once per clean run that produced ≥1 auto-log result;
+            // arrow / watch counts continue to live on the
+            // `magic_comment_emitted` event.
+            const autoLogCount = result.magicResults.filter(
+              (entry) => entry.kind === 'autoLog'
+            ).length;
+            if (autoLogCount > 0) {
+              void trackEvent('runtime.auto_log_emitted', {
+                language,
+                countBucket: bucketAutoLogCount(autoLogCount),
+              });
+            }
           }
         }
       } catch (err) {
@@ -356,11 +455,19 @@ export function useAutoRun() {
         clearTimeout(timerRef.current);
       }
     };
-  }, [code, language, runtimeMode, workflowMode, activeTab, activeTabId]);
+  }, [
+    code,
+    language,
+    runtimeMode,
+    workflowMode,
+    autoLogEnabled,
+    activeTab,
+    activeTabId,
+  ]);
 
   // Clear results when switching tabs
   useEffect(() => {
-    lastCodeRef.current = '';
+    lastRunInputRef.current = null;
     useResultStore.getState().clear();
   }, [activeTabId]);
 }

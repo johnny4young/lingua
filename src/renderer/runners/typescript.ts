@@ -9,7 +9,13 @@ import type {
   MagicCommentResult,
   WorkerResponse,
 } from '../types';
-import { transformJSMagicComments, detectJSMagicComments } from '../utils/magicComments';
+import {
+  transformJSMagicComments,
+  detectJSMagicComments,
+  detectJSAutoLogLines,
+  transformJSAutoLog,
+  type MagicCommentKind,
+} from '../utils/magicComments';
 import { injectJSLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useDebuggerStore } from '../stores/debuggerStore';
@@ -154,13 +160,34 @@ export class TypeScriptRunner implements LanguageRunner {
     // (esbuild would strip the //=> comments during transpilation)
     const magicEntries = detectJSMagicComments(processedCode);
     const hasMagic = magicEntries.length > 0;
-    const codeForTranspile = hasMagic ? transformJSMagicComments(processedCode) : processedCode;
+    const magicTransformed = hasMagic
+      ? transformJSMagicComments(processedCode)
+      : processedCode;
     // RL-020 Slice 3 — per-line kind side-table keyed by the
     // PRE-transpile line number (which is what `__mc` carries into
     // the worker; the transpile pass preserves that argument as-is).
-    const magicKindByLine: Record<number, 'arrow' | 'watch'> = {};
+    const magicKindByLine: Record<number, MagicCommentKind> = {};
     for (const entry of magicEntries) {
       magicKindByLine[entry.line] = entry.kind;
+    }
+    // RL-020 Slice 5 — opt-in auto-log pass before transpile. The
+    // detector reads the PRE-transpile source (TypeScript syntax) so
+    // a TypeScript-only construct like a type-only `as` cast does
+    // not throw the bracket scanner off; esbuild strips the type
+    // annotations downstream while preserving `__mc(line, …)` calls
+    // verbatim, which carry the original line number.
+    let codeForTranspile = magicTransformed;
+    if (context?.autoLog === true && !debug) {
+      const magicLines = new Set<number>(magicEntries.map((entry) => entry.line));
+      const autoLogLines = detectJSAutoLogLines(processedCode, magicLines);
+      if (autoLogLines.length > 0) {
+        codeForTranspile = transformJSAutoLog(magicTransformed, autoLogLines);
+        for (const line of autoLogLines) {
+          if (!(line in magicKindByLine)) {
+            magicKindByLine[line] = 'autoLog';
+          }
+        }
+      }
     }
 
     this.stop();

@@ -93,6 +93,17 @@ function workflowModeForRestoredTab(
   return coerceWorkflowMode(persisted, language);
 }
 
+function languageSupportsAutoLog(language: Language): boolean {
+  return language === 'javascript' || language === 'typescript';
+}
+
+function dropAutoLogIfUnsupported<T extends FileTab>(tab: T): T {
+  if (languageSupportsAutoLog(tab.language)) return tab;
+  const { autoLogEnabled: _drop, ...rest } = tab;
+  void _drop;
+  return rest as T;
+}
+
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
   const short = id.slice(0, 8);
@@ -207,8 +218,16 @@ async function persistTab(
   // default; this branch is the silent equivalent of the explicit
   // language-change auto-correction in `renameTab`.
   const workflowMode = workflowModeForRestoredTab(language, tab.workflowMode);
+  // Save As can change the tab's language just like renameTab. Keep
+  // JS / TS overrides, but drop stale auto-log flags for every other
+  // language so Python / Go tabs never carry an ignored JS-only bit.
+  const autoLogEnabled = languageSupportsAutoLog(language)
+    ? tab.autoLogEnabled
+    : undefined;
+  const { autoLogEnabled: _staleAutoLogEnabled, ...tabWithoutAutoLog } = tab;
+  void _staleAutoLogEnabled;
   const nextTab: FileTab & { filePath: string; rootId: string; relativePath: string } = {
-    ...tab,
+    ...tabWithoutAutoLog,
     filePath: absolutePath,
     rootId,
     relativePath,
@@ -216,6 +235,7 @@ async function persistTab(
     language,
     runtimeMode,
     workflowMode,
+    ...(autoLogEnabled !== undefined ? { autoLogEnabled } : {}),
   };
   let content: string;
   try {
@@ -304,7 +324,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     // mode. `duplicateActiveTab` for example forwards a tab through
     // `addTab` without going through `createDefaultTab`.
     const workflowMode = workflowModeForNewTab(tab.language, tab.workflowMode);
-    const newTab: FileTab = { ...tab, isDirty: false, runtimeMode, workflowMode };
+    const newTab = dropAutoLogIfUnsupported({
+      ...tab,
+      isDirty: false,
+      runtimeMode,
+      workflowMode,
+    });
     set((state) => ({
       tabs: [...state.tabs, newTab],
       activeTabId: newTab.id,
@@ -313,19 +338,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   restoreTabs: (tabs, activeTabId) =>
     set({
-      tabs: tabs.map((tab) => ({
-        ...tab,
-        isDirty: false,
-        // RL-019 Slice 1 — backfill missing runtime modes for JS/TS
-        // tabs restored from a pre-Slice-1 session. Non-JS/TS tabs
-        // never carry the field.
-        runtimeMode: runtimeModeForRestoredTab(tab.language, tab.runtimeMode),
-        // RL-020 Slice 2 — backfill missing workflow modes for tabs
-        // restored from a pre-Slice-2 session. Every tab carries
-        // the field in Slice 2 onwards; the coerce helper snaps a
-        // tampered persisted value back to the language default.
-        workflowMode: workflowModeForRestoredTab(tab.language, tab.workflowMode),
-      })),
+      tabs: tabs.map((tab) =>
+        dropAutoLogIfUnsupported({
+          ...tab,
+          isDirty: false,
+          // RL-019 Slice 1 — backfill missing runtime modes for JS/TS
+          // tabs restored from a pre-Slice-1 session. Non-JS/TS tabs
+          // never carry the field.
+          runtimeMode: runtimeModeForRestoredTab(tab.language, tab.runtimeMode),
+          // RL-020 Slice 2 — backfill missing workflow modes for tabs
+          // restored from a pre-Slice-2 session. Every tab carries
+          // the field in Slice 2 onwards; the coerce helper snaps a
+          // tampered persisted value back to the language default.
+          workflowMode: workflowModeForRestoredTab(
+            tab.language,
+            tab.workflowMode
+          ),
+        })
+      ),
       activeTabId: activeTabId ?? null,
     }),
 
@@ -473,6 +503,45 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       to: mode,
       trigger: 'toolbar',
     });
+  },
+
+  setTabAutoLogEnabled: (id, enabled) => {
+    const target = get().tabs.find((t) => t.id === id);
+    if (!target) return;
+    // RL-020 Slice 5 fold C — auto-log is JS/TS-only this slice; the
+    // setter refuses any other language so a programmatic palette /
+    // shortcut entry point cannot leave a misleading flag on a Rust
+    // or Python tab.
+    if (target.language !== 'javascript' && target.language !== 'typescript') {
+      return;
+    }
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== id) return t;
+        if (enabled === null) {
+          if (t.autoLogEnabled === undefined) return t;
+          const { autoLogEnabled: _drop, ...rest } = t;
+          void _drop;
+          return rest;
+        }
+        return { ...t, autoLogEnabled: enabled };
+      }),
+    }));
+    // RL-020 Slice 5 — the per-tab override path is the OTHER way to
+    // flip the auto-log gate (besides Settings → Editor). Emit the
+    // adoption signal here too so the closed-enum metric in
+    // `src/shared/telemetry.ts` counts BOTH surfaces consistently
+    // (Settings toggle + Command-palette toggle + future per-tab
+    // toolbar affordances). The `null` clear path resolves back to
+    // the per-language Settings default; we do not have a single
+    // boolean to report at that moment, so the clear path stays
+    // silent rather than risk a misleading emission.
+    if (enabled !== null) {
+      void trackEvent('runtime.auto_log_enabled', {
+        language: target.language,
+        enabled,
+      });
+    }
   },
 
   markSaved: (id) =>
@@ -724,7 +793,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             to: workflowMode,
           });
         }
-        return {
+        // RL-020 Slice 5 fold C — when the new language is not
+        // JS / TS, clear any persisted per-tab auto-log override so a
+        // stale flag from before the rename does not influence the
+        // resolved gate. The per-language Settings default is the
+        // only owner of the value for the new language.
+        const renamed = {
           ...tab,
           name: trimmed,
           language,
@@ -732,6 +806,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           workflowMode,
           isDirty: true,
         };
+        if (languageSupportsAutoLog(language)) {
+          return {
+            ...renamed,
+            autoLogEnabled: tab.autoLogEnabled,
+          };
+        }
+        return dropAutoLogIfUnsupported(renamed);
       });
       return { tabs: next };
     });

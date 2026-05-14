@@ -1,4 +1,4 @@
-import { Loader2, Pin } from 'lucide-react';
+import { Loader2, MoveRight, Pin } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatExecTime } from '../../hooks/runnerOutput';
@@ -9,20 +9,49 @@ import { executionModeForLanguage } from '../../utils/languageMeta';
 import { isInlineResultLanguage } from '../../utils/languageCapabilities';
 import { AutoRunGateNotice } from './AutoRunGateNotice';
 import { WorkflowModeStatusPill } from './WorkflowModeStatusPill';
+import { AutoLogStatusPill } from './AutoLogStatusPill';
 import { RecentRunsPill } from './RecentRunsPill';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 
-function LineResultRow({ result, watchTooltip, watchAriaLabel, watchEmptyCopy }: {
+function LineResultRow({
+  result,
+  watchTooltip,
+  watchAriaLabel,
+  watchEmptyCopy,
+  autoLogTooltip,
+  autoLogAriaLabel,
+}: {
   result: LineResult;
   watchTooltip: string;
   watchAriaLabel: string;
   watchEmptyCopy: string;
+  autoLogTooltip: string;
+  autoLogAriaLabel: string;
 }) {
   if (result.type === 'magic') {
     return (
       <span className="shrink-0 whitespace-nowrap font-medium text-success">
         {'=> '}
         {result.value}
+      </span>
+    );
+  }
+
+  if (result.type === 'autoLog') {
+    // RL-020 Slice 5 fold B — distinct icon + low-contrast italic so
+    // bare-expression auto-log rows are visually distinct from
+    // explicit `//=>` arrows (success-tone bold) and `@watch` pins
+    // (pin icon + bold). The icon carries no a11y label of its own;
+    // the surrounding span provides the announcement.
+    return (
+      <span
+        data-result-kind="autoLog"
+        aria-label={autoLogAriaLabel}
+        title={autoLogTooltip}
+        className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap italic text-muted"
+      >
+        <MoveRight size={11} aria-hidden="true" className="opacity-70" />
+        <span>{result.value}</span>
       </span>
     );
   }
@@ -72,6 +101,8 @@ interface LineAlignedResultsProps {
   watchTooltip: string;
   watchAriaLabel: string;
   watchEmptyCopy: string;
+  autoLogTooltip: string;
+  autoLogAriaLabel: string;
 }
 
 function LineAlignedResults({
@@ -83,6 +114,8 @@ function LineAlignedResults({
   watchTooltip,
   watchAriaLabel,
   watchEmptyCopy,
+  autoLogTooltip,
+  autoLogAriaLabel,
 }: LineAlignedResultsProps) {
   const resultsByLine = new Map<number, LineResult[]>();
   for (const result of lineResults) {
@@ -110,6 +143,8 @@ function LineAlignedResults({
                 watchTooltip={watchTooltip}
                 watchAriaLabel={watchAriaLabel}
                 watchEmptyCopy={watchEmptyCopy}
+                autoLogTooltip={autoLogTooltip}
+                autoLogAriaLabel={autoLogAriaLabel}
               />
             )) ?? null}
           </div>
@@ -143,6 +178,12 @@ function isUndefinedResult(result: LineResult): boolean {
   // expression; silently hiding it would erase intent. Watches with
   // `undefined` get a placeholder copy in `LineResultRow` instead.
   if (result.type === 'watch') return false;
+  // RL-020 Slice 5 — auto-log rows DO respect the `hideUndefined`
+  // filter. A whole-buffer auto-log pass on a 50-line program would
+  // surface `undefined` for every `console.log(...)` statement; the
+  // user expects the existing filter to apply rather than seeing a
+  // wall of `undefined` annotations.
+  if (result.type === 'autoLog' && result.value === 'undefined') return true;
   return result.type === 'result' && result.value === 'undefined';
 }
 
@@ -242,6 +283,12 @@ export function ResultPanel() {
               toolbar. Low-contrast so it never fights the
               AutoRunGateNotice. */}
           <WorkflowModeStatusPill />
+          {/* RL-020 Slice 5 fold E — Auto-log status pill. Self-gates
+              on JS / TS + Scratchpad workflow mode + resolved
+              `autoLogEnabled` flag, so it stays silent everywhere
+              else. Renders next to the workflow-mode pill so the
+              two stay visually grouped. */}
+          <AutoLogStatusPill />
           {/* RL-020 Slice 4 — per-tab Recent Runs pill. Self-gates
               on entitlement + executionMode + non-empty tab
               history; renders nothing for Free / view-only /
@@ -282,6 +329,8 @@ export function ResultPanel() {
               watchTooltip={t('magic.watch.tooltip')}
               watchAriaLabel={t('magic.watch.ariaLabel')}
               watchEmptyCopy={t('magic.watch.empty')}
+              autoLogTooltip={t('autoLog.result.tooltip')}
+              autoLogAriaLabel={t('autoLog.result.ariaLabel')}
             />
             {error && (
               <div className="border-t border-error/20 bg-error/10 px-4 py-3">

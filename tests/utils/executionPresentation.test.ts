@@ -48,6 +48,30 @@ describe('executionPresentation helpers', () => {
     ]);
   });
 
+  it('maps magic-result kinds to the matching LineResult.type variants', () => {
+    expect(
+      toLineResults(
+        {
+          stdout: [],
+          stderr: [],
+          executionTime: 5,
+          magicResults: [
+            { line: 1, value: 'hi', kind: 'arrow' },
+            { line: 2, value: 'pinned', kind: 'watch' },
+            { line: 3, value: 'auto', kind: 'autoLog' },
+            { line: 4, value: 'legacy' },
+          ],
+        },
+        'a\nb\nc\nd'
+      )
+    ).toEqual([
+      { line: 1, value: 'hi', type: 'magic' },
+      { line: 2, value: 'pinned', type: 'watch' },
+      { line: 3, value: 'auto', type: 'autoLog' },
+      { line: 4, value: 'legacy', type: 'magic' },
+    ]);
+  });
+
   it('keeps structured runtime errors out of inline stderr duplication', () => {
     expect(
       toLineResults(

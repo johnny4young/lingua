@@ -754,4 +754,73 @@ describe('settingsStore', () => {
       ).toBe(true);
     });
   });
+
+  describe('RL-020 Slice 5 — scratchpad auto-log defaults', () => {
+    it('seeds JS + TS to OFF on a fresh store', () => {
+      expect(
+        useSettingsStore.getState().scratchpadAutoLogByLanguage
+      ).toEqual({ javascript: false, typescript: false });
+    });
+
+    it('setScratchpadAutoLogDefault stores a supported override', () => {
+      useSettingsStore.getState().setScratchpadAutoLogDefault('javascript', true);
+      expect(
+        useSettingsStore.getState().scratchpadAutoLogByLanguage.javascript
+      ).toBe(true);
+    });
+
+    it('setScratchpadAutoLogDefault refuses unsupported languages', () => {
+      useSettingsStore.getState().setScratchpadAutoLogDefault('python', true);
+      expect(
+        useSettingsStore.getState().scratchpadAutoLogByLanguage
+      ).toEqual({ javascript: false, typescript: false });
+    });
+
+    it('rehydrates a persisted override + reseeds blank slots', async () => {
+      localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({
+          state: {
+            scratchpadAutoLogByLanguage: { javascript: true },
+          },
+          version: 0,
+        })
+      );
+      await (
+        useSettingsStore as typeof useSettingsStore & {
+          persist: { rehydrate: () => Promise<void> };
+        }
+      ).persist.rehydrate();
+      expect(
+        useSettingsStore.getState().scratchpadAutoLogByLanguage
+      ).toEqual({ javascript: true, typescript: false });
+    });
+
+    it('sanitizes tampered persisted values on rehydrate', async () => {
+      localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({
+          state: {
+            scratchpadAutoLogByLanguage: {
+              rust: true,
+              python: true,
+              javascript: 'yes',
+              typescript: 1,
+            },
+          },
+          version: 0,
+        })
+      );
+      await (
+        useSettingsStore as typeof useSettingsStore & {
+          persist: { rehydrate: () => Promise<void> };
+        }
+      ).persist.rehydrate();
+      // Unknown languages are dropped; non-boolean values coerce to
+      // `false`; missing keys re-seed to `false`.
+      expect(
+        useSettingsStore.getState().scratchpadAutoLogByLanguage
+      ).toEqual({ javascript: false, typescript: false });
+    });
+  });
 });
