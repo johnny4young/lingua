@@ -514,6 +514,16 @@ export interface EditorDiagnostic {
 export interface MagicCommentResult {
   line: number;
   value: string;
+  /**
+   * RL-020 Slice 3 — which magic-comment shape produced this entry.
+   * `'arrow'` for the original `//=>` / `#=>` ad-hoc peek; `'watch'`
+   * for the `// @watch <expr>` / `# @watch <expr>` pinned watch.
+   * Runners populate this from `magicCommentKindsByLine(language,
+   * source)` before dispatch. Optional so a future runner that emits
+   * magic results without a transform pass (e.g. a future REPL
+   * adapter) doesn't have to backfill the field.
+   */
+  kind?: 'arrow' | 'watch';
 }
 
 export interface ExecutionResult {

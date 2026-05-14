@@ -201,8 +201,15 @@ export class PythonRunner implements LanguageRunner {
     const processedCode = loopProtection ? injectPythonLoopProtection(code, maxLoopIterations) : code;
 
     // Transform magic comments before execution
-    const hasMagic = detectPythonMagicComments(processedCode).length > 0;
+    const magicEntries = detectPythonMagicComments(processedCode);
+    const hasMagic = magicEntries.length > 0;
     const transformedCode = hasMagic ? transformPythonMagicComments(processedCode) : processedCode;
+    // RL-020 Slice 3 — per-line side-table for the watch / arrow
+    // distinction; consulted at result-stitching time below.
+    const magicKindByLine: Record<number, 'arrow' | 'watch'> = {};
+    for (const entry of magicEntries) {
+      magicKindByLine[entry.line] = entry.kind;
+    }
 
     const runId = crypto.randomUUID();
     this.currentRunId = runId;
@@ -265,7 +272,11 @@ export class PythonRunner implements LanguageRunner {
             break;
           }
           case 'magic-comment':
-            magicResults.push({ line: msg.line, value: msg.value });
+            magicResults.push({
+              line: msg.line,
+              value: msg.value,
+              kind: magicKindByLine[msg.line] ?? 'arrow',
+            });
             break;
           case 'result':
             result = msg.value;

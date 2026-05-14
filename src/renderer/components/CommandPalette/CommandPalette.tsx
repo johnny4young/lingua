@@ -11,8 +11,17 @@ import {
 } from '../../stores/executionHistoryStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
+import { useUIStore } from '../../stores/uiStore';
 import { useUpdateStore } from '../../stores/updateStore';
 import { useEntitlement } from '../../hooks/useEntitlement';
+import {
+  getActiveEditorCursorLine,
+  getActiveEditorLineText,
+} from '../../runtime/editorAccess';
+import {
+  appendWatchAtLine,
+  isAppendWatchSupported,
+} from '../../utils/appendWatch';
 import type { Language } from '../../types';
 import { Kbd, OverlayBackdrop, OverlayCard, Tooltip } from '../ui/chrome';
 import { handleCloseOnEscape } from '../ui/keyboard';
@@ -71,7 +80,7 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const { addTab, openFileFromDisk, saveActiveTabAs, duplicateActiveTab, setTabRuntimeMode } =
+  const { addTab, openFileFromDisk, saveActiveTabAs, duplicateActiveTab, setTabRuntimeMode, updateContent } =
     useEditorStore();
   const activeTabId = useEditorStore((state) => state.activeTabId);
   const tabs = useEditorStore((state) => state.tabs);
@@ -79,6 +88,10 @@ export function CommandPalette({
   const activeRuntimeMode = languageHasRuntimeModes(activeTab?.language)
     ? (activeTab?.runtimeMode ?? 'worker')
     : null;
+  // RL-020 Slice 3 fold E — surface the active tab's language to the
+  // palette model so the "Pin watch on current line" action only
+  // appears for JS / TS / Python.
+  const activeWatchLanguage = activeTab?.language ?? null;
   const { snippets } = useSnippetsStore();
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const executionHistory = useExecutionHistoryStore((state) => state.entries);
@@ -117,6 +130,41 @@ export function CommandPalette({
           ? (mode) => setTabRuntimeMode(activeTabId, mode)
           : undefined,
       activeRuntimeMode,
+      // RL-020 Slice 3 fold E — read the editor's current line text,
+      // delegate to the pure `appendWatchAtLine` helper, write the
+      // updated buffer back via `updateContent`. The pure helper
+      // returns `null` when the line has no expression (empty,
+      // already-watched, comment-only) — in that case we surface a
+      // localized notice via the status banner instead of mutating
+      // the buffer silently.
+      onAddWatchToCurrentLine:
+        activeTabId && activeTab && isAppendWatchSupported(activeTab.language)
+          ? () => {
+              const cursorLine = getActiveEditorCursorLine();
+              const lineText = getActiveEditorLineText();
+              if (cursorLine === null || lineText === null) {
+                useUIStore.getState().pushStatusNotice({
+                  tone: 'info',
+                  messageKey: 'commandPalette.action.addWatch.unsupported',
+                });
+                return;
+              }
+              const next = appendWatchAtLine(
+                activeTab.content,
+                cursorLine,
+                activeTab.language as 'javascript' | 'typescript' | 'python'
+              );
+              if (next === null) {
+                useUIStore.getState().pushStatusNotice({
+                  tone: 'info',
+                  messageKey: 'commandPalette.action.addWatch.unsupported',
+                });
+                return;
+              }
+              updateContent(activeTabId, next);
+            }
+          : undefined,
+      activeWatchLanguage,
       updateStatus,
       createTab: addTab,
       createDefaultTab,
@@ -167,6 +215,9 @@ export function CommandPalette({
     openFileFromDisk,
     saveActiveTabAs,
     duplicateActiveTab,
+    activeWatchLanguage,
+    updateContent,
+    activeTab,
     i18n.language,
   ]);
 

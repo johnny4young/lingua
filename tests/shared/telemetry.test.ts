@@ -44,6 +44,9 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-019 Slice 1 — per-tab JS/TS runtime mode change.
       // Closed-enum payload `{ mode, language }`; see RUNTIME_MODES_ADR.
       'runtime.auto_run_gated',
+      // RL-020 Slice 3 — magic-comment results emitted on a clean
+      // run. Closed-enum payload `{ language, hasArrow, hasWatch }`.
+      'runtime.magic_comment_emitted',
       'runtime.mode_changed',
       // RL-020 Slice 2 — per-tab workflow mode change. Closed-enum
       // payload `{ language, from, to, trigger }`.
@@ -342,6 +345,66 @@ describe('runtime.workflow_mode_changed value validator (RL-020 Slice 2)', () =>
     expect(event.properties).not.toHaveProperty('language');
     expect(event.properties.from).toBe('scratchpad');
     expect(event.properties.to).toBe('run');
+  });
+});
+
+describe('runtime.magic_comment_emitted value validator (RL-020 Slice 3)', () => {
+  it('accepts the closed enum payload (language + boolean flags)', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.magic_comment_emitted',
+        properties: { language: 'javascript', hasArrow: true, hasWatch: true },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'javascript',
+      hasArrow: true,
+      hasWatch: true,
+    });
+  });
+
+  it('accepts python with arrow-only / watch-only / neither shapes', () => {
+    for (const flags of [
+      { hasArrow: true, hasWatch: false },
+      { hasArrow: false, hasWatch: true },
+      { hasArrow: false, hasWatch: false },
+    ]) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'runtime.magic_comment_emitted',
+          properties: { language: 'python', ...flags },
+        })
+      );
+      expect(event.properties).toEqual({ language: 'python', ...flags });
+    }
+  });
+
+  it('drops non-boolean values for hasArrow / hasWatch', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.magic_comment_emitted',
+        properties: {
+          language: 'typescript',
+          hasArrow: 1 as unknown as boolean,
+          hasWatch: 'yes' as unknown as boolean,
+        },
+      })
+    );
+    expect(event.properties.language).toBe('typescript');
+    expect(event.properties).not.toHaveProperty('hasArrow');
+    expect(event.properties).not.toHaveProperty('hasWatch');
+  });
+
+  it('drops a non-safe-token language', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.magic_comment_emitted',
+        properties: { language: '../etc/passwd', hasArrow: true, hasWatch: false },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('language');
+    expect(event.properties.hasArrow).toBe(true);
+    expect(event.properties.hasWatch).toBe(false);
   });
 });
 

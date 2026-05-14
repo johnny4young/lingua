@@ -156,4 +156,48 @@ describe('ResultPanel', () => {
     expect(notice.getAttribute('aria-live')).toBe('polite');
     expect(notice.getAttribute('data-gate-variant')).toBe('default');
   });
+
+  describe('RL-020 Slice 3 — @watch rendering', () => {
+    it('renders a pinned watch with the watch test-id and the value', () => {
+      useResultStore.setState({
+        lineResults: [{ line: 2, value: '42', type: 'watch' }],
+        error: null,
+        fullOutput: '',
+        executionTime: 5,
+        isAutoRunning: false,
+        executionSource: 'auto',
+      });
+
+      render(<ResultPanel />);
+
+      const pill = document.querySelector('[data-result-kind="watch"]');
+      expect(pill).not.toBeNull();
+      expect(pill?.textContent).toContain('42');
+      // Fold F — the watched value lives in an aria-live="polite"
+      // region so screen readers announce updates.
+      expect(pill?.querySelector('[aria-live="polite"]')?.textContent).toBe(
+        '42'
+      );
+    });
+
+    it('falls back to the empty copy when the watched value is undefined (fold G)', () => {
+      useResultStore.setState({
+        lineResults: [{ line: 2, value: 'undefined', type: 'watch' }],
+        error: null,
+        fullOutput: '',
+        executionTime: 5,
+        isAutoRunning: false,
+        executionSource: 'auto',
+      });
+      useSettingsStore.setState({ hideUndefined: true });
+
+      render(<ResultPanel />);
+
+      // Arrow `undefined` would be filtered; watch `undefined` stays
+      // visible with the empty-copy placeholder.
+      const pill = document.querySelector('[data-result-kind="watch"]');
+      expect(pill).not.toBeNull();
+      expect(pill?.textContent).toMatch(/no value yet/);
+    });
+  });
 });

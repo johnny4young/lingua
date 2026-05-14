@@ -621,6 +621,79 @@ describe('useAutoRun', () => {
     expect(useResultStore.getState().executionSource).toBeNull();
   });
 
+  it('RL-020 Slice 3 — cancels an in-flight Scratchpad auto-run when the buffer becomes empty', async () => {
+    let resolveExecute!: (value: {
+      stdout: Array<{ type: 'log'; args: string[] }>;
+      stderr: [];
+      result: undefined;
+      executionTime: number;
+      error: null;
+    }) => void;
+    const execute = vi.fn(
+      () =>
+        new Promise<{
+          stdout: Array<{ type: 'log'; args: string[] }>;
+          stderr: [];
+          result: undefined;
+          executionTime: number;
+          error: null;
+        }>((resolve) => {
+          resolveExecute = resolve;
+        })
+    );
+    vi.mocked(runnerManager.prepareRunner).mockResolvedValue({
+      runner: { execute },
+    });
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-js-empty-inflight',
+          name: 'main.js',
+          language: 'javascript',
+          content: 'console.log("pending");',
+          isDirty: false,
+          workflowMode: 'scratchpad',
+        },
+      ],
+      activeTabId: 'tab-js-empty-inflight',
+    });
+
+    renderHook(() => useAutoRun());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTO_RUN_DEBOUNCE_MS + 50);
+    });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(useResultStore.getState().isAutoRunning).toBe(true);
+    expect(useResultStore.getState().executionSource).toBe('auto');
+
+    act(() => {
+      const tab = useEditorStore.getState().tabs[0]!;
+      useEditorStore.setState({
+        tabs: [{ ...tab, content: '' }],
+        activeTabId: tab.id,
+      });
+    });
+
+    expect(useResultStore.getState().isAutoRunning).toBe(false);
+    expect(useResultStore.getState().executionSource).toBeNull();
+
+    await act(async () => {
+      resolveExecute({
+        stdout: [{ type: 'log', args: ['stale auto output'] }],
+        stderr: [],
+        result: undefined,
+        executionTime: 12,
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    expect(useResultStore.getState().lineResults).toEqual([]);
+    expect(useResultStore.getState().fullOutput).toBe('');
+    expect(useResultStore.getState().executionSource).toBeNull();
+  });
+
   it('RL-020 Slice 2 — still auto-runs (and gates) when workflow mode is `scratchpad`', async () => {
     // Sanity check that the workflow-mode short-circuit doesn't
     // accidentally suppress Scratchpad-mode auto-run.

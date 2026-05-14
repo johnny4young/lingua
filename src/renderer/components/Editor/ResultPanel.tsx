@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react';
+import { Loader2, Pin } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatExecTime } from '../../hooks/runnerOutput';
@@ -11,12 +11,39 @@ import { AutoRunGateNotice } from './AutoRunGateNotice';
 import { WorkflowModeStatusPill } from './WorkflowModeStatusPill';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 
-function LineResultRow({ result }: { result: LineResult }) {
+function LineResultRow({ result, watchTooltip, watchAriaLabel, watchEmptyCopy }: {
+  result: LineResult;
+  watchTooltip: string;
+  watchAriaLabel: string;
+  watchEmptyCopy: string;
+}) {
   if (result.type === 'magic') {
     return (
       <span className="shrink-0 whitespace-nowrap font-medium text-success">
         {'=> '}
         {result.value}
+      </span>
+    );
+  }
+
+  if (result.type === 'watch') {
+    // RL-020 Slice 3 — pinned watch from `// @watch <expr>`. Fold B
+    // renders a Pin icon; fold F wraps the value in an aria-live
+    // region so screen readers announce updates; fold G replaces
+    // `undefined` with an explicit "no value yet" string because a
+    // pinned watch is meaningful even when its value is currently
+    // undefined (different from arrow `//=>` which hideUndefined can
+    // silently filter).
+    const display = result.value === 'undefined' ? watchEmptyCopy : result.value;
+    return (
+      <span
+        data-result-kind="watch"
+        aria-label={watchAriaLabel}
+        title={watchTooltip}
+        className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-medium text-success"
+      >
+        <Pin size={11} aria-hidden="true" className="opacity-80" />
+        <span aria-live="polite">{display}</span>
       </span>
     );
   }
@@ -41,6 +68,9 @@ interface LineAlignedResultsProps {
   fontSize: number;
   lineHeight: number;
   paddingTop: number;
+  watchTooltip: string;
+  watchAriaLabel: string;
+  watchEmptyCopy: string;
 }
 
 function LineAlignedResults({
@@ -49,6 +79,9 @@ function LineAlignedResults({
   fontSize,
   lineHeight,
   paddingTop,
+  watchTooltip,
+  watchAriaLabel,
+  watchEmptyCopy,
 }: LineAlignedResultsProps) {
   const resultsByLine = new Map<number, LineResult[]>();
   for (const result of lineResults) {
@@ -70,7 +103,13 @@ function LineAlignedResults({
             className="flex min-w-0 items-center gap-3 overflow-x-auto px-4"
           >
             {results?.map((result, resultIndex) => (
-              <LineResultRow key={resultIndex} result={result} />
+              <LineResultRow
+                key={resultIndex}
+                result={result}
+                watchTooltip={watchTooltip}
+                watchAriaLabel={watchAriaLabel}
+                watchEmptyCopy={watchEmptyCopy}
+              />
             )) ?? null}
           </div>
         );
@@ -98,6 +137,11 @@ function FullOutputView({
 }
 
 function isUndefinedResult(result: LineResult): boolean {
+  // RL-020 Slice 3 fold G — watches stay visible even when their
+  // current value is `undefined`. The user explicitly pinned the
+  // expression; silently hiding it would erase intent. Watches with
+  // `undefined` get a placeholder copy in `LineResultRow` instead.
+  if (result.type === 'watch') return false;
   return result.type === 'result' && result.value === 'undefined';
 }
 
@@ -229,6 +273,9 @@ export function ResultPanel() {
               fontSize={fontSize}
               lineHeight={lineHeight}
               paddingTop={paddingTop}
+              watchTooltip={t('magic.watch.tooltip')}
+              watchAriaLabel={t('magic.watch.ariaLabel')}
+              watchEmptyCopy={t('magic.watch.empty')}
             />
             {error && (
               <div className="border-t border-error/20 bg-error/10 px-4 py-3">

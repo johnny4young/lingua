@@ -5,7 +5,13 @@ import type { AutoRunGateReason } from '../../shared/autoRunGating';
 export interface LineResult {
   line: number;
   value: string;
-  type: 'log' | 'warn' | 'error' | 'info' | 'result' | 'magic';
+  /**
+   * RL-020 Slice 3 — adds `'watch'` to the closed union. Watches
+   * come from the `// @watch <expr>` magic-comment syntax and are
+   * rendered with a pin icon + sticky semantics; arrows (`'magic'`)
+   * stay on the original `//=>` / `#=>` shape.
+   */
+  type: 'log' | 'warn' | 'error' | 'info' | 'result' | 'magic' | 'watch';
 }
 
 /**
@@ -67,6 +73,14 @@ interface ResultState {
   /** RL-020 Slice 1 — restore the last successful snapshot if any. */
   restoreLastSuccessfulSnapshot: () => boolean;
   clear: () => void;
+  /**
+   * RL-020 Slice 3 — clear visible state (lineResults, output,
+   * diagnostics, gate banner) but PRESERVE `lastSuccessfulSnapshot`
+   * so a transient empty-buffer cycle (Cmd+A → Backspace → type)
+   * does not defeat the Slice 1 snapshot-restore behavior. The
+   * snapshot is only wiped on a real tab switch via `clear()`.
+   */
+  clearVisibleResults: () => void;
 }
 
 export const useResultStore = create<ResultState>((set, get) => ({
@@ -126,5 +140,19 @@ export const useResultStore = create<ResultState>((set, get) => ({
       // tab switch starts fresh.
       autoRunGateReason: null,
       lastSuccessfulSnapshot: null,
+    }),
+  clearVisibleResults: () =>
+    // RL-020 Slice 3 — same shape as `clear()` but DOES NOT touch
+    // `lastSuccessfulSnapshot`. Useful when the active buffer
+    // transits through an empty state (Cmd+A → Backspace) and the
+    // accumulated snapshot should survive into the next keystroke.
+    set({
+      lineResults: [],
+      fullOutput: '',
+      error: null,
+      diagnostics: [],
+      executionTime: null,
+      executionSource: null,
+      autoRunGateReason: null,
     }),
 }));

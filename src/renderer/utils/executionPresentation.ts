@@ -52,10 +52,14 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
 
   if (result.magicResults) {
     for (const magicResult of result.magicResults) {
+      // RL-020 Slice 3 — runners tag each result with `kind` so the
+      // panel can render the `@watch` pin distinct from the `=>`
+      // arrow. Default to `'magic'` for any runner that emits a
+      // result without a kind (forward-compat with future adapters).
       lineResults.push({
         line: magicResult.line,
         value: magicResult.value,
-        type: 'magic',
+        type: magicResult.kind === 'watch' ? 'watch' : 'magic',
       });
     }
   }

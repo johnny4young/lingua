@@ -47,6 +47,13 @@ export const TELEMETRY_EVENTS = [
   // named `trigger` (not `source`) so the DENY_SUBSTRINGS pass
   // does not strip it on the way out.
   'runtime.workflow_mode_changed',
+  // RL-020 Slice 3 — magic-comment results emitted. Closed enum
+  // payload `{ language, hasArrow, hasWatch }`; no expression
+  // content, no line numbers, no values. Fired at most once per
+  // debounced auto-run when at least one magic result reached the
+  // panel, so adoption of `//=>` vs `// @watch` is observable
+  // without per-comment noise.
+  'runtime.magic_comment_emitted',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -129,6 +136,12 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // pass below treats `source` as a code-bearing flag and would strip
   // it even though the value is a closed enum.
   'runtime.workflow_mode_changed': ['language', 'from', 'to', 'trigger'],
+  // RL-020 Slice 3 — `language` is the language-pack id (any
+  // `isSafeToken` string). `hasArrow` and `hasWatch` are booleans
+  // surfacing which magic-comment shapes fired this run. The
+  // validator allows only true / false values; integers or strings
+  // are dropped silently.
+  'runtime.magic_comment_emitted': ['language', 'hasArrow', 'hasWatch'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -276,6 +289,11 @@ function isAllowedValue(
         return (
           typeof value === 'string' && WORKFLOW_MODE_CHANGE_TRIGGERS.has(value)
         );
+      return false;
+    case 'runtime.magic_comment_emitted':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'hasArrow' || key === 'hasWatch')
+        return typeof value === 'boolean';
       return false;
     default: {
       const exhaustive: never = event;

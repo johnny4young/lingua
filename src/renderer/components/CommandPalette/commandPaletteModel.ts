@@ -86,6 +86,20 @@ interface BuildCommandPaletteModelArgs {
    * also suppresses the three runtime-mode entries entirely.
    */
   activeRuntimeMode?: 'worker' | 'node' | 'browser-preview' | null;
+  /**
+   * RL-020 Slice 3 fold E — fires when the user activates the "Pin
+   * watch on current line" palette action. The caller in `App.tsx`
+   * reads the active editor's cursor + line text, infers an
+   * expression via `appendWatchAtLine`, and writes the updated
+   * buffer back through `editorStore.updateContent`. Optional;
+   * when omitted the action is hidden. `activeWatchLanguage` is
+   * the active tab's language used to flip the action's
+   * description between "JS / TS" and "Python" wording AND to
+   * skip the entry entirely for languages that do not support
+   * `@watch` (anything outside JS / TS / Python).
+   */
+  onAddWatchToCurrentLine?: () => void;
+  activeWatchLanguage?: Language | null;
   updateStatus: UpdateStatus;
   createTab: (tab: Omit<FileTab, 'isDirty'>) => void;
   createDefaultTab: (language: Language) => FileTab;
@@ -318,6 +332,8 @@ export function buildCommandPaletteModel({
   vimModeEnabled = false,
   onSetRuntimeMode,
   activeRuntimeMode = null,
+  onAddWatchToCurrentLine,
+  activeWatchLanguage = null,
   updateStatus,
   createTab,
   createDefaultTab,
@@ -393,6 +409,28 @@ export function buildCommandPaletteModel({
             ['rerun', 'replay', 'last', 'recent', 'run'],
             () => {
               onRerunLast();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-020 Slice 3 fold E — "Pin watch on current line". Only
+    // surfaces when the caller wires `onAddWatchToCurrentLine`
+    // AND the active tab's language supports `@watch` (JS / TS /
+    // Python). For other languages the action is hidden entirely
+    // so the palette stays honest about what's possible.
+    ...(onAddWatchToCurrentLine &&
+    (activeWatchLanguage === 'javascript' ||
+      activeWatchLanguage === 'typescript' ||
+      activeWatchLanguage === 'python')
+      ? [
+          buildActionCommand(
+            'action-add-watch',
+            translate('commandPalette.action.addWatch.label'),
+            translate('commandPalette.action.addWatch.description'),
+            ['watch', 'pin', 'magic', 'comment', 'inline', 'expression'],
+            () => {
+              onAddWatchToCurrentLine();
               onClose();
             }
           ),
