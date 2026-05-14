@@ -43,6 +43,11 @@ export const TELEMETRY_EVENT_NAMES = [
   'runtime.workflow_mode_changed',
   'runtime.magic_comment_emitted',
   'runtime.history_replay',
+  // RL-020 Slice 5 — mirror of `runtime.auto_log_enabled` /
+  // `runtime.auto_log_emitted` in `src/shared/telemetry.ts`. The
+  // parity test enforces both arrays stay aligned at CI time.
+  'runtime.auto_log_enabled',
+  'runtime.auto_log_emitted',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -69,6 +74,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.workflow_mode_changed': ['language', 'from', 'to', 'trigger'],
   'runtime.magic_comment_emitted': ['language', 'hasArrow', 'hasWatch'],
   'runtime.history_replay': ['language', 'status', 'surface'],
+  'runtime.auto_log_enabled': ['language', 'enabled'],
+  'runtime.auto_log_emitted': ['language', 'countBucket'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -125,6 +132,14 @@ const HISTORY_REPLAY_SURFACES = new Set([
   'tab_pill',
   'palette',
   'popover',
+]);
+// RL-020 Slice 5 fold A — closed enum mirror of
+// `AUTO_LOG_COUNT_BUCKETS` in `src/shared/telemetry.ts`.
+const AUTO_LOG_COUNT_BUCKETS = new Set([
+  '1',
+  '2-5',
+  '6-20',
+  '20-plus',
 ]);
 const DEBUGGER_REASON_BUCKETS: Record<
   Extract<
@@ -321,6 +336,15 @@ function isAllowedValue(
         return typeof value === 'string' && RUNNER_STATUS_VALUES.has(value);
       if (key === 'surface')
         return typeof value === 'string' && HISTORY_REPLAY_SURFACES.has(value);
+      return false;
+    case 'runtime.auto_log_enabled':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'enabled') return typeof value === 'boolean';
+      return false;
+    case 'runtime.auto_log_emitted':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'countBucket')
+        return typeof value === 'string' && AUTO_LOG_COUNT_BUCKETS.has(value);
       return false;
     default: {
       const exhaustive: never = event;

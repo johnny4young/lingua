@@ -41,6 +41,9 @@ describe('TELEMETRY_EVENTS', () => {
       'feature.blocked',
       'overlay.opened',
       'runner.executed',
+      // RL-020 Slice 5 — bare-expression auto-log toggle.
+      'runtime.auto_log_emitted',
+      'runtime.auto_log_enabled',
       // RL-019 Slice 1 — per-tab JS/TS runtime mode change.
       // Closed-enum payload `{ mode, language }`; see RUNTIME_MODES_ADR.
       'runtime.auto_run_gated',
@@ -471,6 +474,72 @@ describe('runtime.history_replay value validator (RL-020 Slice 4)', () => {
     expect(event.properties).not.toHaveProperty('language');
     expect(event.properties.status).toBe('ok');
     expect(event.properties.surface).toBe('tab_pill');
+  });
+});
+
+describe('runtime.auto_log_enabled value validator (RL-020 Slice 5)', () => {
+  it('accepts the closed enum payload', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.auto_log_enabled',
+        properties: { language: 'javascript', enabled: true },
+      })
+    );
+    expect(event.properties).toEqual({ language: 'javascript', enabled: true });
+  });
+  it('drops a non-boolean enabled value', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.auto_log_enabled',
+        properties: { language: 'typescript', enabled: 'yes' as unknown as boolean },
+      })
+    );
+    expect(event.properties.language).toBe('typescript');
+    expect(event.properties).not.toHaveProperty('enabled');
+  });
+  it('drops a non-safe-token language', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.auto_log_enabled',
+        properties: { language: '../etc', enabled: true },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('language');
+    expect(event.properties.enabled).toBe(true);
+  });
+});
+
+describe('runtime.auto_log_emitted value validator (RL-020 Slice 5 fold A)', () => {
+  it('accepts each closed-enum count bucket', () => {
+    for (const countBucket of ['1', '2-5', '6-20', '20-plus'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'runtime.auto_log_emitted',
+          properties: { language: 'javascript', countBucket },
+        })
+      );
+      expect(event.properties.countBucket).toBe(countBucket);
+    }
+  });
+  it('drops an unknown count bucket', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.auto_log_emitted',
+        properties: { language: 'javascript', countBucket: '0' },
+      })
+    );
+    expect(event.properties.language).toBe('javascript');
+    expect(event.properties).not.toHaveProperty('countBucket');
+  });
+  it('drops a non-safe-token language while keeping the bucket', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.auto_log_emitted',
+        properties: { language: '../etc', countBucket: '2-5' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('language');
+    expect(event.properties.countBucket).toBe('2-5');
   });
 });
 

@@ -351,6 +351,7 @@ describe('editorStore', () => {
       const tab = createDefaultTab('javascript');
       useEditorStore.getState().addTab(tab);
       useEditorStore.getState().updateContent(tab.id, 'plain text');
+      useEditorStore.getState().setTabAutoLogEnabled(tab.id, true);
 
       await useEditorStore.getState().saveActiveTabAs();
 
@@ -358,6 +359,7 @@ describe('editorStore', () => {
       expect(tabs[0].filePath).toBe('/saved/notes.txt');
       expect(tabs[0].name).toBe('notes.txt');
       expect(tabs[0].language).toBe('plaintext');
+      expect(tabs[0].autoLogEnabled).toBeUndefined();
       expect(tabs[0].isDirty).toBe(false);
     });
 

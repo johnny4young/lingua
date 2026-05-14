@@ -8,7 +8,11 @@ import type {
   MagicCommentResult,
   WorkerResponse,
 } from '../types';
-import { transformPythonMagicComments, detectPythonMagicComments } from '../utils/magicComments';
+import {
+  transformPythonMagicComments,
+  detectPythonMagicComments,
+  type MagicCommentKind,
+} from '../utils/magicComments';
 import { injectPythonLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
 import { resolveUserEnvForRunner } from './go';
@@ -205,8 +209,13 @@ export class PythonRunner implements LanguageRunner {
     const hasMagic = magicEntries.length > 0;
     const transformedCode = hasMagic ? transformPythonMagicComments(processedCode) : processedCode;
     // RL-020 Slice 3 — per-line side-table for the watch / arrow
-    // distinction; consulted at result-stitching time below.
-    const magicKindByLine: Record<number, 'arrow' | 'watch'> = {};
+    // distinction; consulted at result-stitching time below. Slice 5
+    // widened `MagicCommentKind` to include `'autoLog'`, but the
+    // Python detector never emits that kind (auto-log is JS / TS
+    // only this slice). The wider type stays in the field so the
+    // shared `MagicCommentResult.kind` annotation does not need a
+    // per-language narrowing fork.
+    const magicKindByLine: Record<number, MagicCommentKind> = {};
     for (const entry of magicEntries) {
       magicKindByLine[entry.line] = entry.kind;
     }

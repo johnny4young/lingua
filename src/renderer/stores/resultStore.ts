@@ -10,8 +10,14 @@ export interface LineResult {
    * come from the `// @watch <expr>` magic-comment syntax and are
    * rendered with a pin icon + sticky semantics; arrows (`'magic'`)
    * stay on the original `//=>` / `#=>` shape.
+   *
+   * RL-020 Slice 5 — adds `'autoLog'`. Auto-log entries come from
+   * the JS / TS expression auto-log mode and surface bare-expression
+   * values inline without a magic comment. They render with a
+   * subtle prefix glyph distinct from arrow / watch and respect the
+   * existing `hideUndefined` filter.
    */
-  type: 'log' | 'warn' | 'error' | 'info' | 'result' | 'magic' | 'watch';
+  type: 'log' | 'warn' | 'error' | 'info' | 'result' | 'magic' | 'watch' | 'autoLog';
 }
 
 /**

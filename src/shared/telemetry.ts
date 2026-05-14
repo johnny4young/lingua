@@ -62,6 +62,18 @@ export const TELEMETRY_EVENTS = [
   // dispatch, gated by the same EXECUTION_HISTORY entitlement that
   // controls the replay surfaces.
   'runtime.history_replay',
+  // RL-020 Slice 5 — bare-expression auto-log mode adoption.
+  // `runtime.auto_log_enabled` fires when the user toggles the
+  // per-language Settings default (`{ language, enabled }`). The
+  // event ALSO fires from the per-tab override path so adoption is
+  // observable regardless of which surface the user used to flip
+  // the bit. `enabled` is a boolean.
+  'runtime.auto_log_enabled',
+  // RL-020 Slice 5 fold A — per-run auto-log emission signal. Fires
+  // at most once per clean auto-run that produced ≥1 auto-log
+  // result. `countBucket` is a closed enum (`1`, `2-5`, `6-20`,
+  // `20-plus`) so the redactor never has to accept raw counts.
+  'runtime.auto_log_emitted',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -155,6 +167,16 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `surface` is the closed `HistoryReplaySurface` enum (see
   // `HISTORY_REPLAY_SURFACES` below).
   'runtime.history_replay': ['language', 'status', 'surface'],
+  // RL-020 Slice 5 — `language` is the language-pack id (JS / TS
+  // for the Slice 5 surfaces; the validator stays generic so a
+  // future widening to Python does not require an allowlist
+  // change). `enabled` is a boolean.
+  'runtime.auto_log_enabled': ['language', 'enabled'],
+  // RL-020 Slice 5 fold A — `countBucket` is the closed enum
+  // (`1`, `2-5`, `6-20`, `20-plus`) emitted by `bucketAutoLogCount`
+  // in `useAutoRun.ts`. The renderer / worker validators reject
+  // anything else.
+  'runtime.auto_log_emitted': ['language', 'countBucket'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -217,6 +239,18 @@ const HISTORY_REPLAY_SURFACES = new Set([
   'tab_pill',
   'palette',
   'popover',
+]);
+// RL-020 Slice 5 fold A — closed enum for the `countBucket`
+// property on `runtime.auto_log_emitted`. `bucketAutoLogCount` in
+// `src/renderer/hooks/useAutoRun.ts` is the only producer; the
+// renderer + worker validators reject every other value. Mirrored
+// in `update-server/src/telemetry.ts`; a parity test enforces
+// both copies stay aligned.
+const AUTO_LOG_COUNT_BUCKETS = new Set([
+  '1',
+  '2-5',
+  '6-20',
+  '20-plus',
 ]);
 const DEBUGGER_REASON_BUCKETS: Record<
   Extract<
@@ -324,6 +358,15 @@ function isAllowedValue(
         return typeof value === 'string' && RUNNER_STATUS_VALUES.has(value);
       if (key === 'surface')
         return typeof value === 'string' && HISTORY_REPLAY_SURFACES.has(value);
+      return false;
+    case 'runtime.auto_log_enabled':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'enabled') return typeof value === 'boolean';
+      return false;
+    case 'runtime.auto_log_emitted':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'countBucket')
+        return typeof value === 'string' && AUTO_LOG_COUNT_BUCKETS.has(value);
       return false;
     default: {
       const exhaustive: never = event;

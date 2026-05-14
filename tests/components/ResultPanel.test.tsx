@@ -209,4 +209,47 @@ describe('ResultPanel', () => {
       expect(pill?.textContent).toMatch(/no value yet/);
     });
   });
+
+  describe('RL-020 Slice 5 — autoLog rendering', () => {
+    it('renders an auto-log row with the distinct data-kind anchor', () => {
+      // Line 2 matches the second line of the seeded `tab-ts` content
+      // (`value`); the panel's line-aligned grid iterates from line 1
+      // up to the buffer's split('\n') length.
+      useResultStore.setState({
+        lineResults: [{ line: 2, value: '15', type: 'autoLog' }],
+        error: null,
+        fullOutput: '',
+        executionTime: 5,
+        isAutoRunning: false,
+        executionSource: 'auto',
+      });
+      useSettingsStore.setState({ hideUndefined: true });
+
+      render(<ResultPanel />);
+
+      const pill = document.querySelector('[data-result-kind="autoLog"]');
+      expect(pill).not.toBeNull();
+      expect(pill?.textContent).toContain('15');
+    });
+
+    it('honors hideUndefined for an undefined auto-log value', () => {
+      useResultStore.setState({
+        lineResults: [{ line: 2, value: 'undefined', type: 'autoLog' }],
+        error: null,
+        fullOutput: '',
+        executionTime: 5,
+        isAutoRunning: false,
+        executionSource: 'auto',
+      });
+      useSettingsStore.setState({ hideUndefined: true });
+
+      render(<ResultPanel />);
+
+      // The row is filtered out by `hideUndefined` (this is the
+      // behavior distinction from `'watch'` which stays visible).
+      expect(
+        document.querySelector('[data-result-kind="autoLog"]')
+      ).toBeNull();
+    });
+  });
 });

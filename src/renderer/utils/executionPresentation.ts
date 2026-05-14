@@ -54,12 +54,20 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
     for (const magicResult of result.magicResults) {
       // RL-020 Slice 3 — runners tag each result with `kind` so the
       // panel can render the `@watch` pin distinct from the `=>`
-      // arrow. Default to `'magic'` for any runner that emits a
-      // result without a kind (forward-compat with future adapters).
+      // arrow. RL-020 Slice 5 — adds `'autoLog'` (bare-expression
+      // auto-capture). Default to `'magic'` for any runner that
+      // emits a result without a kind (forward-compat with future
+      // adapters).
+      const type: LineResult['type'] =
+        magicResult.kind === 'watch'
+          ? 'watch'
+          : magicResult.kind === 'autoLog'
+            ? 'autoLog'
+            : 'magic';
       lineResults.push({
         line: magicResult.line,
         value: magicResult.value,
-        type: magicResult.kind === 'watch' ? 'watch' : 'magic',
+        type,
       });
     }
   }

@@ -101,6 +101,17 @@ interface BuildCommandPaletteModelArgs {
   onAddWatchToCurrentLine?: () => void;
   activeWatchLanguage?: Language | null;
   /**
+   * RL-020 Slice 5 fold D — fires when the user activates the
+   * "Toggle auto-log for this tab" palette action. The caller in
+   * `App.tsx` flips the per-tab `autoLogEnabled` field by reading
+   * the resolved current state and writing the opposite via
+   * `editorStore.setTabAutoLogEnabled`. Optional; when omitted the
+   * action is hidden. Only JS / TS Scratchpad tabs surface the
+   * action; everything else hides it.
+   */
+  onToggleAutoLogOnActiveTab?: () => void;
+  activeAutoLogResolved?: boolean;
+  /**
    * RL-020 Slice 4 fold G — id of the active editor tab. Used to
    * surface a parallel "Recent runs (this tab)" group ranked above
    * the global recent-runs entries when at least one history entry
@@ -392,6 +403,8 @@ export function buildCommandPaletteModel({
   activeRuntimeMode = null,
   onAddWatchToCurrentLine,
   activeWatchLanguage = null,
+  onToggleAutoLogOnActiveTab,
+  activeAutoLogResolved = false,
   activeTabId = null,
   updateStatus,
   createTab,
@@ -507,6 +520,31 @@ export function buildCommandPaletteModel({
             ['watch', 'pin', 'magic', 'comment', 'inline', 'expression'],
             () => {
               onAddWatchToCurrentLine();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-020 Slice 5 fold D — toggle auto-log on the active tab.
+    // Only surfaces for JS / TS active tabs; non-JS/TS tabs hide
+    // the entry entirely so the palette never advertises an action
+    // it would refuse. Reuses the per-tab override path so the
+    // toggle is scoped to one tab, not the global Settings default.
+    ...(onToggleAutoLogOnActiveTab &&
+    (activeWatchLanguage === 'javascript' ||
+      activeWatchLanguage === 'typescript')
+      ? [
+          buildActionCommand(
+            'action-toggle-auto-log',
+            translate('commandPalette.action.toggleAutoLog.label'),
+            translate(
+              activeAutoLogResolved
+                ? 'commandPalette.action.toggleAutoLog.enabled'
+                : 'commandPalette.action.toggleAutoLog.disabled'
+            ),
+            ['auto-log', 'autolog', 'inline', 'expression', 'scratchpad', 'toggle'],
+            () => {
+              onToggleAutoLogOnActiveTab();
               onClose();
             }
           ),
