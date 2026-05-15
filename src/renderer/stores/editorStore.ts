@@ -163,6 +163,41 @@ function dropCompareIfLanguageChanged<T extends FileTab>(
   return rest as T;
 }
 
+/**
+ * RL-020 Slice 9 — set of languages the variable inspector
+ * captures for. Renames / Save-As to a language outside this set
+ * drops the per-tab inspector flag.
+ */
+const VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES: ReadonlySet<Language> = new Set([
+  'javascript',
+  'typescript',
+  'python',
+]);
+
+export function isVariableInspectorSupportedLanguage(
+  language: Language
+): boolean {
+  return VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES.has(language);
+}
+
+/**
+ * RL-020 Slice 9 — drop the per-tab variable inspector flag when
+ * the rename / Save-As lands on a language outside the supported
+ * set. The scope snapshot itself is tracked by the result store;
+ * this helper only owns the toggle bit.
+ */
+function dropVariableInspectorIfLanguageChanged<T extends FileTab>(
+  tab: T,
+  previousLanguage: Language | null
+): T {
+  if (previousLanguage === null || tab.language === previousLanguage) return tab;
+  if (tab.variableInspectorEnabled === undefined) return tab;
+  if (isVariableInspectorSupportedLanguage(tab.language)) return tab;
+  const { variableInspectorEnabled: _drop, ...rest } = tab;
+  void _drop;
+  return rest as T;
+}
+
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
   const short = id.slice(0, 8);
@@ -298,6 +333,14 @@ async function persistTab(
     tab.language === language && tab.compareWithSnapshotEnabled === true
       ? true
       : undefined;
+  // RL-020 Slice 9 — Save-As that lands on an unsupported language
+  // drops the Variables toggle. Same-language Save-As keeps it on.
+  const variableInspectorEnabled =
+    tab.language === language &&
+    tab.variableInspectorEnabled === true &&
+    VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES.has(language)
+      ? true
+      : undefined;
   const {
     autoLogEnabled: _staleAutoLogEnabled,
     stdinBuffer: _staleStdinBuffer,
@@ -307,12 +350,14 @@ async function persistTab(
     // language drops the override.
     nextRunTimeoutOverrideMs: _staleNextRunTimeoutOverride,
     compareWithSnapshotEnabled: _staleCompareEnabled,
+    variableInspectorEnabled: _staleInspectorEnabled,
     ...tabWithoutDropped
   } = tab;
   void _staleAutoLogEnabled;
   void _staleStdinBuffer;
   void _staleNextRunTimeoutOverride;
   void _staleCompareEnabled;
+  void _staleInspectorEnabled;
   const nextTab: FileTab & { filePath: string; rootId: string; relativePath: string } = {
     ...tabWithoutDropped,
     filePath: absolutePath,
@@ -326,6 +371,9 @@ async function persistTab(
     ...(stdinBuffer !== undefined ? { stdinBuffer } : {}),
     ...(compareWithSnapshotEnabled !== undefined
       ? { compareWithSnapshotEnabled }
+      : {}),
+    ...(variableInspectorEnabled !== undefined
+      ? { variableInspectorEnabled }
       : {}),
   };
   let content: string;
@@ -661,7 +709,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // once by `executeTabManually`.
   // RL-020 Slice 8 — write the per-tab Compare toggle. `null` clears
   // the field (the toggle returns to disabled). No-op when the tab
-  // is missing.
+  // is missing. Mutual exclusion with `setTabVariableInspectorEnabled`
+  // is enforced here: turning Compare on forces Variables off.
   setTabCompareEnabled: (id, enabled) => {
     set((state) => ({
       tabs: state.tabs.map((t) => {
@@ -672,7 +721,31 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           void _drop;
           return rest;
         }
-        return { ...t, compareWithSnapshotEnabled: true };
+        // RL-020 Slice 9 — mutual exclusion with Variables.
+        const { variableInspectorEnabled: _dropInspector, ...rest } = t;
+        void _dropInspector;
+        return { ...rest, compareWithSnapshotEnabled: true };
+      }),
+    }));
+  },
+
+  // RL-020 Slice 9 — write the per-tab Variables toggle. `null`
+  // clears the field. Mutually exclusive with `setTabCompareEnabled`:
+  // enabling Variables forces Compare off.
+  setTabVariableInspectorEnabled: (id, enabled) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== id) return t;
+        if (enabled === null || enabled === false) {
+          if (t.variableInspectorEnabled === undefined) return t;
+          const { variableInspectorEnabled: _drop, ...rest } = t;
+          void _drop;
+          return rest;
+        }
+        // Mutual exclusion with Compare.
+        const { compareWithSnapshotEnabled: _dropCompare, ...rest } = t;
+        void _dropCompare;
+        return { ...rest, variableInspectorEnabled: true };
       }),
     }));
   },
@@ -990,17 +1063,23 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           // language clears the override, even if the new language
           // still supports auto-log. The user can re-arm via the
           // palette if they want to.
-          return dropCompareIfLanguageChanged(
-            dropNextRunTimeoutOverride({
-              ...renamed,
-              autoLogEnabled: tab.autoLogEnabled,
-            }),
+          return dropVariableInspectorIfLanguageChanged(
+            dropCompareIfLanguageChanged(
+              dropNextRunTimeoutOverride({
+                ...renamed,
+                autoLogEnabled: tab.autoLogEnabled,
+              }),
+              previousLanguage
+            ),
             previousLanguage
           );
         }
-        return dropCompareIfLanguageChanged(
-          dropNextRunTimeoutOverride(
-            dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed))
+        return dropVariableInspectorIfLanguageChanged(
+          dropCompareIfLanguageChanged(
+            dropNextRunTimeoutOverride(
+              dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed))
+            ),
+            previousLanguage
           ),
           previousLanguage
         );

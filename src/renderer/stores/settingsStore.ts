@@ -301,6 +301,14 @@ export const useSettingsStore = create<SettingsState>()(
       // header while a run is in flight. Default OFF so the panel
       // stays quiet by default.
       showTimeoutCountdown: false,
+      // RL-020 Slice 9 fold G — Variables toggle is opt-in by
+      // default. Per-tab override (`variableInspectorEnabled`)
+      // always wins; this is just the seed for fresh tabs.
+      showVariableInspectorByDefault: false,
+      // RL-020 Slice 9 fold E — base scope depth is 1. Settings →
+      // Editor lets the user bump it (max enforced renderer-side by
+      // `MAX_SCOPE_DEPTH`).
+      variableInspectorScopeDepth: 1,
       // RL-020 Slice 2 fold F — onboarding-toast acknowledgement.
       firstWorkflowModeSwitchAcknowledged: false,
       language: 'system',

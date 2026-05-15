@@ -26,6 +26,7 @@ import {
   isAppendWatchSupported,
 } from '../../utils/appendWatch';
 import { trackEvent } from '../../utils/telemetry';
+import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types';
 import { Kbd, OverlayBackdrop, OverlayCard, Tooltip } from '../ui/chrome';
 import { handleCloseOnEscape } from '../ui/keyboard';
@@ -293,6 +294,33 @@ export function CommandPalette({
         return (
           activeTab !== undefined &&
           snapshotRing.some((entry) => entry.language === activeTab.language)
+        );
+      })(),
+      // RL-020 Slice 9 fold B — variable inspector palette entry.
+      onToggleVariableInspector:
+        activeTab && activeTabId
+          ? () => {
+              const next = activeTab.variableInspectorEnabled !== true;
+              useEditorStore
+                .getState()
+                .setTabVariableInspectorEnabled(activeTabId, next);
+              const snapshot = useResultStore.getState().scopeSnapshot;
+              const bucket = snapshot
+                ? bucketVariableCount(snapshot.variables.length)
+                : '0';
+              void trackEvent('runtime.variable_inspector_opened', {
+                language: activeTab.language,
+                variableCount: bucket,
+              });
+            }
+          : undefined,
+      activeVariableInspectorEnabled:
+        activeTab?.variableInspectorEnabled === true,
+      variableInspectorScopeAvailable: (() => {
+        if (!activeTab) return false;
+        const snapshot = useResultStore.getState().scopeSnapshot;
+        return (
+          snapshot != null && snapshot.language === activeTab.language
         );
       })(),
       // RL-020 Slice 4 fold G — pass the active tab id so the

@@ -310,6 +310,21 @@ export async function executeTabManually(
       useEditorStore.getState().setTabNextRunTimeoutOverride(activeTab.id, null);
     }
 
+    // RL-020 Slice 9 — capture the post-execute scope when the
+    // active language supports the inspector. We pass `captureScope`
+    // eagerly (not gated on the toggle being on) so the toggle can
+    // light up after the first clean run; the worker cost is bounded
+    // by the shared payload caps.
+    const variableInspectorLanguages = new Set<string>([
+      'javascript',
+      'typescript',
+      'python',
+    ]);
+    const wantsScopeCapture =
+      variableInspectorLanguages.has(language) && !debugRequested;
+    const scopeDepthPref =
+      useSettingsStore.getState().variableInspectorScopeDepth;
+
     const executionContext = {
       ...(resolvedTimeoutMs !== undefined
         ? { timeout: resolvedTimeoutMs }
@@ -321,6 +336,10 @@ export async function executeTabManually(
       // that auto-run uses. Runners that do not consume stdin
       // ignore the field.
       ...(activeTab.stdinBuffer ? { stdin: activeTab.stdinBuffer } : {}),
+      ...(wantsScopeCapture ? { captureScope: true } : {}),
+      ...(wantsScopeCapture && typeof scopeDepthPref === 'number'
+        ? { scopeDepth: scopeDepthPref }
+        : {}),
     };
 
     const settingsTimeoutMs = isRuntimeTimeoutSupportedLanguage(language)
@@ -417,6 +436,11 @@ export async function executeTabManually(
     // saw.
     if (!result.error && !result.cancelled) {
       useResultStore.getState().captureSuccessfulSnapshot(language);
+      // RL-020 Slice 9 — surface the variable inspector snapshot if
+      // the worker emitted one. `null` clears any stale snapshot
+      // from the previous run so the toggle reflects the latest
+      // capture state.
+      useResultStore.getState().setScopeSnapshot(result.scopeSnapshot ?? null);
     }
 
     const consoleEntries = toConsoleEntries(result);

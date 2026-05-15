@@ -15,6 +15,8 @@ import { RecentRunsPill } from './RecentRunsPill';
 import { RunStatusPill } from './RunStatusPill';
 import { CompareToggleButton } from './CompareToggleButton';
 import { CompareResultsPanel } from './CompareResultsPanel';
+import { VariableInspectorToggleButton } from './VariableInspectorToggleButton';
+import { VariableInspectorPanel } from './VariableInspectorPanel';
 import {
   diffSnapshot,
   resolveCompareTargetSnapshot,
@@ -288,6 +290,25 @@ export function ResultPanel() {
     activeTab?.compareWithSnapshotEnabled === true &&
     compareTargetSnapshot !== null;
 
+  // RL-020 Slice 9 — variable inspector visibility gate. The toggle
+  // is only meaningful when the active language is in the
+  // inspector's supported set AND the result store carries a
+  // language-matching snapshot. Mutually exclusive with Compare:
+  // turning Variables on flips Compare off via the editor-store
+  // setter (`setTabVariableInspectorEnabled`).
+  const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
+  const variableInspectorSupportedLanguages = new Set<string>([
+    'javascript',
+    'typescript',
+    'python',
+  ]);
+  const variableInspectorEnabled =
+    executionMode === 'run' &&
+    activeTab?.variableInspectorEnabled === true &&
+    variableInspectorSupportedLanguages.has(language) &&
+    scopeSnapshot !== null &&
+    scopeSnapshot.language === language;
+
   // RL-020 Slice 8 fold G — inline diff badges. Only render in
   // non-compare mode: when Compare is on, the dedicated diff view
   // already surfaces per-line deltas. Skip when there's no
@@ -417,10 +438,18 @@ export function ResultPanel() {
               snapshot availability + language match. Hidden in
               view-only execution mode (validation / view files). */}
           {executionMode === 'run' && <CompareToggleButton />}
-          {/* RL-020 Slice 8 — hide the `undefined` toggle when the
-              user has Compare on: the diff view doesn't expose
-              `undefined` rows in the same way. */}
-          {showUndefinedToggle && !compareEnabled && (
+          {/* RL-020 Slice 9 — Variables toggle. Mounted next to
+              Compare; mutually exclusive at the editor-store
+              setter. Self-gates on language support + snapshot
+              availability inside the component. */}
+          {executionMode === 'run' &&
+            variableInspectorSupportedLanguages.has(language) && (
+              <VariableInspectorToggleButton />
+            )}
+          {/* RL-020 Slice 8 + Slice 9 — hide the `undefined` toggle
+              when EITHER Compare or Variables is on: both swap the
+              inline-results region for a different view. */}
+          {showUndefinedToggle && !compareEnabled && !variableInspectorEnabled && (
             <button
               onClick={toggleHideUndefined}
               title={
@@ -437,7 +466,15 @@ export function ResultPanel() {
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
-        {compareEnabled ? (
+        {variableInspectorEnabled ? (
+          // RL-020 Slice 9 — re-mount on tab switch so the internal
+          // expand / filter state resets per tab (same key pattern
+          // Slice 8 used for the Compare panel).
+          <VariableInspectorPanel
+            key={`vi-${activeTab?.id ?? 'none'}`}
+            language={language}
+          />
+        ) : compareEnabled ? (
           // RL-020 Slice 8 — re-mount the compare body on tab switch
           // so the internal granularity state resets to `'line'` for
           // each tab. Without this `key`, a `'word'` granularity

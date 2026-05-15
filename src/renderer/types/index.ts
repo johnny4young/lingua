@@ -2,8 +2,10 @@ import type { ShortcutCombo, ShortcutOverrideMap } from '../data/keyboardShortcu
 import type { RuntimeMode } from '../../shared/runtimeModes';
 import type { WorkflowMode } from '../../shared/workflowMode';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
+import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 
 export type { RuntimeTimeoutPreset };
+export type { ScopeSnapshot };
 
 export type AppLanguage = 'system' | 'en' | 'es';
 
@@ -164,6 +166,17 @@ export interface FileTab {
    * surface a stale comparator on a freshly-renamed Python tab.
    */
   compareWithSnapshotEnabled?: boolean;
+  /**
+   * RL-020 Slice 9 — per-tab flag for the "Variables" toggle in
+   * the result-panel header. `true` swaps the inline-results
+   * region for `<VariableInspectorPanel>` when a language-matching
+   * `ScopeSnapshot` is available. Mutually exclusive with the
+   * `Compare` toggle: the header forces one off when the other
+   * comes on. Cleared on language change (rename / Save-As) when
+   * the new language is not in the inspector's supported set
+   * (`javascript` / `typescript` / `python`).
+   */
+  variableInspectorEnabled?: boolean;
 }
 
 /**
@@ -264,6 +277,14 @@ export interface EditorState {
    * No-op when the tab does not exist.
    */
   setTabCompareEnabled: (id: string, enabled: boolean | null) => void;
+  /**
+   * RL-020 Slice 9 — write the per-tab `variableInspectorEnabled`
+   * flag. `null` clears the field (toggle returns to disabled).
+   * Mutual exclusion with `setTabCompareEnabled` is enforced at the
+   * caller level — toggling Variables on flips Compare off, and
+   * vice versa.
+   */
+  setTabVariableInspectorEnabled: (id: string, enabled: boolean | null) => void;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The
@@ -460,6 +481,22 @@ export interface SettingsState {
    * during long runs opt in via Settings → Editor.
    */
   showTimeoutCountdown: boolean;
+  /**
+   * RL-020 Slice 9 fold G — Settings → Editor master toggle that
+   * decides whether new tabs default to having the Variables panel
+   * armed. Per-tab `variableInspectorEnabled` always wins when set;
+   * this is just the seed for tabs that have not been touched.
+   * Default OFF — the inspector is opt-in like auto-log.
+   */
+  showVariableInspectorByDefault: boolean;
+  /**
+   * RL-020 Slice 9 fold E — recursion depth the workers walk when
+   * serializing the scope. `1` is the base scope; `4` is the
+   * shared module's cap. Default `1`. Bumping this trades worker
+   * time for richer panel data — the user can change it from
+   * Settings → Editor.
+   */
+  variableInspectorScopeDepth: number;
   /**
    * RL-020 Slice 2 fold F — one-shot acknowledgement flag for the
    * "Scratchpad auto-runs as you type; Run waits for Cmd+R"
@@ -662,6 +699,25 @@ export interface ExecutionContext {
    * naming a preset.
    */
   timeoutPreset?: RuntimeTimeoutPreset | 'override';
+  /**
+   * RL-020 Slice 9 — when `true`, the runner asks its worker to
+   * capture the post-execute scope and emit a `ScopeSnapshot` on
+   * the resulting `ExecutionResult`. Runners that do not implement
+   * scope capture ignore the field harmlessly. The runtime layers
+   * (auto-run + manual run) set this to `true` whenever the active
+   * tab's `variableInspectorEnabled` flag is on OR the language is
+   * one of the inspector's supported set, so the toggle can light
+   * up after the first clean run even without the user opting in
+   * first.
+   */
+  captureScope?: boolean;
+  /**
+   * RL-020 Slice 9 fold E — recursion depth for the scope walker
+   * (1–4). `1` is the base scope and matches the renderer's
+   * "1-level expand" UX. The runtime threads the user's Settings
+   * preference here; runners clamp to the shared `MAX_SCOPE_DEPTH`.
+   */
+  scopeDepth?: number;
 }
 
 export interface ExecutionError {
@@ -745,6 +801,14 @@ export interface ExecutionResult {
    * message.
    */
   timeoutMs?: number;
+  /**
+   * RL-020 Slice 9 — post-execute variable scope captured by the
+   * worker. `null` when the runner does not implement capture OR
+   * the run errored / timed out / was cancelled. The result store
+   * stores the most recent non-null snapshot so the inspector
+   * toggle can light up.
+   */
+  scopeSnapshot?: ScopeSnapshot | null;
 }
 
 export interface ConsoleOutput {
@@ -838,4 +902,22 @@ export type WorkerResponse =
       runId: string;
       count: number;
       total: number;
+    }
+  | {
+      /**
+       * RL-020 Slice 9 — post-execute scope snapshot. The worker
+       * captures `globalThis` (JS) or `globals()` (Python) after the
+       * user code resolves, filters internal helpers + boot-time
+       * names, and walks each remaining binding via the shared
+       * `serializeScopeValue` helper. Posted BEFORE `stdin-consumed`
+       * and `done` so the runner can stitch the snapshot onto
+       * `ExecutionResult.scopeSnapshot`. `error` is set when capture
+       * threw inside the worker — the snapshot is still emitted
+       * (with empty `variables`) so the runner's threading stays
+       * consistent.
+       */
+      type: 'scope-snapshot';
+      runId: string;
+      snapshot: ScopeSnapshot;
+      error?: string;
     };

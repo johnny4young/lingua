@@ -118,6 +118,16 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['compare', 'diff', 'snapshot', 'stable', 'previous'],
   },
   {
+    // RL-020 Slice 9 fold C — toggle the Variables panel on the
+    // active tab. No-op + notice when there's no scope snapshot.
+    id: 'run-toggle-variable-inspector',
+    group: 'run',
+    labelKey: 'shortcuts.item.toggleVariableInspector.label',
+    descriptionKey: 'shortcuts.item.toggleVariableInspector.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'I'] }],
+    keywords: ['variables', 'inspector', 'scope', 'tree'],
+  },
+  {
     id: 'file-save',
     group: 'file',
     labelKey: 'shortcuts.item.save.label',

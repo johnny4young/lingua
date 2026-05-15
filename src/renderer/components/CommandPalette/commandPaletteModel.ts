@@ -180,6 +180,26 @@ interface BuildCommandPaletteModelArgs {
    */
   compareSnapshotAvailable?: boolean;
   /**
+   * RL-020 Slice 9 fold B — fires the "Toggle variable inspector"
+   * palette action. Caller wires it via
+   * `setTabVariableInspectorEnabled` on the active tab. Optional;
+   * hidden when omitted or when the active tab is missing.
+   */
+  onToggleVariableInspector?: () => void;
+  /**
+   * RL-020 Slice 9 fold B — `true` when the active tab currently
+   * has the Variables toggle on. The palette description flips
+   * between "Show / Hide" based on this flag.
+   */
+  activeVariableInspectorEnabled?: boolean;
+  /**
+   * RL-020 Slice 9 fold B — `true` when the result store carries a
+   * scope snapshot for the active language. Drives the palette
+   * gate so the action stays hidden when there's nothing to
+   * inspect.
+   */
+  variableInspectorScopeAvailable?: boolean;
+  /**
    * RL-020 Slice 4 fold G — id of the active editor tab. Used to
    * surface a parallel "Recent runs (this tab)" group ranked above
    * the global recent-runs entries when at least one history entry
@@ -482,6 +502,9 @@ export function buildCommandPaletteModel({
   onToggleCompareWithSnapshot,
   activeCompareEnabled = false,
   compareSnapshotAvailable = false,
+  onToggleVariableInspector,
+  activeVariableInspectorEnabled = false,
+  variableInspectorScopeAvailable = false,
   activeTabId = null,
   updateStatus,
   createTab,
@@ -711,6 +734,28 @@ export function buildCommandPaletteModel({
             ['compare', 'diff', 'snapshot', 'stable', 'previous', 'toggle'],
             () => {
               onToggleCompareWithSnapshot();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-020 Slice 9 fold B — toggle the variable inspector on the
+    // active tab. Hidden when there's no scope snapshot for the
+    // active language (matches the toggle-button gate). Description
+    // flips between Show / Hide.
+    ...(onToggleVariableInspector && variableInspectorScopeAvailable
+      ? [
+          buildActionCommand(
+            'action-toggle-variable-inspector',
+            translate('commandPalette.action.toggleVariableInspector.label'),
+            translate(
+              activeVariableInspectorEnabled
+                ? 'commandPalette.action.toggleVariableInspector.descriptionHide'
+                : 'commandPalette.action.toggleVariableInspector.descriptionShow'
+            ),
+            ['variables', 'inspector', 'scope', 'last', 'run', 'toggle'],
+            () => {
+              onToggleVariableInspector();
               onClose();
             }
           ),

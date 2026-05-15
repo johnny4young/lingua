@@ -81,6 +81,12 @@ interface UseGlobalShortcutsOptions {
    * comparator (so the user never gets a silent no-op).
    */
   toggleCompareWithSnapshot: () => void;
+  /**
+   * RL-020 Slice 9 fold C — toggle the Variables panel on the active
+   * tab via the editor store's `setTabVariableInspectorEnabled`.
+   * No-op + localized notice when there is no scope snapshot.
+   */
+  toggleVariableInspector: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -103,6 +109,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'run-cycle-workflow-mode': () => options.cycleWorkflowMode(),
     'run-toggle-recent-runs': () => options.toggleRecentRunsPopover(),
     'run-toggle-compare-snapshot': () => options.toggleCompareWithSnapshot(),
+    'run-toggle-variable-inspector': () => options.toggleVariableInspector(),
     'file-save': () => {
       void options.saveActiveTab();
     },

@@ -791,6 +791,11 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute).toHaveBeenLastCalledWith('const x = 1;\nx + 1', {
       autoLog: false,
+      // RL-020 Slice 9 — auto-run requests a scope capture for
+      // inspector-supported languages so the toggle lights up on
+      // the first clean run.
+      captureScope: true,
+      scopeDepth: 1,
     });
 
     act(() => {
@@ -808,6 +813,8 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenCalledTimes(2);
     expect(execute).toHaveBeenLastCalledWith('const x = 1;\nx + 1', {
       autoLog: true,
+      captureScope: true,
+      scopeDepth: 1,
     });
   });
 
@@ -845,6 +852,8 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute).toHaveBeenLastCalledWith('prompt()', {
       autoLog: false,
+      captureScope: true,
+      scopeDepth: 1,
     });
 
     act(() => {
@@ -871,6 +880,8 @@ describe('useAutoRun', () => {
     expect(execute).toHaveBeenLastCalledWith('prompt()', {
       autoLog: false,
       stdin: 'Ada',
+      captureScope: true,
+      scopeDepth: 1,
     });
     expect(useResultStore.getState().stdinConsumed).toEqual({
       count: 1,
