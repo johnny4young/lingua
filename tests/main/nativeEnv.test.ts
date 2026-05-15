@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   COMMON_TOOLCHAIN_KEYS,
   GO_TOOLCHAIN_KEYS,
+  NODE_TOOLCHAIN_KEYS,
   RUST_TOOLCHAIN_KEYS,
   WINDOWS_TOOLCHAIN_KEYS,
   buildNativeRunnerEnv,
@@ -20,6 +21,7 @@ const TOUCHED_KEYS = [
   ...COMMON_TOOLCHAIN_KEYS,
   ...WINDOWS_TOOLCHAIN_KEYS,
   ...GO_TOOLCHAIN_KEYS,
+  ...NODE_TOOLCHAIN_KEYS,
   ...RUST_TOOLCHAIN_KEYS,
   'LINGUA_SMOKE_SECRET',
   'OPENAI_API_KEY',
@@ -159,6 +161,14 @@ describe('toolchain key allowlists', () => {
       'RUSTUP_TOOLCHAIN',
       'RUSTC',
       'CARGO',
+    ]);
+  });
+
+  it('Node allowlist matches the audited list', () => {
+    expect([...NODE_TOOLCHAIN_KEYS]).toEqual([
+      'NODE_PATH',
+      'NPM_CONFIG_CACHE',
+      'NPM_CONFIG_PREFIX',
     ]);
   });
 

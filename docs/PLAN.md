@@ -767,8 +767,8 @@ Research pass completed on `2026-04-11` against the current repo plus the follow
 ### RL-019 Add explicit JS/TS runtime modes: worker scratchpad, desktop Node, and browser preview
 
 - Priority: `P1`
-- Status: `Partial`
-- Readiness: `Slice 1 shipped 2026-05-12 (contract surface). Slice 3 shipped 2026-05-12 (iframe-isolated Browser preview backend + bottom-panel tab + multi-file seed + inspect button + CSP audit). Slice 2 (desktop Node child-process backend) is the only remaining sub-slice.`
+- Status: `Done`
+- Readiness: `Closed in full 2026-05-14. Slice 1 (2026-05-12) contract surface. Slice 3 (2026-05-12) iframe Browser preview. Slice 2 (2026-05-14) desktop Node child-spawn backend with parent-owned timeout + env allowlist + esbuild TS transpile + detection cache + first-run trust notice + node_modules cwd + package.json#type ESM/CJS picker + adoption telemetry. RL-019 is closed.`
 - Why this is high leverage:
   - JS/TS users need the runtime contract to be explicit before they can trust whether APIs, imports, debugger behavior, and preview output match the environment they are targeting
   - The current app exposes only the worker-style JS/TS contract
@@ -963,6 +963,133 @@ Out of scope until Slice 2:
   soon" tooltip.
 - Monaco lib switching for Node mode (`@types/node` types,
   CommonJS resolution hints). Lands with the backend.
+
+#### Slice 2 — 2026-05-14 (desktop Node child-spawn backend — closes RL-019)
+
+Slice 2 lands the named scope item: *"Add a desktop Node runner
+via child process or utility process with explicit timeouts and
+sandbox boundaries."* With this slice RL-019 flips to `Done` and
+the three-mode contract from Slice 1 (Worker / Node / Browser
+Preview) is fully shipped.
+
+Architecture:
+
+- **`src/main/node-runner.ts`** (new) — main-process runner.
+  Invokes `node` via `spawn()` only (no shell-evaluating sibling
+  and no string interpolation into shell args). Inline `-e`
+  invocation for source ≤ 4 KB; temp-file fallback above that.
+  Parent-owned timeout with SIGTERM → 200 ms → SIGKILL escalation
+  ladder. `detectNode()` probes `node --version` and caches the
+  result per main-process lifetime; a `force` argument
+  invalidates the cache (Settings → Native Toolchains uses this).
+  IPC handlers `node:detect` + `node:run` registered via
+  `registerNodeJSHandlers()` in `src/main/index.ts`.
+- **`src/main/runners/nativeEnv.ts`** (extended) — new
+  `NODE_TOOLCHAIN_KEYS = ['NODE_PATH', 'NPM_CONFIG_CACHE',
+  'NPM_CONFIG_PREFIX']` const. Layered on top of the COMMON
+  allowlist (PATH / HOME / LANG / TMPDIR) the existing
+  `buildNativeRunnerEnv()` helper composes for every subprocess.
+  Intentionally excluded: `NODE_OPTIONS`, `NODE_NO_WARNINGS`,
+  `NODE_DEBUG`, `NODE_ENV` — those belong to the RL-011 user-env
+  tier where the user opts in explicitly.
+- **`src/preload/index.ts`** (extended) — exposes
+  `window.lingua.node.run(source, options)` +
+  `window.lingua.node.detect(userEnv?, force?)` via the desktop
+  preload bridge. Web adapter (`src/web/adapter.ts`) deliberately
+  omits this surface; `LinguaAPI.node` is optional so type-checks
+  fail fast on any web-side reference.
+- **`src/renderer/runners/nodeRunner.ts`** (new) — renderer-side
+  `LanguageRunner` registered against
+  `RunnerManager.runtimeModeRunners.get('node')`. JS tabs skip
+  esbuild; TS source detected by a cheap sniff goes through
+  `esbuild.transform({ loader: 'tsx', format: 'cjs', target: 'es2022' })`
+  before the IPC. Defensively gates on `window.lingua.node`
+  presence — web builds surface a clear renderer-side error
+  instead of crashing the manager. Per-call timeout resolves from
+  `runtimeTimeoutPresetByLanguage.javascript` (Slice 7 plumbing)
+  unless the caller overrides. Renderer cancel via an in-flight
+  resolver — main's parent timer reaps the subprocess.
+- **`src/shared/runtimeModes.ts`** —
+  `isRuntimeModeImplemented('node')` flipped from `false` to
+  `true`. The Slice 1 cycle helper's "skip unimplemented" code
+  path is no longer exercised by `node`; the cycle now walks
+  Worker → Node → Browser Preview → Worker.
+- **`src/renderer/components/Toolbar/RuntimeModeSelector.tsx`** —
+  tooltip key for the Node option swapped from
+  `runtimeMode.hint.node.comingSoon` to
+  `runtimeMode.hint.node.ready`. Disabled-state copy
+  (`missingBinary`) is reserved for the future detection-cache
+  failure path; the current selector renders the option enabled
+  whenever `isRuntimeModeImplemented` returns `true`.
+
+Folds shipped:
+
+- **A — `runtime.node_runner_used` adoption telemetry**
+  (`['language', 'status']` closed-enum, statuses
+  `'success'` / `'error'` / `'timeout'` / `'stopped'` /
+  `'missing-binary'`). Mirrored on update-server with parity
+  test (`NODE_RUNNER_STATUS_VALUES`).
+- **E — First-run trust notice** toast surfaced once per session
+  via `Settings.nodeRunnerFirstRunNoticeShown`. Copy:
+  `runtimeMode.notice.firstRunDangerous` — "Node mode runs your
+  code with full filesystem and network access. Only run code
+  you trust."
+- **F — `node_modules`-aware cwd**: `resolveNodeCwd(filePath)`
+  walks up to 8 levels from the saved tab's directory looking
+  for a `node_modules/` neighbor; first hit becomes the
+  subprocess's cwd so `require('lodash')` resolves naturally.
+  Unsaved Scratchpad tabs fall back to `app.getPath('temp')`.
+- **G — `package.json#type` ESM / CJS picker**:
+  `pickInputType(cwd)` reads the resolved cwd's `package.json`
+  and emits `--input-type=module` when `"type": "module"`,
+  CommonJS otherwise. Temp-file fallback paths swap the file
+  extension to `.mjs` / `.cjs` to match.
+- **H — Command palette `action-runtime-mode-node`** entry was
+  already wired by Slice 1 fold E. Slice 2 didn't need to add
+  the entry — it now actually succeeds because the editor
+  store's `setTabRuntimeMode` no longer rejects `node`. The
+  shortcut catalog's `Mod+Alt+M` cycle also now visits the Node
+  mode (was previously skipped by `cycleRuntimeMode`).
+
+Folds deferred (store fields + i18n in place; UI surface only):
+
+- **B — `nodeDetect()` Settings → Native Toolchains row**.
+- **C — Node version pinning** (`Settings.nodeVersionMajor`).
+- **D — Permission flags** (`--allow-fs-read=...`) for Node ≥ 22.
+
+Tests:
+
+- `tests/shared/runtimeModes.test.ts` — `isRuntimeModeImplemented('node')`
+  is now `true`; `cycleRuntimeMode('worker')` now returns `'node'`;
+  `coerceRuntimeMode('node', 'javascript')` preserves the value.
+- `tests/shared/telemetry.test.ts` — sort-order list adds
+  `runtime.node_runner_used`; validator coverage with every
+  closed-enum status bucket; unknown-key drop test.
+- `tests/stores/editorStore.runtimeMode.test.ts` — Slice 1's
+  "rejects unimplemented modes" test rewritten to assert the
+  Slice 2 positive path; new test covers the defensive coercion
+  fallback for unknown future modes.
+- `update-server/test/telemetry.test.ts` — parity test extended
+  for the new event.
+
+Security posture (documented in the ADR amendment + the
+in-source header comment of `node-runner.ts`):
+
+- `spawn()` only — never the shell-evaluating sibling. User
+  input never reaches a shell command line.
+- Env via `buildNativeRunnerEnv()` allowlist. Host secrets
+  (CI tokens, OPENAI_API_KEY, etc.) do NOT leak. User-tier env
+  from RL-011 layers on top.
+- Cwd choice is `app.getPath('temp')` (Scratchpad) or the
+  saved tab's `node_modules`-aware directory (fold F). Lingua's
+  install directory is never inherited.
+- Network + filesystem are unrestricted (Node subprocess
+  shares the host stack). Documented in the first-run trust
+  notice. Future hardening (`--allow-fs-read` etc.) is fold D.
+- Output caps: stdout / stderr each capped at
+  `MAX_NATIVE_STDERR_BYTES` (1 MiB) via the existing
+  `truncateBytes` helper. Truncation marker localized via the
+  `runner.truncated.*` i18n keys.
 
 ### RL-020 Make the scratchpad and REPL experience best-in-class
 

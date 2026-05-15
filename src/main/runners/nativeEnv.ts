@@ -78,6 +78,27 @@ export const RUST_TOOLCHAIN_KEYS = [
 ] as const;
 
 /**
+ * RL-019 Slice 2 — Node-specific host-env keys. Node's binary
+ * lookup honors `NODE_PATH` for global module resolution; the
+ * other allowlisted entries (`NPM_CONFIG_CACHE`, `NPM_CONFIG_PREFIX`)
+ * cover the user's local npm / npx layout when the saved tab is
+ * inside a project tree. The COMMON allowlist already provides
+ * PATH / HOME / LANG / TMPDIR so the runner can find `node` itself
+ * and the user's home-rooted caches.
+ *
+ * Intentionally NOT here in v1: `NODE_OPTIONS`, `NODE_NO_WARNINGS`,
+ * `NODE_DEBUG`, `NODE_ENV`. Those are user-controllable knobs that
+ * belong in the RL-011 user env tier — silently leaking them from
+ * the host widens the surface area in a way that breaks the
+ * "trust your toolchain" model.
+ */
+export const NODE_TOOLCHAIN_KEYS = [
+  'NODE_PATH',
+  'NPM_CONFIG_CACHE',
+  'NPM_CONFIG_PREFIX',
+] as const;
+
+/**
  * Build the env passed to `child_process.spawn` / `execFile` for a
  * native runner subprocess. Layering, in order:
  *

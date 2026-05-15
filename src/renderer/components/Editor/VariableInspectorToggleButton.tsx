@@ -30,6 +30,7 @@ export function VariableInspectorToggleButton() {
   const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
 
   if (!activeTab) return null;
+  if (activeTab.runtimeMode === 'node') return null;
 
   const enabled = activeTab.variableInspectorEnabled === true;
   const snapshotIsRelevant =

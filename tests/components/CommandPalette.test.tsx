@@ -13,7 +13,9 @@ const { editorState, resultState, trackEventMock } = vi.hoisted(() => ({
       id: string;
       language: string;
       content: string;
+      runtimeMode?: 'worker' | 'node' | 'browser-preview';
       compareWithSnapshotEnabled?: boolean;
+      variableInspectorEnabled?: boolean;
     }>,
     activeTabId: null as string | null,
     setTabRuntimeMode: vi.fn(),
@@ -355,5 +357,46 @@ describe('CommandPalette', () => {
       'runtime.compare_view_toggled',
       { language: 'javascript', enabled: true }
     );
+  });
+
+  it('hides the variable inspector action while the active tab is in Node mode', () => {
+    editorState.tabs = [
+      {
+        id: 'tab-1',
+        language: 'javascript',
+        content: 'const value = 1',
+        runtimeMode: 'node',
+      },
+    ];
+    editorState.activeTabId = 'tab-1';
+    resultState.scopeSnapshot = {
+      language: 'javascript',
+      capturedAt: 1,
+      variables: [
+        {
+          name: 'value',
+          value: { kind: 'primitive', type: 'number', repr: '1' },
+        },
+      ],
+    };
+
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'variables' } });
+
+    expect(
+      screen.queryByRole('button', {
+        name: /Toggle variable inspector/i,
+      })
+    ).toBeNull();
   });
 });

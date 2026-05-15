@@ -4,7 +4,7 @@
 |---------|------------|
 | Status  | Accepted   |
 | Date    | 2026-05-12 |
-| Slice   | 1 + 3 of 3 (Slice 2 still pending) |
+| Slice   | 1 + 2 + 3 of 3 (closed) |
 
 ## Context
 
@@ -41,10 +41,10 @@ The ticket also unlocks two downstream stories:
 
 ### 1. Three runtime modes, JS/TS only
 
-| Mode               | Surface           | Status (post-Slice 3) |
+| Mode               | Surface           | Status |
 |--------------------|-------------------|-----------------------|
 | `worker`           | Sandboxed Web Worker — no DOM, no Node built-ins | **Shipping (Slice 1)** |
-| `node`             | Desktop child-process Node with built-ins (`fs`, `path`, `http`) | Planned (Slice 2) |
+| `node`             | Desktop child-process Node with built-ins (`fs`, `path`, `http`) | **Shipping (Slice 2)** |
 | `browser-preview`  | Iframe-isolated context with DOM access + preview pane | **Shipping (Slice 3)** |
 
 Other languages keep their existing single-runtime model. Adding
@@ -68,7 +68,7 @@ leaves the other two intact:
 - Session-store rehydrate (`coerceRuntimeMode`) snaps any unknown
   or unimplemented persisted value back to `'worker'` for JS/TS.
 
-### 3. Disabled-with-tooltip vs hidden for the unimplemented two
+### 3. Disabled-with-tooltip vs hidden while a mode is unimplemented
 
 Slice 1 ships only `worker`. Two alternatives for `node` and
 `browser-preview` were considered:
@@ -89,17 +89,21 @@ to see the roadmap and self-route to the right tool, even when the
 plain product copy, while this ADR and the release plan keep the Slice
 2 / Slice 3 delivery detail.
 
+Post-closeout note: Slice 3 enabled `browser-preview` on 2026-05-12
+and Slice 2 enabled `node` on 2026-05-14. The selector and Settings
+default-mode select now show all three options enabled; the disabled
+copy remains only as a defensive path for future runtime-mode enum
+additions or platform detection failures.
+
 ### 4. No silent fallback to Worker
 
 When a user tries to switch to an unimplemented mode (via shortcut,
 palette, or programmatic call), the editor store rejects the write
-and pushes a status notice naming the slice that will land it
-(`runtimeMode.notice.notImplementedNode` after Slice 3). We do
-NOT silently fall back to `worker` because that would (a) lie
-about the user's intent and (b) make Slice 2's debut surprising —
-users who clicked Node yesterday and got Worker silently would,
-the day Slice 2 lands, suddenly get a different runtime without
-their consent.
+and pushes a status notice. We do NOT silently fall back to
+`worker` because that would (a) lie about the user's intent and
+(b) make a future backend debut surprising. After Slice 2 closed
+RL-019, this branch is defensive for future enum additions rather
+than an active Node-mode path.
 
 ### 5. Telemetry: closed enum, no expression content
 
@@ -121,19 +125,21 @@ from RL-065). The pattern is now
 load-bearing — see `docs/SERVER_OBSERVABILITY.md` for the worker
 log-line envelope.
 
-### 6. Runner dispatch stays language-keyed for Slice 1
+### 6. Runner dispatch stays language-keyed, with runtime overrides
 
 The runner registry in `src/renderer/runners/manager.ts` continues
 to dispatch by `language`. Slice 1 routes `(language: 'javascript',
 runtimeMode: 'worker')` to the existing JavaScript runner; the
 contract surface for routing `(language: 'javascript', runtimeMode:
-'node')` to a future NodeRunner ships in Slice 2 by extending the
-registry — not by hijacking the language dispatch.
+`'node')` to `NodeRunner` shipped in Slice 2 by extending the
+registry with a runtime-mode override — not by hijacking the
+language dispatch.
 
 The reason: per-language plugin registration (RL-038) is the canon;
 introducing a per-runtime registry now would double the surface
-without payoff. Slice 2 can subclass `JavaScriptRunner` (or build a
-sibling `NodeRunner`) and the dispatcher gains a small switch.
+without payoff. Slice 2 built a sibling `NodeRunner`; the dispatcher
+gained a small runtime-mode map while the default language-keyed
+path stayed intact.
 
 ## Consequences
 
@@ -151,13 +157,10 @@ sibling `NodeRunner`) and the dispatcher gains a small switch.
 
 **Negative:**
 
-- Two of three dropdown items are disabled in Slice 1. Some users
-  will misread this as "Lingua shipped a broken feature." Mitigated
-  by the explicit "Coming soon" tooltip + the ADR-grade
-  rationale in this doc, which the runbook + release notes link to.
-- The Settings → Editor default mode selector renders the disabled
-  options too. Today it's effectively a one-option dropdown; the
-  affordance is intentional to surface the future modes.
+- During Slice 1, disabled future-mode options created some visual
+  noise. This was temporary: Slice 2 and Slice 3 now enable all
+  three options, and the disabled copy only protects future enum or
+  detection gaps.
 
 **Neutral:**
 
@@ -184,6 +187,49 @@ sibling `NodeRunner`) and the dispatcher gains a small switch.
 | `src/renderer/hooks/useGlobalShortcuts.ts`            | Cycle dispatcher                                     |
 | `src/renderer/App.tsx`                                | Cycle implementation                                 |
 | `src/shared/telemetry.ts` + `update-server/src/telemetry.ts` | `runtime.mode_changed` event (fold A)         |
+
+## Slice 2 ship notes — 2026-05-14
+
+### Architecture
+
+- `src/main/node-runner.ts` — desktop main-process backend. It invokes
+  `node` through `child_process.spawn` only, never a shell, and passes
+  source either as `--input-type=<commonjs|module> -e <source>` for
+  short buffers or as a temp `.cjs` / `.mjs` file for larger buffers.
+- `src/preload/index.ts` — exposes `window.lingua.node.detect`,
+  `window.lingua.node.run`, and `window.lingua.node.stop`. The web
+  adapter deliberately omits this bridge, so `NodeRunner` reports a
+  desktop-only error instead of dereferencing a missing IPC surface.
+- `src/renderer/runners/nodeRunner.ts` — runtime-mode override used
+  when a JavaScript or TypeScript tab selects `runtimeMode === 'node'`.
+  TypeScript tabs transpile through `esbuild-wasm` before IPC; the
+  execution context threads `language` and `filePath` so timeout
+  presets and cwd resolution match the active tab.
+- `src/renderer/runners/manager.ts` — keeps the normal language
+  registry for Worker mode and adds a runtime-mode map for `node`
+  and `browser-preview`.
+
+### Process and sandbox contract
+
+- **No shell interpolation.** User source is never concatenated into a
+  shell command; it is either an argv element or a temp-file payload.
+- **Filtered environment.** Main builds the subprocess env from
+  `combinedAllowlist(NODE_TOOLCHAIN_KEYS)` plus the explicit RL-011
+  user-env tiers. Host secrets such as API keys do not cross the IPC
+  boundary by default.
+- **Project-aware cwd.** Saved tabs use the nearest ancestor that owns
+  a `node_modules/` directory, falling back to the saved file's
+  directory. Unsaved tabs run from Electron's temp directory.
+- **Parent-owned termination.** Each run carries a renderer-minted
+  `runId`; Stop calls `node:stop` for that id, sends SIGTERM, and
+  escalates to SIGKILL after 200 ms. The same ladder backs the
+  timeout path.
+- **Trust notice.** The first successful Node-mode run surfaces
+  `runtimeMode.notice.firstRunDangerous` so users explicitly see that
+  Node mode has full filesystem and network access.
+- **Telemetry.** `runtime.node_runner_used` carries only
+  `{ language, status }`, where status is the closed enum
+  `success | error | timeout | stopped | missing-binary`.
 
 ## Slice 3 ship notes — 2026-05-12
 
@@ -297,7 +343,7 @@ release security review consults.
 | Mode | Origin | Network | DOM | Filesystem | Process | Notes |
 |------|--------|---------|-----|------------|---------|-------|
 | `worker` | Web Worker (same-origin) | Restricted by the app CSP; the JS runner does not call `fetch` from user code | None (`document` is `undefined` in a Worker) | None | None | The Pyodide worker for Python is a separate Worker with its own asset trust boundary; documented in `RUNTIME_ASSETS_ADR.md`. |
-| `node` (Slice 2) | Desktop child process | Inherits the desktop network stack — security review under RL-078 will scope the allowlist | None | Full Node `fs` API, gated by the user-env contract from RL-011 + RL-079 | Spawned via `child_process.spawn` with the per-language env allowlist from `nativeEnv.ts` | Not implemented in Slice 1 / 3. Slice 2 will land the threat model + sandboxing in a dedicated ADR amendment. |
+| `node` (Slice 2) | Desktop child process | Inherits the desktop network stack; first-run trust notice warns before adoption | None | Full Node `fs` API, with cwd scoped to the saved file's project directory or temp for unsaved tabs | Spawned via `child_process.spawn` with the Node env allowlist from `nativeEnv.ts`; Stop and timeout both SIGTERM then SIGKILL | Shipping as of 2026-05-14. Node 22 permission flags remain a deferred hardening fold. |
 | `browser-preview` (Slice 3) | iframe sandbox without `allow-same-origin` → effective origin `null` | Blocked by the srcdoc CSP `default-src 'none'` (no `connect-src`) | Full DOM inside the iframe; cannot reach the parent's DOM | None (no FSA inside an opaque-origin iframe; `localStorage` throws) | None | The parent assigns the bridge runId so spoofed `postMessage` from user code is rejected. |
 
 The matrix is the reference for any future mode (e.g., a
@@ -309,8 +355,7 @@ a row before it lands a backend.
 - `PLAN.md` § RL-019 — ticket scope and per-slice acceptance.
 - `CAPABILITY_MATRIX.md` — three new rows tracking per-mode
   availability per execution class.
-- `ROADMAP.md` § 4b — RL-019 flips from `Planned` to `Partial` once
-  this slice lands.
+- `ROADMAP.md` § 4b — RL-019 is closed in full after Slice 2.
 - `SPRINT-PLAN.md` § N — Iter 24 / RL-019 per-commit detail.
 - `DEBUGGER_ADR.md` § Coupled invariants — the debugger surface
   consumes `tab.runtimeMode` once Slice 2 lands a Node debugger
@@ -322,8 +367,8 @@ a row before it lands a backend.
 
 - First recorded decision: 2026-05-12.
 - Slice 1 implementation: 2026-05-12, same day as the decision.
-- Slice 2 / Slice 3 owner: maintainer (TBD per upstream Node-sandbox
-  scheduling).
+- Slice 2 implementation: 2026-05-14, closing the Node backend.
+- Slice 3 implementation: 2026-05-12, closing the Browser preview backend.
 
 ## Rollback
 

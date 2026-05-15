@@ -21,6 +21,7 @@ const setTabVariableInspectorEnabledMock = vi.fn();
 interface MockTab {
   id: string;
   language: string;
+  runtimeMode?: 'worker' | 'node' | 'browser-preview';
   variableInspectorEnabled?: boolean;
 }
 
@@ -107,6 +108,15 @@ describe('RL-020 Slice 9 — <VariableInspectorToggleButton>', () => {
     expect(button?.getAttribute('disabled')).toBeNull();
     expect(button?.getAttribute('data-state')).toBe('off');
     expect(button?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('does not render for Node runtime mode', () => {
+    setActiveTab({ id: 'tab-1', language: 'javascript', runtimeMode: 'node' });
+    setScopeSnapshot('javascript');
+    const { container } = render(<VariableInspectorToggleButton />);
+    expect(
+      container.querySelector('[data-testid="variable-inspector-toggle"]')
+    ).toBeNull();
   });
 
   it('flips per-tab flag and fires telemetry on click', () => {

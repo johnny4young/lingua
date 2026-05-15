@@ -47,9 +47,8 @@ interface UseGlobalShortcutsOptions {
   closeOverlay: () => void;
   /**
    * RL-019 Slice 1 fold D — cycle the active JS/TS tab through the
-   * implemented runtime modes. Slice 1 has only `worker`, so the
-   * cycle is a no-op for now; Slice 2/3 will pick up `node` and
-   * `browser-preview` automatically as they become implemented.
+   * implemented runtime modes. RL-019 now ships all three modes:
+   * Worker, Node, and Browser preview.
    * Caller is responsible for the non-JS/TS guard (the helper in
    * `App.tsx` checks `languageHasRuntimeModes` before calling).
    */

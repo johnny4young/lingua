@@ -88,6 +88,17 @@ describe('EditorSection — Vim mode toggle (RL-037)', () => {
     expect(screen.getByRole('switch', { name: /Modo Vim/i })).toBeTruthy();
   });
 
+  it('shows Node as a ready default-runtime option', () => {
+    render(<EditorSection />);
+
+    const select = screen.getByTestId('settings-default-runtime-mode');
+    const nodeOption = select.querySelector('option[value="node"]');
+
+    expect(nodeOption).not.toBeNull();
+    expect(nodeOption?.getAttribute('disabled')).toBeNull();
+    expect(nodeOption?.getAttribute('title')).toMatch(/desktop Node runtime/i);
+  });
+
   it('blocks extended editor fonts on the Free tier', async () => {
     useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
     const user = userEvent.setup();

@@ -5,7 +5,18 @@ import { ResultPanel } from '../../src/renderer/components/Editor/ResultPanel';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
-const editorState = {
+const editorState: {
+  tabs: Array<{
+    id: string;
+    name: string;
+    language: string;
+    content: string;
+    isDirty: boolean;
+    runtimeMode?: 'worker' | 'node' | 'browser-preview';
+    variableInspectorEnabled?: boolean;
+  }>;
+  activeTabId: string | null;
+} = {
   tabs: [
     {
       id: 'tab-ts',
@@ -250,6 +261,48 @@ describe('ResultPanel', () => {
       expect(
         document.querySelector('[data-result-kind="autoLog"]')
       ).toBeNull();
+    });
+  });
+
+  describe('RL-019 Slice 2 — Node runtime exclusions', () => {
+    it('hides the variable inspector toggle in Node mode even when a stale worker snapshot exists', () => {
+      editorState.tabs = [
+        {
+          id: 'tab-node',
+          name: 'main.ts',
+          language: 'typescript',
+          content: 'const value: number = 1',
+          isDirty: false,
+          runtimeMode: 'node',
+        },
+      ];
+      editorState.activeTabId = 'tab-node';
+      useResultStore.setState({
+        lineResults: [],
+        error: null,
+        fullOutput: '',
+        executionTime: 5,
+        isAutoRunning: false,
+        executionSource: 'manual',
+        scopeSnapshot: {
+          language: 'typescript',
+          capturedAt: 100,
+          variables: [
+            {
+              name: 'value',
+              value: {
+                kind: 'primitive',
+                type: 'number',
+                repr: '1',
+              },
+            },
+          ],
+        },
+      });
+
+      render(<ResultPanel />);
+
+      expect(screen.queryByTestId('variable-inspector-toggle')).toBeNull();
     });
   });
 });

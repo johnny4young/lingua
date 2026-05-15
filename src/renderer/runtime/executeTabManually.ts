@@ -326,6 +326,8 @@ export async function executeTabManually(
       useSettingsStore.getState().variableInspectorScopeDepth;
 
     const executionContext = {
+      language,
+      ...(activeTab.filePath ? { filePath: activeTab.filePath } : {}),
       ...(resolvedTimeoutMs !== undefined
         ? { timeout: resolvedTimeoutMs }
         : {}),

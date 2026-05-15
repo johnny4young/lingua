@@ -498,6 +498,15 @@ export interface SettingsState {
    */
   variableInspectorScopeDepth: number;
   /**
+   * RL-019 Slice 2 fold E — one-shot dismissal flag for the
+   * "Node mode runs your code with full filesystem and network
+   * access" trust notice. Set the first time the user successfully
+   * runs a Node-mode tab; the notice does not re-surface on
+   * subsequent runs. Resettable from Settings if a future slice
+   * surfaces the toggle.
+   */
+  nodeRunnerFirstRunNoticeShown: boolean;
+  /**
    * RL-020 Slice 2 fold F — one-shot acknowledgement flag for the
    * "Scratchpad auto-runs as you type; Run waits for Cmd+R"
    * onboarding toast. Set to `true` the first time the user switches
@@ -648,6 +657,17 @@ export interface SettingsState {
 // --- Runner Types ---
 
 export interface ExecutionContext {
+  /**
+   * Source language for runtime-mode runners that are not keyed by
+   * the original language in their own `LanguageRunner` metadata
+   * (for example JS / TS tabs routed through desktop Node).
+   */
+  language?: string;
+  /**
+   * Absolute source path for desktop-native runners that need a
+   * project-aware cwd. Undefined for unsaved Scratchpad tabs.
+   */
+  filePath?: string;
   timeout?: number;
   env?: Record<string, string>;
   /**

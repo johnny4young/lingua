@@ -53,6 +53,42 @@ contextBridge.exposeInMainWorld('lingua', {
     ) => ipcRenderer.invoke('rust:run', sourceCode, userEnv, messages),
   },
 
+  // RL-019 Slice 2 — desktop Node child-spawn IPC. Distinct from the
+  // worker-mode JS runner (which executes inside a sandboxed
+  // WebWorker on the renderer side). The Node mode runs the user's
+  // code in a real `node` subprocess on the desktop host so full
+  // built-ins (`fs`, `path`, `http`, …) are available.
+  node: {
+    detect: (userEnv?: Record<string, string>, force?: boolean) =>
+      ipcRenderer.invoke('node:detect', userEnv, force) as Promise<{
+        installed: boolean;
+        version?: string;
+        error?: string;
+      }>,
+    run: (
+      source: string,
+      options?: {
+        runId?: string;
+        timeoutMs?: number;
+        filePath?: string;
+        userEnv?: Record<string, string>;
+        stdin?: string;
+        messages?: NativeRunnerMessages;
+      }
+    ) =>
+      ipcRenderer.invoke('node:run', source, options) as Promise<{
+        kind: 'success' | 'error' | 'timeout' | 'stopped' | 'missing-binary';
+        stdout: string;
+        stderr: string;
+        exitCode: number;
+        executionTime: number;
+        error?: string;
+        timeoutMs: number;
+      }>,
+    stop: (runId: string) =>
+      ipcRenderer.invoke('node:stop', runId) as Promise<{ stopped: boolean }>,
+  },
+
   // Formatter IPC — gofmt / rustfmt / python pipe source via stdin
   format: {
     gofmt: (source: string) =>

@@ -18,6 +18,7 @@ import {
 import { registerFormatterHandlers } from './formatters';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
+import { registerNodeJSHandlers } from './node-runner';
 import { registerAppInfoHandlers } from './ipc/appInfo';
 import { registerFileSystemHandlers } from './ipc/fileSystem';
 import { registerLocaleHandlers } from './ipc/locale';
@@ -74,6 +75,7 @@ if (!hasSingleInstanceLock) {
 // Register IPC handlers
 registerGoHandlers();
 registerRustHandlers();
+registerNodeJSHandlers();
 registerFormatterHandlers();
 registerAppInfoHandlers();
 registerDesktopSmokeHandlers();

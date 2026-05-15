@@ -4,9 +4,7 @@
  *
  * Locks the Slice 1 contract surface:
  *   - Selector renders for JS tabs (default `Worker`).
- *   - Dropdown shows three items; only `Worker` is enabled.
- *   - Disabled items expose their "coming in Slice N" hint via the
- *     accessible-name / `aria-disabled` contract.
+ *   - Dropdown shows three enabled items after Slice 2 closed RL-019.
  *   - The selector is hidden for non-JS/TS tabs.
  *   - Spanish locale renders the localized labels.
  */
@@ -23,7 +21,7 @@ import {
   test,
 } from './licenseWeb.helpers';
 
-test.describe('Runtime mode selector (RL-019 Slice 1)', () => {
+test.describe('Runtime mode selector (RL-019)', () => {
   test('renders Worker as the active mode on a fresh JS tab', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
@@ -35,7 +33,7 @@ test.describe('Runtime mode selector (RL-019 Slice 1)', () => {
     await expect(button).toContainText('Worker');
   });
 
-  test('dropdown lists three options; only Node is disabled after Slice 3', async ({ page }) => {
+  test('dropdown lists three enabled options after Slice 2', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await dismissWhatsNew(page);
@@ -51,12 +49,10 @@ test.describe('Runtime mode selector (RL-019 Slice 1)', () => {
     await expect(worker).not.toBeDisabled();
 
     await expect(node).toBeVisible();
-    await expect(node).toBeDisabled();
-    await expect(node).toHaveAttribute('aria-disabled', 'true');
-    await expect(node).toHaveAttribute('title', /coming soon.*desktop Node/i);
+    await expect(node).not.toBeDisabled();
+    await expect(node).toHaveAttribute('aria-disabled', 'false');
+    await expect(node).toContainText(/desktop Node runtime/i);
 
-    // RL-019 Slice 3 — Browser preview is now ENABLED. The tooltip
-    // surfaces the shipping copy instead of the comingSoon hint.
     await expect(browserPreview).toBeVisible();
     await expect(browserPreview).not.toBeDisabled();
 
@@ -91,12 +87,14 @@ test.describe('Runtime mode selector (RL-019 Slice 1)', () => {
       options.map((option) => (option as HTMLOptionElement).value)
     );
     expect(optionValues).toEqual(['worker', 'node', 'browser-preview']);
-    // RL-019 Slice 3 fold E — only `node` is disabled now.
-    // `browser-preview` lit up alongside `worker`.
     const disabledValues = await select.locator('option[disabled]').evaluateAll((options) =>
       options.map((option) => (option as HTMLOptionElement).value)
     );
-    expect(disabledValues).toEqual(['node']);
+    expect(disabledValues).toEqual([]);
+    await expect(select.locator('option[value="node"]')).toHaveAttribute(
+      'title',
+      /desktop Node runtime/i
+    );
     await expect(select.locator('option[value="browser-preview"]')).toHaveAttribute(
       'title',
       /iframe-isolated preview with DOM/i
@@ -117,8 +115,11 @@ test.describe('Runtime mode selector (RL-019 Slice 1)', () => {
 
     await button.click();
     await expect(page.getByTestId('runtime-mode-option-node')).toHaveAttribute(
-      'title',
-      /próximamente.*Node de escritorio/iu
+      'aria-disabled',
+      'false'
+    );
+    await expect(page.getByTestId('runtime-mode-option-node')).toContainText(
+      /runtime de Node de escritorio/iu
     );
     await page.keyboard.press('Escape');
   });

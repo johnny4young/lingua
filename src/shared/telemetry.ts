@@ -87,6 +87,13 @@ export const TELEMETRY_EVENTS = [
   // content, no consumed count, no source. The countBucket lives
   // on the panel only, not on the wire.
   'runtime.stdin_used',
+  // RL-019 Slice 2 — desktop Node child-spawn runner adoption.
+  // Fires once per `node` mode execute() with the final status
+  // bucket. Closed-enum payload `{ language, status }`; no source,
+  // no exit code, no error message. `status` is the closed enum
+  // `'success'` / `'error'` / `'timeout'` / `'stopped'` /
+  // `'missing-binary'`.
+  'runtime.node_runner_used',
   // RL-020 Slice 7 — per-language timeout-preset change. Fires
   // when the user sets a new preset via Settings → Editor or via
   // the command palette. Closed-enum payload `{ language, preset }`;
@@ -212,6 +219,11 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // a small population by per-run shape; Slice 6 stays at adoption
   // level only.
   'runtime.stdin_used': ['language'],
+  // RL-019 Slice 2 — `language` is the language-pack id
+  // (`'javascript'` / `'typescript'`); `status` is the closed enum
+  // (`'ok'` / `'error'` / `'timeout'` / `'stopped'` /
+  // `'missing-binary'`). Mirrored on update-server.
+  'runtime.node_runner_used': ['language', 'status'],
   // RL-020 Slice 7 — `language` is the language-pack id (`isSafeToken`);
   // `preset` is the closed `RuntimeTimeoutPreset` enum
   // (`quick` / `normal` / `long` / `extended`). Mirrored on
@@ -260,6 +272,17 @@ const RUNTIME_TIMEOUT_PRESET_VALUES = new Set([
   'normal',
   'long',
   'extended',
+]);
+// RL-019 Slice 2 — closed enum mirror of `NodeRunKind` exported
+// from `src/main/node-runner.ts`. Duplicated here so the redactor
+// stays a pure module without an import cycle; the parity test
+// asserts both sides stay in sync.
+const NODE_RUNNER_STATUS_VALUES = new Set([
+  'success',
+  'error',
+  'timeout',
+  'stopped',
+  'missing-binary',
 ]);
 // RL-020 Slice 9 — variable inspector adoption bucket enum. Source
 // of truth in `src/shared/scopeSnapshot.ts` (`VARIABLE_COUNT_BUCKETS`);
@@ -458,6 +481,14 @@ function isAllowedValue(
         return (
           typeof value === 'string' &&
           RUNTIME_TIMEOUT_PRESET_VALUES.has(value)
+        );
+      return false;
+    case 'runtime.node_runner_used':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'status')
+        return (
+          typeof value === 'string' &&
+          NODE_RUNNER_STATUS_VALUES.has(value)
         );
       return false;
     case 'runtime.variable_inspector_opened':
