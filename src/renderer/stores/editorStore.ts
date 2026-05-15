@@ -568,18 +568,26 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!isRuntimeModeImplemented(mode)) {
       // RL-019 Slice 1 fold G — surface a status notice when the
       // user (via shortcut, palette, or programmatic call) tries to
-      // switch into a mode that has not landed yet. After Slice 3,
-      // Node is the only remaining unimplemented RuntimeMode.
+      // switch into a mode that has not landed yet. Kept defensive
+      // for future RuntimeMode enum additions.
       useUIStore.getState().pushStatusNotice({
         tone: 'info',
-        messageKey: 'runtimeMode.notice.notImplementedNode',
+        messageKey: 'runtimeMode.notice.notImplemented',
       });
       return;
     }
     if (target.runtimeMode === mode) return;
     set((state) => ({
       tabs: state.tabs.map((t) =>
-        t.id === id ? { ...t, runtimeMode: mode } : t
+        t.id === id
+          ? mode === 'node'
+            ? (() => {
+                const { variableInspectorEnabled: _drop, ...rest } = t;
+                void _drop;
+                return { ...rest, runtimeMode: mode };
+              })()
+            : { ...t, runtimeMode: mode }
+          : t
       ),
     }));
     // Runtime-mode changes are an output-surface change too. Keep
@@ -741,6 +749,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           const { variableInspectorEnabled: _drop, ...rest } = t;
           void _drop;
           return rest;
+        }
+        if (
+          !isVariableInspectorSupportedLanguage(t.language) ||
+          t.runtimeMode === 'node'
+        ) {
+          return t;
         }
         // Mutual exclusion with Compare.
         const { compareWithSnapshotEnabled: _dropCompare, ...rest } = t;

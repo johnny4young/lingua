@@ -345,8 +345,7 @@ function AppChrome({
     closeOverlay,
     cycleRuntimeMode: () => {
       // RL-019 Slice 1 fold D — cycle the active JS/TS tab through
-      // the implemented runtime modes. No-op for non-JS/TS tabs and
-      // for tabs that are already on the only implemented mode.
+      // the implemented runtime modes. No-op for non-JS/TS tabs.
       const state = useEditorStore.getState();
       const tab = state.tabs.find((t) => t.id === state.activeTabId);
       if (!tab || !languageHasRuntimeModes(tab.language)) return;

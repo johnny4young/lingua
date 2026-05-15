@@ -302,9 +302,11 @@ export function ResultPanel() {
     'typescript',
     'python',
   ]);
+  const variableInspectorRuntimeSupported = activeTab?.runtimeMode !== 'node';
   const variableInspectorEnabled =
     executionMode === 'run' &&
     activeTab?.variableInspectorEnabled === true &&
+    variableInspectorRuntimeSupported &&
     variableInspectorSupportedLanguages.has(language) &&
     scopeSnapshot !== null &&
     scopeSnapshot.language === language;
@@ -443,6 +445,7 @@ export function ResultPanel() {
               setter. Self-gates on language support + snapshot
               availability inside the component. */}
           {executionMode === 'run' &&
+            variableInspectorRuntimeSupported &&
             variableInspectorSupportedLanguages.has(language) && (
               <VariableInspectorToggleButton />
             )}

@@ -5,6 +5,7 @@ import { GoRunner } from './go';
 import { PythonRunner } from './python';
 import { RustRunner } from './rust';
 import { BrowserPreviewRunner } from './browserPreview';
+import { NodeRunner } from './nodeRunner';
 import { pluginRegistry } from '../plugins';
 import { LANGUAGE_PACKS } from '../../shared/languagePacks';
 import type { RuntimeMode } from '../../shared/runtimeModes';
@@ -48,8 +49,16 @@ export class RunnerManager {
    * the default language-keyed path stays the source of truth for
    * the JS Worker, TS Worker, Python Pyodide worker, etc.
    */
-  private runtimeModeRunners: Map<string, LanguageRunner> = new Map([
+  private runtimeModeRunners: Map<string, LanguageRunner> = new Map<
+    string,
+    LanguageRunner
+  >([
     ['browser-preview', new BrowserPreviewRunner()],
+    // RL-019 Slice 2 — desktop Node child-spawn runner. Self-gates
+    // on `window.lingua.node` availability inside `.execute()`
+    // (web builds surface a clear renderer-side error instead of
+    // crashing the manager registration on import).
+    ['node', new NodeRunner()],
   ]);
   private runtimeModeInitializing: Map<string, Promise<void>> = new Map();
 

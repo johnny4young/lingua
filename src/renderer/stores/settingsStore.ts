@@ -309,6 +309,10 @@ export const useSettingsStore = create<SettingsState>()(
       // Editor lets the user bump it (max enforced renderer-side by
       // `MAX_SCOPE_DEPTH`).
       variableInspectorScopeDepth: 1,
+      // RL-019 Slice 2 fold E — Node first-run trust notice flag.
+      // Defaults `false`; flipped to `true` after the first
+      // successful Node-mode run.
+      nodeRunnerFirstRunNoticeShown: false,
       // RL-020 Slice 2 fold F — onboarding-toast acknowledgement.
       firstWorkflowModeSwitchAcknowledged: false,
       language: 'system',
@@ -399,11 +403,9 @@ export const useSettingsStore = create<SettingsState>()(
         })),
       setLanguage: (language) => set({ language }),
       // RL-019 Slice 1 fold B — guard the setter so only implemented
-      // modes can be persisted as the per-app default. Unimplemented
-      // modes (`node`, `browser-preview` in Slice 1) are silently
-      // rejected; the selector renders them disabled so this branch
-      // is only reachable from programmatic / palette / shortcut
-      // entry points.
+      // modes can be persisted as the per-app default. This remains
+      // defensive for future enum additions that an older build
+      // should not persist.
       setDefaultRuntimeMode: (mode: RuntimeMode) => {
         if (!isRuntimeModeImplemented(mode)) return;
         set({ defaultRuntimeMode: mode });

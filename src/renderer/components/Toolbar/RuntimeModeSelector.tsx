@@ -16,15 +16,15 @@ import { cn } from '../../utils/cn';
  *
  * Renders only when the active tab is a JS/TS buffer. Three options:
  *   - Worker — Slice 1, enabled.
- *   - Node — Slice 2, disabled with tooltip.
- *   - Browser preview — Slice 3, disabled with tooltip.
+ *   - Node — Slice 2, enabled in desktop.
+ *   - Browser preview — Slice 3, enabled.
  *
  * Behaviour:
  *   - Click an enabled option → calls `setTabRuntimeMode` which
  *     fires the `runtime.mode_changed` telemetry and (fold G)
  *     pushes a status-notice toast confirming the switch.
- *   - Click a disabled option → noop; the tooltip already explains
- *     when the mode lands.
+ *   - Click a disabled option → noop; the tooltip explains why the
+ *     mode is unavailable.
  *   - Escape / outside click → closes the dropdown.
  */
 
@@ -36,7 +36,10 @@ const MODE_LABEL_KEY: Record<RuntimeMode, string> = {
 
 const MODE_HINT_KEY: Record<RuntimeMode, string> = {
   worker: 'runtimeMode.hint.worker',
-  node: 'runtimeMode.hint.node.comingSoon',
+  // RL-019 Slice 2 — node mode is shipping. Detector-failure path
+  // (missing binary on PATH) surfaces a different copy via the
+  // detection notice handled at the click site.
+  node: 'runtimeMode.hint.node.ready',
   // RL-019 Slice 3 — browser-preview is implemented now; use the
   // shipping copy instead of the Slice 1 disabled-state hint.
   'browser-preview': 'runtimeMode.hint.browserPreview.shipping',

@@ -1,0 +1,200 @@
+import { EventEmitter } from 'node:events';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => {
+  const handlers = new Map<string, unknown>();
+  const execFileAsync = vi.fn();
+  const execFile = Object.assign(vi.fn(), {
+    [Symbol.for('nodejs.util.promisify.custom')]: execFileAsync,
+  });
+  return {
+    handlers,
+    execFile,
+    execFileAsync,
+    spawn: vi.fn(),
+    getPath: vi.fn(() => '/tmp/lingua-node-test'),
+  };
+});
+
+vi.mock('electron', () => ({
+  app: {
+    getPath: mocks.getPath,
+  },
+  ipcMain: {
+    handle: (channel: string, handler: unknown) => {
+      mocks.handlers.set(channel, handler);
+    },
+  },
+}));
+
+vi.mock('node:child_process', () => ({
+  default: {
+    execFile: mocks.execFile,
+    spawn: mocks.spawn,
+  },
+  execFile: mocks.execFile,
+  spawn: mocks.spawn,
+}));
+
+type NodeRunHandler = (
+  event: unknown,
+  source: unknown,
+  options?: unknown
+) => Promise<NodeRunResult>;
+
+type NodeStopHandler = (
+  event: unknown,
+  runId?: unknown
+) => Promise<{ stopped: boolean }>;
+
+function handlerFor<T>(channel: string): T {
+  const handler = mocks.handlers.get(channel);
+  if (!handler) throw new Error(`Missing handler for ${channel}`);
+  return handler as T;
+}
+
+function createChildProcess() {
+  const child = new EventEmitter() as EventEmitter & {
+    stdout: EventEmitter;
+    stderr: EventEmitter;
+    stdin: {
+      write: ReturnType<typeof vi.fn>;
+      end: ReturnType<typeof vi.fn>;
+    };
+    kill: ReturnType<typeof vi.fn>;
+  };
+  child.stdout = new EventEmitter();
+  child.stderr = new EventEmitter();
+  child.stdin = {
+    write: vi.fn(),
+    end: vi.fn(),
+  };
+  child.kill = vi.fn(() => true);
+  return child;
+}
+
+describe('main node runner', () => {
+  let tempRoot: string;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    mocks.handlers.clear();
+    mocks.execFile.mockReset();
+    mocks.execFileAsync.mockReset();
+    mocks.execFileAsync.mockResolvedValue({ stdout: 'v24.11.1\n', stderr: '' });
+    mocks.spawn.mockReset();
+    mocks.getPath.mockReturnValue('/tmp/lingua-node-test');
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), 'lingua-node-runner-'));
+  });
+
+  afterEach(async () => {
+    await rm(tempRoot, { recursive: true, force: true });
+  });
+
+  it('resolves cwd to the nearest node_modules ancestor for saved files', async () => {
+    const project = path.join(tempRoot, 'project');
+    const src = path.join(project, 'src', 'nested');
+    await mkdir(path.join(project, 'node_modules'), { recursive: true });
+    await mkdir(src, { recursive: true });
+
+    const { resolveNodeCwd } = await import('../../src/main/node-runner');
+
+    expect(resolveNodeCwd(path.join(src, 'index.js'))).toBe(project);
+  });
+
+  it('falls back to Electron temp for unsaved Scratchpad runs', async () => {
+    const { resolveNodeCwd } = await import('../../src/main/node-runner');
+
+    expect(resolveNodeCwd()).toBe('/tmp/lingua-node-test');
+  });
+
+  it('registers run, detect, and stop IPC handlers', async () => {
+    const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+    registerNodeJSHandlers();
+
+    expect(mocks.handlers.get('node:detect')).toBeTypeOf('function');
+    expect(mocks.handlers.get('node:run')).toBeTypeOf('function');
+    expect(mocks.handlers.get('node:stop')).toBeTypeOf('function');
+  });
+
+  it('rejects malformed IPC source without spawning a child', async () => {
+    const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+    registerNodeJSHandlers();
+
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const result = await run({}, 42, {});
+
+    expect(result.kind).toBe('error');
+    expect(result.error).toMatch(/invalid source/i);
+    expect(mocks.spawn).not.toHaveBeenCalled();
+  });
+
+  it('threads filePath cwd, stdin, env, and runId through node:run', async () => {
+    const project = path.join(tempRoot, 'project');
+    const src = path.join(project, 'src');
+    await mkdir(path.join(project, 'node_modules'), { recursive: true });
+    await mkdir(src, { recursive: true });
+    await writeFile(path.join(project, 'package.json'), '{"type":"module"}', 'utf-8');
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+
+    const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+    registerNodeJSHandlers();
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const promise = run({}, 'console.log(process.cwd())', {
+      runId: 'run-1',
+      filePath: path.join(src, 'index.js'),
+      timeoutMs: 5_000,
+      userEnv: { NODE_PATH: '/custom/node_modules', BAD: 42 },
+      stdin: 'hello\n',
+    });
+
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+    child.stdout.emit('data', Buffer.from('ok\n'));
+    child.emit('close', 0);
+
+    await expect(promise).resolves.toMatchObject({
+      kind: 'success',
+      stdout: 'ok\n',
+    });
+    expect(mocks.spawn).toHaveBeenCalledWith(
+      'node',
+      ['--input-type=module', '-e', 'console.log(process.cwd())'],
+      expect.objectContaining({
+        cwd: project,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: expect.objectContaining({ NODE_PATH: '/custom/node_modules' }),
+      })
+    );
+    expect(child.stdin.write).toHaveBeenCalledWith('hello\n');
+    expect(child.stdin.end).toHaveBeenCalled();
+  });
+
+  it('node:stop terminates the matching active child and resolves the run as stopped', async () => {
+    const child = createChildProcess();
+    mocks.spawn.mockReturnValue(child);
+
+    const { registerNodeJSHandlers } = await import('../../src/main/node-runner');
+    registerNodeJSHandlers();
+    const run = handlerFor<NodeRunHandler>('node:run');
+    const stop = handlerFor<NodeStopHandler>('node:stop');
+
+    const promise = run({}, 'setInterval(() => {}, 1000)', {
+      runId: 'run-stop',
+      timeoutMs: 30_000,
+    });
+    await vi.waitFor(() => expect(mocks.spawn).toHaveBeenCalledTimes(1));
+
+    await expect(stop({}, 'run-stop')).resolves.toEqual({ stopped: true });
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+
+    child.emit('close', null);
+    await expect(promise).resolves.toMatchObject({
+      kind: 'stopped',
+      exitCode: -1,
+    });
+  });
+});

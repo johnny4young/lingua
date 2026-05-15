@@ -56,6 +56,10 @@ describe('TELEMETRY_EVENTS', () => {
       // run. Closed-enum payload `{ language, hasArrow, hasWatch }`.
       'runtime.magic_comment_emitted',
       'runtime.mode_changed',
+      // RL-019 Slice 2 — desktop Node child-spawn adoption. Closed-
+      // enum payload `{ language, status }`. Sorts between
+      // `mode_changed` and `stdin_used` alphabetically.
+      'runtime.node_runner_used',
       // RL-020 Slice 6 — bare-stdin adoption signal. Closed-enum
       // payload `{ language }`. Sorts between `mode_changed` and
       // `workflow_mode_changed` alphabetically.
@@ -660,6 +664,59 @@ describe('runtime.timeout_preset_changed value validator (RL-020 Slice 7)', () =
       preset: 'quick',
     });
     expect(droppedKeys).toContain('when');
+  });
+});
+
+describe('runtime.node_runner_used value validator (RL-019 Slice 2)', () => {
+  it('accepts the closed-enum payload', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.node_runner_used',
+        properties: { language: 'javascript', status: 'success' },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'javascript',
+      status: 'success',
+    });
+  });
+  it('accepts every closed-enum status bucket', () => {
+    for (const status of ['success', 'error', 'timeout', 'stopped', 'missing-binary']) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'runtime.node_runner_used',
+          properties: { language: 'typescript', status },
+        })
+      );
+      expect(event.properties).toEqual({ language: 'typescript', status });
+    }
+  });
+  it('drops an unknown status bucket', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.node_runner_used',
+        properties: { language: 'javascript', status: 'killed-by-signal' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('status');
+    expect(droppedKeys).toContain('status');
+  });
+  it('drops unknown property keys', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.node_runner_used',
+        properties: {
+          language: 'javascript',
+          status: 'success',
+          exitCode: 0,
+        },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'javascript',
+      status: 'success',
+    });
+    expect(droppedKeys).toContain('exitCode');
   });
 });
 

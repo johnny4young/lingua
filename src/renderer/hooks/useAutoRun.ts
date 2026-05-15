@@ -411,6 +411,8 @@ export function useAutoRun() {
         const wantsScopeCapture = variableInspectorLanguages.has(language);
         const scopeDepthPref = useSettingsStore.getState().variableInspectorScopeDepth;
         const result: ExecutionResult = await runner.execute(code, {
+          language,
+          ...(activeTab?.filePath ? { filePath: activeTab.filePath } : {}),
           autoLog: autoLogEnabled,
           ...(stdinBuffer !== undefined ? { stdin: stdinBuffer } : {}),
           ...(overrideMs !== null ? { timeout: overrideMs } : {}),

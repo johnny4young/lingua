@@ -342,7 +342,7 @@ export function EditorSection() {
               mode === 'worker'
                 ? 'runtimeMode.hint.worker'
                 : mode === 'node'
-                  ? 'runtimeMode.hint.node.comingSoon'
+                  ? 'runtimeMode.hint.node.ready'
                   : 'runtimeMode.hint.browserPreview.shipping';
             return (
               <option key={mode} value={mode} disabled={!enabled} title={t(hintKey)}>

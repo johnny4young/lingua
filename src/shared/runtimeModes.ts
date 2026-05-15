@@ -5,8 +5,9 @@
  *   - `worker` — current default. Sandboxed Web Worker, no DOM, no
  *     Node built-ins. Fast and isolated; ideal for algorithm work.
  *   - `node` — desktop child-process Node. Built-ins (`fs`, `path`,
- *     `http`, `process`, ...) available. Slice 2 will wire the
- *     subprocess spawn + sandbox + timeouts. Disabled in Slice 1.
+ *     `http`, `process`, ...) available through the Slice 2
+ *     subprocess spawn, timeout, and env allowlist in the desktop
+ *     main process.
  *   - `browser-preview` — iframe-isolated context with DOM. Slice 3
  *     ships the preview pane.
  *
@@ -17,9 +18,8 @@
  * capability contract from RL-038.
  *
  * `isRuntimeModeImplemented(mode)` gates writes from the UI / the
- * keyboard cycle helper / the command palette — `'worker'` and
- * `'browser-preview'` pass today. Slice 2 flips `'node'` once its
- * desktop backend lands.
+ * keyboard cycle helper / the command palette. All three RL-019
+ * modes are implemented as of 2026-05-14.
  */
 
 export const RUNTIME_MODES = ['worker', 'node', 'browser-preview'] as const;
@@ -50,13 +50,16 @@ export function defaultRuntimeModeFor(language: string | undefined): RuntimeMode
 
 /**
  * Whether a mode is wired today. Slice 1 shipped `worker`; Slice 3
- * adds `browser-preview` (RL-019 Slice 3, 2026-05-12). Slice 2 will
- * flip `node` once the desktop Node child-process backend lands.
- * The UI shows unimplemented modes as disabled and any programmatic
- * write to one is rejected.
+ * (2026-05-12) added `browser-preview`; **Slice 2 (2026-05-14)
+ * flipped `node` to enabled** once the desktop Node child-spawn
+ * backend landed. The UI still renders the option as disabled when
+ * the detector cannot find a `node` binary on PATH — that's a
+ * platform-detection gate, not an implementation gate.
  */
 export function isRuntimeModeImplemented(mode: RuntimeMode): boolean {
-  return mode === 'worker' || mode === 'browser-preview';
+  return (
+    mode === 'worker' || mode === 'browser-preview' || mode === 'node'
+  );
 }
 
 /**
@@ -83,10 +86,7 @@ export function coerceRuntimeMode(
 
 /**
  * Return the next implemented mode after `current`, cycling through
- * `RUNTIME_MODES`. Used by the `Mod+Alt+M` shortcut (fold D). In
- * Slice 3 added `'browser-preview'`, so the cycle alternates between
- * the Worker and Browser preview paths while skipping `'node'` until
- * Slice 2 lands it.
+ * `RUNTIME_MODES`. Used by the `Mod+Alt+M` shortcut (fold D).
  */
 export function cycleRuntimeMode(current: RuntimeMode): RuntimeMode {
   const implemented = RUNTIME_MODES.filter(isRuntimeModeImplemented);

@@ -53,6 +53,8 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-020 Slice 6 — mirror of `runtime.stdin_used` in
   // `src/shared/telemetry.ts`. The parity test enforces drift.
   'runtime.stdin_used',
+  // RL-019 Slice 2 — mirror of `runtime.node_runner_used`.
+  'runtime.node_runner_used',
   // RL-020 Slice 7 — mirror of `runtime.timeout_preset_changed`.
   'runtime.timeout_preset_changed',
   // RL-020 Slice 9 — mirror of `runtime.variable_inspector_opened`.
@@ -88,6 +90,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.auto_log_enabled': ['language', 'enabled'],
   'runtime.auto_log_emitted': ['language', 'countBucket'],
   'runtime.stdin_used': ['language'],
+  // RL-019 Slice 2 — mirror of `runtime.node_runner_used`.
+  'runtime.node_runner_used': ['language', 'status'],
   // RL-020 Slice 7 — mirror of `runtime.timeout_preset_changed`.
   'runtime.timeout_preset_changed': ['language', 'preset'],
   // RL-020 Slice 9 — mirror of `runtime.variable_inspector_opened`.
@@ -131,6 +135,15 @@ const RUNTIME_TIMEOUT_PRESET_VALUES = new Set([
   'normal',
   'long',
   'extended',
+]);
+// RL-019 Slice 2 — closed-enum mirror of `NODE_RUNNER_STATUS_VALUES`
+// in `src/shared/telemetry.ts`. Parity test enforces lockstep.
+const NODE_RUNNER_STATUS_VALUES = new Set([
+  'success',
+  'error',
+  'timeout',
+  'stopped',
+  'missing-binary',
 ]);
 // RL-020 Slice 9 — closed-enum mirror of
 // `VARIABLE_INSPECTOR_COUNT_BUCKETS` in `src/shared/telemetry.ts`.
@@ -401,6 +414,14 @@ function isAllowedValue(
         return (
           typeof value === 'string' &&
           RUNTIME_TIMEOUT_PRESET_VALUES.has(value)
+        );
+      return false;
+    case 'runtime.node_runner_used':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'status')
+        return (
+          typeof value === 'string' &&
+          NODE_RUNNER_STATUS_VALUES.has(value)
         );
       return false;
     case 'runtime.variable_inspector_opened':

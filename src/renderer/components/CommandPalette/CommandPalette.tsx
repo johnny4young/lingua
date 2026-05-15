@@ -318,6 +318,7 @@ export function CommandPalette({
         activeTab?.variableInspectorEnabled === true,
       variableInspectorScopeAvailable: (() => {
         if (!activeTab) return false;
+        if (activeTab.runtimeMode === 'node') return false;
         const snapshot = useResultStore.getState().scopeSnapshot;
         return (
           snapshot != null && snapshot.language === activeTab.language

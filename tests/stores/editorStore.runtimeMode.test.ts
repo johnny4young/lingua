@@ -91,7 +91,7 @@ describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
     expect(tab?.runtimeMode).toBe('worker');
   });
 
-  it('addTab coerces unimplemented runtimeMode values for JS/TS', () => {
+  it('addTab preserves the runtimeMode value when the mode is implemented (Slice 2 — node now shipping)', () => {
     const { addTab } = useEditorStore.getState();
     addTab({
       id: 'manual-node',
@@ -101,6 +101,22 @@ describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
       runtimeMode: 'node',
     });
     const tab = useEditorStore.getState().tabs[0];
+    // After RL-019 Slice 2 (2026-05-14), `node` is implemented and
+    // survives the addTab path instead of being coerced to worker.
+    expect(tab?.runtimeMode).toBe('node');
+  });
+
+  it('addTab coerces an unknown future runtimeMode string back to worker', () => {
+    const { addTab } = useEditorStore.getState();
+    addTab({
+      id: 'manual-unknown',
+      name: 'manual.js',
+      language: 'javascript',
+      content: '',
+      runtimeMode: 'future-runtime' as unknown as 'worker',
+    });
+    const tab = useEditorStore.getState().tabs[0];
+    // Unknown mode → defensive worker fallback.
     expect(tab?.runtimeMode).toBe('worker');
   });
 
@@ -114,16 +130,33 @@ describe('editorStore — runtimeMode (RL-019 Slice 1)', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
-  it('setTabRuntimeMode rejects unimplemented modes and pushes a status notice', () => {
+  it('setTabRuntimeMode accepts node after Slice 2 and fires telemetry', () => {
     const { addTab, setTabRuntimeMode } = useEditorStore.getState();
     const js = createDefaultTab('javascript');
     addTab(js);
     setTabRuntimeMode(js.id, 'node');
     const tab = useEditorStore.getState().tabs.find((t) => t.id === js.id);
-    expect(tab?.runtimeMode).toBe('worker');
-    const notice = useUIStore.getState().statusNotice;
-    expect(notice?.messageKey).toBe('runtimeMode.notice.notImplementedNode');
-    expect(mockTrackEvent).not.toHaveBeenCalled();
+    // RL-019 Slice 2 (2026-05-14) — `node` is now implemented and
+    // the setter accepts it instead of rejecting with a notice.
+    expect(tab?.runtimeMode).toBe('node');
+    expect(mockTrackEvent).toHaveBeenCalledWith('runtime.mode_changed', {
+      mode: 'node',
+      language: 'javascript',
+    });
+  });
+
+  it('setTabRuntimeMode clears the variable inspector flag when switching to node', () => {
+    const { addTab, setTabRuntimeMode, setTabVariableInspectorEnabled } =
+      useEditorStore.getState();
+    const js = createDefaultTab('javascript');
+    addTab(js);
+    setTabVariableInspectorEnabled(js.id, true);
+
+    setTabRuntimeMode(js.id, 'node');
+
+    const tab = useEditorStore.getState().tabs.find((t) => t.id === js.id);
+    expect(tab?.runtimeMode).toBe('node');
+    expect(tab?.variableInspectorEnabled).toBeUndefined();
   });
 
   it('setTabRuntimeMode accepts browser-preview after Slice 3 and fires telemetry', () => {

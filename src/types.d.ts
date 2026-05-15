@@ -95,6 +95,41 @@ interface RustRunResult {
   error?: string;
 }
 
+// -------------------------------------------------------------- Node types
+// RL-019 Slice 2 — desktop Node child-spawn IPC. Detection + run.
+
+interface NodeDetectResult {
+  installed: boolean;
+  version?: string;
+  error?: string;
+}
+
+type NodeRunKind =
+  | 'success'
+  | 'error'
+  | 'timeout'
+  | 'stopped'
+  | 'missing-binary';
+
+interface NodeRunInvokeOptions {
+  runId?: string;
+  timeoutMs?: number;
+  filePath?: string;
+  userEnv?: Record<string, string>;
+  stdin?: string;
+  messages?: NativeRunnerMessages;
+}
+
+interface NodeRunResult {
+  kind: NodeRunKind;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  executionTime: number;
+  error?: string;
+  timeoutMs: number;
+}
+
 // RL-026 Slice 3 + Slice 4 — desktop LSP launcher status surface.
 // `RustAnalyzerStatus` and `GoplsStatus` share the same discriminated
 // union so the renderer and preload can use a single contract; the
@@ -438,6 +473,23 @@ interface LinguaAPI {
       userEnv?: Record<string, string>,
       messages?: NativeRunnerMessages
     ) => Promise<RustRunResult>;
+  };
+
+  // RL-019 Slice 2 — desktop Node child-spawn IPC. Worker-mode JS
+  // does not use this bridge; only `runtimeMode === 'node'` tabs.
+  // Optional because the web build's adapter (src/web/adapter.ts)
+  // deliberately omits this surface — Node mode is desktop-only.
+  // Callers MUST check `window.lingua.node` before invoking.
+  node?: {
+    detect: (
+      userEnv?: Record<string, string>,
+      force?: boolean
+    ) => Promise<NodeDetectResult>;
+    run: (
+      source: string,
+      options?: NodeRunInvokeOptions
+    ) => Promise<NodeRunResult>;
+    stop: (runId: string) => Promise<{ stopped: boolean }>;
   };
 
   format: {
