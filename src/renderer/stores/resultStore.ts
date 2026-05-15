@@ -5,6 +5,7 @@ import type {
   RuntimeTimeoutPreset,
 } from '../types';
 import type { AutoRunGateReason } from '../../shared/autoRunGating';
+import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
 
 /**
  * RL-020 Slice 7 — terminator summary surfaced via `<RunStatusPill>`.
@@ -160,6 +161,15 @@ interface ResultState {
    * `null` while no run is in flight.
    */
   runDeadlineAt: number | null;
+  /**
+   * RL-020 Slice 9 — post-execute variable scope for the active
+   * tab. `null` means no capture-enabled run has completed cleanly
+   * yet; the inspector toggle reads this to decide whether to
+   * enable. Cleared on tab switch via `clear()`; preserved by
+   * `clearVisibleResults()` so a transient empty-buffer cycle
+   * (Cmd+A → Backspace) does not drop the comparator.
+   */
+  scopeSnapshot: ScopeSnapshot | null;
 
   setLineResults: (results: LineResult[]) => void;
   setFullOutput: (output: string) => void;
@@ -181,6 +191,13 @@ interface ResultState {
    * by the countdown pill.
    */
   setRunDeadlineAt: (epochMs: number | null) => void;
+  /**
+   * RL-020 Slice 9 — write the variable inspector scope snapshot.
+   * `null` clears (the toggle returns to disabled). The setter is
+   * called from both `useAutoRun` and `executeTabManually` on the
+   * clean-success branch.
+   */
+  setScopeSnapshot: (snapshot: ScopeSnapshot | null) => void;
   /**
    * RL-020 Slice 1 — capture the panel state as the last good run.
    * RL-020 Slice 8 — caller passes the active tab's `language` so
@@ -249,6 +266,9 @@ export const useResultStore = create<ResultState>((set, get) => ({
   selectedCompareTargetCapturedAt: null,
   runTermination: null,
   runDeadlineAt: null,
+  // RL-020 Slice 9 — variable inspector snapshot, populated by the
+  // runtime entry points on clean success.
+  scopeSnapshot: null,
 
   setLineResults: (lineResults) => set({ lineResults }),
   setFullOutput: (fullOutput) => set({ fullOutput }),
@@ -262,6 +282,7 @@ export const useResultStore = create<ResultState>((set, get) => ({
   setAutoRunGateReason: (autoRunGateReason) => set({ autoRunGateReason }),
   setRunTermination: (runTermination) => set({ runTermination }),
   setRunDeadlineAt: (runDeadlineAt) => set({ runDeadlineAt }),
+  setScopeSnapshot: (scopeSnapshot) => set({ scopeSnapshot }),
   captureSuccessfulSnapshot: (language) => {
     const { lineResults, fullOutput, stdinConsumed, executionTime, snapshotRing } = get();
     const fresh: ResultSnapshot = {
@@ -392,6 +413,9 @@ export const useResultStore = create<ResultState>((set, get) => ({
       // too so the new tab's panel header starts quiet.
       runTermination: null,
       runDeadlineAt: null,
+      // RL-020 Slice 9 — drop the variable inspector snapshot on tab
+      // switch so the new tab's toggle starts disabled.
+      scopeSnapshot: null,
     }),
   clearVisibleResults: () =>
     // RL-020 Slice 3 — same shape as `clear()` but DOES NOT touch

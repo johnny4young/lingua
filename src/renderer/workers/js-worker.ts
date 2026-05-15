@@ -26,9 +26,30 @@
 export {};
 
 import { truncateSerialized } from '../runners/limits';
+import {
+  DEFAULT_SCOPE_DEPTH,
+  INTERNAL_JS_SYMBOLS,
+  type ScopeSnapshot,
+  type ScopeVariable,
+  finalizeScopeSnapshot,
+  serializeScopeValue,
+} from '../../shared/scopeSnapshot';
 
 // Type-safe message posting (Worker context has no DOM types)
 const ctx = self as unknown as Worker;
+
+/**
+ * RL-020 Slice 9 — snapshot of the worker's globals BEFORE any user
+ * code runs. The variable inspector subtracts this set from the
+ * post-execute `Object.getOwnPropertyNames(self)` so only user-
+ * declared bindings survive. Anything injected after module load
+ * (the AsyncFunction parameters, `prompt`, `readline`) is still
+ * caught by the static `INTERNAL_JS_SYMBOLS` list defined in
+ * `src/shared/scopeSnapshot.ts`.
+ */
+const BOOT_TIME_GLOBALS: ReadonlySet<string> = new Set(
+  Object.getOwnPropertyNames(self)
+);
 
 /** Override console methods to capture output and send to main thread */
 const originalConsole = {
@@ -43,6 +64,90 @@ const FALLBACK_RESULT_TRUNCATION_MARKER = '[result truncated]';
 
 function truncate(value: string, marker: string): string {
   return truncateSerialized(value, marker);
+}
+
+/**
+ * RL-020 Slice 9 — variable-inspector scope capture.
+ *
+ * Walks `globalThis` keys, filters against the boot-time snapshot
+ * + the static internal-symbol list, and serializes each remaining
+ * binding via the shared `serializeScopeValue` helper. Returns a
+ * payload-bounded `ScopeSnapshot` ready for postMessage.
+ *
+ * Failure modes are contained — a getter that throws on access is
+ * caught inside the per-key loop and emitted as a `kind: 'error'`
+ * entry rather than aborting the whole capture.
+ */
+function captureJsScope(
+  language: string,
+  scopeDepth: number | undefined,
+  marker: string
+): ScopeSnapshot {
+  const names = Object.getOwnPropertyNames(self);
+  const variables: ScopeVariable[] = [];
+  for (const name of names) {
+    if (BOOT_TIME_GLOBALS.has(name)) continue;
+    if (INTERNAL_JS_SYMBOLS.has(name)) continue;
+    let value: unknown;
+    try {
+      value = (self as unknown as Record<string, unknown>)[name];
+    } catch (err) {
+      variables.push({
+        name,
+        value: {
+          kind: 'error',
+          message: err instanceof Error ? err.message : 'Access error',
+        },
+      });
+      continue;
+    }
+    try {
+      variables.push({
+        name,
+        value: serializeScopeValue(value, {
+          truncate: (input) => truncate(input, marker),
+          maxDepth: scopeDepth ?? DEFAULT_SCOPE_DEPTH,
+        }),
+      });
+    } catch (err) {
+      variables.push({
+        name,
+        value: {
+          kind: 'error',
+          message: err instanceof Error ? err.message : 'Serialization error',
+        },
+      });
+    }
+  }
+  return finalizeScopeSnapshot(language, variables);
+}
+
+function captureLexicalScope(
+  getters: Record<string, () => unknown>,
+  scopeDepth: number | undefined,
+  marker: string
+): ScopeVariable[] {
+  const variables: ScopeVariable[] = [];
+  for (const [name, getter] of Object.entries(getters)) {
+    try {
+      variables.push({
+        name,
+        value: serializeScopeValue(getter(), {
+          truncate: (input) => truncate(input, marker),
+          maxDepth: scopeDepth ?? DEFAULT_SCOPE_DEPTH,
+        }),
+      });
+    } catch (err) {
+      variables.push({
+        name,
+        value: {
+          kind: 'error',
+          message: err instanceof Error ? err.message : 'Access error',
+        },
+      });
+    }
+  }
+  return variables;
 }
 
 function serialize(args: unknown[], marker: string): string[] {
@@ -196,6 +301,27 @@ interface ExecuteMessage {
    * calls throw `ReferenceError`).
    */
   stdin?: string;
+  /**
+   * RL-020 Slice 9 — when `true`, capture the post-execute global
+   * scope and emit a `'scope-snapshot'` reply before `done`. The
+   * runner sets this when the user has the variable inspector
+   * toggle on for the active tab (or wants the data eagerly
+   * available so the toggle lights up); skipping the capture keeps
+   * the hot path cheap when the inspector is off.
+   */
+  captureScope?: boolean;
+  /**
+   * RL-020 Slice 9 fold E — recursion depth for the scope walker.
+   * Defaults to `DEFAULT_SCOPE_DEPTH` (1). `MAX_SCOPE_DEPTH` (4)
+   * is the runner-side cap.
+   */
+  scopeDepth?: number;
+  /**
+   * RL-020 Slice 9 — language id stamped on the snapshot. Lets the
+   * shared JS worker emit `'typescript'` when invoked by the TS
+   * runner.
+   */
+  scopeLanguage?: string;
 }
 
 /**
@@ -309,6 +435,7 @@ ctx.addEventListener('message', async (event) => {
     const session = createSession(runId);
     applyExecutePayload(session, exec);
     activeSession = session;
+    let lexicalScopeVariables: ScopeVariable[] | null = null;
 
     // RL-020 Slice 6 — install line-by-line stdin readers. We
     // capture the previous values so a follow-up run starts from a
@@ -418,15 +545,32 @@ ctx.addEventListener('message', async (event) => {
           session.frames.pop();
         };
 
+        const __lingua_capture_scope = (
+          getters: Record<string, () => unknown>
+        ): void => {
+          lexicalScopeVariables = captureLexicalScope(
+            getters,
+            exec.scopeDepth,
+            marker
+          );
+        };
+
         const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
         const fn = new AsyncFunction(
           '__mc',
           '__lingua_dbg_yield',
           '__lingua_dbg_frame',
           '__lingua_dbg_pop',
+          '__lingua_capture_scope',
           code
         );
-        return await fn(__mc, __lingua_dbg_yield, __lingua_dbg_frame, __lingua_dbg_pop);
+        return await fn(
+          __mc,
+          __lingua_dbg_yield,
+          __lingua_dbg_frame,
+          __lingua_dbg_pop,
+          __lingua_capture_scope
+        );
       })();
 
       const result = await executionPromise;
@@ -437,6 +581,48 @@ ctx.addEventListener('message', async (event) => {
           runId,
           value: serialize([result], marker)[0],
         });
+      }
+
+      // RL-020 Slice 9 — capture the post-execute scope BEFORE the
+      // stdin-consumed / done replies so the runner can stitch the
+      // snapshot onto the `ExecutionResult` it builds at `done`.
+      // The capture is gated on `exec.captureScope` to keep the hot
+      // path cheap when the inspector toggle is off; the runner
+      // decides whether to ask. Reads `globalThis` keys, subtracts
+      // the boot-time set + the known internal helpers, and walks
+      // each remaining binding via the shared serializer.
+      if (exec.captureScope === true) {
+        try {
+          const snapshot =
+            lexicalScopeVariables !== null
+              ? finalizeScopeSnapshot(
+                  exec.scopeLanguage ?? 'javascript',
+                  lexicalScopeVariables
+                )
+              : captureJsScope(
+                  exec.scopeLanguage ?? 'javascript',
+                  exec.scopeDepth,
+                  marker
+                );
+          ctx.postMessage({ type: 'scope-snapshot', runId, snapshot });
+        } catch (captureErr) {
+          // Capture failures must not break the run. Emit an empty
+          // snapshot so the runner still threads the field through
+          // to the result store and the panel can render the empty
+          // state instead of stale data.
+          ctx.postMessage({
+            type: 'scope-snapshot',
+            runId,
+            snapshot: finalizeScopeSnapshot(
+              exec.scopeLanguage ?? 'javascript',
+              []
+            ),
+            error:
+              captureErr instanceof Error
+                ? captureErr.message
+                : String(captureErr),
+          });
+        }
       }
 
       const executionTime = performance.now() - startTime;

@@ -55,6 +55,8 @@ export const TELEMETRY_EVENT_NAMES = [
   'runtime.stdin_used',
   // RL-020 Slice 7 — mirror of `runtime.timeout_preset_changed`.
   'runtime.timeout_preset_changed',
+  // RL-020 Slice 9 — mirror of `runtime.variable_inspector_opened`.
+  'runtime.variable_inspector_opened',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -88,6 +90,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.stdin_used': ['language'],
   // RL-020 Slice 7 — mirror of `runtime.timeout_preset_changed`.
   'runtime.timeout_preset_changed': ['language', 'preset'],
+  // RL-020 Slice 9 — mirror of `runtime.variable_inspector_opened`.
+  'runtime.variable_inspector_opened': ['language', 'variableCount'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -127,6 +131,15 @@ const RUNTIME_TIMEOUT_PRESET_VALUES = new Set([
   'normal',
   'long',
   'extended',
+]);
+// RL-020 Slice 9 — closed-enum mirror of
+// `VARIABLE_INSPECTOR_COUNT_BUCKETS` in `src/shared/telemetry.ts`.
+const VARIABLE_INSPECTOR_COUNT_BUCKETS = new Set([
+  '0',
+  '1-5',
+  '6-20',
+  '21-50',
+  '51+',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -388,6 +401,14 @@ function isAllowedValue(
         return (
           typeof value === 'string' &&
           RUNTIME_TIMEOUT_PRESET_VALUES.has(value)
+        );
+      return false;
+    case 'runtime.variable_inspector_opened':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'variableCount')
+        return (
+          typeof value === 'string' &&
+          VARIABLE_INSPECTOR_COUNT_BUCKETS.has(value)
         );
       return false;
     default: {

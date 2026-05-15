@@ -26,6 +26,10 @@ import { instrumentForDebugger } from '../runtime/debuggerInstrument';
 import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
 import { trackEvent } from '../utils/telemetry';
 import {
+  appendScopeCapture,
+  collectTopLevelScopeNames,
+} from '../utils/scopeCapture';
+import {
   appendCappedConsole,
   capStderrIfOverflowing,
   runnerStoppedResult,
@@ -110,6 +114,9 @@ export class JavaScriptRunner implements LanguageRunner {
     // forward via the canonical ExecutionResult shape so the UI
     // panel can surface "Used N of M lines".
     let stdinConsumed: { count: number; total: number } | undefined;
+    // RL-020 Slice 9 — scope snapshot relay; worker emits at most
+    // one `scope-snapshot` reply per run, and only when we asked.
+    let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — stdout overflowing should not
     // mute the truncation notice on stderr (and vice versa).
     let droppedStdout = 0;
@@ -181,7 +188,15 @@ export class JavaScriptRunner implements LanguageRunner {
       }
     }
 
-    let transformedCode = codeWithAutoLog;
+    let codeWithScopeCapture = codeWithAutoLog;
+    if (context?.captureScope === true && !debug) {
+      codeWithScopeCapture = appendScopeCapture(
+        codeWithAutoLog,
+        collectTopLevelScopeNames(codeWithAutoLog)
+      );
+    }
+
+    let transformedCode = codeWithScopeCapture;
     let sourceLineMap: Record<number, number> | undefined;
     if (debug) {
       try {
@@ -307,6 +322,25 @@ export class JavaScriptRunner implements LanguageRunner {
             stdinConsumed = { count, total };
             break;
           }
+          case 'scope-snapshot': {
+            // RL-020 Slice 9 — relay the worker's scope capture onto
+            // the eventual ExecutionResult. The worker already
+            // applied the boot-time filter + internal-symbol filter
+            // and bounded the payload; this side just defensively
+            // checks the shape so a malformed reply doesn't crash
+            // the panel.
+            const incoming = msg as unknown as {
+              snapshot?: { language?: unknown; variables?: unknown };
+            };
+            if (
+              incoming.snapshot &&
+              typeof (incoming.snapshot as { language?: unknown }).language === 'string' &&
+              Array.isArray((incoming.snapshot as { variables?: unknown }).variables)
+            ) {
+              scopeSnapshot = incoming.snapshot as ExecutionResult['scopeSnapshot'];
+            }
+            break;
+          }
           case 'magic-comment':
             // RL-020 Slice 5 — the kind table now carries `'arrow'`,
             // `'watch'`, or `'autoLog'`. The worker postMessage
@@ -384,6 +418,10 @@ export class JavaScriptRunner implements LanguageRunner {
               kind: error ? 'error' : 'success',
               timeoutPreset,
               timeoutMs: timeout,
+              // RL-020 Slice 9 — surface the worker capture if it
+              // ran; `null` keeps the contract simple for runners
+              // that didn't capture this round.
+              scopeSnapshot,
             });
             // Detach the debugger session — the run is over.
             this.clearDebuggerSession('run-complete');
@@ -452,6 +490,13 @@ export class JavaScriptRunner implements LanguageRunner {
         // as the source of `prompt()` / `readline()` answers. Empty
         // / undefined leaves the native worker behavior in place.
         stdin: context?.stdin,
+        // RL-020 Slice 9 — variable inspector capture. Debug runs
+        // skip capture; the debugger drawer already exposes the
+        // paused-frame locals and a second snapshot would race with
+        // the resume protocol.
+        captureScope: !debug && context?.captureScope === true,
+        scopeDepth: context?.scopeDepth,
+        scopeLanguage: 'javascript',
       });
     });
   }

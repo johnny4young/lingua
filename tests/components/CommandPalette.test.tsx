@@ -21,6 +21,9 @@ const { editorState, resultState, trackEventMock } = vi.hoisted(() => ({
     updateContent: vi.fn(),
     setTabNextRunTimeoutOverride: vi.fn(),
     setTabCompareEnabled: vi.fn(),
+    // RL-020 Slice 9 — variable inspector palette wiring depends on
+    // the setter being present even when not exercised.
+    setTabVariableInspectorEnabled: vi.fn(),
   },
   resultState: {
     lastSuccessfulSnapshot: null as null | {
@@ -39,6 +42,12 @@ const { editorState, resultState, trackEventMock } = vi.hoisted(() => ({
       language: string;
       capturedAt: number;
     }>,
+    // RL-020 Slice 9 — variable inspector snapshot for palette gate.
+    scopeSnapshot: null as null | {
+      language: string;
+      capturedAt: number;
+      variables: Array<{ name: string; value: unknown }>;
+    },
   },
   trackEventMock: vi.fn(),
 }));
@@ -160,6 +169,7 @@ describe('CommandPalette', () => {
     editorState.activeTabId = null;
     resultState.lastSuccessfulSnapshot = null;
     resultState.snapshotRing = [];
+    resultState.scopeSnapshot = null;
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       value: vi.fn(),
       configurable: true,

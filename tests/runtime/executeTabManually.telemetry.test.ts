@@ -68,6 +68,10 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     // success. Mocked as vi.fn() so the telemetry tests don't crash
     // when the new capture branch fires.
     captureSuccessfulSnapshot: vi.fn(),
+    // RL-020 Slice 9 — manual Run also writes the variable inspector
+    // snapshot on the clean-success branch. Mocked so the
+    // destructure doesn't crash.
+    setScopeSnapshot: vi.fn(),
   };
   return {
     useResultStore: {

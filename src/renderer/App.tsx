@@ -57,6 +57,7 @@ import { useUpdateStore } from './stores/updateStore';
 import { desktopSmokeEnabled } from './utils/desktopSmoke';
 import { pushUpsellNotice } from './utils/upsellNotice';
 import { trackEvent } from './utils/telemetry';
+import { bucketVariableCount } from '../shared/scopeSnapshot';
 
 const DeveloperUtilitiesModal = lazy(async () => {
   const module = await import('./components/DeveloperUtilities');
@@ -407,6 +408,38 @@ function AppChrome({
       void trackEvent('runtime.compare_view_toggled', {
         language: tab.language,
         enabled: next,
+      });
+    },
+    toggleVariableInspector: () => {
+      // RL-020 Slice 9 fold C — toggle the Variables panel. Gates
+      // on the scope snapshot's language matching the active tab;
+      // mirrors the toggle-button gate so the shortcut never
+      // surfaces a stale capture. No-op + notice when there's no
+      // capture for the active language.
+      const editorState = useEditorStore.getState();
+      const tab = editorState.tabs.find(
+        (item) => item.id === editorState.activeTabId
+      );
+      const scopeSnapshot = useResultStore.getState().scopeSnapshot;
+      const snapshotIsRelevant =
+        tab !== undefined &&
+        scopeSnapshot !== null &&
+        scopeSnapshot.language === tab.language;
+      if (!tab || !snapshotIsRelevant) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'variableInspector.toggle.shortcutUnavailable',
+        });
+        return;
+      }
+      const next = tab.variableInspectorEnabled !== true;
+      editorState.setTabVariableInspectorEnabled(tab.id, next);
+      const bucket = scopeSnapshot
+        ? bucketVariableCount(scopeSnapshot.variables.length)
+        : '0';
+      void trackEvent('runtime.variable_inspector_opened', {
+        language: tab.language,
+        variableCount: bucket,
       });
     },
   });

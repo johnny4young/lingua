@@ -93,6 +93,13 @@ export const TELEMETRY_EVENTS = [
   // no source code, no tab id, no content. `preset` is the
   // `RuntimeTimeoutPreset` closed enum.
   'runtime.timeout_preset_changed',
+  // RL-020 Slice 9 — variable inspector adoption signal. Fires
+  // when the user opens the inspector via any surface (header
+  // toggle, palette action, keyboard shortcut). Closed-enum
+  // payload `{ language, variableCount }`; `variableCount` is a
+  // bucket string from `VARIABLE_COUNT_BUCKETS` (`'0'` / `'1-5'`
+  // / `'6-20'` / `'21-50'` / `'51+'`).
+  'runtime.variable_inspector_opened',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -210,6 +217,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // (`quick` / `normal` / `long` / `extended`). Mirrored on
   // update-server; the parity test asserts both sets stay aligned.
   'runtime.timeout_preset_changed': ['language', 'preset'],
+  // RL-020 Slice 9 — `language` is the language-pack id (`isSafeToken`);
+  // `variableCount` is a closed enum bucket
+  // (`'0'` / `'1-5'` / `'6-20'` / `'21-50'` / `'51+'`).
+  'runtime.variable_inspector_opened': ['language', 'variableCount'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -249,6 +260,17 @@ const RUNTIME_TIMEOUT_PRESET_VALUES = new Set([
   'normal',
   'long',
   'extended',
+]);
+// RL-020 Slice 9 — variable inspector adoption bucket enum. Source
+// of truth in `src/shared/scopeSnapshot.ts` (`VARIABLE_COUNT_BUCKETS`);
+// duplicated here so the redactor stays a pure module without an
+// import cycle.
+const VARIABLE_INSPECTOR_COUNT_BUCKETS = new Set([
+  '0',
+  '1-5',
+  '6-20',
+  '21-50',
+  '51+',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -436,6 +458,14 @@ function isAllowedValue(
         return (
           typeof value === 'string' &&
           RUNTIME_TIMEOUT_PRESET_VALUES.has(value)
+        );
+      return false;
+    case 'runtime.variable_inspector_opened':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'variableCount')
+        return (
+          typeof value === 'string' &&
+          VARIABLE_INSPECTOR_COUNT_BUCKETS.has(value)
         );
       return false;
     default: {

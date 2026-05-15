@@ -967,8 +967,8 @@ Out of scope until Slice 2:
 ### RL-020 Make the scratchpad and REPL experience best-in-class
 
 - Priority: `P1`
-- Status: `Partial`
-- Readiness: `Slices 1–6 shipped 2026-05-13/14 — auto-run completion gate, Run/Debug/Scratchpad workflow modes, magic-comment watches, per-tab history replay, JS/TS auto-log, and JS/TS/Python pre-set stdin are live. Remaining scope: timeout presets, last-stable compare polish, and variable inspector.`
+- Status: `Done`
+- Readiness: `Slices 1–9 shipped 2026-05-13/14 — auto-run completion gate, Run/Debug/Scratchpad workflow modes, magic-comment watches, per-tab history replay, JS/TS auto-log, JS/TS/Python pre-set stdin, timeout presets, last-stable compare, and the variable inspector (closes the ticket).`
 - Scope:
   - Add smart auto-run with complete-code detection so incomplete edits do not execute too early
   - Treat Scratchpad as a distinct workflow from Run and Debug:
@@ -2091,6 +2091,148 @@ Reviewer findings (all resolved inline this slice):
   captures happen in the same millisecond.
 - The command-palette Compare action now emits
   `runtime.compare_view_toggled`.
+
+#### Slice 9 — 2026-05-14 (variable inspector — closes RL-020)
+
+Slice 9 lands the final named scope item: *"Add a lightweight
+variable inspector panel that shows current variable state after
+execution: Variable name, type, and value for the current runtime
+scope; Expandable objects and arrays with tree view; Auto-refresh
+after each execution; Available for JS/TS and Python from the
+first rollout; Optimized for fast scope inspection without entering
+a debugger session."* With this slice RL-020 flips to `Done`.
+
+Architecture:
+
+- **`src/shared/scopeSnapshot.ts`** (new) — shared types
+  (`ScopeValue` / `ScopeVariable` / `ScopeSnapshot`) +
+  `serializeScopeValue` recursive walker (1-level default, capped
+  at `MAX_SCOPE_DEPTH = 4`) + `INTERNAL_JS_SYMBOLS` /
+  `INTERNAL_PYTHON_SYMBOLS` filters + `bucketVariableCount`
+  telemetry helper. Payload caps:
+  `MAX_TOP_LEVEL_VARS = 200`, `MAX_OBJECT_ENTRIES = 100`,
+  `MAX_ARRAY_ENTRIES = 100`, `MAX_SNAPSHOT_PAYLOAD_BYTES = 256 KB`.
+- **JS worker** — `BOOT_TIME_GLOBALS` snapshot captured at module
+  load. `captureJsScope` walks `globalThis`, subtracts boot-time +
+  `INTERNAL_JS_SYMBOLS`, and serializes via `serializeScopeValue`.
+  Posts `'scope-snapshot'` before `stdin-consumed` and `done`.
+- **Python worker** — `__lingua_boot_globals` frozenset captured
+  by the bootstrap snippet on the first capture-enabled run.
+  `__lingua_capture_scope(depth, max_top_level, max_object_entries, max_array_entries, internal_symbols)`
+  Python function walks `globals()` and emits JSON the JS side
+  parses + coerces.
+- **Runner wiring** — `ExecutionResult.scopeSnapshot?: ScopeSnapshot | null`
+  threaded through JS / TS / Python runners. `ExecutionContext.captureScope`
+  + `scopeDepth` flow from the runtime entry points.
+- **Result store** — new `scopeSnapshot` field + `setScopeSnapshot`
+  setter. Dropped by `clear()` (tab switch); preserved by
+  `clearVisibleResults()` (run reset).
+- **Editor store** — `FileTab.variableInspectorEnabled?: boolean`
+  per-tab flag + `setTabVariableInspectorEnabled` setter. Mutual
+  exclusion with Compare enforced at the setter:
+  toggling Variables on flips Compare off and vice versa.
+  `dropVariableInspectorIfLanguageChanged` helper drops the flag
+  on rename / Save-As to an unsupported language.
+- **Runtime entry points** — `executeTabManually` and `useAutoRun`
+  request a scope capture for inspector-supported languages
+  (JS / TS / Python) and write `result.scopeSnapshot ?? null` to
+  the result store on the clean-success branch (mirror of Slice 8's
+  comparator capture). Debug runs skip capture — the debugger
+  drawer already exposes paused-frame locals.
+- **`<VariableInspectorToggleButton>`** — button-secondary header
+  toggle mirroring `<CompareToggleButton>`. Disabled when no
+  language-matching snapshot; click fires
+  `runtime.variable_inspector_opened` telemetry.
+- **`<VariableInspectorPanel>`** — single-column list with name +
+  type tag + value. Object / array rows expand inline via a click
+  chevron (fold E walks deeper when the Settings depth is bumped).
+  Fold D type-icon prefix per kind. Fold F diff badges
+  (`+ / − / ~`) vs. a comparator (currently the empty-comparator
+  stub — a richer cross-run diff lands in a future slice). Fold H
+  filter input narrows by case-insensitive substring match.
+- **`<ResultPanel>`** — mounts the toggle next to
+  `<CompareToggleButton>`; swaps the inline-results region for
+  `<VariableInspectorPanel>` when the toggle is on AND the
+  language-matched snapshot exists. `hideUndefined` + Compare hide
+  when Variables is on (mutually exclusive view).
+
+Folds shipped:
+
+- **A — `runtime.variable_inspector_opened` telemetry** — closed
+  enum `{ language, variableCount }`. Mirrored on update-server
+  with parity test. `variableCount` buckets: `'0'` / `'1-5'` /
+  `'6-20'` / `'21-50'` / `'51+'`.
+- **B — Command palette `Toggle variable inspector`** entry —
+  gates on `variableInspectorScopeAvailable`; description flips
+  between Show / Hide.
+- **C — `Mod+Shift+I` keyboard shortcut** — dispatched via
+  `useGlobalShortcuts` / `App.tsx`; surfaces
+  `variableInspector.toggle.shortcutUnavailable` notice when no
+  snapshot exists.
+- **D — Inline type-icon prefix** (`{}` / `[]` / `ƒ` / `!` / `·`)
+  per row kind. Pure renderer cue.
+- **E — Recursive expansion** via `Settings.variableInspectorScopeDepth`
+  (`1`–`4`). The worker walker honors the depth; the renderer's
+  expand chevron toggles visibility of pre-captured nested entries.
+- **F — Diff badges** between runs. The current slice ships the
+  base infrastructure (per-row `data-diff-kind`); the comparator
+  source is the empty set on Day 1 so every variable badges as
+  `added` on a fresh run, providing visible feedback that the
+  capture worked. Future work can wire a multi-`ScopeSnapshot`
+  ring symmetric to Slice 8's `snapshotRing` for richer
+  cross-run deltas.
+- **G — Settings master toggle** — `showVariableInspectorByDefault`
+  + `variableInspectorScopeDepth` fields in the settings store
+  with `false` / `1` defaults. The settings store fields are in
+  place; surfacing them in `<SettingsModal>` is deferred to a
+  light follow-up (UI plumbing only, no runtime impact).
+- **H — Filter input** by variable name (case-insensitive
+  substring; defensive — does NOT reuse `fuzzyMatch` to keep the
+  panel snappy on long lists).
+
+Tests:
+
+- `tests/shared/scopeSnapshot.test.ts` — 14 cases covering
+  primitives, functions, arrays, objects, recursion depth,
+  truncation cap, circular references, bucket helper.
+- `tests/utils/scopeCapture.test.ts` — top-level JS binding
+  extraction + injected lexical capture call.
+- `tests/runners/variableInspectorScopeCapture.test.ts` — JS and
+  TS runners forward capture-injected code to the worker.
+- `tests/components/VariableInspectorToggleButton.test.tsx` —
+  6 cases covering disabled / enabled-off / pressed / click
+  telemetry / no-op-when-disabled / language-mismatch.
+- `tests/components/VariableInspectorPanel.test.tsx` — 6 cases
+  covering empty state, expand chevron, truncation banner, filter
+  narrowing, filter-empty state.
+- `tests/shared/telemetry.test.ts` — sorted-name list adds
+  `runtime.variable_inspector_opened`; validator coverage
+  (closed-enum + bucket-reject + unknown-key drop).
+- `tests/runtime/executeTabManually.{snapshot,telemetry}.test.ts`
+  result-store mocks gain `setScopeSnapshot: vi.fn()`.
+- `tests/hooks/useAutoRun.test.tsx` updated to assert the new
+  `captureScope: true` + `scopeDepth: 1` fields on
+  `runner.execute(...)`.
+- `tests/components/CommandPalette.test.tsx` mock extended with
+  `scopeSnapshot` + `setTabVariableInspectorEnabled` so the
+  palette gate compiles.
+
+Reviewer findings (all resolved inline this slice):
+
+- JS / TS scope capture now injects a same-scope
+  `__lingua_capture_scope(...)` call before the worker function
+  returns. Reading `globalThis` alone missed ordinary `const` /
+  `let` / `var` scratchpad bindings because the worker executes
+  user code inside `AsyncFunction`.
+- Python boot globals are now primed before user code executes on
+  the first capture-enabled run. Priming after user code treated
+  first-run user variables as runtime globals and hid them from the
+  inspector.
+- Payload-capped snapshots now render the truncation banner even
+  when every top-level variable was elided.
+- Shared-reference object graphs no longer get mislabeled as
+  circular references; only references already on the active walk
+  path emit `Circular reference`.
 
 ### RL-021 Fix loose-file workflow and session continuity
 

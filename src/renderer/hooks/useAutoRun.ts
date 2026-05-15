@@ -398,10 +398,26 @@ export function useAutoRun() {
             .setTabNextRunTimeoutOverride(activeTabId, null);
         }
 
+        // RL-020 Slice 9 — capture the post-execute scope eagerly
+        // on auto-run for inspector-supported languages so the
+        // toggle lights up after the first clean run without the
+        // user needing to opt in first. Renders / serialization
+        // happens lazily in the panel.
+        const variableInspectorLanguages = new Set<string>([
+          'javascript',
+          'typescript',
+          'python',
+        ]);
+        const wantsScopeCapture = variableInspectorLanguages.has(language);
+        const scopeDepthPref = useSettingsStore.getState().variableInspectorScopeDepth;
         const result: ExecutionResult = await runner.execute(code, {
           autoLog: autoLogEnabled,
           ...(stdinBuffer !== undefined ? { stdin: stdinBuffer } : {}),
           ...(overrideMs !== null ? { timeout: overrideMs } : {}),
+          ...(wantsScopeCapture ? { captureScope: true } : {}),
+          ...(wantsScopeCapture && typeof scopeDepthPref === 'number'
+            ? { scopeDepth: scopeDepthPref }
+            : {}),
         });
         setRunDeadlineAt(null);
         // RL-020 Slice 7 — propagate the termination kind.
@@ -483,6 +499,10 @@ export function useAutoRun() {
           // Compare toggle can self-gate the snapshot against a
           // later language change.
           captureSuccessfulSnapshot(language);
+          // RL-020 Slice 9 — surface the variable inspector
+          // snapshot if the worker emitted one. `null` clears any
+          // stale snapshot from the previous run.
+          useResultStore.getState().setScopeSnapshot(result.scopeSnapshot ?? null);
           // RL-020 Slice 3 fold A — emit telemetry once per clean
           // run that produced at least one magic-comment result, so
           // adoption of `//=>` vs `// @watch` is visible. The

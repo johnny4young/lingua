@@ -22,6 +22,18 @@
 
 import { syncUserEnvInPyodide } from './python-worker-env';
 import { truncateSerialized } from '../runners/limits';
+import {
+  DEFAULT_SCOPE_DEPTH,
+  INTERNAL_PYTHON_SYMBOLS,
+  MAX_ARRAY_ENTRIES,
+  MAX_OBJECT_ENTRIES,
+  MAX_SCOPE_DEPTH,
+  MAX_TOP_LEVEL_VARS,
+  type ScopeSnapshot,
+  type ScopeValue,
+  type ScopeVariable,
+  finalizeScopeSnapshot,
+} from '../../shared/scopeSnapshot';
 
 const ctx = self as unknown as Worker;
 
@@ -62,6 +74,17 @@ const PYODIDE_INDEX_URL = resolvePyodideIndexUrl();
 let pyodide: unknown = null;
 let appliedUserEnvKeys: string[] = [];
 let activeRunId: string | null = null;
+/**
+ * RL-020 Slice 9 — Pyodide globals captured before the first user
+ * run executes. The variable inspector subtracts this set from
+ * `globals().keys()` so only user-declared bindings (and post-boot
+ * imports the user pulled in) survive the filter.
+ *
+ * `null` until the first capture-enabled run primes it; the prime
+ * happens inside the bootstrap `runPythonAsync` block so the
+ * subtraction works on the very first capture too.
+ */
+let pythonBootGlobals: ReadonlySet<string> | null = null;
 
 const FALLBACK_RESULT_TRUNCATION_MARKER = '[result truncated]';
 
@@ -160,6 +183,231 @@ function parsePythonError(errorText: string): { line?: number; message: string }
   };
 }
 
+/**
+ * RL-020 Slice 9 — Python-side scope capture.
+ *
+ * Two helpers below:
+ *
+ *   - `primePythonBootGlobalsIfNeeded(py)`: runs ONCE the first time
+ *     a capture-enabled run completes. Stores the names that exist
+ *     in the worker's `globals()` immediately AFTER the bootstrap
+ *     block (so `__lingua_*` helpers + imported `io` / `sys` /
+ *     `json` are in the boot set). On subsequent runs, the walker
+ *     subtracts this set so only user-declared bindings survive.
+ *     Also adds `INTERNAL_PYTHON_SYMBOLS` defensively.
+ *   - `capturePythonScope(py, scopeDepth)`: runs a Python snippet
+ *     after user code that builds a JSON-encoded list of
+ *     `{name, value}` pairs using a recursive walker (1-level
+ *     default, depth-capped). Returns a `ScopeSnapshot` ready
+ *     for postMessage.
+ *
+ * The Python walker mirrors `serializeScopeValue` in
+ * `src/shared/scopeSnapshot.ts`. The two implementations are kept
+ * in lockstep by their type definitions; a regression on one side
+ * surfaces in the shared test fixture.
+ */
+
+const PYTHON_CAPTURE_HELPER_SRC = `
+def __lingua_capture_scope(depth, max_top_level, max_object_entries, max_array_entries, internal_symbols):
+    import json as __lingua_json_local
+    PRIMITIVE_REPR_MAX = 200
+    boot = globals().get('__lingua_boot_globals', frozenset())
+    seen_ids = set()
+    def trunc(s):
+        if len(s) > PRIMITIVE_REPR_MAX:
+            return s[:PRIMITIVE_REPR_MAX] + '...'
+        return s
+    def walk(v, d):
+        if v is None:
+            return {"kind": "primitive", "type": "null", "repr": "None"}
+        if isinstance(v, bool):
+            return {"kind": "primitive", "type": "boolean", "repr": "True" if v else "False"}
+        if isinstance(v, int):
+            return {"kind": "primitive", "type": "number", "repr": trunc(str(v))}
+        if isinstance(v, float):
+            return {"kind": "primitive", "type": "number", "repr": trunc(str(v))}
+        if isinstance(v, str):
+            return {"kind": "primitive", "type": "string", "repr": trunc(repr(v))}
+        if isinstance(v, bytes):
+            return {"kind": "primitive", "type": "string", "repr": trunc(repr(v))}
+        if callable(v):
+            name = getattr(v, '__name__', None) or 'anonymous'
+            return {"kind": "function", "name": str(name)}
+        try:
+            ident = id(v)
+        except Exception:
+            ident = None
+        if ident is not None and ident in seen_ids:
+            return {"kind": "error", "message": "Circular reference"}
+        if ident is not None:
+            seen_ids.add(ident)
+        if isinstance(v, (list, tuple, set, frozenset)):
+            try:
+                items = list(v)
+            except Exception:
+                return {"kind": "primitive", "type": "string", "repr": trunc(repr(v))}
+            length = len(items)
+            if d >= depth:
+                return {"kind": "array", "length": length, "entries": []}
+            cap = min(length, max_array_entries)
+            entries = []
+            for index in range(cap):
+                try:
+                    entries.append({"index": index, "value": walk(items[index], d + 1)})
+                except Exception as ex:
+                    entries.append({"index": index, "value": {"kind": "error", "message": str(ex)[:PRIMITIVE_REPR_MAX]}})
+            payload = {"kind": "array", "length": length, "entries": entries}
+            if length > cap:
+                payload["truncatedCount"] = length - cap
+            return payload
+        if isinstance(v, dict):
+            try:
+                keys = list(v.keys())
+            except Exception:
+                return {"kind": "primitive", "type": "string", "repr": trunc(repr(v))}
+            length = len(keys)
+            preview_type = type(v).__name__ or 'dict'
+            if d >= depth:
+                return {"kind": "object", "previewType": preview_type, "entries": []}
+            cap = min(length, max_object_entries)
+            entries = []
+            for index in range(cap):
+                key = keys[index]
+                try:
+                    entries.append({"key": str(key), "value": walk(v[key], d + 1)})
+                except Exception as ex:
+                    entries.append({"key": str(key), "value": {"kind": "error", "message": str(ex)[:PRIMITIVE_REPR_MAX]}})
+            payload = {"kind": "object", "previewType": preview_type, "entries": entries}
+            if length > cap:
+                payload["truncatedCount"] = length - cap
+            return payload
+        # Fallback for arbitrary objects — surface as object with __dict__ entries
+        preview_type = type(v).__name__ or 'object'
+        attrs = {}
+        try:
+            attrs = vars(v)
+        except Exception:
+            return {"kind": "primitive", "type": "string", "repr": trunc(repr(v))}
+        if d >= depth:
+            return {"kind": "object", "previewType": preview_type, "entries": []}
+        keys = list(attrs.keys())
+        length = len(keys)
+        cap = min(length, max_object_entries)
+        entries = []
+        for index in range(cap):
+            key = keys[index]
+            if key.startswith('__'):
+                continue
+            try:
+                entries.append({"key": str(key), "value": walk(attrs[key], d + 1)})
+            except Exception as ex:
+                entries.append({"key": str(key), "value": {"kind": "error", "message": str(ex)[:PRIMITIVE_REPR_MAX]}})
+        payload = {"kind": "object", "previewType": preview_type, "entries": entries}
+        if length > len(entries):
+            payload["truncatedCount"] = length - len(entries)
+        return payload
+    pairs = []
+    name_list = list(globals().keys())
+    user_names = [n for n in name_list if n not in boot and n not in internal_symbols]
+    user_names = user_names[:max_top_level]
+    truncated = 0
+    total = len([n for n in name_list if n not in boot and n not in internal_symbols])
+    if total > len(user_names):
+        truncated = total - len(user_names)
+    for name in user_names:
+        try:
+            pairs.append({"name": name, "value": walk(globals()[name], 0)})
+        except Exception as ex:
+            pairs.append({"name": name, "value": {"kind": "error", "message": str(ex)[:PRIMITIVE_REPR_MAX]}})
+    payload = {"variables": pairs}
+    if truncated > 0:
+        payload["truncatedCount"] = truncated
+    return __lingua_json_local.dumps(payload)
+`;
+
+async function primePythonBootGlobalsIfNeeded(py: PyodideRuntime): Promise<void> {
+  if (pythonBootGlobals !== null) return;
+  // Snapshot globals AFTER the bootstrap block has run but BEFORE
+  // any user code executes on this run. The bootstrap inside the
+  // execute branch above adds `__lingua_*` names; those land in the
+  // boot set so subsequent captures filter them out automatically.
+  const snapshot = await py.runPythonAsync(`
+import json as __lingua_json_boot
+__lingua_boot_globals = frozenset(globals().keys()) | {'__lingua_boot_globals', '__lingua_capture_scope', '__lingua_json_boot'}
+__lingua_json_boot.dumps(sorted(list(__lingua_boot_globals)))
+`);
+  const list = typeof snapshot === 'string' ? (JSON.parse(snapshot) as string[]) : [];
+  pythonBootGlobals = new Set(list);
+}
+
+async function capturePythonScope(
+  py: PyodideRuntime,
+  scopeDepth: number | undefined
+): Promise<ScopeSnapshot> {
+  const depth =
+    typeof scopeDepth === 'number' && scopeDepth > 0
+      ? Math.min(Math.floor(scopeDepth), MAX_SCOPE_DEPTH)
+      : DEFAULT_SCOPE_DEPTH;
+  // Define the capture helper if not already in scope. Idempotent —
+  // Python re-defines the function on every call which is cheap.
+  await py.runPythonAsync(PYTHON_CAPTURE_HELPER_SRC);
+  // Invoke the helper with caps + the JS-side internal symbol set.
+  // `repr(set)` produces a Python-evaluable literal so we pass the
+  // names as a JSON list and reconstruct on the Python side.
+  const internalSymbolsJson = JSON.stringify(
+    Array.from(INTERNAL_PYTHON_SYMBOLS)
+  );
+  const result = await py.runPythonAsync(
+    `__lingua_capture_scope(${depth}, ${MAX_TOP_LEVEL_VARS}, ${MAX_OBJECT_ENTRIES}, ${MAX_ARRAY_ENTRIES}, set(__lingua_json_boot.loads('${internalSymbolsJson.replace(/'/g, "\\'")}')))`
+  );
+  if (typeof result !== 'string') {
+    return finalizeScopeSnapshot('python', []);
+  }
+  let parsed: { variables: ScopeVariable[]; truncatedCount?: number };
+  try {
+    parsed = JSON.parse(result) as {
+      variables: ScopeVariable[];
+      truncatedCount?: number;
+    };
+  } catch {
+    return finalizeScopeSnapshot('python', []);
+  }
+  // Defensive shape coercion — strip anything that isn't a known
+  // ScopeValue kind so the renderer never has to validate the wire
+  // payload.
+  const variables = Array.isArray(parsed.variables)
+    ? parsed.variables.filter((v) => typeof v?.name === 'string' && coerceScopeValue(v.value) !== null)
+    : [];
+  const finalized = finalizeScopeSnapshot('python', variables);
+  if (
+    typeof parsed.truncatedCount === 'number' &&
+    parsed.truncatedCount > 0 &&
+    finalized.truncatedCount === undefined
+  ) {
+    return { ...finalized, truncatedCount: parsed.truncatedCount };
+  }
+  return finalized;
+}
+
+/**
+ * Defensive coercion — accept only ScopeValue shapes we recognize.
+ * Returns `null` if the payload is malformed.
+ */
+function coerceScopeValue(value: unknown): ScopeValue | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as { kind?: unknown };
+  if (
+    v.kind !== 'primitive' &&
+    v.kind !== 'function' &&
+    v.kind !== 'object' &&
+    v.kind !== 'array' &&
+    v.kind !== 'error'
+  ) {
+    return null;
+  }
+  return value as ScopeValue;
+}
+
 function postBufferedOutput(
   runId: string,
   method: 'log' | 'error',
@@ -190,7 +438,15 @@ ctx.addEventListener('message', async (event) => {
   }
 
   if (msg.type === 'execute') {
-    const { runId, code, userEnv, resultTruncationMarker, stdin } = msg as {
+    const {
+      runId,
+      code,
+      userEnv,
+      resultTruncationMarker,
+      stdin,
+      captureScope,
+      scopeDepth,
+    } = msg as {
       runId: string;
       code: string;
       userEnv?: Record<string, string>;
@@ -202,6 +458,16 @@ ctx.addEventListener('message', async (event) => {
        * raises `EOFError` (stock Python REPL behavior).
        */
       stdin?: string;
+      /**
+       * RL-020 Slice 9 — when `true`, capture the post-execute
+       * globals and emit a `'scope-snapshot'` reply before `done`.
+       */
+      captureScope?: boolean;
+      /**
+       * RL-020 Slice 9 fold E — recursion depth for the scope
+       * walker (1–4). Defaults to 1 in `serializeScopeValueFromPyObject`.
+       */
+      scopeDepth?: number;
     };
     const marker =
       typeof resultTruncationMarker === 'string' && resultTruncationMarker.length > 0
@@ -282,6 +548,10 @@ def __mc(line, expr_fn):
         return None
       `);
 
+      if (captureScope === true) {
+        await primePythonBootGlobalsIfNeeded(py);
+      }
+
       // RL-078: deadline enforcement is parent-owned. We just run.
       let result: unknown;
       let errorText: string | null = null;
@@ -349,6 +619,30 @@ _lingua_state
             line: parsed.line,
           },
         });
+      }
+
+      // RL-020 Slice 9 — capture the post-execute globals BEFORE
+      // the stdin-consumed / done replies. Runs only when the runner
+      // asked (`captureScope === true`); the runner asks when the
+      // inspector toggle is on for the active tab OR when the user
+      // wants the toggle to light up after the next run. The first
+      // capture primes `pythonBootGlobals` so subsequent runs can
+      // subtract the boot-time set.
+      if (captureScope === true && !errorText) {
+        try {
+          const snapshot = await capturePythonScope(py, scopeDepth);
+          ctx.postMessage({ type: 'scope-snapshot', runId, snapshot });
+        } catch (captureErr) {
+          ctx.postMessage({
+            type: 'scope-snapshot',
+            runId,
+            snapshot: finalizeScopeSnapshot('python', []),
+            error:
+              captureErr instanceof Error
+                ? captureErr.message
+                : String(captureErr),
+          });
+        }
       }
 
       // RL-020 Slice 6 fold G — emit consumption summary BEFORE

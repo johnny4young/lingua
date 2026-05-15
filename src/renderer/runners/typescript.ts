@@ -27,6 +27,10 @@ import { instrumentForDebugger } from '../runtime/debuggerInstrument';
 import { setActiveDebugWorker } from '../runtime/debuggerWorkerBridge';
 import { trackEvent } from '../utils/telemetry';
 import {
+  appendScopeCapture,
+  collectTopLevelScopeNames,
+} from '../utils/scopeCapture';
+import {
   appendCappedConsole,
   capStderrIfOverflowing,
   runnerStoppedResult,
@@ -238,7 +242,12 @@ export class TypeScriptRunner implements LanguageRunner {
     // can compose it with its own JS→JS map and emit yields that fire
     // on the user's TS line numbers (which is what the breakpoint store
     // already keeps).
-    let instrumented = js;
+    const jsWithScopeCapture =
+      context?.captureScope === true && !debug
+        ? appendScopeCapture(js, collectTopLevelScopeNames(js))
+        : js;
+
+    let instrumented = jsWithScopeCapture;
     let sourceLineMap: Record<number, number> | undefined;
     if (debug) {
       try {
@@ -263,6 +272,8 @@ export class TypeScriptRunner implements LanguageRunner {
     // worker hosts the TS path post-transpile, so the same
     // `stdin-consumed` message arrives here too.
     let stdinConsumed: { count: number; total: number } | undefined;
+    // RL-020 Slice 9 — scope snapshot relay; same shape as JS runner.
+    let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — see JavaScriptRunner.
     let droppedStdout = 0;
     let droppedStderr = 0;
@@ -360,6 +371,21 @@ export class TypeScriptRunner implements LanguageRunner {
             stdinConsumed = { count, total };
             break;
           }
+          case 'scope-snapshot': {
+            // RL-020 Slice 9 — relay scope capture; same defensive
+            // shape coercion as the JS runner.
+            const incoming = msg as unknown as {
+              snapshot?: { language?: unknown; variables?: unknown };
+            };
+            if (
+              incoming.snapshot &&
+              typeof (incoming.snapshot as { language?: unknown }).language === 'string' &&
+              Array.isArray((incoming.snapshot as { variables?: unknown }).variables)
+            ) {
+              scopeSnapshot = incoming.snapshot as ExecutionResult['scopeSnapshot'];
+            }
+            break;
+          }
           case 'magic-comment':
             magicResults.push({
               line: msg.line,
@@ -413,6 +439,7 @@ export class TypeScriptRunner implements LanguageRunner {
               kind: error ? 'error' : 'success',
               timeoutPreset,
               timeoutMs: timeout,
+              scopeSnapshot,
             });
             this.clearDebuggerSession('run-complete');
             worker.terminate();
@@ -466,6 +493,12 @@ export class TypeScriptRunner implements LanguageRunner {
         watches: debug ? debugStore.watches.map((w) => w.expression) : [],
         sourceLineMap,
         stdin: context?.stdin,
+        // RL-020 Slice 9 — TS pipes through the JS worker post
+        // transpile; stamp `'typescript'` on the snapshot so the
+        // toggle in the renderer self-gates on the right language.
+        captureScope: !debug && context?.captureScope === true,
+        scopeDepth: context?.scopeDepth,
+        scopeLanguage: 'typescript',
       });
     });
   }

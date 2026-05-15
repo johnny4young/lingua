@@ -63,6 +63,9 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-020 Slice 7 — per-language timeout preset change.
       // Closed-enum payload `{ language, preset }`.
       'runtime.timeout_preset_changed',
+      // RL-020 Slice 9 — variable inspector adoption. Closed-enum
+      // payload `{ language, variableCount }`.
+      'runtime.variable_inspector_opened',
       // RL-020 Slice 2 — per-tab workflow mode change. Closed-enum
       // payload `{ language, from, to, trigger }`.
       'runtime.workflow_mode_changed',
@@ -657,6 +660,48 @@ describe('runtime.timeout_preset_changed value validator (RL-020 Slice 7)', () =
       preset: 'quick',
     });
     expect(droppedKeys).toContain('when');
+  });
+});
+
+describe('runtime.variable_inspector_opened value validator (RL-020 Slice 9)', () => {
+  it('accepts the closed-enum payload', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.variable_inspector_opened',
+        properties: { language: 'javascript', variableCount: '6-20' },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'javascript',
+      variableCount: '6-20',
+    });
+  });
+  it('drops an unknown bucket', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.variable_inspector_opened',
+        properties: { language: 'python', variableCount: '500' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('variableCount');
+    expect(droppedKeys).toContain('variableCount');
+  });
+  it('drops unknown property keys', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.variable_inspector_opened',
+        properties: {
+          language: 'typescript',
+          variableCount: '0',
+          source: 'palette',
+        },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'typescript',
+      variableCount: '0',
+    });
+    expect(droppedKeys).toContain('source');
   });
 });
 

@@ -199,6 +199,8 @@ export class PythonRunner implements LanguageRunner {
     // RL-020 Slice 6 fold G — Pyodide worker's stdin consumption
     // summary; mirror of the JS runner shape.
     let stdinConsumed: { count: number; total: number } | undefined;
+    // RL-020 Slice 9 — scope snapshot relay (same shape as JS/TS).
+    let scopeSnapshot: ExecutionResult['scopeSnapshot'] = null;
     // Independent caps per stream — see JavaScriptRunner.
     let droppedStdout = 0;
     let droppedStderr = 0;
@@ -328,6 +330,21 @@ export class PythonRunner implements LanguageRunner {
             stdinConsumed = { count, total };
             break;
           }
+          case 'scope-snapshot': {
+            // RL-020 Slice 9 — relay scope capture; same defensive
+            // coercion as the JS/TS runners.
+            const incoming = msg as unknown as {
+              snapshot?: { language?: unknown; variables?: unknown };
+            };
+            if (
+              incoming.snapshot &&
+              typeof (incoming.snapshot as { language?: unknown }).language === 'string' &&
+              Array.isArray((incoming.snapshot as { variables?: unknown }).variables)
+            ) {
+              scopeSnapshot = incoming.snapshot as ExecutionResult['scopeSnapshot'];
+            }
+            break;
+          }
           case 'result':
             result = msg.value;
             break;
@@ -346,6 +363,7 @@ export class PythonRunner implements LanguageRunner {
               kind: error ? 'error' : 'success',
               timeoutPreset,
               timeoutMs: timeout,
+              scopeSnapshot,
             });
             break;
         }
@@ -386,6 +404,11 @@ export class PythonRunner implements LanguageRunner {
         // default handler in place, which preserves Pyodide's stock
         // EOFError on bare `input()` calls.
         stdin: context?.stdin,
+        // RL-020 Slice 9 — variable inspector capture. The Python
+        // worker handles capture/error gracefully; passing `false`
+        // keeps the hot path identical to pre-slice behavior.
+        captureScope: context?.captureScope === true,
+        scopeDepth: context?.scopeDepth,
       });
     });
   }

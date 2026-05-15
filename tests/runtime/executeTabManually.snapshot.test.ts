@@ -64,6 +64,8 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     // success. The vi.fn() lets tests assert that the capture
     // fires (and never fires on cancel / timeout / error).
     captureSuccessfulSnapshot: vi.fn(),
+    // RL-020 Slice 9 — variable inspector snapshot setter.
+    setScopeSnapshot: vi.fn(),
   };
   return { useResultStore: { getState: () => state } };
 });
