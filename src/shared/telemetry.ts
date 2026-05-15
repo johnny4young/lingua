@@ -39,6 +39,13 @@ export const TELEMETRY_EVENTS = [
   // to that single value so a future expansion of the gate must
   // amend this allowlist + the mirror in update-server.
   'runtime.auto_run_gated',
+  // RL-020 Slice 8 — Compare-with-last-stable adoption signal.
+  // Closed-enum payload `{ language, enabled }`; no source code,
+  // no tab id, no diff content. Fires on user-driven toggles (the
+  // header button, the palette action, the Mod+Shift+D shortcut).
+  // The flag flips both ways so dashboards can see enable vs.
+  // disable separately.
+  'runtime.compare_view_toggled',
   // RL-020 Slice 2 — per-tab workflow mode change. Closed enum
   // payload `{ language, from, to, trigger }`; no source code, no
   // tab id, no content. `from` + `to` are the WorkflowMode enum;
@@ -157,6 +164,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `javascript` / `typescript`). `reason` is a closed enum locked
   // to `'incomplete'` for Slice 1.
   'runtime.auto_run_gated': ['language', 'reason'],
+  // RL-020 Slice 8 — `language` is the language-pack id
+  // (`isSafeToken`); `enabled` is a boolean flipping with the
+  // user's toggle direction. Mirrored on update-server.
+  'runtime.compare_view_toggled': ['language', 'enabled'],
   // RL-020 Slice 2 — `language` is the language-pack id (any
   // string passing `isSafeToken`). `from` + `to` are the
   // `WorkflowMode` closed enum (`run` / `debug` / `scratchpad`).
@@ -381,6 +392,10 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'reason')
         return typeof value === 'string' && AUTO_RUN_GATE_REASONS.has(value);
+      return false;
+    case 'runtime.compare_view_toggled':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'enabled') return typeof value === 'boolean';
       return false;
     case 'runtime.workflow_mode_changed':
       if (key === 'language') return isSafeToken(value);

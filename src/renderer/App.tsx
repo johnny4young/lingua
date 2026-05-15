@@ -39,6 +39,7 @@ import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { useEditorStore } from './stores/editorStore';
+import { useResultStore } from './stores/resultStore';
 import {
   cycleRuntimeMode,
   languageHasRuntimeModes,
@@ -379,6 +380,34 @@ function AppChrome({
           messageKey: 'executionHistory.tabPill.shortcutUnavailable',
         });
       }
+    },
+    toggleCompareWithSnapshot: () => {
+      // RL-020 Slice 8 fold D — toggle the Compare panel. Gates on
+      // the comparator snapshot's language matching the active
+      // tab; mirrors the toggle-button gate so the shortcut never
+      // surfaces a stale diff. No-op + localized notice when the
+      // gate fails.
+      const editorState = useEditorStore.getState();
+      const tab = editorState.tabs.find(
+        (item) => item.id === editorState.activeTabId
+      );
+      const snapshotRing = useResultStore.getState().snapshotRing;
+      const snapshotIsRelevant =
+        tab !== undefined &&
+        snapshotRing.some((entry) => entry.language === tab.language);
+      if (!tab || !snapshotIsRelevant) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'compare.toggle.shortcutUnavailable',
+        });
+        return;
+      }
+      const next = tab.compareWithSnapshotEnabled !== true;
+      editorState.setTabCompareEnabled(tab.id, next);
+      void trackEvent('runtime.compare_view_toggled', {
+        language: tab.language,
+        enabled: next,
+      });
     },
   });
 

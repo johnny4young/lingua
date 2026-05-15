@@ -11,6 +11,7 @@ import {
   type ExecutionHistoryEntry,
   useExecutionHistoryStore,
 } from '../../stores/executionHistoryStore';
+import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -24,6 +25,7 @@ import {
   appendWatchAtLine,
   isAppendWatchSupported,
 } from '../../utils/appendWatch';
+import { trackEvent } from '../../utils/telemetry';
 import type { Language } from '../../types';
 import { Kbd, OverlayBackdrop, OverlayCard, Tooltip } from '../ui/chrome';
 import { handleCloseOnEscape } from '../ui/keyboard';
@@ -116,6 +118,7 @@ export function CommandPalette({
   const { snippets } = useSnippetsStore();
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const executionHistory = useExecutionHistoryStore((state) => state.entries);
+  const snapshotRing = useResultStore((state) => state.snapshotRing);
   const { setLayoutPreset } = useSettingsStore();
   const vimMode = useSettingsStore((state) => state.vimMode);
   const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
@@ -266,6 +269,32 @@ export function CommandPalette({
               onRerunLast();
             }
           : undefined,
+      // RL-020 Slice 8 fold C — palette toggle for the Compare
+      // panel. Reuses `setTabCompareEnabled` so the source of
+      // truth stays per-tab. The gate (`compareSnapshotAvailable`)
+      // matches the toggle-button gate so the palette never
+      // advertises an action it would refuse.
+      onToggleCompareWithSnapshot:
+        activeTab && activeTabId
+          ? () => {
+              const next = activeTab.compareWithSnapshotEnabled !== true;
+              useEditorStore
+                .getState()
+                .setTabCompareEnabled(activeTabId, next);
+              void trackEvent('runtime.compare_view_toggled', {
+                language: activeTab.language,
+                enabled: next,
+              });
+            }
+          : undefined,
+      activeCompareEnabled:
+        activeTab?.compareWithSnapshotEnabled === true,
+      compareSnapshotAvailable: (() => {
+        return (
+          activeTab !== undefined &&
+          snapshotRing.some((entry) => entry.language === activeTab.language)
+        );
+      })(),
       // RL-020 Slice 4 fold G — pass the active tab id so the
       // model can surface the per-tab Recent runs group above the
       // legacy global one. `null` (no active tab) suppresses the
@@ -299,6 +328,7 @@ export function CommandPalette({
     snippets,
     canUseExecutionHistory,
     executionHistory,
+    snapshotRing,
     onRerunLast,
     onReplayEntry,
     onToggleVimMode,

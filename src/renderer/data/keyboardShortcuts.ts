@@ -106,6 +106,18 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['history', 'recent', 'runs', 'replay', 'popover'],
   },
   {
+    // RL-020 Slice 8 fold D — toggle the Compare panel on the active
+    // tab. No-op when there's no comparator snapshot (matches the
+    // toggle-button gate). Dispatcher in `App.tsx` reads + writes
+    // `compareWithSnapshotEnabled` via the editor store.
+    id: 'run-toggle-compare-snapshot',
+    group: 'run',
+    labelKey: 'shortcuts.item.toggleCompareSnapshot.label',
+    descriptionKey: 'shortcuts.item.toggleCompareSnapshot.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'D'] }],
+    keywords: ['compare', 'diff', 'snapshot', 'stable', 'previous'],
+  },
+  {
     id: 'file-save',
     group: 'file',
     labelKey: 'shortcuts.item.save.label',

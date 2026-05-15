@@ -49,6 +49,7 @@ vi.mock('../../src/renderer/stores/consoleStore', () => {
 vi.mock('../../src/renderer/stores/resultStore', () => {
   const state = {
     clear: vi.fn(),
+    clearVisibleResults: vi.fn(),
     setError: vi.fn(),
     setExecutionTime: vi.fn(),
     setExecutionSource: vi.fn(),
@@ -63,6 +64,10 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     // function` on the result-store destructure.
     setRunTermination: mockSetRunTermination,
     setRunDeadlineAt: mockSetRunDeadlineAt,
+    // RL-020 Slice 8 — manual Run captures the snapshot on clean
+    // success. Mocked as vi.fn() so the telemetry tests don't crash
+    // when the new capture branch fires.
+    captureSuccessfulSnapshot: vi.fn(),
   };
   return {
     useResultStore: {

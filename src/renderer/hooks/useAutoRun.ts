@@ -206,6 +206,7 @@ export function useAutoRun() {
 
       const {
         clear,
+        clearVisibleResults,
         setLineResults,
         setFullOutput,
         setError,
@@ -326,7 +327,7 @@ export function useAutoRun() {
       // store-level reset of `autoRunGateReason` (intentional on tab
       // switch) does not nuke the reason we just set for this run.
       setIsAutoRunning(true);
-      clear();
+      clearVisibleResults();
       setExecutionSource('auto');
       setAutoRunGateReason(gate.reason);
 
@@ -477,7 +478,11 @@ export function useAutoRun() {
           // so a future gated keystroke can restore it. Skip when
           // the runner reported an error — that buffer isn't a
           // restoration target.
-          captureSuccessfulSnapshot();
+          //
+          // RL-020 Slice 8 — pass the active language so the
+          // Compare toggle can self-gate the snapshot against a
+          // later language change.
+          captureSuccessfulSnapshot(language);
           // RL-020 Slice 3 fold A — emit telemetry once per clean
           // run that produced at least one magic-comment result, so
           // adoption of `//=>` vs `// @watch` is visible. The

@@ -159,6 +159,27 @@ interface BuildCommandPaletteModelArgs {
    */
   onRunWithExtendedTimeout?: () => void;
   /**
+   * RL-020 Slice 8 fold C — fires the "Toggle compare with last
+   * stable run" palette action. Caller wires it via
+   * `setTabCompareEnabled` on the active tab. Optional; hidden
+   * when the active tab is missing or `executionMode === 'view'`.
+   */
+  onToggleCompareWithSnapshot?: () => void;
+  /**
+   * RL-020 Slice 8 fold C — `true` when the active tab currently
+   * has the Compare toggle on. The palette description flips
+   * between "Show diff" and "Hide diff" based on this flag, the
+   * same way the auto-log entry flips between enabled / disabled.
+   */
+  activeCompareEnabled?: boolean;
+  /**
+   * RL-020 Slice 8 fold C — `true` when the result store carries a
+   * comparator snapshot for the active language. Drives the
+   * palette gate so the action stays hidden when there's nothing
+   * to diff against — same UX contract as the toggle button.
+   */
+  compareSnapshotAvailable?: boolean;
+  /**
    * RL-020 Slice 4 fold G — id of the active editor tab. Used to
    * surface a parallel "Recent runs (this tab)" group ranked above
    * the global recent-runs entries when at least one history entry
@@ -458,6 +479,9 @@ export function buildCommandPaletteModel({
   activeTimeoutLanguage = null,
   activeTimeoutPreset = null,
   onRunWithExtendedTimeout,
+  onToggleCompareWithSnapshot,
+  activeCompareEnabled = false,
+  compareSnapshotAvailable = false,
   activeTabId = null,
   updateStatus,
   createTab,
@@ -664,6 +688,29 @@ export function buildCommandPaletteModel({
             ['run', 'extended', 'timeout', 'long', 'once', 'override'],
             () => {
               onRunWithExtendedTimeout();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-020 Slice 8 fold C — toggle the Compare panel on the
+    // active tab. Hidden when there's no comparator snapshot for
+    // the active language (matches the toggle-button gate). The
+    // description flips between "Show" and "Hide" so the palette
+    // honestly previews the next state.
+    ...(onToggleCompareWithSnapshot && compareSnapshotAvailable
+      ? [
+          buildActionCommand(
+            'action-toggle-compare-with-snapshot',
+            translate('commandPalette.action.toggleCompare.label'),
+            translate(
+              activeCompareEnabled
+                ? 'commandPalette.action.toggleCompare.descriptionHide'
+                : 'commandPalette.action.toggleCompare.descriptionShow'
+            ),
+            ['compare', 'diff', 'snapshot', 'stable', 'previous', 'toggle'],
+            () => {
+              onToggleCompareWithSnapshot();
               onClose();
             }
           ),

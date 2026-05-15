@@ -154,6 +154,16 @@ export interface FileTab {
    * accidentally carry the override.
    */
   nextRunTimeoutOverrideMs?: number;
+  /**
+   * RL-020 Slice 8 — per-tab flag for the "Compare with last
+   * stable run" toggle in the result-panel header. `true` swaps
+   * the inline-results region for `<CompareResultsPanel>` when a
+   * comparator snapshot is available; otherwise the toggle stays
+   * dormant. Cleared on language change (rename / Save-As) via
+   * `dropCompareIfLanguageChanged` so a JS-mode toggle doesn't
+   * surface a stale comparator on a freshly-renamed Python tab.
+   */
+  compareWithSnapshotEnabled?: boolean;
 }
 
 /**
@@ -248,6 +258,12 @@ export interface EditorState {
    * without consuming.
    */
   setTabNextRunTimeoutOverride: (id: string, timeoutMs: number | null) => void;
+  /**
+   * RL-020 Slice 8 — write the per-tab `compareWithSnapshotEnabled`
+   * flag. `null` clears the field (toggle returns to disabled).
+   * No-op when the tab does not exist.
+   */
+  setTabCompareEnabled: (id: string, enabled: boolean | null) => void;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The

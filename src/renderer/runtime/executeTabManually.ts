@@ -101,6 +101,7 @@ export async function executeTabManually(
   const { addEntry, clear } = useConsoleStore.getState();
   const {
     clear: clearResults,
+    clearVisibleResults,
     setError,
     setExecutionTime,
     setExecutionSource,
@@ -199,7 +200,7 @@ export async function executeTabManually(
   }
 
   clear();
-  clearResults();
+  clearVisibleResults();
   setExecutionSource('manual');
   setIsAutoRunning(false);
   setIsManualRunning(true);
@@ -406,6 +407,17 @@ export async function executeTabManually(
     const diagnostics = toExecutionDiagnostics(language, result.error ?? null);
     setDiagnostics(diagnostics);
     setExecutionTime(result.executionTime);
+
+    // RL-020 Slice 8 — manual Run captures the snapshot too on the
+    // clean-success branch. Slice 1 only captured on auto-run so
+    // Compare was effectively scratchpad-only. Skip on cancelled
+    // (already returned above) and on error — neither is a
+    // restoration target. Capture happens AFTER setLineResults +
+    // setFullOutput so the snapshot reflects what the user just
+    // saw.
+    if (!result.error && !result.cancelled) {
+      useResultStore.getState().captureSuccessfulSnapshot(language);
+    }
 
     const consoleEntries = toConsoleEntries(result);
     const entriesToAdd =

@@ -12,6 +12,7 @@ import {
 import i18next from 'i18next';
 import { useProjectStore } from './projectStore';
 import { useRecentFilesStore } from './recentFilesStore';
+import { useResultStore } from './resultStore';
 import { useSettingsStore } from './settingsStore';
 import { useUIStore } from './uiStore';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
@@ -144,6 +145,24 @@ function dropNextRunTimeoutOverride<T extends FileTab>(tab: T): T {
   return rest as T;
 }
 
+/**
+ * RL-020 Slice 8 — drop the per-tab Compare flag whenever the
+ * language changes (rename / Save-As). The comparator snapshot is
+ * tracked by the result store; the editor-store side just owns the
+ * toggle bit. Symmetric to `dropAutoLogIfUnsupported` /
+ * `dropStdinIfUnsupported`.
+ */
+function dropCompareIfLanguageChanged<T extends FileTab>(
+  tab: T,
+  previousLanguage: Language | null
+): T {
+  if (previousLanguage === null || tab.language === previousLanguage) return tab;
+  if (tab.compareWithSnapshotEnabled === undefined) return tab;
+  const { compareWithSnapshotEnabled: _drop, ...rest } = tab;
+  void _drop;
+  return rest as T;
+}
+
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
   const short = id.slice(0, 8);
@@ -271,6 +290,14 @@ async function persistTab(
   const stdinBuffer = languageSupportsStdin(language)
     ? tab.stdinBuffer
     : undefined;
+  // RL-020 Slice 8 — Save-As that changes the language drops the
+  // Compare toggle. Same-language Save-As (renaming `foo.js` →
+  // `bar.js`) keeps the toggle on so the user's workflow isn't
+  // interrupted.
+  const compareWithSnapshotEnabled =
+    tab.language === language && tab.compareWithSnapshotEnabled === true
+      ? true
+      : undefined;
   const {
     autoLogEnabled: _staleAutoLogEnabled,
     stdinBuffer: _staleStdinBuffer,
@@ -279,11 +306,13 @@ async function persistTab(
     // at when they armed it. A Save-As that retitles or changes
     // language drops the override.
     nextRunTimeoutOverrideMs: _staleNextRunTimeoutOverride,
+    compareWithSnapshotEnabled: _staleCompareEnabled,
     ...tabWithoutDropped
   } = tab;
   void _staleAutoLogEnabled;
   void _staleStdinBuffer;
   void _staleNextRunTimeoutOverride;
+  void _staleCompareEnabled;
   const nextTab: FileTab & { filePath: string; rootId: string; relativePath: string } = {
     ...tabWithoutDropped,
     filePath: absolutePath,
@@ -295,6 +324,9 @@ async function persistTab(
     workflowMode,
     ...(autoLogEnabled !== undefined ? { autoLogEnabled } : {}),
     ...(stdinBuffer !== undefined ? { stdinBuffer } : {}),
+    ...(compareWithSnapshotEnabled !== undefined
+      ? { compareWithSnapshotEnabled }
+      : {}),
   };
   let content: string;
   try {
@@ -627,6 +659,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // override on a tab. `null` or a non-positive number clears the
   // field. Positive numbers are stored as-is and consumed at most
   // once by `executeTabManually`.
+  // RL-020 Slice 8 — write the per-tab Compare toggle. `null` clears
+  // the field (the toggle returns to disabled). No-op when the tab
+  // is missing.
+  setTabCompareEnabled: (id, enabled) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== id) return t;
+        if (enabled === null || enabled === false) {
+          if (t.compareWithSnapshotEnabled === undefined) return t;
+          const { compareWithSnapshotEnabled: _drop, ...rest } = t;
+          void _drop;
+          return rest;
+        }
+        return { ...t, compareWithSnapshotEnabled: true };
+      }),
+    }));
+  },
+
   setTabNextRunTimeoutOverride: (id, timeoutMs) => {
     set((state) => ({
       tabs: state.tabs.map((t) => {
@@ -780,12 +830,28 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     const previousPath = tab.filePath;
     const previousRootId = tab.rootId;
+    const previousLanguage = tab.language;
     const savedTab = await persistTab(tab, forceSaveAs);
     if (!savedTab) return false;
 
     set((state) => ({
       tabs: state.tabs.map((t) => (t.id === id ? savedTab : t)),
     }));
+
+    // RL-020 Slice 8 — Save-As that changed the language invalidates
+    // the result-store snapshot ring for the saved tab. Re-read
+    // `activeTabId` at this point (not the value captured before the
+    // async `persistTab` hop) so that if the user switched tabs
+    // mid-save we do NOT drop the new active tab's snapshot ring.
+    // `useAutoRun` already clears the ring on tab switch; if the
+    // user navigated away during the file picker, the ring belongs
+    // to a different tab and we must leave it alone.
+    if (
+      savedTab.language !== previousLanguage &&
+      get().activeTabId === id
+    ) {
+      useResultStore.getState().clearLastSuccessfulSnapshot();
+    }
 
     if (previousRootId && previousRootId !== savedTab.rootId) {
       const rootStillUsed = tabs.some(
@@ -874,11 +940,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       from: WorkflowMode;
       to: WorkflowMode;
     }> = [];
+    // RL-020 Slice 8 — track whether the rename flipped the active
+    // tab's language so we can drop the result-store comparator
+    // snapshot below.
+    let activeTabLanguageChanged = false;
     set((state) => {
       const next = state.tabs.map((tab) => {
         if (tab.id !== id) return tab;
         if (tab.name === trimmed) return tab;
         const language = resolveFileLanguageOrPlaintext(trimmed);
+        const previousLanguage = tab.language;
         const runtimeMode = runtimeModeForRestoredTab(language, tab.runtimeMode);
         const previousWorkflow =
           tab.workflowMode ?? defaultWorkflowMode(tab.language);
@@ -892,6 +963,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             from: previousWorkflow,
             to: workflowMode,
           });
+        }
+        if (
+          previousLanguage !== language &&
+          state.activeTabId === tab.id
+        ) {
+          activeTabLanguageChanged = true;
         }
         // RL-020 Slice 5 fold C — when the new language is not
         // JS / TS, clear any persisted per-tab auto-log override so a
@@ -913,17 +990,30 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           // language clears the override, even if the new language
           // still supports auto-log. The user can re-arm via the
           // palette if they want to.
-          return dropNextRunTimeoutOverride({
-            ...renamed,
-            autoLogEnabled: tab.autoLogEnabled,
-          });
+          return dropCompareIfLanguageChanged(
+            dropNextRunTimeoutOverride({
+              ...renamed,
+              autoLogEnabled: tab.autoLogEnabled,
+            }),
+            previousLanguage
+          );
         }
-        return dropNextRunTimeoutOverride(
-          dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed))
+        return dropCompareIfLanguageChanged(
+          dropNextRunTimeoutOverride(
+            dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed))
+          ),
+          previousLanguage
         );
       });
       return { tabs: next };
     });
+    // RL-020 Slice 8 — same-tab language change invalidates the
+    // result-store snapshot ring (it was captured for the previous
+    // language and would surface as a stale comparator). Tab
+    // switches handle their own cascade via `clear()`.
+    if (activeTabLanguageChanged) {
+      useResultStore.getState().clearLastSuccessfulSnapshot();
+    }
     for (const correction of correctionsToEmit) {
       void trackEvent('runtime.workflow_mode_changed', {
         language: correction.language,
