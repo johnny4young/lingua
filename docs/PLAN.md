@@ -1938,6 +1938,160 @@ deadline (`PYODIDE_LOAD_TIMEOUT = 90_000` in `python.ts`) is
 unchanged — only the post-bootstrap run is bounded by the
 language preset; the Settings copy explicitly calls this out.
 
+#### Slice 8 — 2026-05-14 (last-stable compare)
+
+Slice 8 lands the named scope item *"Preserve the last successful
+run so users can compare current output against the previous
+stable result."* The Slice 1 snapshot infrastructure (already
+captured on every clean auto-run) is finally surfaced — Compare
+becomes a visible affordance, manual Run also captures, and the
+result-panel header gains a button-secondary toggle that swaps
+the inline-results region for a diff body.
+
+Architecture:
+
+- **`src/renderer/stores/resultStore.ts`** — `ResultSnapshot`
+  gains `language` (Slice 1 only carried lineResults + fullOutput;
+  Slice 8 self-gates the Compare toggle against a Save-As that
+  flips the language), `capturedAt` (epoch ms for relative time),
+  `pinned` (fold F). New `snapshotRing: ResultSnapshot[]` (cap=3,
+  fold B) keyed by capture order; eviction drops the oldest
+  UNPINNED entry. When every slot is pinned, the fresh capture is
+  refused — the user's pin intent wins. New
+  `selectedCompareTargetCapturedAt` cursor + `setCompareTarget` /
+  `toggleSnapshotPin` / `clearLastSuccessfulSnapshot` actions.
+  `captureSuccessfulSnapshot(language?)` is the additive new
+  signature; callers without a language get `'unknown'` which the
+  Compare toggle rejects.
+- **`src/renderer/types/index.ts`** — `FileTab.compareWithSnapshotEnabled?: boolean`
+  per-tab toggle + `EditorState.setTabCompareEnabled(id, enabled |
+  null)`.
+- **`src/renderer/stores/editorStore.ts`** — `setTabCompareEnabled`
+  setter; `dropCompareIfLanguageChanged` helper symmetric to the
+  existing autoLog / stdin / timeout-override drops; `renameTab`
+  clears the flag AND the result-store snapshot ring when the
+  language flips on the active tab (`useResultStore.getState()
+  .clearLastSuccessfulSnapshot()`); `saveTabById` (Save-As) does
+  the same.
+- **`src/renderer/runtime/executeTabManually.ts`** — manual Run
+  captures the snapshot on the clean-success branch (Slice 1 was
+  scratchpad-only via `useAutoRun`). Skip on cancel / timeout /
+  error. Reviewer fix — the run-start reset preserves the snapshot
+  ring, then the clean-success branch appends the new capture.
+- **`src/renderer/hooks/useAutoRun.ts`** — pass `language` into
+  `captureSuccessfulSnapshot`. No behavioral change; the Slice 1
+  restore path reads the legacy fields only. Reviewer fix — the
+  pre-run visible reset preserves the ring so the new clean run can
+  compare against the prior stable output.
+- **`src/renderer/utils/snapshotDiff.ts`** — new pure helper
+  `diffSnapshot({ snapshot, current, granularity? })`. Returns a
+  `'dynamic'` variant with `rows: CompareRow[]` (one entry per
+  line that exists on EITHER side, `kind: 'unchanged' | 'added' |
+  'removed' | 'changed'`) for dynamic-language tabs; a
+  `'compiled'` variant with `segments: DiffSegment[]` for compiled
+  outputs (reuses `computeDiff` from `src/renderer/utils/diff.ts`
+  — already extracted out of `DiffUtilityPanel` in RL-071, so the
+  planned refactor was a no-op). Reviewer fix —
+  `resolveCompareTargetSnapshot` defaults Compare to the previous
+  stable snapshot whenever the newest ring entry already matches
+  the current output; otherwise a clean run would compare against
+  itself.
+- **`src/renderer/components/Editor/CompareToggleButton.tsx`** —
+  button-secondary header toggle mirroring `hideUndefined`.
+  Disabled state when there's no comparator snapshot for the
+  active language; tooltip variants explain why. Fires
+  `runtime.compare_view_toggled` adoption telemetry on each
+  user-driven flip.
+- **`src/renderer/components/Editor/CompareResultsPanel.tsx`** —
+  three-column dynamic diff (Line / Previous / Current) or
+  unified compiled diff. Empty states for "identical" + "no
+  snapshot." Fold B target dropdown surfaces when ≥2 snapshots
+  match the language. Fold F pin / unpin button per target.
+  Fold E granularity selector visible only in compiled mode.
+- **`src/renderer/components/Editor/ResultPanel.tsx`** — mounts
+  `<CompareToggleButton>` next to `hideUndefined`. When the
+  toggle is on AND a language-matching snapshot exists, swaps
+  the inline-results region for `<CompareResultsPanel>`. The
+  panel is mounted with `key={activeTab?.id ?? 'none'}` so the
+  internal granularity state resets on tab switch (reviewer fix).
+  Fold G inline diff markers (`+ / − / ~`) are memoized via
+  `useMemo` so the auto-run stream doesn't recompute on every
+  keystroke (reviewer fix).
+- **Fold C — Command palette `Toggle compare with last stable
+  run`**: hidden when there's no comparator snapshot for the
+  active language. Description flips between Show / Hide so the
+  palette honestly previews the next state. Reviewer fix — the
+  palette path emits `runtime.compare_view_toggled`, matching the
+  header button and keyboard shortcut.
+- **Fold D — `Mod+Shift+D` keyboard shortcut**: dispatched via
+  `useGlobalShortcuts` / `App.tsx`; surfaces a localized notice
+  (`compare.toggle.shortcutUnavailable`) when fired without a
+  comparator so the keystroke is never silent.
+- **`src/shared/telemetry.ts`** + **`update-server/src/telemetry.ts`** —
+  new `runtime.compare_view_toggled` event with `['language',
+  'enabled']` allowlist. The sorted-name list places it between
+  `runtime.auto_run_gated` and `runtime.history_replay`.
+  Parity-test pattern matches Slices 1 / 4 / 5 / 6 / 7.
+- **i18n** — 21 new keys per locale under `compare.*` (toggle
+  label / tooltip variants / panel title / empty states / row
+  headers / target dropdown options / granularity labels / inline
+  badge tooltips / relative-time strings) plus
+  `commandPalette.action.toggleCompare.*` (palette) and
+  `shortcuts.item.toggleCompareSnapshot.*` (keymap). Spanish in
+  neutral LatAm tuteo (`Oculta`, `Muestra`, `Ejecuta`, `Cambia`).
+  Reviewer fix — `formatRelativeMs` now goes through `t()`
+  (previously hardcoded English fragments inside the option
+  label).
+
+Tests:
+
+- `tests/utils/snapshotDiff.test.ts` — identical / added / removed
+  / changed / sort-order / compiled identical / compiled diverged
+  / granularity override / previous-stable target resolution.
+- `tests/components/CompareToggleButton.test.tsx` — disabled / no
+  snapshot / mismatched language / enabled off / click fires
+  telemetry + flag flip / pressed state / no-op when disabled.
+- `tests/components/CompareResultsPanel.test.tsx` — empty no
+  snapshot / three-column dynamic / identical empty state /
+  unified compiled / dropdown when ≥2 / hidden when one.
+- `tests/stores/resultStore.compareSnapshot.test.ts` — language
+  + capturedAt capture / ring cap=3 / pinned survives evictions /
+  monotonic capturedAt ids / clearVisibleResults preservation /
+  clearLastSuccessfulSnapshot / setCompareTarget validation /
+  toggleSnapshotPin.
+- `tests/stores/editorStore.compare.test.ts` —
+  setTabCompareEnabled write / null clear / renameTab to a
+  different language drops flag + snapshot / same-language
+  rename preserves.
+- `tests/shared/telemetry.test.ts` — sorted-name list adds
+  `runtime.compare_view_toggled` between `auto_run_gated` and
+  `history_replay`; validator coverage (closed enum + non-boolean
+  reject + unknown-key drop).
+- `tests/runtime/executeTabManually.{snapshot,telemetry}.test.ts`
+  result-store mocks gain `captureSuccessfulSnapshot: vi.fn()`.
+- `tests/e2e/compareWithLastStable.spec.ts` — disabled before
+  first clean run; diverging edit lights up the toggle + renders
+  the diff.
+
+Reviewer findings (all resolved inline this slice):
+
+- `<CompareResultsPanel>` mounted with `key={activeTab?.id}` so
+  granularity resets per tab.
+- `inlineDiffMarkers` wrapped in `useMemo`.
+- `toggleSnapshotPin` captures `previousActive` before the
+  `set()` call instead of re-reading via `get()` inside the
+  setter argument.
+- `formatRelativeMs` goes through `t()` for all four bucket
+  variants (`justNow` / `secondsAgo` / `minutesAgo` / `hoursAgo`).
+- Compare target resolution defaults to the previous stable
+  snapshot when the newest snapshot matches the current output.
+- Auto-run and manual-run start resets preserve the snapshot ring
+  instead of wiping the comparator just before capture.
+- Snapshot ring `capturedAt` ids are monotonic even when multiple
+  captures happen in the same millisecond.
+- The command-palette Compare action now emits
+  `runtime.compare_view_toggled`.
+
 ### RL-021 Fix loose-file workflow and session continuity
 
 - Priority: `P1`

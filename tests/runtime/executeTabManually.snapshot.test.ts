@@ -46,6 +46,7 @@ vi.mock('../../src/renderer/stores/consoleStore', () => {
 vi.mock('../../src/renderer/stores/resultStore', () => {
   const state = {
     clear: vi.fn(),
+    clearVisibleResults: vi.fn(),
     setError: vi.fn(),
     setExecutionTime: vi.fn(),
     setExecutionSource: vi.fn(),
@@ -59,6 +60,10 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     // executeTabManually result-store destructure.
     setRunTermination: vi.fn(),
     setRunDeadlineAt: vi.fn(),
+    // RL-020 Slice 8 — manual Run captures the snapshot on clean
+    // success. The vi.fn() lets tests assert that the capture
+    // fires (and never fires on cancel / timeout / error).
+    captureSuccessfulSnapshot: vi.fn(),
   };
   return { useResultStore: { getState: () => state } };
 });

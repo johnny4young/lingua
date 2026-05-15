@@ -1,5 +1,5 @@
 import { Loader2, MoveRight, Pin } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatExecTime } from '../../hooks/runnerOutput';
 import { useEditorStore } from '../../stores/editorStore';
@@ -13,6 +13,12 @@ import { AutoLogStatusPill } from './AutoLogStatusPill';
 import { StdinStatusPill } from './StdinStatusPill';
 import { RecentRunsPill } from './RecentRunsPill';
 import { RunStatusPill } from './RunStatusPill';
+import { CompareToggleButton } from './CompareToggleButton';
+import { CompareResultsPanel } from './CompareResultsPanel';
+import {
+  diffSnapshot,
+  resolveCompareTargetSnapshot,
+} from '../../utils/snapshotDiff';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 
 function LineResultRow({
@@ -105,6 +111,21 @@ interface LineAlignedResultsProps {
   watchEmptyCopy: string;
   autoLogTooltip: string;
   autoLogAriaLabel: string;
+  /**
+   * RL-020 Slice 8 fold G — per-line diff markers vs. the last
+   * stable snapshot. Map from `line` to `'added' | 'removed' |
+   * 'changed'` (unchanged lines are omitted). Renders a tiny tone-
+   * colored glyph at the start of the row. `null` / empty map
+   * disables the feature (default state: no snapshot yet).
+   */
+  diffMarkers?: Map<number, 'added' | 'removed' | 'changed'> | null;
+  /**
+   * Localized strings for the badge tooltips. Provided by the
+   * parent so the badge stays a pure renderer.
+   */
+  addedBadgeTooltip?: string;
+  removedBadgeTooltip?: string;
+  changedBadgeTooltip?: string;
 }
 
 function LineAlignedResults({
@@ -118,6 +139,10 @@ function LineAlignedResults({
   watchEmptyCopy,
   autoLogTooltip,
   autoLogAriaLabel,
+  diffMarkers,
+  addedBadgeTooltip,
+  removedBadgeTooltip,
+  changedBadgeTooltip,
 }: LineAlignedResultsProps) {
   const resultsByLine = new Map<number, LineResult[]>();
   for (const result of lineResults) {
@@ -131,6 +156,7 @@ function LineAlignedResults({
       {Array.from({ length: lineCount }, (_, index) => {
         const lineNumber = index + 1;
         const results = resultsByLine.get(lineNumber);
+        const marker = diffMarkers?.get(lineNumber) ?? null;
 
         return (
           <div
@@ -138,6 +164,35 @@ function LineAlignedResults({
             style={{ height: lineHeight, lineHeight: `${lineHeight}px` }}
             className="flex min-w-0 items-center gap-3 overflow-x-auto px-4"
           >
+            {marker !== null && (
+              <span
+                data-result-kind="diff-badge"
+                data-diff-kind={marker}
+                title={
+                  marker === 'added'
+                    ? addedBadgeTooltip
+                    : marker === 'removed'
+                      ? removedBadgeTooltip
+                      : changedBadgeTooltip
+                }
+                aria-label={
+                  marker === 'added'
+                    ? addedBadgeTooltip
+                    : marker === 'removed'
+                      ? removedBadgeTooltip
+                      : changedBadgeTooltip
+                }
+                className={`inline-flex w-3 shrink-0 items-center justify-center text-[10px] ${
+                  marker === 'added'
+                    ? 'text-success'
+                    : marker === 'removed'
+                      ? 'text-danger'
+                      : 'text-primary'
+                }`}
+              >
+                {marker === 'added' ? '+' : marker === 'removed' ? '−' : '~'}
+              </span>
+            )}
             {results?.map((result, resultIndex) => (
               <LineResultRow
                 key={resultIndex}
@@ -204,6 +259,65 @@ export function ResultPanel() {
   const language = activeTab?.language ?? 'javascript';
   const dynamic = isInlineResultLanguage(language);
   const executionMode = executionModeForLanguage(language);
+  // RL-020 Slice 8 — the Compare panel renders when the active
+  // tab opted in AND the result store carries a comparator
+  // snapshot for the same language. Falsy by default so nothing
+  // changes for users who don't touch the toggle.
+  const snapshotRing = useResultStore((state) => state.snapshotRing);
+  const selectedCompareTargetCapturedAt = useResultStore(
+    (state) => state.selectedCompareTargetCapturedAt
+  );
+  const compareTargetSnapshot = useMemo(
+    () =>
+      resolveCompareTargetSnapshot({
+        snapshotRing,
+        language,
+        selectedCapturedAt: selectedCompareTargetCapturedAt,
+        current: { lineResults, fullOutput },
+      }),
+    [
+      snapshotRing,
+      language,
+      selectedCompareTargetCapturedAt,
+      lineResults,
+      fullOutput,
+    ]
+  );
+  const compareEnabled =
+    executionMode === 'run' &&
+    activeTab?.compareWithSnapshotEnabled === true &&
+    compareTargetSnapshot !== null;
+
+  // RL-020 Slice 8 fold G — inline diff badges. Only render in
+  // non-compare mode: when Compare is on, the dedicated diff view
+  // already surfaces per-line deltas. Skip when there's no
+  // language-matching snapshot. Memoized so the auto-run stream
+  // doesn't re-run the diff on every render — `lineResults` is
+  // the high-frequency dependency.
+  const inlineDiffMarkers = useMemo<
+    Map<number, 'added' | 'removed' | 'changed'> | null
+  >(() => {
+    if (compareEnabled) return null;
+    if (!compareTargetSnapshot) return null;
+    if (!dynamic) return null;
+    const diff = diffSnapshot({
+      snapshot: compareTargetSnapshot,
+      current: { lineResults, fullOutput },
+    });
+    if (diff.mode !== 'dynamic') return null;
+    const map = new Map<number, 'added' | 'removed' | 'changed'>();
+    for (const row of diff.rows) {
+      if (row.kind === 'unchanged') continue;
+      map.set(row.line, row.kind);
+    }
+    return map.size > 0 ? map : null;
+  }, [
+    compareEnabled,
+    compareTargetSnapshot,
+    lineResults,
+    fullOutput,
+    dynamic,
+  ]);
   const lineCount = (activeTab?.content ?? '').split('\n').length;
   const undefinedResultCount = lineResults.filter(isUndefinedResult).length;
   const visibleLineResults = hideUndefined
@@ -299,7 +413,14 @@ export function ResultPanel() {
               {formatExecTime(executionTime)}
             </span>
           )}
-          {showUndefinedToggle && (
+          {/* RL-020 Slice 8 — Compare toggle. Self-gates on
+              snapshot availability + language match. Hidden in
+              view-only execution mode (validation / view files). */}
+          {executionMode === 'run' && <CompareToggleButton />}
+          {/* RL-020 Slice 8 — hide the `undefined` toggle when the
+              user has Compare on: the diff view doesn't expose
+              `undefined` rows in the same way. */}
+          {showUndefinedToggle && !compareEnabled && (
             <button
               onClick={toggleHideUndefined}
               title={
@@ -316,7 +437,20 @@ export function ResultPanel() {
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
-        {!hasContent && !isAutoRunning ? (
+        {compareEnabled ? (
+          // RL-020 Slice 8 — re-mount the compare body on tab switch
+          // so the internal granularity state resets to `'line'` for
+          // each tab. Without this `key`, a `'word'` granularity
+          // picked on a compiled-language tab would persist across
+          // a switch to a fresh tab. The reviewer flagged this as
+          // critical because the leak surfaces invisibly (dynamic
+          // mode hides the selector) until the user reaches another
+          // compiled tab.
+          <CompareResultsPanel
+            key={activeTab?.id ?? 'none'}
+            language={language}
+          />
+        ) : !hasContent && !isAutoRunning ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
             <span className="text-xs italic text-muted">{t(emptyKey)}</span>
           </div>
@@ -333,6 +467,10 @@ export function ResultPanel() {
               watchEmptyCopy={t('magic.watch.empty')}
               autoLogTooltip={t('autoLog.result.tooltip')}
               autoLogAriaLabel={t('autoLog.result.ariaLabel')}
+              diffMarkers={inlineDiffMarkers}
+              addedBadgeTooltip={t('compare.inlineBadge.added')}
+              removedBadgeTooltip={t('compare.inlineBadge.removed')}
+              changedBadgeTooltip={t('compare.inlineBadge.changed')}
             />
             {error && (
               <div className="border-t border-error/20 bg-error/10 px-4 py-3">

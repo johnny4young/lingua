@@ -671,6 +671,89 @@ describe('buildCommandPaletteModel — timeout actions (RL-020 Slice 7)', () => 
   });
 });
 
+describe('buildCommandPaletteModel — compare actions (RL-020 Slice 8)', () => {
+  function buildCompareCommands(args: {
+    onToggleCompareWithSnapshot?: () => void;
+    activeCompareEnabled?: boolean;
+    compareSnapshotAvailable?: boolean;
+    onClose?: () => void;
+  }) {
+    return buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      onToggleCompareWithSnapshot: args.onToggleCompareWithSnapshot,
+      activeCompareEnabled: args.activeCompareEnabled,
+      compareSnapshotAvailable: args.compareSnapshotAvailable,
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: args.onClose ?? vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    });
+  }
+
+  it('hides the compare action when no comparator snapshot is available', () => {
+    const commands = buildCompareCommands({
+      onToggleCompareWithSnapshot: vi.fn(),
+      compareSnapshotAvailable: false,
+    });
+
+    expect(
+      commands.find(
+        (command) => command.id === 'action-toggle-compare-with-snapshot'
+      )
+    ).toBeUndefined();
+  });
+
+  it('shows the compare action and calls the toggle handler when available', () => {
+    const toggle = vi.fn();
+    const onClose = vi.fn();
+    const commands = buildCompareCommands({
+      onToggleCompareWithSnapshot: toggle,
+      compareSnapshotAvailable: true,
+      onClose,
+    });
+
+    const action = commands.find(
+      (command) => command.id === 'action-toggle-compare-with-snapshot'
+    );
+
+    expect(action?.description).toBe(
+      'Show the diff against the last successful run on this tab.'
+    );
+    action?.action();
+    expect(toggle).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('flips the compare action description when compare is already enabled', () => {
+    const commands = buildCompareCommands({
+      onToggleCompareWithSnapshot: vi.fn(),
+      activeCompareEnabled: true,
+      compareSnapshotAvailable: true,
+    });
+
+    expect(
+      commands.find(
+        (command) => command.id === 'action-toggle-compare-with-snapshot'
+      )?.description
+    ).toBe('Hide the diff and return to the inline results.');
+  });
+});
+
 describe('buildCommandPaletteModel — fold G: per-tab recent runs (RL-020 Slice 4)', () => {
   function build(args: {
     history: Array<{

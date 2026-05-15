@@ -47,6 +47,8 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-019 Slice 1 — per-tab JS/TS runtime mode change.
       // Closed-enum payload `{ mode, language }`; see RUNTIME_MODES_ADR.
       'runtime.auto_run_gated',
+      // RL-020 Slice 8 — Compare-with-last-stable adoption signal.
+      'runtime.compare_view_toggled',
       // RL-020 Slice 4 — execution-history replay dispatched.
       // Closed-enum payload `{ language, status, surface }`.
       'runtime.history_replay',
@@ -578,6 +580,48 @@ describe('runtime.stdin_used value validator (RL-020 Slice 6)', () => {
       })
     );
     expect(event.properties).not.toHaveProperty('language');
+  });
+});
+
+describe('runtime.compare_view_toggled value validator (RL-020 Slice 8)', () => {
+  it('accepts the closed enum payload', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.compare_view_toggled',
+        properties: { language: 'javascript', enabled: true },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'javascript',
+      enabled: true,
+    });
+  });
+  it('drops non-boolean enabled', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.compare_view_toggled',
+        properties: { language: 'python', enabled: 'yes' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('enabled');
+    expect(droppedKeys).toContain('enabled');
+  });
+  it('drops unknown property keys', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.compare_view_toggled',
+        properties: {
+          language: 'typescript',
+          enabled: false,
+          extra: 'unused',
+        },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'typescript',
+      enabled: false,
+    });
+    expect(droppedKeys).toContain('extra');
   });
 });
 

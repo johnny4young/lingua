@@ -48,6 +48,40 @@ export interface ResultSnapshot {
   fullOutput: string;
   stdinConsumed: { count: number; total: number } | null;
   executionTime: number | null;
+  /**
+   * RL-020 Slice 8 — language id the snapshot belongs to. The Compare
+   * toggle in the result-panel header reads this to refuse rendering
+   * a stale diff after a Save-As / rename that changed the language
+   * (a JS scratchpad's snapshot must not surface as the comparator
+   * for a Python run). Slice 1 captured snapshots without language
+   * because the gate-restore use case stayed inside the same tab; the
+   * language field is additive and the restore path defensively
+   * ignores it.
+   */
+  language: string;
+  /**
+   * RL-020 Slice 8 fold F — when `true`, the snapshot is locked and
+   * the next clean run does NOT overwrite it. Pinning is per-tab —
+   * `clear()` on tab switch still drops the snapshot, but inside a
+   * tab a pinned snapshot persists across as many runs as the user
+   * wants. The user explicitly unpins (or switches tabs) to release.
+   */
+  pinned?: boolean;
+  /**
+   * RL-020 Slice 8 fold F — a coarse epoch ms tag so the
+   * `<CompareTargetSelector>` (fold B) can render
+   * "5m ago" / "an hour ago" relative timestamps without needing the
+   * full Date. Stored as ms since epoch.
+   */
+  capturedAt: number;
+}
+
+function nextSnapshotCapturedAt(snapshotRing: readonly ResultSnapshot[]): number {
+  const latestCapturedAt = snapshotRing.reduce(
+    (max, entry) => Math.max(max, entry.capturedAt),
+    0
+  );
+  return Math.max(Date.now(), latestCapturedAt + 1);
 }
 
 interface ResultState {
@@ -87,8 +121,31 @@ interface ResultState {
    * by the gate to restore the panel after a transient incomplete
    * edit. Cleared on tab switch via `clear()` so it never leaks
    * across tabs.
+   *
+   * RL-020 Slice 8 — also the comparator source for the `Compare`
+   * toggle. The Slice 1 contract is preserved: it always points at
+   * the most recent clean run (or a pinned snapshot, per fold F).
    */
   lastSuccessfulSnapshot: ResultSnapshot | null;
+  /**
+   * RL-020 Slice 8 fold B — multi-snapshot ring keyed by capture
+   * order (oldest first). Bounded by `MAX_SNAPSHOT_RING` (3) so the
+   * user can step back through the last few stable runs to diff
+   * against an older comparator. The active `lastSuccessfulSnapshot`
+   * always equals `snapshotRing[snapshotRing.length - 1]` (or a
+   * pinned snapshot earlier in the ring); the ring is the source of
+   * truth, the singular field is the cursor.
+   */
+  snapshotRing: ResultSnapshot[];
+  /**
+   * RL-020 Slice 8 fold B — `capturedAt` of the snapshot the
+   * `Compare` panel renders against. Defaults to the latest
+   * (`snapshotRing[snapshotRing.length - 1].capturedAt`) but the
+   * user can pick an older comparator via the target selector. The
+   * selected target is renderer-internal; nothing on the wire ever
+   * carries it.
+   */
+  selectedCompareTargetCapturedAt: number | null;
   /**
    * RL-020 Slice 7 — termination summary from the most recent run.
    * `null` while no run has happened on this tab (the pill stays
@@ -124,10 +181,42 @@ interface ResultState {
    * by the countdown pill.
    */
   setRunDeadlineAt: (epochMs: number | null) => void;
-  /** RL-020 Slice 1 — capture the panel state as the last good run. */
-  captureSuccessfulSnapshot: () => void;
+  /**
+   * RL-020 Slice 1 — capture the panel state as the last good run.
+   * RL-020 Slice 8 — caller passes the active tab's `language` so
+   * the snapshot can self-gate the Compare toggle against language
+   * drift (a Save-As that flips JS → Python invalidates the
+   * comparator). Optional for legacy callers; missing language
+   * defaults to `'unknown'` and the Compare toggle treats those
+   * snapshots as gated-out.
+   */
+  captureSuccessfulSnapshot: (language?: string) => void;
   /** RL-020 Slice 1 — restore the last successful snapshot if any. */
   restoreLastSuccessfulSnapshot: () => boolean;
+  /**
+   * RL-020 Slice 8 — explicitly drop the snapshot ring. Used by the
+   * editor store's `renameTab` / `persistTab` when the new language
+   * doesn't match the snapshot's. Does NOT touch the live result
+   * fields (`lineResults`, `fullOutput`) — only the comparator.
+   */
+  clearLastSuccessfulSnapshot: () => void;
+  /**
+   * RL-020 Slice 8 fold B — pick a comparator from the ring by its
+   * `capturedAt`. `null` resets to the newest. Unknown values
+   * (snapshot evicted, ring empty) silently fall back to the
+   * newest entry.
+   */
+  setCompareTarget: (capturedAt: number | null) => void;
+  /**
+   * RL-020 Slice 8 fold F — toggle the pin flag on the snapshot at
+   * the given `capturedAt`. Pinning a snapshot prevents the
+   * automatic-overwrite that the next clean run normally performs:
+   * the pinned entry stays in the ring at its slot, and the new
+   * clean run lands in the next slot (or rotates out the oldest
+   * UNPINNED entry to make room). Unpinning lets the entry behave
+   * like any other ring member again.
+   */
+  toggleSnapshotPin: (capturedAt: number) => void;
   clear: () => void;
   /**
    * RL-020 Slice 3 — clear visible state (lineResults, output,
@@ -135,6 +224,9 @@ interface ResultState {
    * so a transient empty-buffer cycle (Cmd+A → Backspace → type)
    * does not defeat the Slice 1 snapshot-restore behavior. The
    * snapshot is only wiped on a real tab switch via `clear()`.
+   * RL-020 Slice 8 — preserves `snapshotRing` too so a fresh run can
+   * compare against earlier stable output after it captures its own
+   * result.
    */
   clearVisibleResults: () => void;
 }
@@ -151,6 +243,10 @@ export const useResultStore = create<ResultState>((set, get) => ({
   executionSource: null,
   autoRunGateReason: null,
   lastSuccessfulSnapshot: null,
+  // RL-020 Slice 8 fold B — multi-snapshot ring. Empty until the
+  // first clean run on a tab; cleared on tab switch.
+  snapshotRing: [],
+  selectedCompareTargetCapturedAt: null,
   runTermination: null,
   runDeadlineAt: null,
 
@@ -166,17 +262,59 @@ export const useResultStore = create<ResultState>((set, get) => ({
   setAutoRunGateReason: (autoRunGateReason) => set({ autoRunGateReason }),
   setRunTermination: (runTermination) => set({ runTermination }),
   setRunDeadlineAt: (runDeadlineAt) => set({ runDeadlineAt }),
-  captureSuccessfulSnapshot: () => {
-    const { lineResults, fullOutput, stdinConsumed, executionTime } = get();
+  captureSuccessfulSnapshot: (language) => {
+    const { lineResults, fullOutput, stdinConsumed, executionTime, snapshotRing } = get();
+    const fresh: ResultSnapshot = {
+      // Defensive copy of lineResults so a later mutation of the
+      // live array does not retroactively edit the snapshot.
+      lineResults: [...lineResults],
+      fullOutput,
+      stdinConsumed,
+      executionTime,
+      // Slice 8 — `'unknown'` keeps the field present but treats the
+      // snapshot as language-gated for legacy callers that don't
+      // pass the language. The Compare toggle rejects unknown
+      // snapshots.
+      language: typeof language === 'string' && language.length > 0 ? language : 'unknown',
+      // `capturedAt` doubles as the ring key for selection and pin
+      // toggles, so make it monotonic even when multiple captures
+      // land in the same millisecond.
+      capturedAt: nextSnapshotCapturedAt(snapshotRing),
+    };
+    // Slice 8 fold B — ring eviction. Drop oldest UNPINNED entry when
+    // the ring is full; pinned entries stay until the user
+    // explicitly unpins. Cap is intentionally low (3) — beyond that
+    // the dropdown becomes noise.
+    const MAX_SNAPSHOT_RING = 3;
+    const nextRing: ResultSnapshot[] = [...snapshotRing];
+    if (nextRing.length >= MAX_SNAPSHOT_RING) {
+      // Find the oldest UNPINNED entry; if every slot is pinned,
+      // the ring is full and we silently DROP the fresh snapshot to
+      // honor the user's pin intent. The Slice 1 gate-restore path
+      // still works because `lastSuccessfulSnapshot` continues to
+      // point at the previously-pinned newest entry until the user
+      // unpins.
+      const evictIndex = nextRing.findIndex((entry) => entry.pinned !== true);
+      if (evictIndex < 0) {
+        return; // every slot pinned — refuse the fresh capture
+      }
+      nextRing.splice(evictIndex, 1);
+    }
+    nextRing.push(fresh);
     set({
-      lastSuccessfulSnapshot: {
-        // Defensive copy of lineResults so a later mutation of the
-        // live array does not retroactively edit the snapshot.
-        lineResults: [...lineResults],
-        fullOutput,
-        stdinConsumed,
-        executionTime,
-      },
+      snapshotRing: nextRing,
+      lastSuccessfulSnapshot: fresh,
+      // A new snapshot resets the comparator target to the newest
+      // entry unless the user had explicitly picked a non-default
+      // target — in that case the target stays IF the picked
+      // capturedAt is still in the ring.
+      selectedCompareTargetCapturedAt: (() => {
+        const previous = get().selectedCompareTargetCapturedAt;
+        if (previous === null) return null;
+        return nextRing.some((entry) => entry.capturedAt === previous)
+          ? previous
+          : null;
+      })(),
     });
   },
   restoreLastSuccessfulSnapshot: () => {
@@ -192,6 +330,45 @@ export const useResultStore = create<ResultState>((set, get) => ({
     });
     return true;
   },
+  clearLastSuccessfulSnapshot: () =>
+    set({
+      lastSuccessfulSnapshot: null,
+      snapshotRing: [],
+      selectedCompareTargetCapturedAt: null,
+    }),
+  setCompareTarget: (capturedAt) => {
+    if (capturedAt === null) {
+      set({ selectedCompareTargetCapturedAt: null });
+      return;
+    }
+    const { snapshotRing } = get();
+    if (!snapshotRing.some((entry) => entry.capturedAt === capturedAt)) {
+      // Unknown capturedAt — treat as a reset.
+      set({ selectedCompareTargetCapturedAt: null });
+      return;
+    }
+    set({ selectedCompareTargetCapturedAt: capturedAt });
+  },
+  toggleSnapshotPin: (capturedAt) => {
+    const { snapshotRing, lastSuccessfulSnapshot: previousActive } = get();
+    const next = snapshotRing.map((entry) =>
+      entry.capturedAt === capturedAt
+        ? { ...entry, pinned: entry.pinned !== true }
+        : entry
+    );
+    // Update the singular pointer if it matched the flipped entry.
+    // Capture `previousActive` BEFORE the set call so the fallback
+    // doesn't re-read the store mid-mutation. The reviewer flagged
+    // the original pattern as a future foot-gun even though the
+    // current Zustand semantics make it correct today.
+    const updatedActive = next.find(
+      (entry) => entry.capturedAt === previousActive?.capturedAt
+    );
+    set({
+      snapshotRing: next,
+      lastSuccessfulSnapshot: updatedActive ?? previousActive,
+    });
+  },
   clear: () =>
     set({
       lineResults: [],
@@ -205,6 +382,12 @@ export const useResultStore = create<ResultState>((set, get) => ({
       // tab switch starts fresh.
       autoRunGateReason: null,
       lastSuccessfulSnapshot: null,
+      // RL-020 Slice 8 fold B — tab switches drop the entire snapshot
+      // ring and the selected comparator target. The ring is tab-
+      // scoped; the active result store is one source of truth for
+      // the current tab only.
+      snapshotRing: [],
+      selectedCompareTargetCapturedAt: null,
       // RL-020 Slice 7 — tab switches drop the per-run pill state
       // too so the new tab's panel header starts quiet.
       runTermination: null,
@@ -212,9 +395,11 @@ export const useResultStore = create<ResultState>((set, get) => ({
     }),
   clearVisibleResults: () =>
     // RL-020 Slice 3 — same shape as `clear()` but DOES NOT touch
-    // `lastSuccessfulSnapshot`. Useful when the active buffer
-    // transits through an empty state (Cmd+A → Backspace) and the
-    // accumulated snapshot should survive into the next keystroke.
+    // `lastSuccessfulSnapshot` or the Slice 8 `snapshotRing`. Useful
+    // when the active buffer transits through an empty state
+    // (Cmd+A → Backspace) and when a new run is starting; the
+    // accumulated snapshots should survive until the run either
+    // captures a new stable result or the user switches tabs.
     set({
       lineResults: [],
       fullOutput: '',

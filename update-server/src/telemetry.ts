@@ -40,6 +40,8 @@ export const TELEMETRY_EVENT_NAMES = [
   'debugger.detached',
   'runtime.mode_changed',
   'runtime.auto_run_gated',
+  // RL-020 Slice 8 — mirror of `runtime.compare_view_toggled`.
+  'runtime.compare_view_toggled',
   'runtime.workflow_mode_changed',
   'runtime.magic_comment_emitted',
   'runtime.history_replay',
@@ -76,6 +78,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'debugger.detached': ['language', 'reasonBucket'],
   'runtime.mode_changed': ['mode', 'language'],
   'runtime.auto_run_gated': ['language', 'reason'],
+  // RL-020 Slice 8 — mirror of `runtime.compare_view_toggled`.
+  'runtime.compare_view_toggled': ['language', 'enabled'],
   'runtime.workflow_mode_changed': ['language', 'from', 'to', 'trigger'],
   'runtime.magic_comment_emitted': ['language', 'hasArrow', 'hasWatch'],
   'runtime.history_replay': ['language', 'status', 'surface'],
@@ -340,6 +344,10 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'reason')
         return typeof value === 'string' && AUTO_RUN_GATE_REASONS.has(value);
+      return false;
+    case 'runtime.compare_view_toggled':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'enabled') return typeof value === 'boolean';
       return false;
     case 'runtime.workflow_mode_changed':
       if (key === 'language') return isSafeToken(value);

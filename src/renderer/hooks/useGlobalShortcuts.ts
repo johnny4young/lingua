@@ -71,6 +71,16 @@ interface UseGlobalShortcutsOptions {
    * caller surfaces a localized status notice instead.
    */
   toggleRecentRunsPopover: () => void;
+  /**
+   * RL-020 Slice 8 fold D — toggle the Compare panel on the active
+   * tab via the editor store's `setTabCompareEnabled`. No-op when
+   * there's no comparator snapshot (the toggle button gate already
+   * mirrors this). Caller in `App.tsx` reads the active tab + the
+   * result store snapshot, decides whether to fire, and surfaces a
+   * localized notice when the shortcut is pressed without a
+   * comparator (so the user never gets a silent no-op).
+   */
+  toggleCompareWithSnapshot: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -92,6 +102,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'run-cycle-runtime-mode': () => options.cycleRuntimeMode(),
     'run-cycle-workflow-mode': () => options.cycleWorkflowMode(),
     'run-toggle-recent-runs': () => options.toggleRecentRunsPopover(),
+    'run-toggle-compare-snapshot': () => options.toggleCompareWithSnapshot(),
     'file-save': () => {
       void options.saveActiveTab();
     },

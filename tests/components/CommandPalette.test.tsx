@@ -3,6 +3,46 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { CommandPalette } from '../../src/renderer/components/CommandPalette/CommandPalette';
 
+const { editorState, resultState, trackEventMock } = vi.hoisted(() => ({
+  editorState: {
+    addTab: vi.fn(),
+    openFileFromDisk: vi.fn().mockResolvedValue(undefined),
+    saveActiveTabAs: vi.fn().mockResolvedValue(undefined),
+    duplicateActiveTab: vi.fn(),
+    tabs: [] as Array<{
+      id: string;
+      language: string;
+      content: string;
+      compareWithSnapshotEnabled?: boolean;
+    }>,
+    activeTabId: null as string | null,
+    setTabRuntimeMode: vi.fn(),
+    setTabAutoLogEnabled: vi.fn(),
+    updateContent: vi.fn(),
+    setTabNextRunTimeoutOverride: vi.fn(),
+    setTabCompareEnabled: vi.fn(),
+  },
+  resultState: {
+    lastSuccessfulSnapshot: null as null | {
+      lineResults: unknown[];
+      fullOutput: string;
+      stdinConsumed: null;
+      executionTime: number | null;
+      language: string;
+      capturedAt: number;
+    },
+    snapshotRing: [] as Array<{
+      lineResults: unknown[];
+      fullOutput: string;
+      stdinConsumed: null;
+      executionTime: number | null;
+      language: string;
+      capturedAt: number;
+    }>,
+  },
+  trackEventMock: vi.fn(),
+}));
+
 vi.mock('../../src/renderer/data/templates', () => ({
   BUILT_IN_TEMPLATES: [
     {
@@ -20,30 +60,12 @@ vi.mock('../../src/renderer/data/templates', () => ({
 }));
 
 vi.mock('../../src/renderer/stores/editorStore', () => {
-  const buildState = () => ({
-    addTab: vi.fn(),
-    openFileFromDisk: vi.fn().mockResolvedValue(undefined),
-    saveActiveTabAs: vi.fn().mockResolvedValue(undefined),
-    duplicateActiveTab: vi.fn(),
-    // RL-019 Slice 1 — palette + selector consume these via
-    // `useEditorStore((s) => s.…)`. Empty tabs / null activeTabId
-    // keep the runtime-mode palette entries hidden (they require a
-    // non-null activeRuntimeMode anchored to a JS/TS tab) so the
-    // existing CommandPalette assertions stay valid.
-    tabs: [],
-    activeTabId: null,
-    setTabRuntimeMode: vi.fn(),
-    setTabAutoLogEnabled: vi.fn(),
-    updateContent: vi.fn(),
-    setTabNextRunTimeoutOverride: vi.fn(),
-  });
   // Selector-aware mock: support both `useEditorStore()` and
   // `useEditorStore((state) => state.something)` call shapes.
-  const useEditorStore = (selector?: (state: ReturnType<typeof buildState>) => unknown) => {
-    const state = buildState();
-    return typeof selector === 'function' ? selector(state) : state;
+  const useEditorStore = (selector?: (state: typeof editorState) => unknown) => {
+    return typeof selector === 'function' ? selector(editorState) : editorState;
   };
-  useEditorStore.getState = () => buildState();
+  useEditorStore.getState = () => editorState;
   return {
     useEditorStore,
     createDefaultTab: (language: string) => ({
@@ -55,6 +77,17 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     }),
   };
 });
+
+vi.mock('../../src/renderer/stores/resultStore', () => {
+  const useResultStore = (selector?: (state: typeof resultState) => unknown) =>
+    typeof selector === 'function' ? selector(resultState) : resultState;
+  useResultStore.getState = () => resultState;
+  return { useResultStore };
+});
+
+vi.mock('../../src/renderer/utils/telemetry', () => ({
+  trackEvent: (...args: unknown[]) => trackEventMock(...args),
+}));
 
 vi.mock('../../src/renderer/stores/snippetsStore', () => ({
   useSnippetsStore: () => ({
@@ -122,6 +155,11 @@ vi.mock('lucide-react', () => ({
 
 describe('CommandPalette', () => {
   beforeEach(async () => {
+    vi.clearAllMocks();
+    editorState.tabs = [];
+    editorState.activeTabId = null;
+    resultState.lastSuccessfulSnapshot = null;
+    resultState.snapshotRing = [];
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       value: vi.fn(),
       configurable: true,
@@ -259,5 +297,53 @@ describe('CommandPalette', () => {
     await waitFor(() => {
       expect(scrolledIndexes[scrolledIndexes.length - 1]).toBe('1');
     });
+  });
+
+  it('fires compare telemetry from the palette toggle action', () => {
+    const snapshot = {
+      lineResults: [],
+      fullOutput: '',
+      stdinConsumed: null,
+      executionTime: 1,
+      language: 'javascript',
+      capturedAt: 1,
+    };
+    editorState.tabs = [
+      {
+        id: 'tab-1',
+        language: 'javascript',
+        content: '1 + 1',
+      },
+    ];
+    editorState.activeTabId = 'tab-1';
+    resultState.lastSuccessfulSnapshot = snapshot;
+    resultState.snapshotRing = [snapshot];
+
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'compare' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Toggle compare with last stable run/i,
+      })
+    );
+
+    expect(editorState.setTabCompareEnabled).toHaveBeenCalledWith(
+      'tab-1',
+      true
+    );
+    expect(trackEventMock).toHaveBeenCalledWith(
+      'runtime.compare_view_toggled',
+      { language: 'javascript', enabled: true }
+    );
   });
 });
