@@ -127,6 +127,29 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     combos: [{ tokens: ['Mod', 'Shift', 'I'] }],
     keywords: ['variables', 'inspector', 'scope', 'tree'],
   },
+  // RL-093 Slice 3 — panel-chip shortcuts. Stdin chip mirrors the
+  // Variables / Compare / History pattern with a single key combo
+  // dedicated to the bottom-drawer chip.
+  {
+    id: 'editor-toggle-stdin-panel',
+    group: 'run',
+    labelKey: 'shortcuts.item.toggleStdin.label',
+    descriptionKey: 'shortcuts.item.toggleStdin.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'E'] }],
+    keywords: ['stdin', 'input', 'entrada', 'prompt'],
+  },
+  // RL-093 Slice 3 — recover from a floating-pill/variables-card that
+  // ended up in an unreachable position (off-screen monitor change,
+  // bad localStorage value). Clears both persisted positions back to
+  // the synchronous defaults computed by the components.
+  {
+    id: 'ui-reset-floating-positions',
+    group: 'view',
+    labelKey: 'shortcuts.item.resetFloating.label',
+    descriptionKey: 'shortcuts.item.resetFloating.description',
+    combos: [{ tokens: ['Mod', 'Shift', '0'] }],
+    keywords: ['reset', 'floating', 'pill', 'variables', 'reposition'],
+  },
   {
     id: 'file-save',
     group: 'file',

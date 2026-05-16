@@ -72,6 +72,14 @@ vi.mock('../../src/renderer/components/Toolbar', () => ({
   ),
 }));
 
+// RL-093 — FloatingActionPill is mounted by AppLayout and transitively
+// imports `useRunner` → `nodeRunner` → `esbuild-wasm`, which fails to
+// initialise under jsdom. Stub it out — its behaviour is covered by
+// its own component tests.
+vi.mock('../../src/renderer/components/Toolbar/FloatingActionPill', () => ({
+  FloatingActionPill: () => null,
+}));
+
 vi.mock('../../src/renderer/components/FileTree', () => ({
   FileTree: ({ onNavigate }: { onNavigate?: () => void }) => (
     <div data-testid="file-tree">

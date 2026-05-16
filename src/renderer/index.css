@@ -45,9 +45,9 @@
 
 :root,
 .light {
-  --font-ui: 'IBM Plex Sans', 'Aptos', 'Segoe UI', sans-serif;
-  --font-display-stack: 'Bahnschrift', 'IBM Plex Sans', 'Aptos', sans-serif;
-  --font-code: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-display-stack: 'Inter', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-code: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
   /* ===== DS canonical tokens — light ===== */
 
@@ -168,27 +168,27 @@
   /* Typography scale (size · line-height · tracking · weight per role) */
   --text-display-size: 40px;
   --text-display-lh: 1.05;
-  --text-display-tracking: -0.03em;
+  --text-display-tracking: 0;
   --text-display-weight: 550;
   --text-h1-size: 28px;
   --text-h1-lh: 1.15;
-  --text-h1-tracking: -0.025em;
+  --text-h1-tracking: 0;
   --text-h1-weight: 600;
   --text-h2-size: 22px;
   --text-h2-lh: 1.2;
-  --text-h2-tracking: -0.02em;
+  --text-h2-tracking: 0;
   --text-h2-weight: 600;
   --text-h3-size: 17px;
   --text-h3-lh: 1.3;
-  --text-h3-tracking: -0.015em;
+  --text-h3-tracking: 0;
   --text-h3-weight: 600;
   --text-body-lg-size: 15px;
   --text-body-lg-lh: 1.55;
-  --text-body-lg-tracking: -0.005em;
+  --text-body-lg-tracking: 0;
   --text-body-lg-weight: 450;
   --text-body-size: 13px;
   --text-body-lh: 1.5;
-  --text-body-tracking: -0.005em;
+  --text-body-tracking: 0;
   --text-body-weight: 450;
   --text-body-sm-size: 12px;
   --text-body-sm-lh: 1.5;
@@ -378,10 +378,69 @@
   --color-ring: var(--app-ring);
 
   /* DS canonical names — what new code SHOULD reach for. Tailwind v4
-     auto-generates `bg-bg-base`, `text-fg-muted`, `border-border-default`,
-     `bg-accent`, `text-success-fg`, etc. from these declarations. */
+     reads each `--color-*` from this @theme block and generates the
+     matching `bg-…`, `text-…`, `border-…` utilities. */
   --color-neutral-0: var(--color-neutral-0);
+  --color-neutral-50: var(--color-neutral-50);
+  --color-neutral-100: var(--color-neutral-100);
+  --color-neutral-200: var(--color-neutral-200);
+  --color-neutral-300: var(--color-neutral-300);
+  --color-neutral-400: var(--color-neutral-400);
+  --color-neutral-500: var(--color-neutral-500);
+  --color-neutral-600: var(--color-neutral-600);
+  --color-neutral-700: var(--color-neutral-700);
+  --color-neutral-800: var(--color-neutral-800);
+  --color-neutral-900: var(--color-neutral-900);
+  --color-slate-50: var(--color-slate-50);
+  --color-slate-100: var(--color-slate-100);
+  --color-slate-200: var(--color-slate-200);
+  --color-slate-300: var(--color-slate-300);
+  --color-slate-400: var(--color-slate-400);
   --color-slate-500: var(--color-slate-500);
+  --color-slate-600: var(--color-slate-600);
+  --color-slate-700: var(--color-slate-700);
+  --color-slate-800: var(--color-slate-800);
+  --color-slate-900: var(--color-slate-900);
+
+  /* Surfaces — `bg-bg-base`, `bg-bg-panel`, `bg-bg-panel-alt`, `bg-bg-inset`. */
+  --color-bg-base: var(--color-bg-base);
+  --color-bg-panel: var(--color-bg-panel);
+  --color-bg-panel-alt: var(--color-bg-panel-alt);
+  --color-bg-inset: var(--color-bg-inset);
+
+  /* Foreground — `text-fg-base`, `text-fg-muted`, `text-fg-subtle`,
+     `text-fg-on-accent`. */
+  --color-fg-base: var(--color-fg-base);
+  --color-fg-muted: var(--color-fg-muted);
+  --color-fg-subtle: var(--color-fg-subtle);
+  --color-fg-on-accent: var(--color-fg-on-accent);
+
+  /* Borders — `border-border-subtle`, `border-border-default`,
+     `border-border-strong`. Note the third value `default` becomes the
+     bare `border-border` class via Tailwind's DEFAULT key. */
+  --color-border-subtle: var(--color-border-subtle);
+  --color-border-default: var(--color-border-default);
+  --color-border-strong: var(--color-border-strong);
+
+  /* Accent — `bg-accent`, `bg-accent-hover`, `text-accent-fg`. */
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-fg: var(--color-accent-fg);
+
+  /* Semantic statuses — `bg-success-bg`, `text-success-fg`,
+     `border-success-border`, and the same for warning/error/info. */
+  --color-success-bg: var(--color-success-bg);
+  --color-success-fg: var(--color-success-fg);
+  --color-success-border: var(--color-success-border);
+  --color-warning-bg: var(--color-warning-bg);
+  --color-warning-fg: var(--color-warning-fg);
+  --color-warning-border: var(--color-warning-border);
+  --color-error-bg: var(--color-error-bg);
+  --color-error-fg: var(--color-error-fg);
+  --color-error-border: var(--color-error-border);
+  --color-info-bg: var(--color-info-bg);
+  --color-info-fg: var(--color-info-fg);
+  --color-info-border: var(--color-info-border);
 
   /* Spacing & radius the DS spec, surfaced as Tailwind utilities. */
   --spacing-1: var(--space-1);
@@ -813,6 +872,84 @@
     padding-left: 1rem;
   }
 
+  /* RL-093 polish #1 — Monaco overlay widget that renders the rich
+     inline result for each line that produced a value. The widget is
+     placed in the editor's overlay layer (sibling to the lines, not
+     a child), so we can pin it to the editor's right edge with
+     `position: absolute; top: <pixel>; right: <gutter offset>`. The
+     hook (`useInlineResultWidgets`) writes those style values from
+     `editor.getTopForLineNumber(line) - scrollTop`. Visually this
+     matches Quokka and the v2 design's right-edge alignment, while
+     keeping per-line vertical sync as the editor scrolls. */
+  .lingua-inline-result {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 1em;
+    line-height: 1em;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-fg-muted);
+    pointer-events: none;
+    white-space: nowrap;
+    /* `top` and `right` are written by the hook on every scroll/edit;
+       this baseline keeps the pill out of the gutter on first paint. */
+    top: 0;
+    right: 12px;
+    /* The Monaco line height is 19px in the default theme — stretching
+       the pill keeps it vertically centred on the line it annotates. */
+    transform: translateY(3px);
+  }
+
+  .lingua-inline-result-part {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .lingua-inline-result-arrow {
+    color: var(--color-fg-subtle);
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  .lingua-inline-result-value {
+    color: var(--color-fg-base);
+    font-weight: 600;
+  }
+
+  .lingua-inline-result-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-panel-alt);
+    color: var(--color-fg-subtle);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .lingua-inline-result-watch {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+    color: var(--color-accent-fg);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .lingua-inline-result-separator {
+    color: var(--color-border-strong);
+    margin: 0 4px;
+  }
+
   /* RL-027 Slice 1.5 — Monaco glyph-margin breakpoint dot. The class
      is attached via Monaco IModelDeltaDecoration#glyphMarginClassName
      from `useBreakpointGutter`. Disabled breakpoints render as an
@@ -967,5 +1104,462 @@
 
   .monaco-diff-editor .delete-sign {
     color: var(--color-error-fg) !important;
+  }
+
+  /* ============================================================ */
+  /* RL-071 Signal-Slate v2 — composite primitives                */
+  /* ============================================================ */
+
+  /* Action pill — the floating hero element above the editor. The
+     pill itself is a flex row of segments separated by 1px vertical
+     dividers. When `running`, the run segment pulses (see keyframes
+     `run-pulse` below). */
+  .action-pill {
+    @apply inline-flex items-stretch rounded-full border border-border/80 bg-bg-panel/95 backdrop-blur-xl;
+    padding: 4px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 18px 40px -20px rgba(15, 15, 40, 0.18);
+    gap: 4px;
+  }
+
+  .dark .action-pill,
+  [data-theme='dark'] .action-pill {
+    box-shadow: inset 0 1px 0 oklch(0.32 0.015 210 / 0.8), 0 18px 36px rgba(0, 0, 0, 0.55);
+  }
+
+  .action-pill-segment {
+    display: inline-flex;
+    height: 32px;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 0 12px;
+    border: 0;
+    color: var(--color-fg-base);
+    font-size: 12.5px;
+    font-weight: 550;
+    line-height: 1;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .action-pill-lang {
+    padding: 0 12px 0 10px;
+  }
+
+  .action-pill-mode {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .action-pill-drag-handle {
+    width: 20px;
+    height: 32px;
+  }
+
+  .action-pill-segment:hover {
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  }
+
+  .action-pill-divider {
+    width: 1px;
+    margin: 6px 0;
+    background: color-mix(in srgb, var(--app-border) 55%, transparent);
+  }
+
+  @media (max-width: 1499px) {
+    .action-pill .action-pill-meta,
+    .action-pill .action-pill-meta-divider {
+      display: none !important;
+    }
+  }
+
+  /* RL-093 Slice 3 — unified mode-aware action button.
+     The button colours itself by the active workflow:
+       · run        → green (was the only colour previously)
+       · debug      → red-soft
+       · scratchpad → slate accent (matches the workflow chip's
+                      previous colour so users feel continuity)
+     `data-workflow` is set both on the button AND its parent group
+     so the chevron menu picks up the same colour pair. */
+  .action-pill-run {
+    display: inline-flex;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    transition: background-color 150ms ease, box-shadow 150ms ease;
+    background: oklch(0.66 0.18 145);
+    color: oklch(0.18 0.1 145);
+    box-shadow: 0 0 0 3px oklch(0.66 0.18 145 / 0.18);
+  }
+
+  .action-pill-run[data-workflow='debug'] {
+    background: oklch(0.78 0.14 22);
+    color: oklch(0.22 0.16 22);
+    box-shadow: 0 0 0 3px oklch(0.78 0.14 22 / 0.2);
+  }
+  .action-pill-run[data-workflow='debug']:hover {
+    background: oklch(0.82 0.16 22);
+  }
+
+  .action-pill-run[data-workflow='scratchpad'] {
+    background: var(--color-slate-300);
+    color: var(--color-slate-900);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-slate-300) 30%, transparent);
+  }
+  .action-pill-run[data-workflow='scratchpad']:hover {
+    background: var(--color-slate-400);
+  }
+
+  .dark .action-pill-run[data-workflow='debug'],
+  [data-theme='dark'] .action-pill-run[data-workflow='debug'] {
+    background: oklch(0.7 0.18 22);
+    color: oklch(0.16 0.1 22);
+    box-shadow: 0 0 0 3px oklch(0.7 0.18 22 / 0.25);
+  }
+  .dark .action-pill-run[data-workflow='scratchpad'],
+  [data-theme='dark'] .action-pill-run[data-workflow='scratchpad'] {
+    background: var(--color-slate-400);
+    color: var(--color-slate-900);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-slate-400) 30%, transparent);
+  }
+
+  .action-pill-run-menu[data-workflow='debug'] {
+    border-left-color: color-mix(in srgb, oklch(0.22 0.16 22) 22%, transparent);
+  }
+  .action-pill-run-menu[data-workflow='scratchpad'] {
+    border-left-color: color-mix(in srgb, var(--color-slate-900) 20%, transparent);
+  }
+
+  .action-pill-run-group {
+    height: 32px;
+  }
+
+  .action-pill-run-main {
+    border-radius: 999px 0 0 999px;
+    padding: 0 14px;
+  }
+
+  .action-pill-run-menu {
+    width: 32px;
+    border-left: 1px solid color-mix(in srgb, oklch(0.18 0.1 145) 18%, transparent);
+    border-radius: 0 999px 999px 0;
+  }
+
+  .action-pill-run .kbd-shell {
+    display: inline-flex;
+    min-width: 18px;
+    height: 17px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    padding: 0 5px;
+    border-color: color-mix(in srgb, currentColor 28%, transparent);
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    color: currentColor;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .dark .action-pill-run,
+  [data-theme='dark'] .action-pill-run {
+    background: oklch(0.68 0.2 145);
+    color: oklch(0.16 0.08 145);
+    box-shadow: 0 0 0 3px oklch(0.68 0.2 145 / 0.22);
+  }
+
+  .action-pill-run:hover {
+    background: oklch(0.72 0.18 145);
+  }
+
+  .action-pill-run[data-running='true'] {
+    animation: run-pulse 1.4s ease-in-out infinite;
+  }
+
+  .action-pill-run-spinner {
+    @apply inline-block rounded-full border-2;
+    width: 10px;
+    height: 10px;
+    border-color: currentColor;
+    border-top-color: transparent;
+    animation: run-spin 800ms linear infinite;
+  }
+
+  /* Panel chips row — Stdin · Historial · Comparar · Variables. Each
+     chip lives below the tab strip and toggles the bottom drawer. */
+  .panel-chip {
+    @apply inline-flex h-6 items-center gap-1.5 rounded-full border border-transparent px-2.5 text-[11px] font-medium leading-none text-fg-muted transition-colors duration-150;
+  }
+  .panel-chip:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .panel-chip-row {
+    @apply flex h-9 flex-none items-center justify-end gap-1 border-b border-border-subtle/60 bg-bg-base px-3;
+  }
+
+  .panel-chip:hover {
+    @apply bg-bg-panel-alt text-fg-base;
+  }
+
+  .panel-chip-active {
+    background: var(--app-primary-soft);
+    color: var(--color-accent-fg);
+    border-color: var(--color-accent);
+  }
+
+  .panel-chip-badge {
+    @apply inline-flex min-w-[1rem] items-center justify-center rounded-full px-1 font-mono text-[9px] font-bold leading-none;
+    background: var(--color-accent);
+    color: white;
+    padding-block: 2px;
+  }
+
+  .panel-chip-active .panel-chip-badge {
+    background: color-mix(in srgb, var(--color-accent) 92%, white);
+  }
+
+  /* Rich dropdown — used by lang / mode / run pickers. Each row has
+     icon · label · description and a trailing badge (ACTUAL/PRO/kbd). */
+  .dropdown-rich {
+    @apply rounded-xl border border-border/80 bg-bg-panel p-1.5 backdrop-blur-xl;
+    box-shadow: 0 18px 40px -10px rgba(15, 15, 40, 0.22), 0 4px 12px -4px rgba(15, 15, 40, 0.1);
+  }
+
+  .dark .dropdown-rich,
+  [data-theme='dark'] .dropdown-rich {
+    box-shadow: inset 0 1px 0 oklch(0.34 0.015 210 / 0.9), 0 22px 40px rgba(0, 0, 0, 0.55);
+  }
+
+  .dropdown-rich-row {
+    @apply grid items-start gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left text-[13px] font-medium text-fg-base transition-colors duration-150;
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .dropdown-rich-row:hover {
+    background: var(--color-bg-panel-alt);
+  }
+
+  .dropdown-rich-row[data-active='true'] {
+    background: var(--app-primary-soft);
+    border-color: var(--color-accent);
+    color: var(--color-accent-fg);
+  }
+
+  .dropdown-rich-row .row-icon {
+    @apply inline-flex h-5 w-5 items-center justify-center rounded-full text-fg-muted;
+  }
+
+  .dropdown-rich-row[data-active='true'] .row-icon {
+    color: var(--color-accent-fg);
+  }
+
+  .dropdown-rich-row .row-label {
+    @apply text-[13px] font-semibold leading-tight;
+  }
+
+  .dropdown-rich-row .row-desc {
+    @apply mt-1 max-w-[26ch] text-[12px] leading-snug text-fg-muted;
+  }
+
+  .dropdown-rich-row[data-active='true'] .row-desc {
+    color: color-mix(in srgb, var(--color-accent-fg) 80%, transparent);
+  }
+
+  .dropdown-rich-footer {
+    @apply mt-1 flex items-center gap-1.5 border-t border-border/60 px-3 pt-2 font-mono text-[10.5px] text-fg-subtle;
+  }
+
+  /* Type-pill colouring by data attribute. The base styling lives on
+     the `<TypePill>` component; these rules add hue per kind. */
+  [data-type-pill='number'] {
+    background: color-mix(in srgb, oklch(0.55 0.15 80) 16%, transparent);
+    color: var(--color-syntax-number);
+    border-color: color-mix(in srgb, oklch(0.55 0.15 80) 30%, transparent);
+  }
+  [data-type-pill='string'] {
+    background: color-mix(in srgb, oklch(0.48 0.14 155) 16%, transparent);
+    color: var(--color-syntax-string);
+    border-color: color-mix(in srgb, oklch(0.48 0.14 155) 30%, transparent);
+  }
+  [data-type-pill='boolean'] {
+    background: color-mix(in srgb, oklch(0.45 0.18 265) 16%, transparent);
+    color: var(--color-syntax-keyword);
+    border-color: color-mix(in srgb, oklch(0.45 0.18 265) 30%, transparent);
+  }
+  [data-type-pill='object'],
+  [data-type-pill='array'] {
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    color: var(--color-accent-fg);
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+
+  /* UMCard — Utilities modal workspace card. 18px radius (rounded-lg
+     plus a hint), inset bg, subtle border, optional `error` data-attr
+     for invalid states with red ring. */
+  .um-card {
+    @apply flex min-h-0 min-w-0 flex-col rounded-[18px] border border-border/80 bg-bg-panel-alt p-5;
+  }
+
+  .um-card[data-error='true'] {
+    border-color: var(--color-error-border);
+    background: color-mix(in srgb, var(--color-error-bg) 40%, var(--color-bg-panel-alt));
+  }
+
+  .um-card-title {
+    @apply text-[15px] font-bold leading-tight text-fg-base;
+  }
+
+  .um-card-subtitle {
+    @apply mt-1 max-w-[60ch] text-[12.5px] leading-relaxed text-fg-muted;
+  }
+
+  .um-card-output {
+    @apply min-h-0 flex-1 overflow-auto rounded-md border border-border-subtle bg-bg-inset/60 p-3 font-mono text-[12.5px] text-fg-base;
+  }
+
+  .um-field {
+    @apply grid gap-2 rounded-xl border border-border-subtle bg-bg-panel/65 p-3;
+  }
+
+  .um-control {
+    @apply w-full rounded-xl border border-border/80 bg-bg-inset/60 px-3 py-2.5 text-sm text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55;
+  }
+
+  textarea.um-control {
+    @apply min-h-36 resize-y py-3;
+  }
+
+  .um-toolbar {
+    @apply rounded-xl border border-border-subtle bg-bg-panel/55 p-2;
+  }
+
+  .unified-editor-canvas [data-panel-group] {
+    background: var(--color-editor-bg);
+  }
+
+  .unified-editor-canvas [data-panel-id='results-panel'] {
+    border-left: 1px solid color-mix(in srgb, var(--color-border-subtle) 78%, transparent);
+    background: var(--color-editor-bg);
+  }
+
+  .floating-variables-card {
+    @apply w-[260px] overflow-hidden rounded-xl border border-border/80 bg-bg-panel/95 backdrop-blur-xl;
+    box-shadow: 0 18px 38px -14px rgba(15, 15, 40, 0.24), 0 4px 12px -6px rgba(15, 15, 40, 0.14);
+  }
+
+  .dark .floating-variables-card,
+  [data-theme='dark'] .floating-variables-card {
+    box-shadow: inset 0 1px 0 oklch(0.34 0.015 210 / 0.9), 0 22px 40px rgba(0, 0, 0, 0.55);
+  }
+
+  .floating-variables-card[data-collapsed='true'] {
+    @apply w-auto rounded-full;
+  }
+
+  .floating-variables-card-header {
+    @apply flex h-10 items-center gap-2 border-b border-border/60 bg-bg-panel-alt/70 px-2;
+  }
+
+  .floating-variables-card[data-collapsed='true'] .floating-variables-card-header {
+    @apply h-8 border-b-0 rounded-full pr-1.5;
+  }
+
+  .floating-variables-row {
+    @apply grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border-subtle bg-bg-inset/45 px-3 py-2;
+  }
+
+  .floating-variables-card-footer {
+    @apply flex items-center justify-between gap-3 border-t border-border/60 px-3 py-2 font-mono text-[10.5px] text-fg-subtle;
+  }
+
+  /* Utilities modal shell — 28px corner radius and the soft cool-gray
+     surface palette of the round-2 mock. The OverlayCard underneath
+     remains the focus-trap host; this class only tunes the geometry. */
+  .um-modal-shell {
+    border-radius: 28px;
+  }
+
+  /* Settings rail — left sidebar that replaces the v1 top tabs. The
+     active row gets a 2px accent border on the left. */
+  .settings-rail {
+    @apply flex h-full w-[220px] flex-none flex-col border-r border-border/80 bg-bg-panel-alt/70;
+  }
+
+  .settings-rail-group-label {
+    @apply px-4 pb-1.5 pt-2 font-mono text-[9.5px] font-bold uppercase tracking-[0.16em] text-fg-subtle;
+  }
+
+  .settings-rail-row {
+    @apply grid h-8 cursor-pointer grid-cols-[auto_1fr_auto] items-center gap-2 border-l-2 border-transparent px-3 text-[12.5px] font-[450] text-fg-muted transition-colors duration-150;
+  }
+
+  .settings-rail-row:hover {
+    @apply bg-bg-panel/60 text-fg-base;
+  }
+
+  .settings-rail-row[data-active='true'] {
+    @apply border-l-accent bg-bg-panel text-fg-base font-medium;
+  }
+
+  .settings-rail-row[data-dim='true'] {
+    opacity: 0.4;
+  }
+
+  .settings-rail-row .row-icon {
+    @apply inline-flex h-4 w-4 items-center justify-center text-fg-subtle;
+  }
+
+  .settings-rail-row[data-active='true'] .row-icon {
+    color: var(--color-accent);
+  }
+
+  /* Effective config tile — JSON readonly preview at the bottom of
+     each Settings tab. */
+  .effective-config-tile {
+    @apply mt-6 overflow-hidden rounded-xl border border-border/80 bg-bg-inset/60;
+  }
+
+  .effective-config-tile-header {
+    @apply flex items-center justify-between gap-3 border-b border-border/60 bg-bg-panel-alt/80 px-4 py-2;
+  }
+
+  .effective-config-tile-body {
+    @apply max-h-64 overflow-auto p-4 font-mono text-[11.5px] leading-relaxed text-fg-base;
+  }
+
+  /* Settings v2 status bar — visually rhymes with the editor status
+     bar so the modal feels like part of the editor. */
+  .settings-status-bar {
+    @apply flex h-7 items-center gap-3 border-t border-border/80 bg-bg-panel-alt/70 px-4 font-mono text-[11px] text-fg-subtle;
+  }
+}
+
+/* ============================================================ */
+/* RL-071 v2 keyframes — declared at the top level so Tailwind  */
+/* doesn't try to scope them inside @layer components.          */
+/* ============================================================ */
+
+@keyframes run-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes run-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, oklch(0.66 0.18 145) 18%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, oklch(0.66 0.18 145) 14%, transparent);
   }
 }

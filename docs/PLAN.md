@@ -7897,3 +7897,121 @@ ACs cumplidos:
 - `docs/RELEASE_SECURITY.md` is the release-owner checklist for Electron/preload, IPC/filesystem, runners, update artifacts, licensing, telemetry/crash reporting, dependency notices, and public documentation claims.
 - `RELEASE.md` links the security sign-off from the validation checklist.
 - `tests/docs/releaseSecurity.test.ts` pins the section headings and concrete controls, including `rootId`/`relativePath`, opaque watcher ids, filtered native environment, `SHA256SUMS.txt`, license-token handling, payload redaction, license-policy check, and SBOM artifact.
+
+### RL-093 Signal-Slate v2 Main UI refactor
+
+- Status: `Partial` (Slice 1 shipped 2026-05-15; Slice 2 staged 2026-05-15)
+- Why: the claude.ai/design handoff dated 2026-04-24 (vendored at
+  `/tmp/lingua-design-handoff` for reference) proposes a v2 evolution
+  of every Lingua surface. The DS tokens themselves were already
+  synced in `src/renderer/index.css` (RL-070 / RL-071); this ticket
+  carries the composition / structure work that sits on top of them.
+- Slice 1 (shipped 2026-05-15):
+  - `src/renderer/components/ui/floating.tsx` + `src/renderer/hooks/useDraggable.ts` —
+    pointer-based drag hook with localStorage persistence, viewport
+    clamp on resize, and `<FloatingShell />` wrapper. Consumed in
+    Slice 2 by the action pill and Variables card.
+  - `src/renderer/components/ui/primitives.tsx` — new `EyebrowMono`,
+    `TypePill`, `MonoBadge`, `RunHistoryDots` primitives that v2
+    surfaces compose with the existing `Eyebrow` / `Pill` / `Btn` / `RowDense`.
+  - `src/renderer/stores/uiStore.ts` — `actionPillPosition`,
+    `variablesCardPosition`, `variablesCardCollapsed` persisted per-key
+    in localStorage. `resetFloatingPositions()` clears them.
+  - `src/renderer/index.css` — `@layer components` additions:
+    `.action-pill*`, `.panel-chip*`, `.dropdown-rich*`, `.um-card*`,
+    `.um-modal-shell`, `.settings-rail*`, `.effective-config-tile*`,
+    `.settings-status-bar`, type-pill data-attribute hues, and
+    `@keyframes run-spin` + `run-pulse` animations.
+  - `src/renderer/components/Settings/SettingsModal.tsx` — rewrite from
+    top-tabs to **left rail with ⌘1–⌘0 nav** + breadcrumb + **filter
+    bar (`⌘,`)** + **Effective config JSON tile** at the bottom of
+    each tab + status bar. 8 rail items split into Workspace
+    (general/appearance/editor/environment/account) + Advanced
+    (shortcuts/plugins/recovery), each with icon + label + kbd chip.
+    `PluginsSection` and `RecoverySection` moved out of nested tabs to
+    standalone rail rows. The Shortcuts tab is a CTA into the existing
+    `KeyboardShortcutsModal` — heavy table stays where it is.
+  - `src/renderer/App.tsx` — wires `onOpenKeyboardShortcuts` so the
+    Shortcuts CTA can switch overlays.
+  - i18n: 22 new keys under `settings.*` (rail labels, filter bar,
+    effective config, status bar, shortcuts CTA) added in both `es`
+    (neutral LatAm tuteo) and `en`.
+  - `src/renderer/components/Toolbar/Toolbar.tsx` — run-pulse animation
+    applied to the run button via `data-running` + the new `run-pulse`
+    keyframe (visible while a task is executing).
+  - `src/renderer/components/DeveloperUtilities/DeveloperUtilitiesModal.tsx` —
+    sidebar trimmed to 300px to match the design proposal.
+  - Tests: `tests/stores/uiStore.test.ts` covers the new floating
+    position state; the existing `SettingsModal.test.tsx` was updated
+    to assert v2 nav (⌘+N) and the relocated Plugins rail entry. Full
+    suite: 298 files, 3323 passed (2 skipped).
+- Slice 2 (staged 2026-05-15):
+  - **Action pill**: `FloatingActionPill` is now the primary run
+    surface above the editor. It exposes Lang, Mode, and Run/Debug
+    rich dropdowns, a split animated run button, persisted drag
+    position, and compact metadata at normal desktop widths so it does
+    not block the panel chips.
+  - **Drag correctness**: `useDraggable` now supports explicit button
+    handles without discarding pointer events. The action pill mirrors
+    positions only after an actual drag so first render does not
+    persist a default coordinate.
+  - **Panel chips**: `AppLayout` mounts an `Entrada · Historial ·
+    Comparar · Variables` chip row below tabs. The chips expose line,
+    snapshot, and variable counts and drive the existing stdin,
+    console, compare, and variable-inspector state.
+  - **Tabs overflow**: `EditorTabs` keeps the first five slots visible
+    and collapses the rest into a `+N` dropdown that lists every open
+    file without the command-palette search field. Activating a hidden
+    tab pins it into the visible strip so the active highlight never
+    disappears.
+  - **Editor unification**: editor + result panels keep the resizable
+    implementation but now share the `unified-editor-canvas` surface,
+    muted divider treatment, and result header styling so they read as
+    one editor canvas instead of two unrelated panels.
+  - **Inline result widgets**: `useInlineResultWidgets` now mounts
+    Monaco overlay widgets at the editor's right edge so scratchpad
+    values keep the v2 `@WATCH · ⟸ value · type` treatment without
+    duplicating the same output in the result pane or old trailing
+    comment decorations.
+  - **Floating Variables card**: `FloatingVariablesCard` replaces the
+    old result-pane takeover path. It is draggable, collapsible,
+    persists to `lingua-ui:variables-card-pos:v2`, starts below the
+    panel-chip row to avoid blocking controls, and uses `TypePill`
+    variable rows.
+  - **Compare + Variables refresh**: `CompareResultsPanel` and
+    `VariableInspectorPanel` were restyled with Signal-Slate v2
+    primitives, mono badges, card rows, and clearer empty states. The
+    result pane keeps inline output visible when Variables opens.
+  - **Bottom input refresh**: `StdinInputPanel` now presents the input
+    queue as the v2 ordered prompt surface with presets and count
+    chips; Spanish copy was cleaned to neutral LatAm tuteo.
+  - **Utilities body pass**: `DeveloperUtilitiesModal` and
+    `panelPrimitives.tsx` now apply the v2 UM card/control/toolbar
+    primitives across the utility panels, so the 28+ tools inherit the
+    06 Utilities handoff geometry without duplicating styling in each
+    panel.
+  - **Tokens/copy**: the negative tracking tokens introduced in the
+    handoff were normalized to `0` to match repo UI guidance; action
+    pill and panel-chip copy ships in both `en` and `es`.
+- Remaining after Slice 2:
+  - Chrome minimal pass that moves the license badge next to the title
+    and further trims right-side actions.
+  - Dedicated bottom Variables list/cards mode and panel-chip keyboard
+    shortcuts (`⇧⌘I/H/C/V`, `⇧⌘0` reset).
+- Acceptance criteria for Slice 2:
+  - All Slice 1 surfaces stay green.
+  - Action pill is draggable; the position persists across reloads and
+    survives a window resize (clamps into viewport).
+  - Panel chips stay clickable with the action pill and Variables card
+    visible; floating overlays do not block the primary chip row.
+  - Compare, Variables, Stdin, Settings, and Developer Utilities render
+    with the v2 Signal-Slate shell in the web build.
+  - Web smoke: `npm run preview:web` + Playwright MCP exercises the
+    action pill drag, panel chip toggles, Compare, Variables, Stdin,
+    Settings, and the Pro-gated Utilities modal with
+    `browser_console_messages({ level: 'error' })` == 0.
+  - All gates green: `npm test -- --run`, `npx tsc --noEmit`,
+    `npm run lint`, `npm run check:i18n`, `npm run check:i18n:copy`.
+- Dependencies:
+  - RL-070 (Signal-Slate DS migration)
+  - RL-071 (Signal-Slate primitives)

@@ -21,10 +21,11 @@
  *     by case-insensitive substring match.
  */
 
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Eye, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useResultStore } from '../../stores/resultStore';
+import { EyebrowMono, MonoBadge, TypePill } from '../ui/primitives';
 import type {
   ScopeSnapshot,
   ScopeValue,
@@ -205,12 +206,12 @@ function VariableRow({ name, value, diffKind, depth }: RowProps) {
   const expandable = value.kind === 'object' || value.kind === 'array';
   const diffTone =
     diffKind === 'added'
-      ? 'text-success'
+      ? 'text-success-fg'
       : diffKind === 'removed'
-        ? 'text-danger'
+        ? 'text-error-fg'
         : diffKind === 'changed'
-          ? 'text-primary'
-          : 'text-muted';
+          ? 'text-accent-fg'
+          : 'text-fg-subtle';
   const diffGlyph =
     diffKind === 'added'
       ? '+'
@@ -224,7 +225,7 @@ function VariableRow({ name, value, diffKind, depth }: RowProps) {
       <li
         data-testid={`variable-row-${name}`}
         data-diff-kind={diffKind}
-        className="flex items-baseline gap-2 px-3 py-1 font-mono text-[11px] hover:bg-muted/10"
+        className="grid grid-cols-[16px_18px_minmax(7rem,0.65fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 py-1.5 font-mono text-[11px] hover:bg-bg-panel-alt/65"
         style={{ paddingLeft: depth > 0 ? `${depth * 1.25 + 0.75}rem` : undefined }}
       >
         <span
@@ -246,7 +247,7 @@ function VariableRow({ name, value, diffKind, depth }: RowProps) {
           disabled={!expandable}
           onClick={() => expandable && setExpanded((v) => !v)}
           className={`inline-flex h-4 w-4 items-center justify-center rounded-sm ${
-            expandable ? 'hover:bg-muted/20' : 'opacity-30'
+            expandable ? 'hover:bg-bg-panel-alt' : 'opacity-30'
           }`}
         >
           {expandable ? (
@@ -256,12 +257,12 @@ function VariableRow({ name, value, diffKind, depth }: RowProps) {
               <ChevronRight size={11} />
             )
           ) : (
-            <span className="text-[10px] text-muted">{typeIcon(value)}</span>
+            <span className="text-[10px] text-fg-subtle">{typeIcon(value)}</span>
           )}
         </button>
-        <span className="text-foreground">{name}</span>
-        <span className="text-muted">{typeTag(value, t)}</span>
-        <span className="truncate text-muted-foreground" data-testid={`variable-value-${name}`}>
+        <span className="truncate text-fg-base">{name}</span>
+        <TypePill kind={typeTag(value, t)} />
+        <span className="truncate text-fg-muted" data-testid={`variable-value-${name}`}>
           {renderInlineValue(value)}
         </span>
       </li>
@@ -298,7 +299,7 @@ function ExpandedEntries({
       {typeof value.truncatedCount === 'number' && value.truncatedCount > 0 && (
         <li
           data-testid="variable-truncated-banner"
-          className="px-3 py-1 font-mono text-[10px] italic text-muted"
+          className="px-3 py-1 font-mono text-[10px] italic text-fg-muted"
           style={{ paddingLeft: `${depth * 1.25 + 0.75}rem` }}
         >
           {t('variableInspector.row.truncated', { count: value.truncatedCount })}
@@ -308,11 +309,18 @@ function ExpandedEntries({
   );
 }
 
+type VariableViewMode = 'list' | 'cards';
+
 export function VariableInspectorPanel({ language }: VariableInspectorPanelProps) {
   const { t } = useTranslation();
   const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
   const snapshotRing = useResultStore((state) => state.snapshotRing);
   const [filter, setFilter] = useState('');
+  // RL-093 Slice 3 — list ↔ cards toggle in the panel header. The
+  // cards variant renders each variable as a tile with name + big
+  // value + type pill, matching the v2 mock. State stays in-memo per
+  // mount; no persistence is needed for an editor-local view.
+  const [viewMode, setViewMode] = useState<VariableViewMode>('list');
 
   // Defensive language gate — parent already guards this, but
   // mounting independently of the parent must not surface a stale
@@ -370,7 +378,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
     return (
       <div className="flex h-full items-center justify-center px-6 text-center">
         <span
-          className="text-xs italic text-muted"
+          className="rounded-full border border-border/70 bg-bg-panel-alt px-4 py-2 text-xs italic text-fg-muted"
           data-testid="variable-inspector-empty"
         >
           {t('variableInspector.panel.empty')}
@@ -380,13 +388,50 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
   }
 
   return (
-    <div className="flex h-full flex-col" data-testid="variable-inspector-panel">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 px-4 py-2">
-        <span className="font-semibold uppercase tracking-[0.04em] text-[11px] text-muted">
-          {t('variableInspector.panel.title')}
-        </span>
-        <label className="flex items-center gap-1.5 text-[11px] text-muted">
+    <div className="flex h-full flex-col bg-bg-base" data-testid="variable-inspector-panel">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-bg-panel-alt/65 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Eye size={12} className="text-accent-fg" aria-hidden />
+          <EyebrowMono>{t('variableInspector.panel.title')}</EyebrowMono>
+          <MonoBadge tone="accent">{matchedSnapshot.variables.length}</MonoBadge>
+          {/* RL-093 Slice 3 — segmented control between the dense
+              list view (default) and the richer cards view. */}
+          <div
+            role="group"
+            aria-label={t('variableInspector.viewMode.label')}
+            className="ml-2 inline-flex overflow-hidden rounded-full border border-border/60"
+          >
+            <button
+              type="button"
+              data-testid="variable-inspector-view-list"
+              aria-pressed={viewMode === 'list'}
+              onClick={() => setViewMode('list')}
+              className={`px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-primary-soft text-accent-fg'
+                  : 'text-fg-subtle hover:bg-bg-panel-alt/70 hover:text-fg-base'
+              }`}
+            >
+              {t('variableInspector.viewMode.list')}
+            </button>
+            <button
+              type="button"
+              data-testid="variable-inspector-view-cards"
+              aria-pressed={viewMode === 'cards'}
+              onClick={() => setViewMode('cards')}
+              className={`px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+                viewMode === 'cards'
+                  ? 'bg-primary-soft text-accent-fg'
+                  : 'text-fg-subtle hover:bg-bg-panel-alt/70 hover:text-fg-base'
+              }`}
+            >
+              {t('variableInspector.viewMode.cards')}
+            </button>
+          </div>
+        </div>
+        <label className="flex items-center gap-1.5 text-[11px] text-fg-muted">
           <span className="sr-only">{t('variableInspector.filter.label')}</span>
+          <Search size={11} aria-hidden className="text-fg-subtle" />
           <input
             type="search"
             value={filter}
@@ -394,15 +439,15 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
             placeholder={t('variableInspector.filter.placeholder')}
             aria-label={t('variableInspector.filter.label')}
             data-testid="variable-inspector-filter"
-            className="rounded-md border border-border/60 bg-background/70 px-2 py-0.5 text-[11px] text-foreground outline-none focus:border-primary/40"
+            className="rounded-full border border-border/60 bg-bg-panel px-2.5 py-1 text-[11px] text-fg-base outline-none placeholder:text-fg-subtle focus:border-accent/50"
           />
         </label>
       </div>
-      <div className="flex-1 overflow-y-auto py-1">
+      <div className="flex-1 overflow-y-auto py-2">
         {visibleVariables.length === 0 && !hasTopLevelTruncation ? (
           <div className="flex h-full items-center justify-center px-6 text-center">
             <span
-              className="text-xs italic text-muted"
+              className="rounded-full border border-border/70 bg-bg-panel-alt px-4 py-2 text-xs italic text-fg-muted"
               data-testid={
                 filterLower.length > 0
                   ? 'variable-inspector-filter-empty'
@@ -414,6 +459,14 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
                 : t('variableInspector.panel.empty')}
             </span>
           </div>
+        ) : viewMode === 'cards' ? (
+          <CardsByDiff
+            variables={visibleVariables}
+            diff={diff.map}
+            hasTopLevelTruncation={hasTopLevelTruncation}
+            truncatedCount={matchedSnapshot.truncatedCount}
+            t={t}
+          />
         ) : (
           <ul className="grid">
             {visibleVariables.map((entry) => (
@@ -428,7 +481,7 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
             {hasTopLevelTruncation && (
                 <li
                   data-testid="variable-inspector-top-truncated"
-                  className="px-3 py-1 font-mono text-[10px] italic text-muted"
+                  className="px-3 py-1 font-mono text-[10px] italic text-fg-muted"
                 >
                   {t('variableInspector.row.truncated', {
                     count: matchedSnapshot.truncatedCount,
@@ -439,5 +492,216 @@ export function VariableInspectorPanel({ language }: VariableInspectorPanelProps
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * RL-093 polish #2 — group the cards view by diffKind so the user
+ * scans the most-interesting changes first. Order: added → changed →
+ * unchanged → removed. Each group renders a small heading + count
+ * pill. When there is no diff at all (initial capture or comparator
+ * stub), everything falls under one anonymous bucket so the cards
+ * still render in their natural order.
+ */
+const CARD_DIFF_ORDER: ReadonlyArray<DiffKind> = [
+  'added',
+  'changed',
+  'unchanged',
+  'removed',
+];
+
+const CARD_DIFF_LABEL_KEY: Record<DiffKind, string> = {
+  added: 'variableInspector.diff.added',
+  changed: 'variableInspector.diff.changed',
+  unchanged: 'variableInspector.diff.unchanged',
+  removed: 'variableInspector.diff.removed',
+};
+
+function CardsByDiff({
+  variables,
+  diff,
+  hasTopLevelTruncation,
+  truncatedCount,
+  t,
+}: {
+  variables: readonly ScopeVariable[];
+  diff: ReadonlyMap<string, DiffKind>;
+  hasTopLevelTruncation: boolean;
+  truncatedCount: number | undefined;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}) {
+  const grouped = useMemo(() => {
+    const buckets = new Map<DiffKind, ScopeVariable[]>();
+    for (const kind of CARD_DIFF_ORDER) buckets.set(kind, []);
+    for (const entry of variables) {
+      const kind = diff.get(entry.name) ?? 'unchanged';
+      buckets.get(kind)!.push(entry);
+    }
+    return buckets;
+  }, [variables, diff]);
+
+  const totalDiff = (diff.size ?? 0) > 0;
+  const groupsToRender = CARD_DIFF_ORDER.filter(
+    (kind) => (grouped.get(kind)?.length ?? 0) > 0,
+  );
+
+  // No diff at all → one ungrouped grid (mirrors prior behaviour).
+  if (!totalDiff) {
+    return (
+      <div
+        data-testid="variable-inspector-cards"
+        className="grid gap-3 px-4 py-3"
+        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
+      >
+        {variables.map((entry) => (
+          <VariableCard
+            key={entry.name}
+            name={entry.name}
+            value={entry.value}
+            diffKind={undefined}
+          />
+        ))}
+        {hasTopLevelTruncation && (
+          <p
+            data-testid="variable-inspector-top-truncated-cards"
+            className="col-span-full px-1 py-1 font-mono text-[10px] italic text-fg-muted"
+          >
+            {t('variableInspector.row.truncated', { count: truncatedCount })}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      data-testid="variable-inspector-cards"
+      className="flex flex-col gap-4 px-4 py-3"
+    >
+      {groupsToRender.map((kind) => {
+        const items = grouped.get(kind)!;
+        return (
+          <section
+            key={kind}
+            data-testid={`variable-inspector-cards-group-${kind}`}
+            data-diff-kind={kind}
+            className="flex flex-col gap-2"
+          >
+            <header className="flex items-center gap-2">
+              <EyebrowMono>{t(CARD_DIFF_LABEL_KEY[kind])}</EyebrowMono>
+              <MonoBadge tone={kind === 'added' || kind === 'changed' ? 'accent' : 'neutral'}>
+                {items.length}
+              </MonoBadge>
+            </header>
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}
+            >
+              {items.map((entry) => (
+                <VariableCard
+                  key={entry.name}
+                  name={entry.name}
+                  value={entry.value}
+                  diffKind={kind}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+      {hasTopLevelTruncation && (
+        <p
+          data-testid="variable-inspector-top-truncated-cards"
+          className="px-1 py-1 font-mono text-[10px] italic text-fg-muted"
+        >
+          {t('variableInspector.row.truncated', { count: truncatedCount })}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * RL-093 Slice 3 — single-variable card for the bottom-drawer cards
+ * view. Each card surfaces:
+ *
+ *   - name (mono, accent color when the variable was added/changed)
+ *   - big value preview (16px mono)
+ *   - type pill aligned to the bottom-right
+ *
+ * Pure data render: the same `ScopeValue` discriminated union the
+ * list view consumes, but laid out vertically with more whitespace so
+ * a glance identifies the variable at a distance.
+ */
+function VariableCard({
+  name,
+  value,
+  diffKind,
+}: {
+  name: string;
+  value: ScopeValue;
+  diffKind: DiffKind | undefined;
+}) {
+  // Local cn helper avoids importing the file-wide one and keeps the
+  // card self-contained at the bottom of the file.
+  const classNames = (...parts: Array<string | false | null | undefined>): string =>
+    parts.filter(Boolean).join(' ');
+  const kind = (() => {
+    switch (value.kind) {
+      case 'primitive':
+        return value.type;
+      case 'function':
+        return 'function';
+      case 'object':
+        return value.previewType || 'object';
+      case 'array':
+        return 'array';
+      case 'error':
+        return 'error';
+    }
+  })();
+  const preview = (() => {
+    switch (value.kind) {
+      case 'primitive':
+        return value.repr;
+      case 'function':
+        return value.name ? `ƒ ${value.name}` : 'ƒ';
+      case 'object':
+        return `${value.previewType}{${value.entries.length}}`;
+      case 'array':
+        return `[${value.length}]`;
+      case 'error':
+        return value.message;
+    }
+  })();
+  return (
+    <article
+      data-testid={`variable-inspector-card-${name}`}
+      data-diff-kind={diffKind ?? 'same'}
+      className={classNames(
+        'flex flex-col gap-2 rounded-xl border bg-bg-panel-alt/65 p-3 transition-colors',
+        diffKind === 'added' && 'border-success/60',
+        diffKind === 'changed' && 'border-warning/60',
+        diffKind === 'removed' && 'border-error/40 opacity-70',
+        !diffKind && 'border-border/60',
+      )}
+    >
+      <p
+        className={classNames(
+          'truncate font-mono text-[11.5px] font-semibold tracking-[-0.005em]',
+          diffKind === 'added' || diffKind === 'changed'
+            ? 'text-accent-fg'
+            : 'text-fg-muted',
+        )}
+      >
+        {name}
+      </p>
+      <p className="break-words font-mono text-[15px] font-semibold leading-tight text-fg-base">
+        {preview}
+      </p>
+      <div className="mt-auto flex items-center justify-end">
+        <TypePill kind={kind} />
+      </div>
+    </article>
   );
 }

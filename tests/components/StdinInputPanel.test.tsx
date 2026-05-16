@@ -64,16 +64,20 @@ describe('StdinInputPanel (RL-020 Slice 6)', () => {
     expect(screen.getByTestId('stdin-panel-unsupported')).toBeTruthy();
   });
 
-  it('renders the textarea for a JS tab and writes via the action', () => {
+  it('renders per-line inputs for a JS tab and writes via the action', () => {
+    // RL-093 — the v2 panel replaced the single textarea with one input
+    // per ordered-queue row. The test now writes into the first row and
+    // expects the action to be called with the same `'5'` buffer.
     editorState.tabs = [
       { id: 't1', name: 'main.js', language: 'javascript', content: '', isDirty: false },
     ];
     editorState.activeTabId = 't1';
     render(<StdinInputPanel />);
-    const textarea = screen.getByTestId('stdin-panel-textarea') as HTMLTextAreaElement;
-    expect(textarea).toBeTruthy();
-    fireEvent.change(textarea, { target: { value: '2\n3' } });
-    expect(editorState.setTabStdinBuffer).toHaveBeenCalledWith('t1', '2\n3');
+    const firstRow = screen.getByTestId('stdin-row-0');
+    const input = firstRow.querySelector('input[type="text"]') as HTMLInputElement;
+    expect(input).toBeTruthy();
+    fireEvent.change(input, { target: { value: '5' } });
+    expect(editorState.setTabStdinBuffer).toHaveBeenCalledWith('t1', '5');
   });
 
   it('surfaces the consumed pill when the result store carries a stdinConsumed summary', () => {

@@ -1,12 +1,27 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  X,
-  Settings as SettingsIcon,
-  Palette,
+  Braces,
+  Check,
+  Copy,
   FileCode2,
+  Key,
+  Keyboard,
+  Package,
+  Palette,
+  Search,
+  Settings as SettingsIcon,
   Terminal,
-  KeyRound,
+  Wrench,
+  X,
 } from 'lucide-react';
 import { AboutSection } from './AboutSection';
 import { AppearanceSection } from './AppearanceSection';
@@ -20,90 +35,473 @@ import { PrivacySection } from './PrivacySection';
 import { RecoverySection } from './RecoverySection';
 import { UpdatesSection } from './UpdatesSection';
 import { UtilitiesSection } from './UtilitiesSection';
-import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
-import { Eyebrow } from '../ui/primitives';
+import { useShallow } from 'zustand/react/shallow';
+import { IconButton, Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { EyebrowMono } from '../ui/primitives';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { cn } from '../../utils/cn';
 
 /**
- * RL-070 Sub-slice 2 — Tabbed Settings.
+ * RL-071 Signal-Slate v2 — Settings modal with a left rail.
  *
- * The previous SettingsModal stacked 11 sections in a 2-column grid
- * that scrolled ~2000px. The Signal-Slate design groups these into
- * five lateral concerns the user can switch between with one click,
- * each tab keeping its own scroll inside a much smaller surface.
+ * The v1 layout used top tabs. v2 moves navigation to a 220px rail
+ * with two groups (Workspace + Advanced) so the modal feels closer to
+ * a native preferences pane, and exposes a filter bar (`⌘,`) that
+ * highlights matching rail rows so keyboard-first users can jump
+ * directly to a setting. An "Effective config" JSON tile renders at
+ * the bottom of each tab — the same view a runtime would see.
  *
- * Tab → section mapping:
+ * Tab inventory (8 rail items):
  *
- *   General      → About, Updates
- *   Appearance   → Appearance, Layout
- *   Editor       → Editor, ExecutionHistory, Plugins
- *   Environment  → EnvVars
- *   Account      → License, Privacy
+ *   Workspace
+ *     1. general      → About + Updates
+ *     2. appearance   → Appearance + Layout
+ *     3. editor       → Editor + ExecutionHistory + Utilities
+ *     4. environment  → EnvVars
+ *     5. account      → License + Privacy
  *
- * The child sections (`AboutSection`, `EditorSection`, etc.) keep
- * their own internal layouts unchanged. This refactor only touches
- * the modal's outer structure.
+ *   Advanced
+ *     6. shortcuts    → CTA to open the existing KeyboardShortcuts
+ *                       modal (keeps the heavy table out of this
+ *                       surface)
+ *     7. plugins      → PluginsSection (was nested under "editor")
+ *     8. recovery     → RecoverySection (was nested under "account")
  *
- * Keyboard nav: ←/→ rotate through tabs; Esc still closes the modal
- * (handled by `OverlayBackdrop`).
+ * Keyboard nav: ⌘1–⌘0 jumps to the matching section while the modal
+ * is focused; Esc closes. Ctrl/Cmd + , focuses the filter bar.
  */
-type TabId = 'general' | 'appearance' | 'editor' | 'environment' | 'account';
+type TabId =
+  | 'general'
+  | 'appearance'
+  | 'editor'
+  | 'environment'
+  | 'account'
+  | 'shortcuts'
+  | 'plugins'
+  | 'recovery';
 
 interface SettingsModalProps {
   onClose: () => void;
   onOpenWhatsNew: () => void;
   onStartGuidedTour: () => void;
+  onOpenKeyboardShortcuts?: () => void;
 }
 
-interface TabDef {
+interface RailItem {
   id: TabId;
+  group: 'workspace' | 'advanced';
   labelKey: string;
   icon: typeof SettingsIcon;
+  kbdToken: string;
+  /** Keywords used to match against the filter bar. Free-form, multi-word. */
+  keywords: readonly string[];
 }
 
-const TABS: readonly TabDef[] = [
-  { id: 'general', labelKey: 'settings.tabs.general', icon: SettingsIcon },
-  { id: 'appearance', labelKey: 'settings.tabs.appearance', icon: Palette },
-  { id: 'editor', labelKey: 'settings.tabs.editor', icon: FileCode2 },
-  { id: 'environment', labelKey: 'settings.tabs.environment', icon: Terminal },
-  { id: 'account', labelKey: 'settings.tabs.account', icon: KeyRound },
+const RAIL_ITEMS: readonly RailItem[] = [
+  {
+    id: 'general',
+    group: 'workspace',
+    labelKey: 'settings.tabs.general',
+    icon: SettingsIcon,
+    kbdToken: '1',
+    keywords: ['about', 'version', 'updates', 'release', 'whats new', 'tour'],
+  },
+  {
+    id: 'appearance',
+    group: 'workspace',
+    labelKey: 'settings.tabs.appearance',
+    icon: Palette,
+    kbdToken: '2',
+    keywords: ['theme', 'tema', 'font', 'fuente', 'layout', 'preset', 'language', 'idioma'],
+  },
+  {
+    id: 'editor',
+    group: 'workspace',
+    labelKey: 'settings.tabs.editor',
+    icon: FileCode2,
+    kbdToken: '3',
+    keywords: [
+      'editor',
+      'monaco',
+      'format',
+      'history',
+      'utilities',
+      'autosave',
+      'wrap',
+      'indent',
+    ],
+  },
+  {
+    id: 'environment',
+    group: 'workspace',
+    labelKey: 'settings.tabs.environment',
+    icon: Terminal,
+    kbdToken: '4',
+    keywords: ['env', 'environment', 'variable', 'variables', 'secret'],
+  },
+  {
+    id: 'account',
+    group: 'workspace',
+    labelKey: 'settings.tabs.account',
+    icon: Key,
+    kbdToken: '5',
+    keywords: ['license', 'pro', 'trial', 'privacy', 'account', 'cuenta'],
+  },
+  {
+    id: 'shortcuts',
+    group: 'advanced',
+    labelKey: 'settings.tabs.shortcuts',
+    icon: Keyboard,
+    kbdToken: '6',
+    keywords: ['keyboard', 'shortcut', 'atajo', 'kbd', 'binding'],
+  },
+  {
+    id: 'plugins',
+    group: 'advanced',
+    labelKey: 'settings.tabs.plugins',
+    icon: Package,
+    kbdToken: '7',
+    keywords: ['plugin', 'extension', 'plugins'],
+  },
+  {
+    id: 'recovery',
+    group: 'advanced',
+    labelKey: 'settings.tabs.recovery',
+    icon: Wrench,
+    kbdToken: '0',
+    keywords: ['recovery', 'recuperar', 'reset', 'backup'],
+  },
 ];
+
+function matchesFilter(item: RailItem, filter: string, t: (k: string) => string): boolean {
+  if (!filter) return true;
+  const lowered = filter.toLowerCase();
+  if (item.id.includes(lowered)) return true;
+  if (t(item.labelKey).toLowerCase().includes(lowered)) return true;
+  return item.keywords.some((kw) => kw.toLowerCase().includes(lowered));
+}
+
+interface SettingsRailProps {
+  active: TabId;
+  filter: string;
+  onSelect: (id: TabId) => void;
+}
+
+function SettingsRail({ active, filter, onSelect }: SettingsRailProps) {
+  const { t } = useTranslation();
+  const groups = ['workspace', 'advanced'] as const;
+  return (
+    <aside
+      className="settings-rail"
+      role="tablist"
+      aria-label={t('settings.rail.ariaLabel')}
+    >
+      <div className="px-4 pb-3 pt-5">
+        <EyebrowMono className="text-fg-subtle">{t('settings.title')}</EyebrowMono>
+      </div>
+      {groups.map((group) => (
+        <div key={group} className="pb-2">
+          <p className="settings-rail-group-label">
+            {t(`settings.rail.${group}`)}
+          </p>
+          {RAIL_ITEMS.filter((it) => it.group === group).map((item) => {
+            const isActive = item.id === active;
+            const isMatch = matchesFilter(item, filter, t);
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                id={`settings-rail-${item.id}`}
+                aria-selected={isActive}
+                aria-controls={`settings-panel-${item.id}`}
+                onClick={() => onSelect(item.id)}
+                data-active={isActive ? 'true' : 'false'}
+                data-dim={!isActive && filter && !isMatch ? 'true' : 'false'}
+                className="settings-rail-row w-full"
+                data-testid={`settings-tab-${item.id}`}
+              >
+                <span className="row-icon">
+                  <Icon size={13} aria-hidden />
+                </span>
+                <span className="truncate text-left">{t(item.labelKey)}</span>
+                <Kbd className="ml-auto">⌘{item.kbdToken}</Kbd>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </aside>
+  );
+}
+
+interface SettingsTopBarProps {
+  active: TabId;
+  filter: string;
+  matchCount: number;
+  onFilterChange: (next: string) => void;
+  onClose: () => void;
+  filterInputRef: RefObject<HTMLInputElement | null>;
+}
+
+function SettingsTopBar({
+  active,
+  filter,
+  matchCount,
+  onFilterChange,
+  onClose,
+  filterInputRef,
+}: SettingsTopBarProps) {
+  const { t } = useTranslation();
+  const activeLabel = RAIL_ITEMS.find((it) => it.id === active)?.labelKey;
+  return (
+    <div className="flex h-12 flex-none items-center gap-3 border-b border-border/80 bg-bg-panel px-4">
+      <div className="flex items-center gap-2 text-[12.5px]">
+        <SettingsIcon size={14} className="text-fg-subtle" aria-hidden />
+        <span className="text-fg-muted">{t('settings.title')}</span>
+        <span className="text-fg-subtle">›</span>
+        <span className="font-medium text-fg-base">
+          {activeLabel ? t(activeLabel) : ''}
+        </span>
+      </div>
+      <div
+        className={cn(
+          'mx-2 flex h-7 min-w-0 flex-1 items-center gap-2 rounded-md border bg-bg-base px-2.5 transition-colors',
+          filter ? 'border-accent bg-primary-soft' : 'border-border/80',
+        )}
+      >
+        <Search
+          size={12}
+          className={cn(filter ? 'text-accent-fg' : 'text-fg-subtle')}
+          aria-hidden
+        />
+        <input
+          ref={filterInputRef}
+          type="text"
+          value={filter}
+          onChange={(e) => onFilterChange(e.target.value)}
+          placeholder={t('settings.filter.placeholder')}
+          className={cn(
+            'min-w-0 flex-1 bg-transparent font-mono text-[12px] outline-none placeholder:text-fg-subtle',
+            filter ? 'font-semibold text-accent-fg' : 'text-fg-muted',
+          )}
+          data-testid="settings-filter-input"
+          aria-label={t('settings.filter.placeholder')}
+        />
+        {filter ? (
+          <>
+            <span className="font-mono text-[10px] text-accent-fg">
+              {matchCount === 0
+                ? t('settings.filter.noMatches')
+                : t('settings.filter.matches', { count: matchCount })}
+            </span>
+            <button
+              type="button"
+              onClick={() => onFilterChange('')}
+              className="text-accent-fg hover:opacity-70"
+              aria-label={t('settings.filter.clear')}
+            >
+              <X size={11} aria-hidden />
+            </button>
+          </>
+        ) : (
+          <span className="flex gap-1">
+            <Kbd>⌘</Kbd>
+            <Kbd>,</Kbd>
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <Kbd>Esc</Kbd>
+        <IconButton onClick={onClose} tooltip={t('settings.close')}>
+          <X size={14} />
+        </IconButton>
+      </div>
+    </div>
+  );
+}
+
+interface EffectiveConfigTileProps {
+  tab: TabId;
+}
+
+// RL-093 review — keys are listed per tab. Missing keys are silently
+// skipped at runtime by the `pick` helper, so adding a new setting
+// just requires adding the key here.
+const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
+  general: ['theme', 'language'],
+  appearance: [
+    'theme',
+    'fontFamily',
+    'fontSize',
+    'fontLigatures',
+    'editorTheme',
+    'themePack',
+    'layoutPreset',
+    'language',
+  ],
+  editor: [
+    'editorTheme',
+    'wordWrap',
+    'tabSize',
+    'lineNumbers',
+    'minimap',
+    'formatOnSave',
+    'executionHistorySnapshotEnabled',
+    'scratchpadAutoLogByLanguage',
+    'workflowModeDefaultsByLanguage',
+    'showStdinPanel',
+  ],
+  environment: ['envVars'],
+  account: ['privacyTelemetryEnabled'],
+  shortcuts: ['shortcutOverrides'],
+  plugins: ['enabledPlugins', 'pluginRoots'],
+  recovery: [],
+};
+
+/**
+ * Renders a JSON readonly snapshot of the slice of settingsStore that
+ * the active tab controls. We deliberately don't show the whole store
+ * — only the keys this tab can mutate — so the user can verify "what
+ * I changed here is what runtime X reads."
+ *
+ * RL-093 review — the tile used to call `useSettingsStore()` without a
+ * selector and re-render on every store change, blowing the
+ * `JSON.stringify` budget each time. It now subscribes only to the
+ * exact slice the active tab cares about via a per-tab selector.
+ */
+function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
+  const { t } = useTranslation();
+  const keys = TAB_CONFIG_KEYS[tab] ?? [];
+  // Shallow compare so a setting change in a DIFFERENT tab doesn't
+  // re-render this tile.
+  const slice = useSettingsStore(
+    useShallow((state) => {
+      const s = state as unknown as Record<string, unknown>;
+      const out: Record<string, unknown> = {};
+      for (const k of keys) {
+        if (k in s && typeof s[k] !== 'function') out[k] = s[k];
+      }
+      return out;
+    }),
+  );
+  const [copied, setCopied] = useState(false);
+
+  const json = useMemo(() => JSON.stringify(slice, null, 2), [slice]);
+
+  if (Object.keys(slice).length === 0) return null;
+
+  return (
+    <div className="effective-config-tile">
+      <div className="effective-config-tile-header">
+        <div className="flex items-center gap-2">
+          <Braces size={13} className="text-fg-subtle" aria-hidden />
+          <EyebrowMono>{t('settings.effectiveConfig.label')}</EyebrowMono>
+          <span className="text-[11.5px] text-fg-muted">
+            {t('settings.effectiveConfig.hint')}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="button-ghost text-[11px]"
+          onClick={() => {
+            void navigator.clipboard.writeText(json).then(() => {
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1500);
+            });
+          }}
+          aria-label={t('settings.effectiveConfig.copy')}
+        >
+          {copied ? <Check size={11} /> : <Copy size={11} />}
+          {copied ? t('settings.effectiveConfig.copied') : t('settings.effectiveConfig.copy')}
+        </button>
+      </div>
+      <pre className="effective-config-tile-body whitespace-pre">{json}</pre>
+    </div>
+  );
+}
+
+interface SettingsStatusBarProps {
+  active: TabId;
+}
+
+function SettingsStatusBar({ active }: SettingsStatusBarProps) {
+  const { t } = useTranslation();
+  return (
+    <div className="settings-status-bar">
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          aria-hidden
+          className="inline-block size-1.5 rounded-full bg-success"
+        />
+        <span className="font-mono">{t('settings.sync.label')}</span>
+      </span>
+      <span className="text-fg-subtle">·</span>
+      <span className="font-mono">
+        {t('settings.footer.trail', { section: t(`settings.tabs.${active}`) })}
+      </span>
+      <span className="flex-1" />
+      <span className="flex items-center gap-1.5">
+        <Kbd>⌘1</Kbd>
+        <Kbd>⌘0</Kbd>
+        <span className="text-fg-muted">{t('settings.statusBar.section')}</span>
+      </span>
+      <span className="text-fg-subtle">·</span>
+      <span className="flex items-center gap-1.5">
+        <Kbd>Esc</Kbd>
+        <span className="text-fg-muted">{t('settings.statusBar.escape')}</span>
+      </span>
+    </div>
+  );
+}
 
 export function SettingsModal({
   onClose,
   onOpenWhatsNew,
   onStartGuidedTour,
+  onOpenKeyboardShortcuts,
 }: SettingsModalProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabId>('general');
+  const [filter, setFilter] = useState('');
+  const filterInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleTabKeydown = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-      const target = event.target as HTMLElement | null;
-      const tabButton = target?.closest('[role="tab"][id^="settings-tab-"]');
-      if (!(tabButton instanceof HTMLButtonElement)) return;
-      const idx = TABS.findIndex((tab) => tab.id === activeTab);
-      if (idx === -1) return;
-      const next =
-        event.key === 'ArrowRight'
-          ? TABS[(idx + 1) % TABS.length]
-          : TABS[(idx - 1 + TABS.length) % TABS.length];
-      if (next) {
+  // Map ⌘1..⌘0 → tab. Cmd on macOS, Ctrl on others.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      // Filter focus: ⌘,
+      if ((event.metaKey || event.ctrlKey) && event.key === ',') {
         event.preventDefault();
-        setActiveTab(next.id);
-        window.requestAnimationFrame(() => {
-          document.getElementById(`settings-tab-${next.id}`)?.focus();
-        });
+        filterInputRef.current?.focus();
+        return;
       }
-    },
-    [activeTab]
+      // Rail jumps: ⌘1..⌘0 (only when not typing in an input/textarea)
+      if (event.metaKey || event.ctrlKey) {
+        const tag = (event.target as HTMLElement | null)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        const match = RAIL_ITEMS.find((it) => it.kbdToken === event.key);
+        if (match) {
+          event.preventDefault();
+          setActiveTab(match.id);
+          window.requestAnimationFrame(() => {
+            document.getElementById(`settings-rail-${match.id}`)?.focus();
+          });
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [filterInputRef]);
+
+  const matchCount = useMemo(
+    () => (filter ? RAIL_ITEMS.filter((it) => matchesFilter(it, filter, t)).length : 0),
+    [filter, t],
   );
 
-  useEffect(() => {
-    window.addEventListener('keydown', handleTabKeydown);
-    return () => window.removeEventListener('keydown', handleTabKeydown);
-  }, [handleTabKeydown]);
+  const handleSelect = useCallback((id: TabId) => {
+    setActiveTab(id);
+  }, []);
 
   const renderTabContent = (): ReactNode => {
     switch (activeTab) {
@@ -130,7 +528,6 @@ export function SettingsModal({
             <EditorSection />
             <ExecutionHistorySection />
             <UtilitiesSection />
-            <PluginsSection />
           </div>
         );
       case 'environment':
@@ -144,6 +541,45 @@ export function SettingsModal({
           <div className="space-y-6">
             <LicenseSection />
             <PrivacySection />
+          </div>
+        );
+      case 'shortcuts':
+        return (
+          <div className="space-y-3">
+            <div className="rounded-xl border border-border/80 bg-bg-panel-alt p-5">
+              <h3 className="text-[14px] font-semibold leading-tight text-fg-base">
+                {t('settings.shortcuts.linkLabel')}
+              </h3>
+              <p className="mt-1.5 max-w-[60ch] text-[12.5px] leading-relaxed text-fg-muted">
+                {t('settings.shortcuts.linkHint')}
+              </p>
+              <button
+                type="button"
+                className="button-primary mt-4 text-[12px]"
+                onClick={() => {
+                  if (onOpenKeyboardShortcuts) {
+                    onClose();
+                    window.setTimeout(onOpenKeyboardShortcuts, 0);
+                  }
+                }}
+                disabled={!onOpenKeyboardShortcuts}
+              >
+                <Keyboard size={12} />
+                {t('settings.shortcuts.modal.cta')}
+                <Kbd className="ml-2">⌘/</Kbd>
+              </button>
+            </div>
+          </div>
+        );
+      case 'plugins':
+        return (
+          <div className="space-y-6">
+            <PluginsSection />
+          </div>
+        );
+      case 'recovery':
+        return (
+          <div className="space-y-6">
             <RecoverySection />
           </div>
         );
@@ -156,88 +592,42 @@ export function SettingsModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
-        className="relative w-[min(96vw,1100px)] max-w-none"
+        className="relative grid w-[min(96vw,1240px)] max-w-none grid-cols-[220px_1fr] grid-rows-[auto_1fr_auto] overflow-hidden"
+        style={{ height: 'min(86vh, 820px)' }}
       >
-        {/* Header */}
-        <div className="surface-header px-6 pt-5 pb-0">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <Eyebrow>{t('settings.title')}</Eyebrow>
-              <h2
-                id="settings-modal-title"
-                className="font-display text-[22px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground"
-              >
-                {t('settings.subtitle')}
-              </h2>
-              <p className="mt-1.5 max-w-2xl text-[12.5px] leading-[1.5] text-muted">
-                {t('settings.description')}
-              </p>
-            </div>
-            <IconButton onClick={onClose} tooltip={t('settings.close')}>
-              <X size={16} />
-            </IconButton>
-          </div>
+        <h2 id="settings-modal-title" className="sr-only">
+          {t('settings.subtitle')}
+        </h2>
 
-          {/* Tab bar */}
-          <div
-            role="tablist"
-            aria-label={t('settings.tabs.ariaLabel')}
-            className="mt-4 flex items-end gap-0 -mb-px"
-          >
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = tab.id === activeTab;
-              return (
-                <button
-                  key={tab.id}
-                  id={`settings-tab-${tab.id}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  aria-controls={`settings-panel-${tab.id}`}
-                  onClick={() => setActiveTab(tab.id)}
-                  data-testid={`settings-tab-${tab.id}`}
-                  className={cn(
-                    'relative inline-flex items-center gap-1.5 px-3.5 py-2.5 text-[12.5px] font-medium tracking-[-0.005em] transition-colors',
-                    isActive
-                      ? 'border-b-2 border-primary text-foreground'
-                      : 'border-b-2 border-transparent text-muted hover:text-foreground'
-                  )}
-                >
-                  <Icon
-                    size={12}
-                    className={cn(isActive ? 'text-primary' : 'text-muted')}
-                    aria-hidden="true"
-                  />
-                  {t(tab.labelKey)}
-                </button>
-              );
-            })}
-          </div>
+        {/* Rail spans all rows on the left */}
+        <div className="row-span-3">
+          <SettingsRail active={activeTab} filter={filter} onSelect={handleSelect} />
         </div>
+
+        {/* Top bar */}
+        <SettingsTopBar
+          active={activeTab}
+          filter={filter}
+          matchCount={matchCount}
+          onFilterChange={setFilter}
+          onClose={onClose}
+          filterInputRef={filterInputRef}
+        />
 
         {/* Tab content */}
         <div
           id={`settings-panel-${activeTab}`}
-          className="max-h-[68vh] overflow-y-auto px-6 py-5"
+          className="min-h-0 overflow-y-auto bg-bg-base px-6 py-5"
           role="tabpanel"
-          aria-labelledby={`settings-tab-${activeTab}`}
+          aria-labelledby={`settings-rail-${activeTab}`}
           key={activeTab}
         >
           {renderTabContent()}
+          <EffectiveConfigTile tab={activeTab} />
         </div>
 
-        {/* Footer */}
-        <div className="surface-header flex items-center justify-between px-6 py-2.5">
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted">
-            {t('settings.footer.trail', {
-              section: t(`settings.tabs.${activeTab}`),
-            })}
-          </p>
-          <span className="status-pill text-success">
-            ● {t('settings.autosave')}
-          </span>
-        </div>
+        {/* Status bar */}
+        <SettingsStatusBar active={activeTab} />
       </OverlayCard>
     </OverlayBackdrop>
   );

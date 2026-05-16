@@ -1,5 +1,5 @@
 import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
@@ -13,7 +13,11 @@ import {
   registerLanguageCompletionProviders,
 } from '../../monaco';
 import { getDiagnosticKey } from '../../utils/editorExecutionDecorations';
-import { useInlineResults } from '../../hooks/useInlineResults';
+import {
+  isHiddenUndefinedLineResult,
+  useInlineResults,
+  useInlineResultWidgets,
+} from '../../hooks/useInlineResults';
 import { useBreakpointGutter } from '../../hooks/useBreakpointGutter';
 import { useLanguageIntelligenceDiagnostics } from '../../hooks/useLanguageIntelligenceDiagnostics';
 import { useGoLspDocumentSync } from '../../hooks/useGoLspLifecycle';
@@ -80,6 +84,7 @@ export function CodeEditor() {
     translateRef.current = t;
   }, [t]);
   const lineResults = useResultStore((state) => state.lineResults);
+  const hideUndefined = useSettingsStore((state) => state.hideUndefined);
   const diagnostics = useResultStore((state) => state.diagnostics);
   const executionSource = useResultStore((state) => state.executionSource);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
@@ -93,8 +98,25 @@ export function CodeEditor() {
   // hook that already reads them inside diagnostics-driven effects.
   const [editorInstance, setEditorInstance] = useState<Parameters<OnMount>[0] | null>(null);
   const [monacoInstance, setMonacoInstance] = useState<Monaco | null>(null);
-  const { applyDecorations, clearDecorations, applyDiagnostics, clearMarkers } =
-    useInlineResults();
+  const { clearDecorations, applyDiagnostics, clearMarkers } = useInlineResults();
+  const visibleLineResults = useMemo(
+    () =>
+      hideUndefined
+        ? lineResults.filter((result) => !isHiddenUndefinedLineResult(result))
+        : lineResults,
+    [hideUndefined, lineResults],
+  );
+
+  // RL-093 Slice 3 — richer inline-result presentation as Monaco
+  // overlay widgets. This replaces the old trailing-comment
+  // decorations so the editor shows one result surface, not duplicate
+  // values after the code and again at the right edge.
+  useInlineResultWidgets(
+    editorInstance,
+    monacoInstance,
+    visibleLineResults,
+    activeTabId,
+  );
   const effectiveFontLigatures = fontLigatures && fontStackSupportsLigatures(fontFamily);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -143,8 +165,8 @@ export function CodeEditor() {
   }, []);
 
   useEffect(() => {
-    applyDecorations(editorRef.current, lineResults, monacoRef.current as Monaco);
-  }, [applyDecorations, lineResults]);
+    clearDecorations(editorRef.current);
+  }, [clearDecorations, visibleLineResults]);
 
   useEffect(() => {
     applyDiagnostics(editorRef.current, diagnostics, monacoRef.current);

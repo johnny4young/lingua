@@ -40,6 +40,12 @@ type LanguageMeta = {
   executionMode: 'run' | 'validate' | 'view';
 };
 
+export type LanguageBadgeTone = {
+  code: string;
+  background: string;
+  foreground: string;
+};
+
 // Stable English fallback labels, mirrored against the i18n keys the pack
 // declares. Slice C will replace these reads with `i18next.t(pack.labelKey)`
 // at the React boundary.
@@ -68,6 +74,36 @@ const ENGLISH_FALLBACK_LABELS: Record<string, { label: string; shortLabel: strin
   gitignore: { label: 'Gitignore', shortLabel: 'GI' },
   editorconfig: { label: 'EditorConfig', shortLabel: 'EC' },
   shellscript: { label: 'Shell script', shortLabel: 'SH' },
+};
+
+// RL-093 design-system chips from `Main v2.html`. Keep these token-like
+// oklch pairs here so the toolbar and tab overflow cannot drift.
+const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
+  javascript: {
+    code: 'JS',
+    background: 'oklch(0.96 0.04 95)',
+    foreground: 'oklch(0.38 0.14 80)',
+  },
+  typescript: {
+    code: 'TS',
+    background: 'oklch(0.95 0.04 250)',
+    foreground: 'oklch(0.4 0.16 255)',
+  },
+  go: {
+    code: 'GO',
+    background: 'oklch(0.94 0.05 200)',
+    foreground: 'oklch(0.38 0.14 205)',
+  },
+  python: {
+    code: 'PY',
+    background: 'oklch(0.95 0.04 140)',
+    foreground: 'oklch(0.38 0.13 145)',
+  },
+  rust: {
+    code: 'RS',
+    background: 'oklch(0.96 0.04 40)',
+    foreground: 'oklch(0.42 0.15 35)',
+  },
 };
 
 const FALLBACK_META: LanguageMeta = {
@@ -136,6 +172,16 @@ export function languageLabel(language: Language): string {
 
 export function languageShortLabel(language: Language): string {
   return getLanguageMeta(language).shortLabel;
+}
+
+export function languageBadgeTone(language: Language): LanguageBadgeTone {
+  return (
+    LANGUAGE_BADGE_TONES[language] ?? {
+      code: languageShortLabel(language).slice(0, 3).toUpperCase(),
+      background: 'var(--color-bg-panel-alt)',
+      foreground: 'var(--color-fg-muted)',
+    }
+  );
 }
 
 export function languageBadgeClass(language: Language): string {

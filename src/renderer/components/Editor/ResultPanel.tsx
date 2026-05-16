@@ -1,249 +1,40 @@
-import { Loader2, MoveRight, Pin } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatExecTime } from '../../hooks/runnerOutput';
 import { useEditorStore } from '../../stores/editorStore';
-import { useResultStore, type LineResult } from '../../stores/resultStore';
+import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { isHiddenUndefinedLineResult } from '../../hooks/useInlineResults';
 import { executionModeForLanguage } from '../../utils/languageMeta';
 import { isInlineResultLanguage } from '../../utils/languageCapabilities';
 import { AutoRunGateNotice } from './AutoRunGateNotice';
-import { WorkflowModeStatusPill } from './WorkflowModeStatusPill';
 import { AutoLogStatusPill } from './AutoLogStatusPill';
 import { StdinStatusPill } from './StdinStatusPill';
 import { RecentRunsPill } from './RecentRunsPill';
 import { RunStatusPill } from './RunStatusPill';
-import { CompareToggleButton } from './CompareToggleButton';
 import { CompareResultsPanel } from './CompareResultsPanel';
-import { VariableInspectorToggleButton } from './VariableInspectorToggleButton';
-import { VariableInspectorPanel } from './VariableInspectorPanel';
-import {
-  diffSnapshot,
-  resolveCompareTargetSnapshot,
-} from '../../utils/snapshotDiff';
+import { resolveCompareTargetSnapshot } from '../../utils/snapshotDiff';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
-
-function LineResultRow({
-  result,
-  watchTooltip,
-  watchAriaLabel,
-  watchEmptyCopy,
-  autoLogTooltip,
-  autoLogAriaLabel,
-}: {
-  result: LineResult;
-  watchTooltip: string;
-  watchAriaLabel: string;
-  watchEmptyCopy: string;
-  autoLogTooltip: string;
-  autoLogAriaLabel: string;
-}) {
-  if (result.type === 'magic') {
-    return (
-      <span className="shrink-0 whitespace-nowrap font-medium text-success">
-        {'=> '}
-        {result.value}
-      </span>
-    );
-  }
-
-  if (result.type === 'autoLog') {
-    // RL-020 Slice 5 fold B — distinct icon + low-contrast italic so
-    // bare-expression auto-log rows are visually distinct from
-    // explicit `//=>` arrows (success-tone bold) and `@watch` pins
-    // (pin icon + bold). The icon carries no a11y label of its own;
-    // the surrounding span provides the announcement.
-    return (
-      <span
-        data-result-kind="autoLog"
-        aria-label={autoLogAriaLabel}
-        title={autoLogTooltip}
-        className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap italic text-muted"
-      >
-        <MoveRight size={11} aria-hidden="true" className="opacity-70" />
-        <span>{result.value}</span>
-      </span>
-    );
-  }
-
-  if (result.type === 'watch') {
-    // RL-020 Slice 3 — pinned watch from `// @watch <expr>`. Fold B
-    // renders a Pin icon; fold F wraps the value in an aria-live
-    // region so screen readers announce updates; fold G replaces
-    // `undefined` with an explicit "no value yet" string because a
-    // pinned watch is meaningful even when its value is currently
-    // undefined (different from arrow `//=>` which hideUndefined can
-    // silently filter).
-    const display = result.value === 'undefined' ? watchEmptyCopy : result.value;
-    return (
-      <span
-        data-result-kind="watch"
-        aria-label={watchAriaLabel}
-        title={watchTooltip}
-        className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-medium text-success"
-      >
-        <Pin size={11} aria-hidden="true" className="opacity-80" />
-        <span aria-live="polite">{display}</span>
-      </span>
-    );
-  }
-
-  const colorClass =
-    result.type === 'error'
-      ? 'text-error'
-      : result.type === 'warn'
-        ? 'text-warning'
-        : result.type === 'info'
-          ? 'text-info'
-          : result.type === 'result'
-            ? 'font-medium text-foreground'
-          : 'text-muted';
-
-  return <span className={`shrink-0 whitespace-nowrap ${colorClass}`}>{result.value}</span>;
-}
-
-interface LineAlignedResultsProps {
-  lineResults: LineResult[];
-  lineCount: number;
-  fontSize: number;
-  lineHeight: number;
-  paddingTop: number;
-  watchTooltip: string;
-  watchAriaLabel: string;
-  watchEmptyCopy: string;
-  autoLogTooltip: string;
-  autoLogAriaLabel: string;
-  /**
-   * RL-020 Slice 8 fold G — per-line diff markers vs. the last
-   * stable snapshot. Map from `line` to `'added' | 'removed' |
-   * 'changed'` (unchanged lines are omitted). Renders a tiny tone-
-   * colored glyph at the start of the row. `null` / empty map
-   * disables the feature (default state: no snapshot yet).
-   */
-  diffMarkers?: Map<number, 'added' | 'removed' | 'changed'> | null;
-  /**
-   * Localized strings for the badge tooltips. Provided by the
-   * parent so the badge stays a pure renderer.
-   */
-  addedBadgeTooltip?: string;
-  removedBadgeTooltip?: string;
-  changedBadgeTooltip?: string;
-}
-
-function LineAlignedResults({
-  lineResults,
-  lineCount,
-  fontSize,
-  lineHeight,
-  paddingTop,
-  watchTooltip,
-  watchAriaLabel,
-  watchEmptyCopy,
-  autoLogTooltip,
-  autoLogAriaLabel,
-  diffMarkers,
-  addedBadgeTooltip,
-  removedBadgeTooltip,
-  changedBadgeTooltip,
-}: LineAlignedResultsProps) {
-  const resultsByLine = new Map<number, LineResult[]>();
-  for (const result of lineResults) {
-    const existing = resultsByLine.get(result.line) ?? [];
-    existing.push(result);
-    resultsByLine.set(result.line, existing);
-  }
-
-  return (
-    <div className="font-mono" style={{ fontSize, paddingTop }}>
-      {Array.from({ length: lineCount }, (_, index) => {
-        const lineNumber = index + 1;
-        const results = resultsByLine.get(lineNumber);
-        const marker = diffMarkers?.get(lineNumber) ?? null;
-
-        return (
-          <div
-            key={lineNumber}
-            style={{ height: lineHeight, lineHeight: `${lineHeight}px` }}
-            className="flex min-w-0 items-center gap-3 overflow-x-auto px-4"
-          >
-            {marker !== null && (
-              <span
-                data-result-kind="diff-badge"
-                data-diff-kind={marker}
-                title={
-                  marker === 'added'
-                    ? addedBadgeTooltip
-                    : marker === 'removed'
-                      ? removedBadgeTooltip
-                      : changedBadgeTooltip
-                }
-                aria-label={
-                  marker === 'added'
-                    ? addedBadgeTooltip
-                    : marker === 'removed'
-                      ? removedBadgeTooltip
-                      : changedBadgeTooltip
-                }
-                className={`inline-flex w-3 shrink-0 items-center justify-center text-[10px] ${
-                  marker === 'added'
-                    ? 'text-success'
-                    : marker === 'removed'
-                      ? 'text-danger'
-                      : 'text-primary'
-                }`}
-              >
-                {marker === 'added' ? '+' : marker === 'removed' ? '−' : '~'}
-              </span>
-            )}
-            {results?.map((result, resultIndex) => (
-              <LineResultRow
-                key={resultIndex}
-                result={result}
-                watchTooltip={watchTooltip}
-                watchAriaLabel={watchAriaLabel}
-                watchEmptyCopy={watchEmptyCopy}
-                autoLogTooltip={autoLogTooltip}
-                autoLogAriaLabel={autoLogAriaLabel}
-              />
-            )) ?? null}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function FullOutputView({
   output,
   error,
   emptyText,
+  fontSize,
 }: {
   output: string;
   error: string | null;
   emptyText: string;
+  fontSize: number;
 }) {
   return (
-    <div className="p-4 font-mono text-xs leading-6">
+    <div className="p-4 font-mono leading-6" style={{ fontSize }}>
       {output && <pre className="whitespace-pre-wrap text-foreground">{output}</pre>}
       {error && <pre className="mt-3 whitespace-pre-wrap text-error">{error}</pre>}
       {!output && !error && <span className="italic text-muted">{emptyText}</span>}
     </div>
   );
-}
-
-function isUndefinedResult(result: LineResult): boolean {
-  // RL-020 Slice 3 fold G — watches stay visible even when their
-  // current value is `undefined`. The user explicitly pinned the
-  // expression; silently hiding it would erase intent. Watches with
-  // `undefined` get a placeholder copy in `LineResultRow` instead.
-  if (result.type === 'watch') return false;
-  // RL-020 Slice 5 — auto-log rows DO respect the `hideUndefined`
-  // filter. A whole-buffer auto-log pass on a 50-line program would
-  // surface `undefined` for every `console.log(...)` statement; the
-  // user expects the existing filter to apply rather than seeing a
-  // wall of `undefined` annotations.
-  if (result.type === 'autoLog' && result.value === 'undefined') return true;
-  return result.type === 'result' && result.value === 'undefined';
 }
 
 export function ResultPanel() {
@@ -296,57 +87,22 @@ export function ResultPanel() {
   // language-matching snapshot. Mutually exclusive with Compare:
   // turning Variables on flips Compare off via the editor-store
   // setter (`setTabVariableInspectorEnabled`).
-  const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
-  const variableInspectorSupportedLanguages = new Set<string>([
-    'javascript',
-    'typescript',
-    'python',
-  ]);
-  const variableInspectorRuntimeSupported = activeTab?.runtimeMode !== 'node';
-  const variableInspectorEnabled =
-    executionMode === 'run' &&
-    activeTab?.variableInspectorEnabled === true &&
-    variableInspectorRuntimeSupported &&
-    variableInspectorSupportedLanguages.has(language) &&
-    scopeSnapshot !== null &&
-    scopeSnapshot.language === language;
-
   // RL-020 Slice 8 fold G — inline diff badges. Only render in
-  // non-compare mode: when Compare is on, the dedicated diff view
-  // already surfaces per-line deltas. Skip when there's no
-  // language-matching snapshot. Memoized so the auto-run stream
-  // doesn't re-run the diff on every render — `lineResults` is
-  // the high-frequency dependency.
-  const inlineDiffMarkers = useMemo<
-    Map<number, 'added' | 'removed' | 'changed'> | null
-  >(() => {
-    if (compareEnabled) return null;
-    if (!compareTargetSnapshot) return null;
-    if (!dynamic) return null;
-    const diff = diffSnapshot({
-      snapshot: compareTargetSnapshot,
-      current: { lineResults, fullOutput },
-    });
-    if (diff.mode !== 'dynamic') return null;
-    const map = new Map<number, 'added' | 'removed' | 'changed'>();
-    for (const row of diff.rows) {
-      if (row.kind === 'unchanged') continue;
-      map.set(row.line, row.kind);
-    }
-    return map.size > 0 ? map : null;
-  }, [
-    compareEnabled,
-    compareTargetSnapshot,
-    lineResults,
-    fullOutput,
-    dynamic,
-  ]);
-  const lineCount = (activeTab?.content ?? '').split('\n').length;
-  const undefinedResultCount = lineResults.filter(isUndefinedResult).length;
+  // RL-093 Slice 3 — `inlineDiffMarkers` previously fed
+  // <LineAlignedResults> with per-line diff badges (+/−/~) when
+  // Compare wasn't the active view. With the scratchpad inline
+  // results now rendered in-editor via Monaco overlay widgets, the
+  // result-panel body no longer needs the markers; Compare still
+  // surfaces deltas via <CompareResultsPanel>. The diff computation
+  // was removed alongside the body to keep the rendering path
+  // honest.
+  const undefinedResultCount = lineResults.filter(isHiddenUndefinedLineResult).length;
   const visibleLineResults = hideUndefined
-    ? lineResults.filter((result) => !isUndefinedResult(result))
+    ? lineResults.filter((result) => !isHiddenUndefinedLineResult(result))
     : lineResults;
   const showUndefinedToggle = dynamic && undefinedResultCount > 0;
+  void visibleLineResults; // referenced for completeness; the body
+                           // path that consumed it was removed.
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -367,10 +123,19 @@ export function ResultPanel() {
     ? visibleLineResults.length > 0
     : fullOutput.length > 0 || error !== null;
 
+  // `FullOutputView` reads the user's editor font size so the stdout
+  // dump matches the editor's typography. Only consumed in non-
+  // dynamic modes (run / debug / validate / view).
   const fontSize = settingsFontSize;
-  const lineHeight = Math.round(fontSize * 1.35);
-  const paddingTop = 12;
 
+  // RL-093 Slice 3 — the "Resultado en línea / Sincronizado con las
+  // líneas del editor" title was dropped from the scratchpad path
+  // because (a) the workflow mode is now visible in the floating
+  // action pill and (b) the per-line values render inside the editor
+  // via Monaco overlay widgets, making a result-panel-side copy of
+  // the same info redundant. validate / view modes (no inline
+  // results) still need their distinctive header so users know what
+  // kind of file they have open.
   const titleKey = dynamic
     ? 'results.inline.title'
     : executionMode === 'validate'
@@ -404,55 +169,37 @@ export function ResultPanel() {
         : 'results.empty.manual';
 
   return (
-    <div className="flex h-full flex-col bg-background/65">
-      <div className="surface-header flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2">
-        <div className="min-w-0">
-          <span className="panel-title">{t(titleKey)}</span>
-          <p className="mt-0.5 text-[11px] text-muted">
-            {t(descriptionKey)}
-          </p>
-        </div>
-
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-2 gap-y-1">
+    <div className="flex h-full flex-col bg-[var(--color-editor-bg)]">
+      {/* RL-093 Slice 3 — header layout differs by execution mode.
+          For scratchpad / run / debug we drop the redundant "Resultado
+          en línea" copy (workflow mode is on the pill; inline values
+          render inside the editor via overlay widgets) and only keep
+          the actionable status pills aligned to the right. For
+          validate / view modes the header keeps the title +
+          description because those tabs don't have inline results to
+          consult. */}
+      <div className="flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border-subtle/60 px-4 py-2">
+        {dynamic ? (
+          <span aria-hidden />
+        ) : (
+          <div className="min-w-0">
+            <span className="panel-title">{t(titleKey)}</span>
+            <p className="mt-0.5 text-[11px] text-muted">{t(descriptionKey)}</p>
+          </div>
+        )}
+        <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
           {isAutoRunning && <Loader2 size={13} className="animate-spin text-primary" />}
           <AutoRunGateNotice />
-          {/* RL-020 Slice 2 fold B — workflow-mode pill next to the
-              execution-time slot. Low-contrast so it never fights
-              the AutoRunGateNotice. */}
-          <WorkflowModeStatusPill />
-          {/* RL-020 Slice 5 fold E — Auto-log status pill, simplified
-              (no language tag — file extension already says JS/TS). */}
           <AutoLogStatusPill />
-          {/* RL-020 Slice 6 fold F — Stdin status pill. */}
           <StdinStatusPill />
-          {/* RL-020 Slice 7 — Run-status pill: timeout / stopped /
-              error / countdown. Self-gates on result.kind set by
-              the runners + setRunTermination from the run paths. */}
           <RunStatusPill />
-          {/* RL-020 Slice 4 — per-tab Recent Runs pill. */}
           <RecentRunsPill />
           {executionTime !== null && (
             <span className="status-pill tabular-nums whitespace-nowrap">
               {formatExecTime(executionTime)}
             </span>
           )}
-          {/* RL-020 Slice 8 — Compare toggle. Self-gates on
-              snapshot availability + language match. Hidden in
-              view-only execution mode (validation / view files). */}
-          {executionMode === 'run' && <CompareToggleButton />}
-          {/* RL-020 Slice 9 — Variables toggle. Mounted next to
-              Compare; mutually exclusive at the editor-store
-              setter. Self-gates on language support + snapshot
-              availability inside the component. */}
-          {executionMode === 'run' &&
-            variableInspectorRuntimeSupported &&
-            variableInspectorSupportedLanguages.has(language) && (
-              <VariableInspectorToggleButton />
-            )}
-          {/* RL-020 Slice 8 + Slice 9 — hide the `undefined` toggle
-              when EITHER Compare or Variables is on: both swap the
-              inline-results region for a different view. */}
-          {showUndefinedToggle && !compareEnabled && !variableInspectorEnabled && (
+          {showUndefinedToggle && !compareEnabled && (
             <button
               onClick={toggleHideUndefined}
               title={
@@ -469,15 +216,7 @@ export function ResultPanel() {
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
-        {variableInspectorEnabled ? (
-          // RL-020 Slice 9 — re-mount on tab switch so the internal
-          // expand / filter state resets per tab (same key pattern
-          // Slice 8 used for the Compare panel).
-          <VariableInspectorPanel
-            key={`vi-${activeTab?.id ?? 'none'}`}
-            language={language}
-          />
-        ) : compareEnabled ? (
+        {compareEnabled ? (
           // RL-020 Slice 8 — re-mount the compare body on tab switch
           // so the internal granularity state resets to `'line'` for
           // each tab. Without this `key`, a `'word'` granularity
@@ -495,29 +234,28 @@ export function ResultPanel() {
             <span className="text-xs italic text-muted">{t(emptyKey)}</span>
           </div>
         ) : dynamic ? (
+          // RL-093 Slice 3 — in scratchpad mode the per-line values
+          // render inside the editor via Monaco overlay widgets
+          // (`useInlineResultWidgets`), so the result panel body no
+          // longer mirrors them. The body keeps the error pane (when
+          // the runner failed) and otherwise stays empty — Compare
+          // and Variables still claim the area when active. The diff
+          // badges from `inlineDiffMarkers` are surfaced inline by
+          // the Compare view (gated above).
           <>
-            <LineAlignedResults
-              lineResults={visibleLineResults}
-              lineCount={lineCount}
-              fontSize={fontSize}
-              lineHeight={lineHeight}
-              paddingTop={paddingTop}
-              watchTooltip={t('magic.watch.tooltip')}
-              watchAriaLabel={t('magic.watch.ariaLabel')}
-              watchEmptyCopy={t('magic.watch.empty')}
-              autoLogTooltip={t('autoLog.result.tooltip')}
-              autoLogAriaLabel={t('autoLog.result.ariaLabel')}
-              diffMarkers={inlineDiffMarkers}
-              addedBadgeTooltip={t('compare.inlineBadge.added')}
-              removedBadgeTooltip={t('compare.inlineBadge.removed')}
-              changedBadgeTooltip={t('compare.inlineBadge.changed')}
-            />
-            {error && (
+            {error ? (
               <div className="border-t border-error/20 bg-error/10 px-4 py-3">
                 <pre className="whitespace-pre-wrap font-mono text-xs text-error">
                   {error.message}
-                  {error.line !== undefined && ` (line ${error.line})`}
+                  {error.line !== undefined &&
+                    ` ${t('results.inline.errorLineSuffix', { line: error.line })}`}
                 </pre>
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center px-6 text-center">
+                <span className="text-xs italic text-muted">
+                  {t('results.inline.editorHint')}
+                </span>
               </div>
             )}
           </>
@@ -526,6 +264,7 @@ export function ResultPanel() {
             output={fullOutput}
             error={error?.message ?? null}
             emptyText={t(emptyKey)}
+            fontSize={fontSize}
           />
         )}
       </div>

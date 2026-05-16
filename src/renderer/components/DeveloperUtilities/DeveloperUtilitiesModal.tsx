@@ -15,7 +15,7 @@ import {
   type DeveloperUtilityId,
 } from '../../data/developerUtilities';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
-import { Eyebrow } from '../ui/primitives';
+import { EyebrowMono } from '../ui/primitives';
 import { cn } from '../../utils/cn';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -238,20 +238,25 @@ export function DeveloperUtilitiesModal({
         aria-modal="true"
         aria-labelledby="developer-utilities-modal-title"
         data-testid="developer-utilities-modal"
-        className="relative flex h-[min(86vh,860px)] w-[min(96vw,1480px)] max-w-none flex-col overflow-hidden lg:flex-row"
+        className="um-modal-shell relative flex h-[min(86vh,860px)] w-[min(96vw,1480px)] max-w-none flex-col overflow-hidden lg:flex-row"
       >
-        <aside className="flex w-full shrink-0 flex-col border-b border-border/80 bg-background/55 lg:w-[320px] lg:border-b-0 lg:border-r">
-          <div className="surface-header px-5 pt-5 pb-3">
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-[1rem] bg-primary-soft text-primary">
-                  <Wrench size={18} />
-                </div>
-                <div>
-                  <Eyebrow className="mb-0.5">{t('utilities.panelTitle')}</Eyebrow>
+        <aside className="flex w-full shrink-0 flex-col border-b border-border/60 bg-transparent lg:w-[300px] lg:border-b-0 lg:border-r">
+          <div className="px-5 pb-3 pt-6">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <EyebrowMono className="mb-2 block">
+                  {t('utilities.panelTitle')}
+                </EyebrowMono>
+                <div className="flex items-center gap-3">
+                  <span
+                    aria-hidden
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-[10px] bg-primary-soft text-accent-fg"
+                  >
+                    <Wrench size={18} />
+                  </span>
                   <h2
                     id="developer-utilities-modal-title"
-                    className="text-sm font-semibold text-foreground"
+                    className="text-[18px] font-bold text-fg-base"
                   >
                     {t('utilities.title')}
                   </h2>
@@ -266,7 +271,7 @@ export function DeveloperUtilitiesModal({
                 <X size={16} />
               </IconButton>
             </div>
-            <p className="mb-3 text-[12px] leading-[1.5] text-muted">
+            <p className="mb-4 max-w-[26ch] text-[12.5px] leading-[1.55] text-fg-muted">
               {t('utilities.description')}
             </p>
             {copyOutputShortcutHint ? (
@@ -285,8 +290,8 @@ export function DeveloperUtilitiesModal({
             ) : null}
             <div className="relative">
               <Search
-                size={12}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+                size={13}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-fg-subtle"
                 aria-hidden="true"
               />
               <input
@@ -298,7 +303,7 @@ export function DeveloperUtilitiesModal({
                 placeholder={t('utilities.search.placeholder')}
                 aria-label={t('utilities.search.ariaLabel')}
                 data-testid="utilities-search-input"
-                className="w-full rounded-[0.85rem] border border-border/80 bg-background-elevated/88 px-8 py-1.5 text-[12px] text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
+                className="w-full rounded-full border border-border/60 bg-bg-panel/70 py-2 pl-10 pr-3 text-[12.5px] text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/60"
               />
               {searchQuery.length > 0 ? (
                 <span
@@ -328,8 +333,10 @@ export function DeveloperUtilitiesModal({
                   <div
                     key={utility.id}
                     className={cn(
-                      'group mb-1 flex w-full items-start gap-1 rounded-[1rem] pr-1.5 transition-colors',
-                      isSelected ? 'bg-primary-soft' : 'hover:bg-surface-strong/72'
+                      'group mb-1 flex w-full items-start gap-1 rounded-xl pr-2 transition-colors',
+                      isSelected
+                        ? 'bg-[color-mix(in_srgb,var(--color-accent)_14%,transparent)]'
+                        : 'hover:bg-bg-panel-alt/70'
                     )}
                   >
                     <button
@@ -345,12 +352,12 @@ export function DeveloperUtilitiesModal({
                       onKeyDown={handleUtilityKeyDown}
                       aria-pressed={isSelected}
                       data-testid={`utility-item-${utility.id}`}
-                      className="flex flex-1 items-start gap-2.5 px-3 py-2.5 text-left"
+                      className="flex flex-1 items-start gap-2.5 px-3 py-3 text-left"
                     >
                       <span
                         className={cn(
-                          'mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full',
-                          isSelected ? 'bg-primary' : 'bg-transparent'
+                          'mt-1.5 inline-block size-1.5 shrink-0 rounded-full',
+                          isSelected ? 'bg-accent' : 'bg-transparent'
                         )}
                         aria-hidden="true"
                       />
@@ -358,15 +365,15 @@ export function DeveloperUtilitiesModal({
                         <span
                           className={cn(
                             'text-[13px] font-semibold leading-tight',
-                            isSelected ? 'text-primary' : 'text-foreground'
+                            isSelected ? 'text-accent-fg' : 'text-fg-base'
                           )}
                         >
                           {t(utility.titleKey)}
                         </span>
                         <span
                           className={cn(
-                            'mt-0.5 text-[11.5px] leading-[1.45]',
-                            isSelected ? 'text-primary/80' : 'text-muted'
+                            'mt-1 line-clamp-2 text-[11.5px] leading-[1.45]',
+                            isSelected ? 'text-accent-fg/85' : 'text-fg-muted'
                           )}
                         >
                           {t(utility.descriptionKey)}
@@ -381,14 +388,14 @@ export function DeveloperUtilitiesModal({
           </div>
         </aside>
 
-        <main className="flex min-h-0 flex-1 flex-col bg-surface/38">
-          <div className="surface-header flex items-start justify-between px-6 pt-5 pb-4">
-            <div className="grid gap-1">
-              <Eyebrow className="mb-0">{t('utilities.workspaceLabel')}</Eyebrow>
-              <h2 className="font-display text-[22px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground">
+        <main className="flex min-h-0 flex-1 flex-col bg-bg-panel-alt/40">
+          <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-8 pb-5 pt-7">
+            <div className="grid gap-1.5">
+              <EyebrowMono>{t('utilities.workspaceLabel')}</EyebrowMono>
+              <h2 className="text-[26px] font-bold leading-[1.15] text-fg-base">
                 {t(selectedUtility.titleKey)}
               </h2>
-              <p className="mt-1 max-w-3xl text-[12.5px] leading-[1.5] text-muted">
+              <p className="mt-1 max-w-3xl text-[13px] leading-[1.55] text-fg-muted">
                 {t(selectedUtility.descriptionKey)}
               </p>
             </div>
@@ -401,7 +408,7 @@ export function DeveloperUtilitiesModal({
               <X size={16} />
             </IconButton>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="flex-1 overflow-y-auto px-8 py-7">
             <DeveloperUtilityPanel toolId={selectedUtilityId} />
           </div>
         </main>
