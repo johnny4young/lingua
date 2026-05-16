@@ -9,7 +9,8 @@ import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { trackEvent } from '../../utils/telemetry';
-import { IconButton, Tooltip } from '../ui/chrome';
+import { IconButton, Kbd, Tooltip } from '../ui/chrome';
+import { EyebrowMono, MonoBadge } from '../ui/primitives';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 
@@ -273,12 +274,19 @@ export function ConsolePanel() {
 
   const visibleEntries = entries.filter((entry) => activeFilters.has(entry.type));
 
+  const totalCount = entries.length;
   return (
-    <div id="guided-tour-console" className="flex h-full flex-col bg-background/65">
-      <div className="surface-header flex min-h-12 items-center justify-between gap-3 px-4">
-        <div>
-          <span className="panel-title">{t('console.title')}</span>
-          <p className="mt-0.5 text-[11px] text-muted">{t('console.description')}</p>
+    <div id="guided-tour-console" className="flex h-full flex-col bg-bg-base/65">
+      {/* RL-093 Slice 3 — prominent header: eyebrow + count badge +
+          inline level chips (LOG · INF · WRN · ERR · RESULT) + the
+          ⌘\ keyboard hint so the toggle shortcut is discoverable. */}
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border-subtle/60 px-4">
+        <div className="flex items-center gap-2.5">
+          <EyebrowMono>{t('console.title')}</EyebrowMono>
+          {totalCount > 0 ? (
+            <MonoBadge tone="accent">{totalCount}</MonoBadge>
+          ) : null}
+          <p className="text-[11px] text-fg-muted">{t('console.description')}</p>
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
@@ -295,10 +303,11 @@ export function ConsolePanel() {
               >
                 <button
                   onClick={() => toggleFilter(type)}
-                  className={`rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${
+                  data-active={active ? 'true' : 'false'}
+                  className={`console-filter-chip rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${
                     active
-                      ? `border-border-strong/90 bg-surface-strong/90 ${TYPE_BADGE[type]}`
-                      : 'border-transparent text-muted hover:border-border/70 hover:bg-surface-strong/72'
+                      ? `border-border-strong/90 bg-bg-panel-alt ${TYPE_BADGE[type]}`
+                      : 'border-border/40 text-fg-subtle hover:border-border/80 hover:bg-bg-panel-alt/70'
                   }`}
                 >
                   {typeLabel[type]}
@@ -307,6 +316,12 @@ export function ConsolePanel() {
               </Tooltip>
             );
           })}
+          <span className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
+          <Tooltip content={t('shortcuts.item.toggleConsole.label')}>
+            <span className="inline-flex items-center gap-1 text-[10.5px] text-fg-subtle">
+              <Kbd>⌘\</Kbd>
+            </span>
+          </Tooltip>
           <IconButton
             onClick={toggleTimestamps}
             active={showTimestamps}

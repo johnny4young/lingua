@@ -441,6 +441,51 @@ function AppChrome({
         variableCount: bucket,
       });
     },
+    toggleStdinPanel: () => {
+      // RL-093 Slice 3 — open or close the bottom Stdin drawer for the
+      // active tab. Gates on language (JS / TS / Python only), runtime
+      // mode (no Browser preview), and the `showStdinPanel` user
+      // setting. The state shape mirrors the panel chip click handler
+      // in AppLayout.PanelChipsRow so keystroke and click stay in sync.
+      const editorState = useEditorStore.getState();
+      const tab = editorState.tabs.find(
+        (item) => item.id === editorState.activeTabId
+      );
+      const settings = useSettingsStore.getState();
+      const uiState = useUIStore.getState();
+      const stdinAvailable =
+        !!tab &&
+        settings.showStdinPanel &&
+        tab.runtimeMode !== 'browser-preview' &&
+        (tab.language === 'javascript' ||
+          tab.language === 'typescript' ||
+          tab.language === 'python');
+      if (!stdinAvailable) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'panelChips.stdin.disabled',
+        });
+        return;
+      }
+      if (
+        uiState.activeBottomPanel === 'stdin' &&
+        uiState.consoleVisible
+      ) {
+        uiState.setConsoleVisible(false);
+      } else {
+        uiState.openBottomPanel('stdin');
+      }
+    },
+    resetFloatingPositions: () => {
+      // RL-093 Slice 3 — clear both persisted floating positions back
+      // to the synchronous defaults. Useful when a localStorage value
+      // landed off-screen after a monitor / window-size change.
+      useUIStore.getState().resetFloatingPositions();
+      useUIStore.getState().pushStatusNotice({
+        tone: 'info',
+        messageKey: 'actionPill.resetFloatingNotice',
+      });
+    },
   });
 
   const handleStartGuidedTour = () => {
@@ -503,6 +548,7 @@ function AppChrome({
           onClose={closeOverlay}
           onOpenWhatsNew={() => openOverlay('whats-new')}
           onStartGuidedTour={handleStartGuidedTour}
+          onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
         />
       )}
       {overlay === 'whats-new' && (

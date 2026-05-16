@@ -34,7 +34,7 @@ export function UrlUtilityPanel() {
 
   return (
     <div className="grid gap-4">
-      <div className="inline-flex w-fit overflow-hidden rounded-[1.2rem] border border-border/80 bg-surface-strong/88">
+      <div className="inline-flex w-fit overflow-hidden rounded-full border border-border/60 bg-bg-panel-alt">
         <button
           type="button"
           className={`px-4 py-2 text-xs font-semibold ${mode === 'encode' ? 'bg-primary-soft text-primary' : 'text-foreground'}`}

@@ -40,6 +40,27 @@ describe('uiStore', () => {
     expect(useUIStore.getState().consoleVisible).toBe(true);
   });
 
+  it('persists floating action-pill position and resets to null', () => {
+    const startRevision = useUIStore.getState().floatingPositionsResetRevision;
+    useUIStore.setState({ actionPillPosition: null, variablesCardPosition: null });
+    useUIStore.getState().setActionPillPosition({ x: 120, y: 64 });
+    expect(useUIStore.getState().actionPillPosition).toEqual({ x: 120, y: 64 });
+    useUIStore.getState().setVariablesCardPosition({ x: 800, y: 80 });
+    expect(useUIStore.getState().variablesCardPosition).toEqual({ x: 800, y: 80 });
+    useUIStore.getState().resetFloatingPositions();
+    expect(useUIStore.getState().actionPillPosition).toBeNull();
+    expect(useUIStore.getState().variablesCardPosition).toBeNull();
+    expect(useUIStore.getState().floatingPositionsResetRevision).toBe(startRevision + 1);
+  });
+
+  it('toggles the variables-card collapsed flag', () => {
+    useUIStore.setState({ variablesCardCollapsed: false });
+    useUIStore.getState().toggleVariablesCardCollapsed();
+    expect(useUIStore.getState().variablesCardCollapsed).toBe(true);
+    useUIStore.getState().setVariablesCardCollapsed(false);
+    expect(useUIStore.getState().variablesCardCollapsed).toBe(false);
+  });
+
   it('pushes status notices with incrementing ids and clears on dismiss', () => {
     useUIStore.setState({ statusNotice: null });
 

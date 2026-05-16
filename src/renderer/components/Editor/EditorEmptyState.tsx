@@ -61,31 +61,36 @@ export function EditorEmptyState() {
   };
 
   return (
-    <div className="relative flex h-full flex-col overflow-auto">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top,rgba(144,103,255,0.18),transparent_68%)]" />
+    // RL-093 polish #5 — Welcome screen migrated from the legacy
+    // purple-gradient + `text-foreground` / `text-muted` palette to the
+    // Signal-Slate tokens shipping with the v2 design (slate accent at
+    // hue 210, semantic bg-/fg- variables). The gradient now reads as a
+    // soft slate halo that matches the rest of the chrome.
+    <div className="relative flex h-full flex-col overflow-auto bg-bg-base">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--color-accent)_22%,transparent),transparent_68%)]" />
 
       <div className="relative mx-auto flex h-full w-full max-w-6xl flex-col justify-center gap-8 px-5 py-8 sm:px-8 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
         <section className="animate-rise-in space-y-7">
           <div className="inline-flex items-center gap-3">
-            <div className="relative flex h-14 w-14 items-center justify-center rounded-[1.4rem] border border-border-strong/80 bg-surface-strong/90 shadow-[0_18px_60px_rgba(12,14,24,0.18)]">
-              <span className="font-display text-xl font-semibold tracking-[0.14em] text-primary">
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-[1.4rem] border border-border-strong/70 bg-bg-panel shadow-[0_18px_60px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]">
+              <span className="font-display text-xl font-semibold tracking-[0.14em] text-accent-fg">
                 RL
               </span>
-              <span className="absolute inset-1 rounded-[1.1rem] border border-white/6" />
+              <span className="absolute inset-1 rounded-[1.1rem] border border-border-subtle/60" />
             </div>
             <div>
               <p className="panel-title">{t('emptyState.brandLabel')}</p>
-              <h1 className="font-display text-4xl font-semibold tracking-[-0.04em] text-foreground sm:text-5xl">
+              <h1 className="font-display text-4xl font-semibold tracking-[-0.04em] text-fg-base sm:text-5xl">
                 Lingua
               </h1>
             </div>
           </div>
 
           <div className="max-w-2xl space-y-3">
-            <p className="max-w-xl text-balance font-display text-[1.95rem] font-semibold leading-tight tracking-[-0.04em] text-foreground sm:text-[2.45rem]">
+            <p className="max-w-xl text-balance font-display text-[1.95rem] font-semibold leading-tight tracking-[-0.04em] text-fg-base sm:text-[2.45rem]">
               {t('emptyState.headline')}
             </p>
-            <p className="max-w-xl text-sm leading-7 text-muted sm:text-base">
+            <p className="max-w-xl text-sm leading-7 text-fg-muted sm:text-base">
               {t('emptyState.description')}
             </p>
           </div>
@@ -123,7 +128,7 @@ export function EditorEmptyState() {
             })}
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted">
+          <div className="flex flex-wrap items-center gap-4 text-[11px] text-fg-muted">
             <span>
               <Kbd>Cmd+Shift+P</Kbd> {t('emptyState.shortcut.commands')}
             </span>
@@ -136,11 +141,11 @@ export function EditorEmptyState() {
           </div>
         </section>
 
-        <section className="surface-panel-strong animate-rise-in overflow-hidden">
-          <div className="surface-header flex items-center justify-between px-5 py-4">
+        <section className="animate-rise-in overflow-hidden rounded-2xl border border-border-subtle/70 bg-bg-panel shadow-[0_18px_60px_color-mix(in_srgb,var(--color-accent)_8%,transparent)]">
+          <div className="flex items-center justify-between border-b border-border-subtle/60 bg-bg-panel-alt/60 px-5 py-4">
             <div>
               <p className="panel-title">{t('emptyState.startingPoints.title')}</p>
-              <p className="mt-1 text-sm text-muted">
+              <p className="mt-1 text-sm text-fg-muted">
                 {t('emptyState.startingPoints.description')}
               </p>
             </div>
@@ -155,17 +160,17 @@ export function EditorEmptyState() {
                 key={template.id}
                 type="button"
                 onClick={() => openTemplate(template.id)}
-                className="group flex flex-col gap-2 rounded-[1.35rem] border border-border/80 bg-background-elevated/74 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-border-strong/90 hover:bg-background-elevated"
+                className="group flex flex-col gap-2 rounded-[1.1rem] border border-border-subtle/70 bg-bg-panel-alt/65 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:bg-bg-panel"
               >
                 <span
                   className={`self-start rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.16em] ${languageBadgeClass(template.language)}`}
                 >
                   {template.language}
                 </span>
-                <span className="font-display text-lg font-semibold tracking-[-0.03em] text-foreground">
+                <span className="font-display text-lg font-semibold tracking-[-0.03em] text-fg-base">
                   {resolveTemplateLabel(template, t)}
                 </span>
-                <span className="text-xs leading-6 text-muted">
+                <span className="text-xs leading-6 text-fg-muted">
                   {resolveTemplateDescription(template, t)}
                 </span>
               </button>

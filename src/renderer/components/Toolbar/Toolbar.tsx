@@ -69,6 +69,13 @@ interface ToolbarProps {
   onOpenSnippets?: () => void;
   onOpenUtilities?: () => void;
   utilitiesOpen?: boolean;
+  /**
+   * RL-093 — when the floating action pill is mounted alongside the
+   * toolbar, the toolbar trims its centre cluster (Run/Debug split,
+   * Workflow segment, Runtime selector, New-file menu) and renders
+   * only the sidebar toggle on the left + the right-side icon group.
+   */
+  showFloatingPill?: boolean;
 }
 
 export function Toolbar({
@@ -78,6 +85,7 @@ export function Toolbar({
   onOpenSnippets,
   onOpenUtilities,
   utilitiesOpen = false,
+  showFloatingPill = false,
 }: ToolbarProps) {
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage, runMode } = useRunner();
@@ -165,9 +173,15 @@ export function Toolbar({
   const primaryActionDisabled = primaryActionIsDebug ? debugActionDisabled : actionDisabled;
   const primaryActionLabel = primaryActionIsDebug ? debugLabel : actionLabel;
   const primaryActionTooltip = primaryActionIsDebug ? debugTooltip : actionTooltip;
-  const primaryActionClassName = primaryActionIsDebug
-    ? 'button-danger inline-flex h-10 w-10 items-center justify-center rounded-l-xl rounded-r-none'
-    : 'button-primary inline-flex h-10 w-10 items-center justify-center rounded-l-xl rounded-r-none bg-success text-background hover:bg-success/92';
+  const primaryActionClassName = cn(
+    primaryActionIsDebug
+      ? 'button-danger inline-flex h-10 w-10 items-center justify-center rounded-l-xl rounded-r-none'
+      : 'button-primary inline-flex h-10 w-10 items-center justify-center rounded-l-xl rounded-r-none bg-success text-background hover:bg-success/92',
+    // RL-071 v2 — visible pulse around the run button while a task is
+    // executing. The animation is declared in index.css under
+    // @keyframes run-pulse and only applies when data-running="true".
+    'data-[running=true]:[animation:run-pulse_1.4s_ease-in-out_infinite]'
+  );
   const utilitiesShortcutLabel = useMemo(() => {
     const definition = KEYBOARD_SHORTCUTS.find(
       (entry) => entry.id === 'overlay-developer-utilities'
@@ -305,9 +319,9 @@ export function Toolbar({
           <PanelLeft size={15} />
         </IconButton>
 
-        <div className="toolbar-divider" />
+        {!showFloatingPill ? <div className="toolbar-divider" /> : null}
 
-        {showDebugAction ? (
+        {!showFloatingPill && (showDebugAction ? (
           <div ref={runMenuRef} className="relative shrink-0">
             <div className="inline-flex overflow-hidden rounded-xl">
               <Tooltip
@@ -324,6 +338,7 @@ export function Toolbar({
                   disabled={primaryActionDisabled}
                   data-tour-id="run-button"
                   data-testid="toolbar-run-button"
+                  data-running={isRunning ? 'true' : 'false'}
                   aria-label={primaryActionLabel}
                   className={primaryActionClassName}
                 >
@@ -412,9 +427,10 @@ export function Toolbar({
               disabled={actionDisabled}
               data-tour-id="run-button"
               data-testid="toolbar-run-button"
+              data-running={isRunning ? 'true' : 'false'}
               aria-label={actionLabel}
               title={actionLabel}
-              className="button-primary inline-flex h-10 w-10 items-center justify-center rounded-xl bg-success text-background hover:bg-success/92"
+              className="button-primary inline-flex h-10 w-10 items-center justify-center rounded-xl bg-success text-background hover:bg-success/92 data-[running=true]:[animation:run-pulse_1.4s_ease-in-out_infinite]"
             >
               {isInitializing ? (
                 <Loader2 size={15} className="animate-spin" />
@@ -423,9 +439,9 @@ export function Toolbar({
               )}
             </button>
           </Tooltip>
-        )}
+        ))}
 
-        {isRunning && (
+        {!showFloatingPill && isRunning && (
           <IconButton
             onClick={stop}
             tone="danger"
@@ -438,13 +454,20 @@ export function Toolbar({
 
         {/* UI refinement — workflow + runtime selectors live with the
             Run button. They configure HOW + WHERE the run executes,
-            so the whole execution cluster reads as one group. */}
-        {activeTab ? <WorkflowModeSegment /> : null}
-        {languageHasRuntimeModes(activeTab?.language) ? <RuntimeModeSelector /> : null}
+            so the whole execution cluster reads as one group.
+            RL-093 — hidden when the floating action pill is mounted;
+            those controls move into the pill. */}
+        {!showFloatingPill && activeTab ? <WorkflowModeSegment /> : null}
+        {!showFloatingPill && languageHasRuntimeModes(activeTab?.language) ? (
+          <RuntimeModeSelector />
+        ) : null}
 
-        <div className="toolbar-divider" />
+        {!showFloatingPill ? <div className="toolbar-divider" /> : null}
 
-        <div ref={newFileMenuRef} className="relative shrink-0">
+        <div
+          ref={newFileMenuRef}
+          className={cn('relative shrink-0', showFloatingPill && 'hidden')}
+        >
           <div className="inline-flex h-10 overflow-hidden rounded-xl border border-border/70 bg-surface-strong/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <Tooltip content={t('toolbar.newFile.primaryTitle', { language: defaultNewFileLabel })}>
               <button
@@ -524,13 +547,22 @@ export function Toolbar({
       <div data-tour-id="toolbar-actions" className="flex min-w-0 items-center gap-2 pl-3 sm:gap-2 sm:pl-4">
         <LicenseBadge onClick={onOpenSettings} />
 
-        <IconButton
-          onClick={() => void useEditorStore.getState().openFileFromDisk()}
-          tooltip={t('toolbar.openFile')}
-          aria-label={t('toolbar.openFile')}
-        >
-          <FolderOpen size={15} />
-        </IconButton>
+        {/* RL-093 — chrome restored to match the v2 mock's right-side
+            order: search (Quick Open) · Command Palette · Snippets ·
+            Utilities · divider · Console toggle · Settings. The
+            "Open file from disk" entry stays hidden when the floating
+            pill is mounted because the design moves file management
+            into the sidebar / FileTree; users can still reach it via
+            the Command Palette or the keyboard shortcut. */}
+        {!showFloatingPill ? (
+          <IconButton
+            onClick={() => void useEditorStore.getState().openFileFromDisk()}
+            tooltip={t('toolbar.openFile')}
+            aria-label={t('toolbar.openFile')}
+          >
+            <FolderOpen size={15} />
+          </IconButton>
+        ) : null}
         <IconButton onClick={onOpenQuickOpen} tooltip={t('toolbar.quickOpen')}>
           <Search size={15} />
         </IconButton>

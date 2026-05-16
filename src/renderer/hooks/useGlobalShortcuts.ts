@@ -86,6 +86,20 @@ interface UseGlobalShortcutsOptions {
    * No-op + localized notice when there is no scope snapshot.
    */
   toggleVariableInspector: () => void;
+  /**
+   * RL-093 Slice 3 — toggles the bottom Stdin drawer for the active
+   * tab. No-op when the active language doesn't support stdin (Stdin
+   * is currently JS / TS / Python only) or the `showStdinPanel` user
+   * setting is off.
+   */
+  toggleStdinPanel: () => void;
+  /**
+   * RL-093 Slice 3 — clears `actionPillPosition` and
+   * `variablesCardPosition` in uiStore, sending both floating
+   * surfaces back to their synchronous default positions. Useful when
+   * a saved coordinate landed off-screen after a window-size change.
+   */
+  resetFloatingPositions: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -109,6 +123,8 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'run-toggle-recent-runs': () => options.toggleRecentRunsPopover(),
     'run-toggle-compare-snapshot': () => options.toggleCompareWithSnapshot(),
     'run-toggle-variable-inspector': () => options.toggleVariableInspector(),
+    'editor-toggle-stdin-panel': () => options.toggleStdinPanel(),
+    'ui-reset-floating-positions': () => options.resetFloatingPositions(),
     'file-save': () => {
       void options.saveActiveTab();
     },

@@ -65,13 +65,16 @@ describe('SettingsModal', () => {
     const themePackSelect = screen.getByTestId('theme-pack-select');
     fireEvent.keyDown(themePackSelect, { key: 'ArrowRight' });
     expect(appearanceTab.getAttribute('aria-selected')).toBe('true');
-    fireEvent.keyDown(appearanceTab, { key: 'ArrowRight' });
+    // RL-071 — v2 nav uses ⌘N (metaKey + digit) instead of arrow keys.
+    fireEvent.keyDown(window, { key: '3', metaKey: true });
     expect(screen.getByTestId('settings-tab-editor').getAttribute('aria-selected')).toBe('true');
 
-    // Switch to Editor → editor theme + plugins live here.
+    // Switch to Editor → editor theme lives here.
     fireEvent.click(screen.getByTestId('settings-tab-editor'));
     expect(screen.getByText('Tema del editor')).toBeTruthy();
-    expect(screen.getByText('Plugins')).toBeTruthy();
+    // RL-071 — Plugins moved to its own rail entry under Advanced.
+    fireEvent.click(screen.getByTestId('settings-tab-plugins'));
+    expect(screen.getAllByText('Plugins').length).toBeGreaterThan(0);
     expect(screen.getByText('Directorio local de plugins')).toBeTruthy();
     expect(screen.getByText('No hay plugins locales instalados.')).toBeTruthy();
   }, 10000);

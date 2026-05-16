@@ -35,6 +35,10 @@ function renderShortcuts(options: HarnessOptions = {}) {
     cycleRuntimeMode: vi.fn(),
     cycleWorkflowMode: vi.fn(),
     toggleRecentRunsPopover: vi.fn(),
+    toggleCompareWithSnapshot: vi.fn(),
+    toggleVariableInspector: vi.fn(),
+    toggleStdinPanel: vi.fn(),
+    resetFloatingPositions: vi.fn(),
   };
 
   renderHook(() =>
@@ -126,6 +130,22 @@ describe('useGlobalShortcuts', () => {
     const calls = renderShortcuts();
     dispatchKeyDown({ key: 'h', ctrlKey: true, shiftKey: true });
     expect(calls.toggleRecentRunsPopover).toHaveBeenCalledTimes(1);
+  });
+
+  // RL-093 polish #8 — the new Stdin / floating-position shortcuts
+  // ship with FloatingActionPill + StdinInputPanel; tests guard the
+  // dispatch path so a future override change can't silently strip
+  // the binding.
+  it('toggles the Stdin panel from Mod+Shift+E', () => {
+    const calls = renderShortcuts();
+    dispatchKeyDown({ key: 'e', ctrlKey: true, shiftKey: true });
+    expect(calls.toggleStdinPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it('resets floating positions from Mod+Shift+0', () => {
+    const calls = renderShortcuts();
+    dispatchKeyDown({ key: '0', ctrlKey: true, shiftKey: true });
+    expect(calls.resetFloatingPositions).toHaveBeenCalledTimes(1);
   });
 
   it('includes the active utility shortcut in copy success notices', async () => {

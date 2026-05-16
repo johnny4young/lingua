@@ -26,10 +26,10 @@ export function PanelSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="grid gap-3 rounded-[1.4rem] border border-border/80 bg-surface/58 p-4">
+    <section className="um-card grid gap-4">
       <div className="grid gap-1">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <p className="text-xs leading-5 text-muted">{description}</p>
+        <h3 className="um-card-title">{title}</h3>
+        <p className="um-card-subtitle">{description}</p>
       </div>
       {children}
     </section>
@@ -37,14 +37,14 @@ export function PanelSection({
 }
 
 export function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <label className="text-xs font-medium uppercase tracking-[0.16em] text-muted">{children}</label>;
+  return <label className="font-mono text-[10.5px] font-bold uppercase text-fg-subtle">{children}</label>;
 }
 
 export function UtilityTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className={`min-h-36 w-full rounded-[1.15rem] border border-border/80 bg-background/88 px-3 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50 ${
+      className={`um-control ${
         props.className ?? ''
       }`}
     />
@@ -55,7 +55,7 @@ export function UtilityInput(props: React.InputHTMLAttributes<HTMLInputElement>)
   return (
     <input
       {...props}
-      className={`w-full rounded-[1.05rem] border border-border/80 bg-background/88 px-3 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50 ${
+      className={`um-control ${
         props.className ?? ''
       }`}
     />
@@ -269,7 +269,7 @@ export function UtilityToolbar({
     return (
       <div
         data-testid="utility-toolbar"
-        className={`flex flex-wrap items-center gap-2 ${className ?? ''}`}
+        className={`um-toolbar flex flex-wrap items-center gap-2 ${className ?? ''}`}
       >
         {children}
       </div>
@@ -283,7 +283,7 @@ export function UtilityToolbar({
   return (
     <div
       data-testid="utility-toolbar"
-      className={`grid gap-2 ${className ?? ''}`}
+      className={`um-toolbar grid gap-2 ${className ?? ''}`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <button
@@ -293,7 +293,7 @@ export function UtilityToolbar({
           data-testid={applyTestId}
           aria-label={t(labelKey)}
           title={t(tooltipKey)}
-          className="inline-flex items-center gap-1.5 rounded-[0.95rem] border border-border/80 bg-background-elevated/88 px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-surface-strong/72 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-bg-panel px-3 py-1.5 text-xs font-semibold text-fg-base transition-colors hover:bg-bg-panel-alt disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Zap size={12} aria-hidden="true" />
           {t(labelKey)}

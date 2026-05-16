@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { Bug, Eye, MessageSquare, Terminal, X } from 'lucide-react';
+import { Bug, Clock3, Eye, GitCompare, MessageSquare, Terminal, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
@@ -10,15 +10,18 @@ import { ConsolePanel } from '../Console';
 import { DebuggerDrawer } from '../Debugger/DebuggerDrawer';
 import { BrowserPreviewPanel } from '../BrowserPreview';
 import { StdinInputPanel } from '../Editor/StdinInputPanel';
+import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { Toolbar } from '../Toolbar';
+import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop, Tooltip } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { useResultStore } from '../../stores/resultStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
-import { languageSupportsDebugger } from '../../utils/languageMeta';
+import { executionModeForLanguage, languageSupportsDebugger } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
 import type { LayoutPreset } from '../../types';
 
@@ -58,20 +61,169 @@ function useCompactShellLayout() {
 
 function ResizeHandle({ orientation = 'vertical' }: { orientation?: 'vertical' | 'horizontal' }) {
   const isVertical = orientation === 'vertical';
+  // RL-093 — keep the inner divider transparent so the editor +
+  // result panel read as ONE canvas. The hit zone stays 3px wide
+  // so power users can still resize, and the bar fades in on hover.
   return (
     <Separator
       className={`group relative flex items-center justify-center transition-colors ${
         isVertical
-          ? '-mx-1 w-3 cursor-col-resize hover:bg-primary/8'
-          : '-my-1 h-3 cursor-row-resize hover:bg-primary/8'
+          ? '-mx-1 w-3 cursor-col-resize hover:bg-accent/5'
+          : '-my-1 h-3 cursor-row-resize hover:bg-accent/5'
       }`}
     >
       <div
-        className={`rounded-full bg-border transition-colors group-hover:bg-primary group-data-[separator]:bg-primary ${
+        className={`rounded-full bg-transparent transition-colors group-hover:bg-border-strong ${
           isVertical ? 'h-[78%] w-px' : 'h-px w-[78%]'
         }`}
       />
     </Separator>
+  );
+}
+
+function countStdinLines(buffer: string | undefined): number {
+  if (!buffer) return 0;
+  const lines = buffer.split('\n');
+  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  return lines.length;
+}
+
+function PanelChipsRow() {
+  const { t } = useTranslation();
+  const activeTab = useEditorStore((state) => {
+    const tab = state.tabs.find((item) => item.id === state.activeTabId);
+    return tab ?? null;
+  });
+  const setTabCompareEnabled = useEditorStore((state) => state.setTabCompareEnabled);
+  const setTabVariableInspectorEnabled = useEditorStore(
+    (state) => state.setTabVariableInspectorEnabled,
+  );
+  const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
+  const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
+  const consoleVisible = useUIStore((state) => state.consoleVisible);
+  const openBottomPanel = useUIStore((state) => state.openBottomPanel);
+  const setConsoleVisible = useUIStore((state) => state.setConsoleVisible);
+  const snapshotRing = useResultStore((state) => state.snapshotRing);
+  const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
+
+  if (!activeTab) return null;
+
+  const executionMode = executionModeForLanguage(activeTab.language);
+  const stdinAvailable =
+    showStdinPanel &&
+    activeTab.runtimeMode !== 'browser-preview' &&
+    (activeTab.language === 'javascript' ||
+      activeTab.language === 'typescript' ||
+      activeTab.language === 'python');
+  const stdinLineCount = countStdinLines(activeTab.stdinBuffer);
+  const compareAvailable =
+    executionMode === 'run' &&
+    snapshotRing.some((entry) => entry.language === activeTab.language);
+  const variableAvailable =
+    executionMode === 'run' &&
+    activeTab.runtimeMode !== 'node' &&
+    (activeTab.language === 'javascript' ||
+      activeTab.language === 'typescript' ||
+      activeTab.language === 'python') &&
+    scopeSnapshot !== null &&
+    scopeSnapshot.language === activeTab.language;
+
+  const chips = [
+    {
+      id: 'stdin',
+      icon: MessageSquare,
+      label: t('panelChips.stdin'),
+      badge: stdinLineCount > 0 ? String(stdinLineCount) : null,
+      active: activeBottomPanel === 'stdin' && consoleVisible,
+      disabled: !stdinAvailable,
+      title: stdinAvailable ? t('stdin.tab.hint') : t('panelChips.stdin.disabled'),
+      // RL-093 review — toggle off when this is already the active
+      // panel; otherwise switch the drawer to stdin.
+      onClick: () => {
+        if (activeBottomPanel === 'stdin' && consoleVisible) {
+          setConsoleVisible(false);
+        } else {
+          openBottomPanel('stdin');
+        }
+      },
+    },
+    {
+      id: 'history',
+      icon: Clock3,
+      label: t('panelChips.history'),
+      badge: null,
+      active: activeBottomPanel === 'console' && consoleVisible,
+      disabled: false,
+      title: t('bottomPanel.tabs.consoleHint'),
+      // RL-093 review — clicking an active chip should close the
+      // drawer (parity with stdin / compare / variables).
+      onClick: () => {
+        if (activeBottomPanel === 'console' && consoleVisible) {
+          setConsoleVisible(false);
+        } else {
+          openBottomPanel('console');
+        }
+      },
+    },
+    {
+      id: 'compare',
+      icon: GitCompare,
+      label: t('panelChips.compare'),
+      badge: compareAvailable
+        ? String(snapshotRing.filter((entry) => entry.language === activeTab.language).length)
+        : null,
+      active: activeTab.compareWithSnapshotEnabled === true,
+      disabled: !compareAvailable,
+      title: compareAvailable
+        ? t('compare.toggle.tooltipReady')
+        : t('compare.toggle.tooltipDisabled'),
+      onClick: () =>
+        setTabCompareEnabled(activeTab.id, activeTab.compareWithSnapshotEnabled !== true),
+    },
+    {
+      id: 'variables',
+      icon: Eye,
+      label: t('panelChips.variables'),
+      badge: variableAvailable ? String(scopeSnapshot?.variables.length ?? 0) : null,
+      active: activeTab.variableInspectorEnabled === true,
+      disabled: !variableAvailable,
+      title: variableAvailable
+        ? t('variableInspector.toggle.tooltipReady')
+        : t('variableInspector.toggle.tooltipDisabled'),
+      onClick: () =>
+        setTabVariableInspectorEnabled(
+          activeTab.id,
+          activeTab.variableInspectorEnabled !== true,
+        ),
+    },
+  ] as const;
+
+  return (
+    <div className="panel-chip-row" role="toolbar" aria-label={t('panelChips.ariaLabel')}>
+      {chips.map((chip) => {
+        const Icon = chip.icon;
+        return (
+          <button
+            key={chip.id}
+            type="button"
+            data-testid={`panel-chip-${chip.id}`}
+            className={cn(
+              'panel-chip',
+              chip.active && 'panel-chip-active',
+              chip.disabled && 'cursor-not-allowed opacity-45',
+            )}
+            aria-pressed={chip.active}
+            disabled={chip.disabled}
+            title={chip.title}
+            onClick={chip.onClick}
+          >
+            <Icon size={11} aria-hidden />
+            <span>{chip.label}</span>
+            {chip.badge ? <span className="panel-chip-badge">{chip.badge}</span> : null}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -86,37 +238,41 @@ function EditorArea() {
   return (
     <div id="guided-tour-editor" className="flex h-full flex-col">
       <EditorTabs />
+      <PanelChipsRow />
       <div className="min-h-0 flex-1">
         {hasTabs ? (
-          <Group
-            orientation="horizontal"
-            defaultLayout={editorResultsLayout.defaultLayout}
-            onLayoutChanged={editorResultsLayout.onLayoutChanged}
-            resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
-            className="relative overflow-visible"
-          >
-            <Panel
-              id="editor-panel"
-              defaultSize="60%"
-              minSize={320}
-              className="relative z-20 overflow-visible"
+          <>
+            <Group
+              orientation="horizontal"
+              defaultLayout={editorResultsLayout.defaultLayout}
+              onLayoutChanged={editorResultsLayout.onLayoutChanged}
+              resizeTargetMinimumSize={RESIZE_TARGET_MINIMUM_SIZE}
+              className="unified-editor-canvas relative overflow-visible"
             >
-              <div className="relative h-full overflow-visible">
-                <Suspense fallback={<EditorLoadingState />}>
-                  <CodeEditor />
-                </Suspense>
-              </div>
-            </Panel>
-            <ResizeHandle orientation="vertical" />
-            <Panel
-              id="results-panel"
-              defaultSize="40%"
-              minSize={220}
-              className="relative z-10 overflow-hidden"
-            >
-              <ResultPanel />
-            </Panel>
-          </Group>
+              <Panel
+                id="editor-panel"
+                defaultSize="60%"
+                minSize={320}
+                className="relative z-20 overflow-visible"
+              >
+                <div className="relative h-full overflow-visible">
+                  <Suspense fallback={<EditorLoadingState />}>
+                    <CodeEditor />
+                  </Suspense>
+                </div>
+              </Panel>
+              <ResizeHandle orientation="vertical" />
+              <Panel
+                id="results-panel"
+                defaultSize="40%"
+                minSize={220}
+                className="relative z-10 overflow-hidden bg-[var(--color-editor-bg)]"
+              >
+                <ResultPanel />
+              </Panel>
+            </Group>
+            <FloatingVariablesCard />
+          </>
         ) : (
           <Suspense fallback={<EditorLoadingState />}>
             <CodeEditor />
@@ -661,7 +817,9 @@ export function AppLayout({
           onOpenSnippets={onOpenSnippets}
           onOpenUtilities={onOpenUtilities}
           utilitiesOpen={utilitiesOpen}
+          showFloatingPill
         />
+        <FloatingActionPill onOpenSettings={onOpenSettings} />
         {showPersistentSidebar ? (
           <Group
             orientation="horizontal"
