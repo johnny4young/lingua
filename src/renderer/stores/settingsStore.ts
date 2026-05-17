@@ -291,6 +291,11 @@ export const useSettingsStore = create<SettingsState>()(
       // disabling the tab does NOT clear per-tab `stdinBuffer`
       // values so re-enabling the tab restores the existing input.
       showStdinPanel: true,
+      // RL-093 Slice 3 — variable inspector surface preference. Default
+      // 'floating' keeps backward-compatible behavior for users upgrading
+      // from earlier Slice 2 builds where only the FloatingVariablesCard
+      // existed. Persisted so the choice survives reloads.
+      variableInspectorSurface: 'floating',
       // RL-020 Slice 7 — per-language run-time preset. Seed honors
       // the pre-Slice-7 hardcoded DEFAULT_TIMEOUT per runner
       // (JS / TS / Go = 30 s = `normal`; Python = 120 s = `long`).
@@ -458,6 +463,23 @@ export const useSettingsStore = create<SettingsState>()(
       // visibility. Per-tab buffers are preserved either way.
       toggleShowStdinPanel: () =>
         set((s) => ({ showStdinPanel: !s.showStdinPanel })),
+      // RL-093 Slice 3 — switch the variable inspector surface.
+      // Rejects unknown tokens so the closed-enum contract holds even
+      // against the palette / scripted callers. Emits an adoption
+      // telemetry event so we can see whether the floating default
+      // should stay the default in future builds.
+      setVariableInspectorSurface: (surface) => {
+        if (surface !== 'floating' && surface !== 'bottom') return;
+        let changed = false;
+        set((s) => {
+          if (s.variableInspectorSurface === surface) return s;
+          changed = true;
+          return { variableInspectorSurface: surface };
+        });
+        if (changed) {
+          void trackEvent('runtime.variable_inspector_surface_changed', { surface });
+        }
+      },
       // RL-020 Slice 7 — write the per-language preset. Rejects
       // unsupported languages + unknown preset tokens so the
       // closed-enum contract holds even against programmatic
@@ -580,6 +602,7 @@ export const useSettingsStore = create<SettingsState>()(
         workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
         scratchpadAutoLogByLanguage: state.scratchpadAutoLogByLanguage,
         showStdinPanel: state.showStdinPanel,
+        variableInspectorSurface: state.variableInspectorSurface,
         runtimeTimeoutPresetByLanguage: state.runtimeTimeoutPresetByLanguage,
         showTimeoutCountdown: state.showTimeoutCountdown,
         firstWorkflowModeSwitchAcknowledged:
@@ -700,6 +723,14 @@ export const useSettingsStore = create<SettingsState>()(
           typeof merged.showStdinPanel === 'boolean'
             ? merged.showStdinPanel
             : currentState.showStdinPanel;
+        // RL-093 Slice 3 — guard the closed enum on rehydrate so a
+        // tampered localStorage entry can't surface a broken
+        // dropdown / route to a non-existent panel.
+        const variableInspectorSurface: 'floating' | 'bottom' =
+          merged.variableInspectorSurface === 'floating' ||
+          merged.variableInspectorSurface === 'bottom'
+            ? merged.variableInspectorSurface
+            : currentState.variableInspectorSurface;
         // RL-020 Slice 7 — sanitize + seed the per-language preset
         // map. Tampered tokens never survive; missing language keys
         // fall back to the language default seed so the Settings UI
@@ -727,6 +758,7 @@ export const useSettingsStore = create<SettingsState>()(
           workflowModeDefaultsByLanguage: seededWorkflowDefaults,
           scratchpadAutoLogByLanguage: seededAutoLog,
           showStdinPanel,
+          variableInspectorSurface,
           runtimeTimeoutPresetByLanguage: seededTimeoutPresets,
           showTimeoutCountdown,
           firstWorkflowModeSwitchAcknowledged,

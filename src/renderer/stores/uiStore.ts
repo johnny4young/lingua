@@ -5,7 +5,9 @@ export type BottomPanelTab =
   | 'console'
   | 'debugger'
   | 'browser-preview'
-  | 'stdin';
+  | 'stdin'
+  | 'variables';
+export type VariablesViewMode = 'list' | 'cards';
 
 export interface StatusNotice {
   id: number;
@@ -25,6 +27,7 @@ export interface UIPosition {
 const ACTION_PILL_POSITION_KEY = 'lingua-ui:action-pill-pos:v2';
 const VARIABLES_CARD_POSITION_KEY = 'lingua-ui:variables-card-pos:v2';
 const VARIABLES_CARD_COLLAPSED_KEY = 'lingua-ui:variables-card-collapsed';
+const VARIABLES_BOTTOM_VIEW_MODE_KEY = 'lingua-ui:variables-bottom-view-mode';
 
 /**
  * Read a `{x,y}` from `localStorage` without throwing if the key is
@@ -53,6 +56,17 @@ function readPersistedPosition(key: string): UIPosition | null {
     /* ignore */
   }
   return null;
+}
+
+function readPersistedVariablesViewMode(): VariablesViewMode {
+  if (typeof window === 'undefined') return 'list';
+  try {
+    const raw = window.localStorage.getItem(VARIABLES_BOTTOM_VIEW_MODE_KEY);
+    if (raw === 'cards') return 'cards';
+  } catch {
+    /* ignore */
+  }
+  return 'list';
 }
 
 function readPersistedBoolean(key: string, fallback: boolean): boolean {
@@ -94,6 +108,12 @@ interface UIState {
   variablesCardPosition: UIPosition | null;
   /** When true the Variables floating card shrinks to a pill chip. */
   variablesCardCollapsed: boolean;
+  /**
+   * RL-093 Slice 3 fold G — persisted List ↔ Cards mode for the bottom
+   * panel Variables tab. Floating card has its own dedicated render so
+   * this only applies when `variableInspectorSurface === 'bottom'`.
+   */
+  variablesBottomViewMode: VariablesViewMode;
   /** Bumped whenever mounted floating surfaces should return to defaults. */
   floatingPositionsResetRevision: number;
   toggleSidebar: () => void;
@@ -108,6 +128,7 @@ interface UIState {
   setVariablesCardPosition: (pos: UIPosition | null) => void;
   setVariablesCardCollapsed: (collapsed: boolean) => void;
   toggleVariablesCardCollapsed: () => void;
+  setVariablesBottomViewMode: (mode: VariablesViewMode) => void;
   resetFloatingPositions: () => void;
 }
 
@@ -121,6 +142,7 @@ export const useUIStore = create<UIState>((set) => ({
   actionPillPosition: readPersistedPosition(ACTION_PILL_POSITION_KEY),
   variablesCardPosition: readPersistedPosition(VARIABLES_CARD_POSITION_KEY),
   variablesCardCollapsed: readPersistedBoolean(VARIABLES_CARD_COLLAPSED_KEY, false),
+  variablesBottomViewMode: readPersistedVariablesViewMode(),
   floatingPositionsResetRevision: 0,
   toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
   toggleConsole: () =>
@@ -155,6 +177,11 @@ export const useUIStore = create<UIState>((set) => ({
       writePersisted(VARIABLES_CARD_COLLAPSED_KEY, next ? 'true' : 'false');
       return { variablesCardCollapsed: next };
     }),
+  setVariablesBottomViewMode: (mode) => {
+    if (mode !== 'list' && mode !== 'cards') return;
+    writePersisted(VARIABLES_BOTTOM_VIEW_MODE_KEY, mode);
+    set({ variablesBottomViewMode: mode });
+  },
   resetFloatingPositions: () => {
     writePersisted<null>(ACTION_PILL_POSITION_KEY, null);
     writePersisted<null>(VARIABLES_CARD_POSITION_KEY, null);

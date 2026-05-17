@@ -1,33 +1,20 @@
 import {
-  BookCopy,
   Bug,
   ChevronDown,
-  FolderOpen,
   Loader2,
-  PanelBottom,
   PanelLeft,
   Play,
   Plus,
-  Search,
-  Settings,
   Square,
-  Terminal,
-  Wrench,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
-import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { Language } from '../../types';
-import {
-  KEYBOARD_SHORTCUTS,
-  formatShortcutCombo,
-  resolveCombos,
-  resolveShortcutDisplayPlatform,
-} from '../../data/keyboardShortcuts';
 import {
   executionModeForLanguage,
   languageCapabilityBadgeKey,
@@ -41,7 +28,6 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 import { IconButton, Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
-import { LicenseBadge } from './LicenseBadge';
 import { RuntimeModeSelector } from './RuntimeModeSelector';
 import { WorkflowModeSegment } from './WorkflowModeSegment';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
@@ -54,43 +40,20 @@ const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
   { id: 'rust', label: 'Rust' },
 ];
 
-function getToolbarShortcutDisplayPlatform() {
-  const runtimePlatform =
-    typeof window !== 'undefined' ? window.lingua?.platform ?? 'web' : 'web';
-  const navigatorPlatform =
-    typeof navigator !== 'undefined' ? navigator.platform : undefined;
-  return resolveShortcutDisplayPlatform(runtimePlatform, navigatorPlatform);
-}
-
 interface ToolbarProps {
-  onOpenSettings?: () => void;
-  onOpenPalette?: () => void;
-  onOpenQuickOpen?: () => void;
-  onOpenSnippets?: () => void;
-  onOpenUtilities?: () => void;
-  utilitiesOpen?: boolean;
   /**
    * RL-093 — when the floating action pill is mounted alongside the
    * toolbar, the toolbar trims its centre cluster (Run/Debug split,
    * Workflow segment, Runtime selector, New-file menu) and renders
-   * only the sidebar toggle on the left + the right-side icon group.
+   * only the sidebar toggle on the left.
    */
   showFloatingPill?: boolean;
 }
 
-export function Toolbar({
-  onOpenSettings,
-  onOpenPalette,
-  onOpenQuickOpen,
-  onOpenSnippets,
-  onOpenUtilities,
-  utilitiesOpen = false,
-  showFloatingPill = false,
-}: ToolbarProps) {
+export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage, runMode } = useRunner();
-  const { sidebarVisible, consoleVisible, toggleSidebar, toggleConsole } = useUIStore();
-  const shortcutOverrides = useSettingsStore((state) => state.shortcutOverrides);
+  const { sidebarVisible, toggleSidebar } = useUIStore();
   const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
   const plugins = usePluginStore((state) => state.plugins);
   const enabledBreakpointCount = useDebuggerStore((state) => {
@@ -103,7 +66,6 @@ export function Toolbar({
     return count;
   });
   const effectiveTier = useEffectiveTier();
-  const canUseDeveloperUtilities = useEntitlement('DEV_UTILITIES');
   const [isNewFileMenuOpen, setIsNewFileMenuOpen] = useState(false);
   const newFileMenuRef = useRef<HTMLDivElement | null>(null);
   const [isRunMenuOpen, setIsRunMenuOpen] = useState(false);
@@ -182,19 +144,6 @@ export function Toolbar({
     // @keyframes run-pulse and only applies when data-running="true".
     'data-[running=true]:[animation:run-pulse_1.4s_ease-in-out_infinite]'
   );
-  const utilitiesShortcutLabel = useMemo(() => {
-    const definition = KEYBOARD_SHORTCUTS.find(
-      (entry) => entry.id === 'overlay-developer-utilities'
-    );
-    if (!definition) return null;
-    const combo = resolveCombos(definition, shortcutOverrides)[0];
-    if (!combo) return null;
-    return formatShortcutCombo(combo, getToolbarShortcutDisplayPlatform());
-  }, [shortcutOverrides]);
-  const utilitiesTooltip = utilitiesShortcutLabel
-    ? t('toolbar.utilities.tooltip', { shortcut: utilitiesShortcutLabel })
-    : t('toolbar.utilities');
-
   const handleNewFile = (language: Language) => {
     if (!isLanguageAllowed(effectiveTier, language)) {
       pushUpsellNotice({
@@ -213,21 +162,6 @@ export function Toolbar({
     const tab = createDefaultTab(language);
     addTab(tab);
     setIsNewFileMenuOpen(false);
-  };
-
-  const handleOpenUtilities = () => {
-    if (canUseDeveloperUtilities) {
-      onOpenUtilities?.();
-      return;
-    }
-    pushUpsellNotice({
-      messageKey: 'upsell.freeCeilingReached',
-      featureLabel: t('upsell.feature.devUtilities'),
-    });
-    void trackEvent('feature.blocked', {
-      entitlement: 'dev-utilities',
-      tier: effectiveTier,
-    });
   };
 
   const runSelectedAction = () => {
@@ -303,12 +237,7 @@ export function Toolbar({
     >
       <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-32 bg-gradient-to-r from-primary-soft/55 via-transparent to-transparent sm:block" />
 
-      <div
-        className={cn(
-          'flex min-w-0 items-center gap-2',
-          isWebBuild ? 'pl-2 sm:pl-3' : 'pl-[70px] sm:pl-[78px]'
-        )}
-      >
+      <div className="flex min-w-0 items-center gap-2 pl-2 sm:pl-3">
         <IconButton
           onClick={toggleSidebar}
           active={sidebarVisible}
@@ -544,57 +473,12 @@ export function Toolbar({
         </div>
       </div>
 
-      <div data-tour-id="toolbar-actions" className="flex min-w-0 items-center gap-2 pl-3 sm:gap-2 sm:pl-4">
-        <LicenseBadge onClick={onOpenSettings} />
-
-        {/* RL-093 — chrome restored to match the v2 mock's right-side
-            order: search (Quick Open) · Command Palette · Snippets ·
-            Utilities · divider · Console toggle · Settings. The
-            "Open file from disk" entry stays hidden when the floating
-            pill is mounted because the design moves file management
-            into the sidebar / FileTree; users can still reach it via
-            the Command Palette or the keyboard shortcut. */}
-        {!showFloatingPill ? (
-          <IconButton
-            onClick={() => void useEditorStore.getState().openFileFromDisk()}
-            tooltip={t('toolbar.openFile')}
-            aria-label={t('toolbar.openFile')}
-          >
-            <FolderOpen size={15} />
-          </IconButton>
-        ) : null}
-        <IconButton onClick={onOpenQuickOpen} tooltip={t('toolbar.quickOpen')}>
-          <Search size={15} />
-        </IconButton>
-        <IconButton onClick={onOpenPalette} tooltip={t('toolbar.commandPalette')}>
-          <Terminal size={15} />
-        </IconButton>
-        <IconButton onClick={onOpenSnippets} tooltip={t('toolbar.snippets')}>
-          <BookCopy size={15} />
-        </IconButton>
-        <IconButton
-          onClick={handleOpenUtilities}
-          aria-label={t('toolbar.utilities')}
-          tooltip={utilitiesTooltip}
-          active={canUseDeveloperUtilities && utilitiesOpen}
-          aria-pressed={canUseDeveloperUtilities && utilitiesOpen}
-          aria-haspopup="dialog"
-        >
-          <Wrench size={15} />
-        </IconButton>
-        <div className="toolbar-divider" />
-        <IconButton
-          onClick={toggleConsole}
-          active={consoleVisible}
-          tooltip={t('toolbar.console.toggle')}
-          aria-pressed={consoleVisible}
-        >
-          <PanelBottom size={15} />
-        </IconButton>
-        <IconButton onClick={onOpenSettings} tooltip={t('toolbar.settings')}>
-          <Settings size={15} />
-        </IconButton>
-      </div>
+      {/* RL-093 Slice 3 — the right-side icon cluster (license badge,
+          search, palette, snippets, utilities, console toggle, settings)
+          moved into <AppChrome>. The relocated actions remain reachable
+          via the command palette + keyboard shortcuts; the chrome
+          surfaces the two most-used (search → palette, gear → settings)
+          directly. */}
     </div>
   );
 }

@@ -15,6 +15,7 @@ vi.mock('@/hooks/useRunner', () => ({
 }));
 
 import { Toolbar } from '@/components/Toolbar/Toolbar';
+import { AppChrome } from '@/components/Chrome';
 import { AppearanceSection } from '@/components/Settings/AppearanceSection';
 import { EditorSection } from '@/components/Settings/EditorSection';
 import { ExecutionHistorySection } from '@/components/Settings/ExecutionHistorySection';
@@ -57,17 +58,25 @@ function setProTier() {
   });
 }
 
-function renderSmoke(onOpenUtilities = vi.fn()) {
+function renderSmoke() {
+  // RL-093 Slice 3 — the right-side icon cluster (including
+  // <LicenseBadge> and the Developer Utilities entry) moved out of the
+  // Toolbar into <AppChrome>. The smoke now renders both so the badge
+  // assertion still works; the dev-utilities flow is exercised via
+  // dedicated palette + chrome tests.
+  const onOpenPalette = vi.fn();
+  const onOpenSettings = vi.fn();
   render(
     <>
-      <Toolbar onOpenUtilities={onOpenUtilities} />
+      <AppChrome onOpenPalette={onOpenPalette} onOpenSettings={onOpenSettings} />
+      <Toolbar />
       <ExecutionHistorySection />
       <AppearanceSection />
       <EditorSection />
       <StatusNoticeBanner />
     </>
   );
-  return { onOpenUtilities };
+  return { onOpenPalette, onOpenSettings };
 }
 
 describe('web license smoke', () => {
@@ -114,7 +123,7 @@ describe('web license smoke', () => {
   it('keeps Free web surfaces locked where the plan says they should be', async () => {
     setFreeTier();
     const user = userEvent.setup();
-    const { onOpenUtilities } = renderSmoke();
+    renderSmoke();
 
     expect(screen.getByTestId('license-badge').textContent).toContain('FREE');
     expect(screen.getByText('Recent runs and rerun tools')).toBeTruthy();
@@ -126,10 +135,6 @@ describe('web license smoke', () => {
     expect(screen.getByTestId('status-notice-banner').textContent).toContain(
       'additional language runtimes'
     );
-
-    await user.click(screen.getByRole('button', { name: 'Developer utilities' }));
-    expect(onOpenUtilities).not.toHaveBeenCalled();
-    expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
 
     await user.click(screen.getByTestId('execution-history-unlock'));
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('upsell.freeCeilingReached');
@@ -151,7 +156,7 @@ describe('web license smoke', () => {
       durationMs: 18,
     });
     const user = userEvent.setup();
-    const { onOpenUtilities } = renderSmoke();
+    const { onOpenPalette } = renderSmoke();
 
     expect(screen.getByTestId('license-badge').textContent).toContain('PRO');
     expect(screen.getByText('1 run recorded')).toBeTruthy();
@@ -163,8 +168,11 @@ describe('web license smoke', () => {
     await user.click(screen.getByRole('menuitem', { name: /^Go/ }));
     expect(useEditorStore.getState().tabs.some(tab => tab.language === 'go')).toBe(true);
 
-    await user.click(screen.getByRole('button', { name: 'Developer utilities' }));
-    expect(onOpenUtilities).toHaveBeenCalledOnce();
+    // RL-093 Slice 3 — the dev-utilities entry moved to the command
+    // palette; the chrome's search button opens it. Smoke now asserts
+    // the chrome search wiring instead.
+    await user.click(screen.getByTestId('app-chrome-search'));
+    expect(onOpenPalette).toHaveBeenCalledOnce();
 
     await user.selectOptions(screen.getByTestId('theme-pack-select'), 'solarized-daylight');
     expect(useSettingsStore.getState().themePack).toBe('solarized-daylight');
@@ -204,13 +212,14 @@ describe('web license smoke', () => {
     });
     await i18next.changeLanguage('es');
     const user = userEvent.setup();
-    const { onOpenUtilities } = renderSmoke();
+    const { onOpenSettings } = renderSmoke();
 
     expect(screen.getByText('1 ejecución registrada')).toBeTruthy();
     expect(screen.getByText('Paquete de tema')).toBeTruthy();
     expect(screen.getByText('Familia tipográfica')).toBeTruthy();
 
-    await user.click(screen.getByRole('button', { name: 'Utilidades de desarrollo' }));
-    expect(onOpenUtilities).toHaveBeenCalledOnce();
+    // RL-093 Slice 3 — chrome gear opens Settings in Spanish locale.
+    await user.click(screen.getByTestId('app-chrome-settings'));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 });

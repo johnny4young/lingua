@@ -14,6 +14,8 @@ import { fireEvent, render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VariableInspectorToggleButton } from '../../src/renderer/components/Editor/VariableInspectorToggleButton';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
+import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
+import { useUIStore } from '../../src/renderer/stores/uiStore';
 
 const trackEventMock = vi.fn();
 const setTabVariableInspectorEnabledMock = vi.fn();
@@ -82,6 +84,11 @@ describe('RL-020 Slice 9 — <VariableInspectorToggleButton>', () => {
     setTabVariableInspectorEnabledMock.mockReset();
     setActiveTab({ id: 'tab-1', language: 'javascript' });
     useResultStore.setState({ scopeSnapshot: null });
+    useSettingsStore.setState({ variableInspectorSurface: 'floating' }, false);
+    useUIStore.setState({
+      activeBottomPanel: 'console',
+      consoleVisible: false,
+    });
   });
 
   it('renders disabled when no scope snapshot is available', () => {
@@ -133,6 +140,21 @@ describe('RL-020 Slice 9 — <VariableInspectorToggleButton>', () => {
       'runtime.variable_inspector_opened',
       { language: 'javascript', variableCount: '6-20' }
     );
+  });
+
+  it('opens the bottom Variables drawer when bottom mode is selected', () => {
+    useSettingsStore.setState({ variableInspectorSurface: 'bottom' }, false);
+    setScopeSnapshot('javascript', 1);
+    const { container } = render(<VariableInspectorToggleButton />);
+    const button = container.querySelector('[data-testid="variable-inspector-toggle"]');
+    if (!button) throw new Error('button not rendered');
+
+    fireEvent.click(button);
+
+    expect(useUIStore.getState()).toMatchObject({
+      activeBottomPanel: 'variables',
+      consoleVisible: true,
+    });
   });
 
   it('renders the on state with aria-pressed when the flag is set', () => {

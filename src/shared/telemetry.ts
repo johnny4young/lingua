@@ -107,6 +107,11 @@ export const TELEMETRY_EVENTS = [
   // bucket string from `VARIABLE_COUNT_BUCKETS` (`'0'` / `'1-5'`
   // / `'6-20'` / `'21-50'` / `'51+'`).
   'runtime.variable_inspector_opened',
+  // RL-093 Slice 3 fold F — adoption signal for the floating ↔ bottom
+  // surface choice. Closed-enum payload `{ surface }` where `surface`
+  // is `'floating'` or `'bottom'`. Mirrored on update-server (deferred
+  // to a follow-up — see RL-093 Slice 3 Status Update in PLAN.md).
+  'runtime.variable_inspector_surface_changed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -233,6 +238,9 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `variableCount` is a closed enum bucket
   // (`'0'` / `'1-5'` / `'6-20'` / `'21-50'` / `'51+'`).
   'runtime.variable_inspector_opened': ['language', 'variableCount'],
+  // RL-093 Slice 3 fold F — `surface` is the closed `'floating' | 'bottom'`
+  // enum.
+  'runtime.variable_inspector_surface_changed': ['surface'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -498,6 +506,9 @@ function isAllowedValue(
           typeof value === 'string' &&
           VARIABLE_INSPECTOR_COUNT_BUCKETS.has(value)
         );
+      return false;
+    case 'runtime.variable_inspector_surface_changed':
+      if (key === 'surface') return value === 'floating' || value === 'bottom';
       return false;
     default: {
       const exhaustive: never = event;

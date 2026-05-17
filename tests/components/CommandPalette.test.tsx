@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { CommandPalette } from '../../src/renderer/components/CommandPalette/CommandPalette';
+import { useUIStore } from '../../src/renderer/stores/uiStore';
 
-const { editorState, resultState, trackEventMock } = vi.hoisted(() => ({
+const { editorState, resultState, settingsState, trackEventMock } = vi.hoisted(() => ({
   editorState: {
     addTab: vi.fn(),
     openFileFromDisk: vi.fn().mockResolvedValue(undefined),
@@ -50,6 +51,20 @@ const { editorState, resultState, trackEventMock } = vi.hoisted(() => ({
       capturedAt: number;
       variables: Array<{ name: string; value: unknown }>;
     },
+  },
+  settingsState: {
+    setLayoutPreset: vi.fn(),
+    vimMode: false,
+    showStdinPanel: true,
+    variableInspectorSurface: 'floating' as 'floating' | 'bottom',
+    scratchpadAutoLogByLanguage: { javascript: false, typescript: false },
+    runtimeTimeoutPresetByLanguage: {
+      javascript: 'normal',
+      typescript: 'normal',
+      python: 'long',
+      go: 'normal',
+    },
+    setRuntimeTimeoutPreset: vi.fn(),
   },
   trackEventMock: vi.fn(),
 }));
@@ -107,19 +122,6 @@ vi.mock('../../src/renderer/stores/snippetsStore', () => ({
 }));
 
 vi.mock('../../src/renderer/stores/settingsStore', () => {
-  const settingsState = {
-    setLayoutPreset: vi.fn(),
-    vimMode: false,
-    showStdinPanel: true,
-    scratchpadAutoLogByLanguage: { javascript: false, typescript: false },
-    runtimeTimeoutPresetByLanguage: {
-      javascript: 'normal',
-      typescript: 'normal',
-      python: 'long',
-      go: 'normal',
-    },
-    setRuntimeTimeoutPreset: vi.fn(),
-  };
   const useSettingsStore = (
     selector?: (state: typeof settingsState) => unknown
   ) => (typeof selector === 'function' ? selector(settingsState) : settingsState);
@@ -172,6 +174,11 @@ describe('CommandPalette', () => {
     resultState.lastSuccessfulSnapshot = null;
     resultState.snapshotRing = [];
     resultState.scopeSnapshot = null;
+    settingsState.variableInspectorSurface = 'floating';
+    useUIStore.setState({
+      activeBottomPanel: 'console',
+      consoleVisible: false,
+    });
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       value: vi.fn(),
       configurable: true,
@@ -398,5 +405,54 @@ describe('CommandPalette', () => {
         name: /Toggle variable inspector/i,
       })
     ).toBeNull();
+  });
+
+  it('opens the bottom Variables drawer from the palette when bottom mode is selected', () => {
+    settingsState.variableInspectorSurface = 'bottom';
+    editorState.tabs = [
+      {
+        id: 'tab-1',
+        language: 'javascript',
+        content: 'const value = 1',
+      },
+    ];
+    editorState.activeTabId = 'tab-1';
+    resultState.scopeSnapshot = {
+      language: 'javascript',
+      capturedAt: 1,
+      variables: [
+        {
+          name: 'value',
+          value: { kind: 'primitive', type: 'number', repr: '1' },
+        },
+      ],
+    };
+
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'variables' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Toggle variable inspector/i,
+      })
+    );
+
+    expect(editorState.setTabVariableInspectorEnabled).toHaveBeenCalledWith(
+      'tab-1',
+      true
+    );
+    expect(useUIStore.getState()).toMatchObject({
+      activeBottomPanel: 'variables',
+      consoleVisible: true,
+    });
   });
 });
