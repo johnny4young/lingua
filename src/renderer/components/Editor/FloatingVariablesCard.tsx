@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { useDraggable } from '../../hooks/useDraggable';
 import { cn } from '../../utils/cn';
 import { EyebrowMono, MonoBadge, TypePill } from '../ui/primitives';
@@ -56,6 +57,9 @@ export function FloatingVariablesCard() {
     (state) => state.setTabVariableInspectorEnabled,
   );
   const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
+  const variableInspectorSurface = useSettingsStore(
+    (state) => state.variableInspectorSurface,
+  );
   const variablesCardPosition = useUIStore((state) => state.variablesCardPosition);
   const setVariablesCardPosition = useUIStore((state) => state.setVariablesCardPosition);
   const variablesCardCollapsed = useUIStore((state) => state.variablesCardCollapsed);
@@ -66,6 +70,7 @@ export function FloatingVariablesCard() {
   const wasDraggingRef = useRef(false);
 
   const enabled =
+    variableInspectorSurface === 'floating' &&
     activeTab?.variableInspectorEnabled === true &&
     activeTab.runtimeMode !== 'node' &&
     SUPPORTED_LANGUAGES.has(activeTab.language) &&

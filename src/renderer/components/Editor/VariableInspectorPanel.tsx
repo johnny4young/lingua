@@ -25,6 +25,7 @@ import { ChevronDown, ChevronRight, Eye, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useResultStore } from '../../stores/resultStore';
+import { useUIStore } from '../../stores/uiStore';
 import { EyebrowMono, MonoBadge, TypePill } from '../ui/primitives';
 import type {
   ScopeSnapshot,
@@ -309,18 +310,16 @@ function ExpandedEntries({
   );
 }
 
-type VariableViewMode = 'list' | 'cards';
-
 export function VariableInspectorPanel({ language }: VariableInspectorPanelProps) {
   const { t } = useTranslation();
   const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
   const snapshotRing = useResultStore((state) => state.snapshotRing);
   const [filter, setFilter] = useState('');
-  // RL-093 Slice 3 — list ↔ cards toggle in the panel header. The
-  // cards variant renders each variable as a tile with name + big
-  // value + type pill, matching the v2 mock. State stays in-memo per
-  // mount; no persistence is needed for an editor-local view.
-  const [viewMode, setViewMode] = useState<VariableViewMode>('list');
+  // RL-093 Slice 3 fold G — list ↔ cards mode persists to uiStore so
+  // the choice survives unmounts (the bottom-panel mount in particular
+  // remounts every time the user collapses the drawer).
+  const viewMode = useUIStore((state) => state.variablesBottomViewMode);
+  const setViewMode = useUIStore((state) => state.setVariablesBottomViewMode);
 
   // Defensive language gate — parent already guards this, but
   // mounting independently of the parent must not surface a stale

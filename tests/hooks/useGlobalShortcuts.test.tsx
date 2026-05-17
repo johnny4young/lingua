@@ -39,6 +39,7 @@ function renderShortcuts(options: HarnessOptions = {}) {
     toggleVariableInspector: vi.fn(),
     toggleStdinPanel: vi.fn(),
     resetFloatingPositions: vi.fn(),
+    toggleVariableInspectorSurface: vi.fn(),
   };
 
   renderHook(() =>
@@ -146,6 +147,12 @@ describe('useGlobalShortcuts', () => {
     const calls = renderShortcuts();
     dispatchKeyDown({ key: '0', ctrlKey: true, shiftKey: true });
     expect(calls.resetFloatingPositions).toHaveBeenCalledTimes(1);
+  });
+
+  it('toggles the variable inspector surface from Mod+Shift+V', () => {
+    const calls = renderShortcuts();
+    dispatchKeyDown({ key: 'v', ctrlKey: true, shiftKey: true });
+    expect(calls.toggleVariableInspectorSurface).toHaveBeenCalledTimes(1);
   });
 
   it('includes the active utility shortcut in copy success notices', async () => {

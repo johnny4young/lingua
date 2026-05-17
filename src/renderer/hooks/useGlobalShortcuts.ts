@@ -100,6 +100,12 @@ interface UseGlobalShortcutsOptions {
    * a saved coordinate landed off-screen after a window-size change.
    */
   resetFloatingPositions: () => void;
+  /**
+   * RL-093 Slice 3 fold D — flip the variable inspector surface
+   * between floating card and bottom panel tab. Power-user shortcut
+   * that mirrors the Settings dropdown.
+   */
+  toggleVariableInspectorSurface: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -125,6 +131,8 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'run-toggle-variable-inspector': () => options.toggleVariableInspector(),
     'editor-toggle-stdin-panel': () => options.toggleStdinPanel(),
     'ui-reset-floating-positions': () => options.resetFloatingPositions(),
+    'view-toggle-variable-inspector-surface': () =>
+      options.toggleVariableInspectorSurface(),
     'file-save': () => {
       void options.saveActiveTab();
     },

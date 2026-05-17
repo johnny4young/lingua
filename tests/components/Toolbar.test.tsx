@@ -615,68 +615,17 @@ describe('Toolbar', () => {
 
     render(<Toolbar />);
 
-    expect(screen.getByRole('button', { name: 'Abrir archivo (Cmd+O)' })).toBeTruthy();
+    // RL-093 Slice 3 — the right-side icon cluster moved to AppChrome;
+    // the toolbar now carries the run / new-file / workflow cluster
+    // only. Spanish copy check is now scoped to what the toolbar
+    // actually renders.
     expect(screen.getByRole('button', { name: 'Nuevo JavaScript' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Menú de lenguaje para nuevo archivo' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Configuración (Cmd+,)' })).toBeTruthy();
   });
 
-  it('opens developer utilities from the toolbar button', async () => {
-    const user = userEvent.setup();
-    const onOpenUtilities = vi.fn();
-
-    render(<Toolbar onOpenUtilities={onOpenUtilities} />);
-
-    await user.click(screen.getByRole('button', { name: 'Developer utilities' }));
-
-    expect(onOpenUtilities).toHaveBeenCalledOnce();
-  });
-
-  it('shows the active Developer Utilities shortcut in the toolbar tooltip', async () => {
-    const user = userEvent.setup();
-    useSettingsStore
-      .getState()
-      .setShortcutOverride('overlay-developer-utilities', [{ tokens: ['Mod', 'Alt', 'K'] }]);
-
-    render(<Toolbar />);
-
-    await user.hover(screen.getByRole('button', { name: 'Developer utilities' }));
-
-    expect((await screen.findByRole('tooltip')).textContent).toBe(
-      'Developer utilities (Ctrl+Alt+K)'
-    );
-  });
-
-  it('blocks developer utilities on the Free tier', async () => {
-    useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
-    const user = userEvent.setup();
-    const onOpenUtilities = vi.fn();
-
-    render(<Toolbar onOpenUtilities={onOpenUtilities} />);
-
-    await user.click(screen.getByRole('button', { name: 'Developer utilities' }));
-
-    expect(onOpenUtilities).not.toHaveBeenCalled();
-    expect(uiStoreState.statusNotice).toMatchObject({
-      messageKey: 'upsell.freeCeilingReached',
-    });
-  });
-
-  it('marks developer utilities as the active affordance when the modal is open', () => {
-    render(<Toolbar utilitiesOpen />);
-
-    expect(screen.getByRole('button', { name: 'Developer utilities' }).getAttribute('aria-pressed')).toBe(
-      'true'
-    );
-  });
-
-  it('exposes the console toggle as a pressed state when the console is visible', () => {
-    render(<Toolbar />);
-
-    expect(
-      screen.getByRole('button', { name: 'Toggle console (Cmd+\\)' }).getAttribute('aria-pressed')
-    ).toBe('true');
-  });
+  // RL-093 Slice 3 — developer-utilities + console-toggle + open-file
+  // toolbar buttons removed (relocated to chrome / command palette).
+  // Their tests moved to AppChrome.test.tsx / palette suites.
 
   it('shows the Pro-only tooltip for Go on the Free tier before the desktop-only gate', async () => {
     useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });

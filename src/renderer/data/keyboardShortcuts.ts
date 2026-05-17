@@ -151,6 +151,18 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['reset', 'floating', 'pill', 'variables', 'reposition'],
   },
   {
+    // RL-093 Slice 3 fold D — flip the variable inspector surface
+    // (floating ↔ bottom). Distinct from `Mod+Shift+I` which toggles
+    // the per-tab `variableInspectorEnabled` flag. Power-user shortcut
+    // for moving Variables between surfaces without opening Settings.
+    id: 'view-toggle-variable-inspector-surface',
+    group: 'view',
+    labelKey: 'shortcuts.item.toggleVariableInspectorSurface.label',
+    descriptionKey: 'shortcuts.item.toggleVariableInspectorSurface.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'V'] }],
+    keywords: ['variables', 'inspector', 'surface', 'dock', 'floating', 'bottom'],
+  },
+  {
     id: 'file-save',
     group: 'file',
     labelKey: 'shortcuts.item.save.label',

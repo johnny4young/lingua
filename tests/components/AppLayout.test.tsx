@@ -5,10 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppLayout } from '../../src/renderer/components/Layout/AppLayout';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
+import { useResultStore } from '../../src/renderer/stores/resultStore';
 
 let compactShell = false;
 let editorTabs: unknown[] = [];
 let activeTabId: string | null = null;
+const setTabCompareEnabledMock = vi.fn();
+const setTabVariableInspectorEnabledMock = vi.fn();
 const matchMediaListeners = new Set<(event: MediaQueryListEvent) => void>();
 
 function setCompactShell(nextValue: boolean) {
@@ -116,9 +119,19 @@ vi.mock('../../src/renderer/components/Editor/CodeEditor', () => ({
 
 vi.mock('../../src/renderer/stores/editorStore', () => ({
   useEditorStore: (
-    selector?: (state: { tabs: unknown[]; activeTabId: string | null }) => unknown
+    selector?: (state: {
+      tabs: unknown[];
+      activeTabId: string | null;
+      setTabCompareEnabled: typeof setTabCompareEnabledMock;
+      setTabVariableInspectorEnabled: typeof setTabVariableInspectorEnabledMock;
+    }) => unknown
   ) => {
-    const state = { tabs: editorTabs, activeTabId };
+    const state = {
+      tabs: editorTabs,
+      activeTabId,
+      setTabCompareEnabled: setTabCompareEnabledMock,
+      setTabVariableInspectorEnabled: setTabVariableInspectorEnabledMock,
+    };
     return selector ? selector(state) : state;
   },
 }));
@@ -137,7 +150,10 @@ describe('AppLayout responsive shell', () => {
     compactShell = false;
     editorTabs = [];
     activeTabId = null;
+    setTabCompareEnabledMock.mockReset();
+    setTabVariableInspectorEnabledMock.mockReset();
     matchMediaListeners.clear();
+    useResultStore.setState({ scopeSnapshot: null, snapshotRing: [] });
 
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
       get matches() {
@@ -164,7 +180,10 @@ describe('AppLayout responsive shell', () => {
     })) as typeof window.matchMedia;
 
     useUIStore.setState({ sidebarVisible: true, consoleVisible: false });
-    useSettingsStore.setState({ layoutPreset: 'horizontal' });
+    useSettingsStore.setState({
+      layoutPreset: 'horizontal',
+      variableInspectorSurface: 'floating',
+    });
   });
 
   it('renders the explorer as a persistent sidebar on wide shells', async () => {
@@ -214,6 +233,49 @@ describe('AppLayout responsive shell', () => {
     expect(screen.getByTestId('bottom-panel-browser-preview-tab')).toBeTruthy();
     expect(screen.getByTestId('browser-preview-panel')).toBeTruthy();
     expect(screen.queryByTestId('console-panel')).toBeNull();
+  });
+
+  it('opens bottom Variables instead of disabling an already-enabled inspector chip', async () => {
+    const user = userEvent.setup();
+    editorTabs = [
+      {
+        id: 'tab-js',
+        language: 'javascript',
+        runtimeMode: 'worker',
+        variableInspectorEnabled: true,
+      },
+    ];
+    activeTabId = 'tab-js';
+    useSettingsStore.setState({ variableInspectorSurface: 'bottom' });
+    useResultStore.setState({
+      scopeSnapshot: {
+        language: 'javascript',
+        capturedAt: 1,
+        variables: [
+          {
+            name: 'value',
+            value: { kind: 'primitive', type: 'number', repr: '1' },
+          },
+        ],
+      },
+    });
+    useUIStore.setState({
+      sidebarVisible: false,
+      consoleVisible: false,
+      activeBottomPanel: 'console',
+    });
+
+    await renderLayout();
+    await user.click(screen.getByTestId('panel-chip-variables'));
+
+    expect(setTabVariableInspectorEnabledMock).toHaveBeenCalledWith(
+      'tab-js',
+      true
+    );
+    expect(useUIStore.getState()).toMatchObject({
+      activeBottomPanel: 'variables',
+      consoleVisible: true,
+    });
   });
 
   it('renders the explorer as a compact drawer on narrow shells', async () => {

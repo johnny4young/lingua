@@ -76,6 +76,12 @@ export function EditorSection() {
   );
   const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
   const toggleShowStdinPanel = useSettingsStore((state) => state.toggleShowStdinPanel);
+  const variableInspectorSurface = useSettingsStore(
+    (state) => state.variableInspectorSurface
+  );
+  const setVariableInspectorSurface = useSettingsStore(
+    (state) => state.setVariableInspectorSurface
+  );
   const runtimeTimeoutPresetByLanguage = useSettingsStore(
     (state) => state.runtimeTimeoutPresetByLanguage
   );
@@ -514,6 +520,30 @@ export function EditorSection() {
           aria-label={t('stdin.settings.label')}
           data-testid="settings-show-stdin-panel"
         />
+      </Row>
+
+      {/* RL-093 Slice 3 — variable inspector surface preference. */}
+      <Row
+        label={t('settings.editor.variableInspectorSurface.label')}
+        hint={t('settings.editor.variableInspectorSurface.hint')}
+      >
+        <Select
+          value={variableInspectorSurface}
+          onChange={(event) =>
+            setVariableInspectorSurface(
+              event.target.value === 'bottom' ? 'bottom' : 'floating'
+            )
+          }
+          aria-label={t('settings.editor.variableInspectorSurface.label')}
+          data-testid="settings-variable-inspector-surface"
+        >
+          <option value="floating">
+            {t('settings.editor.variableInspectorSurface.floating')}
+          </option>
+          <option value="bottom">
+            {t('settings.editor.variableInspectorSurface.bottom')}
+          </option>
+        </Select>
       </Row>
 
       <Row label={t('debugger.settings.label')} hint={t('debugger.settings.hint')}>

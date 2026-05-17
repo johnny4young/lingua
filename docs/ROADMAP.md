@@ -127,7 +127,7 @@ _All rows in this section are closed; see §6 archive. RL-065 closed 2026-05-12 
 | [`RL-039`](./PLAN.md#rl-039-add-guided-lessons-docs-and-app-galleries-for-students) | Guided lessons + app galleries | `Partial` | Built-in guided tour + seeded lesson drafts in `docs/lessons`. Remaining: in-app lesson browser + progression. |
 | [`RL-041`](./PLAN.md#rl-041-add-static-site-export-and-one-click-publish-for-web-projects) | Static site export + publish | `Planned` | Export JS/TS/HTML projects as self-contained static ZIP; one-click publish to GitHub Pages. |
 | [`RL-046`](./PLAN.md#rl-046-add-gamification-achievements-and-progress-tracking-for-students) | Gamification + achievements | `Planned` | Achievement catalog, per-user progress, streaks. |
-| [`RL-093`](./PLAN.md#rl-093-signal-slate-v2-main-ui-refactor) | Signal-Slate v2 — Main UI + Utilities body refactor | `Partial` | Shipped 2026-05-15 Slice 1: Settings rail + filter bar + ⌘1–⌘0 nav + Effective config tile + status bar; new draggable/floating primitives and UI store state. Staged 2026-05-15 Slice 2: draggable action pill with rich Lang/Mode/Run dropdowns and compact metadata; panel chips below tabs; `+N` tab overflow list; unified editor/result canvas styling; inline result overlay widgets; floating Variables card; refreshed Stdin, Compare, Variables visuals; Utilities shell + shared panel primitives synced to the v2 handoff. Remaining: chrome license/title relocation, dedicated bottom Variables list/cards mode, and keyboard shortcuts for panel chips/reset. Design bundle source: attached `Lingua (Template)-handoff 20260515.zip`. |
+| [`RL-093`](./PLAN.md#rl-093-signal-slate-v2-main-ui-refactor) | Signal-Slate v2 — Main UI + Utilities body refactor | `Done` | Closed 2026-05-17 — Slice 3 shipped the chrome v2 row + bottom Variables tab + chip-shortcut pairing. See §6 archive. |
 
 ### 4h. Documentation and repo hygiene (P2)
 
@@ -178,7 +178,7 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>65 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>66 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-011`, `RL-016`, `RL-017`, `RL-018`,
@@ -189,7 +189,7 @@ implementation detail lives in `docs/PLAN.md#RL-XXX`.
 `RL-069`, `RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`,
 `RL-077`, `RL-078`, `RL-079`, `RL-080`, `RL-081`, `RL-082`, `RL-083`,
 `RL-084`, `RL-085`, `RL-086`, `RL-087`, `RL-088`, `RL-089`, `RL-090`,
-`RL-091`, `RL-092`.
+`RL-091`, `RL-092`, `RL-093`.
 
 </details>
 

@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useResultStore } from '../../stores/resultStore';
 import { trackEvent } from '../../utils/telemetry';
+import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 
 export function VariableInspectorToggleButton() {
@@ -47,6 +48,7 @@ export function VariableInspectorToggleButton() {
     if (!canEnable) return;
     const next = !enabled;
     setTabVariableInspectorEnabled(activeTab.id, next);
+    syncVariableInspectorSurfaceAfterToggle(next);
     void trackEvent('runtime.variable_inspector_opened', {
       language: activeTab.language,
       variableCount: bucketVariableCount(scopeSnapshot?.variables.length ?? 0),

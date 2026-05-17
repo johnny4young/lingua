@@ -26,6 +26,7 @@ import {
   isAppendWatchSupported,
 } from '../../utils/appendWatch';
 import { trackEvent } from '../../utils/telemetry';
+import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types';
 import { Kbd, OverlayBackdrop, OverlayCard, Tooltip } from '../ui/chrome';
@@ -304,6 +305,7 @@ export function CommandPalette({
               useEditorStore
                 .getState()
                 .setTabVariableInspectorEnabled(activeTabId, next);
+              syncVariableInspectorSurfaceAfterToggle(next);
               const snapshot = useResultStore.getState().scopeSnapshot;
               const bucket = snapshot
                 ? bucketVariableCount(snapshot.variables.length)

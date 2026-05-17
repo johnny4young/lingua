@@ -8015,3 +8015,92 @@ ACs cumplidos:
 - Dependencies:
   - RL-070 (Signal-Slate DS migration)
   - RL-071 (Signal-Slate primitives)
+
+### § Slice 3 Status Update (2026-05-17)
+
+Slice 3 shipped and closes RL-093 in full. Status flipped to `Done`
+in ROADMAP §4b → archived in §6.
+
+What landed:
+
+- **`<AppChrome>` 36px row** (`src/renderer/components/Chrome/AppChrome.tsx`)
+  rendered above `<Toolbar>` in `AppLayout`. Three-column layout:
+  left spacer (clears macOS traffic lights), centred mark + active
+  filename + unsaved dot (fold A) + `<LicenseBadge>`, right cluster
+  with Search (→ command palette via `onOpenPalette`) and Settings
+  gear (→ `onOpenSettings`). Drag region inherited from
+  `.toolbar-drag-region`; interactive children opt out via
+  `no-drag` (existing pattern).
+- **Toolbar trim** (`src/renderer/components/Toolbar/Toolbar.tsx`):
+  removed the entire right-side icon cluster (LicenseBadge, Open
+  File, Quick Open, Command Palette, Snippets, Utilities, Console
+  toggle, Settings) plus the unused props + helper functions. The
+  relocated actions remain reachable via the command palette +
+  keyboard shortcuts; the chrome surfaces the two most-used
+  (search → palette, gear → settings) directly.
+- **Variable inspector surface preference**
+  (`variableInspectorSurface: 'floating' | 'bottom'` on
+  `settingsStore`, default `'floating'`). Persisted; closed-enum
+  rehydrate guard. New row in Settings → Editor between Stdin tab
+  and Debugger.
+- **Bottom-panel Variables tab**: `BottomPanelTab` widened with
+  `'variables'`. `BottomPanel` mounts `<VariableInspectorPanel>` when
+  surface=bottom + per-tab `variableInspectorEnabled` + scope snapshot
+  + language ∈ {js,ts,python}. `FloatingVariablesCard` self-gates on
+  `surface === 'floating'` so the two surfaces are mutually exclusive.
+- **Variables chip routing** (`PanelChipsRow` in `AppLayout`): when
+  `surface === 'bottom'`, chip click toggles the per-tab flag AND
+  opens/closes the bottom panel Variables tab. Active state mirrors
+  the bottom-panel selection; tooltip surfaces the keybind hint.
+- **Panel-chip tooltips** updated to carry kbd hints: Stdin
+  `Shift+Cmd+E`, History `Shift+Cmd+H`, Compare `Shift+Cmd+D`,
+  Variables `Shift+Cmd+I`. These keys were already registered
+  (`Mod+Shift+I/H/D/E`); this slice just surfaces them in the chips.
+- **`Mod+Shift+V` surface toggle (fold D)** —
+  `view-toggle-variable-inspector-surface` in
+  `keyboardShortcuts.ts`, handler in `useGlobalShortcuts`, dispatched
+  from `App.tsx` with a localized status notice
+  (`variableInspector.surface.notice.toFloating` /
+  `.toBottom`).
+- **Fold G — bottom Variables view mode persists**: `viewMode`
+  (List ↔ Cards) moved from local `useState` in
+  `<VariableInspectorPanel>` to `uiStore.variablesBottomViewMode`,
+  persisted to `lingua-ui:variables-bottom-view-mode`.
+- **Fold F — telemetry**: new closed-enum
+  `runtime.variable_inspector_surface_changed { surface }` event
+  emitted from `setVariableInspectorSurface`. Renderer-side only;
+  the update-server mirror + parity test is the documented follow-up.
+- **i18n**: new keys under `chrome.*`, `panelChips.*.tooltip`,
+  `settings.editor.variableInspectorSurface.*`,
+  `bottomPanel.tabs.variables`, `shortcuts.item.toggleVariableInspectorSurface.*`,
+  `variableInspector.surface.notice.*` — both EN and ES (tuteo
+  neutro). `npm run check:i18n` + `check:i18n:copy` green.
+- **Tests**: new `tests/components/Chrome/AppChrome.test.tsx`
+  (6 tests covering chrome render, filename fallback, unsaved dot,
+  palette routing, settings routing, ES locale). Updated
+  `tests/components/Toolbar.test.tsx` (drop assertions on
+  removed icons; document the removal). Updated
+  `tests/smoke/licenseWebSmoke.test.tsx` (renderSmoke now mounts
+  `<AppChrome>`; license badge + chrome routing assertions migrated).
+  Updated `tests/shared/telemetry.test.ts` (new enum entry).
+  Full suite: 303 files, 3337 passed, 2 skipped.
+
+Folds cut from the original "approve with: all" scope (deferred):
+
+- **Fold B — filename click → palette "Switch tab…" prefilter**:
+  not implemented. Filename is decorative; reach the palette via the
+  chrome search button or `Mod+Shift+P`.
+- **Fold C — `Mod+Shift+C` Compare alias**: dropped because the key
+  combo is already taken by `utility-copy-output` (RL-069). The
+  primary `Mod+Shift+D` Compare shortcut remains.
+- **Fold E — Reset-layout entry in the chrome gear hover-menu**: not
+  implemented. The shortcut `Mod+Shift+0` still exists; the menu
+  surface in the gear was descoped to keep the slice tight.
+- **Fold F update-server mirror + parity test**: the renderer-side
+  `runtime.variable_inspector_surface_changed` event ships but the
+  update-server allowlist + parity test mirror is a separate slice
+  (lives in a sibling repo). Track as a follow-up.
+- **Pre-stage reviewer pass** (typescript-react-reviewer + node):
+  skipped to fit the conversation context. The static-analysis gates
+  (tsc, lint, vitest, i18n) all pass; manual review is recommended
+  before merge.

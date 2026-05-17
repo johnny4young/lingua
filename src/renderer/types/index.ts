@@ -466,6 +466,14 @@ export interface SettingsState {
    */
   showStdinPanel: boolean;
   /**
+   * RL-093 Slice 3 — controls whether the variable inspector renders as
+   * a draggable `<FloatingVariablesCard>` (default) or as a Variables
+   * tab inside the bottom panel. Per-tab `variableInspectorEnabled`
+   * still gates visibility on both surfaces; this picks where it
+   * appears when enabled.
+   */
+  variableInspectorSurface: 'floating' | 'bottom';
+  /**
    * RL-020 Slice 7 — per-language execution timeout preset. Keys are
    * the four languages whose runners read the preset
    * (`javascript`, `typescript`, `python`, `go`). Values are the
@@ -612,6 +620,8 @@ export interface SettingsState {
    * the bottom-panel `stdin` tab.
    */
   toggleShowStdinPanel: () => void;
+  /** RL-093 Slice 3 — switch the variable inspector surface. */
+  setVariableInspectorSurface: (surface: 'floating' | 'bottom') => void;
   /**
    * RL-020 Slice 7 — set the per-language timeout preset. Rejects
    * (no-op) for languages outside the supported set

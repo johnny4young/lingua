@@ -70,6 +70,9 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-020 Slice 9 — variable inspector adoption. Closed-enum
       // payload `{ language, variableCount }`.
       'runtime.variable_inspector_opened',
+      // RL-093 Slice 3 fold F — floating ↔ bottom surface adoption.
+      // Closed-enum payload `{ surface }`.
+      'runtime.variable_inspector_surface_changed',
       // RL-020 Slice 2 — per-tab workflow mode change. Closed-enum
       // payload `{ language, from, to, trigger }`.
       'runtime.workflow_mode_changed',

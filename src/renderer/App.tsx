@@ -57,6 +57,7 @@ import { useUpdateStore } from './stores/updateStore';
 import { desktopSmokeEnabled } from './utils/desktopSmoke';
 import { pushUpsellNotice } from './utils/upsellNotice';
 import { trackEvent } from './utils/telemetry';
+import { syncVariableInspectorSurfaceAfterToggle } from './utils/variableInspectorSurface';
 import { bucketVariableCount } from '../shared/scopeSnapshot';
 
 const DeveloperUtilitiesModal = lazy(async () => {
@@ -422,6 +423,7 @@ function AppChrome({
       const scopeSnapshot = useResultStore.getState().scopeSnapshot;
       const snapshotIsRelevant =
         tab !== undefined &&
+        tab.runtimeMode !== 'node' &&
         scopeSnapshot !== null &&
         scopeSnapshot.language === tab.language;
       if (!tab || !snapshotIsRelevant) {
@@ -433,6 +435,7 @@ function AppChrome({
       }
       const next = tab.variableInspectorEnabled !== true;
       editorState.setTabVariableInspectorEnabled(tab.id, next);
+      syncVariableInspectorSurfaceAfterToggle(next);
       const bucket = scopeSnapshot
         ? bucketVariableCount(scopeSnapshot.variables.length)
         : '0';
@@ -484,6 +487,39 @@ function AppChrome({
       useUIStore.getState().pushStatusNotice({
         tone: 'info',
         messageKey: 'actionPill.resetFloatingNotice',
+      });
+    },
+    toggleVariableInspectorSurface: () => {
+      // RL-093 Slice 3 fold D — flip floating ↔ bottom. Sticks via
+      // settingsStore persist; user sees the chip + card reorder
+      // immediately.
+      const settings = useSettingsStore.getState();
+      const next =
+        settings.variableInspectorSurface === 'floating' ? 'bottom' : 'floating';
+      settings.setVariableInspectorSurface(next);
+      const editorState = useEditorStore.getState();
+      const tab = editorState.tabs.find(
+        (item) => item.id === editorState.activeTabId
+      );
+      const scopeSnapshot = useResultStore.getState().scopeSnapshot;
+      const uiState = useUIStore.getState();
+      const canShowBottomVariables =
+        next === 'bottom' &&
+        tab?.variableInspectorEnabled === true &&
+        tab.runtimeMode !== 'node' &&
+        scopeSnapshot !== null &&
+        scopeSnapshot.language === tab.language;
+      if (canShowBottomVariables) {
+        uiState.openBottomPanel('variables');
+      } else if (next === 'floating' && uiState.activeBottomPanel === 'variables') {
+        uiState.setConsoleVisible(false);
+      }
+      useUIStore.getState().pushStatusNotice({
+        tone: 'info',
+        messageKey:
+          next === 'floating'
+            ? 'variableInspector.surface.notice.toFloating'
+            : 'variableInspector.surface.notice.toBottom',
       });
     },
   });

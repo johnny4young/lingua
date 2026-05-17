@@ -11,6 +11,8 @@ import { DebuggerDrawer } from '../Debugger/DebuggerDrawer';
 import { BrowserPreviewPanel } from '../BrowserPreview';
 import { StdinInputPanel } from '../Editor/StdinInputPanel';
 import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
+import { VariableInspectorPanel } from '../Editor/VariableInspectorPanel';
+import { AppChrome } from '../Chrome';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { Toolbar } from '../Toolbar';
@@ -23,6 +25,7 @@ import { useResultStore } from '../../stores/resultStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { executionModeForLanguage, languageSupportsDebugger } from '../../utils/languageMeta';
 import { cn } from '../../utils/cn';
+import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import type { LayoutPreset } from '../../types';
 
 const COMPACT_SHELL_BREAKPOINT = 1180;
@@ -99,6 +102,9 @@ function PanelChipsRow() {
     (state) => state.setTabVariableInspectorEnabled,
   );
   const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
+  const variableInspectorSurface = useSettingsStore(
+    (state) => state.variableInspectorSurface,
+  );
   const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
   const consoleVisible = useUIStore((state) => state.consoleVisible);
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
@@ -136,9 +142,7 @@ function PanelChipsRow() {
       badge: stdinLineCount > 0 ? String(stdinLineCount) : null,
       active: activeBottomPanel === 'stdin' && consoleVisible,
       disabled: !stdinAvailable,
-      title: stdinAvailable ? t('stdin.tab.hint') : t('panelChips.stdin.disabled'),
-      // RL-093 review — toggle off when this is already the active
-      // panel; otherwise switch the drawer to stdin.
+      title: stdinAvailable ? t('panelChips.stdin.tooltip') : t('panelChips.stdin.disabled'),
       onClick: () => {
         if (activeBottomPanel === 'stdin' && consoleVisible) {
           setConsoleVisible(false);
@@ -154,9 +158,7 @@ function PanelChipsRow() {
       badge: null,
       active: activeBottomPanel === 'console' && consoleVisible,
       disabled: false,
-      title: t('bottomPanel.tabs.consoleHint'),
-      // RL-093 review — clicking an active chip should close the
-      // drawer (parity with stdin / compare / variables).
+      title: t('panelChips.history.tooltip'),
       onClick: () => {
         if (activeBottomPanel === 'console' && consoleVisible) {
           setConsoleVisible(false);
@@ -175,7 +177,7 @@ function PanelChipsRow() {
       active: activeTab.compareWithSnapshotEnabled === true,
       disabled: !compareAvailable,
       title: compareAvailable
-        ? t('compare.toggle.tooltipReady')
+        ? t('panelChips.compare.tooltip')
         : t('compare.toggle.tooltipDisabled'),
       onClick: () =>
         setTabCompareEnabled(activeTab.id, activeTab.compareWithSnapshotEnabled !== true),
@@ -185,16 +187,31 @@ function PanelChipsRow() {
       icon: Eye,
       label: t('panelChips.variables'),
       badge: variableAvailable ? String(scopeSnapshot?.variables.length ?? 0) : null,
-      active: activeTab.variableInspectorEnabled === true,
+      // RL-093 Slice 3 — when surface=bottom, active state mirrors the
+      // bottom-panel tab selection so clicking the chip when the
+      // bottom Variables tab is showing toggles the drawer off.
+      active:
+        variableInspectorSurface === 'bottom'
+          ? activeBottomPanel === 'variables' && consoleVisible
+          : activeTab.variableInspectorEnabled === true,
       disabled: !variableAvailable,
       title: variableAvailable
-        ? t('variableInspector.toggle.tooltipReady')
+        ? t('panelChips.variables.tooltip')
         : t('variableInspector.toggle.tooltipDisabled'),
-      onClick: () =>
-        setTabVariableInspectorEnabled(
-          activeTab.id,
-          activeTab.variableInspectorEnabled !== true,
-        ),
+      onClick: () => {
+        // RL-093 Slice 3 — bottom mode treats the drawer selection as the
+        // visible toggle. If the per-tab flag is already true but the drawer
+        // is not showing Variables, clicking the inactive chip must open the
+        // Variables tab rather than silently turning the feature off.
+        const variablesDrawerOpen =
+          activeBottomPanel === 'variables' && consoleVisible;
+        const nextEnabled =
+          variableInspectorSurface === 'bottom'
+            ? !variablesDrawerOpen
+            : activeTab.variableInspectorEnabled !== true;
+        setTabVariableInspectorEnabled(activeTab.id, nextEnabled);
+        syncVariableInspectorSurfaceAfterToggle(nextEnabled);
+      },
     },
   ] as const;
 
@@ -306,6 +323,13 @@ interface MainContentProps {
    * the panel.
    */
   showStdinTabBody: boolean;
+  /**
+   * RL-093 Slice 3 — true when surface=bottom + variables capture
+   * available + active panel is 'variables'. Same shape as
+   * `showStdinTabBody`: keeps the drawer mounted when Variables is
+   * the only thing the user wants visible.
+   */
+  showVariablesTabBody: boolean;
   layoutPreset: LayoutPreset;
 }
 
@@ -318,6 +342,9 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   const activeRuntimeMode = useEditorStore(
     (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.runtimeMode
   );
+  const activeVariableInspectorEnabled = useEditorStore(
+    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.variableInspectorEnabled === true
+  );
   // RL-019 Slice 3 — the Browser preview tab is only relevant for
   // JS/TS tabs whose runtime mode is `browser-preview`. Other tabs
   // hide the tab button entirely.
@@ -328,12 +355,30 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   // sandbox has no stdin surface). The user can also hide it
   // globally via Settings → Editor (fold D).
   const showStdinPanelSetting = useSettingsStore((state) => state.showStdinPanel);
+  const variableInspectorSurface = useSettingsStore(
+    (state) => state.variableInspectorSurface,
+  );
+  const scopeSnapshot = useResultStore((state) => state.scopeSnapshot);
   const stdinAvailable =
     showStdinPanelSetting &&
     activeRuntimeMode !== 'browser-preview' &&
     (activeLanguage === 'javascript' ||
       activeLanguage === 'typescript' ||
       activeLanguage === 'python');
+  // RL-093 Slice 3 — bottom-panel Variables tab is only offered when:
+  // the user picked the bottom surface, the language supports the
+  // inspector, a scope snapshot exists, and the per-tab flag is on.
+  // Mirrors `FloatingVariablesCard`'s gate so the two surfaces show /
+  // hide in lock-step.
+  const variablesAvailable =
+    variableInspectorSurface === 'bottom' &&
+    activeVariableInspectorEnabled &&
+    activeRuntimeMode !== 'node' &&
+    (activeLanguage === 'javascript' ||
+      activeLanguage === 'typescript' ||
+      activeLanguage === 'python') &&
+    scopeSnapshot !== null &&
+    scopeSnapshot.language === activeLanguage;
   const consoleVisible = useUIStore((state) => state.consoleVisible);
   const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
@@ -363,14 +408,16 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     }
     return count;
   });
-  const effectiveTab: 'console' | 'debugger' | 'browser-preview' | 'stdin' =
-    browserPreviewAvailable && (activeBottomPanel === 'browser-preview' || !consoleVisible)
-      ? 'browser-preview'
-      : debuggerAvailable && (!consoleVisible || activeBottomPanel === 'debugger')
-        ? 'debugger'
-        : stdinAvailable && activeBottomPanel === 'stdin'
-          ? 'stdin'
-          : 'console';
+  const effectiveTab: 'console' | 'debugger' | 'browser-preview' | 'stdin' | 'variables' =
+    variablesAvailable && activeBottomPanel === 'variables'
+      ? 'variables'
+      : browserPreviewAvailable && (activeBottomPanel === 'browser-preview' || !consoleVisible)
+        ? 'browser-preview'
+        : debuggerAvailable && (!consoleVisible || activeBottomPanel === 'debugger')
+          ? 'debugger'
+          : stdinAvailable && activeBottomPanel === 'stdin'
+            ? 'stdin'
+            : 'console';
 
   useEffect(() => {
     if (activeBottomPanel === 'debugger' && !debuggerAvailable) {
@@ -382,20 +429,25 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     if (activeBottomPanel === 'stdin' && !stdinAvailable) {
       setActiveBottomPanel('console');
     }
+    if (activeBottomPanel === 'variables' && !variablesAvailable) {
+      setActiveBottomPanel('console');
+    }
   }, [
     activeBottomPanel,
     debuggerAvailable,
     browserPreviewAvailable,
     stdinAvailable,
+    variablesAvailable,
     setActiveBottomPanel,
   ]);
 
   const selectTab = (
-    tab: 'console' | 'debugger' | 'browser-preview' | 'stdin'
+    tab: 'console' | 'debugger' | 'browser-preview' | 'stdin' | 'variables'
   ) => {
     if (tab === 'debugger' && !debuggerAvailable) return;
     if (tab === 'browser-preview' && !browserPreviewAvailable) return;
     if (tab === 'stdin' && !stdinAvailable) return;
+    if (tab === 'variables' && !variablesAvailable) return;
     openBottomPanel(tab);
   };
 
@@ -503,6 +555,26 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             </button>
           </Tooltip>
         ) : null}
+        {variablesAvailable ? (
+          <Tooltip content={t('bottomPanel.tabs.variablesHint')} side="bottom">
+            <button
+              type="button"
+              role="tab"
+              data-testid="bottom-panel-variables-tab"
+              aria-selected={effectiveTab === 'variables'}
+              onClick={() => selectTab('variables')}
+              className={cn(
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                effectiveTab === 'variables'
+                  ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
+                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
+              )}
+            >
+              <Eye size={12} aria-hidden="true" />
+              {t('bottomPanel.tabs.variables')}
+            </button>
+          </Tooltip>
+        ) : null}
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         {effectiveTab === 'debugger' ? (
@@ -511,6 +583,8 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
           <BrowserPreviewPanel />
         ) : effectiveTab === 'stdin' ? (
           <StdinInputPanel />
+        ) : effectiveTab === 'variables' ? (
+          <VariableInspectorPanel language={activeLanguage ?? 'javascript'} />
         ) : (
           <ConsolePanel />
         )}
@@ -524,6 +598,7 @@ function MainContent({
   showDebuggerPanel,
   showBrowserPreviewPanel,
   showStdinTabBody,
+  showVariablesTabBody,
   layoutPreset,
 }: MainContentProps) {
   const verticalLayout = useDefaultLayout({
@@ -541,7 +616,8 @@ function MainContent({
     showConsole ||
     showDebuggerPanel ||
     showBrowserPreviewPanel ||
-    showStdinTabBody;
+    showStdinTabBody ||
+    showVariablesTabBody;
 
   if (!showBottomPanel) return <EditorArea />;
 
@@ -586,6 +662,13 @@ function MainContent({
 interface AppLayoutProps {
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
+  /**
+   * RL-093 Slice 3 — these props were originally consumed by the
+   * trimmed toolbar icons (Quick Open / Snippets / Utilities). The
+   * actions now reach users through the command palette + keyboard
+   * shortcuts, but the props are kept on the public API so App.tsx
+   * doesn't have to be rewritten in lockstep.
+   */
   onOpenQuickOpen?: () => void;
   onOpenSnippets?: () => void;
   onOpenUtilities?: () => void;
@@ -613,10 +696,6 @@ function SidebarPanel({ panelRef, onNavigate }: SidebarPanelProps) {
 export function AppLayout({
   onOpenSettings,
   onOpenPalette,
-  onOpenQuickOpen,
-  onOpenSnippets,
-  onOpenUtilities,
-  utilitiesOpen = false,
 }: AppLayoutProps) {
   const { t } = useTranslation();
   const { layoutPreset } = useSettingsStore();
@@ -670,6 +749,13 @@ export function AppLayout({
   // shown.
   const activeBottomPanelForLayout = useUIStore((state) => state.activeBottomPanel);
   const showStdinPanelSetting = useSettingsStore((state) => state.showStdinPanel);
+  const variableInspectorSurfaceForLayout = useSettingsStore(
+    (state) => state.variableInspectorSurface,
+  );
+  const activeVariableInspectorEnabled = useEditorStore(
+    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.variableInspectorEnabled === true,
+  );
+  const scopeSnapshotForLayout = useResultStore((state) => state.scopeSnapshot);
   const showStdinTabBody =
     layoutPreset !== 'editor-only' &&
     showStdinPanelSetting &&
@@ -678,6 +764,20 @@ export function AppLayout({
     (activeLanguage === 'javascript' ||
       activeLanguage === 'typescript' ||
       activeLanguage === 'python');
+  // RL-093 Slice 3 — mirror BottomPanel.variablesAvailable so the
+  // MainContent gate keeps the drawer mounted when Variables is the
+  // sole reason to show it (no console, no debugger, no stdin).
+  const showVariablesTabBody =
+    layoutPreset !== 'editor-only' &&
+    variableInspectorSurfaceForLayout === 'bottom' &&
+    activeVariableInspectorEnabled &&
+    activeBottomPanelForLayout === 'variables' &&
+    activeRuntimeMode !== 'node' &&
+    (activeLanguage === 'javascript' ||
+      activeLanguage === 'typescript' ||
+      activeLanguage === 'python') &&
+    scopeSnapshotForLayout !== null &&
+    scopeSnapshotForLayout.language === activeLanguage;
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
   const isCompactDrawerOpen = sidebarVisible && isCompactShell;
   const handleExplorerNavigate = isCompactShell ? () => setSidebarVisible(false) : undefined;
@@ -810,15 +910,8 @@ export function AppLayout({
         aria-hidden={isCompactDrawerOpen ? 'true' : undefined}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <Toolbar
-          onOpenSettings={onOpenSettings}
-          onOpenPalette={onOpenPalette}
-          onOpenQuickOpen={onOpenQuickOpen}
-          onOpenSnippets={onOpenSnippets}
-          onOpenUtilities={onOpenUtilities}
-          utilitiesOpen={utilitiesOpen}
-          showFloatingPill
-        />
+        <AppChrome onOpenSettings={onOpenSettings} onOpenPalette={onOpenPalette} />
+        <Toolbar showFloatingPill />
         <FloatingActionPill onOpenSettings={onOpenSettings} />
         {showPersistentSidebar ? (
           <Group
@@ -847,6 +940,7 @@ export function AppLayout({
                   showDebuggerPanel={showDebuggerPanel}
                   showBrowserPreviewPanel={showBrowserPreviewPanel}
                   showStdinTabBody={showStdinTabBody}
+                  showVariablesTabBody={showVariablesTabBody}
                   layoutPreset={layoutPreset}
                 />
               </div>
@@ -860,6 +954,7 @@ export function AppLayout({
                 showDebuggerPanel={showDebuggerPanel}
                 showBrowserPreviewPanel={showBrowserPreviewPanel}
                 showStdinTabBody={showStdinTabBody}
+                showVariablesTabBody={showVariablesTabBody}
                 layoutPreset={layoutPreset}
               />
             </div>
