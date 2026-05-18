@@ -10,7 +10,7 @@
 
 Lingua's renderer relies on a handful of "runtime assets" — files that
 ship outside the JS / CSS bundle but are required for code execution.
-The set today is small: Pyodide v0.26.4 (CPython compiled to WASM, plus
+The set today is small: Pyodide v0.29.4 (CPython compiled to WASM, plus
 its standard library and lockfile) for the Python tab, and esbuild-wasm
 for TypeScript transpilation.
 
@@ -36,7 +36,7 @@ runtime asset.
 
 ### Desktop (this slice)
 
-- Pin `pyodide@0.26.4` as a runtime npm dependency.
+- Pin `pyodide@0.29.4` as a runtime npm dependency.
 - A small Vite plugin (`build/copyRuntimeAssetsPlugin.mts`) copies the
   curated set of Pyodide files from `node_modules/pyodide/` into
   `<renderer-out-dir>/pyodide/` at build time. The same plugin's

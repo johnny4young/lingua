@@ -14,6 +14,7 @@ export const APPROVED_LICENSE_EXPRESSIONS = [
   'CC0-1.0',
   'ISC',
   'MIT',
+  'MPL-2.0',
   'Python-2.0',
 ];
 

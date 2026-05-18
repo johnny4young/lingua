@@ -1,5 +1,5 @@
 export function desktopSmokeEnabled(): boolean {
-  return Boolean(window.lingua?.desktopSmoke?.enabled);
+  return Boolean(window.lingua?.desktopSmoke);
 }
 
 export function desktopSmokeApi() {

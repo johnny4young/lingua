@@ -22,9 +22,15 @@ import { describe, expect, it } from 'vitest';
 interface PackageJson {
   devDependencies?: Record<string, string>;
   dependencies?: Record<string, string>;
+  overrides?: Record<string, unknown>;
+}
+
+interface PackageLock {
+  packages?: Record<string, { version?: string; dependencies?: Record<string, string> }>;
 }
 
 const PACKAGE_JSON_PATH = resolve(__dirname, '../../package.json');
+const PACKAGE_LOCK_PATH = resolve(__dirname, '../../package-lock.json');
 
 // Documented hold-backs: package -> reason. When you add an entry,
 // also append a bullet to docs/PLAN.md under the matching maintenance
@@ -54,6 +60,20 @@ function latestMajor(pkg: string): number | null {
     return null;
   }
 }
+
+describe('dependency override hygiene', () => {
+  it('dedupes Monaco to the patched root DOMPurify install', () => {
+    const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as PackageJson;
+    const lock = JSON.parse(readFileSync(PACKAGE_LOCK_PATH, 'utf-8')) as PackageLock;
+
+    expect(pkg.overrides?.dompurify).toBe('$dompurify');
+    expect(lock.packages?.['node_modules/dompurify']?.version).toMatch(
+      /^3\.(?:[4-9]|\d{2,})\./u
+    );
+    expect(lock.packages?.['node_modules/monaco-editor']?.dependencies?.dompurify).toBe('3.2.7');
+    expect(lock.packages?.['node_modules/monaco-editor/node_modules/dompurify']).toBeUndefined();
+  });
+});
 
 describe.skipIf(process.env.LINGUA_CHECK_FRESHNESS !== '1')(
   'dep freshness (LINGUA_CHECK_FRESHNESS=1)',

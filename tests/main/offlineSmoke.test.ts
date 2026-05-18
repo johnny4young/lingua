@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RUNTIME_ASSETS } from '#src/shared/runtimeAssets';
 
 /**
  * RL-083 Slice 1 review pass — unit coverage for
@@ -134,7 +135,7 @@ describe('offlineSmoke — webRequest filter classification', () => {
   });
 
   it('cancels and records remote HTTP/HTTPS requests', () => {
-    const cdn = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.mjs';
+    const cdn = `${RUNTIME_ASSETS.pyodide.sourceUrl}pyodide.mjs`;
     const analytics = 'https://example.com/track?id=1';
 
     expect(classify(cdn).cancel).toBe(true);
