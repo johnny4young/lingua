@@ -12,13 +12,11 @@ export default tseslint.config(
   {
     rules: {
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-      // ESLint 10 promoted `no-useless-assignment` and `preserve-caught-error`
-      // to recommended rules. Both surface real anti-patterns but landed
-      // during the major sweep with pre-existing violations (~6 + 4). Land
-      // the bumps as warnings so CI stays green; fix the call sites in a
-      // follow-up cleanup slice (tracked in the PLAN maintenance entry).
-      'no-useless-assignment': 'warn',
-      'preserve-caught-error': 'warn',
+      // ESLint 10's two new recommended rules were demoted to warn by the
+      // dep-sweep so the bumps could land; the 2026-05-18 cleanup slice
+      // fixed every call site so both are re-promoted to error.
+      'no-useless-assignment': 'error',
+      'preserve-caught-error': 'error',
     },
   },
   // Service worker: declare ServiceWorker globals (flat config ignores eslint-env comments)
@@ -45,15 +43,18 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'error',
-      // react-hooks 7 added four new recommended rules that surface
-      // legitimate concurrent-mode anti-patterns. Pre-existing violations:
-      // 24 `set-state-in-effect`, 2 `immutability`, 1 `purity` (Date.now()
-      // in render), 1 `refs` (controlsRef read during render). Demote to
-      // warn so the bump can land; the cleanup is a follow-up slice
-      // (tracked in docs/PLAN.md maintenance entry).
+      // react-hooks 7 added four new recommended rules. The 2026-05-18
+      // cleanup slice cleared `purity` (CompareResultsPanel anchored its
+      // relative-time strings to capturedAt instead of Date.now() so the
+      // render stays pure) and bumped that rule to error. The other three
+      // (`set-state-in-effect` x24, `immutability` x2, `refs` x1) stay
+      // warn because most pre-existing call sites are intentional
+      // useEffect patterns (timers, focus reset, scroll-into-view) whose
+      // refactor would be a design change rather than a bug fix. Track
+      // the per-site review under the dep-sweep maintenance entry.
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/immutability': 'warn',
-      'react-hooks/purity': 'warn',
+      'react-hooks/purity': 'error',
       'react-hooks/refs': 'warn',
     },
   },

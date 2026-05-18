@@ -125,7 +125,7 @@ export function extractTimeoutMagicComment(
   if (!rawValue) return null;
   const value = parseFloat(rawValue);
   if (!Number.isFinite(value) || value <= 0) return null;
-  let ms = 0;
+  let ms: number;
   if (unit === 'ms' || unit === 'millis' || unit === 'milliseconds') {
     ms = value;
   } else if (unit === 'm' || unit === 'min' || unit === 'minutes') {

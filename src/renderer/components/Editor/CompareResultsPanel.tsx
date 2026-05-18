@@ -75,6 +75,13 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
     () => snapshotRing.filter((entry) => entry.language === language),
     [snapshotRing, language]
   );
+  // Hoisted ABOVE the early return below so every render path runs
+  // the same hook sequence (react-hooks/rules-of-hooks). Anchored to
+  // capturedAt so the relative-time strings stay stable across renders.
+  const ringOptions = useMemo(
+    () => [...relevantRing].sort((a, b) => b.capturedAt - a.capturedAt),
+    [relevantRing]
+  );
 
   if (relevantRing.length === 0) {
     return (
@@ -103,10 +110,10 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
     granularity,
   });
 
-  const now = Date.now();
-  const ringOptions = [...relevantRing].sort(
-    (a, b) => b.capturedAt - a.capturedAt
-  );
+  // RL-033 dep-sweep follow-up — Date.now() in render is a react-hooks/purity
+  // violation. Use the newest snapshot's capturedAt as the reference time so
+  // the "X min ago" labels stay stable across renders.
+  const now = ringOptions[0]?.capturedAt ?? targetEntry.capturedAt;
 
   return (
     <div className="flex h-full flex-col bg-bg-base" data-testid="compare-results-panel">

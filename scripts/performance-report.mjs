@@ -363,7 +363,8 @@ export async function collectDesktopSmokePerformance(
     throw new Error(
       `Desktop smoke performance artifact is not valid JSON at ${resolvedPath}: ${
         error instanceof Error ? error.message : String(error)
-      }`
+      }`,
+      { cause: error }
     );
   }
 

@@ -11,7 +11,7 @@
  *   - Ring dropdown renders when ≥2 snapshots match the language.
  */
 
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CompareResultsPanel } from '../../src/renderer/components/Editor/CompareResultsPanel';
 import { useResultStore } from '../../src/renderer/stores/resultStore';
@@ -60,6 +60,48 @@ describe('RL-020 Slice 8 — <CompareResultsPanel>', () => {
     expect(
       container.querySelector('[data-testid="compare-empty-no-snapshot"]')
     ).not.toBeNull();
+  });
+
+  it('keeps hook order stable when a matching snapshot appears after the empty state', () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    try {
+      useResultStore.setState({
+        snapshotRing: [makeSnapshot({ language: 'python' })],
+        lineResults: [],
+        fullOutput: '',
+      });
+      const { container } = render(<CompareResultsPanel language="javascript" />);
+      expect(
+        container.querySelector('[data-testid="compare-empty-no-snapshot"]')
+      ).not.toBeNull();
+
+      act(() => {
+        useResultStore.setState({
+          snapshotRing: [
+            makeSnapshot({
+              lineResults: [{ line: 1, value: '2', type: 'result' }],
+            }),
+          ],
+          lineResults: [{ line: 1, value: '4', type: 'result' }],
+          fullOutput: '',
+        });
+      });
+
+      expect(
+        container.querySelector('[data-testid="compare-row-changed"]')
+      ).not.toBeNull();
+      const messages = consoleError.mock.calls
+        .flat()
+        .map((part) => String(part))
+        .join('\n');
+      expect(messages).not.toContain('change in the order of Hooks');
+      expect(messages).not.toContain('Rendered more hooks than during the previous render');
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it('renders three-column diff rows for changed dynamic results', () => {

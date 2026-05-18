@@ -82,7 +82,9 @@ export async function readWasmExecJs(
       }
 
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to read Go WASM runtime at "${candidatePath}": ${message}`);
+      throw new Error(`Failed to read Go WASM runtime at "${candidatePath}": ${message}`, {
+        cause: error,
+      });
     }
   }
 

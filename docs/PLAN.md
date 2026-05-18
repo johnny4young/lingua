@@ -8277,15 +8277,56 @@ All 10 RL-033 matrix steps green end-to-end:
 These are tracked as the natural next step. They do NOT block this
 sweep from landing.
 
-- Fix the 36 `react-hooks/*` warnings (most in renderer; many are
-  legitimate `set-state-in-effect` patterns to refactor).
-- Fix the 6 `no-useless-assignment` warnings + 4
-  `preserve-caught-error` warnings.
+- Continue the remaining 31 lint-warning cleanup items listed below:
+  24 `set-state-in-effect`, 2 `immutability`, 1 `refs`, 2
+  `exhaustive-deps`, and 2 `react-refresh/only-export-components`.
+  The 2026-05-18 pass already cleared the 6 `no-useless-assignment`,
+  4 `preserve-caught-error`, and 1 `react-hooks/purity` findings.
 - Once `@electron-forge/*` ships a Vite-8-aware release: bump Forge
   + bump `@electron/fuses` to v2 + drop the `HELD_BACK` exemption +
   re-run `npm audit fix` to clear the remaining 32 dev-only advisories.
 - Retire `tsconfig.json` `baseUrl` before TS 7 (use bundler
   `moduleResolution`'s native `paths` support).
-- Audit `eslint-plugin-react-hooks@7` ergonomics in HMR after a few
-  days of dev use; the SWC swap may surface React-19-specific
-  refresh edge cases worth documenting.
+
+### § Cleanup landed (2026-05-18)
+
+First cleanup pass for the deferred lint inventory shipped. Of the 42 violations
+the dep-sweep deferred, **11 cleared** and the matching three rules
+are re-promoted from `warn` → `error` in `eslint.config.mjs`:
+
+| Rule | Before | After | Status |
+|------|------:|------:|--------|
+| `no-useless-assignment` | 6 | 0 | re-promoted to `error` |
+| `preserve-caught-error` | 4 | 0 | re-promoted to `error` |
+| `react-hooks/purity` | 1 | 0 | re-promoted to `error` (CompareResultsPanel `Date.now()` anchored to capturedAt) |
+| `react-hooks/set-state-in-effect` | 24 | 24 | stays `warn` |
+| `react-hooks/immutability` | 2 | 2 | stays `warn` |
+| `react-hooks/refs` | 1 | 1 | stays `warn` |
+| `react-hooks/exhaustive-deps` | 2 | 2 | stays `warn` |
+| `react-refresh/only-export-components` | 2 | 2 | stays `warn` (refresh hint) |
+
+**Why the 24 `react-hooks/set-state-in-effect` sites stay warnings:**
+sampling CommandPalette, RunStatusPill, RecentRunsPill, etc. showed
+they're intentional useEffect patterns (1Hz countdown ticks, focus
+reset on overlay open, scroll-into-view on selection change). Each
+"fix" would either be an inline `// eslint-disable-next-line` with a
+justification or a real architectural refactor (e.g., remount via
+`key` prop). 24 sites multiplied by either path exceeded the slice's
+scope budget. The rule stays as `warn` so CI surfaces the inventory;
+the next cleanup slice can inline-disable per site or refactor
+component-by-component.
+
+**Folds deferred from this slice** (carry forward to the next pass):
+A (Forge `inlineDynamicImports` suppression), B (broader regression
+tests — only the CompareResultsPanel hook-order transition is covered
+for this pass), C (`react-refresh` error-for-new-files
+override), D (`extractRelativeTime` helper — second consumer never
+surfaced), E (inline-disable cap comment — defer until the cleanup
+adds any disables). F + G applied within this slice.
+
+**Follow-up slice scope** (when picked up): 24 `set-state-in-effect`
++ 2 `immutability` + 1 `refs` + 2 `exhaustive-deps`, plus folds A /
+B / C / D / E.
+
+The parent "Fix the 42 lint warnings" line stays partially complete: 11
+of 42 done, 31 carried forward.
