@@ -3,9 +3,11 @@ import type { RuntimeMode } from '../../shared/runtimeModes';
 import type { WorkflowMode } from '../../shared/workflowMode';
 import type { RuntimeTimeoutPreset } from '../../shared/runtimeTimeoutPresets';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
+import type { RichOutputPayload } from '../../shared/richOutput';
 
 export type { RuntimeTimeoutPreset };
 export type { ScopeSnapshot };
+export type { RichOutputPayload };
 
 export type AppLanguage = 'system' | 'en' | 'es';
 
@@ -784,6 +786,16 @@ export interface MagicCommentResult {
    * have to backfill the field.
    */
   kind?: 'arrow' | 'watch' | 'autoLog';
+  /**
+   * RL-044 Slice 1A — optional structured payload the runner
+   * attached after detecting a rich-output directive (`//=> table`)
+   * or auto-detecting an array of plain objects. `value` stays the
+   * canonical string fallback every renderer surface already reads;
+   * `payload` adds the typed companion that the inline pill upgrades
+   * to a `Table(N×M)` summary (Slice 1A) and the console panel will
+   * render as an interactive widget (Slice 1B).
+   */
+  payload?: RichOutputPayload;
 }
 
 export interface ExecutionResult {

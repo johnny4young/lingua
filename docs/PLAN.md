@@ -3776,6 +3776,121 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
   - RL-020
   - RL-019
 
+#### § Slice 1A landed (2026-05-18)
+
+Foundation type system + `//=> table` directive only. Intentionally
+additive and scoped tight (zero breaking changes)
+so the runner-payload migration + console-panel rewrite + popover +
+chart/image/HTML/Python surfaces can ship as separate slices without
+half-finished UI bleeding through.
+
+Shipped:
+
+- `src/shared/richOutput.ts` — `RichOutputPayload` discriminator
+  (superset of `ScopeValue` + `map`/`set`/`date`/`promise`/`table`/
+  `rawText`/`image`/`chart`), `serializeRichValue`, `detectAutoTable`,
+  `forceTablePayload`, `tryParseJsonForPayload`, `wrapAsRawText`.
+  Slice 2 stubs for `image` + `chart` pre-staged (Fold E from plan)
+  so a future migration doesn't have to widen the discriminator
+  again.
+- `MagicCommentResult.payload?: RichOutputPayload` (additive) and
+  `LineResult.payload?: RichOutputPayload` (additive) — every
+  pre-Slice-1A renderer path keeps reading the canonical `value`
+  string, the new `payload` field is consulted only when present.
+- `magicComments.ts` — recognises the `//=> table` directive on
+  both the JS arrow regex AND the Python `#=>` arrow regex. Unknown
+  directive words fall through to legacy arrow behaviour (typo
+  safety). The free-form annotation form (`//=> should be 1`) still
+  parses unchanged.
+- JS + TS runners — when the side-table records `table` for a magic
+  line, the runner attempts to `tryParseJsonForPayload(value)` and
+  wraps the recovered JSON-compatible value as a `RichOutputTable`
+  via `forceTablePayload`. The legacy `value` string still ships
+  alongside as the text fallback. Python/Go/Rust runners
+  unchanged — the additive type means they keep working without a
+  compat wrapper.
+- `executionPresentation.ts` threads the payload through into
+  `LineResult` without touching the existing magic/watch/autoLog
+  branching.
+- `useInlineResults.ts` (`renderInlineResultNode`) — uses the shared
+  `formatPayloadInlineSummary` helper to render `Table(N×M) — cols`,
+  `Map(N)`, `Set(N)`, ISO date, and `Promise(state)` summaries when
+  the payload is present. Falls back to today's stringified
+  `result.value` + `inferKind` when no payload is attached.
+- `editorExecutionDecorations.ts` — uses the same
+  `formatPayloadInlineSummary` helper so the Monaco decoration path
+  and the overlay-widget path stay aligned.
+
+Verification:
+
+- Web preview (`npm run preview:web`): pasting
+  `const rows = [{name:"alice",age:30},{name:"bob",age:25},{name:"carol",age:28}]; rows //=> table; rows //=>`
+  in a JS scratchpad renders the first arrow as
+  `⟸ Table(3×2) — name, age [TABLE]` (Slice 1A path) and the
+  second as the truncated legacy `⟸ [ { "name": "alice", ... [ARRAY]`
+  capped at 80 chars with the full value available on hover via the
+  `title` attribute (Prerequisite fix below). 0 console errors. PNGs:
+  `output/playwright/rl-044-slice1a/inline-table-directive.png`,
+  `output/playwright/rl-044-slice1a/A-only-directive.png`,
+  `output/playwright/rl-044-slice1a/B-only-legacy.png` (pre-fix
+  overflow reproduction),
+  `output/playwright/rl-044-slice1a/C-after-overflow-fix.png`
+  (post-fix coherent rendering).
+- New/updated tests: `tests/shared/richOutput.test.ts`,
+  `tests/utils/magicComments.test.ts`,
+  `tests/runners/javascript.test.ts`,
+  `tests/runners/typescript.test.ts`, and
+  `tests/hooks/useInlineResults.test.ts` cover the serializer,
+  directive parse path, runner payload stitching, and overlay
+  truncation. `npm test --run`, `npx tsc --noEmit`, and the i18n
+  checks pass; `npm run lint` exits cleanly with the documented
+  warning baseline from Iter 29.
+
+Prerequisite fix folded into the same commit:
+
+- `useInlineResults.ts` — overlay-widget overflow bug landed with
+  RL-093 chrome v2: when `LineResult.value` exceeded the editor
+  viewport width the pill painted past the right edge, wrapped onto a
+  second line, and visually mounted over the gutter on the left.
+  Reproducible on any large `console.log(arr)` or `arr //=>` pre-
+  Slice-1A — independent of RL-044 but the surface RL-044 Slice 1A's
+  `Table(N×M)` summary side-steps. Truncate the display string at
+  `INLINE_VALUE_MAX_CHARS = 80` with an ellipsis (`…`) and expose
+  the full text via the `title` attribute + `data-truncated="true"`
+  marker for downstream styling. Slice 1A's typed-payload summaries
+  ship under the cap so the truncation is a no-op for them — the
+  fix only affects the legacy stringified path. See
+  `output/playwright/rl-044-slice1a/B-only-legacy.png` vs
+  `C-after-overflow-fix.png` for the visual diff.
+
+Deferred to Slice 1B (separate plan):
+
+- Console panel `<ConsoleEntryRenderer>` + 5 RichValue* components
+  (`Text`, `Object`, `Array`, `MapSet`, `Table`).
+- Popover detail surface + "Copy as JSON" + "Raw JSON" tabs
+  (Folds B + C from the original plan).
+- Migrate `ConsoleOutput.args: string[]` → `RichOutputPayload[]`
+  (breaking — touches every fixture).
+- `console.table()` shim in the JS sandbox.
+- TS/Python/Go/Rust runner compat wrappers when the breaking
+  type lands.
+- Refactor shared formatters from `VariableInspectorPanel` (Fold
+  D — needs the new components first to actually share).
+- Per-call-site `serializeRichValue` memoisation (Fold F — gated
+  on actual perf data once the console panel uses it).
+- 3 additional telemetry events (this slice ships none — only
+  the inline-pill text changed; the new telemetry surface is
+  Slice 1B's panel).
+
+Deferred to Slice 2 (separate plan, security review required):
+
+- Inline chart rendering (chart-lib decision deferred).
+- Image preview from URL / base64.
+- Sandboxed HTML preview (iframe + CSP review).
+- Python matplotlib / pandas DataFrame detection (Pyodide worker
+  changes).
+- `//=> chart` + `//=> figure` magic-comment directives.
+
 ### RL-045 Add built-in developer utilities panel
 
 - Priority: `P2`

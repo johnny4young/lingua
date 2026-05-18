@@ -5,9 +5,47 @@ import {
   buildDiagnosticMarkerEntries,
   buildInlineDecorationEntries,
 } from '../utils/editorExecutionDecorations';
+import { formatPayloadInlineSummary } from '../../shared/richOutput';
 
 const LINGUA_EXECUTION_MARKER_OWNER = 'lingua-execution';
 const INLINE_RESULT_WIDGET_PREFIX = 'lingua.inlineResult';
+
+/**
+ * RL-093 chrome v2 left an overflow bug behind: when the stringified
+ * `LineResult.value` exceeds the editor viewport width the overlay
+ * widget paints past the right edge, wraps onto a second line, and
+ * pictorially monts over the gutter on the left. Truncating the
+ * display string at a fixed character cap keeps the pill on a single
+ * line and inside the editor padding regardless of viewport width.
+ * The full value stays available as a tooltip via the `title`
+ * attribute and the legacy bottom-panel Console still renders the
+ * un-truncated text.
+ *
+ * 80 is the conservative cap: it's narrow enough to fit even a
+ * sidebar-open + Variables-panel-pinned layout at 1024 px viewport,
+ * wide enough to keep most "real" values (numbers, short strings,
+ * small arrays) readable without truncation. Reviewed against the
+ * Signal-Slate v2 mocks — the right-edge overlay column targets ~600
+ * px which corresponds to ~85 monospace chars at 13 px / 1.5 line
+ * height.
+ *
+ * Folded into the RL-044 Slice 1A commit as a Prerequisite fix
+ * because Slice 1A's `Table(N×M) — cols` summary side-steps the
+ * overflow for arrays of objects, making the overflow on the legacy
+ * `//=>` path the only remaining offender for the same input.
+ */
+const INLINE_VALUE_MAX_CHARS = 80;
+const INLINE_VALUE_ELLIPSIS = '…';
+
+function truncateInlineValue(value: string): { display: string; truncated: boolean } {
+  if (value.length <= INLINE_VALUE_MAX_CHARS) {
+    return { display: value, truncated: false };
+  }
+  return {
+    display: `${value.slice(0, INLINE_VALUE_MAX_CHARS - 1)}${INLINE_VALUE_ELLIPSIS}`,
+    truncated: true,
+  };
+}
 
 /**
  * Hook for managing inline result decorations in Monaco Editor.
@@ -167,6 +205,7 @@ function inferKind(raw: string | undefined): string {
   return 'string';
 }
 
+
 interface InlineWidget {
   id: string;
   domNode: HTMLElement;
@@ -310,8 +349,15 @@ export function renderInlineResultNode(items: readonly LineResult[]): HTMLElemen
     const result = items[i];
     if (!result) continue;
     const isWatch = result.type === 'watch';
-    const valueStr = String(result.value ?? '');
-    const kind = inferKind(valueStr);
+    // RL-044 Slice 1A — when the runner attached a typed payload,
+    // upgrade the pill via the shared formatter so the editor-
+    // decoration path and this overlay-widget path stay byte-for-
+    // byte identical. Falls back to the legacy stringified value +
+    // inferred kind when there's no payload (every pre-Slice-1A
+    // code path keeps its rendering).
+    const richPreview = result.payload ? formatPayloadInlineSummary(result.payload) : null;
+    const valueStr = richPreview ? richPreview.display : String(result.value ?? '');
+    const kind = richPreview ? richPreview.kindLabel : inferKind(valueStr);
     const part = document.createElement('span');
     part.className = 'lingua-inline-result-part';
 
@@ -329,7 +375,18 @@ export function renderInlineResultNode(items: readonly LineResult[]): HTMLElemen
 
     const value = document.createElement('span');
     value.className = 'lingua-inline-result-value';
-    value.textContent = valueStr;
+    // Prerequisite fix (RL-093 overflow): cap the rendered string so
+    // the overlay widget never overruns the editor viewport. The
+    // legacy `//=>` arrow on a large array used to paint past the
+    // gutter; this keeps the pill inside the editor padding. Rich
+    // payloads (table / map / set / date / promise) ship a summary
+    // shorter than the cap so the truncation is a no-op for them.
+    const truncated = truncateInlineValue(valueStr);
+    value.textContent = truncated.display;
+    if (truncated.truncated) {
+      value.setAttribute('title', valueStr);
+      value.setAttribute('data-truncated', 'true');
+    }
     part.appendChild(value);
 
     const pill = document.createElement('span');

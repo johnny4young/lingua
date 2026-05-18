@@ -101,7 +101,7 @@ _All rows in this section are closed; see §6 archive. RL-059 closed 2026-05-12 
 |----|-------|:------:|-----------------|
 | [`RL-012`](./PLAN.md#rl-012-package-management) | Package management | `Planned` | Superseded in scope by `RL-025`. Keep open for reference until `RL-025` ships Slice A. |
 | [`RL-043`](./PLAN.md#rl-043-add-notebook--cell-based-execution-mode) | Notebook / cell-based execution | `Planned` | New notebook view alongside the editor with per-cell output. |
-| [`RL-044`](./PLAN.md#rl-044-add-inline-data-visualization-and-rich-output-rendering) | Inline data visualization + rich output | `Planned` | Detect structured output (tables, images, plots) and render richly. |
+| [`RL-044`](./PLAN.md#rl-044-add-inline-data-visualization-and-rich-output-rendering) | Inline data visualization + rich output | `Partial` | Slice 1A (2026-05-18) shipped the `RichOutputPayload` type system + `//=> table` directive that upgrades the inline pill from JSON-blob to `Table(N×M) — cols`. Remaining: console-panel widget, runner payload migration, chart/image/HTML rendering, Python matplotlib/DataFrame detection. |
 | [`RL-048`](./PLAN.md#rl-048-add-integrated-terminal-for-desktop-mode) | Integrated terminal (desktop) | `Planned` | Embed xterm.js + node-pty panel in the desktop build. |
 
 _RL-011 closed 2026-05-12 — Slice A/B/C shipped the merger + store + Settings UI; Slice D shipped Go/Rust/Python subprocess env threading. JS/TS Workers and the web build are explicitly out of ADR scope (see [`ENV_VARS_ADR.md`](./ENV_VARS_ADR.md) capability table). Any future JS/TS desktop env-var support belongs in [`RL-019`](#4b-editor-runtime-and-workflow-p1) (explicit JS/TS runtime modes — desktop Node mode would carry env threading), NOT a reopen of this ticket._

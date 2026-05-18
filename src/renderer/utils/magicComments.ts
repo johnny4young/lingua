@@ -32,6 +32,21 @@
 
 export type MagicCommentKind = 'arrow' | 'watch' | 'autoLog';
 
+/**
+ * RL-044 Slice 1A — rich-output directives surfaced on an arrow
+ * magic comment. `'table'` is the only directive this slice ships;
+ * `'chart'` / `'figure'` will land alongside the chart-renderer work
+ * in Slice 2.
+ *
+ * Usage:
+ *   `myArray //=> table` → renderer upgrades the inline pill from
+ *   the stringified array to a `Table(N×M)` summary backed by a
+ *   typed `RichOutputPayload` on the resulting `MagicCommentResult`.
+ *
+ * `undefined` means the arrow had no directive — legacy behavior.
+ */
+export type MagicCommentDirective = 'table';
+
 export interface MagicCommentLine {
   /** 1-based line number in the original source */
   line: number;
@@ -50,6 +65,16 @@ export interface MagicCommentLine {
    * `const x = 5; // @watch x` keeps `const x = 5;` running.
    */
   preserve: string;
+  /**
+   * RL-044 Slice 1A — optional rich-output directive parsed from
+   * the comment tail (`//=> table`). The runner consumes this to
+   * decide whether to upgrade the captured value to a typed
+   * `RichOutputPayload`. Only set when `kind === 'arrow'` AND the
+   * directive word is recognised; unknown directives silently
+   * fall through to the legacy arrow path so a typo never breaks
+   * a run.
+   */
+  directive?: MagicCommentDirective;
 }
 
 // ---------------------------------------------------------------------------
@@ -57,7 +82,24 @@ export interface MagicCommentLine {
 // ---------------------------------------------------------------------------
 
 const JS_WATCH_RE = /^(.*?)\/\/\s*@watch\s+(.+?)\s*$/;
-const JS_ARROW_RE = /^(.+?)\/\/\s*=>.*$/;
+// RL-044 Slice 1A — capture EVERYTHING after `=>` as the tail so we
+// preserve the legacy `//=> free-form annotation` shape (the tail
+// becomes a description, not a directive). The tail is then parsed
+// by `parseDirective` which only returns a directive when the
+// trimmed tail is exactly one of the recognised words — anything
+// else falls through to the legacy arrow behaviour.
+const JS_ARROW_RE = /^(.+?)\/\/\s*=>(.*)$/;
+
+const KNOWN_DIRECTIVES: ReadonlySet<MagicCommentDirective> = new Set(['table']);
+
+function parseDirective(raw: string | undefined): MagicCommentDirective | undefined {
+  if (!raw) return undefined;
+  const trimmed = raw.trim().toLowerCase();
+  if (trimmed.length === 0) return undefined;
+  return KNOWN_DIRECTIVES.has(trimmed as MagicCommentDirective)
+    ? (trimmed as MagicCommentDirective)
+    : undefined;
+}
 
 function detectJSLine(line: string): MagicCommentLine | null {
   // RL-020 Slice 3 — watch wins over arrow when both shapes match.
@@ -79,7 +121,14 @@ function detectJSLine(line: string): MagicCommentLine | null {
   if (arrowMatch?.[1]) {
     const expression = arrowMatch[1].trim();
     if (expression) {
-      return { line: 0, expression, kind: 'arrow', preserve: '' };
+      const directive = parseDirective(arrowMatch[2]);
+      const base: MagicCommentLine = {
+        line: 0,
+        expression,
+        kind: 'arrow',
+        preserve: '',
+      };
+      return directive ? { ...base, directive } : base;
     }
   }
   return null;
@@ -776,7 +825,10 @@ export function transformJSAutoLog(
 }
 
 const PY_WATCH_RE = /^(.*?)#\s*@watch\s+(.+?)\s*$/;
-const PY_ARROW_RE = /^(.+?)#\s*=>.*$/;
+// RL-044 Slice 1A — same shape as the JS arrow regex: capture the
+// full tail and let `parseDirective` decide whether it's a known
+// directive or a legacy free-form comment.
+const PY_ARROW_RE = /^(.+?)#\s*=>(.*)$/;
 
 function detectPythonLine(line: string): MagicCommentLine | null {
   const watchMatch = line.match(PY_WATCH_RE);
@@ -801,7 +853,14 @@ function detectPythonLine(line: string): MagicCommentLine | null {
   if (arrowMatch?.[1]) {
     const expression = arrowMatch[1].trim();
     if (expression) {
-      return { line: 0, expression, kind: 'arrow', preserve: '' };
+      const directive = parseDirective(arrowMatch[2]);
+      const base: MagicCommentLine = {
+        line: 0,
+        expression,
+        kind: 'arrow',
+        preserve: '',
+      };
+      return directive ? { ...base, directive } : base;
     }
   }
   return null;
