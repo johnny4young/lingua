@@ -141,9 +141,90 @@ Open a successor ADR (or update this one with a dated entry) when:
 - `TAURI_SPIKE_ADR.md` — Unchanged. The Tauri no-go decision is
   independent of which Vite major we run.
 
+## Outcome (2026-05-17)
+
+The wait paid off and the ecosystem leap-frogged the Vite 7 hop the
+original ADR planned for. Today's blocker checklist returned:
+
+- `vite@latest` = `8.0.13` (Vite 7 was implicitly skipped)
+- `@vitejs/plugin-react@latest` = `6.0.2` with peer `vite ^8.0.0`
+- `vitest@latest` = `4.1.6` with peer `vite ^6.0.0 || ^7.0.0 || ^8.0.0`
+- `@electron-forge/plugin-vite@7.11.1` declares no Vite peer
+  (runtime-tolerant against Vite 8)
+- `tailwindcss@4.3.0` already in the repo
+
+That matches the "When to revisit #3" trigger ("Vite 8 Rolldown-default
+story stabilizes enough that skipping Vite 7 and going straight to Vite 8
+becomes the cheaper path"), so the bump went 5 → 8 in one hop. The
+original Vite 7 plan above is preserved as historical context.
+
+### Bumped versions
+
+- `vite`: `^5.4.21` → `^8.0.13`
+- `@vitejs/plugin-react`: `^4.7.0` → `^6.0.2`
+- `vitest`: `^3.2.4` → `^4.1.6`
+- `esbuild`: new direct devDep `^0.28.0` (was a transitive of Vite 5;
+  Vite 8 no longer hoists it to the top-level `node_modules/esbuild/`,
+  so the `run-electron-desktop.mjs` script lost its hardcoded path
+  unless esbuild is added as a direct dep)
+- `@electron-forge/plugin-vite`: held at `^7.11.1` (no Vite-8-aware
+  release yet; runtime-tolerant)
+
+### Verification matrix outcome
+
+All ten steps executed cleanly:
+
+| # | Step | Outcome |
+|---|------|---------|
+| 1 | `npm install` (after `rm -rf node_modules package-lock.json`) | Clean resolve, 820 packages, no peer warnings on the four blocker deps |
+| 2 | `npx tsc --noEmit` | Green |
+| 3 | `npm run lint` | Green |
+| 4 | `npm test -- --run` | 304 files, 3344 passed, 2 skipped (after the Vitest 4 mock fix below) |
+| 5 | `npm run check:i18n` + `check:i18n:copy` | Green |
+| 6 | `npm run build:web` | Green. **Bundle build ~10× faster** (16.6s → 1.5s) thanks to Vite 8's Rolldown default. Chunk shape unchanged at the load-bearing edges (Monaco ~3.8 MB chunk, esbuild-wasm ~13.5 MB, pyodide unchanged). |
+| 7 | `npm run preview:web` + Playwright MCP | Web preview rendered; 0 console errors. Screenshot under `output/playwright/rl-033-vite8/01-web-preview-vite8.png` |
+| 8 | `npm run dev:desktop` (covered by smoke) | Green |
+| 9 | `npm run smoke:desktop` | 9 cases, 0 failures |
+| 10 | `npm run make:desktop:mac` | Packaged zip artifact emitted to `out/make/`. One deprecation warning from `@electron-forge/plugin-vite`: `inlineDynamicImports option is deprecated, please use codeSplitting: false instead.` — Forge plugin internal; tracked as a deferred follow-up. |
+
+### Prerequisite fixes folded into this slice
+
+- `tests/main/lsp/lspIpc.test.ts` — Vitest 4 changed `vi.fn().mockImplementation(arrow)`
+  semantics so the resulting mock is no longer newable. The
+  `RustAnalyzerLauncher` mock was rewritten as a real `class` so
+  `new RustAnalyzerLauncher(...)` keeps working. Mock surface
+  unchanged.
+- `scripts/run-electron-desktop.mjs` — esbuild 0.28's `bin/esbuild`
+  is now the platform binary (was a JS shim in earlier majors), so
+  `spawnManagedProcess(process.execPath, [esbuildBin, …])` (i.e.
+  `node esbuildBin`) crashed on "Invalid or unexpected token". Fixed
+  to spawn the binary directly: `spawnManagedProcess(esbuildBin, args)`.
+- `package.json` — added `esbuild` as a direct devDep so Vite 8 (which
+  uses Rolldown by default and does not hoist esbuild) leaves the
+  binary discoverable at the path the launcher script expects.
+
+### Deferred follow-ups
+
+- Suppress or migrate the `inlineDynamicImports → codeSplitting: false`
+  Vite warning emitted by `@electron-forge/plugin-vite` during
+  `make:desktop:mac`. Forge plugin internal; needs upstream tracking
+  or a Vite-config override in `forge.config.ts`.
+- Vite 8 Rolldown opt-in for production builds. Today's build uses
+  Rolldown by default; explicit Rolldown configuration for advanced
+  chunking is a separate ADR.
+- Re-audit `npm audit` output. The post-upgrade tree reports 33
+  vulnerabilities (6 low, 2 moderate, 25 high) — these largely
+  pre-date the bump but should be reviewed under a security slice.
+- `tests/build/copyRuntimeAssetsPlugin.test.ts` — still passes but
+  worth confirming the Rolldown asset path matches the old Rollup
+  shape in a packaged smoke after the next release cut.
+
 ## Reviewers
 
 - First recorded decision: 2026-04-20.
+- Outcome recorded: 2026-05-17 — Vite 5 → 8 bump landed in one hop
+  per the "When to revisit #3" trigger above. Verification matrix
+  green end-to-end including packaged make.
 
 Future revisits leave a dated entry rather than overwrite, so the
 history of which checks passed when stays auditable.

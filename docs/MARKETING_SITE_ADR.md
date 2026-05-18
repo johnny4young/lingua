@@ -98,7 +98,7 @@ a disabled tooltip rather than a broken link.
   subdirectory** — would have given us the deploy cadence wins but
   kept the dependency / CI coupling. Rejected because Astro and the
   desktop renderer want different Vite versions today
-  (`overrides.vite ^7.3.2` in marketing vs `^5.4.21` here), and the
+  (`overrides.vite ^7.3.2` in marketing vs `^8.0.13` here), and the
   workspace coordination would have been worse than two repos.
 - **GitHub Pages instead of Cloudflare Pages** — rejected because we
   already use Cloudflare Pages for `app.linguacode.dev` (RL-061

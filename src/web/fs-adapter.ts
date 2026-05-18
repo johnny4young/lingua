@@ -32,8 +32,16 @@ interface FileSystemPickerWindow {
   showSaveFilePicker(opts?: { suggestedName?: string }): Promise<FileSystemFileHandle>;
 }
 
+// TS 6 tightened the DOM lib so `FileSystemDirectoryHandle.entries()` now
+// returns a `FileSystemDirectoryHandleAsyncIterator<...>` (a full async
+// iterator with `next`), not just an `AsyncIterable<...>`. The runtime
+// surface is the same — the browser still yields entries via `for await` —
+// but the declared shape narrowed. We model the same iterator type so the
+// helper's downstream callers still get the precise entry tuple.
 interface IterableFileSystemDirectoryHandle extends FileSystemDirectoryHandle {
-  entries(): AsyncIterable<[string, FileSystemHandle]>;
+  entries(): FileSystemDirectoryHandleAsyncIterator<
+    [string, FileSystemDirectoryHandle | FileSystemFileHandle]
+  >;
 }
 
 // ----------------------------------------------------- capability registry

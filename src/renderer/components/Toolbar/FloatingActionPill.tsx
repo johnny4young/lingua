@@ -273,7 +273,22 @@ export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) 
     void run();
   };
 
-  const runDisabled = tabs.length === 0 || executionMode === 'view';
+  // RL-093 follow-up — Run stays clickable even with no tab so the
+  // primary surface keeps the workflow-menu reachable (the chevron
+  // next to Run is how the user picks scratchpad / run / debug
+  // upfront). The Lang / Runtime / Workflow chip handlers below
+  // auto-create a tab when none exists so the chip always advances
+  // the user instead of silently no-op'ing — that's the
+  // "click no funciona" report from review.
+  const runDisabled = executionMode === 'view';
+  const noActiveTab = tabs.length === 0;
+  const ensureTabForLanguage = (lang: Language) => {
+    const existing = useEditorStore.getState().tabs.find((tab) => tab.id === activeTabId);
+    if (existing) return existing;
+    const fresh = createDefaultTab(lang);
+    addTab(fresh);
+    return fresh;
+  };
 
   const workflowChip = workflowChipLabel(t, activeTab?.workflowMode);
   const runtimeChip = runtimeChipLabel(activeTab?.runtimeMode);
@@ -415,8 +430,14 @@ export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) 
                       data-active={isActive ? 'true' : 'false'}
                       onClick={() => {
                         setOpenMenu(null);
-                        if (!activeTab) return;
-                        setTabRuntimeMode(activeTab.id, item.k);
+                        // RL-093 follow-up — when the user opens
+                        // the Runtime picker without a tab, create
+                        // one in the chip's current language and
+                        // apply the chosen runtime to it. Avoids
+                        // the silent no-op the empty state used to
+                        // surface as "click no funciona".
+                        const target = ensureTabForLanguage(language);
+                        setTabRuntimeMode(target.id, item.k);
                       }}
                     >
                       <span className="row-icon self-start mt-0.5">{item.icon}</span>
@@ -529,15 +550,23 @@ export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) 
                   disabled={item.disabled}
                   onClick={() => {
                     setOpenMenu(null);
-                    if (!activeTab || item.disabled) return;
-                    if (!isActive) {
-                      setTabWorkflowMode(activeTab.id, item.k as WorkflowMode);
+                    if (item.disabled) return;
+                    // RL-093 follow-up — same fallback as the
+                    // Runtime chip: create a tab in the chip's
+                    // current language if there's none so the
+                    // workflow picker always advances the user.
+                    const target = ensureTabForLanguage(language);
+                    if (target.workflowMode !== item.k) {
+                      setTabWorkflowMode(target.id, item.k as WorkflowMode);
                     }
                     // Switching INTO scratchpad doesn't fire a manual
                     // run (scratchpad re-evaluates automatically as
                     // the user edits). Run / Debug fire the action so
-                    // "switch + run" stays one click.
-                    if (item.k !== 'scratchpad') {
+                    // "switch + run" stays one click — but only when
+                    // we already had a real tab; a freshly-created
+                    // tab is empty so firing would just log "nothing
+                    // to run".
+                    if (item.k !== 'scratchpad' && !noActiveTab) {
                       item.fire();
                     }
                   }}

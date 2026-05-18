@@ -3,11 +3,11 @@
     "version": "0.26.4",
     "sourceUrl": "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/",
     "integrity": {
-      "pyodide.mjs": "sha256-7f24c6655a79eacf0061d3d4e6a60dc0b1938812d15c52d7ff8b37d9e0689e51",
-      "pyodide.asm.js": "sha256-919560652ed3dad3707cb3a394785da1e046fb13dc0defa162058ff230cb7eed",
-      "pyodide.asm.wasm": "sha256-b7e66a19427a55010ac3367c1b6c64b893f9826f783412945fdf0c3337f3bc94",
-      "pyodide-lock.json": "sha256-cd50b49de944c579045e122fe8628b31f9ce446379f032f36c05e273d38766e0",
-      "python_stdlib.zip": "sha256-72894522b791858b9d613ac786b951d8b5094035dcf376313ea24a466810f336"
+      "pyodide.mjs": "sha256-8fdfed5eaf81bde14bcdeaeea11f2672675b2362248f8537446b6fda5e4a4751",
+      "pyodide.asm.js": "sha256-fe75e97ef2c7a10c41f23b96344c553c7c1c62821bb206080dbb24941c06d5f3",
+      "pyodide.asm.wasm": "sha256-10090fe41e019ae669d512e1f747021a8db2aaab0f6dd6f85fa9368c55d681e3",
+      "pyodide-lock.json": "sha256-14d2c2dba101277999e17135e653d8f15389ad1437f53eae213bf0c3cdff723d",
+      "python_stdlib.zip": "sha256-92cb24faa546818f3ef4050fd5bd2b6487bd2042efed2113af141d035f30efb4"
     }
   }
 }

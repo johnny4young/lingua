@@ -241,7 +241,11 @@ async function terminateChild(label, child, options = {}) {
 }
 
 async function runEsbuild(args) {
-  const buildProcess = spawnManagedProcess(process.execPath, [esbuildBin, ...args]);
+  // RL-033 / esbuild 0.28 — `node_modules/esbuild/bin/esbuild` is now
+  // the platform binary directly (not a Node JS shim), so it must be
+  // spawned without `process.execPath`. The binary is self-contained
+  // and resolves its own runtime.
+  const buildProcess = spawnManagedProcess(esbuildBin, args);
 
   const result = await waitForExit(buildProcess);
   if (result.code !== 0) {

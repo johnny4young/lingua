@@ -85,7 +85,7 @@ _All rows in this section are closed; see §6 archive. RL-059 closed 2026-05-12 
 | [`RL-025`](./PLAN.md#rl-025-add-package-and-dependency-management-in-a-language-aware-way) | Package / dependency management | `Planned` | Language-aware package install UI for JS/TS (desktop) and Python (Pyodide). |
 | [`RL-031`](./PLAN.md#rl-031-add-a-local-ai-code-assistant-focused-on-algorithms-and-cross-language-generation) | Local AI code assistant | `Planned` | Desktop-only local-model assistant focused on algorithms + cross-language generation. |
 | [`RL-032`](./PLAN.md#rl-032-build-a-dedicated-marketing-website-and-docsdownload-hub) | Marketing website + docs hub | `Planned` | Separate marketing site at linguacode.dev with docs/download/pricing. |
-| [`RL-033`](./PLAN.md#rl-033-upgrade-to-the-latest-vite-major-and-harden-the-bundling-surface) | Vite major upgrade | `Partial` | ADR landed; upgrade itself blocked on four upstream peer-range checks from the ADR. |
+| [`RL-033`](./PLAN.md#rl-033-upgrade-to-the-latest-vite-major-and-harden-the-bundling-surface) | Vite major upgrade | `Done` | Closed 2026-05-17 — Vite 5 → 8 bump landed in one hop (the ADR's "skip Vite 7, go straight to Vite 8" trigger fired). Full 10-step verification matrix green incl. packaged macOS build. See §6 archive. |
 | [`RL-036`](./PLAN.md#rl-036-add-sharing-collaboration-and-publish-flows) | Sharing, collaboration, publish flows | `Planned` | Phase A: share-by-link, publish-as-static, snippet export. |
 
 ### 4c. Language platform (P2)
@@ -178,7 +178,7 @@ without scope, so agents don't waste tokens scanning them. Deep
 implementation detail lives in `docs/PLAN.md#RL-XXX`.
 
 <details>
-<summary><strong>66 `Done` tickets</strong> — expand for the list</summary>
+<summary><strong>67 `Done` tickets</strong> — expand for the list</summary>
 
 `RL-001`, `RL-002`, `RL-003`, `RL-004`, `RL-005`, `RL-006`, `RL-007`,
 `RL-008`, `RL-009`, `RL-010`, `RL-011`, `RL-016`, `RL-017`, `RL-018`,
@@ -187,9 +187,9 @@ implementation detail lives in `docs/PLAN.md#RL-XXX`.
 `RL-055`, `RL-056`, `RL-057`, `RL-058`, `RL-059`, `RL-060`, `RL-061`,
 `RL-062`, `RL-063`, `RL-064`, `RL-065`, `RL-066`, `RL-067`, `RL-068`,
 `RL-069`, `RL-070`, `RL-071`, `RL-073`, `RL-074`, `RL-075`, `RL-076`,
-`RL-077`, `RL-078`, `RL-079`, `RL-080`, `RL-081`, `RL-082`, `RL-083`,
-`RL-084`, `RL-085`, `RL-086`, `RL-087`, `RL-088`, `RL-089`, `RL-090`,
-`RL-091`, `RL-092`, `RL-093`.
+`RL-033`, `RL-077`, `RL-078`, `RL-079`, `RL-080`, `RL-081`, `RL-082`,
+`RL-083`, `RL-084`, `RL-085`, `RL-086`, `RL-087`, `RL-088`, `RL-089`,
+`RL-090`, `RL-091`, `RL-092`, `RL-093`.
 
 </details>
 

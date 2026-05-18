@@ -16,16 +16,21 @@ vi.mock('electron', () => ({
   },
 }));
 
+// Vitest 4 made arrow-fn `vi.fn().mockImplementation(...)` non-newable;
+// the production code does `new RustAnalyzerLauncher(...)` so the mock
+// must be a real constructor. Use a class with the same surface.
+class RustAnalyzerLauncherMock {
+  start = vi.fn(async () => ({ kind: 'running', version: 'rust-analyzer test' }));
+  restart = vi.fn(async () => ({ kind: 'running', version: 'rust-analyzer test' }));
+  stop = vi.fn();
+  status = vi.fn(() => ({ kind: 'running', version: 'rust-analyzer test' }));
+  sendRequest = sendRequestMock;
+  sendNotification = sendNotificationMock;
+  dispose = disposeMock;
+}
+
 vi.mock('../../../src/main/lsp/rustAnalyzerLauncher', () => ({
-  RustAnalyzerLauncher: vi.fn().mockImplementation(() => ({
-    start: vi.fn(async () => ({ kind: 'running', version: 'rust-analyzer test' })),
-    restart: vi.fn(async () => ({ kind: 'running', version: 'rust-analyzer test' })),
-    stop: vi.fn(),
-    status: vi.fn(() => ({ kind: 'running', version: 'rust-analyzer test' })),
-    sendRequest: sendRequestMock,
-    sendNotification: sendNotificationMock,
-    dispose: disposeMock,
-  })),
+  RustAnalyzerLauncher: RustAnalyzerLauncherMock,
 }));
 
 beforeEach(() => {
