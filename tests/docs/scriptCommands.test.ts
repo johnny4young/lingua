@@ -72,6 +72,11 @@ describe('Script naming docs guard', () => {
       // Desktop auto-update feed validation — stable production feed
       // or draft-channel staging feed evidence before release promotion.
       'check:update-feed',
+      // RL-061 follow-up — R2 release mirror parity check (private
+      // repo means GitHub Releases assets are not public-downloadable,
+      // mirror-r2 keeps `downloads.linguacode.dev` in sync for
+      // marketing-site CTAs). See `docs/runbooks/r2-release-mirror-setup.md`.
+      'check:r2-mirror',
       // RL-086 — bundle/runtime performance budgets and reports
       'performance:report',
       'performance:baseline',
@@ -110,5 +115,6 @@ describe('Script naming docs guard', () => {
     expect(scripts['smoke:desktop:packaged']).toContain('--offline');
     expect(scripts['smoke:desktop:packaged']).toContain('--against-packaged out/make');
     expect(scripts['check:update-feed']).toContain('validate-update-feed.mjs');
+    expect(scripts['check:r2-mirror']).toContain('check-r2-mirror.mjs');
   });
 });
