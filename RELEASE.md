@@ -23,6 +23,11 @@ This repository uses a draft-first manual release process, with the release tag 
     - `CLOUDFLARE_API_TOKEN`
     - `CLOUDFLARE_ACCOUNT_ID`
     - `CLOUDFLARE_ZONE_ID` (optional; cache purge only)
+  - Cloudflare R2 release mirror (private-repo download surface — see [`docs/runbooks/r2-release-mirror-setup.md`](./docs/runbooks/r2-release-mirror-setup.md)):
+    - `R2_ACCESS_KEY_ID`
+    - `R2_SECRET_ACCESS_KEY`
+    - `R2_ENDPOINT`
+    - `R2_PUBLIC_BASE`
 - Apple Developer signing and notarization credentials are still valid
 - macOS signing setup has been checked against
   [`docs/MACOS_SIGNING.md`](./docs/MACOS_SIGNING.md)
@@ -54,9 +59,10 @@ This repository uses a draft-first manual release process, with the release tag 
 10. CI already runs the **packaged desktop smoke** against the macOS `.app` inside the `build-macos` job (the `Packaged desktop smoke` step, RL-080 Slice 3). It is a **release-blocking offline** 2-runtime-case subset (javascript + python, plus the no-CDN assertion) that proves the binary boots, the renderer chunks load, and the vendored Pyodide runtime works offline. The full 9-case matrix (JS, TS, Python, Go, Rust + the RL-078 timeout cases + the RL-079 env-isolation cases) still runs against the dev server in `npm run smoke:desktop` as part of pre-merge CI. Optionally, download the macOS artifact locally and run `npm run smoke:desktop` for a sanity check against the dev server, or `npm run smoke:desktop:packaged` for the same packaged subset CI ran.
 11. Confirm the workflow summary lists the packaged smoke as `passed`. Optional: if you ran a local smoke, confirm the artifacts under `output/playwright/desktop-smoke` captured a screenshot + console log for each runner with zero unexpected errors.
 12. Before promotion, run the desktop update draft validation runbook for any selected macOS/Windows release: [`docs/runbooks/desktop-update-draft-validation.md`](./docs/runbooks/desktop-update-draft-validation.md). Attach or archive `output/update-feed-validation/update-feed-validation.json` with the release evidence.
-13. Promote the draft release manually when validation is complete.
-14. Immediately after promotion, run a **post-publish smoke**: from a clean install location, download the published artifact through the update channel (or the GitHub release page), launch, and confirm the app opens to the default tab without errors.
-15. Announce the release (changelog link + download link). Do not announce before post-publish smoke passes.
+13. Confirm the **R2 release mirror** is in sync. The `mirror-r2` job runs automatically after `publish` and validates itself via `check:r2-mirror`. Re-run locally if the workflow summary surfaces a skip / warning: `npm run check:r2-mirror -- --release-tag vX.Y.Z`. Attach or archive `output/r2-mirror-validation/<tag>.json` with the release evidence. Marketing-site download CTAs (separate repo `lingua-marketing`) depend on this mirror; if it is skipped the public download links will 404. Full setup in [`docs/runbooks/r2-release-mirror-setup.md`](./docs/runbooks/r2-release-mirror-setup.md).
+14. Promote the draft release manually when validation is complete.
+15. Immediately after promotion, run a **post-publish smoke**: from a clean install location, download the published artifact through the update channel (or the GitHub release page), launch, and confirm the app opens to the default tab without errors.
+16. Announce the release (changelog link + download link). Do not announce before post-publish smoke passes.
 
 ## Validation checklist
 
@@ -81,6 +87,7 @@ This repository uses a draft-first manual release process, with the release tag 
 - For macOS/Windows releases, `npm run check:update-feed -- --base-url <staging-updates> --old-version <previous> --expected-version <target>` passed against the draft-channel staging feed and wrote `output/update-feed-validation/update-feed-validation.json`
 - Post-publish smoke succeeded against the channel-distributed artifact
 - Web release artifact `cloudflare-deploy-validation` is attached to the workflow run and records the Wrangler deploy log, `app.linguacode.dev` app-shell check, service-worker update-endpoint bypass, and `updates.linguacode.dev/web/version` response
+- R2 release mirror artifact `r2-mirror-validation` is attached to the workflow run and records the per-asset parity check between the draft GitHub Release and the public mirror at `downloads.linguacode.dev` (`check:r2-mirror`). Marketing-site download CTAs in the separate `lingua-marketing` repo point at this mirror — a skipped/failed mirror means the public download links are stale or broken.
 - Release remains draft until human review is complete
 - macOS signing and notarization evidence is attached or visible in the
   workflow logs for any macOS artifact

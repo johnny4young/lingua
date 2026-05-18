@@ -609,6 +609,260 @@ jobs:
               "${assets[@]}"
           fi
 
+  mirror-r2:
+    name: Mirror release artifacts to Cloudflare R2
+    needs: [publish]
+    # `publish` is conditional on at least one desktop build. When the
+    # operator triggers a web-only release, `publish` is skipped and
+    # there is nothing to mirror. When R2 secrets are not configured
+    # (first release after the r2-release-mirror-setup runbook is
+    # followed, or a fork without the bucket), the job still runs but
+    # reports `skipped — R2 secrets not configured` in the summary so
+    # the release does not block on an infrastructure gap.
+    if: >-
+      ${{
+        always() &&
+        needs.publish.result == 'success'
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      # Every `${{ secrets.* }}` interpolation lives ONLY inside an
+      # `env:` block — never inside a `run:` body. Step bodies read the
+      # values via `$VAR` so a forged secret cannot inject shell. The
+      # `RELEASE_TAG` env was validated by the prepare-release-tag job
+      # against `^v[0-9]+\.[0-9]+\.[0-9]+$` so it is safe to interpolate
+      # into shell commands.
+      - name: Detect R2 secret availability
+        id: r2_secrets
+        shell: bash
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for var in R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_ENDPOINT R2_PUBLIC_BASE; do
+            if [[ -z "${!var:-}" ]]; then
+              missing+=("$var")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### R2 mirror sync"
+              echo ""
+              echo "skipped — R2 secrets not configured: ${missing[*]}"
+              echo ""
+              echo "Follow docs/runbooks/r2-release-mirror-setup.md to enable the public download mirror."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::R2 mirror skipped — secrets missing: ${missing[*]}. Marketing-site download CTAs cannot be public until this is configured."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download publish artifacts
+        if: steps.r2_secrets.outputs.configured == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          path: out/make
+          merge-multiple: true
+
+      - name: Verify mirror payload exists
+        if: steps.r2_secrets.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! find out/make -type f -print -quit | grep -q .; then
+            echo "::error::No artifacts to mirror to R2 — the publish job uploaded nothing."
+            exit 1
+          fi
+
+      # AWS CLI ships in ubuntu-latest by default. R2 is S3-compatible
+      # via `--endpoint-url`; no extra install needed. The scoped R2
+      # token is bucket-bound, so a compromised runner token cannot
+      # touch other Cloudflare resources.
+      - name: Upload artifacts to R2 (tag prefix)
+        if: steps.r2_secrets.outputs.configured == 'true'
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          BUCKET="lingua-releases"
+
+          # Asset whitelist parity with the `Collect release assets`
+          # step in `publish`. Update both in lockstep.
+          tmp_assets="$(mktemp)"
+          find out/make -type f \( \
+              -name '*.zip' -o -name '*.exe' -o -name '*.deb' \
+              -o -name '*.rpm' -o -name '*.nupkg' \
+              -o -name '*.dmg' -o -name '*.AppImage' \
+              -o -name 'RELEASES' -o -name 'SHA256SUMS.txt' \
+              -o -name 'lingua-sbom.cyclonedx.json' \
+              -o -name 'THIRD_PARTY_LICENSE_REPORT.md' \
+            \) > "$tmp_assets"
+
+          asset_count="$(wc -l < "$tmp_assets")"
+          if (( asset_count == 0 )); then
+            echo "::error::No mirror-eligible assets found under out/make"
+            exit 1
+          fi
+
+          echo "Mirroring ${asset_count} asset(s) to s3://${BUCKET}/${RELEASE_TAG}/"
+          while IFS= read -r src; do
+            name="$(basename "$src")"
+            aws s3 cp "$src" "s3://${BUCKET}/${RELEASE_TAG}/${name}" \
+              --endpoint-url "${R2_ENDPOINT}" \
+              --no-progress
+          done < "$tmp_assets"
+
+      - name: Refresh latest/ prefix
+        if: steps.r2_secrets.outputs.configured == 'true'
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          BUCKET="lingua-releases"
+
+          # `aws s3 sync --delete` from the tag prefix into `latest/`
+          # gives marketing-site CTAs stable URLs that always point at
+          # the current release. The brief window during sync is
+          # acceptable — the previous `latest/` is the prior version,
+          # which is still a valid (older) download.
+          aws s3 sync \
+            "s3://${BUCKET}/${RELEASE_TAG}/" \
+            "s3://${BUCKET}/latest/" \
+            --endpoint-url "${R2_ENDPOINT}" \
+            --delete \
+            --no-progress
+
+      - name: Write manifest.json at bucket root
+        if: steps.r2_secrets.outputs.configured == 'true'
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
+        run: |
+          set -euo pipefail
+          BUCKET="lingua-releases"
+          manifest_path="$(mktemp --suffix=.json)"
+
+          find_one() {
+            find out/make -type f -name "$1" -print -quit || true
+          }
+
+          mac_dmg="$(find_one '*-darwin-arm64.dmg' || find_one '*.dmg')"
+          mac_zip="$(find_one '*-darwin-*.zip' || find_one '*.zip')"
+          win_setup="$(find_one '*setup*.exe' || find_one '*.exe')"
+          win_nupkg="$(find_one '*.nupkg')"
+          win_releases="$(find_one 'RELEASES')"
+          linux_deb="$(find_one '*.deb')"
+          linux_rpm="$(find_one '*.rpm')"
+          checksums="$(find_one 'SHA256SUMS.txt')"
+          sbom="$(find_one 'lingua-sbom.cyclonedx.json')"
+          licenses="$(find_one 'THIRD_PARTY_LICENSE_REPORT.md')"
+
+          asset_url() {
+            local file="$1"
+            if [[ -z "$file" ]]; then echo "null"; return; fi
+            local name; name="$(basename "$file")"
+            printf '"%s/%s/%s"' "${R2_PUBLIC_BASE%/}" "${RELEASE_TAG}" "${name}"
+          }
+
+          cat > "${manifest_path}" <<EOF
+          {
+            "latest": "${RELEASE_TAG}",
+            "channel": "stable",
+            "publishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "publicBase": "${R2_PUBLIC_BASE%/}",
+            "assets": {
+              "macos": {
+                "dmg": $(asset_url "$mac_dmg"),
+                "zip": $(asset_url "$mac_zip")
+              },
+              "windows": {
+                "setup": $(asset_url "$win_setup"),
+                "nupkg": $(asset_url "$win_nupkg"),
+                "releases": $(asset_url "$win_releases")
+              },
+              "linux": {
+                "deb": $(asset_url "$linux_deb"),
+                "rpm": $(asset_url "$linux_rpm")
+              },
+              "checksums": $(asset_url "$checksums"),
+              "sbom": $(asset_url "$sbom"),
+              "thirdPartyLicenses": $(asset_url "$licenses")
+            }
+          }
+          EOF
+
+          cat "${manifest_path}"
+          aws s3 cp "${manifest_path}" "s3://${BUCKET}/manifest.json" \
+            --endpoint-url "${R2_ENDPOINT}" \
+            --content-type 'application/json' \
+            --cache-control 'public, max-age=300' \
+            --no-progress
+
+      - name: Validate R2 mirror parity
+        if: steps.r2_secrets.outputs.configured == 'true'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
+        run: |
+          set -euo pipefail
+          node ./scripts/check-r2-mirror.mjs --release-tag "${RELEASE_TAG}"
+
+      - name: Summarise R2 mirror sync
+        if: steps.r2_secrets.outputs.configured == 'true'
+        shell: bash
+        env:
+          R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
+        run: |
+          {
+            echo "### R2 mirror sync"
+            echo ""
+            echo "- Bucket: lingua-releases"
+            echo "- Tag prefix: ${RELEASE_TAG}/"
+            echo "- Public base: ${R2_PUBLIC_BASE}"
+            echo "- Manifest: ${R2_PUBLIC_BASE%/}/manifest.json"
+            echo "- Latest prefix: ${R2_PUBLIC_BASE%/}/latest/"
+            echo "- Parity validated via check:r2-mirror (evidence attached)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload R2 mirror validation evidence
+        if: always() && steps.r2_secrets.outputs.configured == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: r2-mirror-validation
+          path: output/r2-mirror-validation/*
+          if-no-files-found: ignore
+
   deploy-web:
     name: Deploy web bundle to Cloudflare Pages
     needs: [publish, security-audit]

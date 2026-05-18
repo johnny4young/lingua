@@ -41,6 +41,11 @@ describe('RELEASE.md release checklist (RL-016)', () => {
       '13.',
       '14.',
       '15.',
+      // RL-016 follow-up — R2 release mirror sync added the 16th step
+      // (private repo means GitHub Releases assets cannot be public-
+      // downloaded; mirror-r2 keeps `downloads.linguacode.dev` in sync
+      // for marketing-site CTAs). See `docs/runbooks/r2-release-mirror-setup.md`.
+      '16.',
     ]) {
       expect(checklist).toContain(marker);
     }
@@ -127,6 +132,24 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     expect(checklist).toContain('Debian install');
     expect(checklist).toContain('packaged launch smoke');
     expect(checklist).toContain('uninstall verification');
+  });
+
+  it('requires R2 release mirror parity check for marketing-site download CTAs', () => {
+    // Source repo is private — GitHub Releases assets are not public-
+    // downloadable. The `mirror-r2` job copies them to a Cloudflare R2
+    // bucket served at `downloads.linguacode.dev`, and the marketing
+    // site in the separate `lingua-marketing` repo links there. The
+    // checklist must keep both the per-release validation step + the
+    // setup runbook reference so a future contributor cannot drop the
+    // public download surface silently.
+    expect(checklist).toContain('R2 release mirror');
+    expect(checklist).toContain('npm run check:r2-mirror');
+    expect(checklist).toContain('output/r2-mirror-validation');
+    expect(checklist).toContain('docs/runbooks/r2-release-mirror-setup.md');
+    expect(checklist).toContain('R2_ACCESS_KEY_ID');
+    expect(checklist).toContain('R2_PUBLIC_BASE');
+    expect(checklist).toContain('r2-mirror-validation');
+    expect(checklist).toMatch(/lingua-marketing|downloads\.linguacode\.dev/u);
   });
 
   it('ships a rollback plan that keeps the release in draft on failure', () => {

@@ -196,6 +196,47 @@ describe('release workflow', () => {
     );
   });
 
+  it('mirrors release artifacts to a public Cloudflare R2 bucket for marketing-site downloads', () => {
+    // Source repo is private — GitHub Releases assets cannot be
+    // public-downloaded. The `mirror-r2` job uploads the same payload
+    // to `lingua-releases` on R2 (served at downloads.linguacode.dev
+    // per `R2_PUBLIC_BASE`) so the marketing site can link CTAs there.
+    // Setup runbook: docs/runbooks/r2-release-mirror-setup.md.
+    expect(workflow).toContain('mirror-r2:');
+    expect(workflow).toContain('Mirror release artifacts to Cloudflare R2');
+    // Runs after publish; gracefully short-circuits when publish was
+    // skipped (web-only release) — see the `if:` guard.
+    expect(workflow).toContain('needs: [publish]');
+    // Required secrets validated at the top of the job so a missing
+    // secret skips cleanly instead of crashing mid-upload.
+    expect(workflow).toContain('Detect R2 secret availability');
+    for (const secret of [
+      'R2_ACCESS_KEY_ID',
+      'R2_SECRET_ACCESS_KEY',
+      'R2_ENDPOINT',
+      'R2_PUBLIC_BASE',
+    ]) {
+      expect(workflow).toContain(secret);
+    }
+    // Uploads to both the per-tag prefix AND a stable `latest/` prefix
+    // the marketing site can hard-code into CTA URLs.
+    expect(workflow).toContain('Upload artifacts to R2 (tag prefix)');
+    expect(workflow).toContain('Refresh latest/ prefix');
+    expect(workflow).toContain('aws s3 cp');
+    expect(workflow).toContain('aws s3 sync');
+    expect(workflow).toMatch(/--endpoint-url\s+"\$\{R2_ENDPOINT\}"/u);
+    // Root manifest.json so the marketing site reads the canonical
+    // latest version + per-platform asset URLs in one HTTP call.
+    expect(workflow).toContain('Write manifest.json at bucket root');
+    expect(workflow).toContain("s3://${BUCKET}/manifest.json");
+    // Per-release parity check + evidence artifact (mirrors the
+    // `update-feed-validation` pattern from RL-061 Slice 5).
+    expect(workflow).toContain('Validate R2 mirror parity');
+    expect(workflow).toContain('./scripts/check-r2-mirror.mjs');
+    expect(workflow).toContain('name: r2-mirror-validation');
+    expect(workflow).toContain('output/r2-mirror-validation/*');
+  });
+
   it('records Cloudflare web deploy validation artifacts for every web release', () => {
     expect(deployWebWorkflow).toContain('Start Cloudflare deploy validation artifact');
     expect(deployWebWorkflow).toMatch(
