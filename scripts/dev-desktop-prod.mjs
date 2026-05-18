@@ -92,7 +92,8 @@ try {
     parsed = JSON.parse(publicKeyJwk);
   } catch (cause) {
     throw new Error(
-      `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK in .env.production is not parseable JSON: ${cause.message}`
+      `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK in .env.production is not parseable JSON: ${cause.message}`,
+      { cause }
     );
   }
   if (parsed.kty !== 'OKP' || parsed.crv !== 'Ed25519' || typeof parsed.x !== 'string') {

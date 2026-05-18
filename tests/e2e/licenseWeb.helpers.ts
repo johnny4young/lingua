@@ -179,7 +179,7 @@ async function installLicenseServerMock(page: Page): Promise<void> {
   await page.route(`${LICENSE_SERVER_HOST}/licenses/activate`, async route => {
     if (await fulfillCorsPreflight(route)) return;
 
-    let input: { deviceId?: string } = {};
+    let input: { deviceId?: string };
     try {
       input = route.request().postDataJSON() as { deviceId?: string };
     } catch {

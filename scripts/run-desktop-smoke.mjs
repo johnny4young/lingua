@@ -236,14 +236,13 @@ async function main() {
   await mkdir(artifactDir, { recursive: true });
 
   let child;
-  let resolvedAppPath = null;
 
   if (packagedInput) {
     if (!(await exists(packagedInput))) {
       console.error(`[desktop-smoke] --against-packaged path does not exist: ${packagedInput}`);
       process.exit(1);
     }
-    resolvedAppPath = await resolvePackagedApp(packagedInput);
+    const resolvedAppPath = await resolvePackagedApp(packagedInput);
     clearQuarantine(resolvedAppPath);
     const binary = path.join(resolvedAppPath, 'Contents', 'MacOS', 'Lingua');
     if (!(await exists(binary))) {

@@ -421,7 +421,7 @@ export function finalizeScopeSnapshot(
   // Cheap byte estimate via JSON; the worker is single-threaded
   // around the user code so this runs synchronously on the worker
   // side without blocking the main thread.
-  let serializedLength = 0;
+  let serializedLength: number;
   try {
     serializedLength = JSON.stringify(candidate).length;
   } catch {

@@ -95,7 +95,7 @@ export function createGoCompletionProvider(monaco: Monaco): GoProvider {
       const uri = model.uri.toString();
       adapter.openDocument(uri, model.getValue());
 
-      let lspCompletions: CompletionDefinition[] = [];
+      let lspCompletions: CompletionDefinition[];
       try {
         const items = await adapter.provideCompletions(
           uri,
