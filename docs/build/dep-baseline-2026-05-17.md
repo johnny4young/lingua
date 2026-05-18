@@ -72,3 +72,11 @@ Package          Current  Wanted  Latest  Location                      Depended
 ```
 
 Hold-backs documented in `tests/build/depFreshness.test.ts#HELD_BACK`.
+
+## After-sweep `npm audit` (2026-05-17)
+
+- `npm audit --omit=dev`: 0 vulnerabilities after the DOMPurify override
+  dedupes Monaco's nested 3.2.7 copy to the direct 3.4.4 install.
+- `npm audit`: 32 dev-only advisories remain in the Electron Forge /
+  rebuild / Inquirer chain. Clearing them is gated on a Forge upgrade that
+  also unblocks the `@electron/fuses` v2 hold-back.

@@ -49,6 +49,17 @@ describe('RL-083 — runtime-assets.lock.json integrity', () => {
       expect(lockEntry.sourceUrl).toBe(entry.sourceUrl);
 
       const baseDir = path.join(repoRoot, entry.nodeModulesPath);
+      const packageJson = JSON.parse(
+        await readFile(path.join(baseDir, 'package.json'), 'utf8')
+      ) as { version?: string };
+      expect(entry.version, `${id} runtime registry version must match package.json`).toBe(
+        packageJson.version
+      );
+      expect(
+        entry.sourceUrl,
+        `${id} runtime registry source URL must include the package version`
+      ).toContain(`/v${packageJson.version}/`);
+
       for (const file of entry.criticalFiles) {
         const expected = lockEntry.integrity[file];
         expect(expected, `lock missing integrity for ${id}/${file}`).toBeDefined();

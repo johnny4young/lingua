@@ -41,8 +41,8 @@ export type RuntimeAssetEntry = {
 
 export const RUNTIME_ASSETS: { readonly [K in RuntimeAssetId]: RuntimeAssetEntry } = {
   pyodide: {
-    version: '0.26.4',
-    sourceUrl: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
+    version: '0.29.4',
+    sourceUrl: 'https://cdn.jsdelivr.net/pyodide/v0.29.4/full/',
     nodeModulesPath: 'node_modules/pyodide',
     servedPath: 'pyodide',
     criticalFiles: [

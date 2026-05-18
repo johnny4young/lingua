@@ -212,9 +212,11 @@ All ten steps executed cleanly:
 - Vite 8 Rolldown opt-in for production builds. Today's build uses
   Rolldown by default; explicit Rolldown configuration for advanced
   chunking is a separate ADR.
-- Re-audit `npm audit` output. The post-upgrade tree reports 33
-  vulnerabilities (6 low, 2 moderate, 25 high) — these largely
-  pre-date the bump but should be reviewed under a security slice.
+- Re-audit `npm audit` output. Closed by the 2026-05-17 dependency
+  modernization sweep: production audit is clean after deduping Monaco's
+  nested DOMPurify to the direct patched install; the remaining full-audit
+  advisories are dev-only Forge / rebuild / Inquirer chain items gated
+  on the Forge upgrade.
 - `tests/build/copyRuntimeAssetsPlugin.test.ts` — still passes but
   worth confirming the Rolldown asset path matches the old Rollup
   shape in a packaged smoke after the next release cut.

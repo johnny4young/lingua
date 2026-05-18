@@ -1,7 +1,7 @@
 {
   "pyodide": {
-    "version": "0.26.4",
-    "sourceUrl": "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/",
+    "version": "0.29.4",
+    "sourceUrl": "https://cdn.jsdelivr.net/pyodide/v0.29.4/full/",
     "integrity": {
       "pyodide.mjs": "sha256-8fdfed5eaf81bde14bcdeaeea11f2672675b2362248f8537446b6fda5e4a4751",
       "pyodide.asm.js": "sha256-fe75e97ef2c7a10c41f23b96344c553c7c1c62821bb206080dbb24941c06d5f3",

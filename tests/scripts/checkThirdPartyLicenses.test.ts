@@ -18,6 +18,7 @@ describe('check-third-party-licenses', () => {
     expect(reviewLicenseEntry({ ...baseEntry, license: '(MPL-2.0 OR Apache-2.0)' })).toEqual({
       ok: true,
     });
+    expect(reviewLicenseEntry({ ...baseEntry, license: 'MPL-2.0' })).toEqual({ ok: true });
   });
 
   it('rejects missing, unreviewed, and blocked license expressions', () => {

@@ -3243,7 +3243,7 @@ Deferred to Slice 1.5b (still):
 - Main risks:
   - Electron Forge's Vite path remains the most fragile integration point; its internal `inlineDynamicImports` deprecation warning is deferred.
   - Explicit Vite 8 Rolldown tuning is deferred until there is a separate production-build chunking decision.
-  - `npm audit` after the upgrade still needs a dedicated security review slice.
+  - Full dev-toolchain audit remains gated on the Electron Forge upgrade; production audit is clean after the dependency modernization sweep below.
 - Scope:
   - Upgrade `vite`
   - Upgrade `@vitejs/plugin-react`
@@ -3310,9 +3310,10 @@ Deferred follow-ups (documented in
 - Explicit Vite 8 Rolldown opt-in for production builds (today's
   build uses the default behavior, which already shows the ~10×
   speedup; an explicit Rolldown config would unlock further tuning).
-- `npm audit` review — post-upgrade tree reports 33 advisories
-  (6 low / 2 moderate / 25 high), largely pre-existing; worth a
-  dedicated security slice.
+- `npm audit` review — the post-RL-033 sweep below cleaned the
+  production audit via the DOMPurify override. The remaining full-audit
+  advisories are dev-only Forge / rebuild chain items gated on the
+  Forge upgrade.
 
 ### RL-034 Record the desktop build-system choice: stay on Forge, or move to electron-vite / electron-builder
 
@@ -8195,7 +8196,7 @@ documented hold-back. Before/after snapshot:
   `FileSystemDirectoryHandle.entries()` from `AsyncIterable<…>` to
   the full `FileSystemDirectoryHandleAsyncIterator<…>`. The local
   declaration now matches.
-- `scripts/runtime-assets.lock.json` — regenerated via
+- `runtime-assets.lock.json` — regenerated via
   `npm run build:runtime-assets` because Pyodide 0.29 ships different
   WASM file hashes than 0.26.
 - `eslint.config.mjs` — four new ESLint 10 / `eslint-plugin-react-hooks@7`
@@ -8213,14 +8214,17 @@ documented hold-back. Before/after snapshot:
 
 - **A — `tests/build/depFreshness.test.ts`** guard, gated on
   `LINGUA_CHECK_FRESHNESS=1`. Includes a documented `HELD_BACK` map
-  with the `@electron/fuses` justification cross-linked here.
-- **B — `npm audit fix` (non-`--force`)**: no-op. All 33 advisories
-  are transitive of `@electron-forge/*` which is held at 7.11.1 by
-  RL-033's Forge-plugin-vite constraint. Cleanup gated on the Forge
-  upgrade.
-- **C — `@vitejs/plugin-react` → `@vitejs/plugin-react-swc`**:
-  swapped in both `vite.renderer.config.mts` and `vite.web.config.mts`.
-  Web prod build still ~1.6s; HMR perf delta lives in dev mode.
+  with the `@electron/fuses` justification cross-linked here, plus a
+  non-network guard that pins the DOMPurify override / lockfile shape.
+- **B — Audit cleanup**: `npm audit fix` (non-`--force`) was a no-op,
+  then `overrides.dompurify = "$dompurify"` deduped Monaco's pinned
+  DOMPurify 3.2.7 to the direct 3.4.4 install. Production audit is now
+  clean; the remaining full-audit 32 advisories are dev-only Forge /
+  rebuild / Inquirer chain advisories gated on the Forge upgrade.
+- **C — React plugin kept on Babel**: a trial swap to
+  `@vitejs/plugin-react-swc` emitted Vite 8's warning that SWC is slower
+  when no SWC plugins are configured. The sweep keeps
+  `@vitejs/plugin-react@^6.0.2` in both renderer configs.
 - **D — `engines.node`** tightened from `>=24.0.0` to `>=24.5.0`
   for TS 6 forward-compat.
 - **E — Baseline doc** at
@@ -8230,30 +8234,43 @@ documented hold-back. Before/after snapshot:
   `npm install` after the bumps; the matrix's `npm test -- --run` step
   effectively verified lockfile health.
 - **G — Drop `@types/dompurify`**: DOMPurify v3.4.4 ships its own
-  types (`dist/purify.cjs.d.ts`). Devp was removed; tsc stays green.
+  types (`dist/purify.cjs.d.ts`). The dev dependency was removed; tsc
+  stays green.
+- **H — Pyodide license metadata refresh**: Pyodide 0.29 reports
+  `MPL-2.0` instead of `Apache-2.0`, so the release license policy,
+  public notices, and generated third-party report now approve and
+  document standalone MPL-2.0 explicitly.
+- **I — Packaged smoke bridge hardening**: Electron 42 exposed that a
+  packaged, sandboxed preload can fail to derive the smoke-enabled flag
+  from preload-local `process.env` / `process.argv` even though main's
+  `desktop-smoke:get-config` IPC is authoritative. The renderer now
+  probes the desktop smoke bridge whenever it exists and lets main
+  decide whether the smoke is enabled; web still stays disabled because
+  there is no desktop bridge.
 
 ### Verification matrix
 
 All 10 RL-033 matrix steps green end-to-end:
 
-1. `npm install` (after `rm -rf node_modules package-lock.json`) —
-   clean resolve, 844 packages.
+1. `npm install` after the dependency changes — clean resolve.
 2. `npx tsc --noEmit` — green (after the `ignoreDeprecations` +
    fs-adapter fixes above).
 3. `npm run lint` — green (after demoting the six new ESLint 10 /
    react-hooks 7 rules to warn; 42 warnings remain as cleanup
    inventory).
-4. `npm test -- --run` — 304 files, 3349 passed, 2 skipped (after
+4. `npm test -- --run` — 306 files, 3352 passed, 4 skipped (after
    regenerating the runtime-asset lock).
 5. `npm run check:i18n` + `check:i18n:copy` — green.
 6. `npm run build:web` — green; ~1.5s.
-7. `npm run preview:web` + Playwright MCP — chrome row + pill render
-   cleanly, 0 console errors. Screenshot:
-   `output/playwright/dep-sweep-2026-05-17/01-web-preview-post-sweep.png`.
+7. `npm run preview:web` + Playwright — JS happy path, JS syntax-error
+   path, Python/Pyodide happy path, and Spanish reload all pass with 0
+   captured console/page errors.
 8. `npm run dev:desktop` — green (covered by smoke).
 9. `npm run smoke:desktop` — 9 cases / 0 failures (especially the
    Python runner, which exercises Pyodide 0.29).
-10. `npm run make:desktop:mac` — packaged zip emitted to `out/make/`.
+10. `npm run make:desktop:mac` — packaged zip emitted to `out/make/`;
+    explicit packaged smoke against the fresh macOS zip runs 3 cases /
+    0 failures.
 
 ### Deferred follow-ups (cleanup slice)
 
@@ -8266,7 +8283,7 @@ sweep from landing.
   `preserve-caught-error` warnings.
 - Once `@electron-forge/*` ships a Vite-8-aware release: bump Forge
   + bump `@electron/fuses` to v2 + drop the `HELD_BACK` exemption +
-  re-run `npm audit fix` to clear the 33 transitive advisories.
+  re-run `npm audit fix` to clear the remaining 32 dev-only advisories.
 - Retire `tsconfig.json` `baseUrl` before TS 7 (use bundler
   `moduleResolution`'s native `paths` support).
 - Audit `eslint-plugin-react-hooks@7` ergonomics in HMR after a few

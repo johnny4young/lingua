@@ -9,7 +9,7 @@
  */
 
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react-swc';
+import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applySharedEnvDefaults, getSharedBuildDefines } from './build/appBuildMetadata.mts';

@@ -30,7 +30,7 @@ npm run compliance:release
 | `marked` | MIT |
 | `monaco-editor` | MIT |
 | `monaco-vim` | MIT |
-| `pyodide` | Apache-2.0 |
+| `pyodide` | MPL-2.0 |
 | `qrcode` | MIT |
 | `react` | MIT |
 | `react-dom` | MIT |
@@ -47,10 +47,10 @@ The guided tour is implemented in-repo and does not ship a separate AGPL or
 commercial-license tour dependency. Continue to audit runtime and packaged
 dependencies before every public release.
 
-The current transitive runtime license policy passes for 97 production
+The current transitive runtime license policy passes for 104 production
 `package-lock.json` entries. Approved expressions are limited to MIT, ISC,
-Apache-2.0, BSD-2-Clause, BSD-3-Clause, CC0-1.0, Python-2.0,
-`MPL-2.0 OR Apache-2.0`, and `WTFPL OR MIT`. Missing, unreviewed,
+0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, CC0-1.0, Python-2.0,
+MPL-2.0, `MPL-2.0 OR Apache-2.0`, and `WTFPL OR MIT`. Missing, unreviewed,
 AGPL/GPL/LGPL/SSPL, commercial, or proprietary expressions fail the release
 license gate.
 
