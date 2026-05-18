@@ -15,7 +15,13 @@ import {
   detectJSAutoLogLines,
   transformJSAutoLog,
   type MagicCommentKind,
+  type MagicCommentDirective,
 } from '../utils/magicComments';
+import {
+  forceTablePayload,
+  tryParseJsonForPayload,
+  type RichOutputPayload,
+} from '../../shared/richOutput';
 import { injectJSLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
 import {
@@ -186,8 +192,13 @@ export class TypeScriptRunner implements LanguageRunner {
     // PRE-transpile line number (which is what `__mc` carries into
     // the worker; the transpile pass preserves that argument as-is).
     const magicKindByLine: Record<number, MagicCommentKind> = {};
+    // RL-044 Slice 1A — parallel directive side-table for `//=> table`.
+    const magicDirectiveByLine: Record<number, MagicCommentDirective> = {};
     for (const entry of magicEntries) {
       magicKindByLine[entry.line] = entry.kind;
+      if (entry.directive) {
+        magicDirectiveByLine[entry.line] = entry.directive;
+      }
     }
     // RL-020 Slice 5 — opt-in auto-log pass before transpile. The
     // detector reads the PRE-transpile source (TypeScript syntax) so
@@ -386,13 +397,28 @@ export class TypeScriptRunner implements LanguageRunner {
             }
             break;
           }
-          case 'magic-comment':
-            magicResults.push({
+          case 'magic-comment': {
+            // RL-044 Slice 1A — mirror of the JS runner: when the
+            // user attached a `//=> table` directive, parse the
+            // worker's stringified JSON-compatible value back into a
+            // typed payload while keeping `value` as the text fallback.
+            const directive = magicDirectiveByLine[msg.line];
+            let payload: RichOutputPayload | undefined;
+            if (directive === 'table') {
+              const parsed = tryParseJsonForPayload(msg.value);
+              if (parsed.ok) {
+                payload = forceTablePayload(parsed.value);
+              }
+            }
+            const entry: MagicCommentResult = {
               line: msg.line,
               value: msg.value,
               kind: magicKindByLine[msg.line] ?? 'arrow',
-            });
+            };
+            if (payload) entry.payload = payload;
+            magicResults.push(entry);
             break;
+          }
           case 'result':
             result = msg.value;
             break;

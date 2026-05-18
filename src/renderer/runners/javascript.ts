@@ -14,7 +14,13 @@ import {
   detectJSAutoLogLines,
   transformJSAutoLog,
   type MagicCommentKind,
+  type MagicCommentDirective,
 } from '../utils/magicComments';
+import {
+  forceTablePayload,
+  tryParseJsonForPayload,
+  type RichOutputPayload,
+} from '../../shared/richOutput';
 import { injectJSLoopProtection } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
 import {
@@ -162,8 +168,16 @@ export class JavaScriptRunner implements LanguageRunner {
     // RL-020 Slice 3 — side-table the worker reads is per-line. The
     // worker postMessage protocol stays kind-agnostic.
     const magicKindByLine: Record<number, MagicCommentKind> = {};
+    // RL-044 Slice 1A — parallel side-table for `//=> table`
+    // directives. The runner consults this when stitching back the
+    // magic-comment result so it can upgrade the stringified value
+    // to a typed `RichOutputPayload` before the renderer reads it.
+    const magicDirectiveByLine: Record<number, MagicCommentDirective> = {};
     for (const entry of magicEntries) {
       magicKindByLine[entry.line] = entry.kind;
+      if (entry.directive) {
+        magicDirectiveByLine[entry.line] = entry.directive;
+      }
     }
     // RL-020 Slice 5 — opt-in auto-log pass after the magic-comment
     // transform. The detector excludes lines already claimed by an
@@ -341,17 +355,34 @@ export class JavaScriptRunner implements LanguageRunner {
             }
             break;
           }
-          case 'magic-comment':
+          case 'magic-comment': {
             // RL-020 Slice 5 — the kind table now carries `'arrow'`,
             // `'watch'`, or `'autoLog'`. The worker postMessage
             // protocol stays kind-agnostic; the runner stitches the
             // kind back in via this side table.
-            magicResults.push({
+            const directive = magicDirectiveByLine[msg.line];
+            // RL-044 Slice 1A — when the user attached a `table`
+            // directive, attempt to recover structure from the
+            // worker's stringified value via JSON. The serializer in
+            // the worker uses `JSON.stringify` so JSON-compatible
+            // values round-trip faithfully; lossy values still keep
+            // `value` as the canonical text fallback.
+            let payload: RichOutputPayload | undefined;
+            if (directive === 'table') {
+              const parsed = tryParseJsonForPayload(msg.value);
+              if (parsed.ok) {
+                payload = forceTablePayload(parsed.value);
+              }
+            }
+            const entry: MagicCommentResult = {
               line: msg.line,
               value: msg.value,
               kind: magicKindByLine[msg.line] ?? 'arrow',
-            });
+            };
+            if (payload) entry.payload = payload;
+            magicResults.push(entry);
             break;
+          }
           case 'result':
             result = msg.value;
             break;

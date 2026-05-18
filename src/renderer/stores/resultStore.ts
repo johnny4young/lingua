@@ -6,6 +6,7 @@ import type {
 } from '../types';
 import type { AutoRunGateReason } from '../../shared/autoRunGating';
 import type { ScopeSnapshot } from '../../shared/scopeSnapshot';
+import type { RichOutputPayload } from '../../shared/richOutput';
 
 /**
  * RL-020 Slice 7 — terminator summary surfaced via `<RunStatusPill>`.
@@ -35,6 +36,14 @@ export interface LineResult {
    * existing `hideUndefined` filter.
    */
   type: 'log' | 'warn' | 'error' | 'info' | 'result' | 'magic' | 'watch' | 'autoLog';
+  /**
+   * RL-044 Slice 1A — optional structured payload propagated from
+   * `MagicCommentResult.payload`. Renderers consult `value` for the
+   * canonical text fallback and upgrade to the typed payload only
+   * when present. Slice 1A surfaces a `Table(N×M)` summary inline;
+   * Slice 1B will plug in the console panel widget.
+   */
+  payload?: RichOutputPayload;
 }
 
 /**

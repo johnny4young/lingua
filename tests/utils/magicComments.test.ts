@@ -414,3 +414,58 @@ describe('Python magic comments', () => {
     });
   });
 });
+
+describe('RL-044 Slice 1A — //=> table directive', () => {
+  describe('JS arrow directive', () => {
+    it('parses the table directive on an arrow comment', () => {
+      const code = '[{a:1}] //=> table';
+      const [entry] = detectJSMagicComments(code);
+      expect(entry).toBeDefined();
+      expect(entry?.kind).toBe('arrow');
+      expect(entry?.directive).toBe('table');
+    });
+
+    it('is case-insensitive', () => {
+      const code = '[1,2] //=> TABLE';
+      const [entry] = detectJSMagicComments(code);
+      expect(entry?.directive).toBe('table');
+    });
+
+    it('omits the directive field when no directive is present', () => {
+      const code = '[1,2] //=>';
+      const [entry] = detectJSMagicComments(code);
+      expect(entry).toBeDefined();
+      expect(entry?.directive).toBeUndefined();
+    });
+
+    it('ignores unknown directive words gracefully', () => {
+      // `chart` lands in Slice 2 — Slice 1A treats it as unknown and
+      // falls back to the legacy arrow (no directive attached).
+      const code = '[1,2] //=> chart';
+      const [entry] = detectJSMagicComments(code);
+      expect(entry?.kind).toBe('arrow');
+      expect(entry?.directive).toBeUndefined();
+    });
+
+    it('still works when the directive has trailing whitespace', () => {
+      const code = '[1] //=> table   ';
+      const [entry] = detectJSMagicComments(code);
+      expect(entry?.directive).toBe('table');
+    });
+  });
+
+  describe('Python arrow directive', () => {
+    it('parses the table directive on a Python arrow comment', () => {
+      const code = '[{"a":1}]  #=> table';
+      const [entry] = detectPythonMagicComments(code);
+      expect(entry?.kind).toBe('arrow');
+      expect(entry?.directive).toBe('table');
+    });
+
+    it('omits the directive field when no directive is present', () => {
+      const code = '[1]  #=>';
+      const [entry] = detectPythonMagicComments(code);
+      expect(entry?.directive).toBeUndefined();
+    });
+  });
+});

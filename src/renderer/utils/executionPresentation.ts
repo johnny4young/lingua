@@ -64,11 +64,17 @@ export function toLineResults(result: ExecutionResult, code: string): LineResult
           : magicResult.kind === 'autoLog'
             ? 'autoLog'
             : 'magic';
-      lineResults.push({
+      // RL-044 Slice 1A — thread the typed payload through if the
+      // runner attached one. `LineResult.payload` is optional so
+      // results without rich data stay identical to pre-Slice-1A
+      // behaviour.
+      const entry: LineResult = {
         line: magicResult.line,
         value: magicResult.value,
         type,
-      });
+      };
+      if (magicResult.payload) entry.payload = magicResult.payload;
+      lineResults.push(entry);
     }
   }
 
