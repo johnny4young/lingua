@@ -140,6 +140,29 @@ Download CTAs there must point to the R2 mirror, not GitHub:
 The `/latest/` prefix is a copy the workflow re-writes on every
 publish (Part 2 below).
 
+### 1.7 Wire the marketing-site sync trigger (optional)
+
+The `lingua-marketing` repo runs `sync-content.yml` daily at 12:00 UTC
+to pull the latest `CHANGELOG.md` into its committed `changelog.json`.
+That cron is enough on its own — but it can be up to 24h stale right
+after a release. The release workflow's `notify-marketing` job will
+dispatch the same workflow immediately after `mirror-r2` succeeds, so
+the marketing site reflects the new release within minutes of a
+publish instead of by noon UTC the next day.
+
+To enable it, set one more secret on **this** repo:
+
+```bash
+# Fine-grained PAT scoped to johnny4young/lingua-marketing with:
+#   Permissions → Actions: Read and write
+#   Permissions → Metadata: Read
+# (Do not grant `Contents` — the dispatch endpoint only needs Actions.)
+gh secret set MARKETING_SYNC_TOKEN --body '<the-pat>'
+```
+
+Without this secret, `notify-marketing` logs a warning and exits 0 —
+releases still publish; the daily cron is the backstop.
+
 ---
 
 ## Part 2 — Per-release validation
