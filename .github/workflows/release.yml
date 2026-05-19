@@ -728,8 +728,15 @@ jobs:
           echo "Mirroring ${asset_count} asset(s) to s3://${BUCKET}/${RELEASE_TAG}/"
           while IFS= read -r src; do
             name="$(basename "$src")"
+            # `--copy-props none` keeps aws-cli from preserving
+            # object tagging on the destination object. Cloudflare R2
+            # does not implement `GetObjectTagging` / `PutObjectTagging`
+            # — the call returns `NotImplemented` and breaks every
+            # operation that defaults to copying tags. Local uploads
+            # don't need tags either, so the flag is safe everywhere.
             aws s3 cp "$src" "s3://${BUCKET}/${RELEASE_TAG}/${name}" \
               --endpoint-url "${R2_ENDPOINT}" \
+              --copy-props none \
               --no-progress
           done < "$tmp_assets"
 
@@ -750,10 +757,20 @@ jobs:
           # the current release. The brief window during sync is
           # acceptable — the previous `latest/` is the prior version,
           # which is still a valid (older) download.
+          #
+          # `--copy-props none` is REQUIRED on Cloudflare R2 — the
+          # default `aws s3 sync` behaviour calls `GetObjectTagging`
+          # to compare per-object metadata, which R2 returns
+          # `NotImplemented` for. Without this flag the sync aborts
+          # on the first comparable file with "GetObjectTagging not
+          # implemented" and `latest/` is left half-populated. See
+          # https://github.com/aws/aws-cli/issues/8419 for the upstream
+          # discussion + Cloudflare R2 compat docs.
           aws s3 sync \
             "s3://${BUCKET}/${RELEASE_TAG}/" \
             "s3://${BUCKET}/latest/" \
             --endpoint-url "${R2_ENDPOINT}" \
+            --copy-props none \
             --delete \
             --no-progress
 
@@ -823,6 +840,7 @@ jobs:
           cat "${manifest_path}"
           aws s3 cp "${manifest_path}" "s3://${BUCKET}/manifest.json" \
             --endpoint-url "${R2_ENDPOINT}" \
+            --copy-props none \
             --content-type 'application/json' \
             --cache-control 'public, max-age=300' \
             --no-progress
