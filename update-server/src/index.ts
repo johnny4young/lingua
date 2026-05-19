@@ -174,14 +174,19 @@ async function handleUpdate(
   }
 
   if (!isNewer(release.tag_name, currentVersion)) {
-    const noUpdate = new Response(null, {
+    // Intentionally do NOT cache 204 responses. Observed during the
+    // v0.4.0 release: a 204 cached while the release was still in
+    // draft kept being served from the edge for 5+ minutes after the
+    // release was promoted, blocking `check:update-feed` even though
+    // the underlying GitHub state had updated. The `getLatestRelease`
+    // fetch already has a 60s cf.cacheTtl ceiling, so the cost of
+    // not caching the 204 here is at most one GitHub API call per
+    // minute per colo. Worth the predictability for the
+    // post-promote validation window.
+    return new Response(null, {
       status: 204,
-      headers: { 'Cache-Control': `public, max-age=${CACHE_TTL}` },
+      headers: { 'Cache-Control': 'no-store' },
     });
-    if (canUseCache) {
-      await cache.put(cacheKey, noUpdate.clone());
-    }
-    return noUpdate;
   }
 
   let response: Response;
