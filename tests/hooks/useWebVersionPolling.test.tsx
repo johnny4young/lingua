@@ -49,7 +49,7 @@ afterEach(() => {
 describe('useWebVersionPolling', () => {
   it('fires an immediate poll on mount and reflects the result', async () => {
     const mod = await import('@/services/webUpdateServer');
-    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.3.0' });
+    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.4.0' });
 
     let captured: ReturnType<typeof useWebVersionPolling> | null = null;
     render(<HookProbe onState={(s) => { captured = s; }} />);
@@ -61,12 +61,12 @@ describe('useWebVersionPolling', () => {
     });
 
     expect(mod.fetchLatestWebVersion).toHaveBeenCalledTimes(1);
-    expect(captured?.remoteVersion).toBe('0.3.0');
+    expect(captured?.remoteVersion).toBe('0.4.0');
   });
 
   it('re-polls every 12 hours', async () => {
     const mod = await import('@/services/webUpdateServer');
-    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.3.0' });
+    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.4.0' });
 
     render(<HookProbe onState={() => {}} />);
 
@@ -89,7 +89,7 @@ describe('useWebVersionPolling', () => {
   it('keeps the last successful version when a later poll fails', async () => {
     const mod = await import('@/services/webUpdateServer');
     vi.mocked(mod.fetchLatestWebVersion)
-      .mockResolvedValueOnce({ version: '0.3.0' })
+      .mockResolvedValueOnce({ version: '0.4.0' })
       .mockResolvedValueOnce(null);
 
     let captured: ReturnType<typeof useWebVersionPolling> | null = null;
@@ -98,18 +98,18 @@ describe('useWebVersionPolling', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(captured?.remoteVersion).toBe('0.3.0');
+    expect(captured?.remoteVersion).toBe('0.4.0');
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(WEB_VERSION_POLL_INTERVAL_MS);
     });
     expect(mod.fetchLatestWebVersion).toHaveBeenCalledTimes(2);
-    expect(captured?.remoteVersion).toBe('0.3.0');
+    expect(captured?.remoteVersion).toBe('0.4.0');
   });
 
   it('re-polls on visibilitychange when the last poll was over 1 hour ago', async () => {
     const mod = await import('@/services/webUpdateServer');
-    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.3.0' });
+    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.4.0' });
 
     render(<HookProbe onState={() => {}} />);
 
@@ -138,7 +138,7 @@ describe('useWebVersionPolling', () => {
 
   it('does NOT re-poll on visibilitychange when the last poll was recent', async () => {
     const mod = await import('@/services/webUpdateServer');
-    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.3.0' });
+    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.4.0' });
 
     render(<HookProbe onState={() => {}} />);
 
@@ -166,7 +166,7 @@ describe('useWebVersionPolling', () => {
 
   it('does NOT poll in desktop builds (native window.lingua platform)', async () => {
     const mod = await import('@/services/webUpdateServer');
-    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.3.0' });
+    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.4.0' });
 
     Object.defineProperty(window, 'lingua', {
       value: { platform: 'darwin', license: {}, format: {} },
@@ -185,7 +185,7 @@ describe('useWebVersionPolling', () => {
 
   it('polls in browser builds even though the web adapter defines window.lingua', async () => {
     const mod = await import('@/services/webUpdateServer');
-    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.3.0' });
+    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.4.0' });
 
     Object.defineProperty(window, 'lingua', {
       value: { platform: 'web', license: {}, format: {} },
@@ -204,7 +204,7 @@ describe('useWebVersionPolling', () => {
 
   it('cleans up the interval and listener on unmount', async () => {
     const mod = await import('@/services/webUpdateServer');
-    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.3.0' });
+    vi.mocked(mod.fetchLatestWebVersion).mockResolvedValue({ version: '0.4.0' });
 
     const { unmount } = render(<HookProbe onState={() => {}} />);
 
