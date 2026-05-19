@@ -344,7 +344,12 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('returns 204 with a cache header when the caller is already on the latest tag', async () => {
+  it('returns 204 with no-store when the caller is already on the latest tag', async () => {
+    // Post-v0.4.0 (`fix(update-server): cap GitHub API cache + don't
+    // cache 204 responses`): 204s are explicitly NOT edge-cached so a
+    // stale "no update" cannot mask a freshly-promoted draft. The
+    // upstream `getLatestRelease` fetch still has a 60s ceiling, so
+    // the worst case is one extra GitHub call per minute per colo.
     const { mockCache } = createMockCacheStorage();
     vi.stubGlobal('caches', { default: mockCache });
     vi.stubGlobal(
@@ -366,7 +371,7 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
     const response = await callUpdate('darwin', '0.2.0');
 
     expect(response.status).toBe(204);
-    expect(response.headers.get('Cache-Control')).toBe('public, max-age=300');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(await response.text()).toBe('');
   });
 
@@ -552,7 +557,10 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
 
     const stableResponse = await callUpdate('darwin', '0.3.0');
     expect(stableResponse.status).toBe(204);
-    expect(store.size).toBe(1);
+    // Post-v0.4.0: 204s are no-store, so the stable response never
+    // enters the edge cache. This is the property that makes the
+    // draft-channel switch below safe in the first place.
+    expect(store.size).toBe(0);
 
     vi.stubGlobal(
       'fetch',
@@ -582,7 +590,12 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
     const body = (await draftResponse.json()) as { url: string; name: string };
     expect(body.url).toBe('https://signed.example/draft-zip');
     expect(body.name).toBe('Release v0.4.0');
-    expect(store.size).toBe(1);
+    // The draft channel sets `canUseCache = false`, so the 200 is
+    // returned without a cache.put. Combined with the no-store 204
+    // from the stable call above, the edge cache stays empty for the
+    // whole flow — which is what makes promoting a draft visible
+    // immediately to operators running `check:update-feed`.
+    expect(store.size).toBe(0);
   });
 
   it('returns 204 for darwin when the new release has no .zip darwin asset (missing-asset branch)', async () => {
