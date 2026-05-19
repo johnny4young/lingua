@@ -59,6 +59,10 @@ export const TELEMETRY_EVENT_NAMES = [
   'runtime.timeout_preset_changed',
   // RL-020 Slice 9 — mirror of `runtime.variable_inspector_opened`.
   'runtime.variable_inspector_opened',
+  // RL-093 Slice 3 fold F — mirror of
+  // `runtime.variable_inspector_surface_changed`. Closed-enum payload
+  // `{ surface }` where `surface` is `'floating'` or `'bottom'`.
+  'runtime.variable_inspector_surface_changed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -96,6 +100,9 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.timeout_preset_changed': ['language', 'preset'],
   // RL-020 Slice 9 — mirror of `runtime.variable_inspector_opened`.
   'runtime.variable_inspector_opened': ['language', 'variableCount'],
+  // RL-093 Slice 3 fold F — mirror of
+  // `runtime.variable_inspector_surface_changed`.
+  'runtime.variable_inspector_surface_changed': ['surface'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -431,6 +438,9 @@ function isAllowedValue(
           typeof value === 'string' &&
           VARIABLE_INSPECTOR_COUNT_BUCKETS.has(value)
         );
+      return false;
+    case 'runtime.variable_inspector_surface_changed':
+      if (key === 'surface') return value === 'floating' || value === 'bottom';
       return false;
     default: {
       const exhaustive: never = event;
