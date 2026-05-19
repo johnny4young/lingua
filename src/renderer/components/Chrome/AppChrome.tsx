@@ -1,6 +1,7 @@
-import { Search, Settings } from 'lucide-react';
+import { Download, Search, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
+import { useUpdateStore } from '../../stores/updateStore';
 import { IconButton } from '../ui/chrome';
 import { LicenseBadge } from '../Toolbar/LicenseBadge';
 import { cn } from '../../utils/cn';
@@ -77,6 +78,7 @@ export function AppChrome({ onOpenSettings, onOpenPalette }: AppChromeProps) {
           </span>
         ) : null}
         <LicenseBadge onClick={onOpenSettings} />
+        <UpdateReadyChip onClick={onOpenSettings} />
       </div>
       <div className="flex min-w-[80px] items-center justify-end gap-1 pl-2">
         <IconButton
@@ -101,5 +103,31 @@ export function AppChrome({ onOpenSettings, onOpenPalette }: AppChromeProps) {
         </IconButton>
       </div>
     </div>
+  );
+}
+
+/**
+ * Discoverable badge next to LicenseBadge that surfaces a pending
+ * downloaded update. Mirrors the unsaved-dot visual shape so the
+ * affordance reads consistently with the rest of the chrome.
+ * Visible only on `status === 'downloaded'`; clicking routes the
+ * user into Settings → Updates where they can hit Restart.
+ */
+function UpdateReadyChip({ onClick }: { onClick?: () => void }) {
+  const { t } = useTranslation();
+  const status = useUpdateStore((state) => state.status);
+  if (status !== 'downloaded') return null;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid="app-chrome-update-ready"
+      aria-label={t('updates.chip.ready')}
+      title={t('updates.chip.ready')}
+      className="inline-flex items-center gap-1 rounded-[2px] border border-success/70 px-1 py-px font-mono text-[9px] font-bold uppercase text-success hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success/40"
+    >
+      <Download size={9} aria-hidden="true" />
+      {t('updates.chip.ready')}
+    </button>
   );
 }

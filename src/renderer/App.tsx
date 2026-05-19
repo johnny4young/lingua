@@ -32,6 +32,7 @@ import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
 import { useGoLspLifecycle } from './hooks/useGoLspLifecycle';
 import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
+import { useDownloadedUpdateNotice } from './hooks/useDownloadedUpdateNotice';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
@@ -187,6 +188,12 @@ function AppChrome({
   useEffect(() => {
     void initializeUpdates();
   }, [initializeUpdates]);
+
+  // Surface a renderer-side toast when the autoupdater hands us a
+  // downloaded release. Lives next to `initializeUpdates` so it shares
+  // the same App-mount scope and runs independently of whether the
+  // user opens Settings → Updates.
+  useDownloadedUpdateNotice();
 
   useEffect(() => {
     // RL-065: fire the first telemetry event. `trackEvent` is a no-op
