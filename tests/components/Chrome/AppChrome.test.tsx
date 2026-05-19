@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initI18n } from '../../../src/renderer/i18n';
 import { AppChrome } from '../../../src/renderer/components/Chrome';
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
+import { useUpdateStore } from '../../../src/renderer/stores/updateStore';
 
 const initialEditorState = useEditorStore.getState();
+const initialUpdateState = useUpdateStore.getState();
 
 function seedTab(opts: { name: string; isDirty?: boolean } = { name: 'main.js' }) {
   act(() => {
@@ -34,6 +36,7 @@ describe('AppChrome', () => {
   afterEach(() => {
     cleanup();
     useEditorStore.setState(initialEditorState, true);
+    useUpdateStore.setState(initialUpdateState, true);
   });
 
   it('renders the chrome row with mark, filename and license badge', () => {
@@ -78,6 +81,26 @@ describe('AppChrome', () => {
     const settingsButton = screen.getByTestId('app-chrome-settings');
     expect(settingsButton.getAttribute('aria-label')).toBe('Open settings');
     await user.click(settingsButton);
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+  });
+
+  it('surfaces the update-ready chip only after an update is downloaded', async () => {
+    seedTab();
+    const user = userEvent.setup();
+    const onOpenSettings = vi.fn();
+    const { rerender } = render(<AppChrome onOpenSettings={onOpenSettings} />);
+
+    expect(screen.queryByTestId('app-chrome-update-ready')).toBeNull();
+
+    act(() => {
+      useUpdateStore.setState({ status: 'downloaded' });
+    });
+    rerender(<AppChrome onOpenSettings={onOpenSettings} />);
+
+    const chip = screen.getByTestId('app-chrome-update-ready');
+    expect(chip.textContent).toContain('Update ready');
+
+    await user.click(chip);
     expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 

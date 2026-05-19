@@ -59,6 +59,23 @@ function setUpdateState(next: Partial<UpdateState>): void {
   }
 }
 
+function isTerminalOrInFlightUpdateStatus(status: UpdateState['status']): boolean {
+  return status === 'downloaded' || status === 'available';
+}
+
+function markCheckingForUpdates(): void {
+  if (isTerminalOrInFlightUpdateStatus(updateState.status)) {
+    setUpdateState({ lastCheckedAt: isoNow() });
+    return;
+  }
+
+  setUpdateState({
+    status: 'checking',
+    message: 'Checking for updates...',
+    lastCheckedAt: isoNow(),
+  });
+}
+
 function startUpdater(): void {
   if (!app.isPackaged) {
     setUpdateState({
@@ -87,13 +104,7 @@ function startUpdater(): void {
     message: 'Automatic updates are enabled for this packaged build.',
   });
 
-  autoUpdater.on('checking-for-update', () => {
-    setUpdateState({
-      status: 'checking',
-      message: 'Checking for updates...',
-      lastCheckedAt: isoNow(),
-    });
-  });
+  autoUpdater.on('checking-for-update', markCheckingForUpdates);
 
   autoUpdater.on('update-available', () => {
     setUpdateState({
@@ -104,10 +115,25 @@ function startUpdater(): void {
   });
 
   autoUpdater.on('update-not-available', () => {
+    // Once we have an update staged ('available' = in-flight download,
+    // 'downloaded' = ready to install), Squirrel's "no new update"
+    // response is relative to the STAGED version, not the running
+    // binary. Letting it overwrite the terminal state means the
+    // hourly poll quietly strands the user on the old build: the
+    // Restart-to-update affordance disables, and `releaseName` is
+    // left dangling so Settings reads "UP TO DATE / vN" while the
+    // running UI is still vN-1. Preserve the terminal state.
+    if (isTerminalOrInFlightUpdateStatus(updateState.status)) {
+      setUpdateState({ lastCheckedAt: isoNow() });
+      return;
+    }
     setUpdateState({
       status: 'not-available',
       message: 'You are up to date.',
       lastCheckedAt: isoNow(),
+      releaseName: undefined,
+      releaseNotes: undefined,
+      updateURL: undefined,
     });
   });
 
@@ -158,11 +184,7 @@ export function registerUpdater(): void {
       if (!updateState.enabled) return updateState;
 
       try {
-        setUpdateState({
-          status: 'checking',
-          message: 'Checking for updates...',
-          lastCheckedAt: isoNow(),
-        });
+        markCheckingForUpdates();
         await autoUpdater.checkForUpdates();
       } catch (error) {
         setUpdateState({
@@ -175,9 +197,20 @@ export function registerUpdater(): void {
       return updateState;
     });
     ipcMain.handle('updates:restart', async () => {
-      if (updateState.status !== 'downloaded') return false;
-      autoUpdater.quitAndInstall();
-      return true;
+      // Defensive recovery: even when local `updateState.status` is
+      // not 'downloaded' (e.g. it was lost to a future state-machine
+      // bug), `autoUpdater.quitAndInstall()` is safe to call — Squirrel
+      // no-ops when no staged install exists. We attempt the install
+      // and only short-circuit when the platform clearly cannot
+      // perform one. Returning `false` silently from the prior code
+      // path masked exactly the kind of regression we just fixed.
+      if (!updateState.enabled) return false;
+      try {
+        autoUpdater.quitAndInstall();
+        return true;
+      } catch {
+        return false;
+      }
     });
     registered = true;
   }

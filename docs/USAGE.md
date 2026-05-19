@@ -42,6 +42,7 @@ Notes:
 - Web builds poll `updates.linguacode.dev/web/version` and show a reload banner when the deployed web tag is strictly newer than the running bundle.
 - The renderer exposes update state in Settings and a manual "Check for Updates" command in the command palette, which opens Settings so the current state and message are visible immediately.
 - Restart-to-apply is only enabled after the main process reports that an update has been downloaded.
+- When a desktop update is ready, Lingua also shows a success notice and an update-ready chip in the app chrome; either path points back to Settings → Updates for the restart action.
 - The updater currently targets the stable GitHub Release channel only.
 
 ## Local plugins

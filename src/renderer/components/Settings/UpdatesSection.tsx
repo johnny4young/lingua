@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useUpdateStore } from '../../stores/updateStore';
+import { Tooltip } from '../ui/chrome';
 import { Row, Section } from './shared';
 
 export function UpdatesSection() {
@@ -51,14 +52,27 @@ export function UpdatesSection() {
               ? t('updates.actions.checking')
               : t('updates.actions.check')}
           </button>
-          <button
-            type="button"
-            onClick={() => void restartToApply()}
-            disabled={status !== 'downloaded'}
-            className="button-primary"
+          <Tooltip
+            content={
+              status === 'downloaded'
+                ? t('updates.actions.restart')
+                : t('updates.restart.disabledTooltip')
+            }
           >
-            {t('updates.actions.restart')}
-          </button>
+            <button
+              type="button"
+              onClick={() => void restartToApply()}
+              disabled={status !== 'downloaded'}
+              aria-label={
+                status === 'downloaded'
+                  ? t('updates.actions.restart')
+                  : t('updates.restart.disabledTooltip')
+              }
+              className="button-primary"
+            >
+              {t('updates.actions.restart')}
+            </button>
+          </Tooltip>
         </div>
       </Row>
     </Section>
