@@ -6,6 +6,7 @@ describe('consoleStore', () => {
     useConsoleStore.setState({
       entries: [],
       activeFilters: new Set(['log', 'info', 'warn', 'error', 'result']),
+      hiddenPayloadKinds: new Set(),
       showTimestamps: true,
     });
   });
@@ -60,6 +61,17 @@ describe('consoleStore', () => {
 
     useConsoleStore.getState().clear();
     expect(useConsoleStore.getState().entries).toHaveLength(0);
+  });
+
+  // RL-044 Slice 1B fold A — `clear` also resets the payload-kind
+  // chip filter so a fresh run never displays "No entries match the
+  // active filters" against stale filter state.
+  it('clear also resets payload-kind chip filters', () => {
+    useConsoleStore.getState().togglePayloadKindFilter('table');
+    useConsoleStore.getState().togglePayloadKindFilter('mapSet');
+    expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(2);
+    useConsoleStore.getState().clear();
+    expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(0);
   });
 
   it('should assign unique IDs to each entry', () => {
@@ -119,5 +131,47 @@ describe('consoleStore', () => {
     useConsoleStore.getState().toggleTimestamps();
     useConsoleStore.getState().toggleTimestamps();
     expect(useConsoleStore.getState().showTimestamps).toBe(true);
+  });
+
+  // --- RL-044 Slice 1B fold A — payload-kind filter tests ---
+
+  it('starts with an empty hiddenPayloadKinds set', () => {
+    expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(0);
+  });
+
+  it('toggles a payload kind into the hidden set, then out again', () => {
+    useConsoleStore.getState().togglePayloadKindFilter('table');
+    expect(useConsoleStore.getState().hiddenPayloadKinds.has('table')).toBe(true);
+    useConsoleStore.getState().togglePayloadKindFilter('table');
+    expect(useConsoleStore.getState().hiddenPayloadKinds.has('table')).toBe(false);
+  });
+
+  it('clearPayloadKindFilters empties the set even with multiple hidden kinds', () => {
+    useConsoleStore.getState().togglePayloadKindFilter('table');
+    useConsoleStore.getState().togglePayloadKindFilter('mapSet');
+    useConsoleStore.getState().togglePayloadKindFilter('errorish');
+    expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(3);
+    useConsoleStore.getState().clearPayloadKindFilters();
+    expect(useConsoleStore.getState().hiddenPayloadKinds.size).toBe(0);
+  });
+
+  // --- RL-044 Slice 1B — additive payload field on entries ---
+
+  it('preserves the rich payload alongside content when present', () => {
+    useConsoleStore.getState().addEntry({
+      type: 'log',
+      content: 'Table(2×2)',
+      payload: [{ kind: 'table', columns: ['a', 'b'], rows: [] }],
+    });
+    const entry = useConsoleStore.getState().entries[0]!;
+    expect(entry.content).toBe('Table(2×2)');
+    expect(entry.payload).toBeDefined();
+    expect(entry.payload![0]).toMatchObject({ kind: 'table' });
+  });
+
+  it('keeps payload undefined when the runner does not supply one', () => {
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'plain' });
+    const entry = useConsoleStore.getState().entries[0]!;
+    expect(entry.payload).toBeUndefined();
   });
 });

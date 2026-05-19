@@ -9,7 +9,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useDraggable } from '../../hooks/useDraggable';
 import { cn } from '../../utils/cn';
 import { EyebrowMono, MonoBadge, TypePill } from '../ui/primitives';
-import type { ScopeValue, ScopeVariable } from '../../../shared/scopeSnapshot';
+import type { ScopeValue } from '../../../shared/scopeSnapshot';
 
 const SUPPORTED_LANGUAGES = new Set(['javascript', 'typescript', 'python']);
 
@@ -41,10 +41,6 @@ function valuePreview(value: ScopeValue): string {
     case 'error':
       return value.message;
   }
-}
-
-function visibleVariables(variables: readonly ScopeVariable[]): readonly ScopeVariable[] {
-  return variables.slice(0, 6);
 }
 
 export function FloatingVariablesCard() {
@@ -112,11 +108,8 @@ export function FloatingVariablesCard() {
   const container = typeof document !== 'undefined' ? document.body : null;
   if (!container) return null;
 
-  const entries = visibleVariables(scopeSnapshot.variables);
-  const hiddenCount = Math.max(
-    0,
-    scopeSnapshot.variables.length - entries.length + (scopeSnapshot.truncatedCount ?? 0),
-  );
+  const entries = scopeSnapshot.variables;
+  const hiddenCount = Math.max(0, scopeSnapshot.truncatedCount ?? 0);
 
   return createPortal(
     <section
@@ -167,7 +160,7 @@ export function FloatingVariablesCard() {
 
       {variablesCardCollapsed ? null : (
         <>
-          <div className="grid gap-1 px-3 pb-2">
+          <div className="floating-variables-card-body">
             {entries.length === 0 ? (
               <p className="px-1 py-4 text-center text-[12px] italic text-fg-muted">
                 {t('variableInspector.panel.empty')}

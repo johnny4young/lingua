@@ -51,6 +51,20 @@ describe('JS loop protection', () => {
     const result = injectJSLoopProtection(code, 100);
     expect(result).toContain('line 2');
   });
+
+  it('preserves JS line count so inline results stay aligned', () => {
+    const code = [
+      'for (const item of items) {',
+      '  console.log(item);',
+      '}',
+      'value',
+    ].join('\n');
+
+    const result = injectJSLoopProtection(code, 100);
+
+    expect(result.split('\n')).toHaveLength(code.split('\n').length);
+    expect(result.split('\n')[3]).toBe('value');
+  });
 });
 
 describe('Python loop protection', () => {

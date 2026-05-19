@@ -29,6 +29,62 @@ describe('js-worker module', () => {
     // The file has `export {};` – the module object should be empty
     expect(Object.keys(mod)).toHaveLength(0);
   });
+
+  it('console.table consumes the optional columns arg in both payload and text fallback', async () => {
+    vi.resetModules();
+    const messages: Array<Record<string, unknown>> = [];
+    let messageHandler:
+      | ((event: { data: unknown }) => void | Promise<void>)
+      | null = null;
+
+    vi.stubGlobal('self', {
+      addEventListener: vi.fn(
+        (
+          type: string,
+          handler: (event: { data: unknown }) => void | Promise<void>
+        ) => {
+          if (type === 'message') {
+            messageHandler = handler;
+          }
+        }
+      ),
+      postMessage: vi.fn((message: Record<string, unknown>) => {
+        messages.push(message);
+      }),
+    });
+
+    await import('@/workers/js-worker');
+    expect(messageHandler).not.toBeNull();
+
+    await messageHandler!({
+      data: {
+        type: 'execute',
+        runId: 'run-1',
+        code: 'console.table([{ name: "alice", age: 30 }], ["age"])',
+        resultTruncationMarker: '[result truncated]',
+      },
+    });
+
+    const consoleMessage = messages.find((message) => message.type === 'console');
+    expect(consoleMessage).toMatchObject({
+      runId: 'run-1',
+      method: 'log',
+      args: ['Table(1×1)'],
+      consoleTableInvoked: true,
+    });
+    const payload = consoleMessage?.payload as Array<{
+      kind: string;
+      columns: string[];
+      rows: unknown[][];
+    }>;
+    expect(payload).toHaveLength(1);
+    expect(payload[0]).toMatchObject({
+      kind: 'table',
+      columns: ['age'],
+    });
+    expect(payload[0]?.rows[0]).toHaveLength(1);
+    expect(messages.some((message) => message.type === 'done')).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

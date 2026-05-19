@@ -349,16 +349,44 @@ export interface ConsoleEntry {
   line?: number;
   /** Execution time in ms — shown as a badge when set (only on the last entry) */
   executionTime?: number;
+  /**
+   * RL-044 Slice 1B — rich payload aligned with the legacy `content` string.
+   * One entry per console-arg; absent on non-JS runners and on the text
+   * fallback path. The renderer must always tolerate missing payload.
+   */
+  payload?: RichOutputPayload[];
 }
+
+export type ConsolePayloadKindBucket =
+  | 'table'
+  | 'object'
+  | 'array'
+  | 'mapSet'
+  | 'date'
+  | 'promise'
+  | 'text'
+  | 'rawText'
+  | 'image'
+  | 'chart';
+
+export type ConsolePayloadKindFilter = ConsolePayloadKindBucket | 'errorish';
 
 export interface ConsoleState {
   entries: ConsoleEntry[];
   /** Which entry types are currently visible */
   activeFilters: Set<ConsoleEntryType>;
+  /**
+   * RL-044 Slice 1B fold A — which payload-kind chips are dimmed-out.
+   * Empty set = all visible. We track *hidden* kinds so the default
+   * (no filter applied) does not require pre-populating every kind.
+   */
+  hiddenPayloadKinds: Set<ConsolePayloadKindFilter>;
   showTimestamps: boolean;
   addEntry: (entry: Omit<ConsoleEntry, 'id' | 'timestamp'>) => void;
   clear: () => void;
   toggleFilter: (type: ConsoleEntryType) => void;
+  togglePayloadKindFilter: (kind: ConsolePayloadKindFilter) => void;
+  clearPayloadKindFilters: () => void;
   toggleTimestamps: () => void;
 }
 
@@ -508,6 +536,16 @@ export interface SettingsState {
    */
   variableInspectorScopeDepth: number;
   /**
+   * RL-044 Slice 1B fold E — Settings → Editor master toggle for the
+   * rich console output renderer. Default `true` so the rich
+   * dispatch lights up out of the box; opt-out keeps the legacy
+   * `<AnsiContent>` text path for users who prefer it. When OFF,
+   * the `<ConsoleEntryRenderer>` is never mounted regardless of
+   * whether the runner sent a payload — the text fallback is the
+   * canonical rendering.
+   */
+  consoleRichRenderingEnabled: boolean;
+  /**
    * RL-019 Slice 2 fold E — one-shot dismissal flag for the
    * "Node mode runs your code with full filesystem and network
    * access" trust notice. Set the first time the user successfully
@@ -639,6 +677,12 @@ export interface SettingsState {
    * RL-020 Slice 7 fold E — flip the countdown-in-pill toggle.
    */
   toggleShowTimeoutCountdown: () => void;
+  /**
+   * RL-044 Slice 1B fold E — flip the rich console output toggle.
+   * `OFF` makes `<ConsolePanel>` paint the legacy `<AnsiContent>`
+   * text path for every entry even when the runner sent a payload.
+   */
+  toggleConsoleRichRendering: () => void;
   /**
    * RL-020 Slice 2 fold F — mark the workflow-mode onboarding toast
    * acknowledged. Idempotent. Called when the user explicitly
@@ -857,6 +901,13 @@ export interface ConsoleOutput {
   type: 'log' | 'warn' | 'error' | 'info';
   args: string[];
   line?: number;
+  /**
+   * RL-044 Slice 1B — rich payload aligned by index with `args`. The legacy
+   * `args` string array still ships as the text fallback for non-JS runners
+   * + Settings opt-out + payload-missing edge cases. Renderers must treat
+   * this as additive: when absent, fall back to `args`.
+   */
+  payload?: RichOutputPayload[];
 }
 
 export interface LanguageRunner {
@@ -902,6 +953,19 @@ export type WorkerResponse =
       method: ConsoleOutput['type'];
       args: string[];
       line?: number;
+      /**
+       * RL-044 Slice 1B — additive typed payload aligned by index
+       * with `args`. Absent from runners that don't emit rich
+       * payloads (Python / Go / Rust today); the renderer text path
+       * stays the canonical fallback.
+       */
+      payload?: RichOutputPayload[];
+      /**
+       * RL-044 Slice 1B fold F — adoption signal for `console.table()`.
+       * The runner promotes this into a `runtime.console_table_called`
+       * telemetry event; never read by the panel.
+       */
+      consoleTableInvoked?: boolean;
     }
   | { type: 'result'; runId: string; value?: unknown }
   | {

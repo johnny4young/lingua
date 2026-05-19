@@ -15,8 +15,10 @@ export const DEFAULT_MAX_ITERATIONS = 10_000;
 /**
  * Inject loop protection into JavaScript/TypeScript code.
  *
- * Strategy: Initialize a counter variable before each loop, then
- * increment and check it as the first statement inside the loop body.
+ * Strategy: initialize a counter immediately before each loop and
+ * increment/check it as the first statement inside the loop body.
+ * The injected JS stays on the loop's original source line so inline
+ * results and stack-derived console locations keep matching the editor.
  * Each loop gets a unique counter to support nesting.
  */
 export function injectJSLoopProtection(code: string, maxIterations: number = DEFAULT_MAX_ITERATIONS): string {
@@ -36,12 +38,10 @@ export function injectJSLoopProtection(code: string, maxIterations: number = DEF
     if (isWhileLoop || isForLoop || isDoLoop) {
       const id = loopId++;
       const counter = `__lp${id}`;
-      // Initialize counter before the loop
-      result.push(`var ${counter}=0;`);
-      // Original loop line
-      result.push(line);
-      // Check inside the loop body (after the opening brace)
-      result.push(`  if(++${counter}>${maxIterations}) throw new Error("Loop exceeded ${maxIterations} iterations (line ${i + 1}). Possible infinite loop.");`);
+      const indent = line.slice(0, line.length - trimmed.length);
+      const loopHead = line.slice(indent.length);
+      const guard = `if(++${counter}>${maxIterations}) throw new Error("Loop exceeded ${maxIterations} iterations (line ${i + 1}). Possible infinite loop.");`;
+      result.push(`${indent}var ${counter}=0; ${loopHead} ${guard}`);
     } else {
       result.push(line);
     }

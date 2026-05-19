@@ -118,6 +118,14 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().minimap).toBe(true);
   });
 
+  it('defaults rich console rendering on and toggles it from Settings', () => {
+    expect(useSettingsStore.getState().consoleRichRenderingEnabled).toBe(true);
+    useSettingsStore.getState().toggleConsoleRichRendering();
+    expect(useSettingsStore.getState().consoleRichRenderingEnabled).toBe(false);
+    useSettingsStore.getState().toggleConsoleRichRendering();
+    expect(useSettingsStore.getState().consoleRichRenderingEnabled).toBe(true);
+  });
+
   it('should set layout preset', () => {
     useSettingsStore.getState().setLayoutPreset('vertical');
     expect(useSettingsStore.getState().layoutPreset).toBe('vertical');

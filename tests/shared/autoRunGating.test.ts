@@ -217,7 +217,6 @@ describe('isLikelyComplete — Monaco auto-pair defense', () => {
   // ability to catch that user-visible incompleteness.
   const autoPairCases: Array<[string, string]> = [
     ['auto-paired paren after =', 'for (let i = )'],
-    ['auto-paired bracket after ,', 'const arr = [1, ]'],
     ['auto-paired paren after arrow', 'items.map((x) => )'],
     ['auto-paired paren after ===', 'if (x === )'],
     ['auto-paired brace after :', 'const obj = { a: }'],
@@ -249,6 +248,49 @@ describe('isLikelyComplete — Monaco auto-pair defense', () => {
 
   it('does NOT flag valid balanced array: `[1, 2]`', () => {
     expect(isLikelyComplete('javascript', 'const x = [1, 2];')).toEqual({
+      ready: true,
+      reason: 'ok',
+    });
+  });
+
+  it('does NOT flag valid trailing commas before a close delimiter', () => {
+    expect(
+      isLikelyComplete(
+        'typescript',
+        [
+          'sanitizeLogString(',
+          '  value,',
+          ');',
+          'const pair = [1, 2,];',
+          'const obj = { a: 1, };',
+        ].join('\n')
+      )
+    ).toEqual({
+      ready: true,
+      reason: 'ok',
+    });
+  });
+
+  it('does NOT pause a formatted sanitizer helper with regex literals and trailing commas', () => {
+    const code = [
+      "const REDACTED_LOG_VALUE = '[REDACTED]';",
+      'function sanitizeLogString(value: string): string {',
+      '  return value',
+      '    .replace(',
+      '      /([a-z]+:\\/\\/)([^:/\\s@]+):([^@\\s]+)@/gi,',
+      '      `$1${REDACTED_LOG_VALUE}:${REDACTED_LOG_VALUE}@`,',
+      '    )',
+      '    .replace(',
+      '      /("authorization"\\s*:\\s*")Bearer\\s+[^"]+(")/gi,',
+      '      `$1Bearer ${REDACTED_LOG_VALUE}$2`,',
+      '    );',
+      '}',
+      'const error1 = new Error("Test error from Lingua");',
+      'console.log(sanitizeLogString("eee1"));',
+      '"abc";',
+    ].join('\n');
+
+    expect(isLikelyComplete('typescript', code)).toEqual({
       ready: true,
       reason: 'ok',
     });

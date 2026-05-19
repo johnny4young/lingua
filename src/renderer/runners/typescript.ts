@@ -36,6 +36,7 @@ import {
   appendScopeCapture,
   collectTopLevelScopeNames,
 } from '../utils/scopeCapture';
+import { buildGeneratedSourceLineMap } from '../utils/sourceLineMap';
 import {
   appendCappedConsole,
   capStderrIfOverflowing,
@@ -110,11 +111,10 @@ export class TypeScriptRunner implements LanguageRunner {
   /**
    * Transpile TypeScript to JavaScript using esbuild-wasm.
    *
-   * Slice 1.5 fold G — when `withMap` is true (debug runs only) we ask
-   * esbuild for an external source map so the debugger instrumenter
-   * can compose the TS→JS map with its own JS→JS map and pause at the
-   * user's TS line. The map costs ~2x bytes per call; non-debug runs
-   * stay on the cheap `sourcemap: false` path.
+   * Slice 1.5 fold G — when `withMap` is true we ask esbuild for an
+   * external source map. Debug runs compose it with the debugger
+   * instrumenter map; normal worker runs use it to report console
+   * output on the original TS line instead of the post-transpile JS line.
    */
   private async transpile(
     code: string,
@@ -225,11 +225,11 @@ export class TypeScriptRunner implements LanguageRunner {
 
     // Step 2: Transpile TS -> JS. Transpile happens BEFORE the parent
     // kill timer arms; an esbuild parse error reports immediately and
-    // never spawns a worker. Slice 1.5 fold G — request the source map
-    // only on debug runs; the map is what the instrumenter composes
-    // with its own JS→JS map to pause at the user's TS line.
+    // never spawns a worker. Request a source map for TS coordinate
+    // repair: debug composes it with the instrumenter map, while normal
+    // runs pass a generated-line map into the worker for console output.
     const { js, map: tsMap, error: transpileError } =
-      await this.transpile(codeForTranspile, debug);
+      await this.transpile(codeForTranspile, true);
 
     if (executionGeneration !== this.executionGeneration) {
       return runnerStoppedResult(t, { stdout: [], stderr: [] });
@@ -271,6 +271,13 @@ export class TypeScriptRunner implements LanguageRunner {
       } catch {
         instrumented = js;
       }
+    } else {
+      const generatedLineMap = buildGeneratedSourceLineMap(
+        jsWithScopeCapture,
+        tsMap,
+      );
+      sourceLineMap =
+        Object.keys(generatedLineMap).length > 0 ? generatedLineMap : undefined;
     }
 
     // Step 3: Execute the transpiled JS using the same JS worker
@@ -344,7 +351,17 @@ export class TypeScriptRunner implements LanguageRunner {
 
         switch (msg.type) {
           case 'console': {
-            const output: ConsoleOutput = { type: msg.method, args: msg.args, line: msg.line };
+            // RL-044 Slice 1B — same payload pass-through as the JS
+            // runner; TS rides the JS worker post-esbuild so it gets
+            // the typed `RichOutputPayload[]` array for free.
+            const output: ConsoleOutput = msg.payload
+              ? { type: msg.method, args: msg.args, line: msg.line, payload: msg.payload }
+              : { type: msg.method, args: msg.args, line: msg.line };
+            if (msg.consoleTableInvoked === true) {
+              void trackEvent('runtime.console_table_called', {
+                language: 'typescript',
+              });
+            }
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {
                 droppedStderr = appendCappedConsole(

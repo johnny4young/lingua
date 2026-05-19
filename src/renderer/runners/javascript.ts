@@ -291,11 +291,20 @@ export class JavaScriptRunner implements LanguageRunner {
 
         switch (msg.type) {
           case 'console': {
-            const output: ConsoleOutput = {
-              type: msg.method,
-              args: msg.args,
-              line: msg.line,
-            };
+            // RL-044 Slice 1B — thread the additive `payload` from the
+            // worker through to `ConsoleOutput`. Absent when the
+            // (legacy) protocol omits the field, so the renderer text
+            // path keeps working unchanged.
+            const output: ConsoleOutput = msg.payload
+              ? { type: msg.method, args: msg.args, line: msg.line, payload: msg.payload }
+              : { type: msg.method, args: msg.args, line: msg.line };
+            // RL-044 Slice 1B fold F — `console.table` adoption signal.
+            // Fire-and-forget; the renderer never blocks on telemetry.
+            if (msg.consoleTableInvoked === true) {
+              void trackEvent('runtime.console_table_called', {
+                language: 'javascript',
+              });
+            }
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {
                 droppedStderr = appendCappedConsole(

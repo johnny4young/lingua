@@ -112,6 +112,19 @@ export const TELEMETRY_EVENTS = [
   // is `'floating'` or `'bottom'`. Mirrored on update-server (deferred
   // to a follow-up — see RL-093 Slice 3 Status Update in PLAN.md).
   'runtime.variable_inspector_surface_changed',
+  // RL-044 Slice 1B — rich console payload rendered. Fires at most once
+  // per console entry first-render so adoption per payload kind is
+  // observable. Closed-enum payload `{ kind }` from
+  // `CONSOLE_RICH_KIND_BUCKETS`. No source code, no expression
+  // content, no per-entry counts. Mirrored on update-server with a
+  // parity test.
+  'runtime.console_rich_rendered',
+  // RL-044 Slice 1B fold F — `console.table()` shim adoption signal.
+  // Separate from `runtime.console_rich_rendered` so a dashboard can
+  // count discovery of the explicit shim (vs. auto-detection of
+  // tabular arrays by `serializeRichValue`). Closed-enum payload
+  // `{ language }` only.
+  'runtime.console_table_called',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -241,6 +254,14 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-093 Slice 3 fold F — `surface` is the closed `'floating' | 'bottom'`
   // enum.
   'runtime.variable_inspector_surface_changed': ['surface'],
+  // RL-044 Slice 1B — `kind` is the closed `ConsolePayloadKindBucket`
+  // enum (`table` / `object` / `array` / `mapSet` / `date` / `promise`
+  // / `text` / `rawText` / `image` / `chart`). Mirrored on
+  // update-server.
+  'runtime.console_rich_rendered': ['kind'],
+  // RL-044 Slice 1B fold F — `language` is the language-pack id.
+  // Mirrored on update-server.
+  'runtime.console_table_called': ['language'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -302,6 +323,24 @@ const VARIABLE_INSPECTOR_COUNT_BUCKETS = new Set([
   '6-20',
   '21-50',
   '51+',
+]);
+// RL-044 Slice 1B — closed enum mirroring `ConsolePayloadKindBucket`
+// in `src/renderer/types/index.ts`. Duplicated here so the redactor
+// stays a pure module without an import cycle; a parity test asserts
+// both sides stay in sync (the union of `ScopeValue` discriminants the
+// renderer maps to `'object' | 'array' | 'text'` + the additional
+// `RichOutputPayload` kinds reserved in `src/shared/richOutput.ts`).
+export const CONSOLE_RICH_KIND_BUCKETS = new Set([
+  'table',
+  'object',
+  'array',
+  'mapSet',
+  'date',
+  'promise',
+  'text',
+  'rawText',
+  'image',
+  'chart',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -509,6 +548,15 @@ function isAllowedValue(
       return false;
     case 'runtime.variable_inspector_surface_changed':
       if (key === 'surface') return value === 'floating' || value === 'bottom';
+      return false;
+    case 'runtime.console_rich_rendered':
+      if (key === 'kind')
+        return (
+          typeof value === 'string' && CONSOLE_RICH_KIND_BUCKETS.has(value)
+        );
+      return false;
+    case 'runtime.console_table_called':
+      if (key === 'language') return isSafeToken(value);
       return false;
     default: {
       const exhaustive: never = event;

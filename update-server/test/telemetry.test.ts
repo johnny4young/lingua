@@ -573,6 +573,94 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(workerValues).toEqual(['1', '2-5', '20-plus', '6-20']);
   });
 
+  it('CONSOLE_RICH_KIND_BUCKETS stays in sync with the renderer (RL-044 Slice 1B)', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe =
+      /export const CONSOLE_RICH_KIND_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    // Lock the kind enum so a Slice 2 widening (image / chart) must
+    // amend both Sets explicitly. text / rawText are catch-all
+    // buckets — the renderer renders them through the text path.
+    expect(workerValues).toEqual([
+      'array',
+      'chart',
+      'date',
+      'image',
+      'mapSet',
+      'object',
+      'promise',
+      'rawText',
+      'table',
+      'text',
+    ]);
+  });
+
+  it('runtime.console_rich_rendered accepts closed-enum kind, drops unknown (RL-044 Slice 1B)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.console_rich_rendered',
+      properties: { kind: 'table' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownResponse = await postTelemetry({
+      event: 'runtime.console_rich_rendered',
+      properties: { kind: 'pivot-table' },
+    });
+    expect(unknownResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter(
+        (line) =>
+          line.includes('"telemetry.event"') &&
+          line.includes('"runtime.console_rich_rendered"')
+      );
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const okLine = eventLines.find((line) => line.includes('"kind":"table"'));
+    expect(okLine).toBeDefined();
+    // The unknown value should be dropped, so the second event line
+    // never carries `"pivot-table"` in any field.
+    const unknownLine = eventLines.find((line) =>
+      line.includes('pivot-table')
+    );
+    expect(unknownLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
+  it('runtime.console_table_called accepts safe-token language (RL-044 Slice 1B fold F)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.console_table_called',
+      properties: { language: 'typescript' },
+    });
+    expect(okResponse.status).toBe(204);
+    const eventLine = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .find(
+        (line) =>
+          line.includes('"telemetry.event"') &&
+          line.includes('"runtime.console_table_called"')
+      );
+    expect(eventLine).toBeDefined();
+    const parsed = JSON.parse(eventLine!);
+    expect(parsed.properties).toEqual({ language: 'typescript' });
+    consoleSpy.mockRestore();
+  });
+
   it('runtime.auto_log_enabled accepts boolean enabled, drops non-boolean (RL-020 Slice 5)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({

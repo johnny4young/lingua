@@ -311,6 +311,7 @@ export function useInlineResultWidgets(
     }
     for (const [line, items] of grouped) {
       const domNode = renderInlineResultNode(items);
+      domNode.setAttribute('data-line', String(line));
       // Overlay widgets are absolutely-positioned children of the
       // editor's overlay layer. We control position via inline style;
       // Monaco only places the host element on the page.

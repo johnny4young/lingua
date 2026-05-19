@@ -1,8 +1,13 @@
 import { Clock, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ConsoleEntry, ConsoleEntryType } from '../../types';
+import type {
+  ConsoleEntry,
+  ConsoleEntryType,
+  ConsolePayloadKindFilter,
+} from '../../types';
 import { useConsoleStore } from '../../stores/consoleStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
@@ -13,6 +18,8 @@ import { IconButton, Kbd, Tooltip } from '../ui/chrome';
 import { EyebrowMono, MonoBadge } from '../ui/primitives';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
+import { ConsoleEntryRenderer } from './ConsoleEntryRenderer';
+import { richKindBucket } from './richConsoleFormat';
 
 interface AnsiSpan {
   text: string;
@@ -171,13 +178,24 @@ function EntryRow({
   entry,
   showTimestamps,
   typeLabel,
+  repeatCount,
+  richRenderingEnabled,
 }: {
   entry: ConsoleEntry;
   showTimestamps: boolean;
   typeLabel: Record<ConsoleEntryType, string>;
+  /** RL-044 Slice 1B fold H — number of collapsed duplicate entries. ≥2 surfaces the ×N badge. */
+  repeatCount: number;
+  /** RL-044 Slice 1B fold E — when false, paint the legacy text path even when payload is set. */
+  richRenderingEnabled: boolean;
 }) {
   const labelClass = TYPE_BADGE[entry.type];
   const contentClass = TYPE_COLOR[entry.type];
+  // Capture the payload in a const so the rich-render branch reads
+  // through narrowed types without resorting to a non-null assertion.
+  const payload = Array.isArray(entry.payload) ? entry.payload : null;
+  const usesRichRender =
+    richRenderingEnabled && payload !== null && payload.length > 0;
 
   return (
     <div className="group flex gap-3 rounded-2xl px-2 py-1.5 hover:bg-surface-strong/52">
@@ -190,7 +208,22 @@ function EntryRow({
       {entry.line !== undefined && (
         <span className="shrink-0 select-none text-muted">L{entry.line}</span>
       )}
-      <AnsiContent text={entry.content} className={contentClass} />
+      {usesRichRender && payload !== null ? (
+        <div className={contentClass}>
+          <ConsoleEntryRenderer payloads={payload} fallbackText={entry.content} />
+        </div>
+      ) : (
+        <AnsiContent text={entry.content} className={contentClass} />
+      )}
+      {repeatCount > 1 && (
+        <span
+          className="shrink-0 select-none rounded-full border border-border/60 px-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle"
+          data-testid="console-repeat-count"
+          title={`×${repeatCount}`}
+        >
+          ×{repeatCount}
+        </span>
+      )}
       {entry.executionTime !== undefined && (
         <span className="ml-auto shrink-0 select-none tabular-nums text-muted">
           {formatExecTime(entry.executionTime)}
@@ -200,13 +233,106 @@ function EntryRow({
   );
 }
 
+/**
+ * RL-044 Slice 1B fold A — closed-enum list of payload-kind filter
+ * chips. Mirrors the order of the rendered RichValue dispatch so the
+ * chip row reads the same left-to-right as a typical row of payloads.
+ */
+const PAYLOAD_KIND_CHIPS: ConsolePayloadKindFilter[] = [
+  'table',
+  'object',
+  'array',
+  'mapSet',
+  'text',
+  'errorish',
+];
+
+/**
+ * RL-044 Slice 1B fold H — collapse consecutive identical entries.
+ * Two entries are equal when their `type` + `line` + `content` +
+ * JSON-shape of `payload` match. The collapse is purely visual: the
+ * underlying entries stay in the store, so `Recent runs` and other
+ * surfaces still see the full list.
+ */
+interface CollapsedRow {
+  entry: ConsoleEntry;
+  repeatCount: number;
+}
+
+function collapseIdenticalEntries(entries: ConsoleEntry[]): CollapsedRow[] {
+  const result: CollapsedRow[] = [];
+  for (const entry of entries) {
+    const last = result.length > 0 ? result[result.length - 1] : undefined;
+    if (last && entriesAreEqual(last.entry, entry)) {
+      last.repeatCount += 1;
+    } else {
+      result.push({ entry, repeatCount: 1 });
+    }
+  }
+  return result;
+}
+
+function entriesAreEqual(a: ConsoleEntry, b: ConsoleEntry): boolean {
+  if (a.type !== b.type) return false;
+  if (a.line !== b.line) return false;
+  if (a.content !== b.content) return false;
+  // Cheap length check before paying for JSON.stringify — short-
+  // circuits the common case where two entries share `content` but
+  // their payload arrays differ in size (e.g. `console.log("x")` vs.
+  // `console.log("x", extra)`).
+  const aLen = a.payload?.length ?? 0;
+  const bLen = b.payload?.length ?? 0;
+  if (aLen !== bLen) return false;
+  if (aLen === 0) return true;
+  const aPayload = JSON.stringify(a.payload);
+  const bPayload = JSON.stringify(b.payload);
+  return aPayload === bPayload;
+}
+
+/** True when the row belongs to a payload-kind bucket currently hidden. */
+function entryFilteredByPayloadKind(
+  entry: ConsoleEntry,
+  hidden: ReadonlySet<ConsolePayloadKindFilter> | undefined
+): boolean {
+  if (!hidden || hidden.size === 0) return false;
+  // Errorish entries (warn / error) are filtered when the special
+  // `'errorish'` bucket is hidden, regardless of payload kind.
+  if (hidden.has('errorish') && (entry.type === 'warn' || entry.type === 'error')) {
+    return true;
+  }
+  if (!entry.payload || entry.payload.length === 0) {
+    // No payload — show unless the user hid `'text'` (the catch-all
+    // bucket the renderer dispatches for primitive / function / error
+    // payloads + the no-payload fallback).
+    return hidden.has('text');
+  }
+  // `richKindBucket` returns `ConsolePayloadKindBucket`, which is
+  // assignable to `ConsolePayloadKindFilter` (the filter union just
+  // widens the bucket with `'errorish'`). No cast needed.
+  return entry.payload.some((p) => hidden.has(richKindBucket(p)));
+}
+
 export function ConsolePanel() {
   const { t } = useTranslation();
   const { run, isRunning } = useRunner();
   const effectiveTier = useEffectiveTier();
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
-  const { entries, activeFilters, showTimestamps, clear, toggleFilter, toggleTimestamps } =
-    useConsoleStore();
+  const {
+    entries,
+    activeFilters,
+    hiddenPayloadKinds,
+    showTimestamps,
+    clear,
+    toggleFilter,
+    togglePayloadKindFilter,
+    toggleTimestamps,
+  } = useConsoleStore();
+  // RL-044 Slice 1B fold E — master toggle for the rich console
+  // dispatch. Off → every row paints through `<AnsiContent>` even if
+  // the runner sent a payload.
+  const consoleRichRenderingEnabled = useSettingsStore(
+    (s) => s.consoleRichRenderingEnabled
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false);
   const typeLabel: Record<ConsoleEntryType, string> = {
@@ -272,7 +398,17 @@ export function ConsolePanel() {
     });
   }, [effectiveTier, t]);
 
-  const visibleEntries = entries.filter((entry) => activeFilters.has(entry.type));
+  // RL-044 Slice 1B — apply both the legacy type filter AND the new
+  // payload-kind chip filter (fold A), then collapse consecutive
+  // identical entries (fold H). Memoised so a flooded console only
+  // re-pays the cost when something actually changed.
+  const visibleEntries = useMemo(() => {
+    const typed = entries.filter((entry) => activeFilters.has(entry.type));
+    const filtered = typed.filter(
+      (entry) => !entryFilteredByPayloadKind(entry, hiddenPayloadKinds)
+    );
+    return collapseIdenticalEntries(filtered);
+  }, [entries, activeFilters, hiddenPayloadKinds]);
 
   const totalCount = entries.length;
   return (
@@ -312,6 +448,35 @@ export function ConsolePanel() {
                 >
                   {typeLabel[type]}
                   {count > 0 && <span className="ml-1 opacity-70">{count}</span>}
+                </button>
+              </Tooltip>
+            );
+          })}
+          <span className="mx-1 hidden h-5 w-px bg-border/60 sm:block" aria-hidden />
+          {/* RL-044 Slice 1B fold A — payload-kind chip row. Default
+              empty (every kind visible); clicking a chip hides that
+              kind. `text` is the catch-all bucket the renderer
+              dispatches for primitive / function / error payloads +
+              the no-payload fallback. */}
+          {PAYLOAD_KIND_CHIPS.map((kind) => {
+            const hidden = hiddenPayloadKinds.has(kind);
+            return (
+              <Tooltip
+                key={kind}
+                content={t(`console.rich.filterChip.${kind}`)}
+              >
+                <button
+                  type="button"
+                  onClick={() => togglePayloadKindFilter(kind)}
+                  data-active={hidden ? 'false' : 'true'}
+                  data-testid={`console-payload-chip-${kind}`}
+                  className={`console-filter-chip rounded-full border px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em] transition-colors ${
+                    hidden
+                      ? 'border-border/40 text-fg-subtle hover:border-border/80 hover:bg-bg-panel-alt/70'
+                      : 'border-border-strong/90 bg-bg-panel-alt text-foreground'
+                  }`}
+                >
+                  {t(`console.rich.filterChip.${kind}`)}
                 </button>
               </Tooltip>
             );
@@ -367,12 +532,14 @@ export function ConsolePanel() {
             ) : null}
           </div>
         ) : (
-          visibleEntries.map((entry) => (
+          visibleEntries.map(({ entry, repeatCount }) => (
             <EntryRow
               key={entry.id}
               entry={entry}
               showTimestamps={showTimestamps}
               typeLabel={typeLabel}
+              repeatCount={repeatCount}
+              richRenderingEnabled={consoleRichRenderingEnabled}
             />
           ))
         )}

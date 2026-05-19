@@ -63,6 +63,12 @@ export const TELEMETRY_EVENT_NAMES = [
   // `runtime.variable_inspector_surface_changed`. Closed-enum payload
   // `{ surface }` where `surface` is `'floating'` or `'bottom'`.
   'runtime.variable_inspector_surface_changed',
+  // RL-044 Slice 1B — mirror of `runtime.console_rich_rendered`.
+  // Closed-enum payload `{ kind }` from `CONSOLE_RICH_KIND_BUCKETS`.
+  'runtime.console_rich_rendered',
+  // RL-044 Slice 1B fold F — mirror of `runtime.console_table_called`.
+  // Closed-enum payload `{ language }` only.
+  'runtime.console_table_called',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -103,6 +109,10 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-093 Slice 3 fold F — mirror of
   // `runtime.variable_inspector_surface_changed`.
   'runtime.variable_inspector_surface_changed': ['surface'],
+  // RL-044 Slice 1B — mirror of `runtime.console_rich_rendered`.
+  'runtime.console_rich_rendered': ['kind'],
+  // RL-044 Slice 1B fold F — mirror of `runtime.console_table_called`.
+  'runtime.console_table_called': ['language'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -160,6 +170,21 @@ const VARIABLE_INSPECTOR_COUNT_BUCKETS = new Set([
   '6-20',
   '21-50',
   '51+',
+]);
+// RL-044 Slice 1B — closed-enum mirror of
+// `CONSOLE_RICH_KIND_BUCKETS` in `src/shared/telemetry.ts`. Parity
+// test asserts both Sets stay aligned.
+export const CONSOLE_RICH_KIND_BUCKETS = new Set([
+  'table',
+  'object',
+  'array',
+  'mapSet',
+  'date',
+  'promise',
+  'text',
+  'rawText',
+  'image',
+  'chart',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -441,6 +466,15 @@ function isAllowedValue(
       return false;
     case 'runtime.variable_inspector_surface_changed':
       if (key === 'surface') return value === 'floating' || value === 'bottom';
+      return false;
+    case 'runtime.console_rich_rendered':
+      if (key === 'kind')
+        return (
+          typeof value === 'string' && CONSOLE_RICH_KIND_BUCKETS.has(value)
+        );
+      return false;
+    case 'runtime.console_table_called':
+      if (key === 'language') return isSafeToken(value);
       return false;
     default: {
       const exhaustive: never = event;

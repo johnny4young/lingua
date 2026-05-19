@@ -1,3 +1,4 @@
+import MagicString from 'magic-string';
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock esbuild-wasm to avoid jsdom TextEncoder incompatibility
@@ -94,6 +95,82 @@ describe('TypeScriptRunner', () => {
     }
   });
 
+  it('forwards rich console payloads from the shared JS worker', async () => {
+    const esbuild = await import('esbuild-wasm');
+    vi.mocked(esbuild.transform).mockResolvedValue({
+      code: 'console.table(rows)',
+      warnings: [],
+    });
+
+    const originalWorker = globalThis.Worker;
+
+    class MockWorker {
+      private messageHandler: ((event: MessageEvent) => void) | null = null;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') {
+          this.messageHandler = handler;
+        }
+      }
+
+      postMessage(message: { runId?: string }): void {
+        this.messageHandler?.({
+          data: {
+            type: 'console',
+            runId: message.runId,
+            method: 'log',
+            args: ['Table(1×1)'],
+            payload: [
+              {
+                kind: 'table',
+                columns: ['name'],
+                rows: [
+                  [{ kind: 'primitive', type: 'string', repr: '"alice"' }],
+                ],
+              },
+            ],
+            consoleTableInvoked: true,
+            line: 2,
+          },
+        } as MessageEvent);
+        this.messageHandler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 1 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new TypeScriptRunner();
+      await runner.init();
+
+      const result = await runner.execute('console.table(rows)');
+
+      expect(result.stdout).toHaveLength(1);
+      expect(result.stdout[0]).toMatchObject({
+        type: 'log',
+        args: ['Table(1×1)'],
+        line: 2,
+        payload: [{ kind: 'table', columns: ['name'] }],
+      });
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
   it('should preserve worker line numbers on console output', async () => {
     const esbuild = await import('esbuild-wasm');
     vi.mocked(esbuild.transform).mockResolvedValue({
@@ -144,6 +221,80 @@ describe('TypeScriptRunner', () => {
       const result = await runner.execute('console.log("hello")');
 
       expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 3 }]);
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
+  it('passes a TS source line map to the worker for normal console output', async () => {
+    const esbuild = await import('esbuild-wasm');
+    const source = 'console.log("hello")';
+    const ms = new MagicString(source);
+    ms.prepend('// generated helper\n');
+    vi.mocked(esbuild.transform).mockResolvedValue({
+      code: ms.toString(),
+      map: ms
+        .generateMap({
+          source: 'scratchpad.ts',
+          includeContent: true,
+          hires: true,
+        })
+        .toString(),
+      warnings: [],
+    });
+
+    const originalWorker = globalThis.Worker;
+    let postedLineMap: Record<number, number> | undefined;
+
+    class MockWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+
+      postMessage(message: { runId?: string; sourceLineMap?: Record<number, number> }): void {
+        postedLineMap = message.sourceLineMap;
+        const generatedLine = 2;
+        const mappedLine = message.sourceLineMap?.[generatedLine] ?? generatedLine;
+        const handler = this.listeners.get('message');
+        handler?.({
+          data: {
+            type: 'console',
+            runId: message.runId,
+            method: 'log',
+            args: ['hello'],
+            line: mappedLine,
+          },
+        } as MessageEvent);
+        handler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 4 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new TypeScriptRunner();
+      await runner.init();
+
+      const result = await runner.execute(source);
+
+      expect(postedLineMap?.[2]).toBe(1);
+      expect(result.stdout).toEqual([{ type: 'log', args: ['hello'], line: 1 }]);
     } finally {
       Object.defineProperty(globalThis, 'Worker', {
         value: originalWorker,

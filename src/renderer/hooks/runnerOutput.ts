@@ -59,19 +59,39 @@ export function toConsoleEntries(result: ExecutionResult): ConsoleEntryInput[] {
   const entries: ConsoleEntryInput[] = [];
 
   for (const output of result.stdout) {
-    entries.push({
-      type: output.type,
-      content: output.args.join(' '),
-      line: output.line,
-    });
+    // RL-044 Slice 1B — forward the optional rich payload alongside
+    // the legacy text content so the console renderer can dispatch.
+    entries.push(
+      output.payload
+        ? {
+            type: output.type,
+            content: output.args.join(' '),
+            line: output.line,
+            payload: output.payload,
+          }
+        : {
+            type: output.type,
+            content: output.args.join(' '),
+            line: output.line,
+          }
+    );
   }
 
   for (const output of result.stderr) {
-    entries.push({
-      type: output.type,
-      content: output.args.join(' '),
-      line: output.line,
-    });
+    entries.push(
+      output.payload
+        ? {
+            type: output.type,
+            content: output.args.join(' '),
+            line: output.line,
+            payload: output.payload,
+          }
+        : {
+            type: output.type,
+            content: output.args.join(' '),
+            line: output.line,
+          }
+    );
   }
 
   if (result.result !== undefined) {

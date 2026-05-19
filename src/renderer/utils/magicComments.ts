@@ -302,6 +302,115 @@ const AUTO_LOG_STATEMENT_KEYWORDS: ReadonlySet<string> = new Set([
   'module',
 ]);
 
+const AUTO_LOG_REGEX_PREFIX_KEYWORDS: ReadonlySet<string> = new Set([
+  'return',
+  'throw',
+  'case',
+  'delete',
+  'typeof',
+  'void',
+  'await',
+  'yield',
+]);
+
+function lastSignificantTokenForAutoLog(line: string): string {
+  let end = line.length;
+  while (end > 0) {
+    const code = line.charCodeAt(end - 1);
+    if (code <= 32 || code === 160 || code === 0xfeff) {
+      end--;
+      continue;
+    }
+    break;
+  }
+  if (end === 0) return '';
+
+  const last = line.charCodeAt(end - 1);
+  if (isAsciiIdentifierPart(last)) {
+    let start = end - 1;
+    while (start > 0 && isAsciiIdentifierPart(line.charCodeAt(start - 1))) {
+      start--;
+    }
+    return line.slice(start, end);
+  }
+
+  let start = end - 1;
+  while (
+    start > 0 &&
+    end - start < 4 &&
+    line.charCodeAt(start - 1) > 32 &&
+    line.charCodeAt(start - 1) !== 160 &&
+    line.charCodeAt(start - 1) !== 0xfeff &&
+    !isAsciiIdentifierPart(line.charCodeAt(start - 1))
+  ) {
+    start--;
+  }
+  return line.slice(start, end);
+}
+
+function tokenCanPrecedeAutoLogRegexLiteral(token: string): boolean {
+  if (token === '') return true;
+  if (token === '(' || token === '[' || token === '{') return true;
+  if (AUTO_LOG_REGEX_PREFIX_KEYWORDS.has(token)) return true;
+  return AUTO_LOG_TRAILING_CONTINUATION_CHARS.includes(token[token.length - 1] ?? '');
+}
+
+function consumeAutoLogRegexLiteral(
+  source: string,
+  start: number
+): { masked: string; nextIndex: number } {
+  let i = start;
+  let masked = '/';
+  let inCharacterClass = false;
+  i++;
+
+  while (i < source.length) {
+    const c = source[i] ?? '';
+    const next = i + 1 < source.length ? source[i + 1] : '';
+
+    if (c === '\n' || c === '\r') {
+      masked += c;
+      i++;
+      return { masked, nextIndex: i };
+    }
+
+    if (c === '\\' && next !== '') {
+      masked += '  ';
+      i += 2;
+      continue;
+    }
+
+    if (c === '[') {
+      inCharacterClass = true;
+      masked += ' ';
+      i++;
+      continue;
+    }
+
+    if (c === ']') {
+      inCharacterClass = false;
+      masked += ' ';
+      i++;
+      continue;
+    }
+
+    if (c === '/' && !inCharacterClass) {
+      masked += '/';
+      i++;
+      while (i < source.length && isAsciiIdentifierPart(source.charCodeAt(i))) {
+        masked += source[i] ?? '';
+        i++;
+      }
+      return { masked, nextIndex: i };
+    }
+
+    masked += ' ';
+    i++;
+  }
+
+  return { masked, nextIndex: i };
+}
+
 /**
  * Single-pass JS / TS scanner that records candidate auto-log lines.
  * Mirrors the shape of `scanSource` in `src/shared/autoRunGating.ts`
@@ -461,6 +570,15 @@ function scanAutoLogCandidates(
       inBlockComment = true;
       strippedLine += '  ';
       i += 2;
+      continue;
+    }
+    if (
+      c === '/' &&
+      tokenCanPrecedeAutoLogRegexLiteral(lastSignificantTokenForAutoLog(strippedLine))
+    ) {
+      const regex = consumeAutoLogRegexLiteral(code, i);
+      strippedLine += regex.masked;
+      i = regex.nextIndex;
       continue;
     }
     if (c === "'") {

@@ -77,6 +77,30 @@ describe('FloatingVariablesCard', () => {
     expect(screen.getByText('42')).toBeTruthy();
   });
 
+  it('keeps every captured variable reachable inside a scrollable body', () => {
+    useResultStore.setState({
+      scopeSnapshot: {
+        language: 'typescript',
+        capturedAt: 101,
+        variables: Array.from({ length: 8 }, (_, index) => ({
+          name: `value${index + 1}`,
+          value: {
+            kind: 'primitive',
+            type: 'number',
+            repr: `${index + 1}`,
+          },
+        })),
+      },
+    });
+
+    renderCard();
+
+    expect(screen.getByText('value1')).toBeTruthy();
+    expect(screen.getByText('value8')).toBeTruthy();
+    expect(document.body.querySelector('.floating-variables-card-body')).toBeTruthy();
+    expect(screen.queryByText(/more hidden|más ocultas/i)).toBeNull();
+  });
+
   it('does not render when the active tab uses the Node runtime', () => {
     useEditorStore.setState({
       tabs: [

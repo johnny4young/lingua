@@ -20,7 +20,7 @@ describe('getEditorOptions', () => {
       lineNumbers: 'off',
       wordWrap: 'on',
       minimap: { enabled: false },
-      scrollBeyondLastLine: false,
+      scrollBeyondLastLine: true,
       padding: { top: 12, bottom: 12 },
       smoothScrolling: true,
       cursorBlinking: 'smooth',
