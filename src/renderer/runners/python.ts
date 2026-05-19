@@ -12,9 +12,17 @@ import {
   transformPythonMagicComments,
   detectPythonMagicComments,
   type MagicCommentKind,
+  type MagicCommentDirective,
 } from '../utils/magicComments';
-import { injectPythonLoopProtection } from '../utils/loopProtection';
+import { injectPythonLoopProtectionWithLineMap } from '../utils/loopProtection';
 import { useSettingsStore } from '../stores/settingsStore';
+import { trackEvent } from '../utils/telemetry';
+import {
+  forceTablePayload,
+  tryParseJsonForPayload,
+  type RichOutputPayload,
+} from '../../shared/richOutput';
+import { richKindBucket } from '../components/Console/richConsoleFormat';
 import {
   resolveTimeoutMs,
   type RuntimeTimeoutPreset,
@@ -232,7 +240,14 @@ export class PythonRunner implements LanguageRunner {
 
     // Apply loop protection if enabled
     const { loopProtection, maxLoopIterations } = useSettingsStore.getState();
-    const processedCode = loopProtection ? injectPythonLoopProtection(code, maxLoopIterations) : code;
+    const loopProtected = loopProtection
+      ? injectPythonLoopProtectionWithLineMap(code, maxLoopIterations)
+      : { code, sourceLineMap: {} };
+    const processedCode = loopProtected.code;
+    const sourceLineFor = (line: number | undefined) =>
+      typeof line === 'number'
+        ? (loopProtected.sourceLineMap[line] ?? line)
+        : undefined;
 
     // Transform magic comments before execution
     const magicEntries = detectPythonMagicComments(processedCode);
@@ -246,8 +261,16 @@ export class PythonRunner implements LanguageRunner {
     // shared `MagicCommentResult.kind` annotation does not need a
     // per-language narrowing fork.
     const magicKindByLine: Record<number, MagicCommentKind> = {};
+    // RL-044 Slice 1C fold D — parallel side-table for the `#=> table`
+    // directive so the runner knows when to upgrade the worker's
+    // `value` text into a typed `RichOutputTable` payload. JS / TS use
+    // a sibling pattern in their respective runners.
+    const magicDirectiveByLine: Record<number, MagicCommentDirective> = {};
     for (const entry of magicEntries) {
       magicKindByLine[entry.line] = entry.kind;
+      if (entry.directive) {
+        magicDirectiveByLine[entry.line] = entry.directive;
+      }
     }
 
     const runId = crypto.randomUUID();
@@ -289,7 +312,32 @@ export class PythonRunner implements LanguageRunner {
 
         switch (msg.type) {
           case 'console': {
-            const output: ConsoleOutput = { type: msg.method, args: msg.args, line: msg.line };
+            // RL-044 Slice 1C — forward the additive payload from the
+            // Pyodide worker. Absent on text-only fallback paths
+            // (sys.stdout.write bypasses the print override, fold E
+            // disabled mode), so the renderer's text path stays the
+            // canonical fallback.
+            const originalLine = sourceLineFor(msg.line);
+            const output: ConsoleOutput = msg.payload
+              ? { type: msg.method, args: msg.args, line: originalLine, payload: msg.payload }
+              : { type: msg.method, args: msg.args, line: originalLine };
+            // RL-044 Slice 1C fold B — adoption signal per produced
+            // payload kind. Intentionally fires once per payload
+            // ELEMENT, not once per console entry: a multi-arg
+            // `print(a, b, c)` ships three aligned payloads (fold C)
+            // and emits three events. This gives the dashboard the
+            // per-kind distribution directly without needing a JOIN
+            // against the renderer-side `runtime.console_rich_rendered`
+            // (which uses a WeakSet de-dup and counts entries, not
+            // payloads). Dashboards correlating both events should
+            // expect an N:1 skew for multi-arg prints by design.
+            if (msg.payload) {
+              for (const payload of msg.payload) {
+                void trackEvent('runtime.python_console_payload_emitted', {
+                  kind: richKindBucket(payload),
+                });
+              }
+            }
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {
                 droppedStderr = appendCappedConsole(
@@ -310,13 +358,30 @@ export class PythonRunner implements LanguageRunner {
             }
             break;
           }
-          case 'magic-comment':
-            magicResults.push({
-              line: msg.line,
+          case 'magic-comment': {
+            // RL-044 Slice 1C fold D — `#=> table` directive: the
+            // worker either ships a forced-table payload alongside the
+            // text value (preferred), or we recover one client-side by
+            // round-tripping the `value` string through
+            // `tryParseJsonForPayload` + `forceTablePayload`. Mirrors
+            // the JS / TS runner pattern from Slice 1A.
+            const directive = magicDirectiveByLine[msg.line];
+            let payload: RichOutputPayload | undefined;
+            if (msg.payload) {
+              payload = msg.payload;
+            } else if (directive === 'table') {
+              const parsed = tryParseJsonForPayload(msg.value);
+              if (parsed.ok) payload = forceTablePayload(parsed.value);
+            }
+            const entry: MagicCommentResult = {
+              line: sourceLineFor(msg.line) ?? msg.line,
               value: msg.value,
               kind: magicKindByLine[msg.line] ?? 'arrow',
-            });
+            };
+            if (payload) entry.payload = payload;
+            magicResults.push(entry);
             break;
+          }
           case 'stdin-consumed': {
             const summary = msg as unknown as { count: unknown; total: unknown };
             const count =
@@ -409,6 +474,13 @@ export class PythonRunner implements LanguageRunner {
         // keeps the hot path identical to pre-slice behavior.
         captureScope: context?.captureScope === true,
         scopeDepth: context?.scopeDepth,
+        // RL-044 Slice 1C fold E — forward the master Settings
+        // toggle so the Pyodide preamble can skip payload
+        // serialization entirely when the user opted out. Reuses the
+        // top-of-execute `settingsSnapshot` (line 192) so a flip
+        // mid-execute does not produce a split-state run.
+        richConsoleEnabled:
+          settingsSnapshot.consoleRichRenderingEnabled !== false,
       });
     });
   }

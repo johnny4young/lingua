@@ -346,8 +346,17 @@ export function renderInlineResultNode(items: readonly LineResult[]): HTMLElemen
   root.className = 'lingua-inline-result';
   root.setAttribute('data-testid', 'lingua-inline-result');
 
-  for (let i = 0; i < items.length; i += 1) {
-    const result = items[i];
+  // RL-044 Slice 1C follow-up — cap rendered items per line so a
+  // Python SyntaxError that ships 4+ console messages tagged to the
+  // same line (or a hot loop with multiple prints) doesn't pile up
+  // horizontally and visually overrun the editor. The dropped count
+  // surfaces as a discreet "+N more" hint at the tail.
+  const INLINE_MAX_ITEMS_PER_LINE = 3;
+  const visibleItems = items.slice(0, INLINE_MAX_ITEMS_PER_LINE);
+  const droppedItems = items.length - visibleItems.length;
+
+  for (let i = 0; i < visibleItems.length; i += 1) {
+    const result = visibleItems[i];
     if (!result) continue;
     const isWatch = result.type === 'watch';
     // RL-044 Slice 1A — when the runner attached a typed payload,
@@ -397,12 +406,21 @@ export function renderInlineResultNode(items: readonly LineResult[]): HTMLElemen
     part.appendChild(pill);
 
     root.appendChild(part);
-    if (i < items.length - 1) {
+    if (i < visibleItems.length - 1) {
       const dot = document.createElement('span');
       dot.className = 'lingua-inline-result-separator';
       dot.textContent = '·';
       root.appendChild(dot);
     }
   }
+
+  if (droppedItems > 0) {
+    const overflow = document.createElement('span');
+    overflow.className = 'lingua-inline-result-overflow';
+    overflow.setAttribute('data-testid', 'lingua-inline-result-overflow');
+    overflow.textContent = `+${droppedItems} more`;
+    root.appendChild(overflow);
+  }
+
   return root;
 }

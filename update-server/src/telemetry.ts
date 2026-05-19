@@ -69,6 +69,10 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-044 Slice 1B fold F — mirror of `runtime.console_table_called`.
   // Closed-enum payload `{ language }` only.
   'runtime.console_table_called',
+  // RL-044 Slice 1C fold B — mirror of
+  // `runtime.python_console_payload_emitted`. Closed-enum
+  // `{ kind }` from `CONSOLE_RICH_KIND_BUCKETS`.
+  'runtime.python_console_payload_emitted',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -113,6 +117,9 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.console_rich_rendered': ['kind'],
   // RL-044 Slice 1B fold F — mirror of `runtime.console_table_called`.
   'runtime.console_table_called': ['language'],
+  // RL-044 Slice 1C fold B — mirror of
+  // `runtime.python_console_payload_emitted`.
+  'runtime.python_console_payload_emitted': ['kind'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -185,6 +192,9 @@ export const CONSOLE_RICH_KIND_BUCKETS = new Set([
   'rawText',
   'image',
   'chart',
+  // RL-044 Slice 1C fold F — Python BaseException payloads ship the
+  // error kind. Mirrors the renderer addition.
+  'error',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -475,6 +485,12 @@ function isAllowedValue(
       return false;
     case 'runtime.console_table_called':
       if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'runtime.python_console_payload_emitted':
+      if (key === 'kind')
+        return (
+          typeof value === 'string' && CONSOLE_RICH_KIND_BUCKETS.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;

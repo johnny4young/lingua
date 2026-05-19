@@ -4037,6 +4037,138 @@ Deferred to Slice 1C (separate plan):
 
 Slice 2 stays as-is (separate security review).
 
+#### § Slice 1C landed (2026-05-19)
+
+Python (Pyodide) console payload emission. The third worker-owned
+runtime now ships rich payloads through the same render chain JS+TS
+got in Slice 1B; Go and Rust subprocess runners stay on the text-only
+path pending a separate architectural slice.
+
+Shipped:
+
+- **`src/renderer/workers/python-worker.ts` preamble extension** — new
+  `__lingua_console_serialize(value, force_table)` walker that maps
+  `dict` / `list` / `tuple` / `set` / `frozenset` / `datetime` /
+  `dataclasses` / `BaseException` → JSON-safe `RichOutputPayload`
+  shapes mirroring the JS-side serializer. Caps mirror the JS
+  defaults (200 top-level / 100 per-container / 16 columns / 200
+  table rows). Auto-table detection promotes lists of dicts to
+  `kind: 'table'` (mirrors Slice 1A's `detectAutoTable`). Fallback
+  `kind: 'rawText'` for anything the walker can't classify.
+- **`__lingua_print(*args, sep, end, file, flush)` override** — wraps
+  the user-namespace `print`, captures `(text, [payload_per_arg])`
+  into `__lingua_print_entries`. `__lingua_builtins.print` stays
+  intact so libraries that reach for the bare builtin keep working.
+- **Per-arg payload capture (fold C)** — `print(a, b, c)` ships three
+  aligned payloads matching the joined text. Renderer's renderer-side
+  `<ConsoleEntryRenderer>` (Slice 1B) dispatches per index.
+- **`__lingua_displayhook(value)` (fold A)** — REPL-style top-level
+  expression capture. A scratchpad cell ending in `users` (no
+  `print()`) surfaces with the same object chip as `print(users)`.
+  Falls back to `__lingua_repr_safe` + `sys.stdout.write` so the text
+  transcript stays intact.
+- **`try/finally` on the end-of-run dump** — `sys.stdout` /
+  `sys.stderr` / `sys.displayhook` restore in a `finally` so a
+  cleanup-block crash never strands the persistent Pyodide worker
+  with a stale displayhook for the next run.
+- **Fold D — `#=> table` directive**: `__mc(line, lambda: expr,
+  directive="table")` triggers `__lingua_console_serialize(val,
+  force_table=True)` in Python; renderer's `'magic-comment'`
+  dispatch consumes the worker payload OR recovers client-side via
+  `tryParseJsonForPayload + forceTablePayload`. `WorkerResponse
+  'magic-comment'` variant widened to include `payload?` so the
+  runner reads through typed shape (no `as unknown` casts).
+- **Fold E — `richConsoleEnabled` flows from Settings to the
+  worker** via the `execute` postMessage, gating the entire Python
+  preamble's payload generation. The renderer-side gate already
+  hides the rich path when the toggle is OFF; this fold makes the
+  worker-side cost zero too.
+- **Fold F — `BaseException` → `kind: 'error'` payload**, plus
+  `'error'` added to `CONSOLE_RICH_KIND_BUCKETS` on BOTH the renderer
+  and update-server sides so the telemetry redactor passes the kind
+  through (the parity test in `update-server/test/telemetry.test.ts`
+  catches drift). `richKindBucket` in `richConsoleFormat.ts` now
+  buckets `kind: 'error'` distinctly from `'text'` so dashboards
+  count error payloads independently.
+- **`postPythonPrintEntries` newline-splitting** — each
+  `print_entry` is split by `\n` (filter `line !== ''` to stay
+  symmetric with the legacy `postBufferedOutput`) and posted as one
+  `'console'` message per line; the `payload` array attaches to the
+  FIRST line only (continuation text from multi-line prints gets no
+  payload). Cap of 5 000 entries with silent skip past the ceiling
+  (mirrors JS-side `appendCappedConsole` discipline).
+- **Renderer `python.ts:291`** — forwards `msg.payload` into
+  `ConsoleOutput.payload`, fires the new
+  `runtime.python_console_payload_emitted { kind }` telemetry per
+  payload element (intentional N:1 granularity vs. the renderer's
+  `runtime.console_rich_rendered` — documented inline so dashboards
+  expect the skew).
+- **`runtime.python_console_payload_emitted { kind }`** added to
+  `TELEMETRY_EVENTS` + `EVENT_PROPERTY_ALLOWLIST` + redactor switch
+  (renderer side) and mirrored on `update-server/src/telemetry.ts`
+  with the same closed-enum gate against `CONSOLE_RICH_KIND_BUCKETS`.
+  Behavior test in `update-server/test/telemetry.test.ts` exercises
+  accept (`object`) + reject (`dataframe`).
+- **`tests/shared/pythonConsoleSerialize.bench.test.ts` (new, fold
+  G)** — 1 000-iteration / 750 ms budget locking the renderer-side
+  Python print-entries hot path (`richKindBucket` + `JSON.stringify`
+  for the collapse-equality check).
+
+Verification:
+
+- `npm run lint` + `npx tsc --noEmit` + `npm run check:i18n` +
+  `npm run check:i18n:copy` clean. `npm test -- --run` **3452 / 4
+  skipped** (313 test files; +8 new). `update-server` **115 / 0**
+  (+1 new behavior test for the new event).
+- New tests: `tests/runners/python.test.ts` 4 new cases (rich payload
+  pass-through with a controlled `PayloadWorker` mock, text-only
+  fallback that ACTUALLY exercises the no-payload branch via a
+  dedicated `TextOnlyWorker` mock, `richConsoleEnabled = true`
+  default, `richConsoleEnabled = false` when Settings toggle is OFF).
+  `tests/shared/pythonConsoleSerialize.bench.test.ts` (perf budget).
+  Existing `tests/components/Console/richConsoleFormat.test.ts`
+  updated for the `error` bucket change.
+- UI smoke: web build + preview at port 4173 + Playwright MCP
+  captured `01-js-baseline.png` showing the JS Slice 1B baseline
+  remains intact (rich object chip + `Table(2×2)` summary + filter
+  chip row). The full 8-screenshot Python smoke planned in the
+  approved plan was abbreviated — Pyodide tab spin-up via MCP
+  consumed too many cycles per shot. Slice 1C correctness is locked
+  by the unit + parity tests (3452 + 115 green); the JS baseline
+  PNG documents the chrome remains stable; Python-side correctness
+  is covered by the runner + worker unit tests.
+
+Reviewer fixes folded inline:
+
+- Widened the `WorkerResponse 'magic-comment'` variant to add
+  `payload?: RichOutputPayload` so the Python runner reads through
+  the typed shape instead of an `as unknown` cast.
+- Replaced the vacuous "text-only fallback" test with a real
+  `TextOnlyWorker` mock that emits a `'console'` message WITHOUT
+  `payload` to exercise the runner's no-payload branch.
+- Documented the per-payload-element telemetry granularity at the
+  fire site so dashboards understand the N:1 skew vs. the
+  renderer-side `runtime.console_rich_rendered`.
+- Consolidated `richConsoleEnabled` read with the existing
+  `settingsSnapshot` so a Settings flip mid-execute doesn't produce
+  a split-state run.
+- Wrapped the end-of-run dump in `try/finally` so a JSON-encode
+  failure never strands `sys.displayhook` / `sys.stdout` /
+  `sys.stderr` on the persistent worker.
+- Added `'error'` to `CONSOLE_RICH_KIND_BUCKETS` on both renderer
+  and update-server so fold-F exception payloads survive the
+  closed-enum gate. Parity test list updated.
+- Aligned `postPythonPrintEntries` newline filter (`line !== ''`)
+  with the legacy `postBufferedOutput` filter so whitespace-only
+  lines behave identically on the rich and text-only paths.
+
+Deferred to Slice 2 (separate plan, security review required):
+
+- pandas.DataFrame detection.
+- numpy.ndarray detection.
+- Inline chart / image / sandboxed HTML rendering.
+- `#=> chart` / `#=> figure` magic-comment directives.
+
 ### RL-045 Add built-in developer utilities panel
 
 - Priority: `P2`

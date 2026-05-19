@@ -125,6 +125,12 @@ export const TELEMETRY_EVENTS = [
   // tabular arrays by `serializeRichValue`). Closed-enum payload
   // `{ language }` only.
   'runtime.console_table_called',
+  // RL-044 Slice 1C fold B — Python (Pyodide) console payload adoption
+  // signal. Separate from the renderer-side
+  // `runtime.console_rich_rendered` so dashboards can isolate
+  // Python-runner-produced payloads from the renderer's render
+  // dispatch. Closed-enum `{ kind }` mirrors `CONSOLE_RICH_KIND_BUCKETS`.
+  'runtime.python_console_payload_emitted',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -262,6 +268,9 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-044 Slice 1B fold F — `language` is the language-pack id.
   // Mirrored on update-server.
   'runtime.console_table_called': ['language'],
+  // RL-044 Slice 1C fold B — `kind` is the closed `ConsolePayloadKindBucket`
+  // enum (same set as `runtime.console_rich_rendered`).
+  'runtime.python_console_payload_emitted': ['kind'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -341,6 +350,12 @@ export const CONSOLE_RICH_KIND_BUCKETS = new Set([
   'rawText',
   'image',
   'chart',
+  // RL-044 Slice 1C fold F — Python BaseException payloads ship the
+  // error kind from __lingua_console_serialize. The renderer paints
+  // them via the same chip + popover chain as other payloads, but
+  // the redactor would silently drop the kind without an explicit
+  // bucket. Added so the telemetry survives the closed-enum gate.
+  'error',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -557,6 +572,12 @@ function isAllowedValue(
       return false;
     case 'runtime.console_table_called':
       if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'runtime.python_console_payload_emitted':
+      if (key === 'kind')
+        return (
+          typeof value === 'string' && CONSOLE_RICH_KIND_BUCKETS.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;

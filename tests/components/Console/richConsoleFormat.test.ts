@@ -40,7 +40,10 @@ describe('richConsoleFormat — RL-044 Slice 1B helpers', () => {
         'text',
       ],
       [{ kind: 'function', name: 'foo' }, 'text'],
-      [{ kind: 'error', message: 'nope' }, 'text'],
+      // RL-044 Slice 1C fold F — error kind now bucketed distinctly
+      // so Python exception payloads survive the telemetry redactor
+      // (and dashboards can count error payloads separately).
+      [{ kind: 'error', message: 'nope' }, 'error'],
     ];
 
     for (const [payload, expected] of cases) {

@@ -241,6 +241,31 @@ describe('ConsolePanel', () => {
     expect(screen.queryByText('Table(1×1) label')).toBeNull();
   });
 
+  it('filters Python error payloads with the Errors chip', () => {
+    resetState({
+      entries: [
+        {
+          id: 'python-error-payload',
+          type: 'log',
+          content: 'ValueError: bad input',
+          timestamp: Date.now(),
+          payload: [
+            {
+              kind: 'error',
+              message: 'bad input',
+            },
+          ],
+        },
+      ],
+      hiddenPayloadKinds: new Set(['errorish']),
+    });
+
+    render(<ConsolePanel />);
+
+    expect(screen.getByText('No entries match the active filters.')).toBeTruthy();
+    expect(screen.queryByText('ValueError: bad input')).toBeNull();
+  });
+
   it('clicking a filter pill calls toggleFilter with its type', async () => {
     const user = userEvent.setup();
     render(<ConsolePanel />);

@@ -1022,7 +1022,14 @@ export function transformPythonMagicComments(code: string): string {
     const lineNumber = i + 1;
     const indentMatch = line.match(/^(\s*)/);
     const indent = indentMatch?.[1] ?? '';
-    const mcCall = `__mc(${lineNumber}, lambda: (${detected.expression}))`;
+    // RL-044 Slice 1C fold D — forward the parsed directive (currently
+    // only `'table'`) into the `__mc` runner so the Python worker can
+    // attach a forced-table payload alongside the legacy value text.
+    // Unknown / missing directives stay None on the Python side.
+    const directiveArg = detected.directive
+      ? `, directive=${JSON.stringify(detected.directive)}`
+      : '';
+    const mcCall = `__mc(${lineNumber}, lambda: (${detected.expression})${directiveArg})`;
     if (detected.kind === 'arrow') {
       transformed.push(`${indent}${mcCall}`);
     } else {

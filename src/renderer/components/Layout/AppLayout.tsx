@@ -268,7 +268,7 @@ function EditorArea() {
             >
               <Panel
                 id="editor-panel"
-                defaultSize="60%"
+                defaultSize="75%"
                 minSize={320}
                 className="relative z-20 overflow-visible"
               >
@@ -281,7 +281,7 @@ function EditorArea() {
               <ResizeHandle orientation="vertical" />
               <Panel
                 id="results-panel"
-                defaultSize="40%"
+                defaultSize="25%"
                 minSize={220}
                 className="relative z-10 overflow-hidden bg-[var(--color-editor-bg)]"
               >

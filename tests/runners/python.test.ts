@@ -188,6 +188,185 @@ describe('PythonRunner — RL-011 Slice D env wiring', () => {
     expect(result.stdinConsumed).toEqual({ count: 1, total: 2 });
   });
 
+  // RL-044 Slice 1C — payload pass-through + telemetry coverage.
+
+  it('forwards rich console payload from the Pyodide worker to ConsoleOutput', async () => {
+    class PayloadWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          handler?.({
+            data: {
+              type: 'console',
+              runId: message.runId,
+              method: 'log',
+              args: ['dict({a: 1})'],
+              payload: [
+                {
+                  kind: 'object',
+                  previewType: 'dict',
+                  entries: [
+                    { key: 'a', value: { kind: 'primitive', type: 'number', repr: '1' } },
+                  ],
+                },
+              ],
+            },
+          } as MessageEvent);
+          handler?.({
+            data: { type: 'done', runId: message.runId, executionTime: 1 },
+          } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: PayloadWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute('print({"a": 1})');
+
+    expect(result.stdout).toHaveLength(1);
+    const entry = result.stdout[0]!;
+    expect(entry.args).toEqual(['dict({a: 1})']);
+    expect(entry.payload).toBeDefined();
+    expect(entry.payload![0]).toMatchObject({ kind: 'object', previewType: 'dict' });
+  });
+
+  it('omits payload when the worker emits the legacy text-only console shape', async () => {
+    // Drive a REAL console message that lacks the `payload` field to
+    // exercise the runner's `msg.payload ? … : …` branch. This is the
+    // path triggered when fold-E is OFF or when sys.stdout.write
+    // bypasses the print override.
+    class TextOnlyWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          handler?.({
+            data: {
+              type: 'console',
+              runId: message.runId,
+              method: 'log',
+              args: ['hi'],
+              // NOTE: no `payload` key — legacy text-only shape.
+            },
+          } as MessageEvent);
+          handler?.({
+            data: { type: 'done', runId: message.runId, executionTime: 1 },
+          } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: TextOnlyWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute('print("hi")');
+
+    expect(result.stdout).toHaveLength(1);
+    const entry = result.stdout[0]!;
+    expect(entry.args).toEqual(['hi']);
+    expect(entry.payload).toBeUndefined();
+  });
+
+  it('maps worker console lines back to original source after loop protection', async () => {
+    class LineMappedWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          handler?.({
+            data: {
+              type: 'console',
+              runId: message.runId,
+              method: 'log',
+              args: ['after'],
+              line: 6,
+            },
+          } as MessageEvent);
+          handler?.({
+            data: { type: 'done', runId: message.runId, executionTime: 1 },
+          } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: LineMappedWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute(
+      ['for item in range(1):', '    pass', 'print("after")'].join('\n')
+    );
+
+    expect(result.stdout).toHaveLength(1);
+    expect(result.stdout[0]?.line).toBe(3);
+  });
+
+  it('forwards richConsoleEnabled = true by default to the Pyodide worker', async () => {
+    const runner = new PythonRunner();
+    await runner.init();
+    await runner.execute('print("hi")');
+    const executeMessage = postedMessages.find((m) => m.type === 'execute');
+    expect(executeMessage?.richConsoleEnabled).toBe(true);
+  });
+
+  it('forwards richConsoleEnabled = false when the Settings toggle is OFF', async () => {
+    const { useSettingsStore } = await import('@/stores/settingsStore');
+    const original = useSettingsStore.getState().consoleRichRenderingEnabled;
+    useSettingsStore.setState({ consoleRichRenderingEnabled: false });
+    try {
+      const runner = new PythonRunner();
+      await runner.init();
+      await runner.execute('print("hi")');
+      const executeMessage = postedMessages.find((m) => m.type === 'execute');
+      expect(executeMessage?.richConsoleEnabled).toBe(false);
+    } finally {
+      useSettingsStore.setState({ consoleRichRenderingEnabled: original });
+    }
+  });
+
   it('keeps userEnv empty on the web build even when tiers have values', async () => {
     Object.defineProperty(window, 'lingua', {
       value: { platform: 'web' },

@@ -889,11 +889,16 @@
      matches Quokka and the v2 design's right-edge alignment, while
      keeping per-line vertical sync as the editor scrolls. */
   .lingua-inline-result {
+    --inline-result-bg: color-mix(in srgb, var(--color-bg-panel-alt) 94%, transparent);
+    --inline-result-border: var(--color-border-subtle);
+    --inline-result-arrow: var(--color-fg-muted);
+    --inline-result-value: var(--color-fg-base);
+    --inline-result-shadow: 0 6px 18px color-mix(in srgb, black 10%, transparent);
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    height: 1em;
-    line-height: 1em;
+    min-height: 18px;
+    line-height: 1;
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--color-fg-muted);
@@ -906,23 +911,48 @@
     /* The Monaco line height is 19px in the default theme — stretching
        the pill keeps it vertically centred on the line it annotates. */
     transform: translateY(3px);
+    /* RL-044 Slice 1C follow-up — cap the overlay width so long
+       Python tracebacks or 3+ stacked results never paint past the
+       editor padding. The opaque editor background masks any code
+       behind the pill so the overlap stops reading as visual noise. */
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 8px;
+  }
+
+  .lingua-inline-result-overflow {
+    color: var(--color-fg-subtle);
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-left: 4px;
   }
 
   .lingua-inline-result-part {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
+    border: 1px solid var(--inline-result-border);
+    border-radius: 5px;
+    background: var(--inline-result-bg);
+    box-shadow: var(--inline-result-shadow);
+    padding: 2px 5px;
   }
 
   .lingua-inline-result-arrow {
-    color: var(--color-fg-subtle);
+    color: var(--inline-result-arrow);
     font-size: 13px;
     line-height: 1;
   }
 
   .lingua-inline-result-value {
-    color: var(--color-fg-base);
-    font-weight: 600;
+    min-width: 0;
+    color: var(--inline-result-value);
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .lingua-inline-result-pill {
@@ -936,7 +966,6 @@
     font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
   }
 
   .lingua-inline-result-watch {
@@ -949,7 +978,6 @@
     font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
   }
 
   .lingua-inline-result-separator {
@@ -957,7 +985,32 @@
     margin: 0 4px;
   }
 
+  .monaco-editor.vs .lingua-inline-result,
+  .monaco-editor.hc-light .lingua-inline-result {
+    --inline-result-bg: color-mix(in srgb, white 94%, oklch(0.93 0.02 210));
+    --inline-result-border: oklch(0.82 0.018 210);
+    --inline-result-arrow: oklch(0.5 0.018 210);
+    --inline-result-value: oklch(0.2 0.018 210);
+    --inline-result-shadow: 0 8px 20px color-mix(in srgb, oklch(0.38 0.02 210) 16%, transparent);
+    color: oklch(0.48 0.014 210);
+  }
+
+  .monaco-editor.vs .lingua-inline-result-arrow,
+  .monaco-editor.hc-light .lingua-inline-result-arrow {
+    color: oklch(0.62 0.015 210);
+  }
+
+  .monaco-editor.vs .lingua-inline-result-value,
+  .monaco-editor.hc-light .lingua-inline-result-value {
+    color: oklch(0.22 0.014 210);
+  }
+
   .monaco-editor.vs-dark .lingua-inline-result {
+    --inline-result-bg: color-mix(in srgb, oklch(0.18 0.012 220) 92%, transparent);
+    --inline-result-border: oklch(0.38 0.024 220);
+    --inline-result-arrow: oklch(0.7 0.02 220);
+    --inline-result-value: oklch(0.96 0.012 220);
+    --inline-result-shadow: 0 8px 22px color-mix(in srgb, black 34%, transparent);
     color: oklch(0.74 0.018 220);
   }
 

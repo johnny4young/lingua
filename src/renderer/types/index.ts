@@ -367,7 +367,12 @@ export type ConsolePayloadKindBucket =
   | 'text'
   | 'rawText'
   | 'image'
-  | 'chart';
+  | 'chart'
+  // RL-044 Slice 1C fold F — Python `BaseException` payloads ship
+  // `kind: 'error'`. The renderer chip family already had an
+  // `'errorish'` filter for warn/error entry types; this is the
+  // distinct payload-level bucket.
+  | 'error';
 
 export type ConsolePayloadKindFilter = ConsolePayloadKindBucket | 'errorish';
 
@@ -981,7 +986,21 @@ export type WorkerResponse =
   | { type: 'done'; runId: string; executionTime: number }
   | { type: 'loading'; stage: string }
   | { type: 'ready' }
-  | { type: 'magic-comment'; runId: string; line: number; value: string }
+  | {
+      type: 'magic-comment';
+      runId: string;
+      line: number;
+      value: string;
+      /**
+       * RL-044 Slice 1C fold D — when the source carried a `#=> table`
+       * directive, the Python worker computes a forced-table payload
+       * alongside the legacy stringified `value`. JS / TS workers
+       * currently leave this absent and the renderer recovers a
+       * payload client-side via `tryParseJsonForPayload +
+       * forceTablePayload`. Renderers must always tolerate absence.
+       */
+      payload?: RichOutputPayload;
+    }
   | {
       // RL-027 Slice 1 — debugger pause from the JS worker. Carries
       // the source line, the locals snapshot, the call stack, and any
