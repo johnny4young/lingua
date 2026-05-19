@@ -600,6 +600,7 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       'array',
       'chart',
       'date',
+      'error',
       'image',
       'mapSet',
       'object',
@@ -658,6 +659,33 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(eventLine).toBeDefined();
     const parsed = JSON.parse(eventLine!);
     expect(parsed.properties).toEqual({ language: 'typescript' });
+    consoleSpy.mockRestore();
+  });
+
+  it('runtime.python_console_payload_emitted accepts closed-enum kind, drops unknown (RL-044 Slice 1C fold B)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.python_console_payload_emitted',
+      properties: { kind: 'object' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownResponse = await postTelemetry({
+      event: 'runtime.python_console_payload_emitted',
+      properties: { kind: 'dataframe' },
+    });
+    expect(unknownResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter(
+        (line) =>
+          line.includes('"telemetry.event"') &&
+          line.includes('"runtime.python_console_payload_emitted"')
+      );
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const okLine = eventLines.find((line) => line.includes('"kind":"object"'));
+    expect(okLine).toBeDefined();
+    const unknownLine = eventLines.find((line) => line.includes('dataframe'));
+    expect(unknownLine).toBeUndefined();
     consoleSpy.mockRestore();
   });
 

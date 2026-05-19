@@ -66,6 +66,11 @@ describe('TELEMETRY_EVENTS', () => {
       // enum payload `{ language, status }`. Sorts between
       // `mode_changed` and `stdin_used` alphabetically.
       'runtime.node_runner_used',
+      // RL-044 Slice 1C fold B — Python (Pyodide) console payload
+      // adoption. Closed-enum payload `{ kind }` from
+      // `CONSOLE_RICH_KIND_BUCKETS`. Sorts between `node_runner_used`
+      // and `stdin_used` alphabetically.
+      'runtime.python_console_payload_emitted',
       // RL-020 Slice 6 — bare-stdin adoption signal. Closed-enum
       // payload `{ language }`. Sorts between `mode_changed` and
       // `workflow_mode_changed` alphabetically.

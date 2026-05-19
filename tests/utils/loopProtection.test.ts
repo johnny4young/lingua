@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   injectJSLoopProtection,
   injectPythonLoopProtection,
+  injectPythonLoopProtectionWithLineMap,
   DEFAULT_MAX_ITERATIONS,
 } from '@/utils/loopProtection';
 
@@ -110,5 +111,18 @@ describe('Python loop protection', () => {
     const code = 'x = 1\nwhile True:\n    x += 1';
     const result = injectPythonLoopProtection(code, 100);
     expect(result).toContain('line 2');
+  });
+
+  it('maps generated lines back to the original source after injected guards', () => {
+    const code = [
+      'for item in range(1):',
+      '    pass',
+      'print("after")',
+    ].join('\n');
+
+    const result = injectPythonLoopProtectionWithLineMap(code, 100);
+
+    expect(result.code.split('\n')[5]).toBe('print("after")');
+    expect(result.sourceLineMap[6]).toBe(3);
   });
 });

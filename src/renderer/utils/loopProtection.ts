@@ -61,12 +61,36 @@ export function injectJSLoopProtection(code: string, maxIterations: number = DEF
  * At the start of the loop body (the indented block), inject a guard.
  */
 export function injectPythonLoopProtection(code: string, maxIterations: number = DEFAULT_MAX_ITERATIONS): string {
+  return injectPythonLoopProtectionWithLineMap(code, maxIterations).code;
+}
+
+export interface PythonLoopProtectionResult {
+  code: string;
+  /**
+   * Generated-line -> original-line map. Python loop protection inserts
+   * counter/guard lines, so runtime frame line numbers need this map
+   * before they are rendered as inline output next to source code.
+   */
+  sourceLineMap: Record<number, number>;
+}
+
+export function injectPythonLoopProtectionWithLineMap(
+  code: string,
+  maxIterations: number = DEFAULT_MAX_ITERATIONS
+): PythonLoopProtectionResult {
   const lines = code.split('\n');
   const result: string[] = [];
+  const sourceLineMap: Record<number, number> = {};
   let loopId = 0;
+
+  const pushGenerated = (line: string, originalLine: number) => {
+    result.push(line);
+    sourceLineMap[result.length] = originalLine;
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
+    const originalLine = i + 1;
     const trimmed = line.trimStart();
     const indent = line.slice(0, line.length - trimmed.length);
 
@@ -77,16 +101,16 @@ export function injectPythonLoopProtection(code: string, maxIterations: number =
       const id = loopId++;
       const counterVar = `__lp${id}`;
       // Insert counter initialization before the loop
-      result.push(`${indent}${counterVar} = 0`);
-      result.push(line);
+      pushGenerated(`${indent}${counterVar} = 0`, originalLine);
+      pushGenerated(line, originalLine);
       // Insert guard as first line in the loop body (one extra indent level)
       const bodyIndent = indent + '    ';
-      result.push(`${bodyIndent}${counterVar} += 1`);
-      result.push(`${bodyIndent}if ${counterVar} > ${maxIterations}: raise RuntimeError("Loop exceeded ${maxIterations} iterations (line ${i + 1}). Possible infinite loop.")`);
+      pushGenerated(`${bodyIndent}${counterVar} += 1`, originalLine);
+      pushGenerated(`${bodyIndent}if ${counterVar} > ${maxIterations}: raise RuntimeError("Loop exceeded ${maxIterations} iterations (line ${i + 1}). Possible infinite loop.")`, originalLine);
     } else {
-      result.push(line);
+      pushGenerated(line, originalLine);
     }
   }
 
-  return result.join('\n');
+  return { code: result.join('\n'), sourceLineMap };
 }

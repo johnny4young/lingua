@@ -34,6 +34,7 @@ import {
   type ScopeVariable,
   finalizeScopeSnapshot,
 } from '../../shared/scopeSnapshot';
+import type { RichOutputPayload } from '../../shared/richOutput';
 
 const ctx = self as unknown as Worker;
 
@@ -418,6 +419,81 @@ function postBufferedOutput(
   }
 }
 
+interface PythonPrintEntry {
+  text: string;
+  method: 'log' | 'error';
+  payloads: RichOutputPayload[];
+  /**
+   * Source line number captured at print()-call time via
+   * `sys._getframe`. Threads through to `ConsoleOutput.line` so the
+   * renderer's inline-result pipeline (`useInlineResults`) paints
+   * the arrow + payload pill next to the user's source line — the
+   * same UX JS scratchpads get for `console.log`.
+   */
+  line?: number;
+}
+
+/**
+ * RL-044 Slice 1C — post the typed per-print payloads from the Python
+ * worker preamble. Each entry's joined text is split by newline so the
+ * console panel keeps its "one entry per line" cadence; the rich
+ * `payloads` array is attached to the FIRST line only (subsequent
+ * lines are continuation text from the same print call).
+ *
+ * Skips entries with empty text (e.g. `print(end='')`) to mirror the
+ * legacy `postBufferedOutput` filter.
+ */
+function postPythonPrintEntries(
+  runId: string,
+  entries: PythonPrintEntry[]
+): void {
+  for (const entry of entries) {
+    // Filter on `line !== ''` (NOT `line.trim() !== ''`) so the
+    // behavior matches `postBufferedOutput` exactly: a `print('   ')`
+    // surfaces three spaces in both rich and text-only paths. The
+    // trailing newline produced by the default `end='\n'` yields a
+    // single empty segment after split, which is what we want to skip.
+    const lines = entry.text.split('\n').filter((line) => line !== '');
+    if (lines.length === 0) continue;
+    const first = lines[0]!;
+    const rest = lines.slice(1);
+    const message: {
+      type: 'console';
+      runId: string;
+      method: 'log' | 'error';
+      args: string[];
+      payload: RichOutputPayload[];
+      line?: number;
+    } = {
+      type: 'console',
+      runId,
+      method: entry.method,
+      args: [first],
+      payload: entry.payloads,
+    };
+    if (typeof entry.line === 'number') message.line = entry.line;
+    ctx.postMessage(message);
+    for (const continuation of rest) {
+      const continuationMessage: {
+        type: 'console';
+        runId: string;
+        method: 'log' | 'error';
+        args: string[];
+        line?: number;
+      } = {
+        type: 'console',
+        runId,
+        method: entry.method,
+        args: [continuation],
+      };
+      // Multi-line `print('a\nb')` keeps the line annotation on each
+      // emitted entry so the inline pill shows up alongside both.
+      if (typeof entry.line === 'number') continuationMessage.line = entry.line;
+      ctx.postMessage(continuationMessage);
+    }
+  }
+}
+
 ctx.addEventListener('message', async (event) => {
   const msg = event.data;
 
@@ -468,6 +544,15 @@ ctx.addEventListener('message', async (event) => {
        * walker (1–4). Defaults to 1 in `serializeScopeValueFromPyObject`.
        */
       scopeDepth?: number;
+      /**
+       * RL-044 Slice 1C fold E — when `false`, the worker preamble
+       * skips all Python-side payload serialization. The renderer's
+       * `Settings.consoleRichRenderingEnabled` toggle flows through
+       * here so the runtime cost of `__lingua_console_serialize`
+       * disappears entirely on hot scratchpads when the user has
+       * opted out of the rich path.
+       */
+      richConsoleEnabled?: boolean;
     };
     const marker =
       typeof resultTruncationMarker === 'string' && resultTruncationMarker.length > 0
@@ -530,6 +615,9 @@ ctx.addEventListener('message', async (event) => {
 import io
 import sys
 import json as __lingua_json
+import builtins as __lingua_builtins
+import datetime as __lingua_datetime
+import math as __lingua_math
 __lingua_stdout = io.StringIO()
 __lingua_stderr = io.StringIO()
 __lingua_prev_stdout = sys.stdout
@@ -537,11 +625,326 @@ __lingua_prev_stderr = sys.stderr
 sys.stdout = __lingua_stdout
 sys.stderr = __lingua_stderr
 
+# RL-044 Slice 1C — rich console payload pipeline.
+# The user's namespace gets a wrapped 'print' that captures (text, [payload_per_arg])
+# into __lingua_print_entries. Libraries that reach for the bare builtin via
+# __lingua_builtins.print still get the unpatched function — only the user-code
+# global 'print' is overridden. The serializer is pure stdlib (json + datetime +
+# math) so no extra Pyodide packages are loaded.
+
+__lingua_rich_console_enabled = ${msg.richConsoleEnabled === false ? 'False' : 'True'}
+__lingua_print_entries = []
+__lingua_print_entries_cap = 5000
+
+
+class __LinguaCaptureStream(io.StringIO):
+    def __init__(self, method):
+        super().__init__()
+        self._lingua_method = method
+
+    def write(self, text):
+        written = super().write(text)
+        entries = globals().get("__lingua_print_entries")
+        rich_enabled = globals().get("__lingua_rich_console_enabled")
+        cap = globals().get("__lingua_print_entries_cap", 0)
+        if rich_enabled and isinstance(entries, list) and text and len(entries) < cap:
+            entries.append({"text": str(text), "method": self._lingua_method, "payloads": []})
+        return written
+
+
+# Rich mode uses the ordered print-entry stream as the console source.
+# These capture streams preserve direct sys.stdout.write/sys.stderr.write
+# calls as text-only entries so they are not dropped when a run also
+# contains rich print() payloads. Rich print()/displayhook paths skip
+# writing to these streams to avoid duplicate console rows.
+__lingua_stdout = __LinguaCaptureStream("log")
+__lingua_stderr = __LinguaCaptureStream("error")
+sys.stdout = __lingua_stdout
+sys.stderr = __lingua_stderr
+
+_LINGUA_MAX_TOP_LEVEL = 200
+_LINGUA_MAX_PER_CONTAINER = 100
+_LINGUA_MAX_TABLE_ROWS = 200
+_LINGUA_MAX_TABLE_COLUMNS = 16
+_LINGUA_PRIMITIVE_REPR_CAP = 256
+
+
+def __lingua_repr_safe(value):
+    try:
+        text = repr(value)
+    except Exception as exc:  # noqa: BLE001 — defensive against __repr__ raising
+        return "<repr error: " + type(exc).__name__ + ">"
+    if len(text) > _LINGUA_PRIMITIVE_REPR_CAP:
+        return text[: _LINGUA_PRIMITIVE_REPR_CAP] + "\\u2026"
+    return text
+
+
+def __lingua_primitive_payload(value):
+    if value is None:
+        return {"kind": "primitive", "type": "none", "repr": "None"}
+    if isinstance(value, bool):
+        return {"kind": "primitive", "type": "boolean", "repr": "True" if value else "False"}
+    if isinstance(value, int):
+        return {"kind": "primitive", "type": "number", "repr": __lingua_repr_safe(value)}
+    if isinstance(value, float):
+        if __lingua_math.isnan(value):
+            return {"kind": "primitive", "type": "number", "repr": "nan"}
+        if __lingua_math.isinf(value):
+            return {"kind": "primitive", "type": "number", "repr": "inf" if value > 0 else "-inf"}
+        return {"kind": "primitive", "type": "number", "repr": __lingua_repr_safe(value)}
+    if isinstance(value, str):
+        return {"kind": "primitive", "type": "string", "repr": __lingua_repr_safe(value)}
+    return None
+
+
+def __lingua_scope_value(value, depth):
+    primitive = __lingua_primitive_payload(value)
+    if primitive is not None:
+        return primitive
+    if callable(value) and not isinstance(value, type):
+        name = getattr(value, "__name__", None) or type(value).__name__
+        return {"kind": "function", "name": str(name)}
+    if depth <= 0:
+        return {"kind": "primitive", "type": "string", "repr": __lingua_repr_safe(value)}
+    if isinstance(value, dict):
+        preview_type = type(value).__name__ if type(value) is not dict else "dict"
+        entries = []
+        for idx, (key, item) in enumerate(value.items()):
+            if idx >= _LINGUA_MAX_PER_CONTAINER:
+                break
+            entries.append({"key": __lingua_repr_safe(key), "value": __lingua_scope_value(item, depth - 1)})
+        truncated = max(0, len(value) - len(entries))
+        out = {"kind": "object", "previewType": preview_type, "entries": entries}
+        if truncated:
+            out["truncatedCount"] = truncated
+        return out
+    if isinstance(value, (list, tuple)):
+        entries = []
+        for idx, item in enumerate(value):
+            if idx >= _LINGUA_MAX_PER_CONTAINER:
+                break
+            entries.append({"index": idx, "value": __lingua_scope_value(item, depth - 1)})
+        truncated = max(0, len(value) - len(entries))
+        out = {"kind": "array", "length": len(value), "entries": entries}
+        if truncated:
+            out["truncatedCount"] = truncated
+        return out
+    if isinstance(value, (set, frozenset)):
+        entries = []
+        for idx, item in enumerate(value):
+            if idx >= _LINGUA_MAX_PER_CONTAINER:
+                break
+            entries.append(__lingua_scope_value(item, depth - 1))
+        truncated = max(0, len(value) - len(entries))
+        out = {"kind": "set", "size": len(value), "entries": entries}
+        if truncated:
+            out["truncatedCount"] = truncated
+        return out
+    if isinstance(value, __lingua_datetime.datetime):
+        try:
+            iso = value.isoformat()
+        except Exception:  # noqa: BLE001
+            iso = "Invalid Date"
+        return {"kind": "date", "iso": iso}
+    return None
+
+
+def __lingua_dataclass_payload(value, depth):
+    fields = getattr(value, "__dataclass_fields__", None)
+    if not isinstance(fields, dict) or not fields:
+        return None
+    entries = []
+    for name in fields.keys():
+        try:
+            child = getattr(value, name)
+        except Exception as exc:  # noqa: BLE001
+            child = "<attr error: " + type(exc).__name__ + ">"
+        entries.append({"key": str(name), "value": __lingua_scope_value(child, depth - 1) or {"kind": "primitive", "type": "string", "repr": __lingua_repr_safe(child)}})
+    return {"kind": "object", "previewType": type(value).__name__, "entries": entries}
+
+
+def __lingua_detect_auto_table(value):
+    if not isinstance(value, (list, tuple)) or len(value) == 0:
+        return None
+    column_set = []
+    seen = {}
+    for item in value:
+        if not isinstance(item, dict):
+            return None
+        for key in item.keys():
+            if not isinstance(key, str):
+                return None
+            if key not in seen:
+                seen[key] = True
+                column_set.append(key)
+                if len(column_set) > _LINGUA_MAX_TABLE_COLUMNS:
+                    return None
+    if not column_set:
+        return None
+    slice_count = min(len(value), _LINGUA_MAX_TABLE_ROWS)
+    rows = []
+    for row_idx in range(slice_count):
+        row = value[row_idx]
+        cells = []
+        for col in column_set:
+            if col in row:
+                cells.append(__lingua_scope_value(row[col], 1) or {"kind": "primitive", "type": "string", "repr": __lingua_repr_safe(row[col])})
+            else:
+                cells.append({"kind": "primitive", "type": "undefined", "repr": "None"})
+        rows.append(cells)
+    truncated = max(0, len(value) - slice_count)
+    out = {"kind": "table", "columns": column_set, "rows": rows}
+    if truncated:
+        out["truncatedRowCount"] = truncated
+    return out
+
+
+def __lingua_force_table(value):
+    auto = __lingua_detect_auto_table(value)
+    if auto is not None:
+        return auto
+    if isinstance(value, (list, tuple)):
+        slice_count = min(len(value), _LINGUA_MAX_TABLE_ROWS)
+        rows = [[__lingua_scope_value(value[idx], 1) or {"kind": "primitive", "type": "string", "repr": __lingua_repr_safe(value[idx])}] for idx in range(slice_count)]
+        out = {"kind": "table", "columns": ["value"], "rows": rows}
+        truncated = max(0, len(value) - slice_count)
+        if truncated:
+            out["truncatedRowCount"] = truncated
+        return out
+    if isinstance(value, dict):
+        keys = list(value.keys())[:_LINGUA_MAX_TABLE_COLUMNS]
+        if not keys:
+            return {"kind": "table", "columns": [], "rows": []}
+        row = [__lingua_scope_value(value[k], 1) or {"kind": "primitive", "type": "string", "repr": __lingua_repr_safe(value[k])} for k in keys]
+        return {"kind": "table", "columns": [str(k) for k in keys], "rows": [row]}
+    return {"kind": "table", "columns": ["value"], "rows": [[__lingua_scope_value(value, 1) or {"kind": "primitive", "type": "string", "repr": __lingua_repr_safe(value)}]]}
+
+
+def __lingua_console_serialize(value, force_table=False):
+    # Fold E — bypass entirely when rich rendering is off; saves cycles
+    # on hot Python loops by short-circuiting before the type walk.
+    if not __lingua_rich_console_enabled:
+        return None
+    if force_table:
+        return __lingua_force_table(value)
+    # Fold F — Python exception → error payload.
+    if isinstance(value, BaseException):
+        return {"kind": "error", "message": __lingua_repr_safe(value)}
+    auto_table = __lingua_detect_auto_table(value)
+    if auto_table is not None:
+        return auto_table
+    scope = __lingua_scope_value(value, 1)
+    if scope is not None:
+        return scope
+    dataclass_payload = __lingua_dataclass_payload(value, 1)
+    if dataclass_payload is not None:
+        return dataclass_payload
+    return {"kind": "rawText", "text": __lingua_repr_safe(value)}
+
+
+__lingua_builtins_print = __lingua_builtins.print
+
+
+def __lingua_caller_line():
+    # RL-044 Slice 1C follow-up — surface the user-source line number
+    # so each print() entry threads through ConsoleOutput.line and
+    # paints an inline pill via useInlineResults (same JS behavior as
+    # console.log). Walk frames upward until we exit the lingua-owned
+    # helpers; user code runs in a Pyodide module compiled from a
+    # string so f_lineno maps directly to the source line.
+    try:
+        frame = sys._getframe(1)
+        while frame is not None:
+            name = frame.f_code.co_name
+            if name not in ("__lingua_print", "__lingua_displayhook", "__lingua_caller_line"):
+                return frame.f_lineno
+            frame = frame.f_back
+    except Exception:  # noqa: BLE001 — best-effort
+        pass
+    return None
+
+
+def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
+    target_is_console = file is None or file is sys.stdout or file is sys.stderr
+    if not (__lingua_rich_console_enabled and target_is_console):
+        __lingua_builtins_print(*args, sep=sep, end=end, file=file, flush=flush)
+        return
+
+    sep_actual = " " if sep is None else sep
+    end_actual = "\\n" if end is None else end
+    if not isinstance(sep_actual, str) or not isinstance(end_actual, str):
+        # Delegate invalid sep/end handling to CPython's builtin print
+        # so user-visible TypeError semantics stay stock.
+        __lingua_builtins_print(*args, sep=sep, end=end, file=file, flush=flush)
+        return
+
+    text = sep_actual.join(str(arg) for arg in args) + end_actual
+    if len(__lingua_print_entries) >= __lingua_print_entries_cap:
+        return
+    method = "error" if file is sys.stderr else "log"
+    # Fold C — per-arg payload capture: each positional arg becomes its
+    # own payload entry aligned with the joined text.
+    payloads = []
+    for arg in args:
+        payload = __lingua_console_serialize(arg)
+        if payload is None:
+            payload = {"kind": "rawText", "text": __lingua_repr_safe(arg)}
+        payloads.append(payload)
+    entry = {"text": text, "method": method, "payloads": payloads}
+    line = __lingua_caller_line()
+    if line is not None:
+        entry["line"] = line
+    __lingua_print_entries.append(entry)
+
+
+# Override 'print' in the user namespace (globals) — leaves
+# __lingua_builtins.print intact for any library that reaches for the
+# original.
+globals()["print"] = __lingua_print
+
+
+def __lingua_displayhook(value):
+    # Fold A — REPL-style top-level expression capture. Pyodide's
+    # default displayhook prints repr() for non-None expression
+    # results. We mirror that text output AND capture the value as a
+    # rich payload, so a scratchpad cell ending in 'users' (no print
+    # needed) renders with the same object/table chip as print(users).
+    if value is None:
+        return
+    __lingua_builtins._ = value
+    text = __lingua_repr_safe(value) + "\\n"
+    if not __lingua_rich_console_enabled:
+        sys.stdout.write(text)
+        return
+    if len(__lingua_print_entries) >= __lingua_print_entries_cap:
+        return
+    payload = __lingua_console_serialize(value)
+    if payload is None:
+        payload = {"kind": "rawText", "text": __lingua_repr_safe(value)}
+    entry = {"text": text, "method": "log", "payloads": [payload]}
+    line = __lingua_caller_line()
+    if line is not None:
+        entry["line"] = line
+    __lingua_print_entries.append(entry)
+
+
+sys.displayhook = __lingua_displayhook
+
+
 __lingua_magic_results = []
-def __mc(line, expr_fn):
+def __mc(line, expr_fn, directive=None):
     try:
         val = expr_fn()
-        __lingua_magic_results.append({"line": line, "value": repr(val)})
+        record = {"line": line, "value": repr(val)}
+        # Fold D — magic-comment '#=> table' upgrade. When the
+        # directive tags 'table', also include a forced-table payload
+        # so the renderer can dispatch to the rich table widget.
+        if directive == "table" and __lingua_rich_console_enabled:
+            try:
+                record["payload"] = __lingua_console_serialize(val, force_table=True)
+            except Exception:  # noqa: BLE001 — never let payload errors hide the arrow value
+                pass
+        __lingua_magic_results.append(record)
         return val
     except Exception as e:
         __lingua_magic_results.append({"line": line, "value": str(e)})
@@ -564,34 +967,82 @@ def __mc(line, expr_fn):
 
       const streamState = await py.runPythonAsync(`
 import sys
-_lingua_state = __lingua_json.dumps({
-    "stdout": __lingua_stdout.getvalue(),
-    "stderr": __lingua_stderr.getvalue(),
-    "magic": __lingua_magic_results,
-})
-sys.stdout = __lingua_prev_stdout
-sys.stderr = __lingua_prev_stderr
-__lingua_magic_results = []
+# RL-044 Slice 1C — guarantee sys.stdout / sys.stderr / sys.displayhook
+# get restored even if the JSON dump itself raises. The Pyodide worker
+# is persistent, so a stranded __lingua_displayhook reference from a
+# previous run would re-fire against a stale __lingua_print_entries
+# list on the next execute. The cleanup runs in a finally so the
+# next run always starts on the stock hooks.
+try:
+    _lingua_state = __lingua_json.dumps({
+        "stdout": __lingua_stdout.getvalue(),
+        "stderr": __lingua_stderr.getvalue(),
+        "magic": __lingua_magic_results,
+        "print_entries": __lingua_print_entries,
+    })
+except Exception as _lingua_dump_err:
+    _lingua_state = __lingua_json.dumps({
+        "stdout": __lingua_stdout.getvalue(),
+        "stderr": __lingua_stderr.getvalue() + "\\n[lingua: dump failed: " + repr(_lingua_dump_err) + "]",
+        "magic": [],
+        "print_entries": [],
+    })
+finally:
+    sys.stdout = __lingua_prev_stdout
+    sys.stderr = __lingua_prev_stderr
+    sys.displayhook = sys.__displayhook__
+    __lingua_magic_results = []
+    __lingua_print_entries = []
 _lingua_state
       `);
 
       const streams =
         typeof streamState === 'string'
-          ? (JSON.parse(streamState) as { stdout: string; stderr: string; magic?: Array<{ line: number; value: string }> })
+          ? (JSON.parse(streamState) as {
+              stdout: string;
+              stderr: string;
+              magic?: Array<{ line: number; value: string; payload?: RichOutputPayload }>;
+              print_entries?: PythonPrintEntry[];
+            })
           : { stdout: '', stderr: '' };
 
-      postBufferedOutput(runId, 'log', streams.stdout);
+      // RL-044 Slice 1C — when the Python preamble produced typed
+      // print entries (the common case once the override is in place),
+      // post those instead of splitting the buffered stdout. The
+      // buffered text path remains the fallback when print_entries is
+      // empty (e.g. the user opted out via Settings, or stdout was
+      // written via sys.stdout.write directly bypassing the override).
+      const printEntries = Array.isArray(streams.print_entries)
+        ? streams.print_entries
+        : [];
+      if (printEntries.length > 0) {
+        postPythonPrintEntries(runId, printEntries);
+      } else {
+        postBufferedOutput(runId, 'log', streams.stdout);
+      }
       postBufferedOutput(runId, 'error', streams.stderr);
 
       // Send magic comment results
       if (streams.magic) {
         for (const entry of streams.magic) {
-          ctx.postMessage({
+          // RL-044 Slice 1C fold D — `#=> table` directive surfaces a
+          // forced-table payload alongside the legacy `value` text.
+          // Renderers that don't consume the payload still see the
+          // text fallback unchanged.
+          const magicMessage: {
+            type: 'magic-comment';
+            runId: string;
+            line: number;
+            value: string;
+            payload?: RichOutputPayload;
+          } = {
             type: 'magic-comment',
             runId,
             line: entry.line,
             value: truncate(entry.value, marker),
-          });
+          };
+          if (entry.payload) magicMessage.payload = entry.payload;
+          ctx.postMessage(magicMessage);
         }
       }
 

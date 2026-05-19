@@ -306,10 +306,13 @@ function entryFilteredByPayloadKind(
     // payloads + the no-payload fallback).
     return hidden.has('text');
   }
-  // `richKindBucket` returns `ConsolePayloadKindBucket`, which is
-  // assignable to `ConsolePayloadKindFilter` (the filter union just
-  // widens the bucket with `'errorish'`). No cast needed.
-  return entry.payload.some((p) => hidden.has(richKindBucket(p)));
+  return entry.payload.some((p) => {
+    const bucket = richKindBucket(p);
+    // The Errors chip historically meant warn/error rows. Slice 1C
+    // added payload-level `kind: 'error'` for Python BaseException
+    // values, so the same chip must hide those log rows too.
+    return hidden.has(bucket) || (bucket === 'error' && hidden.has('errorish'));
+  });
 }
 
 export function ConsolePanel() {

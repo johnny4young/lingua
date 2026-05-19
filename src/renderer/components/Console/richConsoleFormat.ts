@@ -46,9 +46,16 @@ export function richKindBucket(payload: RichOutputPayload): ConsolePayloadKindBu
       return 'object';
     case 'array':
       return 'array';
+    case 'error':
+      // RL-044 Slice 1C fold F — Python `BaseException` payloads ship
+      // `kind: 'error'` from `__lingua_console_serialize`. The renderer
+      // already paints these via the warn/error type colour scheme;
+      // bucketing them as `'error'` (not folded into `'text'`) keeps
+      // the telemetry signal honest for dashboards counting error
+      // payloads vs. plain text fallbacks.
+      return 'error';
     case 'primitive':
     case 'function':
-    case 'error':
       return 'text';
   }
 }
