@@ -51,7 +51,7 @@ describe('isVersionNewer', () => {
     ['0.2.0', '0.2.0', false],
     ['0.2.0', '0.2.1', false],
     ['1.0.0', '0.99.99', true],
-    ['v0.3.0', 'v0.2.999', true],
+    ['v0.4.0', 'v0.3.999', true],
     // Equal tags with mixed prefixes are still equal.
     ['v0.2.0', '0.2.0', false],
   ])('isVersionNewer(%s, %s) === %s', (latest, current, expected) => {

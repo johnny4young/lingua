@@ -50,33 +50,33 @@ async function setHookState(
 
 describe('WebUpdateBanner', () => {
   it('renders nothing when there is no remote version', async () => {
-    await setHookState({ remoteVersion: null, pinnedVersion: '0.2.0' });
+    await setHookState({ remoteVersion: null, pinnedVersion: '0.3.0' });
     render(<WebUpdateBanner />);
     expect(screen.queryByTestId('web-update-banner')).toBeNull();
   });
 
   it('renders nothing when remote === pinned', async () => {
-    await setHookState({ remoteVersion: '0.2.1', pinnedVersion: '0.2.1' });
+    await setHookState({ remoteVersion: '0.3.1', pinnedVersion: '0.3.1' });
     render(<WebUpdateBanner />);
     expect(screen.queryByTestId('web-update-banner')).toBeNull();
   });
 
   it('renders nothing when remote is older than pinned (no downgrade prompts)', async () => {
-    await setHookState({ remoteVersion: '0.2.0', pinnedVersion: '0.3.0' });
+    await setHookState({ remoteVersion: '0.3.0', pinnedVersion: '0.4.0' });
     render(<WebUpdateBanner />);
     expect(screen.queryByTestId('web-update-banner')).toBeNull();
   });
 
   it('renders the banner with the version interpolated when remote is newer', async () => {
-    await setHookState({ remoteVersion: '0.3.0', pinnedVersion: '0.2.1' });
+    await setHookState({ remoteVersion: '0.4.0', pinnedVersion: '0.3.1' });
     render(<WebUpdateBanner />);
     const banner = screen.getByTestId('web-update-banner');
-    expect(banner.textContent).toContain('0.3.0');
+    expect(banner.textContent).toContain('0.4.0');
     expect(banner.textContent).toContain('A new version of Lingua is available');
   });
 
   it('reload button calls window.location.reload', async () => {
-    await setHookState({ remoteVersion: '0.3.0', pinnedVersion: '0.2.0' });
+    await setHookState({ remoteVersion: '0.4.0', pinnedVersion: '0.3.0' });
     const reloadSpy = vi.fn();
     Object.defineProperty(window, 'location', {
       value: { ...window.location, reload: reloadSpy },
@@ -90,7 +90,7 @@ describe('WebUpdateBanner', () => {
   });
 
   it('dismiss hides the banner for the remainder of the mount', async () => {
-    await setHookState({ remoteVersion: '0.3.0', pinnedVersion: '0.2.0' });
+    await setHookState({ remoteVersion: '0.4.0', pinnedVersion: '0.3.0' });
     render(<WebUpdateBanner />);
     expect(screen.queryByTestId('web-update-banner')).toBeTruthy();
 
@@ -103,12 +103,12 @@ describe('WebUpdateBanner', () => {
       await i18next.changeLanguage('es');
     });
     try {
-      await setHookState({ remoteVersion: '0.3.0', pinnedVersion: '0.2.0' });
+      await setHookState({ remoteVersion: '0.4.0', pinnedVersion: '0.3.0' });
       render(<WebUpdateBanner />);
       const banner = screen.getByTestId('web-update-banner');
       expect(banner.textContent).toContain('Hay una nueva versión de Lingua disponible');
       // Tuteo: "Recarga", not "Recargá".
-      expect(banner.textContent).toContain('Recarga para obtener la versión 0.3.0');
+      expect(banner.textContent).toContain('Recarga para obtener la versión 0.4.0');
       // Reload button copy is "Recargar" (infinitive form is universal).
       expect(banner.textContent).toContain('Recargar');
     } finally {
