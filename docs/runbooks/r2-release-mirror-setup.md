@@ -213,6 +213,44 @@ compromised.
 
 ---
 
+## Part 4.5 — R2 + aws-cli gotchas
+
+R2 implements most of the S3 API but not all of it. Two flags are
+mandatory when scripting against R2 with `aws-cli`:
+
+- **`--copy-props none`** on every `aws s3 cp` / `aws s3 sync` call.
+  R2 returns `NotImplemented` for `GetObjectTagging` /
+  `PutObjectTagging`. The default behaviour of `aws s3 sync` is to
+  preserve object tags from source to destination, so without this
+  flag the second-run sync to `latest/` (or any sync that compares
+  pre-existing destination objects) aborts with
+  `An error occurred (NotImplemented) when calling the GetObjectTagging operation`.
+  The release workflow already passes this flag; if you script
+  uploads manually, add it too.
+- **`AWS_DEFAULT_REGION=auto`** (set in the workflow env). R2 ignores
+  region but `aws-cli` requires the env var to be present.
+
+If you ever hit the `GetObjectTagging not implemented` error, the
+recovery without re-running the workflow is:
+
+```bash
+export AWS_ACCESS_KEY_ID='...'
+export AWS_SECRET_ACCESS_KEY='...'
+export AWS_DEFAULT_REGION=auto
+export R2_ENDPOINT='https://<account-id>.r2.cloudflarestorage.com'
+
+# Clear half-populated latest/, then sync with the fix:
+aws s3 rm s3://lingua-releases/latest/ --recursive \
+  --endpoint-url "$R2_ENDPOINT"
+
+aws s3 sync \
+  s3://lingua-releases/<release-tag>/ \
+  s3://lingua-releases/latest/ \
+  --endpoint-url "$R2_ENDPOINT" \
+  --copy-props none \
+  --delete
+```
+
 ## Part 5 — Cost expectations
 
 R2 pricing (as of 2026):
