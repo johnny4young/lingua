@@ -23,7 +23,7 @@ export function getEditorOptions({
     lineNumbers: showLineNumbers ? 'on' : 'off',
     wordWrap: wordWrap ? 'on' : 'off',
     minimap: { enabled: minimap },
-    scrollBeyondLastLine: false,
+    scrollBeyondLastLine: true,
     padding: { top: 12, bottom: 12 },
     smoothScrolling: true,
     cursorBlinking: 'smooth',

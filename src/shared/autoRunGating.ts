@@ -135,6 +135,80 @@ const TRAILING_INCOMPLETE_KEYWORDS = new Set([
   'instanceof',
 ]);
 
+const REGEX_PREFIX_KEYWORDS = new Set([
+  'return',
+  'throw',
+  'case',
+  'delete',
+  'typeof',
+  'void',
+  'await',
+  'yield',
+]);
+
+function tokenCanPrecedeRegexLiteral(token: string): boolean {
+  if (token === '') return true;
+  if (token === '(' || token === '[' || token === '{') return true;
+  if (REGEX_PREFIX_KEYWORDS.has(token)) return true;
+  return TRAILING_INCOMPLETE_OPERATORS.has(token);
+}
+
+function consumeRegexLiteral(
+  source: string,
+  start: number
+): { masked: string; nextIndex: number; closed: boolean } {
+  let i = start;
+  let masked = '/';
+  let inCharacterClass = false;
+  i++;
+
+  while (i < source.length) {
+    const c = source[i] ?? '';
+    const next = i + 1 < source.length ? source[i + 1] : '';
+
+    if (c === '\n' || c === '\r') {
+      masked += c;
+      i++;
+      return { masked, nextIndex: i, closed: false };
+    }
+
+    if (c === '\\' && next !== '') {
+      masked += '  ';
+      i += 2;
+      continue;
+    }
+
+    if (c === '[') {
+      inCharacterClass = true;
+      masked += ' ';
+      i++;
+      continue;
+    }
+
+    if (c === ']') {
+      inCharacterClass = false;
+      masked += ' ';
+      i++;
+      continue;
+    }
+
+    if (c === '/' && !inCharacterClass) {
+      masked += '/';
+      i++;
+      while (i < source.length && isIdentifierChar(source[i] ?? '')) {
+        masked += source[i] ?? '';
+        i++;
+      }
+      return { masked, nextIndex: i, closed: true };
+    }
+
+    masked += ' ';
+    i++;
+  }
+
+  return { masked, nextIndex: i, closed: false };
+}
+
 interface StripResult {
   /** Source with comments collapsed to spaces (preserves offsets). */
   stripped: string;
@@ -164,6 +238,7 @@ function scanSource(source: string): StripResult {
   let inSingleQuote = false;
   let inDoubleQuote = false;
   let unterminatedQuote = false;
+  let unterminatedRegex = false;
   // Template literal context. `templateStack[i] = true` while the
   // outer template is in raw mode (between `${`s); a `${` push flips
   // to JS mode (false) until the matching `}` pops back.
@@ -303,6 +378,15 @@ function scanSource(source: string): StripResult {
       i += 2;
       continue;
     }
+    if (c === '/' && tokenCanPrecedeRegexLiteral(lastSignificantToken(out))) {
+      const regex = consumeRegexLiteral(source, i);
+      out += regex.masked;
+      i = regex.nextIndex;
+      if (!regex.closed) {
+        unterminatedRegex = true;
+      }
+      continue;
+    }
     if (c === "'") {
       inSingleQuote = true;
       out += c;
@@ -383,7 +467,8 @@ function scanSource(source: string): StripResult {
     templateStack.length !== 0;
 
   const openTemplatePlaceholder = templateStack.some((isRaw) => !isRaw);
-  const openQuote = inSingleQuote || inDoubleQuote || unterminatedQuote;
+  const openQuote =
+    inSingleQuote || inDoubleQuote || unterminatedQuote || unterminatedRegex;
   const openBlockComment = inBlockComment;
 
   return {
@@ -471,7 +556,8 @@ function lastSignificantToken(stripped: string): string {
  * Examples that flag incomplete:
  *
  *   - `for (let i = )` — last token before `)` is `=`.
- *   - `const arr = [1, ]` — last token before `]` is `,`.
+ *   - `const arr = [, ]` — last token before `]` is `,`, and the
+ *     token before that comma is the opener.
  *   - `items.map((x) => )` — last token before final `)` is `=>`.
  *   - `if (x === )` — last token before `)` is `===`.
  *
@@ -479,7 +565,7 @@ function lastSignificantToken(stripped: string): string {
  *
  *   - `() => {}` — `}` is preceded by `{`, not by an operator.
  *   - `(a + b)` — last token before `)` is `b`.
- *   - `[1, 2]` — last token before `]` is `2`.
+ *   - `[1, 2]` and `[1, 2,]` — valid array literals.
  *   - `i++)` — `++` is a postfix operator and does not need a right
  *     operand; treat as complete.
  */
@@ -497,6 +583,25 @@ function hasAutoPairTrap(stripped: string): boolean {
     // Postfix `++` and `--` legitimately appear before `)`. They are
     // self-contained operators that produce a value.
     if (previousToken === '++' || previousToken === '--') continue;
+    // Trailing commas before a close delimiter are valid JS / TS in
+    // arrays, objects, and function calls. Keep gating only when the
+    // comma follows an opener or another incomplete token, e.g. `(,)`
+    // or `{ a: , }`. This avoids pausing formatted code such as
+    // `fn(a, b,)`, which is common after Prettier-style wrapping.
+    if (previousToken === ',') {
+      const tokenBeforeComma = lastSignificantTokenBefore(stripped, j);
+      if (
+        tokenBeforeComma !== '' &&
+        tokenBeforeComma !== '(' &&
+        tokenBeforeComma !== '[' &&
+        tokenBeforeComma !== '{' &&
+        !TRAILING_INCOMPLETE_OPERATORS.has(tokenBeforeComma) &&
+        !TRAILING_INCOMPLETE_KEYWORDS.has(tokenBeforeComma)
+      ) {
+        continue;
+      }
+      return true;
+    }
     if (TRAILING_INCOMPLETE_OPERATORS.has(previousToken)) return true;
     if (TRAILING_INCOMPLETE_KEYWORDS.has(previousToken)) return true;
   }

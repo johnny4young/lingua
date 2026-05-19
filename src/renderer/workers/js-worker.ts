@@ -34,6 +34,12 @@ import {
   finalizeScopeSnapshot,
   serializeScopeValue,
 } from '../../shared/scopeSnapshot';
+import {
+  type RichOutputPayload,
+  type RichOutputTable,
+  forceTablePayload,
+  serializeRichValue,
+} from '../../shared/richOutput';
 
 // Type-safe message posting (Worker context has no DOM types)
 const ctx = self as unknown as Worker;
@@ -57,6 +63,12 @@ const originalConsole = {
   warn: console.warn.bind(console),
   error: console.error.bind(console),
   info: console.info.bind(console),
+  // RL-044 Slice 1B — `console.table` becomes a first-class method via
+  // the proxy shim. The native worker `console.table` is a no-op in
+  // most environments; saving the bound original here keeps parity
+  // with the other methods even though we never call it after
+  // restoration (worker is single-shot today).
+  table: typeof console.table === 'function' ? console.table.bind(console) : undefined,
 };
 
 /** Fallback only used for malformed legacy messages without a marker. */
@@ -165,6 +177,59 @@ function serialize(args: unknown[], marker: string): string[] {
   });
 }
 
+/**
+ * RL-044 Slice 1B — produce typed `RichOutputPayload` payloads aligned
+ * by index with the legacy `args: string[]` array. The text path stays
+ * the canonical fallback; payloads are *additive* on `ConsoleOutput`,
+ * never replacing the strings the renderer already paints today.
+ */
+function serializePayloads(args: unknown[], marker: string): RichOutputPayload[] {
+  return args.map((arg) =>
+    serializeRichValue(arg, {
+      truncate: (input) => truncate(input, marker),
+    })
+  );
+}
+
+/**
+ * RL-044 Slice 1B fold D — `console.table(rows, columns?)` honors a
+ * second-arg column-subset list, matching Chrome DevTools behavior.
+ * The shim runs over the original `unknown[]`-shaped args, so it has
+ * access to the runtime value (not just the stringified preview) and
+ * can apply `forceTablePayload` end-to-end.
+ *
+ * Returns the table payload that should occupy index 0 of the
+ * `console.table` payload array. Falls back to a vanilla
+ * `forceTablePayload(rows)` when the user passed no column subset, or
+ * the requested columns aren't a non-empty subset.
+ */
+function buildConsoleTablePayload(args: unknown[]): RichOutputTable {
+  const [rows, columns] = args;
+  const subset =
+    Array.isArray(columns) && columns.every((c) => typeof c === 'string')
+      ? (columns as string[])
+      : null;
+  const base = forceTablePayload(rows);
+  if (!subset || subset.length === 0) return base;
+  const indices: number[] = [];
+  for (const col of subset) {
+    const idx = base.columns.indexOf(col);
+    if (idx >= 0) indices.push(idx);
+  }
+  if (indices.length === 0) return base;
+  const filteredColumns = indices.map((i) => base.columns[i]!);
+  const filteredRows = base.rows.map((row) => indices.map((i) => row[i]!));
+  if (base.truncatedRowCount !== undefined) {
+    return {
+      kind: 'table',
+      columns: filteredColumns,
+      rows: filteredRows,
+      truncatedRowCount: base.truncatedRowCount,
+    };
+  }
+  return { kind: 'table', columns: filteredColumns, rows: filteredRows };
+}
+
 function sourceLineFor(
   generatedLine: number | undefined,
   sourceLineMap: Record<number, number> | undefined
@@ -172,6 +237,24 @@ function sourceLineFor(
   if (generatedLine === undefined) return undefined;
   const mapped = sourceLineMap?.[generatedLine];
   return typeof mapped === 'number' && mapped > 0 ? mapped : generatedLine;
+}
+
+function extractCallingLine(
+  sourceLineMap: Record<number, number> | undefined
+): number | undefined {
+  try {
+    const stack = new Error().stack ?? '';
+    const match = stack.match(/<anonymous>:(\d+):(\d+)/);
+    if (match?.[1]) {
+      const rawLine = parseInt(match[1], 10);
+      // Subtract the 2-line offset from the async function wrapper
+      const generatedLine = rawLine > 2 ? rawLine - 2 : rawLine;
+      return sourceLineFor(generatedLine, sourceLineMap);
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
 }
 
 function createConsoleProxy(
@@ -182,31 +265,70 @@ function createConsoleProxy(
   const methods = ['log', 'warn', 'error', 'info'] as const;
   for (const method of methods) {
     console[method] = (...args: unknown[]) => {
-      // Extract calling line number from the stack trace.
-      // The AsyncFunction constructor wraps user code, adding 2 lines of offset.
-      let line: number | undefined;
-      try {
-        const stack = new Error().stack ?? '';
-        const match = stack.match(/<anonymous>:(\d+):(\d+)/);
-        if (match?.[1]) {
-          const rawLine = parseInt(match[1], 10);
-          // Subtract the 2-line offset from the async function wrapper
-          const generatedLine = rawLine > 2 ? rawLine - 2 : rawLine;
-          line = sourceLineFor(generatedLine, sourceLineMap);
-        }
-      } catch {
-        // ignore
-      }
-
+      const line = extractCallingLine(sourceLineMap);
       ctx.postMessage({
         type: 'console',
         runId,
         method,
         args: serialize(args, marker),
+        payload: serializePayloads(args, marker),
         line,
       });
     };
   }
+
+  // RL-044 Slice 1B — `console.table(rows, columns?)` shim. Routes to
+  // a `log` console entry (matches Chrome DevTools behavior) but
+  // overrides the payload[0] with a forced `RichOutputTable`, honoring
+  // the optional column-subset second argument.
+  //
+  // Two edge cases worth noting:
+  //   - The `columns` argument is consumed by `buildConsoleTablePayload`
+  //     and intentionally NOT emitted as a separate payload (it would
+  //     surface to the renderer as a meaningless `ScopeValueArray` of
+  //     the column names and break the args ↔ payload 1:1 invariant).
+  //   - `console.table()` with no arguments emits a single empty-table
+  //     entry rather than `Table(1×1)` over an undefined cell.
+  (console as { table?: (...a: unknown[]) => void }).table = (
+    ...args: unknown[]
+  ) => {
+    const line = extractCallingLine(sourceLineMap);
+    if (args.length === 0) {
+      ctx.postMessage({
+        type: 'console',
+        runId,
+        method: 'log',
+        args: ['Table(0×0)'],
+        payload: [
+          { kind: 'table', columns: [], rows: [] } as RichOutputPayload,
+        ],
+        line,
+        consoleTableInvoked: true,
+      });
+      return;
+    }
+    const tablePayload = buildConsoleTablePayload(args);
+    const rowCount =
+      tablePayload.rows.length + (tablePayload.truncatedRowCount ?? 0);
+    // The optional `columns` subset argument is consumed by
+    // `buildConsoleTablePayload`; do not echo it into the fallback
+    // text, or the legacy path renders `Table(...) ["col"]`.
+    const textArgs = [`Table(${rowCount}×${tablePayload.columns.length})`];
+    // Only the table payload occupies the payload array.
+    const payloads: RichOutputPayload[] = [tablePayload];
+    ctx.postMessage({
+      type: 'console',
+      runId,
+      method: 'log',
+      args: textArgs,
+      payload: payloads,
+      line,
+      // Fold F adoption signal — surfaced as a separate
+      // `runtime.console_table_called` telemetry event by the runner
+      // when it sees this flag (the worker is renderer-blind).
+      consoleTableInvoked: true,
+    });
+  };
 }
 
 function restoreConsole() {
@@ -214,6 +336,11 @@ function restoreConsole() {
   console.warn = originalConsole.warn;
   console.error = originalConsole.error;
   console.info = originalConsole.info;
+  if (originalConsole.table) {
+    console.table = originalConsole.table;
+  } else {
+    delete (console as { table?: unknown }).table;
+  }
 }
 
 /** Parse error to extract line/column from stack trace */

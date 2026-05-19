@@ -3891,6 +3891,152 @@ Deferred to Slice 2 (separate plan, security review required):
   changes).
 - `//=> chart` + `//=> figure` magic-comment directives.
 
+#### § Slice 1B landed (2026-05-19)
+
+Console-panel rich rendering + popover detail surface. Tight cut of
+the Slice-1A "Deferred to Slice 1B" enumeration: additive `payload`
+flows end-to-end without the breaking `args: string[]` migration; the
+console panel paints rich kinds inline + opens a popover; Pro-gated
+Copy as JSON; eight folds (A–H) on top of core + a tooltip refinement
+on every shortcut surface (user ask in the Phase 1 approval).
+
+Shipped:
+
+- `ConsoleOutput.payload?: RichOutputPayload[]` and
+  `ConsoleEntry.payload?: RichOutputPayload[]` (additive — `args` /
+  `content` unchanged; the 3 runner test fixtures
+  `tests/runners/parentTimeout.test.ts`, `rust.test.ts`,
+  `limits.test.ts` keep passing without modification).
+- `js-worker.ts` `serialize()` now also produces an aligned
+  `RichOutputPayload[]` via `serializeRichValue`. The proxy posts both
+  `args` (string fallback) and `payload` (typed). New
+  `console.table(rows, columns?)` shim (fold D — Chrome DevTools
+  second-arg subset, indices preserved post-filter so the legacy text
+  remains coherent at `Table(N×M)`).
+- JS + TS runners forward `payload` to `ConsoleOutput` and emit
+  `runtime.console_table_called { language }` adoption telemetry when
+  the worker flags `consoleTableInvoked: true`.
+- 7 new components under `src/renderer/components/Console/`:
+  `ConsoleEntryRenderer.tsx` (dispatch wrapper),
+  `RichValueText.tsx`, `RichValueObject.tsx`, `RichValueArray.tsx`,
+  `RichValueMapSet.tsx`, `RichValueTable.tsx`,
+  `ConsoleEntryPopover.tsx` (Preview + Raw JSON tabs).
+- Shared formatter helpers `src/renderer/components/Console/richConsoleFormat.ts`
+  with `richKindBucket` / `typeIcon` / `payloadHasRichSurface` /
+  `payloadAsJsonString`. Pure (no React, no i18n) so a future
+  Slice 1C refactor of `VariableInspectorPanel` formatters can land
+  alongside.
+- `<ConsolePanel>` `EntryRow` dispatches to `<ConsoleEntryRenderer>`
+  when both the new `Settings.consoleRichRenderingEnabled` is ON
+  AND `entry.payload` is present + non-empty. Otherwise paints the
+  legacy `<AnsiContent>` text path unchanged.
+- **Fold A** payload-kind filter chips (`Tables · Objects · Arrays ·
+  Map/Set · Text`). Default empty hidden-set so every kind starts
+  visible. `consoleStore` gains `hiddenPayloadKinds: Set<…>` +
+  `togglePayloadKindFilter` + `clearPayloadKindFilters`.
+- **Fold B** `Mod+Shift+J` keyboard handler inside `<ConsoleEntryPopover>`
+  toggles Preview ↔ Raw JSON; new command-palette entry
+  `action-toggle-console-rich-rendering` (bumps the palette catalog
+  count by 1). **Tooltip refinement** (user ask in the Phase 1
+  approval): both popover tabs wrap in the existing `<Tooltip>`
+  primitive from `src/renderer/components/ui/chrome.tsx` with i18n
+  keys `console.rich.previewShortcutTooltip` +
+  `console.rich.rawJsonShortcutTooltip`. The same content lands on
+  `aria-label` for screen-reader parity, mirroring the
+  `RuntimeModeSelector` pattern.
+- **Fold C** Pro-gated "Copy as JSON" via `useEntitlement('EXECUTION_HISTORY')`;
+  Free-tier label flips to `Copy as JSON (Pro)` + `pushUpsellNotice`
+  on click with the new `upsell.feature.consoleCopyJson` key.
+- **Fold D** `console.table(rows, columns?)` second-arg subset (see
+  worker shim above).
+- **Fold E** Settings → Editor row "Rich console output" (default ON);
+  new `Settings.consoleRichRenderingEnabled` field + `toggleConsoleRichRendering`
+  action; persisted across reloads; defensive boolean check in the
+  rehydrate merge.
+- **Fold F** new `runtime.console_table_called { language }` telemetry
+  (closed-enum `language`, safe-token validated). Mirrored on
+  `update-server/src/telemetry.ts` with the same validator + a behavior
+  test.
+- **Fold G** `tests/shared/consoleRich.bench.test.ts` — 1 000 iterations
+  / 750 ms budget locking the `serializeRichValue + richKindBucket`
+  hot path. Mirrors the RL-020 Slice 5 fold F autoLog detector lock.
+- **Fold H** `collapseIdenticalEntries` helper in `ConsolePanel.tsx`
+  collapses consecutive identical entries (matching `type` + `line` +
+  `content` + JSON-shape of `payload`) into a single row with an
+  `×N` badge. The underlying store entries stay intact so
+  `<RecentRunsPill>` and replay surfaces still see every log.
+
+New telemetry:
+
+- `runtime.console_rich_rendered { kind }` — closed enum
+  `table | object | array | mapSet | date | promise | text | rawText | image | chart`.
+  Fires once per first-render of a payload-bearing entry via a
+  `useMemo` so React strict-mode double-mount only emits one event
+  per payload. Mirrored on update-server.
+- `runtime.console_table_called { language }` — see fold F above.
+- New parity test in `update-server/test/telemetry.test.ts` locks
+  `CONSOLE_RICH_KIND_BUCKETS` between renderer + worker. The
+  pre-existing `TELEMETRY_EVENT_NAMES` parity assertion already
+  enforces the array shape.
+
+i18n keys (both locales, tuteo Spanish):
+
+- `console.rich.preview` / `console.rich.rawJson` / `console.rich.copyAsJson`
+  / `console.rich.copyAsJsonPro` / `console.rich.expand` /
+  `console.rich.collapse` / `console.rich.tableSummary` /
+  `console.rich.mapSummary` / `console.rich.setSummary` /
+  `console.rich.truncated` / `console.rich.moreCount` /
+  `console.rich.openDetails` /
+  `console.rich.imagePlaceholder` / `console.rich.chartPlaceholder` /
+  `console.rich.close` / `console.rich.previewShortcutTooltip` /
+  `console.rich.rawJsonShortcutTooltip` / `console.rich.filterChip.*`
+  (`table` / `object` / `array` / `mapSet` / `text` / `errorish`).
+- `consoleRich.settings.label` + `consoleRich.settings.hint` for the
+  Settings → Editor row.
+- `commandPalette.action.toggleConsoleRichRendering.{label,descriptionEnable,descriptionDisable}`.
+- `upsell.feature.consoleCopyJson`.
+
+Verification:
+
+- `npm run lint` + `npx tsc --noEmit` + `npm run check:i18n` +
+  `npm run check:i18n:copy` clean. `npm test -- --run` 3 428 / 4
+  skipped (309 test files). `update-server` 114 / 0 including the
+  new `CONSOLE_RICH_KIND_BUCKETS` parity test + behavior tests for
+  `runtime.console_rich_rendered` and `runtime.console_table_called`.
+  `update-server` typecheck is clean.
+- `npm run build:web` clean.
+- UI smoke verified via `npm run preview:web -- --host 127.0.0.1
+  --port 4173` + headless Playwright. The smoke seeds an EN and ES JS
+  tab, switches the action pill from Scratchpad to Run, opens the
+  console, verifies a rich `console.table(rows, ['age'])` entry, opens
+  Raw JSON details, toggles the `TABLES` payload chip, and ends with
+  zero browser console/page errors.
+- New tests: `tests/components/Console/richConsoleFormat.test.ts`
+  (5 cases — closed-enum buckets, icons, surface gate, JSON
+  round-trip), `tests/runners/javascript.test.ts` (2 new cases —
+  payload pass-through + legacy fallback), `tests/stores/consoleStore.test.ts`
+  (5 new cases — hiddenPayloadKinds toggle + clear + payload-preserving
+  addEntry), `tests/shared/consoleRich.bench.test.ts` (perf budget),
+  `tests/shared/telemetry.test.ts` (allowlist parity expanded),
+  `update-server/test/telemetry.test.ts` (3 new cases —
+  `CONSOLE_RICH_KIND_BUCKETS` parity + behavior tests for both
+  events). Existing `tests/components/ConsolePanel.test.tsx` mocks
+  updated to include `hiddenPayloadKinds` + the two new actions.
+
+Deferred to Slice 1C (separate plan):
+
+- Breaking `ConsoleOutput.args: string[]` → `args: RichOutputPayload[]`
+  migration + fixture refactor across the 3 runner test files.
+- Native payload emission for TS / Python / Go / Rust runners.
+- Refactoring shared formatters from `<VariableInspectorPanel>`
+  (Slice 1A Fold D — extract `typeTag` / `typeIcon` / `renderInlineValue`
+  / `previewSummary` to `richConsoleFormat.ts` so both popover and
+  inspector share the formula).
+- `serializeRichValue` memoisation (Slice 1A Fold F — gated on
+  perf data once Slice 1C lands).
+
+Slice 2 stays as-is (separate security review).
+
 ### RL-045 Add built-in developer utilities panel
 
 - Priority: `P2`

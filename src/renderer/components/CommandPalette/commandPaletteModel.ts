@@ -199,6 +199,21 @@ interface BuildCommandPaletteModelArgs {
    */
   variableInspectorScopeAvailable?: boolean;
   /**
+   * RL-044 Slice 1B fold B — fires the "Toggle rich console output"
+   * palette action. Optional; when omitted the action is hidden.
+   * Always available regardless of language / runner since the
+   * console is global.
+   */
+  onToggleConsoleRichRendering?: () => void;
+  /**
+   * RL-044 Slice 1B fold B — current value of
+   * `Settings.consoleRichRenderingEnabled`. Drives the description
+   * text between "Use legacy text-only console output" and "Restore
+   * rich console rendering" so the palette honestly previews the
+   * next state.
+   */
+  consoleRichRenderingEnabled?: boolean;
+  /**
    * RL-020 Slice 4 fold G — id of the active editor tab. Used to
    * surface a parallel "Recent runs (this tab)" group ranked above
    * the global recent-runs entries when at least one history entry
@@ -504,6 +519,8 @@ export function buildCommandPaletteModel({
   onToggleVariableInspector,
   activeVariableInspectorEnabled = false,
   variableInspectorScopeAvailable = false,
+  onToggleConsoleRichRendering,
+  consoleRichRenderingEnabled = true,
   activeTabId = null,
   updateStatus,
   createTab,
@@ -755,6 +772,26 @@ export function buildCommandPaletteModel({
             ['variables', 'inspector', 'scope', 'last', 'run', 'toggle'],
             () => {
               onToggleVariableInspector();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-044 Slice 1B fold B — toggle the rich console output dispatch.
+    // Always available when wired (no scope / language gate).
+    ...(onToggleConsoleRichRendering
+      ? [
+          buildActionCommand(
+            'action-toggle-console-rich-rendering',
+            translate('commandPalette.action.toggleConsoleRichRendering.label'),
+            translate(
+              consoleRichRenderingEnabled
+                ? 'commandPalette.action.toggleConsoleRichRendering.descriptionDisable'
+                : 'commandPalette.action.toggleConsoleRichRendering.descriptionEnable'
+            ),
+            ['console', 'rich', 'json', 'rendering', 'output', 'toggle', 'table'],
+            () => {
+              onToggleConsoleRichRendering();
               onClose();
             }
           ),

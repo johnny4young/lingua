@@ -597,6 +597,13 @@
   .toolbar-drag-region a {
     -webkit-app-region: no-drag;
   }
+
+  .action-pill,
+  .action-pill *,
+  .dropdown-rich,
+  .dropdown-rich * {
+    -webkit-app-region: no-drag;
+  }
 }
 
 @layer components {
@@ -950,6 +957,45 @@
     margin: 0 4px;
   }
 
+  .monaco-editor.vs-dark .lingua-inline-result {
+    color: oklch(0.74 0.018 220);
+  }
+
+  .monaco-editor.vs-dark .lingua-inline-result-arrow {
+    color: oklch(0.62 0.018 220);
+  }
+
+  .monaco-editor.vs-dark .lingua-inline-result-value {
+    color: oklch(0.96 0.008 220);
+  }
+
+  .monaco-editor.vs-dark .lingua-inline-result-pill {
+    border-color: oklch(0.32 0.018 220);
+    background: oklch(0.2 0.014 220);
+    color: oklch(0.76 0.018 220);
+  }
+
+  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='string'] {
+    border-color: color-mix(in srgb, oklch(0.78 0.14 155) 30%, transparent);
+    background: color-mix(in srgb, oklch(0.78 0.14 155) 16%, transparent);
+    color: oklch(0.8 0.14 155);
+  }
+
+  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='number'],
+  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='boolean'] {
+    border-color: color-mix(in srgb, oklch(0.75 0.13 250) 30%, transparent);
+    background: color-mix(in srgb, oklch(0.75 0.13 250) 16%, transparent);
+    color: oklch(0.8 0.12 250);
+  }
+
+  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='object'],
+  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='array'],
+  .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='error'] {
+    border-color: color-mix(in srgb, oklch(0.77 0.1 45) 30%, transparent);
+    background: color-mix(in srgb, oklch(0.77 0.1 45) 16%, transparent);
+    color: oklch(0.82 0.1 45);
+  }
+
   /* RL-027 Slice 1.5 — Monaco glyph-margin breakpoint dot. The class
      is attached via Monaco IModelDeltaDecoration#glyphMarginClassName
      from `useBreakpointGutter`. Disabled breakpoints render as an
@@ -1048,6 +1094,17 @@
   }
 
   /* Hover widget */
+  .unified-editor-canvas,
+  .unified-editor-canvas #editor-panel,
+  .unified-editor-canvas #editor-panel > div {
+    overflow: visible !important;
+  }
+
+  .monaco-editor .overflowingContentWidgets,
+  .monaco-editor .monaco-hover {
+    z-index: 12000 !important;
+  }
+
   .monaco-editor .monaco-hover {
     background: var(--color-bg-panel);
     border: 1px solid var(--color-border-default);
@@ -1472,6 +1529,21 @@
 
   .floating-variables-row {
     @apply grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border-subtle bg-bg-inset/45 px-3 py-2;
+  }
+
+  .floating-variables-card-body {
+    @apply grid max-h-[236px] gap-1 overflow-y-auto overscroll-contain px-3 pb-2 pr-2;
+    scrollbar-color: color-mix(in srgb, var(--color-accent) 45%, transparent) transparent;
+    scrollbar-width: thin;
+  }
+
+  .floating-variables-card-body::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .floating-variables-card-body::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--color-accent) 45%, transparent);
+    border-radius: 999px;
   }
 
   .floating-variables-card-footer {

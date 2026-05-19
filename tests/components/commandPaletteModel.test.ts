@@ -414,6 +414,65 @@ describe('buildCommandPaletteModel', () => {
     expect(onOpenKeyboardShortcuts).toHaveBeenCalledOnce();
   });
 
+  it('exposes the rich console rendering toggle with state-aware descriptions', () => {
+    const onToggleConsoleRichRendering = vi.fn();
+    const onClose = vi.fn();
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose,
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    expect(
+      buildCommandPaletteModel(baseArgs).find(
+        (command) => command.id === 'action-toggle-console-rich-rendering'
+      )
+    ).toBeUndefined();
+
+    const enabledCommands = buildCommandPaletteModel({
+      ...baseArgs,
+      onToggleConsoleRichRendering,
+      consoleRichRenderingEnabled: true,
+    });
+    const action = enabledCommands.find(
+      (command) => command.id === 'action-toggle-console-rich-rendering'
+    );
+    expect(action?.description).toBe(
+      'Use the legacy text-only console output for every entry.'
+    );
+    action?.action();
+    expect(onToggleConsoleRichRendering).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
+
+    const disabledCommands = buildCommandPaletteModel({
+      ...baseArgs,
+      onToggleConsoleRichRendering,
+      consoleRichRenderingEnabled: false,
+    });
+    expect(
+      disabledCommands.find(
+        (command) => command.id === 'action-toggle-console-rich-rendering'
+      )?.description
+    ).toBe('Restore rich console rendering with tables, maps, and inline detail.');
+  });
+
   it('keeps matching commands when filtering by keywords, label, or description', () => {
     const commands = [
       {

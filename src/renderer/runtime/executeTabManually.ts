@@ -274,11 +274,23 @@ export async function executeTabManually(
       } else {
         streamedStdout.push(output);
       }
-      addEntry({
-        type: output.type,
-        content: output.args.join(' '),
-        line: output.line,
-      });
+      // RL-044 Slice 1B — forward the additive rich payload alongside
+      // the legacy text content so the console renderer can dispatch
+      // even on the streamed path (manual Run, hot scratchpad).
+      addEntry(
+        output.payload
+          ? {
+              type: output.type,
+              content: output.args.join(' '),
+              line: output.line,
+              payload: output.payload,
+            }
+          : {
+              type: output.type,
+              content: output.args.join(' '),
+              line: output.line,
+            }
+      );
 
       const presentation = toExecutionPresentation(language, content, {
         stdout: streamedStdout,
@@ -397,11 +409,20 @@ export async function executeTabManually(
       const cancelledOutputs =
         streamedConsoleCount > 0 ? [] : [...result.stdout, ...result.stderr];
       for (const output of cancelledOutputs) {
-        addEntry({
-          type: output.type,
-          content: output.args.join(' '),
-          line: output.line,
-        });
+        addEntry(
+          output.payload
+            ? {
+                type: output.type,
+                content: output.args.join(' '),
+                line: output.line,
+                payload: output.payload,
+              }
+            : {
+                type: output.type,
+                content: output.args.join(' '),
+                line: output.line,
+              }
+        );
       }
       addEntry({
         type: 'warn',

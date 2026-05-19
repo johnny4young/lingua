@@ -42,6 +42,22 @@ describe('runnerOutput helpers', () => {
     ]);
   });
 
+  it('preserves rich console payloads while keeping the legacy content fallback', () => {
+    const payload = [{ kind: 'table' as const, columns: ['name'], rows: [] }];
+    const result = toConsoleEntries({
+      stdout: [{ type: 'log', args: ['Table(0×1)'], payload }],
+      stderr: [],
+      executionTime: 4,
+    });
+
+    expect(result[0]).toEqual({
+      type: 'log',
+      content: 'Table(0×1)',
+      line: undefined,
+      payload,
+    });
+  });
+
   it('formats execution errors only when present', () => {
     expect(formatExecutionError({ stdout: [], stderr: [], executionTime: 0 })).toBeNull();
     expect(

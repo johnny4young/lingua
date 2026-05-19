@@ -27,6 +27,128 @@ describe('JavaScriptRunner', () => {
     expect(() => runner.stop()).not.toThrow();
   });
 
+  it('forwards rich payload + console.table flag from worker to ConsoleOutput (RL-044 Slice 1B)', async () => {
+    const originalWorker = globalThis.Worker;
+
+    class MockWorker {
+      private messageHandler: ((event: MessageEvent) => void) | null = null;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') {
+          this.messageHandler = handler;
+        }
+      }
+
+      postMessage(message: { runId?: string }): void {
+        this.messageHandler?.({
+          data: {
+            type: 'console',
+            runId: message.runId,
+            method: 'log',
+            args: ['Table(2×2)'],
+            payload: [
+              {
+                kind: 'table',
+                columns: ['name', 'age'],
+                rows: [
+                  [
+                    { kind: 'primitive', type: 'string', repr: '"alice"' },
+                    { kind: 'primitive', type: 'number', repr: '30' },
+                  ],
+                ],
+              },
+            ],
+            consoleTableInvoked: true,
+            line: 1,
+          },
+        } as MessageEvent);
+        this.messageHandler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 1 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+
+      const result = await runner.execute('console.table([{name:"alice",age:30}])');
+
+      expect(result.stdout).toHaveLength(1);
+      const entry = result.stdout[0]!;
+      expect(entry.args).toEqual(['Table(2×2)']);
+      expect(entry.payload).toBeDefined();
+      expect(entry.payload![0]).toMatchObject({
+        kind: 'table',
+        columns: ['name', 'age'],
+      });
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
+  it('omits payload field when the worker sends no `payload` (legacy path stays the fallback)', async () => {
+    const originalWorker = globalThis.Worker;
+
+    class MockWorker {
+      private messageHandler: ((event: MessageEvent) => void) | null = null;
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.messageHandler = handler;
+      }
+      postMessage(message: { runId?: string }): void {
+        this.messageHandler?.({
+          data: {
+            type: 'console',
+            runId: message.runId,
+            method: 'log',
+            args: ['hello'],
+            line: 1,
+          },
+        } as MessageEvent);
+        this.messageHandler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 1 },
+        } as MessageEvent);
+      }
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+      const result = await runner.execute('console.log("hello")');
+      const entry = result.stdout[0]!;
+      expect(entry.args).toEqual(['hello']);
+      expect(entry.payload).toBeUndefined();
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
   it('attaches a table payload for table-directed magic comments', async () => {
     const originalWorker = globalThis.Worker;
 

@@ -49,6 +49,12 @@ describe('TELEMETRY_EVENTS', () => {
       'runtime.auto_run_gated',
       // RL-020 Slice 8 — Compare-with-last-stable adoption signal.
       'runtime.compare_view_toggled',
+      // RL-044 Slice 1B — rich console output rendered. Closed-enum
+      // payload `{ kind }` from `CONSOLE_RICH_KIND_BUCKETS`.
+      'runtime.console_rich_rendered',
+      // RL-044 Slice 1B fold F — `console.table()` adoption signal.
+      // Closed-enum payload `{ language }`.
+      'runtime.console_table_called',
       // RL-020 Slice 4 — execution-history replay dispatched.
       // Closed-enum payload `{ language, status, surface }`.
       'runtime.history_replay',

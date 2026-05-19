@@ -65,6 +65,8 @@ const { editorState, resultState, settingsState, trackEventMock } = vi.hoisted((
       go: 'normal',
     },
     setRuntimeTimeoutPreset: vi.fn(),
+    consoleRichRenderingEnabled: true,
+    toggleConsoleRichRendering: vi.fn(),
   },
   trackEventMock: vi.fn(),
 }));
@@ -175,6 +177,7 @@ describe('CommandPalette', () => {
     resultState.snapshotRing = [];
     resultState.scopeSnapshot = null;
     settingsState.variableInspectorSurface = 'floating';
+    settingsState.consoleRichRenderingEnabled = true;
     useUIStore.setState({
       activeBottomPanel: 'console',
       consoleVisible: false,
@@ -364,6 +367,30 @@ describe('CommandPalette', () => {
       'runtime.compare_view_toggled',
       { language: 'javascript', enabled: true }
     );
+  });
+
+  it('toggles rich console rendering from the palette', () => {
+    const onClose = vi.fn();
+    render(
+      <CommandPalette
+        onClose={onClose}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'rich console' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Toggle rich console output/i,
+      })
+    );
+
+    expect(settingsState.toggleConsoleRichRendering).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('hides the variable inspector action while the active tab is in Node mode', () => {

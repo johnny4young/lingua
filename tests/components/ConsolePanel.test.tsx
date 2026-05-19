@@ -29,9 +29,18 @@ const mockAddTab = vi.fn((tab: FileTab) => {
   mockActiveTabId = tab.id;
 });
 
-let mockState: Omit<ConsoleState, 'addEntry' | 'clear' | 'toggleFilter' | 'toggleTimestamps'> = {
+let mockState: Omit<
+  ConsoleState,
+  | 'addEntry'
+  | 'clear'
+  | 'toggleFilter'
+  | 'toggleTimestamps'
+  | 'togglePayloadKindFilter'
+  | 'clearPayloadKindFilters'
+> = {
   entries: [],
   activeFilters: new Set<ConsoleEntryType>(['log', 'info', 'warn', 'error', 'result']),
+  hiddenPayloadKinds: new Set(),
   showTimestamps: false,
 };
 
@@ -40,6 +49,8 @@ vi.mock('../../src/renderer/stores/consoleStore', () => ({
     ...mockState,
     clear: mockClear,
     toggleFilter: mockToggleFilter,
+    togglePayloadKindFilter: vi.fn(),
+    clearPayloadKindFilters: vi.fn(),
     toggleTimestamps: mockToggleTimestamps,
     addEntry: vi.fn(),
   }),
@@ -110,6 +121,10 @@ function resetState(partial: Partial<typeof mockState> = {}) {
   mockState = {
     entries: [],
     activeFilters: new Set<ConsoleEntryType>(['log', 'info', 'warn', 'error', 'result']),
+    // RL-044 Slice 1B fold A — payload-kind filter; empty Set means
+    // every kind is visible. Without this default the ConsolePanel
+    // throws in the new chip-row + filter loops.
+    hiddenPayloadKinds: new Set(),
     showTimestamps: false,
     ...partial,
   };
@@ -197,6 +212,33 @@ describe('ConsolePanel', () => {
     });
     render(<ConsolePanel />);
     expect(screen.getByText('No entries match the active filters.')).toBeTruthy();
+  });
+
+  it('filters a mixed rich entry when any contained payload kind is hidden', () => {
+    resetState({
+      entries: [
+        {
+          id: 'mixed-rich',
+          type: 'log',
+          content: 'Table(1×1) label',
+          timestamp: Date.now(),
+          payload: [
+            {
+              kind: 'table',
+              columns: ['name'],
+              rows: [[{ kind: 'primitive', type: 'string', repr: '"alice"' }]],
+            },
+            { kind: 'primitive', type: 'string', repr: '"label"' },
+          ],
+        },
+      ],
+      hiddenPayloadKinds: new Set(['table']),
+    });
+
+    render(<ConsolePanel />);
+
+    expect(screen.getByText('No entries match the active filters.')).toBeTruthy();
+    expect(screen.queryByText('Table(1×1) label')).toBeNull();
   });
 
   it('clicking a filter pill calls toggleFilter with its type', async () => {

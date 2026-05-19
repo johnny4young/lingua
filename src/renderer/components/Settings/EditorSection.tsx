@@ -94,6 +94,14 @@ export function EditorSection() {
   const toggleShowTimeoutCountdown = useSettingsStore(
     (state) => state.toggleShowTimeoutCountdown
   );
+  // RL-044 Slice 1B fold E — Settings → Editor row for the rich
+  // console output dispatch.
+  const consoleRichRenderingEnabled = useSettingsStore(
+    (state) => state.consoleRichRenderingEnabled
+  );
+  const toggleConsoleRichRendering = useSettingsStore(
+    (state) => state.toggleConsoleRichRendering
+  );
   const syncShellWithEditorTheme = useSettingsStore(
     (state) => state.syncShellWithEditorTheme
   );
@@ -519,6 +527,20 @@ export function EditorSection() {
           onChange={toggleShowStdinPanel}
           aria-label={t('stdin.settings.label')}
           data-testid="settings-show-stdin-panel"
+        />
+      </Row>
+
+      {/* RL-044 Slice 1B fold E — rich console output master toggle.
+          Default ON. Off → console paints the legacy text-only path. */}
+      <Row
+        label={t('consoleRich.settings.label')}
+        hint={t('consoleRich.settings.hint')}
+      >
+        <Toggle
+          value={consoleRichRenderingEnabled}
+          onChange={toggleConsoleRichRendering}
+          aria-label={t('consoleRich.settings.label')}
+          data-testid="settings-console-rich-rendering"
         />
       </Row>
 

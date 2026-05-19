@@ -314,6 +314,11 @@ export const useSettingsStore = create<SettingsState>()(
       // Editor lets the user bump it (max enforced renderer-side by
       // `MAX_SCOPE_DEPTH`).
       variableInspectorScopeDepth: 1,
+      // RL-044 Slice 1B fold E — rich console output toggle. Default
+      // ON so the additive payload lights up out of the box; users
+      // who prefer the legacy text-only console can flip this OFF in
+      // Settings → Editor.
+      consoleRichRenderingEnabled: true,
       // RL-019 Slice 2 fold E — Node first-run trust notice flag.
       // Defaults `false`; flipped to `true` after the first
       // successful Node-mode run.
@@ -515,6 +520,9 @@ export const useSettingsStore = create<SettingsState>()(
       // RL-020 Slice 7 fold E — flip the countdown-pill toggle.
       toggleShowTimeoutCountdown: () =>
         set((s) => ({ showTimeoutCountdown: !s.showTimeoutCountdown })),
+      // RL-044 Slice 1B fold E — flip the rich console output toggle.
+      toggleConsoleRichRendering: () =>
+        set((s) => ({ consoleRichRenderingEnabled: !s.consoleRichRenderingEnabled })),
       // RL-020 Slice 2 fold F — record that the onboarding toast has
       // been seen so future workflow-mode switches stay silent.
       acknowledgeFirstWorkflowModeSwitch: () =>
@@ -605,6 +613,7 @@ export const useSettingsStore = create<SettingsState>()(
         variableInspectorSurface: state.variableInspectorSurface,
         runtimeTimeoutPresetByLanguage: state.runtimeTimeoutPresetByLanguage,
         showTimeoutCountdown: state.showTimeoutCountdown,
+        consoleRichRenderingEnabled: state.consoleRichRenderingEnabled,
         firstWorkflowModeSwitchAcknowledged:
           state.firstWorkflowModeSwitchAcknowledged,
         language: state.language,
@@ -746,6 +755,13 @@ export const useSettingsStore = create<SettingsState>()(
           typeof merged.showTimeoutCountdown === 'boolean'
             ? merged.showTimeoutCountdown
             : currentState.showTimeoutCountdown;
+        // RL-044 Slice 1B fold E — guard against tampered / older
+        // persisted state. Default to the seed (true) when the
+        // persisted value is not a boolean.
+        const consoleRichRenderingEnabled =
+          typeof merged.consoleRichRenderingEnabled === 'boolean'
+            ? merged.consoleRichRenderingEnabled
+            : currentState.consoleRichRenderingEnabled;
         return {
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
@@ -761,6 +777,7 @@ export const useSettingsStore = create<SettingsState>()(
           variableInspectorSurface,
           runtimeTimeoutPresetByLanguage: seededTimeoutPresets,
           showTimeoutCountdown,
+          consoleRichRenderingEnabled,
           firstWorkflowModeSwitchAcknowledged,
         };
       },
