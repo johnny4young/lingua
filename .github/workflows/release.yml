@@ -913,3 +913,46 @@ jobs:
       # value is computed from the workflow inputs instead.
       ref: refs/tags/${{ inputs.release_tag }}
     secrets: inherit
+
+  notify-marketing:
+    name: Trigger lingua-marketing sync
+    needs: [publish, mirror-r2]
+    # Only fire when the GitHub Release was actually published AND the
+    # R2 mirror finished writing the new manifest.json. The marketing
+    # build fetches that manifest, so triggering before mirror-r2
+    # completes would have it pick up the previous release. A web-only
+    # release leaves the R2 mirror untouched (publish is skipped), so
+    # there is also nothing new for marketing to sync.
+    if: >-
+      ${{
+        always() &&
+        needs.publish.result == 'success' &&
+        needs['mirror-r2'].result == 'success' &&
+        (inputs.release_macos || inputs.release_windows || inputs.release_linux)
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Dispatch sync-content workflow on lingua-marketing
+        env:
+          # Fine-grained PAT with `Actions: Write` on
+          # johnny4young/lingua-marketing. The default `GITHUB_TOKEN`
+          # cannot dispatch workflows in another repo.
+          GH_TOKEN: ${{ secrets.MARKETING_SYNC_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::warning::MARKETING_SYNC_TOKEN secret is not set on this repo. Skipping cross-repo trigger — lingua-marketing's daily 12:00 UTC cron will pick up ${RELEASE_TAG} on the next run."
+            exit 0
+          fi
+          echo "Dispatching sync-content workflow on johnny4young/lingua-marketing@main for ${RELEASE_TAG}…"
+          gh workflow run sync-content.yml \
+            --repo johnny4young/lingua-marketing \
+            --ref main
+          {
+            echo "### Marketing sync trigger"
+            echo "- Dispatched \`sync-content.yml\` on \`johnny4young/lingua-marketing@main\`."
+            echo "- It will read the latest \`CHANGELOG.md\` from lingua@main and open / update PR \`bot/sync-content\`."
+          } >> "$GITHUB_STEP_SUMMARY"
