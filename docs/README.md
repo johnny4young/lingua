@@ -84,6 +84,17 @@ only superseded by a new ADR that names the one it replaces.
 | [`VIM_MODE_ADR.md`](./VIM_MODE_ADR.md)             | Vim mode integration inside the personalization slice                                                                                                       | `RL-037`                                                   |
 | [`VITE_UPGRADE_ADR.md`](./VITE_UPGRADE_ADR.md)     | Vite major upgrade plan                                                                                                                                     | `RL-033`                                                   |
 
+## Research syntheses
+
+These documents are inputs into the four-doc planning layer, not parallel
+planning sources. When their ideas become executable, they must be mapped to
+existing or formally promoted `RL-XXX` entries in `ROADMAP.md` and `PLAN.md`.
+
+| Document | Scope | Planning status |
+| --- | --- | --- |
+| [`WORLD_CLASS_PLAN.md`](./WORLD_CLASS_PLAN.md) | 2026-05-20 world-class differentiation plan with self-contained `WC-XXX` candidate tickets for Run Capsules, utility pipelines, HTTP/SQL workspace, lessons, local-docs AI, CLI, importers, trust dashboard, language scorecard, and LAN collaboration. | Non-authoritative synthesis; each `WC-XXX` must be promoted into the `RL-XXX` planning layer before implementation. |
+| [`WORK_PROPOSAL.md`](./WORK_PROPOSAL.md) | 2026-05-20 v2.0 proposal triage; maps no-backend sharing, rich media output, explicit package management, local AI, notebooks, and algorithm visualization to existing tickets. | Non-authoritative synthesis; executable scope lives in `RL-036`, `RL-044`, `RL-025`, `RL-031`, `RL-043`, and `RL-047`. |
+
 ## Where things live
 
 | If you need…                                                                                                                             | Go to                                                                                            |
@@ -102,6 +113,8 @@ only superseded by a new ADR that names the one it replaces.
 | Current public readiness audit and launch hardening queue                                                                                | [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md)                                       |
 | Public repository publication checklist                                                                                                  | [`PUBLIC_RELEASE_CHECKLIST.md`](./PUBLIC_RELEASE_CHECKLIST.md)                                   |
 | Public release security sign-off                                                                                                         | [`RELEASE_SECURITY.md`](./RELEASE_SECURITY.md)                                                   |
+| World-class differentiation plan and self-contained candidate tickets                                                                     | [`WORLD_CLASS_PLAN.md`](./WORLD_CLASS_PLAN.md)                                                   |
+| v2.0 research proposal triage and ticket mapping                                                                                         | [`WORK_PROPOSAL.md`](./WORK_PROPOSAL.md)                                                         |
 | Dated security review packets and remediation evidence                                                                                   | [`security/`](./security)                                                                        |
 | macOS Developer ID signing and notarization setup                                                                                        | [`MACOS_SIGNING.md`](./MACOS_SIGNING.md)                                                         |
 | Windows Authenticode signing setup                                                                                                       | [`WINDOWS_SIGNING.md`](./WINDOWS_SIGNING.md)                                                     |
