@@ -53,12 +53,15 @@ describe('entitlements policy (RL-060)', () => {
     }
   });
 
-  it('Free ceilings are exactly the documented numbers (1 tab, 5 snippets, 3 languages)', () => {
+  it('Free ceilings are exactly the documented numbers (1 tab, 5 snippets, 4 languages)', () => {
     expect(FREE_TIER_LIMITS.maxOpenTabs).toBe(1);
     expect(FREE_TIER_LIMITS.maxSnippets).toBe(5);
     expect([...FREE_TIER_LIMITS.allowedLanguages].sort()).toEqual([
       'javascript',
       'python',
+      // RL-042 Slice 5 — Ruby joined Free with the @ruby/wasm-wasi
+      // web worker (same posture as Python's Pyodide).
+      'ruby',
       'typescript',
     ]);
   });
@@ -82,10 +85,12 @@ describe('entitlements policy (RL-060)', () => {
     expect(withinSnippetBudget('team', 10_000)).toBe(true);
   });
 
-  it('isLanguageAllowed locks Free to JS/TS/Python and grants everything to paid tiers', () => {
+  it('isLanguageAllowed locks Free to JS/TS/Python/Ruby and grants everything to paid tiers', () => {
     expect(isLanguageAllowed('free', 'javascript')).toBe(true);
     expect(isLanguageAllowed('free', 'typescript')).toBe(true);
     expect(isLanguageAllowed('free', 'python')).toBe(true);
+    // RL-042 Slice 5 — Ruby (@ruby/wasm-wasi) joined Free.
+    expect(isLanguageAllowed('free', 'ruby')).toBe(true);
     expect(isLanguageAllowed('free', 'go')).toBe(false);
     expect(isLanguageAllowed('free', 'rust')).toBe(false);
     expect(isLanguageAllowed('pro', 'rust')).toBe(true);

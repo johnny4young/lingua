@@ -131,6 +131,19 @@ export const TELEMETRY_EVENTS = [
   // Python-runner-produced payloads from the renderer's render
   // dispatch. Closed-enum `{ kind }` mirrors `CONSOLE_RICH_KIND_BUCKETS`.
   'runtime.python_console_payload_emitted',
+  // RL-042 Slice 6 — Ruby runtime dispatch signal. Fires on every
+  // `RubyRunner.execute()` so dashboards can isolate the WASM-only
+  // path from the system-binary path. Closed-enum payload
+  // `{ mode, bucketedSpawnMs }` — `mode` is `'system'` / `'wasm'` /
+  // `'missing'` (system requested but not detected), `bucketedSpawnMs`
+  // is `'<100ms'` / `'<300ms'` / `'<1s'` / `'<3s'` / `'>=3s'`. No
+  // source code, no file path, no IPC payload content. Mirrored on
+  // update-server with a parity test.
+  'runtime.ruby_runner_dispatched',
+  // RL-042 Slice 6 — adoption signal for the Settings → Editor
+  // "Ruby runtime" select. Closed-enum payload `{ preference }`
+  // matching the persisted `rubyRuntimePreference` enum.
+  'runtime.ruby_runtime_preference_changed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -271,6 +284,15 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-044 Slice 1C fold B — `kind` is the closed `ConsolePayloadKindBucket`
   // enum (same set as `runtime.console_rich_rendered`).
   'runtime.python_console_payload_emitted': ['kind'],
+  // RL-042 Slice 6 — `mode` is the closed `RubyDispatchedMode`
+  // (`system` / `wasm` / `missing`); `bucketedSpawnMs` is the closed
+  // bucket enum (`<100ms` / `<300ms` / `<1s` / `<3s` / `>=3s`).
+  // Mirrored on update-server with a parity test.
+  'runtime.ruby_runner_dispatched': ['mode', 'bucketedSpawnMs'],
+  // RL-042 Slice 6 — `preference` is the closed
+  // `rubyRuntimePreference` enum (`auto` / `system` / `wasm`).
+  // Mirrored on update-server.
+  'runtime.ruby_runtime_preference_changed': ['preference'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -356,6 +378,27 @@ export const CONSOLE_RICH_KIND_BUCKETS = new Set([
   // the redactor would silently drop the kind without an explicit
   // bucket. Added so the telemetry survives the closed-enum gate.
   'error',
+]);
+// RL-042 Slice 6 — closed enums for the Ruby dispatcher telemetry.
+// Duplicated here for the same reason as CONSOLE_RICH_KIND_BUCKETS;
+// the parity test in `update-server/tests/telemetry.parity.test.ts`
+// keeps both sides in sync.
+export const RUBY_DISPATCHED_MODE_VALUES = new Set([
+  'system',
+  'wasm',
+  'missing',
+]);
+export const RUBY_SPAWN_BUCKETS = new Set([
+  '<100ms',
+  '<300ms',
+  '<1s',
+  '<3s',
+  '>=3s',
+]);
+export const RUBY_RUNTIME_PREFERENCE_VALUES = new Set([
+  'auto',
+  'system',
+  'wasm',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -577,6 +620,25 @@ function isAllowedValue(
       if (key === 'kind')
         return (
           typeof value === 'string' && CONSOLE_RICH_KIND_BUCKETS.has(value)
+        );
+      return false;
+    case 'runtime.ruby_runner_dispatched':
+      if (key === 'mode')
+        return (
+          typeof value === 'string' &&
+          RUBY_DISPATCHED_MODE_VALUES.has(value)
+        );
+      if (key === 'bucketedSpawnMs')
+        return (
+          typeof value === 'string' &&
+          RUBY_SPAWN_BUCKETS.has(value)
+        );
+      return false;
+    case 'runtime.ruby_runtime_preference_changed':
+      if (key === 'preference')
+        return (
+          typeof value === 'string' &&
+          RUBY_RUNTIME_PREFERENCE_VALUES.has(value)
         );
       return false;
     default: {

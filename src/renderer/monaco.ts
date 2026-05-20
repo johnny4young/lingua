@@ -18,26 +18,7 @@ import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
-import { createGoCompletionProvider } from './components/Editor/completionProviders/goCompletions';
-import { createPythonCompletionProvider } from './components/Editor/completionProviders/pythonCompletions';
-import { createPythonHoverProvider } from './components/Editor/completionProviders/pythonHoverProvider';
-import { createPythonSignatureProvider } from './components/Editor/completionProviders/pythonSignatureProvider';
-import { createGoHoverProvider } from './components/Editor/completionProviders/goHoverProvider';
-import { createGoSignatureProvider } from './components/Editor/completionProviders/goSignatureProvider';
-import { createRustCompletionProvider } from './components/Editor/completionProviders/rustCompletions';
-import { createRustHoverProvider } from './components/Editor/completionProviders/rustHoverProvider';
-import { createRustSignatureProvider } from './components/Editor/completionProviders/rustSignatureProvider';
-import { createLuaCompletionProvider } from './components/Editor/completionProviders/luaCompletions';
-import {
-  csvConfiguration,
-  csvLanguage,
-  dotenvConfiguration,
-  dotenvLanguage,
-  makefileConfiguration,
-  makefileLanguage,
-  tomlConfiguration,
-  tomlLanguage,
-} from './monacoCustomLanguages';
+import { getLanguageSupportDescriptors } from './languageSupport/registry';
 
 type MonacoWorkerFactory = new () => Worker;
 
@@ -64,52 +45,6 @@ let languageContributionsLoaded = false;
 let completionProvidersRegistered = false;
 
 /**
- * Lightweight language definitions registered directly via the Monaco API
- * instead of importing the per-language `*.contribution.js` files (which
- * chain through `_.contribution.js` and re-import the entire editor.all
- * contribution set, causing duplicate registrations and vitest DOM errors).
- */
-const LANGUAGE_CONTRIBUTIONS = [
-  { id: 'javascript', extensions: ['.js', '.jsx', '.mjs', '.cjs'], aliases: ['JavaScript', 'javascript'], loader: () => import('monaco-editor/esm/vs/basic-languages/javascript/javascript.js') },
-  { id: 'typescript', extensions: ['.ts', '.tsx'], aliases: ['TypeScript', 'typescript'], loader: () => import('monaco-editor/esm/vs/basic-languages/typescript/typescript.js') },
-  { id: 'go', extensions: ['.go'], aliases: ['Go'], loader: () => import('monaco-editor/esm/vs/basic-languages/go/go.js') },
-  { id: 'python', extensions: ['.py'], aliases: ['Python'], loader: () => import('monaco-editor/esm/vs/basic-languages/python/python.js') },
-  { id: 'rust', extensions: ['.rs'], aliases: ['Rust'], loader: () => import('monaco-editor/esm/vs/basic-languages/rust/rust.js') },
-  { id: 'lua', extensions: ['.lua'], aliases: ['Lua'], loader: () => import('monaco-editor/esm/vs/basic-languages/lua/lua.js') },
-  { id: 'yaml', extensions: ['.yaml', '.yml'], aliases: ['YAML', 'yaml'], loader: () => import('monaco-editor/esm/vs/basic-languages/yaml/yaml.js') },
-  {
-    id: 'dockerfile',
-    extensions: ['.dockerfile'],
-    aliases: ['Dockerfile', 'dockerfile'],
-    loader: () => import('monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.js'),
-  },
-  {
-    id: 'shell',
-    extensions: ['.sh', '.bash'],
-    aliases: ['Shell', 'shell'],
-    loader: () => import('monaco-editor/esm/vs/basic-languages/shell/shell.js'),
-  },
-  {
-    id: 'makefile',
-    extensions: ['.mk', '.mak'],
-    aliases: ['Makefile', 'makefile'],
-    config: makefileConfiguration,
-    language: makefileLanguage,
-  },
-  { id: 'ini', extensions: ['.ini', '.cfg', '.conf'], aliases: ['INI', 'ini'], loader: () => import('monaco-editor/esm/vs/basic-languages/ini/ini.js') },
-  { id: 'dotenv', extensions: ['.env'], aliases: ['dotenv', '.env'], config: dotenvConfiguration, language: dotenvLanguage },
-  { id: 'toml', extensions: ['.toml'], aliases: ['TOML', 'toml'], config: tomlConfiguration, language: tomlLanguage },
-  { id: 'csv', extensions: ['.csv'], aliases: ['CSV', 'csv'], config: csvConfiguration, language: csvLanguage },
-] as const;
-
-const completionProviderFactories = [
-  ['go', createGoCompletionProvider],
-  ['python', createPythonCompletionProvider],
-  ['rust', createRustCompletionProvider],
-  ['lua', createLuaCompletionProvider],
-] as const;
-
-/**
  * Set up the worker environment and loader. Must be called once before any
  * MonacoEditor component renders. TypeScript language defaults are intentionally
  * NOT configured here because monaco.languages.typescript is only guaranteed to
@@ -131,14 +66,17 @@ export function configureMonaco(): void {
 }
 
 /**
- * Register basic language contributions (tokenizer + language config) for
- * Go, Python, Rust, and Lua. Idempotent; safe to call multiple times.
+ * Register basic language contributions (tokenizer + language config) from
+ * the per-language support registry. Idempotent; safe to call multiple times.
  */
 function ensureLanguageContributions(m: Monaco): void {
   if (languageContributionsLoaded) return;
   languageContributionsLoaded = true;
 
-  for (const lang of LANGUAGE_CONTRIBUTIONS) {
+  for (const descriptor of getLanguageSupportDescriptors()) {
+    const lang = descriptor.monaco;
+    if (!lang) continue;
+
     if (!m.languages.getLanguages().some((l: { id: string }) => l.id === lang.id)) {
       m.languages.register({
         id: lang.id,
@@ -147,7 +85,7 @@ function ensureLanguageContributions(m: Monaco): void {
       });
     }
 
-    if ('loader' in lang) {
+    if (lang.loader) {
       void lang
         .loader()
         .then((mod) => {
@@ -210,25 +148,28 @@ export function registerLanguageCompletionProviders(m: Monaco): void {
   if (completionProvidersRegistered) return;
   completionProvidersRegistered = true;
 
-  for (const [languageId, createProvider] of completionProviderFactories) {
-    m.languages.registerCompletionItemProvider(languageId, createProvider(m));
+  for (const descriptor of getLanguageSupportDescriptors()) {
+    if (!descriptor.createCompletionProvider) continue;
+    m.languages.registerCompletionItemProvider(
+      descriptor.id,
+      descriptor.createCompletionProvider(m)
+    );
   }
 
-  // RL-026 Slice 2 — Python hover + signature help. Both providers read
-  // from the same renderer-side symbol table built in
-  // `src/renderer/languageIntelligence/python.ts`. They self-gate to the
-  // python language id; other tabs ignore them.
-  m.languages.registerHoverProvider('python', createPythonHoverProvider());
-  m.languages.registerSignatureHelpProvider('python', createPythonSignatureProvider());
-
-  // RL-026 Slice 3 — Rust hover + signature help via rust-analyzer.
-  // RL-026 Slice 4 — Go hover + signature help via gopls.
-  // Both pairs self-gate on `is<Lang>LspAvailable()`; the web build
-  // returns null without hitting IPC.
-  m.languages.registerHoverProvider('rust', createRustHoverProvider());
-  m.languages.registerSignatureHelpProvider('rust', createRustSignatureProvider());
-  m.languages.registerHoverProvider('go', createGoHoverProvider());
-  m.languages.registerSignatureHelpProvider('go', createGoSignatureProvider());
+  for (const descriptor of getLanguageSupportDescriptors()) {
+    if (descriptor.createHoverProvider) {
+      m.languages.registerHoverProvider(
+        descriptor.id,
+        descriptor.createHoverProvider()
+      );
+    }
+    if (descriptor.createSignatureHelpProvider) {
+      m.languages.registerSignatureHelpProvider(
+        descriptor.id,
+        descriptor.createSignatureHelpProvider()
+      );
+    }
+  }
 }
 
 // The TypeScript contribution augments the global `monaco.languages` object

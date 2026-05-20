@@ -15,6 +15,7 @@ vi.mock('@/hooks/useRunner', () => ({
 }));
 
 import { Toolbar } from '@/components/Toolbar/Toolbar';
+import { FloatingActionPill } from '@/components/Toolbar/FloatingActionPill';
 import { AppChrome } from '@/components/Chrome';
 import { AppearanceSection } from '@/components/Settings/AppearanceSection';
 import { EditorSection } from '@/components/Settings/EditorSection';
@@ -59,24 +60,39 @@ function setProTier() {
 }
 
 function renderSmoke() {
-  // RL-093 Slice 3 — the right-side icon cluster (including
-  // <LicenseBadge> and the Developer Utilities entry) moved out of the
-  // Toolbar into <AppChrome>. The smoke now renders both so the badge
-  // assertion still works; the dev-utilities flow is exercised via
-  // dedicated palette + chrome tests.
+  // RL-093 follow-up — <LicenseBadge> stays in <AppChrome>, while
+  // overlay shortcuts and the single Settings cog live in the floating
+  // toolbar. The smoke renders all three shell pieces so the gated web
+  // surfaces match the real shell.
   const onOpenPalette = vi.fn();
   const onOpenSettings = vi.fn();
+  const onOpenQuickOpen = vi.fn();
+  const onOpenSnippets = vi.fn();
+  const onOpenUtilities = vi.fn();
   render(
     <>
-      <AppChrome onOpenPalette={onOpenPalette} onOpenSettings={onOpenSettings} />
+      <AppChrome onOpenSettings={onOpenSettings} />
       <Toolbar />
+      <FloatingActionPill
+        onOpenPalette={onOpenPalette}
+        onOpenSettings={onOpenSettings}
+        onOpenQuickOpen={onOpenQuickOpen}
+        onOpenSnippets={onOpenSnippets}
+        onOpenUtilities={onOpenUtilities}
+      />
       <ExecutionHistorySection />
       <AppearanceSection />
       <EditorSection />
       <StatusNoticeBanner />
     </>
   );
-  return { onOpenPalette, onOpenSettings };
+  return {
+    onOpenPalette,
+    onOpenSettings,
+    onOpenQuickOpen,
+    onOpenSnippets,
+    onOpenUtilities,
+  };
 }
 
 describe('web license smoke', () => {
@@ -168,10 +184,9 @@ describe('web license smoke', () => {
     await user.click(screen.getByRole('menuitem', { name: /^Go/ }));
     expect(useEditorStore.getState().tabs.some(tab => tab.language === 'go')).toBe(true);
 
-    // RL-093 Slice 3 — the dev-utilities entry moved to the command
-    // palette; the chrome's search button opens it. Smoke now asserts
-    // the chrome search wiring instead.
-    await user.click(screen.getByTestId('app-chrome-search'));
+    // RL-093 follow-up — command palette lives in the floating toolbar
+    // alongside Quick Open, Snippets and Developer Utilities.
+    await user.click(screen.getByTestId('action-pill-search'));
     expect(onOpenPalette).toHaveBeenCalledOnce();
 
     await user.selectOptions(screen.getByTestId('theme-pack-select'), 'solarized-daylight');
@@ -218,8 +233,8 @@ describe('web license smoke', () => {
     expect(screen.getByText('Paquete de tema')).toBeTruthy();
     expect(screen.getByText('Familia tipográfica')).toBeTruthy();
 
-    // RL-093 Slice 3 — chrome gear opens Settings in Spanish locale.
-    await user.click(screen.getByTestId('app-chrome-settings'));
+    // RL-093 follow-up — the single toolbar gear opens Settings in Spanish locale.
+    await user.click(screen.getByTestId('action-pill-settings'));
     expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 });

@@ -3,6 +3,7 @@ import { createGoCompletionProvider } from '@/components/Editor/completionProvid
 import { createPythonCompletionProvider } from '@/components/Editor/completionProviders/pythonCompletions';
 import { createRustCompletionProvider } from '@/components/Editor/completionProviders/rustCompletions';
 import { createLuaCompletionProvider } from '@/components/Editor/completionProviders/luaCompletions';
+import { createRubyCompletionProvider } from '@/components/Editor/completionProviders/rubyCompletions';
 
 const monacoStub = {
   languages: {
@@ -163,6 +164,38 @@ describe('language completion providers', () => {
     expect(suggestions.find((item) => item.label === 'for')).toMatchObject({
       kind: 'snippet',
       insertText: expect.stringContaining('for ${1:i} = 1, ${2:n} do'),
+    });
+  });
+
+  it('returns Ruby snippets, stdlib helpers, and local symbols', () => {
+    const provider = createRubyCompletionProvider(monacoStub as never);
+    const suggestions = provider.provideCompletionItems(
+      {
+        ...modelStub,
+        getValue() {
+          return [
+            'class InvoiceBuilder',
+            '  def compute_total(amount, tax: 0)',
+            '    subtotal = amount',
+            '    subtotal + tax',
+            '  end',
+            'end',
+          ].join('\n');
+        },
+      } as never,
+      positionStub as never
+    ).suggestions;
+
+    expect(provider.triggerCharacters).toEqual([' ', '.', '@', ':']);
+    expect(suggestions.map((item) => item.label)).toEqual(
+      expect.arrayContaining(['def', 'class', 'puts', 'InvoiceBuilder', 'compute_total', 'subtotal'])
+    );
+    expect(suggestions.find((item) => item.label === 'def')).toMatchObject({
+      kind: 'snippet',
+      insertText: expect.stringContaining('def ${1:name}'),
+    });
+    expect(suggestions.find((item) => item.label === 'compute_total')).toMatchObject({
+      kind: 'function',
     });
   });
 });

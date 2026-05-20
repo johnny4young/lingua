@@ -113,12 +113,13 @@ describe('languageMeta', () => {
     expect(executionModeForLanguage('cpp')).toBe('validate');
   });
 
-  it('resolves Ruby through the LanguagePack descriptor (RL-042 first slice)', () => {
+  it('resolves Ruby through the LanguagePack descriptor (runnable since RL-042 Slice 5)', () => {
     expect(languageForExtension('rb')?.toString()).toBe('ruby');
     expect(extensionForLanguage('ruby')).toBe('rb');
     expect(monacoLanguageFor('ruby')).toBe('ruby');
-    // Ruby is validate-only in this slice — no execution yet.
-    expect(executionModeForLanguage('ruby')).toBe('validate');
+    // RL-042 Slice 5 flipped Ruby from validate-only to runnable via
+    // the `@ruby/wasm-wasi` web worker.
+    expect(executionModeForLanguage('ruby')).toBe('run');
   });
 
   it('flags languages that need a host toolchain with a capability badge key (RL-038 Slice C)', () => {
@@ -129,6 +130,8 @@ describe('languageMeta', () => {
     expect(languageCapabilityBadgeKey('javascript')).toBeNull();
     expect(languageCapabilityBadgeKey('typescript')).toBeNull();
     expect(languageCapabilityBadgeKey('python')).toBeNull();
+    // Ruby has a bundled WASM runtime; the host ruby binary is optional.
+    expect(languageCapabilityBadgeKey('ruby')).toBeNull();
     // Plugin-only languages without a LANGUAGE_PACKS entry fall through to null.
     expect(languageCapabilityBadgeKey('unknown-language')).toBeNull();
   });

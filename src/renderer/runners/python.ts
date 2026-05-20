@@ -27,7 +27,7 @@ import {
   resolveTimeoutMs,
   type RuntimeTimeoutPreset,
 } from '../../shared/runtimeTimeoutPresets';
-import { resolveUserEnvForRunner } from './go';
+import { resolveUserEnvForRunner } from './env';
 import {
   appendCappedConsole,
   capStderrIfOverflowing,

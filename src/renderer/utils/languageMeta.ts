@@ -104,6 +104,11 @@ const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
     background: 'oklch(0.96 0.04 40)',
     foreground: 'oklch(0.42 0.15 35)',
   },
+  ruby: {
+    code: 'RB',
+    background: 'oklch(0.95 0.04 24)',
+    foreground: 'oklch(0.42 0.15 25)',
+  },
 };
 
 const FALLBACK_META: LanguageMeta = {
@@ -225,7 +230,9 @@ export function languageCapabilityBadgeKey(language: Language): string | null {
   const hasHostDependency =
     pack?.capabilities.runtimeDependencies !== undefined &&
     pack.capabilities.runtimeDependencies.length > 0;
-  return hasHostDependency ? 'language.capability.desktopOnly' : null;
+  const requiresHostDependency =
+    hasHostDependency && pack.capabilities.runtimeDependencyMode !== 'optional';
+  return requiresHostDependency ? 'language.capability.desktopOnly' : null;
 }
 
 export function languageSupportsFileName(language: Language, fileName: string): boolean {

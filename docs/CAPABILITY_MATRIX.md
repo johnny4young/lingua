@@ -58,6 +58,7 @@ The matrix below rates each capability against these five classes:
 | Go execution          | Shipping      | Out                 | Research     | **Primary** (compile) + WASM (run) | **Hybrid** | Hybrid | `src/renderer/runners/go.ts` compiles Go via `go build` in the main process (`go:compile` IPC) and runs the resulting WASM in a worker. Web build degrades honestly via the stub in `src/web/adapter.ts` |
 | Rust execution        | Research      | Out                 | Out          | **Primary**   | —      | Desktop native | `src/main/rust-compiler.ts` uses `rustc` + native subprocess. Browser-WASM compile-and-run for Rust (wasm-pack style) is tracked as a future research item, not a current migration target |
 | Lua execution         | Out           | Shipping            | Out          | **Primary** (plugin discovery gate) | **Hybrid** | Hybrid | `src/renderer/plugins/lua-runner.ts` executes Lua through Fengari, which is a pure-JS interpreter rather than WASM. The runtime is bundled, but it only activates after desktop plugin discovery loads a local `lua` manifest, so web does not ship Lua execution today |
+| Ruby execution        | **Shipping**  | Out                 | Out          | **Shipping (hybrid)** | **Hybrid** | Browser WASM (web) + system ruby (desktop) | RL-042 Slice 5 shipped the WASM worker (`src/renderer/workers/ruby-worker.ts`). Slice 6 added the desktop subprocess (`src/main/ruby-runner.ts` + `window.lingua.ruby.{detect,run,stop}`), with a renderer-side hybrid dispatcher (`RubyRunner` → `WasmRubyRunner` / `DesktopRubySubprocessRunner`) gated on Settings → Editor → "Ruby runtime" (`auto` / `system` / `wasm`). `.ruby-version` is honored via `RBENV_VERSION`. Bundled stdlib only on the WASM path; system gems on the subprocess path. Native gems via `bundler` belong to the RL-025 lane |
 
 ## Shell-feature matrix
 
@@ -70,7 +71,7 @@ The matrix below rates each capability against these five classes:
 | Deep-link protocol     | Out          | Out                 | Out          | **Primary**    | —      | Desktop native | `lingua://` protocol (see RL-040). Browsers cannot register custom protocols for the PWA without OS-level install |
 | Local AI inference     | Research     | Out                 | Out          | Research       | Research | Hybrid (undecided) | Tracked in RL-031. Browser WASM via transformers.js or webllm is viable for tiny models; larger models need desktop native with a local runtime (Ollama, llama.cpp). Decision pending a dedicated spike |
 | Formatter binaries     | Out          | Out                 | Research     | **Primary**    | —      | Desktop native for gofmt / rustfmt / Python; browser interpreter for Prettier | Desktop spawns gofmt, rustfmt, and Python formatters (`ruff format -` preferred, `black --quiet -` fallback) via `src/main/formatters.ts`. Prettier runs in the renderer via `prettier/standalone` for JS / TS / JSON / CSS in both web and desktop |
-| Language intelligence  | Stub         | **Shipping**        | **Shipping (desktop)** | **Shipping (desktop)** | **Hybrid** | Hybrid | JS/TS keep Monaco's built-in service. Python ships a renderer adapter for diagnostics + completions + hover + signature help in web + desktop. Rust + Go ship the same surface via rust-analyzer / gopls over the shared desktop LSP bridge (`src/main/lsp/*`, RL-026 Slice 3 + Slice 4); capability gates on binary detection, web build degrades to `'missing'`. RL-026 is now closed in full |
+| Language intelligence  | Stub         | **Shipping**        | **Shipping (desktop)** | **Shipping (desktop)** | **Hybrid** | Hybrid | JS/TS keep Monaco's built-in service. Python and Ruby both ship renderer adapters for diagnostics + completions + hover + signature help in web + desktop (Ruby joined in RL-042 Slice 5 via `src/renderer/languageIntelligence/ruby.ts` — block-balance + delimiter diagnostics, local symbol-aware completions, hover with definition line, signature help for local method calls). Rust + Go ship the same surface via rust-analyzer / gopls over the shared desktop LSP bridge (`src/main/lsp/*`, RL-026 Slice 3 + Slice 4); capability gates on binary detection, web build degrades to `'missing'`. RL-026 is now closed in full |
 | Debugger (JS / TS)     | Out          | **Shipping**        | Out          | **Shipping**   | —      | Browser interpreter | Acorn + magic-string instrumentation in `src/renderer/runtime/debuggerInstrument.ts` rewrites user source to yield before each statement; the JS worker drives the pause loop. TS rides the same worker after esbuild transpile, with the TS→JS source map composed via `@jridgewell/trace-mapping` so breakpoints round-trip to original TS lines. Conditional-bp + watch-expression eval are deferred to Slice 1.5b behind a dedicated security review (see `DEBUGGER_ADR.md`) |
 | Debugger (Python)      | Research     | Out                 | Out          | Planned (`pdb` bridge) | — | Desktop native | Per `DEBUGGER_ADR.md` §1, the Python adapter spawns headless `python -u -m pdb` and pipes commands through main. Not started; tracked as Slice 2 in RL-027 |
 | Debugger (Go / Rust)   | Out          | Out                 | Out          | Planned (Delve / lldb) | — | Desktop native | Slice 3 (Go via Delve JSON-RPC) and Slice 4 (Rust via lldb-mi) in RL-027. Both require host toolchain installs |
@@ -162,6 +163,36 @@ The matrix below rates each capability against these five classes:
   portable, yet the product surface is still constrained by the conservative
   local-plugin model documented in `README.md`.
 
+### Ruby
+- **Browser WASM via `@ruby/wasm-wasi` is the shipping default.** RL-042
+  Slice 5 wires `src/renderer/workers/ruby-worker.ts` + `src/renderer/runners/ruby.ts`
+  around a persistent web worker hosting CRuby + stdlib (Ruby 3.4 head from
+  the `@ruby/3.4-wasm-wasi` package). Parent-owned deadline per RL-078 plus
+  the standard worker termination + recreate pattern for runaway loops.
+- **Bundled stdlib only.** `require 'json'` / `require 'date'` work because
+  the upstream package bundles the stdlib; arbitrary gems need a follow-up
+  slice paired with the RL-025 package-management lane.
+- **Renderer-side language intelligence ships in the same slice.**
+  `src/renderer/languageIntelligence/ruby.ts` (registered via the new
+  `src/renderer/languageSupport/` descriptor registry that monaco.ts +
+  languageIntelligence both consume generically) provides
+  block-balance + delimiter diagnostics, local symbol-aware completions
+  (methods, classes, modules, locals, block parameters), hover with
+  definition-line, and signature help for local method calls — same
+  shape as the Python adapter. The Ruby pack therefore reports
+  `capabilities.lsp: 'adapter'`. A true ruby-lsp / solargraph desktop
+  bridge would land in a separate slice under RL-026.
+- **Desktop subprocess shipped in RL-042 Slice 6.** `src/main/ruby-runner.ts`
+  spawns the host `ruby` via `child_process.spawn` (no shell, tempfile
+  source), with the RL-079 native-env allowlist + RL-011 user env tier,
+  a parent-owned SIGTERM→SIGKILL escalation (1.5 s grace), and 1 MiB
+  stdout/stderr caps. The renderer's `RubyRunner` is a hybrid dispatcher
+  that picks WASM or subprocess per call based on a Settings
+  preference (`auto` / `system` / `wasm`) and per-session detection.
+  `.ruby-version` discovery threads `RBENV_VERSION` so rbenv shims pick
+  the right interpreter. Native gems via `bundler` still belong to the
+  RL-025 lane.
+
 ### Local AI inference (RL-031 spike)
 - **Decision deferred.** Write this back into the matrix once the RL-031
   spike produces measurements. The likely landing spot is a **hybrid**
@@ -190,3 +221,5 @@ Missing all three, the desktop-native or browser-interpreter path stays.
 | 2026-04-17 | RL-030 drafters  | Initial matrix and decision records landed |
 | 2026-05-11 | RL-026 Slice 1   | Python renderer adapter added for diagnostics and symbol-aware completions |
 | 2026-05-11 | RL-026 Slice 2   | Python renderer adapter extended with hover and signature help over a shared symbol table |
+| 2026-05-19 | RL-042 Slice 5   | Ruby flipped from validate-only to runnable via `@ruby/wasm-wasi` web worker; native desktop subprocess deferred |
+| 2026-05-20 | RL-042 Slice 6   | Ruby desktop native subprocess shipped (`src/main/ruby-runner.ts`); renderer `RubyRunner` becomes a hybrid dispatcher with Settings preference + `.ruby-version` honoring |

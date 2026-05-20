@@ -21,7 +21,7 @@
  * first successful web load.
  */
 
-export type RuntimeAssetId = 'pyodide';
+export type RuntimeAssetId = 'pyodide' | 'ruby';
 
 export type RuntimeAssetEntry = {
   /** Semver string. Must match the dependency pin in package.json. */
@@ -37,6 +37,21 @@ export type RuntimeAssetEntry = {
    * over this exact list — anything not in here is best-effort.
    */
   readonly criticalFiles: readonly string[];
+  /**
+   * Superset of `criticalFiles`. The build-time copy plugin iterates
+   * this list; entries missing from `node_modules` warn but do not
+   * fail the build (use `criticalFiles` for boot-blocking assets).
+   * Defaults to `criticalFiles` when omitted.
+   */
+  readonly copyFiles?: readonly string[];
+  /**
+   * Directory holding the upstream `package.json` for version checks.
+   * Defaults to `nodeModulesPath` when omitted. Ruby keeps its WASM
+   * payload in `node_modules/@ruby/3.4-wasm-wasi/dist/` but the
+   * `package.json` lives one level up at the package root, so the
+   * runtimeAssets integrity check needs an explicit pointer.
+   */
+  readonly packageDir?: string;
 };
 
 export const RUNTIME_ASSETS: { readonly [K in RuntimeAssetId]: RuntimeAssetEntry } = {
@@ -52,18 +67,39 @@ export const RUNTIME_ASSETS: { readonly [K in RuntimeAssetId]: RuntimeAssetEntry
       'pyodide-lock.json',
       'python_stdlib.zip',
     ],
+    copyFiles: [
+      'pyodide.mjs',
+      'pyodide.js',
+      'pyodide.asm.js',
+      'pyodide.asm.wasm',
+      'pyodide-lock.json',
+      'python_stdlib.zip',
+      'ffi.d.ts',
+      'pyodide.d.ts',
+      'package.json',
+    ],
+  },
+  // RL-042 Slice 5 — Ruby web runtime via `@ruby/wasm-wasi`. The
+  // bytecode lives in the version-specific `@ruby/3.4-wasm-wasi`
+  // package; the renderer worker resolves the URL via
+  // `new URL('../ruby/ruby+stdlib.wasm', import.meta.url)`, which the
+  // build plugin serves from `node_modules/@ruby/3.4-wasm-wasi/dist`
+  // (dev) or copies into `<outDir>/ruby/` (production).
+  ruby: {
+    version: '2.9.3-2.9.4',
+    sourceUrl:
+      'https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.9.3-2.9.4/dist/ruby+stdlib.wasm',
+    nodeModulesPath: 'node_modules/@ruby/3.4-wasm-wasi/dist',
+    packageDir: 'node_modules/@ruby/3.4-wasm-wasi',
+    servedPath: 'ruby',
+    criticalFiles: ['ruby+stdlib.wasm'],
   },
 } as const;
 
-/** Files copied into the renderer build output (superset of criticalFiles). */
-export const PYODIDE_COPY_FILES: readonly string[] = [
-  'pyodide.mjs',
-  'pyodide.js',
-  'pyodide.asm.js',
-  'pyodide.asm.wasm',
-  'pyodide-lock.json',
-  'python_stdlib.zip',
-  'ffi.d.ts',
-  'pyodide.d.ts',
-  'package.json',
-] as const;
+/**
+ * @deprecated Use `RUNTIME_ASSETS.pyodide.copyFiles` instead. Kept as
+ * a re-export for any external script that still imports the symbol;
+ * the plugin reads from the asset entry directly.
+ */
+export const PYODIDE_COPY_FILES: readonly string[] =
+  RUNTIME_ASSETS.pyodide.copyFiles ?? RUNTIME_ASSETS.pyodide.criticalFiles;

@@ -97,6 +97,7 @@ describe('EditorEmptyState — capability badges (RL-038)', () => {
     expect(screen.getByTestId('empty-state-quick-start-go')).toBeTruthy();
     expect(screen.getByTestId('empty-state-quick-start-python')).toBeTruthy();
     expect(screen.getByTestId('empty-state-quick-start-rust')).toBeTruthy();
+    expect(screen.getByTestId('empty-state-quick-start-ruby')).toBeTruthy();
 
     // No "Desktop only" pill on darwin — Go / Rust really do run there.
     expect(screen.queryByTestId('empty-state-desktop-only-go')).toBeNull();
@@ -109,10 +110,11 @@ describe('EditorEmptyState — capability badges (RL-038)', () => {
 
     expect(screen.getByTestId('empty-state-desktop-only-go').textContent).toBe('Desktop only');
     expect(screen.getByTestId('empty-state-desktop-only-rust').textContent).toBe('Desktop only');
-    // Self-contained runtimes (JS / TS / Python) stay pill-free.
+    // Self-contained runtimes (JS / TS / Python / Ruby) stay pill-free.
     expect(screen.queryByTestId('empty-state-desktop-only-javascript')).toBeNull();
     expect(screen.queryByTestId('empty-state-desktop-only-typescript')).toBeNull();
     expect(screen.queryByTestId('empty-state-desktop-only-python')).toBeNull();
+    expect(screen.queryByTestId('empty-state-desktop-only-ruby')).toBeNull();
   });
 
   it('localizes the "Desktop only" pill to tuteo Spanish', async () => {

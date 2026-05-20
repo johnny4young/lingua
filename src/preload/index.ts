@@ -53,6 +53,22 @@ contextBridge.exposeInMainWorld('lingua', {
     ) => ipcRenderer.invoke('rust:run', sourceCode, userEnv, messages),
   },
 
+  // RL-042 Slice 6 — desktop Ruby child-spawn IPC. Distinct from the
+  // worker-mode WASM runner (@ruby/wasm-wasi); the desktop subprocess
+  // path lets the user code see system gems + native performance.
+  // Web build's adapter (src/web/adapter.ts) deliberately omits this
+  // surface — the renderer falls back to the WASM worker.
+  ruby: {
+    detect: (userEnv?: Record<string, string>, force?: boolean) =>
+      ipcRenderer.invoke('ruby:detect', userEnv, force) as Promise<RubyDetectResult>,
+    run: (
+      source: string,
+      options?: RubyRunInvokeOptions
+    ) => ipcRenderer.invoke('ruby:run', source, options) as Promise<RubyRunResult>,
+    stop: (runId: string) =>
+      ipcRenderer.invoke('ruby:stop', runId) as Promise<{ stopped: boolean }>,
+  },
+
   // RL-019 Slice 2 — desktop Node child-spawn IPC. Distinct from the
   // worker-mode JS runner (which executes inside a sandboxed
   // WebWorker on the renderer side). The Node mode runs the user's

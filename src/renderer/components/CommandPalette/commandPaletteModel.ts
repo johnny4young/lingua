@@ -135,13 +135,15 @@ interface BuildCommandPaletteModelArgs {
   /**
    * RL-020 Slice 7 fold C — the language the palette will adjust.
    * Used as a closed-enum gate so the action is only visible on
-   * supported languages.
+   * supported languages. RL-042 Slice 5 added Ruby to the enrolled
+   * set when the @ruby/wasm-wasi web runner shipped.
    */
   activeTimeoutLanguage?:
     | 'javascript'
     | 'typescript'
     | 'python'
     | 'go'
+    | 'ruby'
     | null;
   /**
    * RL-020 Slice 7 fold C — the active preset for the language

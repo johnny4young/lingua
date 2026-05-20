@@ -198,15 +198,20 @@ describe('LANGUAGE_PACKS array integrity', () => {
     expect(getLanguagePackForExtension('cxx')?.id).toBe('cpp');
   });
 
-  it('ships Ruby as a validate-only pack (RL-042 first slice) — no runner, monaco grammar only', () => {
+  it('ships Ruby as a runnable pack (RL-042 Slice 5 — web @ruby/wasm-wasi runtime)', () => {
     const ruby = getLanguagePackById('ruby') as LanguagePack;
     expect(ruby).toBeDefined();
-    expect(ruby.execution).toBe('validate');
-    expect(ruby.runnerId).toBeNull();
+    expect(ruby.execution).toBe('run');
+    expect(ruby.runnerId).toBe('ruby');
+    // Formatter stays `none` this slice — wiring `ipc:ruby` (gem
+    // rubocop / standardrb) is a separate desktop-only follow-up.
     expect(ruby.formatter).toBe('none');
     expect(ruby.monacoLanguage).toBe('ruby');
     expect(ruby.extensions).toContain('rb');
-    expect(ruby.capabilities.lsp).toBe('none');
+    // Ruby now has renderer-local language intelligence. A process-backed
+    // ruby-lsp / solargraph bridge remains a separate desktop-only follow-up.
+    expect(ruby.capabilities.lsp).toBe('adapter');
+    expect(ruby.capabilities.debugger).toBe('none');
   });
 
   it('resolves the ruby pack by its .rb extension round-trip', () => {
@@ -230,6 +235,11 @@ describe('LANGUAGE_PACKS array integrity', () => {
     const rustPack = getLanguagePackById('rust') as LanguagePack;
     expect(goPack.capabilities.runtimeDependencies).toContain('go');
     expect(rustPack.capabilities.runtimeDependencies).toContain('rustc');
+    // Ruby declares `ruby` as a preferred host binary, but the bundled
+    // WASM worker remains the portable fallback.
+    const rubyPack = getLanguagePackById('ruby') as LanguagePack;
+    expect(rubyPack.capabilities.runtimeDependencies).toContain('ruby');
+    expect(rubyPack.capabilities.runtimeDependencyMode).toBe('optional');
   });
 
   it('marks Python language intelligence as the renderer adapter slice', () => {

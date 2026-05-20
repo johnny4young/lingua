@@ -31,14 +31,13 @@ import { cn } from '../../utils/cn';
 import { RuntimeModeSelector } from './RuntimeModeSelector';
 import { WorkflowModeSegment } from './WorkflowModeSegment';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
+import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
 
-const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = [
-  { id: 'javascript', label: 'JavaScript' },
-  { id: 'typescript', label: 'TypeScript' },
-  { id: 'go', label: 'Go' },
-  { id: 'python', label: 'Python' },
-  { id: 'rust', label: 'Rust' },
-];
+const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = LANGUAGE_PACKS.filter(
+  (pack) =>
+    (pack.execution === 'run' || pack.execution === 'compile') &&
+    pack.templateIds.length > 0
+).map((pack) => ({ id: pack.id as Language, label: languageLabel(pack.id) }));
 
 interface ToolbarProps {
   /**

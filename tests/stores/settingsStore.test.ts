@@ -126,6 +126,20 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().consoleRichRenderingEnabled).toBe(true);
   });
 
+  it('seeds the Ruby runtime preference to auto + accepts the closed enum (RL-042 Slice 6)', () => {
+    expect(useSettingsStore.getState().rubyRuntimePreference).toBe('auto');
+    useSettingsStore.getState().setRubyRuntimePreference('system');
+    expect(useSettingsStore.getState().rubyRuntimePreference).toBe('system');
+    useSettingsStore.getState().setRubyRuntimePreference('wasm');
+    expect(useSettingsStore.getState().rubyRuntimePreference).toBe('wasm');
+    // Reject anything outside the closed enum — value stays at the last good.
+    (useSettingsStore.getState().setRubyRuntimePreference as (
+      v: string
+    ) => void)('jruby');
+    expect(useSettingsStore.getState().rubyRuntimePreference).toBe('wasm');
+    useSettingsStore.getState().setRubyRuntimePreference('auto');
+  });
+
   it('should set layout preset', () => {
     useSettingsStore.getState().setLayoutPreset('vertical');
     expect(useSettingsStore.getState().layoutPreset).toBe('vertical');
@@ -868,6 +882,7 @@ describe('settingsStore', () => {
         typescript: 'normal',
         python: 'long',
         go: 'normal',
+        ruby: 'normal',
       });
     });
 

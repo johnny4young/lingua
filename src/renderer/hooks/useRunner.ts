@@ -31,9 +31,9 @@ export function useRunner() {
   // through BrowserPreviewRunner, not the language Worker).
   const currentRuntimeModeRef = useRef<RuntimeMode | undefined>(undefined);
 
-  const run = useCallback(async (options: RunOptions = {}) => {
-    const { tabs, activeTabId } = useEditorStore.getState();
-    const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const executeTabById = useCallback(async (tabId: string, options: RunOptions = {}) => {
+    const { tabs } = useEditorStore.getState();
+    const activeTab = tabs.find((tab) => tab.id === tabId);
 
     if (!activeTab) {
       useConsoleStore.getState().addEntry({
@@ -51,21 +51,6 @@ export function useRunner() {
       void trackEvent('feature.blocked', {
         entitlement: 'languages-extended',
         tier: currentEffectiveTier(),
-      });
-      return;
-    }
-
-    // RL-079 — gate the first Go/Rust run behind the trust-boundary
-    // modal. The gate store opens the modal mounted at App level; the
-    // modal flips the persisted flag, then invokes the resume
-    // callback registered here, which retries this `run()` so the
-    // gate now sees the acknowledged flag and falls through.
-    if (
-      requiresNativeExecutionAcknowledgement(activeTab.language) &&
-      !useSettingsStore.getState().nativeExecutionAcknowledged
-    ) {
-      useNativeExecutionGateStore.getState().request(activeTab.language, () => {
-        void run(options);
       });
       return;
     }
@@ -114,6 +99,54 @@ export function useRunner() {
       setRunMode(null);
     }
   }, []);
+
+  const run = useCallback(async (options: RunOptions = {}) => {
+    const { tabs, activeTabId } = useEditorStore.getState();
+    const activeTab = tabs.find((tab) => tab.id === activeTabId);
+
+    if (!activeTab) {
+      useConsoleStore.getState().addEntry({
+        type: 'error',
+        content: 'No active file to run.',
+      });
+      return;
+    }
+
+    if (!isLanguageAllowed(currentEffectiveTier(), activeTab.language)) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: i18next.t('upsell.feature.extraLanguages'),
+      });
+      void trackEvent('feature.blocked', {
+        entitlement: 'languages-extended',
+        tier: currentEffectiveTier(),
+      });
+      return;
+    }
+
+    // RL-079 — gate the first Go/Rust/system-Ruby run behind the
+    // trust-boundary modal. The gate store opens the modal mounted at
+    // App level; the modal flips the persisted flag, then invokes the
+    // resume callback registered here for the same tab.
+    const settings = useSettingsStore.getState();
+    const nativeExecutionNeedsAcknowledgement =
+      requiresNativeExecutionAcknowledgement(activeTab.language, {
+        rubyRuntimePreference: settings.rubyRuntimePreference,
+        rubyBridgeAvailable:
+          typeof window !== 'undefined' && window.lingua?.ruby !== undefined,
+      });
+    if (
+      nativeExecutionNeedsAcknowledgement &&
+      !settings.nativeExecutionAcknowledged
+    ) {
+      useNativeExecutionGateStore.getState().request(activeTab.language, () => {
+        void executeTabById(activeTab.id, options);
+      });
+      return;
+    }
+
+    await executeTabById(activeTab.id, options);
+  }, [executeTabById]);
 
   const stop = useCallback(() => {
     if (currentLanguageRef.current) {

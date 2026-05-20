@@ -62,26 +62,15 @@ describe('AppChrome', () => {
     expect(screen.getByTestId('app-chrome-unsaved').textContent).toContain('unsaved');
   });
 
-  it('routes the chrome search button to onOpenPalette', async () => {
+  it('keeps command and settings icons out of the title chrome', () => {
     seedTab();
-    const user = userEvent.setup();
-    const onOpenPalette = vi.fn();
-    render(<AppChrome onOpenPalette={onOpenPalette} />);
+    render(<AppChrome />);
 
-    await user.click(screen.getByTestId('app-chrome-search'));
-    expect(onOpenPalette).toHaveBeenCalledOnce();
-  });
-
-  it('routes the chrome gear button to onOpenSettings', async () => {
-    seedTab();
-    const user = userEvent.setup();
-    const onOpenSettings = vi.fn();
-    render(<AppChrome onOpenSettings={onOpenSettings} />);
-
-    const settingsButton = screen.getByTestId('app-chrome-settings');
-    expect(settingsButton.getAttribute('aria-label')).toBe('Open settings');
-    await user.click(settingsButton);
-    expect(onOpenSettings).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId('app-chrome-quick-open')).toBeNull();
+    expect(screen.queryByTestId('app-chrome-search')).toBeNull();
+    expect(screen.queryByTestId('app-chrome-snippets')).toBeNull();
+    expect(screen.queryByTestId('app-chrome-utilities')).toBeNull();
+    expect(screen.queryByTestId('app-chrome-settings')).toBeNull();
   });
 
   it('surfaces the update-ready chip only after an update is downloaded', async () => {
@@ -104,13 +93,10 @@ describe('AppChrome', () => {
     expect(onOpenSettings).toHaveBeenCalledOnce();
   });
 
-  it('reflects the Spanish locale for filename fallback and search label', async () => {
+  it('reflects the Spanish locale for filename fallback', async () => {
     await i18next.changeLanguage('es');
     render(<AppChrome />);
 
     expect(screen.getByTestId('app-chrome-filename').textContent).toBe('Sin título');
-    expect(screen.getByTestId('app-chrome-search').getAttribute('aria-label')).toBe(
-      'Abrir paleta de comandos'
-    );
   });
 });

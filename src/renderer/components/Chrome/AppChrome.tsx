@@ -1,25 +1,24 @@
-import { Download, Search, Settings } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useUpdateStore } from '../../stores/updateStore';
-import { IconButton } from '../ui/chrome';
 import { LicenseBadge } from '../Toolbar/LicenseBadge';
 import { cn } from '../../utils/cn';
 
 interface AppChromeProps {
   onOpenSettings?: () => void;
-  onOpenPalette?: () => void;
 }
 
 /**
  * RL-093 Slice 3 — Signal-Slate v2 chrome row above the main toolbar.
  * Three-column grid: traffic-light spacer + sidebar handle (left, ~120px
  * on macOS for the native window controls), app mark + active filename
- * + unsaved dot + LicenseBadge (centre), search + settings (right). The
+ * + unsaved dot + LicenseBadge (centre). The command icons live in the
+ * floating toolbar/pill so the chrome row remains a quiet window title. The
  * row itself is the OS drag region; interactive children opt out via
  * `no-drag`.
  */
-export function AppChrome({ onOpenSettings, onOpenPalette }: AppChromeProps) {
+export function AppChrome({ onOpenSettings }: AppChromeProps) {
   const { t } = useTranslation();
   const activeTab = useEditorStore((state) => {
     const tab = state.tabs.find((item) => item.id === state.activeTabId);
@@ -80,28 +79,7 @@ export function AppChrome({ onOpenSettings, onOpenPalette }: AppChromeProps) {
         <LicenseBadge onClick={onOpenSettings} />
         <UpdateReadyChip onClick={onOpenSettings} />
       </div>
-      <div className="flex min-w-[80px] items-center justify-end gap-1 pl-2">
-        <IconButton
-          data-testid="app-chrome-search"
-          onClick={onOpenPalette}
-          tooltip={t('chrome.search.tooltip')}
-          aria-label={t('chrome.search.aria')}
-          tooltipSide="bottom"
-          className="size-7"
-        >
-          <Search size={13} aria-hidden="true" />
-        </IconButton>
-        <IconButton
-          data-testid="app-chrome-settings"
-          onClick={onOpenSettings}
-          tooltip={t('chrome.settings.tooltip')}
-          aria-label={t('chrome.settings.aria')}
-          tooltipSide="bottom"
-          className="size-7"
-        >
-          <Settings size={13} aria-hidden="true" />
-        </IconButton>
-      </div>
+      <div className="w-[166px] shrink-0" aria-hidden="true" />
     </div>
   );
 }

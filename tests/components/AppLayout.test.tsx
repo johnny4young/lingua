@@ -80,7 +80,39 @@ vi.mock('../../src/renderer/components/Toolbar', () => ({
 // initialise under jsdom. Stub it out — its behaviour is covered by
 // its own component tests.
 vi.mock('../../src/renderer/components/Toolbar/FloatingActionPill', () => ({
-  FloatingActionPill: () => null,
+  FloatingActionPill: ({
+    onOpenQuickOpen,
+    onOpenPalette,
+    onOpenSnippets,
+    onOpenUtilities,
+    utilitiesOpen,
+  }: {
+    onOpenQuickOpen?: () => void;
+    onOpenPalette?: () => void;
+    onOpenSnippets?: () => void;
+    onOpenUtilities?: () => void;
+    utilitiesOpen?: boolean;
+  }) => (
+    <div data-testid="floating-action-pill">
+      <button type="button" data-testid="action-pill-quick-open" onClick={onOpenQuickOpen}>
+        Quick Open
+      </button>
+      <button type="button" data-testid="action-pill-search" onClick={onOpenPalette}>
+        Palette
+      </button>
+      <button type="button" data-testid="action-pill-snippets" onClick={onOpenSnippets}>
+        Snippets
+      </button>
+      <button
+        type="button"
+        data-testid="action-pill-utilities"
+        aria-pressed={utilitiesOpen}
+        onClick={onOpenUtilities}
+      >
+        Utilities
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('../../src/renderer/components/FileTree', () => ({
@@ -192,6 +224,37 @@ describe('AppLayout responsive shell', () => {
     expect(screen.queryByRole('dialog', { name: 'Project explorer' })).toBeNull();
     expect(document.querySelector('[data-panel="sidebar-panel"]')).toBeTruthy();
     expect(screen.getByTestId('file-tree')).toBeTruthy();
+  });
+
+  it('wires toolbar overlay action icons through the layout boundary', async () => {
+    const user = userEvent.setup();
+    const onOpenQuickOpen = vi.fn();
+    const onOpenPalette = vi.fn();
+    const onOpenSnippets = vi.fn();
+    const onOpenUtilities = vi.fn();
+
+    render(
+      <AppLayout
+        onOpenQuickOpen={onOpenQuickOpen}
+        onOpenPalette={onOpenPalette}
+        onOpenSnippets={onOpenSnippets}
+        onOpenUtilities={onOpenUtilities}
+        utilitiesOpen
+      />
+    );
+    await screen.findByTestId('code-editor');
+
+    await user.click(screen.getByTestId('action-pill-quick-open'));
+    await user.click(screen.getByTestId('action-pill-search'));
+    await user.click(screen.getByTestId('action-pill-snippets'));
+    const utilitiesButton = screen.getByTestId('action-pill-utilities');
+    expect(utilitiesButton.getAttribute('aria-pressed')).toBe('true');
+    await user.click(utilitiesButton);
+
+    expect(onOpenQuickOpen).toHaveBeenCalledOnce();
+    expect(onOpenPalette).toHaveBeenCalledOnce();
+    expect(onOpenSnippets).toHaveBeenCalledOnce();
+    expect(onOpenUtilities).toHaveBeenCalledOnce();
   });
 
   it('keeps the editor panel above the results panel for Monaco overlays', async () => {

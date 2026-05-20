@@ -452,6 +452,100 @@ describe('useRunner', () => {
         window.lingua = originalLingua;
       }
     });
+
+    it('opens the gate for system Ruby on desktop when unacknowledged', async () => {
+      const originalLingua = window.lingua;
+      window.lingua = {
+        ...(originalLingua ?? ({} as LinguaAPI)),
+        platform: 'darwin',
+        ruby: {
+          detect: vi.fn(),
+          run: vi.fn(),
+          stop: vi.fn(),
+        },
+      } as typeof window.lingua;
+
+      const execute = vi.fn().mockResolvedValue({
+        stdout: [],
+        stderr: [],
+        executionTime: 1,
+      } satisfies ExecutionResult);
+      mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+      useSettingsStore.setState({ rubyRuntimePreference: 'auto' });
+
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-ruby-system',
+            name: 'main.rb',
+            language: 'ruby',
+            content: 'puts "ok"',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-ruby-system',
+      });
+
+      try {
+        const { result: hook } = renderHook(() => useRunner());
+
+        await act(async () => {
+          await hook.current.run();
+        });
+
+        expect(useNativeExecutionGateStore.getState().pendingLanguage).toBe('ruby');
+        expect(execute).not.toHaveBeenCalled();
+      } finally {
+        window.lingua = originalLingua;
+      }
+    });
+
+    it('skips the native gate for Ruby when the WASM runtime is forced', async () => {
+      const originalLingua = window.lingua;
+      window.lingua = {
+        ...(originalLingua ?? ({} as LinguaAPI)),
+        platform: 'darwin',
+        ruby: {
+          detect: vi.fn(),
+          run: vi.fn(),
+          stop: vi.fn(),
+        },
+      } as typeof window.lingua;
+
+      const execute = vi.fn().mockResolvedValue({
+        stdout: [],
+        stderr: [],
+        executionTime: 1,
+      } satisfies ExecutionResult);
+      mockPrepareRunner.mockResolvedValue({ runner: { execute } });
+      useSettingsStore.setState({ rubyRuntimePreference: 'wasm' });
+
+      useEditorStore.setState({
+        tabs: [
+          {
+            id: 'tab-ruby-wasm',
+            name: 'main.rb',
+            language: 'ruby',
+            content: 'puts "ok"',
+            isDirty: false,
+          },
+        ],
+        activeTabId: 'tab-ruby-wasm',
+      });
+
+      try {
+        const { result: hook } = renderHook(() => useRunner());
+
+        await act(async () => {
+          await hook.current.run();
+        });
+
+        expect(useNativeExecutionGateStore.getState().pendingLanguage).toBeNull();
+        expect(execute).toHaveBeenCalledOnce();
+      } finally {
+        window.lingua = originalLingua;
+      }
+    });
   });
 
   it('does not record history or mark the tab successful when execution is stopped', async () => {

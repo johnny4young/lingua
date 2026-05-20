@@ -54,7 +54,7 @@ import {
 } from '../../shared/runtimeTimeoutPresets';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
-import { resolveUserEnvForRunner } from './go';
+import { resolveUserEnvForRunner } from './env';
 import { trackEvent } from '../utils/telemetry';
 import {
   runnerStoppedResult,

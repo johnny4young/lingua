@@ -5,7 +5,7 @@ import type {
   ConsoleOutput,
 } from '../types';
 import { parseRustExecutionError } from '../utils/executionDiagnostics';
-import { resolveNativeRunnerMessages, resolveUserEnvForRunner } from './go';
+import { resolveNativeRunnerMessages, resolveUserEnvForRunner } from './env';
 
 export class RustRunner implements LanguageRunner {
   id = 'rust';

@@ -29,12 +29,22 @@
  * from the same Zustand stores the Toolbar uses.
  */
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Bug,
+  Braces,
   ChevronDown,
+  Command,
+  FileSearch,
   GripVertical,
   Loader2,
   Play,
@@ -43,6 +53,7 @@ import {
   Terminal,
   Globe,
   Package,
+  Wrench,
 } from 'lucide-react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
@@ -65,10 +76,15 @@ import {
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { isLanguageAllowed } from '../../../shared/entitlements';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
+import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
 
-const LANGUAGE_LIST: Language[] = ['javascript', 'typescript', 'go', 'python', 'rust'];
-const FULL_PILL_WIDTH = 700;
-const COMPACT_PILL_WIDTH = 460;
+const LANGUAGE_LIST: Language[] = LANGUAGE_PACKS.filter(
+  (pack) =>
+    (pack.execution === 'run' || pack.execution === 'compile') &&
+    pack.templateIds.length > 0
+).map((pack) => pack.id as Language);
+const FULL_PILL_WIDTH = 820;
+const COMPACT_PILL_WIDTH = 560;
 
 function LanguageChip({
   language,
@@ -113,7 +129,7 @@ function workflowChipLabel(
     return { icon: <Bug size={11} />, label: t('toolbar.debug.label') };
   }
   if (workflowMode === 'scratchpad') {
-    return { icon: <Sparkles size={11} />, label: 'Scratchpad' };
+    return { icon: <Sparkles size={11} />, label: t('workflowMode.scratchpad.label') };
   }
   return { icon: <Play size={11} />, label: t('actionPill.run') };
 }
@@ -128,6 +144,11 @@ function runtimeChipLabel(
 }
 
 interface FloatingActionPillProps {
+  onOpenPalette?: () => void;
+  onOpenQuickOpen?: () => void;
+  onOpenSnippets?: () => void;
+  onOpenUtilities?: () => void;
+  utilitiesOpen?: boolean;
   /**
    * Optional callback invoked when the user clicks the trailing
    * Settings cog (also reachable via `⌘,`). The cog is hidden when
@@ -137,7 +158,14 @@ interface FloatingActionPillProps {
   onOpenSettings?: () => void;
 }
 
-export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) {
+export function FloatingActionPill({
+  onOpenPalette,
+  onOpenQuickOpen,
+  onOpenSnippets,
+  onOpenUtilities,
+  utilitiesOpen = false,
+  onOpenSettings,
+}: FloatingActionPillProps) {
   const { t } = useTranslation();
   const tabs = useEditorStore((s) => s.tabs);
   const activeTabId = useEditorStore((s) => s.activeTabId);
@@ -158,6 +186,11 @@ export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) 
     (s) => s.floatingPositionsResetRevision,
   );
   const wasDraggingRef = useRef(false);
+  // Local UI state for the dropdowns. Declare before effects that close menus
+  // during drag so React Compiler can prove the closure is initialized.
+  const [openMenu, setOpenMenu] = useState<
+    'lang' | 'workflow' | 'runtime' | 'run' | null
+  >(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const language = activeTab?.language ?? 'javascript';
@@ -187,18 +220,22 @@ export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) 
     viewportMargin: 8,
     resetSignal: floatingPositionsResetRevision,
   });
+  const dragHandleProps = useMemo(
+    () => ({
+      ...handleProps,
+      onPointerDown: (event: PointerEvent<HTMLElement>) => {
+        setOpenMenu(null);
+        handleProps.onPointerDown?.(event);
+      },
+    }),
+    [handleProps],
+  );
 
   // Mirror committed drags to uiStore so external resets can clear it
   // later without writing the default position on first render.
   useEffect(() => {
     if (isDragging) {
       wasDraggingRef.current = true;
-      // RL-093 polish #12 — close any open dropdown the moment the
-      // user starts dragging the pill. Otherwise the dropdown stays
-      // anchored to the pill's PREVIOUS coordinates (its absolute
-      // `left:0` is measured against the pill's container at mount
-      // time) and looks orphaned mid-drag.
-      setOpenMenu(null);
       return;
     }
     if (!wasDraggingRef.current) return;
@@ -206,10 +243,6 @@ export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) 
     setActionPillPosition(position);
   }, [isDragging, position, setActionPillPosition]);
 
-  // Local UI state for the three dropdowns.
-  const [openMenu, setOpenMenu] = useState<
-    'lang' | 'workflow' | 'runtime' | 'run' | null
-  >(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
 
   // Close any open dropdown on outside click.
@@ -293,6 +326,9 @@ export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) 
   const workflowChip = workflowChipLabel(t, activeTab?.workflowMode);
   const runtimeChip = runtimeChipLabel(activeTab?.runtimeMode);
   const cssVars = { '--floating-pill-x': `${position.x}px`, '--floating-pill-y': `${position.y}px` } as React.CSSProperties;
+  const hasToolbarActions = Boolean(
+    onOpenQuickOpen || onOpenPalette || onOpenSnippets || onOpenUtilities
+  );
 
   // Render via portal so the pill is positioned relative to the viewport,
   // not constrained to whatever ancestor establishes a containing block.
@@ -320,7 +356,7 @@ export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) 
         type="button"
         aria-label={t('actionPill.dragHandle')}
         className="action-pill-drag-handle ml-0.5 inline-flex items-center justify-center rounded-full text-fg-subtle hover:text-fg-base"
-        {...handleProps}
+        {...dragHandleProps}
       >
         <GripVertical size={12} aria-hidden />
       </button>
@@ -530,7 +566,7 @@ export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) 
                 {
                   k: 'scratchpad',
                   icon: <Sparkles size={13} />,
-                  label: 'Scratchpad',
+                  label: t('workflowMode.scratchpad.label'),
                   desc: t('actionPill.workflow.scratchpad'),
                   kbd: null as string | null,
                   disabled: false,
@@ -622,12 +658,89 @@ export function FloatingActionPill({ onOpenSettings }: FloatingActionPillProps) 
         </div>
       </Tooltip>
 
+      {hasToolbarActions ? (
+        <>
+          <span className="action-pill-divider" />
+          <div
+            className="action-pill-command-actions inline-flex items-center gap-1"
+            role="toolbar"
+            aria-label={t('chrome.actions.aria')}
+          >
+            {onOpenQuickOpen ? (
+              <Tooltip content={t('chrome.quickOpen.tooltip')}>
+                <button
+                  type="button"
+                  data-testid="action-pill-quick-open"
+                  aria-label={t('chrome.quickOpen.aria')}
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onOpenQuickOpen();
+                  }}
+                  className="action-pill-icon-button"
+                >
+                  <FileSearch size={13} aria-hidden />
+                </button>
+              </Tooltip>
+            ) : null}
+            {onOpenPalette ? (
+              <Tooltip content={t('chrome.search.tooltip')}>
+                <button
+                  type="button"
+                  data-testid="action-pill-search"
+                  aria-label={t('chrome.search.aria')}
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onOpenPalette();
+                  }}
+                  className="action-pill-icon-button"
+                >
+                  <Command size={13} aria-hidden />
+                </button>
+              </Tooltip>
+            ) : null}
+            {onOpenSnippets ? (
+              <Tooltip content={t('chrome.snippets.tooltip')}>
+                <button
+                  type="button"
+                  data-testid="action-pill-snippets"
+                  aria-label={t('chrome.snippets.aria')}
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onOpenSnippets();
+                  }}
+                  className="action-pill-icon-button"
+                >
+                  <Braces size={13} aria-hidden />
+                </button>
+              </Tooltip>
+            ) : null}
+            {onOpenUtilities ? (
+              <Tooltip content={t('chrome.utilities.tooltip')}>
+                <button
+                  type="button"
+                  data-testid="action-pill-utilities"
+                  aria-label={t('chrome.utilities.aria')}
+                  aria-pressed={utilitiesOpen}
+                  data-active={utilitiesOpen ? 'true' : 'false'}
+                  onClick={() => {
+                    setOpenMenu(null);
+                    onOpenUtilities();
+                  }}
+                  className="action-pill-icon-button"
+                >
+                  <Wrench size={13} aria-hidden />
+                </button>
+              </Tooltip>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
       {/* 6. Settings cog — opens the Settings modal. Only mounted when
-              the consumer wired `onOpenSettings`; the chrome bar's cog
-              continues to exist as the redundant entry point. */}
+              the consumer wired `onOpenSettings`. */}
       {onOpenSettings ? (
         <>
-          <span className="action-pill-divider action-pill-meta-divider" />
+          <span className="action-pill-divider" />
           <Tooltip content={t('actionPill.settingsTooltip')}>
             <button
               type="button"

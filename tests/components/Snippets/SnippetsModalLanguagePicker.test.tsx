@@ -94,6 +94,7 @@ describe('SnippetsModal — language picker (RL-038)', () => {
     expect(options).toContain('Python');
     expect(options).toContain('Rust');
     expect(options).toContain('Lua');
+    expect(options).toContain('Ruby');
     // No (desktop only) suffix should leak on desktop.
     expect(options.some((option) => /desktop only/i.test(option))).toBe(false);
   });
@@ -111,9 +112,11 @@ describe('SnippetsModal — language picker (RL-038)', () => {
     expect(options).toContain('TypeScript');
     expect(options).toContain('Python');
     expect(options).toContain('Lua');
+    expect(options).toContain('Ruby');
     expect(options.find((option) => option.startsWith('JavaScript'))).toBe('JavaScript');
     expect(options.find((option) => option.startsWith('Python'))).toBe('Python');
     expect(options.find((option) => option.startsWith('Lua'))).toBe('Lua');
+    expect(options.find((option) => option.startsWith('Ruby'))).toBe('Ruby');
   });
 
   it('localizes the desktop-only suffix in tuteo Spanish', async () => {
