@@ -593,14 +593,15 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       .map((match) => match[1]!)
       .sort();
     expect(workerValues).toEqual(sharedValues);
-    // Lock the kind enum so a Slice 2 widening (image / chart) must
-    // amend both Sets explicitly. text / rawText are catch-all
-    // buckets — the renderer renders them through the text path.
+    // Lock the kind enum so any future widening must amend both Sets
+    // explicitly. text / rawText are catch-all buckets — the renderer
+    // renders them through the text path. `html` lands in Slice 2a.
     expect(workerValues).toEqual([
       'array',
       'chart',
       'date',
       'error',
+      'html',
       'image',
       'mapSet',
       'object',
@@ -747,6 +748,81 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(okLine).toBeDefined();
     const unknownLine = eventLines.find((line) => line.includes('dataframe'));
     expect(unknownLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
+  it('runtime.console_rich_rendered accepts the html bucket (RL-044 Slice 2a)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.console_rich_rendered',
+      properties: { kind: 'html' },
+    });
+    expect(okResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.console_rich_rendered"'));
+    const okLine = eventLines.find((line) => line.includes('"kind":"html"'));
+    expect(okLine).toBeDefined();
+    consoleSpy.mockRestore();
+  });
+
+  it('runtime.error_stack_frame_clicked accepts closed-enum language, drops unsafe (RL-044 Slice 2a)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.error_stack_frame_clicked',
+      properties: { language: 'javascript' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unsafeResponse = await postTelemetry({
+      event: 'runtime.error_stack_frame_clicked',
+      properties: { language: '/etc/passwd' },
+    });
+    expect(unsafeResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.error_stack_frame_clicked"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const okLine = eventLines.find((line) =>
+      line.includes('"language":"javascript"')
+    );
+    expect(okLine).toBeDefined();
+    const unsafeLine = eventLines.find((line) =>
+      line.includes('/etc/passwd')
+    );
+    expect(unsafeLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
+  it('runtime.rich_media_payload_rejected accepts closed-enum kind+reason, drops unknown (RL-044 Slice 2a)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.rich_media_payload_rejected',
+      properties: { kind: 'image', reason: 'invalid-src' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownKind = await postTelemetry({
+      event: 'runtime.rich_media_payload_rejected',
+      properties: { kind: 'video', reason: 'invalid-src' },
+    });
+    expect(unknownKind.status).toBe(204);
+    const unknownReason = await postTelemetry({
+      event: 'runtime.rich_media_payload_rejected',
+      properties: { kind: 'html', reason: 'too-spicy' },
+    });
+    expect(unknownReason.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.rich_media_payload_rejected"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(3);
+    const okLine = eventLines.find(
+      (line) =>
+        line.includes('"kind":"image"') && line.includes('"reason":"invalid-src"')
+    );
+    expect(okLine).toBeDefined();
+    const videoLine = eventLines.find((line) => line.includes('"video"'));
+    expect(videoLine).toBeUndefined();
+    const spicyLine = eventLines.find((line) => line.includes('too-spicy'));
+    expect(spicyLine).toBeUndefined();
     consoleSpy.mockRestore();
   });
 

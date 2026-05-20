@@ -538,7 +538,14 @@ export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
  * This is the shortest path from "empty shell" to "a tab I can Run".
  */
 export async function createJavaScriptTab(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /new javascript|nuevo javascript/i }).click();
+  const explicitNewButton = page.getByRole('button', {
+    name: /new javascript|nuevo javascript/i,
+  });
+  if (await explicitNewButton.isVisible().catch(() => false)) {
+    await explicitNewButton.click();
+  } else {
+    await page.getByTestId('empty-state-quick-start-javascript').click();
+  }
   await expect(page.getByRole('tab', { name: /JS .*\.js/i })).toBeVisible();
 }
 

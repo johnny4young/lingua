@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ConsoleState, ConsoleEntryType, FileTab } from '../../src/renderer/types/index';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
@@ -264,6 +264,105 @@ describe('ConsolePanel', () => {
 
     expect(screen.getByText('No entries match the active filters.')).toBeTruthy();
     expect(screen.queryByText('ValueError: bad input')).toBeNull();
+  });
+
+  it('uses the entry language when clickable error stack frames emit telemetry', async () => {
+    const user = userEvent.setup();
+    resetState({
+      entries: [
+        {
+          id: 'error-stack',
+          type: 'log',
+          content: 'ValueError: bad input',
+          timestamp: Date.now(),
+          language: 'python',
+          payload: [
+            {
+              kind: 'error',
+              message: 'bad input',
+              stack: [
+                {
+                  text: 'File "example.py", line 7, in <module>',
+                  file: 'example.py',
+                  line: 7,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    render(<ConsolePanel />);
+
+    await user.click(screen.getByTestId('console-rich-error-frame-clickable'));
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'runtime.error_stack_frame_clicked',
+      { language: 'python' }
+    );
+  });
+
+  it('renders Slice 2a html, image, and error previews inside the details popover', async () => {
+    const user = userEvent.setup();
+    resetState({
+      entries: [
+        {
+          id: 'html-rich',
+          type: 'log',
+          content: '<strong>Hello</strong>',
+          timestamp: Date.now(),
+          language: 'javascript',
+          payload: [{ kind: 'html', html: '<strong>Hello</strong>', height: 80 }],
+        },
+        {
+          id: 'image-rich',
+          type: 'log',
+          content: '[image]',
+          timestamp: Date.now(),
+          language: 'javascript',
+          payload: [
+            {
+              kind: 'image',
+              src: 'data:image/png;base64,iVBORw0KGgo=',
+              mime: 'image/png',
+            },
+          ],
+        },
+        {
+          id: 'error-rich',
+          type: 'log',
+          content: 'Error: boom',
+          timestamp: Date.now(),
+          language: 'javascript',
+          payload: [
+            {
+              kind: 'error',
+              message: 'boom',
+              stack: [{ text: 'at main (index.js:1:1)', file: 'index.js', line: 1 }],
+            },
+          ],
+        },
+      ],
+    });
+
+    render(<ConsolePanel />);
+
+    const detailButtons = screen.getAllByTestId('console-rich-open-details');
+    await user.click(detailButtons[0]!);
+    expect(
+      within(screen.getByRole('dialog')).getByTestId('console-rich-html-iframe')
+    ).toBeTruthy();
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
+
+    await user.click(detailButtons[1]!);
+    expect(
+      within(screen.getByRole('dialog')).getByTestId('console-rich-image')
+    ).toBeTruthy();
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
+
+    await user.click(detailButtons[2]!);
+    expect(within(screen.getByRole('dialog')).getByText('Stack trace')).toBeTruthy();
   });
 
   it('clicking a filter pill calls toggleFilter with its type', async () => {

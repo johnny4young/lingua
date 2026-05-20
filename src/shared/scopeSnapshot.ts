@@ -69,6 +69,14 @@ export interface ScopeValueArray {
 export interface ScopeValueError {
   kind: 'error';
   message: string;
+  /**
+   * RL-044 Slice 2a — Sub-slice F. Optional structured stack frames
+   * for the renderer to paint as clickable rows. Parsed worker-side
+   * by `parseJsErrorStack` / `parsePythonTraceback` from
+   * `src/shared/errorStack.ts`. Absent on every call site that hasn't
+   * adopted the parser yet — additive, never breaking.
+   */
+  stack?: import('./errorStack').ClickableStackFrame[];
 }
 
 export type ScopeValue =

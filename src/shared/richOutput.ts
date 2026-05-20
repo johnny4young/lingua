@@ -114,6 +114,19 @@ export interface RichOutputChart {
   spec: unknown;
 }
 
+/**
+ * RL-044 Slice 2a — sandboxed HTML payload. Rendered inside an
+ * `<iframe sandbox="allow-scripts">` (NO `allow-same-origin`) so
+ * inline `<script>` cannot reach the parent window. `height` is an
+ * optional clamp the worker can request; the renderer caps at
+ * `MAX_HTML_PAYLOAD_HEIGHT_PX` regardless.
+ */
+export interface RichOutputHtml {
+  kind: 'html';
+  html: string;
+  height?: number;
+}
+
 export type RichOutputPayload =
   | ScopeValue
   | RichOutputMap
@@ -123,7 +136,8 @@ export type RichOutputPayload =
   | RichOutputTable
   | RichOutputRawText
   | RichOutputImage
-  | RichOutputChart;
+  | RichOutputChart
+  | RichOutputHtml;
 
 // ---------------------------------------------------------------------------
 // Caps
@@ -152,7 +166,17 @@ const RICH_KINDS_BEYOND_SCOPE_VALUE = new Set([
   'rawText',
   'image',
   'chart',
+  'html',
 ]);
+
+/** RL-044 Slice 2a — renderer-side cap, enforced regardless of payload-requested height. */
+export const MAX_HTML_PAYLOAD_HEIGHT_PX = 800;
+/** RL-044 Slice 2a — default iframe height when the payload omits one. */
+export const DEFAULT_HTML_PAYLOAD_HEIGHT_PX = 240;
+/** RL-044 Slice 2a — maximum image source string length (~5 MB base64 ≈ 7 MB encoded). */
+export const MAX_IMAGE_SRC_LENGTH = 7_000_000;
+/** RL-044 Slice 2a — maximum HTML payload length the worker is allowed to ship (256 KB). */
+export const MAX_HTML_PAYLOAD_LENGTH = 256 * 1024;
 
 // Five `ScopeValue` discriminants + the eight extended kinds = the
 // full RichOutputPayload union. Centralised here so the type-guard,
@@ -188,8 +212,58 @@ export function isExtendedRichKind(
   | RichOutputTable
   | RichOutputRawText
   | RichOutputImage
-  | RichOutputChart {
+  | RichOutputChart
+  | RichOutputHtml {
   return RICH_KINDS_BEYOND_SCOPE_VALUE.has(payload.kind);
+}
+
+// ---------------------------------------------------------------------------
+// Rich-media security validation (Slice 2a)
+// ---------------------------------------------------------------------------
+
+/**
+ * RL-044 Slice 2a — `image` payload source validation. Accepts:
+ *   - `data:image/...` URLs (worker-generated SVG / base64 PNG)
+ *   - `blob:` URLs (canvas → blob roundtrip)
+ *   - `https://` URLs only — `http://` is rejected to avoid mixed-content.
+ *
+ * Rejects `javascript:`, `vbscript:`, `file:`, and anything else.
+ *
+ * Returns the trimmed source on success, `null` when rejected.
+ */
+export function validateImageSrc(src: unknown): string | null {
+  if (typeof src !== 'string') return null;
+  const trimmed = src.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed.length > MAX_IMAGE_SRC_LENGTH) return null;
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('data:image/')) return trimmed;
+  if (lower.startsWith('blob:')) return trimmed;
+  if (lower.startsWith('https://')) return trimmed;
+  return null;
+}
+
+/**
+ * RL-044 Slice 2a — clamp the iframe height a `RichOutputHtml`
+ * payload requests against the renderer-side cap.
+ */
+export function clampHtmlHeight(requested: number | undefined): number {
+  if (typeof requested !== 'number' || !Number.isFinite(requested) || requested <= 0) {
+    return DEFAULT_HTML_PAYLOAD_HEIGHT_PX;
+  }
+  return Math.min(Math.floor(requested), MAX_HTML_PAYLOAD_HEIGHT_PX);
+}
+
+/**
+ * RL-044 Slice 2a — worker-side gate on the HTML payload string size.
+ * Returns the html on success, `null` when empty / non-string /
+ * over the cap.
+ */
+export function validateHtmlPayload(html: unknown): string | null {
+  if (typeof html !== 'string') return null;
+  if (html.length === 0) return null;
+  if (html.length > MAX_HTML_PAYLOAD_LENGTH) return null;
+  return html;
 }
 
 // ---------------------------------------------------------------------------

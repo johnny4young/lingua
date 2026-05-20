@@ -55,6 +55,10 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-044 Slice 1B fold F — `console.table()` adoption signal.
       // Closed-enum payload `{ language }`.
       'runtime.console_table_called',
+      // RL-044 Slice 2a — Sub-slice F adoption signal. Closed-enum
+      // payload `{ language }`. Sorts between `console_table_called`
+      // and `history_replay` alphabetically.
+      'runtime.error_stack_frame_clicked',
       // RL-020 Slice 4 — execution-history replay dispatched.
       // Closed-enum payload `{ language, status, surface }`.
       'runtime.history_replay',
@@ -71,8 +75,12 @@ describe('TELEMETRY_EVENTS', () => {
       // `CONSOLE_RICH_KIND_BUCKETS`. Sorts between `node_runner_used`
       // and `stdin_used` alphabetically.
       'runtime.python_console_payload_emitted',
+      // RL-044 Slice 2a — rich-media payload rejection signal. Closed
+      // enum `{ kind, reason }`. Sorts between
+      // `python_console_payload_emitted` and `ruby_runner_dispatched`.
+      'runtime.rich_media_payload_rejected',
       // RL-042 Slice 6 — Ruby runtime dispatch + Settings preference.
-      // Both closed-enum; sorts after `python_console_payload_emitted`.
+      // Both closed-enum; sorts after `rich_media_payload_rejected`.
       'runtime.ruby_runner_dispatched',
       'runtime.ruby_runtime_preference_changed',
       // RL-020 Slice 6 — bare-stdin adoption signal. Closed-enum

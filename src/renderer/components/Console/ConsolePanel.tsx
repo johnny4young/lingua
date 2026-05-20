@@ -1,11 +1,7 @@
 import { Clock, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type {
-  ConsoleEntry,
-  ConsoleEntryType,
-  ConsolePayloadKindFilter,
-} from '../../types';
+import type { ConsoleEntry, ConsoleEntryType, ConsolePayloadKindFilter } from '../../types';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
@@ -194,13 +190,17 @@ function EntryRow({
   // Capture the payload in a const so the rich-render branch reads
   // through narrowed types without resorting to a non-null assertion.
   const payload = Array.isArray(entry.payload) ? entry.payload : null;
-  const usesRichRender =
-    richRenderingEnabled && payload !== null && payload.length > 0;
+  const usesRichRender = richRenderingEnabled && payload !== null && payload.length > 0;
 
   return (
-    <div className="group flex gap-3 rounded-2xl px-2 py-1.5 hover:bg-surface-strong/52">
+    <div
+      className="group flex gap-3 rounded-2xl px-2 py-1.5 hover:bg-surface-strong/52"
+      data-testid="console-entry-row"
+    >
       {showTimestamps && (
-        <span className="shrink-0 select-none tabular-nums text-muted">{formatTime(entry.timestamp)}</span>
+        <span className="shrink-0 select-none tabular-nums text-muted">
+          {formatTime(entry.timestamp)}
+        </span>
       )}
       <span className={`shrink-0 select-none font-bold text-[10px] leading-5 ${labelClass}`}>
         {typeLabel[entry.type]}
@@ -210,7 +210,11 @@ function EntryRow({
       )}
       {usesRichRender && payload !== null ? (
         <div className={contentClass}>
-          <ConsoleEntryRenderer payloads={payload} fallbackText={entry.content} />
+          <ConsoleEntryRenderer
+            payloads={payload}
+            fallbackText={entry.content}
+            language={entry.language}
+          />
         </div>
       ) : (
         <AnsiContent text={entry.content} className={contentClass} />
@@ -306,7 +310,7 @@ function entryFilteredByPayloadKind(
     // payloads + the no-payload fallback).
     return hidden.has('text');
   }
-  return entry.payload.some((p) => {
+  return entry.payload.some(p => {
     const bucket = richKindBucket(p);
     // The Errors chip historically meant warn/error rows. Slice 1C
     // added payload-level `kind: 'error'` for Python BaseException
@@ -333,9 +337,7 @@ export function ConsolePanel() {
   // RL-044 Slice 1B fold E — master toggle for the rich console
   // dispatch. Off → every row paints through `<AnsiContent>` even if
   // the runner sent a payload.
-  const consoleRichRenderingEnabled = useSettingsStore(
-    (s) => s.consoleRichRenderingEnabled
-  );
+  const consoleRichRenderingEnabled = useSettingsStore(s => s.consoleRichRenderingEnabled);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false);
   const typeLabel: Record<ConsoleEntryType, string> = {
@@ -406,10 +408,8 @@ export function ConsolePanel() {
   // identical entries (fold H). Memoised so a flooded console only
   // re-pays the cost when something actually changed.
   const visibleEntries = useMemo(() => {
-    const typed = entries.filter((entry) => activeFilters.has(entry.type));
-    const filtered = typed.filter(
-      (entry) => !entryFilteredByPayloadKind(entry, hiddenPayloadKinds)
-    );
+    const typed = entries.filter(entry => activeFilters.has(entry.type));
+    const filtered = typed.filter(entry => !entryFilteredByPayloadKind(entry, hiddenPayloadKinds));
     return collapseIdenticalEntries(filtered);
   }, [entries, activeFilters, hiddenPayloadKinds]);
 
@@ -422,16 +422,14 @@ export function ConsolePanel() {
       <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border-subtle/60 px-4">
         <div className="flex items-center gap-2.5">
           <EyebrowMono>{t('console.title')}</EyebrowMono>
-          {totalCount > 0 ? (
-            <MonoBadge tone="accent">{totalCount}</MonoBadge>
-          ) : null}
+          {totalCount > 0 ? <MonoBadge tone="accent">{totalCount}</MonoBadge> : null}
           <p className="text-[11px] text-fg-muted">{t('console.description')}</p>
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">
-          {FILTER_TYPES.map((type) => {
+          {FILTER_TYPES.map(type => {
             const active = activeFilters.has(type);
-            const count = entries.filter((entry) => entry.type === type).length;
+            const count = entries.filter(entry => entry.type === type).length;
 
             return (
               <Tooltip
@@ -461,13 +459,10 @@ export function ConsolePanel() {
               kind. `text` is the catch-all bucket the renderer
               dispatches for primitive / function / error payloads +
               the no-payload fallback. */}
-          {PAYLOAD_KIND_CHIPS.map((kind) => {
+          {PAYLOAD_KIND_CHIPS.map(kind => {
             const hidden = hiddenPayloadKinds.has(kind);
             return (
-              <Tooltip
-                key={kind}
-                content={t(`console.rich.filterChip.${kind}`)}
-              >
+              <Tooltip key={kind} content={t(`console.rich.filterChip.${kind}`)}>
                 <button
                   type="button"
                   onClick={() => togglePayloadKindFilter(kind)}
@@ -524,9 +519,7 @@ export function ConsolePanel() {
               {t('console.title')}
             </p>
             <p className="font-sans text-[13px] font-medium text-foreground">
-              {entries.length === 0
-                ? t('console.empty.output')
-                : t('console.empty.filtered')}
+              {entries.length === 0 ? t('console.empty.output') : t('console.empty.filtered')}
             </p>
             {entries.length === 0 ? (
               <p className="mt-1 max-w-md font-sans text-[11.5px] leading-[1.45] text-muted">

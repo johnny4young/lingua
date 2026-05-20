@@ -42,6 +42,7 @@ export function getSharedBuildDefines() {
     __LINGUA_WEBSITE_URL__: JSON.stringify(resolveWebsiteUrl()),
     __LINGUA_APP_VERSION__: JSON.stringify(resolveAppVersion()),
     __LINGUA_CHANGELOG_JSON__: resolveChangelogJson(),
+    __LINGUA_E2E_HOOKS__: JSON.stringify(process.env.LINGUA_E2E_HOOKS === '1'),
   };
 }
 
