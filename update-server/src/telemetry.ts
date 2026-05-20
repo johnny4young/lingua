@@ -222,7 +222,7 @@ export const CONSOLE_RICH_KIND_BUCKETS = new Set([
 // RL-044 Slice 2a — closed-enum mirrors of
 // `RICH_MEDIA_REJECTED_KINDS` / `RICH_MEDIA_REJECTED_REASONS` in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
-export const RICH_MEDIA_REJECTED_KINDS = new Set(['image', 'html']);
+export const RICH_MEDIA_REJECTED_KINDS = new Set(['image', 'html', 'chart']);
 export const RICH_MEDIA_REJECTED_REASONS = new Set([
   'invalid-src',
   'size-limit',

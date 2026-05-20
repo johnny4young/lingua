@@ -4396,7 +4396,7 @@ Shipped:
 - **`src/renderer/components/Console/RichValueError.tsx` (new)** —
   renders the error message + structured stack. Each
   `ClickableStackFrame` with `file` + `line` becomes a focusable
-  `<button>` that dispatches a `lingua-open-source` `CustomEvent`
+  `<button>` that dispatches a `lingua-open-file` `CustomEvent`
   (consumer: RL-024 multi-file lane). Frames without `file`/`line`
   render as plain `<span>`. **Fold F** — right-click on any frame
   opens an inline menu with "Copy file:line" / "Open in tab" / "Copy
@@ -4458,7 +4458,7 @@ Visual smoke matrix:
 | Image popover | same image payload, details chip clicked | popover Preview tab routes to `<RichValueImage>` | `04-image-popover.png` |
 | Error inline | `{ kind: 'error', message, stack[] }` | structured stack renders with a clickable frame and text frame | `05-error-inline.png` |
 | Error popover | same error payload, details chip clicked | popover Preview tab routes to `<RichValueError>` | `06-error-popover.png` |
-| Error context menu | right-click a clickable stack frame | menu shows Copy file:line / Open in tab / Copy frame text; click emits `lingua-open-source` | `07-error-context-menu.png` |
+| Error context menu | right-click a clickable stack frame | menu shows Copy file:line / Open in tab / Copy frame text; click emits `lingua-open-file` | `07-error-context-menu.png` |
 | Invalid media | `image` with `javascript:` + empty `html` | security fallbacks render visibly for both rejected payloads | `08-invalid-media-fallbacks.png` |
 
 Manual review flow:
@@ -4481,32 +4481,161 @@ Verification:
   4 Playwright tests, 8 screenshots, generated gallery, zero
   console/page errors.
 
-Deferred to Slice 2b (separate plan):
+#### § Slice 2b-α landed (2026-05-20)
 
-- **Vega-lite chart payload** — `<RichValueChart>` component, lazy
-  dynamic `import('vega-embed')`, chart spec security whitelist
-  (block `data.url` / `data.name`, allow only `data.values`).
-- **Fold A** Vega lazy-chunk via Vite emit-chunk pattern.
-- **Fold B** Pro-gated "Export chart as SVG/PNG".
-- **Fold C** Settings sub-toggles per kind (Chart / Image / HTML).
-- **Fold E** Magic-comment directives `//=> chart` / `//=> image` /
-  `//=> html` and Python `#=> chart` / `#=> image` / `#=> html`.
-- **Fold G** Image clipboard paste handler in `<ConsolePanel>` —
-  RL-110 Smart Paste lane crossover.
-- **Worker integration** — `lingua.html(...)` / `lingua.image(...)`
-  JS worker globals + `__lingua.html` / `__lingua.image` Python
-  preamble. Automatic `parseJsErrorStack(err.stack)` wiring at the
-  worker's catch-path so user-thrown errors automatically gain
-  clickable stacks (the renderer surface is forward-compatible — when
-  the worker writes `stack`, the chip + popover light up).
-- **Sandboxed iframe security e2e** — Playwright spec asserting that a
-  `<script>parent.postMessage('escape','*')</script>` payload cannot
-  reach the parent's message listener. Deferred until the JS worker
-  globals land (no consumer to drive the test yet).
-- **Dedicated component-level tests** for `<RichValueHtml>` /
-  `<RichValueImage>` / `<RichValueError>` beyond the current
-  ConsolePanel integration coverage. These add deeper unit-level
-  visual regression coverage beyond the Playwright visual matrix.
+Worker integration cut: connects Slice 2a's renderer-side surface to
+real worker emit sites. `<RichValueChart>` UI + folds + Python helper
+preamble + Settings sub-toggles + ConsolePanel image-paste handler are
+all deferred to Slice 2b-β so this slice ships clean and small.
+
+Shipped:
+
+- **`src/shared/richOutput.ts`** — new `validateChartSpec(spec)`
+  whitelist: accepts inline `data.values` (≤ `MAX_CHART_DATA_VALUES = 5000`)
+  AND data-less specs (`repeat`/`concat`/`layer` parents); rejects
+  `data.url` and `data.name` at any nested spec node (anti-feature
+  §A-008 — no silent fetches), non-object specs, non-array
+  `data.values`, over-cap arrays, cyclic specs, and overly deep specs
+  via `MAX_CHART_SPEC_NODES`.
+- **`src/renderer/workers/js-worker.ts`** —
+  - New `buildLinguaWorkerBridge(ctx, runId)` factory returns the
+    `{ chart, image, html }` helpers, closure-scoped per execute()
+    call (NO `globalThis` pollution; binding goes out of scope when
+    the AsyncFunction returns). Each helper:
+    1. Runs the matching `validate*` whitelist.
+    2. On reject → `postMessage({ type:'console', method:'log', args:[textFallback], richMediaRejected:{kind, reason} })`.
+    3. On accept → `postMessage({ type:'console', method:'log', args:[textFallback], payload:[<typed>] })`.
+  - User code receives `lingua` as the **6th `AsyncFunction` parameter**
+    (line 685-700), mirroring the existing `__mc` / `__lingua_dbg_*` /
+    `__lingua_capture_scope` parameter injection convention. Cleanup
+    is implicit — when the AsyncFunction returns, the `lingua` binding
+    is unreachable. No `restoreConsole`-style cleanup needed.
+  - `parseError(err)` extended: now also returns
+    `frames?: ClickableStackFrame[]` parsed via
+    `parseJsErrorStack(err.stack)`. The `frames` field threads through
+    the `ctx.postMessage({type:'error', error:parsed})` reply via
+    structured clone (no type-level work needed at the boundary; the
+    runner consumes it as `error.frames`).
+- **`src/renderer/workers/python-worker.ts`** —
+  - New `parsePythonTraceback` import.
+  - Error path (`if (errorText) { … }`) now also computes
+    `frames = parsePythonTraceback(tracebackText)` and emits
+    `error: { message, line, stack: tracebackText, frames? }`. The
+    optional `frames` is omitted when the parser returns an empty
+    array so the wire shape stays minimal for unparseable tracebacks.
+- **`src/renderer/types/index.ts`** — `ExecutionError.frames?:
+  ClickableStackFrame[]` added (additive, non-breaking — every
+  existing emit site keeps working without the field).
+- **`src/renderer/hooks/runnerOutput.ts`** — `formatExecutionError()`
+  now builds a `kind:'error'` `RichOutputPayload` when
+  `result.error.frames` is non-empty:
+  ```ts
+  entry.payload = [{ kind: 'error', message, stack: result.error.frames }];
+  ```
+  The renderer's `<RichValueError>` (Slice 2a) consumes this payload
+  and paints the clickable stack surface. **Sub-slice F is now
+  end-to-end complete for JS + TS + Python** — `throw` /  `raise`
+  automatically gain clickable rendering without explicit emit.
+- **`src/renderer/utils/magicComments.ts`** — `MagicCommentDirective`
+  union widens from `'table'` to `'table' | 'chart' | 'image' | 'html'`.
+  `KNOWN_DIRECTIVES` set extended with the three new directives.
+  Regex unchanged — the existing parser is directive-agnostic; only
+  the closed-enum gate widens.
+- **`src/shared/telemetry.ts`** + **`update-server/src/telemetry.ts`** —
+  `RICH_MEDIA_REJECTED_KINDS` widens from `['image','html']` to
+  `['image','html','chart']`. The renderer-side rejection telemetry
+  event `runtime.rich_media_payload_rejected { kind, reason }` now
+  accepts `kind:'chart'` for Slice 2b-α's worker-side reject path
+  (telemetry wire-up from the worker `richMediaRejected` flag to the
+  renderer's `trackEvent` call lands in Slice 2b-β when the runner
+  rejection-message handler ships; the closed-enum already accommodates
+  the future event).
+
+Tests:
+
+- **`tests/shared/richOutputSlice2a.test.ts`** — extended with a new
+  `Slice 2b-alpha — validateChartSpec` describe block covering:
+  inline `data.values` happy path, composition parent (no `data`),
+  empty `data:{}`, rejection of `data.url` / `data.name`, non-object
+  specs (null, string, number, array), non-array `data.values`,
+  nested `data.url` / `data.name`, cyclic / excessively deep specs,
+  and the `MAX_CHART_DATA_VALUES` boundary (at-limit accepts,
+  over-limit rejects).
+- **`tests/utils/magicComments.test.ts`** — the "ignores unknown
+  directive words" test split: a new `recognises chart / image / html
+  directives (RL-044 Slice 2b-α)` assertion confirms the closed-enum
+  widening produces typed `directive` fields; the legacy "ignores
+  typo / unknown directive words gracefully" assertion keeps coverage
+  on the fall-through path with a `notakind` payload.
+- **`update-server/test/telemetry.test.ts`** — extended the existing
+  `runtime.rich_media_payload_rejected` test with a `'chart'` accept
+  assertion exercising the widened enum end-to-end.
+
+Verification:
+
+- `npm run lint` clean (0 errors, 29 baseline warnings unchanged).
+- `npx tsc --noEmit` clean.
+- `npm run check:i18n` + `check:i18n:copy` clean (15 touched files).
+- `npm test -- --run`: 3 547 / 4 skipped (320 test files).
+- `update-server` `npm test`: 120 / 0.
+
+Deferred to Slice 2b-β (separate plan):
+
+- **`<RichValueChart>` component** — lazy dynamic
+  `import('vega-embed')`, theme-aware rendering, reject-path fallback
+  to localized text chip. `validateChartSpec` already shipped in 2b-α
+  (the security whitelist for `data.url` / `data.name` / over-cap
+  `data.values` is live); only the UI component + vega dep remain.
+- **`vega-embed` dependency + Vite manual chunk** (~200 KB gzipped
+  separate chunk; main bundle stays untouched).
+- **Fold A** vega chunk + bundle-size bench guard (≤ 200 KB gzipped).
+- **Fold B** Pro-gated "Export chart as SVG/PNG" via `useEntitlement`.
+- **Fold C** Settings sub-toggles per kind (Chart / Image / HTML) +
+  `consoleRichKindEnabledByKind` field in `settingsStore` (mirror of
+  `runtimeTimeoutPresetByLanguage` sanitize + rehydrate pattern).
+- **Fold D** Image-paste resize toast (informativo, no rechazo silencioso).
+- **Fold E** Magic-comment **runner consumption** — the directive
+  closed-enum widening already shipped in 2b-α
+  (`'table' | 'chart' | 'image' | 'html'`), but the JS / Python
+  runners still only act on `directive === 'table'`. 2b-β wires the
+  runner to upgrade the captured value via `validateChartSpec` /
+  `validateImageSrc` / `validateHtmlPayload` when the matching
+  directive is set.
+- **Fold E (Python helpers)** — `__lingua.{chart,image,html}` preamble
+  helpers (JS worker already wired in 2b-α via the 6th `AsyncFunction`
+  parameter; the Python helpers symmetrize the cross-language story).
+- **Fold F** Stack-frame `Error.cause` chain awareness — parse the
+  full cause chain, not just the outer error.
+- **Fold G** ConsolePanel image clipboard paste handler + Settings
+  toggle + `runtime.image_clipboard_pasted { mime }` telemetry +
+  `//=> figure` magic-comment alias for `chart`.
+- **Fold H — default `lingua-open-file` consumer** — install a
+  renderer-side default listener so clicks on stack frames produce
+  immediate visible feedback even before RL-024 multi-file workspace
+  lands. Behavior: if RL-024 is shipped and the project root is
+  open → open the file at the line. If RL-024 is NOT shipped → show
+  a non-blocking toast like `📂 inner.ts:12:5 — multi-file workspace
+  coming soon (RL-024)`. This closes the UX gap where today clicks
+  silently dispatch a `CustomEvent` with no consumer, AND removes
+  the need for any DevTools listener instrumentation when validating
+  Sub-slice F locally. Estimate: ~40 LOC + 2 i18n keys (en + es
+  tuteo) + 1 component test asserting the toast fires when no
+  RL-024 consumer is registered. Low risk.
+- **Runner-side rejection telemetry** — the JS worker bridge emits
+  `richMediaRejected: { kind, reason }` flags on console messages,
+  but the JS runner doesn't forward these to
+  `runtime.rich_media_payload_rejected` yet (the text fallback still
+  renders so users see the rejection; the observability hookup lands
+  in 2b-β alongside `<RichValueChart>` to amortize the runner-side
+  telemetry refactor across both surfaces).
+- **Sandboxed iframe security e2e** — Playwright spec asserting that
+  `lingua.html('<script>parent.postMessage("escape","*")</script>')`
+  cannot reach the parent's message listener. Pairs naturally with the
+  chart-related fixture extension in 2b-β.
+- **Dedicated component-level tests** for `<RichValueChart>` (lazy
+  vega-embed mock + theme paths) and broader `<RichValueHtml>` /
+  `<RichValueImage>` / `<RichValueError>` rendering coverage beyond
+  the current ConsolePanel integration tests.
 
 ### RL-045 Add built-in developer utilities panel
 

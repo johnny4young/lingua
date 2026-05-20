@@ -18,6 +18,44 @@ vi.stubGlobal('self', {
 // Protocol documentation tests
 // ---------------------------------------------------------------------------
 
+async function executeJsWorkerCode(code: string): Promise<Array<Record<string, unknown>>> {
+  vi.resetModules();
+  const messages: Array<Record<string, unknown>> = [];
+  let messageHandler:
+    | ((event: { data: unknown }) => void | Promise<void>)
+    | null = null;
+
+  vi.stubGlobal('self', {
+    addEventListener: vi.fn(
+      (
+        type: string,
+        handler: (event: { data: unknown }) => void | Promise<void>
+      ) => {
+        if (type === 'message') {
+          messageHandler = handler;
+        }
+      }
+    ),
+    postMessage: vi.fn((message: Record<string, unknown>) => {
+      messages.push(message);
+    }),
+  });
+
+  await import('@/workers/js-worker');
+  expect(messageHandler).not.toBeNull();
+
+  await messageHandler!({
+    data: {
+      type: 'execute',
+      runId: 'run-1',
+      code,
+      resultTruncationMarker: '[result truncated]',
+    },
+  });
+
+  return messages;
+}
+
 describe('js-worker module', () => {
   it('can be imported without throwing', async () => {
     // If this import throws, the stub above is incomplete
@@ -84,6 +122,66 @@ describe('js-worker module', () => {
     });
     expect(payload[0]?.rows[0]).toHaveLength(1);
     expect(messages.some((message) => message.type === 'done')).toBe(true);
+  });
+
+  it('posts typed image and html payloads through the lingua bridge', async () => {
+    const messages = await executeJsWorkerCode(`
+      lingua.image({ src: 'data:image/png;base64,a', mime: 'image/png' });
+      lingua.html('<strong>ok</strong>');
+    `);
+
+    const consoleMessages = messages.filter((message) => message.type === 'console');
+    expect(consoleMessages).toHaveLength(2);
+    expect(consoleMessages[0]).toMatchObject({
+      method: 'log',
+      args: ['[image image/png]'],
+      payload: [{ kind: 'image', src: 'data:image/png;base64,a', mime: 'image/png' }],
+    });
+    expect(consoleMessages[1]).toMatchObject({
+      method: 'log',
+      args: ['[html sandboxed]'],
+      payload: [{ kind: 'html', html: '<strong>ok</strong>' }],
+    });
+  });
+
+  it('marks rejected chart specs from the lingua bridge', async () => {
+    const messages = await executeJsWorkerCode(`
+      lingua.chart({
+        mark: 'bar',
+        layer: [{ data: { url: 'https://example.com/data.csv' }, mark: 'point' }]
+      });
+    `);
+
+    const consoleMessage = messages.find((message) => message.type === 'console');
+    expect(consoleMessage).toMatchObject({
+      method: 'log',
+      args: ['[chart spec rejected]'],
+      richMediaRejected: { kind: 'chart', reason: 'validation-failed' },
+    });
+    expect(consoleMessage?.payload).toBeUndefined();
+  });
+
+  it('attaches structured frames to thrown execution errors', async () => {
+    const messages = await executeJsWorkerCode(`
+      function boom() {
+        throw new Error('bridge-boom');
+      }
+      boom();
+    `);
+
+    const errorMessage = messages.find((message) => message.type === 'error') as
+      | { error?: { message?: string; frames?: unknown[] } }
+      | undefined;
+    expect(errorMessage?.error?.message).toBe('bridge-boom');
+    expect(errorMessage?.error?.frames?.length).toBeGreaterThan(0);
+    expect(errorMessage?.error?.frames?.some((frame) => {
+      return Boolean(
+        frame &&
+          typeof frame === 'object' &&
+          'file' in frame &&
+          'line' in frame
+      );
+    })).toBe(true);
   });
 });
 

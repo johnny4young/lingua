@@ -823,6 +823,21 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(videoLine).toBeUndefined();
     const spicyLine = eventLines.find((line) => line.includes('too-spicy'));
     expect(spicyLine).toBeUndefined();
+
+    // RL-044 Slice 2b-α — chart added to RICH_MEDIA_REJECTED_KINDS.
+    const chartResponse = await postTelemetry({
+      event: 'runtime.rich_media_payload_rejected',
+      properties: { kind: 'chart', reason: 'validation-failed' },
+    });
+    expect(chartResponse.status).toBe(204);
+    const chartLine = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .find(
+        (line) =>
+          line.includes('"runtime.rich_media_payload_rejected"') &&
+          line.includes('"kind":"chart"')
+      );
+    expect(chartLine).toBeDefined();
     consoleSpy.mockRestore();
   });
 

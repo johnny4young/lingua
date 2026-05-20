@@ -406,7 +406,7 @@ export const CONSOLE_RICH_KIND_BUCKETS = new Set([
 // `runtime.rich_media_payload_rejected`. Duplicated here for the
 // same reason as `CONSOLE_RICH_KIND_BUCKETS`; the parity test in
 // `update-server/test/telemetry.test.ts` keeps both sides in sync.
-export const RICH_MEDIA_REJECTED_KINDS = new Set(['image', 'html']);
+export const RICH_MEDIA_REJECTED_KINDS = new Set(['image', 'html', 'chart']);
 export const RICH_MEDIA_REJECTED_REASONS = new Set([
   'invalid-src',
   'size-limit',

@@ -3,7 +3,7 @@
  *
  * Renders `kind: 'error'` payloads with a structured stack. Each
  * `ClickableStackFrame` with a `file` + `line` becomes a focusable
- * `<button>` that emits a `lingua-open-source` `CustomEvent` the rest
+ * `<button>` that emits a `lingua-open-file` `CustomEvent` the rest
  * of the app can wire to (RL-024 multi-file lane). Frames without a
  * `file` render as a non-clickable `<span>`.
  *
@@ -51,7 +51,7 @@ function dispatchOpenSource(frame: ClickableStackFrame): void {
     column: frame.column,
     fnName: frame.fnName,
   };
-  window.dispatchEvent(new CustomEvent('lingua-open-source', { detail }));
+  window.dispatchEvent(new CustomEvent('lingua-open-file', { detail }));
 }
 
 export function RichValueError({ payload, language, fallbackText }: RichValueErrorProps) {

@@ -39,7 +39,11 @@ import {
   type RichOutputTable,
   forceTablePayload,
   serializeRichValue,
+  validateChartSpec,
+  validateHtmlPayload,
+  validateImageSrc,
 } from '../../shared/richOutput';
+import { parseJsErrorStack } from '../../shared/errorStack';
 
 // Type-safe message posting (Worker context has no DOM types)
 const ctx = self as unknown as Worker;
@@ -343,13 +347,116 @@ function restoreConsole() {
   }
 }
 
-/** Parse error to extract line/column from stack trace */
-function parseError(err: unknown): { message: string; line?: number; column?: number; stack?: string } {
+/**
+ * RL-044 Slice 2b-α — `lingua` worker bridge factory. Returns the
+ * `{ chart, image, html }` helpers user code calls inside the
+ * AsyncFunction sandbox. Each helper:
+ *
+ *   1. Runs the matching `validate*` whitelist from `shared/richOutput`.
+ *   2. On reject → posts a `console` message with a text fallback +
+ *      a `richMediaRejected` flag. Runner-side telemetry forwarding
+ *      is deferred to Slice 2b-β; users still see the fallback text.
+ *   3. On accept → posts a `console` log with `args: [<rawText>]`
+ *      and `payload: [<typed payload>]` so the renderer dispatches to
+ *      the dedicated renderer component when one exists. Chart still
+ *      falls back to text until `<RichValueChart>` lands in 2b-β.
+ *
+ * The bridge is closure-scoped per execute() call so there's no
+ * cross-run leak; cleanup is implicit when the AsyncFunction returns.
+ */
+function buildLinguaWorkerBridge(
+  context: Worker,
+  runId: string
+): { chart: (spec: unknown) => void; image: (payload: unknown) => void; html: (html: unknown) => void } {
+  const postRejection = (
+    kind: 'chart' | 'image' | 'html',
+    reason: 'invalid-src' | 'size-limit' | 'validation-failed',
+    fallbackText: string
+  ): void => {
+    context.postMessage({
+      type: 'console',
+      runId,
+      method: 'log',
+      args: [fallbackText],
+      richMediaRejected: { kind, reason },
+    });
+  };
+
+  const postPayload = (
+    payload: RichOutputPayload,
+    fallbackText: string
+  ): void => {
+    context.postMessage({
+      type: 'console',
+      runId,
+      method: 'log',
+      args: [fallbackText],
+      payload: [payload],
+    });
+  };
+
+  return {
+    chart: (spec) => {
+      const validated = validateChartSpec(spec);
+      if (validated === null) {
+        postRejection('chart', 'validation-failed', '[chart spec rejected]');
+        return;
+      }
+      postPayload({ kind: 'chart', spec: validated }, '[chart]');
+    },
+    image: (raw) => {
+      if (!raw || typeof raw !== 'object') {
+        postRejection('image', 'validation-failed', '[image payload rejected]');
+        return;
+      }
+      const { src, mime } = raw as { src?: unknown; mime?: unknown };
+      const validatedSrc = validateImageSrc(src);
+      if (validatedSrc === null) {
+        postRejection('image', 'invalid-src', '[image rejected: invalid source]');
+        return;
+      }
+      const mimeString = typeof mime === 'string' && mime.length > 0 ? mime : 'image/png';
+      postPayload(
+        { kind: 'image', src: validatedSrc, mime: mimeString },
+        `[image ${mimeString}]`
+      );
+    },
+    html: (raw) => {
+      const validated = validateHtmlPayload(raw);
+      if (validated === null) {
+        const reason =
+          typeof raw === 'string' && raw.length > 0 ? 'size-limit' : 'validation-failed';
+        postRejection('html', reason, '[html payload rejected]');
+        return;
+      }
+      postPayload({ kind: 'html', html: validated }, '[html sandboxed]');
+    },
+  };
+}
+
+/**
+ * Parse error to extract line/column from stack trace + structured
+ * stack frames for the renderer's clickable-stack surface (RL-044
+ * Sub-slice F).
+ */
+function parseError(err: unknown): {
+  message: string;
+  line?: number;
+  column?: number;
+  stack?: string;
+  frames?: import('../../shared/errorStack').ClickableStackFrame[];
+} {
   if (!(err instanceof Error)) {
     return { message: String(err) };
   }
 
-  const result: { message: string; line?: number; column?: number; stack?: string } = {
+  const result: {
+    message: string;
+    line?: number;
+    column?: number;
+    stack?: string;
+    frames?: import('../../shared/errorStack').ClickableStackFrame[];
+  } = {
     message: err.message,
     stack: err.stack,
   };
@@ -364,6 +471,13 @@ function parseError(err: unknown): { message: string; line?: number; column?: nu
     if (lineValue && columnValue) {
       result.line = parseInt(lineValue, 10);
       result.column = parseInt(columnValue, 10);
+    }
+    // RL-044 Slice 2b-α — structured stack for the renderer's
+    // `<RichValueError>` surface. Best-effort: unparseable frames stay
+    // as text-only in the parsed array.
+    const frames = parseJsErrorStack(err.stack);
+    if (frames.length > 0) {
+      result.frames = frames;
     }
   }
 
@@ -682,6 +796,16 @@ ctx.addEventListener('message', async (event) => {
           );
         };
 
+        // RL-044 Slice 2b-α — rich-media helpers exposed to user code as
+        // the `lingua` parameter. Closure-bound (not on globalThis) so
+        // there's no global pollution and the binding goes out of scope
+        // when the AsyncFunction returns. Each helper validates the
+        // payload via the shared whitelist. Rejects include a
+        // `richMediaRejected` flag for Slice 2b-β telemetry
+        // forwarding; today the user-visible text fallback still
+        // renders even before that runner hook lands.
+        const lingua = buildLinguaWorkerBridge(ctx, runId);
+
         const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
         const fn = new AsyncFunction(
           '__mc',
@@ -689,6 +813,7 @@ ctx.addEventListener('message', async (event) => {
           '__lingua_dbg_frame',
           '__lingua_dbg_pop',
           '__lingua_capture_scope',
+          'lingua',
           code
         );
         return await fn(
@@ -696,7 +821,8 @@ ctx.addEventListener('message', async (event) => {
           __lingua_dbg_yield,
           __lingua_dbg_frame,
           __lingua_dbg_pop,
-          __lingua_capture_scope
+          __lingua_capture_scope,
+          lingua
         );
       })();
 

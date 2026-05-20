@@ -35,6 +35,7 @@ import {
   finalizeScopeSnapshot,
 } from '../../shared/scopeSnapshot';
 import type { RichOutputPayload } from '../../shared/richOutput';
+import { parsePythonTraceback } from '../../shared/errorStack';
 
 const ctx = self as unknown as Worker;
 
@@ -1062,12 +1063,20 @@ _lingua_state
 
       if (errorText) {
         const parsed = parsePythonError(streams.stderr || errorText);
+        const tracebackText = streams.stderr || errorText;
+        // RL-044 Slice 2b-α — structured stack frames for the
+        // renderer's clickable-stack surface. Best-effort parse;
+        // unparseable lines stay as text-only frames so they render
+        // as non-clickable spans.
+        const frames = parsePythonTraceback(tracebackText);
         ctx.postMessage({
           type: 'error',
           runId,
           error: {
             message: parsed.message,
             line: parsed.line,
+            stack: tracebackText,
+            ...(frames.length > 0 ? { frames } : {}),
           },
         });
       }
@@ -1115,6 +1124,15 @@ _lingua_state
     } catch (err) {
       const errorText = err instanceof Error ? err.message : String(err);
       const parsed = parsePythonError(errorText);
+      // RL-044 Slice 2b-α — Sub-slice F parity. The inner-streams
+      // error path (above) already parses Pyodide's stderr traceback;
+      // this outer-catch fires when Pyodide itself throws BEFORE the
+      // user code's traceback reaches stderr (SyntaxError on compile,
+      // import-time failures, etc.). Pyodide formats the Python
+      // traceback into `err.message`, so the same parser produces the
+      // same structured frames here. Omitting `frames` would have
+      // produced a silently text-only error for these paths.
+      const frames = parsePythonTraceback(errorText);
 
       ctx.postMessage({
         type: 'error',
@@ -1122,6 +1140,8 @@ _lingua_state
         error: {
           message: parsed.message,
           line: parsed.line,
+          stack: errorText,
+          ...(frames.length > 0 ? { frames } : {}),
         },
       });
 
