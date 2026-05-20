@@ -105,12 +105,24 @@ Value-per-day priority. The full reasoning is in
    after Go via gopls shipped on the shared LSP scaffold; `RL-027`
    Slice 1.5 is shipped. Remaining work is `RL-027` Slice 1.5b
    (conditional breakpoints + watch expressions behind security review).
-8. **Runtime mode expansion** — `RL-019` + `RL-020` after the runtime
-   contract is stable.
-9. **Notebook + rich output** — `RL-043` + `RL-044` as a paired slice.
-10. **Personalization + lessons** — `RL-039` in-app lesson browser,
+8. **Runtime mode expansion** — `RL-019` + `RL-020` are closed. Use
+   their runtime/result contracts as the base for the next REPL slices.
+9. **Rich output + sharing** — finish the next `RL-044` rich-media
+   payload slice, then `RL-036` Phase A1 no-backend single-tab share
+   links. The 2026-05-20 proposal review maps the useful work to these
+   existing IDs; do not start the discarded proposal IDs.
+10. **Explicit dependency management** — `RL-025` starts with dependency
+    detection plus explicit JS/TS desktop installs and Pyodide
+    `micropip`. WebContainers are a later optional web slice.
+11. **Local AI MVP** — `RL-031` starts desktop-local through Ollama and
+    `window.lingua.ai.*`; WebGPU, BYO keys, and hosted credits stay out
+    of the MVP.
+12. **Notebook + visualization** — `RL-043` schema/session foundation
+    comes before the large notebook UI; `RL-047` remains Future until
+    `RL-027`, `RL-044`, and `RL-043` are stable.
+13. **Personalization + lessons** — `RL-039` in-app lesson browser,
     then `RL-041` static export.
-11. **Growth / SEO / marketing / docs IA** — `RL-082` closed 2026-05-05
+14. **Growth / SEO / marketing / docs IA** — `RL-082` closed 2026-05-05
     (README slim-down + `DEVELOPMENT.md` + `USAGE.md`). `RL-032`
     continues as the remaining polish ticket after the core launch ships
     (`RL-066` closed 2026-05-05 with the marketing-site cascade).

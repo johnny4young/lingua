@@ -144,10 +144,10 @@ Validated on Electron desktop UI on 2026-04-09 by launching the renderer dev ser
 - Original gap:
   - Main and preload expose `fs:watch-start`, `fs:watch-stop`, and `fs:onChanged`
   - `projectStore` starts a watcher
-  - Renderer never subscribes to `window.runlang.fs.onChanged`
+  - Renderer never subscribes to `window.lingua.fs.onChanged`
   - External file changes do not refresh the tree
 - Scope for MVP:
-  - Subscribe once to `window.runlang.fs.onChanged`
+  - Subscribe once to `window.lingua.fs.onChanged`
   - Refresh the current project tree when events arrive for the active project
   - Debounce refreshes so bulk file changes do not thrash the UI
   - Tear down subscriptions cleanly when project closes or the app unmounts
@@ -2466,28 +2466,53 @@ Reviewer findings (all resolved inline this slice):
 
 - Priority: `P1`
 - Status: `Planned`
-- Readiness: `Research-backed but requires phased rollout`
+- Readiness: `Implementation-ready as an explicit, adapter-driven rollout; do not auto-install dependencies`
 - Scope:
-  - JS/TS desktop:
-    - manage `package.json`
-    - install dependencies with `npm`
-    - cache by project
-    - expose trust prompts for first install/run
-  - JS/TS web:
-    - use CDN imports first
-    - then layer in WebContainers where supported
-  - Python:
-    - evaluate `micropip` / Pyodide subset support separately from desktop virtualenv support
-  - Go and Rust:
-    - keep the first rollout standard-library-first until a safe module story is defined
-  - Surface dependency state, install errors, and unsupported paths clearly in the UI
+  - Add a dependency adapter registry instead of hardcoding package logic into the editor:
+    - `javascript` / `typescript` desktop adapter for `npm`
+    - `python` web adapter for Pyodide `micropip`
+    - later adapters for Python desktop virtualenvs, Ruby/Bundler, Go modules, and Rust crates
+  - Slice A — detection and UI only:
+    - detect external imports in the active buffer and project files
+    - classify dependencies as `detected`, `installed`, `installing`, `failed`, `unsupported`, or `needs-desktop`
+    - show a small in-editor dependency banner or panel with explicit install actions
+    - never run installation from detection alone
+  - Slice B — JS/TS desktop install path:
+    - install through Electron main with `child_process.spawn` and `shell: false`
+    - validate package specifiers before they reach main
+    - use the active project or nearest `package.json` directory as cwd
+    - preserve project isolation; no global `npm install -g`
+    - thread install output back to a scrollable log surface
+  - Slice C — Python Pyodide path:
+    - use `micropip` for packages compatible with the Pyodide runtime
+    - clearly mark native-wheel or network-unavailable failures as unsupported
+    - cache only through the existing browser/runtime asset mechanisms; no hidden desktop Python mutation
+  - Deferred slices:
+    - Python desktop virtualenv support
+    - Ruby gems / Bundler for the `RL-042` Ruby runtime
+    - Go modules and Rust crates
+    - JS/TS web WebContainer-backed installs
 - Acceptance criteria:
-  - A desktop JS/TS project can add a simple dependency and execute it
+  - A desktop JS/TS project can add a simple dependency after explicit confirmation and execute it from the active project cwd
+  - Python web can install and import one Pyodide-compatible package through `micropip`
   - Unsupported dependency scenarios are explicit rather than failing silently
+  - Detection has tests for comments, strings, relative imports, Node built-ins, scoped packages, and Python `from x import y`
+  - Main-process install tests assert safe spawn arguments and reject invalid package specifiers
   - The implementation keeps project isolation and does not leak installs across unrelated workspaces
 - Dependencies:
   - RL-019
-  - RL-029
+  - RL-024 for multi-file/project-wide dependency UX
+  - RL-029 only if a later JS/TS web install slice chooses WebContainers
+
+#### 2026-05-20 research triage
+
+The v2.0 proposal's package-management direction is useful but unsafe as written:
+automatic install after import detection would mutate projects silently, and a
+regex-only parser would miss common comment/string/import forms. The accepted
+shape for `RL-025` is explicit, language-adapter-driven dependency management.
+The first implementation must prove the contract on JS/TS desktop and Python
+Pyodide before extending it to Ruby gems, Python virtualenvs, Go modules, Rust
+crates, or WebContainers.
 
 ### RL-026 Add language intelligence beyond Monaco's built-in JS/TS services
 
@@ -2944,6 +2969,12 @@ Deferred to Slice 1.5b (still):
   - Future backend support must not change the three MVP user tasks or their semantics
   - If provider switching is ever exposed in the UI, it should happen only after the adapter boundary proves stable and after error handling remains equally actionable across backends
   - Do not add cloud backends until the local-only product story is proven and still desirable
+- 2026-05-20 research triage:
+  - The v2.0 proposal's AI-engine direction is folded into this existing ticket rather than creating a new AI ID
+  - WebGPU / `@mlc-ai/web-llm` is not part of the first implementation because model downloads, GPU compatibility, and storage pressure need their own capability decision
+  - The first executable slice remains desktop-local Ollama through main/preload
+  - BYO keys and hosted credits remain in `AI_BRIDGE_ADR.md` as later phases, not MVP scope
+  - The UI starts as a constrained modal or panel for explicit tasks, not a permanent general chat sidebar
 - Recommendation summary:
   - Best MVP backend: `Ollama`
   - Best MVP product surface: constrained algorithm helper, not free-form chat
@@ -2971,7 +3002,7 @@ Deferred to Slice 1.5b (still):
 - Readiness: `Ready`
 - Scope:
   - Add `ai:*` IPC handlers in the Electron main process
-  - Expose a minimal `window.runlang.ai` bridge from preload
+  - Expose a minimal `window.lingua.ai` bridge from preload
   - Start with these operations only:
     - `getStatus`
     - `listModels`
@@ -3383,28 +3414,46 @@ Deferred follow-ups (documented in
 
 - Priority: `P1` for Phase A (promoted 2026-04-18 by the go-to-market plan in Section 14). `Future` for Phase B.
 - Status: `Planned`
-- Readiness: `Phase A is MVP-ready; Phase B still gated on backend design`
+- Readiness: `Phase A1 is MVP-ready as no-backend single-tab share links; Phase A2 waits on RL-024 for multi-file bundles; Phase B is gated on backend design`
 - Scope:
-  - Phase A (P1, Phase 3 of the strategic plan):
+  - Phase A1 (P1, no backend, single active tab):
+    - share the current tab as a compressed URL fragment (`#code=<payload>`)
+    - restore the shared tab on app boot or hash-change without writing to a server
+    - include only safe tab state: file name, language, source, runtime mode, workflow mode, stdin buffer, and per-tab workflow flags such as auto-log
+    - validate decoded language and modes through `LANGUAGE_PACKS` helpers before creating a tab
+    - block oversized payloads with a localized status notice
+    - never call the fragment encrypted or private; anyone with the URL can read the snippet
+  - Phase A2 (P1, no backend, multi-file artifact):
     - local export/import of runnable project bundles as a portable `.linguashare` artifact (single JSON or tarball, read-only)
     - a "Share current file/project" command that produces a `.linguashare` and copies it or saves to disk
     - an "Open shared artifact" flow that imports a `.linguashare` into a scratch tab or a temporary project
     - every exported artifact records the language, Lingua version, and entitlement level (so Free-tier users can still open Pro-exported shares in read-only mode)
-    - no cloud backend in Phase A — everything works offline from files
-  - Phase B (future):
-    - shareable links
+  - Phase B (future, backend required):
+    - cloud-backed shareable links
+    - embed mode for blogs / docs
     - interview mode
     - collaborative editing
     - one-click publish for web projects
-  - Keep cloud/account scope out of the first rollout until a backend design is explicit
+  - Keep cloud/account scope out of Phase A until a storage/auth design is explicit
 - Acceptance criteria:
-  - Phase A ships without requiring a cloud backend
-  - Opening a `.linguashare` on a fresh install reproduces the shared file/project exactly
-  - Exported artifacts never embed the user's license key or identity
+  - Phase A1 links open a new tab with the same language, code, runtime mode, workflow mode, stdin buffer, and auto-log setting
+  - Invalid, oversized, unsupported-version, or tampered URL fragments produce a status notice and do not crash boot
+  - Phase A1 and A2 never serialize license tokens, absolute paths, environment variables, device identifiers, or project identity
+  - Opening a `.linguashare` on a fresh install reproduces the shared file/project exactly once Phase A2 starts
   - Cloud sharing does not start until there is a concrete storage/auth design
 - Dependencies:
-  - RL-024 (Phase A — multi-file bundling)
+  - RL-021 (Phase A1 — tab lifecycle and session continuity, already shipped)
+  - RL-024 (Phase A2 — multi-file bundling)
   - RL-032 (Phase B only)
+
+#### 2026-05-20 research triage
+
+The v2.0 work proposal originally described this as a separate new ID and called the
+payload "cryptographic zero-trust sharing." That naming is rejected: a
+compressed hash fragment is useful because it avoids a database and is not
+sent in the HTTP request, but it is not encryption. The useful work is folded
+into `RL-036` as Phase A1 so it respects the current ticket naming and can
+ship before the heavier `.linguashare` artifact path.
 
 ### RL-037 Add deep editor personalization
 
@@ -3747,7 +3796,7 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 
 - Priority: `P2`
 - Status: `Planned`
-- Readiness: `Ready for design after REPL and multi-file work`
+- Readiness: `Ready for a schema/session foundation after RL-044 payload migration; full multi-file notebooks still wait on RL-024`
 - Why this matters:
   - Jupyter, marimo, and Observable prove that cell-based execution is the preferred mode for:
     - data exploration
@@ -3756,34 +3805,52 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
   - marimo's reactive model (auto-rerun dependent cells) is particularly powerful
   - This would differentiate Lingua from every other desktop code runner
 - Scope:
-  - Add a notebook view alongside the standard editor view
-  - Support code cells and markdown cells
-  - Cell execution preserves state across cells within the same runtime
-  - Reactive mode: editing a cell auto-reruns downstream cells (marimo-style)
-  - Support inline output below each cell:
-    - text/console output
-    - tables
-    - charts (basic)
-    - images
-  - Export notebook as:
-    - standalone script (concatenated cells)
-    - markdown with code blocks
-    - HTML report
-  - Start with JS/TS and Python as the first notebook-supported languages
+  - Slice A — foundation:
+    - add a versioned `.linguanb` schema and parser/serializer under `src/shared/`
+    - model notebooks as a distinct tab kind in `editorStore` rather than overloading plain file tabs
+    - support markdown cells and JS/TS/Python code cells
+    - add runner-owned session IDs per notebook tab so globals can persist across cell execution without using raw `globalThis.eval()` as a shortcut
+    - dispose notebook sessions when the tab closes or language/runtime changes
+    - virtualize cell editors so large notebooks do not mount dozens of Monaco instances at once
+  - Slice B — first UI:
+    - add a notebook view alongside the standard editor view
+    - run one cell, run all above, run all, stop current cell
+    - attach text and existing `RL-044` rich output below each cell
+    - show execution status and elapsed time per cell
+  - Slice C — reactive/dataflow mode:
+    - track simple cell dependencies
+    - editing an upstream cell marks downstream cells stale
+    - optional auto-rerun is off by default and gated by the same live-update controls as scratchpad
+  - Slice D — export:
+    - export as standalone script, markdown with code blocks, and static HTML report
+  - Full multi-file notebook projects wait on `RL-024`
 - Acceptance criteria:
+  - Import/export round-trips a notebook document without losing cell IDs, language, source, outputs, or metadata
   - Users can create a multi-cell notebook and execute cells independently
-  - Cell outputs render inline below each cell
-  - Reactive mode auto-reruns dependent cells when upstream cells change
+  - Cell 2 can read a variable defined in Cell 1 inside the same notebook session
+  - Closing a notebook tab disposes its runtime session
+  - Cell outputs render inline below each cell using the same text/rich output contracts as the console
+  - Reactive mode never runs implicitly unless the user enables it for the notebook
   - Notebooks can be exported as scripts or reports
 - Dependencies:
   - RL-020
-  - RL-024
+  - RL-044 for rich cell output
+  - RL-024 for multi-file notebooks
+
+#### 2026-05-20 research triage
+
+The v2.0 proposal's notebook direction is folded into this existing notebook ticket.
+The proposed direct `globalThis.eval()` approach is rejected because it would
+bypass the runner instrumentation, timeout, debugger, console, and stop
+contracts that already exist. Notebook execution must use explicit
+runner-owned sessions so each language can preserve state without coupling the
+implementation to JS worker internals.
 
 ### RL-044 Add inline data visualization and rich output rendering
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready for design`
+- Status: `Partial`
+- Readiness: `Slice 1A/1B/1C shipped; next slice is rich media payloads and renderer migration`
 - Why this matters:
   - Structured output turns the console from a text sink into an inspection surface
   - Students and data-oriented developers expect charts, tables, and images in output
@@ -3822,6 +3889,45 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 - Dependencies:
   - RL-020
   - RL-019
+
+#### 2026-05-20 research triage and next slice
+
+The v2.0 proposal's rich-media console direction is folded into this existing `RL-044` lane.
+The direction is accepted, but the implementation must extend the shipped
+`RichOutputPayload` contract instead of introducing a parallel console
+payload type.
+
+Next slice scope:
+
+- Migrate the remaining console presenter paths from `ConsoleOutput.args:
+  string[]` assumptions to payload-aware rendering with a text fallback.
+- Add renderer support for:
+  - `chart` payloads with responsive, high-contrast canvas rendering that
+    uses app theme tokens
+  - `image` payloads with size/type caps and no remote fetch requirement for
+    local/base64 outputs
+  - sandboxed `html` payloads rendered in an iframe without `allow-scripts`
+    or `allow-same-origin`
+  - expandable JSON-tree payloads reusing the existing rich object/array
+    formatters where possible
+- Add explicit worker APIs only after they map to the shared payload contract:
+  - JS/TS: `lingua.chart(data)` and `lingua.html(html)`
+  - Python: `lingua.chart(data)` and `lingua.html(html)` through the Pyodide
+    bridge
+- Keep Settings -> Editor -> Rich console output as the kill switch for the
+  entire rich media path.
+- Add security tests proving HTML payloads cannot execute script and cannot
+  escape the iframe.
+
+Acceptance for the next slice:
+
+- Turning rich rendering off paints the legacy text path for every new payload.
+- JS, TS, and Python can each emit at least one chart payload and one sandboxed
+  HTML payload.
+- The detail popover exposes raw JSON for every rich media payload.
+- Console panel, inline results, and execution history do not invent separate
+  payload schemas.
+- Browser smoke covers EN and ES rendering and ends with zero console errors.
 
 #### § Slice 1A landed (2026-05-18)
 
@@ -4296,33 +4402,48 @@ Deferred to Slice 2 (separate plan, security review required):
 
 - Priority: `Future`
 - Status: `Planned`
-- Readiness: `Ready for design after debugger and notebook work`
+- Readiness: `Future-priority; design is clarified, implementation waits for debugger, rich output, and notebook/session contracts`
 - Why this matters:
   - VisuAlgo and similar tools are among the most popular resources for CS students
   - Visualizing data structure changes during algorithm execution is extremely valuable for learning
   - No desktop code runner currently offers built-in algorithm visualization
 - Scope:
-  - Step-through execution mode that pauses at each major operation
-  - Visualization panels for common data structures:
-    - Arrays (with swap/compare highlighting)
-    - Linked lists
-    - Trees (binary, BST, AVL)
-    - Graphs (adjacency representation)
-    - Stacks and queues
-    - Hash tables
-  - Playback controls: play, pause, step forward, step back, speed control
-  - Highlight which line of code corresponds to the current visualization step
-  - Start with JS/TS as the first language
-  - Use a declarative visualization API that the user can call from their code:
-    - `visualize.array([3,1,4,1,5])` to register a watched array
-    - `visualize.step()` to mark a visualization checkpoint
+  - Slice A — explicit visualization API:
+    - start with JS/TS arrays and sorting snapshots
+    - expose explicit user-code calls such as `lingua.visualize.array(name, value, meta?)` and `lingua.visualize.step(label?)`
+    - emit snapshots through the existing rich-output/notebook session channel rather than a parallel side store
+    - cap snapshots and payload size per run
+    - support playback controls: play, pause, step forward, step back, speed control
+    - highlight the source line that emitted the current snapshot when line metadata is available
+  - Slice B — data-structure breadth:
+    - linked lists
+    - trees (binary, BST, AVL)
+    - graphs (adjacency representation)
+    - stacks and queues
+    - hash tables
+  - Slice C — optional instrumentation:
+    - AST-based helper instrumentation for JS/TS only after Slice A proves the explicit API
+    - no regex loop rewriting for production code
+    - Python/Ruby instrumentation requires separate language-specific parser design
 - Acceptance criteria:
   - At least sorting algorithm visualization works end-to-end
   - Users can step through execution and see data structure changes
   - Visualization syncs with source code line highlighting
+  - No visualization capture runs unless user code explicitly opts in
+  - Oversized or circular payloads produce bounded diagnostics instead of renderer crashes
 - Dependencies:
   - RL-027
+  - RL-044
   - RL-043
+
+#### 2026-05-20 research triage
+
+The v2.0 proposal's algorithm-visualization direction is folded into this existing future ticket. The
+proposed regex injection contains real logic gaps (`__line` is undefined and
+loop matching would break on common JS/TS forms), so the accepted first slice
+uses explicit visualization calls from user code. AI is not a dependency for
+this ticket; debugger state, rich output, and notebook/session ownership are
+the real prerequisites.
 
 ### RL-048 Add integrated terminal for desktop mode
 
@@ -4855,7 +4976,7 @@ Mapping to tasks: **RL-064** (launch asset kit), **RL-065** (privacy-respecting 
 Goal: turn early paid users into distribution. Share artifacts become organic discovery, and SEO starts capturing the specific searches that competitors ignore.
 
 Concrete deliverables:
-- Promote **RL-036 Phase A** (local share bundle / `.linguashare` read-only artifact) from `Future` → `P1`, because the strategic plan depends on it for viral distribution.
+- Promote **RL-036 Phase A** from `Future` → `P1`, because the strategic plan depends on shareable artifacts for viral distribution. The 2026-05-20 split makes Phase A1 a no-backend single-tab URL-fragment share and Phase A2 the heavier `.linguashare` multi-file artifact.
 - SEO landing pages targeting `"go playground desktop"`, `"rust code runner desktop"`, `"python repl desktop"`, `"typescript playground offline"`, `"multi language code runner"`.
 - Crash reporting and opt-in product analytics (feeds into retention metrics).
 
@@ -6058,7 +6179,11 @@ Closure follows from RL-063 ship — the six SEO pages went live at:
 
 ### Promotion of RL-036
 
-RL-036 is now re-prioritized for the execution order summary. Phase A (local share bundle, read-only artifacts) is the viral-distribution primitive the strategic plan depends on in Phase 3. See the summary tables below for the updated tier placement.
+RL-036 is now re-prioritized for the execution order summary. Phase A is the
+viral-distribution primitive the strategic plan depends on in Phase 3. As of
+2026-05-20, Phase A is split into A1 no-backend single-tab URL-fragment share
+links and A2 local `.linguashare` multi-file artifacts. See the summary tables
+below for the updated tier placement.
 
 ---
 
@@ -7037,6 +7162,17 @@ The 50 v2.0 features captured in `BACKLOG.md` §1 carry the `[ai]`,
 date `2026-04-26`. As each matures, it graduates one at a time —
 **we do not pre-allocate `RL-NNN` IDs in this section**.
 
+2026-05-20 proposal triage: `docs/WORK_PROPOSAL.md` is retained only as a
+research synthesis. Its original new-ticket labels are not valid planning IDs.
+The useful work maps to existing tickets:
+
+- no-backend sharing -> `RL-036`
+- rich media console output -> `RL-044`
+- explicit package management -> `RL-025`
+- local AI MVP -> `RL-031`
+- notebooks -> `RL-043`
+- algorithm visualization -> `RL-047`
+
 ### 16.8 Open questions for v2.0
 
 These are decisions that block the headline AI bridge slice and need
@@ -7146,7 +7282,7 @@ Ship these before Phase 2 distribution. Every item is a blocker for charging for
 | # | Task | Deps | Effort |
 |---|------|------|--------|
 | RL-020 | Best-in-class REPL + variable inspector | RL-019 | Large |
-| RL-025 | Package & dependency management | RL-019, RL-029 | Large |
+| RL-025 | Package & dependency management | RL-019, RL-024 (project UX); RL-029 only for later web installs | Large |
 | RL-010 | Format-on-save | Desktop tooling | Medium |
 | RL-011 | Env variables panel | Scoping decisions | Medium |
 | RL-031 | Local AI assistant (Ollama) | RL-021 ✅ | XL |
@@ -7160,7 +7296,8 @@ Ship these before Phase 2 distribution. Every item is a blocker for charging for
 | RL-064 | Launch asset kit (video, HN/PH/Reddit copy, press kit) | RL-062, RL-063 | Medium |
 | RL-065 | Privacy-respecting launch telemetry (opt-in) | — | Small |
 | RL-067 | Crash reporting (opt-in, unified consent with RL-065) | RL-065 | Small |
-| RL-036 (Phase A) | Local share bundles / read-only `.linguashare` artifacts | RL-024 | Medium |
+| RL-036 (Phase A1) | No-backend single-tab URL-fragment share links | RL-021 ✅ | Small |
+| RL-036 (Phase A2) | Local share bundles / read-only `.linguashare` artifacts | RL-024 | Medium |
 | RL-066 | SEO landing pages per language intent | RL-063 | Small |
 | RL-033 | Vite major upgrade | RL-005 | Medium |
 | RL-034 | Build-system ADR (Forge vs alternatives) | RL-033 | Small |
@@ -7184,7 +7321,7 @@ Ship these before Phase 2 distribution. Every item is a blocker for charging for
 |---|------|------|--------|
 | RL-027 | Debugger MVP | RL-019 | XL |
 | RL-028 | Execution history & benchmarking | RL-020 | Medium |
-| RL-043 | Notebook / cell-based mode | RL-020, RL-024 | XL |
+| RL-043 | Notebook / cell-based mode | RL-020, RL-044; RL-024 for multi-file notebooks | XL |
 | RL-044 | Inline data visualization | RL-020, RL-019 | Large |
 | RL-039 | Guided lessons & galleries | RL-023, RL-024 | Large |
 | RL-046 | Gamification & progress tracking | RL-023 | Medium |
@@ -7199,7 +7336,7 @@ Ship these before Phase 2 distribution. Every item is a blocker for charging for
 |---|------|------|--------|
 | RL-036 (Phase B) | Collaborative editing, shareable links with backend | RL-036 Phase A, RL-032 | XL |
 | RL-041 | Static site export & publish | RL-024, RL-036 | Large |
-| RL-047 | Algorithm visualization | RL-027, RL-043 | XL |
+| RL-047 | Algorithm visualization | RL-027, RL-044, RL-043 | XL |
 | RL-049 | Macro recording & playback | RL-037 | Medium |
 | RL-050 | Real-time collaboration | RL-036 Phase B, RL-032 | XL |
 
@@ -7209,12 +7346,13 @@ Ship these before Phase 2 distribution. Every item is a blocker for charging for
 
 The order below reflects the strategic alignment (Phase 1 → Phase 2 → Phase 3):
 
-1. **Tier 1** — close remaining P0 correctness gaps (RL-004, RL-005).
-2. **Tier 1.5** — ship the monetization and launch foundation **before** any distribution push. Sequence: RL-062 → RL-059 → RL-060 → RL-061 → RL-063. This is Phase 1 of the strategic plan; shipping Phase 2 without this is promoting a free product by mistake.
-3. **Tier 2 quick wins** (RL-055 → RL-056 → RL-051 → RL-052) for zero-risk user value — many of these also make the press kit and landing page look good.
-4. **Phase 2 of the strategic plan (from Tier 5)** — RL-064 (assets), RL-065 (telemetry), then the HN / Reddit / Product Hunt launch itself.
-5. **Phase 3 of the strategic plan (from Tier 5)** — RL-036 Phase A (share bundles) for viral distribution, then RL-066 (SEO pages), then RL-067 (crash reporting).
-6. After Phase 3 stabilizes, pick from **Tier 3** — RL-019 (runtime modes) and RL-018 (i18n) remain the highest-leverage product items for long-term differentiation.
+1. Finish `RL-027` Slice 1.5b (conditional breakpoints + watch expressions behind security review).
+2. Finish the next `RL-044` rich-media payload slice (chart, image, JSON tree, sandboxed HTML).
+3. Ship `RL-036` Phase A1 no-backend single-tab URL-fragment sharing.
+4. Ship `RL-025` detection + explicit JS/TS desktop install + Pyodide `micropip` slices.
+5. Ship `RL-031` desktop-local Ollama MVP through `window.lingua.ai.*`.
+6. Ship `RL-043` schema/session foundation before the large notebook UI.
+7. Keep `RL-047` Future until `RL-027`, `RL-044`, and `RL-043` are stable.
 
 This ordered list is the milestone sequence. No separate milestone section should be maintained elsewhere.
 
@@ -8770,3 +8908,907 @@ B / C / D / E.
 
 The parent "Fix the 42 lint warnings" line stays partially complete: 11
 of 42 done, 31 carried forward.
+
+---
+
+## World-class lane (RL-094 .. RL-107)
+
+The next fourteen tickets graduated from `docs/WORLD_CLASS_PLAN.md`
+(`WC-001` .. `WC-010`) plus a second-pass review documented in
+`docs/WORLD_CLASS_TO_RL_PROPOSAL.md`. They are sequenced in
+`docs/ROADMAP.md` §5 and follow the non-negotiable design rules in
+`docs/WORLD_CLASS_PLAN.md` plus the positioning anti-features in
+`docs/ANTI_FEATURES.md`.
+
+Each section below ships as one or more `/lingua-ship` slices. The
+"Slice 1 scope" is the smallest implementable cut. Subsequent slices
+are sketched but not detailed — they graduate when their predecessor
+ships.
+
+### RL-094 Run Capsules
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Slice 1 ready when RL-044 next slice (rich-media payloads) stabilises the RichOutputPayload contract that capsules embed by reference`
+- Why this matters:
+  - A capsule is one bounded record of "I ran this code with this input in this environment and got this output". Every downstream ticket needs that record: RL-036 share links serialize a capsule as the URL fragment payload; RL-098 CLI replays a capsule outside the GUI; RL-031 Slice 2 attaches a capsule to AI prompt previews; RL-097 records HTTP responses as capsules; RL-099 pipelines emit one capsule per step; RL-039 Slice B references a known-good capsule as the expected-output reference; RL-100 importers produce capsules from external formats.
+  - Shipping capsules first means every downstream ticket inherits the same export schema, redaction registry, version migration, and replay contract.
+- Slice 1 scope:
+  - `src/shared/runCapsule.ts` (new) — versioned `RunCapsuleV1` schema (see Appendix A.1 of `docs/WORLD_CLASS_TO_RL_PROPOSAL.md`); `buildRunCapsule()`, `sanitizeRunCapsule()`, `parseRunCapsule()`, `summarizeRunCapsule()` functions.
+  - `src/shared/redaction.ts` (new) — extract the existing telemetry redactor's sensitive-key + sensitive-value rules into a shared module both telemetry and capsules consume.
+  - `src/renderer/runtime/executeTabManually.ts` — builds a capsule from the execution result; stashes it on the execution-history entry as `lastCapsule`.
+  - `src/renderer/components/Settings/RunCapsulesSection.tsx` (new) — Settings → Account section with "Export latest run" button; copy-to-clipboard fallback when desktop save-dialog absent.
+  - Tests: schema round-trip, future-version rejection, oversized rejection, redaction proof, missing-run gating.
+  - i18n: en + es (tuteo) for the Settings UI strings.
+- Slice 1 acceptance criteria:
+  - Running JS or TS code, then clicking "Export latest run" produces a JSON string that validates against `RunCapsuleV1`.
+  - The exported JSON does NOT contain license tokens, absolute user paths, `process.env.*` values, or any key matching the redaction registry.
+  - The exported JSON contains `version`, `capsuleId`, `createdAt`, `appVersion`, `tab.{name,language,runtimeMode,workflowMode}`, `source.{content,contentHash}`, `input.stdin?`, `result.*`, `environment.{platform,runner,dependencySummary?}`, `privacy.{redactionVersion,omittedFields}`.
+  - `parseRunCapsule(JSON.stringify(buildRunCapsule(...)))` round-trips losslessly.
+  - Settings UI labels translated to Spanish in tuteo.
+- Out of scope (deferred to Slice 2+):
+  - Capsule import (Slice 2 — preview UI + confirmation modal).
+  - Capsule list view (Slice 3 — depends on RL-028 history extension for Pro-gated browse).
+  - Auto-capsule on every run (deferred — needs disk-cost telemetry first).
+- Dependencies:
+  - RL-044 next slice (rich-media payloads) — capsule embeds `richOutputs?: unknown[]` by reference.
+- Risks:
+  - Capsule schema bikeshed → mitigated by writing types first, one reviewer pass, then builder + sanitizer.
+  - Redaction registry surface area → mitigated by extracting from existing telemetry redactor (no new logic; rename + re-export).
+
+### RL-095 Language Support Scorecard
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately — pure type + test work`
+- Why this matters:
+  - Adding Ruby in RL-042 Slice 5+6 surfaced that "language support" is at least 9 separate axes (syntax, autocomplete, LSP, web runtime, desktop runtime, packages, stdin, rich output, debugger). Without a typed matrix, each new language slice invents its own status fields and the user-facing capability matrix drifts.
+- Slice 1 scope:
+  - `src/shared/languageSupport.ts` (new) — `LanguageCapabilityStatus` closed enum (`available` | `partial` | `desktop-only` | `web-only` | `planned` | `unsupported`); `LanguageSupportProfile` type; `LANGUAGE_SUPPORT_PROFILES` array.
+  - `src/renderer/components/Settings/LanguageIntelligenceSection.tsx` (extend) — render the scorecard as a table.
+  - `docs/CAPABILITY_MATRIX.md` — replace the hand-curated Ruby/Python/Go rows with auto-generated content from `LANGUAGE_SUPPORT_PROFILES`, or a guard test that pins the docs match the types.
+  - Tests: every `LanguagePack.id` has a corresponding profile entry; every profile references a real language; every capability value is from the closed enum.
+- Slice 1 acceptance criteria:
+  - JS, TS, Go, Python, Rust, Lua, Ruby each have an explicit `LanguageSupportProfile` entry with no `unknown` capabilities.
+  - Adding a new `LanguagePack` row without a matching profile entry fails the pack-guard test with a clear message.
+  - Settings → Editor → Language intelligence section renders the scorecard with light/dark contrast assertions in a component test.
+  - Capability matrix doc has a section auto-derived from `LANGUAGE_SUPPORT_PROFILES`, with a guard test that fails if drift appears.
+  - Debugger column marks JS/TS as `partial` (conditional bp + watch expressions still gated under RL-027 Slice 1.5b).
+- Out of scope (deferred to Slice 2):
+  - User-facing scorecard outside Settings (Slice 2 adds a Command Palette entry "Show language support").
+  - Per-platform breakdown (web vs desktop) within the same capability column (Slice 2 — richer side-by-side rendering).
+- Dependencies:
+  - RL-038 — language pack registry (already `Done`).
+- Risks:
+  - Low. This is essentially scaffolding around a type.
+
+### RL-096 Privacy + Trust Dashboard
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Slice 1 ready when RL-094 Slice 1 extracts src/shared/redaction.ts`
+- Why this matters:
+  - Lingua's local-first positioning is only as strong as the user's ability to verify it. Once HTTP workspace (RL-097), AI (RL-031), and capsules (RL-094) all coexist, the user needs ONE place to see what each one stores, sends, and redacts. Building the dashboard alongside those features prevents the typical "we'll add a privacy page later" debt.
+- Slice 1 scope:
+  - `src/renderer/components/Settings/PrivacyTrustSection.tsx` (new) — Settings tab between "Environment" and "Account" (tab position 5).
+  - Three sections inside the tab, in order:
+    1. **Redaction preview** — paste-anything textarea; shows what the redactor would strip if the text appeared in a capsule, share link, or AI prompt. Reads from `src/shared/redaction.ts` (extracted in RL-094).
+    2. **Local stores** — table of `localStorage` keys Lingua owns (`lingua-settings`, `lingua-license`, `lingua-snippets`, `lingua-execution-history`, `lingua-utility-state`, `lingua-trust-events`), their purpose, approximate size, and a "Clear" button per row with confirmation.
+    3. **Network activity summary** — for each known feature (telemetry, updates, license, capsule export, AI), a one-line status: `enabled` / `disabled` / `unavailable` + last-call timestamp.
+  - `src/renderer/stores/trustEventStore.ts` (new) — bounded local log (cap 200 entries) of trust events: `{ id, at, feature, action, sensitivity, summary }`. NO payload bodies, NO code, NO headers.
+  - Run-history timeline sub-section: a small chart rendering `executionTime` of the last 100 runs of the active user grouped by language. Telemetry-anchored without leaving the device.
+  - i18n: en + es (tuteo).
+  - Tests: store retention + redaction; component tests for clear actions + preview; web smoke for one clear flow.
+- Slice 1 acceptance criteria:
+  - The Settings panel has a 5th tab. It renders the three sections above.
+  - Toggling telemetry from another section updates the dashboard WITHOUT reload.
+  - Clearing the `lingua-license` store fires a confirmation modal, then clears + reloads the dashboard inline.
+  - Pasting `{"token": "abc.def", "code": "secret"}` into the redaction preview shows `{"token": "<redacted>", "code": "<redacted>"}`.
+  - Trust event store enforces the 200-entry cap; oldest entries drop.
+  - Run-history timeline renders the last 100 runs grouped by language with median + P95 markers.
+- Out of scope (deferred to Slice 2):
+  - Network activity LIVE log (Slice 2 — hooks each feature's outbound call). Slice 1 ships static feature enabled/disabled view.
+  - AI prompt preview integration (Slice 2 — after RL-031 lands).
+  - Export of the trust event log (deferred — needs disk-cost telemetry).
+- Dependencies:
+  - RL-094 Slice 1 — extracts `src/shared/redaction.ts`.
+- Risks:
+  - Drift between actual export and preview → mitigated by both calling the same `sanitize()` function.
+  - Trust event log accidentally storing sensitive data → mitigated by shape-enforced `summary: string` (no `payload?: unknown` field).
+
+### RL-097 HTTP + SQL Workspace
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Slice 1 ready when RL-094 Slice 1 (capsule schema) and RL-044 next slice (rich tables) ship`
+- Why this matters:
+  - HTTP request collections and SQL queries are daily-driver developer tools. Combining them with Lingua's code execution + capsule + privacy story makes the product cohesive in a way Postman + Bruno + DBeaver cannot match (those tools do not share state).
+- Slice 1 scope (HTTP collections only — SQL is Slice 2):
+  - `src/shared/httpWorkspace.ts` (new) — `HttpRequestV1` schema (see Appendix A.4 of `docs/WORLD_CLASS_TO_RL_PROPOSAL.md`).
+  - `src/renderer/stores/workspaceToolStore.ts` (new) — persisted list of HTTP requests + response history per request.
+  - `src/renderer/runtime/httpClient.ts` (new) — controlled `fetch` caller; redacts `Authorization`, `Cookie`, `X-API-Key`, and any header in the configured sensitive-headers allow-list, in response history + export.
+  - `src/renderer/components/HttpWorkspace/` (new directory) — bottom-panel tab alongside Console / Variables / Compare. Request list on the left, editor on the right, response preview at bottom.
+  - Render response via existing `RichOutputPayload` (table for arrays, JSON tree for objects).
+  - Capsule integration: each response is wrapped in a `RunCapsuleV1` with `tab.language = 'http'` so share/CLI/AI surfaces inherit the format.
+  - Tests: schema, redaction, mocked fetch happy-path + 4xx + 5xx + timeout + CORS-like failure.
+- Slice 1 acceptance criteria:
+  - The bottom panel has a new "HTTP" tab.
+  - Creating a GET request to `https://httpbin.org/get`, running it, shows the JSON response in a tree.
+  - Adding `Authorization: Bearer x` header runs the request, but the history entry shows `Authorization: <redacted>`.
+  - The request's last response is exportable as a `RunCapsuleV1`.
+  - Sensitive-header allow-list is configurable in Settings.
+- Out of scope (deferred to Slice 2+):
+  - DuckDB-WASM SQL scratchpad (Slice 2 — reuses workspaceToolStore shape).
+  - OAuth flows, secret-bearing collection import (Slice 3+).
+  - Multi-step requests / pipelines (Slice 4 — or merges with RL-099).
+  - Desktop proxy for CORS bypass (deferred — adds attack surface).
+- Dependencies:
+  - RL-094 Slice 1 — capsule schema for response recording.
+  - RL-044 next slice — rich-output renderer.
+- Risks:
+  - CORS friction in web build → mitigated by surfacing CORS errors with actionable copy + a "open this URL in a new tab" affordance.
+  - Sensitive header detection is name-based → mitigated by an explicit Settings → "Sensitive headers" allow-list with sane defaults.
+  - Response size growth → mitigated by 1 MiB cap + "Download response" affordance.
+
+### RL-098 CLI Companion
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready when RL-094 Slice 1 (capsule schema) ships`
+- Why this matters:
+  - Run Capsules without a CLI replay are half-useful. The CLI is the natural extension for CI integration, support-report reproduction, and headless validation.
+- Slice 1 scope (utility runner + capsule validation; replay is Slice 2):
+  - `src/cli/` (new directory tree) — pure shared/main code; no renderer imports.
+  - Commands shipped in Slice 1: `lingua utility <tool-id> [--input <file>] [--json]` and `lingua capsule validate <file> [--json]`.
+  - Refactor 2 deterministic utility functions out of renderer-only paths into `src/shared/utilities/` so the CLI can import them: `json-format` and `base64`.
+  - Exit codes: `0` success, `1` user input error, `2` runtime error, `3` unsupported capability, `4` internal.
+  - `package.json` bin entry: `"lingua": "./dist/cli/lingua.cjs"`.
+  - Tests: argument parsing, JSON output stability (snapshot), exit code conformance, fixture-based capsule validation.
+- Slice 1 acceptance criteria:
+  - `lingua utility json-format --input fixture.json` outputs formatted JSON to stdout.
+  - `lingua capsule validate <valid.capsule.json>` exits `0`.
+  - `lingua capsule validate <oversized.json>` exits `1` with a clear error.
+  - `--json` output is snapshot-stable.
+  - The CLI bundle does NOT import React or Electron (verified by an ESLint rule that forbids `src/cli/**` from importing `src/renderer/**`).
+- Out of scope (deferred to Slice 2+):
+  - `lingua capsule replay` — depends on runner adapters being cleanly importable (refactor needed).
+  - `lingua run <file>` — depends on runner adapter cleanup.
+  - `lingua lesson validate` — depends on RL-039 Slice B shipping.
+  - Windows code-signing for the CLI binary (Slice 3+).
+- Dependencies:
+  - RL-094 Slice 1 — capsule schema.
+  - Shared utility extraction work (~half a slice's worth of refactor inside CLI Slice 1).
+- Risks:
+  - Renderer-only utility imports leaking into shared → mitigated by ESLint rule.
+  - CLI distribution shape unclear → mitigated by starting with npm package + `.cjs` output; binary bundling is Slice 3+.
+
+### RL-099 Utility Pipelines
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready after RL-098 Slice 1 utility extraction; or extract independently within RL-099 Slice 1`
+- Why this matters:
+  - Lingua's utility catalog (JSON format, Base64, regex, hash, diff, cURL, etc.) is already strong. Pipelines turn the catalog into a workflow system — chain Base64 decode → JSON format → diff in one click. This is the single most differentiated UX on top of the existing infrastructure.
+- Slice 1 scope (pure engine + JSON pipeline; no AI generation):
+  - `src/shared/utilityPipeline.ts` (new) — `UtilityPipelineV1` schema (see Appendix A.5 of `docs/WORLD_CLASS_TO_RL_PROPOSAL.md`); pure `runPipeline(pipeline, input)` engine.
+  - Refactor JSON format, Base64, URL parse, regex replace, diff text out of their React panels into pure adapters under `src/shared/utilities/`. Reuses RL-098 Slice 1's extraction if it shipped first.
+  - `src/renderer/components/DeveloperUtilities/UtilityPipelinePanel.tsx` (new) — list of pipelines on the left, editor on the right, "Run" button that streams per-step results into a result table. Lives INSIDE the existing `<UtilityToolbar>` surface, not as a new top-level workspace.
+  - `src/renderer/stores/utilityPipelineStore.ts` (new) — persisted pipeline library (cap 100). Import/export individual pipelines as JSON.
+  - Tests: engine success / step-failure / incompatible-output / removed-utility; component test for create + save + rerun.
+- Slice 1 acceptance criteria:
+  - A user can build a 2-step pipeline ("Base64 decode" → "JSON format") via the new panel.
+  - Saving the pipeline persists it across reload.
+  - Running the pipeline streams per-step inputs/outputs into a result table with success/error per step.
+  - If step 1 fails, step 2 shows "Skipped — upstream failed."
+  - Importing a pipeline JSON with unknown `utilityId` rejects with a clear diagnostic.
+- Out of scope (deferred to Slice 2+):
+  - AI-generated pipelines.
+  - Background pipeline runs.
+  - Pipeline-as-capsule (deferred — natural representation but adds capsule indexing).
+  - Network / subprocess utilities in pipelines (Slice 1 is pure text utilities only).
+- Dependencies:
+  - Utility refactor work overlaps with RL-098. If RL-098 ships first, RL-099 Slice 1 gets a discount.
+- Risks:
+  - Output kind compatibility (text vs JSON vs binary) → mitigated by per-utility `inputKind` / `outputKind` declarations + engine-side type check.
+  - Slow pipelines blocking renderer → mitigated by yielding via `requestIdleCallback` between steps.
+
+### RL-100 Importers
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready when RL-097 Slice 1 (HTTP workspace) ships — cURL needs an HTTP workspace to import INTO`
+- Why this matters:
+  - Lower switching cost. A user with a Postman collection, `.ipynb` notebook, or cURL command shouldn't have to rebuild from scratch.
+- Slice 1 scope (registry + cURL → HTTP request):
+  - `src/shared/importers/registry.ts` (new) — `ImporterAdapter<TPreview, TResult>` interface with `detect` / `preview` / `import` phases.
+  - `src/shared/importers/curlImporter.ts` (new) — parses cURL text into an `HttpRequestV1`. Reuses existing cURL parsing if any; otherwise adapts an MIT-licensed library or hand-rolls.
+  - `src/renderer/components/ImportPreview/` (new) — modal showing parsed result with "Confirm" / "Cancel" + lossy-field warnings.
+  - Settings → "Import data..." command palette entry.
+  - Tests: cURL parse fixtures (valid + invalid + credentials-bearing); preview component states.
+- Slice 1 acceptance criteria:
+  - Pasting `curl -H "Authorization: Bearer x" https://api.example.com` into the import modal previews an `HttpRequestV1` with the header REDACTED in the preview.
+  - Confirming the import creates a new request in the HTTP workspace.
+  - Unsupported cURL syntax shows a diagnostic, not a partial mutation.
+- Out of scope (deferred to Slice 2 + 3):
+  - `.ipynb` → notebook document (Slice 2 — depends on RL-043 Slice A).
+  - Bruno / Postman collections (Slice 3).
+  - Code sandbox / CodePen import (Slice 4+).
+- Dependencies:
+  - RL-097 Slice 1 — HTTP workspace exists.
+- Risks:
+  - cURL spec is large and underspecified → mitigated by shipping the 80%-case parser + diagnostic for the rest.
+
+### RL-101 Onboarding Choreography
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately — pure renderer work on existing tour surface`
+- Why this matters:
+  - RL-039 closed the guided tour, but "user opens app → closes app without running anything" is still a common drop-off pattern. World-class onboarding (Linear, Raycast) is not a tour — it's a choreographed sequence of aha moments that gets the user to their first successful run in under 90 seconds.
+- Slice 1 scope:
+  - **Pre-seeded scratchpad with real code** (not placeholder `puts "Hello"`). Use a snippet that produces rich output — for JS: a small array sort with `console.table()`.
+  - **Post-first-run toast** — after the first successful run completes, fire a `pushStatusNotice` with `tone: 'success'` and a single CTA "Save this as a snippet?" (button uses the existing RL-023 Snippet Lab API).
+  - **Post-first-snippet toast** — after the first snippet save, fire a status notice "Browse your library with ⌘P" (CTA opens Quick Open).
+  - **Settings → General → Onboarding section** — three toggles to reset each of the three states above.
+  - i18n: en + es (tuteo).
+  - Telemetry: 3 new closed-enum events — `onboarding.first_run_completed { language }`, `onboarding.first_snippet_saved`, `onboarding.toast_dismissed { stage }`.
+  - Tests: store-flag transitions; toast appears once per stage; reset action re-triggers.
+- Slice 1 acceptance criteria:
+  - A fresh install opens with a JS scratchpad showing 5-7 lines of pre-seeded code (array sort + `console.table`).
+  - Running the pre-seeded code with Cmd+Enter shows the table in the console panel.
+  - Within 1500 ms of the first successful run, a status notice appears with "Save this as a snippet?" CTA.
+  - Saving the snippet fires a second status notice mentioning Cmd+P.
+  - The choreography fires AT MOST ONCE per user (per stage). Subsequent runs/snippet saves are silent.
+  - Settings → Onboarding has three "Reset" buttons that re-arm each stage.
+- Out of scope (deferred to Slice 2):
+  - 60-second intro video (Slice 2 — content production + hosting decisions).
+  - Per-language pre-seeded scratchpad variants (Slice 2 — currently only JS ships).
+- Dependencies:
+  - RL-023 — Snippet Lab API.
+  - RL-039 — guided tour infrastructure (status notice patterns).
+- Risks:
+  - Toast fatigue → mitigated by once-per-stage cap + dismiss-forever option.
+  - Pre-seeded code becoming stale → mitigated by reviewing the snippet quarterly via a CI check that verifies it still produces the expected output.
+
+### RL-102 Git Read-Only Layer
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Slice 1 ready when RL-024 multi-file Slice 1 ships — needs a project root path to diff against`
+- Why this matters:
+  - For desktop developers, Git is the substrate. A workspace without ANY Git awareness feels like a scratchpad. Read-only Git integration (diff against HEAD, file-watcher detection, status pill) closes that gap with minimal scope and zero write surface.
+- Slice 1 scope (Desktop-only; web reports `unavailable`):
+  - `src/main/git/` (new directory) — IPC handlers: `git:detect` returns `{ installed, version?, repoRoot? }`; `git:status` for a file path returns `{ status: 'clean' | 'modified' | 'untracked' | 'unknown' }` + line count of changes; `git:diff` returns `{ hunks: ... }` from `git diff HEAD <file>`.
+  - `src/preload/index.ts` — `window.lingua.git.*` bridge.
+  - `src/types.d.ts` — type declarations.
+  - `src/renderer/components/Editor/GitStatusPill.tsx` (new) — small chip beside the file tab name showing status. Color-coded: green (clean) / amber (modified) / red (untracked) / grey (unknown).
+  - `src/renderer/components/Editor/GitDiffPanel.tsx` (new) — bottom-panel tab alongside Console / Variables. Renders the diff hunks for the active file. Uses Monaco's diff editor.
+  - Reload-from-disk detection: when the existing watcher reports a file change AND the editor has the file open clean, prompt the user with "File changed on disk — reload?".
+  - Tests: IPC handlers with mocked `execFile('git', ...)`; component test for status pill states; e2e for diff panel rendering.
+- Slice 1 acceptance criteria:
+  - Opening a folder that is a git repo shows the git status pill on each open tab.
+  - Editing a file changes the pill from "clean" to "modified" within 500 ms.
+  - Opening the Git Diff panel for a modified file shows side-by-side or unified diff via Monaco's diff editor.
+  - On web build, the git status pill is hidden entirely; the Diff panel tab is not registered.
+  - When `git` is not on PATH on desktop, the pill shows "unknown" with a tooltip explaining the missing binary.
+- Out of scope (deferred to Slice 2+):
+  - `git commit` / `git add` / `git push` (Slice 3+).
+  - Branch switching (Slice 2 — read-only branch indicator first).
+  - Conflict resolution UI.
+  - Submodule support.
+- Dependencies:
+  - RL-024 Slice 1 — multi-file project root path resolution.
+  - RL-087 — watcher reliability (already `Done`).
+- Risks:
+  - `git` binary detection on macOS GUI apps → reuse the same fix-path approach as Ruby Slice 6.
+  - Large diffs blocking renderer → mitigated by capping diff hunks at 500 lines.
+
+### RL-103 Project Templates
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready when RL-024 (multi-file) + RL-025 Slice A (dependency detection) ship`
+- Why this matters:
+  - Today `LANGUAGE_PACKS` ships language-level starter snippets (one file, one `puts`). Project-level templates ("Express API", "FastAPI app", "CLI with argparse", "React component sandbox") let users build something runnable in 10 seconds.
+- Slice 1 scope (5 curated templates):
+  - `src/shared/projectTemplate.ts` (new) — `ProjectTemplateV1` schema: `{ id, title, language, description, files: Array<{ relPath, content }>, dependencies?: DependencyManifest, runCommand?: string }`.
+  - `src/renderer/data/projectTemplates/` (new) — 5 templates as `.json` files: `express-api-hello`, `fastapi-hello`, `node-cli-argparse`, `react-component-sandbox`, `python-data-explorer`.
+  - `src/renderer/components/Welcome/ProjectTemplatesPanel.tsx` (new) — Welcome screen tab showing the 5 templates as cards. Click → creates the project tree in a chosen location + opens the entry file.
+  - Command palette entry: "New project from template...".
+  - Tests: schema validation; one fixture-test per template that the JSON parses + extracts files correctly.
+- Slice 1 acceptance criteria:
+  - The Welcome screen has a "From template..." tab with 5 cards.
+  - Picking "Express API hello" prompts for a directory, writes 4 files, opens `src/index.js`.
+  - On web build, the cards are visible but clicking shows "Templates require the desktop app".
+  - Each template's `package.json` declares dependencies in the RL-025 format.
+- Out of scope (deferred to Slice 2+):
+  - Community-contributed templates (Slice 4+ — needs RL-106 curated catalog model).
+  - Template customisation wizard (Slice 3 — user-chosen project name, port, etc.).
+  - Auto-install dependencies after scaffold (Slice 2 — depends on RL-025 Slice B).
+- Dependencies:
+  - RL-024 Slice 1 — multi-file project support.
+  - RL-025 Slice A — dependency declaration format.
+- Risks:
+  - Template staleness → mitigated by CI test that runs each template's `runCommand` against a sandbox and asserts non-zero stdout.
+  - License headers in template files → mitigated by including SPDX-License-Identifier in each file.
+
+### RL-104 WebGPU AI Inference (Web) — Spike
+
+- Priority: `P3`
+- Status: `Research-backed spike`
+- Readiness: `Spike artifact only; no implementation until ADR approved`
+- Why this matters:
+  - The web build today has no AI surface (RL-031 is desktop-only via Ollama). A constrained-use-case WebGPU model could power small per-tab actions (explain regex, name variable better, format JSON commentary) without sending data anywhere.
+- Spike scope (no implementation; produces an ADR):
+  - `docs/WEBGPU_AI_ADR.md` (new) — answer: which model (Phi-3-mini? Qwen 0.5B?); bundle cost vs lazy-load; browser support degradation story; quality on 50 test prompts; threat model.
+  - Implementation gated until ADR is reviewed + approved.
+- Spike acceptance criteria:
+  - ADR document committed.
+  - 50 test prompts run against the candidate model with results in `docs/WEBGPU_AI_SPIKE_RESULTS.md`.
+  - Recommendation: ship with feature-flag, defer, or reject.
+- Slice A scope (only if spike recommends ship):
+  - `src/renderer/ai/webgpu/` (new) — model loader via lazy import; transformers.js or webllm adapter.
+  - Settings → AI → "Web AI (experimental)" toggle.
+  - Constrained tasks: explain-regex, format-JSON-with-commentary. NO general chat.
+  - Telemetry: closed-enum `runtime.webgpu_ai_invoked { task, success, durationBucket }`.
+- Slice A acceptance criteria (only if shipped):
+  - Toggle enables the model load on first use (lazy, ~300 MB download).
+  - "Explain this regex" action on a selected regex string produces an answer in < 5 s on M-series Mac, < 15 s on mid-range desktop.
+  - Model is sandboxed — answer cannot include code from other tabs.
+- Dependencies:
+  - RL-094 Slice 1 — capsule schema.
+  - RL-096 — Trust Dashboard to surface the model invocations.
+- Risks:
+  - Bundle / disk cost prohibitive → mitigated by lazy-load with explicit user gesture.
+  - Model output quality unacceptable → mitigated by spike-first; only ship if quality is above threshold.
+
+### RL-105 Mobile Companion (PWA, Read-Only)
+
+- Priority: `P3`
+- Status: `Planned`
+- Readiness: `Slice 1 (Phase A) ready when RL-094 capsules + RL-036 share links stabilise`
+- Why this matters:
+  - Mobile authoring is explicitly anti-feature (`ANTI_FEATURES.md` §A-011). But "did my shared snippet still work?" and "show this trick on the go" are real use cases. A read-only mobile PWA covers them without committing to mobile editing.
+- Slice 1 scope (Phase A — separate repo, NOT part of the main Electron app):
+  - New separate repo `lingua-mobile` (similar pattern to `lingua-marketing`).
+  - PWA + manifest + service worker + offline cache.
+  - Two routes: `/` landing with one button "Open a shared snippet"; `/s/<encoded>` receives the URL fragment from RL-036 share links, decodes, renders read-only.
+  - Re-uses `src/shared/runCapsule.ts` (RL-094) + `src/shared/redaction.ts` for parsing.
+  - UI: code display via Shiki (lightweight syntax highlighter; no Monaco — too heavy for mobile).
+  - Domain: `m.linguacode.dev` (new subdomain on Cloudflare Pages).
+- Slice 1 acceptance criteria:
+  - Visiting `m.linguacode.dev/s/<valid-share-link>` renders the snippet code with syntax highlighting.
+  - The page works offline (service worker caches the static assets).
+  - On a feature phone or 2G connection, the page is interactive within 5 s.
+  - There is NO editor affordance, NO run button, NO write surface.
+- Out of scope (deferred to Phase B):
+  - Native iOS / Android apps.
+  - Mobile authoring (anti-feature).
+  - Mobile-specific run sandbox.
+- Dependencies:
+  - RL-094 Slice 1 — capsule schema.
+  - RL-036 Phase A1 — share link format.
+- Risks:
+  - Domain provisioning → mitigated by reusing the Cloudflare account already used for `linguacode.dev`.
+  - Maintenance overhead of a separate repo → mitigated by sharing `src/shared/*` via a thin package adapter.
+
+### RL-106 Curated Community Snippets
+
+- Priority: `P3`
+- Status: `Planned`
+- Readiness: `Slice 1 (Phase A — curated only) ready when RL-023 Snippet Lab stabilises`
+- Why this matters:
+  - User-contributed snippet marketplace is explicitly anti-feature (`ANTI_FEATURES.md` §A-004). But a CURATED catalog — the Lingua team picks 50 starter snippets, ships them as a bundled JSON — is valuable for discovery without the moderation burden.
+- Slice 1 scope (Phase A — read-only curated):
+  - `src/renderer/data/communitySnippets/` (new) — 50 starter snippets as JSON files. Examples: "Parse a cURL command in JS", "Find the largest file in a directory (Node)", "Pretty-print a JSON tree (Python)", "Reverse a string in Ruby (5 ways)", "Match an IPv6 address with a regex".
+  - Schema: extends `SnippetV1` (RL-023) with `author: string` and `license: 'MIT' | 'CC0'`.
+  - `src/renderer/components/Snippets/CommunitySnippetsPanel.tsx` (new) — Welcome screen tab + sidebar entry showing 50 cards. Fuzzy search via existing palette filter logic.
+  - Each card: title, language badge, 3-line preview, "Open in editor" button.
+  - Contribution path: PRs to `src/renderer/data/communitySnippets/`. README in the directory documents the schema + acceptance criteria.
+- Slice 1 acceptance criteria:
+  - The Welcome screen has a "Community" tab showing 50 cards.
+  - Fuzzy search filters cards by title or language.
+  - Clicking a card opens a new tab with the snippet's code.
+  - There is NO in-app "submit a snippet" affordance (contributions are PR-only).
+  - Each snippet's JSON has a valid `license` field and `author` attribution.
+- Out of scope (deferred to Phase B):
+  - User-submitted snippets (anti-feature unless moderation model decided).
+  - Snippet voting / comments (anti-feature §A-004).
+  - Cloud-hosted snippet catalog (anti-feature §A-006).
+- Dependencies:
+  - RL-023 — Snippet Lab schema + storage.
+- Risks:
+  - Curation drift → mitigated by quarterly review CI check.
+  - License confusion → mitigated by mandatory MIT or CC0 + explicit attribution per card.
+
+### RL-107 VSCode Theme Import
+
+- Priority: `P3`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately — small isolated work`
+- Why this matters:
+  - Users with established VSCode setups want their theme in Lingua without recreating it. Importing a VSCode `.json` theme into Lingua's design-token system is ~1 day of work for substantial perceived value.
+- Slice 1 scope:
+  - `src/shared/themeImport.ts` (new) — parser that converts a VSCode `themes/*.json` (with `colors` and `tokenColors`) into Lingua's `ThemePack` shape (RL-075). Maps the most common VSCode token scopes to Lingua's Monaco token rules; unmapped scopes fall back to the active Lingua theme.
+  - `src/renderer/components/Settings/ImportThemeRow.tsx` (new) — Settings → Appearance → "Import VSCode theme..." button.
+  - Imported themes persist as user theme packs (cap 10).
+  - Tests: parser fixtures for 3 popular VSCode themes (Dracula, Solarized Dark, One Dark Pro); component test for picker + preview + save flow.
+- Slice 1 acceptance criteria:
+  - Importing the Dracula VSCode theme produces a Lingua theme pack with the chrome and major Monaco token colors visually close to Dracula.
+  - The imported theme appears in the Settings → Appearance theme picker as "Dracula (imported)".
+  - Picking the imported theme applies it to the entire app within 500 ms.
+  - Importing a malformed JSON shows a localized error notice.
+- Out of scope (deferred to Slice 2):
+  - 100% VSCode token-scope coverage (Slice 1 mapping is partial; rare scopes fall back).
+  - Theme marketplace (anti-feature §A-014 unless reversed).
+  - Theme sync across devices (anti-feature §A-006).
+- Dependencies:
+  - RL-075 — Signal-Slate DS canonical token surface (already `Done`).
+- Risks:
+  - VSCode theme format variation → mitigated by testing the 3 most-installed themes + sensible fallback for unmapped scopes.
+
+---
+
+## Extensions to existing tickets (world-class lane)
+
+### RL-024 — Multi-file projects (PROMOTION update — 2026-05-20)
+
+**Status update:** Promoted from blocking-RL-043 to a top-priority foundation slice in the world-class lane (per `docs/ROADMAP.md` §5 slot 3). The implementable scope per the existing `### RL-024` section stays unchanged; only the SEQUENCE moves.
+
+**Slice 1 reframe (smallest implementable cut for the world-class lane):**
+- Sidebar tree showing the open folder's contents (lazy-load entries; cap depth at 8).
+- "Open folder..." command (desktop only — uses native dialog).
+- Per-file dirty marker on tab + tree.
+- Cmd+Shift+F find-in-files via Monaco's search API.
+
+**Slice 1 acceptance:**
+- Opening a folder with ~50 files renders the tree within 500 ms.
+- Editing a file marks it dirty in BOTH the tab and the tree.
+- Cmd+Shift+F searches across all open-folder files (uses `ripgrep` via main when available; falls back to JS regex iteration).
+- On web build, "Open folder..." uses the File System Access API; falls back to "individual file upload" when unsupported.
+
+### RL-031 — Slice 2 — Local Docs + AI Citations (extension)
+
+Pre-req: RL-031 Slice 0/1 ships first (Ollama bridge MVP). Slice 2 layers retrieval + citations on top.
+
+**Slice 2 scope:**
+- `src/shared/localDocs.ts` (new) — local docs registry. First sources: app `USAGE.md`, utility help metadata, curated language snippets.
+- Token-scoring retrieval (no embeddings in Slice 2).
+- AI request plan UI: shows model + prompt preview + cited contexts BEFORE sending; user clicks "Send" to actually call the bridge.
+- AI response separates `answerMarkdown` / `citations` / suggested `actions` (insert code, copy code, open cited doc).
+- Trust Dashboard (RL-096) shows each AI call with redacted summary.
+
+**Slice 2 acceptance:**
+- Desktop can answer one local-docs question through Ollama with visible citations.
+- Web mode explains that local AI is unavailable unless RL-104 web AI shipped.
+- The prompt preview lists every source included.
+- The user must explicitly copy, insert, or apply generated code.
+- Each AI call writes a `TrustEventV1` summary to the trust event store.
+
+**Dependencies:** RL-031 Slice 0/1; RL-096 Slice 1.
+
+### RL-039 — Slice B — Recipes (extension)
+
+Pre-req: RL-039 Slice A (guided tour + lesson drafts) already shipped. Slice B reframes "lessons" as "Recipes" — searchable, problem-statement-led recipe cards rather than a course tree.
+
+**Slice B scope:**
+- `src/shared/lessonPack.ts` (new) — `LessonPackV1` schema + parser + assertion runner.
+- `src/renderer/components/Recipes/` (new) — Cmd+Shift+L opens a fuzzy-search overlay (mirrors Command Palette).
+- Selecting a recipe opens a new tab with starter code + a side panel showing the prompt + "Run + Test" button.
+- "Run + Test" replays user's code, then runs assertions and shows pass/fail per assertion.
+- `src/renderer/stores/lessonProgressStore.ts` (new) — local (cap 200 entries) tracking opened / attempted / passed / skipped.
+- Initial 10 recipes bundled under `docs/lessons/` — each as a `LessonPackV1` JSON file.
+
+**Slice B acceptance:**
+- Cmd+Shift+L opens the recipes overlay; typing filters by title.
+- Selecting "Sort an array of objects (JS)" opens a tab with starter code + a prompt panel.
+- Clicking "Run + Test" runs the code, then runs 3 assertions, shows pass/fail per assertion.
+- Progress persists across reload.
+
+**Dependencies:** RL-094 Slice 1 — assertions reference capsules as expected output.
+
+### RL-050 — Phase A spike + Phase B cross-internet (extension)
+
+Pre-req: None for Phase A spike. Phase A spike produces an ADR; Phase B (cross-internet) is gated until Phase A implementation ships.
+
+**Phase A spike scope (no code; produces ADR):**
+- `docs/LAN_COLLABORATION_ADR.md` (new) — answer: transport (WebRTC vs local WebSocket); threat model (guest join trust, encryption, revocation); shared fields defaults; macOS local-network permission copy.
+
+**Phase A implementation (after ADR approval):**
+- Host/join pairing with short code or QR.
+- Read-only: follower receives code, current output, run status.
+- Clear network indicator + disconnect controls.
+- Limited to LAN.
+
+**Phase B — Cross-internet pair (extension, after Phase A ships):**
+- Cloudflare TURN servers as relay; SFU pattern, no central state.
+- Same read-only model — guests do NOT get an edit cursor.
+- "Fork the host's state" affordance creates a local copy in the guest's Lingua.
+
+**Phase A acceptance:**
+- ADR document committed; decision recorded with threat-model answers.
+
+**Phase B is OUT OF SCOPE for any current planning window.** It graduates only when Phase A is shipped and stable.
+
+**Dependencies:** RL-094 — capsule schema for the shared payload.
+
+### RL-044 — Sub-slice F: Clickable error stack frames (extension)
+
+**Sub-slice F scope** (added to the next RL-044 slice that ships rich-media payloads):
+- Treat runtime errors as `RichOutputPayload` with `kind: 'error'` (already exists per RL-044 Slice 1B).
+- Extend the payload with optional `clickable: { file, line, column }` field per stack frame.
+- The console panel detects the clickable field and makes the frame click open the matching tab + scroll to line.
+
+**Sub-slice F acceptance:**
+- A JS runtime error renders with each frame as a clickable link in the console panel.
+- Clicking a frame opens the source file at the right line (or focuses an already-open tab).
+- Errors without source info (anonymous functions, eval) still render as text fallback.
+
+**Dependencies:** RL-044 next slice (rich-media payloads).
+
+---
+
+## Tier 1 — Sugerencias incorporadas (promoción 2026-05-20)
+
+Cuatro tickets nuevos surgidos del análisis post-promoción del world-class
+lane. Todos `P1`/`P2` con criterios de aceptación firmes; ya quedan
+discoverable por `lingua-ship` vía ROADMAP §4k + §5.
+
+### RL-108 Inline lint + quick-fixes in Monaco
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately — JS/TS only via existing esbuild + tsc surfaces. Python via Pyodide pyflakes deferred to Slice 2.`
+- Why this matters:
+  - Hoy Lingua subraya errores de sintaxis y type-errors al ejecutar; los desarrolladores senior esperan retroalimentación inmediata mientras escriben. Sin esto, Lingua se siente "REPL ligero" en lugar de "editor serio".
+  - Quick-fixes (lightbulb) son el gesto-firma de un IDE moderno: "vi tu error y aquí está el arreglo, presiona Enter". El gap perceptual entre Lingua y VSCode hoy es 80% este detalle.
+- Slice 1 scope (JS/TS only):
+  - `src/renderer/lint/jstsLintWorker.ts` (new) — Web Worker corriendo `typescript` (ya bundled) + `esbuild-wasm` (ya bundled) en modo análisis. Diagnostics emitidos cada 500 ms (debounced) tras la última edición.
+  - `src/renderer/lint/lintAdapter.ts` (new) — adapter que mapea diagnostics → Monaco `IMarkerData[]` y los publica vía `monaco.editor.setModelMarkers(model, 'lingua-lint', markers)`.
+  - `src/renderer/lint/quickFixProvider.ts` (new) — `monaco.languages.registerCodeActionProvider('typescript', ...)` para 5 quick-fixes deterministas (Slice 1): `add missing import`, `remove unused import`, `add missing semicolon`, `replace == with ===`, `wrap in try/catch`.
+  - Settings → Editor → "Inline lint" toggle (default ON for JS/TS; OFF for Python pending Slice 2).
+  - `useSettingsStore`: nueva `inlineLintEnabledByLanguage: Record<LanguageId, boolean>`.
+  - Tests: `tests/renderer/lint/quickFixProvider.test.ts` — 5 fixtures por quick-fix; `tests/renderer/lint/lintAdapter.test.ts` — mapeo TS diagnostic → IMarkerData con severidad correcta (`Error` / `Warning` / `Info`).
+- Slice 1 acceptance criteria:
+  - Al escribir `consol.log("x")` en un buffer `.ts`, Monaco muestra subrayado rojo en `consol` dentro de 1 s tras dejar de teclear; hover muestra "Cannot find name 'consol'. Did you mean 'console'?".
+  - Cmd+. (Quick Fix) abre menú con "Replace 'consol' with 'console'"; Enter aplica el cambio.
+  - El toggle Settings → Editor → Inline lint = OFF desactiva todos los markers `'lingua-lint'` en < 200 ms.
+  - El worker se pausa cuando la pestaña pierde foco (`document.visibilityState === 'hidden'`) para no consumir CPU mientras el usuario está en otra app.
+  - Telemetría closed-enum `editor.lint_diagnostic_emitted { language, severity, ruleId }` mirroreada con parity test en update-server.
+- Out of scope (deferred to Slice 2):
+  - Python lint via Pyodide pyflakes (necesita su propio worker + boot latency review).
+  - Go / Rust lint (gopls + rust-analyzer ya están vivos vía RL-026; integrar quick-fixes encima requiere su propio slice).
+  - Ruby lint (rubocop bundling es su propio análisis).
+  - Quick-fixes con type-aware refactors (rename, extract function) — RL-026 lane crossover.
+- Dependencies:
+  - Ninguna en Slice 1 (depende sólo de `typescript` + `esbuild-wasm` ya bundled).
+- Risks:
+  - Latencia de worker en archivos > 2 000 LOC → mitigado por debounce 500 ms + cancelación del análisis previo en cada nueva edición.
+  - Quick-fix incorrecto destruye código del usuario → mitigado por: cada quick-fix tiene un test de smoke con código real, y Cmd+Z funciona porque las ediciones pasan por la API normal de Monaco.
+
+### RL-109 Project-scoped environment isolation
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Slice 1 ready after RL-024 Slice 1. Foundation that prevents env-var bleed across open folders.`
+- Why this matters:
+  - Hoy `RL-011` env-var scopes son globales (User + Workspace tienen un único scope por usuario). Cuando llegue RL-024 multi-file y un usuario tenga dos proyectos abiertos (por ejemplo `api-prod` y `api-staging`), el mismo `DATABASE_URL` se inyecta en ambos. Es un footgun de seguridad y una sorpresa cognitiva.
+  - El patrón estándar (`.envrc` direnv, VSCode workspace settings) es scope-per-project. Lingua debe igualar.
+- Slice 1 scope:
+  - `src/shared/projectEnvScope.ts` (new) — define `ProjectEnvScopeV1 { projectRoot: string, scopeId: string, version: 1 }` y un store key derivado: `lingua-env-project-${hash(projectRoot)}`. Hash es SHA-256 truncado a 16 chars del path normalizado.
+  - `src/renderer/stores/envScopeStore.ts` (extend) — agrega `projectScopes: Record<string, EnvScope>` map. La función `resolveEffectiveEnv(projectRoot)` ahora compone: `User scope` → `Workspace scope` → `Project scope (projectRoot)`. El último gana.
+  - `src/main/ipc/projectEnv.ts` (new) — `project-env:get` / `project-env:set` IPC handlers; persisten en `app.getPath('userData')/projectEnvScopes/{scopeId}.json`. Allowlist key/value validation (mismo que RL-011).
+  - Settings → Editor → Environment variables → nueva pestaña "Project" (visible sólo cuando una carpeta está abierta) muestra el scope del proyecto actual con badge "scope: {projectRoot.split('/').pop()}".
+  - Hint banner en User/Workspace pestañas: "Esta variable se aplica a todos los proyectos. Para limitarla, defínela en Project."
+  - Tests: `tests/shared/projectEnvScope.test.ts` (hash determinismo, normalización path); `tests/main/projectEnv.ipc.test.ts` (allowlist guard, path-traversal); `tests/renderer/stores/envScopeStore.test.ts` (orden de composición User→Workspace→Project).
+- Slice 1 acceptance criteria:
+  - Abrir `~/code/api-prod` define `DATABASE_URL=prod.db` en scope Project; abrir `~/code/api-staging` y definir `DATABASE_URL=staging.db` no afecta `api-prod`.
+  - Cambiar de pestaña entre los dos proyectos abiertos refleja la variable correcta en Settings → Environment → Project.
+  - Borrar un proyecto del disco no orfana su archivo de scope (cleanup en `app.on('will-quit')` revisa proyectos > 90 días sin acceder y los borra; opt-in vía Settings).
+  - `npm run test:smoke:web:license` no toca este scope (web no tiene project roots).
+  - Telemetría `env.project_scope_used { hasProjectVars: boolean }` por sesión, mirroreada con parity test.
+- Out of scope (deferred to Slice 2):
+  - Project scope para web build (necesita File System Access API + persistencia IndexedDB; web no tiene `userData`).
+  - Sync project scopes between machines (anti-feature §A-006 unless reversed).
+  - Auto-detect `.env` / `.envrc` files in project root (importer territory; podría ser RL-100 Slice extension).
+- Dependencies:
+  - RL-024 Slice 1 (necesita el concepto de "project root" en el store de tabs).
+- Risks:
+  - Path normalization edge cases (`~`, symlinks, Windows drive letters) → mitigado por test fixtures cubriendo los 4 OS comunes + un test de symlink resolution.
+  - Migración de variables Workspace existentes a Project scope → en Slice 1 NO migra automáticamente; muestra hint banner explicando la diferencia.
+
+### RL-110 Smart paste detection
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready after RL-036 Phase A1, RL-097 Slice 1, and RL-044 Sub-slice F.`
+- Why this matters:
+  - Cuando un usuario pega un share-link (`linguacode.dev/s/abc123`), una cURL command, un JSON grande, o un stack trace, el comportamiento ideal NO es "pegarlo como texto plano en el editor". Es "ofrecer la acción correcta para ese contenido".
+  - VSCode hace esto parcialmente (paste-as-import, paste-as-link); Lingua puede hacerlo mejor porque conoce sus propios artefactos (share-links, capsules, HTTP requests).
+- Slice 1 scope:
+  - `src/renderer/clipboard/pasteHandlers.ts` (new) — registry de paste handlers con prioridad. Cada handler implementa `detect(text: string): PasteIntent | null` y `apply(text, context): void | Promise<void>`. Handlers (en orden):
+    1. `lingua-share-link` — detecta `linguacode.dev/s/...` → abre el capsule remoto en una nueva tab.
+    2. `lingua-capsule` — detecta JSON con `version: 1` + `schema: 'RunCapsuleV1'` → importa como nueva tab con código + resultado precomputado.
+    3. `curl-command` — detecta `^curl ` → ofrece "Importar como HTTP request" (delega a RL-100 Slice 1 importer).
+    4. `stack-trace` — detecta líneas `at ...:line:col` → si hay project root abierto, ofrece "Abrir en X:line" (delega a RL-044 Sub-slice F handler).
+    5. `large-json` — detecta JSON > 1 KB → ofrece "Pegar como datos en panel" (delega a RL-099 pipeline panel o utility JSON formatter).
+  - `src/renderer/components/Editor/PasteIntentToast.tsx` (new) — toast non-blocking que aparece 200 ms tras paste; ofrece "Importar como X" + "Pegar como texto" (default). Auto-dismiss tras 4 s si no se interactúa.
+  - Cmd+Shift+V = "Paste as plain text" (bypass detection, comportamiento clásico).
+  - Settings → Editor → "Smart paste" toggle (default ON).
+  - Tests: `tests/renderer/clipboard/pasteHandlers.test.ts` — fixture por handler con happy path + edge case (texto que parece pero NO es ese formato).
+- Slice 1 acceptance criteria:
+  - Pegar `curl -X POST https://api.example.com/v1/users` muestra toast "Importar como HTTP request" → al aceptar, abre el panel HTTP con el método/URL/body precargado.
+  - Pegar un share-link de Lingua abre el capsule directamente (sin pegar el texto).
+  - Pegar un stack trace de Node con un path absoluto que coincide con la carpeta abierta ofrece "Abrir error_handler.ts:42".
+  - Cmd+Shift+V siempre pega como texto plano.
+  - Settings toggle = OFF desactiva todos los handlers; paste vuelve a ser literal.
+  - Telemetría `editor.smart_paste_applied { handler, accepted }` closed-enum, mirroreada con parity test.
+- Out of scope:
+  - Paste-as-import para módulos npm/pip (anti-feature §A-008 — silent network call).
+  - OCR de imágenes en clipboard (cost/value mal balance; deferred indefinitely).
+  - Magic clipboard format detection for Excel/Numbers tables (paste-as-csv) — podría ser fold futuro.
+- Dependencies:
+  - RL-036 Phase A1 (share-links existen).
+  - RL-097 Slice 1 (HTTP workspace recibe el cURL import).
+  - RL-100 Slice 1 (cURL parser).
+  - RL-044 Sub-slice F (clickable stack frames).
+- Risks:
+  - Falsos positivos en detección → mitigado por: el toast siempre ofrece "Pegar como texto" como opción visible, y los handlers tienen detectores conservadores con tests de "NO debe disparar en estos casos".
+  - Privacy: detectar contenido del clipboard implica leerlo → ya leemos para pegar; no agrega exposición.
+
+### RL-111 Workspace session restore
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately. Extends the RL-089 profile contract with a session-snapshot field.`
+- Why this matters:
+  - Hoy al cerrar Lingua se pierden: tabs abiertos, contenido sin guardar de scratchpads, layout del panel inferior, posiciones de scroll, breakpoints activos. El usuario senior espera "abrir Lingua donde lo dejé", como Chrome, VSCode, IntelliJ.
+  - RL-089 ya define el contrato de export/import de profile; agregar un snapshot session-state es la extensión natural — mismo schema versionado, mismas reglas de exclusión (no license tokens, no device ids).
+- Slice 1 scope:
+  - `src/shared/sessionSnapshot.ts` (new) — `SessionSnapshotV1` schema: `{ version: 1, snapshotAt: ISO-8601, tabs: TabSnapshot[], bottomPanel: BottomPanelLayout, settings: { activeTabId, layoutMode }, projectRoot?: string }`. Cada `TabSnapshot` incluye `id, language, fileName | scratchpadId, content, dirty, scrollTop, cursorLine, cursorColumn, breakpoints, autoLogEnabled, stdinBuffer (capped 4KB), variableInspectorEnabled`.
+  - `src/main/sessionSnapshot.ts` (new) — escribe a `app.getPath('userData')/session.json` con `app.on('before-quit', captureSnapshot)`. Cap snapshot a 2 MiB; si excede, descarta scratchpads sin uso reciente (LRU) hasta caber.
+  - `src/renderer/stores/sessionRestore.ts` (new) — al boot, lee `session.json`, valida via `parseSessionSnapshot`, ofrece "Restaurar sesión anterior" como toast cliqueable durante 10 s. Por defecto NO restaura silenciosamente (privacidad: si el usuario reabre Lingua tras compartir su pantalla, no quiere que aparezca el código privado automáticamente).
+  - Settings → General → "Restore session on startup": tres valores closed-enum (`never` | `ask` | `always`). Default `ask`.
+  - Web build: usa `sessionStorage` para el snapshot (cap 4 MiB del browser); persistencia limitada a la sesión del tab.
+  - Tests: `tests/shared/sessionSnapshot.test.ts` — schema migration, allowlist guard, cap enforcement; `tests/main/sessionSnapshot.test.ts` — escritura/lectura, before-quit hook; `tests/renderer/stores/sessionRestore.test.ts` — toast de restore, los 3 modos de Setting.
+- Slice 1 acceptance criteria:
+  - Abrir Lingua, escribir código en un scratchpad nuevo, agregar un breakpoint, cerrar la app. Reabrir → toast "Restaurar 3 tabs" → click → todo restaurado idéntico (contenido, scroll, breakpoint).
+  - Setting `always` restaura sin preguntar.
+  - Setting `never` ignora el snapshot y boot fresco.
+  - License tokens y device ids NUNCA salen en `session.json` (test explicito que escanea el JSON tras boot).
+  - Si el snapshot está corrupto, se ignora silenciosamente y se loggea a `crash.log`; el boot procede normal.
+  - Telemetría `session.restored { tabCount, source: 'auto' | 'prompt' }` closed-enum, mirroreada con parity test.
+- Out of scope:
+  - Restaurar processes corriendo (no se preserva un Node subprocess vivo).
+  - Restaurar contenido de Output / Console (los runs no se replay-an).
+  - Sync session-snapshot across machines (anti-feature §A-006).
+  - Multi-window restore — Slice 2 si Lingua llega a soportar multi-window.
+- Dependencies:
+  - Conceptualmente extiende RL-089 (`Done`); reusa `parseAndValidateProfile` patterns pero con su propio schema.
+  - Compatible con RL-024 Slice 1 (si hay projectRoot abierto, se restaura).
+- Risks:
+  - Privacy: snapshot en disco contiene código del usuario → mitigado por: snapshot vive en `userData` (no en `Documents`), y el "ask" default previene auto-restore tras compartir pantalla.
+  - Cap excedido en sesiones grandes → mitigado por LRU drop + un warning toast cuando se descartan tabs.
+
+---
+
+## Tier 2 — Polish items (promoción 2026-05-20)
+
+Siete items menores. Algunos son tickets propios (RL-112/113/114/115/116/117);
+otros son extensiones a tickets existentes. Cada uno auto-suficiente.
+
+### RL-112 Persistent status bar
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately.`
+- Why this matters:
+  - VSCode y JetBrains tienen status bar inferior persistente con info crítica: branch git, errors/warnings, language, encoding. Lingua hoy tira esta info en pills flotantes que aparecen/desaparecen. Una status bar fija reduce el costo cognitivo de "¿dónde está mi info?".
+- Slice 1 scope:
+  - `src/renderer/components/StatusBar/StatusBar.tsx` (new) — 24px tall, fixed bottom, debajo del bottom-panel resize handle.
+  - Segmentos (ordenados de izquierda a derecha):
+    1. Active language (chip; click → cycle a otro language).
+    2. Lint diagnostic count (`3 errors, 2 warnings`; click → focus next error vía RL-108).
+    3. Cursor position (`Ln 42, Col 7`).
+    4. Encoding (`UTF-8`; click → cycle UTF-8 / UTF-16; locked for run targets).
+    5. Indentation (`Spaces: 2`; click → toggle Tab/Space + width).
+    6. Git branch + dirty marker (only when RL-102 shipped + project root con .git).
+    7. Run status pill condensed (reuses `<RunStatusPill>` from RL-020 Slice 7).
+  - Setting → Editor → "Show status bar" toggle (default ON desktop; OFF web por screen real estate).
+  - Tests: cobertura de cada segmento + el toggle.
+- Slice 1 acceptance criteria:
+  - Status bar siempre visible cuando el toggle está ON.
+  - Cada segmento es un button con keyboard focus + Cmd+K (jump to status bar).
+  - Cambiar de tab actualiza todos los segmentos en < 50 ms.
+- Dependencies:
+  - RL-108 para el segment de lint counts (degrada graceful si RL-108 no shipped: 0/0).
+  - RL-102 para el git segment (oculto sin RL-102).
+- Risks:
+  - Pixel-budget con utilities/scratchpad/bottom-panel ya activos → mitigado por toggle OFF default en web.
+
+### RL-113 Cmd+; Recent commands stack
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately.`
+- Why this matters:
+  - Cmd+P/K/Shift+P abren palette para descubrimiento. Pero el flujo "ya ejecuté `Toggle auto-log` 3 veces hoy, quiero volver a hacerlo" requiere abrir palette + retipear + selectionar. Una stack de "comandos recientes" (Cmd+;) elimina ese roundtrip.
+- Slice 1 scope:
+  - `src/renderer/stores/commandHistoryStore.ts` (new) — ring buffer de 20 comandos ejecutados (closed-enum action IDs). Per-sesión persist.
+  - Cmd+; (semicolon) abre popover con stack de 8 más recientes; números 1-8 keyboard shortcut para ejecutar; Enter ejecuta el primero; Escape cierra.
+  - El popover muestra: nombre del comando, timestamp relativo (`2m ago`), keyboard shortcut si tiene.
+  - Tests: ring buffer eviction, navegación con teclado.
+- Slice 1 acceptance criteria:
+  - Ejecutar 3 comandos vía palette → Cmd+; → ver los 3 en orden inverso (más reciente arriba).
+  - Presionar `1` ejecuta el primero; el popover se cierra.
+  - El ring buffer no excede 20 entradas (eviction FIFO).
+- Dependencies:
+  - Ninguna (reusa el registry de commands del palette existente).
+- Risks:
+  - Bajos.
+
+### RL-114 Test runner auto-detect
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready after RL-024 Slice 1.`
+- Why this matters:
+  - Desktop devs serios tienen tests. Hoy Lingua los puede correr vía terminal (RL-048) pero no los entiende. Detectar `package.json#scripts.test` o `pyproject.toml#tool.pytest` y ofrecer "Run tests" en el palette + status bar es un quick-win.
+- Slice 1 scope:
+  - `src/shared/testRunnerDetect.ts` (new) — `detectTestRunner(projectRoot)` lee `package.json` / `pyproject.toml` / `Cargo.toml` / `go.mod` y devuelve `TestRunnerProfile | null` (`{ kind: 'jest' | 'vitest' | 'pytest' | 'cargo-test' | 'go-test', command, cwd }`).
+  - `src/main/ipc/testRunner.ts` (new) — `test:detect` y `test:run` IPC handlers. `test:run` spawn-ea el binary con `npm run`/`pytest`/`cargo test` y stream-ea stdout vía `test:output` event.
+  - `src/renderer/components/BottomPanel/TestsTab.tsx` (new) — bottom-panel tab "Tests"; muestra el comando detectado + botón Run + stream output con coloring básico (PASS/FAIL).
+  - Palette entry: "Run project tests" (visible cuando `detectTestRunner` no es null).
+  - Tests: fixtures por kind detectado.
+- Slice 1 acceptance criteria:
+  - Abrir un repo con `package.json#scripts.test = "vitest"` → palette ofrece "Run project tests"; bottom-panel "Tests" tab visible.
+  - Click "Run" → spawn-ea `npm run test` desde el project root; output stream-ea en vivo.
+  - Repo sin test runner detectado → la tab no aparece y la palette entry no surface.
+- Dependencies:
+  - RL-024 Slice 1 (project root).
+  - RL-019 (Node desktop subprocess pattern; reusa `buildNativeRunnerEnv`).
+- Risks:
+  - Detección frágil si el usuario tiene scripts personalizados → mitigado por: detección conservadora, y un Settings override "Custom test command" como escape hatch.
+
+### RL-115 Inline per-line timing
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately for JS/TS via Auto-log surface.`
+- Why this matters:
+  - Hoy el resultado de un run es "el output total". Ver "esta línea tardó 320 ms" inline en el gutter del editor es información de oro para perf hunting. Reusa la superficie auto-log de RL-020 Slice 5.
+- Slice 1 scope (JS/TS only):
+  - `src/renderer/workers/jsWorker.ts` (extend) — el transform de auto-log ya inyecta `__mc(line, value)`. Agregar `__mc_time(line, durationMs)` antes/después de cada statement (gated por `// @time` magic-comment o Settings toggle).
+  - `src/renderer/components/Editor/InlineTimingDecorations.tsx` (new) — Monaco decorations a la derecha de cada línea: `▸ 320 ms` italic gris.
+  - Setting → Editor → "Show per-line timing" toggle (default OFF; opt-in porque agrega overhead).
+  - Hot-spot highlighting: la línea más lenta del último run pinta su decoration en rojo.
+  - Tests: transform output verification + decoration placement.
+- Slice 1 acceptance criteria:
+  - Code con `// @time` magic-comment al inicio + Cmd+Enter → cada statement muestra su duración en el gutter.
+  - La línea más lenta resalta en rojo; las demás en gris.
+  - Setting OFF desactiva la captura (el transform no se inyecta).
+- Out of scope:
+  - Python timing (Pyodide tiene overhead diferente; Slice 2).
+  - Go/Rust timing (requiere instrumentar el output; Slice 3).
+- Dependencies:
+  - RL-020 Slice 5 (auto-log surface).
+- Risks:
+  - Overhead del timing distorsiona el resultado en loops tight → mitigado por: documentar la limitación + ofrecer `// @time:macro` modo que sólo mide statements top-level.
+
+### RL-024 Slice 2 — Search + replace cross-project (extensión)
+
+Pre-req: RL-024 Slice 1 ya shipped.
+
+**Slice 2 scope:**
+- Cmd+Shift+H = "Replace in files" overlay (companion a Cmd+Shift+F search).
+- Preview de matches con before/after diff por archivo.
+- Confirmación per-file (no global apply silencioso).
+- Regex toggle + case-sensitive toggle.
+- Excludes: `node_modules`, `.git`, `dist`, `build` (Settings override).
+- `src/main/ipc/projectSearch.ts` (extend) — agrega `project:replace` IPC que aplica replacements atomically (un archivo a la vez, con `fs.rename` desde tmpfile para resistir crash).
+
+**Slice 2 acceptance:**
+- Cmd+Shift+H abre overlay; tipear "oldName" en field 1 + "newName" en field 2 → preview muestra todos los matches con diff inline.
+- Click "Apply to file" en un archivo → solo ese archivo cambia; los demás siguen como preview.
+- Click "Apply to all" → aplica todos con confirmación modal "Replace N matches in M files?".
+- Regex `\bold(\w+)\b` → `new$1` funciona; los grupos se preservan.
+- Undo (Cmd+Z) en cada archivo abierto restaura el contenido (porque la replacement se hizo vía Monaco's edit API si el archivo estaba abierto).
+
+**Dependencies:** RL-024 Slice 1.
+
+### RL-116 Focus / Presenter mode
+
+- Priority: `P3`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately.`
+- Why this matters:
+  - Pair-programming, demos, screen-recording requieren ocultar chrome (toolbar, sidebar) y agrandar la fuente. Hoy se logra a mano (mover tres sliders en Settings); un toggle 1-click ahorra ese friction.
+- Slice 1 scope:
+  - `src/renderer/components/PresenterMode/usePresenterMode.ts` (new) — store-side toggle. Activo:
+    - Oculta sidebar + toolbar (modo zen ya existe parcialmente; este es zen+).
+    - Sube font-size del editor +4 (desde la base del usuario).
+    - Sube font-size del console output +2.
+    - Oculta status bar (si shipped).
+    - Aplica `--presenter-mode-overlay` CSS var para opcional gradient sutil que sugiere "estamos presentando".
+  - Cmd+K F = "Toggle presenter mode" palette + shortcut.
+  - Tests: toggle persiste el old layout y lo restaura al apagar.
+- Slice 1 acceptance criteria:
+  - Cmd+K F → chrome desaparece, font sube, layout limpio.
+  - Cmd+K F otra vez → todo vuelve al estado anterior.
+  - El modo NO afecta los archivos guardados, solo la UI.
+- Dependencies:
+  - Ninguna (reusa store de layout existente).
+- Risks:
+  - Bajos.
+
+### RL-117 Personal cloud sync via user-owned storage (extensión RL-089 — needs ADR)
+
+- Priority: `P3`
+- Status: `Research-backed spike` (needs ADR before implementation).
+- Readiness: `Phase A — ADR required. Anti-feature §A-006 tension; reverso explícito via opt-in user-owned storage.`
+- Why this matters:
+  - Anti-feature §A-006 prohíbe "Mandatory cloud sync". Pero un opt-in sync vía Dropbox / Google Drive / GitHub Gist (storage que el usuario YA paga + controla) NO viola el espíritu de §A-006: el usuario elige; los datos no tocan infraestructura de Lingua.
+  - Sin ningún sync, los usuarios con múltiples máquinas tienen que hacer export/import manual (RL-089).
+- Phase A scope (no code; produces ADR):
+  - `docs/CLOUD_SYNC_ADR.md` (new) — responde: ¿Dropbox vs Google Drive vs Gist? ¿qué sincroniza (snippets / settings / themes / capsules)? ¿conflict resolution? ¿encryption at rest? ¿revocation?
+  - Threat model: ¿qué pasa si el provider es comprometido? ¿qué datos del usuario se filtran?
+  - UX: ¿cómo evita "no sé que esto se estaba sincronizando"? Indicador visible permanente.
+- Phase A acceptance:
+  - ADR commited con decisión de provider + threat model documentado.
+  - Decisión explícita sobre extender o no §A-006 en `ANTI_FEATURES.md` con reversal note.
+- Phase B implementation (gated tras ADR approval):
+  - Sólo después de que el ADR pasa review + decisión documentada en ANTI_FEATURES.md.
+- Dependencies:
+  - RL-089 (`Done`) — schema base.
+- Risks:
+  - Anti-feature creep — mitigado por ADR explícito.
+
+---
+
+## Tier 3 — Conscientemente fuera de scope (2026-05-20)
+
+Seis items considerados y descartados con razón documentada. NO son
+tickets; son una lista anti-debt para que futuros agentes/contribuidores
+no los reabran sin contexto.
+
+### T3-001 Plugin/extension API real (third-party plugins en runtime)
+
+**Estado:** No planeado.
+**Anti-feature tension:** §A-014 — Arbitrary-code plugin marketplace.
+**Razón:** Lingua ya tiene RL-038 "language pack" interface; eso es plugin-suficiente para lenguajes. Un API genérico estilo VSCode invita arbitrary-code execution, supply chain attacks, y el "plugin todopoderoso" que descarrila roadmap (cf. Atom, donde plugins de terceros mataron la dirección del producto).
+**Reverso permitido si:** Llega un partner enterprise con NDA + presupuesto que justifique el costo de mantener un plugin API + sandbox + review process. No es de roadmap personal.
+
+### T3-002 Cross-language refactoring (rename JS symbol que ripple a Python que importa el JS bundle)
+
+**Estado:** No planeado.
+**Anti-feature tension:** Ninguna directa, pero `cost/value` mal balance.
+**Razón:** Cross-language refactoring requiere un type-system unificado o un graph de imports inter-language confiable. Ni siquiera VSCode lo hace bien hoy (sólo IntelliJ con setup específico). Construir esto en Lingua es 6 meses de trabajo para una feature que < 5% de usuarios usa.
+**Reverso permitido si:** Aparece un caso de uso concreto + diseño que evite ese costo. Hasta entonces, single-language refactoring (RL-026 lane) cubre el 95% del valor.
+
+### T3-003 Profiling / flame graphs
+
+**Estado:** No planeado.
+**Anti-feature tension:** Ninguna directa.
+**Razón:** Flame graphs son una UI compleja (visualización jerárquica con zoom + tooltip + drill-down). El valor para el usuario senior es real, PERO la herramienta canónica (Chrome DevTools, py-spy, samply) ya existe y es gratis. Lingua no es el lugar para "una nueva Chrome DevTools UI"; es el lugar para "ejecuto código rápido y veo el resultado". Para perf hunting, el usuario senior abre Chrome DevTools.
+**Compensación:** RL-115 inline per-line timing cubre el 80% del use case casual de profiling sin la complejidad de flame graphs.
+
+### T3-004 DB clients embedded (Postgres/MySQL clients dentro de Lingua)
+
+**Estado:** No planeado.
+**Anti-feature tension:** Ninguna directa, pero `scope creep` severo.
+**Razón:** Un DB client serio (TablePlus, DBeaver, Postico) tiene 50+ features: schema browser, query builder, ER diagrams, import/export, etc. Construir esto en Lingua dobla la superficie de producto sin ganar identidad. Para SQL ad-hoc, RL-097 Slice 2 trae DuckDB-WASM (in-memory) que cubre exploración local de CSV/Parquet sin necesidad de conectar a un servidor real.
+**Reverso permitido si:** Se decide explícitamente que Lingua compite con TablePlus/DBeaver. Hoy NO compite.
+
+### T3-005 Docker / container integration (run a Dockerfile desde Lingua)
+
+**Estado:** No planeado.
+**Anti-feature tension:** Ninguna directa.
+**Razón:** Docker integration es un mundo: build, run, compose, networks, volumes, registries. Cualquier MVP útil es trabajo de meses, y el usuario serio YA tiene `docker` CLI + Docker Desktop. Lingua puede shellea-r a `docker` vía RL-048 terminal cuando se necesite, sin construir UI propio.
+**Compensación:** RL-048 (integrated terminal) sirve como escape hatch para cualquier comando docker que el usuario quiera correr.
+
+### T3-006 Snippet auto-save con versioning (git-like history por snippet)
+
+**Estado:** No planeado.
+**Anti-feature tension:** §A-006 — Mandatory cloud sync (si se hiciera sync) + scope creep.
+**Razón:** Versioning per-snippet es git-mal-reinventado. Si el usuario quiere versioning, tiene git (RL-102 read-only) y sus propios commits. Snippet store actual es FIFO con cap; eso es la storage policy correcta para "scratchpad rápido". Agregar versioning dobla la complejidad del store sin ganar valor para el 95% de los snippets que son one-shot.
+**Reverso permitido si:** Aparece un caso de uso concreto. Hasta entonces, RL-089 export/import + RL-111 session restore cubren los flujos de "no perder mi trabajo".
