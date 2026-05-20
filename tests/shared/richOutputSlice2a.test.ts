@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   clampHtmlHeight,
   DEFAULT_HTML_PAYLOAD_HEIGHT_PX,
+  MAX_CHART_DATA_VALUES,
+  MAX_CHART_SPEC_NODES,
   MAX_HTML_PAYLOAD_HEIGHT_PX,
   MAX_HTML_PAYLOAD_LENGTH,
   MAX_IMAGE_SRC_LENGTH,
   isExtendedRichKind,
   isRichOutputPayload,
+  validateChartSpec,
   validateHtmlPayload,
   validateImageSrc,
   type RichOutputHtml,
@@ -134,5 +137,136 @@ describe('Slice 2a — RichOutputHtml discriminator', () => {
 
   it('isRichOutputPayload rejects unknown kinds', () => {
     expect(isRichOutputPayload({ kind: 'video' })).toBe(false);
+  });
+});
+
+describe('Slice 2b-alpha — validateChartSpec', () => {
+  it('accepts a minimal vega-lite spec with inline data.values', () => {
+    const spec = {
+      mark: 'bar',
+      data: { values: [{ a: 'A', b: 1 }] },
+      encoding: { x: { field: 'a', type: 'nominal' }, y: { field: 'b', type: 'quantitative' } },
+    };
+    expect(validateChartSpec(spec)).toBe(spec);
+  });
+
+  it('accepts a spec without data (composition parent)', () => {
+    const spec = { layer: [{ mark: 'point' }, { mark: 'line' }] };
+    expect(validateChartSpec(spec)).toBe(spec);
+  });
+
+  it('accepts spec with empty data object', () => {
+    const spec = { mark: 'bar', data: {} };
+    expect(validateChartSpec(spec)).toBe(spec);
+  });
+
+  it('rejects spec with data.url (anti-feature §A-008 — no silent fetches)', () => {
+    expect(
+      validateChartSpec({
+        mark: 'bar',
+        data: { url: 'https://example.com/data.csv' },
+      })
+    ).toBeNull();
+  });
+
+  it('rejects nested data.url inside composition specs', () => {
+    expect(
+      validateChartSpec({
+        layer: [
+          {
+            mark: 'line',
+            data: { values: [{ x: 1, y: 2 }] },
+          },
+          {
+            mark: 'point',
+            data: { url: 'https://example.com/points.csv' },
+          },
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it('rejects spec with data.name (named-dataset reference)', () => {
+    expect(
+      validateChartSpec({
+        mark: 'bar',
+        data: { name: 'remote-dataset' },
+      })
+    ).toBeNull();
+  });
+
+  it('rejects nested data.name inside repeated specs', () => {
+    expect(
+      validateChartSpec({
+        repeat: ['a', 'b'],
+        spec: {
+          mark: 'bar',
+          data: { name: 'dataset-from-elsewhere' },
+        },
+      })
+    ).toBeNull();
+  });
+
+  it('rejects non-object specs', () => {
+    expect(validateChartSpec(null)).toBeNull();
+    expect(validateChartSpec(undefined)).toBeNull();
+    expect(validateChartSpec('spec string')).toBeNull();
+    expect(validateChartSpec(42)).toBeNull();
+    expect(validateChartSpec([])).toBeNull();
+  });
+
+  it('rejects spec when data.values is not an array', () => {
+    expect(
+      validateChartSpec({ mark: 'bar', data: { values: 'not-an-array' } })
+    ).toBeNull();
+  });
+
+  it('rejects spec when data.values exceeds MAX_CHART_DATA_VALUES', () => {
+    const over = Array.from({ length: MAX_CHART_DATA_VALUES + 1 }, (_, i) => ({ x: i }));
+    expect(validateChartSpec({ mark: 'bar', data: { values: over } })).toBeNull();
+    const atLimit = Array.from({ length: MAX_CHART_DATA_VALUES }, (_, i) => ({ x: i }));
+    expect(validateChartSpec({ mark: 'bar', data: { values: atLimit } })).not.toBeNull();
+  });
+
+  it('rejects cyclic or excessively deep specs without throwing', () => {
+    const cyclic: Record<string, unknown> = { mark: 'point' };
+    cyclic.self = cyclic;
+    expect(() => validateChartSpec(cyclic)).not.toThrow();
+    expect(validateChartSpec(cyclic)).toBeNull();
+
+    let deep: Record<string, unknown> = { mark: 'point' };
+    const root = deep;
+    for (let i = 0; i < MAX_CHART_SPEC_NODES + 1; i += 1) {
+      const next: Record<string, unknown> = {};
+      deep.next = next;
+      deep = next;
+    }
+    expect(validateChartSpec(root)).toBeNull();
+  });
+
+  it('rejects specs with throwing getters without throwing', () => {
+    const spec = {
+      mark: 'point',
+      get encoding() {
+        throw new Error('getter boom');
+      },
+    };
+
+    expect(() => validateChartSpec(spec)).not.toThrow();
+    expect(validateChartSpec(spec)).toBeNull();
+  });
+
+  it('rejects specs with throwing data getters without throwing', () => {
+    const spec = {
+      mark: 'point',
+      data: {
+        get values() {
+          throw new Error('values boom');
+        },
+      },
+    };
+
+    expect(() => validateChartSpec(spec)).not.toThrow();
+    expect(validateChartSpec(spec)).toBeNull();
   });
 });

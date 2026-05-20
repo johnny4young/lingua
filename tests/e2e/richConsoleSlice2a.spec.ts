@@ -24,7 +24,7 @@ declare global {
       clearConsole: () => void;
       addConsoleEntries: (entries: ConsoleEntrySeed[]) => void;
     };
-    __linguaOpenSourceEvents?: unknown[];
+    __linguaOpenFileEvents?: unknown[];
   }
 }
 
@@ -182,9 +182,9 @@ test.describe('rich console Slice 2a visual matrix', () => {
     ]);
 
     await page.evaluate(() => {
-      window.__linguaOpenSourceEvents = [];
-      window.addEventListener('lingua-open-source', event => {
-        window.__linguaOpenSourceEvents?.push(event instanceof CustomEvent ? event.detail : null);
+      window.__linguaOpenFileEvents = [];
+      window.addEventListener('lingua-open-file', event => {
+        window.__linguaOpenFileEvents?.push(event instanceof CustomEvent ? event.detail : null);
       });
     });
 
@@ -198,7 +198,7 @@ test.describe('rich console Slice 2a visual matrix', () => {
     const frame = page.getByTestId('console-rich-error-frame-clickable');
     await frame.click();
     await expect
-      .poll(() => page.evaluate(() => window.__linguaOpenSourceEvents?.length ?? 0))
+      .poll(() => page.evaluate(() => window.__linguaOpenFileEvents?.length ?? 0))
       .toBe(1);
 
     await page.getByTestId('console-rich-open-details').click();

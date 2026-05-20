@@ -177,6 +177,10 @@ export const DEFAULT_HTML_PAYLOAD_HEIGHT_PX = 240;
 export const MAX_IMAGE_SRC_LENGTH = 7_000_000;
 /** RL-044 Slice 2a — maximum HTML payload length the worker is allowed to ship (256 KB). */
 export const MAX_HTML_PAYLOAD_LENGTH = 256 * 1024;
+/** RL-044 Slice 2b-α — maximum inline `data.values` entries in a chart spec. */
+export const MAX_CHART_DATA_VALUES = 5000;
+/** RL-044 Slice 2b-α — maximum object / array nodes scanned in a chart spec. */
+export const MAX_CHART_SPEC_NODES = 20_000;
 
 // Five `ScopeValue` discriminants + the eight extended kinds = the
 // full RichOutputPayload union. Centralised here so the type-guard,
@@ -264,6 +268,93 @@ export function validateHtmlPayload(html: unknown): string | null {
   if (html.length === 0) return null;
   if (html.length > MAX_HTML_PAYLOAD_LENGTH) return null;
   return html;
+}
+
+/**
+ * RL-044 Slice 2b-α — chart spec security whitelist.
+ *
+ * Vega-lite specs support `data.url` and `data.name` references that
+ * silently fetch external resources. Anti-feature §A-008 forbids
+ * silent network calls from a console payload, so we reject any spec
+ * whose `data` shape is anything other than inline `data.values`.
+ *
+ * Accepts, at any nested spec node:
+ *   - object spec with `data.values: Array<unknown>` (≤ MAX_CHART_DATA_VALUES entries)
+ *   - object spec WITHOUT `data` (treated as data-less — vega-lite supports it
+ *     for `repeat` / `concat` parent specs, those compositions are allowed)
+ *
+ * Rejects:
+ *   - non-object spec (string, null, array, etc.)
+ *   - `data.url` (remote fetch)
+ *   - `data.name` (reference to a named dataset — implies dataset is
+ *     defined elsewhere, which our standalone serialization cannot
+ *     guarantee is inline)
+ *   - `data.values` length > MAX_CHART_DATA_VALUES (DoS guard)
+ *
+ * Returns the spec on accept, `null` on reject. Never mutates the input.
+ */
+export function validateChartSpec(spec: unknown): unknown | null {
+  if (!spec || typeof spec !== 'object' || Array.isArray(spec)) return null;
+  if (!validateChartSpecTree(spec)) {
+    return null;
+  }
+  return spec;
+}
+
+function validateChartDataField(dataField: unknown): boolean {
+  if (dataField === undefined || dataField === null) return true;
+  if (!dataField || typeof dataField !== 'object' || Array.isArray(dataField)) {
+    return false;
+  }
+  const data = dataField as Record<string, unknown>;
+  try {
+    if ('url' in data) return false;
+    if ('name' in data) return false;
+    if ('values' in data) {
+      const values = data.values;
+      if (!Array.isArray(values)) return false;
+      if (values.length > MAX_CHART_DATA_VALUES) return false;
+    }
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+function validateChartSpecTree(root: object): boolean {
+  const seen = new WeakSet<object>();
+  const pending: unknown[] = [root];
+  let remaining = MAX_CHART_SPEC_NODES;
+
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (!node || typeof node !== 'object') continue;
+    if (seen.has(node)) return false;
+    if (remaining <= 0) return false;
+    remaining -= 1;
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+      for (const item of node) pending.push(item);
+      continue;
+    }
+
+    const record = node as Record<string, unknown>;
+    let dataField: unknown;
+    let entries: Array<[string, unknown]>;
+    try {
+      dataField = record.data;
+      entries = Object.entries(record);
+    } catch {
+      return false;
+    }
+    if (!validateChartDataField(dataField)) return false;
+    for (const [key, value] of entries) {
+      if (key === 'data') continue;
+      pending.push(value);
+    }
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------

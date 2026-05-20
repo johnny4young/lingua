@@ -824,6 +824,14 @@ export interface ExecutionError {
   endLine?: number;
   endColumn?: number;
   stack?: string;
+  /**
+   * RL-044 Slice 2b-α — structured stack frames parsed by the worker
+   * (`parseJsErrorStack` / `parsePythonTraceback`). The renderer reads
+   * these to build a `kind: 'error'` payload with clickable frames
+   * (Sub-slice F). Absent when the worker can't parse a stack — the
+   * legacy text path still renders the message + location.
+   */
+  frames?: import('../../shared/errorStack').ClickableStackFrame[];
 }
 
 export interface EditorDiagnostic {
@@ -987,6 +995,16 @@ export type WorkerResponse =
        * telemetry event; never read by the panel.
        */
       consoleTableInvoked?: boolean;
+      /**
+       * RL-044 Slice 2b-α — rich-media helper rejection marker emitted
+       * by the JS worker bridge. Runner-side telemetry forwarding is
+       * deferred to Slice 2b-β; the marker is still part of the wire
+       * shape so the typed protocol matches what the worker posts.
+       */
+      richMediaRejected?: {
+        kind: 'chart' | 'image' | 'html';
+        reason: 'invalid-src' | 'size-limit' | 'validation-failed';
+      };
     }
   | { type: 'result'; runId: string; value?: unknown }
   | {

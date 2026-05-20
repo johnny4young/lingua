@@ -49,10 +49,26 @@ export function formatExecutionError(result: ExecutionResult): ConsoleEntryInput
       ? ` (line ${result.error.line}${result.error.column !== undefined ? `:${result.error.column}` : ''})`
       : '';
 
-  return {
+  const entry: ConsoleEntryInput = {
     type: 'error',
     content: `${result.error.message}${location}`,
   };
+
+  // RL-044 Slice 2b-α — Sub-slice F end-to-end completion. When the
+  // worker reports structured frames, attach a `kind: 'error'`
+  // payload so the renderer paints the clickable-stack surface.
+  // Absent frames falls through to the legacy text path (no chip).
+  if (result.error.frames && result.error.frames.length > 0) {
+    entry.payload = [
+      {
+        kind: 'error',
+        message: result.error.message,
+        stack: result.error.frames,
+      },
+    ];
+  }
+
+  return entry;
 }
 
 export function toConsoleEntries(

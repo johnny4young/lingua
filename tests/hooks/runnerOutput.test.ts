@@ -92,6 +92,44 @@ describe('runnerOutput helpers', () => {
     ).toEqual({ type: 'error', content: 'Bad input' });
   });
 
+  it('attaches clickable-stack payloads to execution errors with frames', () => {
+    expect(
+      formatExecutionError({
+        stdout: [],
+        stderr: [],
+        executionTime: 0,
+        error: {
+          message: 'Bad input',
+          frames: [
+            {
+              text: 'at run (src/example.ts:12:5)',
+              file: 'src/example.ts',
+              line: 12,
+              column: 5,
+            },
+          ],
+        },
+      })
+    ).toEqual({
+      type: 'error',
+      content: 'Bad input',
+      payload: [
+        {
+          kind: 'error',
+          message: 'Bad input',
+          stack: [
+            {
+              text: 'at run (src/example.ts:12:5)',
+              file: 'src/example.ts',
+              line: 12,
+              column: 5,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   it('formats short execution times in milliseconds', () => {
     expect(formatExecTime(12.345)).toBe('12.3 ms');
   });

@@ -615,10 +615,23 @@ describe('RL-044 Slice 1A — //=> table directive', () => {
       expect(entry?.directive).toBeUndefined();
     });
 
-    it('ignores unknown directive words gracefully', () => {
-      // `chart` lands in Slice 2 — Slice 1A treats it as unknown and
-      // falls back to the legacy arrow (no directive attached).
-      const code = '[1,2] //=> chart';
+    it('recognises chart / image / html directives (RL-044 Slice 2b-α)', () => {
+      // Slice 2b-α widens the parser's closed enum ahead of Slice
+      // 2b-β runner consumption. A typo (e.g. `chartt`) still falls
+      // through to legacy.
+      const chart = detectJSMagicComments('[1,2] //=> chart')[0];
+      expect(chart?.kind).toBe('arrow');
+      expect(chart?.directive).toBe('chart');
+      const image = detectJSMagicComments('"data:image/png;base64,a" //=> image')[0];
+      expect(image?.directive).toBe('image');
+      const html = detectJSMagicComments('"<p>x</p>" //=> html')[0];
+      expect(html?.directive).toBe('html');
+    });
+
+    it('ignores typo / unknown directive words gracefully', () => {
+      // Anything outside the closed enum still falls through to the
+      // legacy arrow path (no directive attached).
+      const code = '[1,2] //=> notakind';
       const [entry] = detectJSMagicComments(code);
       expect(entry?.kind).toBe('arrow');
       expect(entry?.directive).toBeUndefined();

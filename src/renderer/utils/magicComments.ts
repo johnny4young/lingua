@@ -34,9 +34,9 @@ export type MagicCommentKind = 'arrow' | 'watch' | 'autoLog';
 
 /**
  * RL-044 Slice 1A — rich-output directives surfaced on an arrow
- * magic comment. `'table'` is the only directive this slice ships;
- * `'chart'` / `'figure'` will land alongside the chart-renderer work
- * in Slice 2.
+ * magic comment. Slice 2b-α widens the parser to recognise `chart`,
+ * `image`, and `html` too; runner-side payload conversion for those
+ * non-table directives lands in Slice 2b-β.
  *
  * Usage:
  *   `myArray //=> table` → renderer upgrades the inline pill from
@@ -45,7 +45,7 @@ export type MagicCommentKind = 'arrow' | 'watch' | 'autoLog';
  *
  * `undefined` means the arrow had no directive — legacy behavior.
  */
-export type MagicCommentDirective = 'table';
+export type MagicCommentDirective = 'table' | 'chart' | 'image' | 'html';
 
 export interface MagicCommentLine {
   /** 1-based line number in the original source */
@@ -90,7 +90,16 @@ const JS_WATCH_RE = /^(.*?)\/\/\s*@watch\s+(.+?)\s*$/;
 // else falls through to the legacy arrow behaviour.
 const JS_ARROW_RE = /^(.+?)\/\/\s*=>(.*)$/;
 
-const KNOWN_DIRECTIVES: ReadonlySet<MagicCommentDirective> = new Set(['table']);
+const KNOWN_DIRECTIVES: ReadonlySet<MagicCommentDirective> = new Set([
+  'table',
+  // RL-044 Slice 2b-α — chart / image / html become recognised
+  // directive words so the parser contract is ready for Slice 2b-β's
+  // runner-side payload upgrade. Until that follow-up lands, the
+  // runners still leave these directives on the legacy arrow path.
+  'chart',
+  'image',
+  'html',
+]);
 
 function parseDirective(raw: string | undefined): MagicCommentDirective | undefined {
   if (!raw) return undefined;
