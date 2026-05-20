@@ -43,13 +43,16 @@ const PRESET_MS: Record<RuntimeTimeoutPreset, number> = {
 /**
  * Languages whose run-time preset Slice 7 wires through. Rust
  * (desktop child-process kill in main) and the LSP-only entries are
- * intentionally out.
+ * intentionally out. RL-042 Slice 5 added Ruby once the @ruby/wasm-wasi
+ * web runner shipped; the preset list drives the Settings UI rows so a
+ * runnable web language must enroll or its row disappears.
  */
 export const RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES = [
   'javascript',
   'typescript',
   'python',
   'go',
+  'ruby',
 ] as const;
 
 export type RuntimeTimeoutSupportedLanguage =
@@ -76,6 +79,12 @@ export const RUNTIME_TIMEOUT_DEFAULT_PRESET: Record<
   typescript: 'normal',
   python: 'long',
   go: 'normal',
+  // RL-042 Slice 5 — Ruby's @ruby/wasm-wasi boot is comparable to
+  // Pyodide's first run (~1-2s WASM compile), but per-run user code
+  // is closer to Go's interpreted shape than to Python's numerical
+  // workloads. `normal` (30s) matches what other web-WASM runtimes
+  // settle on for first-pass scripts.
+  ruby: 'normal',
 };
 
 export function isRuntimeTimeoutPreset(
@@ -136,5 +145,6 @@ export function defaultRuntimeTimeoutPresetSeed(): Record<
     typescript: 'normal',
     python: 'long',
     go: 'normal',
+    ruby: 'normal',
   };
 }

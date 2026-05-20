@@ -149,6 +149,7 @@ want to batch them into one sprint.
 - [editor] Pin tab, Reveal in Finder, Copy path on the tab context menu. Pin requires a new `isPinned` field on `FileTab` and a sort step in render; Reveal in Finder + Copy path need IPC handlers in `electron/preload.ts`. All three are referenced in the DS spec but were skipped in RL-076. — 2026-04-26
 - [ui] Display the global keyboard shortcut inline next to Command Palette entries that have a binding in `KEYBOARD_SHORTCUTS` (e.g. `Open Settings · ⌘,`). Cross-reference the catalog from `src/renderer/data/keyboardShortcuts.ts` by command id. Punted from RL-074 to keep that slice focused on grouping. — 2026-04-25
 - [ui] Promote recent-runs to their own Command Palette scope (separate eyebrow header) instead of riding inside `action`. Requires extending the `CommandCategory` enum or a new field on `CommandEntry`; deferred until we see whether users discover recent runs in the action grouping or ask for them to be more prominent. — 2026-04-25
+- [runtime] Ruby loop protection (RL-042 fold F deferred). Both the WASM and desktop subprocess paths can hang on `loop { }` / `while true` / `Enumerable#each` without a yield. Needs a renderer-side Ruby AST (Tree-sitter or ANTLR — both heavy) or a hand-rolled regex pre-pass that handles `loop do`, `while … end`, `until … end`, one-line modifiers, and block forms. Mirrors the JS/Python `injectLoopProtection` shape. Estimated ~90 LOC + tests once the parser dep is picked. — 2026-05-20
 
 ## 3. Spikes and research
 

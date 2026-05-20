@@ -663,11 +663,8 @@ interface AppLayoutProps {
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
   /**
-   * RL-093 Slice 3 — these props were originally consumed by the
-   * trimmed toolbar icons (Quick Open / Snippets / Utilities). The
-   * actions now reach users through the command palette + keyboard
-   * shortcuts, but the props are kept on the public API so App.tsx
-   * doesn't have to be rewritten in lockstep.
+   * RL-093 follow-up — toolbar action icons live in FloatingActionPill,
+   * so keep the overlay callbacks flowing through this layout boundary.
    */
   onOpenQuickOpen?: () => void;
   onOpenSnippets?: () => void;
@@ -696,6 +693,10 @@ function SidebarPanel({ panelRef, onNavigate }: SidebarPanelProps) {
 export function AppLayout({
   onOpenSettings,
   onOpenPalette,
+  onOpenQuickOpen,
+  onOpenSnippets,
+  onOpenUtilities,
+  utilitiesOpen,
 }: AppLayoutProps) {
   const { t } = useTranslation();
   const { layoutPreset } = useSettingsStore();
@@ -910,9 +911,18 @@ export function AppLayout({
         aria-hidden={isCompactDrawerOpen ? 'true' : undefined}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <AppChrome onOpenSettings={onOpenSettings} onOpenPalette={onOpenPalette} />
+        <AppChrome
+          onOpenSettings={onOpenSettings}
+        />
         <Toolbar showFloatingPill />
-        <FloatingActionPill onOpenSettings={onOpenSettings} />
+        <FloatingActionPill
+          onOpenSettings={onOpenSettings}
+          onOpenPalette={onOpenPalette}
+          onOpenQuickOpen={onOpenQuickOpen}
+          onOpenSnippets={onOpenSnippets}
+          onOpenUtilities={onOpenUtilities}
+          utilitiesOpen={utilitiesOpen}
+        />
         {showPersistentSidebar ? (
           <Group
             orientation="horizontal"

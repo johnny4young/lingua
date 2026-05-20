@@ -86,6 +86,7 @@ vi.mock('monaco-editor/esm/vs/basic-languages/go/go.js', () => basicLanguageModu
 vi.mock('monaco-editor/esm/vs/basic-languages/python/python.js', () => basicLanguageModule);
 vi.mock('monaco-editor/esm/vs/basic-languages/rust/rust.js', () => basicLanguageModule);
 vi.mock('monaco-editor/esm/vs/basic-languages/lua/lua.js', () => basicLanguageModule);
+vi.mock('monaco-editor/esm/vs/basic-languages/ruby/ruby.js', () => basicLanguageModule);
 vi.mock('monaco-editor/esm/vs/basic-languages/yaml/yaml.js', () => basicLanguageModule);
 vi.mock('monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.js', () => basicLanguageModule);
 vi.mock('monaco-editor/esm/vs/basic-languages/shell/shell.js', () => basicLanguageModule);
@@ -203,70 +204,88 @@ describe('registerLanguageCompletionProviders', () => {
     vi.resetModules();
   });
 
-  it('registers completion providers for Go, Python, Rust, and Lua once', async () => {
+  it('registers completion providers for Go, Python, Rust, Lua, and Ruby once', async () => {
+    const { getLanguageSupportDescriptors } = await import('@/languageSupport/registry');
     const { registerLanguageCompletionProviders } = await import('@/monaco');
+    const descriptors = getLanguageSupportDescriptors();
+    const completionLanguageIds = descriptors
+      .filter((descriptor) => descriptor.createCompletionProvider)
+      .map((descriptor) => descriptor.id);
+    const hoverLanguageIds = descriptors
+      .filter((descriptor) => descriptor.createHoverProvider)
+      .map((descriptor) => descriptor.id);
+    const signatureLanguageIds = descriptors
+      .filter((descriptor) => descriptor.createSignatureHelpProvider)
+      .map((descriptor) => descriptor.id);
 
     registerLanguageCompletionProviders(monacoMock as never);
     registerLanguageCompletionProviders(monacoMock as never);
 
-    expect(registerCompletionItemProvider).toHaveBeenCalledTimes(4);
-    expect(registerCompletionItemProvider).toHaveBeenNthCalledWith(
-      1,
-      'go',
-      expect.any(Object)
+    expect(completionLanguageIds).toEqual(
+      expect.arrayContaining(['go', 'python', 'rust', 'lua', 'ruby'])
     );
-    expect(registerCompletionItemProvider).toHaveBeenNthCalledWith(
-      2,
-      'python',
-      expect.any(Object)
+    expect(registerCompletionItemProvider).toHaveBeenCalledTimes(
+      completionLanguageIds.length
     );
-    expect(registerCompletionItemProvider).toHaveBeenNthCalledWith(
-      3,
-      'rust',
-      expect.any(Object)
-    );
-    expect(registerCompletionItemProvider).toHaveBeenNthCalledWith(
-      4,
-      'lua',
-      expect.any(Object)
-    );
+    for (const [index, languageId] of completionLanguageIds.entries()) {
+      expect(registerCompletionItemProvider).toHaveBeenNthCalledWith(
+        index + 1,
+        languageId,
+        expect.any(Object)
+      );
+    }
 
-    // RL-026 Slice 2 — Python also gets a hover + signature-help provider
-    // wired through the same registry guard, so double-registration is
-    // suppressed alongside the completion list. RL-026 Slice 3/4 add
-    // the same pair for Rust and Go via desktop LSP bridges.
-    expect(registerHoverProvider).toHaveBeenCalledTimes(3);
-    expect(registerHoverProvider).toHaveBeenCalledWith('python', expect.any(Object));
-    expect(registerHoverProvider).toHaveBeenCalledWith('rust', expect.any(Object));
-    expect(registerHoverProvider).toHaveBeenCalledWith('go', expect.any(Object));
-    expect(registerSignatureHelpProvider).toHaveBeenCalledTimes(3);
-    expect(registerSignatureHelpProvider).toHaveBeenCalledWith('python', expect.any(Object));
-    expect(registerSignatureHelpProvider).toHaveBeenCalledWith('rust', expect.any(Object));
-    expect(registerSignatureHelpProvider).toHaveBeenCalledWith('go', expect.any(Object));
+    expect(hoverLanguageIds).toEqual(
+      expect.arrayContaining(['python', 'ruby', 'rust', 'go'])
+    );
+    expect(registerHoverProvider).toHaveBeenCalledTimes(hoverLanguageIds.length);
+    for (const languageId of hoverLanguageIds) {
+      expect(registerHoverProvider).toHaveBeenCalledWith(
+        languageId,
+        expect.any(Object)
+      );
+    }
+
+    expect(signatureLanguageIds).toEqual(
+      expect.arrayContaining(['python', 'ruby', 'rust', 'go'])
+    );
+    expect(registerSignatureHelpProvider).toHaveBeenCalledTimes(
+      signatureLanguageIds.length
+    );
+    for (const languageId of signatureLanguageIds) {
+      expect(registerSignatureHelpProvider).toHaveBeenCalledWith(
+        languageId,
+        expect.any(Object)
+      );
+    }
   });
 
   it('registers built-in non-runtime language tokenizers once alongside completion providers', async () => {
+    const { getLanguageSupportDescriptors } = await import('@/languageSupport/registry');
     const { registerLanguageCompletionProviders } = await import('@/monaco');
 
     registerLanguageCompletionProviders(monacoMock as never);
 
-    expect(monacoMock.languages.register).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'yaml' })
+    const monacoLanguageIds = getLanguageSupportDescriptors()
+      .map((descriptor) => descriptor.monaco?.id)
+      .filter((id): id is string => Boolean(id));
+
+    expect(monacoMock.languages.register).toHaveBeenCalledTimes(
+      monacoLanguageIds.length
     );
-    expect(monacoMock.languages.register).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'dotenv' })
-    );
-    expect(monacoMock.languages.register).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'csv' })
-    );
-    expect(monacoMock.languages.register).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'dockerfile' })
-    );
-    expect(monacoMock.languages.register).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'shell' })
-    );
-    expect(monacoMock.languages.register).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'makefile' })
-    );
+    for (const languageId of [
+      'yaml',
+      'dotenv',
+      'csv',
+      'dockerfile',
+      'ruby',
+      'shell',
+      'makefile',
+    ]) {
+      expect(monacoLanguageIds).toContain(languageId);
+      expect(monacoMock.languages.register).toHaveBeenCalledWith(
+        expect.objectContaining({ id: languageId })
+      );
+    }
   });
 });

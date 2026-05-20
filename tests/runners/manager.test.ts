@@ -82,16 +82,19 @@ describe('RunnerManager', () => {
     expect(manager.isSupported('go')).toBe(true);
     expect(manager.isSupported('python')).toBe(true);
     expect(manager.isSupported('rust')).toBe(true);
+    // RL-042 Slice 5 — Ruby joined the built-in factories.
+    expect(manager.isSupported('ruby')).toBe(true);
   });
 
-  it('should list all 5 supported languages', () => {
+  it('should list all 6 supported languages', () => {
     const supported = manager.getSupportedLanguages();
     expect(supported).toContain('javascript');
     expect(supported).toContain('typescript');
     expect(supported).toContain('go');
     expect(supported).toContain('python');
     expect(supported).toContain('rust');
-    expect(supported).toHaveLength(5);
+    expect(supported).toContain('ruby');
+    expect(supported).toHaveLength(6);
   });
 
   it('should get rust runner (initializes with detect)', async () => {

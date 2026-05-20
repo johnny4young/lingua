@@ -75,6 +75,13 @@ export interface LanguagePackCapabilities {
    * UI to surface "missing toolchain" badges.
    */
   runtimeDependencies?: readonly string[];
+  /**
+   * Whether runtimeDependencies are required for the language to run.
+   * Defaults to required when runtimeDependencies is present. Optional is
+   * for hybrid languages, such as Ruby, where a host binary is preferred
+   * on desktop but a bundled browser-safe fallback still runs the language.
+   */
+  runtimeDependencyMode?: 'required' | 'optional';
 }
 
 export interface LanguagePack {
@@ -243,17 +250,21 @@ export const LANGUAGE_PACKS: readonly LanguagePack[] = [
     extensions: ['rb'],
     monacoLanguage: 'ruby',
     defaultCode: "# Ruby example\nputs 'Hello, Lingua'\n",
-    // RL-042 first slice: Ruby ships as a validate-only pack so the
-    // file tree + language detection + language selector see it, but
-    // there's no runtime yet. Execution work belongs to a future
-    // slice that adds either a Ruby.wasm runtime or a desktop shell-
-    // out path.
-    execution: 'validate',
-    runnerId: null,
+    // RL-042 Slice 5/6: Ruby runs through the bundled @ruby/wasm-wasi
+    // worker on web and can prefer the host `ruby` subprocess on desktop.
+    // The desktop path is optional because the WASM worker remains a
+    // runnable fallback when the system binary is absent.
+    execution: 'run',
+    runnerId: 'ruby',
     formatter: 'none',
-    capabilities: { lsp: 'none', debugger: 'none' },
+    capabilities: {
+      lsp: 'adapter',
+      debugger: 'none',
+      runtimeDependencies: ['ruby'],
+      runtimeDependencyMode: 'optional',
+    },
     docsUrl: 'https://www.ruby-lang.org/en/documentation/',
-    templateIds: [],
+    templateIds: ['rb-hello', 'rb-sort', 'rb-class'],
   },
   {
     id: 'c',

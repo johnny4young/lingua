@@ -251,7 +251,7 @@ function syncConsentMirror(
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       theme: 'dark',
       editorTheme: 'lingua-dark',
       fontSize: 14,
@@ -319,6 +319,11 @@ export const useSettingsStore = create<SettingsState>()(
       // who prefer the legacy text-only console can flip this OFF in
       // Settings → Editor.
       consoleRichRenderingEnabled: true,
+      // RL-042 Slice 6 — Ruby runtime preference. `auto` is the
+      // friendliest default (system when detected, WASM otherwise).
+      // Sanitization in the rehydrate handler below maps tampered
+      // values back to this seed.
+      rubyRuntimePreference: 'auto',
       // RL-019 Slice 2 fold E — Node first-run trust notice flag.
       // Defaults `false`; flipped to `true` after the first
       // successful Node-mode run.
@@ -523,6 +528,26 @@ export const useSettingsStore = create<SettingsState>()(
       // RL-044 Slice 1B fold E — flip the rich console output toggle.
       toggleConsoleRichRendering: () =>
         set((s) => ({ consoleRichRenderingEnabled: !s.consoleRichRenderingEnabled })),
+      // RL-042 Slice 6 — set the Ruby runtime dispatcher preference.
+      // Telemetry mirrors the closed enum so dashboards see the
+      // distribution. Tampered values are rejected by the setter
+      // itself; the sanitizer below is the additional rehydrate
+      // defense.
+      setRubyRuntimePreference: (preference) => {
+        if (
+          preference !== 'auto' &&
+          preference !== 'system' &&
+          preference !== 'wasm'
+        ) {
+          return;
+        }
+        const prev = get().rubyRuntimePreference;
+        if (prev === preference) return;
+        set({ rubyRuntimePreference: preference });
+        void trackEvent('runtime.ruby_runtime_preference_changed', {
+          preference,
+        });
+      },
       // RL-020 Slice 2 fold F — record that the onboarding toast has
       // been seen so future workflow-mode switches stay silent.
       acknowledgeFirstWorkflowModeSwitch: () =>
@@ -614,6 +639,7 @@ export const useSettingsStore = create<SettingsState>()(
         runtimeTimeoutPresetByLanguage: state.runtimeTimeoutPresetByLanguage,
         showTimeoutCountdown: state.showTimeoutCountdown,
         consoleRichRenderingEnabled: state.consoleRichRenderingEnabled,
+        rubyRuntimePreference: state.rubyRuntimePreference,
         firstWorkflowModeSwitchAcknowledged:
           state.firstWorkflowModeSwitchAcknowledged,
         language: state.language,
@@ -762,6 +788,15 @@ export const useSettingsStore = create<SettingsState>()(
           typeof merged.consoleRichRenderingEnabled === 'boolean'
             ? merged.consoleRichRenderingEnabled
             : currentState.consoleRichRenderingEnabled;
+        // RL-042 Slice 6 — same guard as the boolean above. Anything
+        // outside the closed enum (`auto` / `system` / `wasm`) gets
+        // mapped back to the seed.
+        const rubyRuntimePreference: 'auto' | 'system' | 'wasm' =
+          merged.rubyRuntimePreference === 'auto' ||
+          merged.rubyRuntimePreference === 'system' ||
+          merged.rubyRuntimePreference === 'wasm'
+            ? merged.rubyRuntimePreference
+            : currentState.rubyRuntimePreference;
         return {
           ...merged,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
@@ -778,6 +813,7 @@ export const useSettingsStore = create<SettingsState>()(
           runtimeTimeoutPresetByLanguage: seededTimeoutPresets,
           showTimeoutCountdown,
           consoleRichRenderingEnabled,
+          rubyRuntimePreference,
           firstWorkflowModeSwitchAcknowledged,
         };
       },

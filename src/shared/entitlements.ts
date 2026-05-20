@@ -38,7 +38,11 @@ export type Entitlement = (typeof ENTITLEMENTS)[number];
 export const FREE_TIER_LIMITS = {
   maxOpenTabs: 1,
   maxSnippets: 5,
-  allowedLanguages: ['javascript', 'typescript', 'python'] as readonly string[],
+  // RL-042 Slice 5 — Ruby (@ruby/wasm-wasi) joins the Free set with
+  // the same posture as Python (Pyodide): pure browser WASM, no host
+  // binary, no proprietary toolchain. Go / Rust stay Pro because they
+  // need a desktop subprocess (or a research-tier WASM compile).
+  allowedLanguages: ['javascript', 'typescript', 'python', 'ruby'] as readonly string[],
 } as const;
 
 /** Convenience: ceiling for a concrete tier. Paid tiers collapse to Infinity. */

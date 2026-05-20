@@ -73,6 +73,12 @@ export const TELEMETRY_EVENT_NAMES = [
   // `runtime.python_console_payload_emitted`. Closed-enum
   // `{ kind }` from `CONSOLE_RICH_KIND_BUCKETS`.
   'runtime.python_console_payload_emitted',
+  // RL-042 Slice 6 — mirror of `runtime.ruby_runner_dispatched`.
+  // Closed-enum `{ mode, bucketedSpawnMs }`.
+  'runtime.ruby_runner_dispatched',
+  // RL-042 Slice 6 — mirror of `runtime.ruby_runtime_preference_changed`.
+  // Closed-enum `{ preference }`.
+  'runtime.ruby_runtime_preference_changed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -120,6 +126,10 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-044 Slice 1C fold B — mirror of
   // `runtime.python_console_payload_emitted`.
   'runtime.python_console_payload_emitted': ['kind'],
+  // RL-042 Slice 6 — mirror of `runtime.ruby_runner_dispatched`.
+  'runtime.ruby_runner_dispatched': ['mode', 'bucketedSpawnMs'],
+  // RL-042 Slice 6 — mirror of `runtime.ruby_runtime_preference_changed`.
+  'runtime.ruby_runtime_preference_changed': ['preference'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -195,6 +205,25 @@ export const CONSOLE_RICH_KIND_BUCKETS = new Set([
   // RL-044 Slice 1C fold F — Python BaseException payloads ship the
   // error kind. Mirrors the renderer addition.
   'error',
+]);
+// RL-042 Slice 6 — mirrors of the Ruby dispatcher enums in
+// `src/shared/telemetry.ts`. Parity test asserts alignment.
+export const RUBY_DISPATCHED_MODE_VALUES = new Set([
+  'system',
+  'wasm',
+  'missing',
+]);
+export const RUBY_SPAWN_BUCKETS = new Set([
+  '<100ms',
+  '<300ms',
+  '<1s',
+  '<3s',
+  '>=3s',
+]);
+export const RUBY_RUNTIME_PREFERENCE_VALUES = new Set([
+  'auto',
+  'system',
+  'wasm',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -490,6 +519,25 @@ function isAllowedValue(
       if (key === 'kind')
         return (
           typeof value === 'string' && CONSOLE_RICH_KIND_BUCKETS.has(value)
+        );
+      return false;
+    case 'runtime.ruby_runner_dispatched':
+      if (key === 'mode')
+        return (
+          typeof value === 'string' &&
+          RUBY_DISPATCHED_MODE_VALUES.has(value)
+        );
+      if (key === 'bucketedSpawnMs')
+        return (
+          typeof value === 'string' &&
+          RUBY_SPAWN_BUCKETS.has(value)
+        );
+      return false;
+    case 'runtime.ruby_runtime_preference_changed':
+      if (key === 'preference')
+        return (
+          typeof value === 'string' &&
+          RUBY_RUNTIME_PREFERENCE_VALUES.has(value)
         );
       return false;
     default: {

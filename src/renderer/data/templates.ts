@@ -400,6 +400,65 @@ fn main() {
 }
 `,
   },
+
+  // ── Ruby ─────────────────────────────────────────────────────────────────
+  // RL-042 Slice 5 — starter set matching the JS/TS/Python pattern so the
+  // language pack's `templateIds` contract has something to resolve once
+  // Ruby flipped from validate-only to runnable.
+  {
+    id: 'rb-hello',
+    language: 'ruby',
+    fileStem: 'Hello World',
+    labelKey: 'templates.rb-hello.label',
+    descriptionKey: 'templates.rb-hello.description',
+    code: `puts "Hello, World!"
+`,
+  },
+  {
+    id: 'rb-sort',
+    language: 'ruby',
+    fileStem: 'Sorting',
+    labelKey: 'templates.rb-sort.label',
+    descriptionKey: 'templates.rb-sort.description',
+    code: `nums = [3, 1, 4, 1, 5, 9, 2, 6]
+
+ascending = nums.sort
+descending = nums.sort.reverse
+by_evens_first = nums.sort_by { |n| [n.even? ? 0 : 1, n] }
+
+puts "Ascending:  #{ascending.inspect}"
+puts "Descending: #{descending.inspect}"
+puts "Evens first: #{by_evens_first.inspect}"
+`,
+  },
+  {
+    id: 'rb-class',
+    language: 'ruby',
+    fileStem: 'Class',
+    labelKey: 'templates.rb-class.label',
+    descriptionKey: 'templates.rb-class.description',
+    code: `class Student
+  attr_reader :name, :grade, :courses
+
+  def initialize(name, grade, courses = [])
+    @name = name
+    @grade = grade
+    @courses = courses
+  end
+
+  def gpa_letter
+    return 'A' if grade >= 90
+    return 'B' if grade >= 80
+    return 'C' if grade >= 70
+    'F'
+  end
+end
+
+alice = Student.new("Alice", 92.5, ["Math", "CS", "Physics"])
+puts "#{alice.name}: #{alice.gpa_letter} (#{alice.grade})"
+puts "Courses: #{alice.courses.join(', ')}"
+`,
+  },
 ];
 
 export function getTemplatesForLanguage(language: Language): Template[] {

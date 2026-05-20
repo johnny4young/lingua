@@ -551,6 +551,16 @@ export interface SettingsState {
    */
   consoleRichRenderingEnabled: boolean;
   /**
+   * RL-042 Slice 6 — Ruby runtime dispatcher preference. `auto` (the
+   * default) prefers the system `ruby` binary when detected and falls
+   * back to the bundled `@ruby/wasm-wasi` worker otherwise. `system`
+   * forces the desktop subprocess (still falls back to WASM with a
+   * status notice if the binary is missing). `wasm` always uses the
+   * worker, even on desktop. Web builds ignore `system` / `auto` and
+   * always run WASM because the bridge is missing.
+   */
+  rubyRuntimePreference: 'auto' | 'system' | 'wasm';
+  /**
    * RL-019 Slice 2 fold E — one-shot dismissal flag for the
    * "Node mode runs your code with full filesystem and network
    * access" trust notice. Set the first time the user successfully
@@ -688,6 +698,8 @@ export interface SettingsState {
    * text path for every entry even when the runner sent a payload.
    */
   toggleConsoleRichRendering: () => void;
+  /** RL-042 Slice 6 — set the Ruby runtime dispatcher preference. */
+  setRubyRuntimePreference: (preference: 'auto' | 'system' | 'wasm') => void;
   /**
    * RL-020 Slice 2 fold F — mark the workflow-mode onboarding toast
    * acknowledged. Idempotent. Called when the user explicitly

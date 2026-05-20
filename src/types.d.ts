@@ -130,6 +130,48 @@ interface NodeRunResult {
   timeoutMs: number;
 }
 
+// -------------------------------------------------------------- Ruby types
+// RL-042 Slice 6 — desktop Ruby child-spawn IPC. Web build does not
+// expose `window.lingua.ruby` (the renderer falls through to the
+// `@ruby/wasm-wasi` worker instead).
+
+interface RubyDetectResult {
+  installed: boolean;
+  /** Full `ruby --version` line. */
+  version?: string;
+  /** Fold A — parsed semver (e.g. `3.3.6`). Absent when parsing fails. */
+  semver?: string;
+  /** Fold A — parsed platform tuple (e.g. `arm64-darwin23`). */
+  platform?: string;
+  error?: string;
+}
+
+type RubyRunKind =
+  | 'success'
+  | 'error'
+  | 'timeout'
+  | 'stopped'
+  | 'missing-binary';
+
+interface RubyRunInvokeOptions {
+  runId?: string;
+  timeoutMs?: number;
+  filePath?: string;
+  userEnv?: Record<string, string>;
+  stdin?: string;
+  messages?: NativeRunnerMessages;
+}
+
+interface RubyRunResult {
+  kind: RubyRunKind;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  executionTime: number;
+  error?: string;
+  timeoutMs: number;
+}
+
 // RL-026 Slice 3 + Slice 4 — desktop LSP launcher status surface.
 // `RustAnalyzerStatus` and `GoplsStatus` share the same discriminated
 // union so the renderer and preload can use a single contract; the
@@ -489,6 +531,23 @@ interface LinguaAPI {
       source: string,
       options?: NodeRunInvokeOptions
     ) => Promise<NodeRunResult>;
+    stop: (runId: string) => Promise<{ stopped: boolean }>;
+  };
+
+  // RL-042 Slice 6 — desktop Ruby child-spawn IPC. Optional because
+  // the web build's adapter (src/web/adapter.ts) deliberately omits
+  // this surface — the renderer falls back to the @ruby/wasm-wasi
+  // worker instead. Callers MUST check `window.lingua.ruby` before
+  // invoking, same as `window.lingua.node`.
+  ruby?: {
+    detect: (
+      userEnv?: Record<string, string>,
+      force?: boolean
+    ) => Promise<RubyDetectResult>;
+    run: (
+      source: string,
+      options?: RubyRunInvokeOptions
+    ) => Promise<RubyRunResult>;
     stop: (runId: string) => Promise<{ stopped: boolean }>;
   };
 

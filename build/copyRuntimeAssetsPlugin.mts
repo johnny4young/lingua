@@ -1,7 +1,7 @@
 import { copyFile, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
-import { PYODIDE_COPY_FILES, RUNTIME_ASSETS } from '../src/shared/runtimeAssets';
+import { RUNTIME_ASSETS } from '../src/shared/runtimeAssets';
 
 type RuntimeAssetRequestResolution =
   | { status: 'next' }
@@ -78,25 +78,28 @@ export async function copyRuntimeAssetFiles(
 }
 
 /**
- * RL-083 Slice 1 — copy Pyodide runtime assets into the renderer
- * build output and serve them from the dev server.
+ * RL-083 Slice 1 (extended in RL-042 Slice 5) — copy runtime assets
+ * into the renderer build output and serve them from the dev server.
  *
- * Build mode: after Rollup writes the bundle, we copy each file in
- * `PYODIDE_COPY_FILES` from `node_modules/pyodide/` into
- * `<outDir>/pyodide/`. The worker chunk lands in `<outDir>/assets/`
- * so `new URL('../pyodide/...', import.meta.url)` resolves to the
- * copied tree.
+ * The plugin walks every entry in `RUNTIME_ASSETS` (Pyodide and Ruby
+ * today) and:
+ *
+ * Build mode: after Rollup writes the bundle, copies each file in the
+ * entry's `copyFiles` list (or `criticalFiles` when omitted) from
+ * `node_modules/<entry.nodeModulesPath>` into
+ * `<outDir>/<entry.servedPath>/`. The worker chunk lands in
+ * `<outDir>/assets/` so `new URL('../<servedPath>/...', import.meta.url)`
+ * resolves to the copied tree.
  *
  * Dev mode: Vite serves the worker source at
- * `/src/renderer/workers/python-worker.ts`, so the same
- * `../pyodide/` relative URL resolves to `/src/renderer/pyodide/`.
- * A middleware here serves the same files from `node_modules/pyodide/`
- * under that prefix. The middleware is registered as `pre` so Vite's
- * own static-file pipeline does not 404 the request before us.
+ * `/src/renderer/workers/...`, so the same `../<servedPath>/` relative
+ * URL resolves to `/src/renderer/<servedPath>/`. A middleware here
+ * serves the files from `node_modules/<nodeModulesPath>/` under that
+ * prefix. Registered as `pre` so Vite's static-file pipeline does not
+ * 404 the request before we do.
  */
 export function copyRuntimeAssetsPlugin(): Plugin {
-  const pyodide = RUNTIME_ASSETS.pyodide;
-  const devUrlPrefix = `/src/renderer/${pyodide.servedPath}/`;
+  const assetEntries = Object.values(RUNTIME_ASSETS);
 
   return {
     name: 'lingua:copy-runtime-assets',
@@ -107,76 +110,93 @@ export function copyRuntimeAssetsPlugin(): Plugin {
       // Resolve from the repo cwd rather than Vite's HTML root. The
       // renderer config uses the repo root, while the standalone web
       // config uses `src/web`; both still share the top-level
-      // `node_modules/pyodide` install.
-      const sourceDir = path.resolve(process.cwd(), pyodide.nodeModulesPath);
-      const urlPrefix = devUrlPrefix;
+      // `node_modules/` install.
+      const middlewareConfigs = assetEntries.map((asset) => ({
+        sourceDir: path.resolve(process.cwd(), asset.nodeModulesPath),
+        urlPrefix: `/src/renderer/${asset.servedPath}/`,
+      }));
 
       server.middlewares.use(async (req, res, next) => {
-        const resolution = resolveRuntimeAssetRequestPath(
-          sourceDir,
-          urlPrefix,
-          req.url
-        );
-        if (resolution.status === 'next') {
-          return next();
-        }
-        if (resolution.status === 'bad-request') {
-          res.statusCode = 400;
-          res.end('bad request');
-          return;
-        }
+        for (const { sourceDir, urlPrefix } of middlewareConfigs) {
+          const resolution = resolveRuntimeAssetRequestPath(
+            sourceDir,
+            urlPrefix,
+            req.url
+          );
+          if (resolution.status === 'next') continue;
+          if (resolution.status === 'bad-request') {
+            res.statusCode = 400;
+            res.end('bad request');
+            return;
+          }
 
-        try {
-          const fileStat = await stat(resolution.absolutePath);
-          if (!fileStat.isFile()) {
-            return next();
+          try {
+            const fileStat = await stat(resolution.absolutePath);
+            if (!fileStat.isFile()) {
+              // Try the remaining asset entries — a stat-but-not-a-file
+              // hit here does not necessarily mean the request was for
+              // this asset's tree. Without `continue`, requests for a
+              // later asset could be silently 404'd when an earlier
+              // asset's source dir contains a directory entry with the
+              // matching relative name.
+              continue;
+            }
+            // Pyodide + Ruby ship a few asset types — set the well-known
+            // ones and let the rest fall back to octet-stream.
+            const ext = path.extname(resolution.absolutePath).toLowerCase();
+            if (ext === '.mjs' || ext === '.js') {
+              res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+            } else if (ext === '.wasm') {
+              res.setHeader('Content-Type', 'application/wasm');
+            } else if (ext === '.json') {
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            } else if (ext === '.zip') {
+              res.setHeader('Content-Type', 'application/zip');
+            } else if (ext === '.ts') {
+              res.setHeader('Content-Type', 'application/typescript; charset=utf-8');
+            } else {
+              res.setHeader('Content-Type', 'application/octet-stream');
+            }
+            const { createReadStream } = await import('node:fs');
+            createReadStream(resolution.absolutePath).pipe(res);
+            return;
+          } catch {
+            // Same rationale as the !isFile branch above — fall through
+            // to the next asset entry rather than short-circuiting the
+            // whole middleware.
+            continue;
           }
-          // Pyodide ships a few asset types — set the well-known ones
-          // and let the rest fall back to octet-stream.
-          const ext = path.extname(resolution.absolutePath).toLowerCase();
-          if (ext === '.mjs' || ext === '.js') {
-            res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-          } else if (ext === '.wasm') {
-            res.setHeader('Content-Type', 'application/wasm');
-          } else if (ext === '.json') {
-            res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          } else if (ext === '.zip') {
-            res.setHeader('Content-Type', 'application/zip');
-          } else if (ext === '.ts') {
-            res.setHeader('Content-Type', 'application/typescript; charset=utf-8');
-          } else {
-            res.setHeader('Content-Type', 'application/octet-stream');
-          }
-          const { createReadStream } = await import('node:fs');
-          createReadStream(resolution.absolutePath).pipe(res);
-        } catch {
-          return next();
         }
+        return next();
       });
     },
 
     async writeBundle(options) {
       // Fail loud if the bundler did not give us an output directory
-      // — silently falling back to `<cwd>/dist/pyodide` under Forge
-      // means the packaged app finds no Pyodide assets at runtime
-      // even though the build looks healthy. (Reviewer flagged this.)
+      // — silently falling back to `<cwd>/dist/...` under Forge means
+      // the packaged app finds no runtime assets at runtime even
+      // though the build looks healthy. (Reviewer flagged this on the
+      // Pyodide path; same rationale applies to Ruby.)
       if (!options.dir) {
         throw new Error(
           '[copy-runtime-assets] writeBundle received no options.dir; refusing to guess an output path.'
         );
       }
-      const targetDir = path.join(options.dir, pyodide.servedPath);
 
-      // The package root holds the static asset tree; copy a curated
-      // list rather than the whole directory so we never accidentally
-      // ship test fixtures or sourcemaps the upstream package may add.
-      const sourceDir = path.resolve(pyodide.nodeModulesPath);
-      await copyRuntimeAssetFiles(
-        sourceDir,
-        targetDir,
-        PYODIDE_COPY_FILES,
-        pyodide.criticalFiles
-      );
+      for (const asset of assetEntries) {
+        const targetDir = path.join(options.dir, asset.servedPath);
+        // The package root holds the static asset tree; copy a curated
+        // list rather than the whole directory so we never accidentally
+        // ship test fixtures or sourcemaps the upstream package may add.
+        const sourceDir = path.resolve(asset.nodeModulesPath);
+        const files = asset.copyFiles ?? asset.criticalFiles;
+        await copyRuntimeAssetFiles(
+          sourceDir,
+          targetDir,
+          files,
+          asset.criticalFiles
+        );
+      }
     },
   };
 }

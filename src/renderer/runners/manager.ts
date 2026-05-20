@@ -3,6 +3,7 @@ import { JavaScriptRunner } from './javascript';
 import { TypeScriptRunner } from './typescript';
 import { GoRunner } from './go';
 import { PythonRunner } from './python';
+import { RubyRunner } from './ruby';
 import { RustRunner } from './rust';
 import { BrowserPreviewRunner } from './browserPreview';
 import { NodeRunner } from './nodeRunner';
@@ -30,6 +31,12 @@ const BUILT_IN_RUNNER_FACTORIES: Record<string, () => LanguageRunner> = {
   typescript: () => new TypeScriptRunner(),
   go: () => new GoRunner(),
   python: () => new PythonRunner(),
+  // RL-042 Slice 5 — Ruby web runtime via `@ruby/wasm-wasi`. The
+  // pack's `runnerId` flipped from `null` to `'ruby'` in the same
+  // slice; the factory must land alongside or the manager's
+  // constructor walk skips the entry and Ruby tabs fall through to
+  // the `'No runner available'` message.
+  ruby: () => new RubyRunner(),
   rust: () => new RustRunner(),
 };
 

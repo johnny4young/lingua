@@ -18,6 +18,7 @@ import {
 import { registerFormatterHandlers } from './formatters';
 import { registerGoHandlers } from './go-compiler';
 import { registerRustHandlers } from './rust-compiler';
+import { registerRubyHandlers } from './ruby-runner';
 import { registerNodeJSHandlers } from './node-runner';
 import { registerAppInfoHandlers } from './ipc/appInfo';
 import { registerFileSystemHandlers } from './ipc/fileSystem';
@@ -75,6 +76,7 @@ if (!hasSingleInstanceLock) {
 // Register IPC handlers
 registerGoHandlers();
 registerRustHandlers();
+registerRubyHandlers();
 registerNodeJSHandlers();
 registerFormatterHandlers();
 registerAppInfoHandlers();

@@ -23,6 +23,7 @@ import { RUNTIME_ASSETS } from '#src/shared/runtimeAssets';
 const __filename = fileURLToPath(import.meta.url);
 const repoRoot = path.resolve(path.dirname(__filename), '..', '..');
 const lockPath = path.join(repoRoot, 'runtime-assets.lock.json');
+const packageJsonPath = path.join(repoRoot, 'package.json');
 const rendererConfigPath = path.join(repoRoot, 'vite.renderer.config.mts');
 const webConfigPath = path.join(repoRoot, 'vite.web.config.mts');
 const serviceWorkerPath = path.join(repoRoot, 'public', 'sw.js');
@@ -49,16 +50,24 @@ describe('RL-083 — runtime-assets.lock.json integrity', () => {
       expect(lockEntry.sourceUrl).toBe(entry.sourceUrl);
 
       const baseDir = path.join(repoRoot, entry.nodeModulesPath);
+      const packageDir = path.join(
+        repoRoot,
+        entry.packageDir ?? entry.nodeModulesPath
+      );
       const packageJson = JSON.parse(
-        await readFile(path.join(baseDir, 'package.json'), 'utf8')
+        await readFile(path.join(packageDir, 'package.json'), 'utf8')
       ) as { version?: string };
       expect(entry.version, `${id} runtime registry version must match package.json`).toBe(
         packageJson.version
       );
+      // Source URL must mention the package version, but the format
+      // varies per CDN: Pyodide uses `/v0.29.4/`, jsdelivr's npm-mode
+      // URL for Ruby uses `@2.9.3-2.9.4`. Either path counts as
+      // version-pinned integrity.
       expect(
         entry.sourceUrl,
         `${id} runtime registry source URL must include the package version`
-      ).toContain(`/v${packageJson.version}/`);
+      ).toContain(packageJson.version);
 
       for (const file of entry.criticalFiles) {
         const expected = lockEntry.integrity[file];
@@ -93,5 +102,18 @@ describe('RL-083 — runtime-assets.lock.json integrity', () => {
     const sw = await readFile(serviceWorkerPath, 'utf8');
     expect(sw).not.toContain('PYODIDE_CACHE_PREFIX');
     expect(sw).not.toContain(RUNTIME_ASSETS.pyodide.sourceUrl);
+  });
+
+  it('keeps Ruby JS bindings paired with the version-specific WASM package', async () => {
+    const pkg = JSON.parse(await readFile(packageJsonPath, 'utf8')) as {
+      dependencies?: Record<string, string>;
+    };
+
+    expect(pkg.dependencies?.['@ruby/3.4-wasm-wasi']).toBe(
+      RUNTIME_ASSETS.ruby.version
+    );
+    expect(pkg.dependencies?.['@ruby/wasm-wasi']).toBe(
+      RUNTIME_ASSETS.ruby.version
+    );
   });
 });

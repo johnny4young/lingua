@@ -6,8 +6,8 @@
  *      mode-aware action button labelled by `currentWorkflow`.
  *   2. Clicking the action button fires `run()` (not `stop()`) when
  *      `isRunning === false`.
- *   3. The Settings cog only appears when `onOpenSettings` is wired,
- *      and clicking it invokes the callback.
+ *   3. Toolbar overlay actions live in the pill, while Settings remains
+ *      a single trailing cog.
  *
  * The hook chain transitively pulls in esbuild-wasm (via useRunner →
  * executeTabManually) which fails to initialize under jsdom; the
@@ -17,6 +17,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ComponentProps } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import i18next from 'i18next';
 import { initI18n } from '@/i18n';
@@ -63,7 +64,7 @@ beforeEach(async () => {
   useUIStore.setState({ actionPillPosition: null });
 });
 
-function renderPill(props: { onOpenSettings?: () => void } = {}) {
+function renderPill(props: ComponentProps<typeof FloatingActionPill> = {}) {
   return render(
     <I18nextProvider i18n={i18next}>
       <FloatingActionPill {...props} />
@@ -104,6 +105,34 @@ describe('FloatingActionPill', () => {
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
   });
 
+  it('routes the moved toolbar shortcuts from the pill', async () => {
+    const user = userEvent.setup();
+    const onOpenQuickOpen = vi.fn();
+    const onOpenPalette = vi.fn();
+    const onOpenSnippets = vi.fn();
+    const onOpenUtilities = vi.fn();
+
+    renderPill({
+      onOpenQuickOpen,
+      onOpenPalette,
+      onOpenSnippets,
+      onOpenUtilities,
+      utilitiesOpen: true,
+    });
+
+    await user.click(screen.getByTestId('action-pill-quick-open'));
+    await user.click(screen.getByTestId('action-pill-search'));
+    await user.click(screen.getByTestId('action-pill-snippets'));
+    const utilitiesButton = screen.getByTestId('action-pill-utilities');
+    expect(utilitiesButton.getAttribute('aria-pressed')).toBe('true');
+    await user.click(utilitiesButton);
+
+    expect(onOpenQuickOpen).toHaveBeenCalledOnce();
+    expect(onOpenPalette).toHaveBeenCalledOnce();
+    expect(onOpenSnippets).toHaveBeenCalledOnce();
+    expect(onOpenUtilities).toHaveBeenCalledOnce();
+  });
+
   it('creates a new tab when the current language is picked again', async () => {
     const user = userEvent.setup();
     useEditorStore.setState({
@@ -126,6 +155,7 @@ describe('FloatingActionPill', () => {
     let menu = screen.getByRole('menu');
     expect(within(menu).getByText('JS')).toBeTruthy();
     expect(within(menu).getByText('TS')).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Ruby/ })).toBeTruthy();
     await user.click(within(menu).getByRole('menuitem', { name: /JavaScript/ }));
 
     await user.click(screen.getByTestId('action-pill-lang'));

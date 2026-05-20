@@ -99,6 +99,39 @@ export const NODE_TOOLCHAIN_KEYS = [
 ] as const;
 
 /**
+ * RL-042 Slice 6 — Ruby-specific host-env keys. Covers:
+ *   - `GEM_HOME` / `GEM_PATH` / `BUNDLE_GEMFILE`: per-user gem caches
+ *     + bundler context. Without these, system Ruby cannot see gems
+ *     the user installed via `gem install --user`.
+ *   - `RBENV_VERSION` / `ASDF_RUBY_VERSION`: version-pin selectors so
+ *     shims pick the right interpreter. Fold D writes these from a
+ *     discovered `.ruby-version` file.
+ *   - `RBENV_ROOT` / `RBENV_DIR`: rbenv installation paths so the
+ *     shim wrapper can resolve.
+ *   - `ASDF_DIR` / `ASDF_DATA_DIR`: same for asdf-vm.
+ *
+ * Intentionally NOT here: `RUBYOPT`, `RUBYLIB`, `IRBRC`, `RUBYRC`,
+ * `RACK_ENV`, `RAILS_ENV`. Those are user-controllable knobs that
+ * belong in the RL-011 user env tier (Settings → Environment Variables)
+ * — same posture as `NODE_OPTIONS` (excluded above) and `RUSTFLAGS`
+ * (excluded above). `RUBYOPT` in particular is a command-line flag
+ * injector that would let the host slip arbitrary `-r/some/path` /
+ * `-I/another/path` switches into every Ruby spawn; treating it as
+ * user-controlled is the conservative posture.
+ */
+export const RUBY_TOOLCHAIN_KEYS = [
+  'GEM_HOME',
+  'GEM_PATH',
+  'BUNDLE_GEMFILE',
+  'RBENV_VERSION',
+  'RBENV_ROOT',
+  'RBENV_DIR',
+  'ASDF_RUBY_VERSION',
+  'ASDF_DIR',
+  'ASDF_DATA_DIR',
+] as const;
+
+/**
  * Build the env passed to `child_process.spawn` / `execFile` for a
  * native runner subprocess. Layering, in order:
  *

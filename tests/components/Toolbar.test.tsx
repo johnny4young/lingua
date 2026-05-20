@@ -423,10 +423,13 @@ describe('Toolbar', () => {
       screen.getByTestId('toolbar-new-file-capability-go').textContent
     ).toContain('Desktop only');
 
-    // JS / TS / Python ship their runtime in-process — no badge.
+    expect(screen.getByRole('menuitem', { name: /^Ruby/ })).toBeTruthy();
+
+    // JS / TS / Python / Ruby ship a portable runtime in-process — no badge.
     expect(screen.queryByTestId('toolbar-new-file-capability-javascript')).toBeNull();
     expect(screen.queryByTestId('toolbar-new-file-capability-typescript')).toBeNull();
     expect(screen.queryByTestId('toolbar-new-file-capability-python')).toBeNull();
+    expect(screen.queryByTestId('toolbar-new-file-capability-ruby')).toBeNull();
   });
 
   it('disables the Run button and shows the desktop-only tooltip when Go is active on the web build (RL-038 Slice C)', async () => {

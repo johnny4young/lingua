@@ -662,6 +662,67 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
+  it('RUBY_DISPATCHED_MODE_VALUES + RUBY_SPAWN_BUCKETS stay in sync with the renderer (RL-042 Slice 6)', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const modeRe =
+      /export const RUBY_DISPATCHED_MODE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const spawnRe =
+      /export const RUBY_SPAWN_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const prefRe =
+      /export const RUBY_RUNTIME_PREFERENCE_VALUES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    for (const [label, re] of [
+      ['mode', modeRe],
+      ['spawn', spawnRe],
+      ['preference', prefRe],
+    ] as const) {
+      const workerMatch = workerSource.match(re);
+      const sharedMatch = sharedSource.match(re);
+      expect(workerMatch, `worker ${label}`).not.toBeNull();
+      expect(sharedMatch, `shared ${label}`).not.toBeNull();
+      const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+        .map((match) => match[1]!)
+        .sort();
+      const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+        .map((match) => match[1]!)
+        .sort();
+      expect(workerValues, `${label} parity`).toEqual(sharedValues);
+    }
+  });
+
+  it('runtime.ruby_runner_dispatched accepts closed-enum mode + bucket, drops unknown (RL-042 Slice 6)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.ruby_runner_dispatched',
+      properties: { mode: 'system', bucketedSpawnMs: '<300ms' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownResponse = await postTelemetry({
+      event: 'runtime.ruby_runner_dispatched',
+      properties: { mode: 'jruby', bucketedSpawnMs: '15m' },
+    });
+    expect(unknownResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter(
+        (line) =>
+          line.includes('"telemetry.event"') &&
+          line.includes('"runtime.ruby_runner_dispatched"')
+      );
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const okLine = eventLines.find((line) =>
+      line.includes('"mode":"system"')
+    );
+    expect(okLine).toBeDefined();
+    const unknownLine = eventLines.find((line) => line.includes('"jruby"'));
+    expect(unknownLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
   it('runtime.python_console_payload_emitted accepts closed-enum kind, drops unknown (RL-044 Slice 1C fold B)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({

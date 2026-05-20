@@ -7,9 +7,6 @@ import type {
 } from '../types';
 import i18next from 'i18next';
 import { parseGoExecutionError } from '../utils/executionDiagnostics';
-import { useEditorStore } from '../stores/editorStore';
-import { useEnvVarsStore } from '../stores/envVarsStore';
-import { useProjectStore } from '../stores/projectStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import {
   resolveTimeoutMs,
@@ -22,6 +19,10 @@ import {
   runnerTimeoutResult,
   type TranslateFn,
 } from './limits';
+import {
+  resolveNativeRunnerMessages,
+  resolveUserEnvForRunner,
+} from './env';
 
 // RL-020 Slice 7 — the literal DEFAULT_TIMEOUT is gone; the runner
 // resolves the deadline from the per-language Settings preset on
@@ -39,40 +40,6 @@ type GoWorkerResponse =
     }
   | { type: 'error'; runId: string; error: ExecutionError }
   | { type: 'done'; runId: string; executionTime: number };
-
-/**
- * Resolve the effective user-space env for a subprocess runner.
- * RL-011 Slice D — reads the global + project + tab tiers from the
- * renderer store and composes them with an empty `processEnv` (the host
- * env allowlist gets merged on the main-process side so secrets don't
- * cross the preload). Exported so Rust can reuse the exact same resolver
- * without re-deriving the tier lookup.
- */
-export function resolveUserEnvForRunner(): Record<string, string> {
-  // RL-011 contract: user-defined env vars are a desktop-only feature.
-  // The web build keeps the Settings surface honest for tier editing and
-  // trace preview, but runnable paths must not leak those vars into the
-  // browser runtimes.
-  if (typeof window !== 'undefined' && window.lingua?.platform === 'web') {
-    return {};
-  }
-
-  const { activeTabId } = useEditorStore.getState();
-  const { currentProject } = useProjectStore.getState();
-  const { resolveEffectiveEnv } = useEnvVarsStore.getState();
-  // Spread into a plain mutable record so IPC doesn't receive a frozen
-  // object (structured clone handles it either way, but callers reading
-  // it downstream appreciate a plain shape).
-  return { ...resolveEffectiveEnv({}, currentProject?.id ?? null, activeTabId) };
-}
-
-export function resolveNativeRunnerMessages(): NativeRunnerMessages {
-  return {
-    compileOutputTruncated: i18next.t('runner.compileOutput.truncated'),
-    stdoutTruncated: i18next.t('runner.truncated.stdout'),
-    stderrTruncated: i18next.t('runner.truncated.stderr'),
-  };
-}
 
 export class GoRunner implements LanguageRunner {
   id = 'go';

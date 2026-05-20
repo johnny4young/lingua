@@ -71,6 +71,10 @@ describe('TELEMETRY_EVENTS', () => {
       // `CONSOLE_RICH_KIND_BUCKETS`. Sorts between `node_runner_used`
       // and `stdin_used` alphabetically.
       'runtime.python_console_payload_emitted',
+      // RL-042 Slice 6 — Ruby runtime dispatch + Settings preference.
+      // Both closed-enum; sorts after `python_console_payload_emitted`.
+      'runtime.ruby_runner_dispatched',
+      'runtime.ruby_runtime_preference_changed',
       // RL-020 Slice 6 — bare-stdin adoption signal. Closed-enum
       // payload `{ language }`. Sorts between `mode_changed` and
       // `workflow_mode_changed` alphabetically.

@@ -106,4 +106,18 @@ describe('executionPresentation helpers', () => {
       fullOutput: 'compiled ok',
     });
   });
+
+  it('preserves user stderr while suppressing structured error duplicates', () => {
+    expect(
+      toFullOutput({
+        stdout: [{ type: 'log', args: ['ruby-ok'] }],
+        stderr: [
+          { type: 'warn', args: ['ruby-err'] },
+          { type: 'error', args: ["eval:3:in '<main>': ruby-boom"] },
+        ],
+        executionTime: 2,
+        error: { message: "eval:3:in '<main>': ruby-boom", line: 3 },
+      })
+    ).toBe('ruby-ok\nruby-err');
+  });
 });

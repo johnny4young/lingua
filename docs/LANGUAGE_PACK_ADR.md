@@ -147,6 +147,21 @@ all fields computed today. Shipped 2026-04-20.
 - Capability-aware rendering for non-runnable packs still reads
   `pack.execution` at the surfaces that execute code.
 
+### Renderer editor-support registry. Shipped 2026-05-20.
+
+- Monaco tokenizers, completion providers, hover providers, signature
+  providers, and renderer-local language-intelligence adapters now live
+  behind `src/renderer/languageSupport/*` descriptors.
+- `src/renderer/monaco.ts` consumes those descriptors generically instead
+  of importing every language-specific provider directly.
+- `src/renderer/languageIntelligence/index.ts` also builds its local
+  adapter map from the same descriptors, so adding Ruby-style intelligence
+  does not require a second shared switch.
+- Existing-language edits should stay inside the language module
+  (`languageSupport/ruby.ts`, `languageIntelligence/ruby.ts`, Ruby provider
+  files, and their focused tests). The registry only changes when a new
+  bundled editor language is added.
+
 ## Constraints
 
 - **No third-party code loading** is added. Plugins register

@@ -23,12 +23,13 @@ describe('RL-020 Slice 7 — runtimeTimeoutPresets', () => {
     expect(RUNTIME_TIMEOUT_PRESET_VALUES.size).toBe(4);
   });
 
-  it('exposes the closed supported-language enum (no Rust)', () => {
+  it('exposes the closed supported-language enum (no Rust; Ruby joined in RL-042 Slice 5)', () => {
     expect(RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES).toEqual([
       'javascript',
       'typescript',
       'python',
       'go',
+      'ruby',
     ]);
     expect(RUNTIME_TIMEOUT_SUPPORTED_LANGUAGE_SET.has('rust')).toBe(false);
   });
@@ -44,13 +45,13 @@ describe('RL-020 Slice 7 — runtimeTimeoutPresets', () => {
     expect(isRuntimeTimeoutPreset(5)).toBe(false);
   });
 
-  it('isRuntimeTimeoutSupportedLanguage gates only the four runners', () => {
+  it('isRuntimeTimeoutSupportedLanguage gates only the enrolled runners (RL-042 Slice 5 added Ruby)', () => {
     expect(isRuntimeTimeoutSupportedLanguage('javascript')).toBe(true);
     expect(isRuntimeTimeoutSupportedLanguage('typescript')).toBe(true);
     expect(isRuntimeTimeoutSupportedLanguage('python')).toBe(true);
     expect(isRuntimeTimeoutSupportedLanguage('go')).toBe(true);
+    expect(isRuntimeTimeoutSupportedLanguage('ruby')).toBe(true);
     expect(isRuntimeTimeoutSupportedLanguage('rust')).toBe(false);
-    expect(isRuntimeTimeoutSupportedLanguage('ruby')).toBe(false);
     expect(isRuntimeTimeoutSupportedLanguage('')).toBe(false);
   });
 
@@ -59,6 +60,7 @@ describe('RL-020 Slice 7 — runtimeTimeoutPresets', () => {
     expect(defaultRuntimeTimeoutPreset('typescript')).toBe('normal');
     expect(defaultRuntimeTimeoutPreset('go')).toBe('normal');
     expect(defaultRuntimeTimeoutPreset('python')).toBe('long');
+    expect(defaultRuntimeTimeoutPreset('ruby')).toBe('normal');
     expect(defaultRuntimeTimeoutPreset('rust')).toBe('normal');
     expect(defaultRuntimeTimeoutPreset('unknown')).toBe('normal');
   });
@@ -97,6 +99,7 @@ describe('RL-020 Slice 7 — runtimeTimeoutPresets', () => {
       typescript: 'normal',
       python: 'long',
       go: 'normal',
+      ruby: 'normal',
     });
     expect(a).not.toBe(b);
   });
