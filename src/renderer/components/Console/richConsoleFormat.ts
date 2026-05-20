@@ -54,6 +54,8 @@ export function richKindBucket(payload: RichOutputPayload): ConsolePayloadKindBu
       // the telemetry signal honest for dashboards counting error
       // payloads vs. plain text fallbacks.
       return 'error';
+    case 'html':
+      return 'html';
     case 'primitive':
     case 'function':
       return 'text';
@@ -88,6 +90,8 @@ export function typeIcon(payload: RichOutputPayload): string {
       return '▣';
     case 'chart':
       return '◰';
+    case 'html':
+      return '⌗';
   }
 }
 
@@ -124,14 +128,22 @@ export function payloadHasRichSurface(payload: RichOutputPayload): boolean {
     case 'promise':
     case 'rawText':
       return true;
-    // primitive / function / error stay on the text path — they don't
+    // primitive / function stay on the text path — they don't
     // benefit from popover expansion.
     case 'primitive':
     case 'function':
-    case 'error':
       return false;
-    // Slice 2 stubs — runners don't emit these today.
+    // RL-044 Slice 2a — `error` now opens the popover when the worker
+    // attached a structured `stack`. The renderer's `<RichValueError>`
+    // owns the chip; the popover surfaces the full traceback + raw
+    // JSON tab.
+    case 'error':
+      return Array.isArray(payload.stack) && payload.stack.length > 0;
+    // RL-044 Slice 2a — image + html have dedicated components. Chart
+    // remains a stub until Slice 2b.
     case 'image':
+    case 'html':
+      return true;
     case 'chart':
       return false;
   }

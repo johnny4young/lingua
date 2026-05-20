@@ -131,6 +131,18 @@ export const TELEMETRY_EVENTS = [
   // Python-runner-produced payloads from the renderer's render
   // dispatch. Closed-enum `{ kind }` mirrors `CONSOLE_RICH_KIND_BUCKETS`.
   'runtime.python_console_payload_emitted',
+  // RL-044 Slice 2a — Sub-slice F adoption signal. Fires once per
+  // click on a clickable stack frame. Closed-enum `{ language }`
+  // only; no file, no line, no column, no function name. Mirrored on
+  // update-server.
+  'runtime.error_stack_frame_clicked',
+  // RL-044 Slice 2a — rich-media payload rejection signal. Useful for
+  // security dashboards: counts how often workers (or user-emitted
+  // payloads) get bounced by the renderer-side validators. Closed
+  // enum `{ kind, reason }`: `kind` ∈ `{'image','html'}`, `reason`
+  // ∈ `{'invalid-src','size-limit','validation-failed'}`. No source,
+  // no payload content. Mirrored on update-server.
+  'runtime.rich_media_payload_rejected',
   // RL-042 Slice 6 — Ruby runtime dispatch signal. Fires on every
   // `RubyRunner.execute()` so dashboards can isolate the WASM-only
   // path from the system-binary path. Closed-enum payload
@@ -284,6 +296,13 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-044 Slice 1C fold B — `kind` is the closed `ConsolePayloadKindBucket`
   // enum (same set as `runtime.console_rich_rendered`).
   'runtime.python_console_payload_emitted': ['kind'],
+  // RL-044 Slice 2a — `language` is the language-pack id
+  // (`isSafeToken`). No file, no line, no column.
+  'runtime.error_stack_frame_clicked': ['language'],
+  // RL-044 Slice 2a — `kind` ∈ `RICH_MEDIA_REJECTED_KINDS`,
+  // `reason` ∈ `RICH_MEDIA_REJECTED_REASONS`. Both closed enums
+  // mirrored on update-server with a parity test.
+  'runtime.rich_media_payload_rejected': ['kind', 'reason'],
   // RL-042 Slice 6 — `mode` is the closed `RubyDispatchedMode`
   // (`system` / `wasm` / `missing`); `bucketedSpawnMs` is the closed
   // bucket enum (`<100ms` / `<300ms` / `<1s` / `<3s` / `>=3s`).
@@ -378,6 +397,20 @@ export const CONSOLE_RICH_KIND_BUCKETS = new Set([
   // the redactor would silently drop the kind without an explicit
   // bucket. Added so the telemetry survives the closed-enum gate.
   'error',
+  // RL-044 Slice 2a — sandboxed HTML payloads. The renderer paints
+  // them via `<RichValueHtml>`; the bucket lets dashboards isolate
+  // HTML rendering adoption from chart / image.
+  'html',
+]);
+// RL-044 Slice 2a — closed enums backing
+// `runtime.rich_media_payload_rejected`. Duplicated here for the
+// same reason as `CONSOLE_RICH_KIND_BUCKETS`; the parity test in
+// `update-server/test/telemetry.test.ts` keeps both sides in sync.
+export const RICH_MEDIA_REJECTED_KINDS = new Set(['image', 'html']);
+export const RICH_MEDIA_REJECTED_REASONS = new Set([
+  'invalid-src',
+  'size-limit',
+  'validation-failed',
 ]);
 // RL-042 Slice 6 — closed enums for the Ruby dispatcher telemetry.
 // Duplicated here for the same reason as CONSOLE_RICH_KIND_BUCKETS;
@@ -483,7 +516,7 @@ function valueLooksSensitive(value: unknown): boolean {
   return true;
 }
 
-function isSafeToken(value: unknown): value is string {
+export function isSafeToken(value: unknown): value is string {
   return typeof value === 'string' && SAFE_TOKEN_RE.test(value);
 }
 
@@ -620,6 +653,20 @@ function isAllowedValue(
       if (key === 'kind')
         return (
           typeof value === 'string' && CONSOLE_RICH_KIND_BUCKETS.has(value)
+        );
+      return false;
+    case 'runtime.error_stack_frame_clicked':
+      if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'runtime.rich_media_payload_rejected':
+      if (key === 'kind')
+        return (
+          typeof value === 'string' && RICH_MEDIA_REJECTED_KINDS.has(value)
+        );
+      if (key === 'reason')
+        return (
+          typeof value === 'string' &&
+          RICH_MEDIA_REJECTED_REASONS.has(value)
         );
       return false;
     case 'runtime.ruby_runner_dispatched':

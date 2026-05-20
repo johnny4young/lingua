@@ -10,6 +10,8 @@ import { createRoot } from 'react-dom/client';
 import { App } from '../renderer/App';
 import { getBrowserSystemLanguages, initI18n, resolveSystemLanguage } from '../renderer/i18n';
 import { useSettingsStore } from '../renderer/stores/settingsStore';
+import { installE2eHooks } from '../renderer/testing/e2eHooks';
+import { RichConsoleE2eFixture } from '../renderer/testing/RichConsoleE2eFixture';
 import {
   applyRecoveryStateAttr,
   buildCrashFingerprint,
@@ -63,13 +65,18 @@ const resolved =
     ? resolveSystemLanguage(getBrowserSystemLanguages())
     : language;
 initI18n(resolved);
+installE2eHooks();
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
 
+const isRichConsoleE2eFixture =
+  __LINGUA_E2E_HOOKS__ &&
+  new URLSearchParams(window.location.search).get('e2e') === 'rich-console-slice2a';
+
 createRoot(root).render(
   <StrictMode>
-    <App />
+    {isRichConsoleE2eFixture ? <RichConsoleE2eFixture /> : <App />}
   </StrictMode>
 );
 scheduleRecoveryMarksClear();

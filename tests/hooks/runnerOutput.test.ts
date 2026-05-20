@@ -58,6 +58,28 @@ describe('runnerOutput helpers', () => {
     });
   });
 
+  it('threads the source language onto console output entries when provided', () => {
+    const payload = [{ kind: 'error' as const, message: 'boom' }];
+    const result = toConsoleEntries(
+      {
+        stdout: [{ type: 'log', args: ['Error: boom'], payload }],
+        stderr: [{ type: 'error', args: ['stderr'] }],
+        executionTime: 4,
+      },
+      'python'
+    );
+
+    expect(result[0]).toMatchObject({
+      type: 'log',
+      language: 'python',
+      payload,
+    });
+    expect(result[1]).toMatchObject({
+      type: 'error',
+      language: 'python',
+    });
+  });
+
   it('formats execution errors only when present', () => {
     expect(formatExecutionError({ stdout: [], stderr: [], executionTime: 0 })).toBeNull();
     expect(

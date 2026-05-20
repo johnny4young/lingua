@@ -283,12 +283,14 @@ export async function executeTabManually(
               type: output.type,
               content: output.args.join(' '),
               line: output.line,
+              ...(language ? { language } : {}),
               payload: output.payload,
             }
           : {
               type: output.type,
               content: output.args.join(' '),
               line: output.line,
+              ...(language ? { language } : {}),
             }
       );
 
@@ -415,12 +417,14 @@ export async function executeTabManually(
                 type: output.type,
                 content: output.args.join(' '),
                 line: output.line,
+                ...(language ? { language } : {}),
                 payload: output.payload,
               }
             : {
                 type: output.type,
                 content: output.args.join(' '),
                 line: output.line,
+                ...(language ? { language } : {}),
               }
         );
       }
@@ -466,7 +470,7 @@ export async function executeTabManually(
       useResultStore.getState().setScopeSnapshot(result.scopeSnapshot ?? null);
     }
 
-    const consoleEntries = toConsoleEntries(result);
+    const consoleEntries = toConsoleEntries(result, language);
     const entriesToAdd =
       streamedConsoleCount > 0
         ? consoleEntries.slice(result.stdout.length + result.stderr.length)

@@ -56,6 +56,7 @@ export default defineConfig({
       // every POST against this URL via `page.route('**/telemetry',
       // …)` so nothing actually leaves the test runner.
       VITE_LINGUA_TELEMETRY_URL: 'https://updates.linguacode.dev/telemetry',
+      LINGUA_E2E_HOOKS: '1',
     },
   },
 });

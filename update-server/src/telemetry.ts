@@ -73,6 +73,12 @@ export const TELEMETRY_EVENT_NAMES = [
   // `runtime.python_console_payload_emitted`. Closed-enum
   // `{ kind }` from `CONSOLE_RICH_KIND_BUCKETS`.
   'runtime.python_console_payload_emitted',
+  // RL-044 Slice 2a — mirror of `runtime.error_stack_frame_clicked`.
+  // Closed-enum `{ language }` only.
+  'runtime.error_stack_frame_clicked',
+  // RL-044 Slice 2a — mirror of `runtime.rich_media_payload_rejected`.
+  // Closed-enum `{ kind, reason }`.
+  'runtime.rich_media_payload_rejected',
   // RL-042 Slice 6 — mirror of `runtime.ruby_runner_dispatched`.
   // Closed-enum `{ mode, bucketedSpawnMs }`.
   'runtime.ruby_runner_dispatched',
@@ -126,6 +132,10 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-044 Slice 1C fold B — mirror of
   // `runtime.python_console_payload_emitted`.
   'runtime.python_console_payload_emitted': ['kind'],
+  // RL-044 Slice 2a — mirror of `runtime.error_stack_frame_clicked`.
+  'runtime.error_stack_frame_clicked': ['language'],
+  // RL-044 Slice 2a — mirror of `runtime.rich_media_payload_rejected`.
+  'runtime.rich_media_payload_rejected': ['kind', 'reason'],
   // RL-042 Slice 6 — mirror of `runtime.ruby_runner_dispatched`.
   'runtime.ruby_runner_dispatched': ['mode', 'bucketedSpawnMs'],
   // RL-042 Slice 6 — mirror of `runtime.ruby_runtime_preference_changed`.
@@ -205,6 +215,18 @@ export const CONSOLE_RICH_KIND_BUCKETS = new Set([
   // RL-044 Slice 1C fold F — Python BaseException payloads ship the
   // error kind. Mirrors the renderer addition.
   'error',
+  // RL-044 Slice 2a — sandboxed HTML payloads. Mirrors the renderer
+  // addition.
+  'html',
+]);
+// RL-044 Slice 2a — closed-enum mirrors of
+// `RICH_MEDIA_REJECTED_KINDS` / `RICH_MEDIA_REJECTED_REASONS` in
+// `src/shared/telemetry.ts`. Parity test asserts alignment.
+export const RICH_MEDIA_REJECTED_KINDS = new Set(['image', 'html']);
+export const RICH_MEDIA_REJECTED_REASONS = new Set([
+  'invalid-src',
+  'size-limit',
+  'validation-failed',
 ]);
 // RL-042 Slice 6 — mirrors of the Ruby dispatcher enums in
 // `src/shared/telemetry.ts`. Parity test asserts alignment.
@@ -519,6 +541,20 @@ function isAllowedValue(
       if (key === 'kind')
         return (
           typeof value === 'string' && CONSOLE_RICH_KIND_BUCKETS.has(value)
+        );
+      return false;
+    case 'runtime.error_stack_frame_clicked':
+      if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'runtime.rich_media_payload_rejected':
+      if (key === 'kind')
+        return (
+          typeof value === 'string' && RICH_MEDIA_REJECTED_KINDS.has(value)
+        );
+      if (key === 'reason')
+        return (
+          typeof value === 'string' &&
+          RICH_MEDIA_REJECTED_REASONS.has(value)
         );
       return false;
     case 'runtime.ruby_runner_dispatched':

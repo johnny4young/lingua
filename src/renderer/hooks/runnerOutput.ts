@@ -55,7 +55,10 @@ export function formatExecutionError(result: ExecutionResult): ConsoleEntryInput
   };
 }
 
-export function toConsoleEntries(result: ExecutionResult): ConsoleEntryInput[] {
+export function toConsoleEntries(
+  result: ExecutionResult,
+  language?: Language
+): ConsoleEntryInput[] {
   const entries: ConsoleEntryInput[] = [];
 
   for (const output of result.stdout) {
@@ -67,12 +70,14 @@ export function toConsoleEntries(result: ExecutionResult): ConsoleEntryInput[] {
             type: output.type,
             content: output.args.join(' '),
             line: output.line,
+            ...(language ? { language } : {}),
             payload: output.payload,
           }
         : {
             type: output.type,
             content: output.args.join(' '),
             line: output.line,
+            ...(language ? { language } : {}),
           }
     );
   }
@@ -84,12 +89,14 @@ export function toConsoleEntries(result: ExecutionResult): ConsoleEntryInput[] {
             type: output.type,
             content: output.args.join(' '),
             line: output.line,
+            ...(language ? { language } : {}),
             payload: output.payload,
           }
         : {
             type: output.type,
             content: output.args.join(' '),
             line: output.line,
+            ...(language ? { language } : {}),
           }
     );
   }

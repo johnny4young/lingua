@@ -347,6 +347,8 @@ export interface ConsoleEntry {
   content: string;
   timestamp: number;
   line?: number;
+  /** Source language for telemetry on payload-level interactions. */
+  language?: Language;
   /** Execution time in ms — shown as a badge when set (only on the last entry) */
   executionTime?: number;
   /**
@@ -372,7 +374,9 @@ export type ConsolePayloadKindBucket =
   // `kind: 'error'`. The renderer chip family already had an
   // `'errorish'` filter for warn/error entry types; this is the
   // distinct payload-level bucket.
-  | 'error';
+  | 'error'
+  // RL-044 Slice 2a — sandboxed HTML payloads.
+  | 'html';
 
 export type ConsolePayloadKindFilter = ConsolePayloadKindBucket | 'errorish';
 

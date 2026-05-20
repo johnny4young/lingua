@@ -811,3 +811,4 @@ declare const __LINGUA_WEBSITE_URL__: string | undefined;
 declare const __LINGUA_LICENSE_PUBLIC_KEY_JWK__: string | undefined;
 declare const __LINGUA_LICENSE_SERVER_URL__: string | undefined;
 declare const __LINGUA_PYODIDE_INDEX_URL__: string | null | undefined;
+declare const __LINGUA_E2E_HOOKS__: boolean | undefined;

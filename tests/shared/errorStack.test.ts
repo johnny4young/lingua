@@ -1,0 +1,141 @@
+import { describe, expect, it } from 'vitest';
+import {
+  isClickable,
+  parseJsErrorStack,
+  parsePythonTraceback,
+} from '../../src/shared/errorStack';
+
+describe('parseJsErrorStack', () => {
+  it('returns empty array for missing input', () => {
+    expect(parseJsErrorStack(undefined)).toEqual([]);
+    expect(parseJsErrorStack('')).toEqual([]);
+  });
+
+  it('parses V8 with-name frames', () => {
+    const stack = [
+      'Error: boom',
+      '    at handler (/Users/me/proj/file.ts:12:7)',
+      '    at main (/Users/me/proj/index.ts:3:5)',
+    ].join('\n');
+    const frames = parseJsErrorStack(stack);
+    expect(frames).toHaveLength(3);
+    // Header
+    expect(frames[0]).toMatchObject({ text: 'Error: boom' });
+    expect(frames[0].file).toBeUndefined();
+    // First frame
+    expect(frames[1]).toMatchObject({
+      fnName: 'handler',
+      file: '/Users/me/proj/file.ts',
+      line: 12,
+      column: 7,
+    });
+    // Second frame
+    expect(frames[2]).toMatchObject({
+      fnName: 'main',
+      file: '/Users/me/proj/index.ts',
+      line: 3,
+      column: 5,
+    });
+  });
+
+  it('parses V8 without-name (bare) frames', () => {
+    const stack = ['Error: x', '    at /tmp/script.js:1:1'].join('\n');
+    const frames = parseJsErrorStack(stack);
+    expect(frames[1]).toMatchObject({
+      file: '/tmp/script.js',
+      line: 1,
+      column: 1,
+    });
+    expect(frames[1].fnName).toBeUndefined();
+  });
+
+  it('parses SpiderMonkey frames', () => {
+    const stack = 'handler@/Users/me/x.js:10:3\n@/Users/me/x.js:1:0';
+    const frames = parseJsErrorStack(stack);
+    expect(frames[0]).toMatchObject({
+      fnName: 'handler',
+      file: '/Users/me/x.js',
+      line: 10,
+      column: 3,
+    });
+    // The anonymous-toplevel frame retains the file/line/column;
+    // `fnName` is intentionally absent because nothing precedes `@`.
+    expect(frames[1].fnName).toBeUndefined();
+    expect(frames[1].file).toBe('/Users/me/x.js');
+  });
+
+  it('keeps unrecognised lines as text-only frames', () => {
+    const stack = 'Error: boom\nat eval (eval at <anonymous> (:1:1))';
+    const frames = parseJsErrorStack(stack);
+    expect(frames).toHaveLength(2);
+    expect(frames[1].file).toBeUndefined();
+    expect(frames[1].line).toBeUndefined();
+    expect(frames[1].text).toContain('eval');
+  });
+
+  it('survives malformed input without throwing', () => {
+    expect(() => parseJsErrorStack('not a stack')).not.toThrow();
+    expect(() => parseJsErrorStack('at :NaN:NaN')).not.toThrow();
+  });
+});
+
+describe('parsePythonTraceback', () => {
+  it('returns empty array for missing input', () => {
+    expect(parsePythonTraceback(undefined)).toEqual([]);
+    expect(parsePythonTraceback('')).toEqual([]);
+  });
+
+  it('parses a canonical Python traceback', () => {
+    const tb = [
+      'Traceback (most recent call last):',
+      '  File "<stdin>", line 1, in <module>',
+      '  File "/usr/local/lib/python3.11/site-packages/foo.py", line 42, in bar',
+      '    raise ValueError("boom")',
+      'ValueError: boom',
+    ].join('\n');
+    const frames = parsePythonTraceback(tb);
+    // Header + 2 File frames (each followed by a continuation text where present)
+    const fileFrames = frames.filter((frame) => typeof frame.file === 'string');
+    expect(fileFrames).toHaveLength(2);
+    expect(fileFrames[0]).toMatchObject({
+      file: '<stdin>',
+      line: 1,
+      fnName: '<module>',
+    });
+    expect(fileFrames[1]).toMatchObject({
+      file: '/usr/local/lib/python3.11/site-packages/foo.py',
+      line: 42,
+      fnName: 'bar',
+    });
+    // The "raise ValueError" source line is captured as text-only
+    const sourceLine = frames.find((frame) =>
+      frame.text.includes('raise ValueError')
+    );
+    expect(sourceLine).toBeDefined();
+    expect(sourceLine?.file).toBeUndefined();
+  });
+
+  it('handles File line without `in fn` suffix', () => {
+    const tb = '  File "x.py", line 5\n    some_code()';
+    const frames = parsePythonTraceback(tb);
+    const fileFrame = frames.find((frame) => frame.file === 'x.py');
+    expect(fileFrame).toBeDefined();
+    expect(fileFrame?.fnName).toBeUndefined();
+    expect(fileFrame?.line).toBe(5);
+  });
+
+  it('survives malformed input', () => {
+    expect(() => parsePythonTraceback('Traceback (no frames)')).not.toThrow();
+  });
+});
+
+describe('isClickable', () => {
+  it('requires both file and line', () => {
+    expect(isClickable({ text: '', file: 'x.ts', line: 1 })).toBe(true);
+    expect(isClickable({ text: '', file: 'x.ts' })).toBe(false);
+    expect(isClickable({ text: '', line: 1 })).toBe(false);
+    expect(isClickable({ text: '' })).toBe(false);
+    // Empty file rejected (parser may emit '' in edge cases).
+    expect(isClickable({ text: '', file: '', line: 1 })).toBe(false);
+  });
+});

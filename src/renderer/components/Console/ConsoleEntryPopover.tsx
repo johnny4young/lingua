@@ -6,6 +6,9 @@ import { useEntitlement } from '../../hooks/useEntitlement';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { writeToClipboard } from '../../utils/clipboard';
 import { typeIcon, payloadAsJsonString } from './richConsoleFormat';
+import { RichValueError } from './RichValueError';
+import { RichValueHtml } from './RichValueHtml';
+import { RichValueImage } from './RichValueImage';
 
 type Tab = 'preview' | 'rawJson';
 
@@ -197,10 +200,13 @@ function PreviewBody({ payload }: { payload: RichOutputPayload }) {
     case 'function':
       return <pre className="text-foreground">ƒ {payload.name}</pre>;
     case 'error':
-      return <pre className="text-error">{payload.message}</pre>;
+      return <RichValueError payload={payload} />;
     case 'image':
+      return <RichValueImage payload={payload} />;
+    case 'html':
+      return <RichValueHtml payload={payload} />;
     case 'chart':
-      return <Slice2Placeholder payload={payload} />;
+      return <Slice2Placeholder />;
   }
 }
 
@@ -209,17 +215,9 @@ function PreviewBody({ payload }: { payload: RichOutputPayload }) {
  * placeholder strings reach the i18n surface (otherwise the inline
  * locale-blind literal would silently slip into a Spanish UI).
  */
-function Slice2Placeholder({
-  payload,
-}: {
-  payload: Extract<RichOutputPayload, { kind: 'image' | 'chart' }>;
-}) {
+function Slice2Placeholder() {
   const { t } = useTranslation();
-  const text =
-    payload.kind === 'image'
-      ? t('console.rich.imagePlaceholder', { mime: payload.mime })
-      : t('console.rich.chartPlaceholder');
-  return <pre className="text-fg-subtle">{text}</pre>;
+  return <pre className="text-fg-subtle">{t('console.rich.chartPlaceholder')}</pre>;
 }
 
 function PreviewTable({ payload }: { payload: Extract<RichOutputPayload, { kind: 'table' }> }) {

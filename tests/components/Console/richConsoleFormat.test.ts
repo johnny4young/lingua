@@ -79,18 +79,34 @@ describe('richConsoleFormat — RL-044 Slice 1B helpers', () => {
       payloadHasRichSurface({ kind: 'primitive', type: 'string', repr: 'x' })
     ).toBe(false);
     expect(payloadHasRichSurface({ kind: 'function', name: 'f' })).toBe(false);
+    // RL-044 Slice 2a: stack-less errors stay on the text path; the
+    // dispatcher only opens the popover when a structured `stack`
+    // is present.
     expect(payloadHasRichSurface({ kind: 'error', message: 'oh' })).toBe(false);
-    expect(payloadHasRichSurface({ kind: 'image', src: 'x', mime: 'png' })).toBe(false);
+    // Chart remains a stub until Slice 2b (vega-lite).
     expect(payloadHasRichSurface({ kind: 'chart', spec: {} })).toBe(false);
   });
 
-  it('payloadHasRichSurface activates for tables, maps, sets, objects, arrays, dates, promises, rawText', () => {
+  it('payloadHasRichSurface activates for tables, maps, sets, objects, arrays, dates, promises, rawText, image, html, error+stack', () => {
     expect(payloadHasRichSurface({ kind: 'table', columns: [], rows: [] })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'map', size: 0, entries: [] })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'set', size: 0, entries: [] })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'date', iso: 'x' })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'promise', state: 'pending' })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'rawText', text: 'x' })).toBe(true);
+    // RL-044 Slice 2a — image / html have dedicated renderers.
+    expect(
+      payloadHasRichSurface({ kind: 'image', src: 'data:image/png;base64,a', mime: 'png' })
+    ).toBe(true);
+    expect(payloadHasRichSurface({ kind: 'html', html: '<p/>' })).toBe(true);
+    // RL-044 Slice 2a — error WITH stack opens the popover.
+    expect(
+      payloadHasRichSurface({
+        kind: 'error',
+        message: 'boom',
+        stack: [{ text: 'at x', file: 'x.ts', line: 1 }],
+      })
+    ).toBe(true);
   });
 
   it('payloadAsJsonString round-trips a table payload', () => {

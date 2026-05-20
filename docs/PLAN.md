@@ -4322,6 +4322,192 @@ Deferred to Slice 2 (separate plan, security review required):
 - Inline chart / image / sandboxed HTML rendering.
 - `#=> chart` / `#=> figure` magic-comment directives.
 
+#### § Slice 2a landed (2026-05-20)
+
+Rich-media renderer surface for `image` + `html` payloads + Sub-slice F
+clickable error stacks. Tight cut of the approved Slice 2 plan: the
+discriminator widens, the renderer dispatch routes the new kinds to
+dedicated components, the pure parsers + validators land in
+`src/shared/`, telemetry mirrors with parity tests. **Vega-lite chart
++ folds A/B/C/E/G + Python-worker integration + automatic JS worker
+error-stack wiring are deferred to Slice 2b** (the chart family carries
+the bulk of the dependency + security risk; isolating it lets Slice 2a
+ship behind a clean, smaller surface).
+
+Shipped:
+
+- **`src/shared/richOutput.ts`** — discriminator widens with
+  `RichOutputHtml` (`{ kind: 'html', html: string, height?: number }`);
+  `RICH_KINDS_BEYOND_SCOPE_VALUE` set includes `'html'`;
+  `isExtendedRichKind` predicate widens; new caps
+  `MAX_HTML_PAYLOAD_HEIGHT_PX = 800`,
+  `DEFAULT_HTML_PAYLOAD_HEIGHT_PX = 240`,
+  `MAX_IMAGE_SRC_LENGTH = 7_000_000`,
+  `MAX_HTML_PAYLOAD_LENGTH = 256 * 1024`; new pure validators
+  `validateImageSrc` (whitelist: `data:image/...` / `blob:` /
+  `https://`; rejects `http:` / `javascript:` / `vbscript:` / `file:`),
+  `clampHtmlHeight`, `validateHtmlPayload`.
+- **`src/shared/scopeSnapshot.ts`** — `ScopeValueError.stack?:
+  ClickableStackFrame[]` optional field. Existing call sites that
+  emit `{kind:'error', message}` keep working without the field
+  (additive, never breaking).
+- **`src/shared/errorStack.ts` (new)** — pure parsers
+  `parseJsErrorStack` (V8 with-name + V8 bare + SpiderMonkey
+  `@`-shape), `parsePythonTraceback` (`File "<path>", line N, in fn`
+  + continuation source line), `isClickable` predicate.
+  Conservative — anything we can't parse stays as a text-only frame
+  the renderer paints as a non-clickable span.
+- **`src/shared/telemetry.ts`** — 2 new events
+  `runtime.error_stack_frame_clicked { language }` and
+  `runtime.rich_media_payload_rejected { kind, reason }`; both
+  closed-enum. `CONSOLE_RICH_KIND_BUCKETS` widens with `'html'`. New
+  closed-enum Sets `RICH_MEDIA_REJECTED_KINDS = {'image','html'}` and
+  `RICH_MEDIA_REJECTED_REASONS = {'invalid-src','size-limit','validation-failed'}`.
+  `isSafeToken` exported (was module-private) for renderer-side
+  validation of language tokens.
+- **`update-server/src/telemetry.ts`** — mirror of the two new events,
+  the `'html'` bucket addition, and the two new closed-enum Sets.
+  Validator switch widened. The parity test in
+  `update-server/test/telemetry.test.ts` was updated for the
+  `CONSOLE_RICH_KIND_BUCKETS` lockstep array (now includes `'html'`).
+  3 new behavior tests cover the `html` bucket accept,
+  `error_stack_frame_clicked` token validation, and
+  `rich_media_payload_rejected` closed-enum kind+reason gating.
+- **`src/renderer/types/index.ts`** — `ConsolePayloadKindBucket` widens
+  with `'html'`.
+- **`src/renderer/components/Console/richConsoleFormat.ts`** —
+  `richKindBucket` returns `'html'` for the new kind; `typeIcon`
+  gains the `⌗` glyph; `payloadHasRichSurface` opens the popover for
+  `image` + `html` AND for `error` only when a structured `stack`
+  array is present. `error` with no `stack` falls through to the
+  legacy text path so existing emit sites are not visually disturbed.
+- **`src/renderer/components/Console/RichValueImage.tsx` (new)** —
+  validates the source via `validateImageSrc`; rejected sources fire
+  `runtime.rich_media_payload_rejected { kind: 'image' }` and paint a
+  localized fallback chip. Browser load failures (corrupt data URL)
+  swap to the same fallback. Renderer-side cap: `max-h-[400px]`,
+  `object-fit: contain`, rounded border.
+- **`src/renderer/components/Console/RichValueHtml.tsx` (new)** —
+  `<iframe sandbox="allow-scripts" srcDoc={validated}>`. NO
+  `allow-same-origin` (null opaque origin), NO `allow-top-navigation`,
+  `referrerPolicy="no-referrer"`. Height clamped via
+  `clampHtmlHeight`. Over-cap / empty payloads fire
+  `runtime.rich_media_payload_rejected { kind: 'html' }`.
+- **`src/renderer/components/Console/RichValueError.tsx` (new)** —
+  renders the error message + structured stack. Each
+  `ClickableStackFrame` with `file` + `line` becomes a focusable
+  `<button>` that dispatches a `lingua-open-source` `CustomEvent`
+  (consumer: RL-024 multi-file lane). Frames without `file`/`line`
+  render as plain `<span>`. **Fold F** — right-click on any frame
+  opens an inline menu with "Copy file:line" / "Open in tab" / "Copy
+  frame text" (Escape + outside-click close). Each accepted click
+  fires `runtime.error_stack_frame_clicked { language }`.
+- **`src/renderer/components/Console/ConsoleEntryRenderer.tsx`** —
+  dispatch switch widens to route `'image'` →
+  `<RichValueImage>`, `'html'` → `<RichValueHtml>`, `'error'` →
+  `<RichValueError>`. New optional `language` prop forwarded into
+  `<RichValueError>` for the clickable-frame telemetry payload.
+- **i18n** (`en/common.json` + `es/common.json`) — 9 new keys
+  covering all new surfaces:
+  `console.rich.imageInvalidSrc` / `htmlSandboxed` /
+  `errorStackHeader` / `errorFrameClickable` /
+  `errorFrameUnclickable` / `errorFrameMenuCopyLocation` /
+  `errorFrameMenuOpen` / `errorFrameMenuCopyText` / `mediaRejected`.
+  Spanish copy in tuteo (`Cargando`, no `Cargá`; `Abrir`, neutral
+  imperative; `Copia` / `Vista previa` / `Origen no disponible`).
+
+Tests:
+
+- **`tests/shared/errorStack.test.ts` (new)** — 11 cases covering
+  V8 named, V8 bare, SpiderMonkey, header lines, malformed input,
+  Python canonical traceback, Python File-without-fn-suffix, malformed
+  Python input, and `isClickable` truth table.
+- **`tests/shared/richOutputSlice2a.test.ts` (new)** — 21 cases on
+  `validateImageSrc` (data: / blob: / https: accept paths, http /
+  javascript / vbscript / file rejection, size cap, case insensitivity,
+  empty / non-string), `clampHtmlHeight` (default fallback,
+  non-finite handling, cap clamp), `validateHtmlPayload` (accept,
+  reject empty / non-string / over-cap), and `RichOutputHtml`
+  discriminator coverage.
+- **`tests/shared/telemetry.test.ts`** — `TELEMETRY_EVENTS` allowlist
+  updated with the 2 new events in their sorted positions.
+- **`tests/components/Console/richConsoleFormat.test.ts`** —
+  `payloadHasRichSurface` test split: `'image'` / `'html'` now active;
+  `'error'` flips to active when `stack` is present; chart remains
+  on the legacy path; primitive / function / stackless error / chart
+  still text-only.
+- **`update-server/test/telemetry.test.ts`** — `CONSOLE_RICH_KIND_BUCKETS`
+  parity lockstep includes `'html'`. 3 new behavior tests for
+  `console_rich_rendered { kind: 'html' }` accept,
+  `error_stack_frame_clicked` token gate, and
+  `rich_media_payload_rejected` closed-enum kind+reason gating.
+- **`tests/e2e/richConsoleSlice2a.spec.ts` (new)** — visual smoke
+  matrix for the Slice 2a renderer-only surface. The spec builds the
+  web app with `LINGUA_E2E_HOOKS=1`, seeds console entries through a
+  test-only store bridge, and writes one screenshot per expected
+  surface plus an `index.html` gallery under
+  `output/playwright/rich-console-slice2a/`.
+
+Visual smoke matrix:
+
+| Case | Seeded payload | Assertions | Screenshot |
+| --- | --- | --- | --- |
+| HTML inline | `{ kind: 'html', html, height: 160 }` | iframe renders, `sandbox="allow-scripts"`, fixture text visible inside `srcDoc` | `01-html-inline.png` |
+| HTML popover | same HTML payload, details chip clicked | popover Preview tab routes to `<RichValueHtml>` instead of an empty body | `02-html-popover.png` |
+| Image inline | `{ kind: 'image', src: data:image/svg+xml, mime }` | `<img>` renders through the allowlisted data URL path | `03-image-inline.png` |
+| Image popover | same image payload, details chip clicked | popover Preview tab routes to `<RichValueImage>` | `04-image-popover.png` |
+| Error inline | `{ kind: 'error', message, stack[] }` | structured stack renders with a clickable frame and text frame | `05-error-inline.png` |
+| Error popover | same error payload, details chip clicked | popover Preview tab routes to `<RichValueError>` | `06-error-popover.png` |
+| Error context menu | right-click a clickable stack frame | menu shows Copy file:line / Open in tab / Copy frame text; click emits `lingua-open-source` | `07-error-context-menu.png` |
+| Invalid media | `image` with `javascript:` + empty `html` | security fallbacks render visibly for both rejected payloads | `08-invalid-media-fallbacks.png` |
+
+Manual review flow:
+
+1. Run `npm run test:e2e:web -- tests/e2e/richConsoleSlice2a.spec.ts`.
+2. Open `output/playwright/rich-console-slice2a/index.html`.
+3. Compare every card against the matrix above before accepting the
+   ticket. A single generic app screenshot is not enough for Slice 2a.
+
+Verification:
+
+- `npm run lint` clean (0 errors, existing warning baseline).
+- `npx tsc --noEmit` clean.
+- `npm run check:i18n` + `check:i18n:copy` clean.
+- `npm test -- --run`: 3 538 / 4 skipped (320 test files, +2 new
+  files plus ConsolePanel / runnerOutput integration coverage).
+- `update-server` `npm test`: 120 / 0 (+3 new behavior tests; parity
+  array updated to include `'html'`).
+- `npm run test:e2e:web -- tests/e2e/richConsoleSlice2a.spec.ts`:
+  4 Playwright tests, 8 screenshots, generated gallery, zero
+  console/page errors.
+
+Deferred to Slice 2b (separate plan):
+
+- **Vega-lite chart payload** — `<RichValueChart>` component, lazy
+  dynamic `import('vega-embed')`, chart spec security whitelist
+  (block `data.url` / `data.name`, allow only `data.values`).
+- **Fold A** Vega lazy-chunk via Vite emit-chunk pattern.
+- **Fold B** Pro-gated "Export chart as SVG/PNG".
+- **Fold C** Settings sub-toggles per kind (Chart / Image / HTML).
+- **Fold E** Magic-comment directives `//=> chart` / `//=> image` /
+  `//=> html` and Python `#=> chart` / `#=> image` / `#=> html`.
+- **Fold G** Image clipboard paste handler in `<ConsolePanel>` —
+  RL-110 Smart Paste lane crossover.
+- **Worker integration** — `lingua.html(...)` / `lingua.image(...)`
+  JS worker globals + `__lingua.html` / `__lingua.image` Python
+  preamble. Automatic `parseJsErrorStack(err.stack)` wiring at the
+  worker's catch-path so user-thrown errors automatically gain
+  clickable stacks (the renderer surface is forward-compatible — when
+  the worker writes `stack`, the chip + popover light up).
+- **Sandboxed iframe security e2e** — Playwright spec asserting that a
+  `<script>parent.postMessage('escape','*')</script>` payload cannot
+  reach the parent's message listener. Deferred until the JS worker
+  globals land (no consumer to drive the test yet).
+- **Dedicated component-level tests** for `<RichValueHtml>` /
+  `<RichValueImage>` / `<RichValueError>` beyond the current
+  ConsolePanel integration coverage. These add deeper unit-level
+  visual regression coverage beyond the Playwright visual matrix.
+
 ### RL-045 Add built-in developer utilities panel
 
 - Priority: `P2`

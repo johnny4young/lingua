@@ -14,10 +14,15 @@ import { RichValueObject } from './RichValueObject';
 import { RichValueArray } from './RichValueArray';
 import { RichValueMapSet } from './RichValueMapSet';
 import { RichValueTable } from './RichValueTable';
+import { RichValueImage } from './RichValueImage';
+import { RichValueHtml } from './RichValueHtml';
+import { RichValueError } from './RichValueError';
 
 interface ConsoleEntryRendererProps {
   payloads: RichOutputPayload[];
   fallbackText: string;
+  /** Source language for the entry. Forwarded to clickable-stack telemetry. */
+  language?: string;
 }
 
 const reportedPayloadRows = new WeakSet<RichOutputPayload[]>();
@@ -30,7 +35,11 @@ const reportedPayloadRows = new WeakSet<RichOutputPayload[]>();
  * Telemetry: each entry fires `runtime.console_rich_rendered` at most
  * once per first-render with the closed-enum kind bucket.
  */
-export function ConsoleEntryRenderer({ payloads, fallbackText }: ConsoleEntryRendererProps) {
+export function ConsoleEntryRenderer({
+  payloads,
+  fallbackText,
+  language,
+}: ConsoleEntryRendererProps) {
   const { t } = useTranslation();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -73,7 +82,11 @@ export function ConsoleEntryRenderer({ payloads, fallbackText }: ConsoleEntryRen
           const labelTitle = summary?.display ?? t('console.rich.openDetails');
           return (
             <span key={index} className="inline-flex items-center gap-1">
-              <RichValueDispatch payload={payload} fallbackText={fallbackText} />
+              <RichValueDispatch
+                payload={payload}
+                fallbackText={fallbackText}
+                language={language}
+              />
               {canOpen && (
                 <button
                   type="button"
@@ -105,9 +118,11 @@ export function ConsoleEntryRenderer({ payloads, fallbackText }: ConsoleEntryRen
 function RichValueDispatch({
   payload,
   fallbackText,
+  language,
 }: {
   payload: RichOutputPayload;
   fallbackText: string;
+  language?: string;
 }) {
   switch (payload.kind) {
     case 'table':
@@ -119,13 +134,23 @@ function RichValueDispatch({
       return <RichValueObject payload={payload} />;
     case 'array':
       return <RichValueArray payload={payload} />;
+    case 'image':
+      return <RichValueImage payload={payload} fallbackText={fallbackText} />;
+    case 'html':
+      return <RichValueHtml payload={payload} />;
+    case 'error':
+      return (
+        <RichValueError
+          payload={payload}
+          language={language}
+          fallbackText={fallbackText}
+        />
+      );
     case 'primitive':
     case 'function':
-    case 'error':
     case 'date':
     case 'promise':
     case 'rawText':
-    case 'image':
     case 'chart':
       return <RichValueText payload={payload} fallbackText={fallbackText} />;
   }
