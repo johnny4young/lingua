@@ -178,6 +178,16 @@ export const TELEMETRY_EVENTS = [
   // capsuleId, no environment leaks. Mirrored on update-server with
   // a parity test.
   'capsule.exported',
+  // RL-095 Slice 1 fold A — adoption signal for the Language Support
+  // Scorecard. Closed-enum `{ surface }` where surface distinguishes
+  // the surface that drove discovery ('settings' = Settings tab
+  // scroll-into-view, 'palette' = command palette "Show language
+  // support"). Once-per-session per surface guard. Mirrored on
+  // update-server with parity test. The property key is `surface`
+  // (not `source`) because the DENY_SUBSTRINGS pass below strips any
+  // key whose lowercased name contains 'source' — same precedent as
+  // `runtime.workflow_mode_changed { trigger }`.
+  'language_scorecard_viewed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -343,6 +353,8 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-094 Slice 1 fold A — `trigger` ∈ `CAPSULE_EXPORT_TRIGGERS`,
   // `sizeBucket` ∈ `CAPSULE_SIZE_BUCKETS`. Both closed enums.
   'capsule.exported': ['trigger', 'sizeBucket'],
+  // RL-095 Slice 1 fold A — `surface` ∈ `LANGUAGE_SCORECARD_SURFACES`.
+  'language_scorecard_viewed': ['surface'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -495,6 +507,15 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
   '<1mb',
   '<4mb',
   '>=4mb',
+]);
+// RL-095 Slice 1 fold A — closed enum for the surface that drove a
+// Language Support Scorecard view. Mirrored on update-server with
+// parity test. The property name is `surface` (not `source`) because
+// `source` is in `DENY_SUBSTRINGS` and would be stripped before the
+// closed-enum validator could run.
+export const LANGUAGE_SCORECARD_SURFACES = new Set([
+  'settings',
+  'palette',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -757,6 +778,12 @@ function isAllowedValue(
         );
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'language_scorecard_viewed':
+      if (key === 'surface')
+        return (
+          typeof value === 'string' && LANGUAGE_SCORECARD_SURFACES.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;

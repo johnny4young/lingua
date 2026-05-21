@@ -5,7 +5,7 @@ import { resolveUserEnvForRunner } from '../../runners/env';
 import { Row, Select } from './shared';
 
 /**
- * RL-042 Slice 6 — Settings → Editor row that lets the user pick
+ * RL-042 Slice 6 — Settings → Languages row that lets the user pick
  * between the bundled `@ruby/wasm-wasi` worker and the host `ruby`
  * binary. Defaults to `auto`; web builds hide the `system` choice
  * because the desktop bridge is missing.

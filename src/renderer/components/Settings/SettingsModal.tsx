@@ -15,6 +15,7 @@ import {
   FileCode2,
   Key,
   Keyboard,
+  Languages,
   Package,
   Palette,
   Search,
@@ -28,6 +29,7 @@ import { AppearanceSection } from './AppearanceSection';
 import { EditorSection } from './EditorSection';
 import { EnvVarsSection } from './EnvVarsSection';
 import { ExecutionHistorySection } from './ExecutionHistorySection';
+import { LanguagesSection } from './LanguagesSection';
 import { LayoutSection } from './LayoutSection';
 import { LicenseSection } from './LicenseSection';
 import { PluginsSection } from './PluginsSection';
@@ -75,6 +77,7 @@ type TabId =
   | 'general'
   | 'appearance'
   | 'editor'
+  | 'languages'
   | 'environment'
   | 'account'
   | 'shortcuts'
@@ -130,6 +133,36 @@ const RAIL_ITEMS: readonly RailItem[] = [
       'autosave',
       'wrap',
       'indent',
+    ],
+  },
+  // RL-095 Slice 1 (post-review refactor) — own tab for the Language
+  // Support Scorecard plus the per-language preference rows that
+  // used to live at the bottom of Editor.
+  {
+    id: 'languages',
+    group: 'workspace',
+    labelKey: 'settings.tabs.languages',
+    icon: Languages,
+    kbdToken: '8',
+    keywords: [
+      'language',
+      'languages',
+      'lenguajes',
+      'scorecard',
+      'matrix',
+      'lsp',
+      'rust',
+      'go',
+      'gopls',
+      'rust-analyzer',
+      'ruby',
+      'python',
+      'typescript',
+      'lua',
+      'runtime',
+      'capability',
+      'capabilities',
+      'soporte',
     ],
   },
   {
@@ -354,6 +387,13 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
     'workflowModeDefaultsByLanguage',
     'showStdinPanel',
   ],
+  // RL-095 Slice 1 (post-review refactor) — Languages tab shows
+  // per-language LSP toggles + the capability scorecard; those don't
+  // map to specific store keys (the LSP rows write into language-
+  // specific stores like `rustLanguageStore`, and the scorecard is
+  // read-only). Leave the keys empty so the effective-config tile
+  // renders an empty slice rather than misattributing editor state.
+  languages: [],
   environment: ['envVars'],
   account: ['privacyTelemetryEnabled'],
   shortcuts: ['shortcutOverrides'],
@@ -477,6 +517,24 @@ export function SettingsModal({
   const [filter, setFilter] = useState('');
   const filterInputRef = useRef<HTMLInputElement | null>(null);
 
+  // RL-095 Slice 1 fold B — siblings (command palette) can request a
+  // tab jump via `window.dispatchEvent(new CustomEvent('lingua-settings-navigate-tab',
+  // { detail: 'languages' }))`. We listen here so the palette callback
+  // can open Settings AND land on the right tab without lifting
+  // `activeTab` into a global store. The event-shaped contract keeps
+  // SettingsModal the sole owner of its tab state.
+  useEffect(() => {
+    const onNavigate = (event: Event) => {
+      const detail = (event as CustomEvent<TabId>).detail;
+      if (typeof detail === 'string' && RAIL_ITEMS.some((it) => it.id === detail)) {
+        setActiveTab(detail);
+      }
+    };
+    window.addEventListener('lingua-settings-navigate-tab', onNavigate);
+    return () =>
+      window.removeEventListener('lingua-settings-navigate-tab', onNavigate);
+  }, []);
+
   // Map ⌘1..⌘0 → tab. Cmd on macOS, Ctrl on others.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -538,6 +596,12 @@ export function SettingsModal({
             <EditorSection />
             <ExecutionHistorySection />
             <UtilitiesSection />
+          </div>
+        );
+      case 'languages':
+        return (
+          <div className="space-y-6">
+            <LanguagesSection />
           </div>
         );
       case 'environment':

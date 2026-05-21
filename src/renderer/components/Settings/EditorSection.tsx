@@ -10,9 +10,6 @@ import {
   FONT_SIZES,
   fontStackSupportsLigatures,
 } from './settingsOptions';
-import { GoLanguageIntelligenceRow } from './GoLanguageIntelligenceRow';
-import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
-import { RubyRuntimeRow } from './RubyRuntimeRow';
 import { Row, Section, Select, StepperButton, Toggle } from './shared';
 import { ThemePresetControls } from './ThemePresetControls';
 import {
@@ -577,10 +574,11 @@ export function EditorSection() {
         />
       </Row>
 
-      <RustLanguageIntelligenceRow />
-      <GoLanguageIntelligenceRow />
-      <RubyRuntimeRow />
-
+      {/* RL-095 Slice 1 (post-review refactor) — the Language Support
+          Scorecard + per-language preference rows (Rust / Go LSP, Ruby
+          runtime) moved to their own Settings → Languages tab
+          (`LanguagesSection.tsx`, Cmd+8). The Editor tab now stays
+          focused on editor-shell concerns. */}
       <ThemePresetControls />
     </Section>
   );

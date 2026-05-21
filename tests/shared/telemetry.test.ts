@@ -43,6 +43,13 @@ describe('TELEMETRY_EVENTS', () => {
       'debugger.detached',
       'debugger.paused',
       'feature.blocked',
+      // RL-095 Slice 1 fold A — Language Support Scorecard adoption
+      // signal. Closed-enum payload `{ surface }` from
+      // `LANGUAGE_SCORECARD_SURFACES` (settings | palette). The key
+      // is `surface` (not `source`) because the redactor strips
+      // anything whose lowercased name contains 'source' — same
+      // precedent as `runtime.workflow_mode_changed { trigger }`.
+      'language_scorecard_viewed',
       'overlay.opened',
       'runner.executed',
       // RL-020 Slice 5 — bare-expression auto-log toggle.
