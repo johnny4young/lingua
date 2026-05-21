@@ -804,7 +804,12 @@ describe('runtime.variable_inspector_opened value validator (RL-020 Slice 9)', (
 
 describe('capsule.exported value validator (RL-094 Slice 1 fold A)', () => {
   it('accepts every closed-enum trigger', () => {
-    for (const trigger of ['settings-export', 'palette-export'] as const) {
+    for (const trigger of [
+      'settings-export',
+      'palette-export',
+      // RL-094 Slice 1.5 — primary result-panel surface trigger.
+      'result-panel-export',
+    ] as const) {
       const { event } = redactForTelemetry(
         buildEvent({
           event: 'capsule.exported',

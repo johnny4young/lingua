@@ -38,6 +38,7 @@ function renderShortcuts(options: HarnessOptions = {}) {
     toggleCompareWithSnapshot: vi.fn(),
     toggleVariableInspector: vi.fn(),
     toggleStdinPanel: vi.fn(),
+    exportLatestCapsule: vi.fn(),
     resetFloatingPositions: vi.fn(),
     toggleVariableInspectorSurface: vi.fn(),
   };
@@ -141,6 +142,12 @@ describe('useGlobalShortcuts', () => {
     const calls = renderShortcuts();
     dispatchKeyDown({ key: 'e', ctrlKey: true, shiftKey: true });
     expect(calls.toggleStdinPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it('exports the latest run capsule from Mod+Shift+X', () => {
+    const calls = renderShortcuts();
+    dispatchKeyDown({ key: 'x', ctrlKey: true, shiftKey: true });
+    expect(calls.exportLatestCapsule).toHaveBeenCalledTimes(1);
   });
 
   it('resets floating positions from Mod+Shift+0', () => {

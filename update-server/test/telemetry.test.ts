@@ -414,7 +414,11 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       .map((match) => match[1]!)
       .sort();
     expect(workerValues).toEqual(sharedValues);
-    expect(workerValues).toEqual(['palette-export', 'settings-export']);
+    expect(workerValues).toEqual([
+      'palette-export',
+      'result-panel-export',
+      'settings-export',
+    ]);
   });
 
   it('CAPSULE_SIZE_BUCKETS stays in sync with the renderer enum (RL-094 Slice 1 fold A)', async () => {

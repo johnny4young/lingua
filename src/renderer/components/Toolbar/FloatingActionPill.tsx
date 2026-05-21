@@ -85,6 +85,7 @@ const LANGUAGE_LIST: Language[] = LANGUAGE_PACKS.filter(
 ).map((pack) => pack.id as Language);
 const FULL_PILL_WIDTH = 820;
 const COMPACT_PILL_WIDTH = 560;
+const RIGHT_EDITOR_HEADER_RESERVE = 420;
 
 function LanguageChip({
   language,
@@ -204,17 +205,20 @@ export function FloatingActionPill({
 
   // Default position computed synchronously so the pill renders in its
   // final slot on first paint (no flicker from a measure useEffect).
-  // Handoff position: `LinguaMainV2` places the pill at top: 56px.
+  // Handoff position: AppChrome is 36px tall; 44px keeps the pill in
+  // the same visual row as editor details while leaving an 8px drag gap.
   const defaultPos = useMemo(() => {
-    if (typeof window === 'undefined') return { x: 16, y: 56 };
+    if (typeof window === 'undefined') return { x: 16, y: 44 };
+    const centeredX = Math.floor((window.innerWidth - estimatedPillWidth) / 2);
+    const rightSafeX = window.innerWidth - estimatedPillWidth - RIGHT_EDITOR_HEADER_RESERVE;
     return {
-      x: Math.max(16, Math.floor((window.innerWidth - estimatedPillWidth) / 2)),
-      y: 56,
+      x: Math.max(16, Math.min(centeredX, rightSafeX)),
+      y: 44,
     };
   }, [estimatedPillWidth]);
 
   const { position, handleProps, isDragging } = useDraggable({
-    storageKey: 'lingua-ui:action-pill-pos:v2',
+    storageKey: 'lingua-ui:action-pill-pos:v4',
     defaultPosition: actionPillPosition ?? defaultPos,
     size: { width: estimatedPillWidth, height: 42 },
     viewportMargin: 8,

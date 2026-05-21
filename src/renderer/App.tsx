@@ -41,7 +41,9 @@ import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { useEditorStore } from './stores/editorStore';
+import { useExecutionHistoryStore } from './stores/executionHistoryStore';
 import { useResultStore } from './stores/resultStore';
+import { exportCapsuleToClipboard } from './utils/exportCapsule';
 import {
   cycleRuntimeMode,
   languageHasRuntimeModes,
@@ -535,6 +537,37 @@ function AppChrome({
             ? 'variableInspector.surface.notice.toFloating'
             : 'variableInspector.surface.notice.toBottom',
       });
+    },
+    // RL-094 Slice 1.5 fold A — keyboard shortcut for the primary
+    // result-panel export surface. Reads the latest capsule, calls
+    // the shared helper (`exportCapsuleToClipboard`), pushes the
+    // matching status notice. Surfaces a `noCapsule` notice when
+    // there's no run to export rather than silently dropping.
+    exportLatestCapsule: () => {
+      const capsule = useExecutionHistoryStore.getState().latestCapsule();
+      if (!capsule) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'results.actions.exportCapsule.noCapsule',
+        });
+        return;
+      }
+      void exportCapsuleToClipboard(capsule, 'result-panel-export').then(
+        (result) => {
+          useUIStore.getState().pushStatusNotice(
+            result.ok
+              ? {
+                  tone: 'success',
+                  messageKey: 'settings.account.runCapsules.copiedNotice',
+                }
+              : {
+                  tone: 'warning',
+                  messageKey:
+                    'results.actions.exportCapsule.clipboardUnavailable',
+                }
+          );
+        }
+      );
     },
   });
 

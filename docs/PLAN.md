@@ -9697,6 +9697,67 @@ Deferred to subsequent slices (Slices 2 / 3+):
   IPC surface lands; Slice 1 uses pure clipboard / textarea
   fallback).
 
+#### § Slice 1.5 — Result-panel header Export button (promoted 2026-05-21)
+
+**Why this slice exists**: post-Slice-1 conversation surfaced a
+category mismatch — Settings is a "config / audit" surface, not a
+"single-shot action on session state" surface. The user that just
+ran code and wants to share it shouldn't do Cmd+, → Cuenta → click
+(3 hops + context switch). The natural primary surface is the
+header of the result panel (where Compare / Variables / hideUndefined
+already live); Settings + palette stay as audit + power-user
+surfaces — same split as the auto-log toggle (preference in
+Settings, action per-tab in the floating action pill).
+
+Graduated from `docs/BACKLOG.md` `[ui]` entry 2026-05-21; the
+BACKLOG entry is removed in the same diff (no double-listing).
+
+**Scope**:
+
+- New `<RunCapsuleExportButton>` (icon-only, lazy renders `null` when
+  `latestCapsule()` is `null` so it never advertises a no-op).
+  Mounted in `<ResultPanel>` right cluster next to `RecentRunsPill`
+  / `hideUndefined` toggle.
+- New shared helper `src/renderer/utils/exportCapsule.ts`
+  (`exportCapsuleToClipboard(capsule, trigger, options?)`) that the
+  three call sites (Settings section, command palette, result-panel
+  button) all consume. Eliminates the 3-way copy of the sanitize
+  → JSON.stringify → clipboard → telemetry → notice flow.
+- Widen the closed `CAPSULE_EXPORT_TRIGGERS` enum to include
+  `'result-panel-export'`; mirror in `update-server/src/telemetry.ts`
+  with parity test update.
+- Folds A-F all included (per `approved with: all`): keyboard
+  shortcut `Mod+Shift+X`, helper extract, Pro badge for capsules
+  with `richOutputs`, 1-second visual click feedback ring, exact
+  sizeBucket test assertion, Settings-link in clipboard-rejected
+  notice.
+- 2 i18n keys per locale (tooltip + aria-label, tuteo verified).
+
+**Slice 1.5 acceptance criteria**:
+
+- After a successful or errored run, an icon button appears in the
+  result panel header. Hover shows tooltip "Export this run as a
+  JSON capsule" (EN) / "Exporta esta ejecución como una cápsula
+  JSON" (ES tuteo).
+- Click writes the sanitised JSON to clipboard, fires
+  `capsule.exported.trigger = 'result-panel-export'` telemetry,
+  pushes the success status notice.
+- `Mod+Shift+X` fires the same flow when the app has keyboard focus
+  AND a capsule exists; no collision with existing shortcuts
+  (`Mod+Shift+E` is taken by stdin toggle).
+- When clipboard rejects, the notice points the user to
+  Settings → Account → Run Capsules (no inline textarea on this
+  surface — that lives only in Settings).
+- Component test asserts `null` render when `latestCapsule()`
+  returns `null` (button never advertises a no-op).
+- Settings export + palette command remain functional (no
+  regression).
+
+**Out of scope (still deferred to Slices 2 / 3+)**:
+
+- Capsule import, list view, auto-capsule, desktop saveDialog IPC
+  (unchanged from Slice 1's deferred list).
+
 ### RL-095 Language Support Scorecard
 
 - Priority: `P1`
