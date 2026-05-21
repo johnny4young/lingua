@@ -9767,22 +9767,199 @@ BACKLOG entry is removed in the same diff (no double-listing).
   - Adding Ruby in RL-042 Slice 5+6 surfaced that "language support" is at least 9 separate axes (syntax, autocomplete, LSP, web runtime, desktop runtime, packages, stdin, rich output, debugger). Without a typed matrix, each new language slice invents its own status fields and the user-facing capability matrix drifts.
 - Slice 1 scope:
   - `src/shared/languageSupport.ts` (new) — `LanguageCapabilityStatus` closed enum (`available` | `partial` | `desktop-only` | `web-only` | `planned` | `unsupported`); `LanguageSupportProfile` type; `LANGUAGE_SUPPORT_PROFILES` array.
-  - `src/renderer/components/Settings/LanguageIntelligenceSection.tsx` (extend) — render the scorecard as a table.
+  - `src/renderer/components/Settings/LanguageSupportScorecard.tsx` + `LanguagesSection.tsx` (new) — render the scorecard as a table inside the dedicated Settings → Languages tab.
   - `docs/CAPABILITY_MATRIX.md` — replace the hand-curated Ruby/Python/Go rows with auto-generated content from `LANGUAGE_SUPPORT_PROFILES`, or a guard test that pins the docs match the types.
   - Tests: every `LanguagePack.id` has a corresponding profile entry; every profile references a real language; every capability value is from the closed enum.
 - Slice 1 acceptance criteria:
   - JS, TS, Go, Python, Rust, Lua, Ruby each have an explicit `LanguageSupportProfile` entry with no `unknown` capabilities.
   - Adding a new `LanguagePack` row without a matching profile entry fails the pack-guard test with a clear message.
-  - Settings → Editor → Language intelligence section renders the scorecard with light/dark contrast assertions in a component test.
+  - Settings → Languages renders the scorecard with light/dark contrast assertions in a component test.
   - Capability matrix doc has a section auto-derived from `LANGUAGE_SUPPORT_PROFILES`, with a guard test that fails if drift appears.
   - Debugger column marks JS/TS as `partial` (conditional bp + watch expressions still gated under RL-027 Slice 1.5b).
 - Out of scope (deferred to Slice 2):
-  - User-facing scorecard outside Settings (Slice 2 adds a Command Palette entry "Show language support").
-  - Per-platform breakdown (web vs desktop) within the same capability column (Slice 2 — richer side-by-side rendering).
+  - Standalone scorecard surface outside Settings (palette can jump to Settings, but does not render its own matrix).
+  - Per-platform breakdown for every profile (Slice 2 — richer side-by-side rendering beyond Ruby's fold-C override chips).
 - Dependencies:
   - RL-038 — language pack registry (already `Done`).
 - Risks:
   - Low. This is essentially scaffolding around a type.
+
+#### § Slice 1 landed (2026-05-21)
+
+Slice 1 shipped end-to-end against the approved plan + all six folds.
+
+- **Shared module**: new `src/shared/languageSupport.ts` exports
+  `LanguageCapabilityStatus` closed enum (six values: `available` /
+  `partial` / `desktop-only` / `web-only` / `planned` / `unsupported`),
+  `LanguageCapability` 9-axis enum (`syntax`, `autocomplete`, `lsp`,
+  `webRuntime`, `desktopRuntime`, `packages`, `stdin`, `richOutput`,
+  `debugger`), `LANGUAGE_CAPABILITIES` + `LANGUAGE_CAPABILITY_STATUSES`
+  arrays, `LanguageSupportProfile` type, `LANGUAGE_SUPPORT_PROFILES`
+  array (7 true-runtime languages: JavaScript, TypeScript, Python, Go,
+  Rust, Ruby, Lua — stability-ordered, not alphabetical), and
+  `renderLanguageScorecardMarkdown()` pure renderer consumed by both
+  the docs guard test and the fold-F palette command. JS + TS debugger
+  marked `partial` per RL-027 Slice 1.5b gate. Ruby is the canonical
+  `perPlatform` case (fold C overrides for `webRuntime` and
+  `desktopRuntime`).
+
+- **Settings surface**: new
+  `src/renderer/components/Settings/LanguageSupportScorecard.tsx`
+  renders one row per profile × 9 columns. Color-coded status chips
+  via `STATUS_TONE`. Per-platform W/D chips appear inside the cell
+  when a profile has `perPlatform` overrides (currently Ruby).
+  Mounted inside a new `<LanguagesSection>` that *also* hosts the
+  per-language LSP / runtime preference rows (Rust LSP, Go LSP, Ruby
+  runtime) that previously lived at the bottom of Settings → Editor.
+  The whole package lands in a dedicated Settings → Languages tab
+  (Cmd+8, lucide `Languages` icon) inserted between Editor and
+  Environment in `RAIL_ITEMS` — the move came from pre-staging UX
+  review: the matrix is a discoverability surface (Cmd+8 lands you
+  on it), not an editor preference, and keeping Editor focused on
+  editor-shell concerns (theme, font, vim, timeouts) lets both tabs
+  pull their weight.
+
+- **Folds A–F**:
+  - **Fold A — adoption telemetry**: new
+    `language_scorecard_viewed { surface }` closed-enum event mirrored
+    on `update-server/src/telemetry.ts` with
+    `LANGUAGE_SCORECARD_SURFACES` parity test. The property name is
+    `surface` (not `source`) because `'source'` is in
+    `DENY_SUBSTRINGS` and would be stripped before the closed-enum
+    validator could run — same precedent as
+    `runtime.workflow_mode_changed { trigger }`. The component fires
+    via `IntersectionObserver` (threshold 0.5) with an immediate-fire
+    fallback when the API is absent (older Electron, jsdom). Module-
+    level `adoptionFireGuard` keeps the once-per-session-per-surface
+    contract honest across mounts.
+  - **Fold B — palette: Show language support**: new
+    `markLanguageScorecardSurfaceForNextMount('palette')` single-use
+    claim helper in `languageSupportScorecardTelemetry.ts` so the
+    palette callback can claim the next mount's surface tag without
+    lifting Settings tab state into a global store. The palette callback
+    opens Settings, dispatches a `lingua-settings-navigate-tab`
+    `CustomEvent` (`detail: 'languages'`) that SettingsModal's
+    `useEffect` listener consumes to jump tabs, and chains two
+    `requestAnimationFrame` ticks so the scroll happens after both
+    the modal mount and the Languages tab content. The model wrapper
+    calls `onClose()` BEFORE the user callback to keep the open-
+    overlay state survival pattern consistent with the existing
+    `action-settings` / `action-about` flows (both helpers set the
+    same single `overlay` slot in App state and the last setState
+    wins the React batch).
+  - **Fold C — per-platform chips**: `<ScorecardCell>` detects
+    `profile.perPlatform?.[capability]` and renders small W / D pills
+    underneath the main status chip. The default `capabilities`
+    status still drives the cell color so the at-a-glance read stays
+    simple.
+  - **Fold D — legend popover**: `?` icon-only toggle in the header
+    expands a list of all six statuses with their long-form
+    definitions. `aria-expanded` flips with the toggle for screen
+    reader correctness.
+  - **Fold E — explicitly DROPPED**: the original spec called for a
+    footer "Add a language pack" CTA pointing at
+    `docs/PLAN.md#rl-042-expand-language-support-toward-15-languages`
+    so contributors could see the open thread. Pre-staging UX
+    review (operator) caught that this exposes an internal RL ticket
+    id + the private GitHub repo URL in user-facing copy, which
+    breaks the closed-source product framing for senior dev buyers.
+    The CTA `<a>` + the `languageSupport.scorecard.ctaPrefix` /
+    `.ctaLink` i18n keys (EN + ES) were removed. A new component
+    test asserts no closed-source CTA / repo URL / ticket id strings
+    render in the scorecard. Future "request a language" surface
+    should ship via the marketing site (`linguacode.dev`), not
+    here.
+  - **Fold F — palette: Copy as Markdown**: command writes
+    `renderLanguageScorecardMarkdown()` output to the clipboard with
+    a status notice on success / failure. The same renderer feeds
+    `docs/CAPABILITY_MATRIX.md`, so the clipboard payload matches
+    the doc verbatim.
+
+- **Documentation**: new `<!-- AUTO-DERIVED:LANGUAGE_SUPPORT_PROFILES:START -->`
+  fenced section in `docs/CAPABILITY_MATRIX.md` regenerated from the
+  profiles. New `tests/docs/capabilityMatrixDrift.test.ts` asserts
+  byte equality with the renderer output and prints the expected
+  block as a paste-back hint on failure.
+
+- **Prerequisite CI fix**:
+  `tests/main/updater.stateMachine.test.ts` was failing on Linux
+  GitHub Actions runners because `SUPPORTED_PLATFORMS = new Set(['darwin', 'win32'])`
+  and the test never stubbed `process.platform`, so the handlers
+  were never registered and the state machine stayed in
+  `'unavailable'` (see https://github.com/johnny4young/lingua/actions/runs/26183526717).
+  Added `stubProcessPlatform()` / `restoreProcessPlatform()` helpers
+  using `Object.defineProperty(process, 'platform', ...)` with
+  `configurable: true` so the property can round-trip. Harness now
+  takes a `platform` option (default `'darwin'`); `afterEach` always
+  restores so the stub never leaks across tests or files.
+
+- **Tests**: 24 new cases.
+  - 8 shared parity (`tests/shared/languageSupport.test.ts`): every
+    true-runtime LanguagePack (`execution === 'run' | 'compile'`) has
+    a profile entry; every profile references a real pack id; every
+    profile fills all 9 axes; JS + TS debugger is `partial`;
+    `perPlatform` overrides reference known capabilities; renderer
+    shape is stable (header + separator + N rows) + deterministic.
+  - 13 component (`tests/components/Settings/LanguageSupportScorecard.test.tsx`):
+    7-row render, 9 columns × 7 rows = 63 cells, Ruby per-platform
+    chips for `webRuntime` + `desktopRuntime`, no chips for axes
+    without overrides, legend closed by default, legend opens + lists
+    all 6 statuses, toggle round-trip, no closed-source CTA / repo
+    URL / ticket id leak,
+    telemetry fires once with `surface: 'settings'`, surface prop
+    override flows through, `markLanguageScorecardSurfaceForNextMount`
+    is single-use, settings + palette surfaces tracked independently,
+    ES tuteo render.
+  - 2 reviewer regression (`tests/components/commandPaletteModel.test.ts`,
+    `tests/components/SettingsModal.test.tsx`): command copy points
+    at Settings → Languages and `Cmd+8` / `Cmd+4` stay mapped to
+    Languages / Environment even though the visual rail order differs.
+  - 1 docs drift (`tests/docs/capabilityMatrixDrift.test.ts`).
+
+- **i18n**: 39 keys × 2 locales (`languageSupport.scorecard.*`,
+  `languageSupport.capability.*`, `languageSupport.status.*`,
+  `languageSupport.statusDescription.*`, `languageSupport.platform.*`,
+  `settings.tabs.languages`, `settings.languages.perLanguage.*`,
+  palette command labels). ES
+  locale uses neutral LatAm tuteo: `mira` not `mirá`; `Solo` not
+  `Sólo` (RAE-aligned, no archaic accent). The original
+  `languageSupport.scorecard.ctaPrefix` / `.ctaLink` were removed
+  during the fold-E drop.
+
+- **Reviewer pass** (pre-staging): two reviewers (renderer + main /
+  scripts) found 4 HIGH blockers — all resolved inline:
+  1. Property key `source` was being stripped by the redactor's
+     DENY_SUBSTRINGS pass. Renamed to `surface` everywhere (shared
+     telemetry + update-server mirror + component prop + component
+     internals + palette callsite + tests).
+  2. Python `desktopRuntime` was `'web-only'` despite the note
+     stating both web and desktop run Pyodide in the renderer worker.
+     Corrected to `'available'` with an updated note.
+  3. The palette callback double-fired telemetry alongside the
+     scorecard's own IntersectionObserver. Replaced the parallel
+     `trackEvent` call with the `markLanguageScorecardSurfaceForNextMount`
+     claim helper so the component fires once with the right tag.
+  4. ES legend descriptions used voseo (`mirá`) and `Sólo` with
+     archaic accent. Corrected to tuteo + RAE-aligned `Solo`.
+
+- **Operator UX pass** (post-reviewer, pre-staging): operator caught
+  two additional issues from the smoke screenshots:
+  5. The fold-E CTA exposed closed-source bleed (RL-042 ticket id
+     + private GitHub repo URL + "contribute" / "colaborar" copy).
+     Dropped the fold entirely; see fold-E note above.
+  6. The scorecard mounted at the bottom of Settings → Editor felt
+     buried among editor-shell concerns and wasn't discoverable.
+     Created `<LanguagesSection>` and a dedicated Settings →
+     Languages tab (Cmd+8) that aggregates the scorecard + the
+     existing per-language preference rows (Rust LSP, Go LSP, Ruby
+     runtime). EditorSection trimmed to editor-shell concerns only.
+     The palette callback now dispatches `detail: 'languages'`
+     instead of `'editor'` so the same Cmd+P flow keeps working.
+
+- **Deferred**: per-platform breakdown across all profiles (not just
+  Ruby), Pro upsell hooks, scorecard render outside Settings,
+  contributor stub generator from the profile array. Tracked for
+  RL-095 Slice 2 / 3 — exact slicing TBD.
 
 ### RL-096 Privacy + Trust Dashboard
 

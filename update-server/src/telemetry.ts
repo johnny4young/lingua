@@ -97,6 +97,11 @@ export const TELEMETRY_EVENT_NAMES = [
   // `{ trigger, sizeBucket }` from `CAPSULE_EXPORT_TRIGGERS` /
   // `CAPSULE_SIZE_BUCKETS`.
   'capsule.exported',
+  // RL-095 Slice 1 fold A — mirror of `language_scorecard_viewed`.
+  // Closed-enum `{ surface }` from `LANGUAGE_SCORECARD_SURFACES`. The
+  // property is named `surface` (not `source`) because the redactor
+  // strips any key whose lowercased name contains 'source'.
+  'language_scorecard_viewed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -160,6 +165,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.fs_directory_picker_unsupported': ['userAgentBucket'],
   // RL-094 Slice 1 fold A — mirror of `capsule.exported`.
   'capsule.exported': ['trigger', 'sizeBucket'],
+  // RL-095 Slice 1 fold A — mirror of `language_scorecard_viewed`.
+  'language_scorecard_viewed': ['surface'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -290,6 +297,11 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
   '<1mb',
   '<4mb',
   '>=4mb',
+]);
+// RL-095 Slice 1 fold A — mirror of `LANGUAGE_SCORECARD_SURFACES`.
+export const LANGUAGE_SCORECARD_SURFACES = new Set([
+  'settings',
+  'palette',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -638,6 +650,10 @@ function isAllowedValue(
         return typeof value === 'string' && CAPSULE_EXPORT_TRIGGERS.has(value);
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'language_scorecard_viewed':
+      if (key === 'surface')
+        return typeof value === 'string' && LANGUAGE_SCORECARD_SURFACES.has(value);
       return false;
     default: {
       const exhaustive: never = event;

@@ -260,6 +260,18 @@ interface BuildCommandPaletteModelArgs {
    */
   latestCapsuleAvailable?: boolean;
   /**
+   * RL-095 Slice 1 fold B — opens Settings on the Languages tab and
+   * scrolls to the Language Support Scorecard. Optional; when
+   * omitted the palette entry is hidden.
+   */
+  onShowLanguageSupport?: () => void;
+  /**
+   * RL-095 Slice 1 fold F — renders `LANGUAGE_SUPPORT_PROFILES` as a
+   * Markdown table and copies it to the clipboard. Optional; when
+   * omitted the palette entry is hidden.
+   */
+  onCopyLanguageScorecardMarkdown?: () => void;
+  /**
    * Translation function. Optional so legacy callers keep working without
    * wiring i18next; when omitted, built-in action labels and descriptions
    * fall back to their English keys.
@@ -561,6 +573,8 @@ export function buildCommandPaletteModel({
   duplicateActiveTab,
   onExportLatestCapsule,
   latestCapsuleAvailable = false,
+  onShowLanguageSupport,
+  onCopyLanguageScorecardMarkdown,
   t,
 }: BuildCommandPaletteModelArgs): CommandEntry[] {
   const translate: (key: string, options?: Record<string, unknown>) => string = t
@@ -654,6 +668,43 @@ export function buildCommandPaletteModel({
             ['capsule', 'export', 'run', 'share', 'json', 'replay'],
             () => {
               onExportLatestCapsule();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-095 Slice 1 fold B — opens Settings on the Languages tab and
+    // scrolls to the scorecard. `onClose()` MUST run before the user
+    // callback: both helpers set the single `overlay` slot in App
+    // state, and within one React event handler the last setState
+    // call wins the batch. Closing the palette first and opening
+    // Settings second matches the established pattern in
+    // `action-settings` / `action-about` so the new overlay survives.
+    ...(onShowLanguageSupport
+      ? [
+          buildActionCommand(
+            'action-show-language-support',
+            translate('commandPalette.action.showLanguageSupport.label'),
+            translate('commandPalette.action.showLanguageSupport.description'),
+            ['language', 'support', 'scorecard', 'matrix', 'lenguajes'],
+            () => {
+              onClose();
+              onShowLanguageSupport();
+            }
+          ),
+        ]
+      : []),
+    // RL-095 Slice 1 fold F — copies the markdown rendering of the
+    // scorecard so users can paste into issues / PRs / docs.
+    ...(onCopyLanguageScorecardMarkdown
+      ? [
+          buildActionCommand(
+            'action-copy-language-scorecard-markdown',
+            translate('commandPalette.action.copyLanguageScorecardMarkdown.label'),
+            translate('commandPalette.action.copyLanguageScorecardMarkdown.description'),
+            ['language', 'scorecard', 'markdown', 'copy', 'lenguajes', 'tabla'],
+            () => {
+              onCopyLanguageScorecardMarkdown();
               onClose();
             }
           ),

@@ -27,6 +27,8 @@ import {
 } from '../../utils/appendWatch';
 import { trackEvent } from '../../utils/telemetry';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
+import { renderLanguageScorecardMarkdown } from '../../../shared/languageSupport';
+import { markLanguageScorecardSurfaceForNextMount } from '../Settings/languageSupportScorecardTelemetry';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types';
@@ -398,6 +400,72 @@ export function CommandPalette({
           }
         : undefined,
       latestCapsuleAvailable: latestCapsule !== null,
+      // RL-095 Slice 1 fold B — open Settings on the Languages tab and
+      // scroll to the scorecard. Three pieces of choreography:
+      //   1. Claim the next scorecard mount as `surface: 'palette'`
+      //      via the module-level helper so the IntersectionObserver
+      //      fires exactly one telemetry event with the right tag.
+      //   2. Open the Settings overlay (the model wrapper has already
+      //      called `onClose()` first, so this overlay state wins).
+      //   3. Dispatch `lingua-settings-navigate-tab` so SettingsModal
+      //      jumps to the Languages tab before the scroll target is
+      //      queried. The event listener lives in SettingsModal so
+      //      we never grow a global "active settings tab" store.
+      onShowLanguageSupport: () => {
+        markLanguageScorecardSurfaceForNextMount('palette');
+        onOpenSettings();
+        // Two `requestAnimationFrame` ticks: the first lets
+        // SettingsModal mount and register its
+        // `lingua-settings-navigate-tab` listener; the second lets
+        // `LanguagesSection` mount the scorecard after the tab
+        // change before we try to scroll it into view. A synchronous
+        // dispatch right after `onOpenSettings()` would race the
+        // mount and be lost.
+        window.requestAnimationFrame(() => {
+          window.dispatchEvent(
+            new CustomEvent('lingua-settings-navigate-tab', {
+              detail: 'languages',
+            })
+          );
+          window.requestAnimationFrame(() => {
+            const node = document.querySelector(
+              '[data-testid="language-support-scorecard"]'
+            );
+            if (node) {
+              node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          });
+        });
+      },
+      // RL-095 Slice 1 fold F — render + copy markdown to clipboard.
+      onCopyLanguageScorecardMarkdown: () => {
+        const markdown = renderLanguageScorecardMarkdown();
+        const writer = navigator.clipboard?.writeText;
+        if (typeof writer === 'function') {
+          void writer
+            .call(navigator.clipboard, markdown)
+            .then(() => {
+              useUIStore.getState().pushStatusNotice({
+                tone: 'success',
+                messageKey:
+                  'commandPalette.action.copyLanguageScorecardMarkdown.copied',
+              });
+            })
+            .catch(() => {
+              useUIStore.getState().pushStatusNotice({
+                tone: 'warning',
+                messageKey:
+                  'commandPalette.action.copyLanguageScorecardMarkdown.clipboardUnavailable',
+              });
+            });
+        } else {
+          useUIStore.getState().pushStatusNotice({
+            tone: 'warning',
+            messageKey:
+              'commandPalette.action.copyLanguageScorecardMarkdown.clipboardUnavailable',
+          });
+        }
+      },
       t,
     });
     // Re-build when the active language changes so labels/descriptions
@@ -443,10 +511,8 @@ export function CommandPalette({
   const filtered = useMemo(() => {
     return filterCommandPaletteCommands(allCommands, query);
   }, [allCommands, query]);
-
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [filtered.length]);
+  const visibleSelectedIndex =
+    filtered.length === 0 ? 0 : Math.min(selectedIndex, filtered.length - 1);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -454,10 +520,10 @@ export function CommandPalette({
 
   useEffect(() => {
     const element = listRef.current?.querySelector<HTMLElement>(
-      `[data-result-index="${selectedIndex}"]`
+      `[data-result-index="${visibleSelectedIndex}"]`
     );
     element?.scrollIntoView({ block: 'nearest' });
-  }, [selectedIndex]);
+  }, [visibleSelectedIndex]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown') {
@@ -474,7 +540,7 @@ export function CommandPalette({
 
     if (event.key === 'Enter') {
       event.preventDefault();
-      filtered[selectedIndex]?.action();
+      filtered[visibleSelectedIndex]?.action();
       return;
     }
 
@@ -495,7 +561,10 @@ export function CommandPalette({
             ref={inputRef}
             data-tour-id="command-palette-search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSelectedIndex(0);
+            }}
             onKeyDown={handleKeyDown}
             placeholder={t('commandPalette.search.placeholder')}
             className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
@@ -504,7 +573,10 @@ export function CommandPalette({
             <Tooltip content={t('commandPalette.search.clear')}>
               <button
                 type="button"
-                onClick={() => setQuery('')}
+                onClick={() => {
+                  setQuery('');
+                  setSelectedIndex(0);
+                }}
                 className="button-ghost p-1.5"
                 aria-label={t('commandPalette.search.clear')}
               >
@@ -517,7 +589,7 @@ export function CommandPalette({
         <CommandPaletteResults
           commands={filtered}
           query={query}
-          selectedIndex={selectedIndex}
+          selectedIndex={visibleSelectedIndex}
           listRef={listRef}
           onHoverIndex={setSelectedIndex}
         />

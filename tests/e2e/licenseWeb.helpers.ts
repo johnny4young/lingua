@@ -349,7 +349,13 @@ export async function openSettings(page: Page): Promise<void> {
   ).toBeVisible();
 }
 
-type SettingsTabId = 'general' | 'appearance' | 'editor' | 'environment' | 'account';
+type SettingsTabId =
+  | 'general'
+  | 'appearance'
+  | 'editor'
+  | 'languages'
+  | 'environment'
+  | 'account';
 
 export async function openSettingsTab(
   page: Page,

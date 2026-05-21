@@ -44,6 +44,16 @@ test.describe('Settings — structural tour', () => {
     ).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Plugins', exact: true })).toBeVisible();
 
+    // RL-095 Slice 1 (post-review refactor) — Languages tab hosts the
+    // capability scorecard + per-language LSP rows.
+    await openSettingsTab(page, 'languages');
+    await expect(
+      page.getByRole('heading', { name: 'Language Support Scorecard', exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Per-language preferences', exact: true })
+    ).toBeVisible();
+
     await openSettingsTab(page, 'environment');
     await expect(
       page.getByRole('heading', { name: 'Environment variables', exact: true })

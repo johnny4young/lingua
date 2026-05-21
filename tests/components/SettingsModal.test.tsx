@@ -43,7 +43,7 @@ describe('SettingsModal', () => {
       />
     );
 
-    // RL-070 — sections are now grouped under five tabs. Walk through
+    // RL-070 — sections are now grouped under rail tabs. Walk through
     // each tab and assert its contents instead of expecting everything
     // on the default tab. Default tab is `general` (About + Updates).
     expect(screen.getByText('Acerca de')).toBeTruthy();
@@ -129,5 +129,31 @@ describe('SettingsModal', () => {
     expect(screen.getAllByRole('switch').some((element) => element.hasAttribute('disabled'))).toBe(
       true
     );
+  }, 10000);
+
+  it('maps the decoupled rail shortcuts to the intended tabs', async () => {
+    render(
+      <SettingsModal
+        onClose={() => {}}
+        onOpenWhatsNew={() => {}}
+        onStartGuidedTour={() => {}}
+      />
+    );
+
+    expect(await screen.findByText('MIT')).toBeTruthy();
+
+    // RL-095 inserted Languages visually between Editor and Environment,
+    // while preserving Environment on Cmd+4 and assigning Languages to Cmd+8.
+    fireEvent.keyDown(window, { key: '8', metaKey: true });
+    expect(screen.getByTestId('settings-tab-languages').getAttribute('aria-selected')).toBe(
+      'true'
+    );
+    expect(screen.getByText('Scorecard de soporte de lenguajes')).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: '4', metaKey: true });
+    expect(screen.getByTestId('settings-tab-environment').getAttribute('aria-selected')).toBe(
+      'true'
+    );
+    expect(screen.getByText('Variables de entorno')).toBeTruthy();
   }, 10000);
 });

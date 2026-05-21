@@ -24,14 +24,38 @@ interface UpdaterHarness {
   getState: () => Promise<UpdateState>;
 }
 
+const ORIGINAL_PROCESS_PLATFORM = process.platform;
+
+function stubProcessPlatform(value: NodeJS.Platform): void {
+  Object.defineProperty(process, 'platform', { value, configurable: true });
+}
+
+function restoreProcessPlatform(): void {
+  Object.defineProperty(process, 'platform', {
+    value: ORIGINAL_PROCESS_PLATFORM,
+    configurable: true,
+  });
+}
+
 async function loadUpdaterHarness({
   updateURL = 'https://updates.example.com',
+  platform = 'darwin' as NodeJS.Platform,
 }: {
   updateURL?: string;
+  platform?: NodeJS.Platform;
 } = {}): Promise<UpdaterHarness> {
   vi.resetModules();
   vi.doUnmock('electron');
   vi.unstubAllGlobals();
+
+  // CI fix: `src/main/updater.ts` gates on `SUPPORTED_PLATFORMS =
+  // new Set(['darwin', 'win32'])` and reads `process.platform`
+  // directly. Without the stub the Linux CI runner hits the
+  // `'unavailable'` early-return and the autoUpdater handlers are
+  // never registered. Defaults to `'darwin'` so every existing test
+  // body keeps working unchanged; tests that exercise the unsupported
+  // path can pass `platform: 'linux'` explicitly.
+  stubProcessPlatform(platform);
 
   const autoUpdaterHandlers = new Map<string, Handler>();
   const ipcHandlers = new Map<string, IpcHandler>();
@@ -83,6 +107,7 @@ afterEach(() => {
   vi.resetModules();
   vi.doUnmock('electron');
   vi.unstubAllGlobals();
+  restoreProcessPlatform();
 });
 
 describe('updater state-machine guards', () => {

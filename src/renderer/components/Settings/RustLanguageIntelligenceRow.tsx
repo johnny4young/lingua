@@ -2,7 +2,7 @@ import { useRustLanguageStore } from '../../stores/rustLanguageStore';
 import { LanguageIntelligenceRow } from './LanguageIntelligenceRow';
 
 /**
- * RL-026 Slice 3 — conditional Settings row for the Rust LSP.
+ * RL-026 Slice 3 — conditional Settings → Languages row for the Rust LSP.
  * Slice 4 lifted the body into `LanguageIntelligenceRow`; this file
  * stays as the rust-specific facade so the Settings layout import
  * keeps its name.

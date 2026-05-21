@@ -473,6 +473,68 @@ describe('buildCommandPaletteModel', () => {
     ).toBe('Restore rich console rendering with tables, maps, and inline detail.');
   });
 
+  it('exposes language support commands only when wired and preserves overlay ordering', () => {
+    const calls: string[] = [];
+    const onClose = vi.fn(() => calls.push('close'));
+    const onShowLanguageSupport = vi.fn(() => calls.push('show'));
+    const onCopyLanguageScorecardMarkdown = vi.fn(() => calls.push('copy'));
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose,
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    const withoutHandlers = buildCommandPaletteModel(baseArgs);
+    expect(
+      withoutHandlers.find((command) => command.id === 'action-show-language-support')
+    ).toBeUndefined();
+    expect(
+      withoutHandlers.find(
+        (command) => command.id === 'action-copy-language-scorecard-markdown'
+      )
+    ).toBeUndefined();
+
+    const withHandlers = buildCommandPaletteModel({
+      ...baseArgs,
+      onShowLanguageSupport,
+      onCopyLanguageScorecardMarkdown,
+    });
+    const show = withHandlers.find(
+      (command) => command.id === 'action-show-language-support'
+    );
+    const copy = withHandlers.find(
+      (command) => command.id === 'action-copy-language-scorecard-markdown'
+    );
+
+    expect(show?.description).toBe(
+      'Open Settings → Languages and scroll to the language support scorecard.'
+    );
+
+    show?.action();
+    expect(calls).toEqual(['close', 'show']);
+    calls.length = 0;
+
+    copy?.action();
+    expect(calls).toEqual(['copy', 'close']);
+  });
+
   it('keeps matching commands when filtering by keywords, label, or description', () => {
     const commands = [
       {
