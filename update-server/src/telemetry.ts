@@ -281,6 +281,8 @@ export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
 export const CAPSULE_EXPORT_TRIGGERS = new Set([
   'settings-export',
   'palette-export',
+  // RL-094 Slice 1.5 — mirror of the result-panel-export trigger.
+  'result-panel-export',
 ]);
 export const CAPSULE_SIZE_BUCKETS = new Set([
   '<10kb',

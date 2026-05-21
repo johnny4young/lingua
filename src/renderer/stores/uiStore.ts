@@ -24,7 +24,7 @@ export interface UIPosition {
   y: number;
 }
 
-const ACTION_PILL_POSITION_KEY = 'lingua-ui:action-pill-pos:v2';
+const ACTION_PILL_POSITION_KEY = 'lingua-ui:action-pill-pos:v4';
 const VARIABLES_CARD_POSITION_KEY = 'lingua-ui:variables-card-pos:v2';
 const VARIABLES_CARD_COLLAPSED_KEY = 'lingua-ui:variables-card-collapsed';
 const VARIABLES_BOTTOM_VIEW_MODE_KEY = 'lingua-ui:variables-bottom-view-mode';

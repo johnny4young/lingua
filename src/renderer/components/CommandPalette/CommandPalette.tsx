@@ -26,11 +26,7 @@ import {
   isAppendWatchSupported,
 } from '../../utils/appendWatch';
 import { trackEvent } from '../../utils/telemetry';
-import {
-  bucketCapsuleSize,
-  sanitizeRunCapsule,
-  utf8ByteLength,
-} from '../../../shared/runCapsule';
+import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types';
@@ -376,36 +372,29 @@ export function CommandPalette({
       // adoption from the Settings entry.
       onExportLatestCapsule: latestCapsule
         ? () => {
-            const sanitised = sanitizeRunCapsule(latestCapsule);
-            const json = JSON.stringify(sanitised, null, 2);
-            void trackEvent('capsule.exported', {
-              trigger: 'palette-export',
-              sizeBucket: bucketCapsuleSize(utf8ByteLength(json)),
+            void exportCapsuleToClipboard(
+              latestCapsule,
+              'palette-export'
+            ).then((result) => {
+              useUIStore.getState().pushStatusNotice(
+                result.ok
+                  ? {
+                      tone: 'success',
+                      messageKey:
+                        'settings.account.runCapsules.copiedNotice',
+                    }
+                  : {
+                      tone: 'warning',
+                      // RL-094 Slice 1.5 — converged on the
+                      // `results.actions.exportCapsule.clipboardUnavailable`
+                      // key so palette, keyboard shortcut, and result-
+                      // panel surfaces share one source of truth for
+                      // the failure copy.
+                      messageKey:
+                        'results.actions.exportCapsule.clipboardUnavailable',
+                    }
+              );
             });
-            const writer = navigator.clipboard?.writeText;
-            if (typeof writer === 'function') {
-              void writer
-                .call(navigator.clipboard, json)
-                .then(() => {
-                  useUIStore.getState().pushStatusNotice({
-                    tone: 'success',
-                    messageKey: 'settings.account.runCapsules.copiedNotice',
-                  });
-                })
-                .catch(() => {
-                  useUIStore.getState().pushStatusNotice({
-                    tone: 'warning',
-                    messageKey:
-                      'commandPalette.action.exportCapsule.clipboardUnavailable',
-                  });
-                });
-            } else {
-              useUIStore.getState().pushStatusNotice({
-                tone: 'warning',
-                messageKey:
-                  'commandPalette.action.exportCapsule.clipboardUnavailable',
-              });
-            }
           }
         : undefined,
       latestCapsuleAvailable: latestCapsule !== null,

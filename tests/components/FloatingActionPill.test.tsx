@@ -203,7 +203,7 @@ describe('FloatingActionPill', () => {
     });
 
     await waitFor(() => {
-      expect(pill.style.getPropertyValue('--floating-pill-y')).toBe('56px');
+      expect(pill.style.getPropertyValue('--floating-pill-y')).toBe('44px');
       expect(pill.style.getPropertyValue('--floating-pill-x')).not.toBe('120px');
     });
   });

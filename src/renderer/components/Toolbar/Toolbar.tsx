@@ -42,9 +42,8 @@ const BUILT_IN_LANGUAGES: { id: Language; label: string }[] = LANGUAGE_PACKS.fil
 interface ToolbarProps {
   /**
    * RL-093 — when the floating action pill is mounted alongside the
-   * toolbar, the toolbar trims its centre cluster (Run/Debug split,
-   * Workflow segment, Runtime selector, New-file menu) and renders
-   * only the sidebar toggle on the left.
+   * toolbar, the toolbar becomes a compact drag spacer. Primary
+   * controls, including the sidebar toggle, live in the pill.
    */
   showFloatingPill?: boolean;
 }
@@ -231,21 +230,29 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
 
   return (
     <div
+      data-testid="toolbar-shell"
       data-tour-id="toolbar-shell"
-      className="toolbar-drag-region surface-header relative z-10 flex min-h-16 flex-wrap items-center justify-between gap-3 px-3 py-2 sm:min-h-14 sm:flex-nowrap sm:px-4"
+      className={cn(
+        'toolbar-drag-region relative z-10 flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap',
+        showFloatingPill
+          ? 'h-0 shrink-0 overflow-hidden border-0 bg-transparent p-0'
+          : 'surface-header min-h-16 px-3 py-2 sm:min-h-14 sm:px-4',
+      )}
     >
       <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-32 bg-gradient-to-r from-primary-soft/55 via-transparent to-transparent sm:block" />
 
-      <div className="flex min-w-0 items-center gap-2 pl-2 sm:pl-3">
-        <IconButton
-          onClick={toggleSidebar}
-          active={sidebarVisible}
-          tooltip={t('toolbar.sidebar.toggle')}
-          aria-controls="project-explorer"
-          aria-expanded={sidebarVisible}
-        >
-          <PanelLeft size={15} />
-        </IconButton>
+      <div className={cn('flex min-w-0 items-center gap-2 pl-2 sm:pl-3', showFloatingPill && 'hidden')}>
+        {!showFloatingPill ? (
+          <IconButton
+            onClick={toggleSidebar}
+            active={sidebarVisible}
+            tooltip={t('toolbar.sidebar.toggle')}
+            aria-controls="project-explorer"
+            aria-expanded={sidebarVisible}
+          >
+            <PanelLeft size={15} />
+          </IconButton>
+        ) : null}
 
         {!showFloatingPill ? <div className="toolbar-divider" /> : null}
 

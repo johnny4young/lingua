@@ -483,6 +483,11 @@ export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
 export const CAPSULE_EXPORT_TRIGGERS = new Set([
   'settings-export',
   'palette-export',
+  // RL-094 Slice 1.5 — primary surface: icon button in the result
+  // panel header. Tagged distinctly so the dashboard can measure
+  // adoption of the in-context surface vs the audit (Settings) and
+  // power-user (palette) entries.
+  'result-panel-export',
 ]);
 export const CAPSULE_SIZE_BUCKETS = new Set([
   '<10kb',

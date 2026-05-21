@@ -106,6 +106,14 @@ interface UseGlobalShortcutsOptions {
    * that mirrors the Settings dropdown.
    */
   toggleVariableInspectorSurface: () => void;
+  /**
+   * RL-094 Slice 1.5 fold A — export the latest captured RunCapsule
+   * to the clipboard via the result-panel-export trigger. No-op
+   * when `latestCapsule()` returns null (the App layer reads the
+   * store + pushes a `noCapsule` status notice instead of silently
+   * dropping the keypress).
+   */
+  exportLatestCapsule: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -130,6 +138,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'run-toggle-compare-snapshot': () => options.toggleCompareWithSnapshot(),
     'run-toggle-variable-inspector': () => options.toggleVariableInspector(),
     'editor-toggle-stdin-panel': () => options.toggleStdinPanel(),
+    'run-export-capsule': () => options.exportLatestCapsule(),
     'ui-reset-floating-positions': () => options.resetFloatingPositions(),
     'view-toggle-variable-inspector-surface': () =>
       options.toggleVariableInspectorSurface(),

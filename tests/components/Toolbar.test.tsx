@@ -626,6 +626,15 @@ describe('Toolbar', () => {
     expect(screen.getByRole('button', { name: 'Menú de lenguaje para nuevo archivo' })).toBeTruthy();
   });
 
+  it('leaves the floating-pill toolbar as a compact drag spacer', () => {
+    render(<Toolbar showFloatingPill />);
+
+    expect(screen.getByTestId('toolbar-shell').className).toContain('h-0');
+    expect(screen.queryByTestId('toolbar-run-button')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Toggle sidebar/ })).toBeNull();
+    expect(mockToggleSidebar).not.toHaveBeenCalled();
+  });
+
   // RL-093 Slice 3 — developer-utilities + console-toggle + open-file
   // toolbar buttons removed (relocated to chrome / command palette).
   // Their tests moved to AppChrome.test.tsx / palette suites.

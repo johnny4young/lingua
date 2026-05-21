@@ -49,6 +49,7 @@ describe('keyboardShortcuts catalog', () => {
       'run-cycle-runtime-mode',
       'run-cycle-workflow-mode',
       'run-toggle-recent-runs',
+      'run-export-capsule',
       'file-save',
       'file-save-as',
       'file-open',

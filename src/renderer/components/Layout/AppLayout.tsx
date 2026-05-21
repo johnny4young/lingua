@@ -1,6 +1,16 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { Bug, ChevronUp, Clock3, Eye, GitCompare, MessageSquare, Terminal, X } from 'lucide-react';
+import {
+  Bug,
+  ChevronUp,
+  Clock3,
+  Eye,
+  GitCompare,
+  MessageSquare,
+  PanelLeft,
+  Terminal,
+  X,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
@@ -246,6 +256,9 @@ function PanelChipsRow() {
 
 function EditorArea() {
   const hasTabs = useEditorStore((s) => s.tabs.length > 0);
+  const { t } = useTranslation();
+  const sidebarVisible = useUIStore((s) => s.sidebarVisible);
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const editorResultsLayout = useDefaultLayout({
     id: 'lingua-editor-results-layout',
     panelIds: ['editor-panel', 'results-panel'],
@@ -254,7 +267,25 @@ function EditorArea() {
 
   return (
     <div id="guided-tour-editor" className="flex h-full flex-col">
-      <EditorTabs />
+      <div className="surface-header flex h-[34px] shrink-0 items-stretch overflow-hidden bg-surface-strong/72">
+        <div className="flex h-full shrink-0 items-center border-r border-border/60 px-1.5">
+          <IconButton
+            onClick={toggleSidebar}
+            active={sidebarVisible}
+            tooltip={t('toolbar.sidebar.toggle')}
+            tooltipSide="bottom"
+            aria-controls="project-explorer"
+            aria-expanded={sidebarVisible}
+            data-testid="editor-sidebar-toggle"
+            className="size-7 rounded-md"
+          >
+            <PanelLeft size={14} />
+          </IconButton>
+        </div>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <EditorTabs />
+        </div>
+      </div>
       <PanelChipsRow />
       <div className="min-h-0 flex-1">
         {hasTabs ? (

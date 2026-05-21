@@ -12,6 +12,7 @@ import { AutoRunGateNotice } from './AutoRunGateNotice';
 import { AutoLogStatusPill } from './AutoLogStatusPill';
 import { StdinStatusPill } from './StdinStatusPill';
 import { RecentRunsPill } from './RecentRunsPill';
+import { RunCapsuleExportButton } from './RunCapsuleExportButton';
 import { RunStatusPill } from './RunStatusPill';
 import { CompareResultsPanel } from './CompareResultsPanel';
 import { resolveCompareTargetSnapshot } from '../../utils/snapshotDiff';
@@ -212,6 +213,10 @@ export function ResultPanel() {
               {t('results.actions.undefined')}
             </button>
           )}
+          {/* RL-094 Slice 1.5 — primary export surface. Lazy-renders
+              null when there's no captured capsule so it never
+              advertises a no-op; safe to mount unconditionally. */}
+          <RunCapsuleExportButton />
         </div>
       </div>
 

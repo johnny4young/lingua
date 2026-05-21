@@ -2,13 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
-import { trackEvent } from '../../utils/telemetry';
-import {
-  bucketCapsuleSize,
-  sanitizeRunCapsule,
-  summarizeRunCapsule,
-  utf8ByteLength,
-} from '../../../shared/runCapsule';
+import { summarizeRunCapsule } from '../../../shared/runCapsule';
+import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { Row, Section } from './shared';
 
 /**
@@ -57,32 +52,25 @@ export function RunCapsulesSection() {
 
   const handleExport = useCallback(async () => {
     if (!capsule) return;
-    const sanitised = sanitizeRunCapsule(capsule);
-    const json = prettyPrint
-      ? JSON.stringify(sanitised, null, 2)
-      : JSON.stringify(sanitised);
-    const trigger = 'settings-export' as const;
-    const sizeBucket = bucketCapsuleSize(utf8ByteLength(json));
-    void trackEvent('capsule.exported', { trigger, sizeBucket });
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(json);
-        pushStatusNotice({
-          tone: 'success',
-          messageKey: 'settings.account.runCapsules.copiedNotice',
-        });
-        setInlineFallback(null);
-        return;
-      }
-      throw new Error('clipboard-unavailable');
-    } catch {
-      // Fall back to inline textarea — user can Cmd+A + Cmd+C from it.
-      setInlineFallback(json);
+    const result = await exportCapsuleToClipboard(capsule, 'settings-export', {
+      pretty: prettyPrint,
+    });
+    if (result.ok) {
       pushStatusNotice({
-        tone: 'warning',
-        messageKey: 'settings.account.runCapsules.fallbackNotice',
+        tone: 'success',
+        messageKey: 'settings.account.runCapsules.copiedNotice',
       });
+      setInlineFallback(null);
+      return;
     }
+    // Fall back to inline textarea — user can Cmd+A + Cmd+C from it.
+    // This is the Settings-specific fallback; the palette + result-panel
+    // surfaces redirect the user back to Settings via a different notice.
+    setInlineFallback(result.json);
+    pushStatusNotice({
+      tone: 'warning',
+      messageKey: 'settings.account.runCapsules.fallbackNotice',
+    });
   }, [capsule, prettyPrint, pushStatusNotice]);
 
   return (

@@ -138,6 +138,18 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     combos: [{ tokens: ['Mod', 'Shift', 'E'] }],
     keywords: ['stdin', 'input', 'entrada', 'prompt'],
   },
+  // RL-094 Slice 1.5 fold A — keyboard shortcut for the primary
+  // result-panel export surface. `Mod+Shift+X` (eXport mnemonic).
+  // `Mod+Shift+E` is already taken by stdin toggle; X is the next
+  // most semantic unused slot.
+  {
+    id: 'run-export-capsule',
+    group: 'run',
+    labelKey: 'shortcuts.item.exportCapsule.label',
+    descriptionKey: 'shortcuts.item.exportCapsule.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'X'] }],
+    keywords: ['capsule', 'export', 'share', 'json', 'replay'],
+  },
   // RL-093 Slice 3 — recover from a floating-pill/variables-card that
   // ended up in an unreachable position (off-screen monitor change,
   // bad localStorage value). Clears both persisted positions back to

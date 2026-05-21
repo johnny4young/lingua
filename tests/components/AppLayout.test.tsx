@@ -257,6 +257,22 @@ describe('AppLayout responsive shell', () => {
     expect(onOpenUtilities).toHaveBeenCalledOnce();
   });
 
+  it('keeps the sidebar toggle visible in the editor header row', async () => {
+    const user = userEvent.setup();
+    editorTabs = [{ id: 'tab-1' }];
+    activeTabId = 'tab-1';
+    useUIStore.setState({ sidebarVisible: false });
+
+    await renderLayout();
+
+    const toggle = screen.getByTestId('editor-sidebar-toggle');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+
+    await user.click(toggle);
+
+    expect(useUIStore.getState().sidebarVisible).toBe(true);
+  });
+
   it('keeps the editor panel above the results panel for Monaco overlays', async () => {
     editorTabs = [{ id: 'tab-1' }];
 
