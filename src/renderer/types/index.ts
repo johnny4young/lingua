@@ -997,9 +997,10 @@ export type WorkerResponse =
       consoleTableInvoked?: boolean;
       /**
        * RL-044 Slice 2b-α — rich-media helper rejection marker emitted
-       * by the JS worker bridge. Runner-side telemetry forwarding is
-       * deferred to Slice 2b-β; the marker is still part of the wire
-       * shape so the typed protocol matches what the worker posts.
+       * by the JS / Python worker bridges. Runner-side telemetry
+       * forwarding (`runtime.rich_media_payload_rejected`) landed in
+       * Slice 2b-β-β-α fold A; all three runners (JS / TS / Python)
+       * read this field and fire-and-forget the event.
        */
       richMediaRejected?: {
         kind: 'chart' | 'image' | 'html';

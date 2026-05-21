@@ -165,6 +165,76 @@ describe('parsePythonTraceback', () => {
   it('survives malformed input', () => {
     expect(() => parsePythonTraceback('Traceback (no frames)')).not.toThrow();
   });
+
+  // RL-044 Slice 2b-β-β-α fold C — PEP 3134 cause chain awareness.
+
+  it('tags explicit `raise … from …` cause separator with causedBy: cause', () => {
+    const tb = [
+      'Traceback (most recent call last):',
+      '  File "<stdin>", line 1, in <module>',
+      '    raise RuntimeError("outer") from inner',
+      'RuntimeError: outer',
+      '',
+      'The above exception was the direct cause of the following exception:',
+      '',
+      'Traceback (most recent call last):',
+      '  File "<stdin>", line 3, in <module>',
+      '    raise inner',
+      'ValueError: inner',
+    ].join('\n');
+    const frames = parsePythonTraceback(tb);
+    const causeFrame = frames.find((frame) => frame.causedBy === 'cause');
+    expect(causeFrame).toBeDefined();
+    expect(causeFrame?.text).toContain(
+      'The above exception was the direct cause of the following exception'
+    );
+    // Cause separator frames are non-clickable.
+    expect(causeFrame?.file).toBeUndefined();
+    expect(causeFrame?.line).toBeUndefined();
+    // Both segments produce their own File frames (one before + one
+    // after the marker).
+    const fileFrames = frames.filter((frame) => typeof frame.file === 'string');
+    expect(fileFrames.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('tags implicit re-raise separator with causedBy: context', () => {
+    const tb = [
+      'Traceback (most recent call last):',
+      '  File "<stdin>", line 1, in <module>',
+      'KeyError: "k"',
+      '',
+      'During handling of the above exception, another exception occurred:',
+      '',
+      'Traceback (most recent call last):',
+      '  File "<stdin>", line 5, in <module>',
+      'RuntimeError: oh no',
+    ].join('\n');
+    const frames = parsePythonTraceback(tb);
+    const contextFrame = frames.find((frame) => frame.causedBy === 'context');
+    expect(contextFrame).toBeDefined();
+    expect(contextFrame?.text).toContain('During handling of the above exception');
+  });
+
+  it('does not swallow a PEP 3134 marker that appears immediately after a File frame', () => {
+    // Defensive — real Python tracebacks never produce this shape, but a
+    // hand-formatted or third-party traceback could omit the source line.
+    // The marker must keep its causedBy discriminator instead of being
+    // consumed as a non-clickable continuation text frame.
+    const tb = [
+      'Traceback (most recent call last):',
+      '  File "<stdin>", line 1, in <module>',
+      'The above exception was the direct cause of the following exception:',
+      'Traceback (most recent call last):',
+      '  File "<stdin>", line 3, in <module>',
+    ].join('\n');
+    const frames = parsePythonTraceback(tb);
+    const causeFrame = frames.find((frame) => frame.causedBy === 'cause');
+    expect(causeFrame).toBeDefined();
+    // First File frame produced its own frame; the marker survives as
+    // a typed separator, not as a text-only continuation.
+    const fileFrames = frames.filter((frame) => typeof frame.file === 'string');
+    expect(fileFrames.length).toBe(2);
+  });
 });
 
 describe('isClickable', () => {

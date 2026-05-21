@@ -50,7 +50,11 @@ Out of scope for the MVP:
 
 - Time-travel debugging.
 - Conditional breakpoints (can land as a post-MVP slice).
-- Logpoints / tracepoints.
+- Logpoints / tracepoints — **promoted 2026-05-21 to a planned post-MVP slice**.
+  See `RL-027 Slice 1.5c` in `PLAN.md` for the full scope; the decision to keep
+  them outside the MVP was about budget, not about feature merit. Slice 1.5c
+  shares the dynamic-Function security review with Slice 1.5b (watch
+  expressions) so both unlock together once that review lands.
 - Remote / distributed tracing hooks.
 - Edit-and-continue.
 

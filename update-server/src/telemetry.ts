@@ -79,6 +79,10 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-044 Slice 2a — mirror of `runtime.rich_media_payload_rejected`.
   // Closed-enum `{ kind, reason }`.
   'runtime.rich_media_payload_rejected',
+  // RL-044 Slice 2b-β-β-α fold E — mirror of
+  // `runtime.python_rich_media_used`. Closed-enum `{ kind }` from
+  // `RICH_MEDIA_REJECTED_KINDS` (chart / image / html).
+  'runtime.python_rich_media_used',
   // RL-042 Slice 6 — mirror of `runtime.ruby_runner_dispatched`.
   // Closed-enum `{ mode, bucketedSpawnMs }`.
   'runtime.ruby_runner_dispatched',
@@ -140,6 +144,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.error_stack_frame_clicked': ['language'],
   // RL-044 Slice 2a — mirror of `runtime.rich_media_payload_rejected`.
   'runtime.rich_media_payload_rejected': ['kind', 'reason'],
+  // RL-044 Slice 2b-β-β-α fold E — mirror of `runtime.python_rich_media_used`.
+  'runtime.python_rich_media_used': ['kind'],
   // RL-042 Slice 6 — mirror of `runtime.ruby_runner_dispatched`.
   'runtime.ruby_runner_dispatched': ['mode', 'bucketedSpawnMs'],
   // RL-042 Slice 6 — mirror of `runtime.ruby_runtime_preference_changed`.
@@ -571,6 +577,12 @@ function isAllowedValue(
         return (
           typeof value === 'string' &&
           RICH_MEDIA_REJECTED_REASONS.has(value)
+        );
+      return false;
+    case 'runtime.python_rich_media_used':
+      if (key === 'kind')
+        return (
+          typeof value === 'string' && RICH_MEDIA_REJECTED_KINDS.has(value)
         );
       return false;
     case 'runtime.ruby_runner_dispatched':

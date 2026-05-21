@@ -139,10 +139,18 @@ export const TELEMETRY_EVENTS = [
   // RL-044 Slice 2a — rich-media payload rejection signal. Useful for
   // security dashboards: counts how often workers (or user-emitted
   // payloads) get bounced by the renderer-side validators. Closed
-  // enum `{ kind, reason }`: `kind` ∈ `{'image','html'}`, `reason`
-  // ∈ `{'invalid-src','size-limit','validation-failed'}`. No source,
-  // no payload content. Mirrored on update-server.
+  // enum `{ kind, reason }`: `kind` ∈ `{'image','html','chart'}`,
+  // `reason` ∈ `{'invalid-src','size-limit','validation-failed'}`.
+  // No source, no payload content. Mirrored on update-server.
   'runtime.rich_media_payload_rejected',
+  // RL-044 Slice 2b-β-β-α fold E — Python-side `__lingua.chart/image/html`
+  // adoption signal. Separate from `runtime.python_console_payload_emitted`
+  // (which fires for any payload kind including auto-promoted table /
+  // object from the print override) so the security dashboard can
+  // isolate explicit user-emitted rich media. Closed-enum `{ kind }`
+  // matches `RICH_MEDIA_REJECTED_KINDS`. Mirrored on update-server
+  // with a parity test.
+  'runtime.python_rich_media_used',
   // RL-042 Slice 6 — Ruby runtime dispatch signal. Fires on every
   // `RubyRunner.execute()` so dashboards can isolate the WASM-only
   // path from the system-binary path. Closed-enum payload
@@ -310,6 +318,9 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `reason` ∈ `RICH_MEDIA_REJECTED_REASONS`. Both closed enums
   // mirrored on update-server with a parity test.
   'runtime.rich_media_payload_rejected': ['kind', 'reason'],
+  // RL-044 Slice 2b-β-β-α fold E — `kind` ∈ `RICH_MEDIA_REJECTED_KINDS`
+  // (chart / image / html). Mirrors update-server with a parity test.
+  'runtime.python_rich_media_used': ['kind'],
   // RL-042 Slice 6 — `mode` is the closed `RubyDispatchedMode`
   // (`system` / `wasm` / `missing`); `bucketedSpawnMs` is the closed
   // bucket enum (`<100ms` / `<300ms` / `<1s` / `<3s` / `>=3s`).
@@ -689,6 +700,12 @@ function isAllowedValue(
         return (
           typeof value === 'string' &&
           RICH_MEDIA_REJECTED_REASONS.has(value)
+        );
+      return false;
+    case 'runtime.python_rich_media_used':
+      if (key === 'kind')
+        return (
+          typeof value === 'string' && RICH_MEDIA_REJECTED_KINDS.has(value)
         );
       return false;
     case 'runtime.ruby_runner_dispatched':

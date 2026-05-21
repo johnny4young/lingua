@@ -355,7 +355,8 @@ function restoreConsole() {
  *   1. Runs the matching `validate*` whitelist from `shared/richOutput`.
  *   2. On reject → posts a `console` message with a text fallback +
  *      a `richMediaRejected` flag. Runner-side telemetry forwarding
- *      is deferred to Slice 2b-β; users still see the fallback text.
+ *      landed in Slice 2b-β-β-α — JS / TS / Python runners all
+ *      forward the flag to `runtime.rich_media_payload_rejected`.
  *   3. On accept → posts a `console` log with `args: [<rawText>]`
  *      and `payload: [<typed payload>]` so the renderer dispatches to
  *      the dedicated renderer component when one exists.
@@ -830,9 +831,9 @@ ctx.addEventListener('message', async (event) => {
         // there's no global pollution and the binding goes out of scope
         // when the AsyncFunction returns. Each helper validates the
         // payload via the shared whitelist. Rejects include a
-        // `richMediaRejected` flag for Slice 2b-β telemetry
-        // forwarding; today the user-visible text fallback still
-        // renders even before that runner hook lands.
+        // `richMediaRejected` flag; the JS / TS / Python runners
+        // forward that flag to `runtime.rich_media_payload_rejected`
+        // (RL-044 Slice 2b-β-β-α fold A).
         const lingua = buildLinguaWorkerBridge(ctx, runId);
 
         const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;

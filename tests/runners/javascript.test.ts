@@ -348,4 +348,55 @@ describe('JavaScriptRunner', () => {
       });
     }
   });
+
+  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (RL-044 Slice 2b-β-β-α fold A telemetry fires fire-and-forget)', async () => {
+    const originalWorker = globalThis.Worker;
+
+    class MockWorker {
+      private messageHandler: ((event: MessageEvent) => void) | null = null;
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.messageHandler = handler;
+      }
+      postMessage(message: { runId?: string }): void {
+        this.messageHandler?.({
+          data: {
+            type: 'console',
+            runId: message.runId,
+            method: 'log',
+            args: ['[chart rejected: remote/named data not allowed (use data.values inline)]'],
+            line: 1,
+            richMediaRejected: { kind: 'chart', reason: 'validation-failed' },
+          },
+        } as MessageEvent);
+        this.messageHandler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 1 },
+        } as MessageEvent);
+      }
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+      const result = await runner.execute('lingua.chart({ data: { url: "x" } })');
+      const entry = result.stdout[0]!;
+      expect(entry.args?.[0]).toContain('chart rejected');
+      // Telemetry forwarding fires inside the runner (fire-and-forget);
+      // the test asserts the path doesn't drop or mutate the entry.
+      expect(entry.payload).toBeUndefined();
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
 });

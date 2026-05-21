@@ -642,6 +642,13 @@ describe('RL-044 Slice 1A — //=> table directive', () => {
       const [entry] = detectJSMagicComments(code);
       expect(entry?.directive).toBe('table');
     });
+
+    it('resolves the figure alias to the chart directive (RL-044 Slice 2b-β-β-α fold G)', () => {
+      // matplotlib convention: users say `figure`, runner sees `chart`.
+      const [entry] = detectJSMagicComments('spec //=> figure');
+      expect(entry?.kind).toBe('arrow');
+      expect(entry?.directive).toBe('chart');
+    });
   });
 
   describe('Python arrow directive', () => {
@@ -656,6 +663,12 @@ describe('RL-044 Slice 1A — //=> table directive', () => {
       const code = '[1]  #=>';
       const [entry] = detectPythonMagicComments(code);
       expect(entry?.directive).toBeUndefined();
+    });
+
+    it('resolves the figure alias on Python too (RL-044 Slice 2b-β-β-α fold G)', () => {
+      const code = 'spec  #=> figure';
+      const [entry] = detectPythonMagicComments(code);
+      expect(entry?.directive).toBe('chart');
     });
   });
 });

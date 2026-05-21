@@ -38,7 +38,7 @@ describe('PythonRunner', () => {
   });
 });
 
-describe('PythonRunner — RL-011 Slice D env wiring', () => {
+describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () => {
   const initialEnv = useEnvVarsStore.getState();
   const initialEditor = useEditorStore.getState();
   const initialProject = useProjectStore.getState();
@@ -535,5 +535,212 @@ describe('PythonRunner — RL-011 Slice D env wiring', () => {
     expect(result.cancelled).toBe(true);
     expect(result.error?.message).toBe('Execution stopped by user.');
     expect(terminateCount).toBe(1);
+  });
+
+  // RL-044 Slice 2b-β-β-α — Python paridad rich-media.
+
+  it('upgrades a magic-comment chart directive to a typed payload', async () => {
+    class ChartDirectiveWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          // The worker JSON-encodes rich-media directive values, so the
+          // user's source line `spec  #=> chart` results in the
+          // JSON string below being captured. The runner
+          // recovers the payload via `payloadForRichMediaMagicDirective`.
+          handler?.({
+            data: {
+              type: 'magic-comment',
+              runId: message.runId,
+              line: 1,
+              value: '{"data": {"values": [{"a": 1, "b": 2}]}, "mark": "bar"}',
+            },
+          } as MessageEvent);
+          handler?.({
+            data: { type: 'done', runId: message.runId, executionTime: 1 },
+          } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: ChartDirectiveWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute(
+      '{"data": {"values": [{"a": 1, "b": 2}]}, "mark": "bar"}  #=> chart'
+    );
+
+    const magic = result.magicResults?.[0];
+    expect(magic).toBeDefined();
+    expect(magic?.payload).toBeDefined();
+    expect(magic?.payload).toMatchObject({ kind: 'chart' });
+  });
+
+  it('upgrades a magic-comment image directive to a typed payload', async () => {
+    class ImageDirectiveWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          // Worker ships JSON-encoded value for rich-media directives
+          // (see `__mc` in python-worker.ts). A bare string in Python
+          // becomes a double-quoted JSON string here.
+          handler?.({
+            data: {
+              type: 'magic-comment',
+              runId: message.runId,
+              line: 1,
+              value: '"data:image/png;base64,iVBORw0KGgo="',
+            },
+          } as MessageEvent);
+          handler?.({
+            data: { type: 'done', runId: message.runId, executionTime: 1 },
+          } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: ImageDirectiveWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute(
+      "'data:image/png;base64,iVBORw0KGgo='  #=> image"
+    );
+
+    const magic = result.magicResults?.[0];
+    expect(magic?.payload).toMatchObject({
+      kind: 'image',
+      src: 'data:image/png;base64,iVBORw0KGgo=',
+    });
+  });
+
+  it('omits the payload when the chart directive value is rejected (anti-feature §A-008)', async () => {
+    class RejectingChartWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          // `data.url` is rejected by `validateChartSpec` — no payload.
+          handler?.({
+            data: {
+              type: 'magic-comment',
+              runId: message.runId,
+              line: 1,
+              value: '{"data": {"url": "https://example.com/data.csv"}, "mark": "bar"}',
+            },
+          } as MessageEvent);
+          handler?.({
+            data: { type: 'done', runId: message.runId, executionTime: 1 },
+          } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: RejectingChartWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute(
+      '{"data": {"url": "https://example.com/data.csv"}, "mark": "bar"}  #=> chart'
+    );
+
+    const magic = result.magicResults?.[0];
+    expect(magic).toBeDefined();
+    // Text value still passes through; payload absent because the spec
+    // failed the security whitelist (anti-feature §A-008). The JSON
+    // value the worker shipped survives in `magic.value` for the
+    // text fallback.
+    expect(magic?.value).toContain('https://example.com/data.csv');
+    expect(magic?.payload).toBeUndefined();
+  });
+
+  it('keeps the text fallback entry visible when the worker emits a richMediaRejected flag (fold A telemetry fires fire-and-forget)', async () => {
+    class RejectingWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+      removeEventListener(): void {}
+      postMessage(message: Record<string, unknown>): void {
+        if (message.type === 'init') {
+          this.listeners.get('message')?.({ data: { type: 'ready' } } as MessageEvent);
+          return;
+        }
+        if (message.type === 'execute') {
+          const handler = this.listeners.get('message');
+          handler?.({
+            data: {
+              type: 'console',
+              runId: message.runId,
+              method: 'log',
+              args: ['[chart rejected: remote/named data not allowed (use data.values inline)]'],
+              richMediaRejected: { kind: 'chart', reason: 'validation-failed' },
+            },
+          } as MessageEvent);
+          handler?.({
+            data: { type: 'done', runId: message.runId, executionTime: 1 },
+          } as MessageEvent);
+        }
+      }
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: RejectingWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    const runner = new PythonRunner();
+    await runner.init();
+    const result = await runner.execute('__lingua.chart({"data": {"url": "x"}})');
+
+    expect(result.stdout).toHaveLength(1);
+    const entry = result.stdout[0]!;
+    expect(entry.args?.[0]).toContain('chart rejected');
+    // Rejection messages keep the text fallback; payload stays absent.
+    expect(entry.payload).toBeUndefined();
   });
 });
