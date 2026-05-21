@@ -19,6 +19,7 @@ import { useSettingsStore } from '../stores/settingsStore';
 import { trackEvent } from '../utils/telemetry';
 import {
   forceTablePayload,
+  payloadForRichMediaMagicDirective,
   tryParseJsonForPayload,
   type RichOutputPayload,
 } from '../../shared/richOutput';
@@ -336,7 +337,34 @@ export class PythonRunner implements LanguageRunner {
                 void trackEvent('runtime.python_console_payload_emitted', {
                   kind: richKindBucket(payload),
                 });
+                // RL-044 Slice 2b-β-β-α fold E — security-relevant
+                // adoption signal: count `__lingua.chart/image/html`
+                // acceptances separately from the generic Python
+                // payload stream so the security dashboard can split
+                // user-emitted rich media from automatic table /
+                // object payloads emitted by the print override.
+                if (
+                  payload.kind === 'chart' ||
+                  payload.kind === 'image' ||
+                  payload.kind === 'html'
+                ) {
+                  void trackEvent('runtime.python_rich_media_used', {
+                    kind: payload.kind,
+                  });
+                }
               }
+            }
+            // RL-044 Slice 2b-β-β-α fold A — runner-side forwarding of
+            // the Python worker's rich-media rejection flag. Closes
+            // the runner-side telemetry hook that was deferred since
+            // Slice 2a (see `buildLinguaWorkerBridge` in js-worker.ts
+            // and `buildPythonRichMediaBridge` in python-worker.ts).
+            if (msg.richMediaRejected) {
+              const { kind, reason } = msg.richMediaRejected;
+              void trackEvent('runtime.rich_media_payload_rejected', {
+                kind,
+                reason,
+              });
             }
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {
@@ -365,6 +393,12 @@ export class PythonRunner implements LanguageRunner {
             // round-tripping the `value` string through
             // `tryParseJsonForPayload` + `forceTablePayload`. Mirrors
             // the JS / TS runner pattern from Slice 1A.
+            //
+            // RL-044 Slice 2b-β-β-α — widened to `chart` / `image` /
+            // `html` via the shared `payloadForRichMediaMagicDirective`
+            // helper. JS / TS / Python now share the same client-side
+            // recovery path so cross-language rich-media payloads
+            // produce identical shapes.
             const directive = magicDirectiveByLine[msg.line];
             let payload: RichOutputPayload | undefined;
             if (msg.payload) {
@@ -372,6 +406,12 @@ export class PythonRunner implements LanguageRunner {
             } else if (directive === 'table') {
               const parsed = tryParseJsonForPayload(msg.value);
               if (parsed.ok) payload = forceTablePayload(parsed.value);
+            } else if (
+              directive === 'chart' ||
+              directive === 'image' ||
+              directive === 'html'
+            ) {
+              payload = payloadForRichMediaMagicDirective(directive, msg.value);
             }
             const entry: MagicCommentResult = {
               line: sourceLineFor(msg.line) ?? msg.line,

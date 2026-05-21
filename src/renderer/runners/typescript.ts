@@ -363,6 +363,16 @@ export class TypeScriptRunner implements LanguageRunner {
                 language: 'typescript',
               });
             }
+            // RL-044 Slice 2b-β-β-α fold A — mirror of the JS runner
+            // rejection forwarding (TS rides the JS worker, so the
+            // bridge emits the same `richMediaRejected` flag shape).
+            if (msg.richMediaRejected) {
+              const { kind, reason } = msg.richMediaRejected;
+              void trackEvent('runtime.rich_media_payload_rejected', {
+                kind,
+                reason,
+              });
+            }
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {
                 droppedStderr = appendCappedConsole(

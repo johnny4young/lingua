@@ -33,10 +33,10 @@
 export type MagicCommentKind = 'arrow' | 'watch' | 'autoLog';
 
 /**
- * RL-044 Slice 1A — rich-output directives surfaced on an arrow
- * magic comment. Slice 2b-α widens the parser to recognise `chart`,
- * `image`, and `html` too; runner-side payload conversion for those
- * non-table directives lands in Slice 2b-β.
+ * RL-044 Slice 1A / 2b — rich-output directives surfaced on an arrow
+ * magic comment. `table`, `chart`, `image`, and `html` are all live
+ * across JS / TS / Python; runner-side payload conversion consumes the
+ * canonical directive name.
  *
  * Usage:
  *   `myArray //=> table` → renderer upgrades the inline pill from
@@ -93,21 +93,32 @@ const JS_ARROW_RE = /^(.+?)\/\/\s*=>(.*)$/;
 const KNOWN_DIRECTIVES: ReadonlySet<MagicCommentDirective> = new Set([
   'table',
   // RL-044 Slice 2b-α — chart / image / html become recognised
-  // directive words so the parser contract is ready for Slice 2b-β's
-  // runner-side payload upgrade. Until that follow-up lands, the
-  // runners still leave these directives on the legacy arrow path.
+  // directive words. Slice 2b-β-α (JS / TS) + 2b-β-β-α (Python) wire
+  // the runner-side payload upgrade so the directive contract is now
+  // fully live cross-language.
   'chart',
   'image',
   'html',
 ]);
 
+// RL-044 Slice 2b-β-β-α fold G — directive aliases. Maps user-facing
+// shorthand to the canonical `MagicCommentDirective`. `figure` matches
+// the matplotlib convention (`plt.show()` → "figure"); the runner
+// receives the canonical name so the payload conversion stays single-
+// path.
+const DIRECTIVE_ALIASES: Readonly<Record<string, MagicCommentDirective>> = {
+  figure: 'chart',
+};
+
 function parseDirective(raw: string | undefined): MagicCommentDirective | undefined {
   if (!raw) return undefined;
   const trimmed = raw.trim().toLowerCase();
   if (trimmed.length === 0) return undefined;
-  return KNOWN_DIRECTIVES.has(trimmed as MagicCommentDirective)
-    ? (trimmed as MagicCommentDirective)
-    : undefined;
+  if (KNOWN_DIRECTIVES.has(trimmed as MagicCommentDirective)) {
+    return trimmed as MagicCommentDirective;
+  }
+  const alias = DIRECTIVE_ALIASES[trimmed];
+  return alias ?? undefined;
 }
 
 function detectJSLine(line: string): MagicCommentLine | null {
@@ -1031,10 +1042,10 @@ export function transformPythonMagicComments(code: string): string {
     const lineNumber = i + 1;
     const indentMatch = line.match(/^(\s*)/);
     const indent = indentMatch?.[1] ?? '';
-    // RL-044 Slice 1C fold D — forward the parsed directive (currently
-    // only `'table'`) into the `__mc` runner so the Python worker can
-    // attach a forced-table payload alongside the legacy value text.
-    // Unknown / missing directives stay None on the Python side.
+    // RL-044 Slice 1C / 2b — forward the parsed directive into the
+    // `__mc` runner. `table` lets the Python worker attach a forced-table
+    // payload; rich-media directives use JSON text so the runner can
+    // recover chart / image / html payloads client-side.
     const directiveArg = detected.directive
       ? `, directive=${JSON.stringify(detected.directive)}`
       : '';

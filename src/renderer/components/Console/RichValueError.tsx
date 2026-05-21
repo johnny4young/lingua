@@ -200,6 +200,30 @@ export function RichValueError({ payload, language, fallbackText }: RichValueErr
                   line: frame.line,
                 })
               : t('console.rich.errorFrameUnclickable');
+          // RL-044 Slice 2b-β-β-α fold C — PEP 3134 chain separator
+          // frames stay non-clickable. Rendered as a presentational
+          // <li> (role=none) with a decorative border + italic /
+          // low-contrast styling. ARIA forbids `role="separator"`
+          // inside a `<ul role="list">` context — that creates a
+          // listitem/separator role conflict that screen readers
+          // mis-announce. Using role=none keeps the visual cue
+          // without breaking the list semantics; the literal Python
+          // text ("The above exception was the direct cause…") is
+          // read in-flow by assistive tech, which is the desired
+          // narration.
+          if (frame.causedBy) {
+            return (
+              <li
+                key={index}
+                role="none"
+                className="mt-1 border-t border-border/40 px-1 pt-1 text-[10px] italic text-fg-subtle"
+                data-testid="console-rich-error-frame-causedby"
+                data-causedby={frame.causedBy}
+              >
+                {frame.text}
+              </li>
+            );
+          }
           if (clickable) {
             return (
               <li key={index}>

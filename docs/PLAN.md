@@ -2738,6 +2738,45 @@ Deferred to Slice 1.5b (still):
   security note before the eval pass lands. Inline-fix policy carve-out
   on "security" keeps it out of 1.5.
 
+### Slice 1.5c — Log points / tracepoints (promoción 2026-05-21)
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Ready after Slice 1.5b. Reabre el item "Logpoints / tracepoints" que DEBUGGER_ADR §2 listaba como out-of-scope del MVP. No es decisión de diseño contra log points — es promoción de budget post-1.5b.`
+- Why this matters:
+  - Hoy el flujo "inspeccionar un valor sin detener la ejecución" obliga al usuario senior a (a) escribir un `console.log`, (b) correr, (c) ver, (d) borrar el log. En un scratchpad esto contamina el código y deja diff noise. Log points eliminan los pasos (a) y (d).
+  - Especialmente valioso dentro de loops tight donde un breakpoint normal hace el flujo no-funcional: el usuario quiere "ver qué pasa cada 100 iteraciones" sin parar.
+  - DEBUGGER_ADR.md §2 lista logpoints como out-of-scope del MVP pero NO argumenta contra el feature; es decisión de presupuesto. Esta slice consume parte del budget post-MVP que el ADR §"When to revisit" anticipa.
+- Slice scope:
+  - `src/renderer/stores/debuggerStore.ts` (extend) — `Breakpoint` discriminated union se extiende a `Breakpoint = StopBreakpoint | LogBreakpoint`. `LogBreakpoint = { kind: 'log', tabId, line, template: string, condition?: string, hitCount?: { every: number, current: number }, enabled: boolean, id }`. FIFO cap shared con stop breakpoints (100 global).
+  - `src/renderer/hooks/useBreakpointGutter.ts` (extend) — visualización: stop breakpoint = círculo rojo lleno; log point = diamante azul lleno (`◆`); click normal en gutter alterna stop; **Alt+click** en gutter alterna log point; segunda Alt+click abre inline editor (Monaco contentWidget) con tres campos: template + condition + hitCount.
+  - `src/renderer/runtime/debuggerInstrument.ts` (extend) — cuando el yield encuentra un `LogBreakpoint` en la línea actual: NO pausa la ejecución; en su lugar evalúa `template` interpolando `{expr}` con `frame.locals`, emite un `console.log` con prefijo `▸ ` (configurable) y continúa. Si `condition` está presente y evalúa falsy, skip. Si `hitCount.every === N`, incrementa `current` y emite sólo cuando `current % every === 0`.
+  - `src/renderer/components/Console/ConsolePanel.tsx` (extend) — entries de log point se renderizan con un badge azul `◆ L23` (vs el badge default de console.log que llega por la Sub-slice G de RL-044). Click en el badge salta a la línea como cualquier output row.
+  - Settings → Editor → Debugger → "Log point default prefix" (default `▸`, configurable a `[log]`, `>>`, vacío).
+  - Telemetría closed-enum `debugger.logpoint_fired { language, hadCondition: boolean, hadHitCount: boolean }` mirroreada con parity test en update-server. Una entrada por log point fired, no por instalación del log point (mide adopción real).
+  - Tests:
+    - `tests/stores/debuggerStore.test.ts` — discriminated union, FIFO shared, condition + hitCount storage, sanitization en persist (no se persiste `hitCount.current`, sólo `.every`).
+    - `tests/runtime/debuggerInstrument.test.ts` — template interpolation con expressions complejas (`{user.name}`, `{tries + 1}`, `{}` literal escape), condition truthy/falsy, hitCount every-N firing pattern, malformed template → fallback raw + warning console entry.
+    - `tests/components/BreakpointGutter.logpoint.test.tsx` — Alt+click toggle, inline editor open/close/save/cancel, ESC dismisses unsaved changes.
+    - `tests/e2e/debuggerLogpoint.spec.ts` — Playwright: paste loop de 100 iter, Alt+click línea 3, escribe template `"iter={i}"`, Run, ver 100 entries `▸ iter=0` .. `▸ iter=99` sin pausar; con condition `i % 10 === 0` ver sólo 10 entries.
+- Slice acceptance criteria:
+  - Un Alt+click en el gutter de una línea JS/TS produce un diamante azul + abre inline editor.
+  - Template con `{expr}` resuelve a `String(eval-en-frame(expr))`; expressions sin sentido en el scope actual loggean `<err: ReferenceError>` en lugar de romper el run.
+  - El run no se pausa cuando hay sólo log points (sin stop breakpoints); el `<RunStatusPill>` muestra `running` durante todo el run.
+  - Stop breakpoints + log points coexisten en la misma línea (lookup ordenado: primero stop, luego log; ejecuta stop, pausa; cuando continue, ejecuta log si el condition pasa).
+  - `Disable all breakpoints` en el Debugger panel deshabilita ambos kinds.
+  - Persistencia: cerrar y abrir la app preserva log points con su template + condition + hitCount config (no la state runtime `current`).
+- Out of scope (deferred to Slice 1.5d si hay demanda):
+  - Log points para Python/Go/Rust — depende de Slice 2/3/4 de RL-027 desbloquear esos runtimes primero.
+  - "Print stack trace at this line" como un kind especial — añadir como `LogBreakpoint.template = '__stack__'` magic value sería un fold suelto; no en Slice 1.5c.
+  - Send log point output a un destino distinto (ej. archivo, panel separado) — todo va al Console por simplicidad.
+- Dependencies:
+  - Slice 1.5 ya shipped (gutter + drawer).
+  - Slice 1.5b sería ideal pero NO bloquea — el security review de la dynamic-Function pattern es estrictamente el mismo problema, así que conviene resolverlo una sola vez para ambas slices. Si 1.5b queda parqueado por security, 1.5c espera atrás.
+- Risks:
+  - Eval del template en el worker comparte la misma superficie de `dynamic Function constructor` que watch-expressions de Slice 1.5b. Mitigación: ambas slices comparten el mismo security review; el carve-out de "security" del inline-fix policy aplica igual.
+  - Template malformado podría romper el output stream → mitigado por try/catch en el interpolator que emite `<err: ...>` y continúa.
+
 ### RL-028 Add execution history, replay, and benchmarking tools
 
 - Priority: `P2`
@@ -4685,6 +4724,134 @@ Deferred to Slice 2b-β-β (separate plan):
   alias + `runtime.image_clipboard_pasted` telemetry.
 - **Runner-side `richMediaRejected` telemetry forwarding** from 2b-α.
 - **Sandboxed-iframe security e2e** — Playwright spec.
+
+#### § Slice 2b-β-β-α landed (2026-05-21)
+
+Python paridad rich-media cierra el contrato cross-language antes de
+que RL-094 Run Capsules (Slot 12) empiece a serializar payloads
+embebidos. Acota el deferred list a "subitems pending" — paridad
+Python + telemetry forwarding + iframe security e2e + Fold F (cause
+chain) + Fold G (figure alias) + Fold C (Error.cause chain) shipped
+under labels A-G from this slice's plan; bundle bench (original Fold
+A) and Settings sub-toggles per kind (original Fold C) remain
+explicitly deferred to a follow-up.
+
+**Prerequisite fix (inline)**: Python worker `__mc` was emitting
+`repr(val)` for every magic-comment value, which produces Python
+single-quoted strings that JSON can't parse. The new directive switch
+in `runners/python.ts` calls `payloadForRichMediaMagicDirective` which
+delegates to `tryParseJsonForPayload` — both sides need JSON. Updated
+`__mc` to use `json.dumps(val)` for chart / image / html directives
+(falling back to `repr` on encode failure); `table` and bare arrow
+comments keep the legacy `repr` for debug surface. This is also the
+canonical cross-language contract — the JS worker already
+`JSON.stringify`s magic-comment values.
+
+Shipped:
+
+- **`src/renderer/workers/python-worker.ts`** — new `buildPythonRichMediaBridge(runId)`
+  factory + `pyProxyToJs` helper. Three JS callbacks (`emitChartPayload`,
+  `emitImagePayload`, `emitHtmlPayload`) registered via
+  `py.globals.set(...)` BEFORE the preamble runs. Each validates via
+  the shared `validateChartSpec` / `validateImageSrc` / `validateHtmlPayload`
+  (no duplicated rules), posts the same `console` message shape as
+  the JS worker on accept (`payload: [{ kind, … }]` + text fallback)
+  and on reject (`richMediaRejected: { kind, reason }` + text
+  fallback). Python preamble adds a `__lingua` `types.SimpleNamespace`
+  with `chart` / `image` / `html` methods that forward to the JS
+  callbacks — user-facing API ergonomic mirror of JS `lingua.chart(...)`.
+- **`src/renderer/runners/python.ts`** — widen the `magic-comment`
+  directive switch from `'table'` only to also handle `'chart' | 'image'
+  | 'html'` via the shared `payloadForRichMediaMagicDirective` helper
+  (already exported from `src/shared/richOutput.ts:680`). New `console`
+  message handler branches: forward `msg.richMediaRejected` to
+  `runtime.rich_media_payload_rejected` (fold A); per-payload accept
+  emits `runtime.python_rich_media_used { kind }` separately from the
+  generic `runtime.python_console_payload_emitted` (fold E) so
+  dashboards can isolate user-emitted rich media from auto-promoted
+  table / object payloads.
+- **`src/renderer/runners/javascript.ts` + `typescript.ts`** — symmetric
+  `runtime.rich_media_payload_rejected` forwarding (fold A) on the
+  same console-message handler branch that already handled
+  `consoleTableInvoked`. Closes the deferred hook at js-worker.ts:357.
+- **`src/renderer/utils/magicComments.ts`** — fold G `figure` alias
+  for the `chart` directive, parsed via a new `DIRECTIVE_ALIASES`
+  table. The runner still receives the canonical `chart` directive
+  so the payload conversion stays single-path. Matplotlib convention
+  (`plt.show()` → figure) becomes a first-class shorthand.
+- **`src/shared/errorStack.ts`** — fold C PEP 3134 cause-chain
+  awareness in `parsePythonTraceback`. Two new marker frames with
+  the `causedBy: 'cause' | 'context'` discriminator emit on the
+  literal `The above exception was the direct cause` / `During
+  handling of the above exception` lines that Python's
+  `traceback.format_exception()` (and Pyodide) write between chained
+  segments. `ClickableStackFrame.causedBy?` is the typed wire shape.
+- **`src/renderer/components/Console/RichValueError.tsx`** — render
+  the cause-chain marker frames as non-clickable `role="none"` list
+  items, with italic + low-contrast styling and a `data-causedby`
+  attribute so CSS tests can identify the boundary without breaking
+  list semantics for screen readers.
+- **`src/renderer/workers/js-worker.ts` + `src/renderer/types/index.ts`**
+  — updated comments to reflect that the runner-side forwarding hook
+  (deferred since Slice 2a) is now live cross-language.
+- **`src/shared/telemetry.ts` + `update-server/src/telemetry.ts`** —
+  new closed-enum event `runtime.python_rich_media_used { kind }`
+  with `kind` ∈ `RICH_MEDIA_REJECTED_KINDS` (chart / image / html).
+  Mirrored both sides with the parity-test discipline; the redactor
+  validates per the same closed enum.
+
+Tests:
+
+- **`tests/runners/python.test.ts`** (4 new cases) — magic-comment
+  chart directive → typed `RichOutputChart` payload; magic-comment
+  image directive → typed `RichOutputImage` payload with `mime`
+  default; magic-comment chart directive with `data.url` rejected by
+  `validateChartSpec` (anti-feature §A-008) → text value passes
+  through, payload absent; `richMediaRejected` flag from worker
+  console message threads through the runner without dropping the
+  entry (telemetry fires fire-and-forget).
+- **`tests/runners/javascript.test.ts`** (1 new case) — symmetric
+  `richMediaRejected` forwarding test for the JS runner.
+- **`tests/utils/magicComments.test.ts`** (2 new cases) — `figure`
+  alias resolves to `chart` for both JS arrow and Python arrow paths.
+- **`tests/shared/errorStack.test.ts`** (2 new cases) — explicit
+  `raise … from …` cause separator tagged with `causedBy: 'cause'`;
+  implicit re-raise tagged with `causedBy: 'context'`. Both keep
+  the separator frame non-clickable.
+- **`tests/shared/telemetry.test.ts`** — `runtime.python_rich_media_used`
+  added to the alphabetical event-name list + 3 redactor cases
+  (accepts chart/image/html, drops unknown kind, drops unknown
+  property keys).
+- **`update-server/test/telemetry.test.ts`** — 1 new case for the
+  `python_rich_media_used` parity (accepts closed-enum, drops video).
+- **`tests/e2e/richMediaSandboxedIframe.spec.ts`** (new) — Playwright
+  spec injects a `<RichValueHtml>` payload whose script tries
+  `parent.document.body.dataset.linguaSecuritySentinel = 'breached'`,
+  asserts the iframe carries `sandbox="allow-scripts"` (no
+  `allow-same-origin`), and verifies the parent body's sentinel is
+  unchanged after the iframe load. Catches any future regression
+  that adds `allow-same-origin` to the sandbox attribute.
+
+Verification:
+
+- `npm run lint` clean.
+- `npx tsc --noEmit` clean.
+- `npm run check:i18n` + `check:i18n:copy` clean (no new i18n keys).
+- `npm test -- --run`: green (+~13 new test cases).
+- `npm run test:e2e:web -- tests/e2e/richMediaSandboxedIframe.spec.ts`:
+  1/1 passed.
+
+Still deferred (subsequent sub-slice):
+
+- **Fold A original** — vega bundle-size bench guard
+  (baseline ~294 KB gzipped from 2b-β-α).
+- **Fold C original** — Settings sub-toggles per kind +
+  `consoleRichKindEnabledByKind` field in `settingsStore`.
+- **Fold D original** — image-paste resize toast (paired with original
+  fold G).
+- **Fold G original** — ConsolePanel `onPaste` handler + 2 MiB cap +
+  `runtime.image_clipboard_pasted` telemetry. The `//=> figure` alias
+  half of original fold G is shipped above.
 
 (Original Slice 2b-β deferred list — kept for reference; superseded by
 the Slice 2b-β-β list above)
@@ -9893,6 +10060,48 @@ Pre-req: None for Phase A spike. Phase A spike produces an ADR; Phase B (cross-i
 
 **Dependencies:** RL-044 next slice (rich-media payloads).
 
+### RL-044 — Sub-slice G: Universal output→source line badge + hover-to-highlight (promoción 2026-05-21)
+
+**Sub-slice G scope** (extiende el contrato de output rows para no-errores; complementa Sub-slice F):
+
+Hoy sólo los frames de error son clicables. El resto del output (`console.log`, valores inspeccionados, `print`, auto-log de RL-020 Slice 5, returns implícitos) carece de cualquier afford visual que lo conecte de vuelta al código que lo produjo. Para una app cuyo pitch es "el 70% del pixel es código", eso es un gap sentido.
+
+**Sub-slice G scope:**
+- **Capturar el origen.** Extender `RichOutputPayload` con `origin?: { line: number, column?: number }` opcional. Los runners (JS/TS workers, Python worker, Go/Rust desktop subprocess) lo populan cuando saben de qué línea vino la entry:
+  - **JS/TS worker**: instrumentación existente (auto-log magic-comment side-table de Slice 5) ya tiene `line`. Extender el `console.log` patch para capturar `new Error().stack` y parsear la primera frame del usuario via el existing `parseJsErrorStack`. Cap el costo: parse sólo cuando `Settings.outputSourceMappingEnabled === true` (default `true` desktop, `true` web).
+  - **Python worker**: usar `inspect.currentframe().f_back.f_lineno` en el patch de `print` y `display`. Mismo gate de settings.
+  - **Go/Rust**: ya emiten line info via panic traces; aplicar el mismo `parseJsErrorStack`-style splitter al stdout streaming para extraer `file.go:42` cuando aparece (best-effort).
+- **Renderizar el badge.** Nuevo `<OutputLineBadge>` component en `src/renderer/components/Console/`. Renderiza `L23` (chip Tailwind `inline-flex h-4 px-1 text-[10px] font-mono text-[var(--app-text-muted)] hover:text-[var(--app-text)] cursor-pointer rounded-sm`). Click → dispatch `lingua-open-file` CustomEvent (reusa el handler de Sub-slice F).
+- **Hover → editor highlight.** Hover sobre el badge dispara `lingua-highlight-line` CustomEvent con `{ file?, line, durationMs: 1500 }`. Nuevo hook `useEditorHighlightSync` en `src/renderer/hooks/` que escucha el evento y aplica una decoration Monaco de class `lingua-highlight-flash` (animación CSS `@keyframes flash` 1500ms fade out). Si la línea está fuera del viewport, `editor.revealLineInCenter(line, monaco.editor.ScrollType.Smooth)` antes de highlight.
+- **Granular Settings.** Nueva Settings → Editor → "Output source mapping" sección:
+  - `Show line badge on output rows` (default ON).
+  - `Highlight source line on hover` (default ON).
+  - `Smooth-scroll editor when highlighting offscreen lines` (default ON).
+- **Telemetría.** Closed-enum `runtime.output_origin_clicked { language, source: 'badge' | 'hover' }` mirroreada con parity test. Una entrada por click; hover NO emite telemetría (sería ruido).
+
+**Sub-slice G acceptance:**
+- Tras correr `console.log("x")` en la línea 7, el row del console muestra un chip `L7` a la derecha del valor.
+- Hover sobre `L7` resalta la línea 7 en Monaco con un fade-out de 1.5s sin mover el foco del cursor.
+- Click sobre `L7` mueve el cursor a la línea 7 y la centra en el viewport.
+- Auto-log emitted rows (RL-020 Slice 5) heredan el badge sin cambios runner-side (su `origin` ya viene del magic-comment side-table).
+- Errores con stack (Sub-slice F) muestran el badge `L7` en el primer frame del usuario (no del runtime); Sub-slice F sigue manejando los frames internos como links separados.
+- Settings → "Show line badge on output rows" = OFF oculta TODOS los badges en < 200ms; el hover behavior NO se dispara (gate compartido).
+- Output sin `origin` (ej. eval, anonymous, runtime warnings) no muestra badge y no rompe el render.
+- Performance: 1 000 console.log con badge → render del console panel sigue bajo 200ms (bench en `tests/perf/consoleOutputBadge.bench.test.ts`).
+
+**Out of scope (deferred):**
+- Mostrar contexto multi-línea inline (ej. peek de las 3 líneas alrededor). Sub-slice H si hay demanda.
+- Inverso: hover en línea del editor → highlight todas las output rows que vinieron de esa línea. Sub-slice I si la demanda surge.
+- Persist last-clicked output across reload (sería sesión-aware; over-engineering para v1).
+
+**Dependencies:**
+- Sub-slice F (necesita su `parseJsErrorStack` shared + `lingua-open-file` event bus).
+- RL-024 Slice 1 (multi-file abierto en sidebar) ideal pero NO bloquea para single-tab; con un solo archivo abierto el `file` field es implícito.
+
+**Risks:**
+- Capturar stack en cada `console.log` agrega CPU overhead → mitigado por: gate de settings (puede apagarse), y `new Error().stack` en V8 cuesta < 50µs por call según benches conocidos.
+- Bursts de logs (loop con 10 000 prints) saturan render → mitigado por el cap RICH_CONSOLE existente + perf bench locking 1000 rows < 200ms.
+
 ---
 
 ## Tier 1 — Sugerencias incorporadas (promoción 2026-05-20)
@@ -10209,6 +10418,161 @@ Pre-req: RL-024 Slice 1 ya shipped.
   - RL-089 (`Done`) — schema base.
 - Risks:
   - Anti-feature creep — mitigado por ADR explícito.
+
+---
+
+## Tier 2 — Polish items (promoción 2026-05-21, post-RunJS-audit)
+
+Tres tickets nuevos surgidos del análisis comparativo contra RunJS v4 (2026-05-21).
+Cada uno cierra un gap perceptual contra editores serios (VSCode / WebStorm / RunJS),
+con AC firmes y zero deps en servicios online (el budget aplicable es tiempo de
+desarrollo, no SaaS).
+
+### RL-118 VSCode-parity navigation + diagnostic shortcuts
+
+- Priority: `P1`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately for the shortcuts that wrap Monaco built-ins. Slice 2 depends on RL-108 Slice 1 (diagnostics surface) and RL-026 LSP lanes.`
+- Why this matters:
+  - El usuario senior llega a Lingua con muscle-memory grabada de VSCode/IntelliJ. F2 rename, F12 go-to-def, F8 next problem, F1 hover, Cmd+. quick-fix — son las teclas que su mano toca sin pensar. Hoy Lingua tiene 30 shortcuts registrados pero ninguno cubre esa familia.
+  - RL-108 menciona `Cmd+.` en su AC pero NO registra el shortcut en `keyboardShortcuts.ts` — el binding queda implícito. RL-118 cierra ese gap explícitamente.
+  - Cada shortcut faltante genera fricción acumulativa: el usuario aprende un workaround (click derecho, abrir palette) y se forma una impresión de "esto no es serio". RL-118 borra esa impresión de una.
+- Slice 1 scope (shortcuts que wrap Monaco built-ins — no requieren LSP):
+  - 6 nuevas entradas en `src/renderer/data/keyboardShortcuts.ts`:
+    - `editor-go-to-line` (`Mod+G`) → invoca `monaco.editor.action.gotoLine` (Monaco built-in).
+    - `editor-rename-symbol` (`F2`) → invoca `editor.rename` action (Monaco built-in; usa el LSP del lenguaje activo si lo hay, fallback a textual rename — Monaco lo maneja transparentemente).
+    - `editor-trigger-hover` (`F1`) → invoca `editor.action.showHover` (Monaco built-in). Funciona con cualquier provider de hover registrado (TS built-in, gopls/rust-analyzer via RL-026, lint markers de RL-108).
+    - `editor-quick-fix` (`Mod+.`) → invoca `editor.action.quickFix` (Monaco built-in). RL-108 Slice 1 será el primer consumer real con sus 5 quick-fixes; antes, el shortcut está activo pero no encuentra acciones (graceful: Monaco muestra "No fixes available").
+    - `editor-peek-definition` (`Alt+F12`) → invoca `editor.action.peekDefinition`.
+    - `editor-find-references` (`Shift+F12`) → invoca `editor.action.referenceSearch.trigger`.
+  - 2 shortcuts que dependen de la diagnostics surface (gated en `useGlobalShortcuts`):
+    - `editor-next-problem` (`F8`) → siguiente marker en el editor; busca en orden `severity desc → line asc`. No-op si no hay markers.
+    - `editor-prev-problem` (`Shift+F8`) → marker anterior.
+  - 1 shortcut go-to-definition: `editor-go-to-definition` (`F12`) → invoca `editor.action.revealDefinition`. Para lenguajes con LSP (TS built-in, Go/Rust via RL-026) salta entre archivos; para los que no, usa textual heuristic dentro del archivo actual.
+  - `useGlobalShortcuts.ts` agrega los 9 handlers respetando el patrón existente (gate por `activeTabId` + `language`).
+  - Categoría nueva `Editor` o reuse de la existente — alineado con el `ShortcutGroupId` schema.
+  - i18n: 18 nuevas keys (label + description × 9) en `src/renderer/i18n/locales/en/common.json` y `es/common.json` (neutral LatAm tuteo).
+  - Settings → Keyboard → grupo "Editor navigation" surface los 9 shortcuts editables (reusa la infra de RL-037).
+  - Tests:
+    - `tests/data/keyboardShortcuts.test.ts` — pinear que los 9 ids existen + tienen labels + bindings sensatos.
+    - `tests/renderer/hooks/useGlobalShortcuts.editor.test.tsx` — disparar cada shortcut con un mock de `getActiveMonacoEditor()`, asertar que el action correcto se invocó.
+    - `tests/e2e/editorShortcutsParity.spec.ts` — Playwright smoke: paste código TS con un type error, F8 mueve cursor al marker; F1 abre hover popup; F2 + new name + Enter renombra todas las refs en el archivo.
+- Slice 1 acceptance criteria:
+  - Cada uno de los 9 shortcuts dispara la acción Monaco esperada cuando hay un editor activo.
+  - F2 sobre una variable JS renombra todas las occurrences en el archivo (Monaco hace esto out-of-the-box con su rename provider).
+  - F1 sobre un símbolo TS muestra hover con type info (provider built-in de TS).
+  - F8 sin markers presentes muestra un toast `editorShortcuts.toast.noProblems` en lugar de no-op silencioso.
+  - Cmd+. con markers de RL-108 disponibles abre el quick-fix menu; sin markers muestra "No fixes available" (Monaco default).
+  - Los 9 shortcuts son re-asignables vía Settings → Keyboard sin warnings de duplicado contra el catálogo existente.
+  - Coverage parity: tests en + es ambos pasan (`check:i18n` + `check:i18n:copy` verdes).
+- Slice 2 scope (LSP cross-file navigation, gated en RL-026 ya `Done`):
+  - F12 / Shift+F12 / Alt+F12 funcionan cross-file para Go (gopls) y Rust (rust-analyzer) — abren el archivo destino en una nueva tab via RL-024 Slice 1 sidebar.
+  - Python F12 vía Pyright (necesita un Slice paralelo que RL-026 no cubre todavía; promote a BACKLOG si surge demanda).
+- Out of scope:
+  - Multi-cursor shortcuts (Cmd+D, Cmd+Shift+L, Alt+click) — Monaco las trae built-in y funcionan hoy; agregar entries explícitas en el catálogo es trabajo de documentación (BACKLOG candidate, no RL).
+  - Cmd+/ toggle comment, Alt+Up/Down move line, Shift+Alt+Up/Down copy line — todos Monaco built-in. Documentar en KeyboardShortcutsModal sin re-registrar.
+- Dependencies:
+  - Slice 1: ninguna (Monaco built-ins).
+  - Slice 2: RL-026 (`Done`) + RL-024 Slice 1 (sidebar abierto para target file).
+  - RL-108 Slice 1 enriquece pero no bloquea Cmd+./F8/Shift+F8 (graceful sin diagnostics).
+- Risks:
+  - Conflictos con shortcuts de otros sistemas (ej. macOS F1/F2 de keyboard de Apple) — mitigado por: `Function key behavior` de macOS sigue funcionando; los usuarios que tienen "Use F1, F2, etc. keys as standard function keys" desactivado pueden re-asignar vía Settings.
+  - F8 conflicta con un futuro "play/pause media" intent → mitigado: el shortcut sólo aplica cuando el foco está en el editor (no global).
+
+### RL-119 BrowserPreview live auto-refresh + persistent split
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately. Extends RL-019 Slice 3 (BrowserPreview), shipped on 2026-05-12.`
+- Why this matters:
+  - RL-019 Slice 3 ship-eó BrowserPreview como un runtime mode opt-in: el usuario elige `browser-preview` en el `RuntimeModeSelector`, ejecuta, ve. Para iterar (canvas drawing, React component, DOM prototyping), el ciclo es: edit → run → preview. **Tres pasos.**
+  - RunJS v4 (2026-05) ship-eó "Web view" que auto-refresca el DOM mientras tipeás. **Cero pasos.** Esa diferencia mata el caso de uso "estoy ajustando los pixels del canvas y quiero ver el cambio inmediato".
+  - Para una app que se vende como dev-senior + scratchpad, perder este feature loop es costo perceptual alto. RL-119 lo cierra.
+- Slice 1 scope (auto-refresh):
+  - `src/renderer/components/BrowserPreview/BrowserPreview.tsx` (extend) — nuevo prop `autoRefreshMs?: number` (default `300`). Cuando definido, el componente se subscribe a `useTabStore.subscribe` filtrado por el `tabId` activo + watch del `tab.content`; debounced 300ms; en cada commit dispara `runner.run({ silent: true, suppressHistory: true })` para refrescar el iframe sin polluting la `executionHistoryStore`.
+  - Settings → Editor → "Auto-refresh browser preview" sección con tres opciones (radio):
+    - `Off` (legacy: refresh sólo on manual run).
+    - `300ms` (default — feedback rápido, pero da tiempo a parar de tipear).
+    - `1s` (conservador — útil con loops costosos).
+  - Per-tab override via magic-comment `// @preview-refresh off|300|1000` (línea 1 del buffer).
+  - Loop protection se aplica igual: si el código auto-refresca un infinite loop, el `loopProtection.ts` lo mata como en run manual.
+  - Si la última run falló (error), el preview iframe muestra el error inline (ya existe via `<RichValueError>`) en lugar de "limpiar" el preview. Mantener el último DOM válido visible cuando el código nuevo arroja.
+  - Telemetría closed-enum `runtime.browser_preview_auto_refresh { language, intervalMs }` UNA vez por sesión (no por refresh) para medir adopción de los settings sin saturar el pipeline.
+  - Tests:
+    - `tests/components/BrowserPreview.autoRefresh.test.tsx` — debounce 300ms con fake timers; cambio rápido de buffer NO dispara 5 refreshes, sólo 1; settings = `Off` no se subscribe.
+    - `tests/e2e/browserPreviewAutoRefresh.spec.ts` — Playwright web smoke: paste HTML/JS canvas, cambiar `fillStyle = "red"` → `"blue"`, esperar 400ms, asertar via `iframe.contentDocument` que el canvas se redibujó azul sin click en Run.
+- Slice 1 acceptance criteria:
+  - Con setting = `300ms` (default), tipear en un buffer JS browser-preview refresca el iframe 300ms tras la última tecla.
+  - Setting = `Off` mantiene el comportamiento legacy: refresh sólo en run manual.
+  - Magic comment `// @preview-refresh 1000` en línea 1 cambia el debounce sólo para esa tab.
+  - Auto-refresh NO escribe entradas en `executionHistoryStore` (verificable: el contador en Settings → Execution History no sube).
+  - Auto-refresh NO dispara las telemetría runs (`runtime.execute_completed`) — sólo el evento `browser_preview_auto_refresh` por sesión.
+  - Cambiar de browser-preview a otro runtime mode desuscribe el watcher (no leak).
+- Slice 2 scope (persistent split — opcional, fold post-Slice 1):
+  - Setting → Layout → "Keep browser preview visible across tabs" (default OFF). Cuando ON, el panel del preview persiste entre tabs (no se desmonta al cambiar de tab si una browser-preview tab está abierta en background).
+  - Visual: el preview muestra de qué tab está rendering (header chip `Preview: app.tsx`).
+  - Pro-gated (`EXECUTION_HISTORY` tier o similar) si el costo de mantener un iframe vivo en background pesa en RAM.
+- Out of scope:
+  - Hot module replacement (HMR) verdadero a la Vite — auto-refresh es un full re-eval del iframe; HMR requiere su propio slice + es mucho más trabajo.
+  - Auto-refresh para Python con `lingua.html()` — el render rich-media de RL-044 ya es síncrono al run, no hay un iframe que persista; promoter a Slice 3 si la demanda surge.
+  - Inline browser DevTools (Chromium remote debug) — fold futuro si los usuarios lo piden.
+- Dependencies:
+  - RL-019 Slice 3 (`Done`) — BrowserPreview existe.
+  - RL-020 Slice 1 (`Done`) — auto-run scaffold (RL-119 reusa parte de su debounce architecture).
+- Risks:
+  - Auto-refresh con loops infinitos satura CPU → mitigado por loop protection existente.
+  - Cada auto-refresh recrea el iframe (`srcdoc=...`) y pierde el state runtime (variables, event handlers) → es comportamiento esperado para un scratchpad; documentado en el setting hint copy.
+  - RAM en Slice 2 con preview persistent → mitigado por gate Pro + setting OFF default.
+
+### RL-120 Editor depth — sticky scroll + breadcrumbs + inline debug values
+
+- Priority: `P2`
+- Status: `Planned`
+- Readiness: `Slice 1 ready immediately. Slice 3 depends on RL-027 Slice 1.5 (debugger paused state).`
+- Why this matters:
+  - Lingua hoy se siente "scratchpad simple" en archivos largos: sin breadcrumb el usuario no sabe en qué función/clase está; sin sticky scroll pierde el contexto del header. VSCode trajo sticky scroll en 2022 y se volvió expected. RL-120 cierra ese gap de depth perceptual.
+  - Durante debug paused, mostrar valores inline (`x = 42`) al lado de la línea es el feature de DevTools que el usuario senior internalizó hace años. RL-027 Slice 1.5 ya pausa + muestra variables en el panel; agregar la decoration inline duplica el feedback con costo bajo.
+- Slice 1 scope (sticky scroll — Monaco built-in):
+  - `src/renderer/components/Editor/CodeEditor.tsx` (extend) — `editor.create({ stickyScroll: { enabled: true, maxLineCount: 5, defaultModel: 'outlineModel' } })`. Monaco lo soporta nativamente desde v0.41.
+  - Setting → Editor → "Sticky scroll" toggle (default ON desktop, ON web).
+  - Setting → Editor → "Sticky scroll max lines" slider (1–10, default 5).
+  - Tests: `tests/components/CodeEditor.stickyScroll.test.tsx` — toggle propaga al Monaco instance vía `updateOptions`.
+- Slice 1 acceptance criteria:
+  - Scrollear dentro de una función larga muestra el header de la función fijo arriba.
+  - Toggle OFF desactiva el sticky en < 200ms (no requiere reload).
+  - Sticky funciona con TS/JS/Python/Go/Rust por igual (Monaco usa el outline model que cada lenguaje provea).
+- Slice 2 scope (breadcrumb bar):
+  - `src/renderer/components/Editor/EditorBreadcrumb.tsx` (new) — barra de 22px arriba del editor mostrando `app.tsx › Foo › render`. Click en cada segmento abre un dropdown navegable (Cmd+Shift+. shortcut para abrir el último segmento).
+  - Reusa el outline model de Monaco que también alimenta sticky scroll. Si el lenguaje no tiene outline (ej. Bash plain), se oculta gracefully.
+  - Setting → Editor → "Breadcrumb bar" toggle (default ON desktop, OFF web — pixel budget).
+  - Tests: smoke con un fixture TS multi-clase + cursor en un método → asertar que el breadcrumb muestra los 3 segmentos correctos.
+- Slice 2 acceptance criteria:
+  - Mover el cursor a una función actualiza el breadcrumb a `<file> › <class?> › <function>` en < 50ms.
+  - Click en `<class>` abre un dropdown listando los métodos hermanos.
+  - Cmd+Shift+. abre el dropdown del último segmento.
+  - Toggle OFF lo oculta sin afectar el sticky scroll.
+- Slice 3 scope (inline debug values, gated en RL-027 Slice 1.5 = `Done`):
+  - `src/renderer/components/Editor/InlineDebugValues.tsx` (new) — cuando `useDebuggerStore.session.status === 'paused'`, lee `pausedFrame.locals` y proyecta una decoration por línea visible que tenga un binding (`let x = 1` → `▸ x = 1` italic gris a la derecha del statement, similar a la decoration de RL-115 timing).
+  - Setting → Editor → Debugger → "Show inline values during pause" toggle (default ON).
+  - Cap: máximo 1 decoration por línea (la más reciente assignment); cap global de 50 decorations visibles (top-of-viewport priority).
+  - Stop debug → decorations se limpian en el handler `detached`.
+- Slice 3 acceptance criteria:
+  - Pause en línea 10 con `let user = { name: 'jy' }` en frame → decoration `▸ user = {name: "jy"}` aparece tras el `}`.
+  - Continue → decorations se actualizan a las del nuevo frame (o se limpian si pasa a running).
+  - Toggle OFF en pleno paused state limpia las decorations en < 200ms.
+  - Inline values se ocultan automáticamente cuando RL-115 inline timing está activo y comparten la columna (mutual exclusion documentada).
+- Out of scope:
+  - Editing inline mientras pausado (set value desde la decoration) — VSCode lo hace pero es complejidad alta; defer.
+  - Minimap section names — Monaco lo trae built-in vía outline; ya está activo por default. No requiere ticket.
+  - Word highlight cuando el cursor está sobre un símbolo — Monaco lo hace automatic; verificar que esté activo, no requiere RL.
+- Dependencies:
+  - Slice 1: ninguna.
+  - Slice 2: ninguna.
+  - Slice 3: RL-027 Slice 1.5 (`Done`).
+- Risks:
+  - Sticky scroll con archivos muy nested (10+ levels) consume vertical real estate → mitigado por max-lines setting.
+  - Breadcrumb en lenguajes sin outline (ej. plain text fallback) podría confundir → mitigado por gracefully hidden.
+  - Inline values stringify de objetos grandes podría ser caro → mitigado por reuse del `serializeScopeValue` cap existente (256 KB total) + viewport priority cap.
 
 ---
 

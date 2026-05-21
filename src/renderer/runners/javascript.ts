@@ -306,6 +306,18 @@ export class JavaScriptRunner implements LanguageRunner {
                 language: 'javascript',
               });
             }
+            // RL-044 Slice 2b-β-β-α fold A — runner-side forwarding of
+            // `lingua.{chart,image,html}` rejection flags emitted by
+            // `buildLinguaWorkerBridge` (js-worker.ts:380). Closes the
+            // hook explicitly deferred in Slice 2a (see js-worker.ts
+            // pre-2b-β comment).
+            if (msg.richMediaRejected) {
+              const { kind, reason } = msg.richMediaRejected;
+              void trackEvent('runtime.rich_media_payload_rejected', {
+                kind,
+                reason,
+              });
+            }
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {
                 droppedStderr = appendCappedConsole(

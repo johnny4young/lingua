@@ -32,6 +32,17 @@ export interface ClickableStackFrame {
    * "Open in tab" affordance label, but not load-bearing.
    */
   fnName?: string;
+  /**
+   * RL-044 Slice 2b-β-β-α fold C — separator marker emitted between
+   * Python traceback segments linked by PEP 3134 `__cause__` /
+   * `__context__` chains. The renderer styles these frames as
+   * non-clickable separators (italic, low-contrast) so users can see
+   * the boundary between the outer exception and the cause.
+   *
+   * - `'cause'`     — explicit `raise … from …` (PEP 3134 cause).
+   * - `'context'`   — implicit `during handling` (PEP 3134 context).
+   */
+  causedBy?: 'cause' | 'context';
 }
 
 // ---------------------------------------------------------------------------
@@ -173,6 +184,17 @@ export function parseJsErrorStack(stack: string | undefined): ClickableStackFram
 const PYTHON_FILE_LINE =
   /^\s*File\s+"(?<file>.+?)",\s+line\s+(?<line>\d+)(?:,\s+in\s+(?<fn>.+))?\s*$/;
 
+// RL-044 Slice 2b-β-β-α fold C — PEP 3134 chain separators. Python
+// formats these literal strings between linked traceback segments:
+//   - `raise … from …`               → `__cause__` chain.
+//   - implicit re-raise in handler   → `__context__` chain.
+// `traceback.format_exception()` and Pyodide both honor these strings
+// verbatim, so a simple substring match is reliable.
+const PYTHON_CAUSE_MARKER =
+  'The above exception was the direct cause of the following exception';
+const PYTHON_CONTEXT_MARKER =
+  'During handling of the above exception, another exception occurred';
+
 export function parsePythonTraceback(text: string | undefined): ClickableStackFrame[] {
   if (!text || typeof text !== 'string') return [];
   const lines = text.split('\n');
@@ -180,6 +202,17 @@ export function parsePythonTraceback(text: string | undefined): ClickableStackFr
   for (let i = 0; i < lines.length; i += 1) {
     const raw = lines[i] ?? '';
     if (raw.trim().length === 0) continue;
+    // Detect PEP 3134 separators BEFORE the generic file-line match
+    // so the marker frame carries the typed `causedBy` discriminator.
+    const trimmed = raw.trim();
+    if (trimmed.includes(PYTHON_CAUSE_MARKER)) {
+      frames.push({ text: trimmed, causedBy: 'cause' });
+      continue;
+    }
+    if (trimmed.includes(PYTHON_CONTEXT_MARKER)) {
+      frames.push({ text: trimmed, causedBy: 'context' });
+      continue;
+    }
     const match = raw.match(PYTHON_FILE_LINE);
     if (match?.groups) {
       const lineNum = Number.parseInt(match.groups.line ?? '', 10);
@@ -190,12 +223,18 @@ export function parsePythonTraceback(text: string | undefined): ClickableStackFr
         fnName: match.groups.fn,
       });
       // Pull the source line that conventionally follows. Only when it
-      // is non-empty AND not another `File` line — otherwise it gets
-      // its own frame on the next iteration.
+      // is non-empty AND not another `File` line AND not a PEP 3134
+      // marker (defensive: real Python tracebacks never put the marker
+      // immediately after a File frame, but we should not silently
+      // swallow it if a third-party formatter ever did).
       const nextRaw = lines[i + 1] ?? '';
+      const nextTrimmed = nextRaw.trim();
       const nextIsAnotherFile = nextRaw.match(PYTHON_FILE_LINE) !== null;
-      if (nextRaw.trim().length > 0 && !nextIsAnotherFile) {
-        frames.push({ text: nextRaw.trim() });
+      const nextIsCauseMarker =
+        nextTrimmed.includes(PYTHON_CAUSE_MARKER) ||
+        nextTrimmed.includes(PYTHON_CONTEXT_MARKER);
+      if (nextTrimmed.length > 0 && !nextIsAnotherFile && !nextIsCauseMarker) {
+        frames.push({ text: nextTrimmed });
         i += 1; // Consumed the source line.
       }
       continue;

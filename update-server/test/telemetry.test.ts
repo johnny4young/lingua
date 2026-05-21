@@ -392,6 +392,60 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     }
   });
 
+  it('RICH_MEDIA_REJECTED_KINDS stays in sync with the renderer enum (RL-044 Slice 2a)', async () => {
+    // Closed-enum parity for the rich-media rejection / adoption surface.
+    // Both `runtime.rich_media_payload_rejected` and the new
+    // `runtime.python_rich_media_used` (RL-044 Slice 2b-β-β-α fold E)
+    // validate `kind` against this set. Drift here would silently let
+    // a worker-emitted unknown kind through one validator and not the
+    // other.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /RICH_MEDIA_REJECTED_KINDS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual(['chart', 'html', 'image']);
+  });
+
+  it('RICH_MEDIA_REJECTED_REASONS stays in sync with the renderer enum (RL-044 Slice 2a)', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /RICH_MEDIA_REJECTED_REASONS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual([
+      'invalid-src',
+      'size-limit',
+      'validation-failed',
+    ]);
+  });
+
   it('AUTO_RUN_GATE_REASONS stays in sync with the renderer enum (RL-020 Slice 1)', async () => {
     // Mirror of the RUNTIME_MODE parity check: closed-enum lists for
     // `runtime.auto_run_gated` live in two places (renderer + worker)
@@ -838,6 +892,31 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
           line.includes('"kind":"chart"')
       );
     expect(chartLine).toBeDefined();
+    consoleSpy.mockRestore();
+  });
+
+  it('runtime.python_rich_media_used accepts closed-enum kind, drops unknown (RL-044 Slice 2b-β-β-α fold E)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    for (const kind of ['chart', 'image', 'html'] as const) {
+      const okResponse = await postTelemetry({
+        event: 'runtime.python_rich_media_used',
+        properties: { kind },
+      });
+      expect(okResponse.status).toBe(204);
+    }
+    const unknownResponse = await postTelemetry({
+      event: 'runtime.python_rich_media_used',
+      properties: { kind: 'video' },
+    });
+    expect(unknownResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.python_rich_media_used"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(4);
+    const okLine = eventLines.find((line) => line.includes('"kind":"chart"'));
+    expect(okLine).toBeDefined();
+    const videoLine = eventLines.find((line) => line.includes('"video"'));
+    expect(videoLine).toBeUndefined();
     consoleSpy.mockRestore();
   });
 

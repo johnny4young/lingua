@@ -80,9 +80,14 @@ describe('TELEMETRY_EVENTS', () => {
       // `CONSOLE_RICH_KIND_BUCKETS`. Sorts between `node_runner_used`
       // and `stdin_used` alphabetically.
       'runtime.python_console_payload_emitted',
+      // RL-044 Slice 2b-β-β-α fold E — Python rich-media adoption.
+      // Closed-enum payload `{ kind }` from `RICH_MEDIA_REJECTED_KINDS`.
+      // Sorts between `python_console_payload_emitted` and
+      // `rich_media_payload_rejected` alphabetically.
+      'runtime.python_rich_media_used',
       // RL-044 Slice 2a — rich-media payload rejection signal. Closed
-      // enum `{ kind, reason }`. Sorts between
-      // `python_console_payload_emitted` and `ruby_runner_dispatched`.
+      // enum `{ kind, reason }`. Sorts between `python_rich_media_used`
+      // and `ruby_runner_dispatched`.
       'runtime.rich_media_payload_rejected',
       // RL-042 Slice 6 — Ruby runtime dispatch + Settings preference.
       // Both closed-enum; sorts after `rich_media_payload_rejected`.
@@ -790,6 +795,40 @@ describe('runtime.variable_inspector_opened value validator (RL-020 Slice 9)', (
       variableCount: '0',
     });
     expect(droppedKeys).toContain('source');
+  });
+});
+
+describe('runtime.python_rich_media_used value validator (RL-044 Slice 2b-β-β-α fold E)', () => {
+  it('accepts the closed-enum kind (chart / image / html)', () => {
+    for (const kind of ['chart', 'image', 'html'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'runtime.python_rich_media_used',
+          properties: { kind },
+        })
+      );
+      expect(event.properties).toEqual({ kind });
+    }
+  });
+  it('drops an unknown kind', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.python_rich_media_used',
+        properties: { kind: 'svg' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('kind');
+    expect(droppedKeys).toContain('kind');
+  });
+  it('drops unknown property keys', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.python_rich_media_used',
+        properties: { kind: 'chart', src: 'data:image/png;base64,aaa' },
+      })
+    );
+    expect(event.properties).toEqual({ kind: 'chart' });
+    expect(droppedKeys).toContain('src');
   });
 });
 

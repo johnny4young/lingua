@@ -34,7 +34,12 @@ import {
   type ScopeVariable,
   finalizeScopeSnapshot,
 } from '../../shared/scopeSnapshot';
-import type { RichOutputPayload } from '../../shared/richOutput';
+import {
+  validateChartSpec,
+  validateImageSrc,
+  validateHtmlPayload,
+  type RichOutputPayload,
+} from '../../shared/richOutput';
 import { parsePythonTraceback } from '../../shared/errorStack';
 
 const ctx = self as unknown as Worker;
@@ -182,6 +187,133 @@ function parsePythonError(errorText: string): { line?: number; message: string }
   return {
     line: lineValue ? parseInt(lineValue, 10) : undefined,
     message,
+  };
+}
+
+/**
+ * RL-044 Slice 2b-β-β-α — bridge `__lingua.{chart,image,html}` callbacks
+ * registered on Pyodide globals. Each helper unwraps the PyProxy passed
+ * from Python (dict → JS via `dict_converter: Object.fromEntries`),
+ * runs the same `validate*` whitelist the JS worker uses, and posts the
+ * matching `console` message shape. Accepts → `payload` array + text
+ * fallback. Rejects → `richMediaRejected: { kind, reason }` flag + text
+ * fallback. Mirror of `buildLinguaWorkerBridge` in `js-worker.ts`; the
+ * two paths must stay in lockstep for cross-language parity.
+ */
+interface PyProxyLike {
+  toJs?(options?: { dict_converter?: (entries: Iterable<[unknown, unknown]>) => unknown }): unknown;
+  destroy?(): void;
+}
+
+function pyProxyToJs(value: unknown): unknown {
+  if (value && typeof value === 'object' && typeof (value as PyProxyLike).toJs === 'function') {
+    let converted: unknown = null;
+    let ok = false;
+    try {
+      converted = (value as PyProxyLike).toJs!({
+        dict_converter: Object.fromEntries,
+      });
+      ok = true;
+    } catch {
+      // Conversion failed; converted stays null. Destroy still runs
+      // in finally so the underlying Pyodide handle is released even
+      // on the throwing path.
+    } finally {
+      try {
+        (value as PyProxyLike).destroy?.();
+      } catch {
+        // Best-effort destroy; safe to swallow.
+      }
+    }
+    return ok ? converted : null;
+  }
+  return value;
+}
+
+interface LinguaRichMediaBridge {
+  chart: (spec: unknown) => void;
+  image: (src: unknown, mime?: unknown) => void;
+  html: (html: unknown) => void;
+}
+
+function buildPythonRichMediaBridge(
+  runId: string
+): LinguaRichMediaBridge {
+  const postRejection = (
+    kind: 'chart' | 'image' | 'html',
+    reason: 'invalid-src' | 'size-limit' | 'validation-failed',
+    fallbackText: string
+  ): void => {
+    ctx.postMessage({
+      type: 'console',
+      runId,
+      method: 'log',
+      args: [fallbackText],
+      richMediaRejected: { kind, reason },
+    });
+  };
+
+  const postPayload = (
+    payload: RichOutputPayload,
+    fallbackText: string
+  ): void => {
+    ctx.postMessage({
+      type: 'console',
+      runId,
+      method: 'log',
+      args: [fallbackText],
+      payload: [payload],
+    });
+  };
+
+  return {
+    chart: (specProxy) => {
+      const spec = pyProxyToJs(specProxy);
+      const validated = validateChartSpec(spec);
+      if (validated === null) {
+        postRejection(
+          'chart',
+          'validation-failed',
+          '[chart rejected: remote/named data not allowed (use data.values inline)]'
+        );
+        return;
+      }
+      postPayload({ kind: 'chart', spec: validated }, '[chart]');
+    },
+    image: (srcRaw, mimeRaw) => {
+      const src = pyProxyToJs(srcRaw);
+      const mime = pyProxyToJs(mimeRaw);
+      const validatedSrc = validateImageSrc(src);
+      if (validatedSrc === null) {
+        postRejection(
+          'image',
+          'invalid-src',
+          '[image rejected: src must be data:image/, blob:, or https://]'
+        );
+        return;
+      }
+      const mimeString =
+        typeof mime === 'string' && mime.length > 0 ? mime : 'image/png';
+      postPayload(
+        { kind: 'image', src: validatedSrc, mime: mimeString },
+        `[image ${mimeString}]`
+      );
+    },
+    html: (htmlRaw) => {
+      const html = pyProxyToJs(htmlRaw);
+      const validated = validateHtmlPayload(html);
+      if (validated === null) {
+        const reason: 'size-limit' | 'validation-failed' =
+          typeof html === 'string' && html.length > 0 ? 'size-limit' : 'validation-failed';
+        const reasonText =
+          reason === 'size-limit'
+            ? '[html rejected: payload exceeds 256 KB cap]'
+            : '[html rejected: expected a non-empty string]';
+        postRejection('html', reason, reasonText);
+        return;
+      }
+      postPayload({ kind: 'html', html: validated }, '[html sandboxed]');
+    },
   };
 }
 
@@ -612,6 +744,18 @@ ctx.addEventListener('message', async (event) => {
         appliedUserEnvKeys
       );
 
+      // RL-044 Slice 2b-β-β-α — install the JS-backed rich-media
+      // callbacks BEFORE the Python preamble runs so the `__lingua`
+      // namespace can reference them. The bridge is captured per-run
+      // (`runId`-bound) so a stale reply from a killed run cannot
+      // tag the next run's output. Pyodide's `globals.set` is
+      // re-entrant; the previous run's binding is overwritten in place
+      // without leaking.
+      const richMediaBridge = buildPythonRichMediaBridge(runId);
+      py.globals.set('__lingua_emit_chart', richMediaBridge.chart);
+      py.globals.set('__lingua_emit_image', richMediaBridge.image);
+      py.globals.set('__lingua_emit_html', richMediaBridge.html);
+
       await py.runPythonAsync(`
 import io
 import sys
@@ -933,10 +1077,27 @@ sys.displayhook = __lingua_displayhook
 
 
 __lingua_magic_results = []
+__lingua_rich_media_directives = ("chart", "image", "html")
 def __mc(line, expr_fn, directive=None):
     try:
         val = expr_fn()
-        record = {"line": line, "value": repr(val)}
+        # RL-044 Slice 2b-β-β-α — rich-media directives need JSON-encoded
+        # values because the runner side calls
+        # \`payloadForRichMediaMagicDirective\` which delegates to
+        # \`tryParseJsonForPayload\`. Python's \`repr(dict)\` produces
+        # single-quoted strings that JSON rejects; using \`json.dumps\`
+        # for these directives makes the cross-language contract
+        # symmetric with the JS worker (which already JSON-stringifies).
+        # Other directives keep \`repr()\` to preserve the legacy debug
+        # surface for arrow comments.
+        if directive in __lingua_rich_media_directives:
+            try:
+                value_text = __lingua_json.dumps(val)
+            except Exception:  # noqa: BLE001 — non-JSON values fall back to repr
+                value_text = repr(val)
+        else:
+            value_text = repr(val)
+        record = {"line": line, "value": value_text}
         # Fold D — magic-comment '#=> table' upgrade. When the
         # directive tags 'table', also include a forced-table payload
         # so the renderer can dispatch to the rich table widget.
@@ -950,6 +1111,39 @@ def __mc(line, expr_fn, directive=None):
     except Exception as e:
         __lingua_magic_results.append({"line": line, "value": str(e)})
         return None
+
+# RL-044 Slice 2b-β-β-α — \`__lingua\` namespace mirror of the JS
+# \`lingua.{chart,image,html}\` bridge. Wrapping the three helpers in a
+# types.SimpleNamespace keeps the user API ergonomic across languages:
+#     // JS:       lingua.chart({ ... })
+#     // Python:   __lingua.chart({ ... })
+# Validation lives in JS (shared shared/richOutput.ts validators) so
+# the rules stay single-sourced; these Python shims just forward.
+import types as __lingua_types
+
+def __lingua_chart_helper(spec):
+    fn = globals().get("__lingua_emit_chart")
+    if fn is None:
+        return None
+    fn(spec)
+
+def __lingua_image_helper(src, mime=None):
+    fn = globals().get("__lingua_emit_image")
+    if fn is None:
+        return None
+    fn(src, mime)
+
+def __lingua_html_helper(html):
+    fn = globals().get("__lingua_emit_html")
+    if fn is None:
+        return None
+    fn(html)
+
+__lingua = __lingua_types.SimpleNamespace(
+    chart=__lingua_chart_helper,
+    image=__lingua_image_helper,
+    html=__lingua_html_helper,
+)
       `);
 
       if (captureScope === true) {
