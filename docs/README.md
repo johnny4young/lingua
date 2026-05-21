@@ -121,6 +121,7 @@ existing or formally promoted `RL-XXX` entries in `ROADMAP.md` and `PLAN.md`.
 | License + update server observability spec (metrics, alerts, dashboards)                                                                 | [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md)                                           |
 | Operator runbooks (webhook replay, license recovery, refund handling, desktop update draft validation, update rollback, GitHub degraded, telemetry pipeline) | [`runbooks/`](./runbooks)                                                                        |
 | Debugger MVP operator runbook (gutter UX, drawer mount, Settings rows, telemetry, TS source maps)                                        | [`DEBUGGER_SLICE1.md`](./DEBUGGER_SLICE1.md)                                                     |
+| Run Capsule test matrix (fixture catalog + dimensions + per-ticket consumption guide for downstream world-class slices)                                | [`CAPSULE_TEST_MATRIX.md`](./CAPSULE_TEST_MATRIX.md)                                              |
 | Launch / marketing collateral                                                                                                            | [`press-kit/`](./press-kit), [`seo-pages/`](./seo-pages)                                         |
 | Student / classroom lesson drafts                                                                                                        | [`lessons/`](./lessons)                                                                          |
 

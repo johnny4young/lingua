@@ -33,6 +33,10 @@ describe('TELEMETRY_EVENTS', () => {
   it('matches the allowed event names and does not grow without review', () => {
     expect([...TELEMETRY_EVENTS].sort()).toEqual([
       'app.launched',
+      // RL-094 Slice 1 fold A — Run Capsule export adoption signal.
+      // Closed-enum `{ trigger, sizeBucket }`. Sorts at the top of the
+      // alphabetical list.
+      'capsule.exported',
       // RL-027 Slice 1.5 — debugger session lifecycle. Closed-enum payload
       // per DEBUGGER_ADR §4; the redactor drops anything off the contract.
       'debugger.attached',
@@ -795,6 +799,51 @@ describe('runtime.variable_inspector_opened value validator (RL-020 Slice 9)', (
       variableCount: '0',
     });
     expect(droppedKeys).toContain('source');
+  });
+});
+
+describe('capsule.exported value validator (RL-094 Slice 1 fold A)', () => {
+  it('accepts every closed-enum trigger', () => {
+    for (const trigger of ['settings-export', 'palette-export'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'capsule.exported',
+          properties: { trigger, sizeBucket: '<10kb' },
+        })
+      );
+      expect(event.properties).toEqual({ trigger, sizeBucket: '<10kb' });
+    }
+  });
+  it('accepts every closed-enum sizeBucket', () => {
+    for (const sizeBucket of ['<10kb', '<100kb', '<1mb', '<4mb', '>=4mb'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'capsule.exported',
+          properties: { trigger: 'settings-export', sizeBucket },
+        })
+      );
+      expect(event.properties).toEqual({ trigger: 'settings-export', sizeBucket });
+    }
+  });
+  it('drops unknown trigger', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'capsule.exported',
+        properties: { trigger: 'remote-upload', sizeBucket: '<10kb' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('trigger');
+    expect(droppedKeys).toContain('trigger');
+  });
+  it('drops unknown sizeBucket', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'capsule.exported',
+        properties: { trigger: 'settings-export', sizeBucket: 'gigantic' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('sizeBucket');
+    expect(droppedKeys).toContain('sizeBucket');
   });
 });
 

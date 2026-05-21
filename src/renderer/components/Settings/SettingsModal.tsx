@@ -33,6 +33,7 @@ import { LicenseSection } from './LicenseSection';
 import { PluginsSection } from './PluginsSection';
 import { PrivacySection } from './PrivacySection';
 import { RecoverySection } from './RecoverySection';
+import { RunCapsulesSection } from './RunCapsulesSection';
 import { UpdatesSection } from './UpdatesSection';
 import { UtilitiesSection } from './UtilitiesSection';
 import { useShallow } from 'zustand/react/shallow';
@@ -549,6 +550,7 @@ export function SettingsModal({
         return (
           <div className="space-y-6">
             <LicenseSection />
+            <RunCapsulesSection />
             <PrivacySection />
           </div>
         );
