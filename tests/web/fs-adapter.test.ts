@@ -7,7 +7,7 @@
  * adapter through the new `{ rootId, relativePath }` contract.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---- Synthetic FSA handle factory ---------------------------------------
 
@@ -113,8 +113,81 @@ describe('webFsAdapter — selectDirectory cancellation', async () => {
   const { webFsAdapter } = await import('../../src/web/fs-adapter');
 
   it('returns canceled=true when picker throws (user cancelled)', async () => {
+    (
+      window as unknown as { showDirectoryPicker?: unknown }
+    ).showDirectoryPicker = vi.fn().mockRejectedValue(new Error('AbortError'));
+
     const result = await webFsAdapter.selectDirectory();
     expect(result).toEqual({ canceled: true });
+
+    delete (
+      window as unknown as { showDirectoryPicker?: unknown }
+    ).showDirectoryPicker;
+  });
+});
+
+describe('webFsAdapter — selectDirectory unsupported branch (RL-024 Slice 1)', async () => {
+  const fsAdapterModule = await import('../../src/web/fs-adapter');
+  const uiStoreModule = await import('../../src/renderer/stores/uiStore');
+
+  const originalShowDirectoryPicker = (
+    window as unknown as { showDirectoryPicker?: unknown }
+  ).showDirectoryPicker;
+
+  beforeEach(() => {
+    fsAdapterModule._resetWebFsAdapterUnsupportedStateForTests();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    if (originalShowDirectoryPicker) {
+      (
+        window as unknown as { showDirectoryPicker?: unknown }
+      ).showDirectoryPicker = originalShowDirectoryPicker;
+    } else {
+      delete (
+        window as unknown as { showDirectoryPicker?: unknown }
+      ).showDirectoryPicker;
+    }
+    uiStoreModule.useUIStore.setState({ statusNotice: null });
+  });
+
+  it('pushes a status notice when showDirectoryPicker is missing', async () => {
+    // Simulate a browser without File System Access API (Safari /
+    // older Firefox).
+    delete (
+      window as unknown as { showDirectoryPicker?: unknown }
+    ).showDirectoryPicker;
+
+    const result = await fsAdapterModule.webFsAdapter.selectDirectory();
+
+    expect(result).toEqual({ canceled: true });
+    const notice = uiStoreModule.useUIStore.getState().statusNotice;
+    expect(notice?.messageKey).toBe('fileTree.web.directoryUnsupported');
+    expect(notice?.tone).toBe('warning');
+  });
+
+  it('debounces repeated unsupported notices during click bursts', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    delete (
+      window as unknown as { showDirectoryPicker?: unknown }
+    ).showDirectoryPicker;
+    const pushSpy = vi.spyOn(
+      uiStoreModule.useUIStore.getState(),
+      'pushStatusNotice'
+    );
+
+    await fsAdapterModule.webFsAdapter.selectDirectory();
+    await fsAdapterModule.webFsAdapter.selectDirectory();
+
+    expect(pushSpy).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(2_600);
+    await fsAdapterModule.webFsAdapter.selectDirectory();
+
+    expect(pushSpy).toHaveBeenCalledTimes(2);
   });
 });
 

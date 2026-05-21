@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
+  ChevronsDownUp,
   FolderOpen,
   FolderPlus,
   FilePlus,
@@ -9,8 +10,10 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useProjectStore, type FileTreeNode as ProjectFileTreeNode } from '../../stores/projectStore';
+import { countFiles } from '../../stores/projectTree';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
-import { joinAbsolute } from '../../utils/filePath';
+import { joinAbsolute, smartTruncatePath } from '../../utils/filePath';
+import { useDirtyTabPaths } from '../../hooks/useDirtyTabPaths';
 import { IconButton } from '../ui/chrome';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
@@ -36,9 +39,32 @@ export function FileTree({ onNavigate }: FileTreeProps) {
     createFile,
     createDirectory,
     deleteEntry,
+    collapseAllDirectories,
   } = useProjectStore();
 
   const [creating, setCreating] = useState<CreationTarget>(null);
+
+  // RL-024 Slice 1 folds B + E — discovered-file count for the
+  // header badge and a smart-truncated tooltip path. Memoised on the
+  // tree reference so unrelated re-renders don't walk the tree.
+  const fileCount = useMemo(() => countFiles(nodes), [nodes]);
+  const truncatedRootPath = useMemo(
+    () =>
+      currentProject
+        ? smartTruncatePath(currentProject.rootPath, {
+            homePrefix: resolveHomePrefix(),
+            maxLength: 42,
+          })
+        : '',
+    [currentProject]
+  );
+
+  // RL-024 Slice 1 — lift `useDirtyTabPaths` to the tree root and
+  // thread the resulting Set down as a prop. Subscribing per-node
+  // would mount N independent Zustand listeners against
+  // `editorStore.tabs`, and every keystroke creates a fresh `tabs`
+  // array, so N nodes would mean N re-renders per character.
+  const dirtyTabPaths = useDirtyTabPaths();
 
   // When a project is persisted but nodes haven't been loaded yet, reload tree
   useEffect(() => {
@@ -120,13 +146,31 @@ export function FileTree({ onNavigate }: FileTreeProps) {
       {/* Header */}
       <div className="surface-header flex h-12 items-center gap-2 px-3">
         <FolderOpen size={14} className="shrink-0 text-warning" />
-        <span
-          className="flex-1 truncate font-display text-sm font-semibold tracking-[0.08em] text-foreground"
-          title={currentProject.rootPath}
-        >
-          {currentProject.name}
-        </span>
+        <div className="min-w-0 flex-1">
+          <span
+            className="block truncate font-display text-sm font-semibold tracking-[0.08em] text-foreground"
+            title={truncatedRootPath}
+            data-testid="file-tree-root-tooltip"
+          >
+            {currentProject.name}
+          </span>
+          {fileCount > 0 && (
+            <span
+              className="block text-[0.65rem] uppercase tracking-[0.14em] text-muted"
+              data-testid="file-tree-file-count"
+            >
+              {t('fileTree.fileCount', { count: fileCount })}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-0.5">
+          <IconButton
+            onClick={collapseAllDirectories}
+            tooltip={t('fileTree.actions.collapseAll')}
+            aria-label={t('fileTree.actions.collapseAll')}
+          >
+            <ChevronsDownUp size={13} />
+          </IconButton>
           <IconButton
             onClick={() => handleNewFile()}
             tooltip={t('fileTree.actions.newFile')}
@@ -171,6 +215,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
             node={node}
             depth={0}
             creating={creating}
+            dirtyTabPaths={dirtyTabPaths}
             onCreateConfirm={handleCreateConfirm}
             onCancelCreate={() => setCreating(null)}
             onFileClick={handleFileClick}
@@ -206,4 +251,24 @@ export function FileTree({ onNavigate }: FileTreeProps) {
       </div>
     </div>
   );
+}
+
+/**
+ * RL-024 Slice 1 fold E — best-effort home directory prefix for the
+ * `smartTruncatePath` helper. The renderer can't read environment
+ * variables directly, but the desktop preload exposes `process` via
+ * `window.lingua.platform`. We probe `window.lingua` for any home
+ * hint and fall back to the empty string (no prefix collapse) when
+ * unavailable. Web builds always fall back since there is no native
+ * home concept.
+ */
+function resolveHomePrefix(): string {
+  if (typeof window === 'undefined') return '';
+  // `window.lingua.home` is reserved for a future preload addition.
+  // Until that ships, gracefully return ''.
+  const linguaUnknown = window.lingua as unknown as { home?: string };
+  if (typeof linguaUnknown?.home === 'string' && linguaUnknown.home.length > 0) {
+    return linguaUnknown.home;
+  }
+  return '';
 }

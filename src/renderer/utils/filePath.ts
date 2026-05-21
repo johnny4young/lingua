@@ -55,6 +55,58 @@ export function pathToFileUri(absolutePath: string): string {
   return prefix + encodeURI(normalized).replace(/#/g, '%23').replace(/\?/g, '%3F');
 }
 
+/**
+ * RL-024 Slice 1 fold E — smart-truncate a long project root path
+ * for tooltips and the FileTree header. Three rules, applied in
+ * order:
+ *
+ *   1. If the path starts with the user's home directory token
+ *      (`/Users/<user>` on macOS, `/home/<user>` on Linux, common
+ *      `C:\\Users\\<user>` shape on Windows), collapse it to `~`.
+ *   2. If the result is still longer than `maxLength`, keep the
+ *      first segment + last two segments and elide the middle as
+ *      `…`. Example: `/very/long/deeply/nested/project` →
+ *      `/very/.../nested/project`.
+ *   3. Otherwise return as-is.
+ *
+ * Pure helper — no `process.env.HOME` lookup; the caller passes the
+ * home prefix in (the web build has no concept of a home, and the
+ * desktop renderer reads it from a small IPC). Defaulting to `''`
+ * means "skip step 1".
+ */
+export function smartTruncatePath(
+  absolutePath: string,
+  options: { homePrefix?: string; maxLength?: number } = {}
+): string {
+  const { homePrefix = '', maxLength = 48 } = options;
+  let working = absolutePath;
+  if (homePrefix && homePrefix.length > 0) {
+    // Normalise both sides to forward slashes for prefix matching, then
+    // restore the OS separator on the rebuilt path.
+    const normalisedHome = homePrefix.replace(/\\/g, '/').replace(/\/+$/, '');
+    const normalisedPath = working.replace(/\\/g, '/');
+    if (
+      normalisedHome.length > 0 &&
+      (normalisedPath === normalisedHome ||
+        normalisedPath.startsWith(`${normalisedHome}/`))
+    ) {
+      working = `~${normalisedPath.slice(normalisedHome.length)}`;
+    }
+  }
+  if (working.length <= maxLength) return working;
+  const sep = working.includes('\\') ? '\\' : '/';
+  const segments = working.split(sep).filter(Boolean);
+  if (segments.length <= 3) return working;
+  const head = segments[0]!;
+  const tailA = segments[segments.length - 2]!;
+  const tailB = segments[segments.length - 1]!;
+  const prefix = working.startsWith(sep) ? sep : '';
+  // Special-case the home-token short prefix so it survives the
+  // ellipsis collapse (e.g. `~/.../project`).
+  const headPart = head.startsWith('~') ? head : `${prefix}${head}`;
+  return `${headPart}${sep}…${sep}${tailA}${sep}${tailB}`;
+}
+
 export function rustLspModelPathForTab(tab: {
   id: string;
   name: string;

@@ -4,7 +4,10 @@ import {
   PROJECT_WATCH_REFRESH_DEBOUNCE_MS,
   useProjectWatchSync,
 } from '@/hooks/useProjectWatchSync';
+import { useEditorStore } from '@/stores/editorStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useUIStore } from '@/stores/uiStore';
+import type { FileTreeNode } from '@/stores/projectTree';
 
 function WatchSyncHarness() {
   useProjectWatchSync();
@@ -12,6 +15,8 @@ function WatchSyncHarness() {
 }
 
 const initialState = useProjectStore.getState();
+const initialEditorState = useEditorStore.getState();
+const initialUiState = useUIStore.getState();
 
 describe('useProjectWatchSync', () => {
   const mockOnChanged = vi.fn<LinguaAPI['fs']['onChanged']>();
@@ -59,6 +64,8 @@ describe('useProjectWatchSync', () => {
   afterEach(() => {
     vi.clearAllMocks();
     useProjectStore.setState(initialState, true);
+    useEditorStore.setState(initialEditorState, true);
+    useUIStore.setState(initialUiState, true);
     localStorage.clear();
   });
 
@@ -143,5 +150,86 @@ describe('useProjectWatchSync', () => {
     );
 
     expect(mockRefreshTree).not.toHaveBeenCalled();
+  });
+
+  it('warns when a tab file disappears because its loaded parent directory was deleted', async () => {
+    const loadedTree: FileTreeNode[] = [
+      {
+        name: 'src',
+        path: 'src',
+        isDirectory: true,
+        isExpanded: true,
+        children: [
+          {
+            name: 'main.ts',
+            path: 'src/main.ts',
+            isDirectory: false,
+            language: 'typescript',
+          },
+        ],
+      },
+    ];
+    useProjectStore.setState({
+      ...useProjectStore.getState(),
+      nodes: loadedTree,
+    });
+    useEditorStore.setState({
+      ...useEditorStore.getState(),
+      tabs: [
+        {
+          id: 'tab-1',
+          name: 'main.ts',
+          language: 'typescript',
+          content: '',
+          isDirty: false,
+          rootId: 'root-proj',
+          relativePath: 'src/main.ts',
+        },
+      ],
+    });
+    mockRefreshTree.mockImplementation(async () => {
+      useProjectStore.setState({ ...useProjectStore.getState(), nodes: [] });
+    });
+
+    render(<WatchSyncHarness />);
+    emitChange?.({
+      rootId: 'root-proj',
+      relativePath: 'src',
+      eventType: 'rename',
+      filename: 'src',
+    });
+
+    await act(
+      async () =>
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, PROJECT_WATCH_REFRESH_DEBOUNCE_MS + 25)
+        )
+    );
+
+    expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+      'fileTree.staleTab.deletedExternally'
+    );
+  });
+
+  it('swallows refresh failures so watcher bursts do not create unhandled rejections', async () => {
+    mockRefreshTree.mockRejectedValue(new Error('permission denied'));
+    render(<WatchSyncHarness />);
+
+    emitChange?.({
+      rootId: 'root-proj',
+      relativePath: 'a.ts',
+      eventType: 'change',
+      filename: 'a.ts',
+    });
+
+    await act(
+      async () =>
+        await new Promise((resolve) =>
+          window.setTimeout(resolve, PROJECT_WATCH_REFRESH_DEBOUNCE_MS + 25)
+        )
+    );
+
+    expect(mockRefreshTree).toHaveBeenCalledOnce();
+    expect(useUIStore.getState().statusNotice).toBeNull();
   });
 });

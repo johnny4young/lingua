@@ -260,6 +260,11 @@ contextBridge.exposeInMainWorld('lingua', {
       ipcRenderer.invoke('fs:mkdir', rootId, relativePath),
     touch: (rootId: string, relativePath: string) =>
       ipcRenderer.invoke('fs:touch', rootId, relativePath),
+    // RL-024 Slice 1 fold A — surface the entry in the OS file
+    // manager (Finder / Explorer / Nautilus). Web build no-ops via
+    // the FSA adapter (no underlying absolute path).
+    revealInFinder: (rootId: string, relativePath: string) =>
+      ipcRenderer.invoke('fs:reveal-in-finder', rootId, relativePath),
     watchStart: (rootId: string, relativePath?: string) =>
       ipcRenderer.invoke('fs:watch-start', rootId, relativePath),
     watchStop: (watchId: string) =>

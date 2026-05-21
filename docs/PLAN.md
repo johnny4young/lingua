@@ -9791,6 +9791,29 @@ ships.
 - Cmd+Shift+F searches across all open-folder files (uses `ripgrep` via main when available; falls back to JS regex iteration).
 - On web build, "Open folder..." uses the File System Access API; falls back to "individual file upload" when unsupported.
 
+#### § Slice 1 landed (2026-05-20)
+
+Shipped as `RL-024 Slice 1 — multi-file projects foundation`. Exploration confirmed ~70% of the slice was already in tree (sidebar tree, project store, watcher, per-tab dirty marker, project search overlay, Cmd+Shift+F binding). This slice closed the remaining gaps + folded the seven `approved with: all` refinements.
+
+- **Core AC1 — perf + depth cap:** `depthOf(relativePath)` + `MAX_TREE_EXPANSION_DEPTH = 8` in `src/renderer/stores/projectTree.ts`. `expandDirectory` short-circuits with a status notice (`fileTree.depthLimitReached`) when asked to expand a directory at the cap. New perf bench `tests/perf/projectTreeRender.bench.test.ts` locks 50-file tree build under 500 ms (CI ×1.5 → 750 ms).
+- **Core AC2 — tree dirty dot:** new hook `src/renderer/hooks/useDirtyTabPaths.ts` returning a `Set<string>` keyed by `${rootId}::${relativePath}` so directory-tree nodes paint a `bg-primary` dot adjacent to file names whose matching tab is dirty. Tab dirty marker pre-existed via `stateDotClasses`; the tree dot reuses the same `tab.isDirty` source of truth.
+- **Core AC3 — Cmd+Shift+F e2e:** new spec `tests/e2e/projectSearch.spec.ts` covers the keyboard binding (`Mod+Shift+F` opens the overlay) and the empty-state copy in EN + ES. The IPC layer (`fs:searchInFiles`) stays pure-Node substring + budgets; ripgrep promotion deferred to its own slice (subprocess sandbox + cross-platform packaging cost).
+- **Core AC4 — web FSA fallback:** `webFsAdapter.selectDirectory` now probes `typeof picker.showDirectoryPicker === 'function'` before invoking; on Safari / older Firefox it pushes `fileTree.web.directoryUnsupported` + fires closed-enum telemetry `runtime.fs_directory_picker_unsupported { userAgentBucket }`. New `FS_DIRECTORY_PICKER_UA_BUCKETS` enum + parity test on update-server.
+- **Fold A — Reveal in Finder:** new `fs:reveal-in-finder` IPC (uses `shell.showItemInFolder`); right-click + keyboard context menu on tree nodes via new `<FileTreeContextMenu>` portal component (mirrors `EditorTabContextMenu` pattern). Web FSA wrapper resolves to `false`, so the menu collapses to empty and the context-menu action is a no-op there.
+- **Fold B — file count badge:** `countFiles(nodes)` helper walks loaded subtrees and the FileTree header renders plural-aware discovered-file count copy under the project name. Lazy-load contract means it's "discovered files" not "total on disk" by design.
+- **Fold C — Cmd+P scoped to project:** **already shipped** via `useProjectIndexStore` + `fs:listAllFiles`. Quick Open prefers the project-wide index when ready and falls back to the loaded tree walk. No code change needed; marked complete with a verification note.
+- **Fold D — stale-tab notice:** `useProjectWatchSync` walks the refreshed tree after every watcher debounce, compares against open tabs whose containing directory is or was loaded during the refresh, and pushes `fileTree.staleTab.deletedExternally` when a tab's file vanished. 1500 ms debounce mirrors `useDefaultOpenFileConsumer` from RL-044 Slice 2b-β-α.
+- **Fold E — smart-truncate path:** new `smartTruncatePath(absolutePath, { homePrefix?, maxLength? })` helper in `src/renderer/utils/filePath.ts`. Collapses `~`, then elides middle segments to `…` when over budget. FileTree header tooltip uses it with the soon-to-be-added preload `home` hint (stubbed to `''` today so behavior degrades to no-op).
+- **Fold F — collapse all:** new `collapseAll(nodes)` helper + `collapseAllDirectories` store action + `ChevronsDownUp` IconButton in the FileTree header.
+- **Fold G — search bench guard:** new `tests/perf/projectSearchSubstring.bench.test.ts` mirrors the IPC handler's substring + budgets algorithm against a 200-file fixture, locks 300 ms (CI ×1.5 → 450 ms).
+
+**Files touched (~24):** `src/renderer/stores/projectTree.ts`, `src/renderer/stores/projectStore.ts`, `src/renderer/hooks/useDirtyTabPaths.ts` (new), `src/renderer/hooks/useProjectWatchSync.ts`, `src/renderer/components/FileTree/FileTree.tsx`, `src/renderer/components/FileTree/FileTreeNode.tsx`, `src/renderer/components/FileTree/FileTreeContextMenu.tsx` (new), `src/renderer/components/FileTree/FileTreeEmptyState.tsx`, `src/renderer/utils/filePath.ts`, `src/web/fs-adapter.ts`, `src/shared/telemetry.ts`, `src/main/ipc/fileSystem.ts`, `src/preload/index.ts`, `src/types.d.ts`, `update-server/src/telemetry.ts`, `update-server/test/telemetry.test.ts`, `src/renderer/i18n/locales/{en,es}/common.json` (17 file-tree keys × 2 locales), 10 new / extended tests, 2 new perf benches.
+
+**Deferred:**
+- Ripgrep promotion for `fs:searchInFiles` (subprocess sandbox + cross-platform packaging — its own slice).
+- Preload `window.lingua.home` exposure so `smartTruncatePath` can collapse the OS home dir on desktop. Today the helper accepts an empty `homePrefix` and degrades gracefully.
+- Multi-window restore — Slice 2 territory.
+
 ### RL-031 — Slice 2 — Local Docs + AI Citations (extension)
 
 Pre-req: RL-031 Slice 0/1 ships first (Ollama bridge MVP). Slice 2 layers retrieval + citations on top.

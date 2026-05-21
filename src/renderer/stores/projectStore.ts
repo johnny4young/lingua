@@ -23,16 +23,20 @@ import { getActiveAppLanguage } from '../i18n';
 import { languageFromPath } from '../utils/language';
 import {
   addNodeToParent,
+  collapseAll,
   collectExpandedPaths,
+  depthOf,
   entriesToNodes,
   joinPath,
   loadNodesForDirectory,
+  MAX_TREE_EXPANSION_DEPTH,
   removeNode,
   renameNode,
   setNodeChildren,
   toggleExpanded,
   type FileTreeNode,
 } from './projectTree';
+import { useUIStore } from './uiStore';
 
 /**
  * RL-087 — narrow the new tagged-union return shape from watchStart.
@@ -83,6 +87,8 @@ interface ProjectState {
   // Tree navigation
   expandDirectory: (relativePath: string) => Promise<void>;
   collapseDirectory: (relativePath: string) => void;
+  /** RL-024 Slice 1 fold F — collapse every expanded directory at once. */
+  collapseAllDirectories: () => void;
 
   // File operations
   createFile: (parentRelativePath: string, name: string) => Promise<string | null>;
@@ -93,6 +99,29 @@ interface ProjectState {
 
 function basenameOf(absolutePath: string): string {
   return absolutePath.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? 'project';
+}
+
+/**
+ * RL-024 Slice 1 — debounce the `Folder nested too deep` notice so a
+ * user who repeat-clicks a deep chevron only sees one toast per ~1.5s
+ * burst. Mirrors `useDefaultOpenFileConsumer`'s timestamp-debounce
+ * pattern from RL-044 Slice 2b-β-α so cross-feature behavior feels
+ * consistent.
+ */
+const DEPTH_LIMIT_NOTICE_DEBOUNCE_MS = 1500;
+let lastDepthLimitNoticeAt = 0;
+
+function pushDepthLimitNoticeOnce(): void {
+  const now = Date.now();
+  if (now - lastDepthLimitNoticeAt < DEPTH_LIMIT_NOTICE_DEBOUNCE_MS) {
+    return;
+  }
+  lastDepthLimitNoticeAt = now;
+  useUIStore.getState().pushStatusNotice({
+    tone: 'warning',
+    messageKey: 'fileTree.depthLimitReached',
+    values: { max: MAX_TREE_EXPANSION_DEPTH },
+  });
 }
 
 // ----------------------------------------------------------------- store
@@ -261,6 +290,16 @@ export const useProjectStore = create<ProjectState>()(
       expandDirectory: async (relativePath: string) => {
         const { currentProject } = get();
         if (!currentProject) return;
+        // RL-024 Slice 1 — depth cap. Refusing the expand here (rather
+        // than letting `readdir` recurse) keeps a pathological tree
+        // (symlink loop, vendored deps) from freezing the renderer.
+        // The child we're about to render would sit at depth+1, so the
+        // cap fires when the requested directory is already at the
+        // max — its children would be one level past the limit.
+        if (depthOf(relativePath) >= MAX_TREE_EXPANSION_DEPTH) {
+          pushDepthLimitNoticeOnce();
+          return;
+        }
         const entries = await window.lingua.fs.readdir(
           currentProject.rootId,
           relativePath
@@ -275,6 +314,10 @@ export const useProjectStore = create<ProjectState>()(
         set((s) => ({
           nodes: toggleExpanded(s.nodes, relativePath, false),
         }));
+      },
+
+      collapseAllDirectories: () => {
+        set((s) => ({ nodes: collapseAll(s.nodes) }));
       },
 
       // ------------------------------------------------------- file ops

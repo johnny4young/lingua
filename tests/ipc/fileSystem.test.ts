@@ -14,12 +14,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const { handlers, showOpenDialog, showSaveDialog, showMessageBox } = vi.hoisted(
+const {
+  handlers,
+  showOpenDialog,
+  showSaveDialog,
+  showMessageBox,
+  showItemInFolder,
+} = vi.hoisted(
   () => ({
     handlers: new Map<string, (...args: unknown[]) => unknown>(),
     showOpenDialog: vi.fn(),
     showSaveDialog: vi.fn(),
     showMessageBox: vi.fn(),
+    showItemInFolder: vi.fn(),
   })
 );
 
@@ -33,6 +40,9 @@ vi.mock('electron', () => ({
     showOpenDialog,
     showSaveDialog,
     showMessageBox,
+  },
+  shell: {
+    showItemInFolder,
   },
   BrowserWindow: { fromWebContents: vi.fn() },
   // RL-087 — fileSystem.ts now installs a `before-quit` listener via
@@ -59,6 +69,7 @@ beforeEach(async () => {
   showOpenDialog.mockReset();
   showSaveDialog.mockReset();
   showMessageBox.mockReset();
+  showItemInFolder.mockReset();
   showMessageBox.mockResolvedValue({ response: 0 });
   registerFileSystemHandlers();
   tmpRoot = await mkdtemp(
@@ -398,6 +409,38 @@ describe('fs:revoke-root', () => {
     const { rootId } = mintFor(tmpRoot);
     expect(await invoke('fs:revoke-root', rootId)).toBe(true);
     expect(await invoke('fs:revoke-root', rootId)).toBe(false);
+  });
+});
+
+describe('fs:reveal-in-finder', () => {
+  it('resolves through the capability sandbox and reveals an existing file', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const filePath = path.join(tmpRoot, 'src', 'main.ts');
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, 'export {};\n', 'utf-8');
+
+    await expect(invoke('fs:reveal-in-finder', rootId, 'src/main.ts')).resolves.toBe(
+      true
+    );
+    expect(showItemInFolder).toHaveBeenCalledWith(filePath);
+  });
+
+  it('returns false for stale tree entries without showing the file manager', async () => {
+    const { rootId } = mintFor(tmpRoot);
+
+    await expect(invoke('fs:reveal-in-finder', rootId, 'missing.ts')).resolves.toBe(
+      false
+    );
+    expect(showItemInFolder).not.toHaveBeenCalled();
+  });
+
+  it('rejects traversal before invoking the OS file manager', async () => {
+    const { rootId } = mintFor(tmpRoot);
+
+    await expect(
+      invoke('fs:reveal-in-finder', rootId, '../outside.ts')
+    ).rejects.toThrow();
+    expect(showItemInFolder).not.toHaveBeenCalled();
   });
 });
 

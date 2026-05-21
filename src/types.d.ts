@@ -696,6 +696,12 @@ interface LinguaAPI {
     mkdir: (rootId: string, relativePath: string) => Promise<boolean>;
     touch: (rootId: string, relativePath: string) => Promise<boolean>;
     /**
+     * RL-024 Slice 1 fold A — open the OS file manager with the
+     * entry selected. Desktop: `shell.showItemInFolder`. Web build:
+     * no-op (no underlying absolute path).
+     */
+    revealInFinder: (rootId: string, relativePath: string) => Promise<boolean>;
+    /**
      * RL-087 — returns either the `watchId` string on success or a
      * tagged-union `{ ok: false, diagnostic }` shape when fs.watch
      * registration fails (EACCES, EMFILE, ENOSPC, ENOENT). Callers

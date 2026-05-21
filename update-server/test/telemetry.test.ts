@@ -1071,6 +1071,61 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       .sort();
     expect(workerValues).toEqual(sharedValues);
   });
+
+  it('FS_DIRECTORY_PICKER_UA_BUCKETS stays in sync between worker and renderer (RL-024 Slice 1)', async () => {
+    // Mirror discipline for the new browser bucket enum behind
+    // `runtime.fs_directory_picker_unsupported`. Adding `'chromium-old'`
+    // (for example) without updating the renderer would let the worker
+    // silently accept events the renderer never produces.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe =
+      /export const FS_DIRECTORY_PICKER_UA_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+  });
+
+  it('runtime.fs_directory_picker_unsupported accepts closed-enum bucket, drops unknown (RL-024 Slice 1)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.fs_directory_picker_unsupported',
+      properties: { userAgentBucket: 'safari' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownResponse = await postTelemetry({
+      event: 'runtime.fs_directory_picker_unsupported',
+      properties: { userAgentBucket: 'netscape' },
+    });
+    expect(unknownResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) =>
+        line.includes('"runtime.fs_directory_picker_unsupported"')
+      );
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const okLine = eventLines.find((line) =>
+      line.includes('"userAgentBucket":"safari"')
+    );
+    expect(okLine).toBeDefined();
+    const unknownLine = eventLines.find((line) =>
+      line.includes('"netscape"')
+    );
+    expect(unknownLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
 });
 
 describe('ipBucket — privacy guard', () => {

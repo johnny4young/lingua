@@ -16,6 +16,8 @@
  */
 
 import { OPEN_FILE_PICKER_TYPES } from '../shared/filePickerTypes';
+import { useUIStore } from '../renderer/stores/uiStore';
+import { trackEvent } from '../renderer/utils/telemetry';
 
 // -------------------------------- Minimal File System Access API types
 
@@ -205,10 +207,103 @@ function shouldHide(name: string): boolean {
 
 // ----------------------------------------------------- fs adapter
 
+/**
+ * RL-024 Slice 1 — bucket the user agent into one of the
+ * `FS_DIRECTORY_PICKER_UA_BUCKETS` closed-enum values for the
+ * `runtime.fs_directory_picker_unsupported` telemetry. Order matters:
+ * Safari and Edge both inject their tokens into UA strings that also
+ * mention "Chrome", so the Safari / Edge checks need to come first.
+ */
+function bucketUserAgent(ua: string): 'safari' | 'firefox' | 'edge-old' | 'other' {
+  const lower = ua.toLowerCase();
+  // Edge legacy (pre-Chromium) — `'edge/'` substring; Chromium-based
+  // Edge sticks to `'edg/'` and does support the API today.
+  if (lower.includes('edge/')) return 'edge-old';
+  // Safari ships WebKit; the `'safari/'` token is the canonical
+  // mobile + desktop marker, but Chrome / Chromium on macOS also
+  // includes it, and Chrome for iOS uses `'crios/'` (with `'safari/'`
+  // suffixed but no `'chrome/'`). Exclude all three explicitly so
+  // the bucket actually represents "real Safari", not "any WebKit-
+  // family UA".
+  if (
+    lower.includes('safari/') &&
+    !lower.includes('chrome/') &&
+    !lower.includes('chromium/') &&
+    !lower.includes('crios/')
+  ) {
+    return 'safari';
+  }
+  if (lower.includes('firefox/')) return 'firefox';
+  return 'other';
+}
+
+let directoryPickerUnsupportedReported = false;
+const DIRECTORY_UNSUPPORTED_NOTICE_DEBOUNCE_MS = 1500;
+let lastDirectoryUnsupportedNoticeAt = Number.NEGATIVE_INFINITY;
+
+export function _resetWebFsAdapterUnsupportedStateForTests(): void {
+  directoryPickerUnsupportedReported = false;
+  lastDirectoryUnsupportedNoticeAt = Number.NEGATIVE_INFINITY;
+}
+
+function emitDirectoryPickerUnsupportedOnce(): void {
+  if (directoryPickerUnsupportedReported) return;
+  directoryPickerUnsupportedReported = true;
+  // Both `uiStore` and `telemetry` are already in the web main bundle
+  // via other consumers, so the static imports at the top of this file
+  // do not widen the initial bundle beyond modules already loaded.
+  try {
+    const ua =
+      typeof navigator !== 'undefined' && typeof navigator.userAgent === 'string'
+        ? navigator.userAgent
+        : '';
+    void trackEvent('runtime.fs_directory_picker_unsupported', {
+      userAgentBucket: bucketUserAgent(ua),
+    });
+  } catch {
+    /* swallow — telemetry must never block the UX */
+  }
+}
+
+function pushDirectoryUnsupportedNoticeDebounced(): void {
+  const now = Date.now();
+  if (
+    now - lastDirectoryUnsupportedNoticeAt <
+    DIRECTORY_UNSUPPORTED_NOTICE_DEBOUNCE_MS
+  ) {
+    return;
+  }
+  lastDirectoryUnsupportedNoticeAt = now;
+  try {
+    useUIStore.getState().pushStatusNotice({
+      tone: 'warning',
+      messageKey: 'fileTree.web.directoryUnsupported',
+    });
+  } catch {
+    /* swallow */
+  }
+}
+
 export const webFsAdapter: LinguaAPI['fs'] = {
   selectDirectory: async () => {
+    const picker = window as unknown as FileSystemPickerWindow;
+    // RL-024 Slice 1 — probe before invoking. The pre-RL-024
+    // implementation wrapped `showDirectoryPicker(...)` in a bare
+    // try/catch which collapsed "user clicked cancel" and "the API
+    // is not implemented" into the same `{ canceled: true }` result.
+    // On Safari / older Firefox, "Open folder" looked silently dead.
+    // We now distinguish the two:
+    //   - API missing  → status notice + closed-enum telemetry
+    //                    (so dashboards can count how often users hit
+    //                     this wall before we ship a richer fallback)
+    //   - user cancel  → unchanged silent `{ canceled: true }`.
+    if (typeof picker.showDirectoryPicker !== 'function') {
+      // Fire-and-forget: telemetry + notice are both best-effort.
+      emitDirectoryPickerUnsupportedOnce();
+      pushDirectoryUnsupportedNoticeDebounced();
+      return { canceled: true } as const;
+    }
     try {
-      const picker = window as unknown as FileSystemPickerWindow;
       const dh = await picker.showDirectoryPicker({ mode: 'readwrite' });
       const { rootId, rootPath } = mintCapability(dh, dh.name);
       return { canceled: false, rootId, rootPath } as const;
@@ -584,6 +679,18 @@ export const webFsAdapter: LinguaAPI['fs'] = {
       // user-facing failure is consistent (write returns false).
     }
     return webFsAdapter.write(rootId, relativePath, '');
+  },
+
+  // RL-024 Slice 1 fold A — the web build has no concept of an OS
+  // file manager, so "Reveal in Finder" is a no-op that resolves to
+  // `false` (consistent with the rest of the adapter's "feature
+  // unsupported here" convention). The renderer treats `false` as "do
+  // not surface the menu item" — see `FileTreeNode`'s context menu.
+  revealInFinder: async (
+    _rootId: string,
+    _relativePath: string,
+  ): Promise<boolean> => {
+    return false;
   },
 
   watchStart: async (
