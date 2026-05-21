@@ -59,6 +59,11 @@ describe('TELEMETRY_EVENTS', () => {
       // payload `{ language }`. Sorts between `console_table_called`
       // and `history_replay` alphabetically.
       'runtime.error_stack_frame_clicked',
+      // RL-024 Slice 1 — File System Access API "Open folder"
+      // unsupported signal. Closed-enum payload `{ userAgentBucket }`.
+      // Sorts between `error_stack_frame_clicked` and
+      // `history_replay` alphabetically.
+      'runtime.fs_directory_picker_unsupported',
       // RL-020 Slice 4 — execution-history replay dispatched.
       // Closed-enum payload `{ language, status, surface }`.
       'runtime.history_replay',

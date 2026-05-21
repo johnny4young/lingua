@@ -14,7 +14,7 @@
  * rejects writes.
  */
 
-import { ipcMain, dialog, BrowserWindow, app } from 'electron';
+import { ipcMain, dialog, BrowserWindow, app, shell } from 'electron';
 import {
   mkdir as mkdirFs,
   readFile,
@@ -916,6 +916,39 @@ export function registerFileSystemHandlers(): void {
     async (_event, rootId: RootId, relativePath: string) => {
       const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'write');
       await writeFile(absolutePath, '', 'utf-8');
+      return true;
+    }
+  );
+
+  // ---------------------------------------------------------- reveal in OS finder
+
+  // RL-024 Slice 1 fold A — open the OS file manager (Finder /
+  // Explorer / Nautilus) with the entry selected. Resolves the
+  // capability so an attacker-controlled `relativePath` can never
+  // escape the project root. `shell.showItemInFolder` is a synchronous
+  // best-effort call — it returns void and silently no-ops if the
+  // path does not exist, so a stale tree refresh request from the
+  // renderer can't be turned into an information-disclosure side
+  // channel. We resolve with `'read'` permission because we are not
+  // writing anything; the read denylist still applies.
+  ipcMain.handle(
+    'fs:reveal-in-finder',
+    async (_event, rootId: RootId, relativePath: string) => {
+      const { absolutePath } = await resolveOrThrow(rootId, relativePath, 'read');
+      // RL-024 Slice 1 fold A — `shell.showItemInFolder` is a void
+      // best-effort call that silently no-ops when the entry no
+      // longer exists. A small TOCTOU window remains (`stat` →
+      // `showItemInFolder`), but probing here lets the renderer
+      // distinguish "opened" from "stale tree" and skip a
+      // misleading success affordance. Missing-path returns `false`
+      // instead of throwing so the renderer can gracefully fall
+      // back without a try/catch.
+      try {
+        await statAsync(absolutePath);
+      } catch {
+        return false;
+      }
+      shell.showItemInFolder(absolutePath);
       return true;
     }
   );

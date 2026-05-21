@@ -156,6 +156,13 @@ export const TELEMETRY_EVENTS = [
   // "Ruby runtime" select. Closed-enum payload `{ preference }`
   // matching the persisted `rubyRuntimePreference` enum.
   'runtime.ruby_runtime_preference_changed',
+  // RL-024 Slice 1 — fires once per session (debounced) when the web
+  // build calls `selectDirectory()` but `window.showDirectoryPicker`
+  // is unavailable (Safari, older Firefox). Closed-enum payload
+  // `{ userAgentBucket }`. Lets us count how many users hit the
+  // "Open folder" wall on browsers without File System Access API
+  // before we promote a richer fallback. Mirrored on update-server.
+  'runtime.fs_directory_picker_unsupported',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -312,6 +319,9 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `rubyRuntimePreference` enum (`auto` / `system` / `wasm`).
   // Mirrored on update-server.
   'runtime.ruby_runtime_preference_changed': ['preference'],
+  // RL-024 Slice 1 — `userAgentBucket` ∈
+  // `FS_DIRECTORY_PICKER_UA_BUCKETS`.
+  'runtime.fs_directory_picker_unsupported': ['userAgentBucket'],
 };
 
 const DENY_SUBSTRINGS = [
@@ -432,6 +442,18 @@ export const RUBY_RUNTIME_PREFERENCE_VALUES = new Set([
   'auto',
   'system',
   'wasm',
+]);
+// RL-024 Slice 1 — closed enum bucketing the navigator userAgent for
+// `runtime.fs_directory_picker_unsupported`. Browsers that lack
+// File System Access API today: Safari (`'safari'`), Firefox
+// (`'firefox'`), older Edge (`'edge-old'`). Anything else falls to
+// `'other'` so adoption stays bucketable even if a new browser
+// joins the list. Mirrored on update-server with a parity test.
+export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
+  'safari',
+  'firefox',
+  'edge-old',
+  'other',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -686,6 +708,13 @@ function isAllowedValue(
         return (
           typeof value === 'string' &&
           RUBY_RUNTIME_PREFERENCE_VALUES.has(value)
+        );
+      return false;
+    case 'runtime.fs_directory_picker_unsupported':
+      if (key === 'userAgentBucket')
+        return (
+          typeof value === 'string' &&
+          FS_DIRECTORY_PICKER_UA_BUCKETS.has(value)
         );
       return false;
     default: {

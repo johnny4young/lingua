@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+} from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -16,6 +20,8 @@ import {
   languageTextColorClass,
 } from '../../utils/languageMeta';
 import { Tooltip } from '../ui/chrome';
+import { dirtyTabKey } from '../../hooks/useDirtyTabPaths';
+import { FileTreeContextMenu, type FileTreeContextMenuItem } from './FileTreeContextMenu';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
 import type { CreationTarget } from './fileTreeTypes';
 
@@ -23,6 +29,14 @@ interface FileTreeNodeProps {
   node: ProjectFileTreeNode;
   depth: number;
   creating: CreationTarget;
+  /**
+   * RL-024 Slice 1 — set of `rootId::relativePath` keys for tabs
+   * with unsaved edits. Lifted to the tree root in `FileTree` so
+   * recursive children share a single Zustand subscription instead
+   * of mounting one per node. Default to an empty set for callers
+   * (tests, storybook) that don't need the dirty-dot affordance.
+   */
+  dirtyTabPaths?: ReadonlySet<string>;
   onCreateConfirm: (value: string) => void;
   onCancelCreate: () => void;
   onFileClick: (node: ProjectFileTreeNode) => void;
@@ -31,10 +45,13 @@ interface FileTreeNodeProps {
   onNewDirIn?: (node: ProjectFileTreeNode) => void;
 }
 
+const EMPTY_DIRTY_SET: ReadonlySet<string> = new Set<string>();
+
 export function FileTreeNode({
   node,
   depth,
   creating,
+  dirtyTabPaths = EMPTY_DIRTY_SET,
   onCreateConfirm,
   onCancelCreate,
   onFileClick,
@@ -45,7 +62,24 @@ export function FileTreeNode({
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [contextMenu, setContextMenu] = useState<
+    { top: number; left: number } | null
+  >(null);
   const { expandDirectory, collapseDirectory, renameEntry } = useProjectStore();
+  const currentProject = useProjectStore((state) => state.currentProject);
+  // RL-024 Slice 1 fold A — only surface the "Reveal in Finder"
+  // menu item on the desktop build. The web FSA wrapper resolves
+  // revealInFinder to `false`, so the menu would be empty there.
+  const isWebBuild =
+    typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  // RL-024 Slice 1 — light up a dot next to the file name whenever a
+  // matching tab is dirty. Keyed by capability id + relative path so
+  // the match is exact across platforms; only files inside the
+  // currently-open project root can carry the dot.
+  const isDirtyInTab =
+    !node.isDirectory &&
+    currentProject !== null &&
+    dirtyTabPaths.has(dirtyTabKey(currentProject.rootId, node.path));
 
   const indent = depth * 12;
 
@@ -53,8 +87,6 @@ export function FileTreeNode({
   // the file tree when the user is on the web build and the file
   // belongs to a host-toolchain language (Go, Rust). Stays hidden on
   // desktop and for self-contained runtimes.
-  const isWebBuild =
-    typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const capabilityKey =
     !node.isDirectory && node.language
       ? languageCapabilityBadgeKey(node.language)
@@ -80,6 +112,54 @@ export function FileTreeNode({
     setRenaming(false);
   };
 
+  // RL-024 Slice 1 fold A — assemble the context-menu items. Today
+  // we surface a single action on desktop builds; the web FSA wrapper
+  // has no underlying absolute path, so the menu collapses to empty
+  // and we skip showing it altogether (no point in a blank popover).
+  const contextMenuItems: ReadonlyArray<FileTreeContextMenuItem> = (() => {
+    const items: FileTreeContextMenuItem[] = [];
+    if (!isWebBuild && currentProject && window.lingua?.fs?.revealInFinder) {
+      items.push({
+        key: 'revealInFinder',
+        label: t('fileTree.actions.revealInFinder'),
+        onSelect: () => {
+          void window.lingua.fs.revealInFinder(
+            currentProject.rootId,
+            node.path
+          );
+        },
+      });
+    }
+    return items;
+  })();
+
+  const openContextMenu = (top: number, left: number) => {
+    if (contextMenuItems.length === 0) return;
+    setContextMenu({ top, left });
+  };
+
+  const handleContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (contextMenuItems.length === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openContextMenu(event.clientY, event.clientX);
+  };
+
+  const handleNameKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (
+      event.key !== 'ContextMenu' &&
+      !(event.shiftKey && event.key === 'F10')
+    ) {
+      return;
+    }
+    if (contextMenuItems.length === 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    openContextMenu(rect.bottom + 4, rect.left + 8);
+  };
+
   return (
     <div>
       <div
@@ -89,10 +169,17 @@ export function FileTreeNode({
         style={{ paddingLeft: `${indent + 4}px` }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
+        onContextMenu={handleContextMenu}
       >
         {node.isDirectory ? (
           <button
             onClick={handleToggle}
+            aria-label={t(
+              node.isExpanded
+                ? 'fileTree.actions.collapseFolder'
+                : 'fileTree.actions.expandFolder',
+              { name: node.name }
+            )}
             className="shrink-0 text-muted hover:text-foreground"
           >
             {node.isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -102,7 +189,16 @@ export function FileTreeNode({
         )}
 
         {node.isDirectory ? (
-          <button onClick={handleToggle} className="shrink-0">
+          <button
+            onClick={handleToggle}
+            aria-label={t(
+              node.isExpanded
+                ? 'fileTree.actions.collapseFolder'
+                : 'fileTree.actions.expandFolder',
+              { name: node.name }
+            )}
+            className="shrink-0"
+          >
             {node.isExpanded ? (
               <FolderOpen size={13} className="text-warning" />
             ) : (
@@ -128,10 +224,20 @@ export function FileTreeNode({
               className="flex-1 truncate text-left text-foreground/88 hover:text-foreground"
               onClick={() => (node.isDirectory ? handleToggle() : onFileClick(node))}
               onDoubleClick={() => setRenaming(true)}
+              onKeyDown={handleNameKeyDown}
             >
               {node.name}
             </button>
           </Tooltip>
+        )}
+
+        {isDirtyInTab && !renaming && (
+          <span
+            role="img"
+            aria-label={t('fileTree.dirtyDot.label')}
+            data-testid={`file-tree-dirty-${node.path}`}
+            className="ml-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+          />
         )}
 
         {showDesktopOnlyBadge && !renaming && (
@@ -209,6 +315,7 @@ export function FileTreeNode({
               node={child}
               depth={depth + 1}
               creating={creating}
+              dirtyTabPaths={dirtyTabPaths}
               onCreateConfirm={onCreateConfirm}
               onCancelCreate={onCancelCreate}
               onFileClick={onFileClick}
@@ -226,6 +333,15 @@ export function FileTreeNode({
             </p>
           )}
         </div>
+      )}
+
+      {contextMenu && (
+        <FileTreeContextMenu
+          anchor={contextMenu}
+          nodeName={node.name}
+          items={contextMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
       )}
     </div>
   );

@@ -5,13 +5,18 @@ import {
 } from '@/stores/projectStore';
 import {
   entriesToNodes,
+  collapseAll,
   collectExpandedPaths,
+  countFiles,
+  depthOf,
+  MAX_TREE_EXPANSION_DEPTH,
   setNodeChildren,
   toggleExpanded,
   removeNode,
   renameNode,
   addNodeToParent,
 } from '@/stores/projectTree';
+import { useUIStore } from '@/stores/uiStore';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -244,6 +249,191 @@ describe('collectExpandedPaths', () => {
     ];
 
     expect(collectExpandedPaths(nodes)).toEqual(['/proj/src', '/proj/src/utils']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// depthOf — RL-024 Slice 1 depth guard
+// ---------------------------------------------------------------------------
+
+describe('depthOf', () => {
+  it('returns 0 for the project root (empty string)', () => {
+    expect(depthOf('')).toBe(0);
+  });
+
+  it('counts segments in a flat path', () => {
+    expect(depthOf('src')).toBe(1);
+  });
+
+  it('counts segments in a nested path', () => {
+    expect(depthOf('src/lib/utils')).toBe(3);
+  });
+
+  it('ignores leading and trailing slashes', () => {
+    expect(depthOf('/src/lib/')).toBe(2);
+  });
+
+  it('counts up to MAX_TREE_EXPANSION_DEPTH for an 8-segment path', () => {
+    expect(depthOf('a/b/c/d/e/f/g/h')).toBe(MAX_TREE_EXPANSION_DEPTH);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// countFiles + collapseAll — RL-024 Slice 1 folds B + F
+// ---------------------------------------------------------------------------
+
+describe('countFiles', () => {
+  it('returns 0 for an empty tree', () => {
+    expect(countFiles([])).toBe(0);
+  });
+
+  it('counts files at the root', () => {
+    expect(
+      countFiles([
+        makeFile('a.ts', 'a.ts'),
+        makeFile('b.ts', 'b.ts'),
+      ])
+    ).toBe(2);
+  });
+
+  it('does not count directories themselves', () => {
+    expect(
+      countFiles([makeDir('src', 'src'), makeFile('a.ts', 'a.ts')])
+    ).toBe(1);
+  });
+
+  it('recurses into loaded child directories', () => {
+    const tree = [
+      makeDir('src', 'src', [
+        makeFile('main.ts', 'src/main.ts'),
+        makeDir('lib', 'src/lib', [makeFile('util.ts', 'src/lib/util.ts')]),
+      ]),
+      makeFile('README.md', 'README.md'),
+    ];
+    expect(countFiles(tree)).toBe(3);
+  });
+
+  it('skips unloaded subtrees (lazy-load contract)', () => {
+    // `children: undefined` means "not yet expanded" — count must
+    // not assume a value there.
+    const tree = [makeDir('src', 'src')];
+    expect(countFiles(tree)).toBe(0);
+  });
+});
+
+describe('collapseAll', () => {
+  it('collapses every expanded directory in one walk', () => {
+    const tree = [
+      {
+        ...makeDir('src', 'src', [
+          {
+            ...makeDir('lib', 'src/lib', []),
+            isExpanded: true,
+          },
+        ]),
+        isExpanded: true,
+      },
+    ];
+    const out = collapseAll(tree);
+    expect(out[0]!.isExpanded).toBe(false);
+    expect(out[0]!.children?.[0]?.isExpanded).toBe(false);
+  });
+
+  it('preserves cached children so re-expanding does not re-fetch', () => {
+    const cached = [makeFile('main.ts', 'src/main.ts')];
+    const tree = [{ ...makeDir('src', 'src', cached), isExpanded: true }];
+    const out = collapseAll(tree);
+    expect(out[0]!.children).toHaveLength(1);
+    expect(out[0]!.children?.[0]?.name).toBe('main.ts');
+  });
+
+  it('leaves leaf files untouched', () => {
+    const tree = [makeFile('a.ts', 'a.ts')];
+    const out = collapseAll(tree);
+    expect(out[0]).toEqual(tree[0]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// expandDirectory depth cap
+// ---------------------------------------------------------------------------
+
+describe('projectStore expandDirectory depth cap', () => {
+  beforeEach(() => {
+    useUIStore.setState({ statusNotice: null });
+  });
+
+  it('refuses to expand a directory whose own depth is at the cap', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    useProjectStore.setState({
+      currentProject: {
+        id: '/proj',
+        name: 'proj',
+        rootId: 'root-proj',
+        rootPath: '/proj',
+        openedAt: Date.now(),
+      },
+      nodes: [],
+      watchId: null,
+      recentProjects: [],
+    });
+
+    const deepPath = 'a/b/c/d/e/f/g/h'; // depth 8 == MAX_TREE_EXPANSION_DEPTH
+    await useProjectStore.getState().expandDirectory(deepPath);
+
+    expect(mockReaddir).not.toHaveBeenCalled();
+    const notice = useUIStore.getState().statusNotice;
+    expect(notice?.messageKey).toBe('fileTree.depthLimitReached');
+    expect(notice?.tone).toBe('warning');
+  });
+
+  it('still expands directories below the cap', async () => {
+    const mockReaddir = vi
+      .mocked(window.lingua.fs.readdir)
+      .mockResolvedValue([
+        { name: 'inner.ts', isDirectory: false, relativePath: 'a/b/c/inner.ts' },
+      ]);
+    useProjectStore.setState({
+      currentProject: {
+        id: '/proj',
+        name: 'proj',
+        rootId: 'root-proj',
+        rootPath: '/proj',
+        openedAt: Date.now(),
+      },
+      nodes: [
+        {
+          name: 'a',
+          path: 'a',
+          isDirectory: true,
+          isExpanded: true,
+          children: [
+            {
+              name: 'b',
+              path: 'a/b',
+              isDirectory: true,
+              isExpanded: true,
+              children: [
+                {
+                  name: 'c',
+                  path: 'a/b/c',
+                  isDirectory: true,
+                  isExpanded: false,
+                  children: undefined,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      watchId: null,
+      recentProjects: [],
+    });
+
+    await useProjectStore.getState().expandDirectory('a/b/c'); // depth 3
+
+    expect(mockReaddir).toHaveBeenCalledWith('root-proj', 'a/b/c');
+    expect(useUIStore.getState().statusNotice).toBeNull();
   });
 });
 

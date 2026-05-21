@@ -85,6 +85,10 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-042 Slice 6 — mirror of `runtime.ruby_runtime_preference_changed`.
   // Closed-enum `{ preference }`.
   'runtime.ruby_runtime_preference_changed',
+  // RL-024 Slice 1 — mirror of
+  // `runtime.fs_directory_picker_unsupported`. Closed-enum
+  // `{ userAgentBucket }`.
+  'runtime.fs_directory_picker_unsupported',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -140,6 +144,10 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.ruby_runner_dispatched': ['mode', 'bucketedSpawnMs'],
   // RL-042 Slice 6 — mirror of `runtime.ruby_runtime_preference_changed`.
   'runtime.ruby_runtime_preference_changed': ['preference'],
+  // RL-024 Slice 1 — mirror of
+  // `runtime.fs_directory_picker_unsupported`. Closed-enum
+  // `{ userAgentBucket }`.
+  'runtime.fs_directory_picker_unsupported': ['userAgentBucket'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -246,6 +254,14 @@ export const RUBY_RUNTIME_PREFERENCE_VALUES = new Set([
   'auto',
   'system',
   'wasm',
+]);
+// RL-024 Slice 1 — mirror of `FS_DIRECTORY_PICKER_UA_BUCKETS` in
+// `src/shared/telemetry.ts`. Parity test asserts alignment.
+export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
+  'safari',
+  'firefox',
+  'edge-old',
+  'other',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -574,6 +590,13 @@ function isAllowedValue(
         return (
           typeof value === 'string' &&
           RUBY_RUNTIME_PREFERENCE_VALUES.has(value)
+        );
+      return false;
+    case 'runtime.fs_directory_picker_unsupported':
+      if (key === 'userAgentBucket')
+        return (
+          typeof value === 'string' &&
+          FS_DIRECTORY_PICKER_UA_BUCKETS.has(value)
         );
       return false;
     default: {

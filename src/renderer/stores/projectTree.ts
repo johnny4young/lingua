@@ -28,6 +28,70 @@ export function joinPath(base: string, name: string): string {
   return base.endsWith('/') ? `${base}${name}` : `${base}/${name}`;
 }
 
+/**
+ * RL-024 Slice 1 — depth guard for `expandDirectory`. Tree paths are
+ * stored as POSIX-style relative strings (`'a/b/c'`); the empty string
+ * is the project root and counts as depth 0. Pathological projects
+ * (symlink loops, deeply nested dependency trees) are capped at 8
+ * levels of expansion so the renderer never recurses into a multi-MB
+ * `node_modules` shape that would freeze the tree.
+ *
+ * The cap is intentionally generous — real projects rarely exceed
+ * 5–6 levels of meaningful nesting. Hitting 8 almost always means
+ * the user wandered into a dependency vendor tree by mistake, and the
+ * status notice surfaces that without crashing.
+ */
+export const MAX_TREE_EXPANSION_DEPTH = 8;
+
+export function depthOf(relativePath: string): number {
+  if (relativePath.length === 0) return 0;
+  // Strip leading/trailing slashes so `/a/b/` and `a/b` both return 2.
+  const trimmed = relativePath.replace(/^\/+/, '').replace(/\/+$/, '');
+  if (trimmed.length === 0) return 0;
+  return trimmed.split('/').length;
+}
+
+/**
+ * RL-024 Slice 1 fold B — recursive file count for the header badge.
+ * Only counts file nodes (directories don't contribute to the
+ * "{{count}} files" badge). The lazy-load contract means this is a
+ * lower bound — directories not yet expanded contribute zero. The
+ * header copy treats it as "discovered files" rather than "total
+ * files on disk" by design; an accurate count would require eagerly
+ * walking every subtree on every refresh and burn the 500 ms budget
+ * the Slice 1 perf bench locks.
+ */
+export function countFiles(nodes: ReadonlyArray<FileTreeNode>): number {
+  let total = 0;
+  for (const node of nodes) {
+    if (node.isDirectory) {
+      if (node.children) total += countFiles(node.children);
+    } else {
+      total += 1;
+    }
+  }
+  return total;
+}
+
+/**
+ * RL-024 Slice 1 fold F — collapse-all. Walks every expanded
+ * directory and flips `isExpanded` to false. Children are preserved
+ * so re-expanding doesn't re-fetch (lazy load only triggers when
+ * `children === undefined`).
+ */
+export function collapseAll(
+  nodes: ReadonlyArray<FileTreeNode>
+): FileTreeNode[] {
+  return nodes.map((node) => {
+    if (!node.isDirectory) return node;
+    return {
+      ...node,
+      isExpanded: false,
+      children: node.children ? collapseAll(node.children) : node.children,
+    };
+  });
+}
+
 export function entriesToNodes(entries: FsDirEntry[]): FileTreeNode[] {
   return entries.map((entry) => ({
     name: entry.name,

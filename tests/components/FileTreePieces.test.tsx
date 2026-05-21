@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import i18next from 'i18next';
+import { initI18n } from '../../src/renderer/i18n';
 import { FileTreeEmptyState } from '../../src/renderer/components/FileTree/FileTreeEmptyState';
 import { FileTreeInlineInput } from '../../src/renderer/components/FileTree/FileTreeInlineInput';
 
@@ -67,6 +69,11 @@ describe('FileTreeEmptyState', () => {
     openedAt: 1,
   };
 
+  beforeEach(async () => {
+    initI18n('en');
+    await i18next.changeLanguage('en');
+  });
+
   it('surfaces recent projects and open tabs through explicit callbacks', async () => {
     const user = userEvent.setup();
     const onCreateProject = vi.fn();
@@ -94,14 +101,36 @@ describe('FileTreeEmptyState', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Create Project' }));
-    await user.click(screen.getByRole('button', { name: 'Open Folder' }));
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+    await user.click(screen.getByRole('button', { name: 'Open folder' }));
     await user.click(screen.getByRole('button', { name: 'demo-project' }));
-    await user.click(screen.getByRole('button', { name: 'main.ts' }));
+    await user.click(screen.getByRole('button', { name: /main\.ts/ }));
 
     expect(onCreateProject).toHaveBeenCalledTimes(1);
     expect(onOpenProject).toHaveBeenCalledTimes(1);
     expect(onOpenRecentProject).toHaveBeenCalledWith(baseProject);
     expect(onSelectTab).toHaveBeenCalledWith('tab-1');
+    expect(screen.getByLabelText('Unsaved changes')).toBeTruthy();
+  });
+
+  it('localizes empty-state controls and file-count plurals', async () => {
+    await i18next.changeLanguage('es');
+
+    render(
+      <FileTreeEmptyState
+        recentProjects={[]}
+        tabs={[]}
+        activeTabId={null}
+        onCreateProject={() => {}}
+        onOpenProject={() => {}}
+        onOpenRecentProject={() => {}}
+        onSelectTab={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Explorador del proyecto')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Crea un proyecto' })).toBeTruthy();
+    expect(i18next.t('fileTree.fileCount', { count: 1 })).toBe('1 archivo');
+    expect(i18next.t('fileTree.fileCount', { count: 2 })).toBe('2 archivos');
   });
 });
