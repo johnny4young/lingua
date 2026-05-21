@@ -669,6 +669,56 @@ export function tryParseJsonForPayload(
   }
 }
 
+export type RichMediaMagicDirective = 'chart' | 'image' | 'html';
+
+/**
+ * RL-044 Slice 2b-beta — convert rich-media magic-comment values into
+ * typed payloads. The JS worker serializes objects as JSON but strings
+ * as bare text, so image/html directives must accept both parsed JSON
+ * and the original raw string form.
+ */
+export function payloadForRichMediaMagicDirective(
+  directive: RichMediaMagicDirective,
+  value: string
+): RichOutputPayload | undefined {
+  if (directive === 'chart') {
+    const parsed = tryParseJsonForPayload(value);
+    if (!parsed.ok) return undefined;
+    const validated = validateChartSpec(parsed.value);
+    return validated === null ? undefined : { kind: 'chart', spec: validated };
+  }
+
+  const candidate = parseJsonOrRawString(value);
+  if (directive === 'image') {
+    return imagePayloadFromCandidate(candidate);
+  }
+
+  if (typeof candidate !== 'string') return undefined;
+  const validated = validateHtmlPayload(candidate);
+  return validated === null ? undefined : { kind: 'html', html: validated };
+}
+
+function parseJsonOrRawString(value: string): unknown {
+  const parsed = tryParseJsonForPayload(value);
+  return parsed.ok ? parsed.value : value;
+}
+
+function imagePayloadFromCandidate(candidate: unknown): RichOutputPayload | undefined {
+  if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+    const { src, mime } = candidate as { src?: unknown; mime?: unknown };
+    const validatedSrc = validateImageSrc(src);
+    if (validatedSrc === null) return undefined;
+    const mimeString =
+      typeof mime === 'string' && mime.length > 0 ? mime : 'image/png';
+    return { kind: 'image', src: validatedSrc, mime: mimeString };
+  }
+
+  if (typeof candidate !== 'string') return undefined;
+  const validatedSrc = validateImageSrc(candidate);
+  if (validatedSrc === null) return undefined;
+  return { kind: 'image', src: validatedSrc, mime: 'image/png' };
+}
+
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------

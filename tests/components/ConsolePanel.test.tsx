@@ -109,6 +109,9 @@ vi.mock('lucide-react', () => ({
   Clock: () => null,
   Trash2: () => null,
   History: () => null,
+  // RL-044 Slice 2b-β-α — `<ConsoleEntryRenderer>` now uses Maximize2
+  // for the "Open details" chip in place of the old Unicode glyph.
+  Maximize2: () => null,
 }));
 
 import { ConsolePanel } from '../../src/renderer/components/Console/ConsolePanel';

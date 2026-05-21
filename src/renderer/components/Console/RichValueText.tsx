@@ -10,7 +10,7 @@ interface RichValueTextProps {
 /**
  * RL-044 Slice 1B — catch-all renderer for payload kinds that don't
  * deserve their own widget today (primitives, functions, errors,
- * dates, promises, rawText, slice-2 image/chart stubs).
+ * dates, promises, rawText, plus defensive media fallbacks).
  *
  * Prefers `formatPayloadInlineSummary` for kinds where the shared
  * Slice-1A formatter has a usable display string (`Date` / `Promise`),

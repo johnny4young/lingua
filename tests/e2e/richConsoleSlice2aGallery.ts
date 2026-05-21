@@ -89,6 +89,26 @@ export const RICH_CONSOLE_SCREENSHOT_CASES: RichConsoleScreenshotCase[] = [
       'fallback states remain readable in the console row',
     ],
   },
+  {
+    fileName: '09-chart-inline.png',
+    title: 'Chart inline',
+    payload: `{ kind: 'chart', spec: { mark: 'bar', data: { values } } }`,
+    assertions: [
+      'vega-embed chunk loads on first chart payload',
+      'chart reaches data-chart-status ready',
+      'canvas renderer paints inline inside the console row',
+    ],
+  },
+  {
+    fileName: '10-chart-popover-menu.png',
+    title: 'Chart details popover and menu',
+    payload: `{ kind: 'chart', spec: { mark: 'bar', data: { values } } }`,
+    assertions: [
+      'details action opens the console entry popover',
+      'popover Preview tab routes to RichValueChart',
+      'Free-tier export action shows the Pro-gated menu item',
+    ],
+  },
 ];
 
 const pageStyles = `

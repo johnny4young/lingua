@@ -1,11 +1,36 @@
-import { describe, it, expect } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { createElement } from 'react';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import {
   richKindBucket,
   typeIcon,
   payloadHasRichSurface,
   payloadAsJsonString,
 } from '@/components/Console/richConsoleFormat';
+import { RichValueChart } from '@/components/Console/RichValueChart';
 import type { RichOutputPayload } from '@shared/richOutput';
+
+const chartMocks = vi.hoisted(() => ({
+  canExportChart: false,
+  finalize: vi.fn(),
+  pushUpsellNotice: vi.fn(),
+  toSVG: vi.fn(async () => '<svg><rect /></svg>'),
+  toCanvas: vi.fn(async () => document.createElement('canvas')),
+  vegaEmbed: vi.fn(),
+}));
+
+vi.mock('vega-embed', () => ({
+  default: chartMocks.vegaEmbed,
+}));
+
+vi.mock('@/hooks/useEntitlement', () => ({
+  useEntitlement: () => chartMocks.canExportChart,
+}));
+
+vi.mock('@/utils/upsellNotice', () => ({
+  pushUpsellNotice: chartMocks.pushUpsellNotice,
+}));
 
 describe('richConsoleFormat — RL-044 Slice 1B helpers', () => {
   it('richKindBucket maps every payload kind into the closed-enum bucket', () => {
@@ -83,11 +108,9 @@ describe('richConsoleFormat — RL-044 Slice 1B helpers', () => {
     // dispatcher only opens the popover when a structured `stack`
     // is present.
     expect(payloadHasRichSurface({ kind: 'error', message: 'oh' })).toBe(false);
-    // Chart remains a stub until Slice 2b (vega-lite).
-    expect(payloadHasRichSurface({ kind: 'chart', spec: {} })).toBe(false);
   });
 
-  it('payloadHasRichSurface activates for tables, maps, sets, objects, arrays, dates, promises, rawText, image, html, error+stack', () => {
+  it('payloadHasRichSurface activates for tables, maps, sets, objects, arrays, dates, promises, rawText, image, html, chart, error+stack', () => {
     expect(payloadHasRichSurface({ kind: 'table', columns: [], rows: [] })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'map', size: 0, entries: [] })).toBe(true);
     expect(payloadHasRichSurface({ kind: 'set', size: 0, entries: [] })).toBe(true);
@@ -99,6 +122,8 @@ describe('richConsoleFormat — RL-044 Slice 1B helpers', () => {
       payloadHasRichSurface({ kind: 'image', src: 'data:image/png;base64,a', mime: 'png' })
     ).toBe(true);
     expect(payloadHasRichSurface({ kind: 'html', html: '<p/>' })).toBe(true);
+    // RL-044 Slice 2b-β-α — chart now opens the popover (vega-embed UI).
+    expect(payloadHasRichSurface({ kind: 'chart', spec: {} })).toBe(true);
     // RL-044 Slice 2a — error WITH stack opens the popover.
     expect(
       payloadHasRichSurface({
@@ -117,5 +142,110 @@ describe('richConsoleFormat — RL-044 Slice 1B helpers', () => {
     };
     const json = payloadAsJsonString(payload);
     expect(JSON.parse(json)).toEqual(payload);
+  });
+});
+
+const chartPayload = {
+  kind: 'chart' as const,
+  spec: {
+    mark: 'bar',
+    data: { values: [{ label: 'A', value: 1 }] },
+    encoding: {
+      x: { field: 'label', type: 'nominal' },
+      y: { field: 'value', type: 'quantitative' },
+    },
+  },
+};
+
+describe('RichValueChart — RL-044 Slice 2b-beta', () => {
+  beforeEach(() => {
+    chartMocks.canExportChart = false;
+    chartMocks.finalize.mockReset();
+    chartMocks.pushUpsellNotice.mockReset();
+    chartMocks.toSVG.mockClear();
+    chartMocks.toCanvas.mockClear();
+    chartMocks.vegaEmbed.mockReset();
+    chartMocks.vegaEmbed.mockResolvedValue({
+      finalize: chartMocks.finalize,
+      view: {
+        toSVG: chartMocks.toSVG,
+        toCanvas: chartMocks.toCanvas,
+      },
+    });
+  });
+
+  it('lazy-renders the chart and finalizes Vega on unmount', async () => {
+    const { unmount } = render(createElement(RichValueChart, { payload: chartPayload }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('console-rich-chart').getAttribute('data-chart-status')
+      ).toBe('ready');
+    });
+    expect(chartMocks.vegaEmbed).toHaveBeenCalledWith(
+      expect.any(HTMLElement),
+      chartPayload.spec,
+      expect.objectContaining({
+        actions: false,
+        renderer: 'canvas',
+      })
+    );
+
+    unmount();
+    expect(chartMocks.finalize).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a localized failure chip when Vega rejects the spec', async () => {
+    chartMocks.vegaEmbed.mockRejectedValueOnce(new Error('vega failed'));
+
+    render(createElement(RichValueChart, { payload: chartPayload }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('console-rich-chart').getAttribute('data-chart-status')
+      ).toBe('failed');
+    });
+    expect(screen.getByTestId('console-rich-chart-failed')).toBeTruthy();
+  });
+
+  it('routes Free-tier export clicks to the upsell notice', async () => {
+    const user = userEvent.setup();
+    render(createElement(RichValueChart, { payload: chartPayload }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('console-rich-chart').getAttribute('data-chart-status')
+      ).toBe('ready');
+    });
+    await user.click(screen.getByTestId('console-rich-chart-actions'));
+    await user.click(screen.getByTestId('console-rich-chart-export-pro'));
+
+    expect(chartMocks.pushUpsellNotice).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: 'Export chart as PNG / SVG',
+      })
+    );
+    expect(chartMocks.toSVG).not.toHaveBeenCalled();
+  });
+
+  it('closes the actions menu with Escape', async () => {
+    const user = userEvent.setup();
+    render(createElement(RichValueChart, { payload: chartPayload }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('console-rich-chart').getAttribute('data-chart-status')
+      ).toBe('ready');
+    });
+    const actions = screen.getByTestId('console-rich-chart-actions');
+    await user.click(actions);
+    expect(actions.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByTestId('console-rich-chart-menu')).toBeTruthy();
+
+    await user.keyboard('{Escape}');
+
+    expect(actions.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('console-rich-chart-menu')).toBeNull();
   });
 });

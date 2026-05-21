@@ -139,13 +139,12 @@ export function payloadHasRichSurface(payload: RichOutputPayload): boolean {
     // JSON tab.
     case 'error':
       return Array.isArray(payload.stack) && payload.stack.length > 0;
-    // RL-044 Slice 2a — image + html have dedicated components. Chart
-    // remains a stub until Slice 2b.
+    // RL-044 Slice 2a — image + html have dedicated components.
+    // RL-044 Slice 2b-β-α — chart now has a vega-embed renderer.
     case 'image':
     case 'html':
-      return true;
     case 'chart':
-      return false;
+      return true;
   }
 }
 

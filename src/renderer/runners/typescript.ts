@@ -19,6 +19,7 @@ import {
 } from '../utils/magicComments';
 import {
   forceTablePayload,
+  payloadForRichMediaMagicDirective,
   tryParseJsonForPayload,
   type RichOutputPayload,
 } from '../../shared/richOutput';
@@ -426,6 +427,12 @@ export class TypeScriptRunner implements LanguageRunner {
               if (parsed.ok) {
                 payload = forceTablePayload(parsed.value);
               }
+            } else if (
+              directive === 'chart' ||
+              directive === 'image' ||
+              directive === 'html'
+            ) {
+              payload = payloadForRichMediaMagicDirective(directive, msg.value);
             }
             const entry: MagicCommentResult = {
               line: msg.line,

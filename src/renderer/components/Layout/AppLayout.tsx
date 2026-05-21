@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import { Bug, Clock3, Eye, GitCompare, MessageSquare, Terminal, X } from 'lucide-react';
+import { Bug, ChevronUp, Clock3, Eye, GitCompare, MessageSquare, Terminal, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
@@ -383,6 +383,14 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
   const setActiveBottomPanel = useUIStore((state) => state.setActiveBottomPanel);
+  // RL-044 Slice 2b-β-α — Prerequisite fix surfaced during validation.
+  // The "hide bottom panel" affordance disappeared from the header
+  // some time ago (no chevron / X button to collapse the console
+  // surface — users had to find the `Cmd+\` shortcut). Re-add a
+  // close button at the right edge of the tablist so the toggle is
+  // discoverable; pair it with the restore strip in MainContent
+  // that surfaces when the panel is hidden.
+  const setConsoleVisible = useUIStore((state) => state.setConsoleVisible);
 
   // RL-019 Slice 3 — register the activator so the
   // BrowserPreviewRunner can switch to the preview tab before it
@@ -575,6 +583,17 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             </button>
           </Tooltip>
         ) : null}
+        <Tooltip content={t('bottomPanel.actions.hide')} side="bottom">
+          <button
+            type="button"
+            data-testid="bottom-panel-hide"
+            aria-label={t('bottomPanel.actions.hide')}
+            onClick={() => setConsoleVisible(false)}
+            className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-fg-subtle hover:border-border-strong/70 hover:bg-background/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
+        </Tooltip>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden">
         {effectiveTab === 'debugger' ? (
@@ -619,7 +638,7 @@ function MainContent({
     showStdinTabBody ||
     showVariablesTabBody;
 
-  if (!showBottomPanel) return <EditorArea />;
+  if (!showBottomPanel) return <EditorAreaWithConsoleRestoreStrip />;
 
   if (layoutPreset === 'vertical') {
     return (
@@ -656,6 +675,40 @@ function MainContent({
         <BottomPanel debuggerAvailable={showDebuggerPanel} />
       </Panel>
     </Group>
+  );
+}
+
+/**
+ * RL-044 Slice 2b-β-α — Prerequisite fix surfaced during validation.
+ *
+ * Wraps `<EditorArea>` with a thin restore strip pinned to the bottom
+ * when the console / bottom panel is hidden. Without it, hiding the
+ * panel via `Cmd+\` or the new tablist close button left the user
+ * with NO visible affordance to bring it back — only the keyboard
+ * shortcut, which is undiscoverable. The strip is intentionally low
+ * profile (24px, chevron-up + label) so it doesn't compete with the
+ * editor surface but stays clickable.
+ */
+function EditorAreaWithConsoleRestoreStrip() {
+  const { t } = useTranslation();
+  const setConsoleVisible = useUIStore((state) => state.setConsoleVisible);
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1">
+        <EditorArea />
+      </div>
+      <button
+        type="button"
+        data-testid="bottom-panel-restore"
+        onClick={() => setConsoleVisible(true)}
+        className="flex h-6 shrink-0 items-center justify-center gap-2 border-t border-border-strong/60 bg-surface-strong/60 text-[10.5px] font-bold uppercase tracking-[0.14em] text-fg-subtle transition-colors hover:bg-surface-strong/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+        aria-label={t('bottomPanel.actions.show')}
+      >
+        <ChevronUp size={12} aria-hidden="true" />
+        {t('bottomPanel.tabs.console')}
+        <span className="ml-1 text-fg-subtle">⌘\</span>
+      </button>
+    </div>
   );
 }
 

@@ -392,9 +392,14 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
 
   if (Object.keys(slice).length === 0) return null;
 
+  // RL-044 Slice 2b-β-α — Prerequisite fix surfaced during validation.
+  // The raw JSON dump dominated the bottom of every Settings tab and
+  // was visually noisy for the typical user. Hide it behind a native
+  // <details> so the surface stays clean by default; power users
+  // (and bug reporters) can expand to inspect or copy.
   return (
-    <div className="effective-config-tile">
-      <div className="effective-config-tile-header">
+    <details className="effective-config-tile">
+      <summary className="effective-config-tile-header cursor-pointer list-none">
         <div className="flex items-center gap-2">
           <Braces size={13} className="text-fg-subtle" aria-hidden />
           <EyebrowMono>{t('settings.effectiveConfig.label')}</EyebrowMono>
@@ -405,7 +410,11 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
         <button
           type="button"
           className="button-ghost text-[11px]"
-          onClick={() => {
+          onClick={(event) => {
+            // Stop the click from toggling the <details> open/close so
+            // copying doesn't accidentally collapse / expand the tile.
+            event.stopPropagation();
+            event.preventDefault();
             void navigator.clipboard.writeText(json).then(() => {
               setCopied(true);
               window.setTimeout(() => setCopied(false), 1500);
@@ -416,9 +425,9 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
           {copied ? <Check size={11} /> : <Copy size={11} />}
           {copied ? t('settings.effectiveConfig.copied') : t('settings.effectiveConfig.copy')}
         </button>
-      </div>
+      </summary>
       <pre className="effective-config-tile-body whitespace-pre">{json}</pre>
-    </div>
+    </details>
   );
 }
 

@@ -51,7 +51,11 @@ function dispatchOpenSource(frame: ClickableStackFrame): void {
     column: frame.column,
     fnName: frame.fnName,
   };
-  window.dispatchEvent(new CustomEvent('lingua-open-file', { detail }));
+  // `cancelable: true` so the future RL-024 multi-file consumer can
+  // call `event.preventDefault()` to suppress the default fallback
+  // toast (see `useDefaultOpenFileConsumer`). Without it the toast
+  // would double-fire alongside the actual file-open behaviour.
+  window.dispatchEvent(new CustomEvent('lingua-open-file', { detail, cancelable: true }));
 }
 
 export function RichValueError({ payload, language, fallbackText }: RichValueErrorProps) {

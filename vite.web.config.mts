@@ -80,6 +80,18 @@ export default defineConfig({
           if (id.includes('lucide-react')) {
             return 'lucide';
           }
+          // RL-044 Slice 2b-β-α — vega-embed chart renderer ships in its
+          // own chunk so the charting bundle stays out of the
+          // main entry. The chunk only loads when <RichValueChart>
+          // mounts (first chart payload), mirroring the Pyodide
+          // lazy-load pattern.
+          if (
+            id.includes('vega-embed') ||
+            id.includes('vega-lite') ||
+            id.includes('node_modules/vega/')
+          ) {
+            return 'vega-embed';
+          }
           if (id.includes('/workers/')) {
             return 'workers';
           }

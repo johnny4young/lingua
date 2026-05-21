@@ -358,8 +358,7 @@ function restoreConsole() {
  *      is deferred to Slice 2b-β; users still see the fallback text.
  *   3. On accept → posts a `console` log with `args: [<rawText>]`
  *      and `payload: [<typed payload>]` so the renderer dispatches to
- *      the dedicated renderer component when one exists. Chart still
- *      falls back to text until `<RichValueChart>` lands in 2b-β.
+ *      the dedicated renderer component when one exists.
  *
  * The bridge is closure-scoped per execute() call so there's no
  * cross-run leak; cleanup is implicit when the AsyncFunction returns.
@@ -395,24 +394,54 @@ function buildLinguaWorkerBridge(
     });
   };
 
+  // RL-044 Slice 2b-β-α Prerequisite fix — informative rejection text.
+  // The bridge previously emitted a generic `[chart spec rejected]` /
+  // `[image rejected: invalid source]` / `[html payload rejected]`
+  // with no actionable context. Users couldn't tell whether they hit
+  // the spec-security whitelist (data.url/data.name), the size cap,
+  // a missing required field, or just a typo. The reasons below map
+  // 1:1 to the closed-enum `RICH_MEDIA_REJECTED_REASONS` shipped on
+  // Slice 2a, so dashboards and humans see the same diagnosis.
+  const rejectChart = (): void => {
+    const reasonText = '[chart rejected: remote/named data not allowed (use data.values inline)]';
+    postRejection('chart', 'validation-failed', reasonText);
+  };
+  const rejectImage = (
+    reason: 'invalid-src' | 'validation-failed',
+    detail?: string
+  ): void => {
+    const reasonText =
+      reason === 'invalid-src'
+        ? '[image rejected: src must be data:image/, blob:, or https://]'
+        : `[image rejected: ${detail ?? 'invalid payload (expected { src, mime })'}]`;
+    postRejection('image', reason, reasonText);
+  };
+  const rejectHtml = (reason: 'size-limit' | 'validation-failed'): void => {
+    const reasonText =
+      reason === 'size-limit'
+        ? '[html rejected: payload exceeds 256 KB cap]'
+        : '[html rejected: expected a non-empty string]';
+    postRejection('html', reason, reasonText);
+  };
+
   return {
     chart: (spec) => {
       const validated = validateChartSpec(spec);
       if (validated === null) {
-        postRejection('chart', 'validation-failed', '[chart spec rejected]');
+        rejectChart();
         return;
       }
       postPayload({ kind: 'chart', spec: validated }, '[chart]');
     },
     image: (raw) => {
       if (!raw || typeof raw !== 'object') {
-        postRejection('image', 'validation-failed', '[image payload rejected]');
+        rejectImage('validation-failed', 'expected { src, mime }');
         return;
       }
       const { src, mime } = raw as { src?: unknown; mime?: unknown };
       const validatedSrc = validateImageSrc(src);
       if (validatedSrc === null) {
-        postRejection('image', 'invalid-src', '[image rejected: invalid source]');
+        rejectImage('invalid-src');
         return;
       }
       const mimeString = typeof mime === 'string' && mime.length > 0 ? mime : 'image/png';
@@ -424,9 +453,9 @@ function buildLinguaWorkerBridge(
     html: (raw) => {
       const validated = validateHtmlPayload(raw);
       if (validated === null) {
-        const reason =
+        const reason: 'size-limit' | 'validation-failed' =
           typeof raw === 'string' && raw.length > 0 ? 'size-limit' : 'validation-failed';
-        postRejection('html', reason, '[html payload rejected]');
+        rejectHtml(reason);
         return;
       }
       postPayload({ kind: 'html', html: validated }, '[html sandboxed]');

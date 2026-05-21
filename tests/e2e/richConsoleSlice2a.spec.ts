@@ -44,6 +44,25 @@ const sampleImageSrc = `data:image/svg+xml;base64,${Buffer.from(
   </svg>`
 ).toString('base64')}`;
 
+const sampleChartSpec = {
+  $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+  width: 360,
+  height: 180,
+  mark: { type: 'bar', cornerRadiusTopLeft: 4, cornerRadiusTopRight: 4 },
+  data: {
+    values: [
+      { label: 'Alpha', value: 8 },
+      { label: 'Beta', value: 13 },
+      { label: 'Gamma', value: 5 },
+    ],
+  },
+  encoding: {
+    x: { field: 'label', type: 'nominal', axis: { labelAngle: 0 } },
+    y: { field: 'value', type: 'quantitative' },
+    color: { field: 'label', type: 'nominal', legend: null },
+  },
+};
+
 test.describe.configure({ mode: 'serial' });
 
 test.describe('rich console Slice 2a visual matrix', () => {
@@ -240,6 +259,42 @@ test.describe('rich console Slice 2a visual matrix', () => {
       testInfo,
       screenshotFileName('Invalid media fallbacks'),
       page.getByTestId('console-entry-row')
+    );
+  });
+
+  test('chart payload renders inline, in the popover, and exposes the gated export menu', async ({
+    page,
+  }, testInfo) => {
+    await prepareRichConsole(page, [
+      {
+        type: 'log',
+        content: '[chart]',
+        language: 'javascript',
+        payload: [
+          {
+            kind: 'chart',
+            spec: sampleChartSpec,
+          },
+        ],
+      },
+    ]);
+
+    const inlineChart = page.getByTestId('console-rich-chart').first();
+    await expect(inlineChart).toHaveAttribute('data-chart-status', 'ready');
+    await expect(inlineChart.locator('canvas')).toBeVisible();
+    await captureLocator(testInfo, screenshotFileName('Chart inline'), inlineChart);
+
+    await page.getByTestId('console-rich-open-details').click();
+    const dialog = page.getByRole('dialog');
+    const dialogChart = dialog.getByTestId('console-rich-chart');
+    await expect(dialogChart).toHaveAttribute('data-chart-status', 'ready');
+    await expect(dialogChart.locator('canvas')).toBeVisible();
+    await dialog.getByTestId('console-rich-chart-actions').click();
+    await expect(dialog.getByTestId('console-rich-chart-export-pro')).toBeVisible();
+    await captureLocator(
+      testInfo,
+      screenshotFileName('Chart details popover and menu'),
+      dialog
     );
   });
 });

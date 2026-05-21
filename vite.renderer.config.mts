@@ -75,6 +75,17 @@ export default defineConfig({
           if (id.includes('lucide-react')) {
             return 'lucide';
           }
+          // RL-044 Slice 2b-beta — mirror the web chart chunk split
+          // for the packaged desktop renderer. <RichValueChart>
+          // lazy-loads vega-embed, so these deps should stay grouped
+          // behind that first chart render in both shipped surfaces.
+          if (
+            id.includes('vega-embed') ||
+            id.includes('vega-lite') ||
+            id.includes('node_modules/vega/')
+          ) {
+            return 'vega-embed';
+          }
           // Web workers — bundled separately by Vite's worker import syntax,
           // but any shared worker utilities should be isolated
           if (id.includes('/workers/')) {
