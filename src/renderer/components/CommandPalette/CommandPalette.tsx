@@ -26,6 +26,11 @@ import {
   isAppendWatchSupported,
 } from '../../utils/appendWatch';
 import { trackEvent } from '../../utils/telemetry';
+import {
+  bucketCapsuleSize,
+  sanitizeRunCapsule,
+  utf8ByteLength,
+} from '../../../shared/runCapsule';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types';
@@ -120,6 +125,12 @@ export function CommandPalette({
   const { snippets } = useSnippetsStore();
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const executionHistory = useExecutionHistoryStore((state) => state.entries);
+  // RL-094 Slice 1 fold B — read the latest capsule (newest-first walk
+  // inside the store). Recomputes when `entries` changes; the
+  // selector is cheap (returns null when no entry carries one).
+  const latestCapsule = useExecutionHistoryStore((state) =>
+    state.latestCapsule()
+  );
   const snapshotRing = useResultStore((state) => state.snapshotRing);
   const { setLayoutPreset } = useSettingsStore();
   const vimMode = useSettingsStore((state) => state.vimMode);
@@ -358,6 +369,46 @@ export function CommandPalette({
       openFileFromDisk,
       saveActiveTabAs,
       duplicateActiveTab,
+      // RL-094 Slice 1 fold B — export latest capsule via the palette.
+      // Mirrors the Settings → Account → Run Capsules export flow:
+      // sanitize, JSON.stringify (pretty), clipboard write, status
+      // notice. Telemetry tagged `palette-export` so dashboards split
+      // adoption from the Settings entry.
+      onExportLatestCapsule: latestCapsule
+        ? () => {
+            const sanitised = sanitizeRunCapsule(latestCapsule);
+            const json = JSON.stringify(sanitised, null, 2);
+            void trackEvent('capsule.exported', {
+              trigger: 'palette-export',
+              sizeBucket: bucketCapsuleSize(utf8ByteLength(json)),
+            });
+            const writer = navigator.clipboard?.writeText;
+            if (typeof writer === 'function') {
+              void writer
+                .call(navigator.clipboard, json)
+                .then(() => {
+                  useUIStore.getState().pushStatusNotice({
+                    tone: 'success',
+                    messageKey: 'settings.account.runCapsules.copiedNotice',
+                  });
+                })
+                .catch(() => {
+                  useUIStore.getState().pushStatusNotice({
+                    tone: 'warning',
+                    messageKey:
+                      'commandPalette.action.exportCapsule.clipboardUnavailable',
+                  });
+                });
+            } else {
+              useUIStore.getState().pushStatusNotice({
+                tone: 'warning',
+                messageKey:
+                  'commandPalette.action.exportCapsule.clipboardUnavailable',
+              });
+            }
+          }
+        : undefined,
+      latestCapsuleAvailable: latestCapsule !== null,
       t,
     });
     // Re-build when the active language changes so labels/descriptions
@@ -396,6 +447,7 @@ export function CommandPalette({
     updateContent,
     activeTab,
     setTabAutoLogEnabled,
+    latestCapsule,
     i18n.language,
   ]);
 

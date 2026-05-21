@@ -392,6 +392,97 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     }
   });
 
+  it('CAPSULE_EXPORT_TRIGGERS stays in sync with the renderer enum (RL-094 Slice 1 fold A)', async () => {
+    // Closed-enum parity for the `capsule.exported.trigger` field.
+    // Drift here would silently widen the surface the export
+    // telemetry accepts on one side without the other.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /CAPSULE_EXPORT_TRIGGERS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual(['palette-export', 'settings-export']);
+  });
+
+  it('CAPSULE_SIZE_BUCKETS stays in sync with the renderer enum (RL-094 Slice 1 fold A)', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /CAPSULE_SIZE_BUCKETS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual([
+      '<100kb',
+      '<10kb',
+      '<1mb',
+      '<4mb',
+      '>=4mb',
+    ]);
+  });
+
+  it('capsule.exported accepts closed-enum trigger+sizeBucket, drops unknown (RL-094 Slice 1 fold A)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'capsule.exported',
+      properties: { trigger: 'settings-export', sizeBucket: '<10kb' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownTrigger = await postTelemetry({
+      event: 'capsule.exported',
+      properties: { trigger: 'remote-upload', sizeBucket: '<10kb' },
+    });
+    expect(unknownTrigger.status).toBe(204);
+    const unknownBucket = await postTelemetry({
+      event: 'capsule.exported',
+      properties: { trigger: 'settings-export', sizeBucket: 'gigantic' },
+    });
+    expect(unknownBucket.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"capsule.exported"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(3);
+    const okLine = eventLines.find(
+      (line) =>
+        line.includes('"trigger":"settings-export"') &&
+        line.includes('"sizeBucket":"<10kb"')
+    );
+    expect(okLine).toBeDefined();
+    const unknownTriggerLine = eventLines.find((line) =>
+      line.includes('"remote-upload"')
+    );
+    expect(unknownTriggerLine).toBeUndefined();
+    const unknownBucketLine = eventLines.find((line) =>
+      line.includes('"gigantic"')
+    );
+    expect(unknownBucketLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
   it('RICH_MEDIA_REJECTED_KINDS stays in sync with the renderer enum (RL-044 Slice 2a)', async () => {
     // Closed-enum parity for the rich-media rejection / adoption surface.
     // Both `runtime.rich_media_payload_rejected` and the new

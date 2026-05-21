@@ -23,6 +23,7 @@
  */
 
 import { create } from 'zustand';
+import type { RunCapsuleV1 } from '../../shared/runCapsule';
 
 export type ExecutionStatus = 'ok' | 'error';
 
@@ -74,6 +75,19 @@ export interface ExecutionHistoryEntry {
    * for every recorded entry; the popover toggles it via `togglePin`.
    */
   pinned?: boolean;
+  /**
+   * RL-094 Slice 1 fold F — captured RunCapsuleV1 for the most recent
+   * runs. Only the newest `CAPSULE_LRU_CAP` (5) entries carry this;
+   * older entries lose `lastCapsule` on subsequent records so the
+   * in-memory cost stays bounded (capsules can be hundreds of KB
+   * each when stdout/stderr are saturated). Absent (`undefined`) when
+   * either the run never produced a capsule (the runner threw before
+   * `buildRunCapsule`) or the LRU eviction stripped it on a later
+   * record. Settings → Account "Export latest run" reads
+   * `latestCapsule()` which walks the entries newest-first looking
+   * for the first defined `lastCapsule`.
+   */
+  lastCapsule?: RunCapsuleV1;
 }
 
 export interface ExecutionHistoryRecord {
@@ -95,7 +109,25 @@ export interface ExecutionHistoryRecord {
    * so legacy / programmatic call sites stay compatible.
    */
   tabId?: string;
+  /**
+   * RL-094 Slice 1 — optional captured capsule. When present, the
+   * store attaches it to the new entry and prunes `lastCapsule` from
+   * any entry beyond the newest `CAPSULE_LRU_CAP` so the in-memory
+   * cost stays bounded. Omit when the run produced no capsule.
+   */
+  lastCapsule?: RunCapsuleV1;
 }
+
+/**
+ * RL-094 Slice 1 fold F — cap on how many entries retain their
+ * captured capsule. Capsules embed the full source + stdout/stderr
+ * and can be hundreds of KB; keeping all 50 history entries' capsules
+ * resident would dominate the renderer's heap on long sessions. The
+ * 5-entry cap matches the typical "recent runs" surface depth — the
+ * Settings → Account "Export latest run" reads the newest, and any
+ * history-list view (Slice 3+) can re-build on demand.
+ */
+export const CAPSULE_LRU_CAP = 5;
 
 export const MAX_HISTORY_ENTRIES = 50;
 
@@ -153,6 +185,13 @@ function nextId(timestamp: number): string {
 export interface ExecutionHistoryState {
   entries: readonly ExecutionHistoryEntry[];
   record: (input: ExecutionHistoryRecord) => ExecutionHistoryEntry;
+  /**
+   * RL-094 Slice 1 — newest-first walk for the first entry that still
+   * carries a `lastCapsule`. Returns `null` when no entry has one
+   * (fresh session, or LRU evicted them all). Cheap; no allocation
+   * beyond the find().
+   */
+  latestCapsule: () => RunCapsuleV1 | null;
   clear: () => void;
   byLanguage: (language: string) => readonly ExecutionHistoryEntry[];
   /**
@@ -191,6 +230,12 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
       // omit the field entirely when the caller passed nothing so the
       // serialized shape stays stable for legacy callers.
       ...(input.tabId !== undefined ? { tabId: input.tabId } : {}),
+      // RL-094 Slice 1 — attach the captured capsule. Pruning of older
+      // entries' capsules happens in the `set` below so the cap is
+      // applied AFTER the FIFO drop, never before.
+      ...(input.lastCapsule !== undefined
+        ? { lastCapsule: input.lastCapsule }
+        : {}),
     };
     set((state) => {
       const next = [...state.entries, entry];
@@ -208,9 +253,40 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
           ...trimmed.slice(oldestUnpinnedIdx + 1),
         ];
       }
-      return { entries: trimmed };
+      // RL-094 Slice 1 fold F — capsule LRU cap. Walk newest-first;
+      // keep `lastCapsule` on the first CAPSULE_LRU_CAP entries that
+      // have one, strip it from the rest. Idempotent across records.
+      const withCapsule: ExecutionHistoryEntry[] = [];
+      let keptCapsules = 0;
+      for (let i = trimmed.length - 1; i >= 0; i -= 1) {
+        const e = trimmed[i]!;
+        if (e.lastCapsule !== undefined) {
+          if (keptCapsules < CAPSULE_LRU_CAP) {
+            withCapsule.unshift(e);
+            keptCapsules += 1;
+          } else {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { lastCapsule: _evicted, ...rest } = e;
+            withCapsule.unshift(rest);
+          }
+        } else {
+          withCapsule.unshift(e);
+        }
+      }
+      return { entries: withCapsule };
     });
     return entry;
+  },
+
+  latestCapsule: () => {
+    const entries = get().entries;
+    for (let i = entries.length - 1; i >= 0; i -= 1) {
+      const entry = entries[i]!;
+      if (entry.lastCapsule !== undefined) {
+        return entry.lastCapsule;
+      }
+    }
+    return null;
   },
 
   clear: () => {

@@ -171,6 +171,13 @@ export const TELEMETRY_EVENTS = [
   // "Open folder" wall on browsers without File System Access API
   // before we promote a richer fallback. Mirrored on update-server.
   'runtime.fs_directory_picker_unsupported',
+  // RL-094 Slice 1 fold A — adoption signal for the Run Capsule
+  // export surface. Closed-enum `{ trigger, sizeBucket }` where
+  // `trigger ∈ {'settings-export', 'palette-export'}` and
+  // `sizeBucket ∈ CAPSULE_SIZE_BUCKETS`. No source content, no
+  // capsuleId, no environment leaks. Mirrored on update-server with
+  // a parity test.
+  'capsule.exported',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -333,21 +340,22 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-024 Slice 1 — `userAgentBucket` ∈
   // `FS_DIRECTORY_PICKER_UA_BUCKETS`.
   'runtime.fs_directory_picker_unsupported': ['userAgentBucket'],
+  // RL-094 Slice 1 fold A — `trigger` ∈ `CAPSULE_EXPORT_TRIGGERS`,
+  // `sizeBucket` ∈ `CAPSULE_SIZE_BUCKETS`. Both closed enums.
+  'capsule.exported': ['trigger', 'sizeBucket'],
 };
 
-const DENY_SUBSTRINGS = [
-  'content',
-  'code',
-  'source',
-  'snippet',
-  'file',
-  'path',
-  'token',
-  'password',
-  'email',
-  'name',
-  'project',
-];
+// RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
+// rules apply verbatim to Run Capsules. The re-export preserves the
+// historical public surface (callers that imported `DENY_SUBSTRINGS`
+// from telemetry continue to work).
+import {
+  DENY_SUBSTRINGS,
+  keyLooksSensitive,
+  valueLooksSensitive,
+} from './redaction';
+
+export { DENY_SUBSTRINGS };
 
 const SAFE_TOKEN_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/u;
 // RL-020 Slice 7 — widened from `['ok', 'error']` to include the
@@ -466,6 +474,23 @@ export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
   'edge-old',
   'other',
 ]);
+// RL-094 Slice 1 fold A — closed enums backing the
+// `capsule.exported` event. Duplicated here (vs. importing from the
+// renderer-side `RunCapsulesSection`) for the same reason as
+// `CONSOLE_RICH_KIND_BUCKETS`: the redactor stays a pure module
+// without renderer-side import cycles. Parity test in
+// `update-server/test/telemetry.test.ts` keeps both copies aligned.
+export const CAPSULE_EXPORT_TRIGGERS = new Set([
+  'settings-export',
+  'palette-export',
+]);
+export const CAPSULE_SIZE_BUCKETS = new Set([
+  '<10kb',
+  '<100kb',
+  '<1mb',
+  '<4mb',
+  '>=4mb',
+]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
   'available',
@@ -534,20 +559,6 @@ const DEBUGGER_REASON_BUCKETS: Record<
   'debugger.paused': new Set(['user-breakpoint', 'step', 'exception']),
   'debugger.detached': new Set(['user-detach', 'run-complete', 'crash', 'stop']),
 };
-
-function keyLooksSensitive(key: string): boolean {
-  const lower = key.toLowerCase();
-  return DENY_SUBSTRINGS.some((deny) => lower.includes(deny));
-}
-
-function valueLooksSensitive(value: unknown): boolean {
-  // Everything except primitives is stripped — we never transmit objects,
-  // arrays, buffers, or anything that could structurally carry user data.
-  if (value === null) return false;
-  const t = typeof value;
-  if (t === 'string' || t === 'number' || t === 'boolean') return false;
-  return true;
-}
 
 export function isSafeToken(value: unknown): value is string {
   return typeof value === 'string' && SAFE_TOKEN_RE.test(value);
@@ -733,6 +744,14 @@ function isAllowedValue(
           typeof value === 'string' &&
           FS_DIRECTORY_PICKER_UA_BUCKETS.has(value)
         );
+      return false;
+    case 'capsule.exported':
+      if (key === 'trigger')
+        return (
+          typeof value === 'string' && CAPSULE_EXPORT_TRIGGERS.has(value)
+        );
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
       return false;
     default: {
       const exhaustive: never = event;

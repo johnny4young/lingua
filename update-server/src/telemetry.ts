@@ -93,6 +93,10 @@ export const TELEMETRY_EVENT_NAMES = [
   // `runtime.fs_directory_picker_unsupported`. Closed-enum
   // `{ userAgentBucket }`.
   'runtime.fs_directory_picker_unsupported',
+  // RL-094 Slice 1 fold A — mirror of `capsule.exported`. Closed-enum
+  // `{ trigger, sizeBucket }` from `CAPSULE_EXPORT_TRIGGERS` /
+  // `CAPSULE_SIZE_BUCKETS`.
+  'capsule.exported',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -154,6 +158,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // `runtime.fs_directory_picker_unsupported`. Closed-enum
   // `{ userAgentBucket }`.
   'runtime.fs_directory_picker_unsupported': ['userAgentBucket'],
+  // RL-094 Slice 1 fold A — mirror of `capsule.exported`.
+  'capsule.exported': ['trigger', 'sizeBucket'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -268,6 +274,20 @@ export const FS_DIRECTORY_PICKER_UA_BUCKETS = new Set([
   'firefox',
   'edge-old',
   'other',
+]);
+// RL-094 Slice 1 fold A — mirror of `CAPSULE_EXPORT_TRIGGERS` /
+// `CAPSULE_SIZE_BUCKETS` in `src/shared/telemetry.ts`. Parity test
+// asserts alignment for both Sets.
+export const CAPSULE_EXPORT_TRIGGERS = new Set([
+  'settings-export',
+  'palette-export',
+]);
+export const CAPSULE_SIZE_BUCKETS = new Set([
+  '<10kb',
+  '<100kb',
+  '<1mb',
+  '<4mb',
+  '>=4mb',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -610,6 +630,12 @@ function isAllowedValue(
           typeof value === 'string' &&
           FS_DIRECTORY_PICKER_UA_BUCKETS.has(value)
         );
+      return false;
+    case 'capsule.exported':
+      if (key === 'trigger')
+        return typeof value === 'string' && CAPSULE_EXPORT_TRIGGERS.has(value);
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
       return false;
     default: {
       const exhaustive: never = event;

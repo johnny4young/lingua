@@ -1,5 +1,7 @@
 import i18next from 'i18next';
 import { runnerManager } from '../runners';
+import { buildRunCapsule, type RunCapsuleV1 } from '../../shared/runCapsule';
+import { getBundledAppInfo } from '../../shared/appInfo';
 import { useConsoleStore } from '../stores/consoleStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
@@ -14,7 +16,7 @@ import {
   isRuntimeTimeoutSupportedLanguage,
   resolveTimeoutMs,
 } from '../../shared/runtimeTimeoutPresets';
-import type { ConsoleOutput, FileTab, Language } from '../types';
+import type { ConsoleOutput, ExecutionResult, FileTab, Language } from '../types';
 import { collectBrowserPreviewSiblingSources } from './browserPreviewSiblings';
 import {
   getCompilationLoadingMessage,
@@ -59,6 +61,106 @@ function snapshotPayloadFor(
   } catch {
     return null;
   }
+}
+
+function collectRichOutputs(result: ExecutionResult): unknown[] | undefined {
+  const richOutputs: unknown[] = [];
+  const collectFromConsole = (outputs: ConsoleOutput[]) => {
+    for (const output of outputs) {
+      if (Array.isArray(output.payload)) {
+        richOutputs.push(...output.payload);
+      }
+    }
+  };
+
+  collectFromConsole(result.stdout);
+  collectFromConsole(result.stderr);
+  for (const magicResult of result.magicResults ?? []) {
+    if (magicResult.payload !== undefined) {
+      richOutputs.push(magicResult.payload);
+    }
+  }
+
+  return richOutputs.length > 0 ? richOutputs : undefined;
+}
+
+/**
+ * RL-094 Slice 1 — capsule construction wrapper. Returns the built
+ * capsule on the happy path; returns `null` and swallows the error
+ * on any failure (Web Crypto unavailable in a test env, etc.) so a
+ * capsule failure never breaks the actual execution / history record.
+ *
+ * The history store applies the LRU cap on its end, so this helper
+ * does not need to gate on the entitlement or the size budget —
+ * capsules are always built when possible and the store prunes the
+ * tail.
+ */
+async function tryBuildCapsule(args: {
+  language: string;
+  content: string;
+  tabName: string;
+  runtimeMode: string;
+  workflowMode: string;
+  runnerId: string;
+  status: 'success' | 'error' | 'timeout' | 'stopped';
+  durationMs: number;
+  stdout?: string;
+  stderr?: string;
+  lineResults?: unknown[];
+  richOutputs?: unknown[];
+  diagnostics?: unknown[];
+  errorMessage?: string;
+  stdin?: string;
+}): Promise<RunCapsuleV1 | null> {
+  try {
+    const appInfo = getBundledAppInfo();
+    const platform: 'web' | 'desktop' =
+      typeof window !== 'undefined' &&
+      (window as { lingua?: { platform?: string } }).lingua?.platform === 'desktop'
+        ? 'desktop'
+        : 'web';
+    return await buildRunCapsule({
+      appVersion: appInfo.version,
+      tab: {
+        name: args.tabName,
+        language: args.language,
+        runtimeMode: args.runtimeMode,
+        workflowMode: args.workflowMode,
+      },
+      source: { content: args.content },
+      input: args.stdin !== undefined && args.stdin.length > 0
+        ? { stdin: args.stdin }
+        : {},
+      result: {
+        status: args.status,
+        durationMs: Math.max(0, args.durationMs),
+        ...(args.stdout !== undefined ? { stdout: args.stdout } : {}),
+        ...(args.stderr !== undefined ? { stderr: args.stderr } : {}),
+        ...(args.lineResults !== undefined && args.lineResults.length > 0
+          ? { lineResults: args.lineResults }
+          : {}),
+        ...(args.richOutputs !== undefined && args.richOutputs.length > 0
+          ? { richOutputs: args.richOutputs }
+          : {}),
+        ...(args.diagnostics !== undefined && args.diagnostics.length > 0
+          ? { diagnostics: args.diagnostics }
+          : {}),
+        ...(args.errorMessage !== undefined
+          ? { errorMessage: args.errorMessage }
+          : {}),
+      },
+      environment: {
+        platform,
+        runner: args.runnerId,
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
+function joinConsoleEntries(entries: ConsoleOutput[]): string {
+  return entries.map((entry) => entry.args.join(' ')).join('\n');
 }
 
 export interface ManualExecutionLifecycle {
@@ -494,6 +596,38 @@ export async function executeTabManually(
             : 'ok';
     const historyStatus: 'ok' | 'error' =
       runStatus === 'ok' ? 'ok' : 'error';
+    // RL-094 Slice 1 — build the capsule for this run (best-effort,
+    // never throws past the helper). Awaited before history.record so
+    // the entry carries the capsule atomically and the LRU prune
+    // sees the latest entry-with-capsule on the same set() tick.
+    let capsule: RunCapsuleV1 | null = null;
+    if (shouldRecordHistory) {
+      const richOutputs = collectRichOutputs(result);
+      capsule = await tryBuildCapsule({
+        language,
+        content,
+        tabName: name,
+        runtimeMode: runtimeMode ?? 'worker',
+        workflowMode: activeTab.workflowMode ?? 'run',
+        runnerId: language,
+        status: runStatus === 'ok' ? 'success' : runStatus,
+        durationMs: result.executionTime ?? 0,
+        stdout: result.stdout.length > 0
+          ? joinConsoleEntries(result.stdout)
+          : undefined,
+        stderr: result.stderr.length > 0
+          ? joinConsoleEntries(result.stderr)
+          : undefined,
+        lineResults: presentation.lineResults.length > 0
+          ? presentation.lineResults
+          : undefined,
+        richOutputs,
+        diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
+        errorMessage: result.error?.message,
+        stdin: activeTab.stdinBuffer ?? undefined,
+      });
+    }
+
     // RL-028 first slice — record metadata always. RL-028 sixth slice —
     // attach the optional code snapshot when the user opted in AND the
     // active tier covers `EXECUTION_HISTORY`. `snapshotPayloadFor`
@@ -507,6 +641,10 @@ export async function executeTabManually(
         // RL-020 Slice 4 — anchor the entry to the source tab so the
         // per-tab pill can filter via `byTabId`.
         tabId: activeTab.id,
+        // RL-094 Slice 1 — capsule already built above. Omit when
+        // capsule construction failed so the entry's wire shape stays
+        // clean.
+        ...(capsule !== null ? { lastCapsule: capsule } : {}),
       });
     }
 
@@ -548,7 +686,24 @@ export async function executeTabManually(
     // error outcome. `durationMs: null` when timing never ran. The
     // snapshot still attaches when opted-in + Pro: a failure is the
     // case where the user most likely wants to replay.
+    //
+    // RL-094 Slice 1 — also try to build a capsule for the throw
+    // path. Capsule status is `'error'` and `errorMessage` carries
+    // the thrown message (already redactable by sanitizeRunCapsule).
+    // The capsule still allows exporting a failed run for replay /
+    // bug-reporting flows.
     if (shouldRecordHistory) {
+      const throwCapsule = await tryBuildCapsule({
+        language,
+        content,
+        tabName: name,
+        runtimeMode: runtimeMode ?? 'worker',
+        workflowMode: activeTab.workflowMode ?? 'run',
+        runnerId: language,
+        status: 'error',
+        durationMs: 0,
+        errorMessage: message,
+      });
       useExecutionHistoryStore.getState().record({
         language,
         status: 'error',
@@ -556,6 +711,7 @@ export async function executeTabManually(
         snapshot: snapshotPayloadFor(content, language),
         // RL-020 Slice 4 — same tabId anchor on the error path.
         tabId: activeTab.id,
+        ...(throwCapsule !== null ? { lastCapsule: throwCapsule } : {}),
       });
     }
 

@@ -9547,6 +9547,156 @@ ships.
   - Capsule schema bikeshed → mitigated by writing types first, one reviewer pass, then builder + sanitizer.
   - Redaction registry surface area → mitigated by extracting from existing telemetry redactor (no new logic; rename + re-export).
 
+#### § Slice 1 landed (2026-05-21)
+
+Schema + builder + sanitizer + parser + redaction extract + Settings
+export + command palette entry + 10-fixture catalog + `docs/CAPSULE_TEST_MATRIX.md`
+spec doc + 7 folds (A–G) all shipped in one slice. Slice cleared the
+dependency gate on RL-044 (closed 2026-05-21 with the Python paridad
+slice) and is the spine artifact every downstream world-class ticket
+(RL-036, RL-097, RL-098, RL-099, RL-100, RL-039 Slice B) now consumes.
+
+Shipped:
+
+- **`src/shared/redaction.ts` (new)** — extracts `DENY_SUBSTRINGS`,
+  `keyLooksSensitive`, `valueLooksSensitive`, `REDACTION_VERSION`,
+  and a new `redactFlatRecord` convenience wrapper. Telemetry
+  re-imports verbatim; parity is asserted by
+  `tests/shared/redaction.test.ts` + the existing telemetry suite
+  (no drift).
+- **`src/shared/runCapsule.ts` (new)** — `RunCapsuleV1` interface
+  (per `docs/WORLD_CLASS_TO_RL_PROPOSAL.md` Appendix A.1) +
+  `buildRunCapsule()` (SHA-256 contentHash via Web Crypto +
+  deterministic + collision-free across 10 000 inputs) +
+  `sanitizeRunCapsule()` (truncates stdout / stderr to
+  `MAX_STREAM_BYTES = 1 MiB`, redacts flat `dependencySummary`,
+  records dropped paths in `privacy.omittedFields`) +
+  `parseRunCapsule()` (closed-enum status, oversized rejection at
+  `MAX_CAPSULE_BYTES = 4 MiB`, version-2 hard reject, load-bearing
+  field shape validation) + `summarizeRunCapsule()` (pure
+  one-liner for Settings rows).
+- **`src/renderer/runtime/executeTabManually.ts`** — builds the
+  capsule on every recorded run (happy / error / outer-throw) via
+  the new `tryBuildCapsule` helper; stashes it on
+  `ExecutionHistoryEntry.lastCapsule`. The helper never throws past
+  itself — Web Crypto failures fall through to `null` so capsule
+  construction errors never break the actual execution.
+- **`src/renderer/stores/executionHistoryStore.ts`** — `lastCapsule?`
+  optional field + `CAPSULE_LRU_CAP = 5` LRU cap. Older entries
+  lose their `lastCapsule` on subsequent records so the in-memory
+  cost stays bounded (capsules can be hundreds of KB each when
+  stdout / stderr saturate). New `latestCapsule()` selector walks
+  newest-first for the Settings + palette consumer.
+- **`src/renderer/components/Settings/RunCapsulesSection.tsx` (new)**
+  — Account-tab Settings section. Empty-state copy when no capsule;
+  one-line summary when present; Export button (disabled when
+  empty); pretty / mini toggle (fold C); clipboard happy path with
+  `navigator.clipboard.writeText`; inline read-only textarea
+  fallback when clipboard rejects (Safari private mode, iframe
+  context); `bucketCapsuleSize` helper colocated so the palette
+  shares the size-bucket logic.
+- **`src/renderer/components/Settings/SettingsModal.tsx`** —
+  registered `<RunCapsulesSection />` between `LicenseSection` and
+  `PrivacySection` in the Account tab.
+- **`src/renderer/components/CommandPalette/commandPaletteModel.ts`**
+  + **`CommandPalette.tsx`** — `onExportLatestCapsule` +
+  `latestCapsuleAvailable` props on the model; palette command
+  surfaces only when a capsule exists; mirrors the Settings export
+  flow (sanitize, JSON.stringify, clipboard write, status notice)
+  with `trigger: 'palette-export'` tagging.
+- **`src/shared/telemetry.ts` + `update-server/src/telemetry.ts`** —
+  new closed-enum event `capsule.exported { trigger, sizeBucket }`
+  with `trigger ∈ CAPSULE_EXPORT_TRIGGERS` (`settings-export` /
+  `palette-export`) and `sizeBucket ∈ CAPSULE_SIZE_BUCKETS`
+  (`<10kb` / `<100kb` / `<1mb` / `<4mb` / `>=4mb`). Mirrored both
+  sides with the redactor case + parity-test discipline.
+- **i18n** — 11 new keys (en + es tuteo): six Settings section
+  strings, two palette command strings, three notice strings
+  (copied / fallback). Tuteo verified per `AGENTS.md § Copy style
+  — Spanish locale` (imperative `Exporta`, 2ps `puedes`).
+
+Tests (62 new cases total):
+
+- **`tests/shared/runCapsule.test.ts` (new — 30 cases)** — cross-cut
+  test matrix per `docs/CAPSULE_TEST_MATRIX.md` Dimensions 1-8:
+  per-fixture round-trip, builder shape, hash determinism + 10 000
+  collision smoke, sanitiser redaction proof, stream truncation,
+  parser version gating, parser shape validation, summary helper
+  format.
+- **`tests/shared/runCapsule.fixtures.ts` (new — 10 fixtures)** —
+  shared catalog for every downstream world-class ticket's tests
+  (RL-036 / RL-097 / RL-098 / RL-099 / RL-100 / RL-039 Slice B).
+  Each fixture documented inline + indexed in the spec doc.
+- **`tests/shared/redaction.test.ts` (new — 13 cases)** — extract
+  parity assertions + `redactFlatRecord` happy / DENY / non-primitive
+  branches.
+- **`tests/shared/telemetry.test.ts`** — `capsule.exported` added
+  to the alphabetical event-name list + 4 validator cases
+  (every closed-enum value accepted, unknown trigger dropped,
+  unknown sizeBucket dropped).
+- **`tests/components/RunCapsulesSection.test.tsx` (new — 5 cases)**
+  — empty state, clipboard happy path, clipboard fallback, pretty
+  / mini toggle output difference, oversized capsule telemetry
+  sizeBucket.
+- **`tests/runtime/executeTabManually.capsule.test.ts` (new — 4
+  cases)** — capsule attached on success / runner-error / outer-
+  throw paths, LRU cap retains only newest 5.
+- **`update-server/test/telemetry.test.ts`** — parity test pair for
+  `CAPSULE_EXPORT_TRIGGERS` + `CAPSULE_SIZE_BUCKETS` (regex extract
+  + sort + equality vs. shared); validator coverage for
+  `capsule.exported` accept / reject paths.
+
+New docs:
+
+- **`docs/CAPSULE_TEST_MATRIX.md` (new)** — fixture catalog +
+  per-dimension assertion map + per-ticket consumption guide for
+  RL-036 / RL-097 / RL-098 / RL-099 / RL-100 / RL-039 Slice B.
+  Anti-patterns section blocks inlining + mutation + skipping the
+  sanitiser.
+- **`docs/README.md`** — registered `CAPSULE_TEST_MATRIX.md` under
+  the spec-doc index.
+
+Verification:
+
+- `npm run lint` clean (0 errors, 29 baseline warnings).
+- `npx tsc --noEmit` clean.
+- `npm run check:i18n` + `check:i18n:copy` clean.
+- `npm test -- --run` green; new cases all pass.
+- `cd update-server && npm test` green; parity tests align.
+- `npm run preview:web` + Playwright MCP smoke: app boots,
+  Settings → Account → Run Capsules renders empty state, no
+  console errors.
+
+Folds shipped (all 7 from the plan):
+
+- **A**: `capsule.exported { trigger, sizeBucket }` telemetry +
+  update-server parity + parity test.
+- **B**: Command palette entry `Export latest run as capsule`.
+- **C**: Pretty-print / mini toggle in Settings.
+- **D**: `computeContentHash` 10 000-iteration collision-resistance
+  test in `runCapsule.test.ts`.
+- **E**: `FIXTURE_LICENSE_LEAK_PROBE` (fake JWT) + redaction-proof
+  assertion. The fixture documents that the capsule deliberately
+  preserves `source.content` — the redaction layer is the
+  user-facing preview surface (the Settings + palette flows both
+  show the JSON before clipboard write), not the sanitiser.
+- **F**: `CAPSULE_LRU_CAP = 5` cap on `ExecutionHistoryEntry.lastCapsule`
+  retention in `executionHistoryStore.ts` + integration test
+  asserting only newest 5 entries keep their capsule.
+- **G**: 10-fixture catalog (`runCapsule.fixtures.ts`) + spec doc
+  (`CAPSULE_TEST_MATRIX.md`).
+
+Deferred to subsequent slices (Slices 2 / 3+):
+
+- Capsule import (Slice 2 — preview UI + confirmation modal).
+- Capsule list view (Slice 3 — depends on RL-028 history extension
+  for Pro-gated browse).
+- Auto-capsule on every run (deferred — needs disk-cost telemetry
+  first).
+- Desktop saveDialog IPC for "Export to disk" (deferred until the
+  IPC surface lands; Slice 1 uses pure clipboard / textarea
+  fallback).
+
 ### RL-095 Language Support Scorecard
 
 - Priority: `P1`

@@ -243,6 +243,23 @@ interface BuildCommandPaletteModelArgs {
   saveActiveTabAs?: () => Promise<void>;
   duplicateActiveTab?: () => void;
   /**
+   * RL-094 Slice 1 fold B — fires when the user activates the "Export
+   * latest run as capsule" palette command. The caller in `App.tsx`
+   * mirrors the Settings → Account → Run Capsules export flow:
+   * sanitises + serialises the latest captured `RunCapsuleV1`,
+   * writes to clipboard, fires `capsule.exported.trigger=palette-export`
+   * telemetry, falls back to an inline textarea when clipboard fails.
+   * Optional; when omitted or no latest capsule exists, the action
+   * hides entirely so the palette never advertises a no-op.
+   */
+  onExportLatestCapsule?: () => void;
+  /**
+   * `true` iff the execution-history store has at least one entry
+   * whose `lastCapsule` field is defined. Drives the visibility +
+   * the description copy of the palette entry above.
+   */
+  latestCapsuleAvailable?: boolean;
+  /**
    * Translation function. Optional so legacy callers keep working without
    * wiring i18next; when omitted, built-in action labels and descriptions
    * fall back to their English keys.
@@ -542,6 +559,8 @@ export function buildCommandPaletteModel({
   openFileFromDisk,
   saveActiveTabAs,
   duplicateActiveTab,
+  onExportLatestCapsule,
+  latestCapsuleAvailable = false,
   t,
 }: BuildCommandPaletteModelArgs): CommandEntry[] {
   const translate: (key: string, options?: Record<string, unknown>) => string = t
@@ -616,6 +635,25 @@ export function buildCommandPaletteModel({
             ['rerun', 'replay', 'last', 'recent', 'run'],
             () => {
               onRerunLast();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-094 Slice 1 fold B — Export latest run as capsule. Surfaces
+    // only when the caller wires the handler AND the history store
+    // confirms at least one entry still carries a `lastCapsule`. Hiding
+    // the entry when no capsule exists keeps the palette honest about
+    // what the action would do.
+    ...(onExportLatestCapsule && latestCapsuleAvailable
+      ? [
+          buildActionCommand(
+            'action-export-capsule',
+            translate('commandPalette.action.exportCapsule.label'),
+            translate('commandPalette.action.exportCapsule.description'),
+            ['capsule', 'export', 'run', 'share', 'json', 'replay'],
+            () => {
+              onExportLatestCapsule();
               onClose();
             }
           ),
