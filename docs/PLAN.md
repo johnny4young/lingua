@@ -4579,16 +4579,125 @@ Verification:
 - `npm test -- --run`: 3 547 / 4 skipped (320 test files).
 - `update-server` `npm test`: 120 / 0.
 
-Deferred to Slice 2b-β (separate plan):
+#### § Slice 2b-β-α landed (2026-05-20)
+
+Chart UI core + magic-comment runner consumption (JS/TS) + folds B
+(Pro export) + H (default open-file toast consumer). Python runner
+directive consumption + Python `__lingua.*` preamble helpers + folds
+A/C/D/F/G deferred to Slice 2b-β-β.
+
+Shipped:
+
+- **`src/renderer/components/Console/RichValueChart.tsx` (new ~210 LOC)** —
+  Lazy `import('vega-embed')` via module-level memoized promise; the
+  resolved chunk lives in its own Vite bundle (`vega-embed`). Three
+  render states surfaced via `data-chart-status="loading|ready|failed"`.
+  Theme via `resolveEffectiveShellTheme(theme, editorTheme,
+  syncShellWithEditorTheme)` (the `useAppTheme()` hook is
+  side-effect-only and returns void; we re-derive directly from
+  `useSettingsStore`). `vegaEmbed(div, spec, { theme, actions: false,
+  renderer: 'canvas' })`. `vegaResult.finalize()` cleanup on unmount +
+  cancellation flag for in-flight mount. Right-aligned actions menu
+  with **Fold B** Pro-gated SVG / PNG export via
+  `useEntitlement('EXECUTION_HISTORY')` + `pushUpsellNotice({
+  messageKey: 'upsell.freeCeilingReached', featureLabel:
+  t('upsell.feature.chartExport') })` mirroring the
+  `ConsoleEntryPopover` Copy-as-JSON pattern. Export downloads via
+  `Blob` + `URL.createObjectURL` + temporary `<a download>` link.
+- **`vite.web.config.mts` + `vite.renderer.config.mts`** — new
+  `manualChunks` rule emits the vega bundle (`vega-embed`,
+  `vega-lite`, `node_modules/vega/`) into a dedicated `vega-embed`
+  chunk so the main entry stays untouched until a chart payload
+  renders in both web and desktop renderer builds.
+- **`package.json`** — `vega-embed@^6.29` + `vega-lite@^5.23` +
+  `vega@^5.33` (vega-lite pinned to v5 explicitly; the auto-resolved
+  vega-lite 6.x demands vega 6 which conflicts with vega-embed's
+  vega ^5.21 peer dep — the v5 lock keeps the install resolvable).
+- **`ConsoleEntryRenderer.tsx`** — dispatch case `'chart'` routes to
+  `<RichValueChart>` (previously fell through to `<RichValueText>`).
+- **`ConsoleEntryPopover.tsx`** — `PreviewBody` chart case routes to
+  `<RichValueChart>`; legacy `<Slice2Placeholder>` removed.
+- **`richConsoleFormat.ts`** — `payloadHasRichSurface(chart) → true`.
+- **`runners/javascript.ts` + `runners/typescript.ts`** — magic-comment
+  directive consumption widens from `'table'`-only to also handle
+  `'chart'` / `'image'` / `'html'`. JSON parse of the worker's
+  stringified value → validator → typed payload. Object-shape image
+  payloads (`{src, mime}`) handled alongside bare-string form. Python
+  runner directive consumption deferred to 2b-β-β.
+- **`hooks/useDefaultOpenFileConsumer.ts` (new)** + **`App.tsx`** —
+  **Fold H**. Window listener for `CustomEvent('lingua-open-file',
+  { detail: { file, line, column?, fnName? } })` dispatched by
+  `<RichValueError>` on stack-frame click. Pushes
+  `openFile.toast.unavailable` status notice when no RL-024
+  multi-file consumer is registered. 1500 ms debounce per file:line
+  squelches rapid-click bursts; Map auto-trims when > 32 entries.
+- **i18n** (`en/common.json` + `es/common.json` — 8 new keys):
+  `console.rich.chartLoading` / `chartLoadFailed` / `chartExportSvg` /
+  `chartExportPng` / `chartExportPro` / `chartActionsMenu` /
+  `openFile.toast.unavailable` (with `{{file}}` + `{{line}}`
+  interpolation) / `upsell.feature.chartExport`. Tuteo verified.
+
+Tests:
+
+- **`tests/hooks/useDefaultOpenFileConsumer.test.ts` (new — 6 cases)** —
+  default-consumer push, ignores events with missing file/line,
+  debounces duplicate file:line within window, routes distinct pairs
+  independently, bounds the debounce cache, detaches listener on
+  unmount.
+- **`tests/components/Console/richConsoleFormat.test.ts`** — moved
+  the `'chart'` assertion from the "text-only kinds" group into the
+  "activates for…" group reflecting that chart now opens the
+  popover, and adds direct `<RichValueChart>` coverage for lazy Vega
+  render, cleanup, failure fallback, Free-tier upsell gating, and
+  Escape menu close.
+- **`tests/e2e/richConsoleSlice2a.spec.ts`** — visual matrix now
+  includes chart inline + chart popover/menu coverage, generating
+  screenshots `09-chart-inline.png` and `10-chart-popover-menu.png`
+  in `output/playwright/rich-console-slice2a/`.
+
+Verification:
+
+- `npm run lint` clean (0 errors, 29 baseline warnings unchanged).
+- `npx tsc --noEmit` clean.
+- `npm run check:i18n` + `check:i18n:copy` clean (15 touched files).
+- `npm test -- --run`: 3 569 / 4 skipped (322 test files, +2 new).
+- `npm run build:web` clean; `vega-embed` emitted as a separate
+  293.64 KiB gzip chunk.
+- `npm run test:e2e:web -- tests/e2e/richConsoleSlice2a.spec.ts`:
+  5 / 5 passed; screenshots regenerated in
+  `output/playwright/rich-console-slice2a/`.
+
+Deferred to Slice 2b-β-β (separate plan):
+
+- **Python runner directive consumption** — `runners/python.ts` still
+  only acts on `directive === 'table'`. 2b-β-β wires `chart` / `image`
+  / `html` directive handling to match the JS / TS runners.
+- **Python worker preamble helpers** — `__lingua.chart(spec_dict)` /
+  `__lingua.image(src, mime)` / `__lingua.html(html_str)` injected
+  into the Pyodide user namespace (parity with the JS `lingua.*`
+  bridge that landed in 2b-α).
+- **Fold A** vega bundle-size bench guard.
+- **Fold C** Settings sub-toggles per kind +
+  `consoleRichKindEnabledByKind` field.
+- **Fold D** image-paste resize toast (paired with fold G).
+- **Fold F** stack-frame `Error.cause` chain awareness.
+- **Fold G** ConsolePanel `onPaste` handler + 2 MiB cap + `//=> figure`
+  alias + `runtime.image_clipboard_pasted` telemetry.
+- **Runner-side `richMediaRejected` telemetry forwarding** from 2b-α.
+- **Sandboxed-iframe security e2e** — Playwright spec.
+
+(Original Slice 2b-β deferred list — kept for reference; superseded by
+the Slice 2b-β-β list above)
 
 - **`<RichValueChart>` component** — lazy dynamic
   `import('vega-embed')`, theme-aware rendering, reject-path fallback
   to localized text chip. `validateChartSpec` already shipped in 2b-α
   (the security whitelist for `data.url` / `data.name` / over-cap
   `data.values` is live); only the UI component + vega dep remain.
-- **`vega-embed` dependency + Vite manual chunk** (~200 KB gzipped
-  separate chunk; main bundle stays untouched).
-- **Fold A** vega chunk + bundle-size bench guard (≤ 200 KB gzipped).
+- **`vega-embed` dependency + Vite manual chunk** (~294 KB gzipped in
+  the web build; separate chunk; main bundle stays untouched).
+- **Fold A** vega chunk + bundle-size bench guard (budget to be set
+  from the measured ~294 KB gzipped baseline).
 - **Fold B** Pro-gated "Export chart as SVG/PNG" via `useEntitlement`.
 - **Fold C** Settings sub-toggles per kind (Chart / Image / HTML) +
   `consoleRichKindEnabledByKind` field in `settingsStore` (mirror of

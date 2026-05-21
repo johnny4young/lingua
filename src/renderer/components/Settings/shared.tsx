@@ -77,7 +77,28 @@ export function Row({
         </p>
         {hint && <p className="mt-1 text-xs leading-5 text-muted">{hint}</p>}
       </div>
-      <div className="sm:max-w-[52%] sm:min-w-[11rem]">{labelledChildren}</div>
+      {/*
+       * RL-044 Slice 2b-β-α Prerequisite fix — Settings panel vertical
+       * alignment. Previously the right column used
+       * `sm:max-w-[52%] sm:min-w-[11rem]`, so its width tracked the
+       * intrinsic width of whatever control it held: textareas fanned
+       * out to 52%, toggles shrunk to 11rem, single-line inputs +
+       * buttons rendered narrower still. Because the parent row uses
+       * `justify-between`, the right column's RIGHT edge sat at the
+       * row's right padding while its LEFT edge moved around with
+       * content — producing a ragged staircase down the Settings
+       * surface that the user flagged on Account.
+       *
+       * Fixed width `sm:w-80` (20rem / 320px) + `sm:shrink-0` snaps
+       * every right column to the same left edge across all 54 Row
+       * usages. Narrow controls (Toggle, single-button rows) sit at
+       * the left of the column with empty space to their right —
+       * a small cosmetic trade-off in exchange for a clean alignment
+       * grid. Wide controls (textareas, inline sub-grids like
+       * Execution timeout's per-language Select stack) fill the
+       * 320px container at `w-full` and stay readable.
+       */}
+      <div className="sm:w-80 sm:shrink-0">{labelledChildren}</div>
     </div>
   );
 }

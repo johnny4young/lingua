@@ -153,11 +153,18 @@ describe('js-worker module', () => {
     `);
 
     const consoleMessage = messages.find((message) => message.type === 'console');
+    // RL-044 Slice 2b-β-α prerequisite fix — the rejection text now
+    // explains the cause (anti-feature §A-008: no silent network).
+    // Match a substring so future copy refinements don't break this
+    // contract test while the diagnostic clause stays meaningful.
     expect(consoleMessage).toMatchObject({
       method: 'log',
-      args: ['[chart spec rejected]'],
       richMediaRejected: { kind: 'chart', reason: 'validation-failed' },
     });
+    const args = consoleMessage?.args as unknown[] | undefined;
+    expect(typeof args?.[0]).toBe('string');
+    expect(args?.[0]).toContain('chart');
+    expect(args?.[0]).toContain('data.values');
     expect(consoleMessage?.payload).toBeUndefined();
   });
 

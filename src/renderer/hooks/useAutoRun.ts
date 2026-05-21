@@ -20,6 +20,9 @@ import {
 import { defaultWorkflowMode } from '../../shared/workflowMode';
 import { trackEvent } from '../utils/telemetry';
 import { extractTimeoutMagicComment } from '../utils/magicComments';
+import { useConsoleStore } from '../stores/consoleStore';
+import { toConsoleEntries } from './runnerOutput';
+import type { Language } from '../types';
 
 export const AUTO_RUN_DEBOUNCE_MS = 1200;
 export type AutoLogCountBucket = '1' | '2-5' | '6-20' | '20-plus';
@@ -480,6 +483,22 @@ export function useAutoRun() {
         }
         setLineResults(nextLineResults);
         setFullOutput(presentation.fullOutput);
+        // RL-044 Slice 2b-β-α — Prerequisite fix surfaced during validation.
+        // The auto-run path (Scratchpad workflow) historically only
+        // rendered `result.stdout` via `setFullOutput`; the bottom
+        // console panel reads from `useConsoleStore`, so rich-media
+        // payloads emitted via `lingua.{chart,image,html}` never
+        // reached `<RichValueChart>` / `<RichValueHtml>` /
+        // `<RichValueImage>` in Scratchpad mode. Mirror the manual
+        // path (`executeTabManually`) by clearing prior entries and
+        // re-pushing this run's stdout/stderr into the store so the
+        // panel renders the typed payloads.
+        const consoleStore = useConsoleStore.getState();
+        consoleStore.clear();
+        const entries = toConsoleEntries(result, language as Language);
+        for (const entry of entries) {
+          consoleStore.addEntry(entry);
+        }
         // RL-020 Slice 6 fold G — propagate the worker's consumption
         // summary into the result store so the bottom-panel Input
         // pill can render "Used N of M". `null` clears the badge

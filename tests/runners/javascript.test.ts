@@ -208,4 +208,144 @@ describe('JavaScriptRunner', () => {
       });
     }
   });
+
+  it('attaches image and html payloads for raw-string rich-media magic comments', async () => {
+    const originalWorker = globalThis.Worker;
+
+    class MockWorker {
+      private messageHandler: ((event: MessageEvent) => void) | null = null;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') {
+          this.messageHandler = handler;
+        }
+      }
+
+      postMessage(message: { runId?: string }): void {
+        this.messageHandler?.({
+          data: {
+            type: 'magic-comment',
+            runId: message.runId,
+            line: 1,
+            value: 'data:image/png;base64,a',
+          },
+        } as MessageEvent);
+        this.messageHandler?.({
+          data: {
+            type: 'magic-comment',
+            runId: message.runId,
+            line: 2,
+            value: '<strong>ok</strong>',
+          },
+        } as MessageEvent);
+        this.messageHandler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 1 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+
+      const result = await runner.execute(
+        '"data:image/png;base64,a" //=> image\n"<strong>ok</strong>" //=> html'
+      );
+
+      expect(result.magicResults?.[0]).toMatchObject({
+        line: 1,
+        payload: {
+          kind: 'image',
+          src: 'data:image/png;base64,a',
+          mime: 'image/png',
+        },
+      });
+      expect(result.magicResults?.[1]).toMatchObject({
+        line: 2,
+        payload: {
+          kind: 'html',
+          html: '<strong>ok</strong>',
+        },
+      });
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
+  it('attaches chart payloads for JSON rich-media magic comments', async () => {
+    const originalWorker = globalThis.Worker;
+
+    class MockWorker {
+      private messageHandler: ((event: MessageEvent) => void) | null = null;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') {
+          this.messageHandler = handler;
+        }
+      }
+
+      postMessage(message: { runId?: string }): void {
+        this.messageHandler?.({
+          data: {
+            type: 'magic-comment',
+            runId: message.runId,
+            line: 1,
+            value:
+              '{"mark":"bar","data":{"values":[{"label":"A","value":1}]},"encoding":{"x":{"field":"label","type":"nominal"},"y":{"field":"value","type":"quantitative"}}}',
+          },
+        } as MessageEvent);
+        this.messageHandler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 1 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+
+      const result = await runner.execute('spec //=> chart');
+
+      expect(result.magicResults?.[0]).toMatchObject({
+        line: 1,
+        payload: {
+          kind: 'chart',
+          spec: {
+            mark: 'bar',
+            data: { values: [{ label: 'A', value: 1 }] },
+          },
+        },
+      });
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
 });

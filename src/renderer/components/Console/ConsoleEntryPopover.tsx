@@ -9,6 +9,7 @@ import { typeIcon, payloadAsJsonString } from './richConsoleFormat';
 import { RichValueError } from './RichValueError';
 import { RichValueHtml } from './RichValueHtml';
 import { RichValueImage } from './RichValueImage';
+import { RichValueChart } from './RichValueChart';
 
 type Tab = 'preview' | 'rawJson';
 
@@ -206,18 +207,8 @@ function PreviewBody({ payload }: { payload: RichOutputPayload }) {
     case 'html':
       return <RichValueHtml payload={payload} />;
     case 'chart':
-      return <Slice2Placeholder />;
+      return <RichValueChart payload={payload} />;
   }
-}
-
-/**
- * Slice 2 stub renderer. Lives behind its own component so the
- * placeholder strings reach the i18n surface (otherwise the inline
- * locale-blind literal would silently slip into a Spanish UI).
- */
-function Slice2Placeholder() {
-  const { t } = useTranslation();
-  return <pre className="text-fg-subtle">{t('console.rich.chartPlaceholder')}</pre>;
 }
 
 function PreviewTable({ payload }: { payload: Extract<RichOutputPayload, { kind: 'table' }> }) {

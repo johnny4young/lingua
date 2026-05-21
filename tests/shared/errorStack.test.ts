@@ -77,6 +77,44 @@ describe('parseJsErrorStack', () => {
     expect(() => parseJsErrorStack('not a stack')).not.toThrow();
     expect(() => parseJsErrorStack('at :NaN:NaN')).not.toThrow();
   });
+
+  it('demotes eval-internal worker frames to text-only (RL-044 Slice 2b-β-α)', () => {
+    // The actual frame Lingua's AsyncFunction-in-Worker pipeline
+    // produces when user code throws. The greedy regex captures the
+    // worker URL as `file` — but no editor can open it. Mark as
+    // text-only and keep the function name in the text.
+    const stack = [
+      'Error: boom',
+      'at inner (eval at <anonymous> (http://localhost:5174/src/renderer/workers/js-worker.ts?worker_file&type=module:614:16), <anonymous>:36:26)',
+      'at outer (eval at <anonymous> (http://localhost:5174/src/renderer/workers/js-worker.ts?worker_file&type=module:614:16), <anonymous>:37:20)',
+    ].join('\n');
+    const frames = parseJsErrorStack(stack);
+    // Header + 2 eval-internal frames.
+    expect(frames).toHaveLength(3);
+    // Both eval frames must be text-only (no file/line/column).
+    expect(frames[1].file).toBeUndefined();
+    expect(frames[1].line).toBeUndefined();
+    expect(frames[1].column).toBeUndefined();
+    // Function name preserved in fnName + visible in text.
+    expect(frames[1].fnName).toBe('inner');
+    expect(frames[1].text).toContain('inner');
+    expect(frames[2].fnName).toBe('outer');
+  });
+
+  it('still treats genuine user-source frames as clickable', () => {
+    // A non-eval frame with a real-looking file path stays clickable.
+    const stack = [
+      'Error: boom',
+      'at runJob (/Users/me/proj/src/job.ts:42:7)',
+    ].join('\n');
+    const frames = parseJsErrorStack(stack);
+    expect(frames[1]).toMatchObject({
+      fnName: 'runJob',
+      file: '/Users/me/proj/src/job.ts',
+      line: 42,
+      column: 7,
+    });
+  });
 });
 
 describe('parsePythonTraceback', () => {

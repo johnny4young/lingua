@@ -33,6 +33,7 @@ import { useGoLspLifecycle } from './hooks/useGoLspLifecycle';
 import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
 import { useDownloadedUpdateNotice } from './hooks/useDownloadedUpdateNotice';
+import { useDefaultOpenFileConsumer } from './hooks/useDefaultOpenFileConsumer';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
@@ -194,6 +195,12 @@ function AppChrome({
   // the same App-mount scope and runs independently of whether the
   // user opens Settings → Updates.
   useDownloadedUpdateNotice();
+  // RL-044 Slice 2b-β-α Fold H — default consumer for the
+  // `lingua-open-file` CustomEvent dispatched by <RichValueError>
+  // when users click a stack frame. Until RL-024 multi-file workspace
+  // ships the real open-in-editor handler, this hook shows a
+  // status-notice fallback so clicks get visible feedback.
+  useDefaultOpenFileConsumer();
 
   useEffect(() => {
     // RL-065: fire the first telemetry event. `trackEvent` is a no-op

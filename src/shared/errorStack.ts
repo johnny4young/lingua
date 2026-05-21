@@ -56,6 +56,31 @@ const V8_WITH_NAME = /^\s*at\s+(?<fn>.+?)\s+\((?<file>.+?):(?<line>\d+):(?<col>\
 const V8_WITHOUT_NAME = /^\s*at\s+(?<file>.+?):(?<line>\d+):(?<col>\d+)\s*$/;
 const SPIDERMONKEY = /^\s*(?<fn>.*?)@(?<file>.+?):(?<line>\d+):(?<col>\d+)\s*$/;
 
+/**
+ * RL-044 Slice 2b-β-α Prerequisite fix — eval-internal heuristic.
+ *
+ * In Lingua, user code runs inside an AsyncFunction inside the Web
+ * Worker, so V8 produces frames like:
+ *   `at inner (eval at <anonymous> (http://.../js-worker.ts?worker_file:614:16), <anonymous>:36:26)`
+ *
+ * The greedy/lazy regex captures `file` as
+ * `eval at <anonymous> (http://.../js-worker.ts?worker_file:614:16), <anonymous>`
+ * — a garbage path no editor can open. Marking these frames as
+ * "clickable" produces broken Open-in-editor affordances.
+ *
+ * Detect the eval-internal pattern and re-classify those frames as
+ * text-only (preserve the function name + line:col in the visible
+ * text for context; the renderer paints them as non-clickable spans).
+ */
+function isEvalInternalFile(file: string | undefined): boolean {
+  if (typeof file !== 'string' || file.length === 0) return true;
+  if (file.includes('eval at ')) return true;
+  if (file.includes('<anonymous>')) return true;
+  // Internal worker URLs — useful to no editor jump.
+  if (file.includes('worker_file')) return true;
+  return false;
+}
+
 export function parseJsErrorStack(stack: string | undefined): ClickableStackFrame[] {
   if (!stack || typeof stack !== 'string') return [];
   const lines = stack.split('\n');
@@ -67,6 +92,15 @@ export function parseJsErrorStack(stack: string | undefined): ClickableStackFram
     if (v8Named?.groups) {
       const lineNum = Number.parseInt(v8Named.groups.line ?? '', 10);
       const colNum = Number.parseInt(v8Named.groups.col ?? '', 10);
+      if (isEvalInternalFile(v8Named.groups.file)) {
+        // Keep the function name in the text so the user still sees
+        // which user function the frame belongs to.
+        frames.push({
+          text: raw.trim(),
+          fnName: v8Named.groups.fn,
+        });
+        continue;
+      }
       frames.push({
         text: raw.trim(),
         fnName: v8Named.groups.fn,
@@ -80,6 +114,10 @@ export function parseJsErrorStack(stack: string | undefined): ClickableStackFram
     if (v8Bare?.groups) {
       const lineNum = Number.parseInt(v8Bare.groups.line ?? '', 10);
       const colNum = Number.parseInt(v8Bare.groups.col ?? '', 10);
+      if (isEvalInternalFile(v8Bare.groups.file)) {
+        frames.push({ text: raw.trim() });
+        continue;
+      }
       frames.push({
         text: raw.trim(),
         file: v8Bare.groups.file,
@@ -92,6 +130,13 @@ export function parseJsErrorStack(stack: string | undefined): ClickableStackFram
     if (sm?.groups) {
       const lineNum = Number.parseInt(sm.groups.line ?? '', 10);
       const colNum = Number.parseInt(sm.groups.col ?? '', 10);
+      if (isEvalInternalFile(sm.groups.file)) {
+        frames.push({
+          text: raw.trim(),
+          fnName: sm.groups.fn?.length ? sm.groups.fn : undefined,
+        });
+        continue;
+      }
       frames.push({
         text: raw.trim(),
         fnName: sm.groups.fn?.length ? sm.groups.fn : undefined,

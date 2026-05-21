@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Maximize2 } from 'lucide-react';
 import type { RichOutputPayload } from '../../../shared/richOutput';
 import { formatPayloadInlineSummary } from '../../../shared/richOutput';
 import { trackEvent } from '../../utils/telemetry';
 import {
-  typeIcon,
   richKindBucket,
   payloadHasRichSurface,
 } from './richConsoleFormat';
@@ -17,6 +17,7 @@ import { RichValueTable } from './RichValueTable';
 import { RichValueImage } from './RichValueImage';
 import { RichValueHtml } from './RichValueHtml';
 import { RichValueError } from './RichValueError';
+import { RichValueChart } from './RichValueChart';
 
 interface ConsoleEntryRendererProps {
   payloads: RichOutputPayload[];
@@ -94,9 +95,17 @@ export function ConsoleEntryRenderer({
                   aria-label={t('console.rich.openDetails')}
                   title={labelTitle}
                   data-testid="console-rich-open-details"
-                  className="rounded-md border border-transparent px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle hover:border-border/60 hover:text-foreground"
+                  // RL-044 Slice 2b-β-α Prerequisite fix — the chip
+                  // used a tiny obscure Unicode glyph (`◰` / `⌗` / `▣`)
+                  // that users couldn't decode; replaced with a
+                  // recognizable Lucide `Maximize2` icon + visible
+                  // "Details" label. Contrast bumped from `text-fg-subtle`
+                  // to `text-fg-muted` so the affordance is discoverable
+                  // without dominating the row.
+                  className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-surface/30 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-muted transition-colors hover:border-border-strong/70 hover:bg-surface/60 hover:text-foreground"
                 >
-                  {typeIcon(payload)}
+                  <Maximize2 size={10} aria-hidden="true" />
+                  <span>{t('console.rich.openDetailsShort')}</span>
                 </button>
               )}
             </span>
@@ -146,12 +155,13 @@ function RichValueDispatch({
           fallbackText={fallbackText}
         />
       );
+    case 'chart':
+      return <RichValueChart payload={payload} />;
     case 'primitive':
     case 'function':
     case 'date':
     case 'promise':
     case 'rawText':
-    case 'chart':
       return <RichValueText payload={payload} fallbackText={fallbackText} />;
   }
 }

@@ -95,6 +95,89 @@ describe('TypeScriptRunner', () => {
     }
   });
 
+  it('attaches raw-string image and html payloads for rich-media magic comments', async () => {
+    const esbuild = await import('esbuild-wasm');
+    vi.mocked(esbuild.transform).mockResolvedValue({
+      code: 'imageSrc;\nhtml;',
+      warnings: [],
+    });
+
+    const originalWorker = globalThis.Worker;
+
+    class MockWorker {
+      private messageHandler: ((event: MessageEvent) => void) | null = null;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') {
+          this.messageHandler = handler;
+        }
+      }
+
+      postMessage(message: { runId?: string }): void {
+        this.messageHandler?.({
+          data: {
+            type: 'magic-comment',
+            runId: message.runId,
+            line: 1,
+            value: 'data:image/png;base64,a',
+          },
+        } as MessageEvent);
+        this.messageHandler?.({
+          data: {
+            type: 'magic-comment',
+            runId: message.runId,
+            line: 2,
+            value: '<em>ok</em>',
+          },
+        } as MessageEvent);
+        this.messageHandler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 1 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new TypeScriptRunner();
+      await runner.init();
+
+      const result = await runner.execute(
+        '"data:image/png;base64,a" //=> image\n"<em>ok</em>" //=> html'
+      );
+
+      expect(result.magicResults?.[0]).toMatchObject({
+        line: 1,
+        payload: {
+          kind: 'image',
+          src: 'data:image/png;base64,a',
+          mime: 'image/png',
+        },
+      });
+      expect(result.magicResults?.[1]).toMatchObject({
+        line: 2,
+        payload: {
+          kind: 'html',
+          html: '<em>ok</em>',
+        },
+      });
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
   it('forwards rich console payloads from the shared JS worker', async () => {
     const esbuild = await import('esbuild-wasm');
     vi.mocked(esbuild.transform).mockResolvedValue({
