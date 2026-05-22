@@ -247,6 +247,18 @@ export const TELEMETRY_EVENTS = [
   // DEPENDENCY_COUNT_BUCKETS set used by `detected_in_tab` so the
   // parity test only needs to validate one enum.
   'dependency.classifications_summary',
+  // RL-044 Sub-slice G — output→source line affordance click. Fires
+  // once when the user clicks an `<OutputLineBadge>` chip on a
+  // console row. Closed-enum `{ language, surface }` where `surface` ∈
+  // `OUTPUT_ORIGIN_SURFACES` (`'badge'` only today; the symmetric
+  // hover direction does NOT emit a telemetry event because the
+  // discovery surface is the badge click). Fold B throttles the
+  // emit to 1 per 1000ms per `(language, surface)` bucket so a user
+  // clicking 20 chips in a debugging burst produces ~2 events rather
+  // than 20. No file, no line, no column — the line integer would
+  // leak nothing per the redactor, but the closed allowlist keeps
+  // the surface tight. Mirrored on update-server with parity test.
+  'runtime.output_origin_clicked',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -454,6 +466,12 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
     'needsDesktopBucket',
     'unsupportedBucket',
   ],
+  // RL-044 Sub-slice G — `language` is the language-pack id
+  // (`isSafeToken`); `surface` ∈ `OUTPUT_ORIGIN_SURFACES` (`'badge'`).
+  // The hover path does NOT emit so this allowlist intentionally
+  // omits a `'hover'` value today; widening would require an
+  // explicit comment update + a matching change on update-server.
+  'runtime.output_origin_clicked': ['language', 'surface'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -674,6 +692,15 @@ export const PRIVACY_DASHBOARD_SURFACES = new Set([
   'settings',
   'palette',
 ]);
+// RL-044 Sub-slice G — closed enum for the discovery surface of the
+// `runtime.output_origin_clicked` event. Only badge clicks emit
+// telemetry today; the symmetric hover direction is intentionally
+// silent (hover would create burst noise indistinguishable from
+// passive mouse movement). A future widening to `'hover'` requires
+// an explicit allowlist comment update + a matching change on
+// update-server (the parity test catches drift). Mirrored on
+// update-server.
+export const OUTPUT_ORIGIN_SURFACES = new Set(['badge']);
 // RL-025 Slice A — closed bucket enum mirroring
 // `DEPENDENCY_COUNT_BUCKETS` from `src/shared/dependencies/types.ts`.
 // Duplicated here for the same reason as `CONSOLE_RICH_KIND_BUCKETS`
@@ -1029,6 +1056,11 @@ function isAllowedValue(
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
         );
       }
+      return false;
+    case 'runtime.output_origin_clicked':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'surface')
+        return typeof value === 'string' && OUTPUT_ORIGIN_SURFACES.has(value);
       return false;
     default: {
       const exhaustive: never = event;

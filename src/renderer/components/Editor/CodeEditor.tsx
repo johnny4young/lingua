@@ -19,6 +19,7 @@ import {
   useInlineResultWidgets,
 } from '../../hooks/useInlineResults';
 import { useBreakpointGutter } from '../../hooks/useBreakpointGutter';
+import { useEditorHighlightSync } from '../../hooks/useEditorHighlightSync';
 import { useLanguageIntelligenceDiagnostics } from '../../hooks/useLanguageIntelligenceDiagnostics';
 import { useGoLspDocumentSync } from '../../hooks/useGoLspLifecycle';
 import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
@@ -93,6 +94,7 @@ export function CodeEditor() {
   const vimAdapterRef = useRef<VimAdapter | null>(null);
   const vimStatusBarRef = useRef<HTMLDivElement | null>(null);
   const lastRevealedDiagnosticKeyRef = useRef<string | null>(null);
+  const cursorBroadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // RL-027 Slice 1.5 — track the mounted editor + monaco namespace in
   // state so effects can react to mount (refs alone don't re-render).
   // The original refs stay in place for the existing inline-results
@@ -132,6 +134,12 @@ export function CodeEditor() {
     language: activeTab?.language,
     toggleAriaLabel: (line) => t('debugger.gutter.toggle', { line }),
   });
+  // RL-044 Sub-slice G — listen for `lingua-highlight-line` events
+  // dispatched by `<OutputLineBadge>` on hover, apply the
+  // `lingua-highlight-flash` decoration to the hinted line, and
+  // (when the Settings smooth-scroll sub-gate is ON) reveal
+  // offscreen lines via `editor.revealLineInCenter`.
+  useEditorHighlightSync(editorRef);
 
   const handleBeforeMount = useCallback((monaco: Monaco) => {
     defineCustomThemes(monaco);
@@ -164,10 +172,35 @@ export function CodeEditor() {
     editor.onDidPaste(() => {
       notifyDependencyDetectionPaste();
     });
+    // RL-044 Sub-slice G Fold G — symmetric inverse direction:
+    // cursor settled on line N → broadcast a
+    // `lingua-source-line-hovered` CustomEvent so any
+    // `<ConsolePanel>` row whose `origin.line === N` can pulse for
+    // the next 1500ms. Debounced 200ms so a normal cursor-move
+    // burst (arrow keys, click + drag) does not stream events.
+    editor.onDidChangeCursorPosition((event) => {
+      const line = event.position.lineNumber;
+      if (!Number.isFinite(line) || line <= 0) return;
+      if (cursorBroadcastTimerRef.current) {
+        clearTimeout(cursorBroadcastTimerRef.current);
+      }
+      cursorBroadcastTimerRef.current = setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent('lingua-source-line-hovered', {
+            detail: { line, durationMs: 1500 },
+          })
+        );
+        cursorBroadcastTimerRef.current = null;
+      }, 200);
+    });
   }, []);
 
   useEffect(() => {
     return () => {
+      if (cursorBroadcastTimerRef.current) {
+        clearTimeout(cursorBroadcastTimerRef.current);
+        cursorBroadcastTimerRef.current = null;
+      }
       setActiveEditor(null);
     };
   }, []);

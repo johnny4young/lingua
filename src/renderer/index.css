@@ -1104,6 +1104,45 @@
     background: color-mix(in srgb, var(--app-danger, #e1495d) 24%, transparent);
   }
 
+  /*
+    RL-044 Sub-slice G — flash decoration applied to a Monaco line
+    when the user hovers an `<OutputLineBadge>` chip on a console
+    row. Lower specificity than the debugger paused-line above so
+    the debugger highlight wins when both fire on the same line.
+  */
+  .monaco-editor .lingua-highlight-flash {
+    background: color-mix(in srgb, var(--app-accent, #38bdf8) 22%, transparent);
+    animation: lingua-highlight-flash-fade 1500ms ease-out forwards;
+  }
+
+  @keyframes lingua-highlight-flash-fade {
+    0% {
+      background: color-mix(in srgb, var(--app-accent, #38bdf8) 32%, transparent);
+    }
+    100% {
+      background: transparent;
+    }
+  }
+
+  /*
+    RL-044 Sub-slice G Fold G — symmetric inverse: console-row pulse
+    when the user's editor cursor settles on a line that produced
+    output. Matches `lingua-highlight-flash-fade` timing so both
+    directions feel like the same gesture.
+  */
+  [data-pulsing='true'] {
+    animation: lingua-console-row-pulse 1500ms ease-out forwards;
+  }
+
+  @keyframes lingua-console-row-pulse {
+    0% {
+      background: color-mix(in srgb, var(--app-accent, #38bdf8) 18%, transparent);
+    }
+    100% {
+      background: transparent;
+    }
+  }
+
   /* ----------------------------------------------------------------- */
   /* Monaco overlays · Signal-Slate alignment                          */
   /*                                                                    */

@@ -10991,7 +10991,7 @@ Hoy sólo los frames de error son clicables. El resto del output (`console.log`,
   - `Show line badge on output rows` (default ON).
   - `Highlight source line on hover` (default ON).
   - `Smooth-scroll editor when highlighting offscreen lines` (default ON).
-- **Telemetría.** Closed-enum `runtime.output_origin_clicked { language, source: 'badge' | 'hover' }` mirroreada con parity test. Una entrada por click; hover NO emite telemetría (sería ruido).
+- **Telemetría.** Closed-enum `runtime.output_origin_clicked { language, surface: 'badge' }` mirroreada con parity test. Una entrada por click; hover NO emite telemetría (sería ruido).
 
 **Sub-slice G acceptance:**
 - Tras correr `console.log("x")` en la línea 7, el row del console muestra un chip `L7` a la derecha del valor.
@@ -11015,6 +11015,149 @@ Hoy sólo los frames de error son clicables. El resto del output (`console.log`,
 **Risks:**
 - Capturar stack en cada `console.log` agrega CPU overhead → mitigado por: gate de settings (puede apagarse), y `new Error().stack` en V8 cuesta < 50µs por call según benches conocidos.
 - Bursts de logs (loop con 10 000 prints) saturan render → mitigado por el cap RICH_CONSOLE existente + perf bench locking 1000 rows < 200ms.
+
+#### § Sub-slice G landed (2026-05-22)
+
+Sub-slice G shipped end-to-end against the approved scope captured in
+this section, with all seven fold-ins committed (`approved with:
+all`). Fold D's strict scope was trimmed to the renderer-side
+within-tab click path; the cross-tab notice that depended on
+`ConsoleEntry.tabId` schema threading is deferred to a follow-up
+sub-slice and documented inline in `OutputLineBadge.tsx`. All other
+folds (A perf benches, B telemetry burst-throttle, C palette toggle,
+E Privacy + Trust dashboard row, F `// @origin off` magic-comment
+opt-out, G symmetric inverse cursor→console pulse) landed.
+
+What shipped:
+
+- **Shared schema** `src/shared/richOutput.ts` extends `RichOutputPayload`
+  with optional `origin?: { line: number; column?: number }` via
+  intersection so `payload.kind` remains discriminable and `origin`
+  is available regardless of variant. `serializeRichValue` is kept
+  pure — callers (workers) stamp `origin` after serialization.
+- **Renderer chip** `src/renderer/components/Console/OutputLineBadge.tsx`
+  renders an `L<n>` `<button>` chip on every row whose payload (or
+  fallback `entry.line`) has an origin. Click dispatches
+  `lingua-open-file` with empty `file` (the within-tab branch added
+  to `useDefaultOpenFileConsumer` routes through
+  `editorStore.requestReveal`). Hover dispatches
+  `lingua-highlight-line` after a 200ms debounce. Self-gates on
+  `outputSourceMappingEnabled` + `outputHighlightOnHoverEnabled`.
+- **Monaco decoration** `src/renderer/hooks/useEditorHighlightSync.ts`
+  listens for `lingua-highlight-line`, applies the
+  `lingua-highlight-flash` decoration via
+  `editor.createDecorationsCollection`, and reveals offscreen lines
+  via `revealLineInCenter(line, ScrollType.Smooth=0)` when the
+  `outputSmoothScrollOffscreenEnabled` sub-gate is ON. Mounted in
+  `CodeEditor.tsx`. CSS keyframe `lingua-highlight-flash-fade` lives
+  in `src/renderer/index.css` with lower specificity than the
+  debugger paused-line so both can coexist.
+- **JS / TS worker stamp** `createConsoleProxy` in
+  `src/renderer/workers/js-worker.ts` reuses the existing
+  `extractCallingLine(sourceLineMap)` capture and stamps
+  `origin.line` on each payload before postMessage. Auto-log rows
+  (RL-020 Slice 5) inherit the origin from the `__mc(line, value)`
+  side-table without runner-side changes.
+- **Python worker (no edit needed)** — `__lingua_caller_line()` was
+  already populating `ConsoleEntry.line` from `frame.f_lineno`. The
+  new `entryLine` fallback prop on `<ConsoleEntryRenderer>` wires it
+  to the chip path.
+- **Go / Rust splitter** `src/renderer/runners/originSplitter.ts`
+  exposes `enrichConsoleOutputLine(language, existingLine, args)`
+  that pattern-matches `file.go:N` / `file.rs:N` references on
+  stdout chunks and populates `ConsoleOutput.line`. Wired into
+  `src/renderer/runners/go.ts` (per-console-message message handler)
+  + `src/renderer/runners/rust.ts` (post-execute stdout/stderr split).
+- **Telemetry** new closed-enum event `runtime.output_origin_clicked
+  { language, surface }` with `OUTPUT_ORIGIN_SURFACES = {'badge'}`
+  (hover intentionally does NOT emit). Mirrored on
+  `update-server/src/telemetry.ts` with a parity assertion in
+  `update-server/test/telemetry.test.ts`. Fold B burst-throttle lives
+  in `src/renderer/utils/telemetry.ts` (`trackOutputOriginClicked`
+  caps 1 emit per `OUTPUT_ORIGIN_THROTTLE_MS = 1000` per
+  `(language, surface)` bucket).
+- **Settings** three persisted booleans
+  (`outputSourceMappingEnabled` master + `outputHighlightOnHoverEnabled`
+  + `outputSmoothScrollOffscreenEnabled`) wired through the
+  `partialize` + `merge`/sanitize rehydrate pipeline with default ON.
+  Settings → Editor sub-section renders the master + two sub-gates
+  (sub-gates `disabled` when master is OFF). When the master is OFF,
+  JS/TS workers skip source-line stack capture, Go/Rust skip stdout
+  splitter enrichment, and `executeTabManually` strips any returned
+  `ConsoleOutput.line` / `RichOutputPayload.origin` before console,
+  history, or capsule surfaces see it.
+- **Fold A** perf benches `tests/perf/consoleOutputBadge.bench.test.ts`
+  lock 1000 rows < 200ms (AC) AND 10 000 rows < 1500ms (Fold A),
+  with a CI ×1.5 multiplier mirroring `rubySpawn.bench.test.ts`.
+- **Fold C** palette `action-toggle-output-source-mapping` entry in
+  `commandPaletteModel.ts` follows the close-palette-first ordering;
+  caller wired in `CommandPalette.tsx` flips the settingsStore
+  master toggle. EN + ES keyword coverage
+  (`output / line / badge / origen / consola`).
+- **Fold E** Privacy + Trust dashboard row extends
+  `NETWORK_ACTIVITY_FEATURES` with `outputOriginTracking`;
+  `buildNetworkActivityRows` derives the row status from
+  `outputSourceMappingEnabled` (defaults to `'enabled'` for callers
+  that don't pass it). `<PrivacyTrustSection>` subscribes to the
+  flag and threads it through.
+- **Fold F** `originSuppressedByMagicComment(language, code)` in
+  `src/renderer/utils/magicComments.ts` detects `// @origin off` /
+  `# @origin off` (case-insensitive, optional colon) in JS/TS/Python
+  buffers. `<ConsoleEntryRenderer>` and `<ConsolePanel>` read the
+  active tab content and suppress the chip/pulse entirely when the
+  directive is present.
+- **Fold G** `CodeEditor.onDidChangeCursorPosition` debounced 200ms
+  broadcasts a `lingua-source-line-hovered` CustomEvent;
+  `<ConsolePanel>` registers a `useState` + listener that sets
+  `pulseLine` for ~1500ms; each `EntryRow` derives a `rowSourceLine`
+  from payload.origin OR entry.line and applies
+  `data-pulsing='true'` when it matches the cursor and the active tab
+  has not opted out with `@origin off`. Animation
+  `lingua-console-row-pulse` mirrors the editor-side fade timing for
+  bidirectional symmetry.
+- **i18n** 11 EN + 11 ES keys under
+  `settings.editor.outputSourceMapping.*`,
+  `console.outputBadge.*`, `outputBadge.notice.*`,
+  `commandPalette.action.toggleOutputSourceMapping.*`,
+  `settings.privacy.network.feature.outputOriginTracking`. ES
+  uses tuteo (`Muestra`, `Resalta`, `Desplaza`, `Abre`, `Clic`,
+  `Pasa`).
+- **Tests** new `tests/components/Console/OutputLineBadge.test.tsx`
+  (render contract + click telemetry + hover debounce + master gate
+  + invalid origin guard), new `tests/renderer/runners/originSplitter.test.ts`
+  (Go/Rust regex + enrich helper + cross-language rejection),
+  extended `tests/hooks/useDefaultOpenFileConsumer.test.ts`
+  (within-tab `requestReveal` path + active-tab debounce),
+  extended `tests/utils/magicComments.test.ts`
+  (`originSuppressedByMagicComment` 6 cases), extended
+  `tests/components/commandPaletteModel.test.ts` (Fold C entry
+  hidden/exposed/close-before-toggle), extended
+  `tests/shared/richOutput.test.ts` (origin roundtrip +
+  `serializeRichValue` does NOT stamp origin), extended
+  `tests/shared/telemetry.test.ts` (sorted TELEMETRY_EVENTS includes
+  `runtime.output_origin_clicked`), and extended
+  `update-server/test/telemetry.test.ts` with the
+  `OUTPUT_ORIGIN_SURFACES` parity assertion. Full Playwright e2e
+  spec deferred — the web smoke matrix walkthrough exercises the
+  renderer path end-to-end.
+
+Out of scope (deferred):
+
+- **Fold D strict multi-tab routing guard.** The "click on a stale
+  history entry → `outputBadge.notice.sourceClosed` notice" branch
+  needs `ConsoleEntry.tabId` threading through every console-output
+  producer (consoleStore.addEntry, runnerOutput, Go/Rust IPC bridges,
+  Python worker postMessage). Scoped to its own sub-slice or to
+  RL-024 Slice 2 because the schema change touches every IPC
+  producer.
+- **Worker console.table origin stamp.** The legacy `console.table`
+  shim in `js-worker.ts` does not yet propagate `origin` onto the
+  table payload. Single-line fix queued for the next iteration.
+
+References:
+
+- Sub-slice F primitives reused: `parseJsErrorStack`,
+  `lingua-open-file` bus, `useDefaultOpenFileConsumer`.
 
 ---
 

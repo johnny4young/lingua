@@ -100,6 +100,7 @@ import {
   CAPSULE_LRU_CAP,
   useExecutionHistoryStore,
 } from '../../src/renderer/stores/executionHistoryStore';
+import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
 describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
   beforeEach(() => {
@@ -116,6 +117,7 @@ describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
     mockToExecutionDiagnostics.mockReset();
     mockToExecutionDiagnostics.mockReturnValue([]);
     useExecutionHistoryStore.setState({ entries: [] });
+    useSettingsStore.setState({ outputSourceMappingEnabled: true });
   });
 
   afterEach(() => {
@@ -173,6 +175,56 @@ describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
       magicPayload,
     ]);
     expect(entry.lastCapsule?.result.diagnostics).toEqual(diagnostics);
+  });
+
+  it('strips output-origin metadata from capsules when source mapping is disabled', async () => {
+    useSettingsStore.setState({ outputSourceMappingEnabled: false });
+    const consolePayload = {
+      kind: 'rawText',
+      text: 'hi',
+      origin: { line: 2 },
+    };
+    const magicPayload = {
+      kind: 'rawText',
+      text: 'magic',
+      origin: { line: 3 },
+    };
+    mockRunnerManagerPrepare.mockResolvedValue({
+      runner: {
+        execute: mockRunnerExecute.mockResolvedValue({
+          stdout: [
+            { type: 'log', args: ['hi'], line: 2, payload: [consolePayload] },
+          ],
+          stderr: [],
+          result: undefined,
+          executionTime: 12,
+          error: undefined,
+          magicResults: [{ line: 3, value: 'magic', payload: magicPayload }],
+        }),
+      },
+      initialized: false,
+    });
+
+    await executeTabManually({
+      id: 'tab-origin-off',
+      name: 'main.js',
+      language: 'javascript',
+      content: 'console.log("hi")',
+      isDirty: false,
+    });
+
+    expect(mockRunnerExecute.mock.calls[0]?.[1]).toMatchObject({
+      outputSourceMappingEnabled: false,
+    });
+    const presentedResult = mockToExecutionPresentation.mock.calls[0]?.[2];
+    expect(presentedResult.stdout[0].line).toBeUndefined();
+    expect(presentedResult.stdout[0].payload[0].origin).toBeUndefined();
+
+    const entry = useExecutionHistoryStore.getState().entries[0]!;
+    expect(entry.lastCapsule?.result.richOutputs).toEqual([
+      { kind: 'rawText', text: 'hi' },
+      { kind: 'rawText', text: 'magic' },
+    ]);
   });
 
   it('attaches lastCapsule on the runner-error path', async () => {

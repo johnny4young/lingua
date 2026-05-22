@@ -6,6 +6,7 @@ import type {
 } from '../types';
 import { parseRustExecutionError } from '../utils/executionDiagnostics';
 import { resolveNativeRunnerMessages, resolveUserEnvForRunner } from './env';
+import { enrichConsoleOutputLine } from './originSplitter';
 
 export class RustRunner implements LanguageRunner {
   id = 'rust';
@@ -30,7 +31,7 @@ export class RustRunner implements LanguageRunner {
     return this.ready;
   }
 
-  async execute(code: string, _context?: ExecutionContext): Promise<ExecutionResult> {
+  async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
     if (!this.rustInstalled) {
       return {
         stdout: [],
@@ -54,15 +55,32 @@ export class RustRunner implements LanguageRunner {
       resolveNativeRunnerMessages()
     );
 
+    const sourceMappingEnabled = context?.outputSourceMappingEnabled !== false;
+
+    // RL-044 Sub-slice G — best-effort `file.rs:N` splitter enriches
+    // `ConsoleOutput.line` so the renderer's `<OutputLineBadge>`
+    // surfaces a chip on panic / debug rows that mention a source.
     const stdout: ConsoleOutput[] = runResult.stdout
       .split('\n')
       .filter((line, i, arr) => i < arr.length - 1 || line.trim() !== '')
-      .map((line) => ({ type: 'log' as const, args: [line] }));
+      .map((line) => ({
+        type: 'log' as const,
+        args: [line],
+        line: sourceMappingEnabled
+          ? enrichConsoleOutputLine('rust', undefined, [line])
+          : undefined,
+      }));
 
     const stderr: ConsoleOutput[] = runResult.stderr
       .split('\n')
       .filter((line, i, arr) => i < arr.length - 1 || line.trim() !== '')
-      .map((line) => ({ type: 'error' as const, args: [line] }));
+      .map((line) => ({
+        type: 'error' as const,
+        args: [line],
+        line: sourceMappingEnabled
+          ? enrichConsoleOutputLine('rust', undefined, [line])
+          : undefined,
+      }));
 
     return {
       stdout,

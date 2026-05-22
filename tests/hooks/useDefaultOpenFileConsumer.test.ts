@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useDefaultOpenFileConsumer } from '../../src/renderer/hooks/useDefaultOpenFileConsumer';
+import { useEditorStore } from '../../src/renderer/stores/editorStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 
 describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
@@ -36,9 +37,78 @@ describe('useDefaultOpenFileConsumer — RL-044 Slice 2b-β-α Fold H', () => {
     dispatch({ file: '', line: 0 });
     dispatch({ file: 'src/x.ts' });
     dispatch({ line: 5 });
+    // RL-044 Sub-slice G — empty `file` + `line > 0` is the
+    // within-tab path; here it should be a no-op because no tab is
+    // active in the editor store fixture by default. The push spy
+    // stays at zero AND the editor reveal request stays null.
+    const revealSpyClean = useEditorStore.getState().pendingReveal;
+    expect(revealSpyClean).toBeNull();
     dispatch(null);
     expect(pushSpy).not.toHaveBeenCalled();
     unmount();
+  });
+
+  it('routes within-tab clicks (empty file + line > 0) through requestReveal — RL-044 Sub-slice G', () => {
+    const requestRevealSpy = vi.spyOn(useEditorStore.getState(), 'requestReveal');
+    // Seed the active tab so the consumer can move the cursor.
+    useEditorStore.setState({
+      activeTabId: 'tab-active',
+      tabs: [
+        {
+          id: 'tab-active',
+          name: 'scratch.js',
+          language: 'javascript',
+          content: '',
+          workflowMode: 'scratchpad',
+          runtimeMode: 'worker',
+          autoLogEnabled: false,
+        } as never,
+      ],
+    });
+    const { unmount } = renderHook(() => useDefaultOpenFileConsumer());
+    try {
+      dispatch({ file: '', line: 7, column: 3 });
+      expect(requestRevealSpy).toHaveBeenCalledWith({
+        tabId: 'tab-active',
+        line: 7,
+        column: 3,
+      });
+      // The cross-file fallback notice should NOT fire for within-tab.
+      expect(pushSpy).not.toHaveBeenCalled();
+    } finally {
+      requestRevealSpy.mockRestore();
+      useEditorStore.setState({ activeTabId: null, tabs: [] });
+      unmount();
+    }
+  });
+
+  it('debounces within-tab clicks on the same active-tab line within 1500ms', () => {
+    const requestRevealSpy = vi.spyOn(useEditorStore.getState(), 'requestReveal');
+    useEditorStore.setState({
+      activeTabId: 'tab-active',
+      tabs: [
+        {
+          id: 'tab-active',
+          name: 'scratch.js',
+          language: 'javascript',
+          content: '',
+          workflowMode: 'scratchpad',
+          runtimeMode: 'worker',
+          autoLogEnabled: false,
+        } as never,
+      ],
+    });
+    const { unmount } = renderHook(() => useDefaultOpenFileConsumer());
+    try {
+      dispatch({ file: '', line: 7 });
+      dispatch({ file: '', line: 7 });
+      dispatch({ file: '', line: 7 });
+      expect(requestRevealSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      requestRevealSpy.mockRestore();
+      useEditorStore.setState({ activeTabId: null, tabs: [] });
+      unmount();
+    }
   });
 
   it('debounces duplicate file:line within 1500ms', () => {

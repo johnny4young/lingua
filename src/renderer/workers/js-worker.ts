@@ -264,18 +264,36 @@ function extractCallingLine(
 function createConsoleProxy(
   runId: string,
   marker: string,
-  sourceLineMap?: Record<number, number>
+  sourceLineMap: Record<number, number> | undefined,
+  sourceMappingEnabled: boolean
 ) {
   const methods = ['log', 'warn', 'error', 'info'] as const;
   for (const method of methods) {
     console[method] = (...args: unknown[]) => {
-      const line = extractCallingLine(sourceLineMap);
+      const line = sourceMappingEnabled
+        ? extractCallingLine(sourceLineMap)
+        : undefined;
+      const payload = serializePayloads(args, marker);
+      // RL-044 Sub-slice G — stamp the captured source line onto each
+      // payload as `origin.line` so the renderer-side
+      // `<OutputLineBadge>` can render a chip without re-deriving the
+      // line from the top-level `line` field. The main-thread runner
+      // passes `sourceMappingEnabled=false` when the user disables the
+      // Settings master toggle, so the worker skips stack capture and
+      // does not leak origin metadata into history capsules.
+      if (typeof line === 'number' && line > 0 && payload) {
+        for (const p of payload) {
+          if (p && typeof p === 'object' && !p.origin) {
+            (p as { origin?: { line: number } }).origin = { line };
+          }
+        }
+      }
       ctx.postMessage({
         type: 'console',
         runId,
         method,
         args: serialize(args, marker),
-        payload: serializePayloads(args, marker),
+        payload,
         line,
       });
     };
@@ -296,7 +314,9 @@ function createConsoleProxy(
   (console as { table?: (...a: unknown[]) => void }).table = (
     ...args: unknown[]
   ) => {
-    const line = extractCallingLine(sourceLineMap);
+    const line = sourceMappingEnabled
+      ? extractCallingLine(sourceLineMap)
+      : undefined;
     if (args.length === 0) {
       ctx.postMessage({
         type: 'console',
@@ -566,6 +586,12 @@ interface ExecuteMessage {
   watches?: string[];
   sourceLineMap?: Record<number, number>;
   /**
+   * RL-044 Sub-slice G — false disables console-origin stack capture
+   * so the worker does not attach `line` / `payload.origin` metadata
+   * when the Settings master toggle is off.
+   */
+  sourceMappingEnabled?: boolean;
+  /**
    * RL-020 Slice 6 — pre-set stdin buffer for `prompt()` /
    * `readline()`. Newline-delimited. Empty / undefined leaves the
    * native worker behavior in place (worker has no `prompt`, so
@@ -701,7 +727,12 @@ ctx.addEventListener('message', async (event) => {
         : FALLBACK_RESULT_TRUNCATION_MARKER;
     const startTime = performance.now();
 
-    createConsoleProxy(runId, marker, exec.sourceLineMap);
+    createConsoleProxy(
+      runId,
+      marker,
+      exec.sourceLineMap,
+      exec.sourceMappingEnabled !== false
+    );
 
     const session = createSession(runId);
     applyExecutePayload(session, exec);

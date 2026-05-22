@@ -491,6 +491,28 @@ export interface SettingsState {
    */
   shareLinkConfirmEnabled: boolean;
   /**
+   * RL-044 Sub-slice G — master toggle for the
+   * `<OutputLineBadge>` chip on console rows AND the runner-side
+   * `new Error().stack` / `inspect.currentframe` capture. Default
+   * ON; when OFF the workers short-circuit origin capture so a
+   * tight `console.log` loop pays no CPU cost. Persisted.
+   */
+  outputSourceMappingEnabled: boolean;
+  /**
+   * RL-044 Sub-slice G — hover-on-chip → Monaco source line flash.
+   * Default ON. When OFF the chip remains clickable (click still
+   * moves the cursor) but hover is a no-op. Persisted.
+   */
+  outputHighlightOnHoverEnabled: boolean;
+  /**
+   * RL-044 Sub-slice G — when the highlighted line is outside the
+   * editor viewport, smooth-scroll via
+   * `editor.revealLineInCenter(line, ScrollType.Smooth)`. Default
+   * ON. When OFF the flash still fires but the viewport stays put
+   * (useful for users who find auto-scroll disorienting). Persisted.
+   */
+  outputSmoothScrollOffscreenEnabled: boolean;
+  /**
    * RL-019 Slice 1 fold B — default JS/TS runtime mode for newly
    * created tabs. `'worker'` mirrors `defaultRuntimeModeFor()` and
    * stays the only implemented option until Slice 2 lands. Settings
@@ -679,6 +701,12 @@ export interface SettingsState {
   toggleDependencyDetectionEnabled: () => void;
   /** RL-036 Phase A1 fold F — flip the share-link confirmation gate. */
   toggleShareLinkConfirmEnabled: () => void;
+  /** RL-044 Sub-slice G — flip the output→source line master toggle. */
+  toggleOutputSourceMappingEnabled: () => void;
+  /** RL-044 Sub-slice G — flip the hover-on-chip flash sub-gate. */
+  toggleOutputHighlightOnHoverEnabled: () => void;
+  /** RL-044 Sub-slice G — flip the smooth-scroll offscreen sub-gate. */
+  toggleOutputSmoothScrollOffscreenEnabled: () => void;
   /**
    * RL-101 Slice 1 — three reset setters wired to the Settings →
    * General → Onboarding row toggles, the `Mod+Shift+W` shortcut
@@ -877,6 +905,14 @@ export interface ExecutionContext {
    * preference here; runners clamp to the shared `MAX_SCOPE_DEPTH`.
    */
   scopeDepth?: number;
+  /**
+   * RL-044 Sub-slice G — output→source line metadata gate. When false,
+   * runners should avoid origin capture where they can, and the
+   * runtime pipeline strips any returned `ConsoleOutput.line` /
+   * `RichOutputPayload.origin` before console/history/capsule
+   * surfaces see it.
+   */
+  outputSourceMappingEnabled?: boolean;
 }
 
 export interface ExecutionError {
@@ -1027,6 +1063,12 @@ export type WorkerRequest =
       timeout: number;
       resultTruncationMarker: string;
       userEnv?: Record<string, string>;
+      /**
+       * RL-044 Sub-slice G — false disables console-origin stack
+       * capture in JS/TS workers. Undefined preserves the historical
+       * enabled default.
+       */
+      sourceMappingEnabled?: boolean;
     }
   | { type: 'stop' };
 

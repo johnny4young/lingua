@@ -149,6 +149,53 @@ describe('JavaScriptRunner', () => {
     }
   });
 
+  it('passes sourceMappingEnabled=false to the worker when output source mapping is disabled', async () => {
+    const originalWorker = globalThis.Worker;
+    let postedSourceMappingEnabled: boolean | undefined;
+
+    class MockWorker {
+      private messageHandler: ((event: MessageEvent) => void) | null = null;
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        if (type === 'message') this.messageHandler = handler;
+      }
+
+      postMessage(message: { runId?: string; sourceMappingEnabled?: boolean }): void {
+        postedSourceMappingEnabled = message.sourceMappingEnabled;
+        this.messageHandler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 1 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new JavaScriptRunner();
+      await runner.init();
+
+      await runner.execute('console.log("hello")', {
+        outputSourceMappingEnabled: false,
+      });
+
+      expect(postedSourceMappingEnabled).toBe(false);
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
   it('attaches a table payload for table-directed magic comments', async () => {
     const originalWorker = globalThis.Worker;
 

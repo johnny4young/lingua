@@ -109,12 +109,14 @@ export function Toggle({
   disabled = false,
   'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledBy,
+  'data-testid': testId,
 }: {
   value: boolean;
   onChange: () => void;
   disabled?: boolean;
   'aria-label'?: string;
   'aria-labelledby'?: string;
+  'data-testid'?: string;
 }) {
   return (
     <button
@@ -124,6 +126,7 @@ export function Toggle({
       aria-disabled={disabled || undefined}
       aria-label={ariaLabel}
       aria-labelledby={ariaLabel ? undefined : ariaLabelledBy}
+      data-testid={testId}
       disabled={disabled}
       onClick={onChange}
       className={cn(

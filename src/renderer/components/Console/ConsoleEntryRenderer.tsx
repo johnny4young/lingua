@@ -9,6 +9,7 @@ import {
   payloadHasRichSurface,
 } from './richConsoleFormat';
 import { ConsoleEntryPopover } from './ConsoleEntryPopover';
+import { OutputLineBadge } from './OutputLineBadge';
 import { RichValueText } from './RichValueText';
 import { RichValueObject } from './RichValueObject';
 import { RichValueArray } from './RichValueArray';
@@ -24,6 +25,24 @@ interface ConsoleEntryRendererProps {
   fallbackText: string;
   /** Source language for the entry. Forwarded to clickable-stack telemetry. */
   language?: string;
+  /**
+   * RL-044 Sub-slice G — fallback source line used by
+   * `<OutputLineBadge>` when no payload carries an `origin`. This is
+   * the `ConsoleEntry.line` field the legacy non-interactive chip
+   * used to render — the new chip claims that surface when the
+   * rich-render path is active. Workers that already stamp
+   * `payload.origin` (JS/TS) take priority.
+   */
+  entryLine?: number;
+  /**
+   * RL-044 Sub-slice G Fold F — whether the active tab buffer
+   * currently carries the `// @origin off` / `# @origin off`
+   * directive. Lifted to `ConsolePanel` so the regex runs once per
+   * editor-store change instead of once per console row. Defaults
+   * to `false` so isolated component tests (no editor store) keep
+   * rendering the chip.
+   */
+  originSuppressed?: boolean;
 }
 
 const reportedPayloadRows = new WeakSet<RichOutputPayload[]>();
@@ -40,9 +59,30 @@ export function ConsoleEntryRenderer({
   payloads,
   fallbackText,
   language,
+  entryLine,
+  originSuppressed = false,
 }: ConsoleEntryRendererProps) {
   const { t } = useTranslation();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  // RL-044 Sub-slice G — derive a single origin per row. All payloads
+  // in a row come from the same `console.log(...)` call so they share
+  // a source line; we don't render multiple chips for multi-arg logs.
+  // Prefer payload.origin (worker-stamped), fall back to entryLine
+  // (legacy ConsoleEntry.line, e.g. Python pre-Sub-slice-G worker).
+  const rowOrigin =
+    payloads.find((p) => p.origin)?.origin ??
+    (typeof entryLine === 'number' && entryLine > 0
+      ? { line: entryLine }
+      : undefined);
+
+  // Fold F — `originSuppressed` is derived ONCE at `ConsolePanel` from
+  // the active tab content and threaded through as a prop so the
+  // regex does not run N times per editor-store change (one per
+  // rendered row). When the prop is omitted (isolated component
+  // tests, future callers) the chip stays visible — over-suppressing
+  // is a privacy posture, omitted defaults to off so the affordance
+  // works out of the box.
 
   // Fire-and-forget adoption telemetry. Module-level WeakSet state is
   // intentional here: React strict-mode can remount the component with
@@ -111,6 +151,9 @@ export function ConsoleEntryRenderer({
             </span>
           );
         })}
+        {rowOrigin && !originSuppressed && (
+          <OutputLineBadge origin={rowOrigin} language={language ?? 'unknown'} />
+        )}
       </span>
       {popoverPayload !== null && (
         <ConsoleEntryPopover payload={popoverPayload} onClose={handleClose} />

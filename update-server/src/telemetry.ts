@@ -132,6 +132,12 @@ export const TELEMETRY_EVENT_NAMES = [
   'dependency.detected_in_tab',
   'dependency.banner_shown',
   'dependency.classifications_summary',
+  // RL-044 Sub-slice G — mirror of `runtime.output_origin_clicked`.
+  // Closed-enum `{ language, surface }` where `surface` ∈
+  // `OUTPUT_ORIGIN_SURFACES` (`'badge'` only today). Hover path
+  // intentionally does not emit; widening would require a paired
+  // edit here + in `src/shared/telemetry.ts`.
+  'runtime.output_origin_clicked',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -221,6 +227,10 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
     'needsDesktopBucket',
     'unsupportedBucket',
   ],
+  // RL-044 Sub-slice G — `language` is the language-pack id
+  // (`isSafeToken`); `surface` ∈ `OUTPUT_ORIGIN_SURFACES`. Mirror of
+  // src/shared/telemetry.ts entry.
+  'runtime.output_origin_clicked': ['language', 'surface'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -423,6 +433,10 @@ export const PRIVACY_DASHBOARD_SURFACES = new Set([
   'settings',
   'palette',
 ]);
+// RL-044 Sub-slice G — mirror of OUTPUT_ORIGIN_SURFACES. Closed enum
+// for the discovery surface of `runtime.output_origin_clicked`. Only
+// badge clicks emit telemetry today; hover is intentionally silent.
+export const OUTPUT_ORIGIN_SURFACES = new Set(['badge']);
 // RL-025 Slice A — mirror of DEPENDENCY_COUNT_BUCKETS_SET from
 // `src/shared/telemetry.ts` (canonical home in
 // `src/shared/dependencies/types.ts`). Parity test keeps both copies
@@ -870,6 +884,11 @@ function isAllowedValue(
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
         );
       }
+      return false;
+    case 'runtime.output_origin_clicked':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'surface')
+        return typeof value === 'string' && OUTPUT_ORIGIN_SURFACES.has(value);
       return false;
     default: {
       const exhaustive: never = event;

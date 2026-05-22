@@ -19,6 +19,7 @@ describe('resolveTelemetryBase + trackEvent', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     useSettingsStore.setState(initialSettings, true);
     vi.restoreAllMocks();
   });
@@ -45,6 +46,38 @@ describe('resolveTelemetryBase + trackEvent', () => {
     // fires; we assert the gate instead of having to mock vite env.
     await trackEvent('app.launched', { platform: 'darwin' });
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('trackOutputOriginClicked emits the first click at time zero and throttles per bucket', async () => {
+    vi.stubEnv('VITE_LINGUA_TELEMETRY_URL', 'http://localhost:8787/telemetry');
+    const {
+      _resetEndpointCacheForTesting,
+      OUTPUT_ORIGIN_THROTTLE_MS,
+      resetOutputOriginThrottleForTests,
+      trackOutputOriginClicked,
+    } = await import('@/utils/telemetry');
+    _resetEndpointCacheForTesting();
+    resetOutputOriginThrottleForTests();
+    useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
+
+    expect(trackOutputOriginClicked('javascript', 'badge', () => 0)).toEqual({
+      emitted: true,
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    expect(
+      trackOutputOriginClicked('javascript', 'badge', () => OUTPUT_ORIGIN_THROTTLE_MS - 1)
+    ).toEqual({ emitted: false });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+
+    expect(
+      trackOutputOriginClicked('javascript', 'badge', () => OUTPUT_ORIGIN_THROTTLE_MS)
+    ).toEqual({ emitted: true });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    const firstBody = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
+    expect(firstBody.event).toBe('runtime.output_origin_clicked');
+    expect(firstBody.properties).toEqual({ language: 'javascript', surface: 'badge' });
   });
 });
 

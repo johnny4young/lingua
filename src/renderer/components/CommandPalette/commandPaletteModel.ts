@@ -308,6 +308,14 @@ interface BuildCommandPaletteModelArgs {
    */
   onShowDependencies?: () => void;
   /**
+   * RL-044 Sub-slice G Fold C — flips the
+   * `outputSourceMappingEnabled` master toggle. Same close-palette-
+   * first ordering as the other action callbacks. When omitted the
+   * palette entry is hidden so model stays honest about wired
+   * surfaces.
+   */
+  onToggleOutputSourceMapping?: () => void;
+  /**
    * Translation function. Optional so legacy callers keep working without
    * wiring i18next; when omitted, built-in action labels and descriptions
    * fall back to their English keys.
@@ -617,6 +625,7 @@ export function buildCommandPaletteModel({
   onReplayOnboardingFirstSnippet,
   onShowPrivacyDashboard,
   onShowDependencies,
+  onToggleOutputSourceMapping,
   t,
 }: BuildCommandPaletteModelArgs): CommandEntry[] {
   const translate: (key: string, options?: Record<string, unknown>) => string = t
@@ -878,6 +887,38 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onShowDependencies();
+            }
+          ),
+        ]
+      : []),
+    // RL-044 Sub-slice G Fold C — flips the master toggle for the
+    // output→source line affordance. Keyword set covers EN + ES so
+    // the palette finds it under "line badge", "output", "mapeo",
+    // "origen", "chip" without forcing memorisation.
+    ...(onToggleOutputSourceMapping
+      ? [
+          buildActionCommand(
+            'action-toggle-output-source-mapping',
+            translate('commandPalette.action.toggleOutputSourceMapping.label'),
+            translate(
+              'commandPalette.action.toggleOutputSourceMapping.description'
+            ),
+            [
+              'output',
+              'source',
+              'origin',
+              'line',
+              'badge',
+              'chip',
+              'mapeo',
+              'origen',
+              'salida',
+              'console',
+              'consola',
+            ],
+            () => {
+              onClose();
+              onToggleOutputSourceMapping();
             }
           ),
         ]

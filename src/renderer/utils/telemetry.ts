@@ -200,3 +200,43 @@ export async function trackEvent(
 ): Promise<void> {
   await emitTelemetryEvent(event, properties, resolveTelemetryBase());
 }
+
+/**
+ * RL-044 Sub-slice G Fold B — burst-throttled emit for
+ * `runtime.output_origin_clicked`. Users debugging a loop frequently
+ * click 10-20 `<OutputLineBadge>` chips in a few seconds; without a
+ * throttle the dashboard fills with noise indistinguishable from
+ * a true adoption spike. Cap is 1 emit per OUTPUT_ORIGIN_THROTTLE_MS
+ * per `(language, surface)` bucket so each combination still surfaces
+ * separately.
+ *
+ * The throttle is renderer-local (Map at module scope) — survives
+ * across React re-renders but resets on full reload, which is the
+ * desired session boundary for adoption analytics.
+ *
+ * Pattern mirrors the debounce key Map in
+ * `src/renderer/hooks/useDefaultOpenFileConsumer.ts`.
+ */
+export const OUTPUT_ORIGIN_THROTTLE_MS = 1000;
+const outputOriginLastEmittedMs = new Map<string, number>();
+
+export function trackOutputOriginClicked(
+  language: string,
+  surface: 'badge',
+  now: () => number = () => Date.now()
+): { emitted: boolean } {
+  const key = `${language}::${surface}`;
+  const current = now();
+  const last = outputOriginLastEmittedMs.get(key) ?? Number.NEGATIVE_INFINITY;
+  if (current - last < OUTPUT_ORIGIN_THROTTLE_MS) {
+    return { emitted: false };
+  }
+  outputOriginLastEmittedMs.set(key, current);
+  void trackEvent('runtime.output_origin_clicked', { language, surface });
+  return { emitted: true };
+}
+
+/** Test-only: reset the throttle state so unit tests stay independent. */
+export function resetOutputOriginThrottleForTests(): void {
+  outputOriginLastEmittedMs.clear();
+}

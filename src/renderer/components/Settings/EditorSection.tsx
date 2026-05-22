@@ -121,6 +121,25 @@ export function EditorSection() {
   const toggleDependencyDetectionEnabled = useSettingsStore(
     (state) => state.toggleDependencyDetectionEnabled
   );
+  // RL-044 Sub-slice G — output→source line affordance toggles.
+  const outputSourceMappingEnabled = useSettingsStore(
+    (state) => state.outputSourceMappingEnabled
+  );
+  const toggleOutputSourceMappingEnabled = useSettingsStore(
+    (state) => state.toggleOutputSourceMappingEnabled
+  );
+  const outputHighlightOnHoverEnabled = useSettingsStore(
+    (state) => state.outputHighlightOnHoverEnabled
+  );
+  const toggleOutputHighlightOnHoverEnabled = useSettingsStore(
+    (state) => state.toggleOutputHighlightOnHoverEnabled
+  );
+  const outputSmoothScrollOffscreenEnabled = useSettingsStore(
+    (state) => state.outputSmoothScrollOffscreenEnabled
+  );
+  const toggleOutputSmoothScrollOffscreenEnabled = useSettingsStore(
+    (state) => state.toggleOutputSmoothScrollOffscreenEnabled
+  );
   const { t } = useTranslation();
   const ligaturesAvailable = fontStackSupportsLigatures(fontFamily);
 
@@ -590,6 +609,40 @@ export function EditorSection() {
           onChange={toggleDependencyDetectionEnabled}
           aria-label={t('settings.editor.dependencyDetection.label')}
           data-testid="settings-editor-dependency-detection-toggle"
+        />
+      </Row>
+
+      {/* RL-044 Sub-slice G — output→source line affordance master +
+          two sub-gates. The master gates the chip and origin metadata;
+          the sub-gates only affect renderer-side hover + smooth-scroll
+          behaviour. */}
+      <Row
+        label={t('settings.editor.outputSourceMapping.heading')}
+        hint={t('settings.editor.outputSourceMapping.description')}
+      >
+        <Toggle
+          value={outputSourceMappingEnabled}
+          onChange={toggleOutputSourceMappingEnabled}
+          aria-label={t('settings.editor.outputSourceMapping.showBadgeLabel')}
+          data-testid="settings-editor-output-source-mapping-master-toggle"
+        />
+      </Row>
+      <Row label={t('settings.editor.outputSourceMapping.highlightHoverLabel')}>
+        <Toggle
+          value={outputHighlightOnHoverEnabled}
+          onChange={toggleOutputHighlightOnHoverEnabled}
+          aria-label={t('settings.editor.outputSourceMapping.highlightHoverLabel')}
+          data-testid="settings-editor-output-highlight-on-hover-toggle"
+          disabled={!outputSourceMappingEnabled}
+        />
+      </Row>
+      <Row label={t('settings.editor.outputSourceMapping.smoothScrollLabel')}>
+        <Toggle
+          value={outputSmoothScrollOffscreenEnabled}
+          onChange={toggleOutputSmoothScrollOffscreenEnabled}
+          aria-label={t('settings.editor.outputSourceMapping.smoothScrollLabel')}
+          data-testid="settings-editor-output-smooth-scroll-toggle"
+          disabled={!outputSourceMappingEnabled}
         />
       </Row>
 
