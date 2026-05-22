@@ -220,6 +220,12 @@ export const TELEMETRY_EVENTS = [
   // attempts with the onboarding stage that survived. NO caller
   // identity, NO error text — only the qualitative outcome.
   'onboarding.toast_clobbered',
+  // RL-096 Slice 1 fold A — adoption signal for the Privacy + Trust
+  // dashboard. Closed-enum `{ surface }` where surface ∈
+  // `PRIVACY_DASHBOARD_SURFACES` (`'settings'` for the rail click,
+  // `'palette'` for the command-palette entry). Once-per-mount.
+  // Mirrored on update-server with parity test.
+  'privacy.dashboard_opened',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -407,6 +413,8 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-101 Slice 1.5 fold A — `outstandingStage` ∈
   // `ONBOARDING_TOAST_STAGES`.
   'onboarding.toast_clobbered': ['outstandingStage'],
+  // RL-096 Slice 1 fold A — `surface` ∈ `PRIVACY_DASHBOARD_SURFACES`.
+  'privacy.dashboard_opened': ['surface'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -618,6 +626,14 @@ export const ONBOARDING_DISMISS_MODES = new Set([
   'cta',
   'manual',
   'auto',
+]);
+// RL-096 Slice 1 fold A — closed enum for the surface that opened
+// the Privacy + Trust dashboard. `'settings'` is the rail click (the
+// user navigated via Settings UI); `'palette'` is the command-palette
+// entry. Once-per-mount tag so the metric reflects discovery routes.
+export const PRIVACY_DASHBOARD_SURFACES = new Set([
+  'settings',
+  'palette',
 ]);
 // RL-101 Slice 1 — language ids that the `language` property on
 // `onboarding.first_run_completed` is validated against. Pulled
@@ -932,6 +948,12 @@ function isAllowedValue(
     case 'onboarding.toast_clobbered':
       if (key === 'outstandingStage')
         return typeof value === 'string' && ONBOARDING_TOAST_STAGES.has(value);
+      return false;
+    case 'privacy.dashboard_opened':
+      if (key === 'surface')
+        return (
+          typeof value === 'string' && PRIVACY_DASHBOARD_SURFACES.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;

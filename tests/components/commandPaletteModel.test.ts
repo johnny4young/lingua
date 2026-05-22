@@ -535,6 +535,53 @@ describe('buildCommandPaletteModel', () => {
     expect(calls).toEqual(['copy', 'close']);
   });
 
+  it('exposes the Privacy + Trust dashboard command only when wired and closes first', () => {
+    const calls: string[] = [];
+    const onClose = vi.fn(() => calls.push('close'));
+    const onShowPrivacyDashboard = vi.fn(() => calls.push('privacy'));
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose,
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    const withoutHandler = buildCommandPaletteModel(baseArgs);
+    expect(
+      withoutHandler.find((command) => command.id === 'action-show-privacy-dashboard')
+    ).toBeUndefined();
+
+    const withHandler = buildCommandPaletteModel({
+      ...baseArgs,
+      onShowPrivacyDashboard,
+    });
+    const command = withHandler.find(
+      (entry) => entry.id === 'action-show-privacy-dashboard'
+    );
+    expect(command?.description).toBe(
+      'Open Settings on the Privacy tab — local stores, redaction preview, and network activity audit.'
+    );
+
+    command?.action();
+    expect(calls).toEqual(['close', 'privacy']);
+  });
+
   it('keeps matching commands when filtering by keywords, label, or description', () => {
     const commands = [
       {

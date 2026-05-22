@@ -29,6 +29,17 @@ describe('DENY_SUBSTRINGS', () => {
       'snippet',
       'file',
       'path',
+      'apikey',
+      'api_key',
+      'secret',
+      'credential',
+      'authorization',
+      'privatekey',
+      'private_key',
+      'accesskey',
+      'access_key',
+      'licensekey',
+      'license_key',
       'token',
       'password',
       'email',
@@ -60,6 +71,14 @@ describe('keyLooksSensitive', () => {
     expect(keyLooksSensitive('status')).toBe(false);
     expect(keyLooksSensitive('kind')).toBe(false);
     expect(keyLooksSensitive('trigger')).toBe(false);
+  });
+
+  it('matches common credential key shapes that are not lowercase token', () => {
+    expect(keyLooksSensitive('apiKey')).toBe(true);
+    expect(keyLooksSensitive('privateKeyPem')).toBe(true);
+    expect(keyLooksSensitive('access_key_id')).toBe(true);
+    expect(keyLooksSensitive('authorizationHeader')).toBe(true);
+    expect(keyLooksSensitive('licenseKey')).toBe(true);
   });
 });
 
@@ -104,12 +123,13 @@ describe('redactFlatRecord', () => {
     const out = redactFlatRecord({
       sourceContent: 'console.log("hi")',
       filePath: '/Users/me/secret.js',
+      apiKey: 'sk-test',
       token: 'abc',
       language: 'javascript',
     });
     expect(out.surviving).toEqual({ language: 'javascript' });
     const droppedKeys = out.dropped.map((d) => d.key).sort();
-    expect(droppedKeys).toEqual(['filePath', 'sourceContent', 'token']);
+    expect(droppedKeys).toEqual(['apiKey', 'filePath', 'sourceContent', 'token']);
     expect(out.dropped.every((d) => d.reason === 'key')).toBe(true);
   });
 
