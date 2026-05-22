@@ -6,7 +6,12 @@ export type BottomPanelTab =
   | 'debugger'
   | 'browser-preview'
   | 'stdin'
-  | 'variables';
+  | 'variables'
+  // RL-025 Slice A — bottom-panel sibling for the Dependencies tab.
+  // Conditional render in `AppLayout.tsx` keeps the button hidden
+  // until the active tab has ≥1 detected dependency, so users who
+  // never paste an import never see the chrome.
+  | 'dependencies';
 export type VariablesViewMode = 'list' | 'cards';
 
 /**

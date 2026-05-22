@@ -485,6 +485,16 @@ type RecoveryRevealFolderResult =
   | { ok: true }
   | { ok: false; reason: 'unsupported' | 'open-failed'; message?: string };
 
+// RL-025 Slice A — JS/TS dependency resolver IPC contract. Closed
+// status set; the renderer maps these to its broader
+// `DependencyStatus` enum in `src/shared/dependencies/types.ts`.
+type DependencyResolveStatus = 'installed' | 'detected' | 'invalid';
+interface DependencyResolveResult {
+  statuses: Record<string, DependencyResolveStatus>;
+  /** Absolute path of the resolved cwd, or null when no cwd was discoverable (e.g. unsaved tab on web stub). */
+  cwd: string | null;
+}
+
 // --------------------------------------------------------------- Main API
 
 interface LinguaAPI {
@@ -796,6 +806,18 @@ interface LinguaAPI {
       language?: string
     ) => Promise<number>;
     revealFolder: () => Promise<RecoveryRevealFolderResult>;
+  };
+
+  /**
+   * RL-025 Slice A — JS/TS dependency resolution. Read-only in
+   * Slice A; Slice B will extend this surface with `installJs` /
+   * `installPython` once the install path lands.
+   */
+  dependencies: {
+    resolveJs: (
+      specifiers: readonly string[],
+      filePath?: string
+    ) => Promise<DependencyResolveResult>;
   };
 }
 

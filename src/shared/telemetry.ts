@@ -226,6 +226,27 @@ export const TELEMETRY_EVENTS = [
   // `'palette'` for the command-palette entry). Once-per-mount.
   // Mirrored on update-server with parity test.
   'privacy.dashboard_opened',
+  // RL-025 Slice A — per-cycle adoption signal for the dependency
+  // detection runner. Fires after each completed detect+classify
+  // pass. Closed-enum `{ language, countBucket }` where countBucket
+  // ∈ DEPENDENCY_COUNT_BUCKETS_SET (mirrors
+  // `src/shared/dependencies/types.ts` DEPENDENCY_COUNT_BUCKETS).
+  // NO package names, NO file paths, NO content. Mirrored on
+  // update-server with parity test.
+  'dependency.detected_in_tab',
+  // RL-025 Slice A — once-per-(tab, language)-per-session signal
+  // marking the first time the Dependencies panel surfaced a row
+  // for that combination. Closed-enum `{ language }`. Lets us
+  // measure how many fresh tabs ever surface a dependency vs how
+  // many stay empty.
+  'dependency.banner_shown',
+  // RL-025 Slice A fold F — once-per-(tab, language)-per-session
+  // rollup of the classification result. Bucketed counts per status
+  // so dashboards can see whether web users are constantly hitting
+  // `needs-desktop`. Closed-enum buckets share the
+  // DEPENDENCY_COUNT_BUCKETS set used by `detected_in_tab` so the
+  // parity test only needs to validate one enum.
+  'dependency.classifications_summary',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -415,6 +436,24 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'onboarding.toast_clobbered': ['outstandingStage'],
   // RL-096 Slice 1 fold A — `surface` ∈ `PRIVACY_DASHBOARD_SURFACES`.
   'privacy.dashboard_opened': ['surface'],
+  // RL-025 Slice A — `language` is the adapter id (any `isSafeToken`
+  // string; the set widens with Slice B/C). `countBucket` is a
+  // closed-enum bucket from `DEPENDENCY_COUNT_BUCKETS_SET`.
+  'dependency.detected_in_tab': ['language', 'countBucket'],
+  // RL-025 Slice A — `language` only; once-per-session per
+  // (tab, language) so adoption is visible without per-cycle noise.
+  'dependency.banner_shown': ['language'],
+  // RL-025 Slice A fold F — bucketed rollup per (tab, language) per
+  // session. Four bucketed fields named `${status}Bucket` so the
+  // redactor's closed-enum validator stays simple. The deny-list
+  // pass treats none of these names as sensitive.
+  'dependency.classifications_summary': [
+    'language',
+    'detectedBucket',
+    'installedBucket',
+    'needsDesktopBucket',
+    'unsupportedBucket',
+  ],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -634,6 +673,19 @@ export const ONBOARDING_DISMISS_MODES = new Set([
 export const PRIVACY_DASHBOARD_SURFACES = new Set([
   'settings',
   'palette',
+]);
+// RL-025 Slice A — closed bucket enum mirroring
+// `DEPENDENCY_COUNT_BUCKETS` from `src/shared/dependencies/types.ts`.
+// Duplicated here for the same reason as `CONSOLE_RICH_KIND_BUCKETS`
+// (this module stays pure with no renderer-side import cycles); the
+// parity test in `update-server/test/telemetry.test.ts` keeps both
+// copies aligned.
+export const DEPENDENCY_COUNT_BUCKETS_SET = new Set([
+  '0',
+  '1',
+  '2-5',
+  '6-10',
+  '>10',
 ]);
 // RL-101 Slice 1 — language ids that the `language` property on
 // `onboarding.first_run_completed` is validated against. Pulled
@@ -954,6 +1006,29 @@ function isAllowedValue(
         return (
           typeof value === 'string' && PRIVACY_DASHBOARD_SURFACES.has(value)
         );
+      return false;
+    case 'dependency.detected_in_tab':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'countBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
+        );
+      return false;
+    case 'dependency.banner_shown':
+      if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'dependency.classifications_summary':
+      if (key === 'language') return isSafeToken(value);
+      if (
+        key === 'detectedBucket' ||
+        key === 'installedBucket' ||
+        key === 'needsDesktopBucket' ||
+        key === 'unsupportedBucket'
+      ) {
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
+        );
+      }
       return false;
     default: {
       const exhaustive: never = event;

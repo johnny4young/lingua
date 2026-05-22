@@ -470,6 +470,17 @@ export interface SettingsState {
    */
   debuggerEnabled: boolean;
   /**
+   * RL-025 Slice A — master toggle for the dependency detection
+   * pipeline + bottom-panel Dependencies tab. Default depends on
+   * tier at first rehydrate (fold G): Free → `false` so the
+   * disabled Install button never reads as upsell pressure; Pro /
+   * Team / Education / Trial → `true` so the panel discovers
+   * itself on the next paste. Persisted, so once the user flips it
+   * the choice survives. Flipping it OFF clears the per-tab cache
+   * so the panel hides immediately, not after the next edit.
+   */
+  dependencyDetectionEnabled: boolean;
+  /**
    * RL-036 Phase A1 fold F — gate the share-link confirmation modal
    * (`<ShareConfirmationModal>`). `true` (default) forces the modal
    * to appear every time the user triggers Copy share link via the
@@ -664,6 +675,8 @@ export interface SettingsState {
   setUtilitiesClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
   /** RL-027 Slice 1 — toggle the debugger master switch. */
   toggleDebuggerEnabled: () => void;
+  /** RL-025 Slice A — flip the dependency detection master switch. */
+  toggleDependencyDetectionEnabled: () => void;
   /** RL-036 Phase A1 fold F — flip the share-link confirmation gate. */
   toggleShareLinkConfirmEnabled: () => void;
   /**

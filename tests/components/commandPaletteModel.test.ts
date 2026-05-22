@@ -1416,3 +1416,79 @@ describe('buildCommandPaletteModel — Toggle Vim mode (RL-037)', () => {
     }
   });
 });
+
+describe('buildCommandPaletteModel — onShowDependencies (RL-025 Slice A fold C)', () => {
+  function buildMinimalArgs(overrides: Partial<Parameters<typeof buildCommandPaletteModel>[0]> = {}) {
+    return {
+      templates: BUILT_IN_TEMPLATES.slice(0, 1),
+      snippets: [] as Snippet[],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+      ...overrides,
+    };
+  }
+
+  it('hides the entry when the callback is omitted (model stays honest)', () => {
+    const commands = buildCommandPaletteModel(buildMinimalArgs());
+    expect(
+      commands.some((c) => c.id === 'action-show-dependencies')
+    ).toBe(false);
+  });
+
+  it('exposes the entry when the callback is wired and closes the palette before firing it', () => {
+    const onShow = vi.fn();
+    const onClose = vi.fn();
+    const commands = buildCommandPaletteModel(
+      buildMinimalArgs({ onShowDependencies: onShow, onClose })
+    );
+    const entry = commands.find((c) => c.id === 'action-show-dependencies');
+    expect(entry).toBeDefined();
+    expect(entry?.keywords).toEqual(
+      expect.arrayContaining([
+        'dependencies',
+        'imports',
+        'paquetes',
+        'pip',
+        'npm',
+      ])
+    );
+    entry?.action();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onShow).toHaveBeenCalledTimes(1);
+    // Overlay survival: close MUST fire before the show callback so
+    // the new overlay claims the App state slot after the palette
+    // releases it.
+    expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
+      onShow.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('localises the label in Spanish (tuteo)', async () => {
+    await i18next.changeLanguage('es');
+    try {
+      const commands = buildCommandPaletteModel(
+        buildMinimalArgs({ onShowDependencies: vi.fn() })
+      );
+      const entry = commands.find((c) => c.id === 'action-show-dependencies');
+      expect(entry?.label).toBe('Muestra las dependencias');
+    } finally {
+      await i18next.changeLanguage('en');
+    }
+  });
+});

@@ -184,6 +184,19 @@ const webLingua: LinguaAPI = {
     confirmReset: async () => 1,
     revealFolder: async () => ({ ok: false, reason: 'unsupported' as const }),
   },
+  // RL-025 Slice A — dependency resolver. Web has no `node_modules`
+  // tree to probe and (per AGENTS.md `CAPABILITY_MATRIX.md`) cannot
+  // run an install path either. The stub returns the input names
+  // unchanged so the renderer's adapter maps every entry to
+  // `'needs-desktop'` without an extra round-trip.
+  dependencies: {
+    resolveJs: async (specifiers) => ({
+      statuses: Object.fromEntries(
+        specifiers.map((name) => [name, 'detected' as const])
+      ),
+      cwd: null,
+    }),
+  },
 };
 
 // Expose on window — mirrors what the Electron preload does via contextBridge

@@ -39,6 +39,9 @@ function renderShortcuts(options: HarnessOptions = {}) {
     toggleVariableInspector: vi.fn(),
     toggleStdinPanel: vi.fn(),
     exportLatestCapsule: vi.fn(),
+    copyShareLink: vi.fn(),
+    replayOnboarding: vi.fn(),
+    showDependenciesPanel: vi.fn(),
     resetFloatingPositions: vi.fn(),
     toggleVariableInspectorSurface: vi.fn(),
   };
@@ -108,16 +111,22 @@ describe('useGlobalShortcuts', () => {
   });
 
   it('routes a rebound combo to the correct action and skips the old one', () => {
+    // `Mod+Shift+Y` is a free combo in the production catalog —
+    // verified by `tests/data/keyboardShortcuts.test.ts`. The earlier
+    // choice was `Mod+Shift+J` but RL-025 Slice A bound that to
+    // `view-show-dependencies`; first-match-wins iteration in
+    // `useGlobalShortcuts` would otherwise route the keystroke to the
+    // wrong action.
     useSettingsStore
       .getState()
-      .setShortcutOverride('view-toggle-sidebar', [{ tokens: ['Mod', 'Shift', 'J'] }]);
+      .setShortcutOverride('view-toggle-sidebar', [{ tokens: ['Mod', 'Shift', 'Y'] }]);
 
     const calls = renderShortcuts();
 
     dispatchKeyDown({ key: 'b', ctrlKey: true });
     expect(calls.toggleSidebar).not.toHaveBeenCalled();
 
-    dispatchKeyDown({ key: 'j', ctrlKey: true, shiftKey: true });
+    dispatchKeyDown({ key: 'y', ctrlKey: true, shiftKey: true });
     expect(calls.toggleSidebar).toHaveBeenCalledTimes(1);
   });
 

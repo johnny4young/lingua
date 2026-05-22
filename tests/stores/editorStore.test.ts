@@ -9,6 +9,7 @@ vi.mock('@/utils/telemetry', () => ({
 }));
 
 import { useEditorStore, createDefaultTab } from '@/stores/editorStore';
+import { useDependencyDetectionStore } from '@/stores/dependencyDetectionStore';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { pluginRegistry } from '@/plugins';
 import { luaPlugin } from '@/plugins/lua-runner';
@@ -44,6 +45,7 @@ describe('editorStore', () => {
   const initialState = useEditorStore.getState();
 
   beforeEach(() => {
+    useDependencyDetectionStore.getState().clear();
     useEditorStore.setState({
       tabs: [],
       activeTabId: null,
@@ -75,6 +77,7 @@ describe('editorStore', () => {
   });
 
   afterEach(() => {
+    useDependencyDetectionStore.getState().clear();
     useEditorStore.setState(initialState, true);
   });
 
@@ -683,6 +686,26 @@ describe('editorStore', () => {
 
       expect(useEditorStore.getState().tabs[0].isDirty).toBe(false);
       expect(useEditorStore.getState().tabs[0].name).toBe(tab.name);
+    });
+
+    it('evicts dependency detections when rename changes the tab language', () => {
+      const tab = createDefaultTab('javascript');
+      useEditorStore.getState().addTab(tab);
+      useDependencyDetectionStore.getState().setDetection(tab.id, {
+        tabId: tab.id,
+        language: 'javascript',
+        detectionHash: 'h',
+        dependencies: [
+          { name: 'lodash', kind: 'import', status: 'detected' },
+        ],
+        classifiedAt: 1,
+      });
+
+      useEditorStore.getState().renameTab(tab.id, 'helper.go');
+
+      expect(useDependencyDetectionStore.getState().byTab.has(tab.id)).toBe(
+        false
+      );
     });
   });
 

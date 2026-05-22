@@ -299,6 +299,15 @@ interface BuildCommandPaletteModelArgs {
    */
   onShowPrivacyDashboard?: () => void;
   /**
+   * RL-025 Slice A — opens the bottom-panel Dependencies tab for the
+   * active file. Optional; when omitted (or when the active tab has
+   * no detected dependencies) the palette entry is hidden so the
+   * model stays honest about what surfaces are wired right now.
+   * Espejo del patrón `onShowLanguageSupport`: close palette first,
+   * then run the callback.
+   */
+  onShowDependencies?: () => void;
+  /**
    * Translation function. Optional so legacy callers keep working without
    * wiring i18next; when omitted, built-in action labels and descriptions
    * fall back to their English keys.
@@ -607,6 +616,7 @@ export function buildCommandPaletteModel({
   onReplayOnboardingFirstRun,
   onReplayOnboardingFirstSnippet,
   onShowPrivacyDashboard,
+  onShowDependencies,
   t,
 }: BuildCommandPaletteModelArgs): CommandEntry[] {
   const translate: (key: string, options?: Record<string, unknown>) => string = t
@@ -841,6 +851,33 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onShowPrivacyDashboard();
+            }
+          ),
+        ]
+      : []),
+    // RL-025 Slice A fold C — opens the bottom-panel Dependencies
+    // tab for the active file. Mirrors the `action-show-*` overlay
+    // ordering: close the palette FIRST so the tab activation does
+    // not compete with the palette overlay for the App state slot.
+    ...(onShowDependencies
+      ? [
+          buildActionCommand(
+            'action-show-dependencies',
+            translate('commandPalette.action.showDependencies.label'),
+            translate('commandPalette.action.showDependencies.description'),
+            [
+              'dependencies',
+              'dependencias',
+              'imports',
+              'requires',
+              'modules',
+              'paquetes',
+              'npm',
+              'pip',
+            ],
+            () => {
+              onClose();
+              onShowDependencies();
             }
           ),
         ]

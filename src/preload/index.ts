@@ -378,4 +378,18 @@ contextBridge.exposeInMainWorld('lingua', {
     revealFolder: () =>
       ipcRenderer.invoke('recovery:reveal-folder') as Promise<RecoveryRevealFolderResult>,
   },
+
+  // RL-025 Slice A — JS / TS dependency resolution. Slice A is
+  // read-only: the renderer hands main a batch of specifier names
+  // plus the active tab's `filePath`, main walks for the nearest
+  // `node_modules`, and returns one status per name. Slice B will
+  // add an install path on top of the same handler registration.
+  dependencies: {
+    resolveJs: (specifiers: readonly string[], filePath?: string) =>
+      ipcRenderer.invoke(
+        'dependencies:js:resolve',
+        specifiers,
+        filePath
+      ) as Promise<DependencyResolveResult>,
+  },
 });

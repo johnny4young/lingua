@@ -23,6 +23,7 @@ import { useLanguageIntelligenceDiagnostics } from '../../hooks/useLanguageIntel
 import { useGoLspDocumentSync } from '../../hooks/useGoLspLifecycle';
 import { useRustLspDocumentSync } from '../../hooks/useRustLspLifecycle';
 import { setActiveEditor } from '../../runtime/editorAccess';
+import { notifyDependencyDetectionPaste } from '../../hooks/useDependencyDetection';
 import { EditorEmptyState } from './EditorEmptyState';
 import { getEditorOptions } from './editorOptions';
 import { defineCustomThemes } from './editorThemes';
@@ -155,6 +156,13 @@ export function CodeEditor() {
           detail: { scrollTop: e.scrollTop },
         })
       );
+    });
+    // RL-025 Slice A fold D — let the dependency detection runner
+    // see paste events so it can drop to the 60ms paste debounce
+    // instead of the 300ms keystroke debounce on the very next
+    // tick.
+    editor.onDidPaste(() => {
+      notifyDependencyDetectionPaste();
     });
   }, []);
 

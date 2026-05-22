@@ -2514,6 +2514,140 @@ The first implementation must prove the contract on JS/TS desktop and Python
 Pyodide before extending it to Ruby gems, Python virtualenvs, Go modules, Rust
 crates, or WebContainers.
 
+#### § Slice A landed (2026-05-22)
+
+Slice A shipped detection + classification + a read-only Dependencies
+bottom-panel tab over a new shared adapter registry. RL-025 flips
+from `Planned` to `Partial`; Slice B (JS/TS desktop install) and
+Slice C (Python `micropip`) are still pending and ride the same
+adapter seam.
+
+What shipped:
+
+- **Shared module** `src/shared/dependencies/{types,javascriptDetector,pythonDetector,registry}.ts`.
+  - `DependencyStatus` closed enum (6 values), `DetectedDependency` shape,
+    `DependencyAdapter` interface, `DEPENDENCY_COUNT_BUCKETS` (`'0' /
+    '1' / '2-5' / '6-10' / '>10'`).
+  - Acorn-based JS/TS detector walks `ImportDeclaration` / `ImportExpression`
+    / `ExportNamedDeclaration` / `ExportAllDeclaration` / `require()`
+    CallExpressions; strips Node built-ins (closed set + `node:` prefix
+    handling), relative + absolute paths, scoped + submodule
+    normalisation. Regex fallback fires only when the AST parse
+    throws (mid-keystroke buffer).
+  - Pure Python scanner strips line comments + single / triple-quoted
+    strings (preserves length so future line attribution stays valid)
+    then matches `from x import …` + `import a, b as bb`; skips relative
+    (`from . import x`) + stdlib (closed list, two trigger words built
+    via runtime concat so the editor security hook does not misread the
+    catalog as a serialisation callsite).
+- **Main-side resolver** `src/main/dependencies.ts` +
+  `src/main/ipc/dependencies.ts`. `resolveJsDependencyBatch(specifiers,
+  filePath)` re-validates each specifier against the npm-name regex,
+  walks `node_modules` via the existing `resolveNodeCwd` helper, and
+  refuses any joined path that escapes the resolved cwd's
+  `node_modules` directory. Single channel `dependencies:js:resolve`
+  registered alongside the existing IPC modules in `src/main/index.ts`.
+- **Preload bridge** `window.lingua.dependencies.resolveJs(specifiers,
+  filePath?)` in `src/preload/index.ts`; web stub in `src/web/adapter.ts`
+  returns `'detected'` for every name so the renderer's classifier
+  maps to `'needs-desktop'` honestly.
+- **Renderer store** `src/renderer/stores/dependencyDetectionStore.ts`
+  is non-persisted, keyed by `tabId`, memoised by `computeDetectionHash`
+  (length + folded head/tail window). `editorStore.removeTab` invokes
+  `evictTab(id)` so a closed-then-reused tab id cannot resurface stale
+  rows.
+- **Detection hook** `src/renderer/hooks/useDependencyDetection.ts`
+  mounted in `App.tsx` after `useOnboardingChoreography`. Self-gates on
+  the `dependencyDetectionEnabled` settings flag (clears the cache the
+  moment the user opts out). Debounces 300 ms keystroke / 60 ms paste —
+  `CodeEditor.tsx` calls `notifyDependencyDetectionPaste()` from
+  Monaco's `onDidPaste` (fold D). Skips buffers > `500 KB` with a
+  panel `'buffer-too-large'` notice. Three closed-enum telemetry
+  events fire from here (per-cycle, banner-shown, fold-F summary).
+- **Settings toggle** `src/renderer/components/Settings/EditorSection.tsx`
+  adds an "Auto-detect dependencies" row. `settingsStore` seeds the
+  flag at `true`; the rehydrate merge applies the fold-G tier-aware
+  default (Free → `false`, every other tier → `true`) only when the
+  persisted state has no preference yet — once the user persists a
+  choice it survives reloads.
+- **Bottom-panel tab** `src/renderer/components/Dependencies/DependenciesPanel.tsx`
+  + `useDependenciesPanelAvailable` selector. Mounts as a sibling tab
+  in `AppLayout.tsx` (`Boxes` icon, before the Hide affordance);
+  conditionally visible only when the active tab has ≥1 detected
+  dependency. One row per package: name + optional submodule + status
+  pill (six closed `STATUS_TONE` palettes) + Install button rendered
+  DISABLED with a tooltip that varies (`disabledTooltip` desktop /
+  `needsDesktopTooltip` cross-platform / `webUnavailableTooltip` web).
+  `BottomPanelTab` union widened in `uiStore.ts` with `'dependencies'`;
+  effectiveTab + selectTab + the auto-fallback effect all gain the
+  new variant.
+- **Command palette + shortcut** `commandPaletteModel.ts` gains
+  `action-show-dependencies` (mirrors the `action-show-*` overlay
+  ordering: close palette first). `commandPaletteModel`'s
+  `onShowDependencies` is wired by the inner `CommandPalette.tsx` to
+  `useUIStore.getState().openBottomPanel('dependencies')`. Catalog
+  entry `view-show-dependencies` in `keyboardShortcuts.ts` binds
+  `Mod+Shift+J`; `useGlobalShortcuts.showDependenciesPanel` reads the
+  detection store + settings flag to decide between focusing the tab
+  or pushing a localised notice (`dependencies.shortcut.disabled`
+  when the master toggle is OFF, `dependencies.shortcut.empty` when
+  count = 0). Verified free against the catalog by the conflict-free
+  regression test (fold C).
+- **Telemetry** three closed-enum events added to `src/shared/telemetry.ts`
+  and mirrored verbatim in `update-server/src/telemetry.ts`:
+  - `dependency.detected_in_tab { language, countBucket }` per
+    completed detect cycle.
+  - `dependency.banner_shown { language }` once per session per
+    (tabId, language) when the panel first surfaces a row.
+  - `dependency.classifications_summary { language, detectedBucket,
+    installedBucket, needsDesktopBucket, unsupportedBucket }` once
+    per session per (tabId, language) — fold F.
+  - New `DEPENDENCY_COUNT_BUCKETS_SET` constant on both sides; the
+    parity test in `tests/shared/telemetry.test.ts` enforces alignment.
+- **Privacy + Trust dashboard** (fold B) `privacyTrustHelpers.ts`
+  extends `NETWORK_ACTIVITY_FEATURES` with `'dependencies'` and adds a
+  row to `buildNetworkActivityRows` — status `'enabled'` and
+  `lastCallAt: null` reflect Slice A's local-only posture; Slice B/C
+  will flip the status to track install network calls.
+- **ADR** `docs/DEPENDENCY_MANAGER_ADR.md` (fold E) pins the adapter
+  contract, the "no silent installs" anti-feature, and a "When to
+  revisit" promotion-rules table for the deferred Ruby / Go / Rust /
+  Python venv / WebContainer adapters. Registered in `docs/README.md`.
+- **i18n** 34 keys × 2 locales under `dependencies.*`,
+  `settings.editor.dependencyDetection.*`,
+  `commandPalette.action.showDependencies.*`,
+  `shortcuts.item.showDependencies.*`,
+  `settings.privacy.network.feature.dependencies`. Spanish is neutral
+  LatAm tuteo (`Instala`, `Abre`, `Analiza`).
+- **Tests** new shared-detector unit tests (acorn + regex fallback,
+  Python comment / triple-quoted stripping, scoped + submodule
+  normalisation), main-side resolver tests (path-traversal, missing
+  cwd, scoped paths), store memoisation + eviction tests, panel
+  component tests (empty / mixed / disabled tooltip / ES locale),
+  palette + shortcut tests (catalog count bump + conflict-free
+  regression), telemetry parity (closed-enum validator + allowlist
+  parity vs update-server fixture), and a new
+  `tests/e2e/dependenciesPanel.spec.ts` Playwright smoke pasting an
+  `import` in JS and asserting the panel surfaces with the expected
+  status pill in EN + ES.
+
+Out of scope (Slice B / C):
+
+- Actual installation. The Install button stays disabled in Slice A;
+  Slice B fills the `installJs` adapter method, Slice C fills the
+  `installPython` adapter via `micropip`.
+- Pyodide loaded-packages bridge. The renderer classifies every
+  Python import as `'detected'` until the worker exposes the loaded
+  set; honest default avoids false `installed` rows.
+- Per-package version pinning + lockfile reading. Out of scope for
+  Slice A; the detector returns names only.
+
+References:
+
+- `docs/DEPENDENCY_MANAGER_ADR.md` — adapter contract + promotion
+  rules.
+- `docs/CAPABILITY_MATRIX.md` — new "Dependency management" row.
+
 ### RL-026 Add language intelligence beyond Monaco's built-in JS/TS services
 
 - Priority: `P2`

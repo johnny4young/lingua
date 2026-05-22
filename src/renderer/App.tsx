@@ -38,6 +38,7 @@ import { useShareLinkBoot } from './hooks/useShareLinkBoot';
 import { ShareLinkController } from './components/Share/ShareLinkButton';
 import { SHARE_LINK_TRIGGER_EVENT } from './components/Share/shareLinkEvents';
 import { useOnboardingChoreography } from './hooks/useOnboardingChoreography';
+import { useDependencyDetection } from './hooks/useDependencyDetection';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
@@ -45,6 +46,7 @@ import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
 import { useEditorStore } from './stores/editorStore';
+import { useDependencyDetectionStore } from './stores/dependencyDetectionStore';
 import { useExecutionHistoryStore } from './stores/executionHistoryStore';
 import { useResultStore } from './stores/resultStore';
 import { exportCapsuleToClipboard } from './utils/exportCapsule';
@@ -238,6 +240,12 @@ function AppChrome({
   // `sessionRestoreReady` so a real restored session always wins
   // over the seed; safe mode short-circuits the hook entirely.
   useOnboardingChoreography({ enabled: sessionRestoreReady });
+  // RL-025 Slice A — per-tab dependency detection. The hook
+  // self-gates on the `dependencyDetectionEnabled` settings flag,
+  // debounces edits, and writes the classified result into
+  // `useDependencyDetectionStore` so the bottom-panel Dependencies
+  // tab can conditionally surface itself when count > 0.
+  useDependencyDetection();
 
   useEffect(() => {
     // RL-065: fire the first telemetry event. `trackEvent` is a no-op
@@ -631,6 +639,42 @@ function AppChrome({
         tone: 'info',
         messageKey: 'onboarding.notice.welcomeReplay',
       });
+    },
+    // RL-025 Slice A fold C — `Mod+Shift+J` focuses the Dependencies
+    // bottom-panel tab when there are detected dependencies for the
+    // active file. When the tab is hidden (count == 0 or master
+    // toggle OFF) we surface a localized notice so the shortcut
+    // never feels broken — the user gets a hint that detection has
+    // either nothing to show OR is disabled.
+    showDependenciesPanel: () => {
+      const { activeTabId, tabs } = useEditorStore.getState();
+      const activeTab = activeTabId
+        ? tabs.find((tab) => tab.id === activeTabId) ?? null
+        : null;
+      const entry = activeTab
+        ? useDependencyDetectionStore.getState().byTab.get(activeTab.id)
+        : null;
+      const currentEntry =
+        entry?.language === activeTab?.language ? entry : null;
+      const enabled = useSettingsStore.getState().dependencyDetectionEnabled;
+      if (!enabled) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'dependencies.shortcut.disabled',
+        });
+        return;
+      }
+      if (
+        !currentEntry ||
+        (currentEntry.dependencies.length === 0 && !currentEntry.skippedReason)
+      ) {
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'dependencies.shortcut.empty',
+        });
+        return;
+      }
+      useUIStore.getState().openBottomPanel('dependencies');
     },
   });
 

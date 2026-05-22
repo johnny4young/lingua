@@ -28,6 +28,7 @@ import { registerEnvHandlers } from './ipc/env';
 import { registerLspHandlers, disposeLspBridge } from './ipc/lsp';
 import { registerProfileHandlers } from './ipc/profile';
 import { registerRecoveryHandlers } from './ipc/recovery';
+import { registerDependencyHandlers } from './ipc/dependencies';
 import { registerPluginHandlers } from './plugins';
 import { getTrustedRendererUrl, isAllowedNavigationTarget } from './security';
 import { registerUpdater } from './updater';
@@ -88,6 +89,7 @@ registerLspHandlers();
 registerPluginHandlers();
 registerProfileHandlers();
 registerRecoveryHandlers();
+registerDependencyHandlers();
 registerUpdater();
 
 let forceQuit = false;

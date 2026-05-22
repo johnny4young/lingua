@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import {
+  Boxes,
   Bug,
   ChevronUp,
   Clock3,
@@ -22,6 +23,8 @@ import { BrowserPreviewPanel } from '../BrowserPreview';
 import { StdinInputPanel } from '../Editor/StdinInputPanel';
 import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
 import { VariableInspectorPanel } from '../Editor/VariableInspectorPanel';
+import { DependenciesPanel } from '../Dependencies/DependenciesPanel';
+import { useDependenciesPanelAvailable } from '../Dependencies/useDependenciesPanelAvailable';
 import { AppChrome } from '../Chrome';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
@@ -447,7 +450,14 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     }
     return count;
   });
-  const effectiveTab: 'console' | 'debugger' | 'browser-preview' | 'stdin' | 'variables' =
+  const dependenciesAvailable = useDependenciesPanelAvailable();
+  const effectiveTab:
+    | 'console'
+    | 'debugger'
+    | 'browser-preview'
+    | 'stdin'
+    | 'variables'
+    | 'dependencies' =
     variablesAvailable && activeBottomPanel === 'variables'
       ? 'variables'
       : browserPreviewAvailable && (activeBottomPanel === 'browser-preview' || !consoleVisible)
@@ -456,7 +466,9 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
           ? 'debugger'
           : stdinAvailable && activeBottomPanel === 'stdin'
             ? 'stdin'
-            : 'console';
+            : dependenciesAvailable && activeBottomPanel === 'dependencies'
+              ? 'dependencies'
+              : 'console';
 
   useEffect(() => {
     if (activeBottomPanel === 'debugger' && !debuggerAvailable) {
@@ -471,22 +483,33 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     if (activeBottomPanel === 'variables' && !variablesAvailable) {
       setActiveBottomPanel('console');
     }
+    if (activeBottomPanel === 'dependencies' && !dependenciesAvailable) {
+      setActiveBottomPanel('console');
+    }
   }, [
     activeBottomPanel,
     debuggerAvailable,
     browserPreviewAvailable,
     stdinAvailable,
     variablesAvailable,
+    dependenciesAvailable,
     setActiveBottomPanel,
   ]);
 
   const selectTab = (
-    tab: 'console' | 'debugger' | 'browser-preview' | 'stdin' | 'variables'
+    tab:
+      | 'console'
+      | 'debugger'
+      | 'browser-preview'
+      | 'stdin'
+      | 'variables'
+      | 'dependencies'
   ) => {
     if (tab === 'debugger' && !debuggerAvailable) return;
     if (tab === 'browser-preview' && !browserPreviewAvailable) return;
     if (tab === 'stdin' && !stdinAvailable) return;
     if (tab === 'variables' && !variablesAvailable) return;
+    if (tab === 'dependencies' && !dependenciesAvailable) return;
     openBottomPanel(tab);
   };
 
@@ -614,6 +637,26 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             </button>
           </Tooltip>
         ) : null}
+        {dependenciesAvailable ? (
+          <Tooltip content={t('dependencies.tab.hint')} side="bottom">
+            <button
+              type="button"
+              role="tab"
+              data-testid="bottom-panel-dependencies-tab"
+              aria-selected={effectiveTab === 'dependencies'}
+              onClick={() => selectTab('dependencies')}
+              className={cn(
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                effectiveTab === 'dependencies'
+                  ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
+                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
+              )}
+            >
+              <Boxes size={12} aria-hidden="true" />
+              {t('dependencies.tab.label')}
+            </button>
+          </Tooltip>
+        ) : null}
         <Tooltip content={t('bottomPanel.actions.hide')} side="bottom">
           <button
             type="button"
@@ -635,6 +678,8 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
           <StdinInputPanel />
         ) : effectiveTab === 'variables' ? (
           <VariableInspectorPanel language={activeLanguage ?? 'javascript'} />
+        ) : effectiveTab === 'dependencies' ? (
+          <DependenciesPanel />
         ) : (
           <ConsolePanel />
         )}
