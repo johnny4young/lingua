@@ -30,15 +30,33 @@ describe('PrivacySection', () => {
     const user = userEvent.setup();
     render(<PrivacySection />);
 
-    const toggle = screen.getByRole('switch');
+    const toggle = screen.getByRole('switch', {
+      name: /usage analytics|telemetry/i,
+    });
     expect(toggle.getAttribute('aria-checked')).toBe('false');
 
     await user.click(toggle);
     expect(await screen.findByText('Enabled — thanks for helping improve Lingua.')).toBeTruthy();
-    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
+    expect(
+      screen
+        .getByRole('switch', { name: /usage analytics|telemetry/i })
+        .getAttribute('aria-checked')
+    ).toBe('true');
 
     await user.click(toggle);
     expect(await screen.findByText('Declined — no data leaves your machine.')).toBeTruthy();
-    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('false');
+    expect(
+      screen
+        .getByRole('switch', { name: /usage analytics|telemetry/i })
+        .getAttribute('aria-checked')
+    ).toBe('false');
+  });
+
+  it('renders the share-link confirmation toggle (Fold F, default ON)', async () => {
+    render(<PrivacySection />);
+    const wrapper = screen.getByTestId('settings-share-link-confirm-row');
+    const toggle = wrapper.querySelector('[role="switch"]');
+    expect(toggle).not.toBeNull();
+    expect(toggle?.getAttribute('aria-checked')).toBe('true');
   });
 });

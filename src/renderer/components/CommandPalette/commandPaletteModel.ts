@@ -272,6 +272,14 @@ interface BuildCommandPaletteModelArgs {
    */
   onCopyLanguageScorecardMarkdown?: () => void;
   /**
+   * RL-036 Phase A1 fold C — encodes the active tab as a share-link
+   * URL fragment and copies it to the clipboard (via the
+   * confirmation modal gate from fold A, unless the user disabled
+   * it). Optional; when omitted the palette entry is hidden so the
+   * model stays honest about what surfaces are wired.
+   */
+  onCopyShareLink?: () => void;
+  /**
    * Translation function. Optional so legacy callers keep working without
    * wiring i18next; when omitted, built-in action labels and descriptions
    * fall back to their English keys.
@@ -575,6 +583,7 @@ export function buildCommandPaletteModel({
   latestCapsuleAvailable = false,
   onShowLanguageSupport,
   onCopyLanguageScorecardMarkdown,
+  onCopyShareLink,
   t,
 }: BuildCommandPaletteModelArgs): CommandEntry[] {
   const translate: (key: string, options?: Record<string, unknown>) => string = t
@@ -706,6 +715,33 @@ export function buildCommandPaletteModel({
             () => {
               onCopyLanguageScorecardMarkdown();
               onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-036 Phase A1 fold C — copies a share-link URL fragment that
+    // recreates the active tab. The user callback may surface the
+    // confirmation modal (fold A); we close the palette FIRST so
+    // both overlays don't compete for the same App state slot
+    // (same overlay-survival pattern as `action-settings`).
+    ...(onCopyShareLink
+      ? [
+          buildActionCommand(
+            'action-copy-share-link',
+            translate('commandPalette.action.copyShareLink.label'),
+            translate('commandPalette.action.copyShareLink.description'),
+            [
+              'share',
+              'link',
+              'url',
+              'compartir',
+              'enlace',
+              'copy',
+              'copia',
+            ],
+            () => {
+              onClose();
+              onCopyShareLink();
             }
           ),
         ]

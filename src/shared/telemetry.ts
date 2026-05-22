@@ -188,6 +188,21 @@ export const TELEMETRY_EVENTS = [
   // key whose lowercased name contains 'source' — same precedent as
   // `runtime.workflow_mode_changed { trigger }`.
   'language_scorecard_viewed',
+  // RL-036 Phase A1 fold B + G — share-link creation. Closed-enum
+  // `{ trigger, status, sizeBucket }` where trigger ∈ SHARE_CREATE_TRIGGERS
+  // (button / palette / shortcut), status ∈ SHARE_CREATE_STATUSES
+  // (success / too-large / unknown-language / cancelled), sizeBucket
+  // ∈ SHARE_SIZE_BUCKETS. NO source content, NO encoded fragment, NO
+  // URL — only the size bucket and the qualitative outcome. Mirrored
+  // on update-server with parity test.
+  'share.created',
+  // RL-036 Phase A1 fold B + G — share-link import (open from URL).
+  // Closed-enum `{ status, sizeBucket }`. status discriminates the
+  // import outcome (success / decode-fail / unknown-language /
+  // unknown-version / oversized). sizeBucket is bucketed from the
+  // raw fragment length BEFORE decode succeeds. Mirrored on
+  // update-server with parity test.
+  'share.opened',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -355,6 +370,13 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'capsule.exported': ['trigger', 'sizeBucket'],
   // RL-095 Slice 1 fold A — `surface` ∈ `LANGUAGE_SCORECARD_SURFACES`.
   'language_scorecard_viewed': ['surface'],
+  // RL-036 Phase A1 fold B + G — `trigger` ∈ `SHARE_CREATE_TRIGGERS`,
+  // `status` ∈ `SHARE_CREATE_STATUSES`, `sizeBucket` ∈
+  // `SHARE_SIZE_BUCKETS_SET`.
+  'share.created': ['trigger', 'status', 'sizeBucket'],
+  // RL-036 Phase A1 fold B + G — `status` ∈ `SHARE_OPEN_STATUSES`,
+  // `sizeBucket` ∈ `SHARE_SIZE_BUCKETS_SET`.
+  'share.opened': ['status', 'sizeBucket'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -516,6 +538,42 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
   'settings',
   'palette',
+]);
+// RL-036 Phase A1 fold B — `trigger` ∈ surface that initiated the
+// share-link copy. Mirrored on update-server.
+export const SHARE_CREATE_TRIGGERS = new Set([
+  'button',
+  'palette',
+  'shortcut',
+]);
+// RL-036 Phase A1 fold B — `status` ∈ outcome of the encode pass.
+// `cancelled` currently covers user dismissal and clipboard-write
+// failure. Mirrored on update-server.
+export const SHARE_CREATE_STATUSES = new Set([
+  'success',
+  'too-large',
+  'unknown-language',
+  'cancelled',
+]);
+// RL-036 Phase A1 fold B — `status` ∈ outcome of the decode pass
+// (`useShareLinkBoot` hook). Mirrored on update-server.
+export const SHARE_OPEN_STATUSES = new Set([
+  'success',
+  'decode-fail',
+  'unknown-language',
+  'unknown-version',
+  'oversized',
+]);
+// RL-036 Phase A1 fold G — bucketed fragment size. Mirrored on
+// update-server. Lives here in `Set` form for `isAllowedValue`; the
+// canonical list lives in `src/shared/sharePayload.ts` as
+// `SHARE_SIZE_BUCKETS` (readonly tuple).
+export const SHARE_SIZE_BUCKETS_SET = new Set([
+  '<1kb',
+  '<2kb',
+  '<4kb',
+  '<6kb',
+  '>=6kb',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -784,6 +842,20 @@ function isAllowedValue(
         return (
           typeof value === 'string' && LANGUAGE_SCORECARD_SURFACES.has(value)
         );
+      return false;
+    case 'share.created':
+      if (key === 'trigger')
+        return typeof value === 'string' && SHARE_CREATE_TRIGGERS.has(value);
+      if (key === 'status')
+        return typeof value === 'string' && SHARE_CREATE_STATUSES.has(value);
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && SHARE_SIZE_BUCKETS_SET.has(value);
+      return false;
+    case 'share.opened':
+      if (key === 'status')
+        return typeof value === 'string' && SHARE_OPEN_STATUSES.has(value);
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && SHARE_SIZE_BUCKETS_SET.has(value);
       return false;
     default: {
       const exhaustive: never = event;

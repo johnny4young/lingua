@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import i18next from 'i18next';
 import { CommandPalette } from '../../src/renderer/components/CommandPalette/CommandPalette';
+import { SHARE_LINK_TRIGGER_EVENT } from '../../src/renderer/components/Share/shareLinkEvents';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 
 const { editorState, resultState, settingsState, trackEventMock } = vi.hoisted(() => ({
@@ -391,6 +392,68 @@ describe('CommandPalette', () => {
 
     expect(settingsState.toggleConsoleRichRendering).toHaveBeenCalledOnce();
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('hides the share-link action when no tab is active', () => {
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'share link' } });
+
+    expect(
+      screen.queryByRole('button', {
+        name: /Copy share link/i,
+      })
+    ).toBeNull();
+  });
+
+  it('dispatches the share-link trigger from the palette when a tab is active', () => {
+    editorState.tabs = [
+      {
+        id: 'tab-1',
+        language: 'javascript',
+        content: 'console.log("share")',
+      },
+    ];
+    editorState.activeTabId = 'tab-1';
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
+
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'share link' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Copy share link/i,
+      })
+    );
+
+    expect(
+      dispatchSpy.mock.calls.some(([event]) => {
+        return (
+          event instanceof CustomEvent &&
+          event.type === SHARE_LINK_TRIGGER_EVENT &&
+          event.detail?.trigger === 'palette'
+        );
+      })
+    ).toBe(true);
+    dispatchSpy.mockRestore();
   });
 
   it('hides the variable inspector action while the active tab is in Node mode', () => {

@@ -273,6 +273,10 @@ export const useSettingsStore = create<SettingsState>()(
       telemetryConsent: 'unset',
       utilitiesClipboardOnFocusConsent: 'unset',
       debuggerEnabled: true,
+      // RL-036 Phase A1 fold F — default ON so the first share-link
+      // copy always surfaces the confirmation modal preview before
+      // anything reaches the clipboard.
+      shareLinkConfirmEnabled: true,
       // RL-019 Slice 1 fold B — only `worker` is implemented today;
       // the setter rejects anything else, so this stays a constant
       // initial value until Slice 2 lands the desktop Node backend.
@@ -402,6 +406,11 @@ export const useSettingsStore = create<SettingsState>()(
       // RL-027 Slice 1 — debugger master switch.
       toggleDebuggerEnabled: () =>
         set((state) => ({ debuggerEnabled: !state.debuggerEnabled })),
+      // RL-036 Phase A1 fold F — share-link confirmation gate.
+      toggleShareLinkConfirmEnabled: () =>
+        set((state) => ({
+          shareLinkConfirmEnabled: !state.shareLinkConfirmEnabled,
+        })),
       applyThemePreset: (preset) =>
         set((state) => ({
           theme: preset.theme,
@@ -631,6 +640,9 @@ export const useSettingsStore = create<SettingsState>()(
         telemetryConsent: state.telemetryConsent,
         utilitiesClipboardOnFocusConsent: state.utilitiesClipboardOnFocusConsent,
         debuggerEnabled: state.debuggerEnabled,
+        // RL-036 Phase A1 fold F — sticky preference so the gate
+        // survives reloads.
+        shareLinkConfirmEnabled: state.shareLinkConfirmEnabled,
         defaultRuntimeMode: state.defaultRuntimeMode,
         workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
         scratchpadAutoLogByLanguage: state.scratchpadAutoLogByLanguage,
@@ -797,8 +809,17 @@ export const useSettingsStore = create<SettingsState>()(
           merged.rubyRuntimePreference === 'wasm'
             ? merged.rubyRuntimePreference
             : currentState.rubyRuntimePreference;
+        // RL-036 Phase A1 fold F — sanitize the persisted share-link
+        // confirmation flag. Malformed entries (null, string, missing)
+        // fall back to the safer default (ON) rather than silently
+        // dropping the user into the no-modal path.
+        const shareLinkConfirmEnabled =
+          typeof merged.shareLinkConfirmEnabled === 'boolean'
+            ? merged.shareLinkConfirmEnabled
+            : currentState.shareLinkConfirmEnabled;
         return {
           ...merged,
+          shareLinkConfirmEnabled,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
           executionHistorySnapshotEnabled,
           nativeExecutionAcknowledged,

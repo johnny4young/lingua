@@ -150,6 +150,22 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     combos: [{ tokens: ['Mod', 'Shift', 'X'] }],
     keywords: ['capsule', 'export', 'share', 'json', 'replay'],
   },
+  // RL-036 Phase A1 fold D — keyboard shortcut for the share-link
+  // copy flow. `Mod+Shift+L` (L for Link). Reviewer rebound from the
+  // original `Mod+Shift+P` after discovering that combo was already
+  // taken by `overlay-command-palette`; the first-match-wins iteration
+  // in `useGlobalShortcuts` would otherwise have hijacked the Command
+  // Palette opener. `Mod+Shift+L` is verified free against the catalog
+  // by the conflict-free regression test in
+  // `tests/data/keyboardShortcuts.test.ts`.
+  {
+    id: 'run-copy-share-link',
+    group: 'run',
+    labelKey: 'shortcuts.item.copyShareLink.label',
+    descriptionKey: 'shortcuts.item.copyShareLink.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'L'] }],
+    keywords: ['share', 'link', 'url', 'compartir', 'enlace', 'copy', 'copia'],
+  },
   // RL-093 Slice 3 — recover from a floating-pill/variables-card that
   // ended up in an unreachable position (off-screen monitor change,
   // bad localStorage value). Clears both persisted positions back to

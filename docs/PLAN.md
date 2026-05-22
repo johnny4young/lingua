@@ -3494,6 +3494,179 @@ sent in the HTTP request, but it is not encryption. The useful work is folded
 into `RL-036` as Phase A1 so it respects the current ticket naming and can
 ship before the heavier `.linguashare` artifact path.
 
+#### § Phase A1 landed (2026-05-21)
+
+Phase A1 shipped end-to-end against the approved plan + all seven folds
+(A through G). RL-094 Run Capsule schema was the precondition (extracted
+the same `truncateUtf8` + `DENY_SUBSTRINGS` defensive primitives, plus
+the `tests/shared/runCapsule.fixtures.ts` catalog that this slice
+imports for the `FIXTURE_MINIMAL_JS` / `FIXTURE_LICENSE_LEAK_PROBE` /
+`FIXTURE_LARGE_STDOUT` reference rows).
+
+- **Shared module** `src/shared/sharePayload.ts` exports
+  `SharePayloadV1` (closed type, `version: 1` literal), `BuildSharePayloadInput`,
+  `buildSharePayload()`, `encodeShareFragment()`, `decodeShareFragment()`,
+  `bucketShareSize()` + `SHARE_SIZE_BUCKETS` closed enum, plus the
+  `SHARE_FRAGMENT_PREFIX` constant. Encoding pipeline is JSON →
+  UTF-8 `TextEncoder` → `CompressionStream('gzip')` → base64url
+  (manual RFC 4648 §5 alphabet — no `+`/`/`/`=`). The encoder
+  starts draining the gzip readable before awaiting writer backpressure
+  so Chromium cannot hang the share flow on `writer.write()`. Caps:
+  `MAX_SHARE_SOURCE_BYTES = 16384`, `MAX_SHARE_FRAGMENT_BYTES = 6144`,
+  `MAX_SHARE_STDIN_BYTES = 4096`, `MAX_SHARE_DECOMPRESSED_BYTES =
+  64 KiB` (gzip-bomb defence — manual byte counter + cancel on the
+  `DecompressionStream` reader). Eight closed reject paths on the
+  decoder: `invalid-prefix` / `invalid-base64` / `gzip-corrupt` /
+  `oversized` / `json-malformed` / `unknown-version` / `shape-invalid` /
+  `unknown-language`. `SharePayloadV1` NEVER carries `licenseToken`
+  / `filePath` (absolute) / `rootId` / `relativePath` / env vars /
+  device ids — pinned by `tests/shared/sharePayload.test.ts`
+  privacy-fixture (constructs a maliciously-shaped builder input via
+  cast and asserts the encoded JSON contains none of the forbidden
+  substrings).
+
+- **Renderer helper** `src/renderer/utils/shareLink.ts` exposes
+  `prepareShareLinkFromTab(tab)` (encode + URL compose; returns a
+  discriminated result), `writeShareLinkToClipboard(url)` (clipboard-
+  only; returns `no-clipboard` / `clipboard-rejected` shapes), and
+  the telemetry helpers `trackShareCreated` + `trackShareOpened`.
+  URL composition prefers `${window.location.origin}${pathname}` on
+  web builds and falls back to the hardcoded marketing host
+  (`https://app.linguacode.dev`) on desktop / non-http origins so
+  desktop users emit shareable URLs the recipient can open in a
+  browser without installing.
+
+- **Boot hook** `src/renderer/hooks/useShareLinkBoot.ts` listens for
+  the initial hash AND `hashchange` events, decodes through the
+  shared module, calls `editorStore.addTab()` on success, and
+  pushes a localized status notice + telemetry on every reject path.
+  `history.replaceState` clears the hash after every terminal
+  outcome so refreshing the page doesn't keep retrying a poisoned
+  link. Foreign hashes (not starting with `share=v1.`) are left
+  untouched so legacy anchor surfaces stay functional. Safe-mode
+  boot (`?safe-mode=1`) short-circuits the hook entirely. Mounted
+  in `App.tsx` behind a `sessionRestoreReady` gate so user-restored
+  tabs land first and the imported tab becomes the active selection.
+
+- **Fold A — pre-share confirmation modal**:
+  `src/renderer/components/Share/ShareConfirmationModal.tsx` shows
+  the source preview plus optional stdin preview (each truncated at
+  4000 chars with a `+N more characters` hint), the language tag,
+  the encoded byte count, and
+  a copy-bold "Anyone with this URL can read..." warning. Required
+  by `docs/CAPSULE_TEST_MATRIX.md § FIXTURE_LICENSE_LEAK_PROBE` —
+  the sanitiser preserves `source.content` as the replay artifact
+  promise, so the modal is the only safety surface that catches a
+  user pasting a JWT into the editor by accident. Cancel button
+  autofocuses (safer default); Esc dismisses via `OverlayBackdrop`.
+  The modal portals to `document.body` so the result-panel header's
+  stacking context cannot let the editor paint over the confirmation.
+
+- **Fold B + G — telemetry**: two new closed-enum events.
+  `share.created { trigger, status, sizeBucket }` fires on the
+  encode side: trigger ∈ `SHARE_CREATE_TRIGGERS = {button, palette,
+  shortcut}`, status ∈ `SHARE_CREATE_STATUSES = {success, too-large,
+  unknown-language, cancelled}`, sizeBucket ∈ `SHARE_SIZE_BUCKETS_SET`.
+  `share.opened { status, sizeBucket }` fires on the decode side:
+  status ∈ `SHARE_OPEN_STATUSES = {success, decode-fail,
+  unknown-language, unknown-version, oversized}`. All sets mirrored
+  on `update-server/src/telemetry.ts` with parity test. Property
+  names (`trigger`, `status`, `sizeBucket`) audited against
+  `DENY_SUBSTRINGS` — none match, so the redactor never strips them.
+
+- **Fold C — palette command** `action-copy-share-link` keyed by
+  `share`, `link`, `url`, `compartir`, `enlace`, `copy`, `copia`.
+  Dispatches the `lingua-share-link-trigger` CustomEvent (`detail:
+  { trigger: 'palette' }`) so the always-mounted
+  `<ShareLinkController>` owns palette-triggered confirmation even
+  when the result panel is hidden.
+
+- **Fold D — keyboard shortcut** `Mod+Shift+P` wired through
+  `useGlobalShortcuts.copyShareLink` and the `KEYBOARD_SHORTCUTS`
+  catalog. Same dispatch mechanism as fold C with `detail: {
+  trigger: 'shortcut' }`. `Mod+Shift+S` taken by Save As;
+  `Mod+Shift+X` taken by Export capsule (RL-094 Slice 1.5);
+  `Mod+Shift+P` is the next ergonomic slot — does NOT collide with
+  `Mod+P` Quick Open.
+
+- **Fold E — result-panel header button**:
+  `src/renderer/components/Share/ShareLinkButton.tsx` mounted next
+  to `<RunCapsuleExportButton>`. Lazy-renders null when no active
+  tab. 1-sec feedback flip (`Check` icon swap on success). The
+  shared flow hook also powers `<ShareLinkController>`, which is
+  mounted at AppChrome scope for palette + shortcut triggers.
+  Module-level and per-instance concurrent-flow guards block a second
+  trigger while the first encode + modal cycle is in flight; released
+  on modal confirm / cancel.
+
+- **Fold F — Settings → Privacy: Confirm before share** toggle.
+  `settingsStore.shareLinkConfirmEnabled` defaults to `true` (safer
+  default), persisted via the `partialize` whitelist, sanitized on
+  rehydrate so a malformed persisted value (null / string / missing)
+  falls back to the ON default. When OFF the user explicitly opts
+  out of the modal — clipboard writes fire directly.
+
+- **i18n**: 26 new keys × 2 locales. ES uses neutral LatAm tuteo
+  (`Copia`, `Abre`, `Otorga`). All notice copy is self-contained
+  (no "Open Settings → Account" deep references after the reviewer
+  pass dropped them — that path doesn't have a manual fallback for
+  share links).
+
+- **Reviewer pass** (pre-staging): renderer reviewer surfaced two
+  HIGH issues + four MED; all resolved inline:
+  1. Concurrent-encode race in `ShareLinkButton.runShareFlow` →
+     `encodeInFlightRef` guard added.
+  2. `share.notice.clipboardUnavailable` copy referenced a non-
+     existent Settings → Account fallback → rewritten to
+     "Grant clipboard permission" (matches the real browser-side
+     remediation).
+  3. MED — unused `_t` parameter in `useShareLinkBoot.pushShareImportFailure`
+     removed; hook now subscribes to `i18n.language` to trigger a
+     remount on locale flip so notices land in the active language.
+  4. MED — `<ShareConfirmationModal>` `confirmRef` + `handleKeyDown`
+     guard removed; native `<button>` already fires onClick on
+     Enter when focused.
+  5. MED — `<ShareLinkButton>` re-routed `bucketShareSize` through
+     the `shareLink.ts` re-export instead of reaching around the
+     util boundary into the shared module.
+  6. MED — ES `share.notice.tooLarge` copy aligned with EN ("código
+     fuente" mirrors "source size").
+  7. HIGH — palette / shortcut events no-op when the result panel is
+     hidden → always-mounted `<ShareLinkController>` added.
+  8. HIGH — confirmation modal omitted shared stdin → stdin preview
+     added beside source preview.
+  9. MED — decoder accepted source payloads above the outbound 16 KiB
+     cap when an attacker bypassed the encoder → decode rejects them
+     as `oversized`.
+  10. MED — boot import raced async session restore and could be
+      overwritten by restored tabs → `sessionRestoreReady` gate added.
+  11. HIGH — browser `CompressionStream` backpressure could hang share
+      creation before the confirmation modal opened → gzip readable
+      drain now starts before awaiting the writer.
+  12. MED — modal rendered inside a nested result-panel stacking
+      context and the editor could visually cover it → modal is
+      portaled to `document.body`.
+
+- **Deferred to a future slice**: per reviewer HIGH 2,
+  `SHARE_CREATE_STATUSES` currently maps both `no-clipboard` and
+  `clipboard-rejected` outcomes onto the same `cancelled` bucket,
+  conflating user-dismiss with clipboard-API denial. A follow-up
+  slice should add a new `clipboard-error` status value to both
+  closed enums (renderer + update-server with parity test) so the
+  dashboard can distinguish "user backed out of the modal" from
+  "Permissions API denied clipboard access." Tracked here, not
+  added to BACKLOG.md, because the AC is firm and the scope is one
+  bucket addition.
+
+- **Tests**: 29 shared (encode / decode / round-trip / reject paths
+  / privacy fixture / bucket boundaries / constants / source-cap
+  bypass / gzip backpressure order) + 7 boot hook (success /
+  no-share-prefix / decode-fail / hashchange / cleanup / safe-mode /
+  session-restore gate) + 2 modal
+  preview + 2 palette gating cases + 1 PrivacySection (Fold F toggle
+  render) + telemetry parity allow-list updated for both events. Full
+  unit suite passes 3765/3769 (4 skipped, unrelated).
+
 ### RL-037 Add deep editor personalization
 
 - Priority: `P2`

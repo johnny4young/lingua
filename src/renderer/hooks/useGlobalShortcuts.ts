@@ -114,6 +114,14 @@ interface UseGlobalShortcutsOptions {
    * dropping the keypress).
    */
   exportLatestCapsule: () => void;
+  /**
+   * RL-036 Phase A1 fold D — copy a share-link for the active tab.
+   * Dispatches the `lingua-share-link-trigger` event so the modal
+   * owner (`<ShareLinkController>`) runs the same flow as a button
+   * click, with `trigger: 'shortcut'` for telemetry attribution.
+   * No-op when no tab is active.
+   */
+  copyShareLink: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -139,6 +147,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'run-toggle-variable-inspector': () => options.toggleVariableInspector(),
     'editor-toggle-stdin-panel': () => options.toggleStdinPanel(),
     'run-export-capsule': () => options.exportLatestCapsule(),
+    'run-copy-share-link': () => options.copyShareLink(),
     'ui-reset-floating-positions': () => options.resetFloatingPositions(),
     'view-toggle-variable-inspector-surface': () =>
       options.toggleVariableInspectorSurface(),

@@ -120,6 +120,16 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-020 Slice 2 — per-tab workflow mode change. Closed-enum
       // payload `{ language, from, to, trigger }`.
       'runtime.workflow_mode_changed',
+      // RL-036 Phase A1 fold B + G — share-link lifecycle. Two events:
+      // `share.created` for the encode (copy) side with
+      // `{ trigger, status, sizeBucket }`, `share.opened` for the
+      // decode (URL-fragment import) side with `{ status, sizeBucket }`.
+      // Sets live in `src/shared/telemetry.ts` (`SHARE_CREATE_TRIGGERS`,
+      // `SHARE_CREATE_STATUSES`, `SHARE_OPEN_STATUSES`,
+      // `SHARE_SIZE_BUCKETS_SET`); mirrored on update-server with
+      // identical sets.
+      'share.created',
+      'share.opened',
       'update.checked',
       // RL-069 Slice 3 — Developer Utilities productivity layer.
       'utility.clipboard.applied',
