@@ -111,6 +111,13 @@ export const TELEMETRY_EVENT_NAMES = [
   // enum `{ status, sizeBucket }` from `SHARE_OPEN_STATUSES` /
   // `SHARE_SIZE_BUCKETS`.
   'share.opened',
+  // RL-101 Slice 1 — mirrors of the onboarding choreography events.
+  // Closed-enum payloads match the renderer side: `language` ∈
+  // `ONBOARDING_LANGUAGE_IDS`, `stage` ∈ `ONBOARDING_TOAST_STAGES`,
+  // `dismissMode` ∈ `ONBOARDING_DISMISS_MODES` (fold B).
+  'onboarding.first_run_completed',
+  'onboarding.first_snippet_saved',
+  'onboarding.toast_dismissed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -180,6 +187,10 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'share.created': ['trigger', 'status', 'sizeBucket'],
   // RL-036 Phase A1 fold B + G — mirror of `share.opened`.
   'share.opened': ['status', 'sizeBucket'],
+  // RL-101 Slice 1 — mirrors of the onboarding events.
+  'onboarding.first_run_completed': ['language'],
+  'onboarding.first_snippet_saved': [],
+  'onboarding.toast_dismissed': ['stage', 'dismissMode'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -342,6 +353,46 @@ export const SHARE_SIZE_BUCKETS = new Set([
   '<4kb',
   '<6kb',
   '>=6kb',
+]);
+// RL-101 Slice 1 — mirrors of the onboarding closed enums. The
+// language id set is intentionally duplicated verbatim from
+// `src/shared/languagePacks.ts` because the update-server cannot
+// import from the renderer tree; the parity test asserts both
+// sides stay aligned via a runtime cross-import.
+export const ONBOARDING_TOAST_STAGES = new Set([
+  'first_run',
+  'first_snippet',
+]);
+export const ONBOARDING_DISMISS_MODES = new Set([
+  'cta',
+  'manual',
+  'auto',
+]);
+export const ONBOARDING_LANGUAGE_IDS = new Set([
+  'javascript',
+  'typescript',
+  'go',
+  'python',
+  'rust',
+  'lua',
+  'ruby',
+  'c',
+  'cpp',
+  'swift',
+  'kotlin',
+  'java',
+  'scala',
+  'json',
+  'yaml',
+  'dotenv',
+  'toml',
+  'ini',
+  'csv',
+  'dockerfile',
+  'makefile',
+  'gitignore',
+  'editorconfig',
+  'shellscript',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -708,6 +759,18 @@ function isAllowedValue(
         return typeof value === 'string' && SHARE_OPEN_STATUSES.has(value);
       if (key === 'sizeBucket')
         return typeof value === 'string' && SHARE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'onboarding.first_run_completed':
+      if (key === 'language')
+        return typeof value === 'string' && ONBOARDING_LANGUAGE_IDS.has(value);
+      return false;
+    case 'onboarding.first_snippet_saved':
+      return false;
+    case 'onboarding.toast_dismissed':
+      if (key === 'stage')
+        return typeof value === 'string' && ONBOARDING_TOAST_STAGES.has(value);
+      if (key === 'dismissMode')
+        return typeof value === 'string' && ONBOARDING_DISMISS_MODES.has(value);
       return false;
     default: {
       const exhaustive: never = event;

@@ -22,14 +22,20 @@ import worker, { type Env } from '../src/index';
 import {
   DENY_SUBSTRINGS,
   EVENT_PROPERTY_ALLOWLIST,
+  ONBOARDING_DISMISS_MODES as WORKER_ONBOARDING_DISMISS_MODES,
+  ONBOARDING_LANGUAGE_IDS as WORKER_ONBOARDING_LANGUAGE_IDS,
+  ONBOARDING_TOAST_STAGES as WORKER_ONBOARDING_TOAST_STAGES,
   TELEMETRY_EVENT_NAMES,
   checkRateLimit,
   ipBucket,
   keyLooksSensitive,
 } from '../src/telemetry';
 import {
+  ONBOARDING_DISMISS_MODES as RENDERER_ONBOARDING_DISMISS_MODES,
+  ONBOARDING_TOAST_STAGES as RENDERER_ONBOARDING_TOAST_STAGES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
+import { LANGUAGE_PACKS } from '../../src/shared/languagePacks';
 
 type FetchMock = Mock<typeof fetch>;
 
@@ -484,6 +490,66 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       line.includes('"gigantic"')
     );
     expect(unknownBucketLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
+  it('onboarding closed enums stay in sync with the renderer source of truth (RL-101 Slice 1)', () => {
+    expect([...WORKER_ONBOARDING_TOAST_STAGES].sort()).toEqual(
+      [...RENDERER_ONBOARDING_TOAST_STAGES].sort()
+    );
+    expect([...WORKER_ONBOARDING_DISMISS_MODES].sort()).toEqual(
+      [...RENDERER_ONBOARDING_DISMISS_MODES].sort()
+    );
+    expect([...WORKER_ONBOARDING_LANGUAGE_IDS].sort()).toEqual(
+      LANGUAGE_PACKS.map((pack) => pack.id).sort()
+    );
+  });
+
+  it('onboarding telemetry accepts closed payloads and drops unknown values (RL-101 Slice 1)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const firstRunOk = await postTelemetry({
+      event: 'onboarding.first_run_completed',
+      properties: { language: 'javascript' },
+    });
+    expect(firstRunOk.status).toBe(204);
+    const firstRunUnknown = await postTelemetry({
+      event: 'onboarding.first_run_completed',
+      properties: { language: 'brainfuck' },
+    });
+    expect(firstRunUnknown.status).toBe(204);
+    const dismissedOk = await postTelemetry({
+      event: 'onboarding.toast_dismissed',
+      properties: { stage: 'first_run', dismissMode: 'cta' },
+    });
+    expect(dismissedOk.status).toBe(204);
+    const dismissedUnknown = await postTelemetry({
+      event: 'onboarding.toast_dismissed',
+      properties: { stage: 'welcome', dismissMode: 'keyboard' },
+    });
+    expect(dismissedUnknown.status).toBe(204);
+    const firstSnippet = await postTelemetry({
+      event: 'onboarding.first_snippet_saved',
+      properties: { stage: 'first_snippet' },
+    });
+    expect(firstSnippet.status).toBe(204);
+
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"onboarding.'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(5);
+    expect(
+      eventLines.some((line) => line.includes('"language":"javascript"'))
+    ).toBe(true);
+    expect(eventLines.some((line) => line.includes('"brainfuck"'))).toBe(false);
+    expect(
+      eventLines.some(
+        (line) =>
+          line.includes('"stage":"first_run"') &&
+          line.includes('"dismissMode":"cta"')
+      )
+    ).toBe(true);
+    expect(eventLines.some((line) => line.includes('"welcome"'))).toBe(false);
+    expect(eventLines.some((line) => line.includes('"keyboard"'))).toBe(false);
     consoleSpy.mockRestore();
   });
 

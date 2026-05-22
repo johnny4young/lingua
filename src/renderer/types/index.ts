@@ -592,6 +592,23 @@ export interface SettingsState {
    * users can re-trigger the tour on a fresh install.
    */
   firstWorkflowModeSwitchAcknowledged: boolean;
+  /**
+   * RL-101 Slice 1 — onboarding choreography one-shot flags. Each
+   * flag flips to `true` the first time its stage fires; resettable
+   * from Settings → General → Onboarding so users can replay any
+   * stage. Default `false` so a fresh install sees the full
+   * sequence.
+   */
+  hasCompletedOnboardingWelcome: boolean;
+  hasCompletedOnboardingFirstRun: boolean;
+  hasCompletedOnboardingFirstSnippet: boolean;
+  /**
+   * RL-101 fold E — seed-version tracker for the welcome scratchpad.
+   * Bumping `SEEDED_SCRATCHPAD_VERSION` on a future demo improvement
+   * re-arms the seed for users whose persisted value is older,
+   * regardless of `hasCompletedOnboardingWelcome`.
+   */
+  onboardingWelcomeSeedVersion: number;
   language: AppLanguage;
   lastSeenVersion: string | null;
   hasCompletedTour: boolean;
@@ -649,6 +666,26 @@ export interface SettingsState {
   toggleDebuggerEnabled: () => void;
   /** RL-036 Phase A1 fold F — flip the share-link confirmation gate. */
   toggleShareLinkConfirmEnabled: () => void;
+  /**
+   * RL-101 Slice 1 — three reset setters wired to the Settings →
+   * General → Onboarding row toggles, the `Mod+Shift+W` shortcut
+   * (fold D), and the palette commands (fold G). Each flips the
+   * corresponding `hasCompletedOnboarding*` flag back to `false`.
+   * `resetOnboardingWelcome` additionally resets
+   * `onboardingWelcomeSeedVersion` so the latest seed is re-applied.
+   */
+  resetOnboardingWelcome: () => void;
+  resetOnboardingFirstRun: () => void;
+  resetOnboardingFirstSnippet: () => void;
+  /**
+   * RL-101 Slice 1 — stage-completion setters. Called by
+   * `useOnboardingChoreography` after each toast fires so the
+   * stage never repeats. `markOnboardingWelcomeCompleted` also
+   * stamps the seed-version tracker.
+   */
+  markOnboardingWelcomeCompleted: (seedVersion: number) => void;
+  markOnboardingFirstRunCompleted: () => void;
+  markOnboardingFirstSnippetCompleted: () => void;
   /**
    * Apply a theme preset (editor theme, shell theme, typography, layout)
    * loaded from an exported JSON document. Non-theme settings (loop

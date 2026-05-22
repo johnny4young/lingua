@@ -9,6 +9,27 @@ export type BottomPanelTab =
   | 'variables';
 export type VariablesViewMode = 'list' | 'cards';
 
+/**
+ * RL-101 Slice 1 fold A — optional interactive CTA on a status
+ * notice. Lets the first-run / first-snippet onboarding toasts
+ * surface a single-click action (Save as snippet / Open snippets)
+ * without lifting custom toast components per surface. Designed
+ * as an array (fold A) so future variants (Save + Skip, Confirm
+ * + Settings) can grow without re-shaping the type.
+ *
+ * The banner renders the action label via i18n (`t(labelKey)`),
+ * dismisses the original notice as `'cta'`, then invokes `onClick`
+ * once. That order lets the CTA publish a replacement notice without
+ * the banner clearing it afterwards; manual X dismisses report
+ * `'manual'` and the timeout reports `'auto'` (fold B).
+ */
+export interface StatusNoticeAction {
+  readonly labelKey: string;
+  readonly onClick: () => void;
+}
+
+export type StatusNoticeDismissMode = 'cta' | 'manual' | 'auto';
+
 export interface StatusNotice {
   id: number;
   tone: StatusNoticeTone;
@@ -17,6 +38,16 @@ export interface StatusNotice {
   values?: Record<string, string | number>;
   /** Optional longer detail appended after the translated message. */
   detail?: string;
+  /** RL-101 fold A — optional interactive CTAs rendered as buttons. */
+  actions?: ReadonlyArray<StatusNoticeAction>;
+  /**
+   * RL-101 fold B — optional callback invoked exactly once whenever
+   * the notice goes away, with the route that closed it. Lets the
+   * pusher attribute dismiss telemetry across CTA / manual X / auto
+   * timeout without coupling the notice schema to telemetry itself.
+   * The dispatcher guarantees at-most-once delivery per notice.
+   */
+  onDismiss?: (mode: StatusNoticeDismissMode) => void;
 }
 
 export interface UIPosition {
@@ -123,7 +154,15 @@ interface UIState {
   setSidebarVisible: (v: boolean) => void;
   setConsoleVisible: (v: boolean) => void;
   pushStatusNotice: (notice: Omit<StatusNotice, 'id'>) => void;
-  dismissStatusNotice: () => void;
+  /**
+   * RL-101 fold B — `mode` records how the dismiss happened so the
+   * pusher's `onDismiss` callback can attribute telemetry. Defaults
+   * to `'manual'` because the banner X-button is the most common
+   * caller; the auto-dismiss timeout and CTA handlers pass their own
+   * mode explicitly. Calling repeatedly is safe — the onDismiss
+   * callback fires at most once per notice.
+   */
+  dismissStatusNotice: (mode?: StatusNoticeDismissMode) => void;
   setActionPillPosition: (pos: UIPosition | null) => void;
   setVariablesCardPosition: (pos: UIPosition | null) => void;
   setVariablesCardCollapsed: (collapsed: boolean) => void;
@@ -155,10 +194,35 @@ export const useUIStore = create<UIState>((set) => ({
   setSidebarVisible: (sidebarVisible) => set({ sidebarVisible }),
   setConsoleVisible: (consoleVisible) => set({ consoleVisible }),
   pushStatusNotice: (notice) => {
+    // RL-101 fold B — if a previous notice is still up when a new one
+    // arrives (race between toast 1 + toast 2), close the outgoing
+    // notice as `'auto'` so the pusher's telemetry doesn't lose the
+    // signal. Mirrors the spec edge-case "toast 2 reemplaza toast 1
+    // limpiamente, NO stacking de banners".
+    const previous = useUIStore.getState().statusNotice;
+    if (previous?.onDismiss) {
+      try {
+        previous.onDismiss('auto');
+      } catch {
+        // Swallow — the new notice still has to land. The onDismiss
+        // contract is fire-and-forget.
+      }
+    }
     statusNoticeCounter += 1;
     set({ statusNotice: { ...notice, id: statusNoticeCounter } });
   },
-  dismissStatusNotice: () => set({ statusNotice: null }),
+  dismissStatusNotice: (mode: StatusNoticeDismissMode = 'manual') => {
+    const previous = useUIStore.getState().statusNotice;
+    if (!previous) return;
+    if (previous.onDismiss) {
+      try {
+        previous.onDismiss(mode);
+      } catch {
+        // Swallow — the notice still has to clear.
+      }
+    }
+    set({ statusNotice: null });
+  },
   setActionPillPosition: (pos) => {
     writePersisted(ACTION_PILL_POSITION_KEY, pos);
     set({ actionPillPosition: pos });
