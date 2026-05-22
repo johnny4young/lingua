@@ -10300,7 +10300,7 @@ Slice 1 shipped end-to-end against the approved plan + all six folds.
 - Slice 1 scope:
   - **Pre-seeded scratchpad with real code** (not placeholder `puts "Hello"`). Use a snippet that produces rich output — for JS: a small array sort with `console.table()`.
   - **Post-first-run toast** — after the first successful run completes, fire a `pushStatusNotice` with `tone: 'success'` and a single CTA "Save this as a snippet?" (button uses the existing RL-023 Snippet Lab API).
-  - **Post-first-snippet toast** — after the first snippet save, fire a status notice "Browse your library with ⌘P" (CTA opens Quick Open).
+  - **Post-first-snippet toast** — after the first snippet save, fire a status notice that points back to Snippets and the command palette (`Cmd+Shift+P` / `Ctrl+Shift+P`); CTA opens the Snippets library.
   - **Settings → General → Onboarding section** — three toggles to reset each of the three states above.
   - i18n: en + es (tuteo).
   - Telemetry: 3 new closed-enum events — `onboarding.first_run_completed { language }`, `onboarding.first_snippet_saved`, `onboarding.toast_dismissed { stage }`.
@@ -10309,7 +10309,7 @@ Slice 1 shipped end-to-end against the approved plan + all six folds.
   - A fresh install opens with a JS scratchpad showing 5-7 lines of pre-seeded code (array sort + `console.table`).
   - Running the pre-seeded code with Cmd+Enter shows the table in the console panel.
   - Within 1500 ms of the first successful run, a status notice appears with "Save this as a snippet?" CTA.
-  - Saving the snippet fires a second status notice mentioning Cmd+P.
+  - Saving the snippet fires a second status notice mentioning Snippets and the command palette shortcut.
   - The choreography fires AT MOST ONCE per user (per stage). Subsequent runs/snippet saves are silent.
   - Settings → Onboarding has three "Reset" buttons that re-arm each stage.
 - Out of scope (deferred to Slice 2):
@@ -10321,6 +10321,103 @@ Slice 1 shipped end-to-end against the approved plan + all six folds.
 - Risks:
   - Toast fatigue → mitigated by once-per-stage cap + dismiss-forever option.
   - Pre-seeded code becoming stale → mitigated by reviewing the snippet quarterly via a CI check that verifies it still produces the expected output.
+
+#### § Slice 1 landed (2026-05-22)
+
+Slice 1 shipped end-to-end with all seven folds (A–G) included. The
+acceptance criteria from the slice spec are met:
+
+- New `src/renderer/onboarding/seedScratchpad.ts` ships a 5-line JS
+  demo with `console.table()` so the welcome moment is "press run,
+  see a real table render in the console". Width-capped (700 chars,
+  12 lines) so it fits a 720p viewport without scrolling, and the
+  smoke test pins the source against `fetch`, `require`, `process`,
+  and bare-`import` identifiers — the Worker runtime can't service
+  any of those on Free tier and we want the demo to keep working
+  for first-install users without setup.
+
+- New `src/renderer/hooks/useOnboardingChoreography.ts` is mounted
+  in `<AppChrome>` directly after `useShareLinkBoot`, gated on the
+  same `sessionRestoreReady` flag so a real restored session
+  always wins over the seed. Safe-mode boot short-circuits the
+  hook entirely. The hook performs three jobs in one effect: seed
+  the welcome scratchpad if `tabs.length === 0` and the persisted
+  `onboardingWelcomeSeedVersion` is older than the current
+  `SEEDED_SCRATCHPAD_VERSION` (fold E); subscribe to the execution
+  history store for the first `'ok'` entry to fire the save-as-
+  snippet toast; subscribe to the snippets-store length for the
+  first 0→1 transition to fire the library-tip toast that points
+  users back to Snippets and the command palette.
+
+- `StatusNotice` was extended (non-breaking) with optional
+  `actions: ReadonlyArray<{ labelKey, onClick }>` (fold A) and
+  `onDismiss(mode)` (fold B). `<StatusNoticeBanner>` renders action
+  buttons before the X dismiss; the X reports `'manual'`, the
+  6s auto-timeout reports `'auto'`, and clicking a CTA reports
+  `'cta'`. A new push that replaces an outgoing notice fires the
+  outgoing `onDismiss('auto')` so toast 2 never silently loses
+  telemetry from toast 1.
+
+- 3 closed-enum telemetry events were added to both the renderer
+  (`src/shared/telemetry.ts`) and the update-server with parity
+  test alignment: `onboarding.first_run_completed { language }`
+  validated against an `ONBOARDING_LANGUAGE_IDS` set that cross-
+  imports `LANGUAGE_PACKS` so the source-of-truth never drifts;
+  `onboarding.first_snippet_saved` (no payload); and
+  `onboarding.toast_dismissed { stage, dismissMode }` with
+  `ONBOARDING_TOAST_STAGES` + `ONBOARDING_DISMISS_MODES` closed
+  enums (fold B).
+
+- `settingsStore` grew 3 boolean stage flags + the numeric
+  `onboardingWelcomeSeedVersion` (fold E), all persisted via
+  `partialize()` and sanitized in the rehydrate handler against
+  tampered or string entries; 3 reset setters + 3 mark-completed
+  setters are wired through `types/index.ts`.
+
+- New `<OnboardingSection>` lives in Settings → General after
+  `<UpdatesSection>`. Three rows use the shared `<Row>` + `<Toggle>`
+  pair; each toggle reads as **ON** when the user has completed
+  the stage (the flag is `true`) and flipping to OFF runs the
+  matching reset setter. A collapsible read-only `<pre>` (fold F)
+  shows the seed source so power users can audit what gets
+  auto-injected without triggering the seed by mistake.
+
+- `Mod+Shift+W` shortcut (fold D) re-arms all three onboarding
+  stages with a confirmation status notice. The shortcut id
+  `onboarding-replay` is verified non-colliding via the conflict-
+  free regression test added in the RL-036 reviewer pass.
+
+- Three palette commands `Re-arm onboarding {welcome, first-run,
+  first-save} tip` (fold G) are wired through `commandPaletteModel
+  .ts` `onReplayOnboarding{Welcome,FirstRun,FirstSnippet}`
+  callbacks in `CommandPalette.tsx`. Each closes the palette
+  first, then runs the corresponding store setter so the panel
+  doesn't compete with the resulting notice for the App state
+  slot.
+
+- Snippet save default-label = `activeTab.name` (fold C) — the
+  toast's "Save as snippet" CTA calls `addSnippet({label, ...})`
+  directly without opening the SnippetsModal naming prompt. Free-
+  tier budget overrun is handled by the store's own upsell notice.
+
+- 25 i18n keys added × 2 locales (tuteo neutral LatAm: `puedes`,
+  `guarda`, `abre`, `quieres` — never `podés`, `guardá`, `abrí`,
+  `querés`).
+
+- Tests cover: seed structural smoke (no banned identifiers
+  + balanced braces + ≤700 chars), `OnboardingSection` render +
+  toggle + preview interaction + reset behaviour, `useOnboarding
+  Choreography` 4 happy paths (seed fresh / re-seed on version
+  bump / first-run toast / first-snippet toast) + 4 reject paths
+  (already-completed / restored-session / disabled / error-run),
+  telemetry allow-list parity bump. `tests/components/App.test.tsx`
+  store mocks were extended to include `addTab` + the 6 new
+  onboarding setters to keep the App boot test green.
+
+- Reviewer-followups deferred for next slice: 60-second intro
+  video (Slice 2 — content production + hosting), per-language
+  pre-seeded scratchpad variants (Slice 2 — currently only JS
+  ships).
 
 ### RL-102 Git Read-Only Layer
 

@@ -166,6 +166,27 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     combos: [{ tokens: ['Mod', 'Shift', 'L'] }],
     keywords: ['share', 'link', 'url', 'compartir', 'enlace', 'copy', 'copia'],
   },
+  // RL-101 Slice 1 fold D — replay-onboarding shortcut. `Mod+Shift+W`
+  // (W for Welcome). Verified free against the catalog by the
+  // conflict-free regression test. Triggers all three reset setters
+  // so the welcome scratchpad, first-run tip, and first-snippet tip
+  // all re-arm on the next eligible event.
+  {
+    id: 'onboarding-replay',
+    group: 'view',
+    labelKey: 'shortcuts.item.replayOnboarding.label',
+    descriptionKey: 'shortcuts.item.replayOnboarding.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'W'] }],
+    keywords: [
+      'onboarding',
+      'welcome',
+      'inicio',
+      'guiado',
+      'replay',
+      'reset',
+      'rearm',
+    ],
+  },
   // RL-093 Slice 3 — recover from a floating-pill/variables-card that
   // ended up in an unreachable position (off-screen monitor change,
   // bad localStorage value). Clears both persisted positions back to

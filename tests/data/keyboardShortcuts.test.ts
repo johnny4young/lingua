@@ -81,6 +81,7 @@ describe('keyboardShortcuts catalog', () => {
       'run-cycle-workflow-mode',
       'run-toggle-recent-runs',
       'run-export-capsule',
+      'onboarding-replay',
       'file-save',
       'file-save-as',
       'file-open',
@@ -129,6 +130,15 @@ describe('keyboardShortcuts catalog', () => {
     expect(shortcut).toBeDefined();
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'K'] }]);
     expect(shortcut?.group).toBe('overlays');
+  });
+
+  it('declares the onboarding replay shortcut as Mod+Shift+W', () => {
+    const shortcut = KEYBOARD_SHORTCUTS.find(
+      (entry) => entry.id === 'onboarding-replay'
+    );
+    expect(shortcut).toBeDefined();
+    expect(shortcut?.group).toBe('view');
+    expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Shift', 'W'] }]);
   });
 
   it('declares a utilities group with all three RL-069 productivity shortcuts', () => {

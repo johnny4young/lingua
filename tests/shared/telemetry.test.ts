@@ -50,6 +50,15 @@ describe('TELEMETRY_EVENTS', () => {
       // anything whose lowercased name contains 'source' — same
       // precedent as `runtime.workflow_mode_changed { trigger }`.
       'language_scorecard_viewed',
+      // RL-101 Slice 1 — onboarding choreography (alphabetic order
+      // puts `onboarding.*` between `language_scorecard_viewed` and
+      // `overlay.opened`). Closed-enum payloads:
+      // `{ language }` validated against the renderer's
+      // `ONBOARDING_LANGUAGE_IDS` set, no payload, and
+      // `{ stage, dismissMode }` (fold B).
+      'onboarding.first_run_completed',
+      'onboarding.first_snippet_saved',
+      'onboarding.toast_dismissed',
       'overlay.opened',
       'runner.executed',
       // RL-020 Slice 5 — bare-expression auto-log toggle.
@@ -866,6 +875,68 @@ describe('capsule.exported value validator (RL-094 Slice 1 fold A)', () => {
     );
     expect(event.properties).not.toHaveProperty('sizeBucket');
     expect(droppedKeys).toContain('sizeBucket');
+  });
+});
+
+describe('onboarding telemetry value validators (RL-101 Slice 1)', () => {
+  it('accepts the closed first-run language enum', () => {
+    for (const language of ['javascript', 'typescript', 'python', 'go', 'rust', 'ruby', 'lua'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'onboarding.first_run_completed',
+          properties: { language },
+        })
+      );
+      expect(event.properties).toEqual({ language });
+    }
+  });
+
+  it('drops unknown first-run language values', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'onboarding.first_run_completed',
+        properties: { language: 'brainfuck' },
+      })
+    );
+    expect(event.properties).toEqual({});
+    expect(droppedKeys).toContain('language');
+  });
+
+  it('accepts toast dismissed stage and mode closed enums', () => {
+    for (const stage of ['first_run', 'first_snippet'] as const) {
+      for (const dismissMode of ['cta', 'manual', 'auto'] as const) {
+        const { event } = redactForTelemetry(
+          buildEvent({
+            event: 'onboarding.toast_dismissed',
+            properties: { stage, dismissMode },
+          })
+        );
+        expect(event.properties).toEqual({ stage, dismissMode });
+      }
+    }
+  });
+
+  it('drops unknown toast dismissed stage and mode values', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'onboarding.toast_dismissed',
+        properties: { stage: 'welcome', dismissMode: 'keyboard' },
+      })
+    );
+    expect(event.properties).toEqual({});
+    expect(droppedKeys).toContain('stage');
+    expect(droppedKeys).toContain('dismissMode');
+  });
+
+  it('keeps first-snippet telemetry payload-free', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'onboarding.first_snippet_saved',
+        properties: { stage: 'first_snippet' },
+      })
+    );
+    expect(event.properties).toEqual({});
+    expect(droppedKeys).toContain('stage');
   });
 });
 

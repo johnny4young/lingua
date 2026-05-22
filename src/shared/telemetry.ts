@@ -203,6 +203,15 @@ export const TELEMETRY_EVENTS = [
   // raw fragment length BEFORE decode succeeds. Mirrored on
   // update-server with parity test.
   'share.opened',
+  // RL-101 Slice 1 — onboarding choreography events. All three are
+  // mirrored on update-server with parity test. Closed enums live
+  // in `ONBOARDING_TOAST_STAGES` + `ONBOARDING_DISMISS_MODES`
+  // (fold B) below. `language` is validated against the existing
+  // `LANGUAGE_PACK_IDS` set so the redactor's DENY_SUBSTRINGS pass
+  // does not strip the value — `language` is not in the deny list.
+  'onboarding.first_run_completed',
+  'onboarding.first_snippet_saved',
+  'onboarding.toast_dismissed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -377,6 +386,16 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-036 Phase A1 fold B + G — `status` ∈ `SHARE_OPEN_STATUSES`,
   // `sizeBucket` ∈ `SHARE_SIZE_BUCKETS_SET`.
   'share.opened': ['status', 'sizeBucket'],
+  // RL-101 Slice 1 — `language` ∈ `LANGUAGE_PACK_IDS` (existing
+  // shared set; passes the redactor's DENY_SUBSTRINGS pass because
+  // `language` is not in the deny list).
+  'onboarding.first_run_completed': ['language'],
+  // No fields: a single counter event marking the first ever snippet
+  // save. Pure adoption signal, no qualifier needed.
+  'onboarding.first_snippet_saved': [],
+  // RL-101 fold B — `stage` ∈ `ONBOARDING_TOAST_STAGES`,
+  // `dismissMode` ∈ `ONBOARDING_DISMISS_MODES`.
+  'onboarding.toast_dismissed': ['stage', 'dismissMode'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -575,6 +594,31 @@ export const SHARE_SIZE_BUCKETS_SET = new Set([
   '<6kb',
   '>=6kb',
 ]);
+// RL-101 Slice 1 — closed-enum stage label for the
+// `onboarding.toast_dismissed` event. Mirrors the two interactive
+// toast stages from the choreography (welcome seed has no toast).
+export const ONBOARDING_TOAST_STAGES = new Set([
+  'first_run',
+  'first_snippet',
+]);
+// RL-101 fold B — closed-enum dismiss attribution. `cta` is a CTA
+// button click, `manual` is the X dismiss, `auto` is the 6s timeout.
+export const ONBOARDING_DISMISS_MODES = new Set([
+  'cta',
+  'manual',
+  'auto',
+]);
+// RL-101 Slice 1 — language ids that the `language` property on
+// `onboarding.first_run_completed` is validated against. Pulled
+// from `LANGUAGE_PACKS` so a new pack does not require a manual
+// edit here — the import below re-exports the existing source of
+// truth so renderer and update-server stay in lock-step (the
+// server mirror duplicates the set verbatim since it cannot import
+// from `src/`).
+import { LANGUAGE_PACKS as ONBOARDING_LANGUAGE_PACKS } from './languagePacks';
+const ONBOARDING_LANGUAGE_IDS = new Set(
+  ONBOARDING_LANGUAGE_PACKS.map((pack) => pack.id)
+);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
   'available',
@@ -856,6 +900,23 @@ function isAllowedValue(
         return typeof value === 'string' && SHARE_OPEN_STATUSES.has(value);
       if (key === 'sizeBucket')
         return typeof value === 'string' && SHARE_SIZE_BUCKETS_SET.has(value);
+      return false;
+    case 'onboarding.first_run_completed':
+      if (key === 'language')
+        return (
+          typeof value === 'string' &&
+          (ONBOARDING_LANGUAGE_IDS as ReadonlySet<string>).has(value)
+        );
+      return false;
+    case 'onboarding.first_snippet_saved':
+      // Event carries no whitelisted properties; redactor drops
+      // anything that arrives anyway.
+      return false;
+    case 'onboarding.toast_dismissed':
+      if (key === 'stage')
+        return typeof value === 'string' && ONBOARDING_TOAST_STAGES.has(value);
+      if (key === 'dismissMode')
+        return typeof value === 'string' && ONBOARDING_DISMISS_MODES.has(value);
       return false;
     default: {
       const exhaustive: never = event;

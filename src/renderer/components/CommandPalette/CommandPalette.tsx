@@ -453,6 +453,23 @@ export function CommandPalette({
             );
           }
         : undefined,
+      // RL-101 Slice 1 fold G — three palette entries that re-arm a
+      // single stage each. Each callback reads the setter from the
+      // settings store at click time so a fresh slice always lands
+      // even if the user opened the palette before the store mounted.
+      onReplayOnboardingWelcome: () => {
+        useSettingsStore.getState().resetOnboardingWelcome();
+        useUIStore.getState().pushStatusNotice({
+          tone: 'info',
+          messageKey: 'onboarding.notice.welcomeReplay',
+        });
+      },
+      onReplayOnboardingFirstRun: () => {
+        useSettingsStore.getState().resetOnboardingFirstRun();
+      },
+      onReplayOnboardingFirstSnippet: () => {
+        useSettingsStore.getState().resetOnboardingFirstSnippet();
+      },
       // RL-095 Slice 1 fold F — render + copy markdown to clipboard.
       onCopyLanguageScorecardMarkdown: () => {
         const markdown = renderLanguageScorecardMarkdown();

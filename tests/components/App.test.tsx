@@ -52,6 +52,10 @@ const mockEditorState = {
   saveTabById: vi.fn().mockResolvedValue(true),
   openFileFromDisk: vi.fn().mockResolvedValue(undefined),
   closeTab: vi.fn().mockResolvedValue(true),
+  // RL-101 Slice 1 — `useOnboardingChoreography` calls `addTab`
+  // when seeding the welcome scratchpad on a fresh install. Stub
+  // it so the hook is a silent no-op in App.test.tsx.
+  addTab: vi.fn(),
   activeTabId: 'tab-1',
   tabs: [] as Array<{
     id: string;
@@ -70,6 +74,20 @@ const mockSettingsState = {
   suppressTourAutoStart: false,
   setLastSeenVersion: mockSetLastSeenVersion,
   setHasCompletedTour: mockSetHasCompletedTour,
+  // RL-101 Slice 1 — onboarding flags + setters consumed by
+  // `useOnboardingChoreography`. Default `true` so the welcome
+  // seed path does NOT fire during App.test.tsx (the test asserts
+  // unrelated boot behaviours and doesn't seed snippets / tabs).
+  hasCompletedOnboardingWelcome: true,
+  hasCompletedOnboardingFirstRun: true,
+  hasCompletedOnboardingFirstSnippet: true,
+  onboardingWelcomeSeedVersion: Number.MAX_SAFE_INTEGER,
+  markOnboardingWelcomeCompleted: vi.fn(),
+  markOnboardingFirstRunCompleted: vi.fn(),
+  markOnboardingFirstSnippetCompleted: vi.fn(),
+  resetOnboardingWelcome: vi.fn(),
+  resetOnboardingFirstRun: vi.fn(),
+  resetOnboardingFirstSnippet: vi.fn(),
 };
 
 let smokeEnabled = false;
@@ -155,7 +173,22 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     selector ? selector(mockEditorState) : mockEditorState;
   useEditorStore.getState = () => mockEditorState;
   useEditorStore.subscribe = mockEditorSubscribe;
-  return { useEditorStore };
+  // RL-101 Slice 1 — `useOnboardingChoreography` imports
+  // `createDefaultTab` to construct the seed tab. Stub it to a
+  // minimal FileTab-shaped object; tests never assert on the seed
+  // contents here.
+  const createDefaultTab = (language = 'javascript') => ({
+    id: 'mock-tab',
+    name: 'mock.js',
+    content: '',
+    language,
+    runtimeMode: 'worker',
+    workflowMode: 'scratchpad',
+    autoLogEnabled: false,
+    stdinBuffer: '',
+    isDirty: false,
+  });
+  return { useEditorStore, createDefaultTab };
 });
 
 vi.mock('../../src/renderer/stores/pluginStore', () => ({

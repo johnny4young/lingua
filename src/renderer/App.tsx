@@ -37,6 +37,7 @@ import { useDefaultOpenFileConsumer } from './hooks/useDefaultOpenFileConsumer';
 import { useShareLinkBoot } from './hooks/useShareLinkBoot';
 import { ShareLinkController } from './components/Share/ShareLinkButton';
 import { SHARE_LINK_TRIGGER_EVENT } from './components/Share/shareLinkEvents';
+import { useOnboardingChoreography } from './hooks/useOnboardingChoreography';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
@@ -230,6 +231,13 @@ function AppChrome({
   // share link into the address bar without reloading. Skips in
   // safe mode so a poisoned link cannot trap a crash recovery cycle.
   useShareLinkBoot({ enabled: sessionRestoreReady });
+  // RL-101 Slice 1 — onboarding choreography. Seeds the welcome
+  // scratchpad on fresh installs + subscribes to execution-history
+  // and snippets stores so the first successful run and first
+  // snippet save fire single-CTA toasts. Gated on
+  // `sessionRestoreReady` so a real restored session always wins
+  // over the seed; safe mode short-circuits the hook entirely.
+  useOnboardingChoreography({ enabled: sessionRestoreReady });
 
   useEffect(() => {
     // RL-065: fire the first telemetry event. `trackEvent` is a no-op
@@ -609,7 +617,33 @@ function AppChrome({
         })
       );
     },
+    // RL-101 Slice 1 fold D — `Mod+Shift+W` resets all three onboarding
+    // stages so the welcome scratchpad re-seeds on next eligible mount
+    // and both toasts re-arm. Surfaces an explicit notice so the user
+    // knows the shortcut fired (otherwise the reset would be silent
+    // until the next run / save).
+    replayOnboarding: () => {
+      const settings = useSettingsStore.getState();
+      settings.resetOnboardingWelcome();
+      settings.resetOnboardingFirstRun();
+      settings.resetOnboardingFirstSnippet();
+      useUIStore.getState().pushStatusNotice({
+        tone: 'info',
+        messageKey: 'onboarding.notice.welcomeReplay',
+      });
+    },
   });
+
+  // RL-101 Slice 1 — the snippets-saved toast CTA dispatches a
+  // window event instead of reaching into AppChrome's overlay
+  // state. Listen here so the CTA opens the SnippetsModal exactly
+  // like clicking the toolbar button or the palette command.
+  useEffect(() => {
+    const handler = () => openOverlay('snippets');
+    window.addEventListener('lingua-open-snippets-overlay', handler);
+    return () =>
+      window.removeEventListener('lingua-open-snippets-overlay', handler);
+  }, [openOverlay]);
 
   const handleStartGuidedTour = () => {
     closeOverlay();

@@ -280,6 +280,18 @@ interface BuildCommandPaletteModelArgs {
    */
   onCopyShareLink?: () => void;
   /**
+   * RL-101 Slice 1 fold G — three palette entries that re-arm a
+   * single onboarding stage each (welcome seed / first-run tip /
+   * first-snippet tip). Each callback flips ONLY its stage's flag
+   * back to `false`. The welcome callback additionally resets the
+   * seed-version tracker so the next boot re-seeds even when
+   * `SEEDED_SCRATCHPAD_VERSION` matches the persisted value. Useful
+   * for support, demos, and power-user QA.
+   */
+  onReplayOnboardingWelcome?: () => void;
+  onReplayOnboardingFirstRun?: () => void;
+  onReplayOnboardingFirstSnippet?: () => void;
+  /**
    * Translation function. Optional so legacy callers keep working without
    * wiring i18next; when omitted, built-in action labels and descriptions
    * fall back to their English keys.
@@ -584,6 +596,9 @@ export function buildCommandPaletteModel({
   onShowLanguageSupport,
   onCopyLanguageScorecardMarkdown,
   onCopyShareLink,
+  onReplayOnboardingWelcome,
+  onReplayOnboardingFirstRun,
+  onReplayOnboardingFirstSnippet,
   t,
 }: BuildCommandPaletteModelArgs): CommandEntry[] {
   const translate: (key: string, options?: Record<string, unknown>) => string = t
@@ -742,6 +757,52 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onCopyShareLink();
+            }
+          ),
+        ]
+      : []),
+    // RL-101 Slice 1 fold G — three palette entries, one per stage.
+    // Each closes the palette FIRST, then runs the reset callback so
+    // any follow-up status notice the renderer emits doesn't compete
+    // with the palette overlay for the same App state slot.
+    ...(onReplayOnboardingWelcome
+      ? [
+          buildActionCommand(
+            'action-replay-onboarding-welcome',
+            translate('onboarding.palette.rearmWelcome.label'),
+            translate('onboarding.palette.rearmWelcome.description'),
+            ['onboarding', 'welcome', 'inicio', 'guiado', 'replay', 'reset'],
+            () => {
+              onClose();
+              onReplayOnboardingWelcome();
+            }
+          ),
+        ]
+      : []),
+    ...(onReplayOnboardingFirstRun
+      ? [
+          buildActionCommand(
+            'action-replay-onboarding-first-run',
+            translate('onboarding.palette.rearmFirstRun.label'),
+            translate('onboarding.palette.rearmFirstRun.description'),
+            ['onboarding', 'first', 'run', 'tip', 'rearm', 'reset'],
+            () => {
+              onClose();
+              onReplayOnboardingFirstRun();
+            }
+          ),
+        ]
+      : []),
+    ...(onReplayOnboardingFirstSnippet
+      ? [
+          buildActionCommand(
+            'action-replay-onboarding-first-snippet',
+            translate('onboarding.palette.rearmFirstSnippet.label'),
+            translate('onboarding.palette.rearmFirstSnippet.description'),
+            ['onboarding', 'first', 'snippet', 'tip', 'rearm', 'reset'],
+            () => {
+              onClose();
+              onReplayOnboardingFirstSnippet();
             }
           ),
         ]

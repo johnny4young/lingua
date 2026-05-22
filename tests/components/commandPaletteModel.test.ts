@@ -1228,6 +1228,60 @@ describe('buildCommandPaletteModel — per-entry replay (RL-028 sixth slice trai
       await i18next.changeLanguage('en');
     }
   });
+
+  it('exposes onboarding replay commands and closes before resetting a stage', () => {
+    const calls: string[] = [];
+    const commands = buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: () => calls.push('close'),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      onReplayOnboardingWelcome: () => calls.push('welcome'),
+      onReplayOnboardingFirstRun: () => calls.push('first-run'),
+      onReplayOnboardingFirstSnippet: () => calls.push('first-snippet'),
+      t: i18next.t.bind(i18next),
+    });
+
+    expect(
+      commands.find((c) => c.id === 'action-replay-onboarding-welcome')?.label
+    ).toBe('Re-arm onboarding welcome scratchpad');
+    expect(
+      commands.find((c) => c.id === 'action-replay-onboarding-first-run')
+    ).toBeDefined();
+    expect(
+      commands.find((c) => c.id === 'action-replay-onboarding-first-snippet')
+    ).toBeDefined();
+
+    commands.find((c) => c.id === 'action-replay-onboarding-welcome')?.action();
+    commands.find((c) => c.id === 'action-replay-onboarding-first-run')?.action();
+    commands
+      .find((c) => c.id === 'action-replay-onboarding-first-snippet')
+      ?.action();
+
+    expect(calls).toEqual([
+      'close',
+      'welcome',
+      'close',
+      'first-run',
+      'close',
+      'first-snippet',
+    ]);
+  });
 });
 
 describe('buildCommandPaletteModel — Toggle Vim mode (RL-037)', () => {

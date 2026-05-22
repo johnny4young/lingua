@@ -334,6 +334,21 @@ export const useSettingsStore = create<SettingsState>()(
       nodeRunnerFirstRunNoticeShown: false,
       // RL-020 Slice 2 fold F — onboarding-toast acknowledgement.
       firstWorkflowModeSwitchAcknowledged: false,
+      // RL-101 Slice 1 — three persisted one-shot flags driving the
+      // onboarding choreography. All default `false` so a fresh
+      // install sees the full sequence; `hasCompletedOnboardingWelcome`
+      // is also gated by `onboardingWelcomeSeedVersion` (fold E) so a
+      // version bump re-arms the seed even for existing users.
+      hasCompletedOnboardingWelcome: false,
+      hasCompletedOnboardingFirstRun: false,
+      hasCompletedOnboardingFirstSnippet: false,
+      // RL-101 fold E — seed-version tracker. When the value persisted
+      // here is strictly less than `SEEDED_SCRATCHPAD_VERSION` from
+      // `src/renderer/onboarding/seedScratchpad.ts`, the choreography
+      // hook re-seeds the welcome tab even though the welcome flag is
+      // already `true`. Default `0` so first-install users get version
+      // `1` immediately.
+      onboardingWelcomeSeedVersion: 0,
       language: 'system',
       lastSeenVersion: null,
       hasCompletedTour: false,
@@ -411,6 +426,34 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({
           shareLinkConfirmEnabled: !state.shareLinkConfirmEnabled,
         })),
+      // RL-101 Slice 1 — three reset setters. Flip the corresponding
+      // flag back to `false` so the next welcome-seed, first-run, or
+      // first-snippet event re-arms the toast. Settings → General
+      // wires these to the reset toggles; the palette commands
+      // (fold G) and the Mod+Shift+W shortcut (fold D) reuse them.
+      resetOnboardingWelcome: () =>
+        set({
+          hasCompletedOnboardingWelcome: false,
+          // Resetting also clears the seed-version tracker so the
+          // next boot re-applies the latest seed even if the user is
+          // already on the current `SEEDED_SCRATCHPAD_VERSION`.
+          onboardingWelcomeSeedVersion: 0,
+        }),
+      resetOnboardingFirstRun: () =>
+        set({ hasCompletedOnboardingFirstRun: false }),
+      resetOnboardingFirstSnippet: () =>
+        set({ hasCompletedOnboardingFirstSnippet: false }),
+      // Stage completion setters — called by `useOnboardingChoreography`
+      // after each fired event so the toast never repeats. Idempotent.
+      markOnboardingWelcomeCompleted: (seedVersion) =>
+        set({
+          hasCompletedOnboardingWelcome: true,
+          onboardingWelcomeSeedVersion: seedVersion,
+        }),
+      markOnboardingFirstRunCompleted: () =>
+        set({ hasCompletedOnboardingFirstRun: true }),
+      markOnboardingFirstSnippetCompleted: () =>
+        set({ hasCompletedOnboardingFirstSnippet: true }),
       applyThemePreset: (preset) =>
         set((state) => ({
           theme: preset.theme,
@@ -658,6 +701,15 @@ export const useSettingsStore = create<SettingsState>()(
         lastSeenVersion: state.lastSeenVersion,
         hasCompletedTour: state.hasCompletedTour,
         suppressTourAutoStart: state.suppressTourAutoStart,
+        // RL-101 Slice 1 — sticky onboarding choreography flags so a
+        // user who has seen the welcome seed / first-run / first-snippet
+        // toasts never sees them again across reloads. Reset toggles
+        // in Settings re-arm each stage.
+        hasCompletedOnboardingWelcome: state.hasCompletedOnboardingWelcome,
+        hasCompletedOnboardingFirstRun: state.hasCompletedOnboardingFirstRun,
+        hasCompletedOnboardingFirstSnippet:
+          state.hasCompletedOnboardingFirstSnippet,
+        onboardingWelcomeSeedVersion: state.onboardingWelcomeSeedVersion,
         shortcutOverrides: state.shortcutOverrides,
         keymapPreset: state.keymapPreset,
         themePack: state.themePack,
@@ -817,9 +869,36 @@ export const useSettingsStore = create<SettingsState>()(
           typeof merged.shareLinkConfirmEnabled === 'boolean'
             ? merged.shareLinkConfirmEnabled
             : currentState.shareLinkConfirmEnabled;
+        // RL-101 Slice 1 — sanitize the onboarding choreography flags.
+        // Tampered entries (null, string, undefined) fall back to the
+        // initial `false` so the user always sees the welcome flow
+        // exactly once. The seed-version tracker also defaults to 0
+        // so any non-finite persisted value re-arms the seed.
+        const hasCompletedOnboardingWelcome =
+          typeof merged.hasCompletedOnboardingWelcome === 'boolean'
+            ? merged.hasCompletedOnboardingWelcome
+            : currentState.hasCompletedOnboardingWelcome;
+        const hasCompletedOnboardingFirstRun =
+          typeof merged.hasCompletedOnboardingFirstRun === 'boolean'
+            ? merged.hasCompletedOnboardingFirstRun
+            : currentState.hasCompletedOnboardingFirstRun;
+        const hasCompletedOnboardingFirstSnippet =
+          typeof merged.hasCompletedOnboardingFirstSnippet === 'boolean'
+            ? merged.hasCompletedOnboardingFirstSnippet
+            : currentState.hasCompletedOnboardingFirstSnippet;
+        const onboardingWelcomeSeedVersion =
+          typeof merged.onboardingWelcomeSeedVersion === 'number' &&
+          Number.isFinite(merged.onboardingWelcomeSeedVersion) &&
+          merged.onboardingWelcomeSeedVersion >= 0
+            ? Math.floor(merged.onboardingWelcomeSeedVersion)
+            : currentState.onboardingWelcomeSeedVersion;
         return {
           ...merged,
           shareLinkConfirmEnabled,
+          hasCompletedOnboardingWelcome,
+          hasCompletedOnboardingFirstRun,
+          hasCompletedOnboardingFirstSnippet,
+          onboardingWelcomeSeedVersion,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
           executionHistorySnapshotEnabled,
           nativeExecutionAcknowledged,

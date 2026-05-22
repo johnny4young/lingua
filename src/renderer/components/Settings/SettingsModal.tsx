@@ -37,6 +37,7 @@ import { PrivacySection } from './PrivacySection';
 import { RecoverySection } from './RecoverySection';
 import { RunCapsulesSection } from './RunCapsulesSection';
 import { UpdatesSection } from './UpdatesSection';
+import { OnboardingSection } from './OnboardingSection';
 import { UtilitiesSection } from './UtilitiesSection';
 import { useShallow } from 'zustand/react/shallow';
 import { IconButton, Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
@@ -581,6 +582,8 @@ export function SettingsModal({
               onStartGuidedTour={onStartGuidedTour}
             />
             <UpdatesSection />
+            {/* RL-101 Slice 1 — Onboarding choreography reset toggles */}
+            <OnboardingSection />
           </div>
         );
       case 'appearance':

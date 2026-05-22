@@ -122,6 +122,14 @@ interface UseGlobalShortcutsOptions {
    * No-op when no tab is active.
    */
   copyShareLink: () => void;
+  /**
+   * RL-101 Slice 1 fold D — replay the onboarding choreography by
+   * resetting all three stage flags + the seed-version tracker, then
+   * pushing a confirmation notice. The next mount of
+   * `useOnboardingChoreography` re-seeds the welcome scratchpad and
+   * re-arms both toasts.
+   */
+  replayOnboarding: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -148,6 +156,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'editor-toggle-stdin-panel': () => options.toggleStdinPanel(),
     'run-export-capsule': () => options.exportLatestCapsule(),
     'run-copy-share-link': () => options.copyShareLink(),
+    'onboarding-replay': () => options.replayOnboarding(),
     'ui-reset-floating-positions': () => options.resetFloatingPositions(),
     'view-toggle-variable-inspector-surface': () =>
       options.toggleVariableInspectorSurface(),
@@ -436,5 +445,5 @@ export function useGlobalShortcuts(options: UseGlobalShortcutsOptions) {
     };
     window.addEventListener('keydown', listener);
     return () => window.removeEventListener('keydown', listener);
-  }, [handleKeyDown]);
+  }, []);
 }
