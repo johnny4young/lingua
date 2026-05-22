@@ -1492,3 +1492,77 @@ describe('buildCommandPaletteModel — onShowDependencies (RL-025 Slice A fold C
     }
   });
 });
+
+// RL-044 Sub-slice G Fold C — palette toggle for the output→source
+// line affordance master gate. Mirrors the show-dependencies contract
+// (hidden when callback omitted; close-palette-first ordering).
+describe('action-toggle-output-source-mapping — RL-044 Sub-slice G Fold C', () => {
+  it('hides the entry when the callback is omitted', () => {
+    const commands = buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    });
+    expect(
+      commands.some((c) => c.id === 'action-toggle-output-source-mapping')
+    ).toBe(false);
+  });
+
+  it('exposes the entry when wired and closes the palette before firing the toggle', () => {
+    const onToggle = vi.fn();
+    const onClose = vi.fn();
+    const commands = buildCommandPaletteModel({
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle',
+      createTab: vi.fn(),
+      createDefaultTab: (language) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose,
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      onToggleOutputSourceMapping: onToggle,
+      t: i18next.t.bind(i18next),
+    });
+    const entry = commands.find(
+      (c) => c.id === 'action-toggle-output-source-mapping'
+    );
+    expect(entry).toBeDefined();
+    expect(entry?.keywords).toEqual(
+      expect.arrayContaining(['output', 'line', 'badge', 'origen', 'consola'])
+    );
+    entry?.action();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onClose.mock.invocationCallOrder[0]).toBeLessThan(
+      onToggle.mock.invocationCallOrder[0]
+    );
+  });
+});

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ConsoleEntry, ConsoleEntryType, ConsolePayloadKindFilter } from '../../types';
 import { useConsoleStore } from '../../stores/consoleStore';
+import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import { useRunner } from '../../hooks/useRunner';
@@ -10,11 +11,13 @@ import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { trackEvent } from '../../utils/telemetry';
+import { originSuppressedByMagicComment } from '../../utils/magicComments';
 import { IconButton, Kbd, Tooltip } from '../ui/chrome';
 import { EyebrowMono, MonoBadge } from '../ui/primitives';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
 import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 import { ConsoleEntryRenderer } from './ConsoleEntryRenderer';
+import { OutputLineBadge } from './OutputLineBadge';
 import { richKindBucket } from './richConsoleFormat';
 
 interface AnsiSpan {
@@ -176,6 +179,8 @@ function EntryRow({
   typeLabel,
   repeatCount,
   richRenderingEnabled,
+  pulseTargetLine,
+  originSuppressed,
 }: {
   entry: ConsoleEntry;
   showTimestamps: boolean;
@@ -184,6 +189,10 @@ function EntryRow({
   repeatCount: number;
   /** RL-044 Slice 1B fold E — when false, paint the legacy text path even when payload is set. */
   richRenderingEnabled: boolean;
+  /** RL-044 Sub-slice G Fold G — when set and matches this row's origin/entry line, the row pulses. */
+  pulseTargetLine: number | null;
+  /** Per-tab `@origin off` opt-out shared with the rich-render badge path. */
+  originSuppressed: boolean;
 }) {
   const labelClass = TYPE_BADGE[entry.type];
   const contentClass = TYPE_COLOR[entry.type];
@@ -192,10 +201,24 @@ function EntryRow({
   const payload = Array.isArray(entry.payload) ? entry.payload : null;
   const usesRichRender = richRenderingEnabled && payload !== null && payload.length > 0;
 
+  // RL-044 Sub-slice G Fold G — derive this row's source line from
+  // either a payload-level origin or the legacy entry.line. The
+  // pulse activates when that line matches the cursor-broadcast
+  // target line. `null` target = no pulse.
+  const rowSourceLine =
+    payload?.find((p) => p.origin)?.origin?.line ??
+    (typeof entry.line === 'number' && entry.line > 0 ? entry.line : null);
+  const rowOrigin = rowSourceLine !== null ? { line: rowSourceLine } : null;
+  const isPulsing =
+    !originSuppressed &&
+    pulseTargetLine !== null &&
+    rowSourceLine === pulseTargetLine;
+
   return (
     <div
       className="group flex gap-3 rounded-2xl px-2 py-1.5 hover:bg-surface-strong/52"
       data-testid="console-entry-row"
+      data-pulsing={isPulsing ? 'true' : undefined}
     >
       {showTimestamps && (
         <span className="shrink-0 select-none tabular-nums text-muted">
@@ -205,8 +228,21 @@ function EntryRow({
       <span className={`shrink-0 select-none font-bold text-[10px] leading-5 ${labelClass}`}>
         {typeLabel[entry.type]}
       </span>
-      {entry.line !== undefined && (
-        <span className="shrink-0 select-none text-muted">L{entry.line}</span>
+      {/*
+        RL-044 Sub-slice G — when the rich-render path is active the
+        interactive `<OutputLineBadge>` inside `<ConsoleEntryRenderer>`
+        is the canonical line affordance. The fallback branch renders
+        the same button here so ansi-only rows (Go / Rust subprocess
+        stdout) remain clickable instead of falling back to a static
+        `L<n>` hint.
+      */}
+      {rowOrigin && !originSuppressed && !(usesRichRender && payload !== null) && (
+        <span className="shrink-0">
+          <OutputLineBadge
+            origin={rowOrigin}
+            language={entry.language ?? 'unknown'}
+          />
+        </span>
       )}
       {usesRichRender && payload !== null ? (
         <div className={contentClass}>
@@ -214,6 +250,8 @@ function EntryRow({
             payloads={payload}
             fallbackText={entry.content}
             language={entry.language}
+            entryLine={entry.line}
+            originSuppressed={originSuppressed}
           />
         </div>
       ) : (
@@ -338,6 +376,52 @@ export function ConsolePanel() {
   // dispatch. Off → every row paints through `<AnsiContent>` even if
   // the runner sent a payload.
   const consoleRichRenderingEnabled = useSettingsStore(s => s.consoleRichRenderingEnabled);
+  const activeTab = useEditorStore((state) =>
+    state.activeTabId
+      ? state.tabs.find((tab) => tab.id === state.activeTabId)
+      : undefined
+  );
+  const originSuppressed = activeTab
+    ? originSuppressedByMagicComment(
+        activeTab.language ?? 'plaintext',
+        activeTab.content
+      )
+    : false;
+  // RL-044 Sub-slice G Fold G — symmetric inverse direction. Listens
+  // for `lingua-source-line-hovered` events broadcast by CodeEditor
+  // when the cursor settles on a line; pulses every console row
+  // whose origin.line / entry.line matches. The state holds the
+  // current pulse target line; cleared after the 1500ms animation.
+  const [pulseLine, setPulseLine] = useState<number | null>(null);
+  const pulseClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const handler = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
+      const detail = event.detail as { line?: unknown; durationMs?: unknown } | null;
+      const line = typeof detail?.line === 'number' ? detail.line : 0;
+      if (!Number.isFinite(line) || line <= 0) return;
+      setPulseLine(line);
+      if (pulseClearTimerRef.current) {
+        clearTimeout(pulseClearTimerRef.current);
+      }
+      const duration =
+        typeof detail?.durationMs === 'number' && detail.durationMs > 0
+          ? Math.min(detail.durationMs, 10_000)
+          : 1500;
+      pulseClearTimerRef.current = setTimeout(() => {
+        setPulseLine(null);
+        pulseClearTimerRef.current = null;
+      }, duration + 50);
+    };
+    window.addEventListener('lingua-source-line-hovered', handler);
+    return () => {
+      window.removeEventListener('lingua-source-line-hovered', handler);
+      if (pulseClearTimerRef.current) {
+        clearTimeout(pulseClearTimerRef.current);
+        pulseClearTimerRef.current = null;
+      }
+    };
+  }, []);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false);
   const typeLabel: Record<ConsoleEntryType, string> = {
@@ -536,6 +620,8 @@ export function ConsolePanel() {
               typeLabel={typeLabel}
               repeatCount={repeatCount}
               richRenderingEnabled={consoleRichRenderingEnabled}
+              pulseTargetLine={pulseLine}
+              originSuppressed={originSuppressed}
             />
           ))
         )}

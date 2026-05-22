@@ -16,7 +16,13 @@ import {
   isRuntimeTimeoutSupportedLanguage,
   resolveTimeoutMs,
 } from '../../shared/runtimeTimeoutPresets';
-import type { ConsoleOutput, ExecutionResult, FileTab, Language } from '../types';
+import type {
+  ConsoleOutput,
+  ExecutionResult,
+  FileTab,
+  Language,
+  RichOutputPayload,
+} from '../types';
 import { collectBrowserPreviewSiblingSources } from './browserPreviewSiblings';
 import {
   getCompilationLoadingMessage,
@@ -82,6 +88,39 @@ function collectRichOutputs(result: ExecutionResult): unknown[] | undefined {
   }
 
   return richOutputs.length > 0 ? richOutputs : undefined;
+}
+
+function stripRichOutputOrigin(payload: RichOutputPayload): RichOutputPayload {
+  if (!payload || typeof payload !== 'object' || !('origin' in payload)) {
+    return payload;
+  }
+  const withoutOrigin = { ...(payload as unknown as Record<string, unknown>) };
+  delete withoutOrigin.origin;
+  return withoutOrigin as unknown as RichOutputPayload;
+}
+
+function stripConsoleOutputOrigin(output: ConsoleOutput): ConsoleOutput {
+  const stripped: ConsoleOutput = {
+    type: output.type,
+    args: output.args,
+  };
+  if (output.payload) {
+    stripped.payload = output.payload.map(stripRichOutputOrigin);
+  }
+  return stripped;
+}
+
+function stripExecutionOutputOrigins(result: ExecutionResult): ExecutionResult {
+  return {
+    ...result,
+    stdout: result.stdout.map(stripConsoleOutputOrigin),
+    stderr: result.stderr.map(stripConsoleOutputOrigin),
+    magicResults: result.magicResults?.map((entry) =>
+      entry.payload
+        ? { ...entry, payload: stripRichOutputOrigin(entry.payload) }
+        : entry
+    ),
+  };
 }
 
 /**
@@ -221,6 +260,8 @@ export async function executeTabManually(
   const executionMode = executionModeForLanguage(language);
   const shouldRecordHistory = lifecycle.recordHistory !== false;
   const debugRequested = lifecycle.debug === true;
+  const outputSourceMappingEnabled =
+    useSettingsStore.getState().outputSourceMappingEnabled !== false;
 
   lifecycle.setCurrentLanguage?.(language);
 
@@ -370,28 +411,31 @@ export async function executeTabManually(
     const streamedStderr: ConsoleOutput[] = [];
     let streamedConsoleCount = 0;
     const streamConsoleOutput = (output: ConsoleOutput) => {
+      const visibleOutput = outputSourceMappingEnabled
+        ? output
+        : stripConsoleOutputOrigin(output);
       streamedConsoleCount += 1;
-      if (output.type === 'error') {
-        streamedStderr.push(output);
+      if (visibleOutput.type === 'error') {
+        streamedStderr.push(visibleOutput);
       } else {
-        streamedStdout.push(output);
+        streamedStdout.push(visibleOutput);
       }
       // RL-044 Slice 1B — forward the additive rich payload alongside
       // the legacy text content so the console renderer can dispatch
       // even on the streamed path (manual Run, hot scratchpad).
       addEntry(
-        output.payload
+        visibleOutput.payload
           ? {
-              type: output.type,
-              content: output.args.join(' '),
-              line: output.line,
+              type: visibleOutput.type,
+              content: visibleOutput.args.join(' '),
+              line: visibleOutput.line,
               ...(language ? { language } : {}),
-              payload: output.payload,
+              payload: visibleOutput.payload,
             }
           : {
-              type: output.type,
-              content: output.args.join(' '),
-              line: output.line,
+              type: visibleOutput.type,
+              content: visibleOutput.args.join(' '),
+              line: visibleOutput.line,
               ...(language ? { language } : {}),
             }
       );
@@ -458,6 +502,7 @@ export async function executeTabManually(
       ...(wantsScopeCapture && typeof scopeDepthPref === 'number'
         ? { scopeDepth: scopeDepthPref }
         : {}),
+      outputSourceMappingEnabled,
     };
 
     const settingsTimeoutMs = isRuntimeTimeoutSupportedLanguage(language)
@@ -478,7 +523,10 @@ export async function executeTabManually(
       setRunDeadlineAt(Date.now() + deadlineTimeoutMs);
     }
 
-    const result = await runner.execute(content, executionContext);
+    const rawResult = await runner.execute(content, executionContext);
+    const result = outputSourceMappingEnabled
+      ? rawResult
+      : stripExecutionOutputOrigins(rawResult);
     // Tear down the in-flight deadline immediately; the pill flips
     // to the termination variant on the next render.
     setRunDeadlineAt(null);

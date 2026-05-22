@@ -112,10 +112,16 @@ describe('TELEMETRY_EVENTS', () => {
       // enum payload `{ language, status }`. Sorts between
       // `mode_changed` and `stdin_used` alphabetically.
       'runtime.node_runner_used',
+      // RL-044 Sub-slice G — output→source line affordance click.
+      // Closed-enum payload `{ language, surface }` from
+      // `OUTPUT_ORIGIN_SURFACES` (`'badge'`). Sorts between
+      // `node_runner_used` and `python_console_payload_emitted`
+      // alphabetically (`output_origin_clicked` < `python_…`).
+      'runtime.output_origin_clicked',
       // RL-044 Slice 1C fold B — Python (Pyodide) console payload
       // adoption. Closed-enum payload `{ kind }` from
-      // `CONSOLE_RICH_KIND_BUCKETS`. Sorts between `node_runner_used`
-      // and `stdin_used` alphabetically.
+      // `CONSOLE_RICH_KIND_BUCKETS`. Sorts between
+      // `output_origin_clicked` and `stdin_used` alphabetically.
       'runtime.python_console_payload_emitted',
       // RL-044 Slice 2b-β-β-α fold E — Python rich-media adoption.
       // Closed-enum payload `{ kind }` from `RICH_MEDIA_REJECTED_KINDS`.
@@ -162,6 +168,29 @@ describe('TELEMETRY_EVENTS', () => {
       'utility.favorite.pinned',
       'utility.history.cleared',
     ]);
+  });
+});
+
+describe('runtime.output_origin_clicked redaction', () => {
+  it('keeps the closed surface enum without tripping the source-key deny pass', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.output_origin_clicked',
+        properties: { language: 'javascript', surface: 'badge' },
+      })
+    );
+    expect(event.properties).toEqual({ language: 'javascript', surface: 'badge' });
+  });
+
+  it('drops unknown output-origin surfaces', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.output_origin_clicked',
+        properties: { language: 'javascript', surface: 'hover' },
+      })
+    );
+    expect(event.properties).toEqual({ language: 'javascript' });
+    expect(droppedKeys).toContain('surface');
   });
 });
 

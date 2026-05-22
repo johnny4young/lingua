@@ -387,6 +387,75 @@ describe('TypeScriptRunner', () => {
     }
   });
 
+  it('skips the TS source line map when output source mapping is disabled', async () => {
+    const esbuild = await import('esbuild-wasm');
+    const source = 'console.log("hello")';
+    const ms = new MagicString(source);
+    ms.prepend('// generated helper\n');
+    vi.mocked(esbuild.transform).mockResolvedValue({
+      code: ms.toString(),
+      map: ms
+        .generateMap({
+          source: 'scratchpad.ts',
+          includeContent: true,
+          hires: true,
+        })
+        .toString(),
+      warnings: [],
+    });
+
+    const originalWorker = globalThis.Worker;
+    let postedLineMap: Record<number, number> | undefined;
+    let postedSourceMappingEnabled: boolean | undefined;
+
+    class MockWorker {
+      private listeners = new Map<string, (event: MessageEvent) => void>();
+
+      constructor(_url: URL | string, _options?: WorkerOptions) {}
+
+      addEventListener(type: string, handler: (event: MessageEvent) => void): void {
+        this.listeners.set(type, handler);
+      }
+
+      postMessage(message: {
+        runId?: string;
+        sourceLineMap?: Record<number, number>;
+        sourceMappingEnabled?: boolean;
+      }): void {
+        postedLineMap = message.sourceLineMap;
+        postedSourceMappingEnabled = message.sourceMappingEnabled;
+        const handler = this.listeners.get('message');
+        handler?.({
+          data: { type: 'done', runId: message.runId, executionTime: 4 },
+        } as MessageEvent);
+      }
+
+      terminate(): void {}
+    }
+
+    Object.defineProperty(globalThis, 'Worker', {
+      value: MockWorker,
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const runner = new TypeScriptRunner();
+      await runner.init();
+
+      await runner.execute(source, { outputSourceMappingEnabled: false });
+
+      expect(postedSourceMappingEnabled).toBe(false);
+      expect(postedLineMap).toBeUndefined();
+    } finally {
+      Object.defineProperty(globalThis, 'Worker', {
+        value: originalWorker,
+        writable: true,
+        configurable: true,
+      });
+    }
+  });
+
   it('does not let a stale transpile supersede a newer execution', async () => {
     const esbuild = await import('esbuild-wasm');
     let resolveFirstTranspile!: (value: { code: string; warnings: [] }) => void;

@@ -337,3 +337,39 @@ describe('wrapAsRawText', () => {
     expect(wrapAsRawText('hi there')).toEqual({ kind: 'rawText', text: 'hi there' });
   });
 });
+
+describe('RichOutputOrigin (Sub-slice G)', () => {
+  it('accepts an origin field on every kind without breaking the discriminant', () => {
+    const datePayload = { kind: 'date', iso: '2026-05-22T00:00:00.000Z', origin: { line: 7 } };
+    const tablePayload = {
+      kind: 'table',
+      columns: ['a'],
+      rows: [],
+      origin: { line: 12, column: 4 },
+    };
+    const rawTextPayload = { kind: 'rawText', text: 'x', origin: { line: 3 } };
+    expect(isRichOutputPayload(datePayload)).toBe(true);
+    expect(isRichOutputPayload(tablePayload)).toBe(true);
+    expect(isRichOutputPayload(rawTextPayload)).toBe(true);
+  });
+
+  it('preserves origin through a JSON round-trip (postMessage simulation)', () => {
+    const original = { kind: 'rawText', text: 'hello', origin: { line: 42, column: 8 } };
+    const transported = JSON.parse(JSON.stringify(original));
+    expect(transported).toEqual(original);
+    expect(transported.origin.line).toBe(42);
+    expect(transported.origin.column).toBe(8);
+  });
+
+  it('serializeRichValue does not stamp origin on its own (callers attach after)', () => {
+    const payload = serializeRichValue(42);
+    expect(payload).toEqual({ kind: 'primitive', type: 'number', repr: '42' });
+    expect((payload as { origin?: unknown }).origin).toBeUndefined();
+  });
+
+  it('callers can stamp origin onto any payload variant', () => {
+    const payload = serializeRichValue([1, 2, 3]);
+    (payload as { origin?: { line: number; column?: number } }).origin = { line: 5 };
+    expect((payload as { origin?: { line: number } }).origin?.line).toBe(5);
+  });
+});

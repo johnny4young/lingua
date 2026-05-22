@@ -284,6 +284,23 @@ export const useSettingsStore = create<SettingsState>()(
       // copy always surfaces the confirmation modal preview before
       // anything reaches the clipboard.
       shareLinkConfirmEnabled: true,
+      // RL-044 Sub-slice G — master toggle for the
+      // `<OutputLineBadge>` chip and output-origin metadata. Default
+      // ON so a fresh install gets the affordance out of the box.
+      // When OFF, runners skip origin capture where supported and
+      // the runtime strips any returned line/origin metadata before
+      // console, history, or capsule surfaces see it.
+      outputSourceMappingEnabled: true,
+      // RL-044 Sub-slice G — hover-on-chip → Monaco line flash
+      // sub-gate. Default ON. When OFF the chip is still clickable
+      // (cursor move), only the hover behaviour is suppressed.
+      outputHighlightOnHoverEnabled: true,
+      // RL-044 Sub-slice G — when the highlighted line is outside
+      // the editor viewport, smooth-scroll via
+      // `editor.revealLineInCenter(line, ScrollType.Smooth)`.
+      // Default ON. When OFF the flash still fires but the
+      // viewport stays put.
+      outputSmoothScrollOffscreenEnabled: true,
       // RL-019 Slice 1 fold B — only `worker` is implemented today;
       // the setter rejects anything else, so this stays a constant
       // initial value until Slice 2 lands the desktop Node backend.
@@ -437,6 +454,23 @@ export const useSettingsStore = create<SettingsState>()(
       toggleShareLinkConfirmEnabled: () =>
         set((state) => ({
           shareLinkConfirmEnabled: !state.shareLinkConfirmEnabled,
+        })),
+      // RL-044 Sub-slice G — three toggles for the output→source line
+      // affordance. Master gates the chip and origin metadata; the
+      // two sub-gates only affect renderer-side hover +
+      // smooth-scroll behaviour.
+      toggleOutputSourceMappingEnabled: () =>
+        set((state) => ({
+          outputSourceMappingEnabled: !state.outputSourceMappingEnabled,
+        })),
+      toggleOutputHighlightOnHoverEnabled: () =>
+        set((state) => ({
+          outputHighlightOnHoverEnabled: !state.outputHighlightOnHoverEnabled,
+        })),
+      toggleOutputSmoothScrollOffscreenEnabled: () =>
+        set((state) => ({
+          outputSmoothScrollOffscreenEnabled:
+            !state.outputSmoothScrollOffscreenEnabled,
         })),
       // RL-101 Slice 1 — three reset setters. Flip the corresponding
       // flag back to `false` so the next welcome-seed, first-run, or
@@ -703,6 +737,13 @@ export const useSettingsStore = create<SettingsState>()(
         // RL-036 Phase A1 fold F — sticky preference so the gate
         // survives reloads.
         shareLinkConfirmEnabled: state.shareLinkConfirmEnabled,
+        // RL-044 Sub-slice G — persist the three output-source-mapping
+        // toggles. Defaults seed via the merge below when a persisted
+        // payload predates the slice.
+        outputSourceMappingEnabled: state.outputSourceMappingEnabled,
+        outputHighlightOnHoverEnabled: state.outputHighlightOnHoverEnabled,
+        outputSmoothScrollOffscreenEnabled:
+          state.outputSmoothScrollOffscreenEnabled,
         defaultRuntimeMode: state.defaultRuntimeMode,
         workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
         scratchpadAutoLogByLanguage: state.scratchpadAutoLogByLanguage,
@@ -898,6 +939,22 @@ export const useSettingsStore = create<SettingsState>()(
           typeof merged.shareLinkConfirmEnabled === 'boolean'
             ? merged.shareLinkConfirmEnabled
             : currentState.shareLinkConfirmEnabled;
+        // RL-044 Sub-slice G — sanitize the three output-source-mapping
+        // toggles. Malformed entries (null, string, missing) fall back
+        // to the initial-state default (ON) so users who installed
+        // before the slice keep the affordance.
+        const outputSourceMappingEnabled =
+          typeof merged.outputSourceMappingEnabled === 'boolean'
+            ? merged.outputSourceMappingEnabled
+            : currentState.outputSourceMappingEnabled;
+        const outputHighlightOnHoverEnabled =
+          typeof merged.outputHighlightOnHoverEnabled === 'boolean'
+            ? merged.outputHighlightOnHoverEnabled
+            : currentState.outputHighlightOnHoverEnabled;
+        const outputSmoothScrollOffscreenEnabled =
+          typeof merged.outputSmoothScrollOffscreenEnabled === 'boolean'
+            ? merged.outputSmoothScrollOffscreenEnabled
+            : currentState.outputSmoothScrollOffscreenEnabled;
         // RL-101 Slice 1 — sanitize the onboarding choreography flags.
         // Tampered entries (null, string, undefined) fall back to the
         // initial `false` so the user always sees the welcome flow
@@ -924,6 +981,9 @@ export const useSettingsStore = create<SettingsState>()(
         return {
           ...merged,
           shareLinkConfirmEnabled,
+          outputSourceMappingEnabled,
+          outputHighlightOnHoverEnabled,
+          outputSmoothScrollOffscreenEnabled,
           hasCompletedOnboardingWelcome,
           hasCompletedOnboardingFirstRun,
           hasCompletedOnboardingFirstSnippet,

@@ -211,6 +211,38 @@ export function extractTimeoutMagicComment(
 }
 
 /**
+ * RL-044 Sub-slice G Fold F — `// @origin off` (JS / TS) and
+ * `# @origin off` (Python) per-tab directive that suppresses the
+ * `<OutputLineBadge>` chip for sensitive logs. Users pasting tokens
+ * or stack traces they don't want leaked through capsule export
+ * drop this directive anywhere in the buffer and every subsequent
+ * console row in the run skips its `origin` stamp.
+ *
+ * Matches both `// @origin off` and `// @origin: off` (loose colon
+ * for ergonomic typing). Case-insensitive on the literal `off`.
+ *
+ * The detector is intentionally narrow — only `off` is accepted
+ * because `on` is the default; widening the directive to
+ * `@origin on` (re-enable mid-buffer) would require its own scope
+ * and conflicts with the per-tab persistence model.
+ */
+const ORIGIN_OFF_DIRECTIVE_RE =
+  /(?:\/\/|#)\s*@origin\s*:?\s*off\b/i;
+
+export function originSuppressedByMagicComment(
+  language: string,
+  code: string
+): boolean {
+  const supports =
+    language === 'javascript' ||
+    language === 'typescript' ||
+    language === 'python';
+  if (!supports) return false;
+  if (typeof code !== 'string' || code.length === 0) return false;
+  return ORIGIN_OFF_DIRECTIVE_RE.test(code);
+}
+
+/**
  * Detect magic comment lines in JS/TS source code.
  */
 export function detectJSMagicComments(code: string): MagicCommentLine[] {

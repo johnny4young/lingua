@@ -513,6 +513,13 @@ export function CommandPalette({
             useUIStore.getState().openBottomPanel('dependencies');
           }
         : undefined,
+      // RL-044 Sub-slice G Fold C — flip the output→source line
+      // master toggle from the palette. Mirrors the close-palette-
+      // first pattern; the action callback in commandPaletteModel
+      // already calls `onClose()` before invoking us.
+      onToggleOutputSourceMapping: () => {
+        useSettingsStore.getState().toggleOutputSourceMappingEnabled();
+      },
       // RL-095 Slice 1 fold F — render + copy markdown to clipboard.
       onCopyLanguageScorecardMarkdown: () => {
         const markdown = renderLanguageScorecardMarkdown();

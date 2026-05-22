@@ -127,7 +127,34 @@ export interface RichOutputHtml {
   height?: number;
 }
 
-export type RichOutputPayload =
+/**
+ * RL-044 Sub-slice G — source line origin for an output payload.
+ *
+ * Runners that know which user-source line produced an entry
+ * (JS/TS workers via `parseJsErrorStack`, Python via
+ * `inspect.currentframe`, Go/Rust via stdout splitter) stamp this
+ * onto the emitted payload. The renderer reads `origin.line` to
+ * render an `<OutputLineBadge>` chip and to drive the
+ * `lingua-open-file` + `lingua-highlight-line` event bus. Optional —
+ * payloads from `eval`, anonymous callers, or runtime warnings simply
+ * omit it.
+ */
+export interface RichOutputOrigin {
+  line: number;
+  column?: number;
+}
+
+/**
+ * Meta fields layered onto every `RichOutputPayload` variant via
+ * intersection. Kept separate from the kind-discriminated union so
+ * `payload.kind` remains discriminable and `payload.origin` is always
+ * optional regardless of kind.
+ */
+export interface RichOutputMeta {
+  origin?: RichOutputOrigin;
+}
+
+export type RichOutputPayload = (
   | ScopeValue
   | RichOutputMap
   | RichOutputSet
@@ -137,7 +164,9 @@ export type RichOutputPayload =
   | RichOutputRawText
   | RichOutputImage
   | RichOutputChart
-  | RichOutputHtml;
+  | RichOutputHtml
+) &
+  RichOutputMeta;
 
 // ---------------------------------------------------------------------------
 // Caps

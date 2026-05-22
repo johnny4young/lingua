@@ -11,6 +11,7 @@ Library/
 
 # Local artifacts
 output/
+tmp/
 /PLAN.md
 /TEST_PLAN.md
 dev-license.json

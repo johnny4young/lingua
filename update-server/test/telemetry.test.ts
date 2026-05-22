@@ -25,6 +25,7 @@ import {
   ONBOARDING_DISMISS_MODES as WORKER_ONBOARDING_DISMISS_MODES,
   ONBOARDING_LANGUAGE_IDS as WORKER_ONBOARDING_LANGUAGE_IDS,
   ONBOARDING_TOAST_STAGES as WORKER_ONBOARDING_TOAST_STAGES,
+  OUTPUT_ORIGIN_SURFACES as WORKER_OUTPUT_ORIGIN_SURFACES,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENT_NAMES,
   checkRateLimit,
@@ -34,6 +35,7 @@ import {
 import {
   ONBOARDING_DISMISS_MODES as RENDERER_ONBOARDING_DISMISS_MODES,
   ONBOARDING_TOAST_STAGES as RENDERER_ONBOARDING_TOAST_STAGES,
+  OUTPUT_ORIGIN_SURFACES as RENDERER_OUTPUT_ORIGIN_SURFACES,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
@@ -593,6 +595,12 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     );
   });
 
+  it('output origin surfaces stay in sync with the renderer source of truth (RL-044 Sub-slice G)', () => {
+    expect([...WORKER_OUTPUT_ORIGIN_SURFACES].sort()).toEqual(
+      [...RENDERER_OUTPUT_ORIGIN_SURFACES].sort()
+    );
+  });
+
   it('DENY_SUBSTRINGS stays a byte-for-byte mirror of the renderer source of truth (RL-096 Slice 1 reviewer pass)', () => {
     // The worker is defense-in-depth: if the renderer redactor
     // regresses and a sneaky key reaches the wire, the worker's
@@ -650,6 +658,42 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect(eventLines.some((line) => line.includes('background_poll'))).toBe(
       false
     );
+    consoleSpy.mockRestore();
+  });
+
+  it('output origin telemetry accepts badge surface and drops unknown values (RL-044 Sub-slice G)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry(
+      {
+        event: 'runtime.output_origin_clicked',
+        properties: { language: 'javascript', surface: 'badge' },
+      },
+      {},
+      '203.0.113.7'
+    );
+    expect(okResponse.status).toBe(204);
+
+    const unknownResponse = await postTelemetry(
+      {
+        event: 'runtime.output_origin_clicked',
+        properties: { language: 'javascript', surface: 'hover' },
+      },
+      {},
+      '203.0.113.8'
+    );
+    expect(unknownResponse.status).toBe(204);
+
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.output_origin_clicked"'));
+    expect(
+      eventLines.some(
+        (line) =>
+          line.includes('"language":"javascript"') &&
+          line.includes('"surface":"badge"')
+      )
+    ).toBe(true);
+    expect(eventLines.some((line) => line.includes('"hover"'))).toBe(false);
     consoleSpy.mockRestore();
   });
 

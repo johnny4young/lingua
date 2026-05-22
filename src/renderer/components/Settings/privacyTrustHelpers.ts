@@ -90,6 +90,13 @@ export const NETWORK_ACTIVITY_FEATURES = [
   // from `'enabled'` (local-only, always on) to a closed enum that
   // tracks the install network call separately.
   'dependencies',
+  // RL-044 Sub-slice G Fold E — output→source line origin tracking.
+  // Captures the source line of each console output row to drive
+  // the `<OutputLineBadge>` click + hover affordances. Local-only;
+  // never sent to the network. Status reflects the
+  // `outputSourceMappingEnabled` Settings flag so a user can audit
+  // the feature at a glance.
+  'outputOriginTracking',
 ] as const;
 
 export type NetworkActivityFeature =
@@ -113,6 +120,13 @@ export function buildNetworkActivityRows(args: {
   readonly capsuleExportLastAt: number | null;
   readonly telemetryLastAt: number | null;
   readonly updateCheckLastAt: number | null;
+  /**
+   * RL-044 Sub-slice G Fold E — current value of the Settings
+   * `outputSourceMappingEnabled` flag. Drives the
+   * `outputOriginTracking` row's status. Optional with a `true`
+   * default so callers that haven't been migrated yet don't break.
+   */
+  readonly outputSourceMappingEnabled?: boolean;
 }): ReadonlyArray<NetworkActivityRow> {
   return [
     {
@@ -159,6 +173,19 @@ export function buildNetworkActivityRows(args: {
       // exists today so the install path that lands in Slice B / C
       // has a stable home in the audit table from day one.
       status: 'enabled',
+      lastCallAt: null,
+    },
+    {
+      feature: 'outputOriginTracking',
+      // RL-044 Sub-slice G Fold E — captures the source line of each
+      // console output row to drive click + hover affordances. Pure
+      // local: the worker reads its own `new Error().stack`, attaches
+      // a line integer to each payload, and the renderer paints a
+      // chip. NO file paths, NO content, NO network calls — the row
+      // appears in the audit table for transparency, not because it
+      // makes outbound traffic.
+      status:
+        args.outputSourceMappingEnabled === false ? 'disabled' : 'enabled',
       lastCallAt: null,
     },
   ];

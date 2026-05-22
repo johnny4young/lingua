@@ -111,6 +111,7 @@ export class JavaScriptRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
+    const sourceMappingEnabled = context?.outputSourceMappingEnabled !== false;
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     const magicResults: MagicCommentResult[] = [];
@@ -545,6 +546,7 @@ export class JavaScriptRunner implements LanguageRunner {
         breakpoints: tabBreakpoints.map((bp) => ({ line: bp.line, condition: bp.condition })),
         watches: debug ? debugStore.watches.map((w) => w.expression) : [],
         sourceLineMap,
+        sourceMappingEnabled,
         // RL-020 Slice 6 — pre-set stdin buffer the worker installs
         // as the source of `prompt()` / `readline()` answers. Empty
         // / undefined leaves the native worker behavior in place.

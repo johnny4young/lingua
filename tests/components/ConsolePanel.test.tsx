@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ConsoleState, ConsoleEntryType, FileTab } from '../../src/renderer/types/index';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
@@ -14,8 +14,9 @@ const mockToggleFilter = vi.fn();
 const mockToggleTimestamps = vi.fn();
 const mockRun = vi.fn().mockResolvedValue(undefined);
 const mockPushStatusNotice = vi.fn();
-const { mockTrackEvent } = vi.hoisted(() => ({
+const { mockTrackEvent, mockTrackOutputOriginClicked } = vi.hoisted(() => ({
   mockTrackEvent: vi.fn(),
+  mockTrackOutputOriginClicked: vi.fn(),
 }));
 
 let mockTabs: FileTab[] = [];
@@ -102,6 +103,7 @@ vi.mock('../../src/renderer/stores/uiStore', () => ({
 
 vi.mock('../../src/renderer/utils/telemetry', () => ({
   trackEvent: mockTrackEvent,
+  trackOutputOriginClicked: mockTrackOutputOriginClicked,
 }));
 
 // Also mock lucide-react icons used by ConsolePanel
@@ -192,6 +194,73 @@ describe('ConsolePanel', () => {
     expect(logLabels.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('renders plain source-line entries with a clickable output badge', async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.fn();
+    window.addEventListener('lingua-open-file', openSpy);
+    try {
+      resetState({
+        entries: [
+          {
+            id: 'plain-origin',
+            type: 'log',
+            content: 'plain stdout',
+            timestamp: Date.now(),
+            line: 12,
+            language: 'go',
+          },
+        ],
+      });
+
+      render(<ConsolePanel />);
+
+      const badge = screen.getByTestId('output-line-badge');
+      expect(badge.textContent).toBe('L12');
+      await user.click(badge);
+
+      expect(openSpy).toHaveBeenCalledTimes(1);
+      expect((openSpy.mock.calls[0]?.[0] as CustomEvent).detail).toEqual({
+        file: '',
+        line: 12,
+        column: undefined,
+      });
+      expect(mockTrackOutputOriginClicked).toHaveBeenCalledWith('go', 'badge');
+    } finally {
+      window.removeEventListener('lingua-open-file', openSpy);
+    }
+  });
+
+  it('hides fallback badges and row pulses when @origin off is present', () => {
+    resetState({
+      entries: [
+        { id: 'line-3', type: 'log', content: 'hidden origin', timestamp: Date.now(), line: 3 },
+      ],
+    });
+    mockTabs = [
+      {
+        id: 'active-tab',
+        name: 'main.js',
+        language: 'javascript',
+        content: '// @origin off\nconsole.log("hidden origin")',
+        isDirty: false,
+      },
+    ];
+    mockActiveTabId = 'active-tab';
+
+    render(<ConsolePanel />);
+    const row = screen.getByTestId('console-entry-row');
+
+    expect(screen.queryByTestId('output-line-badge')).toBeNull();
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('lingua-source-line-hovered', {
+          detail: { line: 3, durationMs: 1000 },
+        })
+      );
+    });
+    expect(row.getAttribute('data-pulsing')).toBeNull();
+  });
+
   it('renders an error entry with ERR badge', () => {
     resetState({
       entries: [
@@ -203,6 +272,53 @@ describe('ConsolePanel', () => {
     // "ERR" appears in both the filter bar button and the entry row badge
     const errLabels = screen.getAllByText('ERR');
     expect(errLabels.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('keeps the latest source-line pulse active when cursor events overlap', () => {
+    vi.useFakeTimers();
+    try {
+      resetState({
+        entries: [
+          { id: 'line-3', type: 'log', content: 'three', timestamp: Date.now(), line: 3 },
+          { id: 'line-4', type: 'log', content: 'four', timestamp: Date.now(), line: 4 },
+        ],
+      });
+
+      render(<ConsolePanel />);
+      const rows = screen.getAllByTestId('console-entry-row');
+      const pulse = (line: number) => {
+        act(() => {
+          window.dispatchEvent(
+            new CustomEvent('lingua-source-line-hovered', {
+              detail: { line, durationMs: 1000 },
+            })
+          );
+        });
+      };
+
+      pulse(3);
+      expect(rows[0]?.getAttribute('data-pulsing')).toBe('true');
+      expect(rows[1]?.getAttribute('data-pulsing')).toBeNull();
+
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      pulse(4);
+      expect(rows[0]?.getAttribute('data-pulsing')).toBeNull();
+      expect(rows[1]?.getAttribute('data-pulsing')).toBe('true');
+
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(rows[1]?.getAttribute('data-pulsing')).toBe('true');
+
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      expect(rows[1]?.getAttribute('data-pulsing')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('shows "No entries match the active filters" when entries exist but all filtered out', () => {

@@ -158,6 +158,7 @@ export class TypeScriptRunner implements LanguageRunner {
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
     // RL-027 debugger refinement — debug mode resolution mirrors the JS
     // runner: only an explicit Debug action attaches the pause protocol.
+    const sourceMappingEnabled = context?.outputSourceMappingEnabled !== false;
     const settings = useSettingsStore.getState();
     // RL-020 Slice 7 — resolve timeout from the per-language preset
     // unless the caller passed an explicit override.
@@ -272,7 +273,7 @@ export class TypeScriptRunner implements LanguageRunner {
       } catch {
         instrumented = js;
       }
-    } else {
+    } else if (sourceMappingEnabled) {
       const generatedLineMap = buildGeneratedSourceLineMap(
         jsWithScopeCapture,
         tsMap,
@@ -552,6 +553,7 @@ export class TypeScriptRunner implements LanguageRunner {
         breakpoints: tabBreakpoints.map((bp) => ({ line: bp.line, condition: bp.condition })),
         watches: debug ? debugStore.watches.map((w) => w.expression) : [],
         sourceLineMap,
+        sourceMappingEnabled,
         stdin: context?.stdin,
         // RL-020 Slice 9 — TS pipes through the JS worker post
         // transpile; stamp `'typescript'` on the snapshot so the

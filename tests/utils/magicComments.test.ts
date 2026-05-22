@@ -7,6 +7,7 @@ import {
   magicCommentKindsByLine,
   detectJSAutoLogLines,
   transformJSAutoLog,
+  originSuppressedByMagicComment,
 } from '@/utils/magicComments';
 
 describe('JS/TS magic comments', () => {
@@ -670,5 +671,39 @@ describe('RL-044 Slice 1A — //=> table directive', () => {
       const [entry] = detectPythonMagicComments(code);
       expect(entry?.directive).toBe('chart');
     });
+  });
+});
+
+describe('originSuppressedByMagicComment — RL-044 Sub-slice G Fold F', () => {
+  it('detects `// @origin off` in a JS buffer', () => {
+    expect(originSuppressedByMagicComment('javascript', '// @origin off\nconsole.log("x")')).toBe(true);
+    expect(originSuppressedByMagicComment('typescript', '// @origin off')).toBe(true);
+  });
+
+  it('detects `# @origin off` in a Python buffer', () => {
+    expect(originSuppressedByMagicComment('python', '# @origin off\nprint("x")')).toBe(true);
+  });
+
+  it('tolerates an optional colon and case-insensitive `off`', () => {
+    expect(originSuppressedByMagicComment('javascript', '// @origin: off')).toBe(true);
+    expect(originSuppressedByMagicComment('javascript', '// @origin OFF')).toBe(true);
+    expect(originSuppressedByMagicComment('python', '# @origin Off')).toBe(true);
+  });
+
+  it('returns false when no directive is present', () => {
+    expect(originSuppressedByMagicComment('javascript', 'console.log("x")')).toBe(false);
+    expect(originSuppressedByMagicComment('python', '# @origin on')).toBe(false);
+    expect(originSuppressedByMagicComment('python', '# origin off')).toBe(false);
+  });
+
+  it('skips unsupported languages — Go / Rust / etc. cannot toggle origin via this directive', () => {
+    expect(originSuppressedByMagicComment('go', '// @origin off')).toBe(false);
+    expect(originSuppressedByMagicComment('rust', '// @origin off')).toBe(false);
+    expect(originSuppressedByMagicComment('ruby', '# @origin off')).toBe(false);
+  });
+
+  it('handles empty / non-string input safely', () => {
+    expect(originSuppressedByMagicComment('javascript', '')).toBe(false);
+    expect(originSuppressedByMagicComment('python', '')).toBe(false);
   });
 });

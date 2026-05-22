@@ -2241,6 +2241,7 @@
   "settings.privacy.network.feature.capsule-export": "Run capsule export",
   "settings.privacy.network.feature.ai": "AI surfaces",
   "settings.privacy.network.feature.dependencies": "Dependency detection",
+  "settings.privacy.network.feature.outputOriginTracking": "Output origin tracking",
   "commandPalette.action.showPrivacyDashboard.label": "Show Privacy + Trust dashboard",
   "commandPalette.action.showPrivacyDashboard.description": "Open Settings on the Privacy tab — local stores, redaction preview, and network activity audit.",
   "commandPalette.action.showDependencies.label": "Show dependencies",
@@ -2270,5 +2271,15 @@
   "dependencies.install.needsDesktopTooltip": "Open Lingua Desktop to install packages.",
   "dependencies.install.webUnavailableTooltip": "Install support arrives in a later web build.",
   "dependencies.shortcut.empty": "No dependencies to show — paste an import to populate the panel.",
-  "dependencies.shortcut.disabled": "Dependency detection is off. Enable it in Settings → Editor."
+  "dependencies.shortcut.disabled": "Dependency detection is off. Enable it in Settings → Editor.",
+  "settings.editor.outputSourceMapping.heading": "Output source mapping",
+  "settings.editor.outputSourceMapping.description": "Show clickable line badges on console rows and highlight the source line on hover.",
+  "settings.editor.outputSourceMapping.showBadgeLabel": "Show line badge on output rows",
+  "settings.editor.outputSourceMapping.highlightHoverLabel": "Highlight source line on hover",
+  "settings.editor.outputSourceMapping.smoothScrollLabel": "Smooth-scroll editor when highlighting offscreen lines",
+  "console.outputBadge.ariaLabel": "Open line {{line}}",
+  "console.outputBadge.tooltip": "Click to open · hover to highlight",
+  "outputBadge.notice.sourceClosed": "The source tab for this run is no longer open.",
+  "commandPalette.action.toggleOutputSourceMapping.label": "Toggle output source mapping",
+  "commandPalette.action.toggleOutputSourceMapping.description": "Show or hide L<line> badges on console output rows."
 }
