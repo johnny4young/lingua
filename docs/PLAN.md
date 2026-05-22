@@ -10419,6 +10419,59 @@ acceptance criteria from the slice spec are met:
   pre-seeded scratchpad variants (Slice 2 — currently only JS
   ships).
 
+#### § Slice 1.5 landed (2026-05-22)
+
+Pre-commit review of Slice 1 surfaced a visual regression: the
+first-run toast pushed correctly (the
+`hasCompletedOnboardingFirstRun` flag flipped to `true`) but the
+banner disappeared from the DOM within ~600 ms instead of holding
+the full 6 s TTL. Investigation pointed at the 134 existing
+`pushStatusNotice` callers — any boot-time push from a hook that
+mounted around the same time would clobber the onboarding toast.
+Slice 1.5 fixes that without touching the 134 legacy call sites.
+
+- **Fold B (the fix).** New `StatusNoticePriority` type
+  (`'low' | 'normal' | 'high'`) added to `StatusNotice` in
+  `uiStore.ts`. Default is `'normal'` so every existing caller keeps
+  the legacy "last writer wins" semantics. `pushStatusNotice` now
+  refuses to overwrite a higher-priority outstanding notice with a
+  lower-priority push; errors (`tone: 'error'`) override the priority
+  check unconditionally so users always reach real errors. Both
+  onboarding toasts in `useOnboardingChoreography.ts` annotate
+  `priority: 'high'` and the bug is gone.
+
+- **Fold A (telemetry).** New closed-enum event
+  `onboarding.toast_clobbered { outstandingStage }` mirrored on the
+  update-server. Fires via a new optional `onSurvived` callback on
+  `StatusNotice` whenever the priority field actually saves a
+  toast. Lets us measure in production how often the fix does real
+  work and detect a future regression where a `'high'` priority is
+  needed but missing.
+
+- **Fold C (e2e).** New
+  `tests/e2e/onboardingChoreography.spec.ts` walks a fresh install
+  through all three stages with `data-testid="status-notice-banner"`
+  visibility assertions at each step plus the Spanish-tuteo
+  variant. Catches the exact regression class that 188 unit tests
+  missed in Slice 1.
+
+- **Fold D (ADR).** New `docs/STATUS_NOTICE_PRIORITY_ADR.md`
+  documents the decision (priority field vs pad-inicial
+  alternative), the backwards-compatibility guarantees, the
+  reversal criteria (if `onboarding.toast_clobbered` never fires
+  in production, remove the field), and the coupled invariants.
+  Registered in `docs/README.md` ADR index.
+
+- **Coupled invariants honoured:** the 134 existing
+  `pushStatusNotice` callers are untouched and keep their legacy
+  behaviour by default. The banner component reads no priority
+  data — the field is purely a `pushStatusNotice` concern.
+
+- **Deferred for future slices:** RL-101 Slice 2 (intro video +
+  per-language seed variants). The `StatusNoticePriority` type is
+  reusable for any future choreographed surface; future slices can
+  claim `'high'` without further plumbing.
+
 ### RL-102 Git Read-Only Layer
 
 - Priority: `P1`

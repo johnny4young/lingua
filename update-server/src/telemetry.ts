@@ -118,6 +118,9 @@ export const TELEMETRY_EVENT_NAMES = [
   'onboarding.first_run_completed',
   'onboarding.first_snippet_saved',
   'onboarding.toast_dismissed',
+  // RL-101 Slice 1.5 fold A — mirror of `onboarding.toast_clobbered`.
+  // Closed-enum `{ outstandingStage }` from `ONBOARDING_TOAST_STAGES`.
+  'onboarding.toast_clobbered',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -191,6 +194,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'onboarding.first_run_completed': ['language'],
   'onboarding.first_snippet_saved': [],
   'onboarding.toast_dismissed': ['stage', 'dismissMode'],
+  // RL-101 Slice 1.5 fold A — mirror.
+  'onboarding.toast_clobbered': ['outstandingStage'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -771,6 +776,10 @@ function isAllowedValue(
         return typeof value === 'string' && ONBOARDING_TOAST_STAGES.has(value);
       if (key === 'dismissMode')
         return typeof value === 'string' && ONBOARDING_DISMISS_MODES.has(value);
+      return false;
+    case 'onboarding.toast_clobbered':
+      if (key === 'outstandingStage')
+        return typeof value === 'string' && ONBOARDING_TOAST_STAGES.has(value);
       return false;
     default: {
       const exhaustive: never = event;

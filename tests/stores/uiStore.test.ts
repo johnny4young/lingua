@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useUIStore } from '@/stores/uiStore';
 
 describe('uiStore', () => {
@@ -83,5 +83,56 @@ describe('uiStore', () => {
 
     useUIStore.getState().dismissStatusNotice();
     expect(useUIStore.getState().statusNotice).toBeNull();
+  });
+
+  it('keeps a high-priority notice visible when a normal notice arrives', () => {
+    const incomingDismiss = vi.fn();
+    const highSurvived = vi.fn();
+    useUIStore.setState({ statusNotice: null });
+
+    useUIStore.getState().pushStatusNotice({
+      tone: 'success',
+      messageKey: 'onboarding.firstRun.message',
+      priority: 'high',
+      onSurvived: highSurvived,
+    });
+    const highNotice = useUIStore.getState().statusNotice;
+
+    useUIStore.getState().pushStatusNotice({
+      tone: 'info',
+      messageKey: 'editor.formatOnSave.webUnavailable',
+      onDismiss: incomingDismiss,
+    });
+
+    expect(useUIStore.getState().statusNotice).toBe(highNotice);
+    expect(incomingDismiss).toHaveBeenCalledOnce();
+    expect(incomingDismiss).toHaveBeenCalledWith('auto');
+    expect(highSurvived).toHaveBeenCalledOnce();
+  });
+
+  it('lets an error notice override a high-priority notice', () => {
+    const highDismiss = vi.fn();
+    useUIStore.setState({ statusNotice: null });
+
+    useUIStore.getState().pushStatusNotice({
+      tone: 'success',
+      messageKey: 'onboarding.firstRun.message',
+      priority: 'high',
+      onDismiss: highDismiss,
+    });
+    const highNotice = useUIStore.getState().statusNotice;
+
+    useUIStore.getState().pushStatusNotice({
+      tone: 'error',
+      messageKey: 'editor.formatOnSave.parseError',
+      values: { name: 'demo.js' },
+    });
+
+    const errorNotice = useUIStore.getState().statusNotice;
+    expect(errorNotice).not.toBe(highNotice);
+    expect(errorNotice?.tone).toBe('error');
+    expect(errorNotice?.messageKey).toBe('editor.formatOnSave.parseError');
+    expect(highDismiss).toHaveBeenCalledOnce();
+    expect(highDismiss).toHaveBeenCalledWith('auto');
   });
 });

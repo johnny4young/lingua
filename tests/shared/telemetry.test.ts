@@ -58,6 +58,10 @@ describe('TELEMETRY_EVENTS', () => {
       // `{ stage, dismissMode }` (fold B).
       'onboarding.first_run_completed',
       'onboarding.first_snippet_saved',
+      // RL-101 Slice 1.5 fold A — production diagnostic for the
+      // priority-based clobber refusal. Closed-enum
+      // `{ outstandingStage }` from `ONBOARDING_TOAST_STAGES`.
+      'onboarding.toast_clobbered',
       'onboarding.toast_dismissed',
       'overlay.opened',
       'runner.executed',
@@ -926,6 +930,29 @@ describe('onboarding telemetry value validators (RL-101 Slice 1)', () => {
     expect(event.properties).toEqual({});
     expect(droppedKeys).toContain('stage');
     expect(droppedKeys).toContain('dismissMode');
+  });
+
+  it('accepts toast clobbered outstanding stage closed enum', () => {
+    for (const outstandingStage of ['first_run', 'first_snippet'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'onboarding.toast_clobbered',
+          properties: { outstandingStage },
+        })
+      );
+      expect(event.properties).toEqual({ outstandingStage });
+    }
+  });
+
+  it('drops unknown toast clobbered outstanding stage values', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'onboarding.toast_clobbered',
+        properties: { outstandingStage: 'welcome' },
+      })
+    );
+    expect(event.properties).toEqual({});
+    expect(droppedKeys).toContain('outstandingStage');
   });
 
   it('keeps first-snippet telemetry payload-free', () => {

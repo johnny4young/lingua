@@ -527,10 +527,28 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       properties: { stage: 'welcome', dismissMode: 'keyboard' },
     });
     expect(dismissedUnknown.status).toBe(204);
-    const firstSnippet = await postTelemetry({
-      event: 'onboarding.first_snippet_saved',
-      properties: { stage: 'first_snippet' },
+    const clobberedOk = await postTelemetry({
+      event: 'onboarding.toast_clobbered',
+      properties: { outstandingStage: 'first_snippet' },
     });
+    expect(clobberedOk.status).toBe(204);
+    const clobberedUnknown = await postTelemetry(
+      {
+        event: 'onboarding.toast_clobbered',
+        properties: { outstandingStage: 'welcome' },
+      },
+      {},
+      '203.0.113.2'
+    );
+    expect(clobberedUnknown.status).toBe(204);
+    const firstSnippet = await postTelemetry(
+      {
+        event: 'onboarding.first_snippet_saved',
+        properties: { stage: 'first_snippet' },
+      },
+      {},
+      '203.0.113.3'
+    );
     expect(firstSnippet.status).toBe(204);
 
     const eventLines = consoleSpy.mock.calls
@@ -546,6 +564,11 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
         (line) =>
           line.includes('"stage":"first_run"') &&
           line.includes('"dismissMode":"cta"')
+      )
+    ).toBe(true);
+    expect(
+      eventLines.some((line) =>
+        line.includes('"outstandingStage":"first_snippet"')
       )
     ).toBe(true);
     expect(eventLines.some((line) => line.includes('"welcome"'))).toBe(false);
