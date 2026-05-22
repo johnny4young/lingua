@@ -82,6 +82,14 @@ export const NETWORK_ACTIVITY_FEATURES = [
   'license',
   'capsule-export',
   'ai',
+  // RL-025 Slice A fold B — dependency detection lives entirely
+  // local for now (the panel reads imports from the active buffer
+  // and asks main whether `node_modules/<name>` exists). Future
+  // slices B + C add `npm install` / `micropip` install paths that
+  // DO hit a registry; when they ship the row flips its `status`
+  // from `'enabled'` (local-only, always on) to a closed enum that
+  // tracks the install network call separately.
+  'dependencies',
 ] as const;
 
 export type NetworkActivityFeature =
@@ -141,6 +149,16 @@ export function buildNetworkActivityRows(args: {
       // AI surfaces ship in a later slice; mark unavailable until
       // RL-031 lands so the row honestly reads "nothing here yet".
       status: 'unavailable',
+      lastCallAt: null,
+    },
+    {
+      feature: 'dependencies',
+      // RL-025 Slice A — detection + classification are fully local
+      // (renderer scans the buffer; main does an `existsSync` on
+      // `node_modules`). Slice A surfaces NO network calls; the row
+      // exists today so the install path that lands in Slice B / C
+      // has a stable home in the audit table from day one.
+      status: 'enabled',
       lastCallAt: null,
     },
   ];

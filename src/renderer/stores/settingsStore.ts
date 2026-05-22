@@ -273,6 +273,13 @@ export const useSettingsStore = create<SettingsState>()(
       telemetryConsent: 'unset',
       utilitiesClipboardOnFocusConsent: 'unset',
       debuggerEnabled: true,
+      // RL-025 Slice A — master toggle for dependency detection +
+      // the bottom-panel Dependencies tab. The rehydrate merge
+      // below applies the fold-G tier-aware default when the
+      // persisted state has no preference yet (Free → false, every
+      // other tier → true). Once the user persists a choice via the
+      // setter, that choice survives across reloads.
+      dependencyDetectionEnabled: true,
       // RL-036 Phase A1 fold F — default ON so the first share-link
       // copy always surfaces the confirmation modal preview before
       // anything reaches the clipboard.
@@ -421,6 +428,11 @@ export const useSettingsStore = create<SettingsState>()(
       // RL-027 Slice 1 — debugger master switch.
       toggleDebuggerEnabled: () =>
         set((state) => ({ debuggerEnabled: !state.debuggerEnabled })),
+      // RL-025 Slice A — dependency detection master switch.
+      toggleDependencyDetectionEnabled: () =>
+        set((state) => ({
+          dependencyDetectionEnabled: !state.dependencyDetectionEnabled,
+        })),
       // RL-036 Phase A1 fold F — share-link confirmation gate.
       toggleShareLinkConfirmEnabled: () =>
         set((state) => ({
@@ -683,6 +695,11 @@ export const useSettingsStore = create<SettingsState>()(
         telemetryConsent: state.telemetryConsent,
         utilitiesClipboardOnFocusConsent: state.utilitiesClipboardOnFocusConsent,
         debuggerEnabled: state.debuggerEnabled,
+        // RL-025 Slice A — persist the dependency-detection toggle so
+        // the user's choice survives reloads. Rehydrate-merge below
+        // applies the fold-G tier-aware default when this key is
+        // absent.
+        dependencyDetectionEnabled: state.dependencyDetectionEnabled,
         // RL-036 Phase A1 fold F — sticky preference so the gate
         // survives reloads.
         shareLinkConfirmEnabled: state.shareLinkConfirmEnabled,
@@ -731,6 +748,18 @@ export const useSettingsStore = create<SettingsState>()(
             : hasSnapshotPreference
               ? false
               : currentState.executionHistorySnapshotEnabled;
+        // RL-025 Slice A fold G — tier-aware default for the
+        // dependency detection toggle. A present-but-non-boolean value
+        // (corrupted write, future schema drift) falls back to the
+        // tier-aware default exactly like an absent key, so the
+        // surface never silently lands at `false` for someone who
+        // shouldn't get the upsell-pressure default.
+        const dependencyDetectionEnabled =
+          typeof persisted?.dependencyDetectionEnabled === 'boolean'
+            ? persisted.dependencyDetectionEnabled
+            : currentEffectiveTier() === 'free'
+              ? false
+              : currentState.dependencyDetectionEnabled;
         const hasNativeExecutionAcknowledgement =
           persisted != null && hasOwn(persisted, 'nativeExecutionAcknowledged');
         const nativeExecutionAcknowledged =
@@ -901,6 +930,7 @@ export const useSettingsStore = create<SettingsState>()(
           onboardingWelcomeSeedVersion,
           language: isAppLanguage(merged.language) ? merged.language : currentState.language,
           executionHistorySnapshotEnabled,
+          dependencyDetectionEnabled,
           nativeExecutionAcknowledged,
           shortcutOverrides,
           keymapPreset: normalizedKeymapPreset,

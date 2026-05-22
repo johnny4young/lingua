@@ -130,6 +130,13 @@ interface UseGlobalShortcutsOptions {
    * re-arms both toasts.
    */
   replayOnboarding: () => void;
+  /**
+   * RL-025 Slice A fold C — focus the bottom-panel Dependencies tab
+   * for the active file. No-op + status notice when there are no
+   * detected dependencies (the tab is hidden) or when the master
+   * toggle is OFF.
+   */
+  showDependenciesPanel: () => void;
 }
 
 type ShortcutHandler = (event: KeyboardEvent) => void;
@@ -157,6 +164,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'run-export-capsule': () => options.exportLatestCapsule(),
     'run-copy-share-link': () => options.copyShareLink(),
     'onboarding-replay': () => options.replayOnboarding(),
+    'view-show-dependencies': () => options.showDependenciesPanel(),
     'ui-reset-floating-positions': () => options.resetFloatingPositions(),
     'view-toggle-variable-inspector-surface': () =>
       options.toggleVariableInspectorSurface(),

@@ -199,6 +199,28 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     combos: [{ tokens: ['Mod', 'Shift', '0'] }],
     keywords: ['reset', 'floating', 'pill', 'variables', 'reposition'],
   },
+  // RL-025 Slice A fold C — open the bottom-panel Dependencies tab
+  // for the active file. `Mod+Shift+J` (J for JavaScript / packaJes
+  // mnemonic — the easy unused slot). Verified free against the
+  // catalog by the conflict-free regression test in
+  // `tests/data/keyboardShortcuts.test.ts`. No-op + status notice
+  // when there are no detected dependencies (the tab is hidden) or
+  // when the master toggle is OFF.
+  {
+    id: 'view-show-dependencies',
+    group: 'view',
+    labelKey: 'shortcuts.item.showDependencies.label',
+    descriptionKey: 'shortcuts.item.showDependencies.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'J'] }],
+    keywords: [
+      'dependencies',
+      'imports',
+      'requires',
+      'modules',
+      'paquetes',
+      'dependencias',
+    ],
+  },
   {
     // RL-093 Slice 3 fold D — flip the variable inspector surface
     // (floating ↔ bottom). Distinct from `Mod+Shift+I` which toggles

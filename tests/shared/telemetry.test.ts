@@ -42,6 +42,15 @@ describe('TELEMETRY_EVENTS', () => {
       'debugger.attached',
       'debugger.detached',
       'debugger.paused',
+      // RL-025 Slice A — dependency detection signals.
+      // `detected_in_tab` per-cycle (closed-enum
+      // `{ language, countBucket }`); `banner_shown` once-per
+      // `(tab, language)` per session; `classifications_summary` (fold F)
+      // rollup with four bucketed status counts. Sorts alphabetically
+      // ahead of `feature.blocked` because `dep` < `fea`.
+      'dependency.banner_shown',
+      'dependency.classifications_summary',
+      'dependency.detected_in_tab',
       'feature.blocked',
       // RL-095 Slice 1 fold A — Language Support Scorecard adoption
       // signal. Closed-enum payload `{ surface }` from
@@ -993,6 +1002,63 @@ describe('privacy dashboard telemetry value validators (RL-096 Slice 1)', () => 
     );
     expect(event.properties).toEqual({});
     expect(droppedKeys).toContain('surface');
+  });
+});
+
+describe('dependency telemetry value validators (RL-025 Slice A)', () => {
+  it('accepts the closed countBucket enum on dependency.detected_in_tab', () => {
+    for (const countBucket of ['0', '1', '2-5', '6-10', '>10'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'dependency.detected_in_tab',
+          properties: { language: 'javascript', countBucket },
+        })
+      );
+      expect(event.properties).toEqual({ language: 'javascript', countBucket });
+    }
+  });
+
+  it('drops unknown countBucket values on dependency.detected_in_tab', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'dependency.detected_in_tab',
+        properties: { language: 'javascript', countBucket: '11' },
+      })
+    );
+    expect(event.properties).toEqual({ language: 'javascript' });
+    expect(droppedKeys).toContain('countBucket');
+  });
+
+  it('accepts a safe-token language on dependency.banner_shown', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'dependency.banner_shown',
+        properties: { language: 'python' },
+      })
+    );
+    expect(event.properties).toEqual({ language: 'python' });
+  });
+
+  it('accepts the bucketed rollup on dependency.classifications_summary', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'dependency.classifications_summary',
+        properties: {
+          language: 'javascript',
+          detectedBucket: '2-5',
+          installedBucket: '1',
+          needsDesktopBucket: '0',
+          unsupportedBucket: '0',
+        },
+      })
+    );
+    expect(event.properties).toEqual({
+      language: 'javascript',
+      detectedBucket: '2-5',
+      installedBucket: '1',
+      needsDesktopBucket: '0',
+      unsupportedBucket: '0',
+    });
   });
 });
 

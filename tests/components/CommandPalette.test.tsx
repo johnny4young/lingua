@@ -5,7 +5,23 @@ import { CommandPalette } from '../../src/renderer/components/CommandPalette/Com
 import { SHARE_LINK_TRIGGER_EVENT } from '../../src/renderer/components/Share/shareLinkEvents';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 
-const { editorState, resultState, settingsState, trackEventMock } = vi.hoisted(() => ({
+const {
+  dependencyDetectionState,
+  editorState,
+  resultState,
+  settingsState,
+  trackEventMock,
+} = vi.hoisted(() => ({
+  dependencyDetectionState: {
+    byTab: new Map<
+      string,
+      {
+        language: 'javascript' | 'python';
+        dependencies: Array<{ name: string; kind: 'import'; status: 'detected' }>;
+        skippedReason?: 'buffer-too-large';
+      }
+    >(),
+  },
   editorState: {
     addTab: vi.fn(),
     openFileFromDisk: vi.fn().mockResolvedValue(undefined),
@@ -65,6 +81,7 @@ const { editorState, resultState, settingsState, trackEventMock } = vi.hoisted((
       python: 'long',
       go: 'normal',
     },
+    dependencyDetectionEnabled: true,
     setRuntimeTimeoutPreset: vi.fn(),
     consoleRichRenderingEnabled: true,
     toggleConsoleRichRendering: vi.fn(),
@@ -112,6 +129,17 @@ vi.mock('../../src/renderer/stores/resultStore', () => {
     typeof selector === 'function' ? selector(resultState) : resultState;
   useResultStore.getState = () => resultState;
   return { useResultStore };
+});
+
+vi.mock('../../src/renderer/stores/dependencyDetectionStore', () => {
+  const useDependencyDetectionStore = (
+    selector?: (state: typeof dependencyDetectionState) => unknown
+  ) =>
+    typeof selector === 'function'
+      ? selector(dependencyDetectionState)
+      : dependencyDetectionState;
+  useDependencyDetectionStore.getState = () => dependencyDetectionState;
+  return { useDependencyDetectionStore };
 });
 
 vi.mock('../../src/renderer/utils/telemetry', () => ({
@@ -177,6 +205,8 @@ describe('CommandPalette', () => {
     resultState.lastSuccessfulSnapshot = null;
     resultState.snapshotRing = [];
     resultState.scopeSnapshot = null;
+    dependencyDetectionState.byTab.clear();
+    settingsState.dependencyDetectionEnabled = true;
     settingsState.variableInspectorSurface = 'floating';
     settingsState.consoleRichRenderingEnabled = true;
     useUIStore.setState({
@@ -454,6 +484,102 @@ describe('CommandPalette', () => {
       })
     ).toBe(true);
     dispatchSpy.mockRestore();
+  });
+
+  it('hides the dependencies action when no dependency panel state is available', () => {
+    editorState.tabs = [
+      {
+        id: 'tab-1',
+        language: 'javascript',
+        content: 'console.log(1)',
+      },
+    ];
+    editorState.activeTabId = 'tab-1';
+
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'dependencies' } });
+
+    expect(
+      screen.queryByRole('button', { name: /Show dependencies/i })
+    ).toBeNull();
+  });
+
+  it('opens the dependencies panel from the palette when rows are detected', () => {
+    const onClose = vi.fn();
+    editorState.tabs = [
+      {
+        id: 'tab-1',
+        language: 'javascript',
+        content: "import x from 'lodash';",
+      },
+    ];
+    editorState.activeTabId = 'tab-1';
+    dependencyDetectionState.byTab.set('tab-1', {
+      language: 'javascript',
+      dependencies: [{ name: 'lodash', kind: 'import', status: 'detected' }],
+    });
+
+    render(
+      <CommandPalette
+        onClose={onClose}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'dependencies' } });
+    fireEvent.click(screen.getByRole('button', { name: /Show dependencies/i }));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(useUIStore.getState()).toMatchObject({
+      activeBottomPanel: 'dependencies',
+      consoleVisible: true,
+    });
+  });
+
+  it('hides the dependencies action when the cached entry belongs to an old language', () => {
+    editorState.tabs = [
+      {
+        id: 'tab-1',
+        language: 'javascript',
+        content: "import x from 'lodash';",
+      },
+    ];
+    editorState.activeTabId = 'tab-1';
+    dependencyDetectionState.byTab.set('tab-1', {
+      language: 'python',
+      dependencies: [{ name: 'numpy', kind: 'import', status: 'detected' }],
+    });
+
+    render(
+      <CommandPalette
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        onOpenWhatsNew={vi.fn()}
+        onStartGuidedTour={vi.fn()}
+        onOpenSnippets={vi.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
+    fireEvent.change(input, { target: { value: 'dependencies' } });
+
+    expect(
+      screen.queryByRole('button', { name: /Show dependencies/i })
+    ).toBeNull();
   });
 
   it('hides the variable inspector action while the active tab is in Node mode', () => {

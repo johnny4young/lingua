@@ -114,6 +114,13 @@ export function EditorSection() {
   );
   const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
   const toggleDebuggerEnabled = useSettingsStore((state) => state.toggleDebuggerEnabled);
+  // RL-025 Slice A — dependency detection master switch.
+  const dependencyDetectionEnabled = useSettingsStore(
+    (state) => state.dependencyDetectionEnabled
+  );
+  const toggleDependencyDetectionEnabled = useSettingsStore(
+    (state) => state.toggleDependencyDetectionEnabled
+  );
   const { t } = useTranslation();
   const ligaturesAvailable = fontStackSupportsLigatures(fontFamily);
 
@@ -571,6 +578,18 @@ export function EditorSection() {
           value={debuggerEnabled}
           onChange={toggleDebuggerEnabled}
           aria-label={t('debugger.settings.label')}
+        />
+      </Row>
+
+      <Row
+        label={t('settings.editor.dependencyDetection.label')}
+        hint={t('settings.editor.dependencyDetection.hint')}
+      >
+        <Toggle
+          value={dependencyDetectionEnabled}
+          onChange={toggleDependencyDetectionEnabled}
+          aria-label={t('settings.editor.dependencyDetection.label')}
+          data-testid="settings-editor-dependency-detection-toggle"
         />
       </Row>
 

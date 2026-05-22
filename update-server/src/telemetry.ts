@@ -124,6 +124,14 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-096 Slice 1 fold A — mirror of `privacy.dashboard_opened`.
   // Closed-enum `{ surface }` from `PRIVACY_DASHBOARD_SURFACES`.
   'privacy.dashboard_opened',
+  // RL-025 Slice A — mirrors of the dependency detection events.
+  // Closed-enum `{ language, countBucket }` for per-cycle detection;
+  // `{ language }` for the once-per-(tab, language) banner; bucketed
+  // rollup for fold F. `language` is validated by the renderer-side
+  // `isSafeToken`; both sides drop unknown property keys silently.
+  'dependency.detected_in_tab',
+  'dependency.banner_shown',
+  'dependency.classifications_summary',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -201,6 +209,18 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'onboarding.toast_clobbered': ['outstandingStage'],
   // RL-096 Slice 1 fold A — mirror.
   'privacy.dashboard_opened': ['surface'],
+  // RL-025 Slice A — mirrors of dependency detection allow-lists.
+  'dependency.detected_in_tab': ['language', 'countBucket'],
+  'dependency.banner_shown': ['language'],
+  // RL-025 Slice A fold F — bucketed rollup; four `${status}Bucket`
+  // keys validated against `DEPENDENCY_COUNT_BUCKETS`.
+  'dependency.classifications_summary': [
+    'language',
+    'detectedBucket',
+    'installedBucket',
+    'needsDesktopBucket',
+    'unsupportedBucket',
+  ],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -402,6 +422,17 @@ export const ONBOARDING_DISMISS_MODES = new Set([
 export const PRIVACY_DASHBOARD_SURFACES = new Set([
   'settings',
   'palette',
+]);
+// RL-025 Slice A — mirror of DEPENDENCY_COUNT_BUCKETS_SET from
+// `src/shared/telemetry.ts` (canonical home in
+// `src/shared/dependencies/types.ts`). Parity test keeps both copies
+// aligned.
+export const DEPENDENCY_COUNT_BUCKETS = new Set([
+  '0',
+  '1',
+  '2-5',
+  '6-10',
+  '>10',
 ]);
 export const ONBOARDING_LANGUAGE_IDS = new Set([
   'javascript',
@@ -816,6 +847,29 @@ function isAllowedValue(
         return (
           typeof value === 'string' && PRIVACY_DASHBOARD_SURFACES.has(value)
         );
+      return false;
+    case 'dependency.detected_in_tab':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'countBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
+        );
+      return false;
+    case 'dependency.banner_shown':
+      if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'dependency.classifications_summary':
+      if (key === 'language') return isSafeToken(value);
+      if (
+        key === 'detectedBucket' ||
+        key === 'installedBucket' ||
+        key === 'needsDesktopBucket' ||
+        key === 'unsupportedBucket'
+      ) {
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
+        );
+      }
       return false;
     default: {
       const exhaustive: never = event;

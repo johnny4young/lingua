@@ -12,6 +12,7 @@ import {
 import i18next from 'i18next';
 import { useProjectStore } from './projectStore';
 import { useRecentFilesStore } from './recentFilesStore';
+import { useDependencyDetectionStore } from './dependencyDetectionStore';
 import { useResultStore } from './resultStore';
 import { useSettingsStore } from './settingsStore';
 import { useUIStore } from './uiStore';
@@ -524,6 +525,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
             .catch(() => {});
         }
       }
+      // RL-025 Slice A — evict the per-tab detection cache so the
+      // dependency panel cannot surface stale rows for a closed
+      // tab id that is later reused by a fresh `addTab()`.
+      useDependencyDetectionStore.getState().evictTab(id);
       return { tabs, activeTabId };
     }),
 
@@ -939,6 +944,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     ) {
       useResultStore.getState().clearLastSuccessfulSnapshot();
     }
+    if (savedTab.language !== previousLanguage) {
+      useDependencyDetectionStore.getState().evictTab(id);
+    }
 
     if (previousRootId && previousRootId !== savedTab.rootId) {
       const rootStillUsed = tabs.some(
@@ -1031,6 +1039,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     // tab's language so we can drop the result-store comparator
     // snapshot below.
     let activeTabLanguageChanged = false;
+    let tabLanguageChanged = false;
     set((state) => {
       const next = state.tabs.map((tab) => {
         if (tab.id !== id) return tab;
@@ -1056,6 +1065,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           state.activeTabId === tab.id
         ) {
           activeTabLanguageChanged = true;
+        }
+        if (previousLanguage !== language) {
+          tabLanguageChanged = true;
         }
         // RL-020 Slice 5 fold C — when the new language is not
         // JS / TS, clear any persisted per-tab auto-log override so a
@@ -1106,6 +1118,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     // switches handle their own cascade via `clear()`.
     if (activeTabLanguageChanged) {
       useResultStore.getState().clearLastSuccessfulSnapshot();
+    }
+    if (tabLanguageChanged) {
+      useDependencyDetectionStore.getState().evictTab(id);
     }
     for (const correction of correctionsToEmit) {
       void trackEvent('runtime.workflow_mode_changed', {

@@ -123,6 +123,18 @@ Launch and product collateral:
 - [`docs/seo-pages/`](./docs/seo-pages/) — SEO landing page scaffolds (five language-intent pages) consumed by `linguacode.dev`.
 - [`docs/lessons/`](./docs/lessons/) — first-slice guided lesson scaffolds (en + es).
 
+## Glossary
+
+Project-specific acronyms used throughout this repository:
+
+- **ADR** — Architecture Decision Record. Markdown files under [`docs/`](./docs/) that capture the _why_ behind a design choice (e.g. [`MARKETING_SITE_ADR.md`](./docs/MARKETING_SITE_ADR.md)).
+- **IPC** — Inter-Process Communication. Electron's main ↔ renderer message bridge that backs the filesystem, language toolchains, and license verification. See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
+- **WASM** — WebAssembly. The bytecode format used to run Go through the desktop bridge and to host the Python (Pyodide) runtime in both desktop and web builds.
+- **JWT** — JSON Web Token. Wire shape of Lingua's offline-verifiable Ed25519-signed license tokens.
+- **JWK** — JSON Web Key. Public-key encoding embedded at build time (`VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK`) and used by the renderer to verify those tokens.
+- **SEO** — Search Engine Optimization. Discoverability scaffolding for the language-intent landing pages under [`docs/seo-pages/`](./docs/seo-pages/), consumed by [linguacode.dev](https://linguacode.dev).
+- **RL-XXX** — RunLang ticket ID. Legacy prefix kept after the rename from RunLang to Lingua; every roadmap item is tracked as `RL-NNN` across [`docs/ROADMAP.md`](./docs/ROADMAP.md), [`docs/PLAN.md`](./docs/PLAN.md), and [`docs/SPRINT-PLAN.md`](./docs/SPRINT-PLAN.md).
+
 ## License
 
 Lingua is a commercial product distributed under a source-available license. The full terms live in [`LICENSE`](./LICENSE); the short version is: the repository is public for evaluation, contributor review, and security auditing, but production, paid, hosted, redistributed, educational-at-scale, or other commercial use requires a separate commercial license from the Licensor. The public checkout is live at [`linguacode.dev`](https://linguacode.dev). Redistributing packaged binaries or competing hosted offerings is not permitted.

@@ -101,12 +101,17 @@ describe('KeyboardShortcutsModal', () => {
 
     await user.click(screen.getByTestId('shortcut-edit-view-toggle-sidebar'));
 
+    // `Mod+Shift+Y` is a free combo in the production catalog —
+    // verified by `tests/data/keyboardShortcuts.test.ts` (no two
+    // shortcut ids share a combo). The earlier choice was `Mod+Shift+J`
+    // but RL-025 Slice A bound that to `view-show-dependencies`, so
+    // the rebind test pivoted to the next reliably-free letter.
     await act(async () => {
-      fireEvent.keyDown(window, { key: 'j', ctrlKey: true, shiftKey: true });
+      fireEvent.keyDown(window, { key: 'y', ctrlKey: true, shiftKey: true });
     });
 
     const overrides = useSettingsStore.getState().shortcutOverrides;
-    expect(overrides['view-toggle-sidebar']?.[0].tokens).toEqual(['Mod', 'Shift', 'J']);
+    expect(overrides['view-toggle-sidebar']?.[0].tokens).toEqual(['Mod', 'Shift', 'Y']);
     expect(useUIStore.getState().statusNotice?.messageKey).toBe('shortcuts.editor.rebound');
   });
 

@@ -12,6 +12,7 @@ import {
   useExecutionHistoryStore,
 } from '../../stores/executionHistoryStore';
 import { useResultStore } from '../../stores/resultStore';
+import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -132,6 +133,19 @@ export function CommandPalette({
     state.latestCapsule()
   );
   const snapshotRing = useResultStore((state) => state.snapshotRing);
+  const dependencyDetectionEnabled = useSettingsStore(
+    (state) => state.dependencyDetectionEnabled
+  );
+  const dependencyDetectionEntry = useDependencyDetectionStore((state) =>
+    activeTabId ? state.byTab.get(activeTabId) ?? null : null
+  );
+  const dependenciesPanelAvailable =
+    dependencyDetectionEnabled &&
+    activeTab !== undefined &&
+    dependencyDetectionEntry !== null &&
+    dependencyDetectionEntry.language === activeTab.language &&
+    (dependencyDetectionEntry.dependencies.length > 0 ||
+      dependencyDetectionEntry.skippedReason !== undefined);
   const { setLayoutPreset } = useSettingsStore();
   const vimMode = useSettingsStore((state) => state.vimMode);
   const { checkForUpdates, restartToApply, status: updateStatus } = useUpdateStore();
@@ -488,6 +502,17 @@ export function CommandPalette({
           );
         });
       },
+      // RL-025 Slice A fold C — open the bottom-panel Dependencies
+      // tab. Same overlay-survival pattern as the language /
+      // privacy entries: the action body in the model already calls
+      // `onClose()` first; here we simply ask the UI store to focus
+      // the tab. The tab self-gates on count > 0 so a stale
+      // activation when the panel is hidden becomes a no-op.
+      onShowDependencies: dependenciesPanelAvailable
+        ? () => {
+            useUIStore.getState().openBottomPanel('dependencies');
+          }
+        : undefined,
       // RL-095 Slice 1 fold F — render + copy markdown to clipboard.
       onCopyLanguageScorecardMarkdown: () => {
         const markdown = renderLanguageScorecardMarkdown();
