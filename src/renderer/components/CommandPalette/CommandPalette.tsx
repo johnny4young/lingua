@@ -29,6 +29,7 @@ import { trackEvent } from '../../utils/telemetry';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { renderLanguageScorecardMarkdown } from '../../../shared/languageSupport';
 import { markLanguageScorecardSurfaceForNextMount } from '../Settings/languageSupportScorecardTelemetry';
+import { markPrivacyDashboardSurfaceForNextMount } from '../Settings/privacyTrustTelemetry';
 import { SHARE_LINK_TRIGGER_EVENT } from '../Share/shareLinkEvents';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
@@ -469,6 +470,23 @@ export function CommandPalette({
       },
       onReplayOnboardingFirstSnippet: () => {
         useSettingsStore.getState().resetOnboardingFirstSnippet();
+      },
+      // RL-096 Slice 1 fold B — open Settings on the Privacy tab.
+      // Mirrors the `onShowLanguageSupport` choreography from RL-095:
+      // claim the next PrivacyTrustSection mount as `surface:
+      // 'palette'`, open Settings overlay, then dispatch the navigate
+      // event on the next animation frame so SettingsModal's listener
+      // has mounted before we fire.
+      onShowPrivacyDashboard: () => {
+        markPrivacyDashboardSurfaceForNextMount('palette');
+        onOpenSettings();
+        window.requestAnimationFrame(() => {
+          window.dispatchEvent(
+            new CustomEvent('lingua-settings-navigate-tab', {
+              detail: 'privacy',
+            })
+          );
+        });
       },
       // RL-095 Slice 1 fold F — render + copy markdown to clipboard.
       onCopyLanguageScorecardMarkdown: () => {

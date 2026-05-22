@@ -64,6 +64,10 @@ describe('TELEMETRY_EVENTS', () => {
       'onboarding.toast_clobbered',
       'onboarding.toast_dismissed',
       'overlay.opened',
+      // RL-096 Slice 1 fold A — Privacy + Trust dashboard adoption
+      // signal. Closed-enum `{ surface }` from
+      // `PRIVACY_DASHBOARD_SURFACES` ('settings' | 'palette').
+      'privacy.dashboard_opened',
       'runner.executed',
       // RL-020 Slice 5 — bare-expression auto-log toggle.
       'runtime.auto_log_emitted',
@@ -964,6 +968,31 @@ describe('onboarding telemetry value validators (RL-101 Slice 1)', () => {
     );
     expect(event.properties).toEqual({});
     expect(droppedKeys).toContain('stage');
+  });
+});
+
+describe('privacy dashboard telemetry value validators (RL-096 Slice 1)', () => {
+  it('accepts the closed dashboard surface enum', () => {
+    for (const surface of ['settings', 'palette'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'privacy.dashboard_opened',
+          properties: { surface },
+        })
+      );
+      expect(event.properties).toEqual({ surface });
+    }
+  });
+
+  it('drops unknown dashboard surface values', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'privacy.dashboard_opened',
+        properties: { surface: 'background_poll' },
+      })
+    );
+    expect(event.properties).toEqual({});
+    expect(droppedKeys).toContain('surface');
   });
 });
 

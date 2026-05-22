@@ -20,6 +20,7 @@ import {
   Palette,
   Search,
   Settings as SettingsIcon,
+  ShieldCheck,
   Terminal,
   Wrench,
   X,
@@ -38,6 +39,7 @@ import { RecoverySection } from './RecoverySection';
 import { RunCapsulesSection } from './RunCapsulesSection';
 import { UpdatesSection } from './UpdatesSection';
 import { OnboardingSection } from './OnboardingSection';
+import { PrivacyTrustSection } from './PrivacyTrustSection';
 import { UtilitiesSection } from './UtilitiesSection';
 import { useShallow } from 'zustand/react/shallow';
 import { IconButton, Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
@@ -80,6 +82,7 @@ type TabId =
   | 'editor'
   | 'languages'
   | 'environment'
+  | 'privacy'
   | 'account'
   | 'shortcuts'
   | 'plugins'
@@ -173,6 +176,30 @@ const RAIL_ITEMS: readonly RailItem[] = [
     icon: Terminal,
     kbdToken: '4',
     keywords: ['env', 'environment', 'variable', 'variables', 'secret'],
+  },
+  // RL-096 Slice 1 — Privacy + Trust dashboard. Position 5 in the
+  // workspace group so it sits between Environment (which is read by
+  // every runner) and Account (which stores the license token). The
+  // existing `'4'` slot is taken by environment; this row picks `'9'`
+  // because Recovery already claimed `'0'` and Languages claimed `'8'`.
+  {
+    id: 'privacy',
+    group: 'workspace',
+    labelKey: 'settings.tabs.privacy',
+    icon: ShieldCheck,
+    kbdToken: '9',
+    keywords: [
+      'privacy',
+      'privacidad',
+      'trust',
+      'confianza',
+      'redaction',
+      'redaccion',
+      'network',
+      'red',
+      'audit',
+      'auditoria',
+    ],
   },
   {
     id: 'account',
@@ -396,6 +423,11 @@ const TAB_CONFIG_KEYS: Record<TabId, readonly string[]> = {
   // renders an empty slice rather than misattributing editor state.
   languages: [],
   environment: ['envVars'],
+  // RL-096 Slice 1 — Privacy + Trust dashboard is a passive audit
+  // surface. The Clear actions remove localStorage keys directly;
+  // they don't mutate any settings store slice. Empty list keeps the
+  // effective-config tile honest about what this tab can change.
+  privacy: [],
   account: ['privacyTelemetryEnabled'],
   shortcuts: ['shortcutOverrides'],
   plugins: ['enabledPlugins', 'pluginRoots'],
@@ -611,6 +643,12 @@ export function SettingsModal({
         return (
           <div className="space-y-6">
             <EnvVarsSection />
+          </div>
+        );
+      case 'privacy':
+        return (
+          <div className="space-y-6">
+            <PrivacyTrustSection />
           </div>
         );
       case 'account':

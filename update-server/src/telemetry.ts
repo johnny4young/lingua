@@ -121,6 +121,9 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-101 Slice 1.5 fold A — mirror of `onboarding.toast_clobbered`.
   // Closed-enum `{ outstandingStage }` from `ONBOARDING_TOAST_STAGES`.
   'onboarding.toast_clobbered',
+  // RL-096 Slice 1 fold A — mirror of `privacy.dashboard_opened`.
+  // Closed-enum `{ surface }` from `PRIVACY_DASHBOARD_SURFACES`.
+  'privacy.dashboard_opened',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -196,13 +199,24 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'onboarding.toast_dismissed': ['stage', 'dismissMode'],
   // RL-101 Slice 1.5 fold A — mirror.
   'onboarding.toast_clobbered': ['outstandingStage'],
+  // RL-096 Slice 1 fold A — mirror.
+  'privacy.dashboard_opened': ['surface'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
-// `src/shared/telemetry.ts`. Defense in depth: even if the renderer
-// redactor regressed and a sneaky key slipped through, the worker
-// drops it on the wire. Mirror discipline matches the allowlist —
-// changes go in the same commit and the parity test asserts both.
+// `src/shared/redaction.ts` (canonical home post-RL-094 extract;
+// the renderer's `src/shared/telemetry.ts` re-exports from there).
+// Defense in depth: even if the renderer redactor regressed and a
+// sneaky key slipped through, the worker drops it on the wire.
+// Mirror discipline matches the allowlist — changes go in the same
+// commit and the parity test asserts both.
+//
+// RL-096 Slice 1.x prerequisite fix: the renderer expanded this set
+// to catch apiKey / secret / credential / authorization / privateKey
+// / accessKey / licenseKey patterns (plus snake_case variants) for
+// the Privacy + Trust dashboard's redaction preview. This server
+// mirror was originally left stale; the parity test below now
+// cross-imports the renderer source so the two cannot drift again.
 export const DENY_SUBSTRINGS = [
   'content',
   'code',
@@ -210,6 +224,17 @@ export const DENY_SUBSTRINGS = [
   'snippet',
   'file',
   'path',
+  'apikey',
+  'api_key',
+  'secret',
+  'credential',
+  'authorization',
+  'privatekey',
+  'private_key',
+  'accesskey',
+  'access_key',
+  'licensekey',
+  'license_key',
   'token',
   'password',
   'email',
@@ -372,6 +397,11 @@ export const ONBOARDING_DISMISS_MODES = new Set([
   'cta',
   'manual',
   'auto',
+]);
+// RL-096 Slice 1 fold A — mirror of PRIVACY_DASHBOARD_SURFACES.
+export const PRIVACY_DASHBOARD_SURFACES = new Set([
+  'settings',
+  'palette',
 ]);
 export const ONBOARDING_LANGUAGE_IDS = new Set([
   'javascript',
@@ -780,6 +810,12 @@ function isAllowedValue(
     case 'onboarding.toast_clobbered':
       if (key === 'outstandingStage')
         return typeof value === 'string' && ONBOARDING_TOAST_STAGES.has(value);
+      return false;
+    case 'privacy.dashboard_opened':
+      if (key === 'surface')
+        return (
+          typeof value === 'string' && PRIVACY_DASHBOARD_SURFACES.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;

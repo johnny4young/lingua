@@ -10145,10 +10145,9 @@ Slice 1 shipped end-to-end against the approved plan + all six folds.
   - `src/renderer/components/Settings/PrivacyTrustSection.tsx` (new) — Settings tab between "Environment" and "Account" (tab position 5).
   - Three sections inside the tab, in order:
     1. **Redaction preview** — paste-anything textarea; shows what the redactor would strip if the text appeared in a capsule, share link, or AI prompt. Reads from `src/shared/redaction.ts` (extracted in RL-094).
-    2. **Local stores** — table of `localStorage` keys Lingua owns (`lingua-settings`, `lingua-license`, `lingua-snippets`, `lingua-execution-history`, `lingua-utility-state`, `lingua-trust-events`), their purpose, approximate size, and a "Clear" button per row with confirmation.
+    2. **Local stores** — table of `localStorage` keys Lingua owns (`lingua-settings`, `lingua-license`, `lingua-snippets`, `lingua-utility-state`, `lingua-trust-events`), their purpose, approximate size, and a "Clear" button per row with confirmation. Execution history stays in memory by design and is not listed as a persisted local store.
     3. **Network activity summary** — for each known feature (telemetry, updates, license, capsule export, AI), a one-line status: `enabled` / `disabled` / `unavailable` + last-call timestamp.
   - `src/renderer/stores/trustEventStore.ts` (new) — bounded local log (cap 200 entries) of trust events: `{ id, at, feature, action, sensitivity, summary }`. NO payload bodies, NO code, NO headers.
-  - Run-history timeline sub-section: a small chart rendering `executionTime` of the last 100 runs of the active user grouped by language. Telemetry-anchored without leaving the device.
   - i18n: en + es (tuteo).
   - Tests: store retention + redaction; component tests for clear actions + preview; web smoke for one clear flow.
 - Slice 1 acceptance criteria:
@@ -10157,16 +10156,86 @@ Slice 1 shipped end-to-end against the approved plan + all six folds.
   - Clearing the `lingua-license` store fires a confirmation modal, then clears + reloads the dashboard inline.
   - Pasting `{"token": "abc.def", "code": "secret"}` into the redaction preview shows `{"token": "<redacted>", "code": "<redacted>"}`.
   - Trust event store enforces the 200-entry cap; oldest entries drop.
-  - Run-history timeline renders the last 100 runs grouped by language with median + P95 markers.
 - Out of scope (deferred to Slice 2):
   - Network activity LIVE log (Slice 2 — hooks each feature's outbound call). Slice 1 ships static feature enabled/disabled view.
   - AI prompt preview integration (Slice 2 — after RL-031 lands).
+  - Run-history timeline chart (Slice 2 — uses the in-memory execution history, not a localStorage key).
   - Export of the trust event log (deferred — needs disk-cost telemetry).
 - Dependencies:
   - RL-094 Slice 1 — extracts `src/shared/redaction.ts`.
 - Risks:
   - Drift between actual export and preview → mitigated by both calling the same `sanitize()` function.
   - Trust event log accidentally storing sensitive data → mitigated by shape-enforced `summary: string` (no `payload?: unknown` field).
+
+#### § Slice 1 landed (2026-05-22)
+
+Three sub-sections + the trust event store + two folds. Five
+deferred to Slice 2 alongside the run-history timeline chart.
+
+- New `src/renderer/stores/trustEventStore.ts` — persisted Zustand store
+  with TypeScript-pinned shape (`{id, at, feature, action,
+  sensitivity, summary}` — no `payload?: unknown` escape hatch),
+  closed-enum feature + sensitivity validation on every `record`
+  call, summary sanitiser (200-char cap with ellipsis), and a
+  200-entry FIFO cap. Rehydrate sanitises persisted rows through
+  the same closed-shape contract. The privacy guarantee is encoded
+  directly in the types so any future call site that smuggles extra
+  props gets them dropped at runtime.
+
+- New `src/renderer/utils/redactionPreview.ts` — wrapper that
+  routes JSON-shaped paste input through `redactFlatRecord` (the
+  canonical pipeline used by capsule export) and free-form text
+  through a regex scan against `DENY_SUBSTRINGS`. Both paths
+  return a `RedactionPreviewResult` with the redacted string +
+  dropped-key list + `redactorVersion` so the dashboard can
+  surface drift between preview and production.
+
+- New `<PrivacyTrustSection>` and `privacyTrustHelpers.ts` — the
+  three sub-sections (Redaction preview, Local stores audit,
+  Network activity summary) composed as a single Settings panel
+  with no new IPC dependencies. The Clear button per local-store
+  row is gated by a confirmation modal (Escape closes, Cancel
+  keeps, confirm removes the key, clears the matching in-memory
+  trust log when relevant, and pushes a success notice).
+
+- SettingsModal extended with the new `'privacy'` tab between
+  Environment (kbd 4) and Account (kbd 5), kbd token `9`,
+  `ShieldCheck` icon. The render switch's `case 'privacy':` mounts
+  the new section; the `TAB_CONFIG_KEYS` map carries an empty
+  array because the panel is a passive audit (it never mutates
+  settings store).
+
+- Fold A — new closed-enum telemetry event
+  `privacy.dashboard_opened { surface }` with
+  `PRIVACY_DASHBOARD_SURFACES = {'settings', 'palette'}` mirrored
+  on the update-server with parity test. The mounted Settings panel
+  owns the fire-once guard so the metric reflects discovery routes
+  honestly and palette opens do not double-count.
+
+- Fold B — palette entry `Show Privacy + Trust dashboard`
+  mirrors the `Show language support` choreography from RL-095:
+  close palette, open Settings, dispatch
+  `lingua-settings-navigate-tab` on the next animation frame so
+  SettingsModal's listener has mounted before we fire.
+
+- Privacy dashboard i18n namespace added across both locales
+  (`settings.privacy.*`, `settings.tabs.privacy`, and command
+  palette copy; tuteo neutral LatAm).
+
+- Focused tests pin the trust-event persistence/sanitisation
+  contract, the 200-cap FIFO + extra-prop drop + summary
+  truncation + closed-enum rejects + clear, the redaction preview
+  parity path, the command-palette entry, the Settings mount
+  telemetry, and the clear-confirmation flow.
+
+- Deferred to Slice 2: run-history timeline chart (vega-embed
+  reuse from RL-044), sticky-priority confirmation modal (fold
+  C), auto-capture of trust events on telemetry / share / capsule
+  surfaces (fold D), CSV export of trust events (fold E),
+  per-feature deep-link from Network rows to matching Settings
+  toggles (fold F), `Mod+Shift+,` shortcut to open the dashboard
+  (fold G). Trust-event recordable infrastructure is in place; the
+  individual surface integrations are what's pending.
 
 ### RL-097 HTTP + SQL Workspace
 

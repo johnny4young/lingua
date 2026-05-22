@@ -292,6 +292,13 @@ interface BuildCommandPaletteModelArgs {
   onReplayOnboardingFirstRun?: () => void;
   onReplayOnboardingFirstSnippet?: () => void;
   /**
+   * RL-096 Slice 1 fold B — opens Settings on the Privacy tab. Espejo
+   * del patrón `onShowLanguageSupport` from RL-095 (closes the
+   * palette first, then runs the callback so both overlays don't
+   * compete for the same App state slot).
+   */
+  onShowPrivacyDashboard?: () => void;
+  /**
    * Translation function. Optional so legacy callers keep working without
    * wiring i18next; when omitted, built-in action labels and descriptions
    * fall back to their English keys.
@@ -599,6 +606,7 @@ export function buildCommandPaletteModel({
   onReplayOnboardingWelcome,
   onReplayOnboardingFirstRun,
   onReplayOnboardingFirstSnippet,
+  onShowPrivacyDashboard,
   t,
 }: BuildCommandPaletteModelArgs): CommandEntry[] {
   const translate: (key: string, options?: Record<string, unknown>) => string = t
@@ -803,6 +811,36 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onReplayOnboardingFirstSnippet();
+            }
+          ),
+        ]
+      : []),
+    // RL-096 Slice 1 fold B — palette entry that opens Settings on
+    // the Privacy tab. Closes the palette FIRST so the Settings
+    // overlay isn't competing with it for the App state slot. Same
+    // overlay-survival pattern as `action-settings` and
+    // `action-show-language-support`.
+    ...(onShowPrivacyDashboard
+      ? [
+          buildActionCommand(
+            'action-show-privacy-dashboard',
+            translate('commandPalette.action.showPrivacyDashboard.label'),
+            translate('commandPalette.action.showPrivacyDashboard.description'),
+            [
+              'privacy',
+              'privacidad',
+              'trust',
+              'confianza',
+              'redaction',
+              'redaccion',
+              'audit',
+              'auditoria',
+              'network',
+              'red',
+            ],
+            () => {
+              onClose();
+              onShowPrivacyDashboard();
             }
           ),
         ]

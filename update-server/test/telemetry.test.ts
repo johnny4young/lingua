@@ -25,6 +25,7 @@ import {
   ONBOARDING_DISMISS_MODES as WORKER_ONBOARDING_DISMISS_MODES,
   ONBOARDING_LANGUAGE_IDS as WORKER_ONBOARDING_LANGUAGE_IDS,
   ONBOARDING_TOAST_STAGES as WORKER_ONBOARDING_TOAST_STAGES,
+  PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENT_NAMES,
   checkRateLimit,
   ipBucket,
@@ -33,8 +34,18 @@ import {
 import {
   ONBOARDING_DISMISS_MODES as RENDERER_ONBOARDING_DISMISS_MODES,
   ONBOARDING_TOAST_STAGES as RENDERER_ONBOARDING_TOAST_STAGES,
+  PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
+// RL-096 Slice 1 reviewer pass — cross-import the renderer's
+// canonical DENY_SUBSTRINGS so the parity test cannot silently
+// drift when the renderer extends the deny pass (as it did in this
+// slice for apiKey / secret / credential / authorization /
+// privateKey / accessKey / licenseKey patterns). The worker DENY
+// list MUST be a byte-for-byte superset of the renderer list — the
+// worker's job is defense in depth against renderer regressions, so
+// it can't redact LESS than the renderer does.
+import { DENY_SUBSTRINGS as RENDERER_DENY_SUBSTRINGS } from '../../src/shared/redaction';
 import { LANGUAGE_PACKS } from '../../src/shared/languagePacks';
 
 type FetchMock = Mock<typeof fetch>;
@@ -573,6 +584,72 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ).toBe(true);
     expect(eventLines.some((line) => line.includes('"welcome"'))).toBe(false);
     expect(eventLines.some((line) => line.includes('"keyboard"'))).toBe(false);
+    consoleSpy.mockRestore();
+  });
+
+  it('privacy dashboard surfaces stay in sync with the renderer source of truth (RL-096 Slice 1)', () => {
+    expect([...WORKER_PRIVACY_DASHBOARD_SURFACES].sort()).toEqual(
+      [...RENDERER_PRIVACY_DASHBOARD_SURFACES].sort()
+    );
+  });
+
+  it('DENY_SUBSTRINGS stays a byte-for-byte mirror of the renderer source of truth (RL-096 Slice 1 reviewer pass)', () => {
+    // The worker is defense-in-depth: if the renderer redactor
+    // regresses and a sneaky key reaches the wire, the worker's
+    // DENY pass strips it. That guarantee fails the moment the
+    // worker list is a SUBSET of the renderer list — drift
+    // observed in this slice's initial pass when the renderer
+    // added apikey/secret/credential/authorization/privatekey/
+    // accesskey/licensekey patterns without updating the mirror.
+    // Cross-import asserts byte-for-byte equality so the slot
+    // CANNOT silently regress again.
+    expect([...DENY_SUBSTRINGS].sort()).toEqual(
+      [...RENDERER_DENY_SUBSTRINGS].sort()
+    );
+  });
+
+  it('privacy dashboard telemetry accepts closed payloads and drops unknown values (RL-096 Slice 1)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const settingsOk = await postTelemetry(
+      {
+        event: 'privacy.dashboard_opened',
+        properties: { surface: 'settings' },
+      },
+      {},
+      '203.0.113.4'
+    );
+    expect(settingsOk.status).toBe(204);
+    const paletteOk = await postTelemetry(
+      {
+        event: 'privacy.dashboard_opened',
+        properties: { surface: 'palette' },
+      },
+      {},
+      '203.0.113.5'
+    );
+    expect(paletteOk.status).toBe(204);
+    const unknown = await postTelemetry(
+      {
+        event: 'privacy.dashboard_opened',
+        properties: { surface: 'background_poll' },
+      },
+      {},
+      '203.0.113.6'
+    );
+    expect(unknown.status).toBe(204);
+
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"privacy.dashboard_opened"'));
+    expect(
+      eventLines.some((line) => line.includes('"surface":"settings"'))
+    ).toBe(true);
+    expect(
+      eventLines.some((line) => line.includes('"surface":"palette"'))
+    ).toBe(true);
+    expect(eventLines.some((line) => line.includes('background_poll'))).toBe(
+      false
+    );
     consoleSpy.mockRestore();
   });
 

@@ -155,5 +155,12 @@ describe('SettingsModal', () => {
       'true'
     );
     expect(screen.getByText('Variables de entorno')).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: '9', metaKey: true });
+    expect(screen.getByTestId('settings-tab-privacy').getAttribute('aria-selected')).toBe(
+      'true'
+    );
+    expect(screen.getByText('Privacidad y confianza')).toBeTruthy();
+    expect(screen.getByText('Vista previa de redacción')).toBeTruthy();
   }, 10000);
 });

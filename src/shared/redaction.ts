@@ -34,6 +34,17 @@ export const DENY_SUBSTRINGS = [
   'snippet',
   'file',
   'path',
+  'apikey',
+  'api_key',
+  'secret',
+  'credential',
+  'authorization',
+  'privatekey',
+  'private_key',
+  'accesskey',
+  'access_key',
+  'licensekey',
+  'license_key',
   'token',
   'password',
   'email',
@@ -50,7 +61,7 @@ export const DENY_SUBSTRINGS = [
  * consumers SHOULD pin against an exact value when replay
  * determinism matters.
  */
-export const REDACTION_VERSION = '2026-05-21';
+export const REDACTION_VERSION = '2026-05-21.1';
 
 /**
  * `true` when the key contains any DENY_SUBSTRING (case-insensitive).
