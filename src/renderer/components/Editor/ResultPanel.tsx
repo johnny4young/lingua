@@ -13,6 +13,7 @@ import { AutoLogStatusPill } from './AutoLogStatusPill';
 import { StdinStatusPill } from './StdinStatusPill';
 import { RecentRunsPill } from './RecentRunsPill';
 import { RunCapsuleExportButton } from './RunCapsuleExportButton';
+import { ShareLinkButton } from '../Share/ShareLinkButton';
 import { RunStatusPill } from './RunStatusPill';
 import { CompareResultsPanel } from './CompareResultsPanel';
 import { resolveCompareTargetSnapshot } from '../../utils/snapshotDiff';
@@ -217,6 +218,9 @@ export function ResultPanel() {
               null when there's no captured capsule so it never
               advertises a no-op; safe to mount unconditionally. */}
           <RunCapsuleExportButton />
+          {/* RL-036 Phase A1 fold E — primary share-link surface.
+              Lazy-renders null when there's no active tab. */}
+          <ShareLinkButton />
         </div>
       </div>
 

@@ -22,6 +22,13 @@ export function PrivacySection() {
   const setNativeExecutionAcknowledged = useSettingsStore(
     (state) => state.setNativeExecutionAcknowledged
   );
+  // RL-036 Phase A1 fold F — share-link confirmation gate. Default ON.
+  const shareLinkConfirmEnabled = useSettingsStore(
+    (state) => state.shareLinkConfirmEnabled
+  );
+  const toggleShareLinkConfirmEnabled = useSettingsStore(
+    (state) => state.toggleShareLinkConfirmEnabled
+  );
 
   const statusKey =
     telemetryConsent === 'granted'
@@ -59,6 +66,18 @@ export function PrivacySection() {
           >
             {t(statusKey)}
           </span>
+        </div>
+      </Row>
+      <Row
+        label={t('settings.privacy.confirmBeforeShare.label')}
+        hint={t('settings.privacy.confirmBeforeShare.hint')}
+      >
+        <div data-testid="settings-share-link-confirm-row">
+          <Toggle
+            value={shareLinkConfirmEnabled}
+            onChange={toggleShareLinkConfirmEnabled}
+            aria-label={t('settings.privacy.confirmBeforeShare.label')}
+          />
         </div>
       </Row>
       <Row

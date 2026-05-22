@@ -102,6 +102,15 @@ export const TELEMETRY_EVENT_NAMES = [
   // property is named `surface` (not `source`) because the redactor
   // strips any key whose lowercased name contains 'source'.
   'language_scorecard_viewed',
+  // RL-036 Phase A1 fold B + G — mirror of `share.created`. Closed-
+  // enum `{ trigger, status, sizeBucket }` from
+  // `SHARE_CREATE_TRIGGERS` / `SHARE_CREATE_STATUSES` /
+  // `SHARE_SIZE_BUCKETS`.
+  'share.created',
+  // RL-036 Phase A1 fold B + G — mirror of `share.opened`. Closed-
+  // enum `{ status, sizeBucket }` from `SHARE_OPEN_STATUSES` /
+  // `SHARE_SIZE_BUCKETS`.
+  'share.opened',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -167,6 +176,10 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'capsule.exported': ['trigger', 'sizeBucket'],
   // RL-095 Slice 1 fold A — mirror of `language_scorecard_viewed`.
   'language_scorecard_viewed': ['surface'],
+  // RL-036 Phase A1 fold B + G — mirror of `share.created`.
+  'share.created': ['trigger', 'status', 'sizeBucket'],
+  // RL-036 Phase A1 fold B + G — mirror of `share.opened`.
+  'share.opened': ['status', 'sizeBucket'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -302,6 +315,33 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
   'settings',
   'palette',
+]);
+// RL-036 Phase A1 fold B + G — mirrors of the share-link enums.
+// `cancelled` currently covers user dismissal and clipboard-write failure.
+export const SHARE_CREATE_TRIGGERS = new Set([
+  'button',
+  'palette',
+  'shortcut',
+]);
+export const SHARE_CREATE_STATUSES = new Set([
+  'success',
+  'too-large',
+  'unknown-language',
+  'cancelled',
+]);
+export const SHARE_OPEN_STATUSES = new Set([
+  'success',
+  'decode-fail',
+  'unknown-language',
+  'unknown-version',
+  'oversized',
+]);
+export const SHARE_SIZE_BUCKETS = new Set([
+  '<1kb',
+  '<2kb',
+  '<4kb',
+  '<6kb',
+  '>=6kb',
 ]);
 const DURATION_BUCKETS = new Set([0, 50, 250, 1000, 5000, 30_000, 60_000]);
 const UPDATE_CHECKED_STATUS_VALUES = new Set([
@@ -654,6 +694,20 @@ function isAllowedValue(
     case 'language_scorecard_viewed':
       if (key === 'surface')
         return typeof value === 'string' && LANGUAGE_SCORECARD_SURFACES.has(value);
+      return false;
+    case 'share.created':
+      if (key === 'trigger')
+        return typeof value === 'string' && SHARE_CREATE_TRIGGERS.has(value);
+      if (key === 'status')
+        return typeof value === 'string' && SHARE_CREATE_STATUSES.has(value);
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && SHARE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'share.opened':
+      if (key === 'status')
+        return typeof value === 'string' && SHARE_OPEN_STATUSES.has(value);
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && SHARE_SIZE_BUCKETS.has(value);
       return false;
     default: {
       const exhaustive: never = event;

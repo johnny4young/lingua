@@ -29,6 +29,7 @@ import { trackEvent } from '../../utils/telemetry';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
 import { renderLanguageScorecardMarkdown } from '../../../shared/languageSupport';
 import { markLanguageScorecardSurfaceForNextMount } from '../Settings/languageSupportScorecardTelemetry';
+import { SHARE_LINK_TRIGGER_EVENT } from '../Share/shareLinkEvents';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types';
@@ -437,6 +438,21 @@ export function CommandPalette({
           });
         });
       },
+      // RL-036 Phase A1 fold C — dispatch the share trigger event;
+      // the always-mounted `<ShareLinkController>` picks it up and
+      // runs the same flow as the header button, with `trigger:
+      // 'palette'` so telemetry attributes correctly. Hide the
+      // command when there is no active tab so it never advertises a
+      // no-op.
+      onCopyShareLink: activeTab
+        ? () => {
+            window.dispatchEvent(
+              new CustomEvent(SHARE_LINK_TRIGGER_EVENT, {
+                detail: { trigger: 'palette' },
+              })
+            );
+          }
+        : undefined,
       // RL-095 Slice 1 fold F — render + copy markdown to clipboard.
       onCopyLanguageScorecardMarkdown: () => {
         const markdown = renderLanguageScorecardMarkdown();

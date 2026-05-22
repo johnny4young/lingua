@@ -34,6 +34,9 @@ import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
 import { useDownloadedUpdateNotice } from './hooks/useDownloadedUpdateNotice';
 import { useDefaultOpenFileConsumer } from './hooks/useDefaultOpenFileConsumer';
+import { useShareLinkBoot } from './hooks/useShareLinkBoot';
+import { ShareLinkController } from './components/Share/ShareLinkButton';
+import { SHARE_LINK_TRIGGER_EVENT } from './components/Share/shareLinkEvents';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
@@ -135,24 +138,42 @@ function AppChrome({
   const hasRestoredSessionRef = useRef(false);
   const hasHandledWhatsNewRef = useRef(false);
   const hasHandledAutoTourRef = useRef(false);
+  const [sessionRestoreReady, setSessionRestoreReady] = useState(false);
 
   // Restore session on first mount if setting is enabled.
   // RL-090 — safe mode skips session restore so a corrupted persisted
   // tab state cannot keep the renderer in a crash loop.
   useEffect(() => {
+    let cancelled = false;
+
+    const finish = () => {
+      if (!cancelled) {
+        setSessionRestoreReady(true);
+      }
+    };
+
     if (hasRestoredSessionRef.current || smokeEnabled) {
+      finish();
       return;
     }
     hasRestoredSessionRef.current = true;
 
     if (isSafeMode()) {
+      finish();
       return;
     }
 
     const { restoreSession } = useSettingsStore.getState();
-    if (restoreSession) {
-      void useSessionStore.getState().restoreSession();
-    }
+    void (async () => {
+      if (restoreSession) {
+        await useSessionStore.getState().restoreSession();
+      }
+      finish();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [smokeEnabled]);
 
   // Auto-save session when tabs change (debounced)
@@ -203,6 +224,12 @@ function AppChrome({
   // ships the real open-in-editor handler, this hook shows a
   // status-notice fallback so clicks get visible feedback.
   useDefaultOpenFileConsumer();
+
+  // RL-036 Phase A1 — hash-fragment share-link importer. Runs once
+  // at mount + listens for `hashchange` so a user can paste a new
+  // share link into the address bar without reloading. Skips in
+  // safe mode so a poisoned link cannot trap a crash recovery cycle.
+  useShareLinkBoot({ enabled: sessionRestoreReady });
 
   useEffect(() => {
     // RL-065: fire the first telemetry event. `trackEvent` is a no-op
@@ -569,6 +596,19 @@ function AppChrome({
         }
       );
     },
+    // RL-036 Phase A1 fold D — keyboard shortcut for the share-link
+    // copy. Dispatches the same `lingua-share-link-trigger` event the
+    // command palette uses (fold C) so the always-mounted
+    // `<ShareLinkController>` owns shortcut-triggered confirmation
+    // even when the result panel is hidden. Telemetry tags
+    // `trigger: 'shortcut'`.
+    copyShareLink: () => {
+      window.dispatchEvent(
+        new CustomEvent(SHARE_LINK_TRIGGER_EVENT, {
+          detail: { trigger: 'shortcut' },
+        })
+      );
+    },
   });
 
   const handleStartGuidedTour = () => {
@@ -593,6 +633,7 @@ function AppChrome({
         onOpenUtilities={() => handleOpenDeveloperUtility()}
         utilitiesOpen={overlay === 'utilities'}
       />
+      <ShareLinkController />
       {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
       {overlay === 'search' && <ProjectSearch onClose={closeOverlay} />}
       {overlay === 'go-to-symbol' && <GoToSymbol onClose={closeOverlay} />}

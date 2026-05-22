@@ -42,6 +42,37 @@ describe('keyboardShortcuts catalog', () => {
     }
   });
 
+  // Reviewer pass on RL-036 Phase A1 caught a silent
+  // `run-copy-share-link` ↔ `overlay-command-palette` collision on
+  // `Mod+Shift+P` (the share entry won because it was declared earlier
+  // in the catalog and useGlobalShortcuts iterates first-match-wins).
+  // This guard fails fast on any future regression by walking every
+  // (shortcut, combo) pair and asserting each comboKey appears at most
+  // once across the catalog. The `excluded` set carries an explicit
+  // ALLOW-LIST for combos that intentionally re-use the same key
+  // (none today; documented inline if future product design needs
+  // overlay+navigation sharing a combo).
+  it('contains no internal combo conflicts (every combo binds to at most one id)', () => {
+    const byCombo = new Map<string, string[]>();
+    for (const shortcut of KEYBOARD_SHORTCUTS) {
+      for (const combo of shortcut.combos) {
+        const key = comboKey(combo);
+        const owners = byCombo.get(key) ?? [];
+        owners.push(shortcut.id);
+        byCombo.set(key, owners);
+      }
+    }
+    const collisions = Array.from(byCombo.entries()).filter(
+      ([, owners]) => owners.length > 1
+    );
+    expect(
+      collisions,
+      `Internal combo conflicts: ${collisions
+        .map(([key, owners]) => `${key} → [${owners.join(', ')}]`)
+        .join('; ')}`
+    ).toEqual([]);
+  });
+
   it('covers the high-traffic shortcuts dispatched by useGlobalShortcuts', () => {
     const ids = new Set(KEYBOARD_SHORTCUTS.map((entry) => entry.id));
     for (const required of [

@@ -470,6 +470,16 @@ export interface SettingsState {
    */
   debuggerEnabled: boolean;
   /**
+   * RL-036 Phase A1 fold F — gate the share-link confirmation modal
+   * (`<ShareConfirmationModal>`). `true` (default) forces the modal
+   * to appear every time the user triggers Copy share link via the
+   * button / palette / shortcut so they can preview the source
+   * before it lands on the clipboard. `false` skips the modal and
+   * writes to the clipboard directly. Persisted; users who flip
+   * this off explicitly opt out of the safety net.
+   */
+  shareLinkConfirmEnabled: boolean;
+  /**
    * RL-019 Slice 1 fold B — default JS/TS runtime mode for newly
    * created tabs. `'worker'` mirrors `defaultRuntimeModeFor()` and
    * stays the only implemented option until Slice 2 lands. Settings
@@ -637,6 +647,8 @@ export interface SettingsState {
   setUtilitiesClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
   /** RL-027 Slice 1 — toggle the debugger master switch. */
   toggleDebuggerEnabled: () => void;
+  /** RL-036 Phase A1 fold F — flip the share-link confirmation gate. */
+  toggleShareLinkConfirmEnabled: () => void;
   /**
    * Apply a theme preset (editor theme, shell theme, typography, layout)
    * loaded from an exported JSON document. Non-theme settings (loop
