@@ -212,6 +212,14 @@ export const TELEMETRY_EVENTS = [
   'onboarding.first_run_completed',
   'onboarding.first_snippet_saved',
   'onboarding.toast_dismissed',
+  // RL-101 Slice 1.5 fold A — production diagnostic for the toast
+  // clobber bug found in the Slice 1 reviewer pass. Fires when an
+  // incoming `'normal'`-priority notice push is refused because an
+  // outstanding `'high'`-priority onboarding toast is still visible.
+  // Closed-enum `{ outstandingStage }` so we can correlate clobber
+  // attempts with the onboarding stage that survived. NO caller
+  // identity, NO error text — only the qualitative outcome.
+  'onboarding.toast_clobbered',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -396,6 +404,9 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-101 fold B — `stage` ∈ `ONBOARDING_TOAST_STAGES`,
   // `dismissMode` ∈ `ONBOARDING_DISMISS_MODES`.
   'onboarding.toast_dismissed': ['stage', 'dismissMode'],
+  // RL-101 Slice 1.5 fold A — `outstandingStage` ∈
+  // `ONBOARDING_TOAST_STAGES`.
+  'onboarding.toast_clobbered': ['outstandingStage'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -917,6 +928,10 @@ function isAllowedValue(
         return typeof value === 'string' && ONBOARDING_TOAST_STAGES.has(value);
       if (key === 'dismissMode')
         return typeof value === 'string' && ONBOARDING_DISMISS_MODES.has(value);
+      return false;
+    case 'onboarding.toast_clobbered':
+      if (key === 'outstandingStage')
+        return typeof value === 'string' && ONBOARDING_TOAST_STAGES.has(value);
       return false;
     default: {
       const exhaustive: never = event;

@@ -239,6 +239,20 @@ function handleFirstSuccessfulRun(language: string): void {
     tone: 'success',
     messageKey: 'onboarding.firstRun.message',
     actions: [saveAction],
+    // RL-101 Slice 1.5 fold B — `'high'` priority guarantees this
+    // toast cannot be clobbered by any `'normal'` notice push
+    // (the implicit default for 134 existing callers). Surfaced by
+    // the Slice 1 reviewer pass after a boot-time notice was
+    // observed displacing the first-run toast within ~600 ms.
+    priority: 'high',
+    // RL-101 Slice 1.5 fold A — production diagnostic when the
+    // priority saves the toast. Tells us how often the new field
+    // does real work in the wild.
+    onSurvived: () => {
+      void trackEvent('onboarding.toast_clobbered', {
+        outstandingStage: 'first_run',
+      });
+    },
     onDismiss: (mode: StatusNoticeDismissMode) => {
       void trackEvent('onboarding.toast_dismissed', {
         stage: 'first_run',
@@ -278,6 +292,17 @@ function handleFirstSnippetSave(): void {
   useUIStore.getState().pushStatusNotice({
     tone: 'info',
     messageKey: 'onboarding.firstSnippet.message',
+    // RL-101 Slice 1.5 fold B — same priority rationale as the
+    // first-run toast above; the library-tip toast must survive any
+    // normal-tier notice push for the ~6 s the user needs to read
+    // it.
+    priority: 'high',
+    // RL-101 Slice 1.5 fold A — clobber-attempt telemetry.
+    onSurvived: () => {
+      void trackEvent('onboarding.toast_clobbered', {
+        outstandingStage: 'first_snippet',
+      });
+    },
     values: { shortcut },
     actions: [openAction],
     onDismiss: (mode: StatusNoticeDismissMode) => {

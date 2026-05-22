@@ -30,6 +30,28 @@ export interface StatusNoticeAction {
 
 export type StatusNoticeDismissMode = 'cta' | 'manual' | 'auto';
 
+/**
+ * RL-101 Slice 1.5 fold B — priority tier for notice replacement.
+ *
+ * Surfaced during pre-commit review of RL-101 Slice 1: the
+ * onboarding first-run toast was being clobbered within ~600 ms by
+ * an unrelated boot-time notice push, so fresh-install users never
+ * saw the Save-as-snippet CTA. The 134 existing `pushStatusNotice`
+ * callers all run at the implicit `'normal'` tier, which preserves
+ * the prior "last writer wins" behaviour. Onboarding pushes
+ * `'high'`; `pushStatusNotice` refuses to overwrite an outstanding
+ * `'high'` notice with a `'normal'` one and instead drops the
+ * incoming notice silently (it still emits its own `onDismiss('auto')`
+ * for telemetry attribution). Errors and explicit dismiss paths
+ * always win regardless of priority.
+ *
+ * `'low'` is reserved for future ambient surfaces (telemetry
+ * heartbeats, idle background hints) so they can never displace
+ * either onboarding (`'high'`) or routine product feedback
+ * (`'normal'`).
+ */
+export type StatusNoticePriority = 'low' | 'normal' | 'high';
+
 export interface StatusNotice {
   id: number;
   tone: StatusNoticeTone;
@@ -48,6 +70,24 @@ export interface StatusNotice {
    * The dispatcher guarantees at-most-once delivery per notice.
    */
   onDismiss?: (mode: StatusNoticeDismissMode) => void;
+  /**
+   * RL-101 Slice 1.5 fold B — replacement priority. Default
+   * `'normal'` preserves the legacy "last writer wins" behaviour
+   * for the 134 existing callers. `'high'` is for onboarding /
+   * choreographed toasts that must survive any same-tone push.
+   * Incoming errors always bypass the priority check.
+   */
+  priority?: StatusNoticePriority;
+  /**
+   * RL-101 Slice 1.5 fold A — optional callback fired when this
+   * notice REFUSES a lower-priority replacement attempt. Lets the
+   * pusher (e.g. `useOnboardingChoreography`) emit
+   * `onboarding.toast_clobbered` telemetry so we can see in
+   * production how often the new priority field saves a toast.
+   * Fire-and-forget; can fire multiple times per notice if multiple
+   * clobber attempts happen during its lifetime.
+   */
+  onSurvived?: () => void;
 }
 
 export interface UIPosition {
@@ -173,6 +213,16 @@ interface UIState {
 
 let statusNoticeCounter = 0;
 
+/**
+ * RL-101 Slice 1.5 fold B — priority comparator helper. `'high'` >
+ * `'normal'` > `'low'`. Pure function for testability.
+ */
+function priorityRank(priority: StatusNoticePriority): number {
+  if (priority === 'high') return 2;
+  if (priority === 'low') return 0;
+  return 1;
+}
+
 export const useUIStore = create<UIState>((set) => ({
   sidebarVisible: false,
   consoleVisible: false,
@@ -194,12 +244,51 @@ export const useUIStore = create<UIState>((set) => ({
   setSidebarVisible: (sidebarVisible) => set({ sidebarVisible }),
   setConsoleVisible: (consoleVisible) => set({ consoleVisible }),
   pushStatusNotice: (notice) => {
+    // RL-101 Slice 1.5 fold B — priority-respecting replacement.
+    // A `'normal'` (the implicit default for the 134 legacy callers)
+    // notice CANNOT overwrite an outstanding `'high'` notice. The
+    // incoming notice is dropped and its own `onDismiss('auto')`
+    // fires so the pusher's telemetry stays honest. Errors override
+    // priority — a real error always reaches the user.
+    const previous = useUIStore.getState().statusNotice;
+    const incomingPriority: StatusNoticePriority = notice.priority ?? 'normal';
+    const outstandingPriority: StatusNoticePriority =
+      previous?.priority ?? 'normal';
+    const incomingIsError = notice.tone === 'error';
+    if (
+      previous &&
+      !incomingIsError &&
+      priorityRank(incomingPriority) < priorityRank(outstandingPriority)
+    ) {
+      // Outstanding notice has strictly higher priority and the
+      // incoming push is not an error — refuse the swap. Fire the
+      // incoming notice's onDismiss so the pusher knows it was
+      // never visible, AND fire the outstanding notice's optional
+      // onSurvived callback so the surviving pusher can attribute
+      // telemetry (`onboarding.toast_clobbered` records the survived
+      // stage so we can correlate clobber attempts to choreography
+      // stage).
+      if (notice.onDismiss) {
+        try {
+          notice.onDismiss('auto');
+        } catch {
+          // onDismiss is fire-and-forget.
+        }
+      }
+      if (previous.onSurvived) {
+        try {
+          previous.onSurvived();
+        } catch {
+          // onSurvived is fire-and-forget.
+        }
+      }
+      return;
+    }
     // RL-101 fold B — if a previous notice is still up when a new one
     // arrives (race between toast 1 + toast 2), close the outgoing
     // notice as `'auto'` so the pusher's telemetry doesn't lose the
     // signal. Mirrors the spec edge-case "toast 2 reemplaza toast 1
     // limpiamente, NO stacking de banners".
-    const previous = useUIStore.getState().statusNotice;
     if (previous?.onDismiss) {
       try {
         previous.onDismiss('auto');
