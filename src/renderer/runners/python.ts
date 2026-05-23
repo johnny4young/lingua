@@ -239,11 +239,12 @@ export class PythonRunner implements LanguageRunner {
       };
     }
 
-    // Apply loop protection if enabled
-    const { loopProtection, maxLoopIterations } = useSettingsStore.getState();
-    const loopProtected = loopProtection
-      ? injectPythonLoopProtectionWithLineMap(code, maxLoopIterations)
-      : { code, sourceLineMap: {} };
+    // Slice 2 — loop protection is baseline.
+    const { maxLoopIterations } = useSettingsStore.getState();
+    const loopProtected = injectPythonLoopProtectionWithLineMap(
+      code,
+      maxLoopIterations,
+    );
     const processedCode = loopProtected.code;
     const sourceLineFor = (line: number | undefined) =>
       typeof line === 'number'
@@ -514,22 +515,11 @@ export class PythonRunner implements LanguageRunner {
         // keeps the hot path identical to pre-slice behavior.
         captureScope: context?.captureScope === true,
         scopeDepth: context?.scopeDepth,
-        // RL-044 Slice 1C fold E — forward the master Settings
-        // toggle so the Pyodide preamble can skip payload
-        // serialization entirely when the user opted out. Reuses the
-        // top-of-execute `settingsSnapshot` (line 192) so a flip
-        // mid-execute does not produce a split-state run.
-        richConsoleEnabled:
-          settingsSnapshot.consoleRichRenderingEnabled !== false,
-        // RL-044 Sub-slice G.1 — forward the output-source-mapping
-        // master gate so the Pyodide preamble can skip the per-call
-        // `__lingua_caller_line()` frame walk entirely when the user
-        // opted out. Mirrors the JS/TS worker pattern from
-        // `javascript.ts:549` + `typescript.ts:161`. Defaults to
-        // `true` so callers that don't pass `outputSourceMappingEnabled`
-        // keep the historical behavior.
-        sourceMappingEnabled:
-          context?.outputSourceMappingEnabled !== false,
+        // Slice 2 — rich console + source mapping are baseline. The
+        // worker preamble unconditionally serializes payloads and
+        // walks frames for origin.
+        richConsoleEnabled: true,
+        sourceMappingEnabled: true,
       });
     });
   }

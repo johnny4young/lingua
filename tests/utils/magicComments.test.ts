@@ -8,6 +8,7 @@ import {
   detectJSAutoLogLines,
   transformJSAutoLog,
   originSuppressedByMagicComment,
+  gitStatusSuppressedByMagicComment,
 } from '@/utils/magicComments';
 
 describe('JS/TS magic comments', () => {
@@ -705,5 +706,73 @@ describe('originSuppressedByMagicComment — RL-044 Sub-slice G Fold F', () => {
   it('handles empty / non-string input safely', () => {
     expect(originSuppressedByMagicComment('javascript', '')).toBe(false);
     expect(originSuppressedByMagicComment('python', '')).toBe(false);
+  });
+});
+
+describe('gitStatusSuppressedByMagicComment — RL-102 Slice 1 Fold F', () => {
+  it('detects `// @git-ignore-status` in a JS / TS buffer', () => {
+    expect(
+      gitStatusSuppressedByMagicComment('javascript', '// @git-ignore-status')
+    ).toBe(true);
+    expect(
+      gitStatusSuppressedByMagicComment('typescript', '// @git-ignore-status\nfoo;')
+    ).toBe(true);
+  });
+
+  it('detects `# @git-ignore-status` in Python / Ruby buffers', () => {
+    expect(
+      gitStatusSuppressedByMagicComment('python', '# @git-ignore-status')
+    ).toBe(true);
+    expect(
+      gitStatusSuppressedByMagicComment('ruby', '# @git-ignore-status')
+    ).toBe(true);
+  });
+
+  it('is permissive about ANY language (unlike origin-off which is opt-in)', () => {
+    // The Git layer is desktop-wide so the directive applies to any
+    // source surface that supports `//` or `#` comments.
+    expect(
+      gitStatusSuppressedByMagicComment('go', '// @git-ignore-status')
+    ).toBe(true);
+    expect(
+      gitStatusSuppressedByMagicComment('rust', '// @git-ignore-status')
+    ).toBe(true);
+  });
+
+  it('accepts the loose-colon shape and is case-insensitive', () => {
+    expect(
+      gitStatusSuppressedByMagicComment('javascript', '// @git-ignore-status')
+    ).toBe(true);
+    expect(
+      gitStatusSuppressedByMagicComment('javascript', '// @Git-Ignore-Status')
+    ).toBe(true);
+  });
+
+  it('does not match a similar but distinct directive', () => {
+    expect(
+      gitStatusSuppressedByMagicComment('javascript', '// @git-status off')
+    ).toBe(false);
+    expect(
+      gitStatusSuppressedByMagicComment('javascript', '// git-ignore-status')
+    ).toBe(false);
+  });
+
+  it('handles empty / non-string input safely', () => {
+    expect(gitStatusSuppressedByMagicComment('javascript', '')).toBe(false);
+    expect(gitStatusSuppressedByMagicComment('', '// @git-ignore-status')).toBe(
+      false
+    );
+  });
+
+  it('uses an independent regex from `originSuppressedByMagicComment`', () => {
+    // Coupled-invariant pin: a file with `// @origin off` should NOT
+    // also suppress the git status (and vice versa). The two
+    // directives evolve independently.
+    expect(
+      gitStatusSuppressedByMagicComment('javascript', '// @origin off')
+    ).toBe(false);
+    expect(
+      originSuppressedByMagicComment('javascript', '// @git-ignore-status')
+    ).toBe(false);
   });
 });

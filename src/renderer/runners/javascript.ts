@@ -111,7 +111,8 @@ export class JavaScriptRunner implements LanguageRunner {
   }
 
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
-    const sourceMappingEnabled = context?.outputSourceMappingEnabled !== false;
+    // Slice 2 — origin capture is baseline; no runtime opt-out.
+    const sourceMappingEnabled = true;
     const stdout: ConsoleOutput[] = [];
     const stderr: ConsoleOutput[] = [];
     const magicResults: MagicCommentResult[] = [];
@@ -152,16 +153,20 @@ export class JavaScriptRunner implements LanguageRunner {
     const timeoutPreset: RuntimeTimeoutPreset | 'override' = callerOverrode
       ? 'override'
       : presetForLanguage ?? 'normal';
-    const debuggerSettings = settings.debuggerEnabled !== false;
+    // Slice 2 — debugger is baseline; the Settings master toggle is gone.
+    const debuggerSettings = true;
     const debugStore = useDebuggerStore.getState();
     const tabBreakpoints = context?.tabId
       ? debugStore.breakpointsForTab(context.tabId).filter((bp) => bp.enabled)
       : [];
     const debug = context?.debug === true && debuggerSettings && tabBreakpoints.length > 0;
 
-    const { loopProtection, maxLoopIterations } = settings;
-    const protectedCode =
-      loopProtection && !debug ? injectJSLoopProtection(code, maxLoopIterations) : code;
+    // Slice 2 — loop protection is baseline (the runtime kill switch
+    // against `while(true)` cannot be user-tunable on a code editor).
+    const { maxLoopIterations } = settings;
+    const protectedCode = !debug
+      ? injectJSLoopProtection(code, maxLoopIterations)
+      : code;
 
     // Transform magic comments before execution
     const magicEntries = detectJSMagicComments(protectedCode);

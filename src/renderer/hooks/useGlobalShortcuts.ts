@@ -251,8 +251,8 @@ function canDispatchDebuggerShortcut(id: string): boolean {
   // group requires a paused worker so F5 / F10 / F11 / Shift+F11
   // never compete with normal-mode keystrokes.
   if (id === 'debugger-toggle-breakpoint') {
-    return useSettingsStore.getState().debuggerEnabled !== false &&
-      getActiveDebuggerTab() !== null &&
+    // Slice 2 — debugger is baseline; the Settings toggle is gone.
+    return getActiveDebuggerTab() !== null &&
       getActiveEditorCursorLine() !== null;
   }
   if (!isDebugWorkerActive()) return false;

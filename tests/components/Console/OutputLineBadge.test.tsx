@@ -45,21 +45,9 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-const settingsState = {
-  outputSourceMappingEnabled: true,
-  outputHighlightOnHoverEnabled: true,
-};
-
-vi.mock('../../../src/renderer/stores/settingsStore', () => ({
-  useSettingsStore: (selector?: (state: typeof settingsState) => unknown) =>
-    selector ? selector(settingsState) : settingsState,
-}));
-
 describe('RL-044 Sub-slice G — <OutputLineBadge>', () => {
   beforeEach(() => {
     trackOutputOriginClickedMock.mockClear();
-    settingsState.outputSourceMappingEnabled = true;
-    settingsState.outputHighlightOnHoverEnabled = true;
     vi.useFakeTimers();
   });
 
@@ -126,50 +114,10 @@ describe('RL-044 Sub-slice G — <OutputLineBadge>', () => {
     }
   });
 
-  it('skips hover dispatch when the hover sub-gate is OFF', () => {
-    settingsState.outputHighlightOnHoverEnabled = false;
-    const highlightSpy = vi.fn();
-    window.addEventListener('lingua-highlight-line', highlightSpy);
-    try {
-      const { getByTestId } = render(
-        <OutputLineBadge origin={{ line: 9 }} language="python" />
-      );
-      fireEvent.mouseEnter(getByTestId('output-line-badge'));
-      act(() => {
-        vi.advanceTimersByTime(250);
-      });
-      expect(highlightSpy).not.toHaveBeenCalled();
-    } finally {
-      window.removeEventListener('lingua-highlight-line', highlightSpy);
-    }
-  });
-
-  it('clears a pending hover dispatch when the hover sub-gate turns OFF', () => {
-    const highlightSpy = vi.fn();
-    window.addEventListener('lingua-highlight-line', highlightSpy);
-    try {
-      const { getByTestId, rerender } = render(
-        <OutputLineBadge origin={{ line: 9 }} language="python" />
-      );
-      fireEvent.mouseEnter(getByTestId('output-line-badge'));
-      settingsState.outputHighlightOnHoverEnabled = false;
-      rerender(<OutputLineBadge origin={{ line: 9 }} language="python" />);
-      act(() => {
-        vi.advanceTimersByTime(250);
-      });
-      expect(highlightSpy).not.toHaveBeenCalled();
-    } finally {
-      window.removeEventListener('lingua-highlight-line', highlightSpy);
-    }
-  });
-
-  it('renders nothing when the master Settings flag is OFF', () => {
-    settingsState.outputSourceMappingEnabled = false;
-    const { queryByTestId } = render(
-      <OutputLineBadge origin={{ line: 5 }} language="javascript" />
-    );
-    expect(queryByTestId('output-line-badge')).toBeNull();
-  });
+  // Slice 2 — the master + hover sub-gate Settings toggles were
+  // removed; the badge always renders (subject to the per-tab
+  // `// @origin off` directive which is exercised by the parent
+  // `<ConsoleEntryRenderer>` suppression path, not here).
 
   it('renders nothing for invalid origins', () => {
     const { queryByTestId } = render(

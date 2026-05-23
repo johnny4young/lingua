@@ -37,9 +37,12 @@ export function ThemePresetControls() {
       editorTheme: settings.editorTheme,
       fontFamily: settings.fontFamily,
       fontSize: settings.fontSize,
-      fontLigatures: settings.fontLigatures,
+      // Slice 2 — these fields stay in the preset schema for backward
+      // compatibility with older exports, but are hardcoded to baseline
+      // values (ligatures on, shell follows editor theme).
+      fontLigatures: true,
       layoutPreset: settings.layoutPreset,
-      syncShellWithEditorTheme: settings.syncShellWithEditorTheme,
+      syncShellWithEditorTheme: true,
     });
     const serialized = serializeThemePreset(preset);
 
@@ -113,10 +116,10 @@ export function ThemePresetControls() {
       applyThemePreset({
         theme: result.preset.appearance.theme,
         editorTheme: result.preset.appearance.editorTheme,
-        syncShellWithEditorTheme: result.preset.appearance.syncShellWithEditorTheme,
         fontFamily: result.preset.typography.fontFamily,
         fontSize: result.preset.typography.fontSize,
-        fontLigatures: result.preset.typography.fontLigatures,
+        // Slice 2 — `syncShellWithEditorTheme` / `fontLigatures` are
+        // baseline ON; imported presets that carry them are ignored.
         layoutPreset: result.preset.layout.layoutPreset,
       });
       pushStatusNotice({

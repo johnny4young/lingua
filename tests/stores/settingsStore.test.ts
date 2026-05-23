@@ -56,7 +56,6 @@ describe('settingsStore', () => {
     expect(state.theme).toBe('dark');
     expect(state.editorTheme).toBe('lingua-dark');
     expect(state.fontSize).toBe(14);
-    expect(state.showLineNumbers).toBe(true);
     expect(state.wordWrap).toBe(false);
     expect(state.minimap).toBe(false);
     expect(state.layoutPreset).toBe('horizontal');
@@ -65,14 +64,6 @@ describe('settingsStore', () => {
   it('should set theme', () => {
     useSettingsStore.getState().setTheme('light');
     expect(useSettingsStore.getState().theme).toBe('light');
-  });
-
-  it('setTheme also disables syncShellWithEditorTheme so the explicit choice wins', () => {
-    useSettingsStore.setState({ syncShellWithEditorTheme: true, editorTheme: 'lingua-dark' });
-    useSettingsStore.getState().setTheme('light');
-    const state = useSettingsStore.getState();
-    expect(state.theme).toBe('light');
-    expect(state.syncShellWithEditorTheme).toBe(false);
   });
 
   it('should set editor theme', () => {
@@ -98,14 +89,6 @@ describe('settingsStore', () => {
     );
   });
 
-  it('should toggle line numbers', () => {
-    expect(useSettingsStore.getState().showLineNumbers).toBe(true);
-    useSettingsStore.getState().toggleLineNumbers();
-    expect(useSettingsStore.getState().showLineNumbers).toBe(false);
-    useSettingsStore.getState().toggleLineNumbers();
-    expect(useSettingsStore.getState().showLineNumbers).toBe(true);
-  });
-
   it('should toggle word wrap', () => {
     expect(useSettingsStore.getState().wordWrap).toBe(false);
     useSettingsStore.getState().toggleWordWrap();
@@ -116,14 +99,6 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().minimap).toBe(false);
     useSettingsStore.getState().toggleMinimap();
     expect(useSettingsStore.getState().minimap).toBe(true);
-  });
-
-  it('defaults rich console rendering on and toggles it from Settings', () => {
-    expect(useSettingsStore.getState().consoleRichRenderingEnabled).toBe(true);
-    useSettingsStore.getState().toggleConsoleRichRendering();
-    expect(useSettingsStore.getState().consoleRichRenderingEnabled).toBe(false);
-    useSettingsStore.getState().toggleConsoleRichRendering();
-    expect(useSettingsStore.getState().consoleRichRenderingEnabled).toBe(true);
   });
 
   it('seeds the Ruby runtime preference to auto + accepts the closed enum (RL-042 Slice 6)', () => {
@@ -201,25 +176,15 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().vimMode).toBe(false);
   });
 
-  it('should default fontLigatures to true and toggle cleanly', () => {
-    expect(useSettingsStore.getState().fontLigatures).toBe(true);
-    useSettingsStore.getState().toggleFontLigatures();
-    expect(useSettingsStore.getState().fontLigatures).toBe(false);
-    useSettingsStore.getState().toggleFontLigatures();
-    expect(useSettingsStore.getState().fontLigatures).toBe(true);
-  });
-
   it('applyThemePreset updates theming fields and leaves safety prefs alone', () => {
-    useSettingsStore.setState({ loopProtection: true, formatOnSave: true, restoreSession: true });
+    useSettingsStore.setState({ formatOnSave: true, restoreSession: true });
 
     useSettingsStore.getState().applyThemePreset({
       theme: 'light',
       editorTheme: 'solarized-light',
       fontFamily: 'Menlo, monospace',
       fontSize: 18,
-      fontLigatures: false,
       layoutPreset: 'vertical',
-      syncShellWithEditorTheme: false,
     });
 
     const state = useSettingsStore.getState();
@@ -227,40 +192,16 @@ describe('settingsStore', () => {
     expect(state.editorTheme).toBe('solarized-light');
     expect(state.fontFamily).toBe('Menlo, monospace');
     expect(state.fontSize).toBe(18);
-    expect(state.fontLigatures).toBe(false);
     expect(state.layoutPreset).toBe('vertical');
-    expect(state.syncShellWithEditorTheme).toBe(false);
-    // Preset must not override safety/workflow preferences
-    expect(state.loopProtection).toBe(true);
+    // Preset must not override workflow preferences
     expect(state.formatOnSave).toBe(true);
     expect(state.restoreSession).toBe(true);
-  });
-
-  it('applyThemePreset keeps the current sync flag when the preset omits it', () => {
-    useSettingsStore.setState({ syncShellWithEditorTheme: false });
-    useSettingsStore.getState().applyThemePreset({
-      theme: 'dark',
-      editorTheme: 'lingua-dark',
-      fontFamily: 'Menlo, monospace',
-      fontSize: 14,
-      fontLigatures: false,
-      layoutPreset: 'horizontal',
-    });
-    expect(useSettingsStore.getState().syncShellWithEditorTheme).toBe(false);
   });
 
   it('blocks extended theme packs on the Free tier', () => {
     useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
     useSettingsStore.getState().applyThemePack('solarized-daylight');
     expect(useSettingsStore.getState().themePack).toBe('default');
-  });
-
-  it('should default syncShellWithEditorTheme to true and toggle cleanly', () => {
-    expect(useSettingsStore.getState().syncShellWithEditorTheme).toBe(true);
-    useSettingsStore.getState().toggleSyncShellWithEditorTheme();
-    expect(useSettingsStore.getState().syncShellWithEditorTheme).toBe(false);
-    useSettingsStore.getState().toggleSyncShellWithEditorTheme();
-    expect(useSettingsStore.getState().syncShellWithEditorTheme).toBe(true);
   });
 
   it('should default language to system', () => {
@@ -358,7 +299,6 @@ describe('settingsStore', () => {
     expect(state.themePack).toBe('solarized-daylight');
     expect(state.theme).toBe('light');
     expect(state.editorTheme).toBe('solarized-light');
-    expect(state.fontLigatures).toBe(false);
   });
 
   it('applyThemePack with an unknown id is a no-op', () => {
@@ -377,9 +317,7 @@ describe('settingsStore', () => {
           editorTheme: 'solarized-light',
           fontFamily: 'Menlo, monospace',
           fontSize: 14,
-          fontLigatures: false,
           layoutPreset: 'horizontal',
-          syncShellWithEditorTheme: true,
         },
         version: 0,
       })
@@ -404,9 +342,7 @@ describe('settingsStore', () => {
           editorTheme: 'solarized-light',
           fontFamily: 'Menlo, monospace',
           fontSize: 20,
-          fontLigatures: false,
           layoutPreset: 'horizontal',
-          syncShellWithEditorTheme: true,
         },
         version: 0,
       })
@@ -430,15 +366,13 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().fontSize).toBe(20);
   });
 
-  it('applyThemePack does not touch safety/workflow prefs', () => {
+  it('applyThemePack does not touch workflow prefs', () => {
     useSettingsStore.setState({
-      loopProtection: true,
       formatOnSave: true,
       restoreSession: true,
     });
     useSettingsStore.getState().applyThemePack('solarized-daylight');
     const state = useSettingsStore.getState();
-    expect(state.loopProtection).toBe(true);
     expect(state.formatOnSave).toBe(true);
     expect(state.restoreSession).toBe(true);
   });

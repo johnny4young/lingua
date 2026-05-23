@@ -10678,7 +10678,7 @@ Slice 1.5 fixes that without touching the 134 legacy call sites.
 ### RL-102 Git Read-Only Layer
 
 - Priority: `P1`
-- Status: `Planned`
+- Status: `Partial`
 - Readiness: `Slice 1 ready when RL-024 multi-file Slice 1 ships — needs a project root path to diff against`
 - Why this matters:
   - For desktop developers, Git is the substrate. A workspace without ANY Git awareness feels like a scratchpad. Read-only Git integration (diff against HEAD, file-watcher detection, status pill) closes that gap with minimal scope and zero write surface.
@@ -10707,6 +10707,60 @@ Slice 1.5 fixes that without touching the 134 legacy call sites.
 - Risks:
   - `git` binary detection on macOS GUI apps → reuse the same fix-path approach as Ruby Slice 6.
   - Large diffs blocking renderer → mitigated by capping diff hunks at 500 lines.
+
+#### § Slice 1 landed (2026-05-22)
+
+Shipped as `RL-102 Slice 1 — Git read-only layer (detect + status pill + diff panel) + folds A/B/C/D/E/F/G/H/I`.
+
+Core surface:
+
+- New `src/main/git.ts` exposes `detectGit(folderPath)` / `getFileStatus(repoRoot, filePath)` / `getFileDiff(repoRoot, filePath)`. `execFile` only (shell: false), 5-second timeout per invocation, output capped at 64 KiB per side. Per-process binary probe cache mirrors Ruby Slice 6 (`detectRuby`). macOS GUI fallback walks the conventional Homebrew + Apple system bin paths (`MAC_GUI_FALLBACK_PATHS` constant) when PATH does not resolve. `validateRepoRelativePath` rejects path-traversal escapes; `git:diff` also revalidates the claimed root against `git rev-parse --show-toplevel` before reading the working-tree side from disk.
+- New `src/main/ipc/git.ts` registers `git:detect` / `git:status` / `git:diff` with input-type validation. Soft no-op on malformed input (returns `{ status: 'unknown' }` / empty diff) rather than throwing.
+- Preload bridge `window.lingua.git.*` shipped in Electron only; web build leaves the key absent so the renderer's `bridge?.git` guards short-circuit cleanly.
+- New `src/renderer/stores/gitStore.ts` non-persisted zustand store keyed by `{ posture, byFile, lastDetectAt }`. Mirrors `useDependencyDetectionStore` in shape; per-file cache invalidates on posture change so a folder switch never leaks status entries.
+- New hooks `useGitDetectOnProjectChange` (boot detect on project root change) + `useGitStatus` (watcher-driven, 300 ms debounce, max 1 concurrent spawn per file). Desktop bridge absence and the per-file `// @git-ignore-status` directive gate the status work.
+- New `<GitStatusPill>` mounted in `<EditorTabs>` to the right of the filename. Four visual states: emerald dot (clean), amber `M ±5/−3` (modified with numstat counts), rose `U` (untracked), slate `?` (unknown). Click flips the bottom panel to the Git diff tab; right-click opens a portal context menu (fold C).
+- New `<GitDiffPanel>` registered as the 7th bottom-panel sibling tab via `useGitDiffTabAvailable` (mirror of `useDependenciesPanelAvailable`). Lazy mounts the Monaco diff editor with `original` + `modified` strings from `git:diff`. Truncation hint pinned above the diff editor when either side hit the 64 KiB cap. Empty/loading/error placeholders cover the non-diff states.
+
+Folds shipped:
+
+- **Fold A** branch indicator threaded through `posture.branch` and surfaced in the pill tooltip (e.g. `Modified · main · +5 −3`). Future RL-112 persistent status bar will read the same store field.
+- **Fold B** 30s detect cache TTL in `useGitStore.lastDetectAt`. Re-mount within the window reuses the cached posture without spawning `git:detect`; a folder switch invalidates by changing the dep key.
+- **Fold C** right-click context menu on the pill with `Show diff` / `Copy file path` / `Reveal in Source Control` (disabled placeholder pointing at Slice 2+). Portal-mounted, closes on outside click + Escape.
+- **Fold D** new closed-enum telemetry `git.layer_attached { repoState }` (`'git-repo'` / `'no-git'` / `'no-binary'`) fires once per posture transition; `git.diff_panel_opened` fires once per panel mount. Both mirrored on update-server with the new `GIT_LAYER_REPO_STATES` parity assertion.
+- **Fold E** master toggle was rolled back in Slice 1.1 (2026-05-23): git awareness is baseline expectation, not a configurable surface. The per-file `// @git-ignore-status` magic-comment opt-out (Fold F) remains as the user-controlled escape hatch. Privacy + Trust Network row continues to surface the feature for transparency and now reads `'enabled'` unconditionally whenever the binary + repo posture resolve.
+- **Fold F** `// @git-ignore-status` / `# @git-ignore-status` per-file magic-comment opt-out via new `gitStatusSuppressedByMagicComment` in `src/renderer/utils/magicComments.ts`. Independent regex from `originSuppressedByMagicComment` (coupled-invariant test pins both directives evolve separately).
+- **Fold G** EN + ES tuteo i18n keys covering 5 tooltip surfaces, 8 diff-panel surfaces, 4 context-menu surfaces, 4 Settings surfaces, 1 Privacy network feature label. Tuteo verified: `Instala`, `Mostrar`, `Copiar ruta`.
+- **Fold H** `PrivacyTrustSection` Network table extended with `gitReadOnlyLayer` row. Status is always `enabled` once the local posture resolves; local-only (never network), with no Settings master toggle after Slice 1.1.
+- **Fold I** new `tests/perf/gitStatusParse.bench.test.ts` locks the parse + path-validation pipeline at 1000 ops < 500 ms (and 1000 path-traversal rejects < 200 ms) with the standard CI ×1.5 multiplier.
+
+Tests:
+
+- New `tests/main/git.test.ts` with 17 cases covering binary detection (5), porcelain status parsing (5), and diff payload assembly (7) — all with `vi.hoisted` `execFile` mocks via the `nodejs.util.promisify.custom` symbol pattern from `tests/main/node-runner.test.ts`. Path-traversal and claimed-root cases pin that disk reads only occur after the repo root is trusted.
+- Extended `tests/utils/magicComments.test.ts` with 7 cases for `gitStatusSuppressedByMagicComment` including the coupled-invariant pin against `originSuppressedByMagicComment`.
+- New `tests/components/Editor/GitStatusPill.test.tsx` with 10 cases for the 4 visual states, master-OFF gate, magic-comment gate, posture gate, click-to-diff dispatch, and 3-action context menu.
+- `tests/shared/telemetry.test.ts` sorted-list assertion extended with `git.diff_panel_opened` + `git.layer_attached` in the alphabetical slot between `feature.blocked` and `language_scorecard_viewed`.
+- `update-server/test/telemetry.test.ts` parity assertion extended with `GIT_LAYER_REPO_STATES` cross-import.
+
+Deferred to Slice 2:
+
+- `.git/HEAD` watching so a `git checkout` from a sibling terminal refreshes the branch indicator within seconds. Today the branch refresh requires a project re-open. Out of scope for Slice 1.
+- "File changed on disk — reload?" notice when the watcher reports an external modification to an open clean file. The watcher already exists; the notice scope was trimmed to keep Slice 1 atomic.
+- `Reveal in Source Control` action wiring (Slice 2+); the context-menu row exists today as a disabled placeholder with a tooltip pointing at the deferred scope.
+
+### § Slice 2 — settings hygiene (2026-05-23)
+
+Not an RL ticket — a pure cleanup pass that kills 11 baseline-always-ON Settings toggles plus the rollback of `gitReadOnlyEnabled` from Slice 1.1. The toggles were either privacy/safety defaults that should not be user-tunable (`shareLinkConfirmEnabled`, `loopProtection`), baseline IDE primitives (`showLineNumbers`, `fontLigatures`, `hideUndefined`, `debuggerEnabled`), design-system consistency (`syncShellWithEditorTheme`), or product-defining features that turning OFF defeats the positioning (`consoleRichRenderingEnabled`, `outputSourceMappingEnabled` + the two sub-gates `outputHighlightOnHoverEnabled` + `outputSmoothScrollOffscreenEnabled`).
+
+Removed from `settingsStore` initial state + `SettingsState` interface + persist allow-list + sanitize-on-rehydrate. Setters trimmed from the type and the implementation. Settings UI rows in `EditorSection`, `PrivacySection`, `ThemePresetControls` deleted. Locale files trimmed of ~32 toggle-copy keys × 2 locales. Command-palette catalog dropped `action-toggle-console-rich-rendering` + `action-toggle-output-source-mapping` entries (the `onToggle*` callback + `*Enabled` flag fields stayed temporarily during Slice 2 implementation then were excised by the post-staging reviewer pass — see `commandPaletteModel.ts` cleanup comment).
+
+Consumer pass: every `state.X` read became a `const X = true` local (or removed branch). Runners (`javascript.ts`, `typescript.ts`, `python.ts`) unconditionally inject loop protection (the `!debug` carve-out is preserved). `ExecutionContext.outputSourceMappingEnabled` removed; `executeTabManually` no longer threads it. The dead `stripExecutionOutputOrigins` / `stripConsoleOutputOrigin` / `stripRichOutputOrigin` helpers in `executeTabManually.ts` got excised by the post-staging reviewer pass.
+
+Test suite update: 14 test files trimmed of OFF-state cases that no longer apply (`useAppTheme.test.ts` rewritten around the always-on shell-polarity contract; `OutputLineBadge.test.tsx` drops the master + hover sub-gate cases; `ConsolePanel.test.tsx` drops the cursor-pulse silence + flip cases; `SettingsModal.test.tsx` drops the ligatures disabled-state case; `PrivacySection.test.tsx` drops the share-link confirm toggle case; `EditorSection.debugger.test.tsx` drops the debugger master toggle + ES localization cases; `ResultPanel.test.tsx` drops the hideUndefined reveal-button case; `CommandPalette.test.tsx` + `commandPaletteModel.test.ts` drop the rich-console toggle palette test; `settingsStore.test.ts` drops the 7 toggle-default + theme-preset cases tied to removed fields; runner tests drop the OFF-state forwarding cases). Net: `3962 / 3966 vitest pass`; 4 pre-existing skips; 0 fail.
+
+Net impact: −1372 LOC across renderer + tests. Settings → Editor compactó de scroll largo a una pantalla. Magic-comment escape hatches (`// @origin off`, `// @git-ignore-status`) y preferencias legítimas (`restoreSession`, `vimMode`, `wordWrap`, `minimap`, `formatOnSave`, `theme`, `editorTheme`, `fontFamily`, `fontSize`, `layoutPreset`, `executionHistorySnapshotEnabled`, `dependencyDetectionEnabled`, `showStdinPanel`, `runtimeTimeoutPresetByLanguage`, `variableInspectorSurface`, `rubyRuntimePreference`, `defaultRuntimeMode`) preservadas.
+
+Why now: prior commits accumulated ~25 toggles that were never legitimate trade-offs — they were debt from the original Settings panel pattern of "any flag becomes a toggle". A senior pass surfaced the discoverability problem (Editor section scroll length) and the safety regression risk (a user accidentally flipping `loopProtection` OFF can freeze the whole app with `while(true)`). Slice 2 caps the toggle inventory at the genuinely user-tunable preferences.
 
 ### RL-103 Project Templates
 

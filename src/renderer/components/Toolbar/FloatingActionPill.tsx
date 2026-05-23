@@ -57,7 +57,6 @@ import {
 } from 'lucide-react';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggable } from '../../hooks/useDraggable';
@@ -178,7 +177,8 @@ export function FloatingActionPill({
   // pill shows a static green status dot per the design intent (the
   // editor saves locally on every keystroke today).
   const autoSaveEnabled = true;
-  const debuggerEnabled = useSettingsStore((s) => s.debuggerEnabled);
+  // Slice 2 — debugger is baseline; the Settings master toggle is gone.
+  const debuggerEnabled = true;
   const historyEntries = useExecutionHistoryStore((s) => s.entries);
   const effectiveTier = useEffectiveTier();
   const actionPillPosition = useUIStore((s) => s.actionPillPosition);

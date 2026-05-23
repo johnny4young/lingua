@@ -351,15 +351,6 @@ export function CommandPalette({
           snapshot != null && snapshot.language === activeTab.language
         );
       })(),
-      // RL-044 Slice 1B fold B — toggle the rich console output
-      // dispatch from the command palette. Always wired (the console
-      // is global) and routed to the settings-store action so the
-      // ConsolePanel picks it up reactively.
-      onToggleConsoleRichRendering: () => {
-        useSettingsStore.getState().toggleConsoleRichRendering();
-      },
-      consoleRichRenderingEnabled:
-        useSettingsStore.getState().consoleRichRenderingEnabled,
       // RL-020 Slice 4 fold G — pass the active tab id so the
       // model can surface the per-tab Recent runs group above the
       // legacy global one. `null` (no active tab) suppresses the
@@ -513,13 +504,6 @@ export function CommandPalette({
             useUIStore.getState().openBottomPanel('dependencies');
           }
         : undefined,
-      // RL-044 Sub-slice G Fold C — flip the output→source line
-      // master toggle from the palette. Mirrors the close-palette-
-      // first pattern; the action callback in commandPaletteModel
-      // already calls `onClose()` before invoking us.
-      onToggleOutputSourceMapping: () => {
-        useSettingsStore.getState().toggleOutputSourceMappingEnabled();
-      },
       // RL-095 Slice 1 fold F — render + copy markdown to clipboard.
       onCopyLanguageScorecardMarkdown: () => {
         const markdown = renderLanguageScorecardMarkdown();

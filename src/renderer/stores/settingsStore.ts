@@ -220,9 +220,7 @@ function themePackAppearanceMatchesSettings(
     | 'editorTheme'
     | 'fontFamily'
     | 'fontSize'
-    | 'fontLigatures'
     | 'layoutPreset'
-    | 'syncShellWithEditorTheme'
   >,
   appearance: ThemePackAppearance
 ): boolean {
@@ -231,9 +229,7 @@ function themePackAppearanceMatchesSettings(
     settings.editorTheme === appearance.editorTheme &&
     settings.fontFamily === appearance.fontFamily &&
     settings.fontSize === appearance.fontSize &&
-    settings.fontLigatures === appearance.fontLigatures &&
-    settings.layoutPreset === appearance.layoutPreset &&
-    settings.syncShellWithEditorTheme === appearance.syncShellWithEditorTheme
+    settings.layoutPreset === appearance.layoutPreset
   );
 }
 
@@ -256,23 +252,17 @@ export const useSettingsStore = create<SettingsState>()(
       editorTheme: 'lingua-dark',
       fontSize: 14,
       fontFamily: DEFAULT_EDITOR_FONT_FAMILY,
-      fontLigatures: true,
-      showLineNumbers: true,
       wordWrap: false,
       minimap: false,
       layoutPreset: 'horizontal',
-      loopProtection: true,
       maxLoopIterations: 10_000,
-      hideUndefined: true,
       restoreSession: false,
       formatOnSave: false,
       vimMode: false,
       nativeExecutionAcknowledged: false,
-      syncShellWithEditorTheme: true,
       executionHistorySnapshotEnabled: true,
       telemetryConsent: 'unset',
       utilitiesClipboardOnFocusConsent: 'unset',
-      debuggerEnabled: true,
       // RL-025 Slice A — master toggle for dependency detection +
       // the bottom-panel Dependencies tab. The rehydrate merge
       // below applies the fold-G tier-aware default when the
@@ -280,27 +270,6 @@ export const useSettingsStore = create<SettingsState>()(
       // other tier → true). Once the user persists a choice via the
       // setter, that choice survives across reloads.
       dependencyDetectionEnabled: true,
-      // RL-036 Phase A1 fold F — default ON so the first share-link
-      // copy always surfaces the confirmation modal preview before
-      // anything reaches the clipboard.
-      shareLinkConfirmEnabled: true,
-      // RL-044 Sub-slice G — master toggle for the
-      // `<OutputLineBadge>` chip and output-origin metadata. Default
-      // ON so a fresh install gets the affordance out of the box.
-      // When OFF, runners skip origin capture where supported and
-      // the runtime strips any returned line/origin metadata before
-      // console, history, or capsule surfaces see it.
-      outputSourceMappingEnabled: true,
-      // RL-044 Sub-slice G — hover-on-chip → Monaco line flash
-      // sub-gate. Default ON. When OFF the chip is still clickable
-      // (cursor move), only the hover behaviour is suppressed.
-      outputHighlightOnHoverEnabled: true,
-      // RL-044 Sub-slice G — when the highlighted line is outside
-      // the editor viewport, smooth-scroll via
-      // `editor.revealLineInCenter(line, ScrollType.Smooth)`.
-      // Default ON. When OFF the flash still fires but the
-      // viewport stays put.
-      outputSmoothScrollOffscreenEnabled: true,
       // RL-019 Slice 1 fold B — only `worker` is implemented today;
       // the setter rejects anything else, so this stays a constant
       // initial value until Slice 2 lands the desktop Node backend.
@@ -342,11 +311,6 @@ export const useSettingsStore = create<SettingsState>()(
       // Editor lets the user bump it (max enforced renderer-side by
       // `MAX_SCOPE_DEPTH`).
       variableInspectorScopeDepth: 1,
-      // RL-044 Slice 1B fold E — rich console output toggle. Default
-      // ON so the additive payload lights up out of the box; users
-      // who prefer the legacy text-only console can flip this OFF in
-      // Settings → Editor.
-      consoleRichRenderingEnabled: true,
       // RL-042 Slice 6 — Ruby runtime preference. `auto` is the
       // friendliest default (system when detected, WASM otherwise).
       // Sanitization in the rehydrate handler below maps tampered
@@ -388,10 +352,6 @@ export const useSettingsStore = create<SettingsState>()(
         set({
           theme,
           themePack: DEFAULT_THEME_PACK_ID,
-          // Explicit shell-polarity choice wins over sync. Without this, a
-          // click on Dark/Light would be silently overridden whenever the
-          // editor theme's polarity differs from the chosen shell.
-          syncShellWithEditorTheme: false,
         }),
       setEditorTheme: (editorTheme) =>
         set({ editorTheme, themePack: DEFAULT_THEME_PACK_ID }),
@@ -406,29 +366,16 @@ export const useSettingsStore = create<SettingsState>()(
           }
           return { fontFamily, themePack: DEFAULT_THEME_PACK_ID };
         }),
-      toggleFontLigatures: () =>
-        set((s) => ({
-          fontLigatures: !s.fontLigatures,
-          themePack: DEFAULT_THEME_PACK_ID,
-        })),
-      toggleLineNumbers: () => set((s) => ({ showLineNumbers: !s.showLineNumbers })),
       toggleWordWrap: () => set((s) => ({ wordWrap: !s.wordWrap })),
       toggleMinimap: () => set((s) => ({ minimap: !s.minimap })),
       setLayoutPreset: (layoutPreset) =>
         set({ layoutPreset, themePack: DEFAULT_THEME_PACK_ID }),
-      toggleLoopProtection: () => set((s) => ({ loopProtection: !s.loopProtection })),
       setMaxLoopIterations: (maxLoopIterations) => set({ maxLoopIterations }),
-      toggleHideUndefined: () => set((s) => ({ hideUndefined: !s.hideUndefined })),
       toggleRestoreSession: () => set((s) => ({ restoreSession: !s.restoreSession })),
       toggleFormatOnSave: () => set((s) => ({ formatOnSave: !s.formatOnSave })),
       toggleVimMode: () => set((s) => ({ vimMode: !s.vimMode })),
       setNativeExecutionAcknowledged: (nativeExecutionAcknowledged) =>
         set({ nativeExecutionAcknowledged }),
-      toggleSyncShellWithEditorTheme: () =>
-        set((s) => ({
-          syncShellWithEditorTheme: !s.syncShellWithEditorTheme,
-          themePack: DEFAULT_THEME_PACK_ID,
-        })),
       toggleExecutionHistorySnapshot: () =>
         set((s) => ({ executionHistorySnapshotEnabled: !s.executionHistorySnapshotEnabled })),
       setTelemetryConsent: (telemetryConsent) => {
@@ -442,35 +389,10 @@ export const useSettingsStore = create<SettingsState>()(
       setUtilitiesClipboardOnFocusConsent: (utilitiesClipboardOnFocusConsent) => {
         set({ utilitiesClipboardOnFocusConsent });
       },
-      // RL-027 Slice 1 — debugger master switch.
-      toggleDebuggerEnabled: () =>
-        set((state) => ({ debuggerEnabled: !state.debuggerEnabled })),
       // RL-025 Slice A — dependency detection master switch.
       toggleDependencyDetectionEnabled: () =>
         set((state) => ({
           dependencyDetectionEnabled: !state.dependencyDetectionEnabled,
-        })),
-      // RL-036 Phase A1 fold F — share-link confirmation gate.
-      toggleShareLinkConfirmEnabled: () =>
-        set((state) => ({
-          shareLinkConfirmEnabled: !state.shareLinkConfirmEnabled,
-        })),
-      // RL-044 Sub-slice G — three toggles for the output→source line
-      // affordance. Master gates the chip and origin metadata; the
-      // two sub-gates only affect renderer-side hover +
-      // smooth-scroll behaviour.
-      toggleOutputSourceMappingEnabled: () =>
-        set((state) => ({
-          outputSourceMappingEnabled: !state.outputSourceMappingEnabled,
-        })),
-      toggleOutputHighlightOnHoverEnabled: () =>
-        set((state) => ({
-          outputHighlightOnHoverEnabled: !state.outputHighlightOnHoverEnabled,
-        })),
-      toggleOutputSmoothScrollOffscreenEnabled: () =>
-        set((state) => ({
-          outputSmoothScrollOffscreenEnabled:
-            !state.outputSmoothScrollOffscreenEnabled,
         })),
       // RL-101 Slice 1 — three reset setters. Flip the corresponding
       // flag back to `false` so the next welcome-seed, first-run, or
@@ -501,15 +423,12 @@ export const useSettingsStore = create<SettingsState>()(
       markOnboardingFirstSnippetCompleted: () =>
         set({ hasCompletedOnboardingFirstSnippet: true }),
       applyThemePreset: (preset) =>
-        set((state) => ({
+        set(() => ({
           theme: preset.theme,
           editorTheme: preset.editorTheme,
           fontFamily: preset.fontFamily,
           fontSize: preset.fontSize,
-          fontLigatures: preset.fontLigatures,
           layoutPreset: preset.layoutPreset,
-          syncShellWithEditorTheme:
-            preset.syncShellWithEditorTheme ?? state.syncShellWithEditorTheme,
           // Imported presets are user-authored; the built-in pack selector
           // should reset to default so it doesn't claim a bundle is in force.
           themePack: DEFAULT_THEME_PACK_ID,
@@ -623,9 +542,6 @@ export const useSettingsStore = create<SettingsState>()(
       // RL-020 Slice 7 fold E — flip the countdown-pill toggle.
       toggleShowTimeoutCountdown: () =>
         set((s) => ({ showTimeoutCountdown: !s.showTimeoutCountdown })),
-      // RL-044 Slice 1B fold E — flip the rich console output toggle.
-      toggleConsoleRichRendering: () =>
-        set((s) => ({ consoleRichRenderingEnabled: !s.consoleRichRenderingEnabled })),
       // RL-042 Slice 6 — set the Ruby runtime dispatcher preference.
       // Telemetry mirrors the closed enum so dashboards see the
       // distribution. Tampered values are rejected by the setter
@@ -698,9 +614,7 @@ export const useSettingsStore = create<SettingsState>()(
           editorTheme: pack.appearance.editorTheme,
           fontFamily: pack.appearance.fontFamily,
           fontSize: pack.appearance.fontSize,
-          fontLigatures: pack.appearance.fontLigatures,
           layoutPreset: pack.appearance.layoutPreset,
-          syncShellWithEditorTheme: pack.appearance.syncShellWithEditorTheme,
         });
       },
     }),
@@ -712,38 +626,22 @@ export const useSettingsStore = create<SettingsState>()(
         editorTheme: state.editorTheme,
         fontSize: state.fontSize,
         fontFamily: state.fontFamily,
-        fontLigatures: state.fontLigatures,
-        showLineNumbers: state.showLineNumbers,
         wordWrap: state.wordWrap,
         minimap: state.minimap,
         layoutPreset: state.layoutPreset,
-        loopProtection: state.loopProtection,
         maxLoopIterations: state.maxLoopIterations,
-        hideUndefined: state.hideUndefined,
         restoreSession: state.restoreSession,
         formatOnSave: state.formatOnSave,
         vimMode: state.vimMode,
         nativeExecutionAcknowledged: state.nativeExecutionAcknowledged,
-        syncShellWithEditorTheme: state.syncShellWithEditorTheme,
         executionHistorySnapshotEnabled: state.executionHistorySnapshotEnabled,
         telemetryConsent: state.telemetryConsent,
         utilitiesClipboardOnFocusConsent: state.utilitiesClipboardOnFocusConsent,
-        debuggerEnabled: state.debuggerEnabled,
         // RL-025 Slice A — persist the dependency-detection toggle so
         // the user's choice survives reloads. Rehydrate-merge below
         // applies the fold-G tier-aware default when this key is
         // absent.
         dependencyDetectionEnabled: state.dependencyDetectionEnabled,
-        // RL-036 Phase A1 fold F — sticky preference so the gate
-        // survives reloads.
-        shareLinkConfirmEnabled: state.shareLinkConfirmEnabled,
-        // RL-044 Sub-slice G — persist the three output-source-mapping
-        // toggles. Defaults seed via the merge below when a persisted
-        // payload predates the slice.
-        outputSourceMappingEnabled: state.outputSourceMappingEnabled,
-        outputHighlightOnHoverEnabled: state.outputHighlightOnHoverEnabled,
-        outputSmoothScrollOffscreenEnabled:
-          state.outputSmoothScrollOffscreenEnabled,
         defaultRuntimeMode: state.defaultRuntimeMode,
         workflowModeDefaultsByLanguage: state.workflowModeDefaultsByLanguage,
         scratchpadAutoLogByLanguage: state.scratchpadAutoLogByLanguage,
@@ -751,7 +649,6 @@ export const useSettingsStore = create<SettingsState>()(
         variableInspectorSurface: state.variableInspectorSurface,
         runtimeTimeoutPresetByLanguage: state.runtimeTimeoutPresetByLanguage,
         showTimeoutCountdown: state.showTimeoutCountdown,
-        consoleRichRenderingEnabled: state.consoleRichRenderingEnabled,
         rubyRuntimePreference: state.rubyRuntimePreference,
         firstWorkflowModeSwitchAcknowledged:
           state.firstWorkflowModeSwitchAcknowledged,
@@ -834,18 +731,14 @@ export const useSettingsStore = create<SettingsState>()(
                     editorTheme: merged.editorTheme,
                     fontFamily: merged.fontFamily,
                     fontSize: merged.fontSize,
-                    fontLigatures: merged.fontLigatures,
                     layoutPreset: merged.layoutPreset,
-                    syncShellWithEditorTheme: merged.syncShellWithEditorTheme,
                   },
                   findThemePack(requestedThemePack)?.appearance ?? {
                     theme: currentState.theme,
                     editorTheme: currentState.editorTheme,
                     fontFamily: currentState.fontFamily,
                     fontSize: currentState.fontSize,
-                    fontLigatures: currentState.fontLigatures,
                     layoutPreset: currentState.layoutPreset,
-                    syncShellWithEditorTheme: currentState.syncShellWithEditorTheme,
                   }
                 )
               ? requestedThemePack
@@ -915,13 +808,6 @@ export const useSettingsStore = create<SettingsState>()(
           typeof merged.showTimeoutCountdown === 'boolean'
             ? merged.showTimeoutCountdown
             : currentState.showTimeoutCountdown;
-        // RL-044 Slice 1B fold E — guard against tampered / older
-        // persisted state. Default to the seed (true) when the
-        // persisted value is not a boolean.
-        const consoleRichRenderingEnabled =
-          typeof merged.consoleRichRenderingEnabled === 'boolean'
-            ? merged.consoleRichRenderingEnabled
-            : currentState.consoleRichRenderingEnabled;
         // RL-042 Slice 6 — same guard as the boolean above. Anything
         // outside the closed enum (`auto` / `system` / `wasm`) gets
         // mapped back to the seed.
@@ -931,30 +817,6 @@ export const useSettingsStore = create<SettingsState>()(
           merged.rubyRuntimePreference === 'wasm'
             ? merged.rubyRuntimePreference
             : currentState.rubyRuntimePreference;
-        // RL-036 Phase A1 fold F — sanitize the persisted share-link
-        // confirmation flag. Malformed entries (null, string, missing)
-        // fall back to the safer default (ON) rather than silently
-        // dropping the user into the no-modal path.
-        const shareLinkConfirmEnabled =
-          typeof merged.shareLinkConfirmEnabled === 'boolean'
-            ? merged.shareLinkConfirmEnabled
-            : currentState.shareLinkConfirmEnabled;
-        // RL-044 Sub-slice G — sanitize the three output-source-mapping
-        // toggles. Malformed entries (null, string, missing) fall back
-        // to the initial-state default (ON) so users who installed
-        // before the slice keep the affordance.
-        const outputSourceMappingEnabled =
-          typeof merged.outputSourceMappingEnabled === 'boolean'
-            ? merged.outputSourceMappingEnabled
-            : currentState.outputSourceMappingEnabled;
-        const outputHighlightOnHoverEnabled =
-          typeof merged.outputHighlightOnHoverEnabled === 'boolean'
-            ? merged.outputHighlightOnHoverEnabled
-            : currentState.outputHighlightOnHoverEnabled;
-        const outputSmoothScrollOffscreenEnabled =
-          typeof merged.outputSmoothScrollOffscreenEnabled === 'boolean'
-            ? merged.outputSmoothScrollOffscreenEnabled
-            : currentState.outputSmoothScrollOffscreenEnabled;
         // RL-101 Slice 1 — sanitize the onboarding choreography flags.
         // Tampered entries (null, string, undefined) fall back to the
         // initial `false` so the user always sees the welcome flow
@@ -980,10 +842,6 @@ export const useSettingsStore = create<SettingsState>()(
             : currentState.onboardingWelcomeSeedVersion;
         return {
           ...merged,
-          shareLinkConfirmEnabled,
-          outputSourceMappingEnabled,
-          outputHighlightOnHoverEnabled,
-          outputSmoothScrollOffscreenEnabled,
           hasCompletedOnboardingWelcome,
           hasCompletedOnboardingFirstRun,
           hasCompletedOnboardingFirstSnippet,
@@ -1002,7 +860,6 @@ export const useSettingsStore = create<SettingsState>()(
           variableInspectorSurface,
           runtimeTimeoutPresetByLanguage: seededTimeoutPresets,
           showTimeoutCountdown,
-          consoleRichRenderingEnabled,
           rubyRuntimePreference,
           firstWorkflowModeSwitchAcknowledged,
         };

@@ -83,8 +83,6 @@ const {
     },
     dependencyDetectionEnabled: true,
     setRuntimeTimeoutPreset: vi.fn(),
-    consoleRichRenderingEnabled: true,
-    toggleConsoleRichRendering: vi.fn(),
   },
   trackEventMock: vi.fn(),
 }));
@@ -400,29 +398,9 @@ describe('CommandPalette', () => {
     );
   });
 
-  it('toggles rich console rendering from the palette', () => {
-    const onClose = vi.fn();
-    render(
-      <CommandPalette
-        onClose={onClose}
-        onOpenSettings={vi.fn()}
-        onOpenWhatsNew={vi.fn()}
-        onStartGuidedTour={vi.fn()}
-        onOpenSnippets={vi.fn()}
-      />
-    );
-
-    const input = screen.getByPlaceholderText('Search templates, snippets, commands...');
-    fireEvent.change(input, { target: { value: 'rich console' } });
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: /Toggle rich console output/i,
-      })
-    );
-
-    expect(settingsState.toggleConsoleRichRendering).toHaveBeenCalledOnce();
-    expect(onClose).toHaveBeenCalled();
-  });
+  // Slice 2 — the "Toggle rich console output" palette action was
+  // removed; rich rendering is baseline (charts/tables/images render
+  // unconditionally when the worker emits a payload).
 
   it('hides the share-link action when no tab is active', () => {
     render(

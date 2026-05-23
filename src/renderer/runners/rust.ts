@@ -31,7 +31,7 @@ export class RustRunner implements LanguageRunner {
     return this.ready;
   }
 
-  async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
+  async execute(code: string, _context?: ExecutionContext): Promise<ExecutionResult> {
     if (!this.rustInstalled) {
       return {
         stdout: [],
@@ -55,7 +55,7 @@ export class RustRunner implements LanguageRunner {
       resolveNativeRunnerMessages()
     );
 
-    const sourceMappingEnabled = context?.outputSourceMappingEnabled !== false;
+    const sourceMappingEnabled = true;
 
     // RL-044 Sub-slice G — best-effort `file.rs:N` splitter enriches
     // `ConsoleOutput.line` so the renderer's `<OutputLineBadge>`

@@ -2,7 +2,6 @@ import type { OnMount } from '@monaco-editor/react';
 import type { RefObject } from 'react';
 import { useEffect, useRef } from 'react';
 
-import { useSettingsStore } from '../stores/settingsStore';
 
 type MonacoEditorInstance = Parameters<OnMount>[0];
 type DecorationsCollection = ReturnType<
@@ -49,17 +48,12 @@ const DEFAULT_DURATION_MS = 1500;
 export function useEditorHighlightSync(
   editorRef: RefObject<MonacoEditorInstance | null>
 ): void {
-  // We subscribe directly so the hook re-runs when the user flips
-  // either gate. Reading via getState() inside the listener would
-  // also work but loses the React-driven listener teardown when the
-  // master flag flips OFF mid-session.
-  const masterEnabled = useSettingsStore((state) => state.outputSourceMappingEnabled);
-  const hoverEnabled = useSettingsStore(
-    (state) => state.outputHighlightOnHoverEnabled
-  );
-  const smoothScrollEnabled = useSettingsStore(
-    (state) => state.outputSmoothScrollOffscreenEnabled
-  );
+  // Slice 2 — the master + sub-gates are gone; output→source linking
+  // is baseline. Locals retained so the existing branching logic stays
+  // readable without renaming usages downstream.
+  const masterEnabled = true;
+  const hoverEnabled = true;
+  const smoothScrollEnabled = true;
   // Reviewer pass — single mutable ref so rapid hover bursts (e.g. a
   // user dragging across 5 console rows) clear the previous flash
   // before painting the new one, instead of stacking N decoration

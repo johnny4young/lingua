@@ -26,6 +26,7 @@ import {
   ONBOARDING_LANGUAGE_IDS as WORKER_ONBOARDING_LANGUAGE_IDS,
   ONBOARDING_TOAST_STAGES as WORKER_ONBOARDING_TOAST_STAGES,
   OUTPUT_ORIGIN_SURFACES as WORKER_OUTPUT_ORIGIN_SURFACES,
+  GIT_LAYER_REPO_STATES as WORKER_GIT_LAYER_REPO_STATES,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENT_NAMES,
   checkRateLimit,
@@ -36,6 +37,7 @@ import {
   ONBOARDING_DISMISS_MODES as RENDERER_ONBOARDING_DISMISS_MODES,
   ONBOARDING_TOAST_STAGES as RENDERER_ONBOARDING_TOAST_STAGES,
   OUTPUT_ORIGIN_SURFACES as RENDERER_OUTPUT_ORIGIN_SURFACES,
+  GIT_LAYER_REPO_STATES as RENDERER_GIT_LAYER_REPO_STATES,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
@@ -598,6 +600,16 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
   it('output origin surfaces stay in sync with the renderer source of truth (RL-044 Sub-slice G)', () => {
     expect([...WORKER_OUTPUT_ORIGIN_SURFACES].sort()).toEqual(
       [...RENDERER_OUTPUT_ORIGIN_SURFACES].sort()
+    );
+  });
+
+  it('git layer repo states stay in sync with the renderer source of truth (RL-102 Slice 1 fold D)', () => {
+    // Closed-enum parity for the `git.layer_attached.repoState` field.
+    // A future Slice 2 addition (e.g. `'detached-head'`, `'submodule'`)
+    // must land in both copies at the same time or this guard fails
+    // CI before the diff reaches main.
+    expect([...WORKER_GIT_LAYER_REPO_STATES].sort()).toEqual(
+      [...RENDERER_GIT_LAYER_REPO_STATES].sort()
     );
   });
 

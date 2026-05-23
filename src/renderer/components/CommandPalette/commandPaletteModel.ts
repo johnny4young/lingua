@@ -200,21 +200,11 @@ interface BuildCommandPaletteModelArgs {
    * inspect.
    */
   variableInspectorScopeAvailable?: boolean;
-  /**
-   * RL-044 Slice 1B fold B — fires the "Toggle rich console output"
-   * palette action. Optional; when omitted the action is hidden.
-   * Always available regardless of language / runner since the
-   * console is global.
-   */
-  onToggleConsoleRichRendering?: () => void;
-  /**
-   * RL-044 Slice 1B fold B — current value of
-   * `Settings.consoleRichRenderingEnabled`. Drives the description
-   * text between "Use legacy text-only console output" and "Restore
-   * rich console rendering" so the palette honestly previews the
-   * next state.
-   */
-  consoleRichRenderingEnabled?: boolean;
+  // Slice 2 reviewer pass — `onToggleConsoleRichRendering` and
+  // `consoleRichRenderingEnabled` removed. The
+  // `consoleRichRenderingEnabled` Settings toggle was killed; rich
+  // rendering is baseline. The palette no longer surfaces a way to
+  // resurrect the legacy text-only console output.
   /**
    * RL-020 Slice 4 fold G — id of the active editor tab. Used to
    * surface a parallel "Recent runs (this tab)" group ranked above
@@ -594,8 +584,6 @@ export function buildCommandPaletteModel({
   onToggleVariableInspector,
   activeVariableInspectorEnabled = false,
   variableInspectorScopeAvailable = false,
-  onToggleConsoleRichRendering,
-  consoleRichRenderingEnabled = true,
   activeTabId = null,
   updateStatus,
   createTab,
@@ -1081,26 +1069,9 @@ export function buildCommandPaletteModel({
           ),
         ]
       : []),
-    // RL-044 Slice 1B fold B — toggle the rich console output dispatch.
-    // Always available when wired (no scope / language gate).
-    ...(onToggleConsoleRichRendering
-      ? [
-          buildActionCommand(
-            'action-toggle-console-rich-rendering',
-            translate('commandPalette.action.toggleConsoleRichRendering.label'),
-            translate(
-              consoleRichRenderingEnabled
-                ? 'commandPalette.action.toggleConsoleRichRendering.descriptionDisable'
-                : 'commandPalette.action.toggleConsoleRichRendering.descriptionEnable'
-            ),
-            ['console', 'rich', 'json', 'rendering', 'output', 'toggle', 'table'],
-            () => {
-              onToggleConsoleRichRendering();
-              onClose();
-            }
-          ),
-        ]
-      : []),
+    // Slice 2 reviewer pass — the rich-console toggle was removed
+    // from the catalog: `consoleRichRenderingEnabled` is no longer a
+    // Settings preference, rich rendering is baseline.
     // RL-037 Vim slice — Toggle Vim mode. Hidden when the caller does
     // not wire `onToggleVimMode`; description text flips based on
     // `vimModeEnabled` so the palette honestly previews the next state.

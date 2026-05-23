@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { RichOutputOrigin } from '../../../shared/richOutput';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { trackOutputOriginClicked } from '../../utils/telemetry';
 
 /**
@@ -12,27 +11,16 @@ import { trackOutputOriginClicked } from '../../utils/telemetry';
  * new `lingua-highlight-line` bus consumed by `useEditorHighlightSync`
  * which applies a Monaco decoration class.
  *
- * Self-gates on the three Settings flags:
- *   - `outputSourceMappingEnabled` — master gate. When OFF the chip
- *     never renders.
- *   - `outputHighlightOnHoverEnabled` — hover sub-gate. When OFF the
- *     chip is still clickable but hover is a no-op.
- *   - `outputSmoothScrollOffscreenEnabled` — consumed by the
- *     editor-side handler, not here.
+ * Slice 2 — the master/hover Settings toggles are gone; output→source
+ * linking is a baseline affordance. The per-tab `// @origin off`
+ * directive remains as the user-controlled escape hatch (the parent
+ * `<ConsoleEntryRenderer>` suppresses the chip when the buffer
+ * carries the directive).
  *
  * Telemetry: click emits `runtime.output_origin_clicked` (Fold B
  * burst-throttled at the helper level). Hover is intentionally
  * silent — see the comment on `OUTPUT_ORIGIN_SURFACES` in
  * `src/shared/telemetry.ts`.
- *
- * Multi-tab routing (Fold D): the badge dispatches `lingua-open-file`
- * without a `tabId` field so the consumer treats it as a within-tab
- * click on the active editor model. The full multi-tab origin guard
- * (where a click on a stale entry pushes
- * `outputBadge.notice.sourceClosed`) ships with a follow-up after
- * `ConsoleEntry.tabId` is threaded through the producers — for this
- * slice the chip is single-tab; the active editor moves to the
- * captured line.
  */
 export interface OutputLineBadgeProps {
   origin: RichOutputOrigin;
@@ -43,10 +31,6 @@ const HOVER_DEBOUNCE_MS = 200;
 
 export function OutputLineBadge({ origin, language }: OutputLineBadgeProps) {
   const { t } = useTranslation();
-  const masterEnabled = useSettingsStore((state) => state.outputSourceMappingEnabled);
-  const hoverEnabled = useSettingsStore(
-    (state) => state.outputHighlightOnHoverEnabled
-  );
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -59,14 +43,6 @@ export function OutputLineBadge({ origin, language }: OutputLineBadgeProps) {
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (masterEnabled && hoverEnabled) return;
-    if (hoverTimer.current) {
-      clearTimeout(hoverTimer.current);
-      hoverTimer.current = null;
-    }
-  }, [masterEnabled, hoverEnabled]);
 
   const handleClick = useCallback(() => {
     const detail = {
@@ -81,7 +57,6 @@ export function OutputLineBadge({ origin, language }: OutputLineBadgeProps) {
   }, [origin.line, origin.column, language]);
 
   const handleMouseEnter = useCallback(() => {
-    if (!hoverEnabled) return;
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     hoverTimer.current = setTimeout(() => {
       window.dispatchEvent(
@@ -94,7 +69,7 @@ export function OutputLineBadge({ origin, language }: OutputLineBadgeProps) {
         })
       );
     }, HOVER_DEBOUNCE_MS);
-  }, [hoverEnabled, origin.line, origin.column]);
+  }, [origin.line, origin.column]);
 
   const handleMouseLeave = useCallback(() => {
     if (hoverTimer.current) {
@@ -103,21 +78,19 @@ export function OutputLineBadge({ origin, language }: OutputLineBadgeProps) {
     }
   }, []);
 
-  if (!masterEnabled) return null;
   if (!Number.isFinite(origin.line) || origin.line <= 0) return null;
 
   return (
     <button
       type="button"
+      data-testid="output-line-badge"
+      data-line={origin.line}
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onFocus={handleMouseEnter}
-      onBlur={handleMouseLeave}
-      aria-label={t('console.outputBadge.ariaLabel', { line: origin.line })}
       title={t('console.outputBadge.tooltip')}
-      data-testid="output-line-badge"
-      className="inline-flex h-4 cursor-pointer items-center rounded-sm px-1 font-mono text-[10px] text-fg-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60"
+      aria-label={t('console.outputBadge.ariaLabel', { line: origin.line })}
+      className="inline-flex items-center rounded px-1.5 py-0 text-[10px] font-mono font-medium leading-[14px] text-fg-subtle hover:text-foreground hover:bg-surface-strong/70 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
     >
       L{origin.line}
     </button>

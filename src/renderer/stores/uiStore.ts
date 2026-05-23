@@ -11,7 +11,13 @@ export type BottomPanelTab =
   // Conditional render in `AppLayout.tsx` keeps the button hidden
   // until the active tab has ≥1 detected dependency, so users who
   // never paste an import never see the chrome.
-  | 'dependencies';
+  | 'dependencies'
+  // RL-102 Slice 1 — bottom-panel sibling for the Git diff view.
+  // Conditional render in `AppLayout.tsx` gates on
+  // `gitLayerAvailable(posture)` so users opening a folder that is
+  // not a git repo never see the chrome. Mount fires the
+  // `git.diff_panel_opened` telemetry (fold D).
+  | 'git-diff';
 export type VariablesViewMode = 'list' | 'cards';
 
 /**

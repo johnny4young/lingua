@@ -39,6 +39,8 @@ import { ShareLinkController } from './components/Share/ShareLinkButton';
 import { SHARE_LINK_TRIGGER_EVENT } from './components/Share/shareLinkEvents';
 import { useOnboardingChoreography } from './hooks/useOnboardingChoreography';
 import { useDependencyDetection } from './hooks/useDependencyDetection';
+import { useGitDetectOnProjectChange } from './hooks/useGitDetectOnProjectChange';
+import { useGitStatus } from './hooks/useGitStatus';
 import { useAutoRun } from './hooks/useAutoRun';
 import { useProjectIndexSync } from './hooks/useProjectIndexSync';
 import { useProjectWatchSync } from './hooks/useProjectWatchSync';
@@ -246,6 +248,14 @@ function AppChrome({
   // `useDependencyDetectionStore` so the bottom-panel Dependencies
   // tab can conditionally surface itself when count > 0.
   useDependencyDetection();
+  // RL-102 Slice 1 — Git read-only layer. The detect hook resolves
+  // posture on every project root change; the status hook drives
+  // per-file pill updates via the existing fs watcher. Both
+  // self-gate on the `window.lingua.git` bridge being present
+  // (desktop only); per-file `// @git-ignore-status` remains the
+  // user-facing opt-out.
+  useGitDetectOnProjectChange();
+  useGitStatus();
 
   useEffect(() => {
     // RL-065: fire the first telemetry event. `trackEvent` is a no-op

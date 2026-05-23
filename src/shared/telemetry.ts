@@ -269,6 +269,20 @@ export const TELEMETRY_EVENTS = [
   // leak nothing per the redactor, but the closed allowlist keeps
   // the surface tight. Mirrored on update-server with parity test.
   'runtime.output_origin_clicked',
+  // RL-102 Slice 1 fold D — Git read-only layer attachment signal.
+  // Fires at most once per project root mount with the detected
+  // posture. Closed-enum `{ repoState }` ∈ `GIT_LAYER_REPO_STATES`
+  // (`'git-repo'` / `'no-git'` / `'no-binary'`). Useful so dashboards
+  // can see what fraction of opened folders surface a usable git
+  // posture; raw repo paths, branch names, and commit ids never
+  // leave the device.
+  'git.layer_attached',
+  // RL-102 Slice 1 fold D — Git diff panel discovery signal. Fires
+  // once when the user opens the bottom-panel Git diff tab (mount).
+  // Pure counter — no payload, no file path, no diff content. Lets
+  // us measure whether the diff panel is being used or whether the
+  // pill alone carries the surface. Mirrored on update-server.
+  'git.diff_panel_opened',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -486,6 +500,12 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // omits a `'hover'` value today; widening would require an
   // explicit comment update + a matching change on update-server.
   'runtime.output_origin_clicked': ['language', 'surface'],
+  // RL-102 Slice 1 fold D — `repoState` ∈ `GIT_LAYER_REPO_STATES`.
+  // No repo path, no branch name, no commit id.
+  'git.layer_attached': ['repoState'],
+  // RL-102 Slice 1 fold D — pure counter, no per-event properties.
+  // The redactor drops any key that arrives anyway.
+  'git.diff_panel_opened': [],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -715,6 +735,19 @@ export const PRIVACY_DASHBOARD_SURFACES = new Set([
 // update-server (the parity test catches drift). Mirrored on
 // update-server.
 export const OUTPUT_ORIGIN_SURFACES = new Set(['badge']);
+// RL-102 Slice 1 fold D — closed enum for the `repoState` property
+// on `git.layer_attached`. `'git-repo'` means the opened folder
+// resolved to a real `.git` root via `git rev-parse --show-toplevel`;
+// `'no-git'` means git is installed but the folder is not a repo
+// (single-file scratchpad with no parent .git); `'no-binary'` means
+// the `git` binary itself wasn't found on PATH so the renderer
+// suppressed the pill + panel entirely. Mirrored on update-server
+// with parity test.
+export const GIT_LAYER_REPO_STATES = new Set([
+  'git-repo',
+  'no-git',
+  'no-binary',
+]);
 // RL-025 Slice A — closed bucket enum mirroring
 // `DEPENDENCY_COUNT_BUCKETS` from `src/shared/dependencies/types.ts`.
 // Duplicated here for the same reason as `CONSOLE_RICH_KIND_BUCKETS`
@@ -1078,6 +1111,15 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'surface')
         return typeof value === 'string' && OUTPUT_ORIGIN_SURFACES.has(value);
+      return false;
+    case 'git.layer_attached':
+      if (key === 'repoState')
+        return typeof value === 'string' && GIT_LAYER_REPO_STATES.has(value);
+      return false;
+    case 'git.diff_panel_opened':
+      // Pure counter — no whitelisted properties. Any key that
+      // arrives is dropped by the closed-enum validator falling
+      // through to false.
       return false;
     default: {
       const exhaustive: never = event;

@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import type { ConsoleEntry, ConsoleEntryType, ConsolePayloadKindFilter } from '../../types';
 import { useConsoleStore } from '../../stores/consoleStore';
 import { useEditorStore } from '../../stores/editorStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
@@ -189,7 +188,6 @@ function EntryRow({
   showTimestamps,
   typeLabel,
   repeatCount,
-  richRenderingEnabled,
   pulseTargetLine,
   originSuppressed,
 }: {
@@ -198,8 +196,6 @@ function EntryRow({
   typeLabel: Record<ConsoleEntryType, string>;
   /** RL-044 Slice 1B fold H — number of collapsed duplicate entries. ≥2 surfaces the ×N badge. */
   repeatCount: number;
-  /** RL-044 Slice 1B fold E — when false, paint the legacy text path even when payload is set. */
-  richRenderingEnabled: boolean;
   /** RL-044 Sub-slice G Fold G — when set and matches this row's origin/entry line, the row pulses. */
   pulseTargetLine: number | null;
   /** Per-tab `@origin off` opt-out shared with the rich-render badge path. */
@@ -210,7 +206,7 @@ function EntryRow({
   // Capture the payload in a const so the rich-render branch reads
   // through narrowed types without resorting to a non-null assertion.
   const payload = Array.isArray(entry.payload) ? entry.payload : null;
-  const usesRichRender = richRenderingEnabled && payload !== null && payload.length > 0;
+  const usesRichRender = payload !== null && payload.length > 0;
 
   // RL-044 Sub-slice G Fold G — derive this row's source line from
   // either a payload-level origin or the legacy entry.line. The
@@ -381,16 +377,6 @@ export function ConsolePanel() {
     togglePayloadKindFilter,
     toggleTimestamps,
   } = useConsoleStore();
-  // RL-044 Slice 1B fold E — master toggle for the rich console
-  // dispatch. Off → every row paints through `<AnsiContent>` even if
-  // the runner sent a payload.
-  const consoleRichRenderingEnabled = useSettingsStore(s => s.consoleRichRenderingEnabled);
-  // RL-044 Sub-slice G.1 — gate the Fold G inverse listener on the
-  // master toggle so the cursor → console pulse stays silent when
-  // the user opts out (matches the badge + decoration gating).
-  const outputSourceMappingEnabled = useSettingsStore(
-    (s) => s.outputSourceMappingEnabled
-  );
   const activeTab = useEditorStore((state) =>
     state.activeTabId
       ? state.tabs.find((tab) => tab.id === state.activeTabId)
@@ -431,12 +417,9 @@ export function ConsolePanel() {
   // current pulse target line plus a generation so stale pulses from
   // a previous ON-state stay hidden after the master toggle flips OFF.
   //
-  // RL-044 Sub-slice G.1 — gated on `outputSourceMappingEnabled`:
-  // when the master toggle is OFF the listener never installs (so
-  // a stale `lingua-source-line-hovered` from another producer
-  // cannot pulse rows behind the user's back), and any in-flight
-  // pulse from a previous ON-state run gets cleared on the next
-  // effect tick.
+  // Slice 2 — the master toggle is removed; the listener is always
+  // installed. The `generation` field remains to invalidate stale
+  // pulses across remounts but no longer reacts to a master flip.
   const [pulse, setPulse] = useState<{ line: number; generation: number } | null>(null);
   const pulseGenerationRef = useRef(0);
   const pulseClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -447,14 +430,6 @@ export function ConsolePanel() {
         pulseClearTimerRef.current = null;
       }
     };
-    if (!outputSourceMappingEnabled) {
-      // Drop any in-flight pulse when the master flips OFF so a
-      // stale `data-pulsing="true"` row does not survive past the
-      // toggle.
-      pulseGenerationRef.current += 1;
-      clearPulseTimer();
-      return;
-    }
     const handler = (event: Event) => {
       if (!(event instanceof CustomEvent)) return;
       const detail = event.detail as { line?: unknown; durationMs?: unknown } | null;
@@ -497,7 +472,7 @@ export function ConsolePanel() {
       window.removeEventListener('lingua-source-line-hovered', handler);
       clearPulseTimer();
     };
-  }, [outputSourceMappingEnabled]);
+  }, []);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false);
   const typeLabel: Record<ConsoleEntryType, string> = {
@@ -565,7 +540,7 @@ export function ConsolePanel() {
 
   const renderedPulseLine =
     // eslint-disable-next-line react-hooks/refs -- This ref is an epoch guard, read on setting-driven renders so old pulses stay hidden after toggle-off.
-    outputSourceMappingEnabled && pulse?.generation === pulseGenerationRef.current
+    pulse?.generation === pulseGenerationRef.current
       ? pulse.line
       : null;
   const totalCount = entries.length;
@@ -690,7 +665,6 @@ export function ConsolePanel() {
               showTimestamps={showTimestamps}
               typeLabel={typeLabel}
               repeatCount={repeatCount}
-              richRenderingEnabled={consoleRichRenderingEnabled}
               pulseTargetLine={renderedPulseLine}
               originSuppressed={originSuppressed}
             />

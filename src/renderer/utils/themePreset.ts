@@ -35,16 +35,18 @@ export interface ThemePreset {
   };
 }
 
-export type ThemePresetInputs = Pick<
-  SettingsState,
-  | 'theme'
-  | 'editorTheme'
-  | 'fontFamily'
-  | 'fontSize'
-  | 'fontLigatures'
-  | 'layoutPreset'
-  | 'syncShellWithEditorTheme'
->;
+export interface ThemePresetInputs {
+  theme: SettingsState['theme'];
+  editorTheme: SettingsState['editorTheme'];
+  fontFamily: SettingsState['fontFamily'];
+  fontSize: SettingsState['fontSize'];
+  layoutPreset: SettingsState['layoutPreset'];
+  // Slice 2 — preserved fields for backward compatibility with older
+  // exports. Always `true` on a Slice 2+ build; older builds keep their
+  // persisted value when round-tripping a preset.
+  fontLigatures: boolean;
+  syncShellWithEditorTheme: boolean;
+}
 
 const LAYOUT_PRESETS: readonly LayoutPreset[] = ['horizontal', 'vertical', 'editor-only'];
 const APPEARANCE_THEMES: readonly SettingsState['theme'][] = ['dark', 'light'];

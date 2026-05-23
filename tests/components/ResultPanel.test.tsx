@@ -80,32 +80,10 @@ describe('ResultPanel', () => {
     expect(screen.queryByRole('button', { name: 'undefined' })).toBeNull();
   });
 
-  it('lets users reveal undefined expression results on demand', async () => {
-    const user = userEvent.setup();
-
-    useResultStore.setState({
-      lineResults: [{ line: 2, value: 'undefined', type: 'result' }],
-      error: null,
-      fullOutput: '',
-      executionTime: 3,
-      isAutoRunning: false,
-      executionSource: 'auto',
-    });
-    useSettingsStore.setState({ hideUndefined: true });
-
-    render(<ResultPanel />);
-
-    // RL-093 Slice 3 — the scratchpad inline result body was removed
-    // (values now render in the editor via Monaco overlay widgets).
-    // The undefined-toggle BUTTON is still the test surface: it
-    // continues to flip the `hideUndefined` setting that the editor
-    // widgets respect.
-    expect(screen.getByTitle('Show undefined values')).toBeTruthy();
-
-    await user.click(screen.getByRole('button', { name: 'undefined' }));
-
-    expect(screen.getByTitle('Hide undefined values')).toBeTruthy();
-  });
+  // Slice 2 — `hideUndefined` was removed (baseline ON, no escape
+  // hatch). The "reveal undefined on demand" button no longer
+  // renders; `undefined` rows are always filtered from inline
+  // results.
 
   it('shows diagnostics-oriented copy for validate-only files', () => {
     editorState.tabs = [
