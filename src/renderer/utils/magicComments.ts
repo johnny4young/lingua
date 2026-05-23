@@ -226,6 +226,15 @@ export function extractTimeoutMagicComment(
  * `@origin on` (re-enable mid-buffer) would require its own scope
  * and conflicts with the per-tab persistence model.
  */
+// WARNING — RL-044 Sub-slice G.1 Fold G: this regex matches anywhere
+// in the buffer, including INSIDE string literals. A line like
+// `console.log("// @origin off")` will trip the directive and silently
+// suppress the chip even though the user only wanted to log the
+// directive text. We accept this false-positive because the privacy
+// posture (over-suppress) is the safer side of the tradeoff. If a
+// future slice needs string-literal-aware detection, swap this for a
+// tokenised scan (acorn / Babel AST) — see `docs/BACKLOG.md`
+// `[security] [ux] 2026-05-22` for the open question.
 const ORIGIN_OFF_DIRECTIVE_RE =
   /(?:\/\/|#)\s*@origin\s*:?\s*off\b/i;
 

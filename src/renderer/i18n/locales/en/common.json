@@ -2277,6 +2277,7 @@
   "settings.editor.outputSourceMapping.showBadgeLabel": "Show line badge on output rows",
   "settings.editor.outputSourceMapping.highlightHoverLabel": "Highlight source line on hover",
   "settings.editor.outputSourceMapping.smoothScrollLabel": "Smooth-scroll editor when highlighting offscreen lines",
+  "settings.editor.outputSourceMapping.subgateDisabledHint": "Enable Output source mapping to change these secondary options.",
   "console.outputBadge.ariaLabel": "Open line {{line}}",
   "console.outputBadge.tooltip": "Click to open · hover to highlight",
   "outputBadge.notice.sourceClosed": "The source tab for this run is no longer open.",

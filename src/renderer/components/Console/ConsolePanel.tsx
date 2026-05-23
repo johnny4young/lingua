@@ -173,6 +173,17 @@ function AnsiContent({ text, className }: { text: string; className: string }) {
   );
 }
 
+function sourceLineForEntry(entry: ConsoleEntry): number | null {
+  const payload = Array.isArray(entry.payload) ? entry.payload : null;
+  const payloadLine = payload?.find((p) => p.origin)?.origin?.line;
+  if (typeof payloadLine === 'number' && Number.isFinite(payloadLine) && payloadLine > 0) {
+    return payloadLine;
+  }
+  return typeof entry.line === 'number' && Number.isFinite(entry.line) && entry.line > 0
+    ? entry.line
+    : null;
+}
+
 function EntryRow({
   entry,
   showTimestamps,
@@ -205,9 +216,7 @@ function EntryRow({
   // either a payload-level origin or the legacy entry.line. The
   // pulse activates when that line matches the cursor-broadcast
   // target line. `null` target = no pulse.
-  const rowSourceLine =
-    payload?.find((p) => p.origin)?.origin?.line ??
-    (typeof entry.line === 'number' && entry.line > 0 ? entry.line : null);
+  const rowSourceLine = sourceLineForEntry(entry);
   const rowOrigin = rowSourceLine !== null ? { line: rowSourceLine } : null;
   const isPulsing =
     !originSuppressed &&
@@ -376,6 +385,12 @@ export function ConsolePanel() {
   // dispatch. Off → every row paints through `<AnsiContent>` even if
   // the runner sent a payload.
   const consoleRichRenderingEnabled = useSettingsStore(s => s.consoleRichRenderingEnabled);
+  // RL-044 Sub-slice G.1 — gate the Fold G inverse listener on the
+  // master toggle so the cursor → console pulse stays silent when
+  // the user opts out (matches the badge + decoration gating).
+  const outputSourceMappingEnabled = useSettingsStore(
+    (s) => s.outputSourceMappingEnabled
+  );
   const activeTab = useEditorStore((state) =>
     state.activeTabId
       ? state.tabs.find((tab) => tab.id === state.activeTabId)
@@ -387,41 +402,102 @@ export function ConsolePanel() {
         activeTab.content
       )
     : false;
+  // RL-044 Slice 1B — apply both the legacy type filter AND the new
+  // payload-kind chip filter (fold A), then collapse consecutive
+  // identical entries (fold H). Memoised so a flooded console only
+  // re-pays the cost when something actually changed.
+  const visibleEntries = useMemo(() => {
+    const typed = entries.filter(entry => activeFilters.has(entry.type));
+    const filtered = typed.filter(entry => !entryFilteredByPayloadKind(entry, hiddenPayloadKinds));
+    return collapseIdenticalEntries(filtered);
+  }, [entries, activeFilters, hiddenPayloadKinds]);
+  const visibleSourceLines = useMemo(() => {
+    const lines = new Set<number>();
+    if (originSuppressed) return lines;
+    for (const { entry } of visibleEntries) {
+      const sourceLine = sourceLineForEntry(entry);
+      if (sourceLine !== null) lines.add(sourceLine);
+    }
+    return lines;
+  }, [originSuppressed, visibleEntries]);
+  const visibleSourceLinesRef = useRef(visibleSourceLines);
+  useEffect(() => {
+    visibleSourceLinesRef.current = visibleSourceLines;
+  }, [visibleSourceLines]);
   // RL-044 Sub-slice G Fold G — symmetric inverse direction. Listens
   // for `lingua-source-line-hovered` events broadcast by CodeEditor
   // when the cursor settles on a line; pulses every console row
   // whose origin.line / entry.line matches. The state holds the
-  // current pulse target line; cleared after the 1500ms animation.
-  const [pulseLine, setPulseLine] = useState<number | null>(null);
+  // current pulse target line plus a generation so stale pulses from
+  // a previous ON-state stay hidden after the master toggle flips OFF.
+  //
+  // RL-044 Sub-slice G.1 — gated on `outputSourceMappingEnabled`:
+  // when the master toggle is OFF the listener never installs (so
+  // a stale `lingua-source-line-hovered` from another producer
+  // cannot pulse rows behind the user's back), and any in-flight
+  // pulse from a previous ON-state run gets cleared on the next
+  // effect tick.
+  const [pulse, setPulse] = useState<{ line: number; generation: number } | null>(null);
+  const pulseGenerationRef = useRef(0);
   const pulseClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    const clearPulseTimer = () => {
+      if (pulseClearTimerRef.current) {
+        clearTimeout(pulseClearTimerRef.current);
+        pulseClearTimerRef.current = null;
+      }
+    };
+    if (!outputSourceMappingEnabled) {
+      // Drop any in-flight pulse when the master flips OFF so a
+      // stale `data-pulsing="true"` row does not survive past the
+      // toggle.
+      pulseGenerationRef.current += 1;
+      clearPulseTimer();
+      return;
+    }
     const handler = (event: Event) => {
       if (!(event instanceof CustomEvent)) return;
       const detail = event.detail as { line?: unknown; durationMs?: unknown } | null;
       const line = typeof detail?.line === 'number' ? detail.line : 0;
       if (!Number.isFinite(line) || line <= 0) return;
-      setPulseLine(line);
-      if (pulseClearTimerRef.current) {
-        clearTimeout(pulseClearTimerRef.current);
+      if (!visibleSourceLinesRef.current.has(line)) {
+        setPulse(null);
+        clearPulseTimer();
+        return;
       }
+      setPulse({ line, generation: pulseGenerationRef.current });
+      // RL-044 Sub-slice G.1 Fold D — adoption signal for the
+      // inverse direction. Once per pulse-settle (the upstream
+      // CodeEditor debounce already collapses bursts), payload is
+      // `{ language }` only. Read the active tab's language directly
+      // from the store at fire time so we attribute the event to the
+      // tab the user is actually inside when the cursor settles —
+      // not the tab that was active when the listener was registered.
+      const pulseTabId = useEditorStore.getState().activeTabId;
+      const pulseTab = pulseTabId
+        ? useEditorStore
+            .getState()
+            .tabs.find((tab) => tab.id === pulseTabId)
+        : undefined;
+      void trackEvent('runtime.cursor_pulse_emitted', {
+        language: pulseTab?.language ?? 'unknown',
+      });
+      clearPulseTimer();
       const duration =
         typeof detail?.durationMs === 'number' && detail.durationMs > 0
           ? Math.min(detail.durationMs, 10_000)
           : 1500;
       pulseClearTimerRef.current = setTimeout(() => {
-        setPulseLine(null);
+        setPulse(null);
         pulseClearTimerRef.current = null;
       }, duration + 50);
     };
     window.addEventListener('lingua-source-line-hovered', handler);
     return () => {
       window.removeEventListener('lingua-source-line-hovered', handler);
-      if (pulseClearTimerRef.current) {
-        clearTimeout(pulseClearTimerRef.current);
-        pulseClearTimerRef.current = null;
-      }
+      clearPulseTimer();
     };
-  }, []);
+  }, [outputSourceMappingEnabled]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false);
   const typeLabel: Record<ConsoleEntryType, string> = {
@@ -487,16 +563,11 @@ export function ConsolePanel() {
     });
   }, [effectiveTier, t]);
 
-  // RL-044 Slice 1B — apply both the legacy type filter AND the new
-  // payload-kind chip filter (fold A), then collapse consecutive
-  // identical entries (fold H). Memoised so a flooded console only
-  // re-pays the cost when something actually changed.
-  const visibleEntries = useMemo(() => {
-    const typed = entries.filter(entry => activeFilters.has(entry.type));
-    const filtered = typed.filter(entry => !entryFilteredByPayloadKind(entry, hiddenPayloadKinds));
-    return collapseIdenticalEntries(filtered);
-  }, [entries, activeFilters, hiddenPayloadKinds]);
-
+  const renderedPulseLine =
+    // eslint-disable-next-line react-hooks/refs -- This ref is an epoch guard, read on setting-driven renders so old pulses stay hidden after toggle-off.
+    outputSourceMappingEnabled && pulse?.generation === pulseGenerationRef.current
+      ? pulse.line
+      : null;
   const totalCount = entries.length;
   return (
     <div id="guided-tour-console" className="flex h-full flex-col bg-bg-base/65">
@@ -620,7 +691,7 @@ export function ConsolePanel() {
               typeLabel={typeLabel}
               repeatCount={repeatCount}
               richRenderingEnabled={consoleRichRenderingEnabled}
-              pulseTargetLine={pulseLine}
+              pulseTargetLine={renderedPulseLine}
               originSuppressed={originSuppressed}
             />
           ))

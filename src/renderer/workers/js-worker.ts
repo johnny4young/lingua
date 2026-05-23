@@ -317,15 +317,37 @@ function createConsoleProxy(
     const line = sourceMappingEnabled
       ? extractCallingLine(sourceLineMap)
       : undefined;
+    // RL-044 Sub-slice G.1 — mirror the per-method `origin.line`
+    // stamp from `createConsoleProxy` (lines 282-292) so the
+    // `console.table` shim's table payload also carries an origin.
+    // Without this, `console.table([...])` rows never render the
+    // `<OutputLineBadge>` chip even when the source line is known.
+    // Stamp respects the same `sourceMappingEnabled` gate.
+    const stampTableOrigin = (payload: RichOutputPayload) => {
+      if (
+        sourceMappingEnabled &&
+        typeof line === 'number' &&
+        line > 0 &&
+        payload &&
+        typeof payload === 'object' &&
+        !payload.origin
+      ) {
+        (payload as { origin?: { line: number } }).origin = { line };
+      }
+    };
     if (args.length === 0) {
+      const emptyTable: RichOutputPayload = {
+        kind: 'table',
+        columns: [],
+        rows: [],
+      } as RichOutputPayload;
+      stampTableOrigin(emptyTable);
       ctx.postMessage({
         type: 'console',
         runId,
         method: 'log',
         args: ['Table(0×0)'],
-        payload: [
-          { kind: 'table', columns: [], rows: [] } as RichOutputPayload,
-        ],
+        payload: [emptyTable],
         line,
         consoleTableInvoked: true,
       });
@@ -338,6 +360,7 @@ function createConsoleProxy(
     // `buildConsoleTablePayload`; do not echo it into the fallback
     // text, or the legacy path renders `Table(...) ["col"]`.
     const textArgs = [`Table(${rowCount}×${tablePayload.columns.length})`];
+    stampTableOrigin(tablePayload);
     // Only the table payload occupies the payload array.
     const payloads: RichOutputPayload[] = [tablePayload];
     ctx.postMessage({

@@ -367,6 +367,24 @@ describe('PythonRunner — mocked-worker fixture (env wiring + rich-media)', () 
     }
   });
 
+  // RL-044 Sub-slice G.1 G.1.c — forward the master Settings flag so
+  // the Pyodide preamble can short-circuit the per-call frame walk.
+  it('forwards sourceMappingEnabled = true by default to the Pyodide worker', async () => {
+    const runner = new PythonRunner();
+    await runner.init();
+    await runner.execute('print("hi")');
+    const executeMessage = postedMessages.find((m) => m.type === 'execute');
+    expect(executeMessage?.sourceMappingEnabled).toBe(true);
+  });
+
+  it('forwards sourceMappingEnabled = false when the context flag is OFF', async () => {
+    const runner = new PythonRunner();
+    await runner.init();
+    await runner.execute('print("hi")', { outputSourceMappingEnabled: false });
+    const executeMessage = postedMessages.find((m) => m.type === 'execute');
+    expect(executeMessage?.sourceMappingEnabled).toBe(false);
+  });
+
   it('keeps userEnv empty on the web build even when tiers have values', async () => {
     Object.defineProperty(window, 'lingua', {
       value: { platform: 'web' },

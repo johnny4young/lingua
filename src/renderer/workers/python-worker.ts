@@ -686,6 +686,17 @@ ctx.addEventListener('message', async (event) => {
        * opted out of the rich path.
        */
       richConsoleEnabled?: boolean;
+      /**
+       * RL-044 Sub-slice G.1 — gate the per-call
+       * `__lingua_caller_line()` frame walk inside `__lingua_print`
+       * and `__lingua_displayhook` so tight Python loops do not pay
+       * the inspect-frame cost when the user has disabled the
+       * output-source-mapping master toggle. Defaults to `true` so
+       * pre-G.1 callers (and the renderer-side privacy stripping in
+       * `executeTabManually.stripConsoleOutputOrigin`) keep working
+       * unchanged.
+       */
+      sourceMappingEnabled?: boolean;
     };
     const marker =
       typeof resultTruncationMarker === 'string' && resultTruncationMarker.length > 0
@@ -778,6 +789,13 @@ sys.stderr = __lingua_stderr
 # math) so no extra Pyodide packages are loaded.
 
 __lingua_rich_console_enabled = ${msg.richConsoleEnabled === false ? 'False' : 'True'}
+# RL-044 Sub-slice G.1 baked flag mirroring the __lingua_print_entries_cap pattern.
+# When False, __lingua_print and __lingua_displayhook skip the per-call
+# __lingua_caller_line frame walk so a tight Python loop pays no
+# inspect-frame CPU when the user has disabled the master toggle.
+# Privacy-side, executeTabManually.stripConsoleOutputOrigin is defense in
+# depth; this flag is the actual CPU short-circuit.
+__lingua_console_source_mapping_enabled = ${msg.sourceMappingEnabled === false ? 'False' : 'True'}
 __lingua_print_entries = []
 __lingua_print_entries_cap = 5000
 
@@ -1036,9 +1054,14 @@ def __lingua_print(*args, sep=None, end=None, file=None, flush=False):
             payload = {"kind": "rawText", "text": __lingua_repr_safe(arg)}
         payloads.append(payload)
     entry = {"text": text, "method": method, "payloads": payloads}
-    line = __lingua_caller_line()
-    if line is not None:
-        entry["line"] = line
+    # RL-044 Sub-slice G.1 — skip the inspect-frame walk when the
+    # master toggle is OFF. Privacy-side, the renderer strips origin
+    # at executeTabManually as defense in depth; this gate is the
+    # actual CPU short-circuit for tight print loops.
+    if __lingua_console_source_mapping_enabled:
+        line = __lingua_caller_line()
+        if line is not None:
+            entry["line"] = line
     __lingua_print_entries.append(entry)
 
 
@@ -1067,9 +1090,15 @@ def __lingua_displayhook(value):
     if payload is None:
         payload = {"kind": "rawText", "text": __lingua_repr_safe(value)}
     entry = {"text": text, "method": "log", "payloads": [payload]}
-    line = __lingua_caller_line()
-    if line is not None:
-        entry["line"] = line
+    # RL-044 Sub-slice G.1 — same gate as __lingua_print. The
+    # displayhook fires once per top-level expression so the CPU win
+    # is smaller than in tight print loops, but the consistency
+    # matters: both surfaces have to honor the master toggle so the
+    # privacy + perf posture is symmetric.
+    if __lingua_console_source_mapping_enabled:
+        line = __lingua_caller_line()
+        if line is not None:
+            entry["line"] = line
     __lingua_print_entries.append(entry)
 
 

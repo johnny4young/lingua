@@ -2277,6 +2277,7 @@
   "settings.editor.outputSourceMapping.showBadgeLabel": "Muestra el chip de línea en las filas de salida",
   "settings.editor.outputSourceMapping.highlightHoverLabel": "Resalta la línea origen al pasar el cursor",
   "settings.editor.outputSourceMapping.smoothScrollLabel": "Desplaza suavemente al resaltar líneas fuera del viewport",
+  "settings.editor.outputSourceMapping.subgateDisabledHint": "Activa Mapeo de origen de salida para cambiar estas opciones secundarias.",
   "console.outputBadge.ariaLabel": "Abre la línea {{line}}",
   "console.outputBadge.tooltip": "Clic para abrir · pasa el cursor para resaltar",
   "outputBadge.notice.sourceClosed": "La pestaña origen de esta corrida ya no está abierta.",

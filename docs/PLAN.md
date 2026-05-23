@@ -11159,6 +11159,116 @@ References:
 - Sub-slice F primitives reused: `parseJsErrorStack`,
   `lingua-open-file` bus, `useDefaultOpenFileConsumer`.
 
+#### § Sub-slice G.1 landed (2026-05-22)
+
+Sub-slice G.1 closes the four follow-ups the post-commit
+retrospective surfaced for Sub-slice G. Lands as a single atomic
+commit on top of `35ff151` against the same plan
+(`~/.claude/plans/humming-bubbling-squirrel.md`) with all seven
+fold-ins committed (`approved with: all`).
+
+What shipped:
+
+- **G.1.a — Cursor → console pulse gated on the master toggle.**
+  `CodeEditor.tsx` subscribes to `outputSourceMappingEnabled` via a
+  live ref so the listener registered inside `handleEditorMount`
+  (useCallback `[]` deps) reads the current setting. When the master
+  is OFF, `onDidChangeCursorPosition` short-circuits before
+  scheduling the 200ms debounce; mid-debounce flips drop the pending
+  timer via the deps-tracking `useEffect`. The setTimeout handler
+  re-checks the flag at fire time so a flag flip during the 200ms
+  window can't leak a stale event. `ConsolePanel.tsx` mirrors the
+  gate: the `lingua-source-line-hovered` listener never installs
+  when the master is OFF; if the master flips OFF while a pulse is
+  in flight, the effect's first branch clears `pulseLine` + the
+  in-flight clear-timer immediately so no row remains
+  `data-pulsing="true"`.
+- **G.1.b — `console.table` shim stamps `payload.origin`.**
+  `js-worker.ts` `console.table` override now mirrors the per-method
+  origin stamp pattern from `createConsoleProxy` lines 282-292. Both
+  the empty-args branch (`Table(0×0)` payload) and the populated
+  branch (`buildConsoleTablePayload`) stamp `origin: { line }` when
+  `sourceMappingEnabled === true` and `line > 0`. Extracted into a
+  local `stampTableOrigin` helper so the same defensive checks
+  (object guard, no double-stamp) live in one place.
+- **G.1.c — Python worker honors `sourceMappingEnabled`.** Python
+  runner (`runners/python.ts`) threads
+  `context?.outputSourceMappingEnabled !== false` into the execute
+  message alongside the existing `richConsoleEnabled` field.
+  Worker-side execute message type widens with `sourceMappingEnabled?:
+  boolean`. Preamble installs
+  `__lingua_console_source_mapping_enabled` as a baked constant
+  (mirrors the existing `__lingua_print_entries_cap` /
+  `__lingua_rich_console_enabled` pattern from Fold B). Both
+  `__lingua_print` and `__lingua_displayhook` skip the
+  `__lingua_caller_line()` frame walk entirely when the constant is
+  `False`. Renderer-side `executeTabManually.stripConsoleOutputOrigin`
+  is the defense-in-depth privacy layer; this worker-side gate is
+  the actual CPU short-circuit for tight Python `print()` loops.
+- **G.1.d — `ExecutionContext.outputSourceMappingEnabled`
+  wire-through documented.** This block. The original Sub-slice G
+  landed description referenced the JS/TS worker `extractCallingLine`
+  capture without mentioning the context-driven runner-level
+  short-circuit that the linter applied late in the implementer's
+  pass. The runner contract is: every runner threads
+  `context?.outputSourceMappingEnabled !== false` into its worker
+  message (JS/TS pass `sourceMappingEnabled`, Go/Rust short-circuit
+  the `originSplitter` call, Python skips `__lingua_caller_line`).
+  The orchestrator (`executeTabManually.ts`) keeps
+  `stripConsoleOutputOrigin` as the defense-in-depth pass at the
+  boundary so any future runner that forgets the contract still
+  honors the privacy posture.
+
+Folds shipped alongside:
+
+- **Fold A** new `docs/BACKLOG.md` row under `[security] [ux]
+  2026-05-22` capturing the `// @origin off` directive
+  false-positive risk (matches inside string literals) for a future
+  tokenise-vs-document decision.
+- **Fold B** Python preamble flag baked in (subsumed into G.1.c).
+- **Fold C** EN + ES smoke walk for the master-OFF pulse path
+  (captured as part of the 14-row smoke matrix).
+- **Fold D** new closed-enum telemetry `runtime.cursor_pulse_emitted
+  { language }`. ConsolePanel pulse listener fires the event AFTER
+  `setPulseLine` succeeds (once per pulse-settle; upstream debounce
+  in CodeEditor collapses bursts). `language` validated via
+  `isSafeToken`; sorted slot between `console_table_called` and
+  `error_stack_frame_clicked`. Mirrored on update-server
+  (`update-server/src/telemetry.ts`) with the parity test in
+  `update-server/test/telemetry.test.ts` already enforcing the
+  shape via `TELEMETRY_EVENT_NAMES` deep-equality.
+- **Fold E** new `tests/perf/cursorPulseDebounce.bench.test.ts`
+  asserts 100 dispatches absorb in under 200ms + per-call cost
+  stays under 5ms. CI ×1.5 multiplier. Locks the burst-tolerance
+  contract against future regressions.
+- **Fold F** new `settings.editor.outputSourceMapping.subgateDisabledHint`
+  i18n key + conditional `<p>` rendered below the two sub-gates
+  when the master is OFF. EN: "Enable Output source mapping to change
+  these secondary options." / ES (tuteo): "Activa Mapeo de origen de salida
+  para cambiar estas opciones secundarias."
+- **Fold G** inline `WARNING` comment block above
+  `ORIGIN_OFF_DIRECTIVE_RE` in `magicComments.ts` documenting the
+  string-literal false-positive matched in Fold A's BACKLOG entry.
+
+Tests: extended `tests/components/ConsolePanel.test.tsx` with the
+master-OFF pulse silence case + the new `runtime.cursor_pulse_emitted`
+emission assertion. Extended `tests/runners/python.test.ts` with two
+new cases asserting the `sourceMappingEnabled` field defaults to
+true and flips to false when `context.outputSourceMappingEnabled ===
+false`. Extended `tests/shared/telemetry.test.ts` sorted
+TELEMETRY_EVENTS list (the parity test in
+`update-server/test/telemetry.test.ts` enforces both sides via
+`TELEMETRY_EVENT_NAMES` deep-equality). New
+`tests/perf/cursorPulseDebounce.bench.test.ts`.
+
+Out of scope (deferred):
+
+- Tokenized `// @origin off` detector (BACKLOG entry — design
+  tradeoff, not a bug).
+- Telemetry for Python frame-walk skip count (no business value
+  beyond the existing language attribution on
+  `runtime.cursor_pulse_emitted`).
+
 ---
 
 ## Tier 1 — Sugerencias incorporadas (promoción 2026-05-20)
