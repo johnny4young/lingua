@@ -56,11 +56,6 @@ import {
 export function PrivacyTrustSection() {
   const { t } = useTranslation();
   const telemetryConsent = useSettingsStore((s) => s.telemetryConsent);
-  // RL-044 Sub-slice G Fold E — reflects the master toggle in the
-  // dashboard's Network table without owning the source of truth.
-  const outputSourceMappingEnabled = useSettingsStore(
-    (s) => s.outputSourceMappingEnabled
-  );
   const licenseToken = useLicenseStore((s) => s.token);
   const clearLicense = useLicenseStore((s) => s.clearLicense);
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
@@ -95,11 +90,8 @@ export function PrivacyTrustSection() {
       capsuleExportLastAt: null,
       telemetryLastAt: null,
       updateCheckLastAt: null,
-      // RL-044 Sub-slice G Fold E — reflects the master toggle so
-      // the dashboard row stays in lock-step with Settings → Editor.
-      outputSourceMappingEnabled,
     });
-  }, [telemetryConsent, licenseToken, outputSourceMappingEnabled]);
+  }, [telemetryConsent, licenseToken]);
 
   const previewResult: RedactionPreviewResult = useMemo(() => {
     return applyRedactionPreview(pasteInput);

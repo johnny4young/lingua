@@ -141,6 +141,12 @@ export const TELEMETRY_EVENT_NAMES = [
   // intentionally does not emit; widening would require a paired
   // edit here + in `src/shared/telemetry.ts`.
   'runtime.output_origin_clicked',
+  // RL-102 Slice 1 fold D — Git read-only layer attachment signal.
+  // Closed-enum `{ repoState }` ∈ `GIT_LAYER_REPO_STATES`.
+  'git.layer_attached',
+  // RL-102 Slice 1 fold D — Git diff panel discovery signal. Pure
+  // counter; no payload.
+  'git.diff_panel_opened',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -236,6 +242,9 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // (`isSafeToken`); `surface` ∈ `OUTPUT_ORIGIN_SURFACES`. Mirror of
   // src/shared/telemetry.ts entry.
   'runtime.output_origin_clicked': ['language', 'surface'],
+  // RL-102 Slice 1 fold D — mirror of src/shared/telemetry.ts.
+  'git.layer_attached': ['repoState'],
+  'git.diff_panel_opened': [],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -442,6 +451,13 @@ export const PRIVACY_DASHBOARD_SURFACES = new Set([
 // for the discovery surface of `runtime.output_origin_clicked`. Only
 // badge clicks emit telemetry today; hover is intentionally silent.
 export const OUTPUT_ORIGIN_SURFACES = new Set(['badge']);
+// RL-102 Slice 1 fold D — mirror of GIT_LAYER_REPO_STATES. Closed
+// enum for the `repoState` property on `git.layer_attached`.
+export const GIT_LAYER_REPO_STATES = new Set([
+  'git-repo',
+  'no-git',
+  'no-binary',
+]);
 // RL-025 Slice A — mirror of DEPENDENCY_COUNT_BUCKETS_SET from
 // `src/shared/telemetry.ts` (canonical home in
 // `src/shared/dependencies/types.ts`). Parity test keeps both copies
@@ -897,6 +913,13 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'surface')
         return typeof value === 'string' && OUTPUT_ORIGIN_SURFACES.has(value);
+      return false;
+    case 'git.layer_attached':
+      if (key === 'repoState')
+        return typeof value === 'string' && GIT_LAYER_REPO_STATES.has(value);
+      return false;
+    case 'git.diff_panel_opened':
+      // Pure counter — no whitelisted properties.
       return false;
     default: {
       const exhaustive: never = event;

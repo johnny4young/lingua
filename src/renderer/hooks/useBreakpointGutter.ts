@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type * as monacoTypes from 'monaco-editor';
 import { useDebuggerStore } from '../stores/debuggerStore';
-import { useSettingsStore } from '../stores/settingsStore';
 import type { Language } from '../types';
 import { languageSupportsDebugger } from '../utils/languageMeta';
 
@@ -40,7 +39,8 @@ export function useBreakpointGutter(
   monaco: typeof monacoTypes | null,
   options: BreakpointGutterOptions
 ): void {
-  const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
+  // Slice 2 — debugger is baseline; the Settings master toggle is gone.
+  const debuggerEnabled = true;
   const breakpoints = useDebuggerStore((state) => state.breakpoints);
   const pausedFrame = useDebuggerStore((state) => state.pausedFrame);
   const decorationsRef = useRef<monacoTypes.editor.IEditorDecorationsCollection | null>(null);

@@ -169,7 +169,6 @@ describe('ConsolePanel', () => {
   beforeEach(() => {
     resetState();
     setActiveProLicense();
-    useSettingsStore.setState({ outputSourceMappingEnabled: true });
     useExecutionHistoryStore.getState().clear();
     vi.clearAllMocks();
   });
@@ -280,73 +279,9 @@ describe('ConsolePanel', () => {
     expect(errLabels.length).toBeGreaterThanOrEqual(2);
   });
 
-  // RL-044 Sub-slice G.1 G.1.a — pulse listener must NOT install when
-  // the master toggle is OFF.
-  it('silences cursor → console pulse when outputSourceMappingEnabled is OFF', () => {
-    vi.useFakeTimers();
-    try {
-      useSettingsStore.setState({ outputSourceMappingEnabled: false });
-      resetState({
-        entries: [
-          { id: 'line-7', type: 'log', content: 'seven', timestamp: Date.now(), line: 7 },
-        ],
-      });
-      render(<ConsolePanel />);
-      const rows = screen.getAllByTestId('console-entry-row');
-      act(() => {
-        window.dispatchEvent(
-          new CustomEvent('lingua-source-line-hovered', {
-            detail: { line: 7, durationMs: 1500 },
-          })
-        );
-      });
-      // Listener never installed → row stays un-pulsed AND telemetry
-      // does NOT fire.
-      expect(rows[0]?.getAttribute('data-pulsing')).toBeNull();
-      expect(mockTrackEvent).not.toHaveBeenCalledWith(
-        'runtime.cursor_pulse_emitted',
-        expect.anything()
-      );
-    } finally {
-      useSettingsStore.setState({ outputSourceMappingEnabled: true });
-      vi.useRealTimers();
-    }
-  });
-
-  it('clears an in-flight cursor → console pulse when outputSourceMappingEnabled flips OFF', () => {
-    vi.useFakeTimers();
-    try {
-      resetState({
-        entries: [
-          { id: 'line-7', type: 'log', content: 'seven', timestamp: Date.now(), line: 7 },
-        ],
-      });
-      render(<ConsolePanel />);
-      const row = screen.getByTestId('console-entry-row');
-
-      act(() => {
-        window.dispatchEvent(
-          new CustomEvent('lingua-source-line-hovered', {
-            detail: { line: 7, durationMs: 1500 },
-          })
-        );
-      });
-      expect(row.getAttribute('data-pulsing')).toBe('true');
-
-      act(() => {
-        useSettingsStore.setState({ outputSourceMappingEnabled: false });
-      });
-      expect(row.getAttribute('data-pulsing')).toBeNull();
-
-      act(() => {
-        vi.advanceTimersByTime(1600);
-      });
-      expect(row.getAttribute('data-pulsing')).toBeNull();
-    } finally {
-      useSettingsStore.setState({ outputSourceMappingEnabled: true });
-      vi.useRealTimers();
-    }
-  });
+  // Slice 2 — `outputSourceMappingEnabled` was removed; the cursor
+  // pulse listener is always installed. The "silence when OFF" and
+  // "clear in-flight on flip" cases no longer apply.
 
   // RL-044 Sub-slice G.1 Fold D — adoption telemetry fires once per
   // successful pulse with the active tab's language.

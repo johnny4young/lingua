@@ -78,14 +78,8 @@ export function RichValueChart({ payload }: RichValueChartProps) {
   // theme change because the selector subscriptions trigger render.
   const theme = useSettingsStore((s) => s.theme);
   const editorTheme = useSettingsStore((s) => s.editorTheme);
-  const syncShellWithEditorTheme = useSettingsStore(
-    (s) => s.syncShellWithEditorTheme
-  );
-  const effectiveTheme = resolveEffectiveShellTheme(
-    theme,
-    editorTheme,
-    syncShellWithEditorTheme
-  );
+  // Slice 2 — shell polarity always follows the active editor theme.
+  const effectiveTheme = resolveEffectiveShellTheme(theme, editorTheme, true);
 
   useEffect(() => {
     let cancelled = false;

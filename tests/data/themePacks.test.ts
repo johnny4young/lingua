@@ -28,7 +28,6 @@ describe('themePacks catalog', () => {
     expect(pack).toBeDefined();
     expect(pack?.appearance.theme).toBe('dark');
     expect(pack?.appearance.editorTheme).toBe('nord-night');
-    expect(pack?.appearance.fontLigatures).toBe(true);
   });
 
   it('every pack exposes the full appearance contract', () => {
@@ -37,11 +36,9 @@ describe('themePacks catalog', () => {
       expect(typeof pack.appearance.editorTheme).toBe('string');
       expect(typeof pack.appearance.fontFamily).toBe('string');
       expect(pack.appearance.fontSize).toBeGreaterThan(0);
-      expect(typeof pack.appearance.fontLigatures).toBe('boolean');
       expect(['horizontal', 'vertical', 'editor-only']).toContain(
         pack.appearance.layoutPreset
       );
-      expect(typeof pack.appearance.syncShellWithEditorTheme).toBe('boolean');
     }
   });
 

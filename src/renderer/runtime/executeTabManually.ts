@@ -21,7 +21,6 @@ import type {
   ExecutionResult,
   FileTab,
   Language,
-  RichOutputPayload,
 } from '../types';
 import { collectBrowserPreviewSiblingSources } from './browserPreviewSiblings';
 import {
@@ -90,38 +89,13 @@ function collectRichOutputs(result: ExecutionResult): unknown[] | undefined {
   return richOutputs.length > 0 ? richOutputs : undefined;
 }
 
-function stripRichOutputOrigin(payload: RichOutputPayload): RichOutputPayload {
-  if (!payload || typeof payload !== 'object' || !('origin' in payload)) {
-    return payload;
-  }
-  const withoutOrigin = { ...(payload as unknown as Record<string, unknown>) };
-  delete withoutOrigin.origin;
-  return withoutOrigin as unknown as RichOutputPayload;
-}
-
-function stripConsoleOutputOrigin(output: ConsoleOutput): ConsoleOutput {
-  const stripped: ConsoleOutput = {
-    type: output.type,
-    args: output.args,
-  };
-  if (output.payload) {
-    stripped.payload = output.payload.map(stripRichOutputOrigin);
-  }
-  return stripped;
-}
-
-function stripExecutionOutputOrigins(result: ExecutionResult): ExecutionResult {
-  return {
-    ...result,
-    stdout: result.stdout.map(stripConsoleOutputOrigin),
-    stderr: result.stderr.map(stripConsoleOutputOrigin),
-    magicResults: result.magicResults?.map((entry) =>
-      entry.payload
-        ? { ...entry, payload: stripRichOutputOrigin(entry.payload) }
-        : entry
-    ),
-  };
-}
+// Slice 2 reviewer pass — `stripRichOutputOrigin`,
+// `stripConsoleOutputOrigin`, and `stripExecutionOutputOrigins`
+// were dead code once `outputSourceMappingEnabled` became a
+// hardcoded `true`. Removed entirely; the per-tab
+// `// @origin off` magic-comment opt-out at the renderer layer
+// remains the user-controlled escape hatch (badge + capsule
+// surfaces still consult `originSuppressedByMagicComment`).
 
 /**
  * RL-094 Slice 1 — capsule construction wrapper. Returns the built
@@ -260,8 +234,6 @@ export async function executeTabManually(
   const executionMode = executionModeForLanguage(language);
   const shouldRecordHistory = lifecycle.recordHistory !== false;
   const debugRequested = lifecycle.debug === true;
-  const outputSourceMappingEnabled =
-    useSettingsStore.getState().outputSourceMappingEnabled !== false;
 
   lifecycle.setCurrentLanguage?.(language);
 
@@ -411,9 +383,7 @@ export async function executeTabManually(
     const streamedStderr: ConsoleOutput[] = [];
     let streamedConsoleCount = 0;
     const streamConsoleOutput = (output: ConsoleOutput) => {
-      const visibleOutput = outputSourceMappingEnabled
-        ? output
-        : stripConsoleOutputOrigin(output);
+      const visibleOutput = output;
       streamedConsoleCount += 1;
       if (visibleOutput.type === 'error') {
         streamedStderr.push(visibleOutput);
@@ -502,7 +472,6 @@ export async function executeTabManually(
       ...(wantsScopeCapture && typeof scopeDepthPref === 'number'
         ? { scopeDepth: scopeDepthPref }
         : {}),
-      outputSourceMappingEnabled,
     };
 
     const settingsTimeoutMs = isRuntimeTimeoutSupportedLanguage(language)
@@ -523,10 +492,7 @@ export async function executeTabManually(
       setRunDeadlineAt(Date.now() + deadlineTimeoutMs);
     }
 
-    const rawResult = await runner.execute(content, executionContext);
-    const result = outputSourceMappingEnabled
-      ? rawResult
-      : stripExecutionOutputOrigins(rawResult);
+    const result = await runner.execute(content, executionContext);
     // Tear down the in-flight deadline immediately; the pill flips
     // to the termination variant on the next render.
     setRunDeadlineAt(null);

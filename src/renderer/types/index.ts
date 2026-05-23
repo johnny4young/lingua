@@ -406,14 +406,10 @@ export interface SettingsState {
   editorTheme: string;
   fontSize: number;
   fontFamily: string;
-  fontLigatures: boolean;
-  showLineNumbers: boolean;
   wordWrap: boolean;
   minimap: boolean;
   layoutPreset: LayoutPreset;
-  loopProtection: boolean;
   maxLoopIterations: number;
-  hideUndefined: boolean;
   restoreSession: boolean;
   formatOnSave: boolean;
   /**
@@ -429,12 +425,6 @@ export interface SettingsState {
    * resettable from Settings → Account → Privacy.
    */
   nativeExecutionAcknowledged: boolean;
-  /**
-   * When on, the dark/light shell polarity follows the current editor
-   * theme's polarity (so picking VS Light auto-flips the console and result
-   * panels to light). When off, the explicit `theme` setting is honored.
-   */
-  syncShellWithEditorTheme: boolean;
   /**
    * RL-028 sixth slice — opt-in code snapshot for the execution-history
    * ring buffer. When true (and the active tier covers
@@ -461,15 +451,6 @@ export interface SettingsState {
    */
   utilitiesClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
   /**
-   * RL-027 Slice 1 — debugger master switch. Default `true` (the
-   * feature is discoverable on first install). Off → the gutter no
-   * longer toggles breakpoints, the drawer stays hidden, and the JS
-   * runner skips instrumentation entirely so non-debug runs pay no
-   * overhead. Per ADR §Rollback this is the kill switch for the
-   * whole feature.
-   */
-  debuggerEnabled: boolean;
-  /**
    * RL-025 Slice A — master toggle for the dependency detection
    * pipeline + bottom-panel Dependencies tab. Default depends on
    * tier at first rehydrate (fold G): Free → `false` so the
@@ -480,38 +461,6 @@ export interface SettingsState {
    * so the panel hides immediately, not after the next edit.
    */
   dependencyDetectionEnabled: boolean;
-  /**
-   * RL-036 Phase A1 fold F — gate the share-link confirmation modal
-   * (`<ShareConfirmationModal>`). `true` (default) forces the modal
-   * to appear every time the user triggers Copy share link via the
-   * button / palette / shortcut so they can preview the source
-   * before it lands on the clipboard. `false` skips the modal and
-   * writes to the clipboard directly. Persisted; users who flip
-   * this off explicitly opt out of the safety net.
-   */
-  shareLinkConfirmEnabled: boolean;
-  /**
-   * RL-044 Sub-slice G — master toggle for the
-   * `<OutputLineBadge>` chip on console rows AND the runner-side
-   * `new Error().stack` / `inspect.currentframe` capture. Default
-   * ON; when OFF the workers short-circuit origin capture so a
-   * tight `console.log` loop pays no CPU cost. Persisted.
-   */
-  outputSourceMappingEnabled: boolean;
-  /**
-   * RL-044 Sub-slice G — hover-on-chip → Monaco source line flash.
-   * Default ON. When OFF the chip remains clickable (click still
-   * moves the cursor) but hover is a no-op. Persisted.
-   */
-  outputHighlightOnHoverEnabled: boolean;
-  /**
-   * RL-044 Sub-slice G — when the highlighted line is outside the
-   * editor viewport, smooth-scroll via
-   * `editor.revealLineInCenter(line, ScrollType.Smooth)`. Default
-   * ON. When OFF the flash still fires but the viewport stays put
-   * (useful for users who find auto-scroll disorienting). Persisted.
-   */
-  outputSmoothScrollOffscreenEnabled: boolean;
   /**
    * RL-019 Slice 1 fold B — default JS/TS runtime mode for newly
    * created tabs. `'worker'` mirrors `defaultRuntimeModeFor()` and
@@ -588,15 +537,6 @@ export interface SettingsState {
    */
   variableInspectorScopeDepth: number;
   /**
-   * RL-044 Slice 1B fold E — Settings → Editor master toggle for the
-   * rich console output renderer. Default `true` so the rich
-   * dispatch lights up out of the box; opt-out keeps the legacy
-   * `<AnsiContent>` text path for users who prefer it. When OFF,
-   * the `<ConsoleEntryRenderer>` is never mounted regardless of
-   * whether the runner sent a payload — the text fallback is the
-   * canonical rendering.
-   */
-  consoleRichRenderingEnabled: boolean;
   /**
    * RL-042 Slice 6 — Ruby runtime dispatcher preference. `auto` (the
    * default) prefers the system `ruby` binary when detected and falls
@@ -677,36 +617,21 @@ export interface SettingsState {
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
   setFontFamily: (family: string) => void;
-  toggleFontLigatures: () => void;
-  toggleLineNumbers: () => void;
   toggleWordWrap: () => void;
   toggleMinimap: () => void;
   setLayoutPreset: (preset: LayoutPreset) => void;
-  toggleLoopProtection: () => void;
   setMaxLoopIterations: (max: number) => void;
-  toggleHideUndefined: () => void;
   toggleRestoreSession: () => void;
   toggleFormatOnSave: () => void;
   toggleVimMode: () => void;
   /** RL-079 — flip the native-execution acknowledgement flag. */
   setNativeExecutionAcknowledged: (value: boolean) => void;
-  toggleSyncShellWithEditorTheme: () => void;
   toggleExecutionHistorySnapshot: () => void;
   setTelemetryConsent: (next: 'granted' | 'declined') => void;
   /** RL-069 Slice 3 — flip clipboard-on-focus consent (granted/declined). */
   setUtilitiesClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
-  /** RL-027 Slice 1 — toggle the debugger master switch. */
-  toggleDebuggerEnabled: () => void;
   /** RL-025 Slice A — flip the dependency detection master switch. */
   toggleDependencyDetectionEnabled: () => void;
-  /** RL-036 Phase A1 fold F — flip the share-link confirmation gate. */
-  toggleShareLinkConfirmEnabled: () => void;
-  /** RL-044 Sub-slice G — flip the output→source line master toggle. */
-  toggleOutputSourceMappingEnabled: () => void;
-  /** RL-044 Sub-slice G — flip the hover-on-chip flash sub-gate. */
-  toggleOutputHighlightOnHoverEnabled: () => void;
-  /** RL-044 Sub-slice G — flip the smooth-scroll offscreen sub-gate. */
-  toggleOutputSmoothScrollOffscreenEnabled: () => void;
   /**
    * RL-101 Slice 1 — three reset setters wired to the Settings →
    * General → Onboarding row toggles, the `Mod+Shift+W` shortcut
@@ -738,9 +663,7 @@ export interface SettingsState {
     editorTheme: string;
     fontFamily: string;
     fontSize: number;
-    fontLigatures: boolean;
     layoutPreset: LayoutPreset;
-    syncShellWithEditorTheme?: boolean;
   }) => void;
   setLanguage: (language: AppLanguage) => void;
   /**
@@ -786,12 +709,6 @@ export interface SettingsState {
    * RL-020 Slice 7 fold E — flip the countdown-in-pill toggle.
    */
   toggleShowTimeoutCountdown: () => void;
-  /**
-   * RL-044 Slice 1B fold E — flip the rich console output toggle.
-   * `OFF` makes `<ConsolePanel>` paint the legacy `<AnsiContent>`
-   * text path for every entry even when the runner sent a payload.
-   */
-  toggleConsoleRichRendering: () => void;
   /** RL-042 Slice 6 — set the Ruby runtime dispatcher preference. */
   setRubyRuntimePreference: (preference: 'auto' | 'system' | 'wasm') => void;
   /**
@@ -905,14 +822,6 @@ export interface ExecutionContext {
    * preference here; runners clamp to the shared `MAX_SCOPE_DEPTH`.
    */
   scopeDepth?: number;
-  /**
-   * RL-044 Sub-slice G — output→source line metadata gate. When false,
-   * runners should avoid origin capture where they can, and the
-   * runtime pipeline strips any returned `ConsoleOutput.line` /
-   * `RichOutputPayload.origin` before console/history/capsule
-   * surfaces see it.
-   */
-  outputSourceMappingEnabled?: boolean;
 }
 
 export interface ExecutionError {

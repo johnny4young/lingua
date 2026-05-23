@@ -106,30 +106,10 @@ describe('SettingsModal', () => {
     ).toBeTruthy();
   }, 10000);
 
-  it('disables the ligatures toggle and shows the unavailable hint for non-ligature fonts', async () => {
-    useSettingsStore.setState({
-      fontFamily: 'Menlo, monospace',
-      fontLigatures: true,
-    });
-
-    render(
-      <SettingsModal
-        onClose={() => {}}
-        onOpenWhatsNew={() => {}}
-        onStartGuidedTour={() => {}}
-      />
-    );
-
-    expect(await screen.findByText('MIT')).toBeTruthy();
-    // RL-070 — Editor section now lives under the Editor tab.
-    fireEvent.click(screen.getByTestId('settings-tab-editor'));
-    expect(
-      screen.getByText('La fuente seleccionada no incluye ligaduras de programación.')
-    ).toBeTruthy();
-    expect(screen.getAllByRole('switch').some((element) => element.hasAttribute('disabled'))).toBe(
-      true
-    );
-  }, 10000);
+  // Slice 2 — the standalone ligatures toggle was removed; ligatures
+  // now auto-render when the active font stack supports them. The
+  // "disables ligatures for non-ligature fonts" case no longer
+  // applies (the font preview row still shows the visual state).
 
   it('maps the decoupled rail shortcuts to the intended tabs', async () => {
     render(

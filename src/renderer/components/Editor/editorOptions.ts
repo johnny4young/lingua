@@ -1,8 +1,12 @@
 interface EditorOptionInput {
   fontSize: number;
   fontFamily: string;
+  /**
+   * Slice 2 — kept as a derived input from `effectiveFontLigatures`
+   * (font-stack-dependent). Settings no longer exposes a ligatures
+   * toggle; if the active font supports them, they render.
+   */
   fontLigatures: boolean;
-  showLineNumbers: boolean;
   wordWrap: boolean;
   minimap: boolean;
 }
@@ -11,7 +15,6 @@ export function getEditorOptions({
   fontSize,
   fontFamily,
   fontLigatures,
-  showLineNumbers,
   wordWrap,
   minimap,
 }: EditorOptionInput) {
@@ -20,7 +23,8 @@ export function getEditorOptions({
     fontFamily,
     fontLigatures,
     glyphMargin: true,
-    lineNumbers: showLineNumbers ? 'on' : 'off',
+    // Slice 2 — line numbers are baseline editor primitive; always on.
+    lineNumbers: 'on',
     wordWrap: wordWrap ? 'on' : 'off',
     minimap: { enabled: minimap },
     scrollBeyondLastLine: true,

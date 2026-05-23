@@ -392,4 +392,27 @@ contextBridge.exposeInMainWorld('lingua', {
         filePath
       ) as Promise<DependencyResolveResult>,
   },
+
+  // RL-102 Slice 1 — Git read-only layer. Three channels:
+  //   - detect: probe binary + repo root + branch for a folder
+  //   - status: per-file porcelain status bucket
+  //   - diff: paired strings for Monaco's diff editor
+  // Web build uses a no-op stub registered below (preload/web.ts);
+  // this implementation runs in Electron preload only.
+  git: {
+    detect: (folderPath?: string) =>
+      ipcRenderer.invoke('git:detect', folderPath) as Promise<GitDetectResult>,
+    status: (repoRoot: string, filePath: string) =>
+      ipcRenderer.invoke(
+        'git:status',
+        repoRoot,
+        filePath
+      ) as Promise<GitFileStatus>,
+    diff: (repoRoot: string, filePath: string) =>
+      ipcRenderer.invoke(
+        'git:diff',
+        repoRoot,
+        filePath
+      ) as Promise<GitFileDiff>,
+  },
 });

@@ -495,6 +495,33 @@ interface DependencyResolveResult {
   cwd: string | null;
 }
 
+// RL-102 Slice 1 — Git read-only layer IPC contracts. Three shapes
+// mirrored verbatim in `src/main/git.ts`. The renderer reads them
+// off `window.lingua.git.*` (Electron preload) or treats the bridge
+// as absent on web (graceful degradation — pill + panel are hidden).
+interface GitDetectResult {
+  installed: boolean;
+  /** `git --version` output, e.g. `git version 2.45.2`. */
+  version?: string;
+  /** Absolute path of the repo root (a parent of the opened folder). */
+  repoRoot?: string;
+  /** Current branch name, e.g. `main`. Absent on detached HEAD. */
+  branch?: string;
+  /** Diagnostic message when `installed === false`. */
+  error?: string;
+}
+type GitFileStatusKind = 'clean' | 'modified' | 'untracked' | 'unknown';
+interface GitFileStatus {
+  status: GitFileStatusKind;
+  insertions?: number;
+  deletions?: number;
+}
+interface GitFileDiff {
+  originalContent: string;
+  modifiedContent: string;
+  truncated: boolean;
+}
+
 // --------------------------------------------------------------- Main API
 
 interface LinguaAPI {
@@ -818,6 +845,21 @@ interface LinguaAPI {
       specifiers: readonly string[],
       filePath?: string
     ) => Promise<DependencyResolveResult>;
+  };
+
+  /**
+   * RL-102 Slice 1 — Git read-only layer. Desktop-only; on web the
+   * `git` key is absent and the renderer hides the pill + panel.
+   *   - `detect` resolves binary + repo root + branch for a folder.
+   *   - `status` returns the per-file porcelain status bucket.
+   *   - `diff` returns paired strings for Monaco's diff editor.
+   * Slice 2+ will add `add`/`commit`/`branch` write surfaces behind
+   * an explicit gate.
+   */
+  git?: {
+    detect: (folderPath?: string) => Promise<GitDetectResult>;
+    status: (repoRoot: string, filePath: string) => Promise<GitFileStatus>;
+    diff: (repoRoot: string, filePath: string) => Promise<GitFileDiff>;
   };
 }
 

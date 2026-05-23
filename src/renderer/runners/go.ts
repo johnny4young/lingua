@@ -176,9 +176,7 @@ export class GoRunner implements LanguageRunner {
             // RL-044 Sub-slice G — enrich the line field from a Go
             // panic-style `file.go:N` reference in the args text when
             // the worker didn't already provide a line.
-            const enrichedLine = context?.outputSourceMappingEnabled === false
-              ? undefined
-              : enrichConsoleOutputLine('go', msg.line, msg.args);
+            const enrichedLine = enrichConsoleOutputLine('go', msg.line, msg.args);
             const output: ConsoleOutput = { type: msg.method, args: msg.args, line: enrichedLine };
             if (msg.method === 'error') {
               if (!stderrByteTruncated) {

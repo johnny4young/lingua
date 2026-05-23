@@ -8,6 +8,7 @@ import { cn } from '../../utils/cn';
 import { Kbd, Tooltip } from '../ui/chrome';
 import type { FileTab, TabExecutionState } from '../../types';
 import { EditorTabContextMenu } from './EditorTabContextMenu';
+import { GitStatusPill } from './GitStatusPill';
 
 interface ContextMenuState {
   tabId: string;
@@ -172,6 +173,19 @@ export function EditorTabs() {
                     {tab.name}
                   </span>
                 )}
+
+                {/* RL-102 Slice 1 — Git status pill (clean / modified /
+                    untracked / unknown) inline between the filename and
+                    the execution status dot. Self-renders to null when
+                    git posture is unavailable, settings master is OFF,
+                    or the magic-comment opt-out is set on this file. */}
+                {!isRenaming && tab.filePath ? (
+                  <GitStatusPill
+                    filePath={tab.filePath}
+                    language={tab.language}
+                    content={tab.content}
+                  />
+                ) : null}
 
                 {/* Status indicator — single source per tab. Precedence:
                     running > error > success > dirty > none.

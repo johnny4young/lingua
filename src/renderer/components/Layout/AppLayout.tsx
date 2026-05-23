@@ -6,6 +6,7 @@ import {
   ChevronUp,
   Clock3,
   Eye,
+  GitBranch,
   GitCompare,
   MessageSquare,
   PanelLeft,
@@ -25,6 +26,8 @@ import { FloatingVariablesCard } from '../Editor/FloatingVariablesCard';
 import { VariableInspectorPanel } from '../Editor/VariableInspectorPanel';
 import { DependenciesPanel } from '../Dependencies/DependenciesPanel';
 import { useDependenciesPanelAvailable } from '../Dependencies/useDependenciesPanelAvailable';
+import { useGitDiffTabAvailable } from '../Editor/useGitDiffTabAvailable';
+import { GitDiffPanel } from '../Editor/GitDiffPanel';
 import { AppChrome } from '../Chrome';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
@@ -451,13 +454,15 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     return count;
   });
   const dependenciesAvailable = useDependenciesPanelAvailable();
+  const gitDiffAvailable = useGitDiffTabAvailable();
   const effectiveTab:
     | 'console'
     | 'debugger'
     | 'browser-preview'
     | 'stdin'
     | 'variables'
-    | 'dependencies' =
+    | 'dependencies'
+    | 'git-diff' =
     variablesAvailable && activeBottomPanel === 'variables'
       ? 'variables'
       : browserPreviewAvailable && (activeBottomPanel === 'browser-preview' || !consoleVisible)
@@ -468,7 +473,9 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             ? 'stdin'
             : dependenciesAvailable && activeBottomPanel === 'dependencies'
               ? 'dependencies'
-              : 'console';
+              : gitDiffAvailable && activeBottomPanel === 'git-diff'
+                ? 'git-diff'
+                : 'console';
 
   useEffect(() => {
     if (activeBottomPanel === 'debugger' && !debuggerAvailable) {
@@ -486,6 +493,9 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     if (activeBottomPanel === 'dependencies' && !dependenciesAvailable) {
       setActiveBottomPanel('console');
     }
+    if (activeBottomPanel === 'git-diff' && !gitDiffAvailable) {
+      setActiveBottomPanel('console');
+    }
   }, [
     activeBottomPanel,
     debuggerAvailable,
@@ -493,6 +503,7 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     stdinAvailable,
     variablesAvailable,
     dependenciesAvailable,
+    gitDiffAvailable,
     setActiveBottomPanel,
   ]);
 
@@ -504,12 +515,14 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
       | 'stdin'
       | 'variables'
       | 'dependencies'
+      | 'git-diff'
   ) => {
     if (tab === 'debugger' && !debuggerAvailable) return;
     if (tab === 'browser-preview' && !browserPreviewAvailable) return;
     if (tab === 'stdin' && !stdinAvailable) return;
     if (tab === 'variables' && !variablesAvailable) return;
     if (tab === 'dependencies' && !dependenciesAvailable) return;
+    if (tab === 'git-diff' && !gitDiffAvailable) return;
     openBottomPanel(tab);
   };
 
@@ -657,6 +670,26 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             </button>
           </Tooltip>
         ) : null}
+        {gitDiffAvailable ? (
+          <Tooltip content={t('editor.git.diffPanel.tabHint')} side="bottom">
+            <button
+              type="button"
+              role="tab"
+              data-testid="bottom-panel-git-diff-tab"
+              aria-selected={effectiveTab === 'git-diff'}
+              onClick={() => selectTab('git-diff')}
+              className={cn(
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                effectiveTab === 'git-diff'
+                  ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
+                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
+              )}
+            >
+              <GitBranch size={12} aria-hidden="true" />
+              {t('editor.git.diffPanel.tabLabel')}
+            </button>
+          </Tooltip>
+        ) : null}
         <Tooltip content={t('bottomPanel.actions.hide')} side="bottom">
           <button
             type="button"
@@ -680,6 +713,8 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
           <VariableInspectorPanel language={activeLanguage ?? 'javascript'} />
         ) : effectiveTab === 'dependencies' ? (
           <DependenciesPanel />
+        ) : effectiveTab === 'git-diff' ? (
+          <GitDiffPanel />
         ) : (
           <ConsolePanel />
         )}
@@ -849,7 +884,8 @@ export function AppLayout({
   const activeRuntimeMode = useEditorStore(
     (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.runtimeMode
   );
-  const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
+  // Slice 2 — debugger is baseline; the Settings toggle is gone.
+  const debuggerEnabled = true;
   const debuggerSession = useDebuggerStore((state) => state.session);
   const activeBreakpointCount = useDebuggerStore((state) => {
     if (!activeTabId) return 0;

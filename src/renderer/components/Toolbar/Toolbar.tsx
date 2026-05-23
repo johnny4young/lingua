@@ -13,7 +13,6 @@ import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import type { Language } from '../../types';
 import {
   executionModeForLanguage,
@@ -52,7 +51,8 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
   const { tabs, activeTabId, addTab } = useEditorStore();
   const { run, stop, isRunning, isInitializing, loadingMessage, runMode } = useRunner();
   const { sidebarVisible, toggleSidebar } = useUIStore();
-  const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
+  // Slice 2 — debugger is baseline; the Settings master toggle is gone.
+  const debuggerEnabled = true;
   const plugins = usePluginStore((state) => state.plugins);
   const enabledBreakpointCount = useDebuggerStore((state) => {
     const tabId = useEditorStore.getState().activeTabId;

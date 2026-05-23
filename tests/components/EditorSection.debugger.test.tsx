@@ -57,17 +57,9 @@ describe('EditorSection — Debugger rows (RL-027 Slice 1.5)', () => {
     useLicenseStore.setState(initialLicense, true);
   });
 
-  it('renders the Debugger master toggle ON by default and flips persistently', async () => {
-    const user = userEvent.setup();
-    render(<EditorSection />);
-
-    const toggle = screen.getByRole('switch', { name: /^Debugger$/ });
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-
-    await user.click(toggle);
-    expect(useSettingsStore.getState().debuggerEnabled).toBe(false);
-  });
-
+  // Slice 2 — the debugger master toggle was removed from Settings →
+  // Editor; debugging is baseline IDE expectation. The "renders the
+  // master toggle ON" and ES localization cases no longer apply.
   it('does not render breakpoint management actions in Editor settings', () => {
     render(<EditorSection />);
 
@@ -75,12 +67,5 @@ describe('EditorSection — Debugger rows (RL-027 Slice 1.5)', () => {
     expect(
       screen.queryByRole('switch', { name: /Pause is disabled for all breakpoints/i })
     ).toBeNull();
-  });
-
-  it('localizes the Debugger preference in Spanish without breakpoint actions', async () => {
-    await i18next.changeLanguage('es');
-    render(<EditorSection />);
-    expect(screen.getByRole('switch', { name: /^Depurador$/ })).toBeTruthy();
-    expect(screen.queryByText(/Borra|Limpiar todos los puntos/i)).toBeNull();
   });
 });

@@ -52,11 +52,8 @@ describe('PrivacySection', () => {
     ).toBe('false');
   });
 
-  it('renders the share-link confirmation toggle (Fold F, default ON)', async () => {
-    render(<PrivacySection />);
-    const wrapper = screen.getByTestId('settings-share-link-confirm-row');
-    const toggle = wrapper.querySelector('[role="switch"]');
-    expect(toggle).not.toBeNull();
-    expect(toggle?.getAttribute('aria-checked')).toBe('true');
-  });
+  // Slice 2 — `shareLinkConfirmEnabled` was removed; the share-link
+  // confirmation modal is now the only path before clipboard writes
+  // (safer default for accidental shares). The toggle no longer
+  // renders.
 });

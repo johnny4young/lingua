@@ -47,8 +47,8 @@ export function ResultPanel() {
     return tab ?? null;
   });
   const scrollRef = useRef<HTMLDivElement>(null);
-  const hideUndefined = useSettingsStore((state) => state.hideUndefined);
-  const toggleHideUndefined = useSettingsStore((state) => state.toggleHideUndefined);
+  // Slice 2 — hide-undefined is baseline; the runtime button + Settings
+  // toggle were removed. `undefined` rows never reach the inline panel.
   const settingsFontSize = useSettingsStore((state) => state.fontSize);
 
   const language = activeTab?.language ?? 'javascript';
@@ -98,11 +98,9 @@ export function ResultPanel() {
   // surfaces deltas via <CompareResultsPanel>. The diff computation
   // was removed alongside the body to keep the rendering path
   // honest.
-  const undefinedResultCount = lineResults.filter(isHiddenUndefinedLineResult).length;
-  const visibleLineResults = hideUndefined
-    ? lineResults.filter((result) => !isHiddenUndefinedLineResult(result))
-    : lineResults;
-  const showUndefinedToggle = dynamic && undefinedResultCount > 0;
+  const visibleLineResults = lineResults.filter(
+    (result) => !isHiddenUndefinedLineResult(result),
+  );
   void visibleLineResults; // referenced for completeness; the body
                            // path that consumed it was removed.
 
@@ -200,19 +198,6 @@ export function ResultPanel() {
             <span className="status-pill tabular-nums whitespace-nowrap">
               {formatExecTime(executionTime)}
             </span>
-          )}
-          {showUndefinedToggle && !compareEnabled && (
-            <button
-              onClick={toggleHideUndefined}
-              title={
-                hideUndefined ? t('results.actions.showUndefined') : t('results.actions.hideUndefined')
-              }
-              className={`button-secondary px-2.5 py-1 font-mono text-[10px] ${
-                hideUndefined ? 'border-primary/25 bg-primary-soft text-primary' : ''
-              }`}
-            >
-              {t('results.actions.undefined')}
-            </button>
           )}
           {/* RL-094 Slice 1.5 — primary export surface. Lazy-renders
               null when there's no captured capsule so it never

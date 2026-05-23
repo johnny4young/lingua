@@ -8,7 +8,6 @@ import {
   EDITOR_THEMES,
   FONT_FAMILIES,
   FONT_SIZES,
-  fontStackSupportsLigatures,
 } from './settingsOptions';
 import { Row, Section, Select, StepperButton, Toggle } from './shared';
 import { ThemePresetControls } from './ThemePresetControls';
@@ -38,18 +37,12 @@ export function EditorSection() {
   const setEditorTheme = useSettingsStore((state) => state.setEditorTheme);
   const fontFamily = useSettingsStore((state) => state.fontFamily);
   const setFontFamily = useSettingsStore((state) => state.setFontFamily);
-  const fontLigatures = useSettingsStore((state) => state.fontLigatures);
-  const toggleFontLigatures = useSettingsStore((state) => state.toggleFontLigatures);
   const fontSize = useSettingsStore((state) => state.fontSize);
   const setFontSize = useSettingsStore((state) => state.setFontSize);
-  const showLineNumbers = useSettingsStore((state) => state.showLineNumbers);
-  const toggleLineNumbers = useSettingsStore((state) => state.toggleLineNumbers);
   const wordWrap = useSettingsStore((state) => state.wordWrap);
   const toggleWordWrap = useSettingsStore((state) => state.toggleWordWrap);
   const minimap = useSettingsStore((state) => state.minimap);
   const toggleMinimap = useSettingsStore((state) => state.toggleMinimap);
-  const loopProtection = useSettingsStore((state) => state.loopProtection);
-  const toggleLoopProtection = useSettingsStore((state) => state.toggleLoopProtection);
   const maxLoopIterations = useSettingsStore((state) => state.maxLoopIterations);
   const setMaxLoopIterations = useSettingsStore((state) => state.setMaxLoopIterations);
   const restoreSession = useSettingsStore((state) => state.restoreSession);
@@ -92,28 +85,12 @@ export function EditorSection() {
   const toggleShowTimeoutCountdown = useSettingsStore(
     (state) => state.toggleShowTimeoutCountdown
   );
-  // RL-044 Slice 1B fold E — Settings → Editor row for the rich
-  // console output dispatch.
-  const consoleRichRenderingEnabled = useSettingsStore(
-    (state) => state.consoleRichRenderingEnabled
-  );
-  const toggleConsoleRichRendering = useSettingsStore(
-    (state) => state.toggleConsoleRichRendering
-  );
-  const syncShellWithEditorTheme = useSettingsStore(
-    (state) => state.syncShellWithEditorTheme
-  );
-  const toggleSyncShellWithEditorTheme = useSettingsStore(
-    (state) => state.toggleSyncShellWithEditorTheme
-  );
   const executionHistorySnapshotEnabled = useSettingsStore(
     (state) => state.executionHistorySnapshotEnabled
   );
   const toggleExecutionHistorySnapshot = useSettingsStore(
     (state) => state.toggleExecutionHistorySnapshot
   );
-  const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
-  const toggleDebuggerEnabled = useSettingsStore((state) => state.toggleDebuggerEnabled);
   // RL-025 Slice A — dependency detection master switch.
   const dependencyDetectionEnabled = useSettingsStore(
     (state) => state.dependencyDetectionEnabled
@@ -121,27 +98,10 @@ export function EditorSection() {
   const toggleDependencyDetectionEnabled = useSettingsStore(
     (state) => state.toggleDependencyDetectionEnabled
   );
-  // RL-044 Sub-slice G — output→source line affordance toggles.
-  const outputSourceMappingEnabled = useSettingsStore(
-    (state) => state.outputSourceMappingEnabled
-  );
-  const toggleOutputSourceMappingEnabled = useSettingsStore(
-    (state) => state.toggleOutputSourceMappingEnabled
-  );
-  const outputHighlightOnHoverEnabled = useSettingsStore(
-    (state) => state.outputHighlightOnHoverEnabled
-  );
-  const toggleOutputHighlightOnHoverEnabled = useSettingsStore(
-    (state) => state.toggleOutputHighlightOnHoverEnabled
-  );
-  const outputSmoothScrollOffscreenEnabled = useSettingsStore(
-    (state) => state.outputSmoothScrollOffscreenEnabled
-  );
-  const toggleOutputSmoothScrollOffscreenEnabled = useSettingsStore(
-    (state) => state.toggleOutputSmoothScrollOffscreenEnabled
-  );
   const { t } = useTranslation();
-  const ligaturesAvailable = fontStackSupportsLigatures(fontFamily);
+  // Slice 2 — ligatures auto-enable when the active font supports them.
+  // Settings → Editor no longer surfaces a toggle.
+  const ligaturesAvailable = true;
 
   const handleExecutionHistorySnapshotUnlock = () => {
     pushUpsellNotice({
@@ -194,16 +154,6 @@ export function EditorSection() {
         </Select>
       </Row>
 
-      <Row
-        label={t('editor.syncShellWithEditorTheme.label')}
-        hint={t('editor.syncShellWithEditorTheme.hint')}
-      >
-        <Toggle
-          value={syncShellWithEditorTheme}
-          onChange={toggleSyncShellWithEditorTheme}
-        />
-      </Row>
-
       <Row label={t('editor.fontFamily.label')} hint={t('editor.fontFamily.hint')}>
         <div className="grid w-full gap-2">
           <Select
@@ -224,28 +174,13 @@ export function EditorSection() {
             className="rounded-[0.9rem] border border-border/80 bg-background/65 px-3 py-2 text-sm leading-6 text-foreground"
             style={{
               fontFamily,
-              fontVariantLigatures: ligaturesAvailable && fontLigatures ? 'contextual' : 'none',
-              fontFeatureSettings: ligaturesAvailable && fontLigatures ? undefined : '"liga" 0, "calt" 0',
+              fontVariantLigatures: ligaturesAvailable ? 'contextual' : 'none',
+              fontFeatureSettings: ligaturesAvailable ? undefined : '"liga" 0, "calt" 0',
             }}
           >
             {t('editor.fontFamily.previewSample')}
           </div>
         </div>
-      </Row>
-
-      <Row
-        label={t('editor.fontLigatures.label')}
-        hint={
-          ligaturesAvailable
-            ? t('editor.fontLigatures.hint')
-            : t('editor.fontLigatures.unavailableHint')
-        }
-      >
-        <Toggle
-          value={fontLigatures && ligaturesAvailable}
-          onChange={toggleFontLigatures}
-          disabled={!ligaturesAvailable}
-        />
       </Row>
 
       <Row label={t('editor.fontSize.label')} hint={t('editor.fontSize.hint')}>
@@ -271,10 +206,6 @@ export function EditorSection() {
         </div>
       </Row>
 
-      <Row label={t('editor.lineNumbers.label')} hint={t('editor.lineNumbers.hint')}>
-        <Toggle value={showLineNumbers} onChange={toggleLineNumbers} />
-      </Row>
-
       <Row label={t('editor.wordWrap.label')} hint={t('editor.wordWrap.hint')}>
         <Toggle value={wordWrap} onChange={toggleWordWrap} />
       </Row>
@@ -283,15 +214,7 @@ export function EditorSection() {
         <Toggle value={minimap} onChange={toggleMinimap} />
       </Row>
 
-      <Row
-        label={t('editor.loopProtection.label')}
-        hint={t('editor.loopProtection.hint')}
-      >
-        <Toggle value={loopProtection} onChange={toggleLoopProtection} />
-      </Row>
-
-      {loopProtection && (
-        <Row label={t('editor.maxIterations.label')} hint={t('editor.maxIterations.hint')}>
+      <Row label={t('editor.maxIterations.label')} hint={t('editor.maxIterations.hint')}>
           <Select
             value={maxLoopIterations}
             onChange={(event) => setMaxLoopIterations(Number(event.target.value))}
@@ -302,8 +225,7 @@ export function EditorSection() {
               </option>
             ))}
           </Select>
-        </Row>
-      )}
+      </Row>
 
       <Row
         label={t('editor.restoreSession.label')}
@@ -554,20 +476,6 @@ export function EditorSection() {
         />
       </Row>
 
-      {/* RL-044 Slice 1B fold E — rich console output master toggle.
-          Default ON. Off → console paints the legacy text-only path. */}
-      <Row
-        label={t('consoleRich.settings.label')}
-        hint={t('consoleRich.settings.hint')}
-      >
-        <Toggle
-          value={consoleRichRenderingEnabled}
-          onChange={toggleConsoleRichRendering}
-          aria-label={t('consoleRich.settings.label')}
-          data-testid="settings-console-rich-rendering"
-        />
-      </Row>
-
       {/* RL-093 Slice 3 — variable inspector surface preference. */}
       <Row
         label={t('settings.editor.variableInspectorSurface.label')}
@@ -592,14 +500,6 @@ export function EditorSection() {
         </Select>
       </Row>
 
-      <Row label={t('debugger.settings.label')} hint={t('debugger.settings.hint')}>
-        <Toggle
-          value={debuggerEnabled}
-          onChange={toggleDebuggerEnabled}
-          aria-label={t('debugger.settings.label')}
-        />
-      </Row>
-
       <Row
         label={t('settings.editor.dependencyDetection.label')}
         hint={t('settings.editor.dependencyDetection.hint')}
@@ -611,53 +511,6 @@ export function EditorSection() {
           data-testid="settings-editor-dependency-detection-toggle"
         />
       </Row>
-
-      {/* RL-044 Sub-slice G — output→source line affordance master +
-          two sub-gates. The master gates the chip and origin metadata;
-          the sub-gates only affect renderer-side hover + smooth-scroll
-          behaviour. */}
-      <Row
-        label={t('settings.editor.outputSourceMapping.heading')}
-        hint={t('settings.editor.outputSourceMapping.description')}
-      >
-        <Toggle
-          value={outputSourceMappingEnabled}
-          onChange={toggleOutputSourceMappingEnabled}
-          aria-label={t('settings.editor.outputSourceMapping.showBadgeLabel')}
-          data-testid="settings-editor-output-source-mapping-master-toggle"
-        />
-      </Row>
-      <Row label={t('settings.editor.outputSourceMapping.highlightHoverLabel')}>
-        <Toggle
-          value={outputHighlightOnHoverEnabled}
-          onChange={toggleOutputHighlightOnHoverEnabled}
-          aria-label={t('settings.editor.outputSourceMapping.highlightHoverLabel')}
-          data-testid="settings-editor-output-highlight-on-hover-toggle"
-          disabled={!outputSourceMappingEnabled}
-        />
-      </Row>
-      <Row label={t('settings.editor.outputSourceMapping.smoothScrollLabel')}>
-        <Toggle
-          value={outputSmoothScrollOffscreenEnabled}
-          onChange={toggleOutputSmoothScrollOffscreenEnabled}
-          aria-label={t('settings.editor.outputSourceMapping.smoothScrollLabel')}
-          data-testid="settings-editor-output-smooth-scroll-toggle"
-          disabled={!outputSourceMappingEnabled}
-        />
-      </Row>
-      {/* RL-044 Sub-slice G.1 Fold F — disabled-state hint. The two
-          sub-gates above already render in disabled visual style when
-          the master is OFF, but without a hint users wonder why the
-          toggles refuse to flip. This one-line note points back at
-          the master so the chain is discoverable. */}
-      {!outputSourceMappingEnabled && (
-        <p
-          data-testid="settings-editor-output-source-mapping-subgate-hint"
-          className="-mt-2 mb-1 text-[11px] leading-snug text-fg-muted"
-        >
-          {t('settings.editor.outputSourceMapping.subgateDisabledHint')}
-        </p>
-      )}
 
       {/* RL-095 Slice 1 (post-review refactor) — the Language Support
           Scorecard + per-language preference rows (Rust / Go LSP, Ruby

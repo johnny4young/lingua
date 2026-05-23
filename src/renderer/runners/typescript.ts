@@ -158,7 +158,7 @@ export class TypeScriptRunner implements LanguageRunner {
   async execute(code: string, context?: ExecutionContext): Promise<ExecutionResult> {
     // RL-027 debugger refinement — debug mode resolution mirrors the JS
     // runner: only an explicit Debug action attaches the pause protocol.
-    const sourceMappingEnabled = context?.outputSourceMappingEnabled !== false;
+    const sourceMappingEnabled = true;
     const settings = useSettingsStore.getState();
     // RL-020 Slice 7 — resolve timeout from the per-language preset
     // unless the caller passed an explicit override.
@@ -171,7 +171,7 @@ export class TypeScriptRunner implements LanguageRunner {
     const timeoutPreset: RuntimeTimeoutPreset | 'override' = callerOverrode
       ? 'override'
       : presetForLanguage ?? 'normal';
-    const debuggerSettings = settings.debuggerEnabled !== false;
+    const debuggerSettings = true;
     const debugStore = useDebuggerStore.getState();
     const tabBreakpoints = context?.tabId
       ? debugStore.breakpointsForTab(context.tabId).filter((bp) => bp.enabled)
@@ -179,9 +179,10 @@ export class TypeScriptRunner implements LanguageRunner {
     const debug = context?.debug === true && debuggerSettings && tabBreakpoints.length > 0;
 
     // Step 1: Apply loop protection unless debug mode is active.
-    const { loopProtection, maxLoopIterations } = settings;
-    const processedCode =
-      loopProtection && !debug ? injectJSLoopProtection(code, maxLoopIterations) : code;
+    const { maxLoopIterations } = settings;
+    const processedCode = !debug
+      ? injectJSLoopProtection(code, maxLoopIterations)
+      : code;
 
     // Step 1b: Transform magic comments before transpilation
     // (esbuild would strip the //=> comments during transpilation)

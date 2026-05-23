@@ -35,6 +35,8 @@ type SmokeCase = {
   timeoutMs?: number;
   /** Override the runner's parent-side deadline. */
   runnerTimeoutMs?: number;
+  /** Optional per-case loop guard ceiling for parent-timeout smokes. */
+  maxLoopIterations?: number;
 };
 
 const SMOKE_CASES: SmokeCase[] = [
@@ -95,6 +97,7 @@ const SMOKE_CASES: SmokeCase[] = [
     expectFailure: /timed out|excedi[oó]/i,
     runnerTimeoutMs: 3_000,
     timeoutMs: 20_000,
+    maxLoopIterations: 1_000_000_000,
   },
   // RL-079 — verify the env-leak gate end-to-end with a real
   // subprocess. `scripts/run-desktop-smoke.mjs` seeds
@@ -304,12 +307,10 @@ export function useDesktopSmoke(enabled: boolean) {
 
         useSettingsStore.setState({
           layoutPreset: 'horizontal',
-          // RL-078 timeout cases need the parent kill timer, not loop guards, to own termination.
-          loopProtection: false,
-          // RL-079 — pre-acknowledge native execution so the trust
-          // modal never blocks the smoke runner. The acknowledgement
-          // exists explicitly to require the user's intent, but the
-          // smoke is automation, not a human.
+          // Slice 2 — `loopProtection` was removed; the runtime always
+          // applies the guard. Parent-timeout smoke cases can override
+          // `maxLoopIterations` per case so they still exercise the
+          // runner deadline instead of the loop guard.
           nativeExecutionAcknowledged: true,
         });
         useUIStore.setState({
@@ -337,6 +338,11 @@ export function useDesktopSmoke(enabled: boolean) {
           const tab = createSmokeTab(smokeCase.language, smokeCase.fileName, smokeCase.content);
           const { addTab } = useEditorStore.getState();
           addTab(tab);
+          if (typeof smokeCase.maxLoopIterations === 'number') {
+            useSettingsStore.setState({
+              maxLoopIterations: smokeCase.maxLoopIterations,
+            });
+          }
 
           await waitForUi();
           if (firstEditorInteractionWallTimeMs === null) {

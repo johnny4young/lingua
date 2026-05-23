@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import {
   bucketShareSize,
@@ -74,9 +73,9 @@ function useShareLinkFlow() {
   const tabs = useEditorStore((state) => state.tabs);
   const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
   const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
-  const shareLinkConfirmEnabled = useSettingsStore(
-    (state) => state.shareLinkConfirmEnabled
-  );
+  // Slice 2 — `shareLinkConfirmEnabled` removed; the confirmation
+  // modal is now the only path. Safer default for clipboard writes.
+  const shareLinkConfirmEnabled = true;
 
   const [justCopied, setJustCopied] = useState(false);
   const [pendingPreview, setPendingPreview] =

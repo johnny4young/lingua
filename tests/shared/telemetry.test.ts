@@ -52,6 +52,11 @@ describe('TELEMETRY_EVENTS', () => {
       'dependency.classifications_summary',
       'dependency.detected_in_tab',
       'feature.blocked',
+      // RL-102 Slice 1 fold D — Git read-only layer adoption signal.
+      // `git.diff_panel_opened` sorts before `git.layer_attached`
+      // because `.diff_` < `.layer_` lexicographically.
+      'git.diff_panel_opened',
+      'git.layer_attached',
       // RL-095 Slice 1 fold A — Language Support Scorecard adoption
       // signal. Closed-enum payload `{ surface }` from
       // `LANGUAGE_SCORECARD_SURFACES` (settings | palette). The key

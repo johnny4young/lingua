@@ -252,6 +252,43 @@ export function originSuppressedByMagicComment(
 }
 
 /**
+ * RL-102 Slice 1 Fold F — per-file opt-out of the Git status pill
+ * and diff panel. Mirror of `originSuppressedByMagicComment` (RL-044
+ * Sub-slice G Fold F) but with an independent regex — the two
+ * pragmas are semantically distinct (privacy vs. workflow noise) and
+ * a single shared regex would couple their evolution.
+ *
+ * Use cases:
+ *   - A user editing a generated file (`dist/foo.js`, vendored lib)
+ *     wants the chip off so the editor's "modified" state doesn't
+ *     keep nagging them about churn that's actually intentional.
+ *   - A user comparing two large generated reports doesn't want the
+ *     Diff panel auto-opening with multi-MB hunks.
+ *
+ * Matches `// @git-ignore-status` (JS / TS) and
+ * `# @git-ignore-status` (Python / Ruby / Shell) with an optional
+ * colon. Same WARNING applies as in `ORIGIN_OFF_DIRECTIVE_RE` — the
+ * regex matches inside string literals too. The over-suppress
+ * tradeoff is acceptable because the directive is purely a UI hint
+ * (the file is still tracked / diffable via the OS-level git tools);
+ * the worst case is the pill goes silent on an unintended file.
+ */
+const GIT_IGNORE_STATUS_DIRECTIVE_RE =
+  /(?:\/\/|#)\s*@git-ignore-status\b/i;
+
+export function gitStatusSuppressedByMagicComment(
+  language: string,
+  code: string
+): boolean {
+  // Accept any source language that supports `//` or `#` comments —
+  // the layer is desktop-wide so we don't gate on a specific subset
+  // like the origin-off directive does.
+  if (typeof language !== 'string' || language.length === 0) return false;
+  if (typeof code !== 'string' || code.length === 0) return false;
+  return GIT_IGNORE_STATUS_DIRECTIVE_RE.test(code);
+}
+
+/**
  * Detect magic comment lines in JS/TS source code.
  */
 export function detectJSMagicComments(code: string): MagicCommentLine[] {

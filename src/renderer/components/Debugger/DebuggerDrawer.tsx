@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useDebuggerStore } from '../../stores/debuggerStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { postDebuggerMessage } from '../../runtime/debuggerWorkerBridge';
 import { trackEvent } from '../../utils/telemetry';
 import { languageSupportsDebugger } from '../../utils/languageMeta';
@@ -49,7 +48,8 @@ export function DebuggerDrawer({
   activeLanguage: Language | null | undefined;
 }) {
   const { t } = useTranslation();
-  const debuggerEnabled = useSettingsStore((state) => state.debuggerEnabled);
+  // Slice 2 — debugger is baseline; the Settings master toggle is gone.
+  const debuggerEnabled = true;
   const supportsDebugger = languageSupportsDebugger(activeLanguage);
   const session = useDebuggerStore((state) => state.session);
   const pausedFrame = useDebuggerStore((state) => state.pausedFrame);

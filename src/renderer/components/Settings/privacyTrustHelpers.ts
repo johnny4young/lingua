@@ -97,6 +97,13 @@ export const NETWORK_ACTIVITY_FEATURES = [
   // `outputSourceMappingEnabled` Settings flag so a user can audit
   // the feature at a glance.
   'outputOriginTracking',
+  // RL-102 Slice 1 Fold H — Git read-only layer (status pill + diff
+  // panel). Local-only: `execFile('git', ['status', '--porcelain'])`
+  // + `git show HEAD:<file>` against the resolved repo root. NO
+  // remote refs, NO `git fetch`, NO network. Slice 1.1 removed the
+  // Settings master toggle; the dashboard row is transparency for
+  // the baseline local-only surface.
+  'gitReadOnlyLayer',
 ] as const;
 
 export type NetworkActivityFeature =
@@ -120,13 +127,6 @@ export function buildNetworkActivityRows(args: {
   readonly capsuleExportLastAt: number | null;
   readonly telemetryLastAt: number | null;
   readonly updateCheckLastAt: number | null;
-  /**
-   * RL-044 Sub-slice G Fold E — current value of the Settings
-   * `outputSourceMappingEnabled` flag. Drives the
-   * `outputOriginTracking` row's status. Optional with a `true`
-   * default so callers that haven't been migrated yet don't break.
-   */
-  readonly outputSourceMappingEnabled?: boolean;
 }): ReadonlyArray<NetworkActivityRow> {
   return [
     {
@@ -177,15 +177,29 @@ export function buildNetworkActivityRows(args: {
     },
     {
       feature: 'outputOriginTracking',
-      // RL-044 Sub-slice G Fold E — captures the source line of each
-      // console output row to drive click + hover affordances. Pure
-      // local: the worker reads its own `new Error().stack`, attaches
-      // a line integer to each payload, and the renderer paints a
-      // chip. NO file paths, NO content, NO network calls — the row
-      // appears in the audit table for transparency, not because it
-      // makes outbound traffic.
-      status:
-        args.outputSourceMappingEnabled === false ? 'disabled' : 'enabled',
+      // RL-044 Sub-slice G — captures the source line of each console
+      // output row to drive click + hover affordances. Pure local: the
+      // worker reads its own `new Error().stack`, attaches a line
+      // integer to each payload, and the renderer paints a chip. NO
+      // file paths, NO content, NO network calls — the row appears in
+      // the audit table for transparency. Slice 2 removed the master
+      // toggle, so this row is unconditionally 'enabled'; the per-tab
+      // `// @origin off` directive remains as the user-controlled
+      // opt-out.
+      status: 'enabled',
+      lastCallAt: null,
+    },
+    {
+      feature: 'gitReadOnlyLayer',
+      // RL-102 Slice 1 Fold H — pure local invocation of `git
+      // status --porcelain` / `git diff HEAD` / `git show HEAD:<f>`
+      // against the resolved repo root. NO remote refs, NO fetch,
+      // NO push, NO writes of any kind in Slice 1. Slice 1.1
+      // removed the Settings master toggle (git awareness is now
+      // baseline); the per-file `// @git-ignore-status` directive
+      // remains as the user-controlled opt-out. Row is `'enabled'`
+      // whenever the binary + repo posture resolved.
+      status: 'enabled',
       lastCallAt: null,
     },
   ];

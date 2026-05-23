@@ -1,24 +1,23 @@
 import type { LayoutPreset } from '../types';
 
 /**
- * A theme pack is a built-in, named bundle of appearance + typography +
- * layout settings that users can apply from a single dropdown. It reuses
- * the same shape as exported theme presets so the import/export path and
- * the built-in selector stay on one code path.
+ * Curated theme packs that ship with the application. A pack is a
+ * coherent appearance bundle the user can apply with one click — it
+ * sets every visual setting that contributes to the editor + shell
+ * "look" so a pack-applied state never reads as half-themed.
  *
- * Unlike exported presets, theme packs ship in the renderer bundle so
- * they need to stay small and tasteful. Only add a pack when it feels
- * meaningfully distinct from the existing ones — otherwise the dropdown
- * becomes noise.
+ * Packs are intentionally curated and bundled; user-imported presets
+ * follow a separate flow (`utils/themePreset.ts`). Slice 2 trimmed
+ * `fontLigatures` + `syncShellWithEditorTheme` from the pack schema —
+ * ligatures auto-detect from the font stack, and shell polarity
+ * always follows the editor theme.
  */
 export interface ThemePackAppearance {
   theme: 'dark' | 'light';
   editorTheme: string;
   fontFamily: string;
   fontSize: number;
-  fontLigatures: boolean;
   layoutPreset: LayoutPreset;
-  syncShellWithEditorTheme: boolean;
 }
 
 export interface ThemePack {
@@ -40,9 +39,7 @@ export const THEME_PACKS: readonly ThemePack[] = [
       editorTheme: 'lingua-dark',
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
       fontSize: 14,
-      fontLigatures: true,
       layoutPreset: 'horizontal',
-      syncShellWithEditorTheme: true,
     },
   },
   {
@@ -54,9 +51,7 @@ export const THEME_PACKS: readonly ThemePack[] = [
       editorTheme: 'solarized-light',
       fontFamily: 'Menlo, monospace',
       fontSize: 14,
-      fontLigatures: false,
       layoutPreset: 'horizontal',
-      syncShellWithEditorTheme: true,
     },
   },
   {
@@ -68,9 +63,7 @@ export const THEME_PACKS: readonly ThemePack[] = [
       editorTheme: 'nord-night',
       fontFamily: "'Fira Code', monospace",
       fontSize: 14,
-      fontLigatures: true,
       layoutPreset: 'horizontal',
-      syncShellWithEditorTheme: true,
     },
   },
 ];
@@ -80,6 +73,6 @@ export function findThemePack(id: string): ThemePack | undefined {
 }
 
 export function isKnownThemePackId(id: unknown): id is string {
-  if (typeof id !== 'string') return false;
+  if (typeof id !== 'string' || id.length === 0) return false;
   return THEME_PACKS.some((pack) => pack.id === id);
 }
