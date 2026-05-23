@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ConsoleState, ConsoleEntryType, FileTab } from '../../src/renderer/types/index';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
+import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
 // ---------------------------------------------------------------------------
 // Mock the console store
@@ -168,6 +169,7 @@ describe('ConsolePanel', () => {
   beforeEach(() => {
     resetState();
     setActiveProLicense();
+    useSettingsStore.setState({ outputSourceMappingEnabled: true });
     useExecutionHistoryStore.getState().clear();
     vi.clearAllMocks();
   });
@@ -259,6 +261,10 @@ describe('ConsolePanel', () => {
       );
     });
     expect(row.getAttribute('data-pulsing')).toBeNull();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'runtime.cursor_pulse_emitted',
+      expect.anything()
+    );
   });
 
   it('renders an error entry with ERR badge', () => {
@@ -272,6 +278,142 @@ describe('ConsolePanel', () => {
     // "ERR" appears in both the filter bar button and the entry row badge
     const errLabels = screen.getAllByText('ERR');
     expect(errLabels.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // RL-044 Sub-slice G.1 G.1.a — pulse listener must NOT install when
+  // the master toggle is OFF.
+  it('silences cursor → console pulse when outputSourceMappingEnabled is OFF', () => {
+    vi.useFakeTimers();
+    try {
+      useSettingsStore.setState({ outputSourceMappingEnabled: false });
+      resetState({
+        entries: [
+          { id: 'line-7', type: 'log', content: 'seven', timestamp: Date.now(), line: 7 },
+        ],
+      });
+      render(<ConsolePanel />);
+      const rows = screen.getAllByTestId('console-entry-row');
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('lingua-source-line-hovered', {
+            detail: { line: 7, durationMs: 1500 },
+          })
+        );
+      });
+      // Listener never installed → row stays un-pulsed AND telemetry
+      // does NOT fire.
+      expect(rows[0]?.getAttribute('data-pulsing')).toBeNull();
+      expect(mockTrackEvent).not.toHaveBeenCalledWith(
+        'runtime.cursor_pulse_emitted',
+        expect.anything()
+      );
+    } finally {
+      useSettingsStore.setState({ outputSourceMappingEnabled: true });
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears an in-flight cursor → console pulse when outputSourceMappingEnabled flips OFF', () => {
+    vi.useFakeTimers();
+    try {
+      resetState({
+        entries: [
+          { id: 'line-7', type: 'log', content: 'seven', timestamp: Date.now(), line: 7 },
+        ],
+      });
+      render(<ConsolePanel />);
+      const row = screen.getByTestId('console-entry-row');
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('lingua-source-line-hovered', {
+            detail: { line: 7, durationMs: 1500 },
+          })
+        );
+      });
+      expect(row.getAttribute('data-pulsing')).toBe('true');
+
+      act(() => {
+        useSettingsStore.setState({ outputSourceMappingEnabled: false });
+      });
+      expect(row.getAttribute('data-pulsing')).toBeNull();
+
+      act(() => {
+        vi.advanceTimersByTime(1600);
+      });
+      expect(row.getAttribute('data-pulsing')).toBeNull();
+    } finally {
+      useSettingsStore.setState({ outputSourceMappingEnabled: true });
+      vi.useRealTimers();
+    }
+  });
+
+  // RL-044 Sub-slice G.1 Fold D — adoption telemetry fires once per
+  // successful pulse with the active tab's language.
+  it('emits runtime.cursor_pulse_emitted telemetry on a successful pulse', () => {
+    vi.useFakeTimers();
+    try {
+      mockTrackEvent.mockClear();
+      // `resetState` clears mockTabs / mockActiveTabId, so seed the
+      // active tab AFTER resetState — otherwise the listener reads an
+      // empty store and attributes the event to `language: 'unknown'`.
+      resetState({
+        entries: [
+          { id: 'line-3', type: 'log', content: 'three', timestamp: Date.now(), line: 3 },
+        ],
+      });
+      mockTabs = [
+        {
+          id: 'tab-1',
+          name: 'untitled.js',
+          language: 'javascript',
+          content: '',
+          isDirty: false,
+        } as FileTab,
+      ];
+      mockActiveTabId = 'tab-1';
+      render(<ConsolePanel />);
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('lingua-source-line-hovered', {
+            detail: { line: 3, durationMs: 1000 },
+          })
+        );
+      });
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'runtime.cursor_pulse_emitted',
+        { language: 'javascript' }
+      );
+    } finally {
+      mockTabs = [];
+      mockActiveTabId = null;
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not emit cursor pulse telemetry when no visible row matches the cursor line', () => {
+    mockTrackEvent.mockClear();
+    resetState({
+      entries: [
+        { id: 'line-3', type: 'log', content: 'three', timestamp: Date.now(), line: 3 },
+      ],
+    });
+
+    render(<ConsolePanel />);
+    const row = screen.getByTestId('console-entry-row');
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('lingua-source-line-hovered', {
+          detail: { line: 99, durationMs: 1000 },
+        })
+      );
+    });
+
+    expect(row.getAttribute('data-pulsing')).toBeNull();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'runtime.cursor_pulse_emitted',
+      expect.anything()
+    );
   });
 
   it('keeps the latest source-line pulse active when cursor events overlap', () => {

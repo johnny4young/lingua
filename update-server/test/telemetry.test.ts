@@ -1022,6 +1022,31 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     consoleSpy.mockRestore();
   });
 
+  it('runtime.cursor_pulse_emitted accepts safe-token language, drops unsafe (RL-044 Sub-slice G.1)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'runtime.cursor_pulse_emitted',
+      properties: { language: 'javascript' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unsafeResponse = await postTelemetry({
+      event: 'runtime.cursor_pulse_emitted',
+      properties: { language: '/etc/passwd' },
+    });
+    expect(unsafeResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"runtime.cursor_pulse_emitted"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const okLine = eventLines.find((line) =>
+      line.includes('"language":"javascript"')
+    );
+    expect(okLine).toBeDefined();
+    const unsafeLine = eventLines.find((line) => line.includes('/etc/passwd'));
+    expect(unsafeLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
   it('RUBY_DISPATCHED_MODE_VALUES + RUBY_SPAWN_BUCKETS stay in sync with the renderer (RL-042 Slice 6)', async () => {
     const fs = await import('node:fs/promises');
     const path = await import('node:path');

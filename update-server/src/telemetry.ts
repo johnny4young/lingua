@@ -69,6 +69,9 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-044 Slice 1B fold F — mirror of `runtime.console_table_called`.
   // Closed-enum payload `{ language }` only.
   'runtime.console_table_called',
+  // RL-044 Sub-slice G.1 Fold D — mirror of
+  // `runtime.cursor_pulse_emitted`. Closed-enum `{ language }` only.
+  'runtime.cursor_pulse_emitted',
   // RL-044 Slice 1C fold B — mirror of
   // `runtime.python_console_payload_emitted`. Closed-enum
   // `{ kind }` from `CONSOLE_RICH_KIND_BUCKETS`.
@@ -182,6 +185,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.console_rich_rendered': ['kind'],
   // RL-044 Slice 1B fold F — mirror of `runtime.console_table_called`.
   'runtime.console_table_called': ['language'],
+  // RL-044 Sub-slice G.1 Fold D — mirror of `runtime.cursor_pulse_emitted`.
+  'runtime.cursor_pulse_emitted': ['language'],
   // RL-044 Slice 1C fold B — mirror of
   // `runtime.python_console_payload_emitted`.
   'runtime.python_console_payload_emitted': ['kind'],
@@ -762,6 +767,9 @@ function isAllowedValue(
         );
       return false;
     case 'runtime.console_table_called':
+      if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'runtime.cursor_pulse_emitted':
       if (key === 'language') return isSafeToken(value);
       return false;
     case 'runtime.python_console_payload_emitted':

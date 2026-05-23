@@ -521,6 +521,15 @@ export class PythonRunner implements LanguageRunner {
         // mid-execute does not produce a split-state run.
         richConsoleEnabled:
           settingsSnapshot.consoleRichRenderingEnabled !== false,
+        // RL-044 Sub-slice G.1 — forward the output-source-mapping
+        // master gate so the Pyodide preamble can skip the per-call
+        // `__lingua_caller_line()` frame walk entirely when the user
+        // opted out. Mirrors the JS/TS worker pattern from
+        // `javascript.ts:549` + `typescript.ts:161`. Defaults to
+        // `true` so callers that don't pass `outputSourceMappingEnabled`
+        // keep the historical behavior.
+        sourceMappingEnabled:
+          context?.outputSourceMappingEnabled !== false,
       });
     });
   }

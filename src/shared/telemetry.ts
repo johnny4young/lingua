@@ -125,6 +125,16 @@ export const TELEMETRY_EVENTS = [
   // tabular arrays by `serializeRichValue`). Closed-enum payload
   // `{ language }` only.
   'runtime.console_table_called',
+  // RL-044 Sub-slice G.1 Fold D — Fold G inverse direction adoption.
+  // Fires when the editor cursor settles on a line that matches at
+  // least one console row's `origin.line` and the `<ConsolePanel>`
+  // pulse listener actually paints. Closed-enum `{ language }`
+  // (`isSafeToken`) only — no line numbers, no file paths. Lets us
+  // measure adoption of the inverse direction independently from the
+  // `runtime.output_origin_clicked` badge metric: a low ratio
+  // (cursor_pulse / output_origin) means users only click the chip
+  // and don't notice the symmetric editor→console pulse.
+  'runtime.cursor_pulse_emitted',
   // RL-044 Slice 1C fold B — Python (Pyodide) console payload adoption
   // signal. Separate from the renderer-side
   // `runtime.console_rich_rendered` so dashboards can isolate
@@ -396,6 +406,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-044 Slice 1B fold F — `language` is the language-pack id.
   // Mirrored on update-server.
   'runtime.console_table_called': ['language'],
+  // RL-044 Sub-slice G.1 Fold D — `language` is the language-pack id
+  // (`isSafeToken`). No line / file / payload. Mirrored on
+  // update-server.
+  'runtime.cursor_pulse_emitted': ['language'],
   // RL-044 Slice 1C fold B — `kind` is the closed `ConsolePayloadKindBucket`
   // enum (same set as `runtime.console_rich_rendered`).
   'runtime.python_console_payload_emitted': ['kind'],
@@ -925,6 +939,9 @@ function isAllowedValue(
         );
       return false;
     case 'runtime.console_table_called':
+      if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'runtime.cursor_pulse_emitted':
       if (key === 'language') return isSafeToken(value);
       return false;
     case 'runtime.python_console_payload_emitted':

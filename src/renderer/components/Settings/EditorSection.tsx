@@ -645,6 +645,19 @@ export function EditorSection() {
           disabled={!outputSourceMappingEnabled}
         />
       </Row>
+      {/* RL-044 Sub-slice G.1 Fold F — disabled-state hint. The two
+          sub-gates above already render in disabled visual style when
+          the master is OFF, but without a hint users wonder why the
+          toggles refuse to flip. This one-line note points back at
+          the master so the chain is discoverable. */}
+      {!outputSourceMappingEnabled && (
+        <p
+          data-testid="settings-editor-output-source-mapping-subgate-hint"
+          className="-mt-2 mb-1 text-[11px] leading-snug text-fg-muted"
+        >
+          {t('settings.editor.outputSourceMapping.subgateDisabledHint')}
+        </p>
+      )}
 
       {/* RL-095 Slice 1 (post-review refactor) — the Language Support
           Scorecard + per-language preference rows (Rust / Go LSP, Ruby

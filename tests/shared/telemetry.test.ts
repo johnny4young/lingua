@@ -92,9 +92,14 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-044 Slice 1B fold F — `console.table()` adoption signal.
       // Closed-enum payload `{ language }`.
       'runtime.console_table_called',
+      // RL-044 Sub-slice G.1 Fold D — Fold G inverse direction
+      // adoption. Closed-enum payload `{ language }` only. Sorts
+      // between `console_table_called` (`c-o-n` < `c-u-r`) and
+      // `error_stack_frame_clicked` alphabetically.
+      'runtime.cursor_pulse_emitted',
       // RL-044 Slice 2a — Sub-slice F adoption signal. Closed-enum
-      // payload `{ language }`. Sorts between `console_table_called`
-      // and `history_replay` alphabetically.
+      // payload `{ language }`. Sorts between `cursor_pulse_emitted`
+      // and `fs_directory_picker_unsupported` alphabetically.
       'runtime.error_stack_frame_clicked',
       // RL-024 Slice 1 — File System Access API "Open folder"
       // unsupported signal. Closed-enum payload `{ userAgentBucket }`.

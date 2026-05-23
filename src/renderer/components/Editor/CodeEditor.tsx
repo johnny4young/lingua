@@ -75,6 +75,24 @@ export function CodeEditor() {
     minimap,
   } = useSettingsStore();
   const vimMode = useSettingsStore((state) => state.vimMode);
+  // RL-044 Sub-slice G.1 — gate the Fold G inverse direction (cursor →
+  // console pulse) on the master toggle. Stashed in a ref so the
+  // listener registered inside `handleEditorMount` (a useCallback with
+  // `[]` deps) reads the live value instead of the initial closure.
+  const outputSourceMappingEnabled = useSettingsStore(
+    (state) => state.outputSourceMappingEnabled
+  );
+  const outputSourceMappingEnabledRef = useRef(outputSourceMappingEnabled);
+  useEffect(() => {
+    outputSourceMappingEnabledRef.current = outputSourceMappingEnabled;
+    // When the master flips OFF mid-debounce, drop any pending
+    // broadcast so a stale dispatch does not slip out after the user
+    // opted out.
+    if (!outputSourceMappingEnabled && cursorBroadcastTimerRef.current) {
+      clearTimeout(cursorBroadcastTimerRef.current);
+      cursorBroadcastTimerRef.current = null;
+    }
+  }, [outputSourceMappingEnabled]);
   const { t } = useTranslation();
   // Stash `t` in a ref so the Vim init effect doesn't re-run (and tear
   // down + rebuild the Vim layer, dropping the user's mode + buffer
@@ -178,18 +196,29 @@ export function CodeEditor() {
     // `<ConsolePanel>` row whose `origin.line === N` can pulse for
     // the next 1500ms. Debounced 200ms so a normal cursor-move
     // burst (arrow keys, click + drag) does not stream events.
+    //
+    // RL-044 Sub-slice G.1 — gated on the master toggle via the ref
+    // so the listener honors the live setting (the outer useEffect
+    // also clears any pending broadcast when the flag flips OFF
+    // mid-debounce; this guard short-circuits new cursor moves so
+    // we never schedule a doomed timer).
     editor.onDidChangeCursorPosition((event) => {
+      if (!outputSourceMappingEnabledRef.current) return;
       const line = event.position.lineNumber;
       if (!Number.isFinite(line) || line <= 0) return;
       if (cursorBroadcastTimerRef.current) {
         clearTimeout(cursorBroadcastTimerRef.current);
       }
       cursorBroadcastTimerRef.current = setTimeout(() => {
-        window.dispatchEvent(
-          new CustomEvent('lingua-source-line-hovered', {
-            detail: { line, durationMs: 1500 },
-          })
-        );
+        // Re-check at fire time — a flag flip during the 200ms
+        // debounce shouldn't leak a stale event past the toggle.
+        if (outputSourceMappingEnabledRef.current) {
+          window.dispatchEvent(
+            new CustomEvent('lingua-source-line-hovered', {
+              detail: { line, durationMs: 1500 },
+            })
+          );
+        }
         cursorBroadcastTimerRef.current = null;
       }, 200);
     });
