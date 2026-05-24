@@ -27,6 +27,7 @@ import {
   ONBOARDING_TOAST_STAGES as WORKER_ONBOARDING_TOAST_STAGES,
   OUTPUT_ORIGIN_SURFACES as WORKER_OUTPUT_ORIGIN_SURFACES,
   GIT_LAYER_REPO_STATES as WORKER_GIT_LAYER_REPO_STATES,
+  TEMPLATE_PROJECT_IDS as WORKER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENT_NAMES,
   checkRateLimit,
@@ -38,6 +39,7 @@ import {
   ONBOARDING_TOAST_STAGES as RENDERER_ONBOARDING_TOAST_STAGES,
   OUTPUT_ORIGIN_SURFACES as RENDERER_OUTPUT_ORIGIN_SURFACES,
   GIT_LAYER_REPO_STATES as RENDERER_GIT_LAYER_REPO_STATES,
+  TEMPLATE_PROJECT_IDS as RENDERER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
@@ -611,6 +613,26 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect([...WORKER_GIT_LAYER_REPO_STATES].sort()).toEqual(
       [...RENDERER_GIT_LAYER_REPO_STATES].sort()
     );
+  });
+
+  it('template project ids stay in sync with the renderer source of truth (RL-103 Slice 1 fold B)', () => {
+    // Closed-enum parity for the `template_project_applied.templateId`
+    // field. The renderer-side catalog
+    // (`src/renderer/data/projectTemplates/index.ts`) is the design
+    // source of truth; the shared mirror and the update-server mirror
+    // both duplicate the literal list. Drift here means the closed
+    // enum on one side accepts a value the other rejects — exactly
+    // the surface the parity guard exists to prevent.
+    expect([...WORKER_TEMPLATE_PROJECT_IDS].sort()).toEqual(
+      [...RENDERER_TEMPLATE_PROJECT_IDS].sort()
+    );
+    expect([...WORKER_TEMPLATE_PROJECT_IDS].sort()).toEqual([
+      'express-api-hello',
+      'fastapi-hello',
+      'node-cli-argparse',
+      'python-data-explorer',
+      'react-component-sandbox',
+    ]);
   });
 
   it('DENY_SUBSTRINGS stays a byte-for-byte mirror of the renderer source of truth (RL-096 Slice 1 reviewer pass)', () => {

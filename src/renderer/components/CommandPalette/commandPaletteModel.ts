@@ -49,6 +49,13 @@ interface BuildCommandPaletteModelArgs {
    */
   onRerunLast?: () => void;
   /**
+   * RL-103 Slice 1 fold C — fires when the user picks the "New
+   * project from template…" palette action. Optional so callers
+   * without a Welcome surface (e.g. test scaffolds) keep working;
+   * when omitted the action is hidden.
+   */
+  onNewProjectFromTemplate?: () => void;
+  /**
    * RL-028 sixth slice trailer — fires when the user activates a per-entry
    * "Replay {language} run · {status} · {duration}" palette command.
    * Optional; when omitted no replay commands are emitted. Caller is
@@ -563,6 +570,7 @@ export function buildCommandPaletteModel({
   executionHistory,
   onFocusLanguageTab,
   onRerunLast,
+  onNewProjectFromTemplate,
   onReplayEntry,
   onToggleVimMode,
   vimModeEnabled = false,
@@ -688,6 +696,37 @@ export function buildCommandPaletteModel({
             ['rerun', 'replay', 'last', 'recent', 'run'],
             () => {
               onRerunLast();
+              onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-103 Slice 1 fold C — New project from curated template.
+    // Hidden when the caller omits the handler so test scaffolds that
+    // don't wire a Welcome surface keep working.
+    ...(onNewProjectFromTemplate
+      ? [
+          buildActionCommand(
+            'action-new-project-from-template',
+            translate(
+              'commandPalette.action.newProjectFromTemplate.label'
+            ),
+            translate(
+              'commandPalette.action.newProjectFromTemplate.description'
+            ),
+            [
+              'project',
+              'template',
+              'scaffold',
+              'new',
+              'express',
+              'fastapi',
+              'react',
+              'cli',
+              'pandas',
+            ],
+            () => {
+              onNewProjectFromTemplate();
               onClose();
             }
           ),

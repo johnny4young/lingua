@@ -283,6 +283,14 @@ export const TELEMETRY_EVENTS = [
   // us measure whether the diff panel is being used or whether the
   // pill alone carries the surface. Mirrored on update-server.
   'git.diff_panel_opened',
+  // RL-103 Slice 1 fold B — Curated project template applied. Fires
+  // once per successful multi-file scaffold (after the entry file
+  // opens in a new tab). Closed-enum payload
+  // `{ templateId, language }` where `templateId` ∈
+  // `TEMPLATE_PROJECT_IDS` and `language` is the language-pack id.
+  // No file paths, no destination directory, no content. Mirrored
+  // on update-server with parity test.
+  'template_project_applied',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -506,6 +514,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-102 Slice 1 fold D — pure counter, no per-event properties.
   // The redactor drops any key that arrives anyway.
   'git.diff_panel_opened': [],
+  // RL-103 Slice 1 fold B — `templateId` ∈ `TEMPLATE_PROJECT_IDS`
+  // (closed enum, mirrored on update-server). `language` is the
+  // language-pack id validated by `isSafeToken`.
+  'template_project_applied': ['templateId', 'language'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -747,6 +759,20 @@ export const GIT_LAYER_REPO_STATES = new Set([
   'git-repo',
   'no-git',
   'no-binary',
+]);
+// RL-103 Slice 1 fold B — closed enum for the `templateId` property
+// on `template_project_applied`. Source of truth lives in the
+// renderer-side catalog at `src/renderer/data/projectTemplates/index.ts`;
+// duplicated here because `src/shared/` must not import from
+// `src/renderer/`. The parity test in
+// `update-server/test/telemetry.test.ts` enforces byte-for-byte
+// equality across both copies + the server mirror.
+export const TEMPLATE_PROJECT_IDS = new Set([
+  'express-api-hello',
+  'fastapi-hello',
+  'node-cli-argparse',
+  'react-component-sandbox',
+  'python-data-explorer',
 ]);
 // RL-025 Slice A — closed bucket enum mirroring
 // `DEPENDENCY_COUNT_BUCKETS` from `src/shared/dependencies/types.ts`.
@@ -1120,6 +1146,11 @@ function isAllowedValue(
       // Pure counter — no whitelisted properties. Any key that
       // arrives is dropped by the closed-enum validator falling
       // through to false.
+      return false;
+    case 'template_project_applied':
+      if (key === 'templateId')
+        return typeof value === 'string' && TEMPLATE_PROJECT_IDS.has(value);
+      if (key === 'language') return isSafeToken(value);
       return false;
     default: {
       const exhaustive: never = event;

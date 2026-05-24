@@ -172,6 +172,12 @@ describe('TELEMETRY_EVENTS', () => {
       // identical sets.
       'share.created',
       'share.opened',
+      // RL-103 Slice 1 fold B — curated project template applied.
+      // Closed-enum `{ templateId, language }` from
+      // `TEMPLATE_PROJECT_IDS` + language pack id. Sorts between
+      // `share.opened` (s.h-a < t.e-m) and `update.checked`
+      // (t.e-m < u.p-d) alphabetically.
+      'template_project_applied',
       'update.checked',
       // RL-069 Slice 3 — Developer Utilities productivity layer.
       'utility.clipboard.applied',

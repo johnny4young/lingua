@@ -15,6 +15,7 @@ import {
   languageLabel,
 } from '../../utils/languageMeta';
 import { Kbd } from '../ui/chrome';
+import { ProjectTemplatesPanel } from '../Welcome/ProjectTemplatesPanel';
 
 // RL-038 Slice C closeout — the quick-start row used to be a hardcoded
 // `['javascript', 'typescript', 'go', 'python', 'rust']`. Walking
@@ -69,7 +70,8 @@ export function EditorEmptyState() {
     <div className="relative flex h-full flex-col overflow-auto bg-bg-base">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-52 bg-[radial-gradient(circle_at_top,color-mix(in_srgb,var(--color-accent)_22%,transparent),transparent_68%)]" />
 
-      <div className="relative mx-auto flex h-full w-full max-w-6xl flex-col justify-center gap-8 px-5 py-8 sm:px-8 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-8 sm:px-8 lg:gap-10">
+        <div className="flex flex-col justify-center gap-8 lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-10">
         <section className="animate-rise-in space-y-7">
           <div className="inline-flex items-center gap-3">
             <div className="relative flex h-14 w-14 items-center justify-center rounded-[1.4rem] border border-border-strong/70 bg-bg-panel shadow-[0_18px_60px_color-mix(in_srgb,var(--color-accent)_18%,transparent)]">
@@ -177,6 +179,9 @@ export function EditorEmptyState() {
             ))}
           </div>
         </section>
+        </div>
+
+        <ProjectTemplatesPanel />
       </div>
     </div>
   );
