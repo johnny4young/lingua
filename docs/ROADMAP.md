@@ -211,6 +211,71 @@ en `PLAN.md`.
 | Tier 2 (P2/P3) | RL-112, RL-113, RL-114, RL-115, RL-024 Slice 2, RL-116, RL-117 | tras Tier 1 | sequenciado abajo |
 | Tier 3 (out of scope) | T3-001..T3-006 | n/a | documentados en PLAN.md como reverse-allowed-if |
 
+### 4m. Project audit promotion (RL-121..RL-142, promoción 2026-05-24)
+
+Graduación de los 22 items propuestos en
+[`docs/PROJECT_AUDIT_2026_05_24.md`](./PROJECT_AUDIT_2026_05_24.md) §6
+a tickets RL reales. Mapping fijo `AUDIT-NN ↔ RL-(120+N)`. Cada uno
+mantiene su acceptance criteria + scope en el audit doc (no lo
+duplicamos acá); la row del ROADMAP solo lleva título corto, status,
+prioridad, dependencias, severidad y tipo. Promovidos en el PR #6
+(audit doc) como planeación, sin tocar el código.
+
+Prioridad mapeada por severity-from-audit + sequencing del audit §7:
+
+- **P1** — perf High (3.1–3.4), security High (2.1/2.3), data High
+  (5.2), security Medium con ROI bajo (2.2 deny-by-default).
+- **P2** — refactor High (4.1/4.2/4.3), perf Medium (3.5–3.10),
+  data Medium (5.3), security Medium estructural (2.4), types
+  Medium (4.6), IPC contract (4.7).
+- **P3** — polish + reliability (4.4/4.8/4.9/4.10), docstring sweep.
+
+| Ticket | Audit ref | Title | Status | Priority | Dependencies | Type · severity |
+|--------|-----------|-------|:------:|:--------:|--------------|------------------|
+| [`RL-121`](./PROJECT_AUDIT_2026_05_24.md#audit-01--centralize-active-tab-access-perf--refactor) | `AUDIT-01` | Centralize active-tab access (`getActiveTab` + `useActiveTab`) | `Planned` | P1 | — | perf+refactor · High |
+| [`RL-122`](./PROJECT_AUDIT_2026_05_24.md#audit-02--memoize-panelchipsrow-snapshot-subscriptions) | `AUDIT-02` | Memoize `PanelChipsRow` snapshot subscriptions | `Planned` | P1 | `RL-121` | perf · High |
+| [`RL-123`](./PROJECT_AUDIT_2026_05_24.md#audit-03--virtualize-the-console-panel) | `AUDIT-03` | Virtualize `<ConsolePanel>` (`react-window` + per-entry hash) | `Planned` | P1 | — | perf · High |
+| [`RL-124`](./PROJECT_AUDIT_2026_05_24.md#audit-04--lazy-register-monaco-language-contributions) | `AUDIT-04` | Lazy-register Monaco language contributions (`registerLanguageOnce`) | `Planned` | P1 | — | perf · High |
+| [`RL-125`](./PROJECT_AUDIT_2026_05_24.md#audit-05--dynamic-import-single-use-deps) | `AUDIT-05` | Dynamic-import `qrcode`, `sql-formatter`, `marked` | `Planned` | P2 | — | perf · Medium |
+| [`RL-126`](./PROJECT_AUDIT_2026_05_24.md#audit-06--schema-version-every-persisted-zustand-store) | `AUDIT-06` | `_schemaVersion` on every persisted Zustand store + `migrationRegistry` | `Planned` | P1 | — | data · High |
+| [`RL-127`](./PROJECT_AUDIT_2026_05_24.md#audit-07--add-setpermissionrequesthandler-deny-by-default) | `AUDIT-07` | `setPermissionRequestHandler` deny-by-default + `setPermissionCheckHandler` | `Planned` | P1 | — | security · Medium |
+| [`RL-128`](./PROJECT_AUDIT_2026_05_24.md#audit-08--split-editorstorets) | `AUDIT-08` | Split `editorStore.ts` (1163 LOC) into 4 focused modules | `Planned` | P2 | `RL-121` | refactor · High |
+| [`RL-129`](./PROJECT_AUDIT_2026_05_24.md#audit-09--split-settingsstorets) | `AUDIT-09` | Split `settingsStore.ts` (931 LOC) into defaults / sanitizers / persistence | `Planned` | P2 | `RL-126` | refactor · High |
+| [`RL-130`](./PROJECT_AUDIT_2026_05_24.md#audit-10--split-licensestorets-along-the-webdesktop-seam) | `AUDIT-10` | Split `licenseStore.ts` (962 LOC) along the web/desktop seam | `Planned` | P2 | — | refactor · High |
+| [`RL-131`](./PROJECT_AUDIT_2026_05_24.md#audit-11--extract-uselayoutavailability--useappshortcuts) | `AUDIT-11` | Extract `useLayoutAvailability` + `useAppShortcuts` hooks | `Planned` | P2 | `RL-121` | refactor · High |
+| [`RL-132`](./PROJECT_AUDIT_2026_05_24.md#audit-12--brand-rootid-watchid-relativepath) | `AUDIT-12` | Brand `RootId` / `WatchId` / `RelativePath` (compile-time swap-attack guard) | `Planned` | P2 | — | types+security · Medium |
+| [`RL-133`](./PROJECT_AUDIT_2026_05_24.md#audit-13--standardize-ipc-error-contract-on-resultt) | `AUDIT-13` | Standardize IPC error contract on `Result<T>` discriminated union | `Planned` | P2 | — | refactor · Medium |
+| [`RL-134`](./PROJECT_AUDIT_2026_05_24.md#audit-14--usestatusnotice-hook--pushinfonotice-helper) | `AUDIT-14` | `useStatusNotice` hook + `pushInfoNotice` helper for the 134 call sites | `Planned` | P3 | — | refactor · Medium |
+| [`RL-135`](./PROJECT_AUDIT_2026_05_24.md#audit-15--replace-windowdispatchevent-bridges-with-a-command-bus) | `AUDIT-15` | Replace `window.dispatchEvent` bridges with a typed command bus | `Planned` | P3 | — | refactor · Medium |
+| [`RL-136`](./PROJECT_AUDIT_2026_05_24.md#audit-16--sweep-empty-catch--blocks) | `AUDIT-16` | Sweep 196 empty `catch {}` blocks into best-effort / log / propagate buckets | `Planned` | P3 | — | refactor · Medium |
+| [`RL-137`](./PROJECT_AUDIT_2026_05_24.md#audit-17--document-filesystem-denylist--extend-coverage) | `AUDIT-17` | Document + extend filesystem denylist test matrix (`BLOCKED_PATHS`) | `Planned` | P2 | — | security · Medium |
+| [`RL-138`](./PROJECT_AUDIT_2026_05_24.md#audit-18--tighten-the-web-build-csp) | `AUDIT-18` | Tighten web build CSP (drop `'unsafe-eval'` from shell; per-bundle policies) | `Planned` | P1 | — | security · High |
+| [`RL-139`](./PROJECT_AUDIT_2026_05_24.md#audit-19--document--audit-update-package-signing-chain) | `AUDIT-19` | Document + audit update-package signing chain (Squirrel.Mac / Windows) | `Planned` | P1 | — | security · High |
+| [`RL-140`](./PROJECT_AUDIT_2026_05_24.md#audit-20--preconnect-preload-color-scheme--tailwind-content-config) | `AUDIT-20` | Preconnect / preload / color-scheme + Tailwind `content` config | `Planned` | P2 | — | perf+infra · Medium |
+| [`RL-141`](./PROJECT_AUDIT_2026_05_24.md#audit-21--license-server-protocol-versioning) | `AUDIT-21` | License-server `protocolVersion` handshake + closed-enum acceptance list | `Planned` | P2 | — | data · Medium |
+| [`RL-142`](./PROJECT_AUDIT_2026_05_24.md#audit-22--docstrings-for-the-highest-leverage-logic) | `AUDIT-22` | Docstrings for highest-leverage logic (`attemptStaleTokenRefresh`, mutual-exclusion, void `_unused`) | `Planned` | P3 | — | docs · Low |
+
+**Sequencing for the audit lane** (mirror of audit §7, now with RL ids):
+
+1. `RL-121` (active-tab selector) — unblocks `RL-122`, `RL-128`, `RL-131`.
+2. `RL-127` (permission handler) — small, eliminates real risk.
+3. `RL-122` (PanelChipsRow), `RL-125` (dynamic imports), `RL-126`
+   (schema-version), `RL-132` (branded types).
+4. `RL-128` → `RL-129` → `RL-130` (three store splits, in order).
+5. `RL-124`, `RL-140` (remaining bundle/perf wins).
+6. `RL-123` (virtualization).
+7. `RL-133` → `RL-135` (IPC `Result<T>` + command bus).
+8. `RL-138`, `RL-139` (security follow-throughs — each needs a careful
+   release).
+9. Polish + interleavable anywhere: `RL-131`, `RL-134`, `RL-136`,
+   `RL-137`, `RL-141`, `RL-142`.
+
+Esta secuencia front-loads los items cheapest que UNLOCK refactors
+posteriores (active-tab selector → tres splits + layout hooks), saca
+la security cuanto-más-temprano-mejor (`RL-127` antes que los splits),
+y deja los dos high-risk releases de security (`RL-138`/`RL-139`) al
+final donde el resto del lane ya estabilizó.
+
 ## 5. Recommended sequence
 
 Value-per-day priority, skipping parked tickets. This is the order an

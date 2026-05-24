@@ -556,11 +556,32 @@ No IndexedDB, no OPFS, no `electron-store`.
 
 ## 6. Proposed tickets
 
-Each item below is sized to a **single small PR**. They are
-intentionally NOT given `RL-NNN` ids — promotion to ROADMAP is a
-prioritization decision the maintainer owns. Numbering uses
-`AUDIT-NN` so this document can be cross-referenced even before
-RL ids land.
+Each item below is sized to a **single small PR**. The `AUDIT-NN`
+ids are this document's local numbering; on 2026-05-24 they were
+promoted to real ROADMAP rows with the fixed mapping
+`AUDIT-NN ↔ RL-(120+N)` (so `AUDIT-01 → RL-121`,
+`AUDIT-22 → RL-142`). The ROADMAP rows live in
+[`docs/ROADMAP.md`](./ROADMAP.md) §4m and carry the
+priority + dependencies decision; this document keeps the deep
+scope + acceptance criteria.
+
+| `AUDIT` | `RL` | Tier | `RL` | Tier |
+|---|---|---|---|---|
+| `AUDIT-01` | `RL-121` | 1 |  |  |
+| `AUDIT-02` | `RL-122` | 1 |  |  |
+| `AUDIT-03` | `RL-123` | 1 |  |  |
+| `AUDIT-04` | `RL-124` | 1 |  |  |
+| `AUDIT-05` | `RL-125` | 1 |  |  |
+| `AUDIT-06` | `RL-126` | 1 |  |  |
+| `AUDIT-07` | `RL-127` | 1 |  |  |
+| `AUDIT-08` | `RL-128` | 2 | `AUDIT-15` | 3 (→ `RL-135`) |
+| `AUDIT-09` | `RL-129` | 2 | `AUDIT-16` | 3 (→ `RL-136`) |
+| `AUDIT-10` | `RL-130` | 2 | `AUDIT-17` | 3 (→ `RL-137`) |
+| `AUDIT-11` | `RL-131` | 2 | `AUDIT-18` | 3 (→ `RL-138`) |
+| `AUDIT-12` | `RL-132` | 2 | `AUDIT-19` | 3 (→ `RL-139`) |
+| `AUDIT-13` | `RL-133` | 2 | `AUDIT-20` | 3 (→ `RL-140`) |
+| `AUDIT-14` | `RL-134` | 3 | `AUDIT-21` | 3 (→ `RL-141`) |
+|  |  |  | `AUDIT-22` | 3 (→ `RL-142`) |
 
 ### Tier 1 — high-impact, ship-soon
 
@@ -1015,30 +1036,36 @@ RL ids land.
 ## 7. Sequencing recommendation
 
 If the team picks up this audit incrementally, the highest-
-value-per-risk order is:
+value-per-risk order is (AUDIT id · RL id):
 
-1. **AUDIT-01** (active-tab selector) — unblocks AUDIT-02,
-   AUDIT-08, AUDIT-11.
-2. **AUDIT-07** (permission handler) — small, eliminates a
-   real-world drift risk.
-3. **AUDIT-02** (`PanelChipsRow`) — pairs with AUDIT-01.
-4. **AUDIT-05** (dynamic-import deps) — fast bundle win.
-5. **AUDIT-06** (schema-version) — must land before any
-   surface bumps a persisted shape.
-6. **AUDIT-12** (branded types) — locks the capability
-   sandbox's contract before the next refactor changes it.
-7. **AUDIT-08 → AUDIT-09 → AUDIT-10** — the three store
-   splits. Sequence them; do not parallelize, because they
-   share patterns and reviewers benefit from seeing them in
-   order.
-8. **AUDIT-04 + AUDIT-20** — the remaining bundle/perf wins.
-9. **AUDIT-03** — virtualization. Larger surface change;
-   land it once the smaller wins are in.
-10. **AUDIT-13 → AUDIT-15** — IPC + command bus conventions.
-11. **AUDIT-18 → AUDIT-19** — security follow-throughs that
-    each need a careful release.
+1. **AUDIT-01 · `RL-121`** (active-tab selector) — unblocks
+   AUDIT-02, AUDIT-08, AUDIT-11.
+2. **AUDIT-07 · `RL-127`** (permission handler) — small,
+   eliminates a real-world drift risk.
+3. **AUDIT-02 · `RL-122`** (`PanelChipsRow`) — pairs with
+   AUDIT-01.
+4. **AUDIT-05 · `RL-125`** (dynamic-import deps) — fast bundle
+   win.
+5. **AUDIT-06 · `RL-126`** (schema-version) — must land before
+   any surface bumps a persisted shape.
+6. **AUDIT-12 · `RL-132`** (branded types) — locks the
+   capability sandbox's contract before the next refactor
+   changes it.
+7. **AUDIT-08 → AUDIT-09 → AUDIT-10** · `RL-128 → RL-129 →
+   RL-130` — the three store splits. Sequence them; do not
+   parallelize, because they share patterns and reviewers
+   benefit from seeing them in order.
+8. **AUDIT-04 + AUDIT-20** · `RL-124` + `RL-140` — the
+   remaining bundle/perf wins.
+9. **AUDIT-03 · `RL-123`** — virtualization. Larger surface
+   change; land it once the smaller wins are in.
+10. **AUDIT-13 → AUDIT-15** · `RL-133 → RL-135` — IPC + command
+    bus conventions.
+11. **AUDIT-18 → AUDIT-19** · `RL-138 → RL-139` — security
+    follow-throughs that each need a careful release.
 12. **AUDIT-11, AUDIT-14, AUDIT-16, AUDIT-17, AUDIT-21,
-    AUDIT-22** — polish, can interleave anywhere.
+    AUDIT-22** · `RL-131`, `RL-134`, `RL-136`, `RL-137`,
+    `RL-141`, `RL-142` — polish, can interleave anywhere.
 
 This sequencing intentionally front-loads the cheapest items
 that *unlock* later refactors (the active-tab selector), keeps
