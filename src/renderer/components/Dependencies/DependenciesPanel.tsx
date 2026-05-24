@@ -79,33 +79,89 @@ const BATCH_WINDOW_MS = 500;
 
 interface PanelContext {
   readonly canInstall: boolean;
+  /** Tooltip key when the row's Install button is disabled. */
   readonly disabledReasonKey: string | null;
+  /**
+   * RL-025 Slice C — tooltip key when the Install button is
+   * ENABLED. Used to surface backend-specific hints (e.g. "Install
+   * via Pyodide micropip" on the Python web path). `null` falls
+   * back to the generic Install button label.
+   */
+  readonly enabledHintKey: string | null;
+  /**
+   * RL-025 Slice C reviewer fix — tooltip key for rows whose
+   * status is `'unsupported'`. Python web tabs surface a more
+   * informative "Pyodide has no compatible wheel for this package"
+   * instead of the generic `disabledTooltip`. `null` falls back to
+   * the generic disabled copy on other backends.
+   */
+  readonly unsupportedTooltipKey: string | null;
+  /**
+   * RL-025 Slice C — when the panel is rendering a Python tab on
+   * web, the install path is Pyodide micropip (not npm). Drives a
+   * different click handler in `performInstall` so we don't try to
+   * call `bridge.installJs` for Python rows.
+   */
+  readonly isPythonWeb: boolean;
 }
 
 function buildPanelContext(args: {
   readonly isWeb: boolean;
   readonly hasFilePath: boolean;
   readonly cwdHasPackageJson: boolean | null;
+  readonly language: DependencyAdapterLanguage | null;
 }): PanelContext {
+  // RL-025 Slice C — Python web has its own install path via Pyodide
+  // micropip. No filesystem involved → skip the unsaved-tab and
+  // missing-package.json gates. `enabledHintKey` surfaces the
+  // Pyodide nature in the tooltip so the user knows the install
+  // hits the Pyodide CDN, not npm.
+  if (args.isWeb && args.language === 'python') {
+    return {
+      canInstall: true,
+      disabledReasonKey: null,
+      enabledHintKey: 'dependencies.install.pythonWebReadyTooltip',
+      // RL-025 Slice C — a Python web row that ends up
+      // `'unsupported'` was rejected by Pyodide micropip for a
+      // native wheel; the tooltip surfaces that root cause.
+      unsupportedTooltipKey: 'dependencies.install.pythonUnsupportedTooltip',
+      isPythonWeb: true,
+    };
+  }
   if (args.isWeb) {
     return {
       canInstall: false,
       disabledReasonKey: 'dependencies.install.webUnavailableTooltip',
+      enabledHintKey: null,
+      unsupportedTooltipKey: null,
+      isPythonWeb: false,
     };
   }
   if (!args.hasFilePath) {
     return {
       canInstall: false,
       disabledReasonKey: 'dependencies.install.unsavedTabTooltip',
+      enabledHintKey: null,
+      unsupportedTooltipKey: null,
+      isPythonWeb: false,
     };
   }
   if (args.cwdHasPackageJson === false) {
     return {
       canInstall: false,
       disabledReasonKey: 'dependencies.install.noPackageJsonTooltip',
+      enabledHintKey: null,
+      unsupportedTooltipKey: null,
+      isPythonWeb: false,
     };
   }
-  return { canInstall: true, disabledReasonKey: null };
+  return {
+    canInstall: true,
+    disabledReasonKey: null,
+    enabledHintKey: null,
+    unsupportedTooltipKey: null,
+    isPythonWeb: false,
+  };
 }
 
 function fireInstallTelemetryStarted(
@@ -168,9 +224,16 @@ export function DependenciesPanel() {
 
   const hasFilePath = Boolean(activeTab?.filePath);
   const cwdHasPackageJson = detection?.cwdHasPackageJson ?? null;
+  const detectionLanguage = detection?.language ?? null;
   const ctx = useMemo(
-    () => buildPanelContext({ isWeb, hasFilePath, cwdHasPackageJson }),
-    [isWeb, hasFilePath, cwdHasPackageJson]
+    () =>
+      buildPanelContext({
+        isWeb,
+        hasFilePath,
+        cwdHasPackageJson,
+        language: detectionLanguage,
+      }),
+    [isWeb, hasFilePath, cwdHasPackageJson, detectionLanguage]
   );
 
   const isInstalling = (installState?.installing.size ?? 0) > 0;
@@ -183,29 +246,80 @@ export function DependenciesPanel() {
   const pendingBatchRef = useRef<{ readonly names: Set<string> } | null>(null);
   const flushTimerRef = useRef<number | null>(null);
 
+  const isPythonWeb = ctx.isPythonWeb;
   const performInstall = useCallback(
     async (names: readonly string[]) => {
-      if (!tabId || !language || !filePath || names.length === 0) return;
-      const bridge = window.lingua?.dependencies;
-      if (!bridge || typeof bridge.installJs !== 'function') return;
+      if (!tabId || !language || names.length === 0) return;
+      // Desktop JS/TS keeps the Slice B contract: needs a filePath
+      // because main resolves cwd from it. Python web bypasses
+      // filesystem entirely — `filePath` is permitted to be null.
+      if (!isPythonWeb && !filePath) return;
       const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       startInstall(tabId, runId, names);
       fireInstallTelemetryStarted(language, names.length);
       try {
-        const result = await bridge.installJs(runId, names, filePath);
+        let outcome: DependencyInstallOutcome;
+        let failureReason: DependencyInstallFailureReason | null;
         const perNameStatus: Record<string, DependencyStatus> = {};
-        for (const [name, status] of Object.entries(result.statuses)) {
-          perNameStatus[name] = mapInstallStatusToDependencyStatus(status);
+        if (isPythonWeb) {
+          // RL-025 Slice C — Pyodide micropip path. Service module
+          // shares the worker with PythonRunner so the install is
+          // visible to the next Run.
+          const { installPython } = await import(
+            '../../services/pythonWebInstaller'
+          );
+          const appendLog = appendInstallLog;
+          const result = await installPython({
+            runId,
+            specifiers: names,
+            onLog: (chunk) => appendLog(tabId, chunk.chunk),
+          });
+          outcome = result.outcome;
+          failureReason = result.failureReason;
+          // RL-025 Slice C reviewer fix — `micropip.install` accepts
+          // a batch but reports one batch-level error. When the user
+          // installs a single Python package and it comes back as
+          // `'unsupported-wheel'`, we know that wheel is the
+          // culprit and can promote its row to `'unsupported'`.
+          // When the batch had MULTIPLE names, the failure could be
+          // any one of them; we have no per-name reason from Pyodide,
+          // so map every `'failed'` row to plain `'failed'` rather
+          // than mis-labelling pure-Python packages as unsupported.
+          const wheelRejectionIsSingleton =
+            failureReason === 'unsupported-wheel' && names.length === 1;
+          for (const [name, status] of Object.entries(result.statuses)) {
+            if (status === 'failed' && wheelRejectionIsSingleton) {
+              perNameStatus[name] = 'unsupported';
+            } else {
+              perNameStatus[name] = mapInstallStatusToDependencyStatus(status);
+            }
+          }
+        } else {
+          const bridge = window.lingua?.dependencies;
+          if (!bridge || typeof bridge.installJs !== 'function') {
+            const fallback: Record<string, DependencyStatus> = {};
+            for (const name of names) fallback[name] = 'failed';
+            endInstall(tabId, runId, 'failed', fallback);
+            fireInstallTelemetryCompleted(language, 'failed');
+            fireInstallTelemetryFailureReason(language, 'unknown');
+            return;
+          }
+          const result = await bridge.installJs(runId, names, filePath ?? '');
+          outcome = result.outcome;
+          failureReason = result.failureReason;
+          for (const [name, status] of Object.entries(result.statuses)) {
+            perNameStatus[name] = mapInstallStatusToDependencyStatus(status);
+          }
         }
-        endInstall(tabId, runId, result.outcome, perNameStatus);
-        fireInstallTelemetryCompleted(language, result.outcome);
+        endInstall(tabId, runId, outcome, perNameStatus);
+        fireInstallTelemetryCompleted(language, outcome);
         if (
-          (result.outcome === 'failed' ||
-            result.outcome === 'partial' ||
-            result.outcome === 'timed-out') &&
-          result.failureReason
+          (outcome === 'failed' ||
+            outcome === 'partial' ||
+            outcome === 'timed-out') &&
+          failureReason
         ) {
-          fireInstallTelemetryFailureReason(language, result.failureReason);
+          fireInstallTelemetryFailureReason(language, failureReason);
         }
       } catch {
         // Network blip / IPC error → treat as a failed batch with
@@ -218,7 +332,15 @@ export function DependenciesPanel() {
         fireInstallTelemetryFailureReason(language, 'unknown');
       }
     },
-    [tabId, language, filePath, startInstall, endInstall]
+    [
+      tabId,
+      language,
+      filePath,
+      isPythonWeb,
+      startInstall,
+      endInstall,
+      appendInstallLog,
+    ]
   );
 
   const flushBatch = useCallback(() => {
@@ -386,6 +508,8 @@ export function DependenciesPanel() {
             canInstall={ctx.canInstall}
             isInstallInFlight={isInstalling}
             disabledReasonKey={ctx.disabledReasonKey}
+            enabledHintKey={ctx.enabledHintKey}
+            unsupportedTooltipKey={ctx.unsupportedTooltipKey}
             onInstall={queueForInstall}
           />
         ))}
@@ -393,6 +517,12 @@ export function DependenciesPanel() {
       {logVisible ? (
         <InstallLogSurface
           isRunning={isInstalling}
+          // RL-025 Slice C — Pyodide doesn't expose mid-microtask
+          // cancel semantics + fold D was rejected, so Python web
+          // installs hide the Cancel button. The log still streams
+          // and the install runs to completion (or 90 s soft
+          // timeout via `pythonWebInstaller`).
+          cancellable={isInstalling && !isPythonWeb}
           installKey={`${installState?.lastAttemptAt ?? 0}:${
             installState?.runId ?? 'finished'
           }`}
@@ -406,10 +536,12 @@ export function DependenciesPanel() {
 
 function DependencyRow({
   dep,
-  isWeb,
+  isWeb: _isWeb,
   canInstall,
   isInstallInFlight,
   disabledReasonKey,
+  enabledHintKey,
+  unsupportedTooltipKey,
   onInstall,
 }: {
   readonly dep: ClassifiedDependency;
@@ -417,29 +549,48 @@ function DependencyRow({
   readonly canInstall: boolean;
   readonly isInstallInFlight: boolean;
   readonly disabledReasonKey: string | null;
+  readonly enabledHintKey: string | null;
+  /**
+   * RL-025 Slice C reviewer fix — tooltip key for `'unsupported'`
+   * rows. Python web tabs surface a more informative
+   * "Pyodide has no compatible wheel for this package" instead of
+   * the generic `disabledTooltip`. `null` falls back to the
+   * generic disabled copy.
+   */
+  readonly unsupportedTooltipKey: string | null;
   readonly onInstall: (name: string) => void;
 }) {
   const { t } = useTranslation();
   const status = dep.status;
+  // RL-025 Slice C — `canInstall` is the panel-context's verdict
+  // (Python web is installable even though `isWeb === true`). Drop
+  // the blanket `isWeb` check from disabled-state and trust
+  // `canInstall` so the Python web path can enable the button.
   const disabled =
-    status !== 'detected' || isWeb || !canInstall || isInstallInFlight;
-  // The disabled tooltip cascade:
-  //   1. cross-platform package shape (`needs-desktop`)
-  //   2. web build
-  //   3. specific desktop reason (no filePath / no package.json)
-  //   4. row already in a non-detected state (`installed`, `installing`,
-  //      `failed`, `unsupported`)
+    status !== 'detected' || !canInstall || isInstallInFlight;
+  // Tooltip cascade:
+  //   1. cross-platform package shape (`needs-desktop`) — always
+  //      shows the desktop hint even on a build that could otherwise
+  //      install (the package itself is the blocker).
+  //   2. enabled state → backend-specific hint (e.g. Pyodide
+  //      micropip on Python web) or the generic Install label.
+  //   3. install in flight → "wait for current install" copy.
+  //   4. row in a non-detected state (`installed`, `failed`,
+  //      `unsupported`) → generic disabled tooltip.
+  //   5. panel-context disabled reason (unsaved tab, no
+  //      `package.json`, web build for non-Python) → that key.
   const tooltipKey =
     status === 'needs-desktop'
       ? 'dependencies.install.needsDesktopTooltip'
-      : isWeb
-        ? 'dependencies.install.webUnavailableTooltip'
-        : disabledReasonKey ??
-          (isInstallInFlight
-            ? 'dependencies.install.inFlightTooltip'
-            : status === 'detected'
-            ? 'dependencies.install.button'
-            : 'dependencies.install.disabledTooltip');
+      : !disabled
+        ? enabledHintKey ?? 'dependencies.install.button'
+        : isInstallInFlight
+          ? 'dependencies.install.inFlightTooltip'
+          : status === 'unsupported'
+            ? unsupportedTooltipKey ?? 'dependencies.install.disabledTooltip'
+            : status !== 'detected'
+              ? 'dependencies.install.disabledTooltip'
+              : disabledReasonKey ?? 'dependencies.install.disabledTooltip';
   return (
     <li
       className="flex items-center gap-3 px-4 py-2.5"
@@ -487,11 +638,19 @@ function DependencyRow({
 
 function InstallLogSurface({
   isRunning,
+  cancellable,
   installKey,
   log,
   onCancel,
 }: {
   readonly isRunning: boolean;
+  /**
+   * RL-025 Slice C — when false, suppress the Cancel button even
+   * while the install is in flight. Python web installs are
+   * uninterruptible; showing a Cancel that does nothing is
+   * misleading UX.
+   */
+  readonly cancellable: boolean;
   readonly installKey: string;
   readonly log: string;
   readonly onCancel: () => void;
@@ -514,7 +673,7 @@ function InstallLogSurface({
       <header className="flex items-center justify-between gap-3 px-4 py-2 text-xs uppercase tracking-[0.12em] text-fg-subtle">
         <span>{t('dependencies.install.log.title')}</span>
         <div className="flex items-center gap-2">
-          {isRunning ? (
+          {isRunning && cancellable ? (
             <button
               type="button"
               onClick={onCancel}
@@ -524,7 +683,7 @@ function InstallLogSurface({
               <X size={11} aria-hidden="true" />
               {t('dependencies.install.cancelButton')}
             </button>
-          ) : (
+          ) : !isRunning ? (
             <button
               type="button"
               onClick={() => setHiddenInstallKey(installKey)}
@@ -534,7 +693,7 @@ function InstallLogSurface({
               <X size={11} aria-hidden="true" />
               {t('dependencies.install.log.dismiss')}
             </button>
-          )}
+          ) : null}
         </div>
       </header>
       <pre

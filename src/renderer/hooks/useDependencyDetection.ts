@@ -65,14 +65,49 @@ function classifyOnWeb(
   deps: readonly DetectedDependency[],
   language: DependencyAdapterLanguage
 ): ClassifiedDependency[] {
-  // JS/TS web cannot install (no `node_modules` to walk). Python web
-  // CAN install via `micropip` in Slice C, but Slice A only reports
-  // `detected` because the Pyodide loaded-packages bridge hasn't
-  // been opened yet. JS/TS Python distinction kept explicit so
-  // Slice B/C can change the per-language map without re-shaping.
+  // RL-025 Slice C — JS/TS web still cannot install (no node_modules
+  // to walk). Python web rows synchronously start as `'detected'`;
+  // the async post-pass via `classifyPythonOnWeb` below upgrades the
+  // already-loaded names to `'installed'` once Pyodide can answer.
   const status: DependencyStatus =
     language === 'python' ? 'detected' : 'needs-desktop';
   return deps.map((dep) => ({ ...dep, status }));
+}
+
+/**
+ * RL-025 Slice C — async post-pass for Python on web. Asks the
+ * shared Pyodide worker which packages are currently loaded
+ * (`pyodide.loadedPackages`) and upgrades matching rows to
+ * `'installed'`. Names not in the loaded set stay `'detected'` so
+ * the panel's Install button is the next step.
+ *
+ * Returns the same input array unchanged when Pyodide isn't ready
+ * yet (the listLoadedPackages helper falls back to `[]`); the next
+ * detect cycle will retry — Pyodide booting in the background makes
+ * the bridge open eventually.
+ */
+async function classifyPythonOnWeb(
+  classified: readonly ClassifiedDependency[]
+): Promise<ClassifiedDependency[]> {
+  if (classified.length === 0) return classified.slice();
+  // Lazy import keeps the manager + runner graph out of the
+  // initial detection cycle when no Python tab is open.
+  const { listLoadedPackages } = await import(
+    '../services/pythonWebInstaller'
+  );
+  let loaded: readonly string[];
+  try {
+    loaded = await listLoadedPackages();
+  } catch {
+    return classified.slice();
+  }
+  if (loaded.length === 0) return classified.slice();
+  const loadedSet = new Set(loaded);
+  return classified.map((dep) =>
+    loadedSet.has(dep.name) && dep.status === 'detected'
+      ? { ...dep, status: 'installed' as DependencyStatus }
+      : dep
+  );
 }
 
 interface DesktopClassification {
@@ -267,6 +302,13 @@ export function useDependencyDetection(): void {
       if (isWeb) {
         classified = classifyOnWeb(detected, adapterLanguage);
         cwdHasPackageJson = null;
+        // RL-025 Slice C — upgrade already-loaded Pyodide packages
+        // from `'detected'` to `'installed'`. The query is async +
+        // bounded by a 5 s soft timeout inside the service; on
+        // failure / timeout we keep the synchronous classification.
+        if (adapterLanguage === 'python') {
+          classified = await classifyPythonOnWeb(classified);
+        }
       } else {
         const result = await classifyOnDesktop(
           detected,

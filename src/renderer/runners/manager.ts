@@ -235,6 +235,19 @@ export class RunnerManager {
     return runner instanceof BrowserPreviewRunner ? runner : null;
   }
 
+  /**
+   * RL-025 Slice C — accessor for the PythonRunner so
+   * `pythonWebInstaller` can reach the same Pyodide worker the
+   * runner already manages. Returns `null` if Python isn't a
+   * registered language pack (defensive — `LANGUAGE_PACKS` always
+   * carries `python`, but the registry walk could skip it in a
+   * pared-down build).
+   */
+  getPythonRunner(): PythonRunner | null {
+    const runner = this.runners.get('python');
+    return runner instanceof PythonRunner ? runner : null;
+  }
+
   /** Stop all runners */
   stopAll(): void {
     for (const runner of this.runners.values()) {

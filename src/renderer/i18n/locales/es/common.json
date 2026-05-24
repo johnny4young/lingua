@@ -2302,6 +2302,8 @@
   "dependencies.install.webUnavailableTooltip": "Abre Lingua Escritorio para instalar paquetes.",
   "dependencies.install.unsavedTabTooltip": "Guarda esta pestaña antes de instalar dependencias.",
   "dependencies.install.noPackageJsonTooltip": "Abre un proyecto con package.json para instalar dependencias.",
+  "dependencies.install.pythonWebReadyTooltip": "Instala vía Pyodide micropip",
+  "dependencies.install.pythonUnsupportedTooltip": "Pyodide no tiene una wheel compatible para este paquete",
   "dependencies.install.allButton_one": "Instala {{count}} paquete",
   "dependencies.install.allButton_other": "Instala {{count}} paquetes",
   "dependencies.install.cancelButton": "Cancela",
