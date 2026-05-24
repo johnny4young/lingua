@@ -211,7 +211,7 @@ en `PLAN.md`.
 | Tier 2 (P2/P3) | RL-112, RL-113, RL-114, RL-115, RL-024 Slice 2, RL-116, RL-117 | tras Tier 1 | sequenciado abajo |
 | Tier 3 (out of scope) | T3-001..T3-006 | n/a | documentados en PLAN.md como reverse-allowed-if |
 
-### 4m. Project audit promotion (RL-121..RL-142, promoción 2026-05-24)
+### 4m. Project audit promotion (RL-121..RL-149, promoción 2026-05-24)
 
 Graduación de los 22 items propuestos en
 [`docs/PROJECT_AUDIT_2026_05_24.md`](./PROJECT_AUDIT_2026_05_24.md) §6
@@ -254,6 +254,13 @@ Prioridad mapeada por severity-from-audit + sequencing del audit §7:
 | [`RL-140`](./PROJECT_AUDIT_2026_05_24.md#audit-20--preconnect-preload-color-scheme--tailwind-content-config) | `AUDIT-20` | Preconnect / preload / color-scheme + Tailwind `content` config | `Planned` | P2 | — | perf+infra · Medium |
 | [`RL-141`](./PROJECT_AUDIT_2026_05_24.md#audit-21--license-server-protocol-versioning) | `AUDIT-21` | License-server `protocolVersion` handshake + closed-enum acceptance list | `Planned` | P2 | — | data · Medium |
 | [`RL-142`](./PROJECT_AUDIT_2026_05_24.md#audit-22--docstrings-for-the-highest-leverage-logic) | `AUDIT-22` | Docstrings for highest-leverage logic (`attemptStaleTokenRefresh`, mutual-exclusion, void `_unused`) | `Planned` | P3 | — | docs · Low |
+| [`RL-143`](./PROJECT_AUDIT_2026_05_24.md#audit-23--enforce-license-key-rotation-policy) | `AUDIT-23` | Enforce license-key rotation policy (CI guard on JWK timestamp) | `Planned` | P2 | — | security · Medium |
+| [`RL-144`](./PROJECT_AUDIT_2026_05_24.md#audit-24--document--harden-js-workerts-asyncfunction-trust-boundary) | `AUDIT-24` | Document + harden `js-worker.ts` `AsyncFunction` trust boundary | `Planned` | P2 | — | security · Medium |
+| [`RL-145`](./PROJECT_AUDIT_2026_05_24.md#audit-25--build-chain-tar-advisory--npm-audit-ci-gate) | `AUDIT-25` | Pin transitive `tar` + add `npm audit --omit=dev` CI gate | `Planned` | P2 | — | security+deps · Medium |
+| [`RL-146`](./PROJECT_AUDIT_2026_05_24.md#audit-26--cache--delta-refresh-in-useprojectwatchsync) | `AUDIT-26` | Cache + delta refresh in `useProjectWatchSync` (skip full tree walk) | `Planned` | P2 | — | perf · Medium |
+| [`RL-147`](./PROJECT_AUDIT_2026_05_24.md#audit-27--migrate-applets-useeditorstoresubscribe-to-usesyncexternalstore) | `AUDIT-27` | Migrate `App.tsx` `useEditorStore.subscribe` to `useSyncExternalStore` | `Planned` | P2 | — | perf · Medium |
+| [`RL-148`](./PROJECT_AUDIT_2026_05_24.md#audit-28--extract-uselsplifecycle-shared-for-rustgo) | `AUDIT-28` | Extract `useLspLifecycle(languageId, ipcPrefix)` shared for Rust + Go | `Planned` | P3 | — | refactor · Medium |
+| [`RL-149`](./PROJECT_AUDIT_2026_05_24.md#audit-29--centralize-telemetry-emit-via-usetelemetry-hook) | `AUDIT-29` | Centralize telemetry emit via `useTelemetry()` hook + call-site closed-enum guard | `Planned` | P3 | — | refactor · Low |
 
 **Sequencing for the audit lane** (mirror of audit §7, now with RL ids):
 
@@ -262,13 +269,16 @@ Prioridad mapeada por severity-from-audit + sequencing del audit §7:
 3. `RL-122` (PanelChipsRow), `RL-125` (dynamic imports), `RL-126`
    (schema-version), `RL-132` (branded types).
 4. `RL-128` → `RL-129` → `RL-130` (three store splits, in order).
-5. `RL-124`, `RL-140` (remaining bundle/perf wins).
+5. `RL-124`, `RL-140`, `RL-146`, `RL-147` (remaining bundle/perf wins
+   — `RL-146` cache + delta refresh y `RL-147` migración a
+   `useSyncExternalStore` se interleavean acá).
 6. `RL-123` (virtualization).
 7. `RL-133` → `RL-135` (IPC `Result<T>` + command bus).
-8. `RL-138`, `RL-139` (security follow-throughs — each needs a careful
-   release).
+8. `RL-138`, `RL-139`, `RL-143`, `RL-144`, `RL-145` (security
+   follow-throughs — each needs a careful release; los tres nuevos
+   tier-4 son aditivos al lane original).
 9. Polish + interleavable anywhere: `RL-131`, `RL-134`, `RL-136`,
-   `RL-137`, `RL-141`, `RL-142`.
+   `RL-137`, `RL-141`, `RL-142`, `RL-148`, `RL-149`.
 
 Esta secuencia front-loads los items cheapest que UNLOCK refactors
 posteriores (active-tab selector → tres splits + layout hooks), saca

@@ -477,6 +477,14 @@ reason about in a single sitting."
   marker (`/* @ref RL-019 */`) that an external linter can later
   validate against `ROADMAP.md`, and prune the ones whose
   rationale is now obvious from the code shape itself.
+- **Promotion status (2026-05-24):** explicitly
+  **accepted-without-ticket**. `AUDIT-22` / `RL-142` already
+  ships the docstring half (docstrings on the highest-leverage
+  branches); the build-time lint rule against `RL-XXX` drift is
+  intentionally deferred because the cost (custom ESLint rule +
+  ROADMAP integration test) outweighs the Low severity. Revisit
+  when the comment count crosses ~400 references or when a
+  ticket id renumbering sweep is required for any reason.
 
 ### 4.11 [Low] Telemetry calls scattered across ~50 sites
 
@@ -560,28 +568,31 @@ Each item below is sized to a **single small PR**. The `AUDIT-NN`
 ids are this document's local numbering; on 2026-05-24 they were
 promoted to real ROADMAP rows with the fixed mapping
 `AUDIT-NN ↔ RL-(120+N)` (so `AUDIT-01 → RL-121`,
-`AUDIT-22 → RL-142`). The ROADMAP rows live in
+`AUDIT-29 → RL-149`). Tickets `AUDIT-23..29` were added in the same
+PR review pass that cross-checked every §2-§5 finding against §6 and
+caught the seven gap items the initial promotion missed; they live
+under §6 Tier 4. The ROADMAP rows live in
 [`docs/ROADMAP.md`](./ROADMAP.md) §4m and carry the
 priority + dependencies decision; this document keeps the deep
 scope + acceptance criteria.
 
-| `AUDIT` | `RL` | Tier | `RL` | Tier |
-|---|---|---|---|---|
-| `AUDIT-01` | `RL-121` | 1 |  |  |
-| `AUDIT-02` | `RL-122` | 1 |  |  |
-| `AUDIT-03` | `RL-123` | 1 |  |  |
-| `AUDIT-04` | `RL-124` | 1 |  |  |
-| `AUDIT-05` | `RL-125` | 1 |  |  |
-| `AUDIT-06` | `RL-126` | 1 |  |  |
-| `AUDIT-07` | `RL-127` | 1 |  |  |
-| `AUDIT-08` | `RL-128` | 2 | `AUDIT-15` | 3 (→ `RL-135`) |
-| `AUDIT-09` | `RL-129` | 2 | `AUDIT-16` | 3 (→ `RL-136`) |
-| `AUDIT-10` | `RL-130` | 2 | `AUDIT-17` | 3 (→ `RL-137`) |
-| `AUDIT-11` | `RL-131` | 2 | `AUDIT-18` | 3 (→ `RL-138`) |
-| `AUDIT-12` | `RL-132` | 2 | `AUDIT-19` | 3 (→ `RL-139`) |
-| `AUDIT-13` | `RL-133` | 2 | `AUDIT-20` | 3 (→ `RL-140`) |
-| `AUDIT-14` | `RL-134` | 3 | `AUDIT-21` | 3 (→ `RL-141`) |
-|  |  |  | `AUDIT-22` | 3 (→ `RL-142`) |
+| `AUDIT` | `RL` | Tier | `AUDIT` | `RL` | Tier |
+|---|---|---|---|---|---|
+| `AUDIT-01` | `RL-121` | 1 | `AUDIT-16` | `RL-136` | 3 |
+| `AUDIT-02` | `RL-122` | 1 | `AUDIT-17` | `RL-137` | 3 |
+| `AUDIT-03` | `RL-123` | 1 | `AUDIT-18` | `RL-138` | 3 |
+| `AUDIT-04` | `RL-124` | 1 | `AUDIT-19` | `RL-139` | 3 |
+| `AUDIT-05` | `RL-125` | 1 | `AUDIT-20` | `RL-140` | 3 |
+| `AUDIT-06` | `RL-126` | 1 | `AUDIT-21` | `RL-141` | 3 |
+| `AUDIT-07` | `RL-127` | 1 | `AUDIT-22` | `RL-142` | 3 |
+| `AUDIT-08` | `RL-128` | 2 | `AUDIT-23` | `RL-143` | 4 |
+| `AUDIT-09` | `RL-129` | 2 | `AUDIT-24` | `RL-144` | 4 |
+| `AUDIT-10` | `RL-130` | 2 | `AUDIT-25` | `RL-145` | 4 |
+| `AUDIT-11` | `RL-131` | 2 | `AUDIT-26` | `RL-146` | 4 |
+| `AUDIT-12` | `RL-132` | 2 | `AUDIT-27` | `RL-147` | 4 |
+| `AUDIT-13` | `RL-133` | 2 | `AUDIT-28` | `RL-148` | 4 |
+| `AUDIT-14` | `RL-134` | 3 | `AUDIT-29` | `RL-149` | 4 |
+| `AUDIT-15` | `RL-135` | 3 |  |  |  |
 
 ### Tier 1 — high-impact, ship-soon
 
@@ -1031,6 +1042,167 @@ scope + acceptance criteria.
 - **Dependencies:** none.
 - **Estimated effort:** 1 small PR (~0.5 day).
 
+### Tier 4 — gap closure (post-PR-review, 2026-05-24)
+
+A cross-check of every numbered finding in §2-§5 against the §6
+`Maps to:` references surfaced seven items that had no ticket and
+two with partial coverage. The seven gap items graduate here as
+AUDIT-23..AUDIT-29 (mapping `AUDIT-(22+N) ↔ RL-(142+N)`). The two
+partial-coverage items remain consciously accepted: §4.10 lives in
+the §4.10 finding block with the explicit
+**`accepted-without-ticket`** note added in the same PR; §5.5 is
+absorbed by AUDIT-22 / `RL-142` as originally scoped (its scope
+bullet already calls out the diagnostics-sink breadcrumb).
+
+#### AUDIT-23  Enforce license-key rotation policy
+
+- **Maps to:** §2.5.
+- **Scope:**
+  - Document the rotation cadence and the operator runbook in
+    `docs/RELEASE_SECURITY.md` (or extend the existing release
+    doc; choose at PR time).
+  - Add a release-time CI guard that reads the embedded
+    `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` build define + its
+    `kid` / issuance timestamp and fails the workflow if either
+    is older than the rotation SLA (90 days suggested baseline;
+    adjust per ADR).
+  - Surface the current key fingerprint in
+    `Settings → License` so the human can verify against the
+    runbook.
+- **Acceptance criteria:**
+  - The CI guard fires on a synthetic stale-key payload.
+  - The runbook lists the rotation procedure end-to-end
+    (mint → embed → ship → revoke previous).
+  - No code path silently accepts an undocumented key id.
+- **Dependencies:** none.
+- **Estimated effort:** 1 small PR (~1 day).
+
+#### AUDIT-24  Document + harden `js-worker.ts` `AsyncFunction` trust boundary
+
+- **Maps to:** §2.6.
+- **Scope:**
+  - Author a security note at the top of
+    `src/renderer/runners/js-worker.ts` that explains the trust
+    boundary: the renderer is already trusted (no remote code
+    arrives at this surface), the worker isolation reduces blast
+    radius for runtime errors, NOT for adversarial input.
+  - Add a regression test that constructs an `AsyncFunction`
+    body that attempts to access `globalThis.process` /
+    `globalThis.require` and asserts the symbols are absent in
+    the worker scope.
+  - If the test surfaces a real escape, fix it inline; otherwise
+    the test locks the current invariant.
+- **Acceptance criteria:**
+  - Doc + test ship together; reviewer can read the trust
+    contract from the file header.
+- **Dependencies:** none.
+- **Estimated effort:** 1 small PR (~0.5 day).
+
+#### AUDIT-25  Build-chain `tar` advisory + `npm audit` CI gate
+
+- **Maps to:** §2.7.
+- **Scope:**
+  - Apply the transitive `tar` resolver override (or whatever
+    pin closes the advisory at the moment of the PR — check
+    `npm audit --omit=dev` output).
+  - Add the same `npm audit --omit=dev` command as a CI gate
+    that fails on `high` / `critical` (configurable level in
+    the workflow).
+  - Document the gate + the bypass procedure (single-PR
+    expectation of a vendored note) in
+    `docs/RELEASE_SECURITY.md`.
+- **Acceptance criteria:**
+  - The audit gate is green on `main`.
+  - A synthetic `high` advisory injected into `package-lock.json`
+    fails CI.
+- **Dependencies:** none.
+- **Estimated effort:** 1 small PR (~0.5 day).
+
+#### AUDIT-26  Cache + delta refresh in `useProjectWatchSync`
+
+- **Maps to:** §3.9.
+- **Scope:**
+  - Replace the full-tree walk in
+    `src/renderer/hooks/useProjectWatchSync.ts` with a delta
+    refresh keyed by the FS event payload: when a single file
+    changes, mutate only that node's branch instead of
+    re-traversing the whole tree.
+  - Cache a `Map<RelativePath, ProjectNode>` keyed at the same
+    level the watcher emits, so re-render fan-out is O(branch)
+    not O(N).
+  - Keep the legacy full-walk path under a guarded fallback for
+    the boot path / restart path that intentionally needs a
+    rebuild.
+- **Acceptance criteria:**
+  - A perf bench at
+    `tests/perf/projectWatchSync.bench.test.ts` shows a >5x
+    drop on a 500-file project event burst.
+  - Existing project-tree e2e behavior unchanged.
+- **Dependencies:** none.
+- **Estimated effort:** 1 medium PR (~1.5 days).
+
+#### AUDIT-27  Migrate `App.tsx` `useEditorStore.subscribe` to `useSyncExternalStore`
+
+- **Maps to:** §3.10.
+- **Scope:**
+  - Replace the eager
+    `useEffect(() => useEditorStore.subscribe(...), [])` in
+    `src/renderer/App.tsx` with a `useSyncExternalStore` +
+    stable selector pattern.
+  - Confirm the selector identity is stable across renders
+    (extract to module scope if needed).
+  - Run React DevTools Profiler before/after to lock the
+    re-render delta in `docs/performance/baseline.json`.
+- **Acceptance criteria:**
+  - The `App` component does not re-render on unrelated
+    editorStore mutations (verified via a Profiler script or
+    a render-counter ref assertion).
+  - Existing tests + smoke pass continue green.
+- **Dependencies:** `RL-121` (active-tab selector — same area).
+- **Estimated effort:** 1 small PR (~0.5 day).
+
+#### AUDIT-28  Extract `useLspLifecycle` shared for Rust + Go
+
+- **Maps to:** §4.5.
+- **Scope:**
+  - Author `src/renderer/hooks/useLspLifecycle.ts` taking
+    `{ languageId, ipcPrefix }` and returning the shared
+    `{ status, restart, lastError }` shape.
+  - Rewrite `useRustLspLifecycle` + `useGoLspLifecycle` as
+    one-liner wrappers that call the shared hook with the
+    language-specific args.
+  - Future-proof: the third LSP-needing language pack
+    (`pyright`?) plugs into the same hook without copying
+    boilerplate.
+- **Acceptance criteria:**
+  - `npm test -- --run` covers the shared hook directly + the
+    two thin wrappers stay smaller than 20 LOC each.
+  - No regression in Rust or Go LSP boot / restart / crash
+    paths.
+- **Dependencies:** none.
+- **Estimated effort:** 1 small PR (~1 day).
+
+#### AUDIT-29  Centralize telemetry emit via `useTelemetry()` hook
+
+- **Maps to:** §4.11.
+- **Scope:**
+  - Add `src/renderer/hooks/useTelemetry.ts` exposing
+    `{ track(eventName, props) }` with the closed-enum
+    validation moved to the call-site (compile-time) rather
+    than only the redactor (run-time).
+  - Migrate at least the ~10 highest-traffic call sites to the
+    new hook; leave the long tail for follow-up sweeps.
+  - Add a lint rule (or a code-comment audit script) that
+    flags `void trackEvent(...)` outside the hook so future
+    diffs route through the helper.
+- **Acceptance criteria:**
+  - The redactor still catches drift on the wire (defense in
+    depth); the new hook prevents the drift from compiling in
+    the first place.
+  - No call-site change visible in the wire payload.
+- **Dependencies:** none.
+- **Estimated effort:** 1 medium PR (~1.5 days).
+
 ---
 
 ## 7. Sequencing recommendation
@@ -1055,17 +1227,24 @@ value-per-risk order is (AUDIT id · RL id):
    RL-130` — the three store splits. Sequence them; do not
    parallelize, because they share patterns and reviewers
    benefit from seeing them in order.
-8. **AUDIT-04 + AUDIT-20** · `RL-124` + `RL-140` — the
-   remaining bundle/perf wins.
+8. **AUDIT-04 + AUDIT-20 + AUDIT-26 + AUDIT-27** · `RL-124` +
+   `RL-140` + `RL-146` + `RL-147` — the remaining bundle/perf
+   wins (Tier 4 additions slot in here: cache + delta refresh in
+   `useProjectWatchSync`, `useSyncExternalStore` migration in
+   `App.tsx`).
 9. **AUDIT-03 · `RL-123`** — virtualization. Larger surface
    change; land it once the smaller wins are in.
 10. **AUDIT-13 → AUDIT-15** · `RL-133 → RL-135` — IPC + command
     bus conventions.
-11. **AUDIT-18 → AUDIT-19** · `RL-138 → RL-139` — security
-    follow-throughs that each need a careful release.
-12. **AUDIT-11, AUDIT-14, AUDIT-16, AUDIT-17, AUDIT-21,
-    AUDIT-22** · `RL-131`, `RL-134`, `RL-136`, `RL-137`,
-    `RL-141`, `RL-142` — polish, can interleave anywhere.
+11. **AUDIT-18 → AUDIT-19 → AUDIT-23 → AUDIT-24 → AUDIT-25** ·
+    `RL-138 → RL-139 → RL-143 → RL-144 → RL-145` — security
+    follow-throughs that each need a careful release (Tier 4
+    additions: key-rotation enforcement, `js-worker` trust
+    boundary doc + test, `npm audit` CI gate).
+12. **AUDIT-11, AUDIT-14, AUDIT-16, AUDIT-17, AUDIT-21, AUDIT-22,
+    AUDIT-28, AUDIT-29** · `RL-131`, `RL-134`, `RL-136`,
+    `RL-137`, `RL-141`, `RL-142`, `RL-148`, `RL-149` — polish,
+    can interleave anywhere.
 
 This sequencing intentionally front-loads the cheapest items
 that *unlock* later refactors (the active-tab selector), keeps
