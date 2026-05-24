@@ -1571,6 +1571,121 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
   });
 });
 
+describe('RL-025 Slice B — dependency install lifecycle events', () => {
+  it('DEPENDENCY_INSTALL_OUTCOMES + DEPENDENCY_INSTALL_FAILURE_REASONS stay in sync with the renderer', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(
+      process.cwd(),
+      '..',
+      'src/shared/dependencies/types.ts'
+    );
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    // Worker copies live as `new Set([...])`; shared source uses a
+    // `const ... = [...] as const` tuple. Both regexes extract the
+    // single-quoted entries between brackets.
+    const outcomesWorkerRe =
+      /DEPENDENCY_INSTALL_OUTCOMES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const outcomesSharedRe =
+      /DEPENDENCY_INSTALL_OUTCOMES\s*=\s*\[([^\]]+)\]\s*as\s+const/u;
+    const reasonsWorkerRe =
+      /DEPENDENCY_INSTALL_FAILURE_REASONS\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const reasonsSharedRe =
+      /DEPENDENCY_INSTALL_FAILURE_REASONS\s*=\s*\[([^\]]+)\]\s*as\s+const/u;
+    for (const [label, workerRe, sharedRe] of [
+      ['outcomes', outcomesWorkerRe, outcomesSharedRe],
+      ['reasons', reasonsWorkerRe, reasonsSharedRe],
+    ] as const) {
+      const workerMatch = workerSource.match(workerRe);
+      const sharedMatch = sharedSource.match(sharedRe);
+      expect(workerMatch, `worker ${label}`).not.toBeNull();
+      expect(sharedMatch, `shared ${label}`).not.toBeNull();
+      const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+        .map((match) => match[1]!)
+        .sort();
+      const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+        .map((match) => match[1]!)
+        .sort();
+      expect(workerValues, `${label} parity`).toEqual(sharedValues);
+    }
+  });
+
+  it('dependency.install_started accepts closed-enum countBucket, drops unknown', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'dependency.install_started',
+      properties: { language: 'javascript', countBucket: '2-5' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownResponse = await postTelemetry({
+      event: 'dependency.install_started',
+      properties: { language: 'javascript', countBucket: 'lots' },
+    });
+    expect(unknownResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"dependency.install_started"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    expect(
+      eventLines.find((line) => line.includes('"countBucket":"2-5"'))
+    ).toBeDefined();
+    expect(eventLines.find((line) => line.includes('"lots"'))).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
+  it('dependency.install_completed accepts closed-enum outcome, drops unknown', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'dependency.install_completed',
+      properties: { language: 'typescript', outcome: 'partial' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownResponse = await postTelemetry({
+      event: 'dependency.install_completed',
+      properties: { language: 'typescript', outcome: 'whoknows' },
+    });
+    expect(unknownResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"dependency.install_completed"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    expect(
+      eventLines.find((line) => line.includes('"outcome":"partial"'))
+    ).toBeDefined();
+    expect(
+      eventLines.find((line) => line.includes('"whoknows"'))
+    ).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
+  it('dependency.install_failed_reason accepts closed-enum reason, drops unknown', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'dependency.install_failed_reason',
+      properties: { language: 'javascript', reason: 'exit-nonzero' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownResponse = await postTelemetry({
+      event: 'dependency.install_failed_reason',
+      properties: { language: 'javascript', reason: 'gremlins' },
+    });
+    expect(unknownResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"dependency.install_failed_reason"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    expect(
+      eventLines.find((line) => line.includes('"reason":"exit-nonzero"'))
+    ).toBeDefined();
+    expect(
+      eventLines.find((line) => line.includes('"gremlins"'))
+    ).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+});
+
 describe('ipBucket — privacy guard', () => {
   it('truncates the last IPv4 octet', () => {
     expect(ipBucket('203.0.113.42')).toBe('203.0.113.*');

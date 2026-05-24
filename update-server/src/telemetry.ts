@@ -135,6 +135,13 @@ export const TELEMETRY_EVENT_NAMES = [
   'dependency.detected_in_tab',
   'dependency.banner_shown',
   'dependency.classifications_summary',
+  // RL-025 Slice B — mirrors of the install lifecycle events. Closed
+  // enums DEPENDENCY_INSTALL_OUTCOMES / DEPENDENCY_INSTALL_FAILURE_REASONS
+  // duplicated below; the parity test cross-imports the renderer source
+  // of truth so the two copies cannot drift.
+  'dependency.install_started',
+  'dependency.install_completed',
+  'dependency.install_failed_reason',
   // RL-044 Sub-slice G — mirror of `runtime.output_origin_clicked`.
   // Closed-enum `{ language, surface }` where `surface` ∈
   // `OUTPUT_ORIGIN_SURFACES` (`'badge'` only today). Hover path
@@ -243,6 +250,13 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
     'needsDesktopBucket',
     'unsupportedBucket',
   ],
+  // RL-025 Slice B — install lifecycle mirrors. `language` ∈
+  // isSafeToken; `countBucket` ∈ DEPENDENCY_COUNT_BUCKETS; `outcome`
+  // ∈ DEPENDENCY_INSTALL_OUTCOMES; `reason` ∈
+  // DEPENDENCY_INSTALL_FAILURE_REASONS.
+  'dependency.install_started': ['language', 'countBucket'],
+  'dependency.install_completed': ['language', 'outcome'],
+  'dependency.install_failed_reason': ['language', 'reason'],
   // RL-044 Sub-slice G — `language` is the language-pack id
   // (`isSafeToken`); `surface` ∈ `OUTPUT_ORIGIN_SURFACES`. Mirror of
   // src/shared/telemetry.ts entry.
@@ -487,6 +501,26 @@ export const DEPENDENCY_COUNT_BUCKETS = new Set([
   '2-5',
   '6-10',
   '>10',
+]);
+// RL-025 Slice B — mirrors of DEPENDENCY_INSTALL_OUTCOMES and
+// DEPENDENCY_INSTALL_FAILURE_REASONS from
+// `src/shared/dependencies/types.ts`. Parity test cross-imports the
+// renderer authority so the two copies cannot drift.
+export const DEPENDENCY_INSTALL_OUTCOMES = new Set([
+  'success',
+  'partial',
+  'failed',
+  'cancelled',
+  'timed-out',
+]);
+export const DEPENDENCY_INSTALL_FAILURE_REASONS = new Set([
+  'invalid-specifier',
+  'no-package-json',
+  'binary-missing',
+  'exit-nonzero',
+  'timeout',
+  'cancelled',
+  'unknown',
 ]);
 export const ONBOARDING_LANGUAGE_IDS = new Set([
   'javascript',
@@ -927,6 +961,28 @@ function isAllowedValue(
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
         );
       }
+      return false;
+    case 'dependency.install_started':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'countBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
+        );
+      return false;
+    case 'dependency.install_completed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'outcome')
+        return (
+          typeof value === 'string' && DEPENDENCY_INSTALL_OUTCOMES.has(value)
+        );
+      return false;
+    case 'dependency.install_failed_reason':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'reason')
+        return (
+          typeof value === 'string' &&
+          DEPENDENCY_INSTALL_FAILURE_REASONS.has(value)
+        );
       return false;
     case 'runtime.output_origin_clicked':
       if (key === 'language') return isSafeToken(value);

@@ -68,6 +68,47 @@ describe('useDependencyDetectionStore', () => {
     store.clear();
     expect(useDependencyDetectionStore.getState().byTab.size).toBe(0);
   });
+
+  it('setDetection preserves installing status for in-flight names', () => {
+    // RL-025 Slice B reviewer fix — a re-detection cycle that fires
+    // mid-install (typical: user edits the buffer while npm runs)
+    // must not overwrite the optimistic `'installing'` status back
+    // to `'detected'`. The resolver only sees what's on disk.
+    const store = useDependencyDetectionStore.getState();
+    store.setDetection('tab-flight', {
+      tabId: 'tab-flight',
+      language: 'javascript',
+      detectionHash: 'h1',
+      dependencies: [
+        { name: 'lodash', kind: 'import', status: 'detected' },
+        { name: 'react', kind: 'import', status: 'detected' },
+      ],
+      classifiedAt: 1,
+    });
+    store.startInstall('tab-flight', 'run-1', ['lodash']);
+    // Detection cycle fires after the install started but before
+    // it finished — the resolver still sees `lodash` as `detected`
+    // because `node_modules/lodash/` has not landed yet.
+    store.setDetection('tab-flight', {
+      tabId: 'tab-flight',
+      language: 'javascript',
+      detectionHash: 'h2',
+      dependencies: [
+        { name: 'lodash', kind: 'import', status: 'detected' },
+        { name: 'react', kind: 'import', status: 'detected' },
+      ],
+      classifiedAt: 2,
+    });
+    const merged = useDependencyDetectionStore
+      .getState()
+      .byTab.get('tab-flight');
+    expect(
+      merged?.dependencies.find((d) => d.name === 'lodash')?.status
+    ).toBe('installing');
+    expect(
+      merged?.dependencies.find((d) => d.name === 'react')?.status
+    ).toBe('detected');
+  });
 });
 
 describe('computeDetectionHash', () => {
@@ -100,6 +141,20 @@ describe('computeDetectionHash', () => {
   it('changes when the language changes', () => {
     const a = computeDetectionHash('javascript', "import 'lodash';");
     const b = computeDetectionHash('typescript', "import 'lodash';");
+    expect(a).not.toBe(b);
+  });
+
+  it('changes when the classification context changes', () => {
+    const a = computeDetectionHash(
+      'javascript',
+      "import 'lodash';",
+      '/project-a/app.js'
+    );
+    const b = computeDetectionHash(
+      'javascript',
+      "import 'lodash';",
+      '/project-b/app.js'
+    );
     expect(a).not.toBe(b);
   });
 

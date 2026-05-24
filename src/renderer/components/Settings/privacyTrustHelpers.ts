@@ -127,6 +127,13 @@ export function buildNetworkActivityRows(args: {
   readonly capsuleExportLastAt: number | null;
   readonly telemetryLastAt: number | null;
   readonly updateCheckLastAt: number | null;
+  /**
+   * RL-025 Slice B — most recent dependency install start. The
+   * dashboard surfaces this as the `dependencies` row's
+   * `lastCallAt` so the audit table honestly reports the most
+   * recent network call.
+   */
+  readonly dependencyInstallLastAt?: number | null;
 }): ReadonlyArray<NetworkActivityRow> {
   return [
     {
@@ -169,11 +176,13 @@ export function buildNetworkActivityRows(args: {
       feature: 'dependencies',
       // RL-025 Slice A — detection + classification are fully local
       // (renderer scans the buffer; main does an `existsSync` on
-      // `node_modules`). Slice A surfaces NO network calls; the row
-      // exists today so the install path that lands in Slice B / C
-      // has a stable home in the audit table from day one.
+      // `node_modules`). Slice B lights up the JS/TS desktop install
+      // path; `lastCallAt` now reflects the most recent `npm install`
+      // start so the audit table honestly reports the most recent
+      // network call. Slice A stays local-only; the install path
+      // only fires when the user clicks Install explicitly.
       status: 'enabled',
-      lastCallAt: null,
+      lastCallAt: args.dependencyInstallLastAt ?? null,
     },
     {
       feature: 'outputOriginTracking',

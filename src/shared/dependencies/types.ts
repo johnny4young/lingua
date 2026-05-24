@@ -102,3 +102,37 @@ export interface DependencyAdapter {
    */
   detect(source: string): DetectedDependency[];
 }
+
+/**
+ * RL-025 Slice B — closed enum for the install batch outcome. One
+ * outcome per batch (a click can install N specifiers at once with
+ * fold-in B coalescing). Mirrored on `update-server/src/telemetry.ts`;
+ * the parity test enforces lockstep.
+ */
+export const DEPENDENCY_INSTALL_OUTCOMES = [
+  'success',
+  'partial',
+  'failed',
+  'cancelled',
+  'timed-out',
+] as const;
+export type DependencyInstallOutcome =
+  (typeof DEPENDENCY_INSTALL_OUTCOMES)[number];
+
+/**
+ * RL-025 Slice B — closed enum for the failure-reason rollup. Fires
+ * at most once per failed/partial batch with the dominant reason so
+ * dashboards can split network errors from policy refusals without
+ * leaking npm stderr verbatim.
+ */
+export const DEPENDENCY_INSTALL_FAILURE_REASONS = [
+  'invalid-specifier',
+  'no-package-json',
+  'binary-missing',
+  'exit-nonzero',
+  'timeout',
+  'cancelled',
+  'unknown',
+] as const;
+export type DependencyInstallFailureReason =
+  (typeof DEPENDENCY_INSTALL_FAILURE_REASONS)[number];

@@ -257,6 +257,26 @@ export const TELEMETRY_EVENTS = [
   // DEPENDENCY_COUNT_BUCKETS set used by `detected_in_tab` so the
   // parity test only needs to validate one enum.
   'dependency.classifications_summary',
+  // RL-025 Slice B — JS/TS desktop install batch fired. Closed-enum
+  // `{ language, countBucket }` where countBucket reuses the existing
+  // DEPENDENCY_COUNT_BUCKETS bucketer (1 / 2-5 / 6-10 / >10). Counts
+  // are bucketed at the renderer before the validator sees them, so
+  // the redactor never accepts raw integers. NO package names, NO
+  // file paths, NO npm stderr. One event per click batch (fold-B
+  // coalescing means one event covers N specifiers).
+  'dependency.install_started',
+  // RL-025 Slice B — install batch terminated. Closed-enum
+  // `{ language, outcome }` from DEPENDENCY_INSTALL_OUTCOMES.
+  // `partial` covers the mixed case where some installs succeeded
+  // and others failed inside the same batch.
+  'dependency.install_completed',
+  // RL-025 Slice B — failure-reason rollup. Fires at most once per
+  // failed / partial batch with the dominant DEPENDENCY_INSTALL_FAILURE_REASON.
+  // Separate from `install_completed` so dashboards can split network
+  // errors (`exit-nonzero`) from policy refusals (`no-package-json`,
+  // `invalid-specifier`) without inferring from the outcome alone.
+  // NO npm stderr text, NO exit code value — only the closed enum.
+  'dependency.install_failed_reason',
   // RL-044 Sub-slice G — output→source line affordance click. Fires
   // once when the user clicks an `<OutputLineBadge>` chip on a
   // console row. Closed-enum `{ language, surface }` where `surface` ∈
@@ -502,6 +522,13 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
     'needsDesktopBucket',
     'unsupportedBucket',
   ],
+  // RL-025 Slice B — install lifecycle events. `language` is the
+  // adapter id (`isSafeToken`); `countBucket` reuses the existing
+  // DEPENDENCY_COUNT_BUCKETS_SET. `outcome` ∈ DEPENDENCY_INSTALL_OUTCOMES;
+  // `reason` ∈ DEPENDENCY_INSTALL_FAILURE_REASONS.
+  'dependency.install_started': ['language', 'countBucket'],
+  'dependency.install_completed': ['language', 'outcome'],
+  'dependency.install_failed_reason': ['language', 'reason'],
   // RL-044 Sub-slice G — `language` is the language-pack id
   // (`isSafeToken`); `surface` ∈ `OUTPUT_ORIGIN_SURFACES` (`'badge'`).
   // The hover path does NOT emit so this allowlist intentionally
@@ -786,6 +813,28 @@ export const DEPENDENCY_COUNT_BUCKETS_SET = new Set([
   '2-5',
   '6-10',
   '>10',
+]);
+// RL-025 Slice B — closed enums backing the install lifecycle events.
+// Canonical home is `src/shared/dependencies/types.ts`; duplicated here
+// for the same reason as `CONSOLE_RICH_KIND_BUCKETS` (this redactor
+// stays a pure module without renderer-side import cycles). The parity
+// test in `update-server/test/telemetry.test.ts` keeps both copies
+// aligned with the canonical const-tuple source of truth.
+export const DEPENDENCY_INSTALL_OUTCOMES_SET = new Set([
+  'success',
+  'partial',
+  'failed',
+  'cancelled',
+  'timed-out',
+]);
+export const DEPENDENCY_INSTALL_FAILURE_REASONS_SET = new Set([
+  'invalid-specifier',
+  'no-package-json',
+  'binary-missing',
+  'exit-nonzero',
+  'timeout',
+  'cancelled',
+  'unknown',
 ]);
 // RL-101 Slice 1 — language ids that the `language` property on
 // `onboarding.first_run_completed` is validated against. Pulled
@@ -1132,6 +1181,29 @@ function isAllowedValue(
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
         );
       }
+      return false;
+    case 'dependency.install_started':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'countBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
+        );
+      return false;
+    case 'dependency.install_completed':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'outcome')
+        return (
+          typeof value === 'string' &&
+          DEPENDENCY_INSTALL_OUTCOMES_SET.has(value)
+        );
+      return false;
+    case 'dependency.install_failed_reason':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'reason')
+        return (
+          typeof value === 'string' &&
+          DEPENDENCY_INSTALL_FAILURE_REASONS_SET.has(value)
+        );
       return false;
     case 'runtime.output_origin_clicked':
       if (key === 'language') return isSafeToken(value);

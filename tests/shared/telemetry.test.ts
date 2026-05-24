@@ -48,9 +48,19 @@ describe('TELEMETRY_EVENTS', () => {
       // `(tab, language)` per session; `classifications_summary` (fold F)
       // rollup with four bucketed status counts. Sorts alphabetically
       // ahead of `feature.blocked` because `dep` < `fea`.
+      // RL-025 Slice B — install lifecycle: `install_started` per
+      // batched click (closed-enum `{ language, countBucket }`);
+      // `install_completed` per finished batch
+      // (`{ language, outcome }` from DEPENDENCY_INSTALL_OUTCOMES);
+      // `install_failed_reason` once per failed / partial batch
+      // (`{ language, reason }` from
+      // DEPENDENCY_INSTALL_FAILURE_REASONS).
       'dependency.banner_shown',
       'dependency.classifications_summary',
       'dependency.detected_in_tab',
+      'dependency.install_completed',
+      'dependency.install_failed_reason',
+      'dependency.install_started',
       'feature.blocked',
       // RL-102 Slice 1 fold D — Git read-only layer adoption signal.
       // `git.diff_panel_opened` sorts before `git.layer_attached`
@@ -184,6 +194,41 @@ describe('TELEMETRY_EVENTS', () => {
       'utility.favorite.pinned',
       'utility.history.cleared',
     ]);
+  });
+
+  // RL-025 Slice B fold D — structural derivation check. The literal
+  // list above is the review wall (every new event has to be reviewed
+  // explicitly). This complementary check enforces that the literal
+  // matches the TELEMETRY_EVENTS constant byte-for-byte (no
+  // duplicates, no typos) and that every event in TELEMETRY_EVENTS
+  // has an entry in the per-event property allowlist — the most
+  // common drift error (adding to one, forgetting the other) is now
+  // caught by a derived comparison instead of by manual mirror work
+  // in future slices.
+  it('has no duplicate entries (derived parity)', () => {
+    const list = [...TELEMETRY_EVENTS];
+    const unique = new Set(list);
+    expect(unique.size, 'duplicate event in TELEMETRY_EVENTS').toBe(list.length);
+  });
+
+  it('every event has a property allowlist entry', () => {
+    for (const event of TELEMETRY_EVENTS) {
+      const sample: TelemetryEvent = {
+        event,
+        appVersion: '0.0.0',
+        osBucket: 'darwin/0',
+        licenseStatus: 'free',
+        sessionId: 'parity',
+        properties: {},
+        timestamp: 0,
+      };
+      // redactForTelemetry indexes EVENT_PROPERTY_ALLOWLIST[event].
+      // If the entry is missing the redactor crashes; this loop is
+      // therefore a structural assertion that drift between
+      // TELEMETRY_EVENTS and EVENT_PROPERTY_ALLOWLIST is caught at
+      // CI time without a second literal list to maintain.
+      expect(() => redactForTelemetry(sample)).not.toThrow();
+    }
   });
 });
 

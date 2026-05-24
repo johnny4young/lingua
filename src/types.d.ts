@@ -493,6 +493,50 @@ interface DependencyResolveResult {
   statuses: Record<string, DependencyResolveStatus>;
   /** Absolute path of the resolved cwd, or null when no cwd was discoverable (e.g. unsaved tab on web stub). */
   cwd: string | null;
+  /**
+   * RL-025 Slice B — whether the resolved cwd contains a
+   * `package.json`. Renderer-side guard for the Install button so
+   * we refuse to spawn `npm install` in a directory that would be
+   * silently turned into a project by the install.
+   */
+  hasPackageJson: boolean | null;
+}
+
+// RL-025 Slice B — install batch IPC contract. Closed-enum outcome
+// and failure reason mirrored in
+// `src/shared/dependencies/types.ts` and validated by the closed-enum
+// telemetry redactor.
+type DependencyInstallResultStatus =
+  | 'installed'
+  | 'failed'
+  | 'cancelled'
+  | 'skipped-preflight';
+type DependencyInstallOutcome =
+  | 'success'
+  | 'partial'
+  | 'failed'
+  | 'cancelled'
+  | 'timed-out';
+type DependencyInstallFailureReason =
+  | 'invalid-specifier'
+  | 'no-package-json'
+  | 'binary-missing'
+  | 'exit-nonzero'
+  | 'timeout'
+  | 'cancelled'
+  | 'unknown';
+interface DependencyInstallResult {
+  statuses: Record<string, DependencyInstallResultStatus>;
+  outcome: DependencyInstallOutcome;
+  failureReason: DependencyInstallFailureReason | null;
+  cwd: string | null;
+  exitCode: number;
+}
+type DependencyInstallLogStream = 'stdout' | 'stderr';
+interface DependencyInstallLogEvent {
+  runId: string;
+  stream: DependencyInstallLogStream;
+  chunk: string;
 }
 
 // RL-102 Slice 1 — Git read-only layer IPC contracts. Three shapes
@@ -836,15 +880,24 @@ interface LinguaAPI {
   };
 
   /**
-   * RL-025 Slice A — JS/TS dependency resolution. Read-only in
-   * Slice A; Slice B will extend this surface with `installJs` /
-   * `installPython` once the install path lands.
+   * RL-025 Slice A + Slice B — JS/TS dependency resolution and
+   * installation. Slice C will extend this surface with
+   * `installPython` (Pyodide `micropip`) on web.
    */
   dependencies: {
     resolveJs: (
       specifiers: readonly string[],
       filePath?: string
     ) => Promise<DependencyResolveResult>;
+    installJs: (
+      runId: string,
+      specifiers: readonly string[],
+      filePath: string
+    ) => Promise<DependencyInstallResult>;
+    cancelInstallJs: (runId: string) => Promise<{ cancelled: boolean }>;
+    onInstallLogJs: (
+      handler: (event: DependencyInstallLogEvent) => void
+    ) => () => void;
   };
 
   /**
