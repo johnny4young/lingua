@@ -75,22 +75,26 @@ dependency pipeline obeys that landmine:
 
 - Detection NEVER triggers installation. The Install button is the
   only path; in Slice A it stays disabled.
-- Slice B/C will require explicit confirmation per package (no
-  "install everything detected" bulk action) and per project (the
-  resolved `cwd` is shown in the confirmation modal so the user
-  knows which directory they're touching).
+- Slice B requires an explicit user action before any network or
+  filesystem mutation: a per-package Install click, a short-window
+  batch formed from multiple deliberate row clicks, or the visible
+  "Install all" button. Detection alone never installs anything.
+  The resolved cwd must contain `package.json`; otherwise the UI
+  disables the action and main refuses to spawn. Slice C will follow
+  the same explicit-action rule for `micropip`.
 - No global `npm install -g` / no `pip install --user`. Project
   isolation is the contract.
 
 ### Privacy
 
-The detected package list never leaves the device. The only
-telemetry events ship a **bucketed count** (`'0' / '1' / '2-5' /
-'6-10' / '>10'`) and the language id — never the package names.
-This matches the redactor's denylist (no `name`, no `source`, no
-`content` keys). The Privacy + Trust dashboard registers
+Detection never sends the package list off-device. An explicit
+install action necessarily sends the selected package names to npm
+(Slice B) or the Pyodide package index (Slice C). Telemetry still
+ships only a **bucketed count** (`'0' / '1' / '2-5' / '6-10' /
+'>10'`) and the language id — never package names, source, file
+paths, or install logs. The Privacy + Trust dashboard registers
 `dependencies` as a feature row so the network audit table tracks
-the install-path call separately when Slice B/C ships.
+the install-path call separately.
 
 ## Coupled invariants
 

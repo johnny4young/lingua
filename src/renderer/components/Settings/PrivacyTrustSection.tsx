@@ -7,6 +7,7 @@ import {
 } from '../../utils/redactionPreview';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useLicenseStore } from '../../stores/licenseStore';
+import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
 import {
   TRUST_EVENT_STORAGE_KEY,
   useTrustEventStore,
@@ -59,6 +60,21 @@ export function PrivacyTrustSection() {
   const licenseToken = useLicenseStore((s) => s.token);
   const clearLicense = useLicenseStore((s) => s.clearLicense);
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
+  // RL-025 Slice B — reach into the dependency install state to
+  // surface the most recent install timestamp in the network
+  // activity table. We take the max across every tab so the row
+  // reflects "any install in this session", not just the active tab.
+  const dependencyInstallLastAt = useDependencyDetectionStore((s) => {
+    let latest: number | null = null;
+    for (const entry of s.installByTab.values()) {
+      if (entry.lastAttemptAt !== null) {
+        if (latest === null || entry.lastAttemptAt > latest) {
+          latest = entry.lastAttemptAt;
+        }
+      }
+    }
+    return latest;
+  });
 
   // Refresh trigger — bumped after every Clear so the size estimates
   // re-read localStorage. Cheap because the audited key list is tiny.
@@ -90,8 +106,9 @@ export function PrivacyTrustSection() {
       capsuleExportLastAt: null,
       telemetryLastAt: null,
       updateCheckLastAt: null,
+      dependencyInstallLastAt,
     });
-  }, [telemetryConsent, licenseToken]);
+  }, [telemetryConsent, licenseToken, dependencyInstallLastAt]);
 
   const previewResult: RedactionPreviewResult = useMemo(() => {
     return applyRedactionPreview(pasteInput);

@@ -75,37 +75,65 @@ function classifyOnWeb(
   return deps.map((dep) => ({ ...dep, status }));
 }
 
+interface DesktopClassification {
+  readonly classified: ClassifiedDependency[];
+  readonly cwdHasPackageJson: boolean | null;
+}
+
 async function classifyOnDesktop(
   deps: readonly DetectedDependency[],
   language: DependencyAdapterLanguage,
   filePath?: string
-): Promise<ClassifiedDependency[]> {
+): Promise<DesktopClassification> {
   if (language === 'python') {
     // Python desktop install path is a deferred slice (virtualenv
     // story). Honest signal: needs-desktop says "yes we know about
     // it but the installer isn't here yet".
-    return deps.map((dep) => ({ ...dep, status: 'needs-desktop' as const }));
+    return {
+      classified: deps.map((dep) => ({
+        ...dep,
+        status: 'needs-desktop' as const,
+      })),
+      cwdHasPackageJson: null,
+    };
   }
   const names = deps.map((dep) => dep.name);
-  if (names.length === 0) return [];
+  if (names.length === 0) {
+    return { classified: [], cwdHasPackageJson: null };
+  }
   const bridge = window.lingua?.dependencies;
   if (!bridge || typeof bridge.resolveJs !== 'function') {
-    return deps.map((dep) => ({ ...dep, status: 'detected' as const }));
+    return {
+      classified: deps.map((dep) => ({
+        ...dep,
+        status: 'detected' as const,
+      })),
+      cwdHasPackageJson: null,
+    };
   }
   try {
     const result = await bridge.resolveJs(names, filePath);
-    return deps.map((dep) => {
-      const raw = result.statuses[dep.name];
-      const status: DependencyStatus =
-        raw === 'installed'
-          ? 'installed'
-          : raw === 'invalid'
-            ? 'unsupported'
-            : 'detected';
-      return { ...dep, status };
-    });
+    return {
+      classified: deps.map((dep) => {
+        const raw = result.statuses[dep.name];
+        const status: DependencyStatus =
+          raw === 'installed'
+            ? 'installed'
+            : raw === 'invalid'
+              ? 'unsupported'
+              : 'detected';
+        return { ...dep, status };
+      }),
+      cwdHasPackageJson: result.hasPackageJson ?? null,
+    };
   } catch {
-    return deps.map((dep) => ({ ...dep, status: 'detected' as const }));
+    return {
+      classified: deps.map((dep) => ({
+        ...dep,
+        status: 'detected' as const,
+      })),
+      cwdHasPackageJson: null,
+    };
   }
 }
 
@@ -211,7 +239,11 @@ export function useDependencyDetection(): void {
     let cancelled = false;
 
     const runDetection = async () => {
-      const detectionHash = computeDetectionHash(adapterLanguage, content);
+      const detectionHash = computeDetectionHash(
+        adapterLanguage,
+        content,
+        filePath ?? ''
+      );
       const existing = useDependencyDetectionStore
         .getState()
         .byTab.get(tabId);
@@ -230,9 +262,20 @@ export function useDependencyDetection(): void {
       }
       const detected = adapter.detect(content);
       const isWeb = window.lingua?.platform === 'web';
-      const classified = isWeb
-        ? classifyOnWeb(detected, adapterLanguage)
-        : await classifyOnDesktop(detected, adapterLanguage, filePath);
+      let classified: ClassifiedDependency[];
+      let cwdHasPackageJson: boolean | null;
+      if (isWeb) {
+        classified = classifyOnWeb(detected, adapterLanguage);
+        cwdHasPackageJson = null;
+      } else {
+        const result = await classifyOnDesktop(
+          detected,
+          adapterLanguage,
+          filePath
+        );
+        classified = result.classified;
+        cwdHasPackageJson = result.cwdHasPackageJson;
+      }
       if (cancelled) return;
       const next: TabDetectionState = {
         tabId,
@@ -240,6 +283,7 @@ export function useDependencyDetection(): void {
         detectionHash,
         dependencies: classified,
         classifiedAt: Date.now(),
+        cwdHasPackageJson,
       };
       setDetection(tabId, next);
       fireDetectedTelemetry(adapterLanguage, classified);

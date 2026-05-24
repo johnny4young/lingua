@@ -159,8 +159,9 @@ not catastrophic.
 
 - **File:** [`src/main/ipc/permissions.ts:15-38`](../src/main/ipc/permissions.ts)
 - **Risk:** the denylist blocks `/etc`, `/System`, `~/.ssh`,
-  `~/.gnupg`, `~/.aws`, macOS Keychains, Windows `C:\Windows`,
-  `Program Files (x86)`. It does **not** explicitly block
+  `~/.gnupg`, `~/.aws`, macOS Keychains, the Windows system root
+  (`Windows` under the boot drive), and `Program Files (x86)`. It
+  does **not** explicitly block
   `~/Library/Application Support`, `~/AppData/Roaming`,
   `~/Library/Cookies`, browser profile dirs, Slack/Discord/1Password
   desktop app data, or the user's own Lingua `userData/` directory

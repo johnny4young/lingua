@@ -379,11 +379,12 @@ contextBridge.exposeInMainWorld('lingua', {
       ipcRenderer.invoke('recovery:reveal-folder') as Promise<RecoveryRevealFolderResult>,
   },
 
-  // RL-025 Slice A — JS / TS dependency resolution. Slice A is
-  // read-only: the renderer hands main a batch of specifier names
-  // plus the active tab's `filePath`, main walks for the nearest
-  // `node_modules`, and returns one status per name. Slice B will
-  // add an install path on top of the same handler registration.
+  // RL-025 Slice A + Slice B — JS / TS dependency resolution and
+  // installation. Slice A's `resolveJs` is read-only; Slice B adds
+  // `installJs` (spawn via main with `shell: false`),
+  // `cancelInstallJs` (SIGTERM → SIGKILL keyed by runId), and
+  // `onInstallLogJs` (streams subprocess stdout / stderr lines back
+  // for the panel's log surface).
   dependencies: {
     resolveJs: (specifiers: readonly string[], filePath?: string) =>
       ipcRenderer.invoke(
@@ -391,6 +392,29 @@ contextBridge.exposeInMainWorld('lingua', {
         specifiers,
         filePath
       ) as Promise<DependencyResolveResult>,
+    installJs: (
+      runId: string,
+      specifiers: readonly string[],
+      filePath: string
+    ) =>
+      ipcRenderer.invoke(
+        'dependencies:js:install',
+        runId,
+        specifiers,
+        filePath
+      ) as Promise<DependencyInstallResult>,
+    cancelInstallJs: (runId: string) =>
+      ipcRenderer.invoke('dependencies:js:install:cancel', runId) as Promise<{
+        cancelled: boolean;
+      }>,
+    onInstallLogJs: (handler: (event: DependencyInstallLogEvent) => void) => {
+      const listener = (_: unknown, payload: DependencyInstallLogEvent) =>
+        handler(payload);
+      ipcRenderer.on('dependencies:js:install:log', listener);
+      return () => {
+        ipcRenderer.removeListener('dependencies:js:install:log', listener);
+      };
+    },
   },
 
   // RL-102 Slice 1 — Git read-only layer. Three channels:

@@ -1,22 +1,54 @@
 /**
- * RL-025 Slice A — bottom-panel "Dependencies" tab body.
+ * RL-025 Slice A + Slice B — bottom-panel "Dependencies" tab body.
  *
- * Read-only: shows one row per detected dependency for the active
- * tab plus a localized status pill. Install button renders but
- * stays disabled in Slice A; Slice B / C will wire it up to the
- * dependency adapter's install path.
+ * Slice A shipped read-only detection with a disabled Install button.
+ * Slice B wires the Install path: a click on a `'detected'` row (or
+ * the "Install all" header button — fold F) calls into main via
+ * `window.lingua.dependencies.installJs`, transitions the row(s) to
+ * `'installing'`, streams subprocess output into an inline log
+ * surface, and updates the row(s) to `'installed'` / `'failed'` /
+ * `'detected'` (on cancel) when the batch finishes.
+ *
+ * Folds active in this surface:
+ *   - A — refuses click when the resolved cwd has no `package.json`
+ *     (the renderer learns the flag from the Slice A resolver).
+ *   - B — single-spawn batched install. Multiple clicks within
+ *     `BATCH_WINDOW_MS` coalesce into one npm invocation.
+ *   - C — pre-flight integrity check happens in main; the panel
+ *     just shows whatever statuses come back.
+ *   - E — install log buffer is retained per-tab across panel
+ *     hide/show; the surface only renders when there is content to
+ *     show (or an install is running).
+ *   - F — "Install all" header button when ≥2 rows are
+ *     `'detected'` and not already in flight.
  */
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Boxes, Package, Download } from 'lucide-react';
+import { Boxes, Package, Download, X } from 'lucide-react';
 import { useEditorStore } from '../../stores/editorStore';
-import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
+import {
+  mapInstallStatusToDependencyStatus,
+  useDependencyDetectionStore,
+} from '../../stores/dependencyDetectionStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import type { ClassifiedDependency } from '../../stores/dependencyDetectionStore';
-import type { DependencyStatus } from '../../../shared/dependencies/types';
+import type {
+  DependencyAdapterLanguage,
+  DependencyInstallFailureReason,
+  DependencyInstallOutcome,
+  DependencyStatus,
+} from '../../../shared/dependencies/types';
+import { bucketDependencyCount } from '../../../shared/dependencies/types';
+import { trackEvent } from '../../utils/telemetry';
 
-type PillTone = 'detected' | 'installed' | 'installing' | 'failed' | 'unsupported' | 'needs-desktop';
+type PillTone =
+  | 'detected'
+  | 'installed'
+  | 'installing'
+  | 'failed'
+  | 'unsupported'
+  | 'needs-desktop';
 
 const STATUS_TONE: Record<DependencyStatus, string> = {
   detected: 'border-warning/40 bg-warning/15 text-warning',
@@ -36,6 +68,70 @@ const STATUS_I18N_KEY: Record<DependencyStatus, string> = {
   'needs-desktop': 'dependencies.status.needsDesktop',
 };
 
+/**
+ * Fold B — coalescing window. A user clicking through several rows
+ * in quick succession after a paste collapses into a single `npm
+ * install pkg1 pkg2 pkg3` invocation rather than N sequential
+ * spawns. The window is small enough that single deliberate clicks
+ * still get their own batch.
+ */
+const BATCH_WINDOW_MS = 500;
+
+interface PanelContext {
+  readonly canInstall: boolean;
+  readonly disabledReasonKey: string | null;
+}
+
+function buildPanelContext(args: {
+  readonly isWeb: boolean;
+  readonly hasFilePath: boolean;
+  readonly cwdHasPackageJson: boolean | null;
+}): PanelContext {
+  if (args.isWeb) {
+    return {
+      canInstall: false,
+      disabledReasonKey: 'dependencies.install.webUnavailableTooltip',
+    };
+  }
+  if (!args.hasFilePath) {
+    return {
+      canInstall: false,
+      disabledReasonKey: 'dependencies.install.unsavedTabTooltip',
+    };
+  }
+  if (args.cwdHasPackageJson === false) {
+    return {
+      canInstall: false,
+      disabledReasonKey: 'dependencies.install.noPackageJsonTooltip',
+    };
+  }
+  return { canInstall: true, disabledReasonKey: null };
+}
+
+function fireInstallTelemetryStarted(
+  language: DependencyAdapterLanguage,
+  batchSize: number
+): void {
+  void trackEvent('dependency.install_started', {
+    language,
+    countBucket: bucketDependencyCount(batchSize),
+  });
+}
+
+function fireInstallTelemetryCompleted(
+  language: DependencyAdapterLanguage,
+  outcome: DependencyInstallOutcome
+): void {
+  void trackEvent('dependency.install_completed', { language, outcome });
+}
+
+function fireInstallTelemetryFailureReason(
+  language: DependencyAdapterLanguage,
+  reason: DependencyInstallFailureReason
+): void {
+  void trackEvent('dependency.install_failed_reason', { language, reason });
+}
+
 export function DependenciesPanel() {
   const { t } = useTranslation();
   const activeTab = useEditorStore((s) =>
@@ -51,6 +147,14 @@ export function DependenciesPanel() {
         })()
       : null
   );
+  const installState = useDependencyDetectionStore((s) =>
+    activeTab ? s.installByTab.get(activeTab.id) ?? null : null
+  );
+  const startInstall = useDependencyDetectionStore((s) => s.startInstall);
+  const appendInstallLog = useDependencyDetectionStore(
+    (s) => s.appendInstallLog
+  );
+  const endInstall = useDependencyDetectionStore((s) => s.endInstall);
   const detectionEnabled = useSettingsStore(
     (s) => s.dependencyDetectionEnabled
   );
@@ -61,6 +165,140 @@ export function DependenciesPanel() {
     () => detection?.dependencies ?? [],
     [detection]
   );
+
+  const hasFilePath = Boolean(activeTab?.filePath);
+  const cwdHasPackageJson = detection?.cwdHasPackageJson ?? null;
+  const ctx = useMemo(
+    () => buildPanelContext({ isWeb, hasFilePath, cwdHasPackageJson }),
+    [isWeb, hasFilePath, cwdHasPackageJson]
+  );
+
+  const isInstalling = (installState?.installing.size ?? 0) > 0;
+  const language = detection?.language ?? null;
+  const filePath = activeTab?.filePath ?? null;
+  const tabId = activeTab?.id ?? null;
+
+  // Fold B — coalescing buffer for rapid clicks. We accumulate
+  // names in a ref and flush after `BATCH_WINDOW_MS` of inactivity.
+  const pendingBatchRef = useRef<{ readonly names: Set<string> } | null>(null);
+  const flushTimerRef = useRef<number | null>(null);
+
+  const performInstall = useCallback(
+    async (names: readonly string[]) => {
+      if (!tabId || !language || !filePath || names.length === 0) return;
+      const bridge = window.lingua?.dependencies;
+      if (!bridge || typeof bridge.installJs !== 'function') return;
+      const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      startInstall(tabId, runId, names);
+      fireInstallTelemetryStarted(language, names.length);
+      try {
+        const result = await bridge.installJs(runId, names, filePath);
+        const perNameStatus: Record<string, DependencyStatus> = {};
+        for (const [name, status] of Object.entries(result.statuses)) {
+          perNameStatus[name] = mapInstallStatusToDependencyStatus(status);
+        }
+        endInstall(tabId, runId, result.outcome, perNameStatus);
+        fireInstallTelemetryCompleted(language, result.outcome);
+        if (
+          (result.outcome === 'failed' ||
+            result.outcome === 'partial' ||
+            result.outcome === 'timed-out') &&
+          result.failureReason
+        ) {
+          fireInstallTelemetryFailureReason(language, result.failureReason);
+        }
+      } catch {
+        // Network blip / IPC error → treat as a failed batch with
+        // unknown reason. The store also resets the installing set
+        // so the UI does not lock up.
+        const fallback: Record<string, DependencyStatus> = {};
+        for (const name of names) fallback[name] = 'failed';
+        endInstall(tabId, runId, 'failed', fallback);
+        fireInstallTelemetryCompleted(language, 'failed');
+        fireInstallTelemetryFailureReason(language, 'unknown');
+      }
+    },
+    [tabId, language, filePath, startInstall, endInstall]
+  );
+
+  const flushBatch = useCallback(() => {
+    const pending = pendingBatchRef.current;
+    pendingBatchRef.current = null;
+    flushTimerRef.current = null;
+    if (!pending || pending.names.size === 0) return;
+    void performInstall([...pending.names]);
+  }, [performInstall]);
+
+  const queueForInstall = useCallback(
+    (name: string) => {
+      if (!ctx.canInstall) return;
+      if (isInstalling) return;
+      if (!pendingBatchRef.current) {
+        pendingBatchRef.current = { names: new Set<string>() };
+      }
+      pendingBatchRef.current.names.add(name);
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current);
+      }
+      flushTimerRef.current = window.setTimeout(flushBatch, BATCH_WINDOW_MS);
+    },
+    [ctx.canInstall, flushBatch, isInstalling]
+  );
+
+  const handleInstallAll = useCallback(() => {
+    if (!ctx.canInstall) return;
+    if (isInstalling) return;
+    const names = rows
+      .filter((row) => row.status === 'detected')
+      .map((row) => row.name);
+    if (names.length === 0) return;
+    // Bypass the coalescing window — explicit "Install all" is
+    // already a single batch.
+    if (flushTimerRef.current !== null) {
+      window.clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    pendingBatchRef.current = null;
+    void performInstall(names);
+  }, [ctx.canInstall, isInstalling, rows, performInstall]);
+
+  const activeRunId = installState?.runId ?? null;
+  const handleCancel = useCallback(() => {
+    if (!activeRunId) return;
+    const bridge = window.lingua?.dependencies;
+    if (!bridge || typeof bridge.cancelInstallJs !== 'function') return;
+    void bridge.cancelInstallJs(activeRunId);
+  }, [activeRunId]);
+
+  // Subscribe to streamed log chunks from main once per tab. The
+  // unsubscribe runs when the tab changes (or unmounts).
+  useEffect(() => {
+    const bridge = window.lingua?.dependencies;
+    if (!bridge || typeof bridge.onInstallLogJs !== 'function') return;
+    if (!tabId) return;
+    const off = bridge.onInstallLogJs((event) => {
+      // Only append when the runId matches the current tab's run
+      // — protects against stale event delivery after a tab switch.
+      const current = useDependencyDetectionStore
+        .getState()
+        .installByTab.get(tabId);
+      if (!current || current.runId !== event.runId) return;
+      appendInstallLog(tabId, event.chunk);
+    });
+    return () => off();
+  }, [tabId, appendInstallLog]);
+
+  // Flush a pending batch when the tab changes — otherwise the
+  // coalescer would silently strand names.
+  useEffect(() => {
+    return () => {
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+      pendingBatchRef.current = null;
+    };
+  }, [tabId]);
 
   if (!detectionEnabled) {
     return (
@@ -98,6 +336,14 @@ export function DependenciesPanel() {
     );
   }
 
+  const installableCount = rows.filter(
+    (row) => row.status === 'detected'
+  ).length;
+  const showInstallAll = ctx.canInstall && installableCount >= 2;
+  const logVisible = Boolean(
+    installState && (installState.installing.size > 0 || installState.log)
+  );
+
   return (
     <div
       className="flex h-full min-h-0 flex-col bg-background"
@@ -110,18 +356,50 @@ export function DependenciesPanel() {
             {t('dependencies.header.label', { count: rows.length })}
           </span>
         </div>
-        <span className="text-[10.5px] normal-case tracking-normal text-fg-muted">
-          {t('dependencies.privacyNote')}
-        </span>
+        <div className="flex items-center gap-3">
+          {showInstallAll ? (
+            <button
+              type="button"
+              onClick={handleInstallAll}
+              disabled={isInstalling}
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/60 px-2 py-1 text-[11px] normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50 disabled:hover:bg-surface/60"
+              data-testid="dependencies-install-all"
+            >
+              <Download size={11} aria-hidden="true" />
+              {t('dependencies.install.allButton', { count: installableCount })}
+            </button>
+          ) : null}
+          <span className="text-[10.5px] normal-case tracking-normal text-fg-muted">
+            {t('dependencies.privacyNote')}
+          </span>
+        </div>
       </header>
       <ul
         className="min-h-0 flex-1 overflow-y-auto divide-y divide-border/60"
         data-testid="dependencies-panel-list"
       >
         {rows.map((row) => (
-          <DependencyRow key={row.name} dep={row} isWeb={isWeb} />
+          <DependencyRow
+            key={row.name}
+            dep={row}
+            isWeb={isWeb}
+            canInstall={ctx.canInstall}
+            isInstallInFlight={isInstalling}
+            disabledReasonKey={ctx.disabledReasonKey}
+            onInstall={queueForInstall}
+          />
         ))}
       </ul>
+      {logVisible ? (
+        <InstallLogSurface
+          isRunning={isInstalling}
+          installKey={`${installState?.lastAttemptAt ?? 0}:${
+            installState?.runId ?? 'finished'
+          }`}
+          log={installState?.log ?? ''}
+          onCancel={handleCancel}
+        />
+      ) : null}
     </div>
   );
 }
@@ -129,18 +407,39 @@ export function DependenciesPanel() {
 function DependencyRow({
   dep,
   isWeb,
+  canInstall,
+  isInstallInFlight,
+  disabledReasonKey,
+  onInstall,
 }: {
   readonly dep: ClassifiedDependency;
   readonly isWeb: boolean;
+  readonly canInstall: boolean;
+  readonly isInstallInFlight: boolean;
+  readonly disabledReasonKey: string | null;
+  readonly onInstall: (name: string) => void;
 }) {
   const { t } = useTranslation();
   const status = dep.status;
+  const disabled =
+    status !== 'detected' || isWeb || !canInstall || isInstallInFlight;
+  // The disabled tooltip cascade:
+  //   1. cross-platform package shape (`needs-desktop`)
+  //   2. web build
+  //   3. specific desktop reason (no filePath / no package.json)
+  //   4. row already in a non-detected state (`installed`, `installing`,
+  //      `failed`, `unsupported`)
   const tooltipKey =
     status === 'needs-desktop'
       ? 'dependencies.install.needsDesktopTooltip'
       : isWeb
         ? 'dependencies.install.webUnavailableTooltip'
-        : 'dependencies.install.disabledTooltip';
+        : disabledReasonKey ??
+          (isInstallInFlight
+            ? 'dependencies.install.inFlightTooltip'
+            : status === 'detected'
+            ? 'dependencies.install.button'
+            : 'dependencies.install.disabledTooltip');
   return (
     <li
       className="flex items-center gap-3 px-4 py-2.5"
@@ -168,16 +467,84 @@ function DependencyRow({
       </span>
       <button
         type="button"
-        disabled
+        disabled={disabled}
+        onClick={disabled ? undefined : () => onInstall(dep.name)}
         title={t(tooltipKey)}
         aria-label={t('dependencies.install.button')}
-        className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-[11px] text-fg-muted opacity-60 cursor-not-allowed"
+        className={
+          disabled
+            ? 'inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-[11px] text-fg-muted opacity-60 cursor-not-allowed'
+            : 'inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-[11px] text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+        }
         data-testid={`dependency-install-${dep.name}`}
       >
         <Download size={11} aria-hidden="true" />
         {t('dependencies.install.button')}
       </button>
     </li>
+  );
+}
+
+function InstallLogSurface({
+  isRunning,
+  installKey,
+  log,
+  onCancel,
+}: {
+  readonly isRunning: boolean;
+  readonly installKey: string;
+  readonly log: string;
+  readonly onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  const [hiddenInstallKey, setHiddenInstallKey] = useState<string | null>(null);
+  // Auto-scroll the log content to the bottom as new chunks arrive.
+  const scrollRef = useRef<HTMLPreElement | null>(null);
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    node.scrollTop = node.scrollHeight;
+  }, [log]);
+  if (hiddenInstallKey === installKey) return null;
+  return (
+    <div
+      className="border-t border-border/70 bg-surface/30"
+      data-testid="dependencies-install-log"
+    >
+      <header className="flex items-center justify-between gap-3 px-4 py-2 text-xs uppercase tracking-[0.12em] text-fg-subtle">
+        <span>{t('dependencies.install.log.title')}</span>
+        <div className="flex items-center gap-2">
+          {isRunning ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-[11px] normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              data-testid="dependencies-install-cancel"
+            >
+              <X size={11} aria-hidden="true" />
+              {t('dependencies.install.cancelButton')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setHiddenInstallKey(installKey)}
+              className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-surface/40 px-2 py-1 text-[11px] normal-case tracking-normal text-fg-base hover:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              data-testid="dependencies-install-log-dismiss"
+            >
+              <X size={11} aria-hidden="true" />
+              {t('dependencies.install.log.dismiss')}
+            </button>
+          )}
+        </div>
+      </header>
+      <pre
+        ref={scrollRef}
+        className="max-h-40 overflow-auto whitespace-pre-wrap break-words px-4 pb-3 font-mono text-[11px] leading-relaxed text-fg-muted"
+        data-testid="dependencies-install-log-output"
+      >
+        {log.length === 0 ? t('dependencies.install.log.empty') : log}
+      </pre>
+    </div>
   );
 }
 

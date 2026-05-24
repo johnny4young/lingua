@@ -2648,6 +2648,143 @@ References:
   rules.
 - `docs/CAPABILITY_MATRIX.md` — new "Dependency management" row.
 
+#### § Slice B landed (2026-05-24)
+
+Slice B shipped the JS/TS desktop install path on top of the Slice A
+adapter seam. RL-025 stays `Partial` (Slice C — Python `micropip` on
+web — is the only remaining slice before the ticket closes).
+
+What shipped:
+
+- **Main-side installer** `installJsDependencyBatch` in
+  `src/main/dependencies.ts` spawns
+  `npm install <names…> --no-audit --no-fund --no-progress --save`
+  via `child_process.spawn('npm', argv, { shell: false, cwd, env,
+  stdio: ['ignore','pipe','pipe'], windowsHide: true })`. Reuses
+  the Slice A primitives: `SAFE_PACKAGE_NAME_RE` re-validates every
+  specifier (path-traversal, `node:` prefix, absolute paths all
+  rejected before they reach npm); `resolveNodeCwd(filePath)` walks
+  for `node_modules`; env via
+  `buildNativeRunnerEnv([...NODE_TOOLCHAIN_KEYS], undefined)` so
+  only the audited toolchain keys cross the boundary. **Fold A**
+  refuses to spawn when the resolved cwd has no `package.json` (the
+  "no silent installs" line in `docs/DEPENDENCY_MANAGER_ADR.md`).
+  **Fold C** pre-flights via the Slice A resolver and short-circuits
+  names that already exist in `node_modules`. 5-minute hard timeout
+  + SIGTERM → 200 ms → SIGKILL cancel escalation (mirrors the
+  `node-runner.ts` pattern). Stdout / stderr capped at
+  `MAX_NATIVE_STDERR_BYTES` with a one-shot `[output truncated]`
+  marker that both buffers and streams emit when the cap is hit.
+  Returns a closed-enum `DependencyInstallResult` with
+  `outcome ∈ DEPENDENCY_INSTALL_OUTCOMES`,
+  `failureReason ∈ DEPENDENCY_INSTALL_FAILURE_REASONS | null`, plus
+  per-specifier status (`'installed' | 'failed' | 'cancelled' |
+  'skipped-preflight'`).
+- **IPC** `src/main/ipc/dependencies.ts` registers
+  `dependencies:js:install` (returns the `DependencyInstallResult`)
+  and `dependencies:js:install:cancel` (SIGTERM → SIGKILL via the
+  active-installs registry). Log chunks stream back to the renderer
+  via `event.sender.send('dependencies:js:install:log', { runId,
+  stream, chunk })`; the sender is checked for destruction before
+  every send so a closed BrowserWindow can't leak a callback.
+- **Resolver extension** `DependencyResolveResult.hasPackageJson:
+  boolean | null` so the renderer can disable the Install button
+  ahead of click. Threaded through `src/types.d.ts`, the web stub,
+  and `useDependencyDetection`.
+- **Preload bridge** `window.lingua.dependencies.installJs(runId,
+  specifiers, filePath)` / `cancelInstallJs(runId)` /
+  `onInstallLogJs(handler)`. Web stub returns
+  `outcome: 'failed', failureReason: 'binary-missing'` for every
+  name so a UI path that bypasses the platform guard surfaces an
+  honest error.
+- **Renderer store** `dependencyDetectionStore` gains a sibling
+  `installByTab` map keyed by `tabId`. New actions
+  `startInstall(tabId, runId, names)` /
+  `appendInstallLog(tabId, chunk)` /
+  `endInstall(tabId, runId, outcome, perNameStatus)`. Install log
+  buffer persists across panel hide/show within the session (fold E)
+  capped at 64 KB. `evictTab` clears both detection and install
+  state. `endInstall` patches the corresponding detection rows
+  directly with the per-name status — coupled invariant: a
+  successful install changes `node_modules` but not the buffer, so
+  the content-hash memo would skip a re-resolve.
+  `mapInstallStatusToDependencyStatus` keeps the IPC → UI mapping
+  in one place.
+- **DependenciesPanel** activates the Install button only when
+  `status === 'detected'`, platform is desktop, tab has a
+  `filePath`, and `cwdHasPackageJson === true`. Cascading tooltip
+  picks `needsDesktopTooltip` for cross-platform shapes,
+  `webUnavailableTooltip` on web, `unsavedTabTooltip` for unsaved
+  tabs, `noPackageJsonTooltip` when the cwd is not a project, and
+  `disabledTooltip` for everything else. **Fold B** coalesces clicks
+  within a 500 ms window into a single batched `installJs` call.
+  **Fold F** surfaces an "Install all" button in the header when
+  ≥2 rows are `'detected'`; it bypasses the coalescing window.
+  Streaming log surface (`<InstallLogSurface>`) mounts below the
+  rows whenever an install is running or its log buffer is
+  non-empty; ships a Cancel button while running and a Hide-log
+  button afterward; auto-scrolls to bottom on new chunks.
+- **Privacy + Trust dashboard** `buildNetworkActivityRows` gains a
+  `dependencyInstallLastAt: number | null` field; the
+  `dependencies` row's `lastCallAt` now reflects `Math.max` across
+  every tab's `lastAttemptAt`. `<PrivacyTrustSection>` reads the
+  value from the install store so the audit table reports honest
+  network call timing.
+- **Telemetry** three new closed-enum events:
+  - `dependency.install_started { language, countBucket }` —
+    bucketed via the existing `DEPENDENCY_COUNT_BUCKETS_SET`.
+  - `dependency.install_completed { language, outcome }` —
+    outcome from `DEPENDENCY_INSTALL_OUTCOMES`
+    (`success | partial | failed | cancelled | timed-out`).
+  - `dependency.install_failed_reason { language, reason }` —
+    fired once per failed / partial / timed-out batch with the
+    dominant reason from `DEPENDENCY_INSTALL_FAILURE_REASONS`
+    (`invalid-specifier | no-package-json | binary-missing |
+    exit-nonzero | timeout | cancelled | unknown`).
+  Mirrored in `update-server/src/telemetry.ts`; new parity test
+  cross-imports the renderer authority via filesystem regex.
+  **Fold D** rewrites the renderer-side review-wall test to a
+  structural derivation: the literal sorted-list assertion stays as
+  the review wall, but a complementary check loops every
+  `TELEMETRY_EVENTS` entry through `redactForTelemetry` so missing
+  `EVENT_PROPERTY_ALLOWLIST` entries crash CI at the unit level —
+  the most common drift error (adding to one map but not the other)
+  is now caught by derivation, not by manual mirror work.
+- **i18n** 13 new keys × en + es (tuteo neutral LatAm): `Cancela`,
+  `Instala N paquetes`, `Salida del instalador`, `Sin salida aún —
+  npm install la transmitirá aquí cuando arranque`, `Guarda esta
+  pestaña antes de instalar dependencias`, `Abre un proyecto con
+  package.json para instalar dependencias`, etc.
+- **Tests** new `tests/main/dependencies.install.test.ts` (refusals,
+  pre-flight, locked argv, exit-code mapping, ENOENT, log streaming,
+  cancel), new `tests/main/ipc/dependencies.install.test.ts`
+  (channel registration, sender streaming, malformed payload reject),
+  new `tests/components/DependenciesPanel.install.test.tsx` (enable
+  matrix, click → installing → installed flow, cancel, fold-B
+  coalescing, fold-F Install all, log streaming, ES tuteo). Update-
+  server parity test extended with three behavioral assertions for
+  the new events + closed-enum filesystem parity.
+
+Prerequisite fix (collateral, per
+`.claude/skills/lingua-ship/references/inline-fix-policy.md`):
+`docs/PROJECT_AUDIT_2026_05_24.md` rephrased a Windows system-root
+mention inside an inline code span — the docs guard regex in
+`tests/docs/publicDocs.test.ts` was matching the Windows path
+fragment as a machine-local link. Same audit point preserved in
+plain prose.
+
+Out of scope (Slice C):
+
+- Python `micropip` web install path (the last slice before
+  RL-025 closes).
+- WebContainer-backed JS web installs.
+- Lockfile reads / version pins (Slice B installs `latest` by
+  default, same as `npm install <name>`).
+- Uninstall flow.
+- Tier gate on the install action — explicitly rejected during
+  Phase 1 planning; the Slice A detection toggle is already the
+  funnel throttle for Free tier.
+
 ### RL-026 Add language intelligence beyond Monaco's built-in JS/TS services
 
 - Priority: `P2`

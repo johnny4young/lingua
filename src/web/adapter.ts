@@ -184,18 +184,33 @@ const webLingua: LinguaAPI = {
     confirmReset: async () => 1,
     revealFolder: async () => ({ ok: false, reason: 'unsupported' as const }),
   },
-  // RL-025 Slice A — dependency resolver. Web has no `node_modules`
-  // tree to probe and (per AGENTS.md `CAPABILITY_MATRIX.md`) cannot
-  // run an install path either. The stub returns the input names
-  // unchanged so the renderer's adapter maps every entry to
-  // `'needs-desktop'` without an extra round-trip.
+  // RL-025 Slice A + Slice B — dependency resolver + installer. Web
+  // has no `node_modules` tree to probe and (per AGENTS.md
+  // `CAPABILITY_MATRIX.md`) cannot run an install path either. The
+  // resolver stub maps every entry to `'detected'` so the renderer's
+  // adapter classifies them as `'needs-desktop'`; the install stub
+  // reports `failed` with `binary-missing` so the renderer surfaces
+  // an honest "not on web" failure if a caller ever reaches it
+  // (the UI guards on `platform === 'web'` upstream).
   dependencies: {
     resolveJs: async (specifiers) => ({
       statuses: Object.fromEntries(
         specifiers.map((name) => [name, 'detected' as const])
       ),
       cwd: null,
+      hasPackageJson: null,
     }),
+    installJs: async (_runId, specifiers, _filePath) => ({
+      statuses: Object.fromEntries(
+        specifiers.map((name) => [name, 'failed' as const])
+      ),
+      outcome: 'failed' as const,
+      failureReason: 'binary-missing' as const,
+      cwd: null,
+      exitCode: -1,
+    }),
+    cancelInstallJs: async () => ({ cancelled: false }),
+    onInstallLogJs: () => () => {},
   },
 };
 
