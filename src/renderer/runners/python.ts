@@ -87,6 +87,18 @@ export class PythonRunner implements LanguageRunner {
     return this.ready;
   }
 
+  /**
+   * RL-025 Slice C — public accessor over the private `ensurePyodide`
+   * boot ceremony. `pythonWebInstaller` calls into this so the
+   * installer and the runner share the same Pyodide worker (one
+   * runtime → one set of loaded packages → user code sees what they
+   * just installed). Returns the same `Worker` instance every call;
+   * the underlying `loadingPromise` collapses parallel waiters.
+   */
+  async getOrEnsurePyodideWorker(): Promise<Worker> {
+    return this.ensurePyodide();
+  }
+
   /** Ensure Pyodide is loaded in the worker */
   private async ensurePyodide(): Promise<Worker> {
     if (this.worker && this.pyodideLoaded) {

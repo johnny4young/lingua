@@ -524,6 +524,7 @@ type DependencyInstallFailureReason =
   | 'exit-nonzero'
   | 'timeout'
   | 'cancelled'
+  | 'unsupported-wheel'
   | 'unknown';
 interface DependencyInstallResult {
   statuses: Record<string, DependencyInstallResultStatus>;

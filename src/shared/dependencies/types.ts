@@ -125,6 +125,12 @@ export type DependencyInstallOutcome =
  * dashboards can split network errors from policy refusals without
  * leaking npm stderr verbatim.
  */
+// RL-025 Slice C — `unsupported-wheel` covers Pyodide micropip native-
+// wheel rejections (recoverable: the user can switch to a pure-Python
+// alternative). The closed enum keeps that distinction in the dashboard
+// rather than bucketing it under `unknown`. Comment is intentionally
+// outside the array literal so the regex-driven parity test in
+// update-server stays single-quote clean.
 export const DEPENDENCY_INSTALL_FAILURE_REASONS = [
   'invalid-specifier',
   'no-package-json',
@@ -132,6 +138,7 @@ export const DEPENDENCY_INSTALL_FAILURE_REASONS = [
   'exit-nonzero',
   'timeout',
   'cancelled',
+  'unsupported-wheel',
   'unknown',
 ] as const;
 export type DependencyInstallFailureReason =

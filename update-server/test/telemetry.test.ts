@@ -1684,6 +1684,36 @@ describe('RL-025 Slice B — dependency install lifecycle events', () => {
     ).toBeUndefined();
     consoleSpy.mockRestore();
   });
+
+  it('dependency.install_failed_reason accepts the unsupported-wheel reason (RL-025 Slice C)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'dependency.install_failed_reason',
+      properties: { language: 'python', reason: 'unsupported-wheel' },
+    });
+    expect(okResponse.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"dependency.install_failed_reason"'));
+    const line = eventLines.find((entry) =>
+      entry.includes('"reason":"unsupported-wheel"')
+    );
+    expect(line).toBeDefined();
+    // Reviewer fix — parse the structured log line and assert both
+    // `language` and `reason` round-trip through the redactor, not
+    // just that the substring `"reason":"unsupported-wheel"` is
+    // present. A future regression that silently strips the
+    // `language` property would slip past a substring check.
+    expect(JSON.parse(line!)).toMatchObject({
+      event: 'telemetry.event',
+      eventName: 'dependency.install_failed_reason',
+      properties: {
+        language: 'python',
+        reason: 'unsupported-wheel',
+      },
+    });
+    consoleSpy.mockRestore();
+  });
 });
 
 describe('ipBucket — privacy guard', () => {

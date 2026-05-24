@@ -80,8 +80,14 @@ dependency pipeline obeys that landmine:
   batch formed from multiple deliberate row clicks, or the visible
   "Install all" button. Detection alone never installs anything.
   The resolved cwd must contain `package.json`; otherwise the UI
-  disables the action and main refuses to spawn. Slice C will follow
-  the same explicit-action rule for `micropip`.
+  disables the action and main refuses to spawn.
+- Slice C (Python web, shipped 2026-05-25) follows the same
+  explicit-action rule for `micropip`. A click triggers
+  `micropip.install([...])` inside the shared Pyodide worker; no
+  cancel mid-install (Pyodide has no kill primitive — Cancel hidden
+  rather than feigned). Native-wheel rejections surface as the
+  closed-enum `'unsupported-wheel'` failure reason so the user
+  knows to switch to a pure-Python alternative.
 - No global `npm install -g` / no `pip install --user`. Project
   isolation is the contract.
 

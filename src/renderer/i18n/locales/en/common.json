@@ -2302,6 +2302,8 @@
   "dependencies.install.webUnavailableTooltip": "Open Lingua Desktop to install packages.",
   "dependencies.install.unsavedTabTooltip": "Save this tab before installing dependencies.",
   "dependencies.install.noPackageJsonTooltip": "Open a project with a package.json to install dependencies.",
+  "dependencies.install.pythonWebReadyTooltip": "Install via Pyodide micropip",
+  "dependencies.install.pythonUnsupportedTooltip": "Pyodide has no compatible wheel for this package",
   "dependencies.install.allButton_one": "Install {{count}} package",
   "dependencies.install.allButton_other": "Install {{count}} packages",
   "dependencies.install.cancelButton": "Cancel",

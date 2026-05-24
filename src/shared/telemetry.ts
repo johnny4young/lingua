@@ -827,6 +827,11 @@ export const DEPENDENCY_INSTALL_OUTCOMES_SET = new Set([
   'cancelled',
   'timed-out',
 ]);
+// RL-025 Slice C — `unsupported-wheel` mirrors the canonical
+// DEPENDENCY_INSTALL_FAILURE_REASONS in `src/shared/dependencies/types.ts`.
+// Kept outside the literal so the regex parity test stays
+// single-quote clean (apostrophes inside array literals break the
+// extraction).
 export const DEPENDENCY_INSTALL_FAILURE_REASONS_SET = new Set([
   'invalid-specifier',
   'no-package-json',
@@ -834,6 +839,7 @@ export const DEPENDENCY_INSTALL_FAILURE_REASONS_SET = new Set([
   'exit-nonzero',
   'timeout',
   'cancelled',
+  'unsupported-wheel',
   'unknown',
 ]);
 // RL-101 Slice 1 — language ids that the `language` property on

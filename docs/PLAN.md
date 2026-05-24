@@ -2785,6 +2785,115 @@ Out of scope (Slice C):
   Phase 1 planning; the Slice A detection toggle is already the
   funnel throttle for Free tier.
 
+#### § Slice C landed (2026-05-25)
+
+Slice C shipped the Python web install path via Pyodide `micropip`,
+closing RL-025 fully. `Partial → Done`.
+
+What shipped:
+
+- **Worker handlers** in `src/renderer/workers/python-worker.ts`:
+  - `dependencies:list-loaded` returns `Object.keys(pyodide.loadedPackages)`
+    so the renderer can mark Pyodide builtins (numpy, requests, etc.
+    when pre-loaded on the active Pyodide build) as `'installed'`
+    honestly instead of lying with `'detected'` (fold C).
+  - `dependencies:install` lazily loads `micropip` via
+    `pyodide.loadPackage('micropip')` + `pyodide.pyimport('micropip')`,
+    then calls `micropip.install([...])` in one batch. Streams
+    progress via `dependencies:install:log` postMessages keyed by
+    `runId`; final reply is `dependencies:install:done` with the
+    closed-enum outcome shape mirrored from Slice B.
+  - Defensive validation: PyPI-name regex
+    `/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,213}$/u` rejects anything that
+    looks like injection text even though the Slice A detector
+    already filters its output.
+  - `classifyMicropipError` maps Pyodide native-wheel rejections
+    (substring match on the exception message) to the new
+    `'unsupported-wheel'` closed-enum reason. Generic errors fall
+    through to `'unknown'`.
+- **Renderer service** `src/renderer/services/pythonWebInstaller.ts`
+  wraps the worker protocol with `listLoadedPackages()` +
+  `installPython({ runId, specifiers, onLog })`. Shares the
+  Pyodide worker with `PythonRunner` via the new
+  `runnerManager.getPythonRunner()?.getOrEnsurePyodideWorker()`
+  accessor — installs land in the same runtime user code runs in,
+  so the very next Run sees the freshly-installed package.
+  Worker-side 90 s soft timeout via `Promise.race` so a hung
+  `micropip` frees the runId and surfaces `'timed-out'` instead of
+  blocking the panel forever (fold F).
+- **Hook update** `useDependencyDetection.ts`: when language is
+  `python` on web, awaits `classifyPythonOnWeb` after the
+  synchronous classification — upgrades already-loaded names from
+  `'detected'` to `'installed'`. Lazy `await import` keeps the
+  Pyodide worker graph out of the initial detection cycle when
+  no Python tab is open. Falls back to `'detected'` for everything
+  on listLoadedPackages failure or the 5 s soft timeout inside
+  the service.
+- **Panel** `DependenciesPanel.tsx`:
+  - `buildPanelContext` now returns
+    `{ canInstall, disabledReasonKey, enabledHintKey, isPythonWeb }`.
+    The Python web branch returns
+    `canInstall: true, disabledReasonKey: null,
+    enabledHintKey: 'dependencies.install.pythonWebReadyTooltip',
+    isPythonWeb: true` — Python web bypasses the filesystem-based
+    gates.
+  - `performInstall` dispatches on `(isPythonWeb, language)`. For
+    Python web, lazy-imports `pythonWebInstaller` and calls
+    `installPython`; result is mapped via the existing store
+    actions. The `'unsupported-wheel'` failureReason maps the row
+    to `'unsupported'` instead of `'failed'` (matches the
+    classification semantics).
+  - `InstallLogSurface` gains a `cancellable` prop — Python web
+    installs are uninterruptible (Pyodide has no mid-microtask
+    kill primitive and fold D was rejected), so the Cancel button
+    is hidden. Log streaming + Hide-log button stay.
+  - Tooltip cascade refactored to consult `enabledHintKey` when the
+    button is enabled, dropping the blanket `isWeb` gate that
+    previously forced the `'webUnavailableTooltip'` even for
+    installable Python web rows.
+- **Closed-enum extension** (fold A) `'unsupported-wheel'` widens
+  `DEPENDENCY_INSTALL_FAILURE_REASONS` in
+  `src/shared/dependencies/types.ts` + `src/shared/telemetry.ts`
+  + `update-server/src/telemetry.ts`. The parity test in
+  `update-server/test/telemetry.test.ts` regex-extracts from both
+  source files; comments inside the array literals were moved
+  outside to keep the regex single-quote clean (`Pyodide's micropip`
+  was tripping the apostrophe-based capture).
+- **i18n** 3 new keys × en + es (tuteo):
+  `dependencies.install.pythonWebReadyTooltip`
+  ("Instala vía Pyodide micropip"),
+  `dependencies.install.pythonUnsupportedTooltip`
+  ("Pyodide no tiene una wheel compatible para este paquete"),
+  and a parallel
+  `dependencies.install.failureReason.unsupportedWheel` for future
+  toast / banner use.
+- **Tests** new
+  `tests/renderer/services/pythonWebInstaller.test.ts` (postMessage
+  protocol, list-loaded reply, 5 s loaded query timeout,
+  install→done flow, unsupported-wheel mapping, 90 s install
+  timeout, missing runner fallback) + new
+  `tests/components/DependenciesPanel.python.install.test.tsx`
+  (enable matrix, install→installed flow, unsupported-wheel maps
+  to row.status `'unsupported'`, cancel button hidden, ES tuteo).
+  Update-server parity test extended with a behavioural assertion
+  for `dependency.install_failed_reason` with
+  `reason: 'unsupported-wheel'`.
+
+Out of scope (deferred):
+
+- Hard kill of the Pyodide worker mid-install (rejected in Phase 1
+  fold G — would re-boot Pyodide on every install and lose the
+  shared-runtime principle).
+- Soft cancel UX (rejected fold D — the Cancel button without a
+  real cancel signal is misleading; better to hide it than feign).
+- Single-call batching for Python (rejected fold E — keeps the
+  Python click path simple; rapid clicks queue at the worker
+  side).
+- Persistent `micropip` cache across reloads. Pyodide does not
+  cache micropip-installed wheels by default; AC explicitly says
+  "no hidden desktop Python mutation" so we keep behaviour
+  session-scoped.
+
 ### RL-026 Add language intelligence beyond Monaco's built-in JS/TS services
 
 - Priority: `P2`

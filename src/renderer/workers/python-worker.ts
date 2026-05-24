@@ -41,6 +41,10 @@ import {
   type RichOutputPayload,
 } from '../../shared/richOutput';
 import { parsePythonTraceback } from '../../shared/errorStack';
+import type {
+  DependencyInstallFailureReason,
+  DependencyInstallOutcome,
+} from '../../shared/dependencies/types';
 
 const ctx = self as unknown as Worker;
 
@@ -99,8 +103,58 @@ function truncate(value: string, marker: string): string {
   return truncateSerialized(value, marker);
 }
 
+/**
+ * RL-025 Slice C — minimal shape of a Python module proxied through
+ * `pyodide.pyimport`. The install handler reaches for `micropip` this
+ * way so the worker never builds Python source strings around
+ * user-supplied package names (string interpolation into runPython is
+ * the equivalent of `shell: true` on the npm side).
+ */
+type PyodidePyModule = {
+  /**
+   * RL-025 Slice C — the `install` function on the `micropip`
+   * PyProxy accepts either a JS string[] (auto-converted) or a
+   * Pyodide-managed Python list (`pyodide.toPy(array)`). Typed
+   * loosely as `unknown` so the worker can pass the PyProxy
+   * returned by `toPy` without an unsafe `as` cast.
+   */
+  install?: (packages: unknown) => Promise<unknown> | unknown;
+  destroy?: () => void;
+};
+
 type PyodideRuntime = {
   runPythonAsync(code: string): Promise<unknown>;
+  /**
+   * RL-025 Slice C — load a Pyodide-shipped package into the
+   * runtime. Used to bootstrap `micropip` before the first install.
+   */
+  loadPackage?: (
+    names: string | readonly string[]
+  ) => Promise<unknown>;
+  /**
+   * RL-025 Slice C — set of packages currently installed in the
+   * runtime. Keys include both `loadPackage`-installed Pyodide
+   * builtins (numpy, pandas, etc. when pre-loaded) and
+   * `micropip.install`-installed wheels (which delegate to
+   * `loadPackage` internally). The renderer queries this set via
+   * the `dependencies:list-loaded` message so the panel can mark
+   * pre-loaded packages as `'installed'` honestly.
+   */
+  loadedPackages?: Record<string, unknown>;
+  /**
+   * RL-025 Slice C — import a Python module (e.g. `micropip`). Lets
+   * us call into the install path without ever building a runPython
+   * source string from user-supplied package names.
+   */
+  pyimport?: (name: string) => PyodidePyModule;
+  /**
+   * RL-025 Slice C — convert a JS value to its Python equivalent
+   * (Array → list, plain object → dict, etc.). `micropip.install`
+   * accepts a Python list; passing a JS array directly relies on
+   * Pyodide's PyProxy auto-conversion which has had version-to-
+   * version regressions. Using `toPy` explicitly is defensive.
+   */
+  toPy?: (value: unknown) => unknown;
   setStdout?: (options: { batched: (text: string) => void }) => void;
   setStderr?: (options: { batched: (text: string) => void }) => void;
   /**
@@ -625,6 +679,78 @@ function postPythonPrintEntries(
       ctx.postMessage(continuationMessage);
     }
   }
+}
+
+// RL-025 Slice C — defensive PyPI-name regex. PyPI's accepted form is
+// case-insensitive: starts with a letter or digit, allows interior
+// `[A-Za-z0-9._-]`, and ends in a letter or digit. Trailing `.` or
+// `-` would resolve to surprising packages once PyPI's normaliser
+// stripped them; we reject them up front instead. Total length cap
+// matches PyPI's documented 214-char ceiling.
+const PYTHON_PACKAGE_NAME_RE =
+  /^[a-zA-Z0-9](?:[a-zA-Z0-9._-]{0,212}[a-zA-Z0-9])?$/u;
+
+// RL-025 Slice C — micropip module cache. The PyProxy is intentionally
+// kept alive for the worker's lifetime: this is a single Pyodide
+// runtime per session, so re-importing on every install would only
+// add latency without freeing meaningful memory. The leak is bounded
+// at one PyProxy per session and is documented here so a future
+// refactor doesn't accidentally clear it on each install.
+//
+// We cache the PROMISE rather than the resolved module so two
+// `dependencies:install` messages arriving before micropip is loaded
+// share a single `loadPackage('micropip')` + `pyimport('micropip')`
+// ceremony instead of racing and producing two independent PyProxies.
+let micropipLoadPromise: Promise<PyodidePyModule> | null = null;
+
+async function ensureMicropip(): Promise<PyodidePyModule> {
+  if (micropipLoadPromise) return micropipLoadPromise;
+  micropipLoadPromise = (async () => {
+    const py = (await loadPyodide()) as PyodideRuntime;
+    if (
+      typeof py.loadPackage !== 'function' ||
+      typeof py.pyimport !== 'function'
+    ) {
+      throw new Error('Pyodide runtime missing loadPackage / pyimport');
+    }
+    await py.loadPackage('micropip');
+    const mod = py.pyimport('micropip');
+    if (!mod || typeof mod.install !== 'function') {
+      throw new Error('Failed to load micropip (missing install)');
+    }
+    return mod;
+  })().catch((err) => {
+    // Reset on failure so a retry can re-attempt the load instead of
+    // permanently caching the rejection.
+    micropipLoadPromise = null;
+    throw err;
+  });
+  return micropipLoadPromise;
+}
+
+// RL-025 Slice C — classify the error surface micropip throws when an
+// install fails. Native wheels (numpy-fork, psycopg2, packages with C
+// extensions Pyodide does not ship) raise a distinctive message that
+// we map to the closed-enum `'unsupported-wheel'` so dashboards can
+// distinguish recoverable native-wheel rejections from generic
+// network errors.
+function classifyMicropipError(
+  message: string
+): DependencyInstallFailureReason {
+  const lower = message.toLowerCase();
+  if (
+    // Pyodide < 0.25 native-wheel rejection.
+    lower.includes("can't find a pure python 3 wheel") ||
+    // Pyodide >= 0.25 canonical form (note the inverted phrasing).
+    lower.includes('is not a pure python 3 wheel') ||
+    lower.includes('no binary distribution') ||
+    lower.includes('no compatible wheel') ||
+    lower.includes('requires extension build') ||
+    lower.includes('no matching distribution')
+  ) {
+    return 'unsupported-wheel';
+  }
+  return 'unknown';
 }
 
 ctx.addEventListener('message', async (event) => {
@@ -1392,5 +1518,166 @@ _lingua_state
         runtime.setStdin?.();
       }
     }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // RL-025 Slice C — Pyodide dependency-management bridge.
+  // ─────────────────────────────────────────────────────────────
+
+  if (msg.type === 'dependencies:list-loaded') {
+    const { requestId } = msg as { requestId: string };
+    try {
+      const py = (await loadPyodide()) as PyodideRuntime;
+      const loaded = py.loadedPackages
+        ? Object.keys(py.loadedPackages)
+        : [];
+      ctx.postMessage({
+        type: 'dependencies:list-loaded:reply',
+        requestId,
+        packages: loaded,
+      });
+    } catch {
+      // Pyodide boot failed — caller falls back to `'detected'` for
+      // every name, preserving Slice A's honest signal.
+      ctx.postMessage({
+        type: 'dependencies:list-loaded:reply',
+        requestId,
+        packages: [],
+      });
+    }
+    return;
+  }
+
+  if (msg.type === 'dependencies:install') {
+    const { runId, specifiers } = msg as {
+      runId: string;
+      specifiers: readonly string[];
+    };
+    // Defensive validation: even though the renderer-side Slice A
+    // detector returns clean PyPI names, the worker re-validates so
+    // a compromised renderer cannot smuggle injection text into
+    // `micropip.install`. Reviewer fix — track REJECTED names too so
+    // the final statuses map covers every input. Otherwise the
+    // renderer would leave those rows stuck in `'installing'`
+    // because `endInstall` only flips names it sees in
+    // `perNameStatus`.
+    const seen = new Set<string>();
+    const safeNames: string[] = [];
+    const rejectedNames: string[] = [];
+    for (const raw of specifiers) {
+      if (typeof raw !== 'string') continue;
+      if (!PYTHON_PACKAGE_NAME_RE.test(raw)) {
+        rejectedNames.push(raw);
+        continue;
+      }
+      if (seen.has(raw)) continue;
+      seen.add(raw);
+      safeNames.push(raw);
+    }
+    if (safeNames.length === 0) {
+      const statuses: Record<
+        string,
+        'installed' | 'failed' | 'cancelled' | 'skipped-preflight'
+      > = {};
+      for (const name of rejectedNames) statuses[name] = 'failed';
+      ctx.postMessage({
+        type: 'dependencies:install:done',
+        runId,
+        statuses,
+        outcome: 'failed' as DependencyInstallOutcome,
+        failureReason: 'invalid-specifier' as DependencyInstallFailureReason,
+      });
+      return;
+    }
+
+    try {
+      ctx.postMessage({
+        type: 'dependencies:install:log',
+        runId,
+        stream: 'stdout',
+        chunk: 'Loading Python runtime...\n',
+      });
+      const micropip = await ensureMicropip();
+      ctx.postMessage({
+        type: 'dependencies:install:log',
+        runId,
+        stream: 'stdout',
+        chunk: `Installing ${safeNames.join(', ')} via micropip...\n`,
+      });
+      // Reviewer fix — pass a Python list (not the raw JS array) to
+      // `micropip.install`. Recent Pyodide versions still accept JS
+      // arrays via PyProxy auto-conversion, but the conversion has
+      // historically been fragile across releases (a passed-through
+      // JS array can coerce to `str([...])`). Using `pyodide.toPy`
+      // is the documented defensive path. Reviewer fix v2 — wrap in
+      // try/finally so the PyProxy returned by `toPy` is destroyed
+      // even if `micropip.install` throws (avoids one PyProxy leak
+      // per install).
+      const py = (await loadPyodide()) as PyodideRuntime;
+      const argument =
+        typeof py.toPy === 'function' ? py.toPy(safeNames) : safeNames;
+      try {
+        await Promise.resolve(micropip.install!(argument));
+      } finally {
+        if (
+          argument &&
+          argument !== safeNames &&
+          typeof (argument as PyProxyLike).destroy === 'function'
+        ) {
+          try {
+            (argument as PyProxyLike).destroy!();
+          } catch {
+            // Best-effort destroy; the PyProxy may already be gone if
+            // Pyodide recycled it internally.
+          }
+        }
+      }
+      const statuses: Record<
+        string,
+        'installed' | 'failed' | 'cancelled' | 'skipped-preflight'
+      > = {};
+      for (const name of safeNames) statuses[name] = 'installed';
+      for (const name of rejectedNames) statuses[name] = 'failed';
+      // RL-025 Slice C reviewer fix — when SOME names were rejected
+      // (regex-invalid) but the rest installed cleanly, surface a
+      // `partial` outcome so the renderer can see "some succeeded,
+      // some failed". The dominant failure reason is the regex
+      // rejection.
+      const outcome: DependencyInstallOutcome =
+        rejectedNames.length > 0 ? 'partial' : 'success';
+      const failureReason: DependencyInstallFailureReason | null =
+        rejectedNames.length > 0 ? 'invalid-specifier' : null;
+      ctx.postMessage({
+        type: 'dependencies:install:done',
+        runId,
+        statuses,
+        outcome,
+        failureReason,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const reason: DependencyInstallFailureReason =
+        classifyMicropipError(message);
+      ctx.postMessage({
+        type: 'dependencies:install:log',
+        runId,
+        stream: 'stderr',
+        chunk: `${message}\n`,
+      });
+      const statuses: Record<
+        string,
+        'installed' | 'failed' | 'cancelled' | 'skipped-preflight'
+      > = {};
+      for (const name of safeNames) statuses[name] = 'failed';
+      for (const name of rejectedNames) statuses[name] = 'failed';
+      ctx.postMessage({
+        type: 'dependencies:install:done',
+        runId,
+        statuses,
+        outcome: 'failed' as DependencyInstallOutcome,
+        failureReason: reason,
+      });
+    }
+    return;
   }
 });
