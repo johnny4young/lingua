@@ -10791,6 +10791,81 @@ Why now: prior commits accumulated ~25 toggles that were never legitimate trade-
   - Template staleness → mitigated by CI test that runs each template's `runCommand` against a sandbox and asserts non-zero stdout.
   - License headers in template files → mitigated by including SPDX-License-Identifier in each file.
 
+#### § Slice 1 landed (2026-05-23)
+
+- **Status flip**: `Planned` → `Partial`. ROADMAP § 4 row updated.
+- **Scope shipped**: 5 curated `ProjectTemplateV1` modules + Welcome
+  panel + palette entry + folds A/B/C/D/E/F/G.
+- **Files created** (new):
+  - `src/shared/projectTemplate.ts` — schema + `parseProjectTemplate`
+    validator + `projectTemplateDirname` helper.
+  - `src/renderer/data/projectTemplates/{index,expressApiHello,fastapiHello,nodeCliArgparse,reactComponentSandbox,pythonDataExplorer}.ts`
+    — catalog + `PROJECT_TEMPLATES` + `PROJECT_TEMPLATE_IDS` closed
+    enum (22 emitted files total across the 5 templates: 4 + 5 + 4 +
+    5 + 4).
+  - `src/renderer/hooks/useProjectTemplateScaffolder.ts` — picker →
+    empty-dir safety → mkdir+write → openProject → openFile →
+    telemetry choreography.
+  - `src/renderer/hooks/projectTemplateTelemetry.ts` —
+    `trackTemplateProjectApplied` wrapper around the `trackEvent`
+    surface so the hook stays IPC-pure.
+  - `src/renderer/components/Welcome/ProjectTemplatesPanel.tsx` —
+    5-card grid + per-card busy/disabled gating + Reveal-in-Finder
+    success notice + non-empty / web-unavailable / error notice
+    branches.
+  - `src/renderer/components/Welcome/ProjectTemplatesOverlay.tsx` —
+    modal wrapper used by the palette entry so the panel surfaces
+    even with active tabs.
+  - `tests/shared/projectTemplate.test.ts`,
+    `tests/renderer/data/projectTemplates.test.ts`,
+    `tests/renderer/hooks/useProjectTemplateScaffolder.test.tsx`,
+    `tests/components/Welcome/ProjectTemplatesPanel.test.tsx`
+    — 16+ new test cases (schema reject paths, 5-template
+    structural pins, mkdir-before-write ordering + telemetry timing,
+    5-card render + click + web-stub).
+- **Files modified**:
+  - `src/shared/telemetry.ts` + `update-server/src/telemetry.ts` —
+    `template_project_applied` event + allowlist
+    (`templateId`, `language`) + `TEMPLATE_PROJECT_IDS` set
+    mirrored on both sides.
+  - `tests/shared/telemetry.test.ts` + `update-server/test/telemetry.test.ts`
+    — sorted-events allowlist gains `template_project_applied`;
+    new parity test cross-imports the set.
+  - `src/renderer/components/Editor/EditorEmptyState.tsx` — mounts
+    `<ProjectTemplatesPanel>` full-width below the existing 2-col
+    grid (`flex flex-col` outer wrapper, `lg:grid` inner wrapper
+    preserved for the headline + Starting Points columns).
+  - `src/renderer/components/CommandPalette/commandPaletteModel.ts`
+    + `src/renderer/components/CommandPalette/CommandPalette.tsx`
+    + `src/renderer/App.tsx` — `onNewProjectFromTemplate?` callback
+    threaded through; palette entry hidden when omitted; App.tsx
+    wires it to `openOverlay('project-templates')`.
+  - `src/renderer/hooks/useGlobalShortcuts.ts` — new `AppOverlay`
+    kind `'project-templates'`.
+  - `tests/components/commandPaletteModel.test.ts` — palette entry
+    visibility + opener-before-close ordering test.
+  - `src/renderer/i18n/locales/{en,es}/common.json` — 16 new keys
+    (5 labels + 5 descriptions + heading + subheading + action +
+    web-unavailable + non-empty-dir + success-heading + success-body +
+    reveal-in-finder + dismiss + 4 error fallbacks + 2 palette
+    label/description). ES tuteo verified.
+- **What's deliberately NOT in Slice 1** (deferred to Slice 2+):
+  - CI smoke that runs each template's `runCommand` to catch stale
+    npm / pip versions. (Risk-mitigation acknowledged in PLAN.md;
+    structural tests cover the contract today.)
+  - Template customisation wizard (project name, port, etc.).
+  - Auto-install dependencies after scaffold.
+- **Reviewer-pass corrections** (rolled in pre-stage):
+  - `ProjectTemplatesOverlay` `closeRef.current = onClose` moved
+    from render body into a `useEffect([onClose])` so the
+    no-ref-update-during-render lint rule stays green.
+  - `parseProjectTemplate` validator narrows the `language` check
+    via `ReadonlySet<string>` (the literal `LanguagePackId` union
+    rejects `string` arguments otherwise).
+  - JSON `package.json` files use the `"license": "MIT"` field
+    instead of an inline SPDX comment (JSON cannot host comments);
+    structural test reads both shapes.
+
 ### RL-104 WebGPU AI Inference (Web) — Spike
 
 - Priority: `P3`

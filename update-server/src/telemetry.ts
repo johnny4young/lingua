@@ -147,6 +147,11 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-102 Slice 1 fold D — Git diff panel discovery signal. Pure
   // counter; no payload.
   'git.diff_panel_opened',
+  // RL-103 Slice 1 fold B — Curated project template applied. Mirror
+  // of src/shared/telemetry.ts. Closed-enum
+  // `{ templateId, language }` where `templateId` ∈
+  // `TEMPLATE_PROJECT_IDS` and `language` ∈ language pack ids.
+  'template_project_applied',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -245,6 +250,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-102 Slice 1 fold D — mirror of src/shared/telemetry.ts.
   'git.layer_attached': ['repoState'],
   'git.diff_panel_opened': [],
+  // RL-103 Slice 1 fold B — mirror of src/shared/telemetry.ts.
+  'template_project_applied': ['templateId', 'language'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -457,6 +464,18 @@ export const GIT_LAYER_REPO_STATES = new Set([
   'git-repo',
   'no-git',
   'no-binary',
+]);
+// RL-103 Slice 1 fold B — mirror of TEMPLATE_PROJECT_IDS. Closed
+// enum for the `templateId` property on `template_project_applied`.
+// Source of truth duplicated from src/shared/telemetry.ts because
+// update-server cannot import from src/. The parity test asserts
+// byte-for-byte equality.
+export const TEMPLATE_PROJECT_IDS = new Set([
+  'express-api-hello',
+  'fastapi-hello',
+  'node-cli-argparse',
+  'react-component-sandbox',
+  'python-data-explorer',
 ]);
 // RL-025 Slice A — mirror of DEPENDENCY_COUNT_BUCKETS_SET from
 // `src/shared/telemetry.ts` (canonical home in
@@ -920,6 +939,11 @@ function isAllowedValue(
       return false;
     case 'git.diff_panel_opened':
       // Pure counter — no whitelisted properties.
+      return false;
+    case 'template_project_applied':
+      if (key === 'templateId')
+        return typeof value === 'string' && TEMPLATE_PROJECT_IDS.has(value);
+      if (key === 'language') return isSafeToken(value);
       return false;
     default: {
       const exhaustive: never = event;

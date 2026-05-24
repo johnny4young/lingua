@@ -527,6 +527,58 @@ describe('buildCommandPaletteModel', () => {
     expect(calls).toEqual(['close', 'privacy']);
   });
 
+  it('exposes the New project from template action only when the opener is wired in (RL-103 Slice 1 fold C)', () => {
+    const calls: string[] = [];
+    const onClose = vi.fn(() => calls.push('close'));
+    const onNewProjectFromTemplate = vi.fn(() => calls.push('template'));
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose,
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    const withoutHandler = buildCommandPaletteModel(baseArgs);
+    expect(
+      withoutHandler.find(
+        (command) => command.id === 'action-new-project-from-template'
+      )
+    ).toBeUndefined();
+
+    const withHandler = buildCommandPaletteModel({
+      ...baseArgs,
+      onNewProjectFromTemplate,
+    });
+    const command = withHandler.find(
+      (entry) => entry.id === 'action-new-project-from-template'
+    );
+    expect(command).toBeDefined();
+    expect(command?.keywords).toEqual(
+      expect.arrayContaining(['project', 'template', 'scaffold'])
+    );
+    command?.action();
+    // The opener must run before onClose so the overlay mounts in
+    // the same React tick the palette closes — otherwise the user
+    // would see the palette dismiss with nothing to land on.
+    expect(calls).toEqual(['template', 'close']);
+  });
+
   it('keeps matching commands when filtering by keywords, label, or description', () => {
     const commands = [
       {

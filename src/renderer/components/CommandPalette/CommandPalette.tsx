@@ -60,6 +60,12 @@ interface CommandPaletteProps {
    */
   onRerunLast?: () => void;
   /**
+   * RL-103 Slice 1 fold C — fires the "New project from template…"
+   * palette action. The handler typically focuses the Welcome screen
+   * (or opens it) so the user picks a card.
+   */
+  onNewProjectFromTemplate?: () => void;
+  /**
    * RL-028 sixth slice trailer — fires when the user activates a
    * per-entry "Replay {language} run …" palette action. The handler
    * dispatches `replayHistoryEntry(entry, ...)` so the run does not
@@ -84,6 +90,7 @@ export function CommandPalette({
   onOpenDeveloperUtility,
   onOpenKeyboardShortcuts,
   onRerunLast,
+  onNewProjectFromTemplate,
   onReplayEntry,
   onToggleVimMode,
 }: CommandPaletteProps) {
@@ -168,6 +175,7 @@ export function CommandPalette({
       executionHistory: canUseExecutionHistory ? executionHistory : [],
       onFocusLanguageTab: focusLanguageTab,
       onRerunLast: canUseExecutionHistory ? onRerunLast : undefined,
+      onNewProjectFromTemplate,
       onReplayEntry: canUseExecutionHistory ? onReplayEntry : undefined,
       onToggleVimMode,
       vimModeEnabled: vimMode,
@@ -545,6 +553,7 @@ export function CommandPalette({
     executionHistory,
     snapshotRing,
     onRerunLast,
+    onNewProjectFromTemplate,
     onReplayEntry,
     onToggleVimMode,
     vimMode,

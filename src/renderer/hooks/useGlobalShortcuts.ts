@@ -29,7 +29,8 @@ export type AppOverlay =
   | 'utilities'
   | 'snippets'
   | 'whats-new'
-  | 'keyboard-shortcuts';
+  | 'keyboard-shortcuts'
+  | 'project-templates';
 
 interface UseGlobalShortcutsOptions {
   isRunning: boolean;

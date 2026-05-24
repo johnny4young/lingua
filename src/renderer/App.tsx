@@ -12,6 +12,7 @@ import { ProjectSearch } from './components/ProjectSearch/ProjectSearch';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardShortcutsModal';
 import { SnippetsModal } from './components/Snippets';
+import { ProjectTemplatesOverlay } from './components/Welcome/ProjectTemplatesOverlay';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
@@ -752,8 +753,12 @@ function AppChrome({
               });
             }
           }}
+          onNewProjectFromTemplate={() => openOverlay('project-templates')}
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
+      )}
+      {overlay === 'project-templates' && (
+        <ProjectTemplatesOverlay onClose={closeOverlay} />
       )}
       {overlay === 'settings' && (
         <SettingsModal
