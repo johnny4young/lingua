@@ -137,10 +137,19 @@ describe('useGlobalShortcuts', () => {
     expect(calls.toggleOverlay).not.toHaveBeenCalledWith('utilities');
   });
 
-  it('toggles Recent Runs from Mod+Shift+H', () => {
+  it('toggles Recent Runs from Mod+Alt+H', () => {
+    // RL-024 Slice 2 — moved from Mod+Shift+H to Mod+Alt+H so the
+    // VSCode-parity Mod+Shift+H binding can map to project-replace.
+    const calls = renderShortcuts();
+    dispatchKeyDown({ key: 'h', ctrlKey: true, altKey: true });
+    expect(calls.toggleRecentRunsPopover).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens Project Replace from Mod+Shift+H', () => {
+    // RL-024 Slice 2 — VSCode-parity binding for replace-in-files.
     const calls = renderShortcuts();
     dispatchKeyDown({ key: 'h', ctrlKey: true, shiftKey: true });
-    expect(calls.toggleRecentRunsPopover).toHaveBeenCalledTimes(1);
+    expect(calls.toggleOverlay).toHaveBeenCalledWith('replace');
   });
 
   // RL-093 polish #8 — the new Stdin / floating-position shortcuts

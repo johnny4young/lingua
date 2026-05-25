@@ -61,6 +61,11 @@ describe('TELEMETRY_EVENTS', () => {
       'dependency.install_completed',
       'dependency.install_failed_reason',
       'dependency.install_started',
+      // RL-024 Slice 2 — Replace in files applied. Closed-enum
+      // `{ scope, countBucket, regex }`. Sorts between
+      // `dependency.install_started` (d.e-p) and `feature.blocked`
+      // (f.e-a) alphabetically.
+      'editor.replace_in_files_applied',
       'feature.blocked',
       // RL-102 Slice 1 fold D — Git read-only layer adoption signal.
       // `git.diff_panel_opened` sorts before `git.layer_attached`

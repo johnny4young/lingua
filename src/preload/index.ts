@@ -235,6 +235,37 @@ contextBridge.exposeInMainWorld('lingua', {
         query,
         options
       ) as Promise<FsSearchResult[]>,
+    // RL-024 Slice 2 — preview + apply replace-in-files.
+    replaceInFiles: (
+      rootId: string,
+      relativePath: string,
+      query: string,
+      replacement: string,
+      options?: FsReplaceOptions
+    ) =>
+      ipcRenderer.invoke(
+        'fs:replaceInFiles',
+        rootId,
+        relativePath,
+        query,
+        replacement,
+        options
+      ) as Promise<FsReplaceResult[]>,
+    applyReplaceInFile: (
+      rootId: string,
+      relativePath: string,
+      query: string,
+      replacement: string,
+      options?: FsReplaceOptions
+    ) =>
+      ipcRenderer.invoke(
+        'fs:applyReplaceInFile',
+        rootId,
+        relativePath,
+        query,
+        replacement,
+        options
+      ) as Promise<FsApplyReplaceResult>,
     stat: (rootId: string, relativePath: string) =>
       ipcRenderer.invoke('fs:stat', rootId, relativePath),
     read: (rootId: string, relativePath: string) =>

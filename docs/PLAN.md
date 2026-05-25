@@ -11914,6 +11914,103 @@ Pre-req: RL-024 Slice 1 ya shipped.
 
 **Dependencies:** RL-024 Slice 1.
 
+#### § Slice 2 landed (2026-05-25)
+
+Shipped as Iter 55 with all five approved folds (A, B, C, D, F) and
+two prerequisite fixes. The slice delivers the Cmd+Shift+H "Replace in
+files" overlay, atomic main-side apply via tmpfile + rename, and the
+closed-enum telemetry hook.
+
+- **Two new main IPCs.** `fs:replaceInFiles` (preview-only) walks the
+  project tree with the same hidden-entry filter / binary skip / size
+  cap as `fs:searchInFiles`, runs `matchAll` against a `g`-flagged
+  RegExp (escaped when not in regex mode) per line, returns one row
+  per file with each match carrying `preview` + `replacedPreview` +
+  `replacement` (Monaco edit payload). `fs:applyReplaceInFile`
+  atomically rewrites one file by writing to a same-dir
+  `.${basename}.tmp-${uuid8}` and then `fs.rename`-ing over the
+  original; the rename retries up to 3 times with [10ms, 100ms,
+  1000ms] backoff to ride out Windows AV locks. Closed-enum failure
+  reasons: `no-matches | read-error | write-error | binary |
+  too-large | regex-timeout | invalid-regex | unsupported`.
+- **New renderer surface.** `<ProjectReplace>` at
+  `src/renderer/components/ProjectReplace/ProjectReplace.tsx` mirrors
+  the `<ProjectSearch>` chrome with a second Replace-with input,
+  Regex + Case toggles, an `Excludes` chip strip (fold F:
+  `node_modules .git dist build`), an `Apply queue` progress strip
+  during all-files apply (fold A), per-file Apply + Apply-to-all with
+  a confirmation modal, and a regex-timed-out row that's excluded
+  from apply-to-all (fold C). `MatchDiff` renders the before
+  (strikethrough red `<mark>`) and after (green `<mark>` +
+  windowed replacedPreview) inline.
+- **New zustand store.** `useProjectReplaceStore` shape mirrors
+  `useProjectSearchStore` + a `replacement` field, `applying:
+  Set<relativePath>`, `applyProgress: { done, total } | null`. The
+  `applyToFile` action removes the row on success so the preview
+  reconciles atomically; `applyToAll` walks eligible files
+  sequentially, updates `applyProgress` on each tick, holds the strip
+  for 1s after completion.
+- **Open-tab routing (fold D).** When a replace targets a file
+  already open in `editorStore.tabs` with a matching `filePath`, the
+  overlay calls `setActiveTab(matchingTab.id)` BEFORE applying so the
+  user observes the auto-save on the surface they already had.
+- **Regex DoS cooperative cancel (fold C).** Main enforces a per-file
+  deadline of `perLineTimeoutMs × lineCount` (default 50ms × N); a
+  file that blows the deadline is returned with `regexTimedOut:
+  true` and excluded from apply-to-all. The overlay renders a
+  localized notice for those rows.
+- **Excludes chips (fold F).** Header chip strip surfaces the
+  hidden-entry list so the user knows what isn't being scanned.
+- **Telemetry.** New closed-enum event
+  `editor.replace_in_files_applied { scope ∈ {'single-file',
+  'all-files'}, countBucket, regex }`. Closed-enum set
+  `REPLACE_IN_FILES_SCOPES` mirrored on update-server with parity
+  test. `countBucket` reuses the existing `DEPENDENCY_COUNT_BUCKETS`
+  set via `bucketDependencyCount`.
+- **Keyboard catalog.** New `nav-project-replace` shortcut
+  (`Mod+Shift+H`). **Prerequisite fix**: `run-toggle-recent-runs`
+  moved from `Mod+Shift+H` to `Mod+Alt+H` so the VSCode-parity
+  binding is free for the new shortcut. Conflict-free regression
+  test (`tests/data/keyboardShortcuts.test.ts`) guards both bindings.
+  Stale references updated in
+  `src/renderer/runtime/recentRunsPopoverBridge.ts`,
+  `src/renderer/components/Editor/RecentRunsPill.tsx`,
+  `tests/hooks/useGlobalShortcuts.test.tsx`, and
+  `tests/e2e/recentRunsPill.spec.ts`.
+- **AppOverlay union + palette.** `useGlobalShortcuts.AppOverlay`
+  widens with `'replace'`; `App.tsx` mounts `<ProjectReplace>` when
+  `overlay === 'replace'`; `commandPaletteModel.ts` gains
+  `action-project-replace`; `CommandPaletteProps` extends with
+  `onOpenProjectReplace?: () => void`.
+- **i18n (en + es tuteo, 19 keys).** `projectReplace.*` block plus
+  `commandPalette.action.projectReplace.{label,description}` and
+  `shortcuts.item.projectReplace.label`. Spanish copy reviewed
+  against the voseo allowlist: `Reemplaza`, `Aplica`, `Busca`,
+  `Distingue mayúsculas`, `Cancela`.
+- **Tests.** New `tests/stores/projectReplaceStore.test.ts` (11
+  cases), new `tests/components/ProjectReplace.test.tsx` (10 cases),
+  new `tests/e2e/projectReplace.spec.ts` (EN + ES Cmd+Shift+H
+  binding), extended `tests/ipc/fileSystem.test.ts` with 16 cases
+  covering preview success + binary skip + invalid regex + atomic
+  apply + no-matches + binary + too-large + read-error + regex
+  backrefs + tmpfile cleanup, extended
+  `tests/data/keyboardShortcuts.test.ts` with two binding-pin tests,
+  extended `tests/hooks/useGlobalShortcuts.test.tsx` with a
+  `Mod+Shift+H → 'replace'` dispatch test and the renamed
+  `Mod+Alt+H` recent-runs case, extended `tests/shared/telemetry.test.ts`
+  review wall.
+- **Prerequisite fix #2.** `tests/e2e/licenseWeb.helpers.ts::createJavaScriptTab`
+  short-circuits when a JS tab is already visible. The seeded
+  `welcome.js` tab made the helper time out on
+  `empty-state-quick-start-javascript` — three `recentRunsPill.spec.ts`
+  tests were already failing on `main` before this slice for this
+  reason. The remaining `toolbar-run-button` failure in
+  `recentRunsPill.spec.ts` is pre-existing and tracked in
+  `docs/BACKLOG.md`; not gated by this slice.
+- **Deferred.** Settings-driven excludes override + diff editor
+  preview + zip import/export + starter galleries remain Slice 3
+  territory.
+
 ### RL-116 Focus / Presenter mode
 
 - Priority: `P3`

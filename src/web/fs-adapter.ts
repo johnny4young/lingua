@@ -118,6 +118,21 @@ function rejectsTraversal(relativePath: string): boolean {
   return segments.some((segment) => !isSafeEntryName(segment));
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function coercePositiveLimit(
+  value: unknown,
+  fallback: number,
+  max: number
+): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(1, Math.floor(value)));
+}
+
 async function resolveHandle(
   rootId: string,
   relativePath: string
@@ -476,16 +491,34 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     query: string,
     options: FsSearchOptions = {}
   ): Promise<FsSearchResult[]> => {
-    const trimmedQuery = query ?? '';
-    if (trimmedQuery.length === 0) return [];
+    if (typeof query !== 'string') return [];
+    const safeOptions = isRecord(options) ? options : {};
+    const searchText = query;
+    if (searchText.length === 0) return [];
 
-    const caseSensitive = options.caseSensitive ?? false;
-    const maxMatchesPerFile = Math.max(1, options.maxMatchesPerFile ?? 20);
-    const maxTotalMatches = Math.max(1, options.maxTotalMatches ?? 500);
-    const maxFileSize = Math.max(1, options.maxFileSize ?? 1_000_000);
-    const maxFilesScanned = Math.max(1, options.maxFilesScanned ?? 5_000);
+    const caseSensitive = safeOptions.caseSensitive === true;
+    const maxMatchesPerFile = coercePositiveLimit(
+      safeOptions.maxMatchesPerFile,
+      20,
+      200
+    );
+    const maxTotalMatches = coercePositiveLimit(
+      safeOptions.maxTotalMatches,
+      500,
+      5_000
+    );
+    const maxFileSize = coercePositiveLimit(
+      safeOptions.maxFileSize,
+      1_000_000,
+      1_000_000
+    );
+    const maxFilesScanned = coercePositiveLimit(
+      safeOptions.maxFilesScanned,
+      5_000,
+      20_000
+    );
 
-    const needle = caseSensitive ? trimmedQuery : trimmedQuery.toLowerCase();
+    const needle = caseSensitive ? searchText : searchText.toLowerCase();
     const files = await webFsAdapter.listAllFiles(rootId, relativePath);
     const results: FsSearchResult[] = [];
     let totalMatches = 0;
@@ -542,7 +575,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
           column: column + 1,
           preview: rawLine.slice(previewStart, previewEnd),
           matchStart: column - previewStart,
-          matchEnd: column - previewStart + trimmedQuery.length,
+          matchEnd: column - previewStart + searchText.length,
         });
       }
 
@@ -554,6 +587,18 @@ export const webFsAdapter: LinguaAPI['fs'] = {
 
     return results;
   },
+
+  // RL-024 Slice 2 — web does not expose a replace-in-files API (no
+  // atomic-rename primitive over the File System Access API; the
+  // safe-by-default posture is to disable the action entirely and
+  // surface "Open Lingua Desktop" copy via the panel context). Both
+  // stubs return empty / unsupported so the renderer guards work.
+  replaceInFiles: async (): Promise<FsReplaceResult[]> => [],
+  applyReplaceInFile: async (): Promise<FsApplyReplaceResult> => ({
+    ok: false,
+    replaced: 0,
+    reason: 'unsupported',
+  }),
 
   stat: async (rootId: string, relativePath: string): Promise<FsStatResult> => {
     const { handle } = await resolveHandle(rootId, relativePath);

@@ -102,7 +102,11 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     group: 'run',
     labelKey: 'shortcuts.item.toggleRecentRuns.label',
     descriptionKey: 'shortcuts.item.toggleRecentRuns.description',
-    combos: [{ tokens: ['Mod', 'Shift', 'H'] }],
+    // RL-024 Slice 2 — moved from Mod+Shift+H to Mod+Alt+H so the
+    // VSCode-parity `Mod+Shift+H` binding can map to project-replace
+    // (`nav-project-replace`). Alt+H still reads as "History" mnemonic
+    // for power users.
+    combos: [{ tokens: ['Mod', 'Alt', 'H'] }],
     keywords: ['history', 'recent', 'runs', 'replay', 'popover'],
   },
   {
@@ -281,6 +285,16 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'shortcuts.item.projectSearch.label',
     combos: [{ tokens: ['Mod', 'Shift', 'F'] }],
     keywords: ['search', 'find', 'project'],
+  },
+  {
+    // RL-024 Slice 2 — Replace in files. Cmd+Shift+H mirrors the
+    // VSCode binding so users with that muscle memory can find it
+    // immediately.
+    id: 'nav-project-replace',
+    group: 'navigation',
+    labelKey: 'shortcuts.item.projectReplace.label',
+    combos: [{ tokens: ['Mod', 'Shift', 'H'] }],
+    keywords: ['replace', 'substitute', 'find', 'project', 'rename'],
   },
   {
     id: 'overlay-command-palette',

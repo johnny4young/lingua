@@ -114,12 +114,23 @@ describe('keyboardShortcuts catalog', () => {
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Alt', 'M'] }]);
   });
 
-  it('declares the Recent Runs popover shortcut as Mod+Shift+H', () => {
+  it('declares the Recent Runs popover shortcut as Mod+Alt+H', () => {
+    // RL-024 Slice 2 — moved from Mod+Shift+H to Mod+Alt+H so the
+    // VSCode-parity `Mod+Shift+H` binding goes to project-replace.
     const shortcut = KEYBOARD_SHORTCUTS.find(
       (entry) => entry.id === 'run-toggle-recent-runs'
     );
     expect(shortcut).toBeDefined();
     expect(shortcut?.group).toBe('run');
+    expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Alt', 'H'] }]);
+  });
+
+  it('declares the project-replace shortcut as Mod+Shift+H', () => {
+    const shortcut = KEYBOARD_SHORTCUTS.find(
+      (entry) => entry.id === 'nav-project-replace'
+    );
+    expect(shortcut).toBeDefined();
+    expect(shortcut?.group).toBe('navigation');
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Shift', 'H'] }]);
   });
 

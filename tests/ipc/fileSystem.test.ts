@@ -634,6 +634,25 @@ describe('fs:searchInFiles', () => {
     expect(result[0]!.matches).toHaveLength(2);
   });
 
+  it('preserves leading whitespace in the search query', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(
+      path.join(tmpRoot, 'main.ts'),
+      'todo\n  todo\n',
+      'utf-8'
+    );
+
+    const result = (await invoke(
+      'fs:searchInFiles',
+      rootId,
+      '',
+      '  todo'
+    )) as Array<{ matches: Array<{ column: number }> }>;
+    expect(result).toHaveLength(1);
+    expect(result[0]!.matches).toHaveLength(1);
+    expect(result[0]!.matches[0]!.column).toBe(1);
+  });
+
   it('skips binary files via the NUL-byte heuristic', async () => {
     const { rootId } = mintFor(tmpRoot);
     const NUL = String.fromCharCode(0);
@@ -672,6 +691,334 @@ describe('fs:searchInFiles', () => {
     await expect(
       invoke('fs:searchInFiles', 'ghost', '', 'needle')
     ).rejects.toThrow('unknown-root');
+  });
+});
+
+// ----------------------------------------------- RL-024 Slice 2: replace
+//
+// `fs:replaceInFiles` (preview) and `fs:applyReplaceInFile` (atomic
+// write). Same capability contract as `fs:searchInFiles`; the apply
+// path also covers binary skip, too-large skip, regex backrefs, and
+// atomic-via-tmpfile-rename.
+
+import { readFile as readFileNode } from 'node:fs/promises';
+
+describe('fs:replaceInFiles (preview)', () => {
+  it('returns no results when query is empty', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const result = await invoke(
+      'fs:replaceInFiles',
+      rootId,
+      '',
+      '',
+      'new',
+      {}
+    );
+    expect(result).toEqual([]);
+  });
+
+  it('previews literal substitution with replacedPreview per match', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(
+      path.join(tmpRoot, 'a.ts'),
+      'const oldName = 1;\nlog(oldName);\n',
+      'utf-8'
+    );
+    const result = (await invoke(
+      'fs:replaceInFiles',
+      rootId,
+      '',
+      'oldName',
+      'newName',
+      {}
+    )) as Array<{
+      relativePath: string;
+      matches: Array<{
+        preview: string;
+        replacedPreview: string;
+        replacement: string;
+      }>;
+    }>;
+    expect(result).toHaveLength(1);
+    expect(result[0]!.matches).toHaveLength(2);
+    expect(result[0]!.matches[0]!.replacement).toBe('newName');
+    expect(result[0]!.matches[0]!.replacedPreview).toContain('newName');
+    expect(result[0]!.matches[0]!.preview).toContain('oldName');
+  });
+
+  it('honors the regex flag with backreferences', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(
+      path.join(tmpRoot, 'a.ts'),
+      'foo(123) bar(456)\n',
+      'utf-8'
+    );
+    const result = (await invoke(
+      'fs:replaceInFiles',
+      rootId,
+      '',
+      '(foo|bar)\\((\\d+)\\)',
+      '$1=$2',
+      { regex: true }
+    )) as Array<{ matches: Array<{ replacement: string }> }>;
+    expect(result).toHaveLength(1);
+    expect(result[0]!.matches.map((m) => m.replacement)).toEqual([
+      'foo=123',
+      'bar=456',
+    ]);
+  });
+
+  it('treats dollar sequences literally when regex mode is off', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'a.ts'), 'oldName\n', 'utf-8');
+    const result = (await invoke(
+      'fs:replaceInFiles',
+      rootId,
+      '',
+      'oldName',
+      '$&-$1',
+      {}
+    )) as Array<{ matches: Array<{ replacement: string; replacedPreview: string }> }>;
+    expect(result[0]!.matches[0]!.replacement).toBe('$&-$1');
+    expect(result[0]!.matches[0]!.replacedPreview).toContain('$&-$1');
+  });
+
+  it('sanitizes malformed option payloads instead of disabling caps', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(
+      path.join(tmpRoot, 'a.ts'),
+      'oldName\n'.repeat(20),
+      'utf-8'
+    );
+    const result = (await invoke(
+      'fs:replaceInFiles',
+      rootId,
+      '',
+      'oldName',
+      'newName',
+      { maxTotalMatches: Number.NaN, maxMatchesPerFile: Number.POSITIVE_INFINITY }
+    )) as Array<{ matches: Array<unknown> }>;
+    const total = result.reduce((sum, row) => sum + row.matches.length, 0);
+    expect(total).toBeLessThanOrEqual(20);
+    expect(total).toBeGreaterThan(0);
+  });
+
+  it('skips binary files via the NUL probe', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const NUL = String.fromCharCode(0);
+    await writeFile(
+      path.join(tmpRoot, 'asset.bin'),
+      `oldName${NUL}${NUL}\n`,
+      'utf-8'
+    );
+    await writeFile(
+      path.join(tmpRoot, 'code.ts'),
+      'const oldName = 1;\n',
+      'utf-8'
+    );
+    const result = (await invoke(
+      'fs:replaceInFiles',
+      rootId,
+      '',
+      'oldName',
+      'newName',
+      {}
+    )) as Array<{ relativePath: string }>;
+    expect(result.map((r) => r.relativePath)).toEqual(['code.ts']);
+  });
+
+  it('returns no results for an invalid regex', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'a.ts'), 'oldName\n', 'utf-8');
+    const result = (await invoke(
+      'fs:replaceInFiles',
+      rootId,
+      '',
+      '(unbalanced',
+      'x',
+      { regex: true }
+    )) as unknown[];
+    expect(result).toEqual([]);
+  });
+
+  it('rejects an unknown rootId before walking', async () => {
+    await expect(
+      invoke('fs:replaceInFiles', 'ghost', '', 'needle', 'x', {})
+    ).rejects.toThrow('unknown-root');
+  });
+});
+
+describe('fs:applyReplaceInFile (atomic write)', () => {
+  it('rewrites a single file and returns the replaced count', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const filePath = path.join(tmpRoot, 'a.ts');
+    await writeFile(filePath, 'const oldName = 1;\nlog(oldName);\n', 'utf-8');
+
+    const result = (await invoke(
+      'fs:applyReplaceInFile',
+      rootId,
+      'a.ts',
+      'oldName',
+      'newName',
+      {}
+    )) as { ok: boolean; replaced: number; reason?: string };
+    expect(result).toEqual({ ok: true, replaced: 2 });
+    const after = await readFileNode(filePath, 'utf-8');
+    expect(after).toBe('const newName = 1;\nlog(newName);\n');
+  });
+
+  it('returns no-matches when the query is empty or absent', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(
+      path.join(tmpRoot, 'a.ts'),
+      'const foo = 1;\n',
+      'utf-8'
+    );
+
+    const empty = (await invoke(
+      'fs:applyReplaceInFile',
+      rootId,
+      'a.ts',
+      '',
+      'x',
+      {}
+    )) as { ok: boolean; reason: string };
+    expect(empty.ok).toBe(false);
+    expect(empty.reason).toBe('no-matches');
+
+    const absent = (await invoke(
+      'fs:applyReplaceInFile',
+      rootId,
+      'a.ts',
+      'oldName',
+      'newName',
+      {}
+    )) as { ok: boolean; reason: string };
+    expect(absent.ok).toBe(false);
+    expect(absent.reason).toBe('no-matches');
+  });
+
+  it('returns invalid-regex on a malformed regex', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'a.ts'), 'oldName\n', 'utf-8');
+    const result = (await invoke(
+      'fs:applyReplaceInFile',
+      rootId,
+      'a.ts',
+      '(unbalanced',
+      'x',
+      { regex: true }
+    )) as { ok: boolean; reason: string };
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('invalid-regex');
+  });
+
+  it('returns binary when the file has NUL bytes in the first 1 KB', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const NUL = String.fromCharCode(0);
+    await writeFile(
+      path.join(tmpRoot, 'asset.bin'),
+      `${NUL}oldName${NUL}\n`,
+      'utf-8'
+    );
+    const result = (await invoke(
+      'fs:applyReplaceInFile',
+      rootId,
+      'asset.bin',
+      'oldName',
+      'newName',
+      {}
+    )) as { ok: boolean; reason: string };
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('binary');
+  });
+
+  it('returns too-large when the file exceeds the size cap', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(
+      path.join(tmpRoot, 'a.ts'),
+      'oldName\n'.repeat(100),
+      'utf-8'
+    );
+    const result = (await invoke(
+      'fs:applyReplaceInFile',
+      rootId,
+      'a.ts',
+      'oldName',
+      'newName',
+      { maxFileSize: 10 }
+    )) as { ok: boolean; reason: string };
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('too-large');
+  });
+
+  it('returns read-error when the file does not exist', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const result = (await invoke(
+      'fs:applyReplaceInFile',
+      rootId,
+      'missing.ts',
+      'oldName',
+      'newName',
+      {}
+    )) as { ok: boolean; reason: string };
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('read-error');
+  });
+
+  it('applies regex backreferences atomically', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const filePath = path.join(tmpRoot, 'a.ts');
+    await writeFile(filePath, 'foo(123) bar(456)\n', 'utf-8');
+    const result = (await invoke(
+      'fs:applyReplaceInFile',
+      rootId,
+      'a.ts',
+      '(foo|bar)\\((\\d+)\\)',
+      '$1=$2',
+      { regex: true }
+    )) as { ok: boolean; replaced: number };
+    expect(result).toEqual({ ok: true, replaced: 2 });
+    expect(await readFileNode(filePath, 'utf-8')).toBe('foo=123 bar=456\n');
+  });
+
+  it('applies literal dollar replacements without JS replacement expansion', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    const filePath = path.join(tmpRoot, 'a.ts');
+    await writeFile(filePath, 'oldName oldName\n', 'utf-8');
+    const result = (await invoke(
+      'fs:applyReplaceInFile',
+      rootId,
+      'a.ts',
+      'oldName',
+      '$&-$1',
+      {}
+    )) as { ok: boolean; replaced: number };
+    expect(result).toEqual({ ok: true, replaced: 2 });
+    expect(await readFileNode(filePath, 'utf-8')).toBe('$&-$1 $&-$1\n');
+  });
+
+  it('rejects an unknown rootId before reading', async () => {
+    await expect(
+      invoke('fs:applyReplaceInFile', 'ghost', 'a.ts', 'oldName', 'newName', {})
+    ).rejects.toThrow('unknown-root');
+  });
+
+  it('cleans up the tmpfile after a successful rename', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    await writeFile(path.join(tmpRoot, 'a.ts'), 'oldName\n', 'utf-8');
+    await invoke(
+      'fs:applyReplaceInFile',
+      rootId,
+      'a.ts',
+      'oldName',
+      'newName',
+      {}
+    );
+    // Should be exactly the original file, no .tmp-* siblings left behind.
+    const { readdir } = await import('node:fs/promises');
+    const entries = await readdir(tmpRoot);
+    expect(entries).toEqual(['a.ts']);
   });
 });
 

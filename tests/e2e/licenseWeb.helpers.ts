@@ -542,8 +542,17 @@ export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
 /**
  * Click the "New JavaScript" (or localized equivalent) fast-path button.
  * This is the shortest path from "empty shell" to "a tab I can Run".
+ *
+ * The seeded `welcome.js` scratchpad already counts as a JS tab in some
+ * onboarding paths, so we short-circuit when a JS tab is already on
+ * screen — clicking the empty-state quick-start would time out
+ * because the empty state never renders when a tab is open.
  */
 export async function createJavaScriptTab(page: Page): Promise<void> {
+  const existingJsTab = page.getByRole('tab', { name: /JS .*\.js/i });
+  if (await existingJsTab.first().isVisible().catch(() => false)) {
+    return;
+  }
   const explicitNewButton = page.getByRole('button', {
     name: /new javascript|nuevo javascript/i,
   });

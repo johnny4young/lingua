@@ -251,6 +251,73 @@ interface FsSearchResult {
   matches: FsSearchMatch[];
 }
 
+// RL-024 Slice 2 — replace-in-files preview + apply IPC contract.
+
+interface FsReplaceOptions extends FsSearchOptions {
+  /** When true, treat `query` as a JavaScript regex (with `g` flag implicit). */
+  regex?: boolean;
+  /**
+   * RL-024 Slice 2 fold C — per-line cooperative cancel for regex
+   * preview. If the regex engine spends longer than this on a single
+   * line, that file is aborted with `'regex-timeout'` and the panel
+   * surfaces a localized notice. Defaults to 50 ms.
+   */
+  perLineTimeoutMs?: number;
+}
+
+interface FsReplaceMatch extends FsSearchMatch {
+  /**
+   * RL-024 Slice 2 — the preview text after the regex / literal
+   * substitution has been applied to the matched line. Includes the
+   * same `matchStart` / `matchEnd` window as `preview`. Renderer-side
+   * before/after rendering reads from `preview` (before) +
+   * `replacedPreview` (after).
+   */
+  replacedPreview: string;
+  /**
+   * RL-024 Slice 2 — the substituted text for THIS match only (no
+   * surrounding context). Used by Monaco's `executeEdits` path when
+   * applying through an open tab.
+   */
+  replacement: string;
+}
+
+interface FsReplaceResult {
+  relativePath: string;
+  matches: FsReplaceMatch[];
+  /**
+   * RL-024 Slice 2 fold C — set when the file was skipped because the
+   * cooperative-cancel deadline fired on a line. Renderer surfaces a
+   * localized "regex took too long" notice and skips this file in the
+   * apply path.
+   */
+  regexTimedOut?: boolean;
+}
+
+type FsApplyReplaceReason =
+  | 'no-matches'
+  | 'read-error'
+  | 'write-error'
+  | 'binary'
+  | 'too-large'
+  // 'regex-timeout' is reserved for renderer-synthesized state: when
+  // the preview path flags a file with `regexTimedOut: true`, the
+  // renderer maps it to this reason in the apply summary so the UI
+  // can route both signals through the same toast. The IPC handler
+  // never returns this value — `fs:applyReplaceInFile` has no per-line
+  // deadline of its own; if you reach the apply step the regex has
+  // already been validated against the entire file by the preview pass.
+  | 'regex-timeout'
+  | 'invalid-regex'
+  | 'unsupported';
+
+interface FsApplyReplaceResult {
+  ok: boolean;
+  /** Number of substitutions written to disk on success. */
+  replaced: number;
+  reason?: FsApplyReplaceReason;
+}
+
 interface FsStatResult {
   size: number;
   isDirectory: boolean;
@@ -757,6 +824,34 @@ interface LinguaAPI {
       query: string,
       options?: FsSearchOptions
     ) => Promise<FsSearchResult[]>;
+    /**
+     * RL-024 Slice 2 — preview replace-in-files. Walks the project
+     * the same way as `searchInFiles`, but each match also carries
+     * a per-match `replacement` + `replacedPreview` so the renderer
+     * can render before/after diffs without re-deriving regex
+     * backrefs.
+     */
+    replaceInFiles: (
+      rootId: string,
+      relativePath: string,
+      query: string,
+      replacement: string,
+      options?: FsReplaceOptions
+    ) => Promise<FsReplaceResult[]>;
+    /**
+     * RL-024 Slice 2 — atomically apply the substitution to a
+     * single file. Writes to a tmpfile in the same directory then
+     * renames over the original (Windows AV retry x3). Returns
+     * `{ ok, replaced, reason? }` with a closed-enum reason for
+     * the failure path.
+     */
+    applyReplaceInFile: (
+      rootId: string,
+      relativePath: string,
+      query: string,
+      replacement: string,
+      options?: FsReplaceOptions
+    ) => Promise<FsApplyReplaceResult>;
     stat: (rootId: string, relativePath: string) => Promise<FsStatResult>;
     read: (rootId: string, relativePath: string) => Promise<string>;
     write: (
