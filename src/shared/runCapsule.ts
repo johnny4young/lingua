@@ -83,6 +83,19 @@ export interface RunCapsuleEnvironment {
   runner: string;
   /** Optional dependency summary opaque to the schema. */
   dependencySummary?: unknown;
+  /**
+   * RL-102 Slice 2 fold A — pre-run branch snapshot. Captured at
+   * `executeTabManually.record()` START so a mid-run sibling-terminal
+   * `git checkout` does NOT pollute the capsule with the post-checkout
+   * branch. Absent on web builds (no git layer), in detached-HEAD
+   * states, or when the gitStore posture is unavailable. Branch /
+   * commit are passively-observed identifiers; they never leak working
+   * tree content (the redactor never sees them).
+   */
+  git?: {
+    branch?: string;
+    commit?: string;
+  };
 }
 
 export interface RunCapsulePrivacy {

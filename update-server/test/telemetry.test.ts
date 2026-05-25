@@ -27,6 +27,8 @@ import {
   ONBOARDING_TOAST_STAGES as WORKER_ONBOARDING_TOAST_STAGES,
   OUTPUT_ORIGIN_SURFACES as WORKER_OUTPUT_ORIGIN_SURFACES,
   GIT_LAYER_REPO_STATES as WORKER_GIT_LAYER_REPO_STATES,
+  REVEAL_IN_SC_TARGETS as WORKER_REVEAL_IN_SC_TARGETS,
+  EXTERNAL_RELOAD_MODES as WORKER_EXTERNAL_RELOAD_MODES,
   TEMPLATE_PROJECT_IDS as WORKER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENT_NAMES,
@@ -39,6 +41,8 @@ import {
   ONBOARDING_TOAST_STAGES as RENDERER_ONBOARDING_TOAST_STAGES,
   OUTPUT_ORIGIN_SURFACES as RENDERER_OUTPUT_ORIGIN_SURFACES,
   GIT_LAYER_REPO_STATES as RENDERER_GIT_LAYER_REPO_STATES,
+  REVEAL_IN_SC_TARGETS as RENDERER_REVEAL_IN_SC_TARGETS,
+  EXTERNAL_RELOAD_MODES as RENDERER_EXTERNAL_RELOAD_MODES,
   TEMPLATE_PROJECT_IDS as RENDERER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
@@ -613,6 +617,30 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect([...WORKER_GIT_LAYER_REPO_STATES].sort()).toEqual(
       [...RENDERER_GIT_LAYER_REPO_STATES].sort()
     );
+  });
+
+  it('git reveal-in-source-control targets stay in sync (RL-102 Slice 2)', () => {
+    // Closed-enum parity for `git.reveal_in_source_control_clicked.target`.
+    // Single value today; any future Slice 3+ extension (e.g.
+    // `'commit-hash'`, `'branch-history'`) must land in both copies
+    // at the same time.
+    expect([...WORKER_REVEAL_IN_SC_TARGETS].sort()).toEqual(
+      [...RENDERER_REVEAL_IN_SC_TARGETS].sort()
+    );
+    expect([...WORKER_REVEAL_IN_SC_TARGETS]).toEqual(['repo-root']);
+  });
+
+  it('git external-modification reload modes stay in sync (RL-102 Slice 2 fold E)', () => {
+    // Closed-enum parity for `git.external_modification_reload.mode`.
+    // `'auto-applied'` is reserved; renderer never emits it today.
+    expect([...WORKER_EXTERNAL_RELOAD_MODES].sort()).toEqual(
+      [...RENDERER_EXTERNAL_RELOAD_MODES].sort()
+    );
+    expect([...WORKER_EXTERNAL_RELOAD_MODES].sort()).toEqual([
+      'auto-applied',
+      'user-accepted',
+      'user-rejected',
+    ]);
   });
 
   it('template project ids stay in sync with the renderer source of truth (RL-103 Slice 1 fold B)', () => {

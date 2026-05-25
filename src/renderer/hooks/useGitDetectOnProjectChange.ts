@@ -20,8 +20,11 @@ import {
   useGitStore,
   type GitRepoPosture,
 } from '../stores/gitStore';
+import { useEditorStore } from '../stores/editorStore';
 import { useProjectStore } from '../stores/projectStore';
-import { trackGitLayerAttached } from './gitTelemetry';
+import { useUIStore } from '../stores/uiStore';
+import { gitWatchHeadSuppressedByMagicComment } from '../utils/magicComments';
+import { trackGitHeadChanged, trackGitLayerAttached } from './gitTelemetry';
 
 export function useGitDetectOnProjectChange(): void {
   const rootPath = useProjectStore(
@@ -108,4 +111,84 @@ export function useGitDetectOnProjectChange(): void {
       cancelled = true;
     };
   }, [rootPath, rootId]);
+
+  // RL-102 Slice 2 — subscribe to `.git/HEAD` watch broadcasts once
+  // the boot detect resolves to a real repo. Renderer keeps the
+  // posture cache cheap-updated (no full detect re-run on a sibling
+  // checkout). Subscribes per-repoRoot so a folder switch tears the
+  // previous watcher down cleanly via the cleanup function.
+  const repoRoot = useGitStore((state) =>
+    state.posture?.available ? state.posture.repoRoot : null
+  );
+  useEffect(() => {
+    const bridge = window.lingua?.git;
+    if (!bridge || !repoRoot) return;
+    if (!bridge.watchHead || !bridge.onHeadChanged) return;
+
+    let cancelled = false;
+    const offChange = bridge.onHeadChanged((payload) => {
+      if (cancelled) return;
+      // Fold F — per-file opt-out from HEAD refresh. Skip the
+      // store update entirely when the ACTIVE tab carries the
+      // `// @git-watch-head off` directive. We scope the check
+      // to the active tab (rather than ALL open tabs) because
+      // the user's intent is "the file I'm looking at right now
+      // should not blink"; an inactive tab's directive does not
+      // imply the same intent. If the user later switches tabs,
+      // the next head change fires normally for the new active.
+      const { tabs, activeTabId } = useEditorStore.getState();
+      const activeTab = tabs.find((tab) => tab.id === activeTabId);
+      if (
+        activeTab &&
+        gitWatchHeadSuppressedByMagicComment(
+          activeTab.language ?? '',
+          activeTab.content ?? ''
+        )
+      ) {
+        return;
+      }
+      const landed = useGitStore.getState().applyHeadChange(payload);
+      // Telemetry: only fire when (a) the store accepted the
+      // update AND (b) the branch actually changed. Pure
+      // commit-only updates land silently — the dashboard only
+      // wants signal for visible posture transitions.
+      if (landed && payload.branchChanged) {
+        trackGitHeadChanged('git-repo', payload.branchChanged);
+      }
+    });
+    const offFailed = bridge.onHeadWatcherFailed?.((payload) => {
+      if (cancelled) return;
+      if (payload.reason !== 'give-up') return;
+      // Surface a one-shot diagnostic notice when the watcher
+      // permanently bails. The renderer's caller does not need to
+      // react beyond letting the user know — the pill still shows
+      // the LAST-known branch from the boot detect; what they lose
+      // is automatic refresh on subsequent checkouts.
+      useUIStore.getState().pushStatusNotice({
+        tone: 'warning',
+        messageKey: 'git.headWatch.diagnostic.giveUp',
+      });
+    });
+
+    const watchPromise = bridge.watchHead(repoRoot).catch(() => {
+      // Silent — `onHeadWatcherFailed` already handles surfacing.
+      return { ok: false };
+    });
+
+    return () => {
+      cancelled = true;
+      offChange();
+      if (offFailed) offFailed();
+      // Pair unwatch with the watch promise instead of firing it
+      // immediately. If React cleans this effect up before the IPC
+      // handler finishes installing the watcher, an immediate
+      // unwatch would race ahead, find no entry, and the later
+      // watch resolution would leak an fs.watch handle.
+      void watchPromise
+        .then(() => bridge.unwatchHead?.(repoRoot))
+        .catch(() => {
+          /* sender already gone */
+        });
+    };
+  }, [repoRoot]);
 }

@@ -53,9 +53,18 @@ export interface GitRepoPosture {
   readonly repoRoot?: string;
   /**
    * Current branch name, e.g. `main`. Absent on detached HEAD.
-   * Threaded to the pill (Fold A — branch indicator inline).
+   * Threaded to the pill (Fold A — branch indicator inline) and
+   * — RL-102 Slice 2 — refreshed via `applyHeadChange` whenever
+   * the main-side HEAD watcher broadcasts a settled change.
    */
   readonly branch?: string;
+  /**
+   * RL-102 Slice 2 — current commit (full hash from
+   * `git rev-parse HEAD`). Absent on detached HEAD or watcher
+   * resolution error. Folded into capsule pre-run snapshot (fold A)
+   * so RL-094 capsules carry the actual commit the run was against.
+   */
+  readonly commit?: string;
   /**
    * `git --version` line for surfacing in the Settings → Editor →
    * Git read-only row tooltip. Optional; absent when detection ran
@@ -94,6 +103,25 @@ interface GitStateShape {
   setFileStatus: (filePath: string, entry: GitFileStatusEntry) => void;
   evictFile: (filePath: string) => void;
   markDetectAttempt: (timestamp: number, key: string) => void;
+  /**
+   * RL-102 Slice 2 — apply a HEAD-change broadcast from the main
+   * watcher. Cheaply updates `branch` + `commit` on the existing
+   * posture without re-running full detect, and bumps `lastDetectAt`
+   * so the 30s TTL stays honest (a fresh head-change is functionally
+   * equivalent to a fresh detect).
+   *
+   * No-ops when `posture` is null or `posture.repoRoot` does not
+   * match (e.g. a stale broadcast arrives after the user switched
+   * folders). Returns `true` when the update landed so the hook
+   * can decide whether to fire telemetry; returns `false` for
+   * dropped no-op deliveries.
+   */
+  applyHeadChange: (payload: {
+    repoRoot: string;
+    branch?: string | null;
+    commit?: string;
+    branchChanged: boolean;
+  }) => boolean;
   clear: () => void;
 }
 
@@ -111,7 +139,8 @@ export const useGitStore = create<GitStateShape>((set) => ({
       const samePosture =
         posture?.available === state.posture?.available &&
         posture?.repoRoot === state.posture?.repoRoot &&
-        posture?.branch === state.posture?.branch;
+        posture?.branch === state.posture?.branch &&
+        posture?.commit === state.posture?.commit;
       if (samePosture && posture !== null) {
         return { posture };
       }
@@ -132,6 +161,57 @@ export const useGitStore = create<GitStateShape>((set) => ({
     }),
   markDetectAttempt: (timestamp, key) =>
     set(() => ({ lastDetectAt: timestamp, lastDetectKey: key })),
+  applyHeadChange: (payload) => {
+    let landed = false;
+    set((state) => {
+      // Drop deliveries that don't belong to the active posture.
+      // Two reasons this can fire:
+      //   1. Race — main broadcasts a change for repo A after the
+      //      renderer switched to repo B. The store's posture is now
+      //      B; the broadcast is stale, drop it.
+      //   2. Defensive — posture went null between subscribe and
+      //      broadcast (folder close). Drop.
+      if (!state.posture?.available) return state;
+      if (state.posture.repoRoot !== payload.repoRoot) return state;
+      const branchProvided = Object.prototype.hasOwnProperty.call(
+        payload,
+        'branch'
+      );
+      const nextBranch = branchProvided
+        ? payload.branch ?? undefined
+        : state.posture.branch;
+      const nextCommit = payload.commit ?? state.posture.commit;
+      const branchUnchanged = nextBranch === state.posture.branch;
+      const commitUnchanged = nextCommit === state.posture.commit;
+      if (branchUnchanged && commitUnchanged) {
+        // Pure no-op — branch + commit identical to the cache.
+        // Skip the set() to avoid burning a re-render. Note: we
+        // do NOT mark landed = true; the hook should not fire
+        // `git.head_changed` telemetry for no-op deliveries.
+        return state;
+      }
+      landed = true;
+      const {
+        branch: _previousBranch,
+        commit: _previousCommit,
+        ...postureWithoutHead
+      } = state.posture;
+      void _previousBranch;
+      void _previousCommit;
+      return {
+        posture: {
+          ...postureWithoutHead,
+          ...(nextBranch !== undefined ? { branch: nextBranch } : {}),
+          ...(nextCommit !== undefined ? { commit: nextCommit } : {}),
+        },
+        // Bump TTL so the 30s skip in `useGitDetectOnProjectChange`
+        // does not invalidate this cheap update with an expensive
+        // full detect (which would race the watcher anyway).
+        lastDetectAt: Date.now(),
+      };
+    });
+    return landed;
+  },
   clear: () =>
     set((state) => {
       if (

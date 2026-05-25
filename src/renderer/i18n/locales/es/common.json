@@ -2365,7 +2365,17 @@
   "editor.git.contextMenu.ariaLabel": "Acciones del estado de Git",
   "editor.git.contextMenu.showDiff": "Mostrar diff",
   "editor.git.contextMenu.copyPath": "Copiar ruta del archivo",
-  "editor.git.contextMenu.revealInSc": "Mostrar en Control de versiones",
-  "editor.git.contextMenu.revealInSc.deferred": "La superficie de Control de versiones llega en la Slice 2.",
-  "settings.privacy.network.feature.gitReadOnlyLayer": "Capa de Git de solo lectura"
+  "editor.git.contextMenu.revealInSc": "Mostrar repo en el explorador",
+  "settings.privacy.network.feature.gitReadOnlyLayer": "Capa de Git de solo lectura",
+  "git.reveal.action.tooltip": "Abre la raíz del repo en tu explorador de archivos",
+  "git.reveal.error.notFound": "No se encontró la raíz del repo",
+  "git.headWatch.diagnostic.giveUp": "Lingua dejó de observar cambios de rama en este repo",
+  "git.externalReload.clean.body": "{{fileName}} cambió en disco",
+  "git.externalReload.clean.action": "Recarga desde disco",
+  "git.externalReload.dirty.body": "{{fileName}} cambió en disco — tus cambios sin guardar se conservan",
+  "git.externalReload.dirty.action": "Recargar (descarta cambios locales)",
+  "git.externalReload.confirm.title": "¿Descartas tus cambios locales?",
+  "git.externalReload.confirm.body": "Esto reemplaza tus ediciones en memoria con el archivo en disco.",
+  "git.externalReload.batch.body": "{{count}} archivos cambiaron en disco",
+  "git.externalReload.batch.action": "Recargar todos"
 }

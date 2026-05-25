@@ -10994,6 +10994,59 @@ Deferred to Slice 2:
 - "File changed on disk — reload?" notice when the watcher reports an external modification to an open clean file. The watcher already exists; the notice scope was trimmed to keep Slice 1 atomic.
 - `Reveal in Source Control` action wiring (Slice 2+); the context-menu row exists today as a disabled placeholder with a tooltip pointing at the deferred scope.
 
+#### § Slice 2 landed (2026-05-25)
+
+Shipped as `RL-102 Slice 2 — .git/HEAD watch + reload-from-disk notice + Reveal action + folds A/B/C/D/E/F`. Approved with all suggested folds; fold G (probe installed SC GUI clients) explicitly left deferred per ANTI_FEATURES §A-008 fingerprinting concern.
+
+Core surface:
+
+- New `watchRepoHead(repoRoot, callbacks) → GitHeadWatcher` in `src/main/git.ts`. Resolves the real `.git/HEAD` path via new `resolveRepoHeadPath` helper that handles the three forms `.git` can take (real directory, worktree pointer-file with absolute `gitdir:`, worktree pointer-file with relative `gitdir:`). Watches the PARENT directory of HEAD (file-level `fs.watch` is unreliable on macOS when git atomic-rewrites HEAD via rename; parent-dir + basename filter is the documented workaround). Debounces 300 ms; on each settled change re-resolves `{branch, commit}` via the existing `resolveBranch` + a single `rev-parse HEAD` spawn. Watcher restart backoff: 1 s/3 s/10 s exponential schedule, 3-retry ceiling, then a one-shot `give-up` diagnostic. `dispose()` is idempotent.
+- New `revealRepo(repoRoot)` calls `shell.openPath(absoluteRoot)` (same primitive `fs:reveal-in-finder` from RL-024 Slice 1 uses). Defense-in-depth `fs.stat` existence probe before opening. Cross-platform SC-GUI-client probing rejected per ANTI_FEATURES §A-008 (fingerprinting risk + cross-platform brittleness).
+- Two new main IPCs (`src/main/ipc/git.ts`): `git:reveal` (returns boolean for renderer-side notice gating), `git:watch-head` / `git:unwatch-head` (paired). Plus a `git:on-head-changed` broadcast (and `git:on-head-watcher-failed` for the `give-up` diagnostic). Per-sender registry keyed by `webContents.id × repoRoot` so concurrent renderer calls dedup, and a `webContents.destroyed` listener tears down all watchers a window owns on close — no leaked `fs.watch` handles across windows.
+- Preload bridge extended with `git.reveal / watchHead / unwatchHead / onHeadChanged / onHeadWatcherFailed`. `src/types.d.ts` adds `GitHeadChangePayload` + `GitHeadWatcherFailurePayload` ambient declarations.
+- New `applyHeadChange(payload)` action on `useGitStore` cheaply refreshes `posture.branch + commit` without re-running boot detect. Drops stale broadcasts whose `repoRoot` does not match the active posture (race between folder switch + in-flight broadcast). Bumps `lastDetectAt` on accept so the 30 s TTL skip stays honest. Returns boolean — `true` only when the update landed AND something changed (no-op for identical branch + commit).
+- `useGitDetectOnProjectChange` widened to subscribe to head-change broadcasts once the initial detect resolves to `'git-repo'`. Posts `git.head_changed` telemetry only when `branchChanged === true`. Surfaces the `git.headWatch.diagnostic.giveUp` status notice on permanent watcher failure.
+- **Reload-from-disk notice** extended into `useProjectWatchSync`. Per-tab 500 ms inner debounce; on each `'change'` event whose `relativePath` matches an open tab, reads disk content via `fs:read` and compares to the in-memory buffer. Match → silent suppression (self-induced save echo). Differ → push a status notice with a `Reload from disk` action that calls `editorStore.setTabContentFromDisk` (the action from RL-024 Slice 2). Dirty tabs get a variant copy + native `window.confirm()` before discarding local edits. `'rename'` events skip the notice path (deletes already route through the existing stale-tab notice from Slice 1 fold D). `null` filename events are dropped (cannot identify a tab).
+
+Folds shipped:
+
+- **Fold A** — `executeTabManually` snapshots `{branch, commit}` at run START (before the `runner.execute` await) via the new private `snapshotGitPosture()` helper that lazy-requires `useGitStore`. Throw-path resnapshots in the catch (acceptable — the git posture is unlikely to change during a synchronous throw window). `RunCapsuleEnvironment.git` widened with an optional `{branch?, commit?}` slot; omitted (not included as empty) when no git posture exists so a no-git run keeps the existing capsule wire shape.
+- **Fold B** — `<GitDiffPanel>` subscribes to `posture.commit` as a separate selector dep so a HEAD change resolves to the new commit hash → invalidates the memo → re-fetches the diff. Without this, the user saw a stale diff after a sibling-terminal checkout until they manually toggled the panel.
+- **Fold C** scope-trimmed: instead of building a full bottom status bar (RL-112 scope), shipped a small `<GitProjectBranchChip>` mounted in `<AppLayout>` to the right of the editor-tabs chrome. Reads `gitStore.posture.branch + commit` and displays a short branch label with a 7-char-truncated commit hash in the tooltip. Self-renders to null when no git posture. RL-112 can later relocate this chip into the persistent status bar without changing the read path.
+- **Fold D** — multi-tab batching: when ≥3 unique tab-ids accumulate in `useProjectWatchSync`'s 500 ms debounce window, the notice collapses into ONE batched surface (`{count} files changed on disk` with a `Reload all` action that re-evaluates each tab's dirty / content-match state individually). Below the threshold, per-tab notices keep the user oriented.
+- **Fold E** — new `git.external_modification_reload { mode }` closed-enum event. `mode ∈ EXTERNAL_RELOAD_MODES = {'user-accepted', 'user-rejected', 'auto-applied'}`. The `'auto-applied'` slot is reserved for a future Slice 3+ auto-reload surface that today is intentionally out of scope per the "no silent file mutation" principle.
+- **Fold F** — new `gitWatchHeadSuppressedByMagicComment` helper consuming `// @git-watch-head off` / `# @git-watch-head off` with an independent regex from the existing `originSuppressedByMagicComment` + `gitStatusSuppressedByMagicComment` pragmas. The hook checks the ACTIVE tab's content + language and short-circuits the HEAD-change consumption when set — scoped to active tab (not all open tabs) since the user's intent is "the file I'm looking at right now should not blink."
+
+Telemetry:
+
+- `git.head_changed { repoState, branchChanged }` — `repoState` reuses `GIT_LAYER_REPO_STATES`; `branchChanged` is boolean. Renderer only emits when `branchChanged === true` (commit-only updates are silent today). Mirrored on update-server.
+- `git.reveal_in_source_control_clicked { target }` — `target ∈ REVEAL_IN_SC_TARGETS = {'repo-root'}` (closed enum stays single-valued today; extensible for Slice 3+ `'commit-hash'` / `'branch-history'` targets). Mirrored on update-server.
+- `git.external_modification_reload { mode }` — fold E, see above. Mirrored on update-server.
+- All three events mirrored in `update-server/src/telemetry.ts` allowlist + closed-enum validators; `update-server/test/telemetry.test.ts` parity assertions extended to import + compare `REVEAL_IN_SC_TARGETS` and `EXTERNAL_RELOAD_MODES`.
+
+i18n:
+
+10 new keys × EN + ES, tuteo verified (`Recarga`, `Recargar`, `Mostrar`). Updated ES context-menu label `editor.git.contextMenu.revealInSc` from "Mostrar en Control de versiones" → "Mostrar repo en el explorador" so the label matches what the action actually does (opens working tree in OS file manager). EN stays "Reveal in Source Control" to preserve VSCode muscle memory.
+
+Tests:
+
+- `tests/main/git.test.ts` extended with `resolveRepoHeadPath` (5 cases — real .git dir, absolute worktree pointer, relative worktree pointer, missing .git, empty input), `watchRepoHead` (2 cases — resolve-error diagnostic + idempotent disposal), `revealRepo` (5 cases — success path with spy assertion, OS error string, throw path, empty input, missing directory).
+- New `tests/stores/gitStore.test.ts` (6 cases — applyHeadChange contract: accept on change, reject on no-op, reject on stale repoRoot, reject on null posture, reject on unavailable posture, accept commit-only update).
+- New `tests/hooks/useProjectWatchSync.test.ts` (7 cases — clean tab notice, dirty tab variant, self-induced echo suppression, rename events skipped, ≥3-tab batching, null-filename dropped, non-matching tab dropped).
+- `tests/components/Editor/GitStatusPill.test.tsx` extended with 3 cases — Reveal row enabled when bridge exists, bridge.reveal invoked with repoRoot on click, notice pushed when bridge.reveal returns false.
+- `tests/utils/magicComments.test.ts` extended with 7 cases for `gitWatchHeadSuppressedByMagicComment` (JS/TS, Python/Ruby, optional colon, case-insensitive, off-literal-required, empty-input safety, coupled-invariant pin with the other two pragmas).
+- `tests/shared/telemetry.test.ts` sorted-list assertion extended with `git.external_modification_reload` / `git.head_changed` / `git.reveal_in_source_control_clicked` in the alphabetical slot.
+- `update-server/test/telemetry.test.ts` parity assertions extended.
+
+Deferred to Slice 3+:
+
+- Write surface (`git add` / `commit` / `push`).
+- Branch switching from inside Lingua.
+- Conflict resolution UI.
+- Submodule support.
+- A full SCM sidebar listing pending changes.
+- Probe for installed SC GUI clients (fold G, recommend NOT folding per ANTI_FEATURES §A-008).
+
 ### § Slice 2 — settings hygiene (2026-05-23)
 
 Not an RL ticket — a pure cleanup pass that kills 11 baseline-always-ON Settings toggles plus the rollback of `gitReadOnlyEnabled` from Slice 1.1. The toggles were either privacy/safety defaults that should not be user-tunable (`shareLinkConfirmEnabled`, `loopProtection`), baseline IDE primitives (`showLineNumbers`, `fontLigatures`, `hideUndefined`, `debuggerEnabled`), design-system consistency (`syncShellWithEditorTheme`), or product-defining features that turning OFF defeats the positioning (`consoleRichRenderingEnabled`, `outputSourceMappingEnabled` + the two sub-gates `outputHighlightOnHoverEnabled` + `outputSmoothScrollOffscreenEnabled`).

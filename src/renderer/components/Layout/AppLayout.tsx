@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Group, Panel, Separator, useDefaultLayout } from 'react-resizable-panels';
 import { FileTree } from '../FileTree';
 import { EditorTabs } from '../Editor/EditorTabs';
+import { GitProjectBranchChip } from '../Editor/GitProjectBranchChip';
 import { ResultPanel } from '../Editor/ResultPanel';
 import { ConsolePanel } from '../Console';
 import { DebuggerDrawer } from '../Debugger/DebuggerDrawer';
@@ -291,6 +292,11 @@ function EditorArea() {
         <div className="min-w-0 flex-1 overflow-hidden">
           <EditorTabs />
         </div>
+        {/* RL-102 Slice 2 fold C — project-wide branch chip.
+            Self-renders to null when no git posture; positioned at
+            the right of the editor-tabs chrome so it never competes
+            with the per-tab pills for space. */}
+        <GitProjectBranchChip />
       </div>
       <PanelChipsRow />
       <div className="min-h-0 flex-1">

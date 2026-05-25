@@ -40,9 +40,10 @@
  */
 
 import * as childProc from 'node:child_process';
-import { existsSync, promises as fsAsync } from 'node:fs';
+import { existsSync, promises as fsAsync, watch as fsWatch } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { shell } from 'electron';
 
 const execFileAsync = promisify(childProc.execFile);
 
@@ -556,4 +557,360 @@ async function readWorkingTreeVersion(
 export function resetGitProbeCacheForTests(): void {
   cachedBinary = null;
   probeInFlight = null;
+}
+
+// ---------------------------------------------------------------------------
+// RL-102 Slice 2 — `.git/HEAD` watcher + `Reveal in Source Control` action.
+// ---------------------------------------------------------------------------
+
+/**
+ * Debounce window for the HEAD watcher. Git often touches multiple
+ * files during a `checkout` (HEAD, ORIG_HEAD, packed-refs, index);
+ * we coalesce rapid watch events into a single resolve. 300 ms is
+ * short enough that a sibling-terminal checkout surfaces within one
+ * human reaction cycle and long enough to absorb the burst.
+ */
+const HEAD_WATCH_DEBOUNCE_MS = 300;
+
+/**
+ * Restart backoff schedule (ms) for the HEAD watcher. When the
+ * filesystem watcher throws (parent dir does not exist, EPERM,
+ * permission change), we retry on this schedule and surface a
+ * `give-up` payload to the renderer after the last attempt. Chosen
+ * so a transient race (e.g. user runs `git init` after opening the
+ * folder) resolves on the second attempt; a permanent problem (no
+ * `.git` because the project genuinely isn't a repo any more) bows
+ * out within ~14 s rather than hot-looping.
+ */
+const HEAD_WATCH_RESTART_BACKOFF_MS = [1_000, 3_000, 10_000] as const;
+const HEAD_WATCH_MAX_RETRIES = HEAD_WATCH_RESTART_BACKOFF_MS.length;
+
+/**
+ * Payload broadcast over `git:on-head-changed` when a debounced
+ * HEAD change resolves to fresh branch / commit data. `branchChanged`
+ * lets the renderer telemetry filter out no-op fires (e.g. `git
+ * commit` touches HEAD without changing the branch name).
+ */
+export interface GitHeadChangePayload {
+  repoRoot: string;
+  /**
+   * Current branch name. `null` explicitly means detached HEAD so
+   * renderer caches can clear a previously-known branch.
+   */
+  branch?: string | null;
+  commit?: string;
+  branchChanged: boolean;
+}
+
+/**
+ * Watcher diagnostic payload. Mirrors the shape of `fs:watcher-failed`
+ * from RL-087 so the renderer can route it through a unified notice
+ * surface.
+ */
+export interface GitHeadWatcherDiagnostic {
+  repoRoot: string;
+  reason: 'give-up' | 'resolve-error';
+}
+
+/**
+ * Disposable handle returned by `watchRepoHead`. Calling `dispose()`
+ * is idempotent — repeat calls are safe.
+ */
+export interface GitHeadWatcher {
+  dispose: () => void;
+}
+
+interface HeadWatchCallbacks {
+  onChange: (payload: GitHeadChangePayload) => void;
+  onDiagnostic?: (diagnostic: GitHeadWatcherDiagnostic) => void;
+}
+
+/**
+ * Resolve the real `.git/HEAD` path for `repoRoot`. Handles the
+ * three forms `.git` can take:
+ *
+ *   1. A real directory at `<repoRoot>/.git` — HEAD is at `.git/HEAD`.
+ *   2. A regular file at `<repoRoot>/.git` containing
+ *      `gitdir: <abs or rel path to worktree dir>` — used by linked
+ *      worktrees. We follow the pointer and HEAD lives at
+ *      `<gitdir>/HEAD`. A relative `gitdir:` is resolved against
+ *      `repoRoot` (older git versions emit relative paths).
+ *   3. Neither exists — the folder is not a repo. Returns `null`.
+ *
+ * The returned path is always absolute.
+ */
+export async function resolveRepoHeadPath(
+  repoRoot: string
+): Promise<string | null> {
+  if (typeof repoRoot !== 'string' || repoRoot.length === 0) return null;
+  let absoluteRoot: string;
+  try {
+    absoluteRoot = path.resolve(repoRoot);
+  } catch {
+    return null;
+  }
+  const dotGit = path.join(absoluteRoot, '.git');
+  let stat: import('node:fs').Stats;
+  try {
+    stat = await fsAsync.stat(dotGit);
+  } catch {
+    return null;
+  }
+  if (stat.isDirectory()) {
+    return path.join(dotGit, 'HEAD');
+  }
+  if (!stat.isFile()) return null;
+  let contents: string;
+  try {
+    contents = await fsAsync.readFile(dotGit, 'utf-8');
+  } catch {
+    return null;
+  }
+  const match = /^gitdir:\s*(.+?)\s*$/m.exec(contents);
+  if (!match) return null;
+  const pointer = match[1] ?? '';
+  if (pointer.length === 0) return null;
+  const resolvedDir = path.isAbsolute(pointer)
+    ? pointer
+    : path.resolve(absoluteRoot, pointer);
+  return path.join(resolvedDir, 'HEAD');
+}
+
+/**
+ * Re-resolve `{ branch, commit }` for a repo root. Reuses the
+ * existing `resolveBranch` helper for the branch piece and adds a
+ * single rev-parse spawn for the commit hash. Returns `null` when
+ * the binary is missing — the caller treats that as "give up this
+ * round, try next watch event."
+ */
+async function resolveHeadSummary(
+  repoRoot: string
+): Promise<{ branch?: string; commit?: string } | null> {
+  const binary = await getGitBinary();
+  if (!binary) return null;
+  const branch = await resolveBranch(binary, repoRoot);
+  let commit: string | undefined;
+  // Reuse the same execFileAsync envelope the rest of the module
+  // uses (shell: false, 5s timeout, no shell evaluation). The argv
+  // is a fixed array — no user-controlled tokens between `git` and
+  // the literal subcommand. SAFE per Slice 1 security posture.
+  const runner = execFileAsync;
+  try {
+    const { stdout } = await runner(binary, ['rev-parse', 'HEAD'], {
+      cwd: repoRoot,
+      timeout: GIT_INVOCATION_TIMEOUT_MS,
+    });
+    const trimmed = stdout.trim();
+    if (trimmed.length > 0 && trimmed !== 'HEAD') commit = trimmed;
+  } catch {
+    // Detached HEAD or transient — keep commit undefined.
+  }
+  return {
+    ...(branch ? { branch } : {}),
+    ...(commit ? { commit } : {}),
+  };
+}
+
+/**
+ * Watch `.git/HEAD` and emit `{ branch, commit, branchChanged }` on
+ * each settled change. The watcher follows linked-worktree pointer
+ * files so a checkout inside the worktree also surfaces.
+ *
+ * Lifecycle:
+ *
+ *   1. Resolve the real HEAD path. On failure → return a disposable
+ *      that surfaces a `resolve-error` diagnostic and sits idle.
+ *   2. Watch the PARENT directory of HEAD (file-level `fs.watch` is
+ *      unreliable on macOS when git atomic-rewrites HEAD via rename;
+ *      the parent-dir + basename filter is the documented Node
+ *      workaround).
+ *   3. On each watch event whose filename is `HEAD` (or whose
+ *      filename is absent — some platforms drop it under load),
+ *      debounce `HEAD_WATCH_DEBOUNCE_MS`. After the debounce, resolve
+ *      the fresh summary and emit `onChange`.
+ *   4. If the watcher itself throws (parent dir vanished — e.g.
+ *      `rm -rf .git`), retry on the exponential backoff schedule.
+ *      After `HEAD_WATCH_MAX_RETRIES` failures we surface a
+ *      `give-up` diagnostic and park.
+ *
+ * The returned `dispose()` clears the debounce, the backoff timer,
+ * and stops the watcher. Idempotent.
+ */
+export async function watchRepoHead(
+  repoRoot: string,
+  callbacks: HeadWatchCallbacks
+): Promise<GitHeadWatcher> {
+  const headPath = await resolveRepoHeadPath(repoRoot);
+  let cancelled = false;
+  let debounceTimer: NodeJS.Timeout | null = null;
+  let retryTimer: NodeJS.Timeout | null = null;
+  let watcher: import('node:fs').FSWatcher | null = null;
+  let retryCount = 0;
+  let lastBranch: string | undefined;
+  let initialised = false;
+
+  const surfaceDiagnostic = (
+    reason: GitHeadWatcherDiagnostic['reason']
+  ): void => {
+    callbacks.onDiagnostic?.({ repoRoot, reason });
+  };
+
+  const clearTimers = (): void => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  };
+
+  const dispose = (): void => {
+    if (cancelled) return;
+    cancelled = true;
+    clearTimers();
+    if (watcher) {
+      try {
+        watcher.close();
+      } catch {
+        /* watcher already closed */
+      }
+      watcher = null;
+    }
+  };
+
+  if (!headPath) {
+    surfaceDiagnostic('resolve-error');
+    return { dispose };
+  }
+
+  const headDir = path.dirname(headPath);
+  const headBasename = path.basename(headPath);
+
+  const resolveAndEmit = async (): Promise<void> => {
+    if (cancelled) return;
+    const summary = await resolveHeadSummary(repoRoot);
+    if (cancelled || !summary) return;
+    const branchChanged = initialised ? summary.branch !== lastBranch : false;
+    lastBranch = summary.branch;
+    initialised = true;
+    callbacks.onChange({
+      repoRoot,
+      branchChanged,
+      branch: summary.branch ?? null,
+      ...(summary.commit ? { commit: summary.commit } : {}),
+    });
+  };
+
+  const scheduleResolve = (): void => {
+    if (cancelled) return;
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null;
+      void resolveAndEmit();
+    }, HEAD_WATCH_DEBOUNCE_MS);
+  };
+
+  const scheduleRestart = (): void => {
+    if (cancelled) return;
+    if (retryCount >= HEAD_WATCH_MAX_RETRIES) {
+      surfaceDiagnostic('give-up');
+      return;
+    }
+    const delay = HEAD_WATCH_RESTART_BACKOFF_MS[retryCount] ?? 10_000;
+    retryCount += 1;
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      startWatcher();
+    }, delay);
+  };
+
+  const startWatcher = (): void => {
+    if (cancelled) return;
+    try {
+      // Top-level `fsWatch` import lets the test harness mock the
+      // module via `vi.mock('node:fs', …)` like every other main
+      // module that wraps node:fs primitives — the reviewer pass
+      // pointed out the previous lazy-require pattern was both
+      // non-idiomatic and untestable against the actual watch path.
+      watcher = fsWatch(headDir, (_eventType, filename) => {
+        // Some platforms drop the filename in the callback under
+        // load (RL-087 §) — when absent, schedule the resolve
+        // unconditionally and let the diff vs `lastBranch` decide
+        // whether to fire. When present, only fire for `HEAD` to
+        // avoid double-firing on sibling-file noise (`ORIG_HEAD`,
+        // `FETCH_HEAD`, `packed-refs`).
+        if (filename && filename !== headBasename) return;
+        scheduleResolve();
+      });
+      watcher.on('error', () => {
+        if (cancelled) return;
+        try {
+          watcher?.close();
+        } catch {
+          /* ignored */
+        }
+        watcher = null;
+        scheduleRestart();
+      });
+      // Reset the retry counter on a successful start — a previously
+      // recovered watcher gets a fresh quota when it next fails.
+      retryCount = 0;
+    } catch {
+      scheduleRestart();
+      return;
+    }
+    // Emit an initial summary so the renderer's branch indicator
+    // refreshes immediately on subscription (covers the case where
+    // the project was reopened mid-checkout). No `branchChanged`
+    // event fires for the first emit — `initialised` is false until
+    // the first resolveAndEmit completes.
+    void resolveAndEmit();
+  };
+
+  startWatcher();
+  return { dispose };
+}
+
+/**
+ * Reveal the repo root in the OS file manager. Returns `true` when
+ * the shell handled the open, `false` when it refused (path
+ * disappeared between context-menu open and click, or the OS
+ * rejected the request).
+ *
+ * Uses `shell.openPath` (same primitive `fs:reveal-in-finder` uses)
+ * rather than probing for an installed Source Control GUI client.
+ * Cross-platform SC-client detection is brittle (different bundle
+ * ids on Linux / Windows, fingerprinting risk per `ANTI_FEATURES.md`
+ * §A-008) — opening the working tree in Finder / Explorer is the
+ * generic action a developer expects.
+ */
+export async function revealRepo(repoRoot: string): Promise<boolean> {
+  if (typeof repoRoot !== 'string' || repoRoot.length === 0) return false;
+  let absoluteRoot: string;
+  try {
+    absoluteRoot = path.resolve(repoRoot);
+  } catch {
+    return false;
+  }
+  // Defense in depth — make sure the path still exists. Slice 1's
+  // `validateGitRepoRoot` re-runs `git rev-parse --show-toplevel` on
+  // every diff call; reveal is a cheaper action so we settle for an
+  // `fs.stat` existence probe.
+  try {
+    const stat = await fsAsync.stat(absoluteRoot);
+    if (!stat.isDirectory()) return false;
+  } catch {
+    return false;
+  }
+  try {
+    const error = await shell.openPath(absoluteRoot);
+    // `openPath` returns an empty string on success and an OS-level
+    // error string on failure.
+    return typeof error === 'string' && error.length === 0;
+  } catch {
+    return false;
+  }
 }

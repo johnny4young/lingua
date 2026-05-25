@@ -7,6 +7,7 @@ import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useEditorStore } from '../stores/editorStore';
+import { useGitStore } from '../stores/gitStore';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
 import { trackEvent } from '../utils/telemetry';
@@ -124,6 +125,16 @@ async function tryBuildCapsule(args: {
   diagnostics?: unknown[];
   errorMessage?: string;
   stdin?: string;
+  /**
+   * RL-102 Slice 2 fold A — pre-run branch snapshot. Captured at
+   * run-START (not at this builder-call time) so a mid-run sibling
+   * checkout does not pollute the capsule. The caller threads the
+   * pre-run snapshot through; this builder simply forwards it onto
+   * the schema's optional `environment.git` slot. Undefined when
+   * the run started without a usable git posture (web, no-git
+   * folder, detached HEAD).
+   */
+  gitSnapshot?: { branch?: string; commit?: string };
 }): Promise<RunCapsuleV1 | null> {
   try {
     const appInfo = getBundledAppInfo();
@@ -165,10 +176,62 @@ async function tryBuildCapsule(args: {
       environment: {
         platform,
         runner: args.runnerId,
+        // Fold A — branch snapshot from run START. Omitted (rather
+        // than included as an empty object) when the snapshot carries
+        // neither branch nor commit so a no-git run keeps the
+        // existing capsule shape unchanged.
+        ...(args.gitSnapshot &&
+        (args.gitSnapshot.branch !== undefined ||
+          args.gitSnapshot.commit !== undefined)
+          ? {
+              git: {
+                ...(args.gitSnapshot.branch !== undefined
+                  ? { branch: args.gitSnapshot.branch }
+                  : {}),
+                ...(args.gitSnapshot.commit !== undefined
+                  ? { commit: args.gitSnapshot.commit }
+                  : {}),
+              },
+            }
+          : {}),
       },
     });
   } catch {
     return null;
+  }
+}
+
+/**
+ * RL-102 Slice 2 fold A — snapshot the current git posture for the
+ * capsule. Reads `useGitStore.posture` synchronously at run START
+ * so a mid-run `git checkout` from a sibling terminal does NOT
+ * change the capture. Returns `undefined` when the posture is
+ * unavailable (web build, no-git folder, detached HEAD), in which
+ * case the capsule's `environment.git` slot is omitted entirely.
+ *
+ * This module already depends on renderer stores for execution
+ * lifecycle, so the git store is imported statically. A lazy
+ * CommonJS `require()` would be undefined in Vite's browser-style
+ * renderer bundle and would silently drop the Git snapshot.
+ */
+function snapshotGitPosture():
+  | { branch?: string; commit?: string }
+  | undefined {
+  try {
+    const posture = useGitStore.getState().posture as
+      | { available?: boolean; branch?: string; commit?: string }
+      | null
+      | undefined;
+    if (!posture || posture.available !== true) return undefined;
+    const branch = typeof posture.branch === 'string' ? posture.branch : undefined;
+    const commit = typeof posture.commit === 'string' ? posture.commit : undefined;
+    if (branch === undefined && commit === undefined) return undefined;
+    return {
+      ...(branch !== undefined ? { branch } : {}),
+      ...(commit !== undefined ? { commit } : {}),
+    };
+  } catch {
+    return undefined;
   }
 }
 
@@ -337,6 +400,11 @@ export async function executeTabManually(
   }
 
   let runnerPrepared = false;
+  // RL-102 Slice 2 fold A — snapshot the git posture at run START,
+  // before runner preparation can await. The same value is reused on
+  // the outer throw path so a long failed prepare / execute cannot
+  // capture a later sibling-terminal checkout instead.
+  const gitSnapshot = snapshotGitPosture();
 
   try {
     // RL-019 Slice 3 fold A — feed sibling .css / .html tabs to
@@ -639,6 +707,8 @@ export async function executeTabManually(
         diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
         errorMessage: result.error?.message,
         stdin: activeTab.stdinBuffer ?? undefined,
+        // RL-102 Slice 2 fold A — pre-run branch snapshot.
+        ...(gitSnapshot !== undefined ? { gitSnapshot } : {}),
       });
     }
 
@@ -717,6 +787,7 @@ export async function executeTabManually(
         status: 'error',
         durationMs: 0,
         errorMessage: message,
+        ...(gitSnapshot !== undefined ? { gitSnapshot } : {}),
       });
       useExecutionHistoryStore.getState().record({
         language,

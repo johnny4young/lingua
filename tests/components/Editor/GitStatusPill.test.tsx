@@ -138,9 +138,9 @@ describe('GitStatusPill', () => {
     expect(items).toHaveLength(3);
     expect(items[0]?.textContent).toMatch(/diff/i);
     expect(items[1]?.textContent).toMatch(/copy/i);
-    expect(items[2]?.textContent).toMatch(/source control|control de versiones/i);
-    // The Reveal in SC item is disabled (Slice 2+ placeholder).
-    expect((items[2] as HTMLButtonElement).disabled).toBe(true);
+    expect(items[2]?.textContent).toMatch(
+      /source control|control de versiones|explorador/i
+    );
   });
 
   it('renders null when no status entry yet (initial load flicker guard)', () => {
@@ -148,5 +148,100 @@ describe('GitStatusPill', () => {
     // No `setFileStatus` call → byFile is empty.
     const { queryByTestId } = render(<GitStatusPill filePath={FILE_PATH} />);
     expect(queryByTestId('git-status-pill')).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // RL-102 Slice 2 — Reveal in Source Control row enabled.
+  // -------------------------------------------------------------------------
+
+  describe('Reveal in Source Control action (RL-102 Slice 2)', () => {
+    beforeEach(() => {
+      // Install a minimal `window.lingua.git.reveal` so the menu
+      // item is enabled. The actual call is tested via its return
+      // value path in the dedicated case below.
+      (window as unknown as { lingua: unknown }).lingua = {
+        platform: 'desktop',
+        git: {
+          reveal: () => Promise.resolve(true),
+        },
+      };
+    });
+
+    afterEach(() => {
+      // Restore the absent bridge so unrelated tests that depend on
+      // the no-bridge path see the original surface.
+      delete (window as unknown as { lingua?: unknown }).lingua;
+    });
+
+    it('renders the Reveal row enabled when bridge.reveal exists and repoRoot is known', () => {
+      primePosture();
+      primeStatus('modified');
+      const { getByTestId, getAllByRole } = render(
+        <GitStatusPill filePath={FILE_PATH} />
+      );
+      act(() => {
+        fireEvent.contextMenu(getByTestId('git-status-pill'), {
+          clientX: 50,
+          clientY: 50,
+        });
+      });
+      const items = getAllByRole('menuitem');
+      expect((items[2] as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('invokes bridge.reveal with the resolved repoRoot on click', async () => {
+      let called: string | null = null;
+      (window as unknown as { lingua: unknown }).lingua = {
+        platform: 'desktop',
+        git: {
+          reveal: (root: string) => {
+            called = root;
+            return Promise.resolve(true);
+          },
+        },
+      };
+      primePosture();
+      primeStatus('modified');
+      const { getByTestId, getAllByRole } = render(
+        <GitStatusPill filePath={FILE_PATH} />
+      );
+      act(() => {
+        fireEvent.contextMenu(getByTestId('git-status-pill'), {
+          clientX: 50,
+          clientY: 50,
+        });
+      });
+      const revealItem = getAllByRole('menuitem')[2] as HTMLButtonElement;
+      await act(async () => {
+        fireEvent.click(revealItem);
+      });
+      expect(called).toBe(REPO_ROOT);
+    });
+
+    it('pushes a localized notice when bridge.reveal returns false', async () => {
+      (window as unknown as { lingua: unknown }).lingua = {
+        platform: 'desktop',
+        git: {
+          reveal: () => Promise.resolve(false),
+        },
+      };
+      primePosture();
+      primeStatus('modified');
+      const { getByTestId, getAllByRole } = render(
+        <GitStatusPill filePath={FILE_PATH} />
+      );
+      act(() => {
+        fireEvent.contextMenu(getByTestId('git-status-pill'), {
+          clientX: 50,
+          clientY: 50,
+        });
+      });
+      const revealItem = getAllByRole('menuitem')[2] as HTMLButtonElement;
+      await act(async () => {
+        fireEvent.click(revealItem);
+      });
+      const notice = useUIStore.getState().statusNotice;
+      expect(notice?.messageKey).toBe('git.reveal.error.notFound');
+    });
   });
 });
