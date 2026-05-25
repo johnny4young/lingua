@@ -217,6 +217,14 @@ export interface EditorState {
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   updateContent: (id: string, content: string) => void;
+  /**
+   * RL-024 Slice 2 — refresh a tab's buffer from disk content without
+   * marking it dirty. Used by the Replace in files overlay so the
+   * on-screen tab reflects the post-replace disk content. Cmd+Z does
+   * not restore the previous content; replace-in-files is a
+   * non-undoable operation per the confirmation modal copy.
+   */
+  setTabContentFromDisk: (id: string, content: string) => void;
   markSaved: (id: string) => void;
   /**
    * RL-070 — flip the per-tab lifecycle marker. Called by the runner

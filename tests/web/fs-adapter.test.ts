@@ -434,6 +434,30 @@ describe('webFsAdapter — searchInFiles', async () => {
     expect(result.map((r) => r.relativePath)).toEqual(['code.ts']);
     expect(result[0]!.matches).toHaveLength(2);
   });
+
+  it('keeps whitespace queries exact and sanitizes malformed limits', async () => {
+    const dh = buildDirHandle({
+      name: 'project',
+      files: [
+        { name: 'code.ts', content: '  todo\n  todo\n' },
+      ],
+    });
+    window.showDirectoryPicker = vi
+      .fn()
+      .mockResolvedValue(dh) as typeof window.showDirectoryPicker;
+
+    const picked = await webFsAdapter.selectDirectory();
+    if (picked.canceled !== false) throw new Error('picker canceled');
+
+    const result = await webFsAdapter.searchInFiles(
+      picked.rootId,
+      '',
+      '  todo',
+      { maxMatchesPerFile: Number.NaN }
+    );
+    expect(result[0]!.matches).toHaveLength(2);
+    expect(result[0]!.matches[0]!.matchEnd).toBe('  todo'.length);
+  });
 });
 
 describe('webFsAdapter — traversal rejection', async () => {

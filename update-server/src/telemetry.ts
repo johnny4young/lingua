@@ -159,6 +159,11 @@ export const TELEMETRY_EVENT_NAMES = [
   // `{ templateId, language }` where `templateId` ∈
   // `TEMPLATE_PROJECT_IDS` and `language` ∈ language pack ids.
   'template_project_applied',
+  // RL-024 Slice 2 — Replace in files applied. Closed-enum
+  // `{ scope, countBucket, regex }` mirrored from
+  // src/shared/telemetry.ts. Parity test cross-imports the renderer
+  // REPLACE_IN_FILES_SCOPES set.
+  'editor.replace_in_files_applied',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -266,6 +271,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'git.diff_panel_opened': [],
   // RL-103 Slice 1 fold B — mirror of src/shared/telemetry.ts.
   'template_project_applied': ['templateId', 'language'],
+  // RL-024 Slice 2 — mirror.
+  'editor.replace_in_files_applied': ['scope', 'countBucket', 'regex'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -501,6 +508,13 @@ export const DEPENDENCY_COUNT_BUCKETS = new Set([
   '2-5',
   '6-10',
   '>10',
+]);
+// RL-024 Slice 2 — mirror of REPLACE_IN_FILES_SCOPES in
+// `src/shared/telemetry.ts`. Parity test enforces both copies stay
+// aligned.
+export const REPLACE_IN_FILES_SCOPES = new Set([
+  'single-file',
+  'all-files',
 ]);
 // RL-025 Slice B — mirrors of DEPENDENCY_INSTALL_OUTCOMES and
 // DEPENDENCY_INSTALL_FAILURE_REASONS from
@@ -1005,6 +1019,17 @@ function isAllowedValue(
       if (key === 'templateId')
         return typeof value === 'string' && TEMPLATE_PROJECT_IDS.has(value);
       if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'editor.replace_in_files_applied':
+      if (key === 'scope')
+        return (
+          typeof value === 'string' && REPLACE_IN_FILES_SCOPES.has(value)
+        );
+      if (key === 'countBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
+        );
+      if (key === 'regex') return typeof value === 'boolean';
       return false;
     default: {
       const exhaustive: never = event;

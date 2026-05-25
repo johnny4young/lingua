@@ -20,10 +20,27 @@ if (!publicKeyJwk || !token) {
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
-  timeout: 90_000,
+  // 60s preserves headroom against the slowest legitimate assertions
+  // (Pyodide boot, Monaco mount) while still surfacing genuine hangs
+  // ~30s faster than the original 90s. The original timeout was a
+  // global cap that compounded with worker contention — every hung
+  // test pinned a worker for 90s. 60s halves that compounding cost
+  // without false-positive timeouts on healthy tests.
+  timeout: 60_000,
   expect: {
     timeout: 10_000,
   },
+  // 50% of host CPUs (= 7 workers on a 14-core host) matches the
+  // previous Playwright default. Raising this past 50% caused CPU
+  // contention severe enough that legitimate tests hit timeouts —
+  // the runtime savings from more workers were undone by spurious
+  // failures. The big speedup actually comes from:
+  //   (a) caching dist/web between invocations
+  //   (b) caching the minted keypair so cached dist stays valid
+  //   (c) `reuseExistingServer: true` skipping server boot on warm runs
+  // CI sets `CI=1` and stays on 50% so GitHub runners (typically
+  // 2-4 cores) don't oversubscribe.
+  workers: '50%',
   reporter: 'list',
   outputDir: 'output/playwright/license-web-e2e',
   use: {
@@ -36,15 +53,19 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    // Build once then serve the production artifacts. Dev mode is much
-    // slower for Playwright because Vite compiles the Web Worker bundles
-    // on demand, which pushes the first manual run past the 10s assertion
-    // timeout in CI. Production preview is deterministic and fast.
-    command: `npx vite build --config vite.web.config.mts && npx vite preview --config vite.web.config.mts --host ${host} --port ${port} --strictPort`,
+    // Serve the production artifacts. Build is now a separate
+    // prerequisite owned by `scripts/run-playwright-web-validation.mjs`
+    // so we don't pay the ~2s build cost on every Playwright
+    // invocation — and so iterative runs (re-run after a code edit)
+    // can `--no-rebuild` to reuse the artifacts.
+    command: `npx vite preview --config vite.web.config.mts --host ${host} --port ${port} --strictPort`,
     url: `http://${host}:${port}`,
     cwd: repoRoot,
-    reuseExistingServer: false,
-    timeout: 180_000,
+    // Reuse a running preview between invocations when the operator
+    // is iterating. CI sets `CI=1` and skips reuse so each release
+    // matrix entry has a pristine server.
+    reuseExistingServer: !process.env.CI,
+    timeout: 60_000,
     env: {
       ...process.env,
       VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK: publicKeyJwk,

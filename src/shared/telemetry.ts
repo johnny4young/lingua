@@ -311,6 +311,17 @@ export const TELEMETRY_EVENTS = [
   // No file paths, no destination directory, no content. Mirrored
   // on update-server with parity test.
   'template_project_applied',
+  // RL-024 Slice 2 — Replace in files applied. Fires once per
+  // `applyToFile` AND once per `applyToAll` invocation with the
+  // batch result. Closed-enum `{ scope, countBucket, regex }` where
+  // `scope` ∈ REPLACE_IN_FILES_SCOPES (`'single-file'` /
+  // `'all-files'`), `countBucket` reuses DEPENDENCY_COUNT_BUCKETS
+  // (`'0'` / `'1'` / `'2-5'` / `'6-10'` / `'>10'`) to avoid raw
+  // replacement counts on the wire, `regex` is a boolean flag
+  // capturing whether the user toggled the Regex option. NO file
+  // paths, NO query / replacement content. Mirrored on update-server
+  // with parity test.
+  'editor.replace_in_files_applied',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -545,6 +556,9 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // (closed enum, mirrored on update-server). `language` is the
   // language-pack id validated by `isSafeToken`.
   'template_project_applied': ['templateId', 'language'],
+  // RL-024 Slice 2 — `scope` ∈ REPLACE_IN_FILES_SCOPES,
+  // `countBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET, `regex` boolean.
+  'editor.replace_in_files_applied': ['scope', 'countBucket', 'regex'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -832,6 +846,13 @@ export const DEPENDENCY_INSTALL_OUTCOMES_SET = new Set([
 // Kept outside the literal so the regex parity test stays
 // single-quote clean (apostrophes inside array literals break the
 // extraction).
+// RL-024 Slice 2 — closed enum for the `scope` property on
+// `editor.replace_in_files_applied`. Source of truth on the renderer
+// side; mirrored on update-server with parity test.
+export const REPLACE_IN_FILES_SCOPES = new Set([
+  'single-file',
+  'all-files',
+]);
 export const DEPENDENCY_INSTALL_FAILURE_REASONS_SET = new Set([
   'invalid-specifier',
   'no-package-json',
@@ -1229,6 +1250,17 @@ function isAllowedValue(
       if (key === 'templateId')
         return typeof value === 'string' && TEMPLATE_PROJECT_IDS.has(value);
       if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'editor.replace_in_files_applied':
+      if (key === 'scope')
+        return (
+          typeof value === 'string' && REPLACE_IN_FILES_SCOPES.has(value)
+        );
+      if (key === 'countBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
+        );
+      if (key === 'regex') return typeof value === 'boolean';
       return false;
     default: {
       const exhaustive: never = event;

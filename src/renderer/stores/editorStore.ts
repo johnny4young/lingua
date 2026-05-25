@@ -553,6 +553,31 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ),
     })),
 
+  /**
+   * RL-024 Slice 2 — refresh a tab's buffer from disk content WITHOUT
+   * marking it dirty. Used by the Replace in files overlay after a
+   * successful IPC apply so the tab visually reflects the on-disk
+   * change. Unlike `updateContent` (which is the user-edit path),
+   * `isDirty` stays false because the disk and the buffer now match.
+   * Cmd+Z does NOT restore the previous content — replace-in-files
+   * is documented as a non-undoable operation in the confirmation
+   * modal copy.
+   */
+  setTabContentFromDisk: (id: string, content: string) =>
+    set((state) => ({
+      tabs: state.tabs.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              content,
+              isDirty: false,
+              executionState: 'idle' as const,
+              parseError: null,
+            }
+          : t
+      ),
+    })),
+
   setTabExecutionState: (id, executionState, parseError = null) =>
     set((state) => ({
       tabs: state.tabs.map((t) =>

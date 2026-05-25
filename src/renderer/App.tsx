@@ -9,6 +9,7 @@ import { CommandPalette } from './components/CommandPalette/CommandPalette';
 import { replayHistoryEntry } from './utils/replayHistoryEntry';
 import { GoToSymbol } from './components/GoToSymbol/GoToSymbol';
 import { ProjectSearch } from './components/ProjectSearch/ProjectSearch';
+import { ProjectReplace } from './components/ProjectReplace/ProjectReplace';
 import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardShortcutsModal';
 import { SnippetsModal } from './components/Snippets';
@@ -725,6 +726,7 @@ function AppChrome({
       <ShareLinkController />
       {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
       {overlay === 'search' && <ProjectSearch onClose={closeOverlay} />}
+      {overlay === 'replace' && <ProjectReplace onClose={closeOverlay} />}
       {overlay === 'go-to-symbol' && <GoToSymbol onClose={closeOverlay} />}
       {overlay === 'palette' && (
         <CommandPalette
@@ -734,6 +736,7 @@ function AppChrome({
           onStartGuidedTour={handleStartGuidedTour}
           onOpenSnippets={() => openOverlay('snippets')}
           onOpenProjectSearch={() => openOverlay('search')}
+          onOpenProjectReplace={() => openOverlay('replace')}
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
           onOpenDeveloperUtility={(utilityId) => handleOpenDeveloperUtility(utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}

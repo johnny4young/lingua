@@ -25,6 +25,7 @@ export type AppOverlay =
   | 'palette'
   | 'quick-open'
   | 'search'
+  | 'replace'
   | 'go-to-symbol'
   | 'utilities'
   | 'snippets'
@@ -184,6 +185,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'nav-quick-open': () => options.toggleOverlay('quick-open'),
     'nav-go-to-symbol': () => options.toggleOverlay('go-to-symbol'),
     'nav-project-search': () => options.toggleOverlay('search'),
+    'nav-project-replace': () => options.toggleOverlay('replace'),
     'overlay-command-palette': () => options.toggleOverlay('palette'),
     'overlay-settings': () => options.toggleOverlay('settings'),
     'overlay-developer-utilities': () => options.openDeveloperUtilities(),

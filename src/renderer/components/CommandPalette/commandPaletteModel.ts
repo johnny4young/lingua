@@ -231,6 +231,9 @@ interface BuildCommandPaletteModelArgs {
   onStartGuidedTour: () => void;
   onOpenSnippets: () => void;
   onOpenProjectSearch?: () => void;
+  // RL-024 Slice 2 — invoked when the user picks the
+  // `action-project-replace` palette entry.
+  onOpenProjectReplace?: () => void;
   onOpenGoToSymbol?: () => void;
   onOpenDeveloperUtility?: (id: DeveloperUtilityId) => void;
   onOpenKeyboardShortcuts?: () => void;
@@ -603,6 +606,7 @@ export function buildCommandPaletteModel({
   onStartGuidedTour,
   onOpenSnippets,
   onOpenProjectSearch,
+  onOpenProjectReplace,
   onOpenGoToSymbol,
   onOpenDeveloperUtility,
   onOpenKeyboardShortcuts,
@@ -1285,6 +1289,24 @@ export function buildCommandPaletteModel({
         () => {
           onClose();
           onOpenProjectSearch();
+        }
+      )
+    );
+  }
+
+  // RL-024 Slice 2 — Replace in files. Mirrors the projectSearch
+  // entry so users with VSCode muscle memory find both Find AND
+  // Replace via the palette without leaving Lingua.
+  if (onOpenProjectReplace) {
+    commands.push(
+      buildActionCommand(
+        'action-project-replace',
+        translate('commandPalette.action.projectReplace.label'),
+        translate('commandPalette.action.projectReplace.description'),
+        ['replace', 'substitute', 'rename', 'find', 'project'],
+        () => {
+          onClose();
+          onOpenProjectReplace();
         }
       )
     );

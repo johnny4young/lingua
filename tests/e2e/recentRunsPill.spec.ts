@@ -82,9 +82,11 @@ test.describe('Recent Runs pill (RL-020 Slice 4)', () => {
     await expect(page.getByTestId('recent-runs-pill')).toHaveCount(0);
   });
 
-  test('Mod+Shift+H toggles the popover from the keyboard (fold B)', async ({
+  test('Mod+Alt+H toggles the popover from the keyboard (fold B)', async ({
     page,
   }) => {
+    // RL-024 Slice 2 — moved from Mod+Shift+H to Mod+Alt+H so the
+    // VSCode-parity Mod+Shift+H binding can map to project-replace.
     await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await dismissWhatsNew(page);
@@ -93,7 +95,7 @@ test.describe('Recent Runs pill (RL-020 Slice 4)', () => {
     await pressRun(page);
     await expect(page.getByTestId('recent-runs-pill')).toBeVisible();
 
-    const combo = process.platform === 'darwin' ? 'Meta+Shift+H' : 'Control+Shift+H';
+    const combo = process.platform === 'darwin' ? 'Meta+Alt+H' : 'Control+Alt+H';
     await page.keyboard.press(combo);
     await expect(page.getByTestId('recent-runs-popover')).toBeVisible();
     await page.keyboard.press(combo);

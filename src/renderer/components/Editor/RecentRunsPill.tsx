@@ -137,8 +137,10 @@ export function RecentRunsPill() {
     };
   }, [open]);
 
-  // Fold B — register a global opener so `Mod+Shift+H` can toggle the
-  // popover from the keyboard shortcut dispatcher. Register only when
+  // Fold B — register a global opener so `Mod+Alt+H` can toggle the
+  // popover from the keyboard shortcut dispatcher. (Moved from
+  // `Mod+Shift+H` in RL-024 Slice 2 so the VSCode-parity binding maps
+  // to project-replace.) Register only when
   // the pill is actually openable; otherwise the shortcut dispatcher
   // can surface its localized "no recent runs" status notice instead
   // of silently toggling invisible state.
