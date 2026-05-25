@@ -37,6 +37,45 @@ export function trackGitDiffPanelOpened(): void {
 }
 
 /**
+ * RL-102 Slice 2 — head-change telemetry. Closed-enum `repoState`
+ * reuses `GIT_LAYER_REPO_STATES` so the dashboard groups head
+ * changes by posture. `branchChanged` is a boolean payload field;
+ * callers only invoke this when the branch genuinely changed (the
+ * `branchChanged: false` slot is reserved for future commit-only
+ * signal slices and never fires today).
+ */
+export function trackGitHeadChanged(
+  repoState: GitLayerRepoState,
+  branchChanged: boolean
+): void {
+  void trackEvent('git.head_changed', { repoState, branchChanged });
+}
+
+/**
+ * RL-102 Slice 2 — Reveal-in-Source-Control click telemetry.
+ * Closed-enum `target ∈ {'repo-root'}` (extensible for Slice 3+).
+ * Mirrored on update-server with parity test.
+ */
+export function trackGitRevealInSourceControlClicked(
+  target: 'repo-root'
+): void {
+  void trackEvent('git.reveal_in_source_control_clicked', { target });
+}
+
+/**
+ * RL-102 Slice 2 fold E — outcome telemetry for the
+ * reload-from-disk notice. Closed-enum `mode` captures whether the
+ * user accepted the reload, rejected it (dismissed the modal /
+ * notice), or auto-applied (reserved for a future Slice 3+
+ * "auto-reload clean tabs" surface that does not exist today).
+ */
+export function trackGitExternalModificationReload(
+  mode: 'user-accepted' | 'user-rejected' | 'auto-applied'
+): void {
+  void trackEvent('git.external_modification_reload', { mode });
+}
+
+/**
  * Test-only seam — reset the last-emitted cache so vitest cases
  * can assert burst behavior in isolation. NOT exported via the
  * package barrel; tests import the path directly.

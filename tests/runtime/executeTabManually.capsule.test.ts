@@ -100,6 +100,7 @@ import {
   CAPSULE_LRU_CAP,
   useExecutionHistoryStore,
 } from '../../src/renderer/stores/executionHistoryStore';
+import { useGitStore } from '../../src/renderer/stores/gitStore';
 import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
 describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
@@ -117,6 +118,7 @@ describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
     mockToExecutionDiagnostics.mockReset();
     mockToExecutionDiagnostics.mockReturnValue([]);
     useExecutionHistoryStore.setState({ entries: [] });
+    useGitStore.getState().clear();
     useSettingsStore.setState({ outputSourceMappingEnabled: true });
   });
 
@@ -177,6 +179,41 @@ describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
     expect(entry.lastCapsule?.result.diagnostics).toEqual(diagnostics);
   });
 
+  it('attaches the run-start git snapshot to the capsule environment', async () => {
+    useGitStore.getState().setPosture({
+      available: true,
+      repoRoot: '/tmp/repo',
+      branch: 'main',
+      commit: 'abc123',
+    });
+    mockRunnerManagerPrepare.mockResolvedValue({
+      runner: {
+        execute: mockRunnerExecute.mockResolvedValue({
+          stdout: [],
+          stderr: [],
+          result: undefined,
+          executionTime: 3,
+          error: undefined,
+        }),
+      },
+      initialized: false,
+    });
+
+    await executeTabManually({
+      id: 'tab-git',
+      name: 'git.js',
+      language: 'javascript',
+      content: 'console.log("git")',
+      isDirty: false,
+    });
+
+    const entry = useExecutionHistoryStore.getState().entries[0]!;
+    expect(entry.lastCapsule?.environment.git).toEqual({
+      branch: 'main',
+      commit: 'abc123',
+    });
+  });
+
   // Slice 2 — `outputSourceMappingEnabled` was removed; origin
   // metadata is always passed through. The "OFF state strips origin"
   // case no longer applies; per-file `// @origin off` directive
@@ -229,6 +266,38 @@ describe('executeTabManually — capsule attach (RL-094 Slice 1)', () => {
     expect(entry.status).toBe('error');
     expect(entry.lastCapsule?.result.status).toBe('error');
     expect(entry.lastCapsule?.result.errorMessage).toContain('runtime missing');
+  });
+
+  it('uses the run-start git snapshot on the outer throw path', async () => {
+    useGitStore.getState().setPosture({
+      available: true,
+      repoRoot: '/tmp/repo',
+      branch: 'main',
+      commit: 'start',
+    });
+    mockRunnerManagerPrepare.mockImplementation(async () => {
+      useGitStore.getState().applyHeadChange({
+        repoRoot: '/tmp/repo',
+        branch: 'feature/later',
+        commit: 'later',
+        branchChanged: true,
+      });
+      throw new Error('runtime missing');
+    });
+
+    await executeTabManually({
+      id: 'tab-throw-git',
+      name: 'broken-git.js',
+      language: 'javascript',
+      content: 'console.log(0)',
+      isDirty: false,
+    });
+
+    const entry = useExecutionHistoryStore.getState().entries[0]!;
+    expect(entry.lastCapsule?.environment.git).toEqual({
+      branch: 'main',
+      commit: 'start',
+    });
   });
 
   it('caps lastCapsule retention at CAPSULE_LRU_CAP entries', async () => {

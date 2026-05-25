@@ -303,6 +303,33 @@ export const TELEMETRY_EVENTS = [
   // us measure whether the diff panel is being used or whether the
   // pill alone carries the surface. Mirrored on update-server.
   'git.diff_panel_opened',
+  // RL-102 Slice 2 — Branch / HEAD-change signal. Fires when the
+  // main-side `.git/HEAD` watcher detects a settled change AND the
+  // branch name actually differs from the previous cache (commit-
+  // only updates are silent). Closed-enum
+  // `{ repoState, branchChanged }` where `repoState` reuses
+  // `GIT_LAYER_REPO_STATES` and `branchChanged` is a boolean. NO
+  // branch names, NO commit hashes — the boolean keeps the signal
+  // useful without leaking working-tree state. Mirrored on
+  // update-server.
+  'git.head_changed',
+  // RL-102 Slice 2 — Reveal-in-Source-Control click. Fires when
+  // the user clicks the right-click context-menu row that opens
+  // the repo working tree in the OS file manager. Closed-enum
+  // `{ target }` where `target ∈ REVEAL_IN_SC_TARGETS`. Today the
+  // only valid target is `'repo-root'`; the closed enum stays
+  // future-proof for Slice 3+ extensions. Mirrored on update-server
+  // with parity test.
+  'git.reveal_in_source_control_clicked',
+  // RL-102 Slice 2 fold E — External-modification reload outcome.
+  // Fires when the user clicks the Reload action on the
+  // "File changed on disk" status notice (or rejects it). Closed-
+  // enum `{ mode }` ∈ `EXTERNAL_RELOAD_MODES`
+  // (`'user-accepted'` / `'user-rejected'` / `'auto-applied'`).
+  // The `'auto-applied'` slot is reserved for a future
+  // auto-reload-clean-tabs surface; the renderer never emits it
+  // today. NO file path, NO content delta. Mirrored on update-server.
+  'git.external_modification_reload',
   // RL-103 Slice 1 fold B — Curated project template applied. Fires
   // once per successful multi-file scaffold (after the entry file
   // opens in a new tab). Closed-enum payload
@@ -552,6 +579,16 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-102 Slice 1 fold D — pure counter, no per-event properties.
   // The redactor drops any key that arrives anyway.
   'git.diff_panel_opened': [],
+  // RL-102 Slice 2 — `repoState` ∈ `GIT_LAYER_REPO_STATES`,
+  // `branchChanged` boolean. No branch / commit text on the wire.
+  'git.head_changed': ['repoState', 'branchChanged'],
+  // RL-102 Slice 2 — `target` ∈ `REVEAL_IN_SC_TARGETS`. Closed enum
+  // stays single-valued (`'repo-root'`) today; future targets must
+  // touch both renderer + update-server validators (parity test
+  // catches drift).
+  'git.reveal_in_source_control_clicked': ['target'],
+  // RL-102 Slice 2 fold E — `mode` ∈ `EXTERNAL_RELOAD_MODES`.
+  'git.external_modification_reload': ['mode'],
   // RL-103 Slice 1 fold B — `templateId` ∈ `TEMPLATE_PROJECT_IDS`
   // (closed enum, mirrored on update-server). `language` is the
   // language-pack id validated by `isSafeToken`.
@@ -800,6 +837,22 @@ export const GIT_LAYER_REPO_STATES = new Set([
   'git-repo',
   'no-git',
   'no-binary',
+]);
+// RL-102 Slice 2 — closed enum for the `target` property on
+// `git.reveal_in_source_control_clicked`. Single value today; the
+// closed set lets future Slice 3+ extensions (e.g. `'commit-hash'`
+// jumping to a specific commit in an external SC GUI) layer in
+// without rewriting the validator.
+export const REVEAL_IN_SC_TARGETS = new Set(['repo-root']);
+// RL-102 Slice 2 fold E — closed enum for the `mode` property on
+// `git.external_modification_reload`. Mirrored on update-server
+// with parity test. The `'auto-applied'` slot is reserved for a
+// future auto-reload-clean-tabs surface that today is intentionally
+// out of scope ("no silent file mutation" per AGENTS.md).
+export const EXTERNAL_RELOAD_MODES = new Set([
+  'user-accepted',
+  'user-rejected',
+  'auto-applied',
 ]);
 // RL-103 Slice 1 fold B — closed enum for the `templateId` property
 // on `template_project_applied`. Source of truth lives in the
@@ -1245,6 +1298,19 @@ function isAllowedValue(
       // Pure counter — no whitelisted properties. Any key that
       // arrives is dropped by the closed-enum validator falling
       // through to false.
+      return false;
+    case 'git.head_changed':
+      if (key === 'repoState')
+        return typeof value === 'string' && GIT_LAYER_REPO_STATES.has(value);
+      if (key === 'branchChanged') return typeof value === 'boolean';
+      return false;
+    case 'git.reveal_in_source_control_clicked':
+      if (key === 'target')
+        return typeof value === 'string' && REVEAL_IN_SC_TARGETS.has(value);
+      return false;
+    case 'git.external_modification_reload':
+      if (key === 'mode')
+        return typeof value === 'string' && EXTERNAL_RELOAD_MODES.has(value);
       return false;
     case 'template_project_applied':
       if (key === 'templateId')

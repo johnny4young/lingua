@@ -634,6 +634,26 @@ interface GitFileDiff {
   truncated: boolean;
 }
 
+// RL-102 Slice 2 — head-watch + reveal payload contracts. Mirrored
+// verbatim from `src/main/git.ts` so the renderer can consume them
+// off `window.lingua.git.onHeadChanged` without an extra import.
+interface GitHeadChangePayload {
+  repoRoot: string;
+  /** `null` means detached HEAD and clears a previously-known branch. */
+  branch?: string | null;
+  commit?: string;
+  /** `false` for the initial summary emit; `true` when the branch
+   *  has changed since the last cached summary. Watcher uses this
+   *  to gate `git.head_changed` telemetry (no-op fires suppressed). */
+  branchChanged: boolean;
+}
+interface GitHeadWatcherFailurePayload {
+  repoRoot: string;
+  /** `'give-up'` after the backoff schedule exhausts;
+   *  `'resolve-error'` when the initial HEAD path resolve fails. */
+  reason: 'give-up' | 'resolve-error';
+}
+
 // --------------------------------------------------------------- Main API
 
 interface LinguaAPI {
@@ -1009,6 +1029,20 @@ interface LinguaAPI {
     detect: (folderPath?: string) => Promise<GitDetectResult>;
     status: (repoRoot: string, filePath: string) => Promise<GitFileStatus>;
     diff: (repoRoot: string, filePath: string) => Promise<GitFileDiff>;
+    // RL-102 Slice 2 — Reveal repo root in OS file manager. Returns
+    // false when the OS refused the open or the path vanished.
+    reveal: (repoRoot: string) => Promise<boolean>;
+    // RL-102 Slice 2 — start / stop a `.git/HEAD` watcher for the
+    // given repoRoot. Main streams `git:on-head-changed` events to
+    // the renderer; the renderer subscribes via `onHeadChanged`.
+    watchHead: (repoRoot: string) => Promise<{ ok: boolean }>;
+    unwatchHead: (repoRoot: string) => Promise<{ ok: boolean }>;
+    onHeadChanged: (
+      handler: (payload: GitHeadChangePayload) => void
+    ) => () => void;
+    onHeadWatcherFailed: (
+      handler: (payload: GitHeadWatcherFailurePayload) => void
+    ) => () => void;
   };
 }
 

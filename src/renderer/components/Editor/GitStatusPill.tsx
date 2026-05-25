@@ -24,9 +24,8 @@
  *   the click position. Three actions today:
  *     - "Show diff"        — same as left-click.
  *     - "Copy file path"   — `navigator.clipboard.writeText(filePath)`.
- *     - "Reveal in SC"     — disabled placeholder for Slice 2+; the
- *                            tooltip names the gap so users don't
- *                            think the action is broken.
+ *     - "Reveal in SC"     — asks main to open the repo root in the
+ *                            OS file manager.
  *
  * Self-gates:
  *   - `gitStatusSuppressedByMagicComment(language, code)` → null.
@@ -39,6 +38,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { trackGitRevealInSourceControlClicked } from '../../hooks/gitTelemetry';
 import { useGitStore } from '../../stores/gitStore';
 import { useUIStore } from '../../stores/uiStore';
 import { gitStatusSuppressedByMagicComment } from '../../utils/magicComments';
@@ -184,6 +184,30 @@ export function GitStatusPill({
     }
   }, [filePath, closeMenu]);
 
+  // RL-102 Slice 2 — Reveal in Source Control. Calls the new
+  // `git:reveal` IPC, telemetry-tags the click as `'repo-root'`
+  // (closed-enum extension point for Slice 3+ targets), and
+  // surfaces a localized notice when the OS refuses the open.
+  const handleRevealInSc = useCallback(async () => {
+    closeMenu();
+    const bridge = window.lingua?.git;
+    const repoRoot = posture?.repoRoot;
+    if (!bridge?.reveal || !repoRoot) return;
+    trackGitRevealInSourceControlClicked('repo-root');
+    let ok: boolean;
+    try {
+      ok = await bridge.reveal(repoRoot);
+    } catch {
+      ok = false;
+    }
+    if (!ok) {
+      useUIStore.getState().pushStatusNotice({
+        tone: 'warning',
+        messageKey: 'git.reveal.error.notFound',
+      });
+    }
+  }, [closeMenu, posture?.repoRoot]);
+
   // Bail-outs (post-hooks so React rules-of-hooks stay clean).
   if (!posture?.available) return null;
   if (suppressedByMagic) return null;
@@ -273,12 +297,21 @@ export function GitStatusPill({
               >
                 {t('editor.git.contextMenu.copyPath')}
               </button>
+              {/* RL-102 Slice 2 — Reveal action enabled. Falls back
+                  to disabled chrome only when the bridge OR repoRoot
+                  is missing (defense in depth — `posture.available`
+                  should already guard the parent surface, but a
+                  same-render race could leave repoRoot transiently
+                  empty). */}
               <button
                 type="button"
                 role="menuitem"
-                disabled
-                title={t('editor.git.contextMenu.revealInSc.deferred')}
-                className="block w-full px-3 py-1.5 text-left text-muted cursor-not-allowed"
+                onClick={handleRevealInSc}
+                disabled={
+                  !posture?.repoRoot || !window.lingua?.git?.reveal
+                }
+                title={t('git.reveal.action.tooltip')}
+                className="block w-full px-3 py-1.5 text-left hover:bg-surface-hover disabled:cursor-not-allowed disabled:text-muted disabled:hover:bg-transparent"
               >
                 {t('editor.git.contextMenu.revealInSc')}
               </button>

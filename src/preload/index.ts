@@ -469,5 +469,41 @@ contextBridge.exposeInMainWorld('lingua', {
         repoRoot,
         filePath
       ) as Promise<GitFileDiff>,
+    // RL-102 Slice 2 — Reveal repo working tree in the OS file
+    // manager. Returns false when the path disappeared between the
+    // context-menu open and the click, or when the OS rejected the
+    // open. Renderer surfaces a localized notice on false.
+    reveal: (repoRoot: string) =>
+      ipcRenderer.invoke('git:reveal', repoRoot) as Promise<boolean>,
+    // RL-102 Slice 2 — start a `.git/HEAD` watcher for `repoRoot`.
+    // Main streams `git:on-head-changed` events to the renderer; the
+    // renderer subscribes via `onHeadChanged`. Calling twice for the
+    // same repoRoot is a no-op.
+    watchHead: (repoRoot: string) =>
+      ipcRenderer.invoke('git:watch-head', repoRoot) as Promise<{
+        ok: boolean;
+      }>,
+    unwatchHead: (repoRoot: string) =>
+      ipcRenderer.invoke('git:unwatch-head', repoRoot) as Promise<{
+        ok: boolean;
+      }>,
+    onHeadChanged: (handler: (payload: GitHeadChangePayload) => void) => {
+      const listener = (_: unknown, payload: GitHeadChangePayload) =>
+        handler(payload);
+      ipcRenderer.on('git:on-head-changed', listener);
+      return () => {
+        ipcRenderer.removeListener('git:on-head-changed', listener);
+      };
+    },
+    onHeadWatcherFailed: (
+      handler: (payload: GitHeadWatcherFailurePayload) => void
+    ) => {
+      const listener = (_: unknown, payload: GitHeadWatcherFailurePayload) =>
+        handler(payload);
+      ipcRenderer.on('git:on-head-watcher-failed', listener);
+      return () => {
+        ipcRenderer.removeListener('git:on-head-watcher-failed', listener);
+      };
+    },
   },
 });

@@ -154,6 +154,19 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-102 Slice 1 fold D — Git diff panel discovery signal. Pure
   // counter; no payload.
   'git.diff_panel_opened',
+  // RL-102 Slice 2 — `.git/HEAD` change signal. Closed-enum
+  // `{ repoState, branchChanged }` mirrored from src/shared/telemetry.ts.
+  // Renderer only emits when the branch actually changed; the
+  // boolean field stays as future-proofing for commit-only signal.
+  'git.head_changed',
+  // RL-102 Slice 2 — Reveal-in-Source-Control click. Closed-enum
+  // `{ target }` ∈ REVEAL_IN_SC_TARGETS.
+  'git.reveal_in_source_control_clicked',
+  // RL-102 Slice 2 fold E — external-modification reload outcome.
+  // Closed-enum `{ mode }` ∈ EXTERNAL_RELOAD_MODES. The
+  // `'auto-applied'` slot is reserved; renderer never emits it
+  // today.
+  'git.external_modification_reload',
   // RL-103 Slice 1 fold B — Curated project template applied. Mirror
   // of src/shared/telemetry.ts. Closed-enum
   // `{ templateId, language }` where `templateId` ∈
@@ -269,6 +282,10 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-102 Slice 1 fold D — mirror of src/shared/telemetry.ts.
   'git.layer_attached': ['repoState'],
   'git.diff_panel_opened': [],
+  // RL-102 Slice 2 — mirror of src/shared/telemetry.ts.
+  'git.head_changed': ['repoState', 'branchChanged'],
+  'git.reveal_in_source_control_clicked': ['target'],
+  'git.external_modification_reload': ['mode'],
   // RL-103 Slice 1 fold B — mirror of src/shared/telemetry.ts.
   'template_project_applied': ['templateId', 'language'],
   // RL-024 Slice 2 — mirror.
@@ -485,6 +502,19 @@ export const GIT_LAYER_REPO_STATES = new Set([
   'git-repo',
   'no-git',
   'no-binary',
+]);
+// RL-102 Slice 2 — mirror of REVEAL_IN_SC_TARGETS. Closed enum for
+// the `target` property on `git.reveal_in_source_control_clicked`.
+// Single value today; closed set stays future-proof for Slice 3+.
+export const REVEAL_IN_SC_TARGETS = new Set(['repo-root']);
+// RL-102 Slice 2 fold E — mirror of EXTERNAL_RELOAD_MODES. Closed
+// enum for the `mode` property on `git.external_modification_reload`.
+// The `'auto-applied'` slot is reserved; renderer never emits it
+// today (no silent file mutation per AGENTS.md).
+export const EXTERNAL_RELOAD_MODES = new Set([
+  'user-accepted',
+  'user-rejected',
+  'auto-applied',
 ]);
 // RL-103 Slice 1 fold B — mirror of TEMPLATE_PROJECT_IDS. Closed
 // enum for the `templateId` property on `template_project_applied`.
@@ -1014,6 +1044,19 @@ function isAllowedValue(
       return false;
     case 'git.diff_panel_opened':
       // Pure counter — no whitelisted properties.
+      return false;
+    case 'git.head_changed':
+      if (key === 'repoState')
+        return typeof value === 'string' && GIT_LAYER_REPO_STATES.has(value);
+      if (key === 'branchChanged') return typeof value === 'boolean';
+      return false;
+    case 'git.reveal_in_source_control_clicked':
+      if (key === 'target')
+        return typeof value === 'string' && REVEAL_IN_SC_TARGETS.has(value);
+      return false;
+    case 'git.external_modification_reload':
+      if (key === 'mode')
+        return typeof value === 'string' && EXTERNAL_RELOAD_MODES.has(value);
       return false;
     case 'template_project_applied':
       if (key === 'templateId')

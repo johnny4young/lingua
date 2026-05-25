@@ -57,6 +57,14 @@ export function GitDiffPanel() {
   const fileEntry = useGitStore((state) =>
     activeTab?.filePath ? state.byFile.get(activeTab.filePath) : undefined
   );
+  // RL-102 Slice 2 fold B — auto-refresh on HEAD change. Subscribing
+  // to `posture.commit` separately (instead of relying on the broader
+  // posture object identity) means a HEAD change resolves to the
+  // new commit hash via `applyHeadChange`, which flips this primitive,
+  // which re-runs the diff-fetch effect below. Without this, the
+  // user sees a stale diff after a sibling-terminal checkout until
+  // they manually toggle the panel.
+  const postureCommit = useGitStore((state) => state.posture?.commit);
   const theme = useSettingsStore((state) => state.editorTheme);
   const panelIsActive = useUIStore(
     (state) => state.activeBottomPanel === 'git-diff'
@@ -120,7 +128,17 @@ export function GitDiffPanel() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab?.filePath, posture?.available, posture?.repoRoot, fileEntry]);
+    // RL-102 Slice 2 fold B — `postureCommit` invalidates the
+    // memo on HEAD-change so the diff re-fetches against the new
+    // HEAD revision. Including it as a dep avoids the cost of a
+    // tree-wide subscription on the whole posture object.
+  }, [
+    activeTab?.filePath,
+    posture?.available,
+    posture?.repoRoot,
+    fileEntry,
+    postureCommit,
+  ]);
 
   const monacoLanguage = useMemo(() => {
     const lang = activeTab?.language;

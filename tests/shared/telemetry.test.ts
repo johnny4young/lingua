@@ -71,7 +71,16 @@ describe('TELEMETRY_EVENTS', () => {
       // `git.diff_panel_opened` sorts before `git.layer_attached`
       // because `.diff_` < `.layer_` lexicographically.
       'git.diff_panel_opened',
+      // RL-102 Slice 2 fold E — external-modification reload outcome.
+      // Sorts between `git.diff_panel_opened` and `git.head_changed`
+      // because `.external_` < `.head_` < `.layer_`.
+      'git.external_modification_reload',
+      // RL-102 Slice 2 — `.git/HEAD` change signal.
+      'git.head_changed',
       'git.layer_attached',
+      // RL-102 Slice 2 — Reveal-in-Source-Control click. Closed-enum
+      // `{ target }` ∈ REVEAL_IN_SC_TARGETS (`'repo-root'` only today).
+      'git.reveal_in_source_control_clicked',
       // RL-095 Slice 1 fold A — Language Support Scorecard adoption
       // signal. Closed-enum payload `{ surface }` from
       // `LANGUAGE_SCORECARD_SURFACES` (settings | palette). The key

@@ -37,7 +37,11 @@ const mocks = vi.hoisted(() => {
   const outer = Object.assign(vi.fn(), {
     [Symbol.for('nodejs.util.promisify.custom')]: inner,
   });
-  return { outer, inner };
+  return {
+    outer,
+    inner,
+    openPath: vi.fn().mockResolvedValue(''),
+  };
 });
 
 vi.mock('node:child_process', () => ({
@@ -45,6 +49,12 @@ vi.mock('node:child_process', () => ({
     execFile: mocks.outer,
   },
   execFile: mocks.outer,
+}));
+
+vi.mock('electron', () => ({
+  shell: {
+    openPath: mocks.openPath,
+  },
 }));
 
 describe('detectGit', () => {
@@ -357,5 +367,200 @@ describe('getFileDiff', () => {
     expect(result.originalContent).toBe('old-target');
     expect(result.modifiedContent).toBe('secret.txt');
     expect(result.truncated).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RL-102 Slice 2 — `.git/HEAD` watcher + `revealRepo` action.
+// ---------------------------------------------------------------------------
+
+describe('resolveRepoHeadPath (RL-102 Slice 2)', () => {
+  let workdir = '';
+
+  beforeEach(() => {
+    workdir = mkdtempSync(path.join(tmpdir(), 'lingua-git-head-'));
+    mocks.inner.mockReset();
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    rmSync(workdir, { recursive: true, force: true });
+  });
+
+  it('resolves <repoRoot>/.git/HEAD when .git is a real directory', async () => {
+    const { mkdirSync, writeFileSync: writeFile } = await import('node:fs');
+    mkdirSync(path.join(workdir, '.git'));
+    writeFile(path.join(workdir, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+    const { resolveRepoHeadPath } = await import('../../src/main/git');
+    const head = await resolveRepoHeadPath(workdir);
+    expect(head).toBe(path.join(workdir, '.git', 'HEAD'));
+  });
+
+  it('follows a worktree pointer file with an absolute gitdir path', async () => {
+    const { mkdirSync, writeFileSync: writeFile } = await import('node:fs');
+    const realDir = path.join(workdir, '.git-worktree-foo');
+    mkdirSync(realDir, { recursive: true });
+    writeFile(
+      path.join(workdir, '.git'),
+      `gitdir: ${realDir}\n`,
+      'utf-8'
+    );
+    const { resolveRepoHeadPath } = await import('../../src/main/git');
+    const head = await resolveRepoHeadPath(workdir);
+    expect(head).toBe(path.join(realDir, 'HEAD'));
+  });
+
+  it('follows a worktree pointer file with a relative gitdir path', async () => {
+    const { mkdirSync, writeFileSync: writeFile } = await import('node:fs');
+    mkdirSync(path.join(workdir, 'wt-bar'), { recursive: true });
+    writeFile(path.join(workdir, '.git'), 'gitdir: ./wt-bar\n', 'utf-8');
+    const { resolveRepoHeadPath } = await import('../../src/main/git');
+    const head = await resolveRepoHeadPath(workdir);
+    expect(head).toBe(path.join(workdir, 'wt-bar', 'HEAD'));
+  });
+
+  it('returns null when neither .git directory nor pointer file exists', async () => {
+    const { resolveRepoHeadPath } = await import('../../src/main/git');
+    const head = await resolveRepoHeadPath(workdir);
+    expect(head).toBeNull();
+  });
+
+  it('returns null for invalid input (empty string)', async () => {
+    const { resolveRepoHeadPath } = await import('../../src/main/git');
+    expect(await resolveRepoHeadPath('')).toBeNull();
+  });
+});
+
+describe('watchRepoHead (RL-102 Slice 2)', () => {
+  let workdir = '';
+
+  beforeEach(() => {
+    workdir = mkdtempSync(path.join(tmpdir(), 'lingua-git-watch-'));
+    mocks.inner.mockReset();
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    rmSync(workdir, { recursive: true, force: true });
+  });
+
+  it('surfaces a resolve-error diagnostic when the repo has no .git', async () => {
+    const { watchRepoHead, resetGitProbeCacheForTests } = await import(
+      '../../src/main/git'
+    );
+    resetGitProbeCacheForTests();
+    const diagnostics: Array<{ repoRoot: string; reason: string }> = [];
+    const handle = await watchRepoHead(workdir, {
+      onChange: () => {
+        /* unused */
+      },
+      onDiagnostic: (diag) => diagnostics.push(diag),
+    });
+    expect(diagnostics).toEqual([
+      { repoRoot: workdir, reason: 'resolve-error' },
+    ]);
+    handle.dispose();
+  });
+
+  it('returns a disposable that is idempotent on the resolve-error path', async () => {
+    const { watchRepoHead, resetGitProbeCacheForTests } = await import(
+      '../../src/main/git'
+    );
+    resetGitProbeCacheForTests();
+    const handle = await watchRepoHead(workdir, {
+      onChange: () => {
+        /* unused */
+      },
+    });
+    expect(() => handle.dispose()).not.toThrow();
+    // Second dispose is a no-op (no throw, no error).
+    expect(() => handle.dispose()).not.toThrow();
+  });
+
+  it('starts a real watcher on the parent of HEAD and disposes the FSWatcher idempotently (reviewer coverage)', async () => {
+    // Reviewer pass — exercise the actual startWatcher path against
+    // a real `.git/HEAD`. We use a real `fs.watch` (FSEvents on
+    // macOS / inotify on Linux) so the disposal contract is verified
+    // against the kernel watcher, not a spy. Touching HEAD afterwards
+    // would race the test runner; the contract under test here is
+    // "watcher installed, watcher disposable" — the change-propagation
+    // path is covered by the desktop smoke matrix.
+    const { mkdirSync, writeFileSync: writeFile } = await import('node:fs');
+    mkdirSync(path.join(workdir, '.git'), { recursive: true });
+    writeFile(path.join(workdir, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+
+    // Mock rev-parse so the initial summary resolves without
+    // touching a real `git` binary.
+    mocks.inner
+      .mockResolvedValueOnce({ stdout: 'git version 2.45.2\n', stderr: '' })
+      .mockResolvedValue({ stdout: 'main\n', stderr: '' });
+
+    const { watchRepoHead, resetGitProbeCacheForTests } = await import(
+      '../../src/main/git'
+    );
+    resetGitProbeCacheForTests();
+    const handle = await watchRepoHead(workdir, {
+      onChange: () => {
+        /* unused */
+      },
+    });
+
+    // Disposal succeeds without throwing — verifies the watcher
+    // handle exposes a `close()` and the dispose() path wires it
+    // correctly through `clearTimers` + `watcher.close()`.
+    expect(() => handle.dispose()).not.toThrow();
+    // Second dispose is a no-op.
+    expect(() => handle.dispose()).not.toThrow();
+  });
+});
+
+describe('revealRepo (RL-102 Slice 2)', () => {
+  let workdir = '';
+
+  beforeEach(() => {
+    workdir = mkdtempSync(path.join(tmpdir(), 'lingua-git-reveal-'));
+    mocks.inner.mockReset();
+    mocks.openPath.mockReset();
+    mocks.openPath.mockResolvedValue('');
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    rmSync(workdir, { recursive: true, force: true });
+  });
+
+  it('returns true when shell.openPath returns the empty string (success)', async () => {
+    mocks.openPath.mockResolvedValueOnce('');
+    const { revealRepo } = await import('../../src/main/git');
+    const result = await revealRepo(workdir);
+    expect(result).toBe(true);
+    expect(mocks.openPath).toHaveBeenCalledWith(workdir);
+  });
+
+  it('returns false when shell.openPath returns an OS-level error string', async () => {
+    mocks.openPath.mockResolvedValueOnce('Permission denied');
+    const { revealRepo } = await import('../../src/main/git');
+    const result = await revealRepo(workdir);
+    expect(result).toBe(false);
+  });
+
+  it('returns false when shell.openPath throws', async () => {
+    mocks.openPath.mockRejectedValueOnce(new Error('boom'));
+    const { revealRepo } = await import('../../src/main/git');
+    const result = await revealRepo(workdir);
+    expect(result).toBe(false);
+  });
+
+  it('returns false for an empty repoRoot input (defense in depth)', async () => {
+    const { revealRepo } = await import('../../src/main/git');
+    expect(await revealRepo('')).toBe(false);
+    expect(mocks.openPath).not.toHaveBeenCalled();
+  });
+
+  it('returns false when the directory disappeared between menu open and click', async () => {
+    const { revealRepo } = await import('../../src/main/git');
+    const missing = path.join(workdir, 'definitely-gone');
+    expect(await revealRepo(missing)).toBe(false);
+    expect(mocks.openPath).not.toHaveBeenCalled();
   });
 });

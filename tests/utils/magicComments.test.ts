@@ -9,6 +9,7 @@ import {
   transformJSAutoLog,
   originSuppressedByMagicComment,
   gitStatusSuppressedByMagicComment,
+  gitWatchHeadSuppressedByMagicComment,
 } from '@/utils/magicComments';
 
 describe('JS/TS magic comments', () => {
@@ -773,6 +774,106 @@ describe('gitStatusSuppressedByMagicComment — RL-102 Slice 1 Fold F', () => {
     ).toBe(false);
     expect(
       originSuppressedByMagicComment('javascript', '// @git-ignore-status')
+    ).toBe(false);
+  });
+});
+
+describe('gitWatchHeadSuppressedByMagicComment (RL-102 Slice 2 Fold F)', () => {
+  it('matches the `// @git-watch-head off` JS / TS directive', () => {
+    expect(
+      gitWatchHeadSuppressedByMagicComment(
+        'javascript',
+        '// @git-watch-head off\nconst x = 1;'
+      )
+    ).toBe(true);
+    expect(
+      gitWatchHeadSuppressedByMagicComment(
+        'typescript',
+        '// @git-watch-head off'
+      )
+    ).toBe(true);
+  });
+
+  it('matches the `# @git-watch-head off` Python / Ruby directive', () => {
+    expect(
+      gitWatchHeadSuppressedByMagicComment(
+        'python',
+        '# @git-watch-head off\nprint("hi")'
+      )
+    ).toBe(true);
+    expect(
+      gitWatchHeadSuppressedByMagicComment('ruby', '# @git-watch-head off')
+    ).toBe(true);
+  });
+
+  it('accepts the optional colon form (`// @git-watch-head: off`)', () => {
+    expect(
+      gitWatchHeadSuppressedByMagicComment(
+        'javascript',
+        '// @git-watch-head: off'
+      )
+    ).toBe(true);
+  });
+
+  it('is case-insensitive on the directive name', () => {
+    expect(
+      gitWatchHeadSuppressedByMagicComment(
+        'javascript',
+        '// @Git-Watch-Head off'
+      )
+    ).toBe(true);
+  });
+
+  it('rejects directive without the explicit `off` literal', () => {
+    expect(
+      gitWatchHeadSuppressedByMagicComment(
+        'javascript',
+        '// @git-watch-head'
+      )
+    ).toBe(false);
+    expect(
+      gitWatchHeadSuppressedByMagicComment(
+        'javascript',
+        '// @git-watch-head on'
+      )
+    ).toBe(false);
+  });
+
+  it('handles empty / non-string input safely', () => {
+    expect(gitWatchHeadSuppressedByMagicComment('javascript', '')).toBe(false);
+    expect(gitWatchHeadSuppressedByMagicComment('', '// @git-watch-head off')).toBe(
+      false
+    );
+  });
+
+  it('uses an independent regex from the other two pragmas (coupled invariant)', () => {
+    // Three independent directives evolve separately:
+    //   - `@origin off`            — privacy chip on console output
+    //   - `@git-ignore-status`     — mute per-file git pill
+    //   - `@git-watch-head off`    — mute HEAD watcher refresh
+    expect(
+      gitWatchHeadSuppressedByMagicComment(
+        'javascript',
+        '// @origin off'
+      )
+    ).toBe(false);
+    expect(
+      gitWatchHeadSuppressedByMagicComment(
+        'javascript',
+        '// @git-ignore-status'
+      )
+    ).toBe(false);
+    expect(
+      originSuppressedByMagicComment(
+        'javascript',
+        '// @git-watch-head off'
+      )
+    ).toBe(false);
+    expect(
+      gitStatusSuppressedByMagicComment(
+        'javascript',
+        '// @git-watch-head off'
+      )
     ).toBe(false);
   });
 });

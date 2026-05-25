@@ -2366,6 +2366,16 @@
   "editor.git.contextMenu.showDiff": "Show diff",
   "editor.git.contextMenu.copyPath": "Copy file path",
   "editor.git.contextMenu.revealInSc": "Reveal in Source Control",
-  "editor.git.contextMenu.revealInSc.deferred": "Source Control surface arrives in Slice 2.",
-  "settings.privacy.network.feature.gitReadOnlyLayer": "Git read-only layer"
+  "settings.privacy.network.feature.gitReadOnlyLayer": "Git read-only layer",
+  "git.reveal.action.tooltip": "Open the repository root in your file manager",
+  "git.reveal.error.notFound": "Repository root not found",
+  "git.headWatch.diagnostic.giveUp": "Stopped watching git branch changes for this repo",
+  "git.externalReload.clean.body": "{{fileName}} changed on disk",
+  "git.externalReload.clean.action": "Reload from disk",
+  "git.externalReload.dirty.body": "{{fileName}} changed on disk — your unsaved edits are kept",
+  "git.externalReload.dirty.action": "Reload (discard local edits)",
+  "git.externalReload.confirm.title": "Discard your local edits?",
+  "git.externalReload.confirm.body": "This will replace your in-memory edits with the file on disk.",
+  "git.externalReload.batch.body": "{{count}} files changed on disk",
+  "git.externalReload.batch.action": "Reload all"
 }

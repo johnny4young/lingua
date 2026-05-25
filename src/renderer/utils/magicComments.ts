@@ -289,6 +289,42 @@ export function gitStatusSuppressedByMagicComment(
 }
 
 /**
+ * RL-102 Slice 2 Fold F — per-file opt-out of the HEAD-watcher
+ * branch refresh.
+ *
+ * Edge use case: a user comparing two long-lived branches via two
+ * open tabs (one with `git worktree add`, one with the main
+ * checkout) does not want the pill blinking each time the watcher
+ * fires. This directive ONLY suppresses the renderer-side
+ * `applyHeadChange` consumption for the active tab; the underlying
+ * main-side watcher still runs (other tabs in the same project may
+ * legitimately want the refresh). The renderer-side suppression
+ * lives in `useGitDetectOnProjectChange`'s onChange handler — it
+ * reads the active tab's content + language and skips
+ * `applyHeadChange` when the directive is set.
+ *
+ * Independent regex from `GIT_IGNORE_STATUS_DIRECTIVE_RE` because
+ * the two pragmas are semantically distinct: one mutes the pill
+ * for a noisy file, the other mutes branch refresh for a workflow
+ * where stale branch is intentional. Coupled-invariant test in
+ * `magicComments.test.ts` pins they evolve separately.
+ *
+ * Same WARNING as the existing directives — the regex matches
+ * inside string literals too (over-suppress trade-off).
+ */
+const GIT_WATCH_HEAD_OFF_DIRECTIVE_RE =
+  /(?:\/\/|#)\s*@git-watch-head\s*:?\s*off\b/i;
+
+export function gitWatchHeadSuppressedByMagicComment(
+  language: string,
+  code: string
+): boolean {
+  if (typeof language !== 'string' || language.length === 0) return false;
+  if (typeof code !== 'string' || code.length === 0) return false;
+  return GIT_WATCH_HEAD_OFF_DIRECTIVE_RE.test(code);
+}
+
+/**
  * Detect magic comment lines in JS/TS source code.
  */
 export function detectJSMagicComments(code: string): MagicCommentLine[] {
