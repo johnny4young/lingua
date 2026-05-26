@@ -192,6 +192,11 @@ export const TELEMETRY_EVENT_NAMES = [
   // src/shared/telemetry.ts. Parity test cross-imports HTTP_METHODS_SET
   // and HTTP_STATUS_BUCKETS_SET.
   'http.request_executed',
+  // RL-097 Slice 2 fold F — SQL workspace query execution. Closed-enum
+  // `{ status, rowCountBucket, durationBucket }` mirrored from
+  // src/shared/telemetry.ts. Parity test cross-imports
+  // SQL_QUERY_STATUSES_SET and SQL_DURATION_BUCKETS_SET.
+  'sql.query_executed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -310,6 +315,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'editor.replace_in_files_applied': ['scope', 'countBucket', 'regex'],
   // RL-097 Slice 1 fold F — mirror of src/shared/telemetry.ts.
   'http.request_executed': ['method', 'statusBucket', 'redactedHeadersBucket'],
+  // RL-097 Slice 2 fold F — mirror of src/shared/telemetry.ts.
+  'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -603,6 +610,28 @@ export const HTTP_STATUS_BUCKETS_SET = new Set([
   'network-error',
   'timeout',
   'cors-error',
+]);
+// RL-097 Slice 2 fold F — mirror of SQL_QUERY_STATUSES_SET. Source
+// of truth is `SQL_QUERY_STATUSES` in `src/shared/sqlWorkspace.ts`;
+// duplicated here so the worker validator can live without an
+// import that would drag renderer-only modules into the worker.
+// Parity test cross-imports the renderer set so the two copies
+// cannot drift.
+export const SQL_QUERY_STATUSES_SET = new Set([
+  'success',
+  'sql-error',
+  'timeout',
+  'too-large',
+  'engine-load-failed',
+]);
+// RL-097 Slice 2 fold F — mirror of SQL_DURATION_BUCKETS_SET.
+export const SQL_DURATION_BUCKETS_SET = new Set([
+  '<10ms',
+  '<100ms',
+  '<1s',
+  '<5s',
+  '<30s',
+  '>=30s',
 ]);
 // RL-025 Slice B — mirrors of DEPENDENCY_INSTALL_OUTCOMES and
 // DEPENDENCY_INSTALL_FAILURE_REASONS from
@@ -1150,6 +1179,20 @@ function isAllowedValue(
       if (key === 'redactedHeadersBucket')
         return (
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
+        );
+      return false;
+    case 'sql.query_executed':
+      if (key === 'status')
+        return (
+          typeof value === 'string' && SQL_QUERY_STATUSES_SET.has(value)
+        );
+      if (key === 'rowCountBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
+        );
+      if (key === 'durationBucket')
+        return (
+          typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value)
         );
       return false;
     default: {

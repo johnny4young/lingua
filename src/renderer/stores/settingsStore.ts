@@ -361,6 +361,13 @@ export const useSettingsStore = create<SettingsState>()(
       // redaction time). Users add via Settings → Privacy → Sensitive
       // HTTP headers.
       sensitiveHttpHeaders: [],
+      // RL-097 Slice 2 — SQL workspace preview cap + default timeout.
+      // The runtime layer enforces `MAX_RESULT_ROWS` (10 000) +
+      // `MAX_QUERY_TIMEOUT_MS` (5 min) regardless; these knobs live
+      // here so users can dial them down without losing the hard
+      // ceiling.
+      sqlWorkspaceRowDisplayLimit: 1000,
+      sqlWorkspaceQueryTimeoutMs: 30_000,
 
       // Each field the theme pack covers resets `themePack` to `default` so
       // the selector never lies about the active pack. Line numbers, word
@@ -643,6 +650,26 @@ export const useSettingsStore = create<SettingsState>()(
             ),
           };
         }),
+      setSqlWorkspaceRowDisplayLimit: (value) =>
+        set((state) => {
+          // Clamp unknown values to the default 1000. Closed enum keeps
+          // the toggle drop-down honest; this guard catches anyone
+          // calling the setter directly with a stray number.
+          const allowed: ReadonlySet<number> = new Set([100, 500, 1000, 5000]);
+          const next = allowed.has(value) ? value : 1000;
+          if (state.sqlWorkspaceRowDisplayLimit === next) return state;
+          return { sqlWorkspaceRowDisplayLimit: next };
+        }),
+      setSqlWorkspaceQueryTimeoutMs: (value) =>
+        set((state) => {
+          if (typeof value !== 'number' || !Number.isFinite(value)) {
+            return { sqlWorkspaceQueryTimeoutMs: 30_000 };
+          }
+          // Min 1 s, max 5 min — same bound the runtime enforces.
+          const next = Math.min(Math.max(1_000, Math.floor(value)), 5 * 60 * 1000);
+          if (state.sqlWorkspaceQueryTimeoutMs === next) return state;
+          return { sqlWorkspaceQueryTimeoutMs: next };
+        }),
       applyKeymapPreset: (presetId) => {
         const preset = findKeymapPreset(presetId);
         if (!preset) return;
@@ -730,6 +757,9 @@ export const useSettingsStore = create<SettingsState>()(
         // Baseline list is never persisted (it's a build-time
         // constant); only the delta the user added.
         sensitiveHttpHeaders: state.sensitiveHttpHeaders,
+        // RL-097 Slice 2 — persist SQL workspace preferences.
+        sqlWorkspaceRowDisplayLimit: state.sqlWorkspaceRowDisplayLimit,
+        sqlWorkspaceQueryTimeoutMs: state.sqlWorkspaceQueryTimeoutMs,
       }),
       merge: (persistedState, currentState) => {
         const persisted =
@@ -805,6 +835,20 @@ export const useSettingsStore = create<SettingsState>()(
             result.push(lc);
           }
           return result;
+        })();
+        // RL-097 Slice 2 — sanitize SQL workspace prefs on rehydrate.
+        // Closed-enum values fall back to defaults on drift.
+        const sanitizedSqlRowDisplayLimit: 100 | 500 | 1000 | 5000 = (() => {
+          const raw = merged.sqlWorkspaceRowDisplayLimit;
+          if (raw === 100 || raw === 500 || raw === 1000 || raw === 5000) {
+            return raw;
+          }
+          return 1000;
+        })();
+        const sanitizedSqlQueryTimeoutMs: number = (() => {
+          const raw = merged.sqlWorkspaceQueryTimeoutMs;
+          if (typeof raw !== 'number' || !Number.isFinite(raw)) return 30_000;
+          return Math.min(Math.max(1_000, Math.floor(raw)), 5 * 60 * 1000);
         })();
         const normalizedThemePack =
           requestedThemePack === DEFAULT_THEME_PACK_ID
@@ -958,6 +1002,8 @@ export const useSettingsStore = create<SettingsState>()(
           rubyRuntimePreference,
           firstWorkflowModeSwitchAcknowledged,
           sensitiveHttpHeaders: sanitizedSensitiveHttpHeaders,
+          sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
+          sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
           capsuleImportClipboardOnFocusConsent,
         };
       },

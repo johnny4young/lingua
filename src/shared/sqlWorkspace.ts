@@ -1,0 +1,345 @@
+/**
+ * RL-097 Slice 2 — SQL workspace schema (DuckDB-WASM).
+ *
+ * Mirror of `httpWorkspace.ts` for the SQL companion tab. Two
+ * versioned shapes:
+ *
+ *   - `SqlQueryV1` — user-editable query: name + text. Persisted in
+ *     `workspaceSqlStore` (CRUD identical to `workspaceToolStore` so
+ *     RL-099 Utility Pipelines can iterate over both stores
+ *     uniformly).
+ *   - `SqlResponseV1` — the result of a query execution. Wrapped
+ *     into a `RunCapsuleV1` via `sqlResponseCapsule.ts` so share /
+ *     CLI / AI surfaces inherit the existing capsule redaction +
+ *     size discipline.
+ *
+ * Both shapes are pure data — no side effects, no IPC. The runtime
+ * layer at `src/renderer/runtime/duckdbClient.ts` consumes the query
+ * text and produces the response.
+ *
+ * Privacy posture:
+ *
+ *   - Result rows + column metadata are user-supplied content, but
+ *     they live ONLY in localStorage of the user's device and never
+ *     leave it unless the user explicitly exports a capsule. The
+ *     sanitiser in `sqlResponseCapsule.ts` runs the row preview
+ *     through the existing capsule sanitiser before any export.
+ *   - Caps prevent both DoS and storage exhaustion: 256 KiB on the
+ *     query text, 10 000 rows × 256 KiB preview on the result.
+ *   - Telemetry events emit ONLY closed-enum status, row-count
+ *     bucket, and duration bucket — no query text, no schema names,
+ *     no column names on the wire.
+ */
+
+/**
+ * Closed enum of SQL outcomes Slice 2 surfaces. Aligned with the
+ * `RunCapsuleStatus` slots so the capsule mapping is trivial.
+ *
+ * Mirrored on `update-server/src/telemetry.ts` as `SQL_QUERY_STATUSES`
+ * with a parity test.
+ */
+export const SQL_QUERY_STATUSES = [
+  'success',
+  'sql-error',
+  'timeout',
+  'too-large',
+  'engine-load-failed',
+] as const;
+export type SqlQueryStatus = (typeof SQL_QUERY_STATUSES)[number];
+
+/**
+ * Closed enum for the `durationBucket` property on the
+ * `sql.query_executed` telemetry event. Buckets the wall-clock
+ * duration into coarse-grained classes so dashboards group by
+ * shape (fast / slow / very-slow) without leaking the exact
+ * timing.
+ *
+ * Mirrored on `update-server/src/telemetry.ts` with a parity test.
+ */
+export const SQL_DURATION_BUCKETS = [
+  '<10ms',
+  '<100ms',
+  '<1s',
+  '<5s',
+  '<30s',
+  '>=30s',
+] as const;
+export type SqlDurationBucket = (typeof SQL_DURATION_BUCKETS)[number];
+
+/** Hard cap on the query text. 256 KiB. */
+export const MAX_QUERY_BYTES = 256 * 1024;
+
+/**
+ * Hard cap on the result preview row count. A 100k-row result blows
+ * up the renderer; the 10k cap keeps Monaco + the table renderer
+ * responsive while still being enough for visualization sanity
+ * checks.
+ */
+export const MAX_RESULT_ROWS = 10_000;
+
+/**
+ * Hard cap on the result preview JSON size. Even within the 10k row
+ * limit, a single row with megabyte-sized BLOBs can blow up memory.
+ * 256 KiB is enough for the columnar view + JSON tree without
+ * over-allocating.
+ */
+export const MAX_RESULT_PREVIEW_BYTES = 256 * 1024;
+
+/** Default query timeout (30 s). User can override per query, capped at 5 min. */
+export const DEFAULT_QUERY_TIMEOUT_MS = 30_000;
+export const MAX_QUERY_TIMEOUT_MS = 5 * 60 * 1000;
+
+/** UTF-8 byte count helper. Matches `utf8ByteLength` in httpWorkspace.ts. */
+export function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+/**
+ * Bucket a wall-clock duration into the closed-enum bucket. Used by
+ * the telemetry helper + by tests verifying the bucketing contract.
+ * `<0` is defensive — should never happen for a real Date.now() diff.
+ */
+export function bucketSqlDuration(durationMs: number): SqlDurationBucket {
+  if (!Number.isFinite(durationMs) || durationMs < 0) return '<10ms';
+  if (durationMs < 10) return '<10ms';
+  if (durationMs < 100) return '<100ms';
+  if (durationMs < 1_000) return '<1s';
+  if (durationMs < 5_000) return '<5s';
+  if (durationMs < 30_000) return '<30s';
+  return '>=30s';
+}
+
+/**
+ * One column in a result set. `type` carries the DuckDB SQL type
+ * name as a string (e.g. `'INTEGER'`, `'VARCHAR'`, `'DOUBLE'`) so
+ * the preview can render type chips alongside header cells.
+ */
+export interface SqlColumnMetadata {
+  name: string;
+  type: string;
+}
+
+/**
+ * A query the user has authored. Mirrors `HttpRequestV1` shape.
+ */
+export interface SqlQueryV1 {
+  /** Hard-coded `1`. `parseSqlQuery` rejects any other value. */
+  version: 1;
+  /** UUIDv4 from `crypto.randomUUID()`. */
+  id: string;
+  /** User-editable label shown in the query list. */
+  name: string;
+  /** Query text. Capped at `MAX_QUERY_BYTES`. */
+  query: string;
+  /** Optional per-query timeout override. Capped at `MAX_QUERY_TIMEOUT_MS`. */
+  timeoutMs?: number;
+  /** ISO timestamp (millisecond precision). */
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * The execution result. Mirrors `HttpResponseV1` shape; the
+ * `status` field is the SqlQueryStatus closed enum.
+ */
+export interface SqlResponseV1 {
+  /** Hard-coded `1`. `parseSqlResponse` rejects any other value. */
+  version: 1;
+  /** Closed-enum outcome. */
+  status: SqlQueryStatus;
+  /**
+   * Row preview as JSON-serialisable values. Cell values are the
+   * direct JSON projection of the DuckDB row (numbers stay numbers;
+   * strings stay strings; BigInts come back as strings to preserve
+   * precision when serialised; null is null). Capped at
+   * `MAX_RESULT_ROWS` entries and `MAX_RESULT_PREVIEW_BYTES` total.
+   */
+  rows: ReadonlyArray<Readonly<Record<string, unknown>>>;
+  /** Column metadata for the result set. Empty for DDL / 0-row results. */
+  columns: ReadonlyArray<SqlColumnMetadata>;
+  /**
+   * Total row count from DuckDB. Equals `rows.length` for results
+   * under the cap; exceeds it when `tooLarge: true`. The full row
+   * set is NOT in `rows` — DuckDB knows the count even when we
+   * trimmed the preview.
+   */
+  rowCount: number;
+  /** Wall-clock duration from execute call to settle, in ms. */
+  durationMs: number;
+  /** Set when the result hit `MAX_RESULT_ROWS` or `MAX_RESULT_PREVIEW_BYTES`. */
+  tooLarge: boolean;
+  /**
+   * Count of statements executed when the user submitted a
+   * multi-statement query (`SELECT 1; SELECT 2;`). DuckDB returns
+   * only the LAST statement's result, but we surface the count so
+   * the UI can render the "N statements executed" badge.
+   */
+  statementCount: number;
+  /** ISO timestamp the response was recorded. */
+  recordedAt: string;
+  /**
+   * Diagnostic message for the failure statuses
+   * (`sql-error` / `timeout` / `too-large` / `engine-load-failed`).
+   * Absent on `success` (where rows + rowCount carry the signal).
+   */
+  errorMessage?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Parsers — defense in depth at the localStorage rehydrate boundary.
+// ---------------------------------------------------------------------------
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isSqlQueryStatus(value: unknown): value is SqlQueryStatus {
+  return (
+    typeof value === 'string' &&
+    (SQL_QUERY_STATUSES as readonly string[]).includes(value)
+  );
+}
+
+function parseColumn(value: unknown): SqlColumnMetadata | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.name !== 'string') return null;
+  if (typeof value.type !== 'string') return null;
+  return { name: value.name, type: value.type };
+}
+
+function parseRow(value: unknown): Record<string, unknown> | null {
+  if (!isRecord(value)) return null;
+  // Preserve every key/value pair. No deep validation — cell values
+  // are arbitrary JSON-serialisable shapes (numbers, strings, null,
+  // arrays, nested objects). The capsule sanitiser does the
+  // PII-defense pass at export time.
+  return { ...value };
+}
+
+/**
+ * Strict parser for a persisted query. Returns `null` on ANY shape
+ * mismatch so the rehydrate path drops invalid entries silently.
+ */
+export function parseSqlQuery(value: unknown): SqlQueryV1 | null {
+  if (!isRecord(value)) return null;
+  if (value.version !== 1) return null;
+  if (typeof value.id !== 'string' || value.id.length === 0) return null;
+  if (typeof value.name !== 'string') return null;
+  // Query text can be empty on a blank-template query.
+  if (typeof value.query !== 'string') return null;
+  if (utf8ByteLength(value.query) > MAX_QUERY_BYTES) return null;
+  if (typeof value.createdAt !== 'string') return null;
+  if (typeof value.updatedAt !== 'string') return null;
+  let timeoutMs: number | undefined;
+  if (value.timeoutMs !== undefined) {
+    if (typeof value.timeoutMs !== 'number') return null;
+    if (!Number.isFinite(value.timeoutMs)) return null;
+    if (value.timeoutMs <= 0) return null;
+    timeoutMs = Math.min(value.timeoutMs, MAX_QUERY_TIMEOUT_MS);
+  }
+  return {
+    version: 1,
+    id: value.id,
+    name: value.name,
+    query: value.query,
+    ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+    createdAt: value.createdAt,
+    updatedAt: value.updatedAt,
+  };
+}
+
+/**
+ * Strict parser for a persisted response. Same null-on-mismatch
+ * discipline as `parseSqlQuery`.
+ */
+export function parseSqlResponse(value: unknown): SqlResponseV1 | null {
+  if (!isRecord(value)) return null;
+  if (value.version !== 1) return null;
+  if (!isSqlQueryStatus(value.status)) return null;
+  if (!Array.isArray(value.rows)) return null;
+  if (value.rows.length > MAX_RESULT_ROWS) return null;
+  const rows: Record<string, unknown>[] = [];
+  let previewBytes = 0;
+  for (const raw of value.rows) {
+    const parsed = parseRow(raw);
+    if (parsed === null) return null;
+    let serialised: string;
+    try {
+      serialised = JSON.stringify(parsed);
+    } catch {
+      return null;
+    }
+    previewBytes += utf8ByteLength(serialised);
+    if (previewBytes > MAX_RESULT_PREVIEW_BYTES) return null;
+    rows.push(parsed);
+  }
+  if (!Array.isArray(value.columns)) return null;
+  const columns: SqlColumnMetadata[] = [];
+  for (const raw of value.columns) {
+    const parsed = parseColumn(raw);
+    if (parsed === null) return null;
+    columns.push(parsed);
+  }
+  if (
+    typeof value.rowCount !== 'number' ||
+    !Number.isFinite(value.rowCount) ||
+    value.rowCount < 0
+  ) {
+    return null;
+  }
+  if (value.rowCount < rows.length) return null;
+  if (
+    typeof value.durationMs !== 'number' ||
+    !Number.isFinite(value.durationMs) ||
+    value.durationMs < 0
+  ) {
+    return null;
+  }
+  if (typeof value.tooLarge !== 'boolean') return null;
+  if (
+    typeof value.statementCount !== 'number' ||
+    !Number.isFinite(value.statementCount) ||
+    value.statementCount < 0
+  ) {
+    return null;
+  }
+  if (typeof value.recordedAt !== 'string') return null;
+  let errorMessage: string | undefined;
+  if (value.errorMessage !== undefined) {
+    if (typeof value.errorMessage !== 'string') return null;
+    errorMessage = value.errorMessage;
+  }
+  return {
+    version: 1,
+    status: value.status,
+    rows,
+    columns,
+    rowCount: value.rowCount,
+    durationMs: value.durationMs,
+    tooLarge: value.tooLarge,
+    statementCount: value.statementCount,
+    recordedAt: value.recordedAt,
+    ...(errorMessage !== undefined ? { errorMessage } : {}),
+  };
+}
+
+/**
+ * Helper: build a fresh `SqlQueryV1` with sensible defaults. Used
+ * by the "New query" affordance in the UI.
+ */
+export function createBlankSqlQuery(options: {
+  id: string;
+  name?: string;
+  query?: string;
+  now?: string;
+}): SqlQueryV1 {
+  const now = options.now ?? new Date().toISOString();
+  return {
+    version: 1,
+    id: options.id,
+    name: options.name ?? '',
+    query: options.query ?? '',
+    createdAt: now,
+    updatedAt: now,
+  };
+}

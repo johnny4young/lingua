@@ -59,6 +59,13 @@ interface UseGlobalShortcutsOptions {
    */
   toggleHttpWorkspace: () => void;
   /**
+   * RL-097 Slice 2 — toggle the SQL workspace bottom-panel tab via
+   * Mod+Alt+S. Mirror of `toggleHttpWorkspace`. Caller wires this
+   * to `useUIStore.openBottomPanel('sql')` /
+   * `setActiveBottomPanel('console')`.
+   */
+  toggleSqlWorkspace: () => void;
+  /**
    * RL-019 Slice 1 fold D — cycle the active JS/TS tab through the
    * implemented runtime modes. RL-019 now ships all three modes:
    * Worker, Node, and Browser preview.
@@ -203,6 +210,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     // so the App.tsx wiring can flip the active bottom-panel + show
     // it without re-implementing the openBottomPanel choreography.
     'workspace-toggle-http': () => options.toggleHttpWorkspace(),
+    'workspace-toggle-sql': () => options.toggleSqlWorkspace(),
     'overlay-command-palette': () => options.toggleOverlay('palette'),
     'overlay-settings': () => options.toggleOverlay('settings'),
     'overlay-developer-utilities': () => options.openDeveloperUtilities(),

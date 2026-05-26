@@ -10882,6 +10882,228 @@ Deferred to Slice 2+:
 - Desktop proxy for CORS bypass (deferred permanently per the Risk note above; "adds attack surface").
 - Template variable interpolation (`${secret}` substitution) — Slice 3 territory; no AC firm yet.
 
+#### § Slice 2 landed (2026-05-26)
+
+Shipped as `RL-097 Slice 2 — DuckDB-WASM SQL workspace + folds A/B/C/D/E/F/G`. Approved with all folds.
+
+Core surface:
+
+- New `@duckdb/duckdb-wasm@1.29.0` runtime dep. Vite emits a dedicated
+  `duckdb-wasm` chunk (~200 KB / gzip 46 KB) carrying both DuckDB-WASM
+  and its `apache-arrow` peer, separate from the main bundle. The
+  ~7 MiB WASM blob lands as a static asset fetched lazily on the
+  first SQL tab open. `vite.web.config.mts` + `vite.renderer.config.mts`
+  both wire the manualChunk so packaged desktop and web builds share
+  the same chunk shape.
+- New `src/shared/sqlWorkspace.ts` schema. `SqlQueryV1` (versioned 1,
+  id + name + query text + createdAt/updatedAt + optional timeoutMs)
+  and `SqlResponseV1` (versioned 1, closed-enum `status` ∈
+  `'success' | 'sql-error' | 'timeout' | 'too-large' | 'engine-load-failed'`,
+  rows preview + column metadata + rowCount + durationMs + tooLarge
+  + statementCount + recordedAt + optional errorMessage). `parseSqlQuery` /
+  `parseSqlResponse` reject every shape mismatch — defense-in-depth
+  at the localStorage rehydrate boundary. Caps: `MAX_QUERY_BYTES = 256 KiB`,
+  `MAX_RESULT_ROWS = 10_000`, `MAX_RESULT_PREVIEW_BYTES = 256 KiB`,
+  `DEFAULT_QUERY_TIMEOUT_MS = 30 s` (capped 5 min). `SQL_QUERY_STATUSES`
+  + `SQL_DURATION_BUCKETS` closed enums. `bucketSqlDuration` helper.
+- New `src/renderer/stores/workspaceSqlStore.ts` zustand persisted on
+  isolated `lingua-workspace-sql-state` localStorage key. CRUD +
+  `recordResponse` with LRU=10 (older entries keep metadata, latest
+  keeps rows). `setActiveQuery` resets `isExecutingActive`. Sanitize-
+  on-rehydrate via the parsers. Identical contract shape to
+  `workspaceToolStore` so RL-099 Utility Pipelines can iterate over
+  both stores uniformly — adding a field to one store means
+  evaluating the mirror.
+- New `src/renderer/runtime/duckdbClient.ts` with three responsibilities:
+  - Lazy engine singleton via cached `Promise<DuckDbEngineHandle>`.
+    Failure resets the cache so the user-driven `engine-load-failed`
+    retry path can try again from scratch.
+  - `executeQuery(query, { timeoutMs })` always settles. Opens a
+    fresh connection per call (DuckDB connect is cheap; this keeps
+    the abort path honest), runs the query under a `Promise.race`
+    soft-timeout, classifies failures into the closed-enum status.
+  - `mapArrowTable` pure Arrow → JSON row mapping with `MAX_RESULT_ROWS`
+    + `MAX_RESULT_PREVIEW_BYTES` caps + `sanitiseValueForJson` (BigInt
+    → string, Date → ISO, Uint8Array → base64, nested objects
+    recursed, symbols / functions / non-finite numbers → null).
+  - `countSqlStatements` semicolon-aware splitter that respects single
+    and double quote pairs (false-positive bounded by quote logic).
+  - `__setDuckDbEngineFactoryForTests` injection seam so vitest cases
+    never spin up a real worker.
+- New `src/renderer/runtime/sqlResponseCapsule.ts` wraps (query,
+  response) as `RunCapsuleV1` with `tab.language = 'sql'`,
+  `tab.runtimeMode = 'duckdb-wasm'`, `tab.workflowMode = 'run'`,
+  `environment.runner = 'duckdb-wasm'`. Status mapping: success →
+  `'success'`, timeout → `'timeout'`, sql-error / too-large /
+  engine-load-failed → `'error'`. Query text in `source.content`,
+  row preview JSON-pretty in `result.stdout`, errorMessage in
+  `result.stderr`.
+- Renderer surface — `<SqlWorkspacePanel>` (root, 3-column resizable
+  via `useDefaultLayout` keyed `lingua-sql-workspace-layout`),
+  `<SqlQueryList>` (create / select / rename via dbl-click / delete
+  with native confirm; first-word chip), `<SqlQueryEditor>` (plain
+  `<textarea>` so Slice 2 keeps Monaco out of the SQL bundle weight;
+  Cmd+Enter Run, 500 ms auto-save debounce, lazy-imported
+  `sql-formatter` for the Format button), `<SqlResultPreview>`
+  (status pill header + error / timeout / too-large /
+  engine-load-failed bands + copy-as-CSV/JSON/Markdown buttons +
+  schema introspection chip strip + sticky-header result table with
+  type chips), `<SqlStatusPill>` (success emerald, sql-error rose,
+  timeout amber, too-large amber, engine-load-failed slate).
+- `BottomPanelTab` union widened with `'sql'`. `<AppLayout>` mounts
+  the sibling tab button + body; `useUIStore.sqlWorkspaceTabVisible`
+  boot-probes `lingua-workspace-sql-state` so the tab sticks in the
+  strip for users with saved queries.
+- New keyboard shortcut `Mod+Alt+S` → `workspace-toggle-sql` (Mod+Shift+Q
+  rejected: macOS `Cmd+Shift+Q` is the system-level log-out shortcut
+  and is intercepted by the OS). Conflict-free regression test guard.
+- New command palette entry `action-open-sql-workspace` threaded via
+  `onOpenSqlWorkspace` callback through `commandPaletteModel` +
+  `CommandPalette` + `App.tsx`. Palette toggles the panel identically
+  to the keyboard shortcut.
+- New `useGlobalShortcuts.toggleSqlWorkspace` callback wired in App.tsx.
+
+Folds shipped:
+
+- **A** — `Mod+Alt+S` keyboard shortcut + the surrounding catalog
+  entry. Mnemonic: S for SQL.
+- **B** — SQL pretty-print via the existing `sql-formatter` dep
+  (already in repo for the developer utilities). Lazy-imported in the
+  editor's Format button so the formatter stays out of the main
+  chunk. Dialect `'duckdb'`, keyword case upper, tab width 2.
+  Failures push a non-blocking warning notice.
+- **C** — Session-scoped `SHOW TABLES` introspection chip strip
+  above the result table. Inert in Slice 2 (chips are read-only
+  signal); Slice 3+ wiring would auto-fill `SELECT * FROM <name>`
+  on chip click. Chips reset whenever the active query changes.
+- **D** — Copy as CSV / JSON / Markdown buttons in the result preview
+  header. RFC 4180-quoted CSV; GitHub-flavoured Markdown with
+  pipe-escaping + `<br>`-converted newlines. Clipboard-unavailable
+  path pushes a warning notice. Buttons hidden on error / timeout /
+  engine-load-failed; visible on too-large with copy-success toasts
+  that disclose the truncated preview row count.
+- **E** — Result row pagination + `tooLarge` band. When the row
+  count exceeds `MAX_RESULT_ROWS` or the preview bytes exceed
+  `MAX_RESULT_PREVIEW_BYTES`, the panel shows the first N rows +
+  amber band "Showing N of M rows" plus honest copy that says the
+  table and copy actions use the truncated preview. Slice 3+ can
+  introduce streaming pagination once DuckDB-WASM exposes a real
+  cursor API.
+- **F** — Closed-enum telemetry `sql.query_executed { status,
+  rowCountBucket, durationBucket }` mirrored on update-server with
+  parity tests. `status` ∈ `SQL_QUERY_STATUSES_SET`. `rowCountBucket`
+  reuses `DEPENDENCY_COUNT_BUCKETS_SET` (no fragmentation of bucket
+  vocabularies). `durationBucket` ∈ `SQL_DURATION_BUCKETS_SET`
+  (`'<10ms' / '<100ms' / '<1s' / '<5s' / '<30s' / '>=30s'`). NO query
+  text, NO schema names, NO column names, NO row values on the wire.
+  Property is `status` (not `outcome` or `result`); `rowCount` /
+  `durationBucket` use renderer-side bucketing so the worker validator
+  only sees closed enums.
+- **G** — Capsule auto-attach on successful run. The panel builds a
+  `RunCapsuleV1` for the executed query and stashes it on the
+  `ExecutionHistoryEntry.lastCapsule` slot so the existing
+  `Mod+Shift+X` export pathway, the Settings → Account → Run
+  Capsules surface, and the share-link UI all pick up SQL runs
+  uniformly (no special-casing).
+
+Reviewer-pass HIGH fixes folded in:
+
+- **H1** — `productionEngineFactory` worker leak on instantiation
+  failure. If `db.instantiate(mvpWasmUrl)` throws (CSP, network,
+  OOM), the just-spawned worker would otherwise sit idle. Wrapped
+  the post-`new Worker` block in `try { … } catch { worker.terminate(); throw err; }`
+  so each retry from the `engine-load-failed` band releases its
+  worker thread.
+- **H2** — Late rejection from `connection.query()` after the
+  timeout race. Hoisted `const queryPromise = connection.query(trimmed)`
+  + attached `void queryPromise.catch(() => {})` before passing to
+  `Promise.race`. Defensive against engine / polyfill variance in
+  unhandled-rejection detection.
+- **M1** — `mapArrowTable` now measures preview rows with
+  `utf8ByteLength(JSON.stringify(row))`, not UTF-16 code units, so
+  CJK / emoji payloads respect the documented 256 KiB cap.
+- **M5** — `SqlResultPreview` copy-to-clipboard notices now disclose
+  `shown` / `total` rows on `tooLarge` results, and the too-large
+  hint no longer promises a full-set export after the runtime has
+  already truncated the preview.
+
+Settings:
+
+- New `sqlWorkspaceRowDisplayLimit: 100 | 500 | 1000 | 5000` field
+  on `useSettingsStore` (default 1000, sanitize-on-rehydrate falls
+  back to default on unknown values).
+- New `sqlWorkspaceQueryTimeoutMs: number` field (default 30 000,
+  setter clamps min 1 s + max 5 min; sanitize falls back to default
+  on non-finite input).
+- Visible Settings UI sub-section deferred — defaults are sensible;
+  toggle UI is a polish follow-up tracked in `docs/BACKLOG.md`.
+
+Telemetry parity:
+
+- `tests/shared/telemetry.test.ts` sorted-events list extended with
+  `'sql.query_executed'` between `'share.opened'` and
+  `'template_project_applied'`.
+- `update-server/test/telemetry.test.ts` parity assertions added for
+  both `SQL_QUERY_STATUSES_SET` (5 statuses byte-for-byte) and
+  `SQL_DURATION_BUCKETS_SET` (6 buckets byte-for-byte).
+
+Tests:
+
+- New `tests/shared/sqlWorkspace.test.ts` (~26 cases — parsers, caps,
+  bucketSqlDuration, closed-enum lock, UTF-8 byte length).
+- New `tests/stores/workspaceSqlStore.test.ts` (11 cases — CRUD +
+  LRU body-strip + active reset on switch + version pin).
+- New `tests/renderer/runtime/duckdbClient.test.ts` (16 cases —
+  countSqlStatements with quoted semicolons + mapArrowTable BigInt /
+  Date / too-large + executeQuery happy / sql-error / timeout /
+  engine-load-failed / too-large / multi-statement counting +
+  whitespace-only input).
+- New `tests/renderer/runtime/sqlResponseCapsule.test.ts` (6 cases —
+  kind mapping per status + language / runtime / runner pin +
+  source.content verbatim).
+- New `tests/components/SqlWorkspace/SqlWorkspacePanel.test.tsx`
+  (~7 cases — empty state, create, run flow + capsule emission,
+  error band, rename via dbl-click, Cmd+Enter run, table render).
+- New `tests/components/SqlWorkspace/SqlQueryEditor.test.tsx` (3
+  cases — debounce save + unmount flush + active-query switch flush).
+- New `tests/components/SqlWorkspace/SqlResultPreview.test.tsx` (1
+  case — `tooLarge` copy toast disclosure).
+- New `tests/e2e/sqlWorkspace.spec.ts` (2 cases — `Mod+Alt+S` binding
+  EN + ES tuteo, tab visibility + empty state copy).
+
+i18n:
+
+31 new keys × en + es covering `sqlWorkspace.tab.*`,
+`sqlWorkspace.empty.*`, `sqlWorkspace.queryList.*`,
+`sqlWorkspace.editor.*` (query label, run + format buttons, size
+hint, placeholder), `sqlWorkspace.response.*` (loading, empty,
+error / timeout / too-large / engineLoadFailed bands + hints,
+pluralized rowCount + statementCount, tablesEmpty),
+`sqlWorkspace.statusPill.*` (5 statuses), `sqlWorkspace.action.*`
+(Copy CSV / JSON / Markdown + clipboard-unavailable + Show tables +
+copied toasts), `commandPalette.action.openSqlWorkspace.*`,
+`shortcuts.item.sqlWorkspace.label`. ES tuteo verified across
+`Ejecuta`, `Crea`, `Formatea`, `Recarga`, `Mostrar`, `Copia`,
+`Cancela`. No voseo.
+
+Deferred to Slice 3+:
+
+- CSV / Parquet / JSON file import via drag-drop + `registerFileHandle`
+  bridge (needs RL-024 multi-file filesystem infra).
+- OPFS persistence for tables (currently in-memory; queries persist
+  via zustand, the DuckDB database itself resets on reload).
+- DuckDB extensions (httpfs / iceberg / postgres_scanner / spatial)
+  loaded on demand. Each extension is ~5 MiB; first slice should
+  Pro-gate.
+- Visible Settings → Editor → "SQL workspace" toggle UI for the two
+  Slice 2 fields. Polish follow-up.
+- Docstring polish (M3 reviewer note).
+- Multi-statement query returning ALL results (DuckDB-WASM API
+  constraint; today only the last result surfaces, with a "N
+  statements executed" badge).
+- Monaco SQL editor with IntelliSense (Slice 3+ — keeps the bundle
+  weight focused on DuckDB-WASM in Slice 2).
+
 ### RL-098 CLI Companion
 
 - Priority: `P2`

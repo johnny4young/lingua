@@ -427,6 +427,16 @@ function AppChrome({
         ui.openBottomPanel('http');
       }
     },
+    // RL-097 Slice 2 — Mod+Alt+S toggles the SQL workspace bottom-
+    // panel tab. Mirror of `toggleHttpWorkspace`.
+    toggleSqlWorkspace: () => {
+      const ui = useUIStore.getState();
+      if (ui.activeBottomPanel === 'sql' && ui.consoleVisible) {
+        ui.setActiveBottomPanel('console');
+      } else {
+        ui.openBottomPanel('sql');
+      }
+    },
     cycleRuntimeMode: () => {
       // RL-019 Slice 1 fold D — cycle the active JS/TS tab through
       // the implemented runtime modes. No-op for non-JS/TS tabs.
@@ -769,6 +779,16 @@ function AppChrome({
               ui.setActiveBottomPanel('console');
             } else {
               ui.openBottomPanel('http');
+            }
+          }}
+          onOpenSqlWorkspace={() => {
+            // RL-097 Slice 2 — palette opens the SQL workspace
+            // bottom-panel tab. Mirror of `onOpenHttpWorkspace`.
+            const ui = useUIStore.getState();
+            if (ui.activeBottomPanel === 'sql' && ui.consoleVisible) {
+              ui.setActiveBottomPanel('console');
+            } else {
+              ui.openBottomPanel('sql');
             }
           }}
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}

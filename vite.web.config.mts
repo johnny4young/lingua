@@ -92,6 +92,18 @@ export default defineConfig({
           ) {
             return 'vega-embed';
           }
+          // RL-097 Slice 2 — DuckDB-WASM SQL engine ships in its own
+          // chunk so the ~7 MiB WASM bundle never touches the main
+          // entry. The chunk loads only when the SQL workspace tab is
+          // opened for the first time, mirroring the vega-embed +
+          // Pyodide lazy-load patterns. Apache Arrow rides along
+          // (DuckDB depends on it for the result format).
+          if (
+            id.includes('@duckdb/duckdb-wasm') ||
+            id.includes('apache-arrow')
+          ) {
+            return 'duckdb-wasm';
+          }
           if (id.includes('/workers/')) {
             return 'workers';
           }

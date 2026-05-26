@@ -31,6 +31,8 @@ import {
   EXTERNAL_RELOAD_MODES as WORKER_EXTERNAL_RELOAD_MODES,
   HTTP_METHODS_SET as WORKER_HTTP_METHODS_SET,
   HTTP_STATUS_BUCKETS_SET as WORKER_HTTP_STATUS_BUCKETS_SET,
+  SQL_QUERY_STATUSES_SET as WORKER_SQL_QUERY_STATUSES_SET,
+  SQL_DURATION_BUCKETS_SET as WORKER_SQL_DURATION_BUCKETS_SET,
   DEPENDENCY_COUNT_BUCKETS as WORKER_DEPENDENCY_COUNT_BUCKETS,
   TEMPLATE_PROJECT_IDS as WORKER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
@@ -48,6 +50,8 @@ import {
   EXTERNAL_RELOAD_MODES as RENDERER_EXTERNAL_RELOAD_MODES,
   HTTP_METHODS_SET as RENDERER_HTTP_METHODS_SET,
   HTTP_STATUS_BUCKETS_SET as RENDERER_HTTP_STATUS_BUCKETS_SET,
+  SQL_QUERY_STATUSES_SET as RENDERER_SQL_QUERY_STATUSES_SET,
+  SQL_DURATION_BUCKETS_SET as RENDERER_SQL_DURATION_BUCKETS_SET,
   DEPENDENCY_COUNT_BUCKETS_SET as RENDERER_DEPENDENCY_COUNT_BUCKETS_SET,
   TEMPLATE_PROJECT_IDS as RENDERER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
@@ -807,6 +811,44 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       '2-5',
       '6-10',
       '>10',
+    ]);
+  });
+
+  it('SQL query statuses stay in sync (RL-097 Slice 2 fold F)', () => {
+    // Closed-enum parity for `sql.query_executed.status`. The
+    // canonical source of truth is `SQL_QUERY_STATUSES` in
+    // `src/shared/sqlWorkspace.ts`; both telemetry copies mirror
+    // the same five-status list. Adding a new status (e.g. when a
+    // future slice surfaces `cancelled` for user-initiated abort)
+    // requires touching BOTH copies — this guard fails CI when
+    // only one side drifts.
+    expect([...WORKER_SQL_QUERY_STATUSES_SET].sort()).toEqual(
+      [...RENDERER_SQL_QUERY_STATUSES_SET].sort()
+    );
+    expect([...WORKER_SQL_QUERY_STATUSES_SET].sort()).toEqual([
+      'engine-load-failed',
+      'sql-error',
+      'success',
+      'timeout',
+      'too-large',
+    ]);
+  });
+
+  it('SQL duration buckets stay in sync (RL-097 Slice 2 fold F)', () => {
+    // Closed-enum parity for `sql.query_executed.durationBucket`.
+    // The renderer + worker copies BOTH carry the same six buckets
+    // tuned to the SQL workspace shape (sub-10ms hot path through
+    // >=30s long-running).
+    expect([...WORKER_SQL_DURATION_BUCKETS_SET].sort()).toEqual(
+      [...RENDERER_SQL_DURATION_BUCKETS_SET].sort()
+    );
+    expect([...WORKER_SQL_DURATION_BUCKETS_SET].sort()).toEqual([
+      '<100ms',
+      '<10ms',
+      '<1s',
+      '<30s',
+      '<5s',
+      '>=30s',
     ]);
   });
 

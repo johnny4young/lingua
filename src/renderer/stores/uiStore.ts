@@ -22,9 +22,14 @@ export type BottomPanelTab =
   // Always available (no entitlement, no folder requirement). Tab
   // surfaces via Mod+Shift+K (Mod+Shift+J first considered but taken
   // by `view-show-dependencies`) or the `Open HTTP workspace`
-  // palette entry. Slice 2 will share this surface with the SQL
-  // workspace.
-  | 'http';
+  // palette entry. Slice 2 mirrors this surface with the SQL
+  // workspace tab below.
+  | 'http'
+  // RL-097 Slice 2 — bottom-panel sibling for the SQL workspace
+  // (DuckDB-WASM). Same "always available" posture as HTTP. Tab
+  // surfaces via Mod+Alt+S (Mod+Shift+Q rejected — macOS log-out
+  // OS-level conflict) or the `Open SQL workspace` palette entry.
+  | 'sql';
 export type VariablesViewMode = 'list' | 'cards';
 
 /**
@@ -191,6 +196,25 @@ function hasPersistedHttpRequests(): boolean {
   }
 }
 
+/**
+ * RL-097 Slice 2 — mirror of `hasPersistedHttpRequests` for the
+ * SQL workspace store. Keeps boot ergonomics symmetrical: a user
+ * with saved queries sees the SQL tab without having to hit the
+ * shortcut every reload.
+ */
+function hasPersistedSqlQueries(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = window.localStorage.getItem('lingua-workspace-sql-state');
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as { state?: { queries?: unknown } };
+    const queries = parsed?.state?.queries;
+    return Array.isArray(queries) && queries.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function writePersisted<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return;
   try {
@@ -214,6 +238,12 @@ interface UIState {
    * shortcut or palette.
    */
   httpWorkspaceTabVisible: boolean;
+  /**
+   * RL-097 Slice 2 — SQL tab is hidden on first boot, then remains
+   * in the strip after the user opens it once. Mirrors
+   * `httpWorkspaceTabVisible`.
+   */
+  sqlWorkspaceTabVisible: boolean;
   statusNotice: StatusNotice | null;
   /**
    * Custom position for the floating Action Pill, when the user has
@@ -281,6 +311,7 @@ export const useUIStore = create<UIState>((set) => ({
   // here (the workspaceToolStore is another module which may not
   // have hydrated yet — we read the JSON directly).
   httpWorkspaceTabVisible: hasPersistedHttpRequests(),
+  sqlWorkspaceTabVisible: hasPersistedSqlQueries(),
   statusNotice: null,
   actionPillPosition: readPersistedPosition(ACTION_PILL_POSITION_KEY),
   variablesCardPosition: readPersistedPosition(VARIABLES_CARD_POSITION_KEY),
@@ -298,11 +329,13 @@ export const useUIStore = create<UIState>((set) => ({
       activeBottomPanel,
       consoleVisible: true,
       ...(activeBottomPanel === 'http' ? { httpWorkspaceTabVisible: true } : {}),
+      ...(activeBottomPanel === 'sql' ? { sqlWorkspaceTabVisible: true } : {}),
     }),
   setActiveBottomPanel: (activeBottomPanel) =>
     set({
       activeBottomPanel,
       ...(activeBottomPanel === 'http' ? { httpWorkspaceTabVisible: true } : {}),
+      ...(activeBottomPanel === 'sql' ? { sqlWorkspaceTabVisible: true } : {}),
     }),
   setSidebarVisible: (sidebarVisible) => set({ sidebarVisible }),
   setConsoleVisible: (consoleVisible) => set({ consoleVisible }),
