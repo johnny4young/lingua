@@ -29,6 +29,9 @@ import {
   GIT_LAYER_REPO_STATES as WORKER_GIT_LAYER_REPO_STATES,
   REVEAL_IN_SC_TARGETS as WORKER_REVEAL_IN_SC_TARGETS,
   EXTERNAL_RELOAD_MODES as WORKER_EXTERNAL_RELOAD_MODES,
+  HTTP_METHODS_SET as WORKER_HTTP_METHODS_SET,
+  HTTP_STATUS_BUCKETS_SET as WORKER_HTTP_STATUS_BUCKETS_SET,
+  DEPENDENCY_COUNT_BUCKETS as WORKER_DEPENDENCY_COUNT_BUCKETS,
   TEMPLATE_PROJECT_IDS as WORKER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENT_NAMES,
@@ -43,6 +46,9 @@ import {
   GIT_LAYER_REPO_STATES as RENDERER_GIT_LAYER_REPO_STATES,
   REVEAL_IN_SC_TARGETS as RENDERER_REVEAL_IN_SC_TARGETS,
   EXTERNAL_RELOAD_MODES as RENDERER_EXTERNAL_RELOAD_MODES,
+  HTTP_METHODS_SET as RENDERER_HTTP_METHODS_SET,
+  HTTP_STATUS_BUCKETS_SET as RENDERER_HTTP_STATUS_BUCKETS_SET,
+  DEPENDENCY_COUNT_BUCKETS_SET as RENDERER_DEPENDENCY_COUNT_BUCKETS_SET,
   TEMPLATE_PROJECT_IDS as RENDERER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
@@ -640,6 +646,64 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       'auto-applied',
       'user-accepted',
       'user-rejected',
+    ]);
+  });
+
+  it('HTTP methods stay in sync (RL-097 Slice 1 fold F)', () => {
+    // Closed-enum parity for `http.request_executed.method`. The
+    // canonical source of truth is `HTTP_METHODS` in
+    // `src/shared/httpWorkspace.ts`; both telemetry copies mirror it.
+    // Adding a new method (e.g. CONNECT, TRACE) requires touching
+    // BOTH copies — this guard fails CI when only one side drifts.
+    expect([...WORKER_HTTP_METHODS_SET].sort()).toEqual(
+      [...RENDERER_HTTP_METHODS_SET].sort()
+    );
+    expect([...WORKER_HTTP_METHODS_SET].sort()).toEqual([
+      'DELETE',
+      'GET',
+      'HEAD',
+      'OPTIONS',
+      'PATCH',
+      'POST',
+      'PUT',
+    ]);
+  });
+
+  it('HTTP status buckets stay in sync (RL-097 Slice 1 fold F)', () => {
+    // Closed-enum parity for `http.request_executed.statusBucket`.
+    // The renderer + worker copies BOTH carry the typed runtime
+    // failures (`'network-error'`, `'timeout'`, `'cors-error'`)
+    // alongside the standard `2xx / 3xx / 4xx / 5xx` buckets.
+    expect([...WORKER_HTTP_STATUS_BUCKETS_SET].sort()).toEqual(
+      [...RENDERER_HTTP_STATUS_BUCKETS_SET].sort()
+    );
+    expect([...WORKER_HTTP_STATUS_BUCKETS_SET].sort()).toEqual([
+      '2xx',
+      '3xx',
+      '4xx',
+      '5xx',
+      'cors-error',
+      'network-error',
+      'timeout',
+    ]);
+  });
+
+  it('HTTP redactedHeadersBucket uses the same DEPENDENCY_COUNT_BUCKETS as the renderer (RL-097 Slice 1 fold F)', () => {
+    // Reviewer pass — the worker validates `redactedHeadersBucket`
+    // against `DEPENDENCY_COUNT_BUCKETS` while the renderer uses
+    // `DEPENDENCY_COUNT_BUCKETS_SET`. Both copies live in their
+    // respective telemetry.ts files; without this guard, a future
+    // bucket change on one side would silently bypass the gate on
+    // the other.
+    expect([...WORKER_DEPENDENCY_COUNT_BUCKETS].sort()).toEqual(
+      [...RENDERER_DEPENDENCY_COUNT_BUCKETS_SET].sort()
+    );
+    expect([...WORKER_DEPENDENCY_COUNT_BUCKETS].sort()).toEqual([
+      '0',
+      '1',
+      '2-5',
+      '6-10',
+      '>10',
     ]);
   });
 

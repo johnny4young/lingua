@@ -17,7 +17,14 @@ export type BottomPanelTab =
   // `gitLayerAvailable(posture)` so users opening a folder that is
   // not a git repo never see the chrome. Mount fires the
   // `git.diff_panel_opened` telemetry (fold D).
-  | 'git-diff';
+  | 'git-diff'
+  // RL-097 Slice 1 — bottom-panel sibling for the HTTP workspace.
+  // Always available (no entitlement, no folder requirement). Tab
+  // surfaces via Mod+Shift+K (Mod+Shift+J first considered but taken
+  // by `view-show-dependencies`) or the `Open HTTP workspace`
+  // palette entry. Slice 2 will share this surface with the SQL
+  // workspace.
+  | 'http';
 export type VariablesViewMode = 'list' | 'cards';
 
 /**
@@ -162,6 +169,28 @@ function readPersistedBoolean(key: string, fallback: boolean): boolean {
   }
 }
 
+/**
+ * Reviewer pass — probe the persisted `lingua-workspace-tool-state`
+ * key for any saved requests so the boot-time
+ * `httpWorkspaceTabVisible` can default to `true` when the user
+ * has saved work. Avoids the friction of having to re-trigger
+ * Mod+Shift+K on every reload to find a request you already have.
+ * Fully defensive: any localStorage / JSON malformation falls
+ * through to `false` so a corrupt store can never crash the boot.
+ */
+function hasPersistedHttpRequests(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = window.localStorage.getItem('lingua-workspace-tool-state');
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as { state?: { requests?: unknown } };
+    const requests = parsed?.state?.requests;
+    return Array.isArray(requests) && requests.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 function writePersisted<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return;
   try {
@@ -179,6 +208,12 @@ interface UIState {
   sidebarVisible: boolean;
   consoleVisible: boolean;
   activeBottomPanel: BottomPanelTab;
+  /**
+   * RL-097 Slice 1 — HTTP tab is hidden on first boot, then remains
+   * in the bottom-panel tab strip after the user opens it once via
+   * shortcut or palette.
+   */
+  httpWorkspaceTabVisible: boolean;
   statusNotice: StatusNotice | null;
   /**
    * Custom position for the floating Action Pill, when the user has
@@ -238,6 +273,14 @@ export const useUIStore = create<UIState>((set) => ({
   sidebarVisible: false,
   consoleVisible: false,
   activeBottomPanel: 'console',
+  // Reviewer pass — seed `httpWorkspaceTabVisible` from the
+  // persisted workspaceToolStore: if the user has any saved
+  // requests on this device, surface the tab so they can find
+  // them again without having to remember the Mod+Shift+K
+  // shortcut after every reload. localStorage read happens lazily
+  // here (the workspaceToolStore is another module which may not
+  // have hydrated yet — we read the JSON directly).
+  httpWorkspaceTabVisible: hasPersistedHttpRequests(),
   statusNotice: null,
   actionPillPosition: readPersistedPosition(ACTION_PILL_POSITION_KEY),
   variablesCardPosition: readPersistedPosition(VARIABLES_CARD_POSITION_KEY),
@@ -250,8 +293,17 @@ export const useUIStore = create<UIState>((set) => ({
       activeBottomPanel: 'console',
       consoleVisible: s.activeBottomPanel === 'console' ? !s.consoleVisible : true,
     })),
-  openBottomPanel: (activeBottomPanel) => set({ activeBottomPanel, consoleVisible: true }),
-  setActiveBottomPanel: (activeBottomPanel) => set({ activeBottomPanel }),
+  openBottomPanel: (activeBottomPanel) =>
+    set({
+      activeBottomPanel,
+      consoleVisible: true,
+      ...(activeBottomPanel === 'http' ? { httpWorkspaceTabVisible: true } : {}),
+    }),
+  setActiveBottomPanel: (activeBottomPanel) =>
+    set({
+      activeBottomPanel,
+      ...(activeBottomPanel === 'http' ? { httpWorkspaceTabVisible: true } : {}),
+    }),
   setSidebarVisible: (sidebarVisible) => set({ sidebarVisible }),
   setConsoleVisible: (consoleVisible) => set({ consoleVisible }),
   pushStatusNotice: (notice) => {

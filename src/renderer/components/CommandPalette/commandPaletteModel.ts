@@ -234,6 +234,10 @@ interface BuildCommandPaletteModelArgs {
   // RL-024 Slice 2 — invoked when the user picks the
   // `action-project-replace` palette entry.
   onOpenProjectReplace?: () => void;
+  // RL-097 Slice 1 — invoked when the user picks the
+  // `action-open-http-workspace` palette entry. Flips the bottom
+  // panel to the HTTP workspace tab.
+  onOpenHttpWorkspace?: () => void;
   onOpenGoToSymbol?: () => void;
   onOpenDeveloperUtility?: (id: DeveloperUtilityId) => void;
   onOpenKeyboardShortcuts?: () => void;
@@ -607,6 +611,7 @@ export function buildCommandPaletteModel({
   onOpenSnippets,
   onOpenProjectSearch,
   onOpenProjectReplace,
+  onOpenHttpWorkspace,
   onOpenGoToSymbol,
   onOpenDeveloperUtility,
   onOpenKeyboardShortcuts,
@@ -1307,6 +1312,24 @@ export function buildCommandPaletteModel({
         () => {
           onClose();
           onOpenProjectReplace();
+        }
+      )
+    );
+  }
+
+  // RL-097 Slice 1 — Open the HTTP workspace bottom-panel tab.
+  // Surface aliases pick up the common "fetch / api / rest /
+  // request" mental model.
+  if (onOpenHttpWorkspace) {
+    commands.push(
+      buildActionCommand(
+        'action-open-http-workspace',
+        translate('commandPalette.action.openHttpWorkspace.label'),
+        translate('commandPalette.action.openHttpWorkspace.description'),
+        ['http', 'request', 'fetch', 'api', 'rest', 'workspace'],
+        () => {
+          onClose();
+          onOpenHttpWorkspace();
         }
       )
     );

@@ -26,6 +26,22 @@ describe('uiStore', () => {
     expect(useUIStore.getState().consoleVisible).toBe(true);
   });
 
+  it('keeps the HTTP workspace tab visible after first open', () => {
+    useUIStore.setState({
+      activeBottomPanel: 'console',
+      consoleVisible: true,
+      httpWorkspaceTabVisible: false,
+    });
+    useUIStore.getState().openBottomPanel('http');
+    expect(useUIStore.getState()).toMatchObject({
+      activeBottomPanel: 'http',
+      consoleVisible: true,
+      httpWorkspaceTabVisible: true,
+    });
+    useUIStore.getState().setActiveBottomPanel('console');
+    expect(useUIStore.getState().httpWorkspaceTabVisible).toBe(true);
+  });
+
   it('should set sidebar visibility directly', () => {
     useUIStore.getState().setSidebarVisible(false);
     expect(useUIStore.getState().sidebarVisible).toBe(false);

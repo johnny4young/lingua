@@ -297,6 +297,18 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['replace', 'substitute', 'find', 'project', 'rename'],
   },
   {
+    // RL-097 Slice 1 — Toggle the HTTP workspace bottom-panel tab.
+    // Mod+Shift+K is free in Lingua + not reserved by browsers
+    // (Mod+Shift+R / +T / +N are all browser-reserved or already
+    // taken). Tab stays in the tab strip once activated; this
+    // shortcut toggles visibility.
+    id: 'workspace-toggle-http',
+    group: 'navigation',
+    labelKey: 'shortcuts.item.httpWorkspace.label',
+    combos: [{ tokens: ['Mod', 'Shift', 'K'] }],
+    keywords: ['http', 'request', 'fetch', 'api', 'rest', 'workspace'],
+  },
+  {
     id: 'overlay-command-palette',
     group: 'overlays',
     labelKey: 'shortcuts.item.commandPalette.label',

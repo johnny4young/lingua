@@ -81,6 +81,10 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-102 Slice 2 — Reveal-in-Source-Control click. Closed-enum
       // `{ target }` ∈ REVEAL_IN_SC_TARGETS (`'repo-root'` only today).
       'git.reveal_in_source_control_clicked',
+      // RL-097 Slice 1 fold F — HTTP workspace request execution.
+      // Sorts between `git.reveal_in_source_control_clicked` and
+      // `language_scorecard_viewed` because `http.` < `language_`.
+      'http.request_executed',
       // RL-095 Slice 1 fold A — Language Support Scorecard adoption
       // signal. Closed-enum payload `{ surface }` from
       // `LANGUAGE_SCORECARD_SURFACES` (settings | palette). The key
