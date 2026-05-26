@@ -372,6 +372,17 @@ export const TELEMETRY_EVENTS = [
   // NO body, NO header values reach the wire. Mirrored on update-server
   // with parity test.
   'http.request_executed',
+  // RL-097 Slice 2 fold F — SQL workspace query execution. Fires
+  // once per Run / Cmd+Enter against the DuckDB-WASM engine.
+  // Closed-enum `{ status, rowCountBucket, durationBucket }` where
+  // `status` ∈ SQL_QUERY_STATUSES_SET (`'success' / 'sql-error' /
+  // 'timeout' / 'too-large' / 'engine-load-failed'`), `rowCountBucket`
+  // reuses DEPENDENCY_COUNT_BUCKETS_SET (`'0' / '1' / '2-5' / '6-10' /
+  // '>10'`), and `durationBucket` ∈ SQL_DURATION_BUCKETS_SET
+  // (`'<10ms' / '<100ms' / '<1s' / '<5s' / '<30s' / '>=30s'`). NO query
+  // text, NO schema names, NO column names, NO row values reach the
+  // wire. Mirrored on update-server with parity test.
+  'sql.query_executed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -627,6 +638,11 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `statusBucket` ∈ HTTP_STATUS_BUCKETS_SET, `redactedHeadersBucket`
   // ∈ DEPENDENCY_COUNT_BUCKETS_SET. No URL, body, or header values.
   'http.request_executed': ['method', 'statusBucket', 'redactedHeadersBucket'],
+  // RL-097 Slice 2 fold F — `status` ∈ SQL_QUERY_STATUSES_SET,
+  // `rowCountBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET, `durationBucket`
+  // ∈ SQL_DURATION_BUCKETS_SET. No query text, schema names, or row
+  // values on the wire.
+  'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -994,6 +1010,36 @@ export const HTTP_STATUS_BUCKETS_SET = new Set([
   'network-error',
   'timeout',
   'cors-error',
+]);
+// RL-097 Slice 2 fold F — closed enum for `status` on
+// `sql.query_executed`. `'success'` for DuckDB-returned rows;
+// `'sql-error'` for DuckDB-thrown user errors; `'timeout'` for
+// soft-timeout via Promise.race; `'too-large'` for results that
+// exceed MAX_RESULT_ROWS / MAX_RESULT_PREVIEW_BYTES; and
+// `'engine-load-failed'` for the rare case where DuckDB-WASM
+// itself can't boot (offline / CSP / blocked WASM). The renderer-
+// side source of truth is `SQL_QUERY_STATUSES` in
+// `src/shared/sqlWorkspace.ts` — this Set is duplicated here so the
+// telemetry validator can live in shared code without importing
+// the workspace module. Mirrored on update-server with parity test.
+export const SQL_QUERY_STATUSES_SET = new Set([
+  'success',
+  'sql-error',
+  'timeout',
+  'too-large',
+  'engine-load-failed',
+]);
+// RL-097 Slice 2 fold F — closed enum for `durationBucket` on
+// `sql.query_executed`. Coarse-grained classes so dashboards group
+// by shape (fast / slow / very-slow) without leaking the exact
+// timing. Mirrored on update-server with parity test.
+export const SQL_DURATION_BUCKETS_SET = new Set([
+  '<10ms',
+  '<100ms',
+  '<1s',
+  '<5s',
+  '<30s',
+  '>=30s',
 ]);
 export const DEPENDENCY_INSTALL_FAILURE_REASONS_SET = new Set([
   'invalid-specifier',
@@ -1439,6 +1485,20 @@ function isAllowedValue(
       if (key === 'redactedHeadersBucket')
         return (
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
+        );
+      return false;
+    case 'sql.query_executed':
+      if (key === 'status')
+        return (
+          typeof value === 'string' && SQL_QUERY_STATUSES_SET.has(value)
+        );
+      if (key === 'rowCountBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
+        );
+      if (key === 'durationBucket')
+        return (
+          typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value)
         );
       return false;
     default: {

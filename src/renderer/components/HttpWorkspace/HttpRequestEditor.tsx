@@ -74,6 +74,7 @@ export function HttpRequestEditor({
   // so a rapid edit across URL + headers + body settles to a single
   // patch.
   const patchTimerRef = useRef<number | null>(null);
+  const pendingPatchRef = useRef<Partial<HttpRequestV1> | null>(null);
   const pushBodyTooLargeNotice = useCallback(() => {
     useUIStore.getState().pushStatusNotice({
       tone: 'warning',
@@ -99,12 +100,15 @@ export function HttpRequestEditor({
   const scheduleAutoSave = useCallback(
     (patch: Partial<HttpRequestV1>) => {
       const fullPatch = buildDraftPatch(patch);
+      pendingPatchRef.current = fullPatch;
       if (patchTimerRef.current !== null) {
         window.clearTimeout(patchTimerRef.current);
       }
       patchTimerRef.current = window.setTimeout(() => {
         patchTimerRef.current = null;
-        onPatch(fullPatch);
+        const pendingPatch = pendingPatchRef.current;
+        pendingPatchRef.current = null;
+        if (pendingPatch) onPatch(pendingPatch);
       }, AUTO_SAVE_DEBOUNCE_MS);
     },
     [buildDraftPatch, onPatch]
@@ -152,9 +156,12 @@ export function HttpRequestEditor({
       if (patchTimerRef.current !== null) {
         window.clearTimeout(patchTimerRef.current);
         patchTimerRef.current = null;
+        const pendingPatch = pendingPatchRef.current;
+        pendingPatchRef.current = null;
+        if (pendingPatch) onPatch(pendingPatch);
       }
     };
-  }, []);
+  }, [onPatch]);
 
   // Fold A — Cmd/Ctrl+Enter sends.
   const handleKeyDown = useCallback(

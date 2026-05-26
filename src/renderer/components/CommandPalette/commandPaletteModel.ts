@@ -238,6 +238,10 @@ interface BuildCommandPaletteModelArgs {
   // `action-open-http-workspace` palette entry. Flips the bottom
   // panel to the HTTP workspace tab.
   onOpenHttpWorkspace?: () => void;
+  // RL-097 Slice 2 — invoked when the user picks the
+  // `action-open-sql-workspace` palette entry. Mirror of
+  // `onOpenHttpWorkspace`.
+  onOpenSqlWorkspace?: () => void;
   onOpenGoToSymbol?: () => void;
   onOpenDeveloperUtility?: (id: DeveloperUtilityId) => void;
   onOpenKeyboardShortcuts?: () => void;
@@ -619,6 +623,7 @@ export function buildCommandPaletteModel({
   onOpenProjectSearch,
   onOpenProjectReplace,
   onOpenHttpWorkspace,
+  onOpenSqlWorkspace,
   onOpenGoToSymbol,
   onOpenDeveloperUtility,
   onOpenKeyboardShortcuts,
@@ -1367,6 +1372,24 @@ export function buildCommandPaletteModel({
         () => {
           onClose();
           onOpenHttpWorkspace();
+        }
+      )
+    );
+  }
+
+  // RL-097 Slice 2 — Open the SQL workspace bottom-panel tab.
+  // Surface aliases pick up the common "sql / query / duckdb / table"
+  // mental model. Mirror of `action-open-http-workspace`.
+  if (onOpenSqlWorkspace) {
+    commands.push(
+      buildActionCommand(
+        'action-open-sql-workspace',
+        translate('commandPalette.action.openSqlWorkspace.label'),
+        translate('commandPalette.action.openSqlWorkspace.description'),
+        ['sql', 'query', 'duckdb', 'table', 'database', 'workspace'],
+        () => {
+          onClose();
+          onOpenSqlWorkspace();
         }
       )
     );

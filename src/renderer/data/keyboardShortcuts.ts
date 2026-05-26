@@ -309,6 +309,18 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['http', 'request', 'fetch', 'api', 'rest', 'workspace'],
   },
   {
+    // RL-097 Slice 2 — Toggle the SQL workspace bottom-panel tab.
+    // Mod+Alt+S (S for SQL) — verified free against the catalog.
+    // Mod+Shift+Q rejected: macOS Cmd+Shift+Q is the OS-level log-out
+    // shortcut and is intercepted by the system. Mod+Alt namespace is
+    // less crowded (currently only +M / +H / +R are claimed).
+    id: 'workspace-toggle-sql',
+    group: 'navigation',
+    labelKey: 'shortcuts.item.sqlWorkspace.label',
+    combos: [{ tokens: ['Mod', 'Alt', 'S'] }],
+    keywords: ['sql', 'query', 'duckdb', 'database', 'workspace'],
+  },
+  {
     // RL-094 Slice 2 fold A — Open the Capsule Import overlay so the
     // user can paste / drop / pick a capsule JSON file and inspect
     // before opening as a new tab. `Mod+Shift+Y` (Y is unused +

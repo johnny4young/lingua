@@ -47,4 +47,37 @@ describe('HttpRequestEditor', () => {
       })
     );
   });
+
+  it('flushes the latest draft on unmount before the debounce settles', () => {
+    const request = createBlankHttpRequest({
+      id: 'r1',
+      now: '2026-05-25T00:00:00.000Z',
+    });
+    const onPatch = vi.fn();
+
+    const { unmount } = render(
+      <HttpRequestEditor
+        request={request}
+        onPatch={onPatch}
+        onSend={vi.fn()}
+        isExecuting={false}
+      />
+    );
+
+    fireEvent.change(screen.getByTestId('http-request-editor-url'), {
+      target: { value: 'https://api.example.com/late' },
+    });
+
+    unmount();
+
+    expect(onPatch).toHaveBeenCalledTimes(1);
+    expect(onPatch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        method: 'GET',
+        url: 'https://api.example.com/late',
+        headers: [],
+        body: { kind: 'none' },
+      })
+    );
+  });
 });

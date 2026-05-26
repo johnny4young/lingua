@@ -206,6 +206,12 @@ describe('TELEMETRY_EVENTS', () => {
       // identical sets.
       'share.created',
       'share.opened',
+      // RL-097 Slice 2 fold F — SQL workspace query execution. Closed-
+      // enum `{ status, rowCountBucket, durationBucket }` from
+      // `SQL_QUERY_STATUSES_SET` + `DEPENDENCY_COUNT_BUCKETS_SET` +
+      // `SQL_DURATION_BUCKETS_SET`. Sorts between `share.opened` (sh)
+      // and `template_project_applied` (te) alphabetically.
+      'sql.query_executed',
       // RL-103 Slice 1 fold B — curated project template applied.
       // Closed-enum `{ templateId, language }` from
       // `TEMPLATE_PROJECT_IDS` + language pack id. Sorts between

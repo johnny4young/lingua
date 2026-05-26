@@ -643,6 +643,21 @@ export interface SettingsState {
    * dropped silently.
    */
   sensitiveHttpHeaders: string[];
+  /**
+   * RL-097 Slice 2 — SQL workspace row preview cap. Sets the upper
+   * bound on rows rendered in `<SqlResultPreview>`. The runtime
+   * also caps at `MAX_RESULT_ROWS` (10 000) regardless; this knob
+   * lets users dial the panel further down (100 / 500 / 1000 /
+   * 5000) for smaller screens. Default 1000.
+   */
+  sqlWorkspaceRowDisplayLimit: 100 | 500 | 1000 | 5000;
+  /**
+   * RL-097 Slice 2 — SQL query default timeout. DuckDB-WASM has no
+   * native abort, so the runtime layer races a Promise against this
+   * timeout. Default 30 s, capped at `MAX_QUERY_TIMEOUT_MS` (5 min)
+   * by the runtime regardless of this value.
+   */
+  sqlWorkspaceQueryTimeoutMs: number;
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -774,6 +789,18 @@ export interface SettingsState {
    * attempts to remove a baseline name no-op silently.
    */
   removeSensitiveHttpHeader: (name: string) => void;
+  /**
+   * RL-097 Slice 2 — Update the SQL row display cap. Setter accepts
+   * any of the four canonical values; unknown values clamp to the
+   * default 1000.
+   */
+  setSqlWorkspaceRowDisplayLimit: (value: 100 | 500 | 1000 | 5000) => void;
+  /**
+   * RL-097 Slice 2 — Update the SQL query default timeout in
+   * milliseconds. Setter clamps to `MAX_QUERY_TIMEOUT_MS` (5 min)
+   * and floors at 1 s; non-finite values reset to the 30 s default.
+   */
+  setSqlWorkspaceQueryTimeoutMs: (value: number) => void;
   /**
    * Apply a named keymap preset. Replaces `shortcutOverrides` with the
    * preset's bundle and stores the preset id. Unknown ids are ignored so

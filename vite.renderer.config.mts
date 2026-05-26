@@ -86,6 +86,17 @@ export default defineConfig({
           ) {
             return 'vega-embed';
           }
+          // RL-097 Slice 2 — mirror the web SQL chunk split for the
+          // packaged desktop renderer. <SqlWorkspacePanel> lazy-loads
+          // @duckdb/duckdb-wasm + apache-arrow, so these deps should
+          // stay grouped behind that first SQL tab open in both
+          // shipped surfaces.
+          if (
+            id.includes('@duckdb/duckdb-wasm') ||
+            id.includes('apache-arrow')
+          ) {
+            return 'duckdb-wasm';
+          }
           // Web workers — bundled separately by Vite's worker import syntax,
           // but any shared worker utilities should be isolated
           if (id.includes('/workers/')) {

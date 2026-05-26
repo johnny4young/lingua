@@ -5,6 +5,7 @@ import {
   Bug,
   ChevronUp,
   Clock3,
+  Database,
   Eye,
   GitBranch,
   GitCompare,
@@ -31,6 +32,7 @@ import { useDependenciesPanelAvailable } from '../Dependencies/useDependenciesPa
 import { useGitDiffTabAvailable } from '../Editor/useGitDiffTabAvailable';
 import { GitDiffPanel } from '../Editor/GitDiffPanel';
 import { HttpWorkspacePanel } from '../HttpWorkspace';
+import { SqlWorkspacePanel } from '../SqlWorkspace';
 import { AppChrome } from '../Chrome';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
@@ -429,6 +431,9 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   const httpWorkspaceTabVisible = useUIStore(
     (state) => state.httpWorkspaceTabVisible
   );
+  const sqlWorkspaceTabVisible = useUIStore(
+    (state) => state.sqlWorkspaceTabVisible
+  );
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
   const setActiveBottomPanel = useUIStore((state) => state.setActiveBottomPanel);
   // RL-044 Slice 2b-β-α — Prerequisite fix surfaced during validation.
@@ -474,7 +479,8 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     | 'variables'
     | 'dependencies'
     | 'git-diff'
-    | 'http' =
+    | 'http'
+    | 'sql' =
     variablesAvailable && activeBottomPanel === 'variables'
       ? 'variables'
       : browserPreviewAvailable && (activeBottomPanel === 'browser-preview' || !consoleVisible)
@@ -492,7 +498,10 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
                 // activated via Mod+Shift+K or the command palette.
                 : activeBottomPanel === 'http'
                   ? 'http'
-                  : 'console';
+                  // RL-097 Slice 2 — SQL workspace tab. Same posture as HTTP.
+                  : activeBottomPanel === 'sql'
+                    ? 'sql'
+                    : 'console';
 
   useEffect(() => {
     if (activeBottomPanel === 'debugger' && !debuggerAvailable) {
@@ -534,6 +543,7 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
       | 'dependencies'
       | 'git-diff'
       | 'http'
+      | 'sql'
   ) => {
     if (tab === 'debugger' && !debuggerAvailable) return;
     if (tab === 'browser-preview' && !browserPreviewAvailable) return;
@@ -541,7 +551,7 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     if (tab === 'variables' && !variablesAvailable) return;
     if (tab === 'dependencies' && !dependenciesAvailable) return;
     if (tab === 'git-diff' && !gitDiffAvailable) return;
-    // RL-097 — `'http'` is unconditional (always available).
+    // RL-097 — `'http'` and `'sql'` are unconditional (always available).
     openBottomPanel(tab);
   };
 
@@ -732,6 +742,29 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             </button>
           </Tooltip>
         ) : null}
+        {/* RL-097 Slice 2 — SQL workspace tab. Same posture as HTTP:
+            hidden until the user activates it via Mod+Alt+S or the
+            palette, then sticks in the strip for the session. */}
+        {sqlWorkspaceTabVisible || effectiveTab === 'sql' ? (
+          <Tooltip content={t('sqlWorkspace.tab.hint')} side="bottom">
+            <button
+              type="button"
+              role="tab"
+              data-testid="bottom-panel-sql-tab"
+              aria-selected={effectiveTab === 'sql'}
+              onClick={() => selectTab('sql')}
+              className={cn(
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                effectiveTab === 'sql'
+                  ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
+                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
+              )}
+            >
+              <Database size={12} aria-hidden="true" />
+              {t('sqlWorkspace.tab.label')}
+            </button>
+          </Tooltip>
+        ) : null}
         <Tooltip content={t('bottomPanel.actions.hide')} side="bottom">
           <button
             type="button"
@@ -759,6 +792,8 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
           <GitDiffPanel />
         ) : effectiveTab === 'http' ? (
           <HttpWorkspacePanel />
+        ) : effectiveTab === 'sql' ? (
+          <SqlWorkspacePanel />
         ) : (
           <ConsolePanel />
         )}
