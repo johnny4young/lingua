@@ -264,6 +264,13 @@ interface BuildCommandPaletteModelArgs {
    */
   latestCapsuleAvailable?: boolean;
   /**
+   * RL-094 Slice 2 — fires when the user activates the "Import
+   * capsule from JSON" palette command. App.tsx opens the
+   * `capsule-import` AppOverlay; the overlay owns the rest of the
+   * flow. Optional; when omitted the action hides.
+   */
+  onOpenCapsuleImport?: () => void;
+  /**
    * RL-095 Slice 1 fold B — opens Settings on the Languages tab and
    * scrolls to the Language Support Scorecard. Optional; when
    * omitted the palette entry is hidden.
@@ -622,6 +629,7 @@ export function buildCommandPaletteModel({
   duplicateActiveTab,
   onExportLatestCapsule,
   latestCapsuleAvailable = false,
+  onOpenCapsuleImport,
   onShowLanguageSupport,
   onCopyLanguageScorecardMarkdown,
   onCopyShareLink,
@@ -756,6 +764,35 @@ export function buildCommandPaletteModel({
             () => {
               onExportLatestCapsule();
               onClose();
+            }
+          ),
+        ]
+      : []),
+    // RL-094 Slice 2 — Import capsule from JSON. Surfaces only when
+    // App.tsx wires the AppOverlay branch. Always available (no
+    // history precondition) so the user can import even when their
+    // own session has no runs yet — a fresh user pasting a capsule
+    // shared by a teammate is the primary motion.
+    ...(onOpenCapsuleImport
+      ? [
+          buildActionCommand(
+            'action-import-capsule',
+            translate('commandPalette.action.importCapsule.label'),
+            translate('commandPalette.action.importCapsule.description'),
+            [
+              'capsule',
+              'import',
+              'open',
+              'paste',
+              'json',
+              'replay',
+              'cargar',
+              'capsula',
+              'cápsula',
+            ],
+            () => {
+              onClose();
+              onOpenCapsuleImport();
             }
           ),
         ]

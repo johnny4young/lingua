@@ -309,6 +309,30 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['http', 'request', 'fetch', 'api', 'rest', 'workspace'],
   },
   {
+    // RL-094 Slice 2 fold A — Open the Capsule Import overlay so the
+    // user can paste / drop / pick a capsule JSON file and inspect
+    // before opening as a new tab. `Mod+Shift+Y` (Y is unused +
+    // visually mirrors the `Mod+Shift+X` export shortcut). Verified
+    // free against the catalog by the conflict-free regression test
+    // in `tests/data/keyboardShortcuts.test.ts`.
+    id: 'overlay-capsule-import',
+    group: 'navigation',
+    labelKey: 'shortcuts.item.importCapsule.label',
+    descriptionKey: 'shortcuts.item.importCapsule.description',
+    combos: [{ tokens: ['Mod', 'Shift', 'Y'] }],
+    keywords: [
+      'capsule',
+      'import',
+      'open',
+      'json',
+      'paste',
+      'replay',
+      'cargar',
+      'capsula',
+      'cápsula',
+    ],
+  },
+  {
     id: 'overlay-command-palette',
     group: 'overlays',
     labelKey: 'shortcuts.item.commandPalette.label',

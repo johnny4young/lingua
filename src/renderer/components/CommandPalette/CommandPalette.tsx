@@ -79,6 +79,13 @@ interface CommandPaletteProps {
    * Optional; when omitted the command is hidden.
    */
   onToggleVimMode?: () => void;
+  /**
+   * RL-094 Slice 2 — fires the "Import capsule from JSON" palette
+   * action. Caller (App.tsx) opens the `capsule-import` AppOverlay.
+   * Optional; when omitted the action hides so the model stays
+   * honest about wired surfaces.
+   */
+  onOpenCapsuleImport?: () => void;
 }
 
 export function CommandPalette({
@@ -97,6 +104,7 @@ export function CommandPalette({
   onNewProjectFromTemplate,
   onReplayEntry,
   onToggleVimMode,
+  onOpenCapsuleImport,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -421,6 +429,7 @@ export function CommandPalette({
           }
         : undefined,
       latestCapsuleAvailable: latestCapsule !== null,
+      onOpenCapsuleImport,
       // RL-095 Slice 1 fold B — open Settings on the Languages tab and
       // scroll to the scorecard. Three pieces of choreography:
       //   1. Claim the next scorecard mount as `surface: 'palette'`

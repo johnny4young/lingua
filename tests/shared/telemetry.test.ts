@@ -37,6 +37,12 @@ describe('TELEMETRY_EVENTS', () => {
       // Closed-enum `{ trigger, sizeBucket }`. Sorts at the top of the
       // alphabetical list.
       'capsule.exported',
+      // RL-094 Slice 2 fold D — Run Capsule import adoption signal.
+      // Closed-enum `{ surface, status, sizeBucket }`. Property is
+      // named `surface` (not `sourceSurface`) because `source` is in
+      // `DENY_SUBSTRINGS` — same precedent as
+      // `language_scorecard_viewed` from RL-095 Slice 1.
+      'capsule.imported',
       // RL-027 Slice 1.5 — debugger session lifecycle. Closed-enum payload
       // per DEBUGGER_ADR §4; the redactor drops anything off the contract.
       'debugger.attached',

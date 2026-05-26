@@ -94,15 +94,38 @@ export function RunCapsulesSection() {
             />
             {t('settings.account.runCapsules.prettyToggle')}
           </label>
-          <button
-            type="button"
-            className="button-primary justify-self-end"
-            onClick={handleExport}
-            disabled={!capsule}
-            data-testid="capsule-export-button"
-          >
-            {t('settings.account.runCapsules.exportButton')}
-          </button>
+          <div className="flex items-center justify-end gap-2">
+            {/*
+             * RL-094 Slice 2 — Import button mirrors the Export
+             * affordance so the surface advertises both directions of
+             * the capsule loop. Click dispatches a window event the
+             * App-level overlay listener picks up; this keeps the
+             * Settings section decoupled from the overlay state
+             * slot (same pattern as the snippets surface).
+             */}
+            <button
+              type="button"
+              className="rounded-md border border-border/60 px-3 py-1.5 text-xs text-foreground hover:bg-surface-strong/60"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent('lingua-open-capsule-import')
+                );
+              }}
+              data-testid="capsule-import-button"
+              title={t('settings.account.runCapsules.import.helper')}
+            >
+              {t('settings.account.runCapsules.import.button')}
+            </button>
+            <button
+              type="button"
+              className="button-primary"
+              onClick={handleExport}
+              disabled={!capsule}
+              data-testid="capsule-export-button"
+            >
+              {t('settings.account.runCapsules.exportButton')}
+            </button>
+          </div>
         </div>
       </Row>
       {inlineFallback !== null ? (

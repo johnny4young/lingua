@@ -111,22 +111,23 @@ describe('useGlobalShortcuts', () => {
   });
 
   it('routes a rebound combo to the correct action and skips the old one', () => {
-    // `Mod+Shift+Y` is a free combo in the production catalog —
+    // `Mod+Shift+U` is a free combo in the production catalog —
     // verified by `tests/data/keyboardShortcuts.test.ts`. The earlier
     // choice was `Mod+Shift+J` but RL-025 Slice A bound that to
-    // `view-show-dependencies`; first-match-wins iteration in
-    // `useGlobalShortcuts` would otherwise route the keystroke to the
-    // wrong action.
+    // `view-show-dependencies`; the follow-up `Mod+Shift+Y` was taken
+    // by RL-094 Slice 2 (capsule import overlay). U remains free, so
+    // first-match-wins iteration in `useGlobalShortcuts` still routes
+    // the overridden combo to the right action.
     useSettingsStore
       .getState()
-      .setShortcutOverride('view-toggle-sidebar', [{ tokens: ['Mod', 'Shift', 'Y'] }]);
+      .setShortcutOverride('view-toggle-sidebar', [{ tokens: ['Mod', 'Shift', 'U'] }]);
 
     const calls = renderShortcuts();
 
     dispatchKeyDown({ key: 'b', ctrlKey: true });
     expect(calls.toggleSidebar).not.toHaveBeenCalled();
 
-    dispatchKeyDown({ key: 'y', ctrlKey: true, shiftKey: true });
+    dispatchKeyDown({ key: 'u', ctrlKey: true, shiftKey: true });
     expect(calls.toggleSidebar).toHaveBeenCalledTimes(1);
   });
 

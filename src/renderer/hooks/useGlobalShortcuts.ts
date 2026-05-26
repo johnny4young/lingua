@@ -31,7 +31,11 @@ export type AppOverlay =
   | 'snippets'
   | 'whats-new'
   | 'keyboard-shortcuts'
-  | 'project-templates';
+  | 'project-templates'
+  // RL-094 Slice 2 — capsule import preview + confirmation modal.
+  // Mounted by App.tsx + opened via Mod+Shift+Y, Settings → Account
+  // → Run Capsules → Import, and command palette `action-import-capsule`.
+  | 'capsule-import';
 
 interface UseGlobalShortcutsOptions {
   isRunning: boolean;
@@ -189,6 +193,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'file-close-tab': () => {
       void options.closeActiveTab();
     },
+    'overlay-capsule-import': () => options.toggleOverlay('capsule-import'),
     'nav-quick-open': () => options.toggleOverlay('quick-open'),
     'nav-go-to-symbol': () => options.toggleOverlay('go-to-symbol'),
     'nav-project-search': () => options.toggleOverlay('search'),
