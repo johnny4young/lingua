@@ -10651,6 +10651,70 @@ deferred to Slice 2 alongside the run-history timeline chart.
   - Sensitive header detection is name-based → mitigated by an explicit Settings → "Sensitive headers" allow-list with sane defaults.
   - Response size growth → mitigated by 1 MiB cap + "Download response" affordance.
 
+#### § Slice 1 landed (2026-05-25)
+
+Shipped as `RL-097 Slice 1 — HTTP request workspace + folds A/B/C/D/E/F`. Approved with all folds except G (multi-step pipelines explicitly deferred to RL-099 territory).
+
+Core surface:
+
+- New `src/shared/httpWorkspace.ts` schema. `HttpRequestV1` (versioned 1, id + name + method + url + headers + optional body + optional timeoutMs + createdAt/updatedAt). `HttpResponseV1` (versioned 1, typed `kind` ∈ `'success' | 'client-error' | 'server-error' | 'network-error' | 'timeout' | 'cors-error' | 'too-large'` + status + headers + body + redactedHeaders + tooLarge + recordedAt + optional errorMessage). `parseHttpRequest` / `parseHttpResponse` reject every shape mismatch — sanitize-on-rehydrate boundary. `MAX_REQUEST_BODY_BYTES = 1 MiB`, `MAX_RESPONSE_BODY_BYTES = 4 MiB`, `DEFAULT_REQUEST_TIMEOUT_MS = 30 s` (cap 5 min). `HTTP_METHODS` + `HTTP_STATUS_BUCKETS` closed enums; `BASELINE_SENSITIVE_HEADERS` immutable list (`authorization`, `cookie`, `set-cookie`, `x-api-key`, `x-auth-token`, `proxy-authorization`). `isHeaderSensitive` is case-insensitive EXACT match — `Document-Authorization-Date` does NOT redact.
+- New `src/renderer/stores/workspaceToolStore.ts` zustand persisted on isolated `lingua-workspace-tool-state` localStorage key (RL-069 convention). CRUD actions + `recordResponse` with LRU cap of 10 per request, where older entries keep metadata + the latest keeps the body (bounds storage growth). `setActiveRequest` resets `isExecutingActive` on switch so a stuck in-flight flag never freezes the Send button on a fresh request. `merge` callback drops invalid entries silently via `parseHttpRequest` / `parseHttpResponse`.
+- New `src/renderer/runtime/httpClient.ts` wraps native `fetch` with:
+  - `AbortController` timeout (default 30 s, per-request override capped at 5 min). Reason-pinned signal (`abort('timeout')`) so the catch classifier distinguishes timeout from generic network failure.
+  - Response body streaming with hard `MAX_RESPONSE_BODY_BYTES` cap. Last chunk trimmed; reader cancelled; `tooLarge` flag set. Final read+concat decoded via `TextDecoder('utf-8', { fatal: false })` so non-UTF-8 bytes degrade gracefully.
+  - Case-insensitive EXACT header redaction. Baseline list + user allowlist merged at request time; redacted values replaced with the literal sentinel `<redacted>`; redacted names exposed via `response.redactedHeaders` for the UI badge.
+  - Typed error classification: `classifyFetchError` infers `'cors-error'` from CORS-specific message hints (`/cors|preflight|cross-origin/i`), `'timeout'` from the AbortSignal reason, `'network-error'` otherwise.
+  - Auto Content-Type injection for non-`none` bodies (only when the user did not set Content-Type explicitly). GET / HEAD strip body before send (browser fetch would throw).
+- New `src/renderer/runtime/httpResponseCapsule.ts`. Wraps (req, res) as `RunCapsuleV1` with `tab.language = 'http'`, `tab.runtimeMode = 'http-client'`, `tab.workflowMode = 'run'`, `environment.runner = 'http-client'`. Status mapping: 2xx → `'success'`, 4xx/5xx/network-error/cors-error/too-large → `'error'`, timeout → `'timeout'`. Request serialized into `source.content` as deterministic text (method + URL + LEX-sorted headers + body) for content-hash stability. Response body + error message ride the existing `result.stdout` / `result.stderr` slots so the capsule sanitizer + the wire-truncator already apply.
+- `BottomPanelTab` union widened with `'http'`. `<AppLayout>` mounts the sibling tab body + the tab button (always visible once activated; toggled via `Mod+Shift+K` + the palette).
+- New `<HttpWorkspacePanel>` (root, 3-col resizable layout via `useDefaultLayout` keyed on `lingua-http-workspace-layout`), `<HttpRequestList>` (create / select / rename via double-click / delete with native confirm), `<HttpRequestEditor>` (method dropdown, URL input, headers table with per-row enable toggle, body editor for JSON/text/form), `<HttpResponsePreview>` (status pill header + Body/Headers/Raw sub-tabs + typed-error band + too-large band + redacted-headers badge), `<HttpStatusPill>` (color-coded per Fold C).
+- New keyboard shortcut `Mod+Shift+K` → `workspace-toggle-http` (toggles bottom-panel HTTP tab). `Mod+Shift+J` first considered but already taken by `view-show-dependencies`; `Mod+Shift+R` browser-reserved. Conflict-free + reserved-combo regression tests guard.
+- New command palette entry `action-open-http-workspace` threaded via `onOpenHttpWorkspace` callback through `commandPaletteModel` + `CommandPalette` + `App.tsx`. Palette callback toggles the panel identically to the keyboard shortcut.
+- New `useGlobalShortcuts.toggleHttpWorkspace` option callback wired in App.tsx; flips bottom panel visibility on each press.
+
+Folds shipped:
+
+- **A** — Cmd / Ctrl+Enter while focus is inside any HTTP editor input fires Send. Disabled during in-flight executions (single-flight UX).
+- **B** — Paste-detect cURL. The URL input's `onPaste` handler inspects the clipboard text; when it starts with `curl `, a `tryParseCurl` (new `curlImport.ts`) extracts method / URL / headers / body. The Send action is gated behind a status-notice "Import as request?" CTA — the user explicitly approves before the editor mutates. Parser covers `-X` / `-H` / `-d` / `--data-raw` / `--data-urlencode` / `--json` / single + double quotes / backslash line continuations. Auto-detects JSON content (parse-test on the body) and adds Content-Type when missing.
+- **C** — `<HttpStatusPill>` color-codes by `kind` × status. 2xx emerald, 3xx sky, 4xx amber, 5xx rose, typed failures slate, too-large amber. Matches `<GitStatusPill>` + `<RunStatusPill>` visual language.
+- **D** — `<HttpRequestEditor>` debounces all edits 500 ms then auto-saves via `onPatch`. Local draft state avoids per-keystroke store writes; single timer covers URL + headers + body so a rapid cross-field edit settles to one patch.
+- **E** — Response body view has a pretty/raw toggle. JSON content types render as `JSON.stringify(parsed, null, 2)`; unchecked falls back to raw response text. Image content-type renders as inline `<img>` (base64-encoded from UTF-8 string — best-effort Slice 1; future slice can plumb raw bytes).
+- **F** — Closed-enum telemetry `http.request_executed { method, statusBucket, redactedHeadersBucket }`. `method` ∈ `HTTP_METHODS_SET`, `statusBucket` ∈ `HTTP_STATUS_BUCKETS_SET`, `redactedHeadersBucket` reuses `DEPENDENCY_COUNT_BUCKETS_SET`. Mirrored on update-server with parity tests cross-importing both sets. NO URL, body, or header values on the wire — pure closed-enum signal.
+
+Settings:
+
+- New `sensitiveHttpHeaders: string[]` field on `useSettingsStore` (persisted, sanitize-on-rehydrate strips non-string / empty / >100-char / baseline-duplicate entries). Two new actions: `addSensitiveHttpHeader(name)` normalises to lowercase + dedupes vs baseline + user list; `removeSensitiveHttpHeader(name)` refuses to remove baseline names (immutable from this seam).
+- New `<SensitiveHeadersRow>` in `<PrivacySection>` renders the baseline chips (disabled, with "Always redacted — baseline list" tooltip) + user chips (with X to remove) + an add-by-Enter input. Located under Settings → Privacy → "Sensitive HTTP headers" so it sits next to the existing telemetry + native-execution privacy controls.
+
+Prerequisite fix (web CSP widening):
+
+- `src/web/index.html` Content-Security-Policy widened: `connect-src` now allows `https:` + `wss:` in addition to the existing `licenses.linguacode.dev` + `updates.linguacode.dev` whitelist. `http:` explicitly NOT allowed — preserves mixed-content protection. `img-src` adds `https:` for image content-type responses. This is the natural design cost of shipping user-initiated arbitrary-URL HTTP requests on the web build; documented inline + flagged in the commit message. Desktop build is unaffected (no CSP gate).
+
+Telemetry parity:
+
+- `tests/shared/telemetry.test.ts` sorted-events list extended with `http.request_executed` between `git.reveal_in_source_control_clicked` and `language_scorecard_viewed`.
+- `update-server/test/telemetry.test.ts` parity assertions added for both `HTTP_METHODS_SET` (asserts the 7 Slice 1 methods byte-for-byte) and `HTTP_STATUS_BUCKETS_SET` (asserts all 7 buckets including typed failures).
+
+Tests:
+
+- New `tests/shared/httpWorkspace.test.ts` (~17 cases — closed-enum shape, `bucketHttpStatus` map, `isHeaderSensitive` case-insensitivity + exact-match negative, request + response parsers, blank-template round-trip).
+- New `tests/stores/workspaceToolStore.test.ts` (11 cases — create / update / delete + active id shift + LRU body-strip + LRU cap + clearHistory + isExecutingActive reset + getRequest / getLatestResponse selectors).
+- New `tests/renderer/runtime/httpClient.test.ts` (~14 cases — 2xx success, 4xx/5xx classification, TypeError network-error, CORS-message detection, baseline + user-allowlist redaction, look-alike negative, malformed URL, body cap, GET no-body, POST Content-Type auto, `statusBucketForResponse`, `effectiveSensitiveHeaderSet`).
+- New `tests/renderer/runtime/httpResponseCapsule.test.ts` (6 cases — status mapping per kind, runner + language pins, header lex-sort for content-hash stability).
+- New `tests/components/HttpWorkspace/curlImport.test.ts` (10 cases — null on non-curl, minimal URL, -X, -H, -d JSON auto-detect, --json, line continuations, double-quoted spaces, body→POST inference).
+
+i18n:
+
+~64 new keys × en + es covering `httpWorkspace.tab.*`, `httpWorkspace.empty.*`, `httpWorkspace.requestList.*`, `httpWorkspace.editor.*` (method, url, headers, body kind variants, send + shortcut hint), `httpWorkspace.response.*` (loading, empty, kind labels, tabs, body pretty toggle, headers empty, redactedHeaders.badge pluralized, error variants, openExternal CTA), `httpWorkspace.curlImport.*`, `settings.privacy.sensitiveHeaders.*`, `commandPalette.action.openHttpWorkspace.*`, `shortcuts.item.httpWorkspace.label`. ES tuteo verified across `Envía`, `Crea`, `Abre`, `Añadir`, `Recarga`. No voseo.
+
+Deferred to Slice 2+:
+
+- DuckDB-WASM SQL scratchpad (Slice 2; reuses `workspaceToolStore` shape).
+- OAuth flows + secret-bearing collection import (Slice 3+).
+- Multi-step request pipelines (Slice 4 — converges with RL-099 Utility Pipelines).
+- Desktop proxy for CORS bypass (deferred permanently per the Risk note above; "adds attack surface").
+- Template variable interpolation (`${secret}` substitution) — Slice 3 territory; no AC firm yet.
+
 ### RL-098 CLI Companion
 
 - Priority: `P2`

@@ -51,6 +51,7 @@ interface CommandPaletteProps {
   onOpenSnippets: () => void;
   onOpenProjectSearch?: () => void;
   onOpenProjectReplace?: () => void;
+  onOpenHttpWorkspace?: () => void;
   onOpenGoToSymbol?: () => void;
   onOpenDeveloperUtility?: (id: DeveloperUtilityId) => void;
   onOpenKeyboardShortcuts?: () => void;
@@ -88,6 +89,7 @@ export function CommandPalette({
   onOpenSnippets,
   onOpenProjectSearch,
   onOpenProjectReplace,
+  onOpenHttpWorkspace,
   onOpenGoToSymbol,
   onOpenDeveloperUtility,
   onOpenKeyboardShortcuts,
@@ -377,6 +379,7 @@ export function CommandPalette({
       onOpenSnippets,
       onOpenProjectSearch,
       onOpenProjectReplace,
+      onOpenHttpWorkspace,
       onOpenGoToSymbol,
       onOpenDeveloperUtility,
       onOpenKeyboardShortcuts,
@@ -571,6 +574,7 @@ export function CommandPalette({
     onOpenSnippets,
     onOpenProjectSearch,
     onOpenProjectReplace,
+    onOpenHttpWorkspace,
     onOpenGoToSymbol,
     onOpenDeveloperUtility,
     onOpenKeyboardShortcuts,

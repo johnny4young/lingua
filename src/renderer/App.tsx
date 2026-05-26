@@ -415,6 +415,17 @@ function AppChrome({
     toggleOverlay,
     openDeveloperUtilities: () => handleOpenDeveloperUtility(),
     closeOverlay,
+    // RL-097 Slice 1 — Mod+Shift+K toggles the HTTP workspace
+    // bottom-panel tab. Toggle behaviour: ON → OFF (back to console)
+    // when the tab is already active, OFF → ON otherwise.
+    toggleHttpWorkspace: () => {
+      const ui = useUIStore.getState();
+      if (ui.activeBottomPanel === 'http' && ui.consoleVisible) {
+        ui.setActiveBottomPanel('console');
+      } else {
+        ui.openBottomPanel('http');
+      }
+    },
     cycleRuntimeMode: () => {
       // RL-019 Slice 1 fold D — cycle the active JS/TS tab through
       // the implemented runtime modes. No-op for non-JS/TS tabs.
@@ -737,6 +748,17 @@ function AppChrome({
           onOpenSnippets={() => openOverlay('snippets')}
           onOpenProjectSearch={() => openOverlay('search')}
           onOpenProjectReplace={() => openOverlay('replace')}
+          onOpenHttpWorkspace={() => {
+            // RL-097 Slice 1 — palette opens the HTTP workspace as
+            // a bottom-panel tab; no overlay. Flips visibility on
+            // each invocation (matches the Mod+Shift+K toggle).
+            const ui = useUIStore.getState();
+            if (ui.activeBottomPanel === 'http' && ui.consoleVisible) {
+              ui.setActiveBottomPanel('console');
+            } else {
+              ui.openBottomPanel('http');
+            }
+          }}
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
           onOpenDeveloperUtility={(utilityId) => handleOpenDeveloperUtility(utilityId)}
           onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}

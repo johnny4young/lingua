@@ -177,6 +177,11 @@ export const TELEMETRY_EVENT_NAMES = [
   // src/shared/telemetry.ts. Parity test cross-imports the renderer
   // REPLACE_IN_FILES_SCOPES set.
   'editor.replace_in_files_applied',
+  // RL-097 Slice 1 fold F — HTTP workspace request execution. Closed-enum
+  // `{ method, statusBucket, redactedHeadersBucket }` mirrored from
+  // src/shared/telemetry.ts. Parity test cross-imports HTTP_METHODS_SET
+  // and HTTP_STATUS_BUCKETS_SET.
+  'http.request_executed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -290,6 +295,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'template_project_applied': ['templateId', 'language'],
   // RL-024 Slice 2 — mirror.
   'editor.replace_in_files_applied': ['scope', 'countBucket', 'regex'],
+  // RL-097 Slice 1 fold F — mirror of src/shared/telemetry.ts.
+  'http.request_executed': ['method', 'statusBucket', 'redactedHeadersBucket'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -545,6 +552,30 @@ export const DEPENDENCY_COUNT_BUCKETS = new Set([
 export const REPLACE_IN_FILES_SCOPES = new Set([
   'single-file',
   'all-files',
+]);
+// RL-097 Slice 1 fold F — mirror of HTTP_METHODS_SET. Source of
+// truth on the renderer side at `src/shared/httpWorkspace.ts`;
+// duplicated here so the worker validator does not import a
+// renderer-only module. Parity test cross-imports the renderer set
+// and asserts byte-for-byte equality.
+export const HTTP_METHODS_SET = new Set([
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'HEAD',
+  'OPTIONS',
+]);
+// RL-097 Slice 1 fold F — mirror of HTTP_STATUS_BUCKETS_SET.
+export const HTTP_STATUS_BUCKETS_SET = new Set([
+  '2xx',
+  '3xx',
+  '4xx',
+  '5xx',
+  'network-error',
+  'timeout',
+  'cors-error',
 ]);
 // RL-025 Slice B — mirrors of DEPENDENCY_INSTALL_OUTCOMES and
 // DEPENDENCY_INSTALL_FAILURE_REASONS from
@@ -1073,6 +1104,18 @@ function isAllowedValue(
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
         );
       if (key === 'regex') return typeof value === 'boolean';
+      return false;
+    case 'http.request_executed':
+      if (key === 'method')
+        return typeof value === 'string' && HTTP_METHODS_SET.has(value);
+      if (key === 'statusBucket')
+        return (
+          typeof value === 'string' && HTTP_STATUS_BUCKETS_SET.has(value)
+        );
+      if (key === 'redactedHeadersBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;

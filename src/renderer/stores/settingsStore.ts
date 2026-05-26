@@ -20,6 +20,14 @@ import {
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { isEntitled } from '../../shared/entitlements';
 import { trackEvent } from '../utils/telemetry';
+import { BASELINE_SENSITIVE_HEADERS } from '../../shared/httpWorkspace';
+
+// RL-097 Slice 1 — Lowercased baseline list. Used by
+// `addSensitiveHttpHeader` / `removeSensitiveHttpHeader` to refuse
+// dedup-against-baseline + immutable-baseline operations.
+const BASELINE_SENSITIVE_HEADERS_LC: ReadonlySet<string> = new Set(
+  BASELINE_SENSITIVE_HEADERS
+);
 import type { SettingsState } from '../types';
 import {
   isRuntimeModeImplemented,
@@ -344,6 +352,12 @@ export const useSettingsStore = create<SettingsState>()(
       shortcutOverrides: {},
       keymapPreset: DEFAULT_KEYMAP_PRESET_ID,
       themePack: DEFAULT_THEME_PACK_ID,
+      // RL-097 Slice 1 — Sensitive HTTP header allowlist. Initial
+      // state is empty (the baseline list in
+      // `BASELINE_SENSITIVE_HEADERS` is always applied additively at
+      // redaction time). Users add via Settings → Privacy → Sensitive
+      // HTTP headers.
+      sensitiveHttpHeaders: [],
 
       // Each field the theme pack covers resets `themePack` to `default` so
       // the selector never lies about the active pack. Line numbers, word
@@ -589,6 +603,36 @@ export const useSettingsStore = create<SettingsState>()(
         }),
       resetShortcutOverrides: () =>
         set({ shortcutOverrides: {}, keymapPreset: DEFAULT_KEYMAP_PRESET_ID }),
+      addSensitiveHttpHeader: (name) =>
+        set((state) => {
+          if (typeof name !== 'string') return state;
+          const normalised = name.trim().toLowerCase();
+          if (normalised.length === 0 || normalised.length > 100) return state;
+          // Baseline list is enforced at redaction time; if the user
+          // adds one, it's a harmless no-op (still redacted) but we
+          // skip the array insert to avoid duplicate rows in the UI.
+          if (BASELINE_SENSITIVE_HEADERS_LC.has(normalised)) return state;
+          if (state.sensitiveHttpHeaders.includes(normalised)) return state;
+          return {
+            sensitiveHttpHeaders: [...state.sensitiveHttpHeaders, normalised],
+          };
+        }),
+      removeSensitiveHttpHeader: (name) =>
+        set((state) => {
+          if (typeof name !== 'string') return state;
+          const normalised = name.trim().toLowerCase();
+          if (normalised.length === 0) return state;
+          // Baseline names cannot be removed via this seam — silent
+          // no-op so the UI's hover-X chip never appears on a
+          // baseline row anyway.
+          if (BASELINE_SENSITIVE_HEADERS_LC.has(normalised)) return state;
+          if (!state.sensitiveHttpHeaders.includes(normalised)) return state;
+          return {
+            sensitiveHttpHeaders: state.sensitiveHttpHeaders.filter(
+              (h) => h !== normalised
+            ),
+          };
+        }),
       applyKeymapPreset: (presetId) => {
         const preset = findKeymapPreset(presetId);
         if (!preset) return;
@@ -668,6 +712,10 @@ export const useSettingsStore = create<SettingsState>()(
         shortcutOverrides: state.shortcutOverrides,
         keymapPreset: state.keymapPreset,
         themePack: state.themePack,
+        // RL-097 Slice 1 — persist user-added sensitive header names.
+        // Baseline list is never persisted (it's a build-time
+        // constant); only the delta the user added.
+        sensitiveHttpHeaders: state.sensitiveHttpHeaders,
       }),
       merge: (persistedState, currentState) => {
         const persisted =
@@ -722,6 +770,28 @@ export const useSettingsStore = create<SettingsState>()(
         const requestedThemePack = isKnownThemePackId(merged.themePack)
           ? merged.themePack
           : DEFAULT_THEME_PACK_ID;
+        // RL-097 Slice 1 — sanitize the user's sensitive header
+        // allowlist on rehydrate. Drop non-string entries, empty
+        // strings, names longer than 100 chars, and dedup
+        // case-insensitively. The baseline list is never persisted,
+        // so we don't strip baseline names here (they wouldn't be
+        // there in the first place if `addSensitiveHttpHeader` did
+        // its job, but defense in depth is cheap).
+        const sanitizedSensitiveHttpHeaders: string[] = (() => {
+          if (!Array.isArray(merged.sensitiveHttpHeaders)) return [];
+          const seen = new Set<string>();
+          const result: string[] = [];
+          for (const raw of merged.sensitiveHttpHeaders) {
+            if (typeof raw !== 'string') continue;
+            const lc = raw.trim().toLowerCase();
+            if (lc.length === 0 || lc.length > 100) continue;
+            if (BASELINE_SENSITIVE_HEADERS_LC.has(lc)) continue;
+            if (seen.has(lc)) continue;
+            seen.add(lc);
+            result.push(lc);
+          }
+          return result;
+        })();
         const normalizedThemePack =
           requestedThemePack === DEFAULT_THEME_PACK_ID
             ? DEFAULT_THEME_PACK_ID
@@ -862,6 +932,7 @@ export const useSettingsStore = create<SettingsState>()(
           showTimeoutCountdown,
           rubyRuntimePreference,
           firstWorkflowModeSwitchAcknowledged,
+          sensitiveHttpHeaders: sanitizedSensitiveHttpHeaders,
         };
       },
       onRehydrateStorage: () => (state) => {

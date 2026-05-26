@@ -621,6 +621,17 @@ export interface SettingsState {
    * to `default` so the selector doesn't lie about the active state.
    */
   themePack: string;
+  /**
+   * RL-097 Slice 1 — Sensitive HTTP header allowlist. Names listed
+   * here are redacted in the HTTP workspace response history + on
+   * exported capsules. The baseline list
+   * (`BASELINE_SENSITIVE_HEADERS` in `src/shared/httpWorkspace.ts`)
+   * always applies regardless of this allowlist — users can ADD
+   * names, not REMOVE the baselines. Lowercased + trimmed on
+   * sanitize-on-rehydrate; non-string entries and empty strings are
+   * dropped silently.
+   */
+  sensitiveHttpHeaders: string[];
   setTheme: (theme: 'dark' | 'light') => void;
   setEditorTheme: (theme: string) => void;
   setFontSize: (size: number) => void;
@@ -731,6 +742,19 @@ export interface SettingsState {
   setShortcutOverride: (id: string, combos: readonly ShortcutCombo[]) => void;
   clearShortcutOverride: (id: string) => void;
   resetShortcutOverrides: () => void;
+  /**
+   * RL-097 Slice 1 — Add a header name to the sensitive-headers
+   * allowlist. Lowercases + trims before insert; dedupes against
+   * the BASELINE list and the existing user list (no-op when
+   * already present).
+   */
+  addSensitiveHttpHeader: (name: string) => void;
+  /**
+   * RL-097 Slice 1 — Remove a USER-added header name from the
+   * allowlist. The baseline list is immutable from this seam;
+   * attempts to remove a baseline name no-op silently.
+   */
+  removeSensitiveHttpHeader: (name: string) => void;
   /**
    * Apply a named keymap preset. Replaces `shortcutOverrides` with the
    * preset's bundle and stores the preset id. Unknown ids are ignored so

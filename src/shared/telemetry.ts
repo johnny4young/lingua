@@ -349,6 +349,15 @@ export const TELEMETRY_EVENTS = [
   // paths, NO query / replacement content. Mirrored on update-server
   // with parity test.
   'editor.replace_in_files_applied',
+  // RL-097 Slice 1 fold F — HTTP workspace request execution.
+  // Fires once per Send / Cmd+Enter. Closed-enum
+  // `{ method, statusBucket, redactedHeadersBucket }` where
+  // `method` ∈ HTTP_METHODS, `statusBucket` ∈ HTTP_STATUS_BUCKETS
+  // (`'2xx' / '3xx' / '4xx' / '5xx' / 'network-error' / 'timeout' / 'cors-error'`),
+  // and `redactedHeadersBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET. NO URL,
+  // NO body, NO header values reach the wire. Mirrored on update-server
+  // with parity test.
+  'http.request_executed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -596,6 +605,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-024 Slice 2 — `scope` ∈ REPLACE_IN_FILES_SCOPES,
   // `countBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET, `regex` boolean.
   'editor.replace_in_files_applied': ['scope', 'countBucket', 'regex'],
+  // RL-097 Slice 1 fold F — `method` ∈ HTTP_METHODS_SET,
+  // `statusBucket` ∈ HTTP_STATUS_BUCKETS_SET, `redactedHeadersBucket`
+  // ∈ DEPENDENCY_COUNT_BUCKETS_SET. No URL, body, or header values.
+  'http.request_executed': ['method', 'statusBucket', 'redactedHeadersBucket'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -905,6 +918,35 @@ export const DEPENDENCY_INSTALL_OUTCOMES_SET = new Set([
 export const REPLACE_IN_FILES_SCOPES = new Set([
   'single-file',
   'all-files',
+]);
+// RL-097 Slice 1 fold F — closed enum for the `method` property on
+// `http.request_executed`. Mirrored on update-server with parity test.
+// The renderer-side source of truth is `HTTP_METHODS` in
+// `src/shared/httpWorkspace.ts` — this Set is duplicated here so the
+// telemetry validator can live in shared code without importing the
+// workspace module (which carries renderer-only deps in the future).
+export const HTTP_METHODS_SET = new Set([
+  'GET',
+  'POST',
+  'PUT',
+  'PATCH',
+  'DELETE',
+  'HEAD',
+  'OPTIONS',
+]);
+// RL-097 Slice 1 fold F — closed enum for `statusBucket` on
+// `http.request_executed`. `'2xx' / '3xx' / '4xx' / '5xx'` cover
+// fetch responses; `'network-error' / 'timeout' / 'cors-error'`
+// cover the typed runtime failures the renderer surfaces with
+// distinct copy. Mirrored on update-server with parity test.
+export const HTTP_STATUS_BUCKETS_SET = new Set([
+  '2xx',
+  '3xx',
+  '4xx',
+  '5xx',
+  'network-error',
+  'timeout',
+  'cors-error',
 ]);
 export const DEPENDENCY_INSTALL_FAILURE_REASONS_SET = new Set([
   'invalid-specifier',
@@ -1327,6 +1369,18 @@ function isAllowedValue(
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
         );
       if (key === 'regex') return typeof value === 'boolean';
+      return false;
+    case 'http.request_executed':
+      if (key === 'method')
+        return typeof value === 'string' && HTTP_METHODS_SET.has(value);
+      if (key === 'statusBucket')
+        return (
+          typeof value === 'string' && HTTP_STATUS_BUCKETS_SET.has(value)
+        );
+      if (key === 'redactedHeadersBucket')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
+        );
       return false;
     default: {
       const exhaustive: never = event;

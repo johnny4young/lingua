@@ -8,6 +8,7 @@ import {
   Eye,
   GitBranch,
   GitCompare,
+  Globe,
   MessageSquare,
   PanelLeft,
   Terminal,
@@ -29,6 +30,7 @@ import { DependenciesPanel } from '../Dependencies/DependenciesPanel';
 import { useDependenciesPanelAvailable } from '../Dependencies/useDependenciesPanelAvailable';
 import { useGitDiffTabAvailable } from '../Editor/useGitDiffTabAvailable';
 import { GitDiffPanel } from '../Editor/GitDiffPanel';
+import { HttpWorkspacePanel } from '../HttpWorkspace';
 import { AppChrome } from '../Chrome';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
@@ -424,6 +426,9 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     scopeSnapshot.language === activeLanguage;
   const consoleVisible = useUIStore((state) => state.consoleVisible);
   const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
+  const httpWorkspaceTabVisible = useUIStore(
+    (state) => state.httpWorkspaceTabVisible
+  );
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
   const setActiveBottomPanel = useUIStore((state) => state.setActiveBottomPanel);
   // RL-044 Slice 2b-β-α — Prerequisite fix surfaced during validation.
@@ -468,7 +473,8 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     | 'stdin'
     | 'variables'
     | 'dependencies'
-    | 'git-diff' =
+    | 'git-diff'
+    | 'http' =
     variablesAvailable && activeBottomPanel === 'variables'
       ? 'variables'
       : browserPreviewAvailable && (activeBottomPanel === 'browser-preview' || !consoleVisible)
@@ -481,7 +487,12 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
               ? 'dependencies'
               : gitDiffAvailable && activeBottomPanel === 'git-diff'
                 ? 'git-diff'
-                : 'console';
+                // RL-097 Slice 1 — HTTP workspace tab. Always available
+                // (no entitlement / folder gate); shows when explicitly
+                // activated via Mod+Shift+K or the command palette.
+                : activeBottomPanel === 'http'
+                  ? 'http'
+                  : 'console';
 
   useEffect(() => {
     if (activeBottomPanel === 'debugger' && !debuggerAvailable) {
@@ -522,6 +533,7 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
       | 'variables'
       | 'dependencies'
       | 'git-diff'
+      | 'http'
   ) => {
     if (tab === 'debugger' && !debuggerAvailable) return;
     if (tab === 'browser-preview' && !browserPreviewAvailable) return;
@@ -529,6 +541,7 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     if (tab === 'variables' && !variablesAvailable) return;
     if (tab === 'dependencies' && !dependenciesAvailable) return;
     if (tab === 'git-diff' && !gitDiffAvailable) return;
+    // RL-097 — `'http'` is unconditional (always available).
     openBottomPanel(tab);
   };
 
@@ -696,6 +709,29 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             </button>
           </Tooltip>
         ) : null}
+        {/* RL-097 Slice 1 — HTTP workspace tab. Hidden on first boot;
+            remains in the strip after first activation via Mod+Shift+K
+            or the palette so the user can switch back from Console. */}
+        {httpWorkspaceTabVisible || effectiveTab === 'http' ? (
+          <Tooltip content={t('httpWorkspace.tab.hint')} side="bottom">
+            <button
+              type="button"
+              role="tab"
+              data-testid="bottom-panel-http-tab"
+              aria-selected={effectiveTab === 'http'}
+              onClick={() => selectTab('http')}
+              className={cn(
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                effectiveTab === 'http'
+                  ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
+                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
+              )}
+            >
+              <Globe size={12} aria-hidden="true" />
+              {t('httpWorkspace.tab.label')}
+            </button>
+          </Tooltip>
+        ) : null}
         <Tooltip content={t('bottomPanel.actions.hide')} side="bottom">
           <button
             type="button"
@@ -721,6 +757,8 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
           <DependenciesPanel />
         ) : effectiveTab === 'git-diff' ? (
           <GitDiffPanel />
+        ) : effectiveTab === 'http' ? (
+          <HttpWorkspacePanel />
         ) : (
           <ConsolePanel />
         )}

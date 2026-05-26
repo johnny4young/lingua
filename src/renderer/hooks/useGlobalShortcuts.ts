@@ -48,6 +48,13 @@ interface UseGlobalShortcutsOptions {
   openDeveloperUtilities: () => void;
   closeOverlay: () => void;
   /**
+   * RL-097 Slice 1 — toggle the HTTP workspace bottom-panel tab via
+   * Mod+Shift+K. Toggle (not just open) so a second press hides it.
+   * Caller wires this to `useUIStore.openBottomPanel('http')` /
+   * `setActiveBottomPanel('console')` per the surface convention.
+   */
+  toggleHttpWorkspace: () => void;
+  /**
    * RL-019 Slice 1 fold D — cycle the active JS/TS tab through the
    * implemented runtime modes. RL-019 now ships all three modes:
    * Worker, Node, and Browser preview.
@@ -186,6 +193,11 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'nav-go-to-symbol': () => options.toggleOverlay('go-to-symbol'),
     'nav-project-search': () => options.toggleOverlay('search'),
     'nav-project-replace': () => options.toggleOverlay('replace'),
+    // RL-097 Slice 1 — Toggle the HTTP workspace bottom-panel tab.
+    // Mod+Shift+K shortcut delegates to a dedicated option callback
+    // so the App.tsx wiring can flip the active bottom-panel + show
+    // it without re-implementing the openBottomPanel choreography.
+    'workspace-toggle-http': () => options.toggleHttpWorkspace(),
     'overlay-command-palette': () => options.toggleOverlay('palette'),
     'overlay-settings': () => options.toggleOverlay('settings'),
     'overlay-developer-utilities': () => options.openDeveloperUtilities(),
