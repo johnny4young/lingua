@@ -10311,6 +10311,173 @@ BACKLOG entry is removed in the same diff (no double-listing).
 - Capsule import, list view, auto-capsule, desktop saveDialog IPC
   (unchanged from Slice 1's deferred list).
 
+#### § Slice 2 landed (2026-05-25)
+
+Capsule import surface + preview overlay + 7 folds (A–G) all shipped in
+one slice. Slice closes the export → import loop that Slice 1 + 1.5
+opened, so a teammate's shared capsule (or an HTTP request capsule
+emitted by RL-097) can finally be opened locally.
+
+Shipped:
+
+- **`src/renderer/utils/importCapsule.ts` (new)** — pure decode helper
+  `tryDecodeCapsuleJson(source)` that delegates to `parseRunCapsule`
+  (no second schema validator) and maps the parser's reject reasons
+  onto a smaller renderer-facing closed enum: `empty` /
+  `malformed-json` / `wrong-version` / `oversized` / `invalid-shape`.
+  Returns a discriminated union with the UTF-8 byte length + size
+  bucket so the caller can stamp telemetry on both ok and rejected
+  paths.
+- **`src/renderer/hooks/useCapsuleImport.ts` (new)** — orchestrates
+  pick-file (hidden `<input type="file">`) + paste-from-textarea +
+  drag-drop into side-effect-free preview state. `openInNewTab()`
+  is the only path that touches `editorStore.addTab` — it always
+  fires AFTER the user clicks the confirm button so "no silent
+  execution" stays honest. `attemptClipboardAutofill()` is the
+  fold-C consent-gated path that pre-fills the textarea on overlay
+  mount when consent is `granted`.
+- **`src/renderer/components/CapsuleImport/CapsuleImportOverlay.tsx`
+  (new)** — modal with 3 sections: top Load source (paste textarea
+  + Open file button + Drop zone), middle Preview (decoded
+  capsule via `<CapsuleImportPreview>` OR closed-enum rejection
+  banner with i18n copy), bottom Action bar (Cancel + Copy source
+  Fold E + Open in HTTP workspace Fold G + Open as new tab). Escape
+  + click-outside dismiss; drag-drop only accepts `Files` MIME so
+  textarea text selection still works. Drop zone gets an emerald
+  ring on `dragover`.
+- **`src/renderer/components/CapsuleImport/CapsuleImportPreview.tsx`
+  (new)** — pure component. Renders capsule metadata strip
+  (language chip + runner + appVersion + createdAt + size in
+  bytes) + tabbed Source/Result/Environment view with
+  `<pre>` blocks (Monaco viewer is Slice 3 territory). Privacy
+  banner highlights `privacy.omittedFields` (Fold F) so users see
+  what the sanitizer dropped before opening.
+- **`src/renderer/components/CapsuleImport/index.tsx` (new)** —
+  barrel for the two public surfaces; type re-exports follow.
+- **`src/renderer/hooks/useGlobalShortcuts.ts`** — `AppOverlay`
+  union widened with `'capsule-import'` + `'overlay-capsule-import'`
+  shortcut dispatcher. Catalog wires `Mod+Shift+Y` (Fold A —
+  verified free against the catalog by the conflict-free regression
+  test; `Mod+Shift+Y` was historically the rebind-test fixture's
+  "free combo" choice, now bumped to `Mod+Shift+U` in
+  `tests/components/KeyboardShortcutsModal.test.tsx` and
+  `tests/hooks/useGlobalShortcuts.test.tsx` so the existing
+  test surface didn't regress).
+- **`src/renderer/App.tsx`** — mounts `<CapsuleImportOverlay>` when
+  `overlay === 'capsule-import'`; listens for the
+  `lingua-open-capsule-import` window event so Settings → Account
+  → Run Capsules → Import button can open the overlay without
+  Settings needing knowledge of App's overlay state slot (mirror of
+  `lingua-open-snippets-overlay`).
+- **`src/renderer/components/CommandPalette/{commandPaletteModel,
+  CommandPalette}.tsx`** — new `onOpenCapsuleImport` prop +
+  palette command `Import capsule from JSON`. The action surfaces
+  unconditionally (no history precondition) so a fresh user
+  pasting a teammate's capsule has a first-class entry point.
+- **`src/renderer/components/Settings/RunCapsulesSection.tsx`** —
+  parity Import button alongside Export. Dispatches the
+  `lingua-open-capsule-import` event.
+- **`src/renderer/stores/settingsStore.ts` +
+  `src/renderer/types/index.ts`** — new three-state
+  `capsuleImportClipboardOnFocusConsent: 'unset' | 'granted' |
+  'declined'` field (Fold C) mirroring `utilitiesClipboardOnFocusConsent`,
+  with sanitize-on-rehydrate guard so a tampered localStorage value
+  falls back to `'unset'` and re-prompts on next overlay open.
+- **`src/shared/telemetry.ts` + `update-server/src/telemetry.ts`** —
+  new closed-enum event `capsule.imported { surface, status,
+  sizeBucket }` (Fold D). `surface ∈ CAPSULE_IMPORT_SOURCES`
+  (`'paste'` / `'file-picker'` / `'drag-drop'`), `status ∈
+  CAPSULE_IMPORT_STATUSES` (`'decoded'` / `'open-confirmed'` /
+  `'cancelled'` / `'rejected'`), `sizeBucket ∈
+  CAPSULE_SIZE_BUCKETS` (reused from `capsule.exported`). Mirrored
+  byte-for-byte on update-server with parity test extracting the
+  literal arrays from both files. Property name is `surface` (not
+  `sourceSurface`) because `source` is in `DENY_SUBSTRINGS` and the
+  redactor would strip the value — same precedent as
+  `language_scorecard_viewed` from RL-095 Slice 1. Internal field
+  is still `sourceSurface` for clarity at the call sites.
+- **`src/renderer/components/CapsuleImport/CapsuleImportOverlay.tsx`
+  Fold G** — when `capsule.tab.language === 'http'` the action bar
+  renders an extra `Open in HTTP workspace` button that re-parses
+  `capsule.source.content` via `parseHttpRequest` (closed-enum
+  HTTP_METHODS validation already lives in `src/shared/httpWorkspace.ts`),
+  mints a fresh id + ISO timestamps via `createBlankHttpRequest`,
+  and pushes the record into `useWorkspaceToolStore` so RL-097's
+  bottom-panel surfaces the imported request ready to send. The
+  imported request is NEVER auto-sent; the user has to click Send
+  manually (same "no silent execution" discipline as the
+  Open-as-new-tab path).
+- **i18n** — 22 new keys × en + es tuteo. Verified tuteo:
+  `Importa una cápsula`, `Pega el JSON`, `Suelta un archivo`,
+  `Abre un archivo`, `Cancelar`, `Copia el código`, `Abrir como
+  pestaña nueva`. NO voseo (`Importá` / `Pegá` / `Cargá` rejected).
+
+Tests (42 new cases):
+
+- **`tests/renderer/utils/importCapsule.test.ts` (new — 14 cases)** —
+  every closed reject reason (`empty` / `malformed-json` /
+  `wrong-version` / `oversized` / `invalid-shape`) + UTF-8 byte
+  length (not UTF-16) + whitespace trim + cross-reason round-trip.
+- **`tests/hooks/useCapsuleImport.test.ts` (new — 10 cases)** —
+  paste / file / drag flow + oversized file pre-check + telemetry
+  shape on decoded / rejected / open-confirmed / cancelled paths +
+  consent gating on `attemptClipboardAutofill` + non-JSON
+  clipboard short-circuit + file-read failure mapping to
+  `malformed-json`.
+- **`tests/components/CapsuleImport/CapsuleImportPreview.test.tsx`
+  (new — 6 cases)** — metadata strip + tab nav + omitted-fields
+  banner + truncated stdout marker.
+- **`tests/components/CapsuleImport/CapsuleImportOverlay.test.tsx`
+  (new — 12 cases)** — paste decode + reject banner with reason
+  attribute + confirm flow + Escape close + clipboard consent
+  prompt + Grant / Decline buttons + Cancel button + Fold G HTTP
+  capsule bridge (creates `workspaceToolStore` request) + Fold E
+  Copy source button + drag-drop file decode.
+- **`tests/e2e/capsuleImport.spec.ts` (new — 2 cases)** —
+  Mod+Shift+Y opens overlay + Escape closes (EN); locale flip to
+  ES asserts tuteo copy survives.
+- **`update-server/test/telemetry.test.ts`** — parity assertions
+  for `CAPSULE_IMPORT_SOURCES` + `CAPSULE_IMPORT_STATUSES` (regex
+  extract + sort + equality vs. shared) + validator accept/reject
+  test for the closed-enum payload.
+
+Prerequisite fix:
+
+- `tests/components/KeyboardShortcutsModal.test.tsx` +
+  `tests/hooks/useGlobalShortcuts.test.tsx` rebind-tests pivoted
+  from `Mod+Shift+Y` to `Mod+Shift+U` so the new shortcut doesn't
+  collide with the test fixture's "free combo" choice. The
+  previous pivot was from `Mod+Shift+J` (RL-025 Slice A took it)
+  to `Mod+Shift+Y` (now taken); Y → U keeps the same intent — pick
+  the next reliably-free letter not used in the production
+  catalog.
+
+Verification:
+
+- `npm run lint` clean (0 errors, 31 baseline warnings).
+- `npx tsc --noEmit` clean.
+- `npm run check:i18n` + `check:i18n:copy` clean (22 new keys
+  per locale, tuteo verified).
+- `npm test -- --run` green; 4270 / 4 skipped (added 42, 4 prior
+  failing test pivots).
+- `cd update-server && npm test` green; 151 / 0 (3 added).
+- `npm run test:e2e:web` green; 2 new capsule-import e2e cases pass.
+- `npm run preview:web` + Playwright MCP smoke: Mod+Shift+Y opens
+  overlay EN + ES, paste valid capsule renders preview, paste
+  invalid JSON shows reject banner with `data-reason="malformed-json"`,
+  Open-as-new-tab creates editor tab + closes overlay, no console
+  errors. PNGs saved to `output/review/rl-094-slice-2/`.
+
+Deferred to subsequent slices (Slices 3 / 4+):
+
+- Capsule list view + Pro-gated browse (depends on RL-028 history
+  extension surface).
+- Auto-capsule on every run (deferred until disk-cost telemetry
+  lands).
+- Desktop saveDialog IPC for "Save imported capsule to disk"
+  (deferred until IPC surface ships).
+- Side-by-side capsule diff comparator.
+
 ### RL-095 Language Support Scorecard
 
 - Priority: `P1`

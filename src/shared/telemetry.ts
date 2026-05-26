@@ -188,6 +188,20 @@ export const TELEMETRY_EVENTS = [
   // capsuleId, no environment leaks. Mirrored on update-server with
   // a parity test.
   'capsule.exported',
+  // RL-094 Slice 2 fold D — inverse adoption signal for the capsule
+  // import surface. Closed-enum `{ surface, status, sizeBucket }`
+  // where `surface ∈ CAPSULE_IMPORT_SOURCES` (paste / file-picker
+  // / drag-drop), `status ∈ CAPSULE_IMPORT_STATUSES` (decoded /
+  // open-confirmed / cancelled / rejected), `sizeBucket ∈
+  // CAPSULE_SIZE_BUCKETS`. NO source content, NO file paths, NO
+  // capsuleId. Fires on every overlay decode attempt + on the
+  // confirm-open + on overlay close so adoption funnels are
+  // measurable. Mirrored on update-server with parity test.
+  //
+  // Note: property is named `surface` (not `sourceSurface`) because
+  // `source` is in `DENY_SUBSTRINGS` — same precedent as
+  // `language_scorecard_viewed` from RL-095 Slice 1.
+  'capsule.imported',
   // RL-095 Slice 1 fold A — adoption signal for the Language Support
   // Scorecard. Closed-enum `{ surface }` where surface distinguishes
   // the surface that drove discovery ('settings' = Settings tab
@@ -527,6 +541,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-094 Slice 1 fold A — `trigger` ∈ `CAPSULE_EXPORT_TRIGGERS`,
   // `sizeBucket` ∈ `CAPSULE_SIZE_BUCKETS`. Both closed enums.
   'capsule.exported': ['trigger', 'sizeBucket'],
+  // RL-094 Slice 2 fold D — `surface` ∈ `CAPSULE_IMPORT_SOURCES`,
+  // `status` ∈ `CAPSULE_IMPORT_STATUSES`, `sizeBucket` ∈
+  // `CAPSULE_SIZE_BUCKETS`. All three closed enums.
+  'capsule.imported': ['surface', 'status', 'sizeBucket'],
   // RL-095 Slice 1 fold A — `surface` ∈ `LANGUAGE_SCORECARD_SURFACES`.
   'language_scorecard_viewed': ['surface'],
   // RL-036 Phase A1 fold B + G — `trigger` ∈ `SHARE_CREATE_TRIGGERS`,
@@ -761,6 +779,35 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
   '<1mb',
   '<4mb',
   '>=4mb',
+]);
+// RL-094 Slice 2 fold D — closed enums backing the
+// `capsule.imported` event. Mirrored in `update-server/src/telemetry.ts`
+// with parity tests.
+//
+//   - `sourceSurface` distinguishes which affordance the user picked
+//     to load the capsule. `paste` covers both the textarea AND the
+//     clipboard auto-detect (fold C); they're indistinguishable
+//     beyond a one-shot consent flow that lives in Settings.
+//   - `status` walks the funnel: `decoded` (valid capsule rendered in
+//     preview), `open-confirmed` (user clicked "Open as new tab"),
+//     `cancelled` (user dismissed without confirming), `rejected`
+//     (decode failed — see overlay UI for the qualitative reject
+//     reason which is NOT sent here; only the closed status bucket).
+//
+// Reject reasons themselves stay client-side because they could leak
+// information about the user's capsule contents (e.g. wrong-version
+// hints at the version field). The dashboard only learns the
+// qualitative funnel position.
+export const CAPSULE_IMPORT_SOURCES = new Set([
+  'paste',
+  'file-picker',
+  'drag-drop',
+]);
+export const CAPSULE_IMPORT_STATUSES = new Set([
+  'decoded',
+  'open-confirmed',
+  'cancelled',
+  'rejected',
 ]);
 // RL-095 Slice 1 fold A — closed enum for the surface that drove a
 // Language Support Scorecard view. Mirrored on update-server with
@@ -1230,6 +1277,18 @@ function isAllowedValue(
       if (key === 'trigger')
         return (
           typeof value === 'string' && CAPSULE_EXPORT_TRIGGERS.has(value)
+        );
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'capsule.imported':
+      if (key === 'surface')
+        return (
+          typeof value === 'string' && CAPSULE_IMPORT_SOURCES.has(value)
+        );
+      if (key === 'status')
+        return (
+          typeof value === 'string' && CAPSULE_IMPORT_STATUSES.has(value)
         );
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);

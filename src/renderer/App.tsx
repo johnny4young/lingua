@@ -14,6 +14,7 @@ import { QuickOpen } from './components/QuickOpen/QuickOpen';
 import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardShortcutsModal';
 import { SnippetsModal } from './components/Snippets';
 import { ProjectTemplatesOverlay } from './components/Welcome/ProjectTemplatesOverlay';
+import { CapsuleImportOverlay } from './components/CapsuleImport';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
@@ -712,6 +713,17 @@ function AppChrome({
       window.removeEventListener('lingua-open-snippets-overlay', handler);
   }, [openOverlay]);
 
+  // RL-094 Slice 2 — Settings → Account → Run Capsules → Import
+  // button dispatches `lingua-open-capsule-import` so the section
+  // doesn't have to know about App's overlay state slot. Mirror of
+  // the snippets pattern above.
+  useEffect(() => {
+    const handler = () => openOverlay('capsule-import');
+    window.addEventListener('lingua-open-capsule-import', handler);
+    return () =>
+      window.removeEventListener('lingua-open-capsule-import', handler);
+  }, [openOverlay]);
+
   const handleStartGuidedTour = () => {
     closeOverlay();
     startTour();
@@ -779,11 +791,15 @@ function AppChrome({
             }
           }}
           onNewProjectFromTemplate={() => openOverlay('project-templates')}
+          onOpenCapsuleImport={() => openOverlay('capsule-import')}
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
       )}
       {overlay === 'project-templates' && (
         <ProjectTemplatesOverlay onClose={closeOverlay} />
+      )}
+      {overlay === 'capsule-import' && (
+        <CapsuleImportOverlay onClose={closeOverlay} />
       )}
       {overlay === 'settings' && (
         <SettingsModal

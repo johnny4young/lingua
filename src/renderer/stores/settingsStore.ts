@@ -271,6 +271,9 @@ export const useSettingsStore = create<SettingsState>()(
       executionHistorySnapshotEnabled: true,
       telemetryConsent: 'unset',
       utilitiesClipboardOnFocusConsent: 'unset',
+      // RL-094 Slice 2 fold C — capsule-import clipboard auto-detect
+      // opt-in. Sticky three-state mirror of the utilities consent.
+      capsuleImportClipboardOnFocusConsent: 'unset',
       // RL-025 Slice A — master toggle for dependency detection +
       // the bottom-panel Dependencies tab. The rehydrate merge
       // below applies the fold-G tier-aware default when the
@@ -402,6 +405,13 @@ export const useSettingsStore = create<SettingsState>()(
       // mirror to main because the feature is renderer-scoped.
       setUtilitiesClipboardOnFocusConsent: (utilitiesClipboardOnFocusConsent) => {
         set({ utilitiesClipboardOnFocusConsent });
+      },
+      // RL-094 Slice 2 fold C — capsule-import clipboard auto-detect
+      // consent. Same renderer-scoped boundary as the utilities one.
+      setCapsuleImportClipboardOnFocusConsent: (
+        capsuleImportClipboardOnFocusConsent
+      ) => {
+        set({ capsuleImportClipboardOnFocusConsent });
       },
       // RL-025 Slice A — dependency detection master switch.
       toggleDependencyDetectionEnabled: () =>
@@ -681,6 +691,10 @@ export const useSettingsStore = create<SettingsState>()(
         executionHistorySnapshotEnabled: state.executionHistorySnapshotEnabled,
         telemetryConsent: state.telemetryConsent,
         utilitiesClipboardOnFocusConsent: state.utilitiesClipboardOnFocusConsent,
+        // RL-094 Slice 2 fold C — persist consent so opted-in users
+        // don't have to re-grant every reload.
+        capsuleImportClipboardOnFocusConsent:
+          state.capsuleImportClipboardOnFocusConsent,
         // RL-025 Slice A — persist the dependency-detection toggle so
         // the user's choice survives reloads. Rehydrate-merge below
         // applies the fold-G tier-aware default when this key is
@@ -910,6 +924,17 @@ export const useSettingsStore = create<SettingsState>()(
           merged.onboardingWelcomeSeedVersion >= 0
             ? Math.floor(merged.onboardingWelcomeSeedVersion)
             : currentState.onboardingWelcomeSeedVersion;
+        // RL-094 Slice 2 fold C — guard the capsule-import clipboard
+        // consent on rehydrate so a tampered localStorage value can
+        // never silently bypass the opt-in. Closed enum:
+        // 'unset' | 'granted' | 'declined'. Anything else falls back
+        // to `'unset'` so the user is prompted again.
+        const capsuleImportClipboardOnFocusConsent: 'unset' | 'granted' | 'declined' =
+          merged.capsuleImportClipboardOnFocusConsent === 'granted' ||
+          merged.capsuleImportClipboardOnFocusConsent === 'declined' ||
+          merged.capsuleImportClipboardOnFocusConsent === 'unset'
+            ? merged.capsuleImportClipboardOnFocusConsent
+            : 'unset';
         return {
           ...merged,
           hasCompletedOnboardingWelcome,
@@ -933,6 +958,7 @@ export const useSettingsStore = create<SettingsState>()(
           rubyRuntimePreference,
           firstWorkflowModeSwitchAcknowledged,
           sensitiveHttpHeaders: sanitizedSensitiveHttpHeaders,
+          capsuleImportClipboardOnFocusConsent,
         };
       },
       onRehydrateStorage: () => (state) => {

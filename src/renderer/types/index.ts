@@ -459,6 +459,17 @@ export interface SettingsState {
    */
   utilitiesClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
   /**
+   * RL-094 Slice 2 fold C — capsule-import clipboard auto-detect
+   * consent. When the user opens the Capsule Import overlay (e.g.
+   * Mod+Shift+Y), if this consent is `granted` and the system
+   * clipboard contains a valid capsule JSON, the overlay pre-fills
+   * the paste area. `'unset'` shows an opt-in row in the overlay
+   * itself; `'declined'` keeps the clipboard untouched. Local-only;
+   * the helper never reads the clipboard without explicit opt-in,
+   * mirroring `utilitiesClipboardOnFocusConsent`.
+   */
+  capsuleImportClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
+  /**
    * RL-025 Slice A — master toggle for the dependency detection
    * pipeline + bottom-panel Dependencies tab. Default depends on
    * tier at first rehydrate (fold G): Free → `false` so the
@@ -649,6 +660,14 @@ export interface SettingsState {
   setTelemetryConsent: (next: 'granted' | 'declined') => void;
   /** RL-069 Slice 3 — flip clipboard-on-focus consent (granted/declined). */
   setUtilitiesClipboardOnFocusConsent: (next: 'granted' | 'declined') => void;
+  /**
+   * RL-094 Slice 2 fold C — flip capsule-import clipboard consent.
+   * Same `'granted' | 'declined'` discipline as the utilities consent
+   * so a single Settings setter never widens the closed enum.
+   */
+  setCapsuleImportClipboardOnFocusConsent: (
+    next: 'granted' | 'declined'
+  ) => void;
   /** RL-025 Slice A — flip the dependency detection master switch. */
   toggleDependencyDetectionEnabled: () => void;
   /**

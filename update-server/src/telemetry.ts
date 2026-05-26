@@ -100,6 +100,16 @@ export const TELEMETRY_EVENT_NAMES = [
   // `{ trigger, sizeBucket }` from `CAPSULE_EXPORT_TRIGGERS` /
   // `CAPSULE_SIZE_BUCKETS`.
   'capsule.exported',
+  // RL-094 Slice 2 fold D — mirror of `capsule.imported`. Closed-
+  // enum `{ surface, status, sizeBucket }` from
+  // `CAPSULE_IMPORT_SOURCES` / `CAPSULE_IMPORT_STATUSES` /
+  // `CAPSULE_SIZE_BUCKETS`. Property is named `surface` (not
+  // `sourceSurface`) because `source` is in DENY_SUBSTRINGS —
+  // same precedent as `language_scorecard_viewed` from RL-095.
+  // Parity test below extracts the literal arrays from both files
+  // so an edit on the renderer side that forgets the server side
+  // fails CI.
+  'capsule.imported',
   // RL-095 Slice 1 fold A — mirror of `language_scorecard_viewed`.
   // Closed-enum `{ surface }` from `LANGUAGE_SCORECARD_SURFACES`. The
   // property is named `surface` (not `source`) because the redactor
@@ -247,6 +257,9 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.fs_directory_picker_unsupported': ['userAgentBucket'],
   // RL-094 Slice 1 fold A — mirror of `capsule.exported`.
   'capsule.exported': ['trigger', 'sizeBucket'],
+  // RL-094 Slice 2 fold D — mirror of `capsule.imported`. All three
+  // values come from closed enums; the validator below enforces.
+  'capsule.imported': ['surface', 'status', 'sizeBucket'],
   // RL-095 Slice 1 fold A — mirror of `language_scorecard_viewed`.
   'language_scorecard_viewed': ['surface'],
   // RL-036 Phase A1 fold B + G — mirror of `share.created`.
@@ -447,6 +460,20 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
   '<1mb',
   '<4mb',
   '>=4mb',
+]);
+// RL-094 Slice 2 fold D — mirrors of `CAPSULE_IMPORT_SOURCES` /
+// `CAPSULE_IMPORT_STATUSES` in `src/shared/telemetry.ts`. Parity
+// test asserts alignment for both Sets.
+export const CAPSULE_IMPORT_SOURCES = new Set([
+  'paste',
+  'file-picker',
+  'drag-drop',
+]);
+export const CAPSULE_IMPORT_STATUSES = new Set([
+  'decoded',
+  'open-confirmed',
+  'cancelled',
+  'rejected',
 ]);
 // RL-095 Slice 1 fold A — mirror of `LANGUAGE_SCORECARD_SURFACES`.
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
@@ -976,6 +1003,14 @@ function isAllowedValue(
     case 'capsule.exported':
       if (key === 'trigger')
         return typeof value === 'string' && CAPSULE_EXPORT_TRIGGERS.has(value);
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'capsule.imported':
+      if (key === 'surface')
+        return typeof value === 'string' && CAPSULE_IMPORT_SOURCES.has(value);
+      if (key === 'status')
+        return typeof value === 'string' && CAPSULE_IMPORT_STATUSES.has(value);
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
       return false;

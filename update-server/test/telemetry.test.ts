@@ -482,6 +482,109 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
+  it('CAPSULE_IMPORT_SOURCES stays in sync with the renderer enum (RL-094 Slice 2 fold D)', async () => {
+    // Closed-enum parity for the `capsule.imported.sourceSurface`
+    // field. Drift on either side would silently widen which import
+    // surfaces telemetry accepts.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /CAPSULE_IMPORT_SOURCES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual(['drag-drop', 'file-picker', 'paste']);
+  });
+
+  it('CAPSULE_IMPORT_STATUSES stays in sync with the renderer enum (RL-094 Slice 2 fold D)', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /CAPSULE_IMPORT_STATUSES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual([
+      'cancelled',
+      'decoded',
+      'open-confirmed',
+      'rejected',
+    ]);
+  });
+
+  it('capsule.imported accepts closed-enum sourceSurface+status+sizeBucket, drops unknown (RL-094 Slice 2 fold D)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'capsule.imported',
+      properties: {
+        surface: 'paste',
+        status: 'decoded',
+        sizeBucket: '<10kb',
+      },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownSurface = await postTelemetry({
+      event: 'capsule.imported',
+      properties: {
+        surface: 'webhook',
+        status: 'decoded',
+        sizeBucket: '<10kb',
+      },
+    });
+    expect(unknownSurface.status).toBe(204);
+    const unknownStatus = await postTelemetry({
+      event: 'capsule.imported',
+      properties: {
+        surface: 'paste',
+        status: 'success',
+        sizeBucket: '<10kb',
+      },
+    });
+    expect(unknownStatus.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"capsule.imported"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(3);
+    const okLine = eventLines.find(
+      (line) =>
+        line.includes('"surface":"paste"') &&
+        line.includes('"status":"decoded"') &&
+        line.includes('"sizeBucket":"<10kb"')
+    );
+    expect(okLine).toBeDefined();
+    const unknownSurfaceLine = eventLines.find((line) =>
+      line.includes('"webhook"')
+    );
+    expect(unknownSurfaceLine).toBeUndefined();
+    const unknownStatusLine = eventLines.find(
+      (line) => line.includes('"status":"success"')
+    );
+    expect(unknownStatusLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
   it('capsule.exported accepts closed-enum trigger+sizeBucket, drops unknown (RL-094 Slice 1 fold A)', async () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const okResponse = await postTelemetry({
