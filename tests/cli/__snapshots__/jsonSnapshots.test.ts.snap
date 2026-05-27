@@ -1,0 +1,85 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`--json envelope snapshots (fold F) > capsule validate: invalid-json failure 1`] = `
+{
+  "detail": "<stripped>",
+  "ok": false,
+  "reason": "invalid-json",
+}
+`;
+
+exports[`--json envelope snapshots (fold F) > capsule validate: success 1`] = `
+{
+  "ok": true,
+  "summary": "<stripped>",
+}
+`;
+
+exports[`--json envelope snapshots (fold F) > utility base64-decode: success 1`] = `
+{
+  "ok": true,
+  "value": "hello",
+}
+`;
+
+exports[`--json envelope snapshots (fold F) > utility base64-encode: success 1`] = `
+{
+  "ok": true,
+  "value": "aGVsbG8=",
+}
+`;
+
+exports[`--json envelope snapshots (fold F) > utility diff-text: success 1`] = `
+{
+  "ok": true,
+  "value": "- line1
++ line2",
+}
+`;
+
+exports[`--json envelope snapshots (fold F) > utility json-format: failure 1`] = `
+{
+  "detail": "<stripped>",
+  "ok": false,
+  "reason": "invalid-input",
+}
+`;
+
+exports[`--json envelope snapshots (fold F) > utility json-format: success 1`] = `
+{
+  "ok": true,
+  "value": "{
+  "a": 1
+}",
+}
+`;
+
+exports[`--json envelope snapshots (fold F) > utility regex-replace: success 1`] = `
+{
+  "ok": true,
+  "value": "abcNdef",
+}
+`;
+
+exports[`--json envelope snapshots (fold F) > utility url-parse: success 1`] = `
+{
+  "ok": true,
+  "value": "{
+  "href": "https://example.com:8080/path?x=1&y=2#hash",
+  "protocol": "https:",
+  "host": "example.com:8080",
+  "hostname": "example.com",
+  "port": "8080",
+  "pathname": "/path",
+  "search": "?x=1&y=2",
+  "hash": "#hash",
+  "username": "",
+  "password": "",
+  "origin": "https://example.com:8080",
+  "searchParams": {
+    "x": "1",
+    "y": "2"
+  }
+}",
+}
+`;

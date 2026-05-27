@@ -4,6 +4,9 @@
   "version": "0.4.0",
   "description": "Desktop application for running code in multiple languages with WebAssembly support",
   "main": ".vite/build/main.js",
+  "bin": {
+    "lingua": "./dist/cli/lingua.cjs"
+  },
   "private": true,
   "scripts": {
     "dev:web": "vite --config vite.web.config.mts --port 5174",
@@ -14,6 +17,7 @@
     "dev:desktop:prod": "node ./scripts/dev-desktop-prod.mjs",
     "dev:desktop:forge": "electron-forge start",
     "build:web": "vite build --config vite.web.config.mts",
+    "build:cli": "node ./scripts/build-cli.mjs",
     "preview:web": "vite preview --config vite.web.config.mts",
     "smoke:desktop": "node ./scripts/run-desktop-smoke.mjs",
     "smoke:desktop:offline": "node ./scripts/run-desktop-smoke.mjs --offline",
@@ -44,7 +48,8 @@
     "make:desktop:mac": "electron-forge make --platform darwin",
     "make:desktop:linux": "electron-forge make --platform linux",
     "make:desktop:win": "electron-forge make --platform win32",
-    "publish:desktop": "electron-forge publish"
+    "publish:desktop": "electron-forge publish",
+    "prepare": "node ./scripts/build-cli.mjs"
   },
   "repository": {
     "type": "git",

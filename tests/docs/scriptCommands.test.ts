@@ -56,6 +56,8 @@ describe('Script naming docs guard', () => {
       'dev:desktop:prod',
       'dev:desktop:forge',
       'build:web',
+      // RL-098 Slice 1 — CLI bundle (lingua utility, lingua capsule validate)
+      'build:cli',
       'preview:web',
       'smoke:desktop',
       // RL-083 Slice 1 — runtime-asset lock + offline desktop smoke
@@ -99,6 +101,9 @@ describe('Script naming docs guard', () => {
       'make:desktop:linux',
       'make:desktop:win',
       'publish:desktop',
+      // RL-098 Slice 1 fold G — rebuild CLI bundle on `npm install`
+      // so a `git pull` doesn't require remembering `npm run build:cli`.
+      'prepare',
     ]);
     expect(scripts).not.toHaveProperty('start');
     expect(scripts).not.toHaveProperty('package');

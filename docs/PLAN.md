@@ -11112,7 +11112,7 @@ Deferred to Slice 3+:
 - Why this matters:
   - Run Capsules without a CLI replay are half-useful. The CLI is the natural extension for CI integration, support-report reproduction, and headless validation.
 - Slice 1 scope (utility runner + capsule validation; replay is Slice 2):
-  - `src/cli/` (new directory tree) — pure shared/main code; no renderer imports.
+  - `src/cli/` (new directory tree) — pure shared code; no renderer, main, or preload imports.
   - Commands shipped in Slice 1: `lingua utility <tool-id> [--input <file>] [--json]` and `lingua capsule validate <file> [--json]`.
   - Refactor 2 deterministic utility functions out of renderer-only paths into `src/shared/utilities/` so the CLI can import them: `json-format` and `base64`.
   - Exit codes: `0` success, `1` user input error, `2` runtime error, `3` unsupported capability, `4` internal.
@@ -11135,6 +11135,71 @@ Deferred to Slice 3+:
 - Risks:
   - Renderer-only utility imports leaking into shared → mitigated by ESLint rule.
   - CLI distribution shape unclear → mitigated by starting with npm package + `.cjs` output; binary bundling is Slice 3+.
+
+#### § Slice 1 landed (2026-05-26)
+
+Shipped as `RL-098 Slice 1 — CLI Companion (lingua utility + lingua capsule validate + lingua list utilities + folds A/B/C/D/E/F/G)`. Approved with all folds.
+
+Core surface:
+
+- New `src/cli/` tree (8 TS files, ~600 LOC total) bundled by esbuild into a single CJS at `dist/cli/lingua.cjs`. Bundle size 35 KiB — far below the 500 KiB soft cap.
+- `src/cli/lingua.ts` — top-level entry + dispatcher. Translates argv to a `CliExitCode` via `parseArgs` + per-command handlers. The compile-time `__LINGUA_CLI_VERSION__` placeholder is replaced by esbuild from `package.json` at bundle time, so the running CLI doesn't read its own package metadata at runtime.
+- `src/cli/parseArgs.ts` — tiny hand-rolled argv parser (no commander dep needed). Closed flag whitelist per subcommand. Throws `CliUsageError` on every mismatch; the dispatcher maps it to exit 1.
+- `src/cli/exit-codes.ts` — closed enum `{ok:0, userInputError:1, runtimeError:2, unsupportedCapability:3, internal:4}` per the original spec. Pinned by a snapshot test in `tests/cli/parseArgs.test.ts` so CI scripts can depend on these numbers staying stable.
+- `src/cli/io.ts` — `readFile`, `readStdin`, `writeStdout`, `writeStderr` thin seams so the unit tests can swap in a `createFakeIo()` helper without spawning subprocesses. `readStdin()` returns `null` on TTY stdin so the CLI refuses to hang on an interactive shell.
+- `src/cli/commands/utility.ts` — resolves the adapter via `getAdapter(id)` from the RL-099 Slice 1 shared registry, builds the options blob from repeated `--option key=value` (coerces booleans via the schema), runs the adapter, prints stdout or the `--json` envelope. Declines `outputKind === 'binary'` with exit 3 (reserved for future RL-099 Slice 2+ adapters).
+- `src/cli/commands/capsule.ts` — reads the file, calls `parseRunCapsule` (the SAME validator the renderer's Settings → Account → Run Capsules section uses, in `src/shared/runCapsule.ts`), prints `summarizeRunCapsule()` on success or the closed reject reason on failure. Single source of truth — schema evolution in RL-094 is inherited automatically.
+- New `scripts/build-cli.mjs` — esbuild bundle (`platform: 'node', target: 'node22', format: 'cjs', bundle: true`) with `--define __LINGUA_CLI_VERSION__` from package.json, `banner.js` shebang for fold D, and a `chmod +x` post-build step. Emits a bundle-size warning above 500 KiB so a future renderer-import leak surfaces loudly.
+
+Wiring:
+
+- `package.json` — `bin.lingua = ./dist/cli/lingua.cjs` + new `build:cli` script + `prepare` lifecycle hook (fold G) so a `npm install` rebuilds the bundle without the user remembering. The `prepare` hook only fires on dev installs; downstream `npm i lingua` consumers (a Slice 3+ concern) would not trigger it.
+- `eslint.config.mjs` — new `no-restricted-imports` block for `src/cli/**` forbids any path under `src/renderer/**`, `src/main/**`, `src/preload/**`, plus the named packages `react`, `react-dom`, `react-i18next`, `electron`, `zustand`. The rule + the bundle-size warning together prevent the bundle from ballooning past ~250 KiB even under a careless import.
+- `tests/docs/scriptCommands.test.ts` — `build:cli` slotted after `build:web` and `prepare` after `publish:desktop` in the canonical-order assertion.
+
+Folds shipped:
+
+- **A** — `lingua --version` (also `-v`). Returns the bundle-baked package.json version.
+- **B** — `lingua list utilities [--json]` prints the registry with id, inputKind, outputKind, titleKey, descriptionKey, optionKeys. Useful for CI discovery — pipe `lingua list utilities --json | jq` to enumerate what's available.
+- **C** — `--option key=value` syntax with adapter-schema-aware coercion. Text / textarea / select fields pass through as strings; boolean fields accept `true|false|1|0|yes|no`. Unknown keys (not declared in the adapter's `optionsSchema`) reject with exit 1 + a helpful message naming the allowed keys.
+- **D** — `#!/usr/bin/env node` shebang via esbuild's `banner.js` + `chmod 0o755` on the output file. Windows skips the chmod gracefully.
+- **E** — `--quiet` flag suppresses non-error stderr. Success stdout (the actual data the user pipes downstream) is preserved so CI pipelines stay byte-stable.
+- **F** — `--json` envelope snapshot tests at `tests/cli/jsonSnapshots.test.ts` (9 snapshots) lock the envelope shape across every adapter + the capsule validate success / failure flows. Platform-dependent `detail` strings are stripped before snapshotting so the tests stay stable across Node versions.
+- **G** — `npm prepare` hook rebuilds `dist/cli/lingua.cjs` on every dev install. `git pull` no longer requires remembering `npm run build:cli`.
+
+Tests:
+
+- `tests/cli/parseArgs.test.ts` (24 cases — every flag / subcommand combination, closed-enum reject paths, exit-code snapshot).
+- `tests/cli/commands/utility.test.ts` (13 cases — happy path per adapter, stdin path, --input path, --json envelope, --option coercion + unknown-key reject, TTY refusal, --quiet semantics, unknown id, runtime error).
+- `tests/cli/commands/capsule.test.ts` (8 cases — valid fixture, ENOENT, oversized, wrong-version, malformed JSON, --json envelope, --quiet, success summary).
+- `tests/cli/lingua.test.ts` (7 cases — dispatcher routing for every subcommand + help / version / parse errors).
+- `tests/cli/integration.test.ts` (6 cases via `child_process.spawnSync` against the bundled CJS — skipped automatically when the bundle is absent so a fresh checkout's `npm test` doesn't fail).
+- `tests/cli/jsonSnapshots.test.ts` (9 snapshots — fold F).
+- `tests/cli/io-fake.ts` — in-memory IO seam shared across the command tests.
+
+Docs:
+
+- New `docs/CLI_USAGE.md` (~110 lines) — install/uninstall, command reference for `utility` / `capsule validate` / `list utilities`, exit-code table, out-of-scope items (Slice 2+ replay / shell completions / standalone binaries), CI integration tips.
+- `docs/README.md` index extended with entry 12 → `CLI_USAGE.md`.
+
+Coupled invariants:
+
+- The CLI bundle MUST NOT import React or Electron. Enforced at lint time by the new `no-restricted-imports` rule + at build time by the 500 KiB warning in `scripts/build-cli.mjs`.
+- `parseRunCapsule` is the SAME function the renderer's Run Capsules surface uses. RL-094 schema evolution flows into the CLI without code change.
+- `UTILITY_ADAPTER_REGISTRY` is shared. If RL-099 Slice 2 adds a binary adapter, the CLI surfaces it via `list utilities` and declines `binary` outputKinds with exit 3.
+- Exit codes are stable across Slice 1+ — pinned by `parseArgs.test.ts`. Adding new codes is allowed; renumbering existing ones requires a coordinated CI consumer update.
+- `--json` output shapes are snapshot-tested. Adding fields is allowed; removing or renaming forbidden.
+- `dist/cli/` stays gitignored (the existing `dist/` block in `.gitignore` covers it). `npm run make:desktop` does NOT depend on the CLI being built.
+
+Deferred to Slice 2+:
+
+- `lingua capsule replay <file>` — depends on extracting the runner adapters out of `src/renderer/runtime/` into shared.
+- `lingua run <file>` — same dependency.
+- `lingua lesson validate` — depends on RL-039 Slice B shipping.
+- Shell completions (`lingua completion bash|zsh|fish`) — Slice 2 polish.
+- `--color=auto` / TTY detection — Slice 2 polish.
+- Localized CLI error copy — Slice 2+ (English-only Slice 1, consistent with electron-forge / electron-builder precedent).
+- Standalone binaries (`pkg`/`nexe`) + Windows code-signing + `npm publish` chain — Slice 3+.
 
 ### RL-099 Utility Pipelines
 
