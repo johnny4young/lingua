@@ -470,6 +470,14 @@ export interface SettingsState {
    */
   capsuleImportClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
   /**
+   * RL-100 Slice 1 fold F — import-preview clipboard auto-detect
+   * consent. Slice 1 lands the field on the store + sanitized
+   * rehydrate (no Settings UI surface yet); Slice 2 wires the
+   * actual auto-detect on overlay focus, mirroring the capsule
+   * import flow.
+   */
+  importPreviewClipboardOnFocusConsent: 'unset' | 'granted' | 'declined';
+  /**
    * RL-025 Slice A — master toggle for the dependency detection
    * pipeline + bottom-panel Dependencies tab. Default depends on
    * tier at first rehydrate (fold G): Free → `false` so the
@@ -681,6 +689,13 @@ export interface SettingsState {
    * so a single Settings setter never widens the closed enum.
    */
   setCapsuleImportClipboardOnFocusConsent: (
+    next: 'granted' | 'declined'
+  ) => void;
+  /**
+   * RL-100 Slice 1 fold F — set the import-preview clipboard consent.
+   * Closed enum mirrors the capsule-import + utilities setters.
+   */
+  setImportPreviewClipboardOnFocusConsent: (
     next: 'granted' | 'declined'
   ) => void;
   /** RL-025 Slice A — flip the dependency detection master switch. */

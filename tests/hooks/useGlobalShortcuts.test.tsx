@@ -44,6 +44,7 @@ function renderShortcuts(options: HarnessOptions = {}) {
     showDependenciesPanel: vi.fn(),
     resetFloatingPositions: vi.fn(),
     toggleVariableInspectorSurface: vi.fn(),
+    openImportOverlay: vi.fn(),
   };
 
   renderHook(() =>
@@ -179,6 +180,12 @@ describe('useGlobalShortcuts', () => {
     const calls = renderShortcuts();
     dispatchKeyDown({ key: 'v', ctrlKey: true, shiftKey: true });
     expect(calls.toggleVariableInspectorSurface).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the Import overlay from Mod+Alt+I', () => {
+    const calls = renderShortcuts();
+    dispatchKeyDown({ key: 'i', ctrlKey: true, altKey: true });
+    expect(calls.openImportOverlay).toHaveBeenCalledTimes(1);
   });
 
   it('includes the active utility shortcut in copy success notices', async () => {

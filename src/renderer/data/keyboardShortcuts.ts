@@ -332,6 +332,22 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['pipeline', 'chain', 'compose', 'recipe', 'utility', 'workflow'],
   },
   {
+    // RL-100 Slice 1 fold A — Open the global Import overlay so the
+    // user can paste a cURL command or drop a file from anywhere in
+    // the app. Mod+Alt+I (I for Import). Verified free vs the
+    // catalog — Mod+Shift+I is Variable Inspector (RL-020 Slice 9),
+    // Mod+Shift+U is the test fixture's "free combo" reserve, the
+    // other Shift+letter combos in the I/M/Q/R/T/Z range are
+    // browser/macOS-reserved. Cmd+Alt+I is Chrome's "Inspect" but
+    // Electron honors the app binding when the renderer has focus.
+    id: 'action-open-import-overlay',
+    group: 'overlays',
+    labelKey: 'shortcuts.item.openImport.label',
+    descriptionKey: 'shortcuts.item.openImport.description',
+    combos: [{ tokens: ['Mod', 'Alt', 'I'] }],
+    keywords: ['import', 'curl', 'paste', 'drop', 'bring in'],
+  },
+  {
     // RL-094 Slice 2 fold A — Open the Capsule Import overlay so the
     // user can paste / drop / pick a capsule JSON file and inspect
     // before opening as a new tab. `Mod+Shift+Y` (Y is unused +

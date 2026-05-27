@@ -372,6 +372,18 @@ export const TELEMETRY_EVENTS = [
   // NO body, NO header values reach the wire. Mirrored on update-server
   // with parity test.
   'http.request_executed',
+  // RL-100 Slice 1 fold E — Importer registry commit. Fires when the
+  // user clicks Confirm on the global Import overlay (Mod+Alt+I).
+  // Closed-enum `{ importerId, status, sizeBucket }` where
+  // `importerId` ∈ IMPORTER_IDS_SET (Slice 1: `'curl-http'` only,
+  // open for `'ipynb-notebook'` Slice 2 + `'postman-collection'` /
+  // `'bruno-collection'` Slice 3), `status` ∈ IMPORT_STATUSES_SET
+  // (`'ok' / 'rejected' / 'cancelled'`), `sizeBucket` reuses
+  // CAPSULE_SIZE_BUCKETS from RL-094. NO URL, NO header values, NO
+  // body content reaches the wire — only the bucketed source size
+  // and the qualitative outcome. Mirrored on update-server with
+  // parity test.
+  'import.applied',
   // RL-097 Slice 2 fold F — SQL workspace query execution. Fires
   // once per Run / Cmd+Enter against the DuckDB-WASM engine.
   // Closed-enum `{ status, rowCountBucket, durationBucket }` where
@@ -646,6 +658,11 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `statusBucket` ∈ HTTP_STATUS_BUCKETS_SET, `redactedHeadersBucket`
   // ∈ DEPENDENCY_COUNT_BUCKETS_SET. No URL, body, or header values.
   'http.request_executed': ['method', 'statusBucket', 'redactedHeadersBucket'],
+  // RL-100 Slice 1 fold E — `importerId` ∈ IMPORTER_IDS_SET,
+  // `status` ∈ IMPORT_STATUSES_SET, `sizeBucket` ∈
+  // CAPSULE_SIZE_BUCKETS (reused from RL-094). No URL, no header
+  // values, no body content on the wire.
+  'import.applied': ['importerId', 'status', 'sizeBucket'],
   // RL-097 Slice 2 fold F — `status` ∈ SQL_QUERY_STATUSES_SET,
   // `rowCountBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET, `durationBucket`
   // ∈ SQL_DURATION_BUCKETS_SET. No query text, schema names, or row
@@ -837,6 +854,14 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
   'cancelled',
   'rejected',
 ]);
+// RL-100 Slice 1 fold E — closed enum of importer ids. Source of
+// truth lives in `src/shared/importers/types.ts` (`IMPORTER_IDS`);
+// duplicated here so the telemetry validator stays import-cycle-free.
+// Parity test in `update-server/test/telemetry.test.ts` cross-imports
+// the renderer source of truth to keep the two copies in sync.
+export const IMPORTER_IDS_SET = new Set(['curl-http']);
+// RL-100 Slice 1 fold E — closed enum of import outcomes.
+export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
 // RL-095 Slice 1 fold A — closed enum for the surface that drove a
 // Language Support Scorecard view. Mirrored on update-server with
 // parity test. The property name is `surface` (not `source`) because
@@ -1509,6 +1534,14 @@ function isAllowedValue(
         return (
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
         );
+      return false;
+    case 'import.applied':
+      if (key === 'importerId')
+        return typeof value === 'string' && IMPORTER_IDS_SET.has(value);
+      if (key === 'status')
+        return typeof value === 'string' && IMPORT_STATUSES_SET.has(value);
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
       return false;
     case 'sql.query_executed':
       if (key === 'status')

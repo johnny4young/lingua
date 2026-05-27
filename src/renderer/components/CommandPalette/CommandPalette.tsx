@@ -87,6 +87,7 @@ interface CommandPaletteProps {
    * honest about wired surfaces.
    */
   onOpenCapsuleImport?: () => void;
+  onOpenImportOverlay?: () => void;
 }
 
 export function CommandPalette({
@@ -107,6 +108,7 @@ export function CommandPalette({
   onReplayEntry,
   onToggleVimMode,
   onOpenCapsuleImport,
+  onOpenImportOverlay,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -433,6 +435,7 @@ export function CommandPalette({
         : undefined,
       latestCapsuleAvailable: latestCapsule !== null,
       onOpenCapsuleImport,
+      onOpenImportOverlay,
       // RL-095 Slice 1 fold B — open Settings on the Languages tab and
       // scroll to the scorecard. Three pieces of choreography:
       //   1. Claim the next scorecard mount as `surface: 'palette'`

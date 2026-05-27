@@ -274,6 +274,11 @@ export const useSettingsStore = create<SettingsState>()(
       // RL-094 Slice 2 fold C — capsule-import clipboard auto-detect
       // opt-in. Sticky three-state mirror of the utilities consent.
       capsuleImportClipboardOnFocusConsent: 'unset',
+      // RL-100 Slice 1 fold F — import-preview clipboard auto-detect
+      // opt-in (cURL paste / drop, etc.). Sticky three-state. Slice 1
+      // lands the field on the store + sanitized rehydrate; Slice 2
+      // wires the actual auto-detect on overlay focus.
+      importPreviewClipboardOnFocusConsent: 'unset',
       // RL-025 Slice A — master toggle for dependency detection +
       // the bottom-panel Dependencies tab. The rehydrate merge
       // below applies the fold-G tier-aware default when the
@@ -419,6 +424,15 @@ export const useSettingsStore = create<SettingsState>()(
         capsuleImportClipboardOnFocusConsent
       ) => {
         set({ capsuleImportClipboardOnFocusConsent });
+      },
+      // RL-100 Slice 1 fold F — import-preview clipboard auto-detect
+      // consent. Slice 1 ships the setter so Settings UI can land
+      // when needed; the actual auto-detect on overlay focus is
+      // deferred to Slice 2.
+      setImportPreviewClipboardOnFocusConsent: (
+        importPreviewClipboardOnFocusConsent
+      ) => {
+        set({ importPreviewClipboardOnFocusConsent });
       },
       // RL-025 Slice A — dependency detection master switch.
       toggleDependencyDetectionEnabled: () =>
@@ -722,6 +736,10 @@ export const useSettingsStore = create<SettingsState>()(
         // don't have to re-grant every reload.
         capsuleImportClipboardOnFocusConsent:
           state.capsuleImportClipboardOnFocusConsent,
+        // RL-100 Slice 1 fold F — persist the import-preview consent
+        // so the user's choice survives reloads.
+        importPreviewClipboardOnFocusConsent:
+          state.importPreviewClipboardOnFocusConsent,
         // RL-025 Slice A — persist the dependency-detection toggle so
         // the user's choice survives reloads. Rehydrate-merge below
         // applies the fold-G tier-aware default when this key is
@@ -979,6 +997,18 @@ export const useSettingsStore = create<SettingsState>()(
           merged.capsuleImportClipboardOnFocusConsent === 'unset'
             ? merged.capsuleImportClipboardOnFocusConsent
             : 'unset';
+        // RL-100 Slice 1 fold F — same three-state sanitize as the
+        // capsule-import + utilities consents. Anything else falls
+        // back to `'unset'` so the user is prompted again in Slice 2.
+        const importPreviewClipboardOnFocusConsent:
+          | 'unset'
+          | 'granted'
+          | 'declined' =
+          merged.importPreviewClipboardOnFocusConsent === 'granted' ||
+          merged.importPreviewClipboardOnFocusConsent === 'declined' ||
+          merged.importPreviewClipboardOnFocusConsent === 'unset'
+            ? merged.importPreviewClipboardOnFocusConsent
+            : 'unset';
         return {
           ...merged,
           hasCompletedOnboardingWelcome,
@@ -1005,6 +1035,7 @@ export const useSettingsStore = create<SettingsState>()(
           sqlWorkspaceRowDisplayLimit: sanitizedSqlRowDisplayLimit,
           sqlWorkspaceQueryTimeoutMs: sanitizedSqlQueryTimeoutMs,
           capsuleImportClipboardOnFocusConsent,
+          importPreviewClipboardOnFocusConsent,
         };
       },
       onRehydrateStorage: () => (state) => {

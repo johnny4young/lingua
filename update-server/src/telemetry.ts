@@ -192,6 +192,11 @@ export const TELEMETRY_EVENT_NAMES = [
   // src/shared/telemetry.ts. Parity test cross-imports HTTP_METHODS_SET
   // and HTTP_STATUS_BUCKETS_SET.
   'http.request_executed',
+  // RL-100 Slice 1 fold E — Importer registry commit. Closed-enum
+  // `{ importerId, status, sizeBucket }` mirrored from
+  // src/shared/telemetry.ts. Parity test cross-imports
+  // IMPORTER_IDS_SET and IMPORT_STATUSES_SET.
+  'import.applied',
   // RL-097 Slice 2 fold F — SQL workspace query execution. Closed-enum
   // `{ status, rowCountBucket, durationBucket }` mirrored from
   // src/shared/telemetry.ts. Parity test cross-imports
@@ -319,6 +324,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'editor.replace_in_files_applied': ['scope', 'countBucket', 'regex'],
   // RL-097 Slice 1 fold F — mirror of src/shared/telemetry.ts.
   'http.request_executed': ['method', 'statusBucket', 'redactedHeadersBucket'],
+  // RL-100 Slice 1 fold E — mirror of src/shared/telemetry.ts.
+  'import.applied': ['importerId', 'status', 'sizeBucket'],
   // RL-097 Slice 2 fold F — mirror of src/shared/telemetry.ts.
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
   // RL-099 Slice 1 fold F — mirror of src/shared/telemetry.ts.
@@ -488,6 +495,12 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
   'cancelled',
   'rejected',
 ]);
+// RL-100 Slice 1 fold E — mirrors of `IMPORTER_IDS_SET` /
+// `IMPORT_STATUSES_SET` in `src/shared/telemetry.ts`. Parity test
+// cross-imports the renderer source-of-truth `IMPORTER_IDS` from
+// `src/shared/importers/types.ts` to keep them in sync.
+export const IMPORTER_IDS_SET = new Set(['curl-http']);
+export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
 // RL-095 Slice 1 fold A — mirror of `LANGUAGE_SCORECARD_SURFACES`.
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
   'settings',
@@ -1196,6 +1209,14 @@ function isAllowedValue(
         return (
           typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
         );
+      return false;
+    case 'import.applied':
+      if (key === 'importerId')
+        return typeof value === 'string' && IMPORTER_IDS_SET.has(value);
+      if (key === 'status')
+        return typeof value === 'string' && IMPORT_STATUSES_SET.has(value);
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
       return false;
     case 'sql.query_executed':
       if (key === 'status')
