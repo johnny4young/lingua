@@ -62,6 +62,9 @@ Items never demote. Closed tickets stay closed.
 11. [`PUBLIC_READINESS_AUDIT.md`](./PUBLIC_READINESS_AUDIT.md) —
     current public-source readiness, release/security gaps, and the
     pre-publication action queue.
+12. [`CLI_USAGE.md`](./CLI_USAGE.md) — RL-098 Slice 1 CLI surface
+    (`lingua utility`, `lingua capsule validate`, `lingua list
+    utilities`); install/uninstall, exit-code contract, CI tips.
 
 ## Architecture Decision Records (ADRs)
 

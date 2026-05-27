@@ -64,5 +64,50 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-require-imports': 'off',
     },
+  },
+  // RL-098 Slice 1 — the CLI must stay React-free + Electron-free
+  // so the bundled CJS at `dist/cli/lingua.cjs` stays small instead
+  // of pulling in multi-megabyte app surfaces. Forbid imports from
+  // forbidden trees at lint time; esbuild would still bundle them
+  // otherwise and the bundle would balloon silently. Allow:
+  // `src/shared/**`, `node:*`,
+  // third-party deps that are CLI-safe.
+  {
+    files: ['src/cli/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['*/renderer/*', '**/renderer/**'],
+              message:
+                'The CLI bundle must not import renderer code. Use shared modules under src/shared/ instead.',
+            },
+            {
+              group: ['*/main/*', '**/main/**'],
+              message:
+                'The CLI runs outside Electron — main-process modules are off-limits.',
+            },
+            {
+              group: ['*/preload/*', '**/preload/**'],
+              message:
+                'The CLI runs outside Electron — preload modules are off-limits.',
+            },
+          ],
+          paths: [
+            { name: 'react', message: 'React must not reach the CLI bundle.' },
+            { name: 'react-dom', message: 'React DOM must not reach the CLI bundle.' },
+            { name: 'react-i18next', message: 'i18n is renderer-only; the CLI is English Slice 1.' },
+            { name: 'electron', message: 'Electron must not reach the CLI bundle.' },
+            { name: 'zustand', message: 'Zustand stores are renderer-only; the CLI is stateless.' },
+          ],
+        },
+      ],
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+    languageOptions: {
+      globals: globals.node,
+    },
   }
 );
