@@ -33,6 +33,7 @@ import {
   HTTP_STATUS_BUCKETS_SET as WORKER_HTTP_STATUS_BUCKETS_SET,
   SQL_QUERY_STATUSES_SET as WORKER_SQL_QUERY_STATUSES_SET,
   SQL_DURATION_BUCKETS_SET as WORKER_SQL_DURATION_BUCKETS_SET,
+  PIPELINE_RUN_STATUSES_SET as WORKER_PIPELINE_RUN_STATUSES_SET,
   DEPENDENCY_COUNT_BUCKETS as WORKER_DEPENDENCY_COUNT_BUCKETS,
   TEMPLATE_PROJECT_IDS as WORKER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
@@ -52,6 +53,7 @@ import {
   HTTP_STATUS_BUCKETS_SET as RENDERER_HTTP_STATUS_BUCKETS_SET,
   SQL_QUERY_STATUSES_SET as RENDERER_SQL_QUERY_STATUSES_SET,
   SQL_DURATION_BUCKETS_SET as RENDERER_SQL_DURATION_BUCKETS_SET,
+  PIPELINE_RUN_STATUSES_SET as RENDERER_PIPELINE_RUN_STATUSES_SET,
   DEPENDENCY_COUNT_BUCKETS_SET as RENDERER_DEPENDENCY_COUNT_BUCKETS_SET,
   TEMPLATE_PROJECT_IDS as RENDERER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
@@ -849,6 +851,24 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       '<30s',
       '<5s',
       '>=30s',
+    ]);
+  });
+
+  it('utility pipeline run statuses stay in sync (RL-099 Slice 1 fold F)', () => {
+    // Closed-enum parity for `utility.pipeline_executed.status`. The
+    // canonical source of truth is `PIPELINE_RUN_STATUSES` in
+    // `src/shared/utilityPipeline.ts`; both telemetry copies mirror
+    // the four-status aggregate (all-ok / partial / all-failed /
+    // incompatible). Adding a new aggregate status requires touching
+    // BOTH copies.
+    expect([...WORKER_PIPELINE_RUN_STATUSES_SET].sort()).toEqual(
+      [...RENDERER_PIPELINE_RUN_STATUSES_SET].sort()
+    );
+    expect([...WORKER_PIPELINE_RUN_STATUSES_SET].sort()).toEqual([
+      'all-failed',
+      'all-ok',
+      'incompatible',
+      'partial',
     ]);
   });
 

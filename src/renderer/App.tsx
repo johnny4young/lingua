@@ -437,6 +437,11 @@ function AppChrome({
         ui.openBottomPanel('sql');
       }
     },
+    // RL-099 Slice 1 fold A — Mod+Shift+G opens the Developer
+    // Utilities overlay with the Pipelines panel preselected.
+    openUtilityPipelines: () => {
+      handleOpenDeveloperUtility('utility-pipelines');
+    },
     cycleRuntimeMode: () => {
       // RL-019 Slice 1 fold D — cycle the active JS/TS tab through
       // the implemented runtime modes. No-op for non-JS/TS tabs.

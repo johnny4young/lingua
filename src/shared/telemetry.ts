@@ -383,6 +383,14 @@ export const TELEMETRY_EVENTS = [
   // text, NO schema names, NO column names, NO row values reach the
   // wire. Mirrored on update-server with parity test.
   'sql.query_executed',
+  // RL-099 Slice 1 fold F — utility pipeline execution. Fires once
+  // per Run against a stored utility pipeline. Closed-enum
+  // `{ stepCount, status }` where `stepCount` reuses
+  // DEPENDENCY_COUNT_BUCKETS_SET and `status` ∈ PIPELINE_RUN_STATUSES_SET
+  // (`'all-ok' / 'partial' / 'all-failed' / 'incompatible'`). NO step
+  // contents, NO utility ids, NO input/output values reach the wire.
+  // Mirrored on update-server with parity test.
+  'utility.pipeline_executed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -643,6 +651,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // ∈ SQL_DURATION_BUCKETS_SET. No query text, schema names, or row
   // values on the wire.
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
+  // RL-099 Slice 1 fold F — `stepCount` ∈ DEPENDENCY_COUNT_BUCKETS_SET,
+  // `status` ∈ PIPELINE_RUN_STATUSES_SET. No step contents, utility
+  // ids, or input/output values on the wire.
+  'utility.pipeline_executed': ['stepCount', 'status'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -1040,6 +1052,17 @@ export const SQL_DURATION_BUCKETS_SET = new Set([
   '<5s',
   '<30s',
   '>=30s',
+]);
+// RL-099 Slice 1 fold F — closed enum for `status` on
+// `utility.pipeline_executed`. Source of truth lives in
+// `src/shared/utilityPipeline.ts` (`PIPELINE_RUN_STATUSES`);
+// duplicated here so the telemetry validator can stay free of
+// renderer-only imports. Parity test cross-imports the shared set.
+export const PIPELINE_RUN_STATUSES_SET = new Set([
+  'all-ok',
+  'partial',
+  'all-failed',
+  'incompatible',
 ]);
 export const DEPENDENCY_INSTALL_FAILURE_REASONS_SET = new Set([
   'invalid-specifier',
@@ -1499,6 +1522,16 @@ function isAllowedValue(
       if (key === 'durationBucket')
         return (
           typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value)
+        );
+      return false;
+    case 'utility.pipeline_executed':
+      if (key === 'stepCount')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
+        );
+      if (key === 'status')
+        return (
+          typeof value === 'string' && PIPELINE_RUN_STATUSES_SET.has(value)
         );
       return false;
     default: {

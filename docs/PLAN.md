@@ -11166,6 +11166,65 @@ Deferred to Slice 3+:
   - Output kind compatibility (text vs JSON vs binary) → mitigated by per-utility `inputKind` / `outputKind` declarations + engine-side type check.
   - Slow pipelines blocking renderer → mitigated by yielding via `requestIdleCallback` between steps.
 
+#### § Slice 1 landed (2026-05-26)
+
+Shipped as `RL-099 Slice 1 — Utility Pipelines engine + 5 text adapters + persisted library + panel + folds A/B/C/D/E/F/G`. Approved with all folds. Third instance of the "workspace tool" pattern alongside HTTP (RL-097 Slice 1) and SQL (RL-097 Slice 2).
+
+Core surface:
+
+- New `src/shared/utilities/types.ts` — `UtilityAdapter<TOptions>` contract, closed `UTILITY_ADAPTER_IDS` enum, closed `ADAPTER_RUN_REASONS` enum, schema-driven `UtilityOptionField` types (text / textarea / select / boolean).
+- New `src/shared/utilities/{jsonFormat,base64,urlParse,regexReplace,diffText}.ts` — 5 pure adapters wrapping existing helpers from `src/renderer/utils/developerUtilities.ts`. Zero behavior change for the 6 existing utility panels (which keep importing from the renderer-side path).
+- New `src/shared/utilities/registry.ts` — id → adapter map + `getAdapter` / `listAdapters`. Adding a sixth adapter touches one line here.
+- New `src/shared/utilityPipeline.ts` — `UtilityPipelineV1` versioned schema, `PipelineStepV1` shape, `PIPELINE_STEP_STATUSES` (`ok|error|skipped|timeout|incompatible`) + `PIPELINE_RUN_STATUSES` (`all-ok|partial|all-failed|incompatible`) closed enums. `parsePipeline` / `parsePipelineStep` reject malformed shapes at the localStorage boundary (steps with unknown utility ids drop silently to enable forward-version compat; the whole pipeline only fails on top-level shape mismatch). `tryImportPipelineJson` exposes the import-path closed reject enum. `runPipeline(pipeline, input, options)` always settles, streams per-step outcomes via `onStepSettled`, cascades skip-on-upstream-failure, checks `inputKind` / `outputKind` compatibility, races a per-step timeout (30 s default), and attaches a no-op `.catch` to the in-flight adapter promise so a late rejection cannot bubble (RL-097 Slice 2 HIGH-2 precedent). Yields between steps via `requestIdleCallback` (with `setTimeout(0)` fallback for Safari < 16 / jsdom). Hard caps: `PIPELINE_CAP = 100` library entries, `PIPELINE_MAX_STEPS = 50` steps per pipeline, `STEP_VALUE_BYTE_CAP = 256 KiB` per intermediate value.
+- New `src/renderer/stores/utilityPipelineStore.ts` — zustand persisted on isolated `lingua-utility-pipeline-state` localStorage key. CRUD + LRU=100 + active id + transient per-pipeline input (not persisted) + `duplicatePipeline` + `importPipelineJson` discriminated outcome + `exportPipelineJson` recipe-only serializer. SHAPE parity with `workspaceToolStore` + `workspaceSqlStore` so RL-099 Slice 2+ (network/subprocess steps) can iterate uniformly.
+- New `src/renderer/runtime/utilityPipelineRunner.ts` — thin wrapper around `runPipeline` so the future RL-098 CLI can reuse it without React.
+- New `src/renderer/hooks/useUtilityPipelineRun.ts` — `{idle | running | settled}` state machine over the runner, with stale-run guarding via a run-id ref so a slow run doesn't overwrite the panel's state when the user already kicked off a newer run.
+- New `<UtilityPipelinePanel>` mounted as a `'utility-pipelines'` entry in `DEVELOPER_UTILITIES` (NOT a new bottom-panel tab). 3-column layout: pipeline list (left, with new/duplicate/delete/import/export), step editor (center, sortable via @dnd-kit), streaming result table (right). New `<UtilityPipelineStepRow>` sub-component renders the schema-driven options form per adapter + the per-step status badge.
+- `DEVELOPER_UTILITIES` catalog extended with the new entry; `DeveloperUtilityId` union widened.
+- New `Mod+Shift+G` keyboard shortcut + `useGlobalShortcuts.openUtilityPipelines` callback. The command palette entry is auto-discovered through the existing `DEVELOPER_UTILITIES` iteration in `commandPaletteModel.ts` — no per-utility palette wiring needed.
+
+Folds shipped:
+
+- **A** — `Mod+Shift+G` shortcut + palette entry (auto-discovered).
+- **B** — `@dnd-kit/sortable` drag-reorder of steps. Uses the existing `<FavoritesRow>` pattern, no new dependency.
+- **C** — Schema-driven options form: adapters declare `optionsSchema` (closed enum of input types `text` / `textarea` / `select` / `boolean`); `<UtilityPipelineStepRow>` auto-renders the matching inputs. Avoids per-adapter custom form code.
+- **D** — Result row rendering: `<pre>` for text outputs; JSON outputs stay as raw text in Slice 1 (richer `<RichValueTable>` integration deferred to Slice 2+ since the kind plumbing is reserved for future binary/structured adapters).
+- **E** — Pipeline duplicate action — `name + " (copy)"` with a fresh id, capped by `PIPELINE_CAP`.
+- **F** — Closed-enum telemetry `utility.pipeline_executed { stepCount, status }` mirrored on update-server with `PIPELINE_RUN_STATUSES_SET` parity test. `stepCount` reuses `DEPENDENCY_COUNT_BUCKETS_SET`. NO step contents, NO utility ids, NO input/output values reach the wire.
+- **G** — Import-from-clipboard auto-detect on the import dialog. Probes the clipboard for a likely-pipeline JSON (sanity check on `{"version":1,…"steps":…}`) and pre-fills the textarea when `utilitiesClipboardOnFocusConsent === 'granted'` (no new consent surface).
+
+Telemetry parity:
+
+- `tests/shared/telemetry.test.ts` sorted-events list extended with `'utility.pipeline_executed'` after `'utility.history.cleared'`.
+- `update-server/test/telemetry.test.ts` parity assertion added for `PIPELINE_RUN_STATUSES_SET` (cross-imported from the renderer source of truth).
+
+Tests:
+
+- `tests/shared/utilityPipeline.test.ts` (24 cases — parser shape, `tryImportPipelineJson` closed reject reasons, engine happy path + cascade skip + chained Base64→JSON + streaming + aggregate status mapping, helpers).
+- `tests/shared/utilities/adapters.test.ts` (16 cases — 5 adapters with happy + reject + parseOptions shape guard + Base64 UTF-8 round-trip + URL parse of duplicate query params + regex replace cap).
+- `tests/stores/utilityPipelineStore.test.ts` (10 cases — CRUD + LRU + duplicate + import/export round-trip + version + id pin).
+- `tests/components/DeveloperUtilities/UtilityPipelinePanel.test.tsx` (6 cases — empty state, create, 2-step run, skip cascade, rename, Run disabled).
+- `tests/e2e/utilityPipelines.spec.ts` (Mod+Shift+G EN + ES tuteo binding, `primeProLicense` because DEV_UTILITIES is a Pro gate).
+
+Existing test fixtures updated to acknowledge the new entry:
+
+- `tests/data/developerUtilities.test.ts` adds `'utility-pipelines'` to `GENERATOR_IDS` (no `detect` predicate — the panel owns its own input surface).
+- `tests/components/DeveloperUtilityPanelRegistry.test.ts` adds `OUTPUT_REGISTRATION_OPT_OUT` for the new entry (the panel produces a streaming multi-step result, not a single text output) and the generator allowlist in the toolbar check.
+- `tests/components/commandPaletteModel.test.ts` count bumps 29 → 30.
+
+i18n:
+
+32 new keys × en + es covering `utilities.tool.utilityPipelines.*`, `utilityPipeline.list.*`, `utilityPipeline.empty.*`, `utilityPipeline.editor.*`, `utilityPipeline.step.{indexLabel,utilityLabel,deleteAria,dragHandleAria,status.*}`, `utilityPipeline.result.{title,empty,stepLabel,emptyOutput,skippedHint,incompatibleHint,timeout,error}`, `utilityPipeline.import.{placeholder,confirm,cancel,reject.*}`, `utilityPipeline.adapter.{jsonFormat,base64Encode,base64Decode,urlParse,regexReplace,diffText}.{title,description,options.*}`, `shortcuts.item.utilityPipelines.label`. ES tuteo verified: `Ejecuta`, `Crea`, `Agrega`, `Encadena`, `Importa`, `Exporta`, `Cancela`. No voseo.
+
+Deferred to Slice 2+:
+
+- AI-generated pipelines (Slice 2 — needs RL-031 Slice 0/1 local AI bridge).
+- Background pipeline runs via Web Worker (Slice 2+ — current implementation runs on the main thread with idle yields).
+- Pipeline-as-capsule export (Slice 3 — natural representation but adds capsule indexing).
+- Network / subprocess utilities in pipelines (Slice 2+; HTTP fetch as a step, SQL query as a step). Slice 1 is text utilities only.
+- Pipeline-from-template gallery (Slice 3+).
+- The remaining 22 utility-adapter migrations (`hash`, `jwt`, `regex` analyze form, `color`, `timestamp`, `uuid`, `lorem`, `string-case`, `string-inspector`, etc.) — Slice 1 ships only the 5 named adapters needed for the AC. Migrating the rest is a polish follow-up.
+
 ### RL-100 Importers
 
 - Priority: `P2`

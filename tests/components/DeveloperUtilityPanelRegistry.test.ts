@@ -38,6 +38,12 @@ describe('DeveloperUtilityPanel registry', () => {
   // panel forgot to wire `useRegisterUtilityOutput` without paying the
   // cost of rendering all 29 panels.
   it('every panel module imports useRegisterUtilityOutput', () => {
+    // RL-099 Slice 1 — `utility-pipelines` is opt-out: the panel
+    // produces a streamed multi-step result table, not a single
+    // text output, so the Cmd+Shift+C / Cmd+Alt+R global handlers
+    // intentionally bypass it. Documented opt-out so future audits
+    // know it's not a regression.
+    const OUTPUT_REGISTRATION_OPT_OUT = new Set(['utility-pipelines']);
     const panelFileByCatalogId: Record<string, string> = {
       json: 'JsonUtilityPanel.tsx',
       base64: 'Base64UtilityPanel.tsx',
@@ -71,6 +77,7 @@ describe('DeveloperUtilityPanel registry', () => {
     };
 
     for (const utility of DEVELOPER_UTILITIES) {
+      if (OUTPUT_REGISTRATION_OPT_OUT.has(utility.id)) continue;
       const fileName = panelFileByCatalogId[utility.id];
       expect(fileName, `${utility.id} missing in test mapping`).toBeDefined();
       const source = readFileSync(resolve(PANELS_DIR, fileName!), 'utf-8');
@@ -86,7 +93,10 @@ describe('DeveloperUtilityPanel registry', () => {
   // registered. Generators (random-string, lorem-ipsum) intentionally
   // skip the toolbar.
   it('every non-generator panel renders a UtilityToolbar', () => {
-    const generators = new Set(['random-string', 'lorem-ipsum']);
+    // RL-099 Slice 1 — `utility-pipelines` is treated as a generator
+    // because the pipeline editor owns its own input surface and
+    // doesn't share the ⚡ Apply contract with the rest of the catalog.
+    const generators = new Set(['random-string', 'lorem-ipsum', 'utility-pipelines']);
     const panelFileByCatalogId: Record<string, string> = {
       json: 'JsonUtilityPanel.tsx',
       base64: 'Base64UtilityPanel.tsx',

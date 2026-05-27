@@ -66,6 +66,12 @@ interface UseGlobalShortcutsOptions {
    */
   toggleSqlWorkspace: () => void;
   /**
+   * RL-099 Slice 1 fold A — open the Developer Utilities overlay
+   * with the Pipelines panel preselected via Mod+Shift+G. Caller
+   * wires this to `handleOpenDeveloperUtility('utility-pipelines')`.
+   */
+  openUtilityPipelines: () => void;
+  /**
    * RL-019 Slice 1 fold D — cycle the active JS/TS tab through the
    * implemented runtime modes. RL-019 now ships all three modes:
    * Worker, Node, and Browser preview.
@@ -211,6 +217,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     // it without re-implementing the openBottomPanel choreography.
     'workspace-toggle-http': () => options.toggleHttpWorkspace(),
     'workspace-toggle-sql': () => options.toggleSqlWorkspace(),
+    'action-open-utility-pipelines': () => options.openUtilityPipelines(),
     'overlay-command-palette': () => options.toggleOverlay('palette'),
     'overlay-settings': () => options.toggleOverlay('settings'),
     'overlay-developer-utilities': () => options.openDeveloperUtilities(),

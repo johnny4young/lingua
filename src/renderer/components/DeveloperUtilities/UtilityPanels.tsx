@@ -29,6 +29,7 @@ import { YamlJsonPanel } from './panels/YamlJsonPanel';
 import { JsonCsvPanel } from './panels/JsonCsvPanel';
 import { MarkdownPreviewPanel } from './panels/MarkdownPreviewPanel';
 import { SqlFormatterPanel } from './panels/SqlFormatterPanel';
+import { UtilityPipelinePanel } from './UtilityPipelinePanel';
 
 export const DEVELOPER_UTILITY_PANEL_COMPONENTS = {
   'json': JsonUtilityPanel,
@@ -60,6 +61,7 @@ export const DEVELOPER_UTILITY_PANEL_COMPONENTS = {
   'json-csv': JsonCsvPanel,
   'markdown-preview': MarkdownPreviewPanel,
   'sql-formatter': SqlFormatterPanel,
+  'utility-pipelines': UtilityPipelinePanel,
 } satisfies Record<DeveloperUtilityId, ComponentType>;
 
 export function DeveloperUtilityPanel({ toolId }: { toolId: DeveloperUtilityId }) {

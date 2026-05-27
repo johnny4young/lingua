@@ -197,6 +197,10 @@ export const TELEMETRY_EVENT_NAMES = [
   // src/shared/telemetry.ts. Parity test cross-imports
   // SQL_QUERY_STATUSES_SET and SQL_DURATION_BUCKETS_SET.
   'sql.query_executed',
+  // RL-099 Slice 1 fold F — utility pipeline execution. Closed-enum
+  // `{ stepCount, status }` mirrored from src/shared/telemetry.ts.
+  // Parity test cross-imports PIPELINE_RUN_STATUSES_SET.
+  'utility.pipeline_executed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -317,6 +321,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'http.request_executed': ['method', 'statusBucket', 'redactedHeadersBucket'],
   // RL-097 Slice 2 fold F — mirror of src/shared/telemetry.ts.
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
+  // RL-099 Slice 1 fold F — mirror of src/shared/telemetry.ts.
+  'utility.pipeline_executed': ['stepCount', 'status'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -632,6 +638,16 @@ export const SQL_DURATION_BUCKETS_SET = new Set([
   '<5s',
   '<30s',
   '>=30s',
+]);
+// RL-099 Slice 1 fold F — mirror of PIPELINE_RUN_STATUSES_SET. Source
+// of truth lives in `src/shared/utilityPipeline.ts`; duplicated here
+// so the worker validator can stay free of renderer-only imports.
+// Parity test cross-imports the renderer set.
+export const PIPELINE_RUN_STATUSES_SET = new Set([
+  'all-ok',
+  'partial',
+  'all-failed',
+  'incompatible',
 ]);
 // RL-025 Slice B — mirrors of DEPENDENCY_INSTALL_OUTCOMES and
 // DEPENDENCY_INSTALL_FAILURE_REASONS from
@@ -1193,6 +1209,16 @@ function isAllowedValue(
       if (key === 'durationBucket')
         return (
           typeof value === 'string' && SQL_DURATION_BUCKETS_SET.has(value)
+        );
+      return false;
+    case 'utility.pipeline_executed':
+      if (key === 'stepCount')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
+        );
+      if (key === 'status')
+        return (
+          typeof value === 'string' && PIPELINE_RUN_STATUSES_SET.has(value)
         );
       return false;
     default: {

@@ -223,6 +223,14 @@ describe('TELEMETRY_EVENTS', () => {
       'utility.clipboard.applied',
       'utility.favorite.pinned',
       'utility.history.cleared',
+      // RL-099 Slice 1 fold F — Utility pipeline execution. Closed-enum
+      // `{ stepCount, status }` from DEPENDENCY_COUNT_BUCKETS_SET +
+      // PIPELINE_RUN_STATUSES_SET. Sorts AFTER the other utility.*
+      // entries because 'p.i' < 'h.i' (history is last). Wait — it
+      // sorts BETWEEN 'history.cleared' and the end of the list:
+      // utility.clipboard < utility.favorite < utility.history <
+      // utility.pipeline. Pipeline comes last.
+      'utility.pipeline_executed',
     ]);
   });
 
