@@ -34,6 +34,8 @@ import {
   SQL_QUERY_STATUSES_SET as WORKER_SQL_QUERY_STATUSES_SET,
   SQL_DURATION_BUCKETS_SET as WORKER_SQL_DURATION_BUCKETS_SET,
   PIPELINE_RUN_STATUSES_SET as WORKER_PIPELINE_RUN_STATUSES_SET,
+  IMPORTER_IDS_SET as WORKER_IMPORTER_IDS_SET,
+  IMPORT_STATUSES_SET as WORKER_IMPORT_STATUSES_SET,
   DEPENDENCY_COUNT_BUCKETS as WORKER_DEPENDENCY_COUNT_BUCKETS,
   TEMPLATE_PROJECT_IDS as WORKER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
@@ -54,11 +56,14 @@ import {
   SQL_QUERY_STATUSES_SET as RENDERER_SQL_QUERY_STATUSES_SET,
   SQL_DURATION_BUCKETS_SET as RENDERER_SQL_DURATION_BUCKETS_SET,
   PIPELINE_RUN_STATUSES_SET as RENDERER_PIPELINE_RUN_STATUSES_SET,
+  IMPORTER_IDS_SET as RENDERER_IMPORTER_IDS_SET,
+  IMPORT_STATUSES_SET as RENDERER_IMPORT_STATUSES_SET,
   DEPENDENCY_COUNT_BUCKETS_SET as RENDERER_DEPENDENCY_COUNT_BUCKETS_SET,
   TEMPLATE_PROJECT_IDS as RENDERER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
+import { IMPORTER_IDS as RENDERER_IMPORTER_IDS } from '../../src/shared/importers/types';
 // RL-096 Slice 1 reviewer pass — cross-import the renderer's
 // canonical DENY_SUBSTRINGS so the parity test cannot silently
 // drift when the renderer extends the deny pass (as it did in this
@@ -869,6 +874,31 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       'all-ok',
       'incompatible',
       'partial',
+    ]);
+  });
+
+  it('importer ids + import statuses stay in sync (RL-100 Slice 1 fold E)', () => {
+    // Closed-enum parity for `import.applied.importerId` +
+    // `import.applied.status`. The canonical source of truth is
+    // `IMPORTER_IDS` in `src/shared/importers/types.ts` (renderer)
+    // and `IMPORTER_IDS_SET` / `IMPORT_STATUSES_SET` in
+    // `src/shared/telemetry.ts`. Worker mirrors live in
+    // `update-server/src/telemetry.ts`. Adding an importer requires
+    // touching BOTH telemetry copies.
+    expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual(
+      [...RENDERER_IMPORTER_IDS].sort()
+    );
+    expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual(
+      [...RENDERER_IMPORTER_IDS_SET].sort()
+    );
+    expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual(['curl-http']);
+    expect([...WORKER_IMPORT_STATUSES_SET].sort()).toEqual(
+      [...RENDERER_IMPORT_STATUSES_SET].sort()
+    );
+    expect([...WORKER_IMPORT_STATUSES_SET].sort()).toEqual([
+      'cancelled',
+      'ok',
+      'rejected',
     ]);
   });
 

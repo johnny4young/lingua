@@ -91,6 +91,10 @@ describe('TELEMETRY_EVENTS', () => {
       // Sorts between `git.reveal_in_source_control_clicked` and
       // `language_scorecard_viewed` because `http.` < `language_`.
       'http.request_executed',
+      // RL-100 Slice 1 fold E — Importer registry commit. Sorts
+      // between `http.request_executed` and `language_scorecard_viewed`
+      // because `import.` < `language_`.
+      'import.applied',
       // RL-095 Slice 1 fold A — Language Support Scorecard adoption
       // signal. Closed-enum payload `{ surface }` from
       // `LANGUAGE_SCORECARD_SURFACES` (settings | palette). The key

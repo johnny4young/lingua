@@ -240,6 +240,40 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().language).toBe('system');
   });
 
+  it('tracks import-preview clipboard consent with the closed three-state enum', () => {
+    expect(useSettingsStore.getState().importPreviewClipboardOnFocusConsent).toBe(
+      'unset'
+    );
+    useSettingsStore.getState().setImportPreviewClipboardOnFocusConsent('granted');
+    expect(useSettingsStore.getState().importPreviewClipboardOnFocusConsent).toBe(
+      'granted'
+    );
+    useSettingsStore.getState().setImportPreviewClipboardOnFocusConsent('declined');
+    expect(useSettingsStore.getState().importPreviewClipboardOnFocusConsent).toBe(
+      'declined'
+    );
+  });
+
+  it('sanitizes tampered import-preview clipboard consent on rehydrate', async () => {
+    localStorage.setItem(
+      'lingua-settings',
+      JSON.stringify({
+        state: { importPreviewClipboardOnFocusConsent: 'always-read' },
+        version: 0,
+      })
+    );
+
+    await (
+      useSettingsStore as typeof useSettingsStore & {
+        persist: { rehydrate: () => Promise<void> };
+      }
+    ).persist.rehydrate();
+
+    expect(useSettingsStore.getState().importPreviewClipboardOnFocusConsent).toBe(
+      'unset'
+    );
+  });
+
   it('mirrors telemetry consent through the preload bridge when the toggle changes', async () => {
     const consentSet = vi.fn().mockResolvedValue({ ok: true });
     window.lingua = {

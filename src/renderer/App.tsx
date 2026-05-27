@@ -15,6 +15,7 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardS
 import { SnippetsModal } from './components/Snippets';
 import { ProjectTemplatesOverlay } from './components/Welcome/ProjectTemplatesOverlay';
 import { CapsuleImportOverlay } from './components/CapsuleImport';
+import { ImportPreviewOverlay } from './components/ImportPreview/ImportPreviewOverlay';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
@@ -442,6 +443,11 @@ function AppChrome({
     openUtilityPipelines: () => {
       handleOpenDeveloperUtility('utility-pipelines');
     },
+    // RL-100 Slice 1 fold A — Mod+Alt+I opens the global Import
+    // overlay (cURL → HTTP request adapter Slice 1).
+    openImportOverlay: () => {
+      openOverlay('import-preview');
+    },
     cycleRuntimeMode: () => {
       // RL-019 Slice 1 fold D — cycle the active JS/TS tab through
       // the implemented runtime modes. No-op for non-JS/TS tabs.
@@ -817,6 +823,7 @@ function AppChrome({
           }}
           onNewProjectFromTemplate={() => openOverlay('project-templates')}
           onOpenCapsuleImport={() => openOverlay('capsule-import')}
+          onOpenImportOverlay={() => openOverlay('import-preview')}
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
       )}
@@ -825,6 +832,9 @@ function AppChrome({
       )}
       {overlay === 'capsule-import' && (
         <CapsuleImportOverlay onClose={closeOverlay} />
+      )}
+      {overlay === 'import-preview' && (
+        <ImportPreviewOverlay onClose={closeOverlay} />
       )}
       {overlay === 'settings' && (
         <SettingsModal

@@ -275,6 +275,13 @@ interface BuildCommandPaletteModelArgs {
    */
   onOpenCapsuleImport?: () => void;
   /**
+   * RL-100 Slice 1 — fires when the user activates the "Import
+   * data…" palette command. App.tsx opens the `import-preview`
+   * AppOverlay; the overlay owns the rest of the flow. Optional;
+   * when omitted the action hides.
+   */
+  onOpenImportOverlay?: () => void;
+  /**
    * RL-095 Slice 1 fold B — opens Settings on the Languages tab and
    * scrolls to the Language Support Scorecard. Optional; when
    * omitted the palette entry is hidden.
@@ -635,6 +642,7 @@ export function buildCommandPaletteModel({
   onExportLatestCapsule,
   latestCapsuleAvailable = false,
   onOpenCapsuleImport,
+  onOpenImportOverlay,
   onShowLanguageSupport,
   onCopyLanguageScorecardMarkdown,
   onCopyShareLink,
@@ -798,6 +806,24 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onOpenCapsuleImport();
+            }
+          ),
+        ]
+      : []),
+    // RL-100 Slice 1 — open the global Import overlay. Mirror of the
+    // capsule-import wiring above. Surfaces only when App.tsx wires
+    // the AppOverlay branch; the `Mod+Alt+I` shortcut hits the same
+    // path via `useGlobalShortcuts.openImportOverlay`.
+    ...(onOpenImportOverlay
+      ? [
+          buildActionCommand(
+            'action-open-import-overlay',
+            translate('commandPalette.action.openImport.label'),
+            translate('commandPalette.action.openImport.description'),
+            ['import', 'curl', 'paste', 'drop', 'bring in', 'importar', 'pegar'],
+            () => {
+              onClose();
+              onOpenImportOverlay();
             }
           ),
         ]

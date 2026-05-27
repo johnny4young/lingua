@@ -35,7 +35,12 @@ export type AppOverlay =
   // RL-094 Slice 2 — capsule import preview + confirmation modal.
   // Mounted by App.tsx + opened via Mod+Shift+Y, Settings → Account
   // → Run Capsules → Import, and command palette `action-import-capsule`.
-  | 'capsule-import';
+  | 'capsule-import'
+  // RL-100 Slice 1 — global Import overlay (cURL → HTTP request
+  // adapter Slice 1; `.ipynb` Slice 2; Bruno/Postman Slice 3).
+  // Opened via Mod+Alt+I and command palette
+  // `action-open-import-overlay`.
+  | 'import-preview';
 
 interface UseGlobalShortcutsOptions {
   isRunning: boolean;
@@ -71,6 +76,11 @@ interface UseGlobalShortcutsOptions {
    * wires this to `handleOpenDeveloperUtility('utility-pipelines')`.
    */
   openUtilityPipelines: () => void;
+  /**
+   * RL-100 Slice 1 fold A — open the global Import overlay via
+   * Mod+Alt+I. Caller wires this to `openOverlay('import-preview')`.
+   */
+  openImportOverlay: () => void;
   /**
    * RL-019 Slice 1 fold D — cycle the active JS/TS tab through the
    * implemented runtime modes. RL-019 now ships all three modes:
@@ -218,6 +228,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'workspace-toggle-http': () => options.toggleHttpWorkspace(),
     'workspace-toggle-sql': () => options.toggleSqlWorkspace(),
     'action-open-utility-pipelines': () => options.openUtilityPipelines(),
+    'action-open-import-overlay': () => options.openImportOverlay(),
     'overlay-command-palette': () => options.toggleOverlay('palette'),
     'overlay-settings': () => options.toggleOverlay('settings'),
     'overlay-developer-utilities': () => options.openDeveloperUtilities(),

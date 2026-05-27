@@ -11316,6 +11316,71 @@ Deferred to Slice 2+:
 - Risks:
   - cURL spec is large and underspecified → mitigated by shipping the 80%-case parser + diagnostic for the rest.
 
+#### § Slice 1 landed (2026-05-26)
+
+Shipped as `RL-100 Slice 1 — Importers (registry + cURL → HTTP request adapter + global overlay + folds A/B/C/D/E/F/G)`. Approved with all folds.
+
+Core surface:
+
+- New `src/shared/importers/types.ts` — `ImporterAdapter<TPreview, TResult>` three-phase contract (`detect` / `preview` / `import`), closed `IMPORTER_IDS = ['curl-http']`, closed `IMPORTER_REJECT_REASONS` (`empty-input` / `unrecognized-format` / `malformed` / `unsupported-feature`), closed `IMPORTER_LOSSY_WARNINGS` (`curl-data-binary-file` / `curl-multipart-form` / `curl-basic-auth` / `curl-cookie-jar` / `curl-cookie-write` / `curl-output-file` / `curl-other-flag`).
+- New `src/shared/importers/registry.ts` — `IMPORTER_REGISTRY` + `getImporter` + `listImporters` + `detectImporter`. Mirrors the RL-099 utility-registry shape.
+- New `src/shared/importers/curlImporter.ts` — the byte-additive successor to the RL-097 fold B `tryParseCurl`. Adds: (a) the `ImporterAdapter` envelope around the parser, (b) `scanLossyWarnings()` that emits the closed-enum warning codes for unsupported flags, (c) `redactHeaders()` against `BASELINE_SENSITIVE_HEADERS` (case-insensitive EXACT match) so the preview never shows secret values, (d) preview returns BOTH the `redacted` slot (for display) AND the `original` slot (round-tripped on confirm).
+- New `src/renderer/components/HttpWorkspace/curlImport.ts` (modified into a re-export shim) — kept so RL-097 fold B's inline editor surface stays callable via the same import path. All 11 existing fold B parser tests still pass.
+- New `src/renderer/hooks/useImportPreview.ts` — `{idle | previewed | rejected}` state machine. Detects the importer via `detectImporter`, runs `adapter.preview(source)`, narrows to `curl-http` for the Slice 1 confirm path, writes the imported request into `useWorkspaceToolStore.createRequest`, flips the bottom-panel to `'http'` via `useUIStore.openBottomPanel`. Reset on overlay unmount.
+- New `src/renderer/hooks/importTelemetry.ts` — `trackImportApplied` helper firing the closed-enum `import.applied` event.
+- New `src/renderer/components/ImportPreview/ImportPreviewBody.tsx` — pure read-only preview band. Method pill (color-coded against the HTTP workspace palette), URL, headers table with `<Lock>` icon + `<redacted>` placeholder on sensitive entries, body kind preview with collapsible `<pre>`.
+- New `src/renderer/components/ImportPreview/ImportPreviewOverlay.tsx` — 3-section overlay (Load source + Preview band + Action bar). Paste textarea + file picker + full-overlay drag-drop with visible ring on `dragover`. Warning band lists every lossy-warning code via i18n. Reject band surfaces every closed-enum rejection with localized copy. Confirm writes + closes; Cancel closes without state change. Escape closes; click-outside closes.
+
+Wiring:
+
+- `src/renderer/hooks/useGlobalShortcuts.ts` — `AppOverlay` union widened with `'import-preview'`. New `openImportOverlay` callback + dispatch entry for `action-open-import-overlay`.
+- `src/renderer/data/keyboardShortcuts.ts` — `Mod+Alt+I` shortcut. Verified free vs the catalog — `Mod+Shift+I` is variable-inspector (RL-020 Slice 9), `Mod+Shift+U` is the test fixture's "free combo" reserve; `Cmd+Alt+I` is Chrome's "Inspect" in dev mode but Electron honors the app binding when the renderer has focus.
+- `src/renderer/App.tsx` — mounted `<ImportPreviewOverlay>` under the `'import-preview'` branch; wired the `openImportOverlay` shortcut callback to `openOverlay('import-preview')`; wired the new `onOpenImportOverlay` palette prop.
+- `src/renderer/components/CommandPalette/commandPaletteModel.ts` + `CommandPalette.tsx` — palette entry `action-open-import-overlay` with the `Import data…` label + 7 keywords; prop threaded through.
+- `src/renderer/stores/settingsStore.ts` + `src/renderer/types/index.ts` — `importPreviewClipboardOnFocusConsent: 'unset' | 'granted' | 'declined'` (sticky three-state). Partialize persists; rehydrate sanitizes (fallback to `'unset'` for unknown values). `setImportPreviewClipboardOnFocusConsent` setter wired (closed-enum `'granted' | 'declined'` argument).
+
+Folds shipped:
+
+- **A** — `Mod+Alt+I` keyboard shortcut + `Import data…` palette entry.
+- **B** — Drag-drop `.curl` / `.txt` files with visible ring on `dragover`. First file wins; subsequent files surface a localized notice via `importPreview.notice.multipleFilesIgnored`.
+- **C** — Schema-driven warning band per lossy cURL flag. Each `IMPORTER_LOSSY_WARNINGS` code maps to a localized hint copy key (`importPreview.warning.lossy.<code>`).
+- **D** — Sensitive-header redaction in the preview via `BASELINE_SENSITIVE_HEADERS` (case-insensitive EXACT match against `authorization` / `cookie` / `set-cookie` / `x-api-key` / `x-auth-token` / `proxy-authorization`). The `<redacted>` placeholder appears in the preview ONLY; the `original` slot on the preview shape carries the unredacted value, and `adapter.import(preview)` round-trips that on confirm. Verified by `tests/shared/importers/curlImporter.test.ts:97-104`.
+- **E** — Closed-enum telemetry `import.applied { importerId, status, sizeBucket }` with `IMPORTER_IDS_SET` + `IMPORT_STATUSES_SET` (`'ok' / 'rejected' / 'cancelled'`) mirrored on update-server with byte-for-byte parity test ("importer ids + import statuses stay in sync"). `sizeBucket` reuses `CAPSULE_SIZE_BUCKETS` from RL-094. NO URL, NO header values, NO body content reach the wire.
+- **F** — `importPreviewClipboardOnFocusConsent` three-state field landed on `settingsStore` (sticky sanitize-on-rehydrate). Slice 1 lands the field + the setter + the type declaration; Slice 2 wires the actual auto-detect-on-overlay-focus.
+- **G** — After-confirm flow flips the bottom-panel to `'http'` so the newly imported request is visible immediately. The new request is also selected (`activeRequestId`) via `useWorkspaceToolStore.createRequest`.
+
+Prerequisite fix landed inline:
+
+- **`tryParseCurl` smart-skip for unsupported lossy flags that consume arguments.** Previously `curl -u admin:hunter2 https://api.example.com` in the HTTP editor URL field misread `admin:hunter2` as the URL — the actual `https://api.example.com` was dropped. The fix: added a closed `UNSUPPORTED_FLAGS_WITH_ARG` set (`-u` / `--user` / `-F` / `--form` / `-b` / `--cookie` / `-c` / `--cookie-jar` / `-o` / `--output` / `--data-binary`) consumed BY the parser so the next positional token is correctly identified as the URL. Long forms with inline `=value` (e.g. `--cookie-jar=jar.txt`) carry the value with the flag itself; no extra token to consume.
+- **Behavior change**: the RL-097 fold B inline cURL detect (HTTP editor URL field) now correctly handles these flags. The 11 existing `tests/components/HttpWorkspace/curlImport.test.ts` cases stay green (none exercised these flags). 2 fresh regression tests in `tests/shared/importers/curlImporter.test.ts` lock the new behavior.
+
+Telemetry parity:
+
+- `tests/shared/telemetry.test.ts` sorted-events list extended with `'import.applied'` between `'http.request_executed'` and `'language_scorecard_viewed'`.
+- `update-server/test/telemetry.test.ts` cross-imports `IMPORTER_IDS_SET` + `IMPORT_STATUSES_SET` from the renderer source-of-truth and asserts both Sets stay in sync with the worker mirrors.
+
+Tests:
+
+- `tests/shared/importers/curlImporter.test.ts` (~22 cases — detect / preview happy + reject paths / every lossy warning emission / case-insensitive header redaction / Authorization round-trip on import / URL-preservation regression for `-u admin:hunter2` and `-o /tmp/out.json`).
+- `tests/shared/importers/registry.test.ts` (~6 cases — closed-enum surface + `getImporter` / `listImporters` / `detectImporter`).
+- `tests/hooks/useImportPreview.test.ts` (~8 cases — state machine + workspace-store side effect on confirm + bottom-panel flip + reset).
+- `tests/components/ImportPreview/ImportPreviewOverlay.test.tsx` (~8 cases — empty / paste / preview / reject / warnings / redaction / confirm flow / cancel / ES tuteo render).
+- `tests/e2e/importPreview.spec.ts` (Mod+Alt+I EN + ES tuteo binding).
+
+i18n:
+
+24 new keys × en + es covering `importPreview.overlay.{title,description,close}`, `importPreview.source.{pasteLabel,pastePlaceholder,fileCta,dropHint}`, `importPreview.preview.{title,emptyHint,methodLabel,urlLabel,headersLabel,bodyLabel,redactedHeaderHint}`, `importPreview.warning.{title,lossy.*}`, `importPreview.reject.{empty-input,unrecognized-format,malformed,unsupported-feature}`, `importPreview.action.{confirm,cancel}`, `importPreview.success.toast`, `importPreview.notice.{fileReadFailed,multipleFilesIgnored}`, `importPreview.importer.curlHttp.{title,description}`, `commandPalette.action.openImport.{label,description}`, `shortcuts.item.openImport.{label,description}`. ES tuteo verified: `Importa`, `Pega`, `Suelta`, `Elige`, `Importar`, `Cancelar`, `Revisa`. NO `Importá` / `Pegá` / `Soltá` / `Elegí` / `Aceptá`.
+
+Deferred to Slice 2+:
+
+- `.ipynb` → notebook document (Slice 2 — depends on RL-043 Slice A).
+- Clipboard-on-focus auto-detect wiring (Slice 2 — the field landed in Slice 1 fold F, Slice 2 turns it on).
+- Bruno / Postman collection import (Slice 3).
+- CodePen / JSFiddle / CodeSandbox URL → multi-file project (Slice 4+; depends on RL-024).
+- Drag-drop of a directory (Slice 3+).
+- CLI `lingua import curl --input req.curl --output req.json` (Slice 5+; needs the JSON output schema first).
+- Shell completions for cURL flags (Slice 2 polish).
+
 ### RL-101 Onboarding Choreography
 
 - Priority: `P1`

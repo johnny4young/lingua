@@ -90,4 +90,20 @@ describe('tryParseCurl (RL-097 Slice 1 fold B)', () => {
     expect(parsed?.method).toBe('POST');
     expect(parsed?.body?.kind).toBe('text');
   });
+
+  it('parses --data-binary text payloads without treating them as file uploads', () => {
+    const parsed = tryParseCurl(
+      `curl --data-binary 'raw payload' https://example.com/upload`
+    );
+    expect(parsed?.method).toBe('POST');
+    expect(parsed?.url).toBe('https://example.com/upload');
+    expect(parsed?.body).toEqual({ kind: 'text', content: 'raw payload' });
+  });
+
+  it('preserves explicitly empty quoted data payloads', () => {
+    const parsed = tryParseCurl(`curl -d '' https://example.com/empty`);
+    expect(parsed?.method).toBe('POST');
+    expect(parsed?.url).toBe('https://example.com/empty');
+    expect(parsed?.body).toEqual({ kind: 'text', content: '' });
+  });
 });
