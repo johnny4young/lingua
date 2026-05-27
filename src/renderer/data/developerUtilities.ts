@@ -55,7 +55,8 @@ export type DeveloperUtilityId =
   | 'yaml-json'
   | 'json-csv'
   | 'markdown-preview'
-  | 'sql-formatter';
+  | 'sql-formatter'
+  | 'utility-pipelines';
 
 /**
  * RL-069 Slice 2 — input shape passed to a utility's `detect` predicate.
@@ -412,6 +413,18 @@ export const DEVELOPER_UTILITIES: readonly DeveloperUtilityDefinition[] = [
     keywords: ['sql', 'format', 'beautify', 'mysql', 'postgresql', 'ansi', 'database'],
     aliases: ['sqlfmt'],
     detect: ({ primary }) => detectsAsSql(primary),
+  },
+  {
+    // RL-099 Slice 1 — Utility Pipelines. Composes existing
+    // utility adapters into a one-click chained workflow. No
+    // `detect` predicate: the panel takes a free-form text input
+    // and pipes it through user-defined steps.
+    id: 'utility-pipelines',
+    titleKey: 'utilities.tool.utilityPipelines.titleLabel',
+    actionLabelKey: 'utilities.tool.utilityPipelines.label',
+    descriptionKey: 'utilities.tool.utilityPipelines.description',
+    keywords: ['pipeline', 'chain', 'compose', 'recipe', 'workflow', 'sequence'],
+    aliases: ['pipe', 'flow'],
   },
 ] as const;
 

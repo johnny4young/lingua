@@ -321,6 +321,17 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['sql', 'query', 'duckdb', 'database', 'workspace'],
   },
   {
+    // RL-099 Slice 1 fold A — Open the Developer Utilities overlay
+    // with the Pipelines panel preselected. Mod+Shift+G (G for
+    // Graph / pipeline; verified free vs the catalog — Mod+Shift+R
+    // browser-reserved, +T/N browser-reserved, +Q macOS log-out).
+    id: 'action-open-utility-pipelines',
+    group: 'navigation',
+    labelKey: 'shortcuts.item.utilityPipelines.label',
+    combos: [{ tokens: ['Mod', 'Shift', 'G'] }],
+    keywords: ['pipeline', 'chain', 'compose', 'recipe', 'utility', 'workflow'],
+  },
+  {
     // RL-094 Slice 2 fold A — Open the Capsule Import overlay so the
     // user can paste / drop / pick a capsule JSON file and inspect
     // before opening as a new tab. `Mod+Shift+Y` (Y is unused +

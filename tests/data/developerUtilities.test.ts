@@ -95,6 +95,11 @@ describe('DEVELOPER_UTILITIES catalog', () => {
     const GENERATOR_IDS: ReadonlySet<DeveloperUtilityDefinition['id']> = new Set([
       'random-string',
       'lorem-ipsum',
+      // RL-099 Slice 1 — Utility Pipelines panel takes its input
+      // from the user-defined first step + the pipeline editor; the
+      // overlay's ⚡ Apply button doesn't apply. Treated as a
+      // generator from the catalog's POV.
+      'utility-pipelines',
     ]);
 
     it('declares detect on every non-generator panel', () => {
