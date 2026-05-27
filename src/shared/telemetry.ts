@@ -403,6 +403,19 @@ export const TELEMETRY_EVENTS = [
   // contents, NO utility ids, NO input/output values reach the wire.
   // Mirrored on update-server with parity test.
   'utility.pipeline_executed',
+  // RL-039 Slice B fold B — Recipes overlay discovery + Run + Test
+  // commit. `recipe.opened { language }` fires when the user
+  // confirms "Open" on the Recipes overlay (Mod+Alt+L). NO recipe id
+  // on the wire — per-recipe granularity stays off Slice B (privacy
+  // posture); Slice C+ can add behind a closed `RECIPE_IDS_SET`
+  // parity test. `recipe.test_run { language, status }` fires once
+  // per Run + Test settle. `status` ∈ RECIPE_RUN_STATUSES_SET from
+  // `src/shared/lessonRunner.ts` (`'all-passed' / 'some-failed' /
+  // 'all-failed' / 'execution-error' / 'sentinel-missing'`).
+  // Mirrored on update-server with parity test cross-importing the
+  // renderer source of truth.
+  'recipe.opened',
+  'recipe.test_run',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -672,6 +685,12 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `status` ∈ PIPELINE_RUN_STATUSES_SET. No step contents, utility
   // ids, or input/output values on the wire.
   'utility.pipeline_executed': ['stepCount', 'status'],
+  // RL-039 Slice B fold B — `language` ∈ LANGUAGE_PACK_IDS (Slice B
+  // catalog is JS-only; schema generic). NO recipe id on the wire.
+  'recipe.opened': ['language'],
+  // RL-039 Slice B fold B — `language` ∈ LANGUAGE_PACK_IDS, `status`
+  // ∈ RECIPE_RUN_STATUSES_SET.
+  'recipe.test_run': ['language', 'status'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -862,6 +881,19 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
 export const IMPORTER_IDS_SET = new Set(['curl-http']);
 // RL-100 Slice 1 fold E — closed enum of import outcomes.
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
+// RL-039 Slice B fold B — closed enum of recipe run statuses. Source
+// of truth lives in `src/shared/lessonRunner.ts`
+// (`RECIPE_RUN_STATUSES`). Duplicated here so the telemetry
+// validator stays import-cycle-free. Parity test in
+// `update-server/test/telemetry.test.ts` cross-imports the renderer
+// source of truth.
+export const RECIPE_RUN_STATUSES_SET = new Set([
+  'all-passed',
+  'some-failed',
+  'all-failed',
+  'execution-error',
+  'sentinel-missing',
+]);
 // RL-095 Slice 1 fold A — closed enum for the surface that drove a
 // Language Support Scorecard view. Mirrored on update-server with
 // parity test. The property name is `surface` (not `source`) because
@@ -1542,6 +1574,14 @@ function isAllowedValue(
         return typeof value === 'string' && IMPORT_STATUSES_SET.has(value);
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'recipe.opened':
+      if (key === 'language') return typeof value === 'string' && isSafeToken(value);
+      return false;
+    case 'recipe.test_run':
+      if (key === 'language') return typeof value === 'string' && isSafeToken(value);
+      if (key === 'status')
+        return typeof value === 'string' && RECIPE_RUN_STATUSES_SET.has(value);
       return false;
     case 'sql.query_executed':
       if (key === 'status')

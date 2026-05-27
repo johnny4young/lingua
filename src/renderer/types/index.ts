@@ -179,6 +179,17 @@ export interface FileTab {
    * (`javascript` / `typescript` / `python`).
    */
   variableInspectorEnabled?: boolean;
+  /**
+   * RL-039 Slice B — when set, this tab was opened from the Recipes
+   * overlay and the bottom-panel `'recipe'` sibling tab is gated on
+   * this binding. The string is the `LessonPackV1.id` of the bundled
+   * recipe. Cleared on language change to a non-recipe-runnable
+   * target (see `dropRecipeBindingIfLanguageChanged` in editorStore)
+   * and on explicit unbind via the `<RecipeRunPanel>` action. The
+   * companion runtime state (last-run results, in-flight flag) lives
+   * on `useRecipeStore` keyed by tab id.
+   */
+  recipeBindingId?: string;
 }
 
 /**
@@ -295,6 +306,12 @@ export interface EditorState {
    * vice versa.
    */
   setTabVariableInspectorEnabled: (id: string, enabled: boolean | null) => void;
+  /**
+   * RL-039 Slice B — clear the per-tab recipe binding. Used by the
+   * Recipe panel's explicit unbind action so the persisted
+   * session-store copy cannot resurrect the panel after reload.
+   */
+  clearRecipeBinding: (id: string) => void;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The

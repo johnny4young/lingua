@@ -282,6 +282,13 @@ interface BuildCommandPaletteModelArgs {
    */
   onOpenImportOverlay?: () => void;
   /**
+   * RL-039 Slice B fold A — opens the Recipes overlay (`Mod+Alt+L`).
+   * Visibility lives on `useRecipeStore.overlayOpen`, not the
+   * single-slot AppOverlay union. Optional; when omitted the action
+   * hides.
+   */
+  onOpenRecipes?: () => void;
+  /**
    * RL-095 Slice 1 fold B — opens Settings on the Languages tab and
    * scrolls to the Language Support Scorecard. Optional; when
    * omitted the palette entry is hidden.
@@ -643,6 +650,7 @@ export function buildCommandPaletteModel({
   latestCapsuleAvailable = false,
   onOpenCapsuleImport,
   onOpenImportOverlay,
+  onOpenRecipes,
   onShowLanguageSupport,
   onCopyLanguageScorecardMarkdown,
   onCopyShareLink,
@@ -824,6 +832,24 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onOpenImportOverlay();
+            }
+          ),
+        ]
+      : []),
+    // RL-039 Slice B fold A — open the global Recipes overlay. Hits
+    // the same path as `Mod+Alt+L`. `onClose` first so the palette
+    // dismisses before the recipes overlay opens (single-event-loop
+    // batch order, mirror of the import overlay entry above).
+    ...(onOpenRecipes
+      ? [
+          buildActionCommand(
+            'action-open-recipes',
+            translate('commandPalette.action.openRecipes.label'),
+            translate('commandPalette.action.openRecipes.description'),
+            ['recipe', 'lesson', 'practice', 'tutorial', 'library', 'receta', 'leccion', 'lección', 'práctica'],
+            () => {
+              onClose();
+              onOpenRecipes();
             }
           ),
         ]

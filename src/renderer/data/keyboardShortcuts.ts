@@ -348,6 +348,22 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['import', 'curl', 'paste', 'drop', 'bring in'],
   },
   {
+    // RL-039 Slice B fold A — Open the global Recipes overlay so the
+    // user can browse curated practice problems and load one into a
+    // new tab. Mod+Alt+L (L for Lessons / Library). Verified free vs
+    // the catalog — Mod+Shift+L is the RL-036 share-link copy,
+    // Mod+Alt+R is utility-replace-clipboard, Mod+Alt+I is the new
+    // Import overlay, Mod+Alt+S is SQL workspace, Mod+Alt+H is the
+    // recent-runs popover. Cmd+Alt+L is unused in Chrome and not a
+    // macOS lockscreen combo (Ctrl+Cmd+Q owns lock).
+    id: 'action-open-recipes',
+    group: 'overlays',
+    labelKey: 'shortcuts.item.openRecipes.label',
+    descriptionKey: 'shortcuts.item.openRecipes.description',
+    combos: [{ tokens: ['Mod', 'Alt', 'L'] }],
+    keywords: ['recipe', 'lesson', 'practice', 'tutorial', 'library'],
+  },
+  {
     // RL-094 Slice 2 fold A — Open the Capsule Import overlay so the
     // user can paste / drop / pick a capsule JSON file and inspect
     // before opening as a new tab. `Mod+Shift+Y` (Y is unused +

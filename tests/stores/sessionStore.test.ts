@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useEditorStore } from '@/stores/editorStore';
+import {
+  resetRecipeStoreForTests,
+  useRecipeStore,
+} from '@/stores/recipeStore';
+import { useUIStore } from '@/stores/uiStore';
 
 describe('sessionStore', () => {
   const initialSessionState = useSessionStore.getState();
@@ -9,6 +14,8 @@ describe('sessionStore', () => {
   beforeEach(() => {
     useSessionStore.setState(initialSessionState, true);
     useEditorStore.setState({ tabs: [], activeTabId: null });
+    useUIStore.setState({ activeBottomPanel: 'console', consoleVisible: false });
+    resetRecipeStoreForTests();
     localStorage.clear();
 
     Object.defineProperty(globalThis, 'window', {
@@ -35,6 +42,7 @@ describe('sessionStore', () => {
   afterEach(() => {
     useSessionStore.setState(initialSessionState, true);
     useEditorStore.setState(initialEditorState, true);
+    resetRecipeStoreForTests();
     localStorage.clear();
   });
 
@@ -54,6 +62,7 @@ describe('sessionStore', () => {
           content: 'console.log("hi")',
           isDirty: false,
           filePath: '/path/hello.js',
+          recipeBindingId: 'js-sort-objects',
         },
         {
           id: 'tab-2',
@@ -75,6 +84,7 @@ describe('sessionStore', () => {
     // Disk-backed tab stores empty content (re-reads on restore)
     expect(savedTabs[0].content).toBe('');
     expect(savedTabs[0].filePath).toBe('/path/hello.js');
+    expect(savedTabs[0].recipeBindingId).toBe('js-sort-objects');
 
     // In-memory tab stores content
     expect(savedTabs[1].content).toBe('const x = 42;');
@@ -116,6 +126,55 @@ describe('sessionStore', () => {
 
     // Active tab should be the second one (index 1)
     expect(activeTabId).toBe(tabs[1].id);
+  });
+
+  it('restores recipe bindings into the editor tab and transient recipe store', async () => {
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          name: 'js-sort-objects.js',
+          language: 'javascript',
+          content: 'const sorted = [];',
+          recipeBindingId: 'js-sort-objects',
+        },
+      ],
+      savedActiveIndex: 0,
+    });
+
+    await useSessionStore.getState().restoreSession();
+
+    const { tabs } = useEditorStore.getState();
+    expect(tabs).toHaveLength(1);
+    expect(tabs[0].recipeBindingId).toBe('js-sort-objects');
+    expect(useRecipeStore.getState().getBindingForTab(tabs[0].id)).toBe(
+      'js-sort-objects'
+    );
+  });
+
+  it('restores the Recipe panel when the active restored tab has a recipe binding', async () => {
+    useSessionStore.setState({
+      savedTabs: [
+        {
+          name: 'js-sort-objects.js',
+          language: 'javascript',
+          content: 'const sorted = [];',
+          recipeBindingId: 'js-sort-objects',
+        },
+        {
+          name: 'scratch.py',
+          language: 'python',
+          content: 'print("hello")',
+        },
+      ],
+      savedActiveIndex: 0,
+    });
+
+    await useSessionStore.getState().restoreSession();
+
+    expect(useUIStore.getState()).toMatchObject({
+      activeBottomPanel: 'recipe',
+      consoleVisible: true,
+    });
   });
 
   it('should handle missing files gracefully during restore', async () => {

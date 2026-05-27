@@ -36,6 +36,7 @@ import {
   PIPELINE_RUN_STATUSES_SET as WORKER_PIPELINE_RUN_STATUSES_SET,
   IMPORTER_IDS_SET as WORKER_IMPORTER_IDS_SET,
   IMPORT_STATUSES_SET as WORKER_IMPORT_STATUSES_SET,
+  RECIPE_RUN_STATUSES_SET as WORKER_RECIPE_RUN_STATUSES_SET,
   DEPENDENCY_COUNT_BUCKETS as WORKER_DEPENDENCY_COUNT_BUCKETS,
   TEMPLATE_PROJECT_IDS as WORKER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
@@ -58,12 +59,20 @@ import {
   PIPELINE_RUN_STATUSES_SET as RENDERER_PIPELINE_RUN_STATUSES_SET,
   IMPORTER_IDS_SET as RENDERER_IMPORTER_IDS_SET,
   IMPORT_STATUSES_SET as RENDERER_IMPORT_STATUSES_SET,
+  RECIPE_RUN_STATUSES_SET as RENDERER_RECIPE_RUN_STATUSES_SET,
   DEPENDENCY_COUNT_BUCKETS_SET as RENDERER_DEPENDENCY_COUNT_BUCKETS_SET,
   TEMPLATE_PROJECT_IDS as RENDERER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
 import { IMPORTER_IDS as RENDERER_IMPORTER_IDS } from '../../src/shared/importers/types';
+// RL-039 Slice B fold B — cross-import the canonical `RECIPE_RUN_STATUSES`
+// const tuple from the renderer source-of-truth (`lessonRunner.ts`).
+// The two `_SET` duplicates in `src/shared/telemetry.ts` +
+// `update-server/src/telemetry.ts` are derived from this tuple; the
+// 3-way parity check catches drift between the canonical tuple and
+// either Set (mirrors the RL-100 importer parity precedent).
+import { RECIPE_RUN_STATUSES as RENDERER_RECIPE_RUN_STATUSES } from '../../src/shared/lessonRunner';
 // RL-096 Slice 1 reviewer pass — cross-import the renderer's
 // canonical DENY_SUBSTRINGS so the parity test cannot silently
 // drift when the renderer extends the deny pass (as it did in this
@@ -874,6 +883,38 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       'all-ok',
       'incompatible',
       'partial',
+    ]);
+  });
+
+  it('recipe run statuses stay in sync (RL-039 Slice B fold B)', () => {
+    // 3-way closed-enum parity for `recipe.test_run.status`:
+    //   1. canonical const tuple `RECIPE_RUN_STATUSES` in
+    //      `src/shared/lessonRunner.ts` (the source of truth that
+    //      `rollupRunStatus` returns and `parseAssertionResults`
+    //      validates against),
+    //   2. duplicated Set `RECIPE_RUN_STATUSES_SET` in
+    //      `src/shared/telemetry.ts` (the renderer-side validator,
+    //      copied so the telemetry module stays import-cycle-free),
+    //   3. duplicated Set `RECIPE_RUN_STATUSES_SET` in
+    //      `update-server/src/telemetry.ts` (the worker mirror).
+    // A drift between (1) ↔ (2) would let the renderer accept a
+    // status the canonical rollup would never produce; a drift
+    // between (2) ↔ (3) would let the worker drop a status the
+    // renderer happily wrote. Mirrors the 3-way pattern from
+    // RL-100 (`IMPORTER_IDS`). NO `recipe.opened` parity needed —
+    // its payload is a language string validated by `isSafeToken`.
+    expect([...WORKER_RECIPE_RUN_STATUSES_SET].sort()).toEqual(
+      [...RENDERER_RECIPE_RUN_STATUSES].sort()
+    );
+    expect([...WORKER_RECIPE_RUN_STATUSES_SET].sort()).toEqual(
+      [...RENDERER_RECIPE_RUN_STATUSES_SET].sort()
+    );
+    expect([...WORKER_RECIPE_RUN_STATUSES_SET].sort()).toEqual([
+      'all-failed',
+      'all-passed',
+      'execution-error',
+      'sentinel-missing',
+      'some-failed',
     ]);
   });
 

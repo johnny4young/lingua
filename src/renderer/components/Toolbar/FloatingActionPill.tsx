@@ -45,6 +45,7 @@ import {
   ChevronDown,
   Command,
   FileSearch,
+  GraduationCap,
   GripVertical,
   Loader2,
   Play,
@@ -58,6 +59,7 @@ import {
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
+import { useLessonProgressStore } from '../../stores/lessonProgressStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggable } from '../../hooks/useDraggable';
 import { Kbd, Tooltip } from '../ui/chrome';
@@ -148,6 +150,12 @@ interface FloatingActionPillProps {
   onOpenQuickOpen?: () => void;
   onOpenSnippets?: () => void;
   onOpenUtilities?: () => void;
+  /**
+   * RL-039 Slice B fold G — Opens the Recipes overlay (`Mod+Alt+L`).
+   * When provided, the pill mounts a graduation-cap icon button +
+   * progress badge between Utilities and Settings.
+   */
+  onOpenRecipes?: () => void;
   utilitiesOpen?: boolean;
   /**
    * Optional callback invoked when the user clicks the trailing
@@ -163,6 +171,7 @@ export function FloatingActionPill({
   onOpenQuickOpen,
   onOpenSnippets,
   onOpenUtilities,
+  onOpenRecipes,
   utilitiesOpen = false,
   onOpenSettings,
 }: FloatingActionPillProps) {
@@ -331,7 +340,7 @@ export function FloatingActionPill({
   const runtimeChip = runtimeChipLabel(activeTab?.runtimeMode);
   const cssVars = { '--floating-pill-x': `${position.x}px`, '--floating-pill-y': `${position.y}px` } as React.CSSProperties;
   const hasToolbarActions = Boolean(
-    onOpenQuickOpen || onOpenPalette || onOpenSnippets || onOpenUtilities
+    onOpenQuickOpen || onOpenPalette || onOpenSnippets || onOpenUtilities || onOpenRecipes
   );
 
   // Render via portal so the pill is positioned relative to the viewport,
@@ -736,10 +745,14 @@ export function FloatingActionPill({
                 </button>
               </Tooltip>
             ) : null}
+            {onOpenRecipes ? <RecipesActionPillButton onOpenRecipes={onOpenRecipes} onMenuClose={() => setOpenMenu(null)} /> : null}
           </div>
         </>
       ) : null}
 
+      {/* RL-039 Slice B fold G — Recipes badge button. Rendered as a
+              sibling component so the lessonProgressStore subscription
+              stays scoped (no parent re-render storms). */}
       {/* 6. Settings cog — opens the Settings modal. Only mounted when
               the consumer wired `onOpenSettings`. */}
       {onOpenSettings ? (
@@ -763,5 +776,51 @@ export function FloatingActionPill({
       ) : null}
     </div>,
     container,
+  );
+}
+
+/**
+ * RL-039 Slice B fold G — Recipes pill button + progress badge.
+ * Reads the lessonProgressStore directly so a passed-count change
+ * does not force the parent pill to re-render (and so the badge
+ * stays in sync the moment Run + Test flips a recipe to passed).
+ * Mounted between Utilities and the Settings cog so the button row
+ * keeps a stable left-to-right order: Quick Open → Palette →
+ * Snippets → Utilities → Recipes → Settings.
+ */
+function RecipesActionPillButton({
+  onOpenRecipes,
+  onMenuClose,
+}: {
+  onOpenRecipes: () => void;
+  onMenuClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const passedCount = useLessonProgressStore((s) => s.passedCount());
+  return (
+    <Tooltip content={t('chrome.recipes.tooltip')}>
+      <button
+        type="button"
+        data-testid="action-pill-recipes"
+        aria-label={t('chrome.recipes.aria')}
+        onClick={() => {
+          onMenuClose();
+          onOpenRecipes();
+        }}
+        className="action-pill-icon-button relative"
+      >
+        <GraduationCap size={13} aria-hidden />
+        {passedCount > 0 ? (
+          <span
+            data-testid="action-pill-recipes-badge"
+            data-passed-count={passedCount}
+            aria-label={t('chrome.recipes.badgeAria', { count: passedCount })}
+            className="absolute -right-1 -top-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500 px-0.5 text-[8px] font-bold leading-none text-white shadow-sm"
+          >
+            {passedCount > 99 ? '99+' : passedCount}
+          </span>
+        ) : null}
+      </button>
+    </Tooltip>
   );
 }

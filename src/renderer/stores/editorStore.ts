@@ -13,6 +13,7 @@ import i18next from 'i18next';
 import { useProjectStore } from './projectStore';
 import { useRecentFilesStore } from './recentFilesStore';
 import { useDependencyDetectionStore } from './dependencyDetectionStore';
+import { useRecipeStore } from './recipeStore';
 import { useResultStore } from './resultStore';
 import { useSettingsStore } from './settingsStore';
 import { useUIStore } from './uiStore';
@@ -160,6 +161,30 @@ function dropCompareIfLanguageChanged<T extends FileTab>(
   if (previousLanguage === null || tab.language === previousLanguage) return tab;
   if (tab.compareWithSnapshotEnabled === undefined) return tab;
   const { compareWithSnapshotEnabled: _drop, ...rest } = tab;
+  void _drop;
+  return rest as T;
+}
+
+/**
+ * RL-039 Slice B — set of languages a recipe can run against. Slice
+ * B is JS-only; Slice C+ widens. A rename / Save-As that moves a
+ * recipe-bound tab outside this set drops the binding so the bottom
+ * panel `'recipe'` tab + the FloatingActionPill recipes badge stop
+ * surfacing stale state. Mirrors `dropAutoLogIfUnsupported` /
+ * `dropCompareIfLanguageChanged`.
+ */
+const RECIPE_BINDING_SUPPORTED_LANGUAGES: ReadonlySet<Language> = new Set([
+  'javascript',
+]);
+
+function dropRecipeBindingIfLanguageChanged<T extends FileTab>(
+  tab: T,
+  previousLanguage: Language | null
+): T {
+  if (previousLanguage === null || tab.language === previousLanguage) return tab;
+  if (tab.recipeBindingId === undefined) return tab;
+  if (RECIPE_BINDING_SUPPORTED_LANGUAGES.has(tab.language)) return tab;
+  const { recipeBindingId: _drop, ...rest } = tab;
   void _drop;
   return rest as T;
 }
@@ -342,6 +367,14 @@ async function persistTab(
     VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES.has(language)
       ? true
       : undefined;
+  // RL-039 Slice B — Save-As can change a recipe tab from `.js` to a
+  // non-runnable language. Keep the binding only when the saved tab
+  // remains on the same supported language; otherwise the persisted
+  // session copy would resurrect a stale Recipe panel after reload.
+  const recipeBindingId =
+    tab.language === language && RECIPE_BINDING_SUPPORTED_LANGUAGES.has(language)
+      ? tab.recipeBindingId
+      : undefined;
   const {
     autoLogEnabled: _staleAutoLogEnabled,
     stdinBuffer: _staleStdinBuffer,
@@ -352,6 +385,7 @@ async function persistTab(
     nextRunTimeoutOverrideMs: _staleNextRunTimeoutOverride,
     compareWithSnapshotEnabled: _staleCompareEnabled,
     variableInspectorEnabled: _staleInspectorEnabled,
+    recipeBindingId: _staleRecipeBindingId,
     ...tabWithoutDropped
   } = tab;
   void _staleAutoLogEnabled;
@@ -359,6 +393,7 @@ async function persistTab(
   void _staleNextRunTimeoutOverride;
   void _staleCompareEnabled;
   void _staleInspectorEnabled;
+  void _staleRecipeBindingId;
   const nextTab: FileTab & { filePath: string; rootId: string; relativePath: string } = {
     ...tabWithoutDropped,
     filePath: absolutePath,
@@ -376,6 +411,7 @@ async function persistTab(
     ...(variableInspectorEnabled !== undefined
       ? { variableInspectorEnabled }
       : {}),
+    ...(recipeBindingId !== undefined ? { recipeBindingId } : {}),
   };
   let content: string;
   try {
@@ -529,6 +565,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // dependency panel cannot surface stale rows for a closed
       // tab id that is later reused by a fresh `addTab()`.
       useDependencyDetectionStore.getState().evictTab(id);
+      // RL-039 Slice B fold G — unbind any recipe + drop in-flight
+      // run-result entries so the bottom-panel 'recipe' tab cannot
+      // resurface for a recycled tab id, and so `passedCount()` on
+      // the FloatingActionPill badge stays accurate. Mirrors the
+      // dependency-cache eviction above; the recipeStore is
+      // non-persisted but the entries would otherwise leak per
+      // tab close until full page reload.
+      useRecipeStore.getState().unbindRecipe(id);
       return { tabs, activeTabId };
     }),
 
@@ -794,6 +838,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
+  clearRecipeBinding: (id) => {
+    set((state) => ({
+      tabs: state.tabs.map((t) => {
+        if (t.id !== id || t.recipeBindingId === undefined) return t;
+        const { recipeBindingId: _drop, ...rest } = t;
+        void _drop;
+        return rest;
+      }),
+    }));
+    useRecipeStore.getState().unbindRecipe(id);
+  },
+
   setTabNextRunTimeoutOverride: (id, timeoutMs) => {
     set((state) => ({
       tabs: state.tabs.map((t) => {
@@ -972,6 +1028,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (savedTab.language !== previousLanguage) {
       useDependencyDetectionStore.getState().evictTab(id);
     }
+    if (tab.recipeBindingId !== undefined && savedTab.recipeBindingId === undefined) {
+      useRecipeStore.getState().unbindRecipe(id);
+    }
 
     if (previousRootId && previousRootId !== savedTab.rootId) {
       const rootStillUsed = tabs.some(
@@ -1114,21 +1173,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           // language clears the override, even if the new language
           // still supports auto-log. The user can re-arm via the
           // palette if they want to.
-          return dropVariableInspectorIfLanguageChanged(
-            dropCompareIfLanguageChanged(
-              dropNextRunTimeoutOverride({
-                ...renamed,
-                autoLogEnabled: tab.autoLogEnabled,
-              }),
+          return dropRecipeBindingIfLanguageChanged(
+            dropVariableInspectorIfLanguageChanged(
+              dropCompareIfLanguageChanged(
+                dropNextRunTimeoutOverride({
+                  ...renamed,
+                  autoLogEnabled: tab.autoLogEnabled,
+                }),
+                previousLanguage
+              ),
               previousLanguage
             ),
             previousLanguage
           );
         }
-        return dropVariableInspectorIfLanguageChanged(
-          dropCompareIfLanguageChanged(
-            dropNextRunTimeoutOverride(
-              dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed))
+        return dropRecipeBindingIfLanguageChanged(
+          dropVariableInspectorIfLanguageChanged(
+            dropCompareIfLanguageChanged(
+              dropNextRunTimeoutOverride(
+                dropStdinIfUnsupported(dropAutoLogIfUnsupported(renamed))
+              ),
+              previousLanguage
             ),
             previousLanguage
           ),
@@ -1146,6 +1211,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
     if (tabLanguageChanged) {
       useDependencyDetectionStore.getState().evictTab(id);
+    }
+    if (tabLanguageChanged) {
+      const renamedTab = get().tabs.find((tab) => tab.id === id);
+      if (renamedTab?.recipeBindingId === undefined) {
+        useRecipeStore.getState().unbindRecipe(id);
+      }
     }
     for (const correction of correctionsToEmit) {
       void trackEvent('runtime.workflow_mode_changed', {

@@ -39,6 +39,7 @@ import { RecoverySection } from './RecoverySection';
 import { RunCapsulesSection } from './RunCapsulesSection';
 import { UpdatesSection } from './UpdatesSection';
 import { OnboardingSection } from './OnboardingSection';
+import { RecipesProgressResetSection } from './RecipesProgressResetSection';
 import { PrivacyTrustSection } from './PrivacyTrustSection';
 import { UtilitiesSection } from './UtilitiesSection';
 import { useShallow } from 'zustand/react/shallow';
@@ -616,6 +617,8 @@ export function SettingsModal({
             <UpdatesSection />
             {/* RL-101 Slice 1 — Onboarding choreography reset toggles */}
             <OnboardingSection />
+            {/* RL-039 Slice B fold F — Reset recipe progress */}
+            <RecipesProgressResetSection />
           </div>
         );
       case 'appearance':

@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
 import { useEditorStore } from './editorStore';
+import { useRecipeStore } from './recipeStore';
+import { useUIStore } from './uiStore';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { coerceRuntimeMode, type RuntimeMode } from '../../shared/runtimeModes';
 
@@ -32,6 +34,13 @@ interface SessionTab {
    * language.
    */
   stdinBuffer?: string;
+  /**
+   * RL-039 Slice B — persisted recipe binding for tabs opened from
+   * the Recipes overlay. Runtime run-results stay transient in
+   * recipeStore; this id is enough to restore the prompt panel after
+   * a reload.
+   */
+  recipeBindingId?: string;
 }
 
 interface SessionState {
@@ -69,6 +78,7 @@ export const useSessionStore = create<SessionState>()(
           // so a tampered persisted entry can't leak the buffer onto
           // a Rust / Go / JSON tab.
           stdinBuffer: tab.stdinBuffer,
+          recipeBindingId: tab.recipeBindingId,
         }));
         const activeIndex = tabs.findIndex((t) => t.id === activeTabId);
         set({ savedTabs, savedActiveIndex: activeIndex });
@@ -132,6 +142,12 @@ export const useSessionStore = create<SessionState>()(
             stdinSupported && typeof saved.stdinBuffer === 'string'
               ? saved.stdinBuffer
               : undefined;
+          const restoredRecipeBindingId =
+            language === 'javascript' &&
+            typeof saved.recipeBindingId === 'string' &&
+            saved.recipeBindingId.length > 0
+              ? saved.recipeBindingId
+              : undefined;
 
           restored.push({
             id: crypto.randomUUID(),
@@ -145,6 +161,9 @@ export const useSessionStore = create<SessionState>()(
             ...(restoredStdinBuffer !== undefined
               ? { stdinBuffer: restoredStdinBuffer }
               : {}),
+            ...(restoredRecipeBindingId !== undefined
+              ? { recipeBindingId: restoredRecipeBindingId }
+              : {}),
           });
         }
 
@@ -152,6 +171,16 @@ export const useSessionStore = create<SessionState>()(
         // grandfather the user's workspace, not truncate it.
         const activeId = restored[savedActiveIndex]?.id ?? null;
         useEditorStore.getState().restoreTabs(restored, activeId);
+        const recipeStore = useRecipeStore.getState();
+        for (const tab of restored) {
+          if (tab.recipeBindingId !== undefined) {
+            recipeStore.bindRecipeToTab(tab.id, tab.recipeBindingId);
+          }
+        }
+        const activeRestoredTab = restored.find((tab) => tab.id === activeId);
+        if (activeRestoredTab?.recipeBindingId !== undefined) {
+          useUIStore.getState().openBottomPanel('recipe');
+        }
       },
     }),
     {

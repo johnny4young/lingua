@@ -145,6 +145,15 @@ vi.mock('../../src/renderer/components/BrowserPreview', () => ({
   BrowserPreviewPanel: () => <div data-testid="browser-preview-panel">Browser preview</div>,
 }));
 
+// RL-039 Slice B — mock the Recipe Run panel to avoid pulling
+// `runnerManager` (and its esbuild-wasm transitive dep, which jsdom
+// rejects with the `TextEncoder().encode("") instanceof Uint8Array`
+// invariant) into the AppLayout test harness. The conditional render
+// gating in AppLayout itself is exercised by the same test.
+vi.mock('../../src/renderer/components/Recipes/RecipeRunPanel', () => ({
+  RecipeRunPanel: () => <div data-testid="recipe-run-panel">Recipe Run + Test</div>,
+}));
+
 vi.mock('../../src/renderer/components/Editor/CodeEditor', () => ({
   CodeEditor: () => <div data-testid="code-editor">Code editor</div>,
 }));
@@ -312,6 +321,27 @@ describe('AppLayout responsive shell', () => {
     expect(screen.getByTestId('bottom-panel-browser-preview-tab')).toBeTruthy();
     expect(screen.getByTestId('browser-preview-panel')).toBeTruthy();
     expect(screen.queryByTestId('console-panel')).toBeNull();
+  });
+
+  it('shows the Recipe panel for an active tab with a persisted recipe binding', async () => {
+    editorTabs = [
+      {
+        id: 'recipe-tab',
+        language: 'javascript',
+        recipeBindingId: 'js-sort-objects',
+      },
+    ];
+    activeTabId = 'recipe-tab';
+    useUIStore.setState({
+      sidebarVisible: false,
+      consoleVisible: false,
+      activeBottomPanel: 'recipe',
+    });
+
+    await renderLayout();
+
+    expect(screen.getByTestId('bottom-panel-recipe-tab')).toBeTruthy();
+    expect(screen.getByTestId('recipe-run-panel')).toBeTruthy();
   });
 
   it('opens bottom Variables instead of disabling an already-enabled inspector chip', async () => {

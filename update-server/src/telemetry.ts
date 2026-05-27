@@ -206,6 +206,12 @@ export const TELEMETRY_EVENT_NAMES = [
   // `{ stepCount, status }` mirrored from src/shared/telemetry.ts.
   // Parity test cross-imports PIPELINE_RUN_STATUSES_SET.
   'utility.pipeline_executed',
+  // RL-039 Slice B fold B — Recipes overlay open + Run + Test
+  // settle. Closed-enum `{ language }` + `{ language, status }`
+  // mirrored from src/shared/telemetry.ts. Parity test cross-imports
+  // RECIPE_RUN_STATUSES_SET.
+  'recipe.opened',
+  'recipe.test_run',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -330,6 +336,9 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
   // RL-099 Slice 1 fold F — mirror of src/shared/telemetry.ts.
   'utility.pipeline_executed': ['stepCount', 'status'],
+  // RL-039 Slice B fold B — mirror of src/shared/telemetry.ts.
+  'recipe.opened': ['language'],
+  'recipe.test_run': ['language', 'status'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -501,6 +510,18 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
 // `src/shared/importers/types.ts` to keep them in sync.
 export const IMPORTER_IDS_SET = new Set(['curl-http']);
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
+// RL-039 Slice B fold B — mirror of `RECIPE_RUN_STATUSES_SET` in
+// `src/shared/telemetry.ts`. Parity test cross-imports the renderer
+// source-of-truth `RECIPE_RUN_STATUSES` from
+// `src/shared/lessonRunner.ts` so a future widening (e.g. adding a
+// `'cancelled'` user-stop bucket) lands on both sides at once.
+export const RECIPE_RUN_STATUSES_SET = new Set([
+  'all-passed',
+  'some-failed',
+  'all-failed',
+  'execution-error',
+  'sentinel-missing',
+]);
 // RL-095 Slice 1 fold A — mirror of `LANGUAGE_SCORECARD_SURFACES`.
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
   'settings',
@@ -1241,6 +1262,14 @@ function isAllowedValue(
         return (
           typeof value === 'string' && PIPELINE_RUN_STATUSES_SET.has(value)
         );
+      return false;
+    case 'recipe.opened':
+      if (key === 'language') return isSafeToken(value);
+      return false;
+    case 'recipe.test_run':
+      if (key === 'language') return isSafeToken(value);
+      if (key === 'status')
+        return typeof value === 'string' && RECIPE_RUN_STATUSES_SET.has(value);
       return false;
     default: {
       const exhaustive: never = event;

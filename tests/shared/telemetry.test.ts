@@ -120,6 +120,12 @@ describe('TELEMETRY_EVENTS', () => {
       // signal. Closed-enum `{ surface }` from
       // `PRIVACY_DASHBOARD_SURFACES` ('settings' | 'palette').
       'privacy.dashboard_opened',
+      // RL-039 Slice B fold B — Recipes overlay open + Run + Test
+      // settle. `recipe.*` sorts between `privacy.dashboard_opened`
+      // and `runner.executed` alphabetically. NO recipe id on the
+      // wire — `language` + closed-enum `status` only.
+      'recipe.opened',
+      'recipe.test_run',
       'runner.executed',
       // RL-020 Slice 5 — bare-expression auto-log toggle.
       'runtime.auto_log_emitted',

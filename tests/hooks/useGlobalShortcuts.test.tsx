@@ -45,6 +45,7 @@ function renderShortcuts(options: HarnessOptions = {}) {
     resetFloatingPositions: vi.fn(),
     toggleVariableInspectorSurface: vi.fn(),
     openImportOverlay: vi.fn(),
+    openRecipesOverlay: vi.fn(),
   };
 
   renderHook(() =>
@@ -186,6 +187,12 @@ describe('useGlobalShortcuts', () => {
     const calls = renderShortcuts();
     dispatchKeyDown({ key: 'i', ctrlKey: true, altKey: true });
     expect(calls.openImportOverlay).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens the Recipes overlay from Mod+Alt+L', () => {
+    const calls = renderShortcuts();
+    dispatchKeyDown({ key: 'l', ctrlKey: true, altKey: true });
+    expect(calls.openRecipesOverlay).toHaveBeenCalledTimes(1);
   });
 
   it('includes the active utility shortcut in copy success notices', async () => {
