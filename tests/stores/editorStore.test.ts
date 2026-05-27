@@ -10,6 +10,10 @@ vi.mock('@/utils/telemetry', () => ({
 
 import { useEditorStore, createDefaultTab } from '@/stores/editorStore';
 import { useDependencyDetectionStore } from '@/stores/dependencyDetectionStore';
+import {
+  resetRecipeStoreForTests,
+  useRecipeStore,
+} from '@/stores/recipeStore';
 import { useLicenseStore } from '@/stores/licenseStore';
 import { pluginRegistry } from '@/plugins';
 import { luaPlugin } from '@/plugins/lua-runner';
@@ -50,6 +54,7 @@ describe('editorStore', () => {
       tabs: [],
       activeTabId: null,
     });
+    resetRecipeStoreForTests();
     setActiveProLicense();
     if (!pluginRegistry.get(luaPlugin.id)) {
       pluginRegistry.register(luaPlugin);
@@ -78,6 +83,7 @@ describe('editorStore', () => {
 
   afterEach(() => {
     useDependencyDetectionStore.getState().clear();
+    resetRecipeStoreForTests();
     useEditorStore.setState(initialState, true);
   });
 
@@ -706,6 +712,40 @@ describe('editorStore', () => {
       expect(useDependencyDetectionStore.getState().byTab.has(tab.id)).toBe(
         false
       );
+    });
+
+    it('drops recipe binding and transient recipe state when rename leaves JavaScript', () => {
+      const tab = {
+        ...createDefaultTab('javascript'),
+        recipeBindingId: 'js-sort-objects',
+      };
+      useEditorStore.getState().addTab(tab);
+      useRecipeStore.getState().bindRecipeToTab(tab.id, 'js-sort-objects');
+      useRecipeStore
+        .getState()
+        .setRunResults(tab.id, [{ assertionId: 'a', status: 'pass' }]);
+
+      useEditorStore.getState().renameTab(tab.id, 'helper.py');
+
+      expect(useEditorStore.getState().tabs[0].recipeBindingId).toBeUndefined();
+      expect(useRecipeStore.getState().getBindingForTab(tab.id)).toBeUndefined();
+      expect(useRecipeStore.getState().getRunResultsForTab(tab.id)).toHaveLength(0);
+    });
+  });
+
+  describe('clearRecipeBinding', () => {
+    it('clears the persisted tab binding and transient recipe state', () => {
+      const tab = {
+        ...createDefaultTab('javascript'),
+        recipeBindingId: 'js-sort-objects',
+      };
+      useEditorStore.getState().addTab(tab);
+      useRecipeStore.getState().bindRecipeToTab(tab.id, 'js-sort-objects');
+
+      useEditorStore.getState().clearRecipeBinding(tab.id);
+
+      expect(useEditorStore.getState().tabs[0].recipeBindingId).toBeUndefined();
+      expect(useRecipeStore.getState().getBindingForTab(tab.id)).toBeUndefined();
     });
   });
 

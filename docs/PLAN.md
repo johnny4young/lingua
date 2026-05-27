@@ -12005,6 +12005,125 @@ Pre-req: RL-039 Slice A (guided tour + lesson drafts) already shipped. Slice B r
 
 **Dependencies:** RL-094 Slice 1 — assertions reference capsules as expected output.
 
+#### § Slice B landed (2026-05-26)
+
+Recipes shipped end-to-end with all 7 folds. Two scope drifts from the
+original plan, both surfaced + resolved during implementation:
+
+1. **Shortcut moved from `Mod+Shift+L` to `Mod+Alt+L`.** The plan
+   spec'd `Mod+Shift+L` but the catalog audit caught a collision —
+   RL-036 Phase A1 fold D shipped the share-link `copyShareLink`
+   shortcut on `Mod+Shift+L`. `Mod+Alt+L` (mnemonic "Lessons /
+   Library") was verified free against the catalog (Mod+Alt+R is
+   utility-replace-clipboard, Mod+Alt+I is RL-100 import, Mod+Alt+S
+   is SQL, Mod+Alt+H is recent-runs) and reads cleanly against
+   Chrome's Cmd+Alt+L (also unused).
+2. **Overlay visibility lives on `useRecipeStore.overlayOpen`, not
+   the single-slot `AppOverlay` union.** The plan assumed AppOverlay
+   widening (like RL-100). Switched to a dedicated store flag so the
+   overlay can co-exist with a recipe-bound tab being active (the
+   user opens a second recipe in another tab while the first stays
+   bound). The `App.tsx` mount uses a `<RecipesOverlayMount>`
+   subcomponent subscribing to the store flag so other AppOverlay
+   slot users (Settings, Snippets, palette, etc.) keep their
+   exclusivity.
+
+Shipped contents:
+
+- `src/shared/lessonPack.ts` (~280 LOC) — `LessonPackV1` v1 schema
+  + `parseLessonPack` discriminated outcome + `pickProse` locale
+  fallback + `previewPromptLine` (strips markdown markers, collapses
+  whitespace, truncates with ellipsis). Closed enums:
+  `LESSON_REJECT_REASONS` (`empty / malformed-json / invalid-shape /
+  wrong-version / unknown-language / oversized`),
+  `ASSERTION_EXIT_KINDS` (`value / throw / console-contains`). Caps:
+  `MAX_LESSON_PACK_BYTES = 32 KiB`, `MAX_ASSERTIONS_PER_PACK = 10`,
+  `MAX_ASSERTION_CODE_LENGTH = 2 000`, `MAX_STARTER_CODE_LENGTH =
+  8 000`, `MAX_PROMPT_LENGTH = 6 000`.
+- `src/shared/lessonRunner.ts` (~340 LOC) — `buildLessonRunSource`
+  composes an async IIFE that runs the user's code in a try/catch,
+  then iterates the assertions and emits one
+  `[[lingua-recipe:result]]<json>` line per assertion. The sentinel
+  lives ONLY here; both the renderer parser AND the future
+  `lingua lesson validate` CLI import from this module. Closed enums:
+  `ASSERTION_RESULT_STATUSES` (`pass / fail / thrown /
+  sentinel-missing`), `RECIPE_RUN_STATUSES` (`all-passed /
+  some-failed / all-failed / execution-error / sentinel-missing`).
+  Slice B JS-only gate via `RECIPE_RUNNABLE_LANGUAGES = {'javascript'}`.
+- 10 bundled recipes under `src/renderer/data/recipes/`:
+  `js-sort-objects`, `js-array-deduplicate`, `js-flatten-array`,
+  `js-fizzbuzz`, `js-string-anagram`, `js-array-chunk`,
+  `js-object-deep-clone`, `js-count-vowels`, `js-find-duplicates`,
+  `js-palindrome` — each a TS const matching `LessonPackV1` so tsc
+  catches schema drift at build time. All ship en + es prose.
+- `useRecipeStore` (transient) + persisted `useLessonProgressStore`
+  on isolated `lingua-lesson-progress` localStorage key
+  (`LESSON_PROGRESS_CAP = 200`, sticky `'passed'` never demotes,
+  sanitize-on-rehydrate drops tampered entries silently).
+- `useRecipeRun` hook calls `runnerManager.execute('javascript', composedSource)`
+  directly (NOT `useRunner`) — assertion runs MUST NOT pollute the
+  user's execution history / capsule snapshots / result panel.
+- `<RecipesOverlay>` (search + chip filter + fuzzy-filtered list +
+  Enter/arrow nav + Escape dismiss) + `<RecipeRunPanel>` (markdown
+  prompt + Run+Test + per-assertion result rows with collapsible
+  details/hint) + `<RecipeMarkdown>` 4-element subset renderer
+  (paragraphs / headings / inline code / fenced code blocks /
+  bullets; NO HTML pass-through, NO arbitrary tag whitelist).
+- `BottomPanelTab` widened with `'recipe'`; AppLayout gates the tab
+  on the active `FileTab.recipeBindingId`, while `useRecipeStore`
+  keeps only transient run results / in-flight state.
+- `Mod+Alt+L` shortcut + `Open recipes…` palette entry (keywords
+  cover `recipe / lesson / practice / tutorial / library / receta /
+  leccion / lección / práctica`).
+- Closed-enum telemetry `recipe.opened { language }` +
+  `recipe.test_run { language, status }` mirrored on update-server
+  with `RECIPE_RUN_STATUSES_SET` parity test cross-importing the
+  renderer source-of-truth from `lessonRunner.ts`. No recipe id on
+  the wire (privacy posture; Slice C+ can add behind a closed
+  `RECIPE_IDS_SET` parity test).
+- Fold C — per-assertion `details` ≤200 chars (clipped by
+  `MAX_ASSERTION_DETAIL_LENGTH` in the composed source). Fold D —
+  localized first-line prompt preview in the overlay list. Fold F —
+  Settings → General → `<RecipesProgressResetSection>` with
+  `window.confirm()` gate + localized status notice. Fold G —
+  FloatingActionPill `<RecipesActionPillButton>` graduation-cap icon
+  + emerald `passedCount` badge (`99+` overflow), subscribes to
+  `useLessonProgressStore` directly to avoid parent re-render storms.
+- Editor-store guard `dropRecipeBindingIfLanguageChanged` clears
+  `FileTab.recipeBindingId` on rename to a non-recipe-runnable
+  language (Slice B set: `{'javascript'}`).
+- 44 i18n keys × en + es tuteo (`Abre las recetas`, `Ejecuta`,
+  `Pasó`, `Falló`, `Detalles`, `Reinicia el progreso`,
+  `Cancelar`); audited — no voseo forms.
+- Tests: ~70+ new cases. `tests/shared/lessonPack.test.ts` (14),
+  `tests/shared/lessonRunner.test.ts` (15),
+  `tests/data/recipes.test.ts` (7), `tests/stores/recipeStore.test.ts`
+  (8), `tests/stores/lessonProgressStore.test.ts` (10),
+  `tests/components/Recipes/RecipesOverlay.test.tsx` (9),
+  `tests/e2e/recipes.spec.ts` (Mod+Alt+L EN + ES tuteo binding).
+  `tests/shared/telemetry.test.ts` sorted-events extended.
+  `tests/hooks/useGlobalShortcuts.test.tsx` extended with Mod+Alt+L
+  dispatch. `tests/components/AppLayout.test.tsx` extended with
+  `<RecipeRunPanel>` mock (avoids pulling `runnerManager`'s
+  esbuild-wasm transitive dep into the jsdom harness).
+- Security audit: the composed source uses `eval(assertion.code)`
+  for `'value'` and `'throw'` kinds. The `code` field is bundled
+  catalog content only Slice B (zero user-authored recipes); future
+  Slice C+ import paths will route through `parseLessonPack` which
+  caps `MAX_ASSERTION_CODE_LENGTH = 2 000`. The composed source
+  runs inside the existing JS worker which already enforces RL-020
+  Slice 7 timeout presets + RL-077 / RL-078 hardening; no DOM, no
+  IPC bridge, no `window.lingua.*` reach. `<RecipeMarkdown>` renders
+  text via React children only — no HTML pass-through, no
+  `dangerouslySetInnerHTML`.
+
+**Remaining**: Slice C+ (Python + TypeScript recipes, AI hints via
+RL-031 Slice 2, user-authored recipe import/export via the RL-100
+registry, lesson tree progression view, `lingua lesson validate`
+CLI subcommand). RL-039's original Slice A markdown lesson drafts
+in `docs/lessons/` stay in place — Slice B reframes the work as
+"Recipes" but doesn't delete prior content.
+
 ### RL-050 — Phase A spike + Phase B cross-internet (extension)
 
 Pre-req: None for Phase A spike. Phase A spike produces an ADR; Phase B (cross-internet) is gated until Phase A implementation ships.

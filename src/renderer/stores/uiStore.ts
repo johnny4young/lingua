@@ -29,7 +29,14 @@ export type BottomPanelTab =
   // (DuckDB-WASM). Same "always available" posture as HTTP. Tab
   // surfaces via Mod+Alt+S (Mod+Shift+Q rejected — macOS log-out
   // OS-level conflict) or the `Open SQL workspace` palette entry.
-  | 'sql';
+  | 'sql'
+  // RL-039 Slice B — bottom-panel sibling for the Recipes Run + Test
+  // surface. Conditional render in `AppLayout.tsx` gates on the
+  // active tab having a `recipeBindingId` (set by the overlay's
+  // open-recipe flow), so tabs that are not bound to a recipe never
+  // see the chrome. Opening the Recipes overlay (`Mod+Alt+L`) +
+  // confirming a recipe flips the bottom panel here automatically.
+  | 'recipe';
 export type VariablesViewMode = 'list' | 'cards';
 
 /**

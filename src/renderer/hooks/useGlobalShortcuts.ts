@@ -82,6 +82,12 @@ interface UseGlobalShortcutsOptions {
    */
   openImportOverlay: () => void;
   /**
+   * RL-039 Slice B fold A — open the global Recipes overlay via
+   * Mod+Alt+L. Caller wires this to
+   * `useRecipeStore.getState().openOverlay()`.
+   */
+  openRecipesOverlay: () => void;
+  /**
    * RL-019 Slice 1 fold D — cycle the active JS/TS tab through the
    * implemented runtime modes. RL-019 now ships all three modes:
    * Worker, Node, and Browser preview.
@@ -229,6 +235,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'workspace-toggle-sql': () => options.toggleSqlWorkspace(),
     'action-open-utility-pipelines': () => options.openUtilityPipelines(),
     'action-open-import-overlay': () => options.openImportOverlay(),
+    'action-open-recipes': () => options.openRecipesOverlay(),
     'overlay-command-palette': () => options.toggleOverlay('palette'),
     'overlay-settings': () => options.toggleOverlay('settings'),
     'overlay-developer-utilities': () => options.openDeveloperUtilities(),

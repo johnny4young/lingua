@@ -16,6 +16,8 @@ import { SnippetsModal } from './components/Snippets';
 import { ProjectTemplatesOverlay } from './components/Welcome/ProjectTemplatesOverlay';
 import { CapsuleImportOverlay } from './components/CapsuleImport';
 import { ImportPreviewOverlay } from './components/ImportPreview/ImportPreviewOverlay';
+import { RecipesOverlay } from './components/Recipes/RecipesOverlay';
+import { useRecipeStore } from './stores/recipeStore';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
 import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner';
@@ -448,6 +450,15 @@ function AppChrome({
     openImportOverlay: () => {
       openOverlay('import-preview');
     },
+    // RL-039 Slice B fold A — Mod+Alt+L opens the global Recipes
+    // overlay. Overlay open state lives on `useRecipeStore`, not the
+    // single-slot `AppOverlay` union, because a bound recipe tab can
+    // co-exist with an open recipes overlay (e.g. the user wants to
+    // open a second recipe in another tab while the first is still
+    // active).
+    openRecipesOverlay: () => {
+      useRecipeStore.getState().openOverlay();
+    },
     cycleRuntimeMode: () => {
       // RL-019 Slice 1 fold D — cycle the active JS/TS tab through
       // the implemented runtime modes. No-op for non-JS/TS tabs.
@@ -765,6 +776,7 @@ function AppChrome({
         onOpenQuickOpen={() => openOverlay('quick-open')}
         onOpenSnippets={() => openOverlay('snippets')}
         onOpenUtilities={() => handleOpenDeveloperUtility()}
+        onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
         utilitiesOpen={overlay === 'utilities'}
       />
       <ShareLinkController />
@@ -824,6 +836,7 @@ function AppChrome({
           onNewProjectFromTemplate={() => openOverlay('project-templates')}
           onOpenCapsuleImport={() => openOverlay('capsule-import')}
           onOpenImportOverlay={() => openOverlay('import-preview')}
+          onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
       )}
@@ -836,6 +849,10 @@ function AppChrome({
       {overlay === 'import-preview' && (
         <ImportPreviewOverlay onClose={closeOverlay} />
       )}
+      {/* RL-039 Slice B — Recipes overlay. Visibility flag lives on
+          `useRecipeStore` (not the AppOverlay union) so the overlay
+          can co-exist with a recipe-bound tab being active. */}
+      <RecipesOverlayMount />
       {overlay === 'settings' && (
         <SettingsModal
           onClose={closeOverlay}
@@ -865,6 +882,20 @@ function AppChrome({
       <NativeExecutionWarning />
     </>
   );
+}
+
+/**
+ * RL-039 Slice B — Recipes overlay mount. Visibility flag lives on
+ * `useRecipeStore.overlayOpen` instead of the single-slot `AppOverlay`
+ * union so the overlay can co-exist with a recipe-bound tab being
+ * active (the user opens a second recipe while the first tab keeps
+ * its binding).
+ */
+function RecipesOverlayMount() {
+  const overlayOpen = useRecipeStore((s) => s.overlayOpen);
+  const closeOverlay = useRecipeStore((s) => s.closeOverlay);
+  if (!overlayOpen) return null;
+  return <RecipesOverlay onClose={closeOverlay} />;
 }
 
 export function App() {

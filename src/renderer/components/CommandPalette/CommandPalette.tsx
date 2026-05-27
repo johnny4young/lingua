@@ -88,6 +88,10 @@ interface CommandPaletteProps {
    */
   onOpenCapsuleImport?: () => void;
   onOpenImportOverlay?: () => void;
+  /**
+   * RL-039 Slice B fold A — opens the Recipes overlay (`Mod+Alt+L`).
+   */
+  onOpenRecipes?: () => void;
 }
 
 export function CommandPalette({
@@ -109,6 +113,7 @@ export function CommandPalette({
   onToggleVimMode,
   onOpenCapsuleImport,
   onOpenImportOverlay,
+  onOpenRecipes,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -436,6 +441,7 @@ export function CommandPalette({
       latestCapsuleAvailable: latestCapsule !== null,
       onOpenCapsuleImport,
       onOpenImportOverlay,
+      onOpenRecipes,
       // RL-095 Slice 1 fold B — open Settings on the Languages tab and
       // scroll to the scorecard. Three pieces of choreography:
       //   1. Claim the next scorecard mount as `surface: 'palette'`

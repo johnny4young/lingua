@@ -10,6 +10,7 @@ import {
   GitBranch,
   GitCompare,
   Globe,
+  GraduationCap,
   MessageSquare,
   PanelLeft,
   Terminal,
@@ -33,6 +34,8 @@ import { useGitDiffTabAvailable } from '../Editor/useGitDiffTabAvailable';
 import { GitDiffPanel } from '../Editor/GitDiffPanel';
 import { HttpWorkspacePanel } from '../HttpWorkspace';
 import { SqlWorkspacePanel } from '../SqlWorkspace';
+import { RecipeRunPanel } from '../Recipes/RecipeRunPanel';
+import { getRecipeById } from '../../data/recipes';
 import { AppChrome } from '../Chrome';
 import { registerBrowserPreviewActivator } from '../../runtime/browserPreviewBridge';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
@@ -377,6 +380,13 @@ interface MainContentProps {
    * the only thing the user wants visible.
    */
   showVariablesTabBody: boolean;
+  /**
+   * RL-039 Slice B — true when a recipe-bound active tab owns the
+   * selected bottom panel. Mirrors the stdin / variables gates so a
+   * restored or programmatically-selected Recipe panel can mount
+   * even when the console drawer was previously collapsed.
+   */
+  showRecipeTabBody: boolean;
   layoutPreset: LayoutPreset;
 }
 
@@ -471,6 +481,19 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   });
   const dependenciesAvailable = useDependenciesPanelAvailable();
   const gitDiffAvailable = useGitDiffTabAvailable();
+  // RL-039 Slice B — gate the `recipe` bottom-panel tab on the
+  // persisted tab binding, not the transient recipeStore Map. The
+  // Map only owns run results / in-flight state; the tab field is
+  // what survives session restore and explicit unbind.
+  const activeRecipeBindingId = useEditorStore((state) => {
+    if (!state.activeTabId) return null;
+    return (
+      state.tabs.find((tab) => tab.id === state.activeTabId)?.recipeBindingId ??
+      null
+    );
+  });
+  const recipeTabAvailable =
+    activeRecipeBindingId !== null && getRecipeById(activeRecipeBindingId) !== undefined;
   const effectiveTab:
     | 'console'
     | 'debugger'
@@ -480,7 +503,8 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     | 'dependencies'
     | 'git-diff'
     | 'http'
-    | 'sql' =
+    | 'sql'
+    | 'recipe' =
     variablesAvailable && activeBottomPanel === 'variables'
       ? 'variables'
       : browserPreviewAvailable && (activeBottomPanel === 'browser-preview' || !consoleVisible)
@@ -501,7 +525,12 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
                   // RL-097 Slice 2 — SQL workspace tab. Same posture as HTTP.
                   : activeBottomPanel === 'sql'
                     ? 'sql'
-                    : 'console';
+                    // RL-039 Slice B — Recipes Run + Test panel. Only when
+                    // the active tab is bound (the overlay's "open recipe"
+                    // confirm flips here automatically).
+                    : recipeTabAvailable && activeBottomPanel === 'recipe'
+                      ? 'recipe'
+                      : 'console';
 
   useEffect(() => {
     if (activeBottomPanel === 'debugger' && !debuggerAvailable) {
@@ -522,6 +551,9 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     if (activeBottomPanel === 'git-diff' && !gitDiffAvailable) {
       setActiveBottomPanel('console');
     }
+    if (activeBottomPanel === 'recipe' && !recipeTabAvailable) {
+      setActiveBottomPanel('console');
+    }
   }, [
     activeBottomPanel,
     debuggerAvailable,
@@ -530,6 +562,7 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     variablesAvailable,
     dependenciesAvailable,
     gitDiffAvailable,
+    recipeTabAvailable,
     setActiveBottomPanel,
   ]);
 
@@ -544,6 +577,7 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
       | 'git-diff'
       | 'http'
       | 'sql'
+      | 'recipe'
   ) => {
     if (tab === 'debugger' && !debuggerAvailable) return;
     if (tab === 'browser-preview' && !browserPreviewAvailable) return;
@@ -551,6 +585,7 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     if (tab === 'variables' && !variablesAvailable) return;
     if (tab === 'dependencies' && !dependenciesAvailable) return;
     if (tab === 'git-diff' && !gitDiffAvailable) return;
+    if (tab === 'recipe' && !recipeTabAvailable) return;
     // RL-097 — `'http'` and `'sql'` are unconditional (always available).
     openBottomPanel(tab);
   };
@@ -765,6 +800,29 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             </button>
           </Tooltip>
         ) : null}
+        {/* RL-039 Slice B — Recipes Run + Test tab. Only mounts when
+            the active tab has a recipe binding (the overlay's open-
+            recipe confirm sets the binding + flips the panel here). */}
+        {recipeTabAvailable ? (
+          <Tooltip content={t('recipes.tab.hint')} side="bottom">
+            <button
+              type="button"
+              role="tab"
+              data-testid="bottom-panel-recipe-tab"
+              aria-selected={effectiveTab === 'recipe'}
+              onClick={() => selectTab('recipe')}
+              className={cn(
+                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                effectiveTab === 'recipe'
+                  ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
+                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
+              )}
+            >
+              <GraduationCap size={12} aria-hidden="true" />
+              {t('recipes.tab.label')}
+            </button>
+          </Tooltip>
+        ) : null}
         <Tooltip content={t('bottomPanel.actions.hide')} side="bottom">
           <button
             type="button"
@@ -794,6 +852,8 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
           <HttpWorkspacePanel />
         ) : effectiveTab === 'sql' ? (
           <SqlWorkspacePanel />
+        ) : effectiveTab === 'recipe' ? (
+          <RecipeRunPanel />
         ) : (
           <ConsolePanel />
         )}
@@ -808,6 +868,7 @@ function MainContent({
   showBrowserPreviewPanel,
   showStdinTabBody,
   showVariablesTabBody,
+  showRecipeTabBody,
   layoutPreset,
 }: MainContentProps) {
   const verticalLayout = useDefaultLayout({
@@ -826,7 +887,8 @@ function MainContent({
     showDebuggerPanel ||
     showBrowserPreviewPanel ||
     showStdinTabBody ||
-    showVariablesTabBody;
+    showVariablesTabBody ||
+    showRecipeTabBody;
 
   if (!showBottomPanel) return <EditorAreaWithConsoleRestoreStrip />;
 
@@ -912,6 +974,12 @@ interface AppLayoutProps {
   onOpenQuickOpen?: () => void;
   onOpenSnippets?: () => void;
   onOpenUtilities?: () => void;
+  /**
+   * RL-039 Slice B fold G — Recipes overlay opener (Mod+Alt+L).
+   * Threaded through to `<FloatingActionPill>` so the badge + button
+   * surface next to Utilities + Settings.
+   */
+  onOpenRecipes?: () => void;
   utilitiesOpen?: boolean;
 }
 
@@ -939,6 +1007,7 @@ export function AppLayout({
   onOpenQuickOpen,
   onOpenSnippets,
   onOpenUtilities,
+  onOpenRecipes,
   utilitiesOpen,
 }: AppLayoutProps) {
   const { t } = useTranslation();
@@ -1020,9 +1089,21 @@ export function AppLayout({
     activeRuntimeMode !== 'node' &&
     (activeLanguage === 'javascript' ||
       activeLanguage === 'typescript' ||
-      activeLanguage === 'python') &&
+    activeLanguage === 'python') &&
     scopeSnapshotForLayout !== null &&
     scopeSnapshotForLayout.language === activeLanguage;
+  const activeRecipeBindingIdForLayout = useEditorStore((state) => {
+    if (!state.activeTabId) return null;
+    return (
+      state.tabs.find((tab) => tab.id === state.activeTabId)?.recipeBindingId ??
+      null
+    );
+  });
+  const showRecipeTabBody =
+    layoutPreset !== 'editor-only' &&
+    activeBottomPanelForLayout === 'recipe' &&
+    activeRecipeBindingIdForLayout !== null &&
+    getRecipeById(activeRecipeBindingIdForLayout) !== undefined;
   const showPersistentSidebar = sidebarVisible && !isCompactShell;
   const isCompactDrawerOpen = sidebarVisible && isCompactShell;
   const handleExplorerNavigate = isCompactShell ? () => setSidebarVisible(false) : undefined;
@@ -1165,6 +1246,7 @@ export function AppLayout({
           onOpenQuickOpen={onOpenQuickOpen}
           onOpenSnippets={onOpenSnippets}
           onOpenUtilities={onOpenUtilities}
+          onOpenRecipes={onOpenRecipes}
           utilitiesOpen={utilitiesOpen}
         />
         {showPersistentSidebar ? (
@@ -1195,6 +1277,7 @@ export function AppLayout({
                   showBrowserPreviewPanel={showBrowserPreviewPanel}
                   showStdinTabBody={showStdinTabBody}
                   showVariablesTabBody={showVariablesTabBody}
+                  showRecipeTabBody={showRecipeTabBody}
                   layoutPreset={layoutPreset}
                 />
               </div>
@@ -1209,6 +1292,7 @@ export function AppLayout({
                 showBrowserPreviewPanel={showBrowserPreviewPanel}
                 showStdinTabBody={showStdinTabBody}
                 showVariablesTabBody={showVariablesTabBody}
+                showRecipeTabBody={showRecipeTabBody}
                 layoutPreset={layoutPreset}
               />
             </div>
