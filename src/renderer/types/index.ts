@@ -190,6 +190,20 @@ export interface FileTab {
    * on `useRecipeStore` keyed by tab id.
    */
   recipeBindingId?: string;
+  /**
+   * RL-043 Slice A — when `'notebook'`, this tab renders
+   * `<NotebookView>` instead of Monaco. The companion document
+   * (cells + outputs + run status) lives in `useNotebookStore` keyed
+   * by `tab.id`. The `content` field is unused for notebook tabs (the
+   * cell sources are the source of truth); `language` is informational
+   * only — per-cell language is the runner dispatch key.
+   *
+   * Slice A is the only Slice that ships a `kind` field; Slice B+ may
+   * widen to `'docs'` / `'preview'` / etc. Cleared on rename to a
+   * non-notebook file (rejected upstream) and on tab close (the
+   * notebookStore + notebookSession both dispose).
+   */
+  kind?: 'notebook';
 }
 
 /**
@@ -312,6 +326,13 @@ export interface EditorState {
    * session-store copy cannot resurrect the panel after reload.
    */
   clearRecipeBinding: (id: string) => void;
+  /**
+   * RL-043 Slice A — create a fresh notebook tab. Wraps `addTab` with
+   * `kind: 'notebook'` + seeds the companion `useNotebookStore`
+   * entry. Returns the new tab id on success, `null` if the tab
+   * budget is exhausted or the entitlement gate denies.
+   */
+  addNotebookTab: (opts?: { title?: string }) => string | null;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The

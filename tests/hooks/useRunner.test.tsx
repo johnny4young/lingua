@@ -8,6 +8,7 @@ import { useLicenseStore } from '@/stores/licenseStore';
 import { useNativeExecutionGateStore } from '@/stores/nativeExecutionGateStore';
 import { useResultStore } from '@/stores/resultStore';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useUIStore } from '@/stores/uiStore';
 import type { ExecutionResult } from '@/types';
 
 const {
@@ -35,6 +36,7 @@ describe('useRunner', () => {
   const initialExecutionHistoryState = useExecutionHistoryStore.getState();
   const initialLicenseState = useLicenseStore.getState();
   const initialResultState = useResultStore.getState();
+  const initialUIState = useUIStore.getState();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -63,6 +65,7 @@ describe('useRunner', () => {
       lastVerifiedAt: Date.now(),
     });
     useResultStore.setState(initialResultState, true);
+    useUIStore.setState({ statusNotice: null });
     // RL-079 — pre-acknowledge native execution by default so the
     // existing Rust/Go test cases bypass the gate. The dedicated
     // RL-079 describe block resets this to `false` to exercise the
@@ -82,6 +85,7 @@ describe('useRunner', () => {
     useExecutionHistoryStore.setState(initialExecutionHistoryState, true);
     useLicenseStore.setState(initialLicenseState, true);
     useResultStore.setState(initialResultState, true);
+    useUIStore.setState(initialUIState, true);
   });
 
   it('syncs dynamic manual runs into the result store', async () => {
@@ -132,6 +136,34 @@ describe('useRunner', () => {
     expect(useEditorStore.getState().tabs[0]).toMatchObject({
       executionState: 'error',
       parseError: 'Boom',
+    });
+  });
+
+  it('does not route notebook tabs through the file runner', async () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'notebook-tab',
+          name: 'Analysis.linguanb',
+          language: 'javascript',
+          content: '',
+          isDirty: false,
+          kind: 'notebook',
+        },
+      ],
+      activeTabId: 'notebook-tab',
+    });
+
+    const { result: hook } = renderHook(() => useRunner());
+
+    await act(async () => {
+      await hook.current.run();
+    });
+
+    expect(mockPrepareRunner).not.toHaveBeenCalled();
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'info',
+      messageKey: 'notebook.notice.useNotebookToolbar',
     });
   });
 

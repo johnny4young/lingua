@@ -364,6 +364,20 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['recipe', 'lesson', 'practice', 'tutorial', 'library'],
   },
   {
+    // RL-043 Slice A fold A — Create a fresh notebook tab from
+    // anywhere via Mod+Alt+N (N for Notebook). Verified free vs the
+    // catalog: Mod+Shift+N is browser "new window", Mod+Alt+L is
+    // RL-039 Recipes, Mod+Alt+I is RL-100 import, Mod+Alt+S is SQL,
+    // Mod+Alt+H is recent-runs. Browser/macOS: Cmd+Alt+N is unused
+    // in Chrome; macOS lockscreen lives on Ctrl+Cmd+Q.
+    id: 'action-new-notebook',
+    group: 'navigation',
+    labelKey: 'shortcuts.item.newNotebook.label',
+    descriptionKey: 'shortcuts.item.newNotebook.description',
+    combos: [{ tokens: ['Mod', 'Alt', 'N'] }],
+    keywords: ['notebook', 'cell', 'jupyter', 'new', 'cuaderno'],
+  },
+  {
     // RL-094 Slice 2 fold A — Open the Capsule Import overlay so the
     // user can paste / drop / pick a capsule JSON file and inspect
     // before opening as a new tab. `Mod+Shift+Y` (Y is unused +

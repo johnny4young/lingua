@@ -68,6 +68,11 @@ const CodeEditor = lazy(async () => {
   return { default: module.CodeEditor };
 });
 
+const LazyNotebookView = lazy(async () => {
+  const module = await import('../Notebook/NotebookView');
+  return { default: module.NotebookView };
+});
+
 function useCompactShellLayout() {
   const [isCompact, setIsCompact] = useState(() => window.innerWidth < COMPACT_SHELL_BREAKPOINT);
 
@@ -278,6 +283,15 @@ function EditorArea() {
     panelIds: ['editor-panel', 'results-panel'],
     storage: localStorage,
   });
+  // RL-043 Slice A — when the active tab carries `kind: 'notebook'`,
+  // mount `<NotebookView>` instead of Monaco. The selector returns a
+  // primitive string-or-null so Zustand's default `===` check skips
+  // re-renders when the active tab's kind hasn't changed.
+  const activeNotebookTabId = useEditorStore((s) => {
+    if (!s.activeTabId) return null;
+    const active = s.tabs.find((tab) => tab.id === s.activeTabId);
+    return active?.kind === 'notebook' ? active.id : null;
+  });
 
   return (
     <div id="guided-tour-editor" className="flex h-full flex-col">
@@ -307,7 +321,15 @@ function EditorArea() {
       </div>
       <PanelChipsRow />
       <div className="min-h-0 flex-1">
-        {hasTabs ? (
+        {activeNotebookTabId !== null ? (
+          /* RL-043 Slice A — notebook tabs mount `<NotebookView>` in
+             place of the Monaco + ResultPanel split. The Monaco editor
+             would otherwise try to render the (empty) notebook tab
+             `content` and the result panel would surface stale state. */
+          <Suspense fallback={<EditorLoadingState />}>
+            <LazyNotebookView tabId={activeNotebookTabId} />
+          </Suspense>
+        ) : hasTabs ? (
           <>
             <Group
               orientation="horizontal"

@@ -43,6 +43,11 @@ export function useRunner() {
       return;
     }
 
+    if (activeTab.kind === 'notebook') {
+      pushNotebookRunNotice();
+      return;
+    }
+
     if (!isLanguageAllowed(currentEffectiveTier(), activeTab.language)) {
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
@@ -112,6 +117,11 @@ export function useRunner() {
       return;
     }
 
+    if (activeTab.kind === 'notebook') {
+      pushNotebookRunNotice();
+      return;
+    }
+
     if (!isLanguageAllowed(currentEffectiveTier(), activeTab.language)) {
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
@@ -162,4 +172,11 @@ export function useRunner() {
 function oneLineTooltip(message: string): string | null {
   const firstLine = message.split('\n')[0]?.trim();
   return firstLine && firstLine.length > 0 ? firstLine.slice(0, 160) : null;
+}
+
+function pushNotebookRunNotice(): void {
+  useUIStore.getState().pushStatusNotice({
+    tone: 'info',
+    messageKey: 'notebook.notice.useNotebookToolbar',
+  });
 }

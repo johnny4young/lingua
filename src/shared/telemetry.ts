@@ -416,6 +416,17 @@ export const TELEMETRY_EVENTS = [
   // renderer source of truth.
   'recipe.opened',
   'recipe.test_run',
+  // RL-043 Slice A fold B — notebook cell execution. Fires once per
+  // `Run cell` settle (and once per cell in `Run all` / `Run above`).
+  // Closed-enum `{ language, status }` where `language` ∈
+  // `NOTEBOOK_CELL_LANGUAGES_SET` (Slice A: `'javascript'` only;
+  // schema-generic for Slice B+ TypeScript + Python) and `status` ∈
+  // `NOTEBOOK_CELL_STATUSES_SET` (`'ok' / 'error' / 'stopped'`). NO
+  // cell source, NO output bytes reach the wire. Mirrored on
+  // update-server with a 3-way parity test cross-importing the
+  // canonical `NOTEBOOK_CELL_STATUSES` tuple from
+  // `src/renderer/runtime/notebookSession.ts`.
+  'notebook.cell_executed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -691,6 +702,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-039 Slice B fold B — `language` ∈ LANGUAGE_PACK_IDS, `status`
   // ∈ RECIPE_RUN_STATUSES_SET.
   'recipe.test_run': ['language', 'status'],
+  // RL-043 Slice A fold B — `language` ∈ NOTEBOOK_CELL_LANGUAGES_SET
+  // (Slice A: javascript only), `status` ∈ NOTEBOOK_CELL_STATUSES_SET
+  // (`'ok' / 'error' / 'stopped'`).
+  'notebook.cell_executed': ['language', 'status'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -893,6 +908,27 @@ export const RECIPE_RUN_STATUSES_SET = new Set([
   'all-failed',
   'execution-error',
   'sentinel-missing',
+]);
+// RL-043 Slice A fold B — closed enum of notebook cell run statuses.
+// Source of truth lives in `src/renderer/runtime/notebookSession.ts`
+// (`NOTEBOOK_CELL_STATUSES`). Duplicated here so the telemetry
+// validator stays import-cycle-free. Parity test in
+// `update-server/test/telemetry.test.ts` cross-imports the renderer
+// source of truth.
+export const NOTEBOOK_CELL_STATUSES_SET = new Set([
+  'ok',
+  'error',
+  'stopped',
+]);
+// RL-043 Slice A fold B — closed enum of code-cell languages. Source
+// of truth in `src/shared/notebook.ts` (`NOTEBOOK_CELL_LANGUAGES`).
+// Slice A renders Python in the schema but the runner rejects it;
+// the telemetry validator accepts all three so a Slice B+ Python
+// wiring doesn't have to revisit this Set.
+export const NOTEBOOK_CELL_LANGUAGES_SET = new Set([
+  'javascript',
+  'typescript',
+  'python',
 ]);
 // RL-095 Slice 1 fold A — closed enum for the surface that drove a
 // Language Support Scorecard view. Mirrored on update-server with
@@ -1582,6 +1618,12 @@ function isAllowedValue(
       if (key === 'language') return typeof value === 'string' && isSafeToken(value);
       if (key === 'status')
         return typeof value === 'string' && RECIPE_RUN_STATUSES_SET.has(value);
+      return false;
+    case 'notebook.cell_executed':
+      if (key === 'language')
+        return typeof value === 'string' && NOTEBOOK_CELL_LANGUAGES_SET.has(value);
+      if (key === 'status')
+        return typeof value === 'string' && NOTEBOOK_CELL_STATUSES_SET.has(value);
       return false;
     case 'sql.query_executed':
       if (key === 'status')

@@ -289,6 +289,11 @@ interface BuildCommandPaletteModelArgs {
    */
   onOpenRecipes?: () => void;
   /**
+   * RL-043 Slice A fold A — creates a fresh notebook tab via
+   * `Mod+Alt+N`. Optional; when omitted the palette entry hides.
+   */
+  onNewNotebook?: () => void;
+  /**
    * RL-095 Slice 1 fold B — opens Settings on the Languages tab and
    * scrolls to the Language Support Scorecard. Optional; when
    * omitted the palette entry is hidden.
@@ -651,6 +656,7 @@ export function buildCommandPaletteModel({
   onOpenCapsuleImport,
   onOpenImportOverlay,
   onOpenRecipes,
+  onNewNotebook,
   onShowLanguageSupport,
   onCopyLanguageScorecardMarkdown,
   onCopyShareLink,
@@ -850,6 +856,24 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onOpenRecipes();
+            }
+          ),
+        ]
+      : []),
+    // RL-043 Slice A fold A — create a fresh notebook tab. Mirror of
+    // the recipes overlay wiring above; `onClose` runs before the
+    // callback so the palette dismisses cleanly before the new tab
+    // takes focus.
+    ...(onNewNotebook
+      ? [
+          buildActionCommand(
+            'action-new-notebook',
+            translate('commandPalette.action.newNotebook.label'),
+            translate('commandPalette.action.newNotebook.description'),
+            ['notebook', 'cell', 'jupyter', 'new', 'cuaderno', 'nuevo'],
+            () => {
+              onClose();
+              onNewNotebook();
             }
           ),
         ]
