@@ -88,6 +88,12 @@ interface UseGlobalShortcutsOptions {
    */
   openRecipesOverlay: () => void;
   /**
+   * RL-043 Slice A fold A — create a fresh notebook tab via
+   * Mod+Alt+N. Caller wires this to
+   * `useEditorStore.getState().addNotebookTab()`.
+   */
+  openNewNotebook: () => void;
+  /**
    * RL-019 Slice 1 fold D — cycle the active JS/TS tab through the
    * implemented runtime modes. RL-019 now ships all three modes:
    * Worker, Node, and Browser preview.
@@ -236,6 +242,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'action-open-utility-pipelines': () => options.openUtilityPipelines(),
     'action-open-import-overlay': () => options.openImportOverlay(),
     'action-open-recipes': () => options.openRecipesOverlay(),
+    'action-new-notebook': () => options.openNewNotebook(),
     'overlay-command-palette': () => options.toggleOverlay('palette'),
     'overlay-settings': () => options.toggleOverlay('settings'),
     'overlay-developer-utilities': () => options.openDeveloperUtilities(),

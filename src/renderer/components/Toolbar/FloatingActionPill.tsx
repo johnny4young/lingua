@@ -40,6 +40,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  BookOpenText,
   Bug,
   Braces,
   ChevronDown,
@@ -179,6 +180,7 @@ export function FloatingActionPill({
   const tabs = useEditorStore((s) => s.tabs);
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const addTab = useEditorStore((s) => s.addTab);
+  const addNotebookTab = useEditorStore((s) => s.addNotebookTab);
   const setTabRuntimeMode = useEditorStore((s) => s.setTabRuntimeMode);
   const setTabWorkflowMode = useEditorStore((s) => s.setTabWorkflowMode);
   const { run, stop, isRunning, isInitializing } = useRunner();
@@ -203,6 +205,7 @@ export function FloatingActionPill({
   >(null);
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const isNotebookTab = activeTab?.kind === 'notebook';
   const language = activeTab?.language ?? 'javascript';
   const supportsDebug = languageSupportsDebugger(language);
   const supportsRuntimeModes = languageHasRuntimeModes(language);
@@ -326,7 +329,7 @@ export function FloatingActionPill({
   // auto-create a tab when none exists so the chip always advances
   // the user instead of silently no-op'ing — that's the
   // "click no funciona" report from review.
-  const runDisabled = executionMode === 'view';
+  const runDisabled = executionMode === 'view' || isNotebookTab;
   const noActiveTab = tabs.length === 0;
   const ensureTabForLanguage = (lang: Language) => {
     const existing = useEditorStore.getState().tabs.find((tab) => tab.id === activeTabId);
@@ -410,6 +413,31 @@ export function FloatingActionPill({
                 </button>
               );
             })}
+            <div
+              className="my-1 h-px bg-border/40"
+              role="separator"
+              aria-hidden="true"
+            />
+            <button
+              type="button"
+              role="menuitem"
+              className="dropdown-rich-row w-full"
+              data-testid="action-pill-new-notebook"
+              onClick={() => {
+                setOpenMenu(null);
+                addNotebookTab();
+              }}
+            >
+              <BookOpenText
+                size={14}
+                className="text-fg-subtle"
+                aria-hidden="true"
+              />
+              <span className="row-label self-center">
+                {t('shortcuts.item.newNotebook.label')}
+              </span>
+              <span />
+            </button>
             <div className="dropdown-rich-footer">
               <Kbd>↑↓</Kbd>
               <span>{t('actionPill.navigate')}</span>
@@ -564,7 +592,7 @@ export function FloatingActionPill({
                   label: t('actionPill.run'),
                   desc: t('actionPill.workflow.run'),
                   kbd: '⌘⏎',
-                  disabled: false,
+                  disabled: isNotebookTab,
                   fire: () => void run(),
                 },
                 {
@@ -573,7 +601,7 @@ export function FloatingActionPill({
                   label: t('toolbar.debug.label'),
                   desc: t('actionPill.workflow.debug'),
                   kbd: '⌥⏎',
-                  disabled: !supportsDebug || !debuggerEnabled,
+                  disabled: isNotebookTab || !supportsDebug || !debuggerEnabled,
                   fire: () => void run({ debug: true }),
                 },
                 {

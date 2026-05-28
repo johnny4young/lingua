@@ -154,6 +154,14 @@ vi.mock('../../src/renderer/components/Recipes/RecipeRunPanel', () => ({
   RecipeRunPanel: () => <div data-testid="recipe-run-panel">Recipe Run + Test</div>,
 }));
 
+vi.mock('../../src/renderer/components/Notebook/NotebookView', () => ({
+  NotebookView: ({ tabId }: { tabId: string }) => (
+    <div data-testid="notebook-view" data-tab-id={tabId}>
+      Notebook view
+    </div>
+  ),
+}));
+
 vi.mock('../../src/renderer/components/Editor/CodeEditor', () => ({
   CodeEditor: () => <div data-testid="code-editor">Code editor</div>,
 }));

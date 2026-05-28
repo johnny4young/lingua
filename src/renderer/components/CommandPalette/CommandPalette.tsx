@@ -92,6 +92,10 @@ interface CommandPaletteProps {
    * RL-039 Slice B fold A — opens the Recipes overlay (`Mod+Alt+L`).
    */
   onOpenRecipes?: () => void;
+  /**
+   * RL-043 Slice A fold A — creates a fresh notebook tab (`Mod+Alt+N`).
+   */
+  onNewNotebook?: () => void;
 }
 
 export function CommandPalette({
@@ -114,6 +118,7 @@ export function CommandPalette({
   onOpenCapsuleImport,
   onOpenImportOverlay,
   onOpenRecipes,
+  onNewNotebook,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -442,6 +447,7 @@ export function CommandPalette({
       onOpenCapsuleImport,
       onOpenImportOverlay,
       onOpenRecipes,
+      onNewNotebook,
       // RL-095 Slice 1 fold B — open Settings on the Languages tab and
       // scroll to the scorecard. Three pieces of choreography:
       //   1. Claim the next scorecard mount as `surface: 'palette'`

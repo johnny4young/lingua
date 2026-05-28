@@ -14,11 +14,19 @@ import { useProjectStore } from './projectStore';
 import { useRecentFilesStore } from './recentFilesStore';
 import { useDependencyDetectionStore } from './dependencyDetectionStore';
 import { useRecipeStore } from './recipeStore';
+import { useNotebookStore } from './notebookStore';
+// RL-043 Slice A — `notebookSession` lazy-loaded inside `removeTab` so
+// the static module graph does not pull `runnerManager` (and its
+// transitive `esbuild-wasm` import) into every consumer of
+// `editorStore`. Vitest's jsdom env trips an `esbuild-wasm` invariant
+// at import time, so eager imports here cascade into ~40 unrelated
+// test files. Same trick used elsewhere when the runner needs to be
+// reached from a store path.
 import { useResultStore } from './resultStore';
 import { useSettingsStore } from './settingsStore';
 import { useUIStore } from './uiStore';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
-import { isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
+import { isEntitled, isLanguageAllowed, withinTabBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
 import { trackEvent } from '../utils/telemetry';
 import {
@@ -94,6 +102,17 @@ function workflowModeForRestoredTab(
   persisted?: WorkflowMode
 ): WorkflowMode {
   return coerceWorkflowMode(persisted, language);
+}
+
+function normalizeNotebookTitle(input: string): string {
+  const withoutExtension = input.endsWith('.linguanb')
+    ? input.slice(0, -'.linguanb'.length)
+    : input;
+  return withoutExtension.trim() || 'Untitled notebook';
+}
+
+function notebookFileNameForTitle(title: string): string {
+  return `${normalizeNotebookTitle(title)}.linguanb`;
 }
 
 function languageSupportsAutoLog(language: Language): boolean {
@@ -573,6 +592,17 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // non-persisted but the entries would otherwise leak per
       // tab close until full page reload.
       useRecipeStore.getState().unbindRecipe(id);
+      // RL-043 Slice A — dispose the notebook session + drop the
+      // companion notebookStore entry so a recycled tab id can't
+      // resurface the previous notebook. The session is per-tab
+      // sandbox state held in memory; the notebookStore is persisted
+      // but keyed by tabId, so an orphan entry would survive across
+      // reloads without this hook.
+      // Lazy import — see header comment.
+      void import('../runtime/notebookSession').then((mod) =>
+        mod.disposeNotebookSession(id)
+      );
+      useNotebookStore.getState().disposeNotebookForTab(id);
       return { tabs, activeTabId };
     }),
 
@@ -850,6 +880,55 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     useRecipeStore.getState().unbindRecipe(id);
   },
 
+  /**
+   * RL-043 Slice A — Create a fresh notebook tab. Wraps `addTab` with
+   * `kind: 'notebook'` + a `.linguanb` extension on the tab name so
+   * the existing language-detection in `addTab` doesn't try to set a
+   * single-language `language` for the new tab. Seeds the companion
+   * notebookStore entry so the panel mounts with a runnable starter.
+   */
+  addNotebookTab: (opts) => {
+    const { tabs } = get();
+    const tier = currentEffectiveTier();
+    if (!isEntitled(tier, 'NOTEBOOK_MODE')) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: i18next.t('upsell.feature.notebookMode'),
+      });
+      return null;
+    }
+    if (!isLanguageAllowed(tier, 'javascript')) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: i18next.t('upsell.feature.extraLanguages'),
+      });
+      return null;
+    }
+    if (!withinTabBudget(tier, tabs.length + 1)) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: i18next.t('upsell.feature.extraTabs'),
+      });
+      return null;
+    }
+    const tabId = crypto.randomUUID();
+    const title = (opts?.title ?? 'Untitled notebook').trim() || 'Untitled notebook';
+    const newTab: FileTab = {
+      id: tabId,
+      name: title.endsWith('.linguanb') ? title : `${title}.linguanb`,
+      language: 'javascript',
+      content: '',
+      isDirty: false,
+      kind: 'notebook',
+    };
+    set((state) => ({
+      tabs: [...state.tabs, newTab],
+      activeTabId: tabId,
+    }));
+    useNotebookStore.getState().createNotebookForTab(tabId, title);
+    return tabId;
+  },
+
   setTabNextRunTimeoutOverride: (id, timeoutMs) => {
     set((state) => ({
       tabs: state.tabs.map((t) => {
@@ -1000,6 +1079,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const { tabs } = get();
     const tab = tabs.find((t) => t.id === id);
     if (!tab) return false;
+    if (tab.kind === 'notebook') {
+      useUIStore.getState().pushStatusNotice({
+        tone: 'info',
+        messageKey: 'notebook.notice.diskPersistencePending',
+      });
+      return false;
+    }
 
     const previousPath = tab.filePath;
     const previousRootId = tab.rootId;
@@ -1109,6 +1195,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   renameTab: (id, name) => {
     const trimmed = name.trim();
     if (!trimmed) return;
+    const existingTab = get().tabs.find((tab) => tab.id === id);
+    if (existingTab?.kind === 'notebook') {
+      const title = normalizeNotebookTitle(trimmed);
+      const name = notebookFileNameForTitle(title);
+      set((state) => ({
+        tabs: state.tabs.map((tab) => {
+          if (tab.id !== id) return tab;
+          if (tab.name === name) return tab;
+          return {
+            ...tab,
+            name,
+            language: 'javascript',
+            isDirty: false,
+          };
+        }),
+      }));
+      useNotebookStore.getState().renameNotebookForTab(id, title);
+      return;
+    }
     // RL-020 Slice 2 fold D — when a rename auto-corrects the
     // workflow mode (e.g. JS Debug → Rust forces Run because Rust
     // has no debugger adapter), emit telemetry with

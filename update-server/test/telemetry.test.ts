@@ -37,6 +37,7 @@ import {
   IMPORTER_IDS_SET as WORKER_IMPORTER_IDS_SET,
   IMPORT_STATUSES_SET as WORKER_IMPORT_STATUSES_SET,
   RECIPE_RUN_STATUSES_SET as WORKER_RECIPE_RUN_STATUSES_SET,
+  NOTEBOOK_CELL_STATUSES_SET as WORKER_NOTEBOOK_CELL_STATUSES_SET,
   DEPENDENCY_COUNT_BUCKETS as WORKER_DEPENDENCY_COUNT_BUCKETS,
   TEMPLATE_PROJECT_IDS as WORKER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as WORKER_PRIVACY_DASHBOARD_SURFACES,
@@ -60,6 +61,7 @@ import {
   IMPORTER_IDS_SET as RENDERER_IMPORTER_IDS_SET,
   IMPORT_STATUSES_SET as RENDERER_IMPORT_STATUSES_SET,
   RECIPE_RUN_STATUSES_SET as RENDERER_RECIPE_RUN_STATUSES_SET,
+  NOTEBOOK_CELL_STATUSES_SET as RENDERER_NOTEBOOK_CELL_STATUSES_SET,
   DEPENDENCY_COUNT_BUCKETS_SET as RENDERER_DEPENDENCY_COUNT_BUCKETS_SET,
   TEMPLATE_PROJECT_IDS as RENDERER_TEMPLATE_PROJECT_IDS,
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
@@ -73,6 +75,13 @@ import { IMPORTER_IDS as RENDERER_IMPORTER_IDS } from '../../src/shared/importer
 // 3-way parity check catches drift between the canonical tuple and
 // either Set (mirrors the RL-100 importer parity precedent).
 import { RECIPE_RUN_STATUSES as RENDERER_RECIPE_RUN_STATUSES } from '../../src/shared/lessonRunner';
+// RL-043 Slice A fold B — cross-import the canonical
+// `NOTEBOOK_CELL_STATUSES` const tuple from the renderer
+// source-of-truth (`notebookSession.ts`). The two `_SET` duplicates
+// in `src/shared/telemetry.ts` + `update-server/src/telemetry.ts`
+// are derived from this tuple; the 3-way parity check catches drift
+// between the canonical tuple and either Set.
+import { NOTEBOOK_CELL_STATUSES as RENDERER_NOTEBOOK_CELL_STATUSES } from '../../src/renderer/runtime/notebookSession';
 // RL-096 Slice 1 reviewer pass — cross-import the renderer's
 // canonical DENY_SUBSTRINGS so the parity test cannot silently
 // drift when the renderer extends the deny pass (as it did in this
@@ -883,6 +892,30 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       'all-ok',
       'incompatible',
       'partial',
+    ]);
+  });
+
+  it('notebook cell statuses stay in sync (RL-043 Slice A fold B)', () => {
+    // 3-way closed-enum parity for `notebook.cell_executed.status`:
+    //   1. canonical const tuple `NOTEBOOK_CELL_STATUSES` in
+    //      `src/renderer/runtime/notebookSession.ts`,
+    //   2. duplicated Set `NOTEBOOK_CELL_STATUSES_SET` in
+    //      `src/shared/telemetry.ts`,
+    //   3. duplicated Set `NOTEBOOK_CELL_STATUSES_SET` in
+    //      `update-server/src/telemetry.ts`.
+    // Drift between any pair would let the renderer or worker accept
+    // a status the canonical rollup would never produce. Mirrors the
+    // RL-039 Slice B Recipes 3-way pattern.
+    expect([...WORKER_NOTEBOOK_CELL_STATUSES_SET].sort()).toEqual(
+      [...RENDERER_NOTEBOOK_CELL_STATUSES].sort()
+    );
+    expect([...WORKER_NOTEBOOK_CELL_STATUSES_SET].sort()).toEqual(
+      [...RENDERER_NOTEBOOK_CELL_STATUSES_SET].sort()
+    );
+    expect([...WORKER_NOTEBOOK_CELL_STATUSES_SET].sort()).toEqual([
+      'error',
+      'ok',
+      'stopped',
     ]);
   });
 

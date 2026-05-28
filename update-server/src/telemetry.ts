@@ -212,6 +212,12 @@ export const TELEMETRY_EVENT_NAMES = [
   // RECIPE_RUN_STATUSES_SET.
   'recipe.opened',
   'recipe.test_run',
+  // RL-043 Slice A fold B — notebook cell execution. Closed-enum
+  // `{ language, status }` mirrored from src/shared/telemetry.ts.
+  // 3-way parity test cross-imports the canonical
+  // NOTEBOOK_CELL_STATUSES tuple from
+  // src/renderer/runtime/notebookSession.ts.
+  'notebook.cell_executed',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENT_NAMES)[number];
 
@@ -339,6 +345,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // RL-039 Slice B fold B — mirror of src/shared/telemetry.ts.
   'recipe.opened': ['language'],
   'recipe.test_run': ['language', 'status'],
+  // RL-043 Slice A fold B — mirror of src/shared/telemetry.ts.
+  'notebook.cell_executed': ['language', 'status'],
 };
 
 // (Fold A) Substring deny pass — mirror of `DENY_SUBSTRINGS` in
@@ -521,6 +529,20 @@ export const RECIPE_RUN_STATUSES_SET = new Set([
   'all-failed',
   'execution-error',
   'sentinel-missing',
+]);
+// RL-043 Slice A fold B — mirror of `NOTEBOOK_CELL_STATUSES_SET` in
+// `src/shared/telemetry.ts`. 3-way parity test cross-imports the
+// canonical `NOTEBOOK_CELL_STATUSES` tuple from
+// `src/renderer/runtime/notebookSession.ts`.
+export const NOTEBOOK_CELL_STATUSES_SET = new Set([
+  'ok',
+  'error',
+  'stopped',
+]);
+export const NOTEBOOK_CELL_LANGUAGES_SET = new Set([
+  'javascript',
+  'typescript',
+  'python',
 ]);
 // RL-095 Slice 1 fold A — mirror of `LANGUAGE_SCORECARD_SURFACES`.
 export const LANGUAGE_SCORECARD_SURFACES = new Set([
@@ -1270,6 +1292,12 @@ function isAllowedValue(
       if (key === 'language') return isSafeToken(value);
       if (key === 'status')
         return typeof value === 'string' && RECIPE_RUN_STATUSES_SET.has(value);
+      return false;
+    case 'notebook.cell_executed':
+      if (key === 'language')
+        return typeof value === 'string' && NOTEBOOK_CELL_LANGUAGES_SET.has(value);
+      if (key === 'status')
+        return typeof value === 'string' && NOTEBOOK_CELL_STATUSES_SET.has(value);
       return false;
     default: {
       const exhaustive: never = event;

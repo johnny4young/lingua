@@ -459,6 +459,12 @@ function AppChrome({
     openRecipesOverlay: () => {
       useRecipeStore.getState().openOverlay();
     },
+    // RL-043 Slice A fold A — Mod+Alt+N creates a fresh notebook tab
+    // via `useEditorStore.addNotebookTab` which also seeds the
+    // companion notebookStore entry.
+    openNewNotebook: () => {
+      useEditorStore.getState().addNotebookTab();
+    },
     cycleRuntimeMode: () => {
       // RL-019 Slice 1 fold D — cycle the active JS/TS tab through
       // the implemented runtime modes. No-op for non-JS/TS tabs.
@@ -837,6 +843,7 @@ function AppChrome({
           onOpenCapsuleImport={() => openOverlay('capsule-import')}
           onOpenImportOverlay={() => openOverlay('import-preview')}
           onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
+          onNewNotebook={() => useEditorStore.getState().addNotebookTab()}
           onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
         />
       )}

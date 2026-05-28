@@ -4387,8 +4387,187 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 ### RL-043 Add notebook / cell-based execution mode
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Ready for a schema/session foundation after RL-044 payload migration; full multi-file notebooks still wait on RL-024`
+- Status: `Partial`
+- Readiness: `Slice A shipped 2026-05-27 — schema + runner-owned sessions + minimum-viable cell editor + folds A/B/C/D/E/F/G. Slice B+ still pending (disk persistence + Monaco cells + virtualization + reactive dataflow + Python wiring + AST rewriter).`
+
+#### § Slice A landed (2026-05-27)
+
+- Shipped on 2026-05-27 in a single staged diff that also carved the
+  `editorStore → notebookSession → runnerManager → esbuild-wasm` import
+  chain to a lazy dynamic-import inside `removeTab` so the new
+  notebook hook does not cascade-fail ~40 unrelated jsdom tests that
+  trip the `TextEncoder().encode("") instanceof Uint8Array` invariant.
+- New shared:
+  - `src/shared/notebook.ts` — versioned `NotebookV1` discriminated union
+    (`NotebookCodeCellV1 | NotebookMarkdownCellV1`), closed enums
+    (`NOTEBOOK_REJECT_REASONS`, `NOTEBOOK_CELL_LANGUAGES`,
+    `NOTEBOOK_CELL_KINDS`), `parseNotebook` discriminated-outcome
+    parser (never throws), `serializeNotebook` pretty-printed JSON
+    output, `createBlankNotebook` factory that seeds a welcome
+    markdown + a JS code cell, hard caps `MAX_NOTEBOOK_BYTES =
+    262_144`, `MAX_CELLS_PER_NOTEBOOK = 200`, `MAX_CELL_SOURCE_LENGTH
+    = 32_768`, `MAX_OUTPUTS_PER_CELL = 50`, `MAX_OUTPUT_TEXT_LENGTH =
+    16_384`.
+- New renderer runtime:
+  - `src/renderer/runtime/notebookSession.ts` — runner-owned per-tab
+    session manager. Canonical `NOTEBOOK_CELL_STATUSES = ['ok',
+    'error', 'stopped']` tuple cross-imported by update-server
+    parity test. `composeNotebookCellSource(userSource, sandbox)`
+    emits an async IIFE that pulls in prior sandbox keys as
+    `const KEY = <JSON literal>;`, captures top-level
+    declarations via `rewriteTopLevelDeclarationsForSession()`
+    (Slice A regex pass — destructuring + multi-line + class
+    declarations explicitly skipped, with limitations documented
+    inline), patches `console.log` / `.error` in a `try/finally` so
+    failures restore the originals, returns `{ stdout, stderr,
+    sessionDelta }`. `runNotebookCell` is fully discriminated
+    (`{ok: true, outcome} | {ok: false, reason}` over closed
+    `NOTEBOOK_SESSION_REJECT_REASONS = ['language-not-supported' |
+    'session-disposed' | 'concurrent-run']`), blocks
+    `'concurrent-run'` per tab, merges JSON-serializable
+    sessionDelta into the per-tab sandbox via
+    `extractSerializableDelta` + `enforceSandboxCap`
+    (`MAX_NOTEBOOK_SANDBOX_KEYS = 128`). `disposeNotebookSession`
+    invoked from `editorStore.removeTab` via lazy import.
+- New renderer store:
+  - `src/renderer/stores/notebookStore.ts` — Zustand persisted store
+    on the isolated `lingua-notebook-state` localStorage key so a
+    Settings reset doesn't wipe notebooks. Per-`tabId`
+    `NotebookTabState` (notebook + cellRunStatus + activeCellId),
+    full CRUD (`createNotebookForTab` / `disposeNotebookForTab` /
+    `addCell` / `removeCell` / `updateCellSource` / `moveCell` /
+    `setCellOutputs` / `setCellRunStatus` / `setActiveCell`),
+    sanitize-on-rehydrate drops invalid entries via
+    `parseNotebook`, reload always resets transient run status to
+    `'idle'`.
+- New renderer components:
+  - `src/renderer/components/Notebook/NotebookView.tsx` — toolbar
+    with Add markdown / Add code / Run above / Run all / Stop /
+    Export as JS + editable title via `renameTab` + empty-state
+    CTAs + append-cell buttons at the bottom.
+  - `src/renderer/components/Notebook/NotebookCodeCellRow.tsx` —
+    language badge JS/TS/PY + cell index + closed-enum status pill
+    (idle/running/ok/error/stopped) + Run cell/Move up/Move
+    down/Delete actions + auto-grow textarea capped at 600 px +
+    stdout/stderr outputs.
+  - `src/renderer/components/Notebook/NotebookMarkdownCellRow.tsx` —
+    edit ↔ preview toggle reuses RL-039 Slice B's `<RecipeMarkdown>`
+    4-element subset renderer (paragraphs / headings / inline code /
+    fenced code blocks / bullet lists; NO HTML pass-through, NO
+    `dangerouslySetInnerHTML`).
+  - `src/renderer/components/Notebook/notebookExportToScript.ts` —
+    `exportNotebookAsJs(notebook)` joins code cells with
+    `// --- cell <id> ---` separators + markdown cells as block
+    comments (closing marker escaped as `* /`).
+- New renderer hook:
+  - `src/renderer/hooks/useNotebookRun.ts` — `runCell` /
+    `runAll` / `runAbove` / `stop`. Bypasses `useRunner` so notebook
+    execution doesn't pollute history. `runRange` helper iterates
+    code cells in order with early-stop on `error` / `stopped`.
+- Telemetry:
+  - New closed-enum event `notebook.cell_executed { language, status }`
+    in `src/shared/telemetry.ts` + `update-server/src/telemetry.ts`.
+  - 3-way parity test in `update-server/test/telemetry.test.ts`
+    cross-imports the canonical `NOTEBOOK_CELL_STATUSES` tuple from
+    `src/renderer/runtime/notebookSession.ts` and asserts both
+    Sets equal it byte-for-byte.
+  - NO cell source, NO output bytes reach the wire. Only the
+    closed-enum `language` (Slice A: `'javascript'`) + closed-enum
+    `status` (`'ok' | 'error' | 'stopped'`).
+- Editor integration:
+  - `FileTab.kind?: 'notebook'` discriminator added. `<EditorArea>`
+    branches between Monaco and `React.lazy(<NotebookView>)`.
+  - `editorStore.addNotebookTab(opts)` action enforces entitlement +
+    tab-budget; `editorStore.removeTab` invokes
+    `disposeNotebookSession(tabId)` (lazy import) +
+    `notebookStore.disposeNotebookForTab(tabId)`.
+- Session restoration:
+  - `sessionStore` extended with `kind?: 'notebook'` +
+    `notebookTabId?: string` fields. On restore, the saved tabId is
+    reused for notebook tabs so the per-tab notebook payload in
+    `notebookStore` (keyed by tabId) lines up; without this, restore
+    would mint a fresh UUID and orphan the persisted notebook.
+- Folds:
+  - **A** `Mod+Alt+N` keyboard shortcut + `New notebook` palette
+    entry. `Mod+Alt+N` verified free against the catalog —
+    `Mod+Shift+N` was browser/OS-conflicting. Also added a `New
+    notebook` row to the FloatingActionPill language menu (separator
+    + `BookOpenText` icon).
+  - **B** notebook persistence on the isolated
+    `lingua-notebook-state` localStorage key.
+  - **C** cross-cell var persistence via the regex top-level
+    declaration rewriter. Cell 2 reads cell 1's `const` / `let` /
+    `function` declarations; nested + indented stay local-only.
+    Documented Slice A limitations: destructuring + multi-line +
+    class declarations skipped (Slice B+ promotes to a TS-AST
+    rewriter via Monaco's TS service).
+  - **D** `console.log` capture per-cell — patches `console.log` /
+    `console.error` for the cell's lifetime in a `try/finally` so
+    failures + stops still restore the originals.
+  - **E** Run above + Run all toolbar actions with early-stop on
+    error.
+  - **F** Export as JS via `exportNotebookAsJs(notebook)`. Component
+    layer wraps in `Blob` + `URL.createObjectURL` to surface a
+    download.
+  - **G** Stop button + `runnerManager.stop('javascript')` — current
+    cell flips to `'stopped'`; subsequent cells in a `runAll` chain
+    do not run.
+- i18n:
+  - ~32 keys × en + es tuteo under `notebook.*`,
+    `commandPalette.action.newNotebook.*`,
+    `shortcuts.item.newNotebook.*`.
+  - Tuteo verified: `Agregar`, `Ejecuta`, `Detén`, `Mueve`,
+    `Elimina`, `Exporta`, `Edita`, `Previsualiza`.
+  - Voseo explicitly avoided: `Agregá`, `Ejecutá`, `Detené`,
+    `Movés`, `Eliminá`, `Exportá`, `Editá`.
+- Tests (71 new cases):
+  - `tests/shared/notebook.test.ts` (21) — closed enums + every
+    reject reason + round-trip + factories + cell guards.
+  - `tests/stores/notebookStore.test.ts` (13) — CRUD + caps +
+    sanitize-rehydrate + transient run-status reset.
+  - `tests/renderer/runtime/notebookSession.test.ts` (21) —
+    closed-enum tuple + `isNotebookRunnableLanguage` + rewriter +
+    composer + sandbox delta + manager via stubbed runnerManager
+    (cross-cell var resolution + error + stopped + dispose).
+  - `tests/hooks/useNotebookRun.test.ts` (6) — runCell ok / error /
+    stopped + telemetry payload + runAll early-stop + stop signals
+    runner.
+  - `tests/components/Notebook/NotebookView.test.tsx` (10) — render
+    contract + empty/not-found + toolbar add/move/delete + runCell
+    + markdown edit toggle + ES tuteo + summary chip.
+  - `tests/components/AppLayout.test.tsx` extended with a
+    `<NotebookView>` `vi.mock`.
+  - `tests/e2e/notebook.spec.ts` locks `Mod+Alt+N` EN + ES tuteo +
+    Add code append.
+  - `tests/shared/telemetry.test.ts` sorted-events list extended
+    (`'notebook.cell_executed'` between `'language_scorecard_viewed'`
+    and `'onboarding.first_run_completed'`).
+  - `update-server/test/telemetry.test.ts` "notebook cell statuses
+    stay in sync (RL-043 Slice A fold B)" parity assertion added.
+- Inline collateral fix:
+  - editorStore's eager `import { disposeNotebookSession } from
+    '../runtime/notebookSession'` pulled `runnerManager → NodeRunner
+    → esbuild-wasm` into every consumer of `editorStore`, which
+    fails the jsdom-env `TextEncoder().encode("") instanceof
+    Uint8Array` invariant for ~40 unrelated test files. Flipped to a
+    lazy dynamic-import inside `removeTab` with an inline comment
+    block documenting the rationale.
+- Remaining (Slice B+):
+  - disk persistence to `.linguanb` files via the existing capability
+    IPC sandbox.
+  - Monaco-backed cell editor with virtualization for the 200-cell
+    scroll perf budget.
+  - TypeScript transpile via Monaco's TS service so TS cells join
+    JS cells in the runner whitelist.
+  - Reactive dataflow — dependency tracking + cell re-run on
+    upstream change (the marimo model).
+  - Full export to script / markdown / HTML; `.ipynb` import via
+    RL-100 Slice 2 adapter.
+  - Python runner wiring (currently rejected by `notebookSession`
+    with `'language-not-supported'`).
+  - AST-based declaration rewriter to replace the regex pass +
+    class / destructuring support.
+
 - Why this matters:
   - Jupyter, marimo, and Observable prove that cell-based execution is the preferred mode for:
     - data exploration

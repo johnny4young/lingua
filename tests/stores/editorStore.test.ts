@@ -14,7 +14,12 @@ import {
   resetRecipeStoreForTests,
   useRecipeStore,
 } from '@/stores/recipeStore';
+import {
+  resetNotebookStoreForTests,
+  useNotebookStore,
+} from '@/stores/notebookStore';
 import { useLicenseStore } from '@/stores/licenseStore';
+import { useUIStore } from '@/stores/uiStore';
 import { pluginRegistry } from '@/plugins';
 import { luaPlugin } from '@/plugins/lua-runner';
 
@@ -47,6 +52,7 @@ function setActiveProLicense(): void {
 
 describe('editorStore', () => {
   const initialState = useEditorStore.getState();
+  const initialUIState = useUIStore.getState();
 
   beforeEach(() => {
     useDependencyDetectionStore.getState().clear();
@@ -55,6 +61,8 @@ describe('editorStore', () => {
       activeTabId: null,
     });
     resetRecipeStoreForTests();
+    resetNotebookStoreForTests();
+    useUIStore.setState({ statusNotice: null });
     setActiveProLicense();
     if (!pluginRegistry.get(luaPlugin.id)) {
       pluginRegistry.register(luaPlugin);
@@ -84,7 +92,10 @@ describe('editorStore', () => {
   afterEach(() => {
     useDependencyDetectionStore.getState().clear();
     resetRecipeStoreForTests();
+    resetNotebookStoreForTests();
     useEditorStore.setState(initialState, true);
+    useUIStore.setState(initialUIState, true);
+    localStorage.clear();
   });
 
   it('should start with no tabs', () => {
@@ -327,6 +338,22 @@ describe('editorStore', () => {
         'script.py',
         'print("saved")'
       );
+    });
+
+    it('does not write notebook tabs as empty files before disk persistence ships', async () => {
+      const tabId = useEditorStore
+        .getState()
+        .addNotebookTab({ title: 'Notebook draft' });
+      expect(tabId).toBeTruthy();
+
+      await useEditorStore.getState().saveActiveTabAs();
+
+      expect(window.lingua.fs.saveDialog).not.toHaveBeenCalled();
+      expect(window.lingua.fs.write).not.toHaveBeenCalled();
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        tone: 'info',
+        messageKey: 'notebook.notice.diskPersistencePending',
+      });
     });
 
     it('keeps only the file name when Save As returns a Windows root path', async () => {
@@ -694,6 +721,26 @@ describe('editorStore', () => {
       expect(useEditorStore.getState().tabs[0].name).toBe(tab.name);
     });
 
+    it('renames notebook tabs by syncing the notebook title without marking the tab dirty', () => {
+      const tabId = useEditorStore
+        .getState()
+        .addNotebookTab({ title: 'Notebook draft' });
+      expect(tabId).toBeTruthy();
+
+      useEditorStore.getState().renameTab(tabId!, '  Analysis.linguanb  ');
+
+      const tab = useEditorStore.getState().tabs.find((item) => item.id === tabId);
+      expect(tab).toMatchObject({
+        name: 'Analysis.linguanb',
+        language: 'javascript',
+        kind: 'notebook',
+        isDirty: false,
+      });
+      expect(useNotebookStore.getState().getNotebookForTab(tabId!)?.title).toBe(
+        'Analysis'
+      );
+    });
+
     it('evicts dependency detections when rename changes the tab language', () => {
       const tab = createDefaultTab('javascript');
       useEditorStore.getState().addTab(tab);
@@ -946,6 +993,22 @@ describe('editorStore', () => {
   });
 
   describe('RL-060 tab budget enforcement', () => {
+    it('blocks notebook tabs on Free even when the tab budget is empty', async () => {
+      const { useLicenseStore } = await import('@/stores/licenseStore');
+      const { useUIStore } = await import('@/stores/uiStore');
+      useLicenseStore.setState({ token: null, status: { kind: 'free' }, lastVerifiedAt: null });
+      useUIStore.setState({ statusNotice: null });
+
+      const tabId = useEditorStore.getState().addNotebookTab();
+
+      expect(tabId).toBeNull();
+      expect(useEditorStore.getState().tabs).toHaveLength(0);
+      expect(useNotebookStore.getState().notebooks).toEqual({});
+      expect(useUIStore.getState().statusNotice).toMatchObject({
+        messageKey: 'upsell.freeCeilingReached',
+      });
+    });
+
     it('blocks addTab past the Free ceiling and pushes an upsell notice', async () => {
       const { useLicenseStore } = await import('@/stores/licenseStore');
       const { useUIStore } = await import('@/stores/uiStore');

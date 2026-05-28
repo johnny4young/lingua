@@ -41,6 +41,21 @@ interface SessionTab {
    * a reload.
    */
   recipeBindingId?: string;
+  /**
+   * RL-043 Slice A — discriminator flag persisted so the restore
+   * path knows to route the tab through `<NotebookView>` instead of
+   * the Monaco editor surface. The notebook payload itself lives in
+   * the isolated `lingua-notebook-state` store keyed by the tab id
+   * captured in `notebookTabId` below.
+   */
+  kind?: 'notebook';
+  /**
+   * RL-043 Slice A — original tabId captured at save time. Notebook
+   * state in `useNotebookStore` is keyed by tabId; without this
+   * field, restoring would mint a fresh UUID and orphan the
+   * persisted notebook entry. Only populated when `kind === 'notebook'`.
+   */
+  notebookTabId?: string;
 }
 
 interface SessionState {
@@ -79,6 +94,13 @@ export const useSessionStore = create<SessionState>()(
           // a Rust / Go / JSON tab.
           stdinBuffer: tab.stdinBuffer,
           recipeBindingId: tab.recipeBindingId,
+          // RL-043 Slice A — preserve the notebook discriminator + the
+          // original tabId so the per-tab notebook payload in
+          // `useNotebookStore` survives a reload (the store is keyed
+          // by tabId; without this, restore would mint a fresh UUID
+          // and the persisted notebook would be orphaned).
+          kind: tab.kind === 'notebook' ? 'notebook' : undefined,
+          notebookTabId: tab.kind === 'notebook' ? tab.id : undefined,
         }));
         const activeIndex = tabs.findIndex((t) => t.id === activeTabId);
         set({ savedTabs, savedActiveIndex: activeIndex });
@@ -149,8 +171,25 @@ export const useSessionStore = create<SessionState>()(
               ? saved.recipeBindingId
               : undefined;
 
+          // RL-043 Slice A — restore the notebook discriminator AND
+          // reuse the original tabId so the per-tab notebook payload
+          // in `useNotebookStore` (keyed by tabId) lines up with the
+          // restored FileTab. If the saved entry is missing
+          // `notebookTabId` or the notebook store has no entry under
+          // that key (settings reset, manual localStorage purge), we
+          // still restore the discriminator and let NotebookView
+          // create a blank notebook on first render — better than
+          // dropping the tab outright.
+          const restoredAsNotebook =
+            saved.kind === 'notebook' &&
+            typeof saved.notebookTabId === 'string' &&
+            saved.notebookTabId.length > 0;
+          const restoredId = restoredAsNotebook
+            ? saved.notebookTabId!
+            : crypto.randomUUID();
+
           restored.push({
-            id: crypto.randomUUID(),
+            id: restoredId,
             name: saved.name,
             language,
             content,
@@ -164,6 +203,7 @@ export const useSessionStore = create<SessionState>()(
             ...(restoredRecipeBindingId !== undefined
               ? { recipeBindingId: restoredRecipeBindingId }
               : {}),
+            ...(restoredAsNotebook ? { kind: 'notebook' as const } : {}),
           });
         }
 
