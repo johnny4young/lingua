@@ -110,10 +110,10 @@ describe('release workflow', () => {
     // dev-only audit findings with no stable upstream fix.
     expect(workflow).toMatch(/security-audit:\s*\n\s*name: Security audit \(release-blocking\)/u);
     expect(workflow).toMatch(
-      /Run blocking production npm audit[\s\S]*?npm audit --omit=dev --audit-level=high/u
+      /Run blocking production audit[\s\S]*?pnpm audit --prod --audit-level high/u
     );
     expect(workflow).toMatch(
-      /Run advisory full npm audit[\s\S]*?npm audit --audit-level=high[\s\S]*?continue-on-error: true/u
+      /Run advisory full audit[\s\S]*?pnpm audit --audit-level high[\s\S]*?continue-on-error: true/u
     );
     expect(workflow).toMatch(
       /Check changelog and release version[\s\S]*?npm run changelog:check -- --release-tag "\$\{RELEASE_TAG\}" --from "\$\{RELEASE_TAG\}"/u

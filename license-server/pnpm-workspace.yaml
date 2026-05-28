@@ -1,0 +1,9 @@
+# pnpm settings for the license-server project (single project, not a
+# workspace). pnpm 11 reads build-script approvals here via allowBuilds
+# (replaces the removed package.json onlyBuiltDependencies). esbuild
+# (vitest bundling), workerd (wrangler runtime) and sharp need their
+# install scripts; everything else stays blocked by default.
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true

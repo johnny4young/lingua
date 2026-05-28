@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -14,26 +15,29 @@ export const APPROVED_LICENSE_EXPRESSIONS = [
   'CC0-1.0',
   'ISC',
   'MIT',
+  // Permissive dual-license; both halves are already individually
+  // approved. Surfaced by @bjorn3/browser_wasi_shim (RL-042 Ruby WASI)
+  // once pnpm's license resolver reported the SPDX expression verbatim.
+  'MIT OR Apache-2.0',
   'MPL-2.0',
   'Python-2.0',
+  // Public-domain-equivalent permissive license (same posture as the
+  // already-approved CC0-1.0 / 0BSD). Surfaced by robust-predicates,
+  // a transitive d3/vega dependency (RL-044 charts).
+  'Unlicense',
 ];
 
 const BLOCKED_LICENSE_PATTERN =
   /\b(AGPL|GPL|LGPL|SSPL|BUSL|Elastic-2\.0|Commons-Clause|LicenseRef-Commercial|Commercial|Proprietary)\b/i;
 
-function readJson(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-}
-
-function packageNameFromLockPath(packagePath) {
-  const tail = packagePath.split('node_modules/').at(-1) ?? packagePath;
-  const parts = tail.split('/');
-  return parts[0]?.startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0];
-}
-
 function normalizeLicense(value) {
   if (!value) return 'UNKNOWN';
-  if (typeof value === 'string') return value.trim() || 'UNKNOWN';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    // pnpm reports unresolved licenses as the literal 'Unknown'.
+    if (!trimmed || /^unknown$/i.test(trimmed)) return 'UNKNOWN';
+    return trimmed;
+  }
   if (Array.isArray(value)) {
     const licenses = value.map(item => normalizeLicense(item)).filter(item => item !== 'UNKNOWN');
     return licenses.length ? licenses.join(' OR ') : 'UNKNOWN';
@@ -42,45 +46,71 @@ function normalizeLicense(value) {
   return 'UNKNOWN';
 }
 
-function readPackageMetadata(root, packagePath, meta) {
-  const packageJsonPath = path.join(root, packagePath, 'package.json');
-  const fallbackName = meta.name ?? packageNameFromLockPath(packagePath);
-  const fallbackVersion = meta.version ?? '0.0.0';
-  const fallbackLicense = normalizeLicense(meta.license);
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return {
-      name: fallbackName,
-      version: fallbackVersion,
-      license: fallbackLicense,
-      path: packagePath,
-      missingPackageJson: true,
-    };
+/**
+ * Reduce a pnpm store path to a stable, repo-relative-ish identifier
+ * for the report (the `.pnpm/<name>@<ver>/node_modules/<name>` virtual
+ * store path is noisy; keep just the trailing `node_modules/<name>`).
+ */
+function shortPackagePath(storePath, name) {
+  if (typeof storePath !== 'string' || storePath.length === 0) {
+    return `node_modules/${name}`;
   }
-
-  const packageJson = readJson(packageJsonPath);
-  return {
-    name: packageJson.name ?? fallbackName,
-    version: packageJson.version ?? fallbackVersion,
-    license: normalizeLicense(packageJson.license ?? packageJson.licenses ?? meta.license),
-    path: packagePath,
-    missingPackageJson: false,
-  };
+  const idx = storePath.lastIndexOf('node_modules/');
+  return idx >= 0 ? storePath.slice(idx) : storePath;
 }
 
-export function collectLicenseEntries({ root = process.cwd(), includeDev = false } = {}) {
-  const lock = readJson(path.join(root, 'package-lock.json'));
+/**
+ * Map the output of `pnpm licenses list --json` to the flat license
+ * entry shape the policy review + report consume. pnpm groups by
+ * license expression; each package carries parallel `versions[]` and
+ * `paths[]` arrays (one entry per resolved version in the tree).
+ */
+export function entriesFromPnpmLicenses(data) {
   const entries = [];
-
-  for (const [packagePath, meta] of Object.entries(lock.packages ?? {})) {
-    if (!packagePath) continue;
-    if (!includeDev && meta.dev) continue;
-    if (!packagePath.startsWith('node_modules/')) continue;
-    entries.push(readPackageMetadata(root, packagePath, meta));
+  for (const packages of Object.values(data ?? {})) {
+    if (!Array.isArray(packages)) continue;
+    for (const pkg of packages) {
+      const name = pkg.name ?? 'unknown';
+      const license = normalizeLicense(pkg.license);
+      const versions =
+        Array.isArray(pkg.versions) && pkg.versions.length > 0
+          ? pkg.versions
+          : ['0.0.0'];
+      const paths = Array.isArray(pkg.paths) ? pkg.paths : [];
+      versions.forEach((version, i) => {
+        entries.push({
+          name,
+          version,
+          license,
+          path: shortPackagePath(paths[i] ?? paths[0], name),
+          missingPackageJson: false,
+        });
+      });
+    }
   }
 
   entries.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
   return entries;
+}
+
+/**
+ * Enumerate installed third-party packages + their licenses via pnpm.
+ * Replaces the former package-lock.json walk after the pnpm migration —
+ * `pnpm licenses list --json` resolves the prod/dev split and the
+ * license expression for us. Requires node_modules to be installed
+ * (CI installs before this gate runs).
+ */
+export function collectLicenseEntries({ root = process.cwd(), includeDev = false } = {}) {
+  const args = ['licenses', 'list', '--json'];
+  if (!includeDev) args.push('--prod');
+  const raw = execFileSync('pnpm', args, {
+    cwd: root,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  const data = raw.trim().length > 0 ? JSON.parse(raw) : {};
+  return entriesFromPnpmLicenses(data);
 }
 
 export function reviewLicenseEntry(entry) {
@@ -118,11 +148,11 @@ export function renderMarkdownReport(entries, { includeDev = false } = {}) {
   const problems = entries
     .map(entry => ({ entry, review: reviewLicenseEntry(entry) }))
     .filter(({ review }) => !review.ok);
-  const scope = includeDev ? 'all package-lock entries, including dev-only packages' : 'production package-lock entries only';
+  const scope = includeDev ? 'all installed dependencies, including dev-only packages' : 'production dependencies only';
   const lines = [
     '# Third-Party License Report',
     '',
-    'Generated from `package-lock.json` plus installed package metadata.',
+    'Generated from `pnpm licenses list` across the installed dependency tree.',
     '',
     `Scope: ${scope}.`,
     `Packages reviewed: ${entries.length}.`,
@@ -144,7 +174,7 @@ export function renderMarkdownReport(entries, { includeDev = false } = {}) {
     '',
     '## Package Inventory',
     '',
-    '| Package | Version | License | Lockfile path |',
+    '| Package | Version | License | Install path |',
     '| --- | --- | --- | --- |',
     ...entries.map(
       entry =>
@@ -212,7 +242,7 @@ function main() {
     output = renderMarkdownReport(entries, { includeDev: args.includeDev });
   } else {
     output = [
-      `Reviewed ${entries.length} ${args.includeDev ? 'total' : 'production'} package-lock entries.`,
+      `Reviewed ${entries.length} ${args.includeDev ? 'total' : 'production'} dependencies.`,
       `License policy: ${problems.length === 0 ? 'pass' : 'fail'}.`,
       ...summarizeLicenses(entries).map(([license, count]) => `- ${license}: ${count}`),
       '',

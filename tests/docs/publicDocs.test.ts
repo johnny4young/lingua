@@ -140,10 +140,10 @@ describe('public documentation hygiene', () => {
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
-    const lockfile = readFileSync(resolve(ROOT, 'package-lock.json'), 'utf-8');
+    const lockfile = readFileSync(resolve(ROOT, 'pnpm-lock.yaml'), 'utf-8');
 
     expect(packageJson.dependencies?.['shepherd.js']).toBeUndefined();
     expect(packageJson.devDependencies?.['shepherd.js']).toBeUndefined();
-    expect(lockfile).not.toContain('"node_modules/shepherd.js"');
+    expect(lockfile).not.toContain('shepherd.js');
   });
 });
