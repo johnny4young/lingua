@@ -31,30 +31,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-          # RL-080 Slice 1 — also key the npm cache on the
-          # update-server lockfile so the worker's `npm ci` (added
-          # below) reuses cached deps instead of taking a 20-30s cold
-          # install on every CI run.
+          cache: 'pnpm'
+          # RL-080 Slice 1 — also key the pnpm cache on the
+          # update-server lockfile so the worker's install (added
+          # below) reuses cached deps instead of taking a cold install
+          # on every CI run.
           cache-dependency-path: |
-            package-lock.json
-            update-server/package-lock.json
-      - run: npm ci
+            pnpm-lock.yaml
+            update-server/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
       - name: Type check
-        run: npx tsc --noEmit
+        run: pnpm exec tsc --noEmit
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
       - name: i18n keys
-        run: npm run check:i18n
+        run: pnpm run check:i18n
       - name: i18n copy guard
-        run: npm run check:i18n:copy
+        run: pnpm run check:i18n:copy
       - name: Changelog/version guard
-        run: npm run changelog:check
+        run: pnpm run changelog:check
       - name: Tests
-        run: npm test
+        run: pnpm test
       # RL-080 Slice 1 — the update-server has its own tsconfig and
       # vitest config outside the root TypeScript project. Wire both
       # gates into CI so the `/update/:platform/:version` smoke landed
@@ -64,19 +65,19 @@ jobs:
       - name: Update-server gates
         working-directory: update-server
         run: |
-          npm ci
-          npm run typecheck
-          npm test
+          pnpm install --frozen-lockfile
+          pnpm run typecheck
+          pnpm test
       - name: Build web
-        run: npm run build:web
+        run: pnpm run build:web
       - name: Performance report
-        run: npm run performance:report
+        run: pnpm run performance:report
       - name: Performance budget check
-        run: npm run check:performance
+        run: pnpm run check:performance
       - name: Third-party license policy
-        run: npm run check:licenses
+        run: pnpm run check:licenses
       - name: Security audit
-        run: npm audit --audit-level=high
+        run: pnpm audit --audit-level high
         continue-on-error: true
 
   windows-path-hardening:
@@ -90,9 +91,10 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm test -- tests/ipc/permissions.test.ts
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test -- tests/ipc/permissions.test.ts

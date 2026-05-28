@@ -38,12 +38,14 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
+          cache: 'pnpm'
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Start Cloudflare deploy validation artifact
         shell: bash
@@ -84,7 +86,7 @@ jobs:
           # bigger; the failure shows up only on CI runners with the
           # smaller default.
           NODE_OPTIONS: --max-old-space-size=8192
-        run: npm run build:web
+        run: pnpm run build:web
 
       - name: Deploy to Cloudflare Pages
         shell: bash
@@ -93,7 +95,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          npx wrangler pages deploy dist/web \
+          pnpm exec wrangler pages deploy dist/web \
             --project-name lingua-web \
             --branch main \
             2>&1 | tee output/cloudflare-deploy-validation/wrangler-pages-deploy.log

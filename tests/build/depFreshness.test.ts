@@ -15,7 +15,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -25,12 +25,9 @@ interface PackageJson {
   overrides?: Record<string, unknown>;
 }
 
-interface PackageLock {
-  packages?: Record<string, { version?: string; dependencies?: Record<string, string> }>;
-}
-
-const PACKAGE_JSON_PATH = resolve(__dirname, '../../package.json');
-const PACKAGE_LOCK_PATH = resolve(__dirname, '../../package-lock.json');
+const ROOT = resolve(__dirname, '../..');
+const PACKAGE_JSON_PATH = resolve(ROOT, 'package.json');
+const PNPM_WORKSPACE_PATH = resolve(ROOT, 'pnpm-workspace.yaml');
 
 // Documented hold-backs: package -> reason. When you add an entry,
 // also append a bullet to docs/PLAN.md under the matching maintenance
@@ -64,14 +61,31 @@ function latestMajor(pkg: string): number | null {
 describe('dependency override hygiene', () => {
   it('dedupes Monaco to the patched root DOMPurify install', () => {
     const pkg = JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as PackageJson;
-    const lock = JSON.parse(readFileSync(PACKAGE_LOCK_PATH, 'utf-8')) as PackageLock;
 
+    // npm-style override kept for npm-compat + to document the intent.
     expect(pkg.overrides?.dompurify).toBe('$dompurify');
-    expect(lock.packages?.['node_modules/dompurify']?.version).toMatch(
-      /^3\.(?:[4-9]|\d{2,})\./u
-    );
-    expect(lock.packages?.['node_modules/monaco-editor']?.dependencies?.dompurify).toBe('3.2.7');
-    expect(lock.packages?.['node_modules/monaco-editor/node_modules/dompurify']).toBeUndefined();
+    // pnpm ignores npm's top-level `overrides` field AND its `$name`
+    // self-reference, so the dompurify patch is restated as an explicit
+    // parent>child override in pnpm-workspace.yaml. Without it Monaco
+    // resolves its declared (older) dompurify — a security regression.
+    const workspace = readFileSync(PNPM_WORKSPACE_PATH, 'utf-8');
+    expect(workspace).toMatch(/["']?monaco-editor>dompurify["']?:\s*["']\^3\.4/u);
+    // The installed root dompurify is on the patched 3.4.x line.
+    const rootDompurify = JSON.parse(
+      readFileSync(resolve(ROOT, 'node_modules/dompurify/package.json'), 'utf-8')
+    ) as { version?: string };
+    expect(rootDompurify.version).toMatch(/^3\.(?:[4-9]|\d{2,})\./u);
+    // Monaco still DECLARES the older 3.2.7 (proves the override is
+    // load-bearing) …
+    const monaco = JSON.parse(
+      readFileSync(resolve(ROOT, 'node_modules/monaco-editor/package.json'), 'utf-8')
+    ) as { dependencies?: Record<string, string> };
+    expect(monaco.dependencies?.dompurify).toBe('3.2.7');
+    // … but pnpm's override deduped it: no nested copy survives under
+    // the hoisted node_modules tree.
+    expect(
+      existsSync(resolve(ROOT, 'node_modules/monaco-editor/node_modules/dompurify'))
+    ).toBe(false);
   });
 });
 

@@ -1,0 +1,44 @@
+# pnpm settings for the Lingua root project (single project, not a
+# workspace — the update-server and license-server are independent
+# projects with their own pnpm-workspace.yaml).
+#
+# nodeLinker: hoisted — electron-forge / electron-builder expect a flat
+# node_modules layout (the same shape npm produced). pnpm's default
+# symlinked store breaks native-module unpacking + the forge packagers,
+# so the whole desktop build is pinned to a hoisted layout.
+nodeLinker: hoisted
+
+# pnpm 11 blocks dependency build scripts by default (supply-chain
+# hardening). allowBuilds re-enables only the ones Lingua needs:
+# electron's postinstall downloads the platform binary, and esbuild
+# fetches its native binary. Everything else stays blocked.
+allowBuilds:
+  electron: true
+  esbuild: true
+  # electron-winstaller's install script downloads the Squirrel.Windows
+  # stub — only relevant on the Windows release runner, and a slow/hanging
+  # download on macOS/Linux dev. Left blocked: maker-squirrel fetches
+  # Squirrel at make time on the Windows job. TODO (release verification):
+  # confirm the Windows installer still builds in CI with this blocked;
+  # flip to true on the Windows runner via a CI-local pnpm setting if not.
+  electron-winstaller: false
+
+# electron-forge 7.x pulls @electron/rebuild → @electron/node-gyp, which
+# is declared as a git-URL dependency. pnpm 11 blocks exotic (git/tarball)
+# subdependencies by default as supply-chain hardening. The dep is part of
+# the official Electron toolchain, so we relax the block here.
+# TODO (Phase 2 / dep-update): after bumping @electron-forge/* to latest,
+# check whether the git node-gyp dep is gone and re-enable this guard.
+blockExoticSubdeps: false
+
+# Dependency overrides. pnpm does NOT read npm's top-level `overrides`
+# field, and (unlike npm) does NOT honor the `$name` self-reference, so
+# the dompurify patch has to be restated here with an explicit spec or
+# Monaco ships its declared (older) DOMPurify — a real security
+# regression the tests/build/depFreshness gate guards against. Force
+# Monaco's transitive dompurify up to the patched root range. Keep this
+# in lockstep with the root `dependencies.dompurify` range on bumps. The
+# npm-style `overrides` block stays in package.json too (npm-compat +
+# asserted by the depFreshness test).
+overrides:
+  "monaco-editor>dompurify": "^3.4.1"

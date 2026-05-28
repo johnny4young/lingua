@@ -3,6 +3,7 @@
   "productName": "Lingua",
   "version": "0.4.0",
   "description": "Desktop application for running code in multiple languages with WebAssembly support",
+  "packageManager": "pnpm@11.3.0",
   "main": ".vite/build/main.js",
   "bin": {
     "lingua": "./dist/cli/lingua.cjs"
@@ -24,7 +25,7 @@
     "smoke:desktop:packaged": "node ./scripts/run-desktop-smoke.mjs --offline --against-packaged out/make",
     "build:runtime-assets": "node --experimental-strip-types ./scripts/build-runtime-asset-manifest.mjs --write",
     "check:runtime-assets": "node --experimental-strip-types ./scripts/build-runtime-asset-manifest.mjs",
-    "sbom:release": "npm sbom --omit=dev --sbom-format cyclonedx --sbom-type application --package-lock-only",
+    "sbom:release": "node ./scripts/write-release-compliance-artifacts.mjs",
     "check:licenses": "node ./scripts/check-third-party-licenses.mjs --check",
     "license:report": "node ./scripts/check-third-party-licenses.mjs --format markdown --write docs/THIRD_PARTY_LICENSE_REPORT.md",
     "compliance:release": "node ./scripts/write-release-compliance-artifacts.mjs",
