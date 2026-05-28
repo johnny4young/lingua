@@ -66,6 +66,15 @@ interface WorkspaceToolState {
 
   /** Append a new request to the top of the list. */
   createRequest: (request: HttpRequestV1) => void;
+  /**
+   * Bulk-append requests to the top of the list, preserving their
+   * order (first element ends up topmost) and selecting the first.
+   * Used by the RL-100 Slice 3 collection importer so a Postman /
+   * Bruno import lands every request in one state write. A no-op for
+   * an empty array. There is no request-count cap (the LRU is
+   * per-request RESPONSE history only).
+   */
+  createRequests: (requests: ReadonlyArray<HttpRequestV1>) => void;
   /** Patch fields on an existing request; updates `updatedAt`. */
   updateRequest: (id: string, patch: Partial<HttpRequestV1>) => void;
   /** Drop the request + its entire response history. */
@@ -114,6 +123,16 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
           requests: [request, ...state.requests],
           activeRequestId: request.id,
         })),
+
+      createRequests: (requests) =>
+        set((state) => {
+          if (requests.length === 0) return state;
+          return {
+            // Preserve collection order — `requests[0]` ends up topmost.
+            requests: [...requests, ...state.requests],
+            activeRequestId: requests[0]?.id ?? state.activeRequestId,
+          };
+        }),
 
       updateRequest: (id, patch) =>
         set((state) => {

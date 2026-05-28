@@ -11268,6 +11268,13 @@ copied toasts), `commandPalette.action.openSqlWorkspace.*`,
 
 Deferred to Slice 3+:
 
+- HTTP environments + `{{variable}}` interpolation for request URL /
+  headers / body. This should be a native HTTP workspace feature, not a
+  one-shot importer substitution: requests keep placeholders editable
+  and the active environment resolves them at Send time. Needs a
+  versioned `HttpEnvironmentV1` schema/store, active-environment
+  selector, unresolved-variable validation, and secret-aware redaction
+  across previews, response history, capsules, and telemetry.
 - CSV / Parquet / JSON file import via drag-drop + `registerFileHandle`
   bridge (needs RL-024 multi-file filesystem infra).
 - OPFS persistence for tables (currently in-memory; queries persist
@@ -11474,7 +11481,7 @@ Deferred to Slice 2+:
 
 - Priority: `P2`
 - Status: `Partial`
-- Readiness: `Slice 1 (cURL) shipped 2026-05-26; Slice 2 (.ipynb) shipped 2026-05-27. Slice 3 (Bruno/Postman collections) + Slice 4+ (CodePen / JSFiddle / CodeSandbox URL → multi-file project, depends on RL-024) still pending.`
+- Readiness: `Slice 1 (cURL) shipped 2026-05-26; Slice 2 (.ipynb) shipped 2026-05-27; Slice 3 (Postman v2.1 + Bruno collections) shipped 2026-05-28. Slice 4+ (CodePen / JSFiddle / CodeSandbox URL → multi-file project, depends on RL-024) still pending.`
 - Why this matters:
   - Lower switching cost. A user with a Postman collection, `.ipynb` notebook, or cURL command shouldn't have to rebuild from scratch.
 - Slice 1 scope (registry + cURL → HTTP request):
@@ -11707,6 +11714,143 @@ and on the RL-100 Slice 1 importer registry (commit `8b13797`). All
   - Multi-language runner support for non-JS cells — RL-043 Slice B+
     extends `NOTEBOOK_RUNNABLE_LANGUAGES`. Slice 2 imports faithfully
     but only JS cells run.
+
+#### § Slice 3 landed (2026-05-28)
+
+Shipped Postman Collection v2.1 + Bruno `.bru` → multiple
+`HttpRequestV1` end-to-end. Builds on the RL-100 Slice 1 importer
+registry and the RL-097 HTTP workspace store. All 7 suggested folds
+(A/B/C/D/E/F/G) landed.
+
+- New shared:
+  - `src/shared/importers/postmanImporter.ts` (~430 LOC) — adapter +
+    folder walker + url-object reconstruction + body-mode mapping +
+    auth flattening. Defines the shared `CollectionImporterPreview`
+    (`kind: 'http-collection'`, `source: 'postman' | 'bruno'`) +
+    `ParsedCollectionRequest` + `CollectionImporterResult` consumed by
+    BOTH collection adapters. Closed-enum `POSTMAN_REJECT_REASONS =
+    ['malformed-json' | 'wrong-version' | 'invalid-shape' |
+    'empty-collection' | 'oversized']` surfaced via the existing
+    `ImporterPreviewOutcome.detail` slot. `MAX_IMPORT_REQUESTS = 100`
+    (truncate + `counts.truncated`, never reject); `MAX_COLLECTION_BYTES
+    = 4 MiB` defensive cap before `JSON.parse`.
+  - `src/shared/importers/brunoImporter.ts` (~230 LOC, fold D) — single
+    `.bru` text-DSL file → one request via a brace-balanced block
+    tokenizer (`meta` / `get…` / `headers` / `auth:bearer` / `body:*` /
+    `script:*`). Closed `BRUNO_REJECT_REASONS`.
+- Widened types: `IMPORTER_IDS = ['curl-http', 'ipynb-notebook',
+  'postman-collection', 'bruno-collection']`; `IMPORTER_LOSSY_WARNINGS`
+  extended with `postman-auth-helper`, `postman-prerequest-script`,
+  `postman-test-script`, `postman-variable`, `postman-graphql-body`,
+  `postman-formdata-file`, `bruno-script-dropped`.
+- Postman parsing:
+  - Folders flattened depth-first; request names prefixed
+    `Folder / Sub / Request`; `counts.folders` tracks distinct folders.
+  - `url` reconstructed from BOTH the v2.1 object shape (`{ raw, host[],
+    path[], query[] }`, preferring `raw`) and a plain string.
+  - Body: `raw` → json/text (JSON-sniffed), `urlencoded` → form,
+    `graphql` → text + `postman-graphql-body` warn, `formdata` → form
+    (text parts) + `postman-formdata-file` warn on file parts, `file` →
+    dropped + warn.
+  - Auth: `bearer` → `Authorization: Bearer <token>` header, including
+    inherited collection / folder auth when the request does not
+    override it; everything else → `postman-auth-helper` warn. Disabled
+    headers PRESERVED as `enabled: false` (no loss, no warn).
+  - `{{variable}}` in url / headers / body → `postman-variable` warn;
+    left literal (env files not resolved Slice 3). Pre-request / test
+    `event` scripts at collection, folder, or request level → warn.
+  - Version gate: v2.1 (target) + v2.0 (best-effort) accepted; a
+    non-2.x schema or a v1 collection (no `item`) → `wrong-version`.
+- `workspaceToolStore.createRequests(requests[])` — additive bulk action
+  (prepend in order, select the first). No request-count cap exists
+  (`RESPONSE_LRU_CAP` is per-request response history only).
+- `useImportPreview` confirm branches on `importerId` — collections mint
+  a `HttpRequestV1` per parsed request via `createBlankHttpRequest`,
+  write them via `createRequests`, flip the `'http'` bottom-panel, and
+  fire `import.applied { importerId, status, sizeBucket }`. Confirm
+  returns `{ kind, requestCount }`.
+- `<ImportPreviewBody>` collection band — source badge + summary chip
+  (`{n} requests · {f} folders`) + truncation note + scrollable request
+  list (method pill + name + url). Header VALUES are never rendered; a
+  lock badge marks requests carrying `BASELINE_SENSITIVE_HEADERS`. The
+  originals round-trip on confirm.
+- `<ImportPreviewOverlay>` — file `accept` widened
+  (`.json,.postman_collection.json,.bru`); confirm label `Import {n}
+  requests`; reject-detail hint generalized (`importPreview.reject.ipynb.*`
+  / `importPreview.reject.postman.*`; the testid renamed
+  `import-preview-reject-detail`).
+- Telemetry: `import.applied` widened — `'postman-collection'` +
+  `'bruno-collection'` join the closed enum. The existing 3-way parity
+  test cross-imports `IMPORTER_IDS` so it auto-covers the widening.
+  No new event; NO request names / URLs / headers / body on the wire.
+- i18n: ~26 new keys × en + es tuteo. Tuteo verified: `Importa`,
+  `Revisa`, `Suelta`, `Pega`. NO voseo.
+- Tests: `tests/shared/importers/postmanImporter.test.ts` (~26 cases —
+  surface + detect + folder flattening + url reconstruction + body
+  modes + auth + every lossy warning + truncation + every reject +
+  import round-trip), `tests/shared/importers/brunoImporter.test.ts`
+  (~11 cases), `registry.test.ts` extended (closed-enum widening +
+  postman/bruno detect), `useImportPreview.test.ts` extended (collection
+  confirm writes N requests + flips http panel),
+  `tests/stores/workspaceToolStore.test.ts` extended (`createRequests`
+  bulk + empty no-op), `ImportPreviewOverlay.test.tsx` extended (3
+  collection cases), `importPreview.spec.ts` extended (Postman preview
+  EN).
+- Out of scope (Slice 4+):
+  - CodePen / JSFiddle / CodeSandbox URL → multi-file project (depends
+    on RL-024).
+  - Directory drag-drop of a Bruno collection folder.
+  - Postman environment / globals variable resolution (promoted to the
+    follow-up below so it lands on top of native HTTP environments
+    instead of baking static values into imported requests).
+  - OpenAPI / Swagger import (separate ticket).
+
+#### § Follow-up accepted (2026-05-28) — Postman environments + HTTP variables
+
+User feedback on the Slice 3 preview warning is correct: Postman
+collections often depend on `{{base_url}}`, `{{token}}`, and similar
+environment/global variables, and Lingua's HTTP workspace should support
+the same pattern natively.
+
+Product direction:
+
+- Implement native HTTP environments first under RL-097: named
+  environments, an active-environment selector in the HTTP editor, and
+  variable rows with `enabled` + `secret` flags. URL, headers, and body
+  fields keep `{{name}}` placeholders as source text; the Send path
+  resolves them against the active environment immediately before
+  `fetch`.
+- Missing variables should block Send with an inline validation band,
+  not silently dispatch a broken request. The band can list variable
+  names, but never secret values.
+- Secret variables must be redacted from request previews, response
+  history, Run Capsules, clipboard/export surfaces, and telemetry. The
+  telemetry shape stays closed-enum/bucketed only; no environment names,
+  variable values, URLs, headers, or bodies.
+- Postman import then consumes this feature: collection-level
+  `variable[]` becomes an imported environment/defaults set; separate
+  Postman environment/global JSON files can be paired with the
+  collection import; imported requests retain the original
+  `{{variable}}` placeholders so switching environments later updates
+  behavior without re-importing.
+- Precedence should be intentionally simpler than full Postman in v1:
+  active environment values override collection defaults. Request-local
+  variables, data files, and pre-request script mutation stay out of
+  scope until a scripting/runtime decision exists.
+
+Acceptance sketch for the first implementation slice:
+
+- A request with `https://{{host}}/v1/users` sends successfully when the
+  active environment defines `host`.
+- The same request blocks with a localized missing-variable error when
+  `host` is absent or disabled.
+- A secret `token` used in `Authorization: Bearer {{token}}` reaches the
+  network request but renders as `<redacted>` in history, capsule export,
+  and import previews.
+- Importing a Postman collection plus an environment file creates the
+  HTTP requests and an active environment in one confirm flow.
+- EN + ES UI smoke covers the environment selector, missing-variable
+  band, and import preview copy.
 
 ### RL-101 Onboarding Choreography
 

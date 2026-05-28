@@ -908,8 +908,14 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
 // duplicated here so the telemetry validator stays import-cycle-free.
 // Parity test in `update-server/test/telemetry.test.ts` cross-imports
 // the renderer source of truth to keep the two copies in sync.
-// RL-100 Slice 2 widens with `'ipynb-notebook'`.
-export const IMPORTER_IDS_SET = new Set(['curl-http', 'ipynb-notebook']);
+// RL-100 Slice 2 widens with `'ipynb-notebook'`; Slice 3 widens with
+// `'postman-collection'` + `'bruno-collection'`.
+export const IMPORTER_IDS_SET = new Set([
+  'curl-http',
+  'ipynb-notebook',
+  'postman-collection',
+  'bruno-collection',
+]);
 // RL-100 Slice 1 fold E — closed enum of import outcomes.
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
 // RL-100 Slice 2 fold E — closed enum of `.ipynb` warning kinds

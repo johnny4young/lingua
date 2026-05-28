@@ -206,6 +206,36 @@ describe('useImportPreview — ipynb arm (RL-100 Slice 2)', () => {
     expect(useUIStore.getState().activeBottomPanel).toBe('console');
   });
 
+  it('confirm writes every collection request into the workspace + flips http panel (Slice 3)', () => {
+    const postman = JSON.stringify({
+      info: {
+        name: 'Demo',
+        schema:
+          'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+      },
+      item: [
+        { name: 'List', request: { method: 'GET', url: 'https://x.dev/a' } },
+        { name: 'Create', request: { method: 'POST', url: 'https://x.dev/a' } },
+      ],
+    });
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource(postman);
+    });
+    expect(result.current.state.importerId).toBe('postman-collection');
+    let returned: ReturnType<typeof result.current.confirm> = null;
+    act(() => {
+      returned = result.current.confirm();
+    });
+    expect(returned?.kind).toBe('postman-collection');
+    expect(returned?.requestCount).toBe(2);
+    const { requests, activeRequestId } = useWorkspaceToolStore.getState();
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.name).toBe('List');
+    expect(activeRequestId).toBe(requests[0]?.id);
+    expect(useUIStore.getState().activeBottomPanel).toBe('http');
+  });
+
   it('does not attribute unrecognized rejects to cURL when cancelled', () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {

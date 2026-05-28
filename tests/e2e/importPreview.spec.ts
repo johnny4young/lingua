@@ -82,7 +82,40 @@ test.describe('Import overlay — Mod+Alt+I binding (RL-100 Slice 1)', () => {
 
     await expect(page.getByTestId('import-preview-reject')).toBeVisible();
     await expect(
-      page.getByTestId('import-preview-reject-ipynb-detail')
+      page.getByTestId('import-preview-reject-detail')
     ).toContainText(/formato v4/i);
+  });
+
+  test('pasting a Postman collection previews every request (RL-100 Slice 3, EN)', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+I');
+    await expect(page.getByTestId('import-preview-overlay')).toBeVisible();
+
+    const postman = JSON.stringify({
+      info: {
+        name: 'E2E API',
+        schema:
+          'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+      },
+      item: [
+        { name: 'List', request: { method: 'GET', url: 'https://x.dev/items' } },
+        { name: 'Create', request: { method: 'POST', url: 'https://x.dev/items' } },
+      ],
+    });
+    await page.getByTestId('import-preview-paste').fill(postman);
+
+    await expect(
+      page.locator('[data-preview-kind="http-collection"]')
+    ).toBeVisible();
+    await expect(
+      page.getByTestId('import-preview-collection-summary')
+    ).toContainText(/2 requests/);
+    await expect(page.getByTestId('import-preview-confirm')).toContainText(
+      /Import 2 requests/i
+    );
   });
 });

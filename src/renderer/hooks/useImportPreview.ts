@@ -47,6 +47,10 @@ import type {
   IpynbImporterResult,
 } from '../../shared/importers/ipynbImporter';
 import type {
+  CollectionImporterPreview,
+  CollectionImporterResult,
+} from '../../shared/importers/postmanImporter';
+import type {
   ImporterId,
   ImporterLossyWarning,
   ImporterRejectReason,
@@ -82,7 +86,8 @@ export type ImportPreviewPhase = 'idle' | 'previewed' | 'rejected';
  */
 export type AnyImporterPreview =
   | (CurlImporterPreview & { readonly kind: 'curl-http' })
-  | IpynbImporterPreview;
+  | IpynbImporterPreview
+  | CollectionImporterPreview;
 
 export interface ImportPreviewState {
   phase: ImportPreviewPhase;
@@ -99,13 +104,19 @@ export interface ImportPreviewState {
 }
 
 export interface ConfirmResult {
-  readonly kind: 'curl-http' | 'ipynb-notebook';
-  /** Slice 1 — newly-created request. Null for ipynb. */
+  readonly kind:
+    | 'curl-http'
+    | 'ipynb-notebook'
+    | 'postman-collection'
+    | 'bruno-collection';
+  /** Slice 1 — newly-created request. Null for ipynb / collections. */
   readonly request?: HttpRequestV1;
-  /** Slice 2 — newly-minted notebook tab id. Null for cURL. */
+  /** Slice 2 — newly-minted notebook tab id. Null for cURL / collections. */
   readonly notebookTabId?: string;
   /** Slice 2 fold F — dominant code-cell language used to seed the notebook tab. */
   readonly dominantLanguage?: NotebookCellLanguage | null;
+  /** Slice 3 — number of requests written for a collection import. */
+  readonly requestCount?: number;
 }
 
 export interface UseImportPreviewResult {
@@ -174,14 +185,16 @@ export function useImportPreview(): UseImportPreviewResult {
     }
     // Stamp the `kind` discriminator at the hook boundary so the
     // outer UI doesn't have to introspect the adapter id. cURL is
-    // the only adapter whose preview shape predates the discriminator.
+    // the only adapter whose preview shape predates the discriminator
+    // (ipynb carries `kind: 'ipynb-notebook'`; the collection adapters
+    // carry `kind: 'http-collection'`).
     const widened: AnyImporterPreview =
-      importerId === 'ipynb-notebook'
-        ? (outcome.preview as IpynbImporterPreview)
-        : ({
+      importerId === 'curl-http'
+        ? ({
             ...(outcome.preview as CurlImporterPreview),
             kind: 'curl-http' as const,
-          } satisfies AnyImporterPreview);
+          } satisfies AnyImporterPreview)
+        : (outcome.preview as AnyImporterPreview);
     setState({
       phase: 'previewed',
       importerId,
@@ -307,6 +320,44 @@ export function useImportPreview(): UseImportPreviewResult {
         kind: 'ipynb-notebook',
         notebookTabId: tabId,
         dominantLanguage: result.dominantLanguage,
+      };
+    }
+
+    if (
+      (state.importerId === 'postman-collection' ||
+        state.importerId === 'bruno-collection') &&
+      state.preview.kind === 'http-collection'
+    ) {
+      const result = adapter.import(state.preview) as CollectionImporterResult;
+      const newRequests: HttpRequestV1[] = result.requests.map((parsed) => {
+        const blank = createBlankHttpRequest({
+          id: crypto.randomUUID(),
+          name: parsed.name,
+        });
+        return {
+          ...blank,
+          method: parsed.method,
+          url: parsed.url,
+          headers: parsed.headers.map((h) => ({ ...h })),
+          ...(parsed.body ? { body: { ...parsed.body } } : {}),
+        };
+      });
+      if (newRequests.length === 0) {
+        setState(INITIAL_STATE);
+        return null;
+      }
+      useWorkspaceToolStore.getState().createRequests(newRequests);
+      // Surface the imported requests immediately (mirror of fold G).
+      useUIStore.getState().openBottomPanel('http');
+      trackImportApplied({
+        importerId: state.importerId,
+        status: 'ok',
+        sizeBucket: bucketCapsuleSize(state.sourceBytes),
+      });
+      setState(INITIAL_STATE);
+      return {
+        kind: state.importerId,
+        requestCount: newRequests.length,
       };
     }
 

@@ -59,6 +59,23 @@ describe('useWorkspaceToolStore (RL-097 Slice 1)', () => {
     expect(useWorkspaceToolStore.getState().requests).toHaveLength(1);
   });
 
+  it('createRequests bulk-appends in order + selects the first (RL-100 Slice 3)', () => {
+    useWorkspaceToolStore.getState().createRequest(makeRequest('existing', 'E'));
+    useWorkspaceToolStore
+      .getState()
+      .createRequests([makeRequest('a', 'A'), makeRequest('b', 'B')]);
+    const { requests, activeRequestId } = useWorkspaceToolStore.getState();
+    expect(requests.map((r) => r.id)).toEqual(['a', 'b', 'existing']);
+    expect(activeRequestId).toBe('a');
+  });
+
+  it('createRequests is a no-op for an empty array', () => {
+    useWorkspaceToolStore.getState().createRequest(makeRequest('a', 'A'));
+    useWorkspaceToolStore.getState().createRequests([]);
+    expect(useWorkspaceToolStore.getState().requests).toHaveLength(1);
+    expect(useWorkspaceToolStore.getState().activeRequestId).toBe('a');
+  });
+
   it('updateRequest patches existing fields + bumps updatedAt', () => {
     useWorkspaceToolStore.getState().createRequest(makeRequest('a', 'A'));
     useWorkspaceToolStore
