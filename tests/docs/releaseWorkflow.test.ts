@@ -35,7 +35,7 @@ describe('release workflow', () => {
     : { scripts: {} };
 
   it('downloads pre-built artifacts before publishing', () => {
-    expect(workflow).toMatch(/uses:\s*actions\/download-artifact@v4/u);
+    expect(workflow).toMatch(/uses:\s*actions\/download-artifact@[0-9a-f]{40}/u);
     expect(workflow).toContain('merge-multiple: true');
   });
 
@@ -192,7 +192,7 @@ describe('release workflow', () => {
       /workflow_call:[\s\S]*?inputs:[\s\S]*?ref:[\s\S]*?default:\s*refs\/heads\/main/u
     );
     expect(deployWebWorkflow).toMatch(
-      /uses:\s*actions\/checkout@v4[\s\S]*?ref:\s*\$\{\{\s*inputs\.ref\s*\}\}/u
+      /uses:\s*actions\/checkout@[0-9a-f]{40}[^\n]*[\s\S]*?ref:\s*\$\{\{\s*inputs\.ref\s*\}\}/u
     );
   });
 
@@ -253,7 +253,7 @@ describe('release workflow', () => {
       'Deployed service worker does not bypass the update-version endpoint'
     );
     expect(deployWebWorkflow).toContain('Upload Cloudflare deploy validation');
-    expect(deployWebWorkflow).toContain('actions/upload-artifact@v4');
+    expect(deployWebWorkflow).toMatch(/actions\/upload-artifact@[0-9a-f]{40}/u);
     expect(deployWebWorkflow).toContain('name: cloudflare-deploy-validation');
   });
 });
