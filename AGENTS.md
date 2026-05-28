@@ -49,7 +49,7 @@ machine-local state.**
 - **Vite env consumers — audit ALL THREE configs.** When a slice introduces a new consumer of `import.meta.env.VITE_*` (renderer / web) or of a build-time `process.env.LINGUA_*` (main `define`), it must be wired into every Vite config that reaches a packaged surface, not only the one where the bug first showed up. Concretely:
   - `vite.web.config.mts` and `vite.renderer.config.mts` need `envDir: __dirname` so repo-root `.env` / `.env.production` actually substitute `import.meta.env.VITE_*` defines into their bundles.
   - `vite.main.config.mts` needs the function form of `defineConfig` calling `loadEnv(mode, __dirname, '')` because main reads from `process.env` at config-load time, BEFORE Vite's automatic env loading runs.
-  - **`dev:desktop:pro` and `dev:desktop:prod` mask both gaps** by injecting the var via `process.env` before spawning, so dev paths cannot detect this regression. Validate end-to-end with a packaged `npm run make:desktop` build and a paste, not just the dev launchers. RL-061 Slice 2.5 fixed only the web symptom; Slice 3 surfaced the renderer + main gaps when the production .app rejected every paste with `no-public-key`.
+  - **`dev:desktop:pro` and `dev:desktop:prod` mask both gaps** by injecting the var via `process.env` before spawning, so dev paths cannot detect this regression. Validate end-to-end with a packaged `pnpm run make:desktop` build and a paste, not just the dev launchers. RL-061 Slice 2.5 fixed only the web symptom; Slice 3 surfaced the renderer + main gaps when the production .app rejected every paste with `no-public-key`.
 
 ## UI verification — MANDATORY when the diff touches user-facing surfaces
 
@@ -64,7 +64,7 @@ Order of preference:
 
 1. **Isolated React component or static HTML artifact** → embedded
    preview. Zero overhead, no server, no Chrome instance.
-2. **Web build end-to-end** (`npm run preview:web`, port 4173) →
+2. **Web build end-to-end** (`pnpm run preview:web`, port 4173) →
    Playwright MCP with a persistent Chrome instance. This is the
    default for any renderer-side slice. Use `browser_snapshot` over
    screenshots (DOM snapshots cost ~1–3k tokens vs. ~5–15k for a PNG
@@ -73,7 +73,7 @@ Order of preference:
    the gate.
 3. **Electron shell** (fallback when the slice only works in desktop
    — IPC handlers that have no web stub, `crashReporter` boot,
-   `protocol.registerFileProtocol`, etc.) → `npm run smoke:desktop`
+   `protocol.registerFileProtocol`, etc.) → `pnpm run smoke:desktop`
    (writes artifacts under `output/playwright/desktop-smoke` and
    exercises JS, TS, Python, Go, and Rust in the real desktop shell)
    or Playwright Electron. Only reach for MCP `computer-use` when a
@@ -84,7 +84,7 @@ Order of preference:
 
 Minimum smoke pass for a renderer-side slice:
 
-- Start `npm run preview:web` in background, navigate to
+- Start `pnpm run preview:web` in background, navigate to
   `http://localhost:4173/`.
 - Open the surface the slice touched. Exercise the happy path plus
   the primary error path.
@@ -107,11 +107,11 @@ through to Electron smoke. Never skip both tiers silently.
 
 ## Workflow conventions
 
-- Run `npm test -- --run`, `npx tsc --noEmit`, `npm run lint`,
-  `npm run check:i18n`, and `npm run check:i18n:copy` before declaring
+- Run `pnpm test -- --run`, `pnpm exec tsc --noEmit`, `pnpm run lint`,
+  `pnpm run check:i18n`, and `pnpm run check:i18n:copy` before declaring
   a slice done. The `check:i18n` guards catch untranslated keys and
   hardcoded renderer copy.
-- Web builds: `npm run build:web`. Desktop dev: `npm run dev:desktop`.
+- Web builds: `pnpm run build:web`. Desktop dev: `pnpm run dev:desktop`.
 - Keep scope tight. If a review surfaces something out of scope, flag
   it in `docs/PLAN.md` rather than expanding the current slice.
 
@@ -143,7 +143,7 @@ key embedded at build time. To exercise Pro-gated UI without the real
 issuer, the repo ships two helpers that mint a throwaway keypair +
 token for the session.
 
-### Fast path — web: `npm run dev:web:pro`
+### Fast path — web: `pnpm run dev:web:pro`
 
 One command starts Vite on `http://localhost:5174` with a fresh dev
 public key injected into `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` and
@@ -155,8 +155,8 @@ the newly printed token into an older 5174 tab, because that tab was
 built with a different public key.
 
 ```bash
-npm run dev:web:pro               # tier=pro, valid 30 days
-npm run dev:web:pro -- --tier team --days 7
+pnpm run dev:web:pro               # tier=pro, valid 30 days
+pnpm run dev:web:pro -- --tier team --days 7
 ```
 
 Copy the token printed in the terminal → open the running app →
@@ -169,16 +169,16 @@ Revert: click **Remove license** in the same row, or
 dev server discards the keypair; any previously-applied token becomes
 invalid on the next restart.
 
-### Fast path — desktop: `npm run dev:desktop:pro`
+### Fast path — desktop: `pnpm run dev:desktop:pro`
 
 One command mints a fresh dev public key + token, injects the public
 key into the managed desktop launcher, and prints the token you can
 paste into Settings → License.
 
 ```bash
-npm run dev:desktop:pro
-npm run dev:desktop:pro -- --tier team --days 7
-npm run dev:desktop:pro -- --sync-main --exit-after-ms 4000
+pnpm run dev:desktop:pro
+pnpm run dev:desktop:pro -- --tier team --days 7
+pnpm run dev:desktop:pro -- --sync-main --exit-after-ms 4000
 ```
 
 Copy the token printed in the terminal → open the running desktop app
@@ -203,7 +203,7 @@ CI smoke, scripted tests). End-to-end coverage lives in
 
    ```bash
    export VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK="$(jq -r .publicKeyJwk dev-license.json)"
-   npm run dev:desktop    # or: npm run dev:web
+   pnpm run dev:desktop    # or: pnpm run dev:web
    ```
 
 3. In the running app open **Settings → License** and paste the `token`

@@ -7,14 +7,14 @@ This file collects the contributor-facing workflow for Lingua: clone, run, test,
 ```bash
 git clone https://github.com/johnny4young/lingua.git
 cd lingua
-npm install
-npm run dev:desktop
+pnpm install
+pnpm run dev:desktop
 ```
 
 For browser-only iteration, use:
 
 ```bash
-npm run dev:web
+pnpm run dev:web
 ```
 
 Renderer architecture notes:
@@ -41,16 +41,16 @@ Use [`.env.example`](../.env.example) as the safe template for local overrides. 
 ## Quality checks
 
 ```bash
-npm run lint
-npm run check:i18n
-npm run check:i18n:copy
-npm test
-npx tsc --noEmit
-npm run build:web
-npm run smoke:desktop
+pnpm run lint
+pnpm run check:i18n
+pnpm run check:i18n:copy
+pnpm test
+pnpm exec tsc --noEmit
+pnpm run build:web
+pnpm run smoke:desktop
 ```
 
-These are the main local verification commands. CI also runs the changelog/version guard, the third-party license policy gate, and a high-severity `npm audit`; release runs add exact release-tag changelog validation, the production-only blocking audit, plus SBOM/license artifact generation.
+These are the main local verification commands. CI also runs the changelog/version guard, the third-party license policy gate, and a high-severity `pnpm audit`; release runs add exact release-tag changelog validation, the production-only blocking audit, plus SBOM/license artifact generation.
 
 ## i18n contributor workflow
 
@@ -64,8 +64,8 @@ These are the main local verification commands. CI also runs the changelog/versi
 Verification commands:
 
 ```bash
-npm run check:i18n
-npm run check:i18n:copy
+pnpm run check:i18n
+pnpm run check:i18n:copy
 ```
 
 What they enforce:
@@ -78,8 +78,8 @@ What they enforce:
 The most reliable interactive validation path today is the web build:
 
 ```bash
-npm run build:web
-npm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4173
+pnpm run build:web
+pnpm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4173
 ```
 
 Then drive the preview with the Playwright CLI wrapper:
@@ -98,7 +98,7 @@ Desktop-only paths such as native Go/Rust execution, packaged auto-updates, and 
 Use the desktop launcher when you need the real Electron app without going through a full `electron-forge start` cycle:
 
 ```bash
-npm run dev:desktop
+pnpm run dev:desktop
 ```
 
 What it does:
@@ -110,17 +110,17 @@ What it does:
 If `src/main` or `src/preload` changed and the existing `.vite/build` bundle may be stale, resync those artifacts once before launch:
 
 ```bash
-npm run dev:desktop:sync
+pnpm run dev:desktop:sync
 ```
 
 Useful flags:
 
 ```bash
 # Reuse an already-running matching renderer server instead of owning it
-npm run dev:desktop -- --reuse-server
+pnpm run dev:desktop -- --reuse-server
 
 # Auto-close Electron after a few seconds (useful for smoke automation)
-npm run dev:desktop -- --exit-after-ms 4000
+pnpm run dev:desktop -- --exit-after-ms 4000
 ```
 
 The launcher avoids rebuilds during normal renderer-focused desktop testing. A resync is only needed when `main` or `preload` code changes, or when `.vite/build` is missing. The Vite configs use `.mts` so the standard dev/build flow stays on Vite's supported ESM config path and avoids the deprecated CJS Node API warning.
@@ -128,7 +128,7 @@ The launcher avoids rebuilds during normal renderer-focused desktop testing. A r
 If you specifically need the raw Electron Forge boot path, use:
 
 ```bash
-npm run dev:desktop:forge
+pnpm run dev:desktop:forge
 ```
 
 ## Testing Pro locally
@@ -136,8 +136,8 @@ npm run dev:desktop:forge
 Fast paths:
 
 ```bash
-npm run dev:web:pro
-npm run dev:desktop:pro
+pnpm run dev:web:pro
+pnpm run dev:desktop:pro
 ```
 
 Both commands mint a throwaway dev public key + signed token, print the token to the terminal, and start the target surface with `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` already wired in. Copy the token into **Settings → License → Paste a license token** to unlock Pro locally.
@@ -147,7 +147,7 @@ Both commands mint a throwaway dev public key + signed token, print the token to
 The desktop wrapper also forwards the managed-launcher flags you already use on `dev:desktop`:
 
 ```bash
-npm run dev:desktop:pro -- --sync-main --exit-after-ms 4000
+pnpm run dev:desktop:pro -- --sync-main --exit-after-ms 4000
 ```
 
 If you need the keypair + token as data for CI or a custom local workflow:
@@ -155,7 +155,7 @@ If you need the keypair + token as data for CI or a custom local workflow:
 ```bash
 node scripts/mint-dev-license.mjs --tier pro --days 30 > dev-license.json
 export VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK="$(jq -r .publicKeyJwk dev-license.json)"
-npm run dev:desktop
+pnpm run dev:desktop
 ```
 
 Notes:
@@ -169,7 +169,7 @@ Notes:
 Use the repeatable Electron smoke workflow when you need a contributor-friendly UI pass instead of ad hoc manual clicks:
 
 ```bash
-npm run smoke:desktop
+pnpm run smoke:desktop
 ```
 
 What it does:
@@ -190,13 +190,13 @@ Variants:
 
 ```bash
 # Offline-mode regression (no network)
-npm run smoke:desktop:offline
+pnpm run smoke:desktop:offline
 
 # Packaged-app smoke against out/make/ (release-blocking gate)
-npm run smoke:desktop:packaged
+pnpm run smoke:desktop:packaged
 ```
 
-The packaged variant runs against the actual `Lingua.app` produced by `npm run make:desktop` and is the gate the release workflow runs before publishing artifacts.
+The packaged variant runs against the actual `Lingua.app` produced by `pnpm run make:desktop` and is the gate the release workflow runs before publishing artifacts.
 
 ## Shell layout behavior
 
@@ -215,9 +215,9 @@ The packaged variant runs against the actual `Lingua.app` produced by `npm run m
 ### Desktop packages
 
 ```bash
-npm run make:desktop:mac
-npm run make:desktop:linux
-npm run make:desktop:win
+pnpm run make:desktop:mac
+pnpm run make:desktop:linux
+pnpm run make:desktop:win
 ```
 
 Artifacts are written to `out/make/`.
@@ -225,8 +225,8 @@ Artifacts are written to `out/make/`.
 ### Web build
 
 ```bash
-npm run build:web
-npm run preview:web
+pnpm run build:web
+pnpm run preview:web
 ```
 
 The local web build defaults to `/` as its base path. The Cloudflare Pages deployment workflow builds `dist/web` for the subdomain root at `app.linguacode.dev`; `linguacode.dev` remains reserved for the dedicated marketing/download site.
@@ -238,7 +238,7 @@ The local web build defaults to `/` as its base path. The Cloudflare Pages deplo
 - GitHub Release publishing is manual via the `Release` workflow, which accepts a single stable tag input in the form `vX.Y.Z`, creates that tag from `main`, and publishes from it.
 - Update server deployment is manual via the `Deploy Update Server` workflow.
 - The release workflow runs exact release-tag changelog validation, the production dependency audit, release compliance artifact generation, per-platform build gates, Linux package install/smoke/uninstall validation, checksum generation/re-verification, draft GitHub Release upload, and optional web deploy from the validated release tag.
-- Packaged macOS and Windows builds use the desktop updater against the stable GitHub Release channel. Draft update validation must use an isolated update-server deployment with `GITHUB_RELEASE_CHANNEL=draft`, then `npm run check:update-feed -- --base-url <staging-updates> --old-version <previous> --expected-version <target>` to write `output/update-feed-validation/` evidence before promotion.
+- Packaged macOS and Windows builds use the desktop updater against the stable GitHub Release channel. Draft update validation must use an isolated update-server deployment with `GITHUB_RELEASE_CHANNEL=draft`, then `pnpm run check:update-feed -- --base-url <staging-updates> --old-version <previous> --expected-version <target>` to write `output/update-feed-validation/` evidence before promotion.
 - The active production release/update channel policy is stable-only; prerelease tags are rejected by the release workflow.
 
 For the full release operator checklist and required secrets, see [`RELEASE.md`](../RELEASE.md). For the public-release security sign-off, see [`docs/RELEASE_SECURITY.md`](./RELEASE_SECURITY.md).

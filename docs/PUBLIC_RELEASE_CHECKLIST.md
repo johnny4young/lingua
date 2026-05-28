@@ -59,27 +59,27 @@ change commit ids and require force-pushing private branches/tags.
 ## Dependency And License Gate
 
 - Confirm public builds do not include AGPL/commercial runtime dependencies
-  without an explicit license decision: `npm run check:licenses`.
+  without an explicit license decision: `pnpm run check:licenses`.
 - Generate release compliance artifacts:
-  `npm run compliance:release`.
+  `pnpm run compliance:release`.
 - Generate the committed transitive license report:
-  `npm run license:report`.
+  `pnpm run license:report`.
 - Generate a CycloneDX SBOM when a standalone stdout artifact is needed:
-  `npm run sbom:release`.
+  `pnpm run sbom:release`.
 - Keep `THIRD_PARTY_NOTICES.md` and
   `docs/THIRD_PARTY_LICENSE_REPORT.md` in sync with packaged runtime
   dependencies.
 
 ## Publication Gate
 
-- `npm test -- --run`
-- `npx tsc --noEmit`
-- `npm run lint`
-- `npm run check:i18n`
-- `npm run check:i18n:copy`
-- `npm run build:web`
-- `npm run changelog:check`
-- `npm run check:performance`
+- `pnpm test -- --run`
+- `pnpm exec tsc --noEmit`
+- `pnpm run lint`
+- `pnpm run check:i18n`
+- `pnpm run check:i18n:copy`
+- `pnpm run build:web`
+- `pnpm run changelog:check`
+- `pnpm run check:performance`
 - For web releases, confirm the GitHub Actions run uploaded
   `cloudflare-deploy-validation` with the Wrangler log,
   `app.linguacode.dev` app-shell check, service-worker

@@ -51,8 +51,8 @@ release checklist.
 
 ## Dependencies And Notices
 
-- Confirm `npm run check:licenses` passes.
-- Confirm `npm run compliance:release` generated `lingua-sbom.cyclonedx.json`
+- Confirm `pnpm run check:licenses` passes.
+- Confirm `pnpm run compliance:release` generated `lingua-sbom.cyclonedx.json`
   and `THIRD_PARTY_LICENSE_REPORT.md`.
 - Confirm `THIRD_PARTY_NOTICES.md` and
   `docs/THIRD_PARTY_LICENSE_REPORT.md` are current.

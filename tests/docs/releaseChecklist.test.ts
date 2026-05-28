@@ -96,8 +96,8 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     // findings with no stable upstream fix. Both release gates must
     // remain in the validation checklist so the human procedure stays
     // in lockstep with `release.yml`.
-    expect(checklist).toMatch(/release-blocking.*npm audit|npm audit.*release-blocking/i);
-    expect(checklist).toContain('npm audit --omit=dev --audit-level=high');
+    expect(checklist).toMatch(/release-blocking.*pnpm audit|pnpm audit.*release-blocking/i);
+    expect(checklist).toContain('pnpm audit --prod --audit-level high');
     expect(checklist).toMatch(/shasum\s+-a\s+256\s+-c\s+SHA256SUMS\.txt/u);
   });
 

@@ -13,25 +13,25 @@ the repo:
 ```bash
 git clone https://github.com/johnny4young/lingua
 cd lingua
-npm install                     # runs `prepare` → builds dist/cli/lingua.cjs
-npm run build:cli               # explicit rebuild
+pnpm install                    # runs `prepare` → builds dist/cli/lingua.cjs
+pnpm run build:cli              # explicit rebuild
 ```
 
 The binary is `dist/cli/lingua.cjs`. The `prepare` script rebuilds
-it whenever you `npm install` so a fresh `git pull` does not require
+it whenever you `pnpm install` so a fresh `git pull` does not require
 a manual rebuild.
 
 To link the CLI globally on your machine for dev:
 
 ```bash
-npm link                        # exposes `lingua` on PATH
+pnpm link --global              # exposes `lingua` on PATH
 lingua --help
 ```
 
 To uninstall:
 
 ```bash
-npm unlink -g lingua
+pnpm uninstall --global lingua
 ```
 
 ## Commands

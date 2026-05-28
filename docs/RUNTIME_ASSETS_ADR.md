@@ -128,10 +128,10 @@ Concretely:
 ## Lock-file workflow
 
 1. Bump `pyodide` in `package.json` and update the `version` field in
-   `src/shared/runtimeAssets.ts`. Run `npm install`.
-2. `npm run build:runtime-assets` to refresh `runtime-assets.lock.json`.
-3. `npm run check:runtime-assets` should now pass.
-4. `npm test -- tests/shared/runtimeAssets.test.ts` should also pass.
+   `src/shared/runtimeAssets.ts`. Run `pnpm install`.
+2. `pnpm run build:runtime-assets` to refresh `runtime-assets.lock.json`.
+3. `pnpm run check:runtime-assets` should now pass.
+4. `pnpm test -- tests/shared/runtimeAssets.test.ts` should also pass.
 5. Stage `runtime-assets.lock.json` alongside the dependency bump.
 
 If CI flags lock drift on a branch you did not intend to upgrade,

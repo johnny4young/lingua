@@ -7,14 +7,14 @@ submitting a contribution, you agree to the contribution grant described there.
 ## Setup
 
 ```bash
-npm install
-npm run dev:web
+pnpm install
+pnpm run dev:web
 ```
 
 Desktop development uses:
 
 ```bash
-npm run dev:desktop
+pnpm run dev:desktop
 ```
 
 Use `.env.example` as the reference for local env overrides. Do not commit
@@ -26,12 +26,12 @@ tokens.
 Before proposing a non-trivial change, run the relevant local checks:
 
 ```bash
-npm test -- --run
-npx tsc --noEmit
-npm run lint
-npm run check:i18n
-npm run check:i18n:copy
-npm run build:web
+pnpm test -- --run
+pnpm exec tsc --noEmit
+pnpm run lint
+pnpm run check:i18n
+pnpm run check:i18n:copy
+pnpm run build:web
 ```
 
 Renderer-facing changes also need a running-app smoke pass. The default path is

@@ -55,30 +55,31 @@ For deeper architecture detail and the per-capability execution-class decision, 
 
 ## Requirements
 
-| Dependency     | Version | Notes                                             |
-| -------------- | ------- | ------------------------------------------------- |
-| Node.js        | >= 24   | Required for local development, tests, and builds |
-| Go             | >= 1.21 | Required only for desktop Go execution            |
-| Rust (`rustc`) | stable  | Required only for desktop Rust execution          |
+| Dependency     | Version | Notes                                                          |
+| -------------- | ------- | -------------------------------------------------------------- |
+| Node.js        | >= 24   | Required for local development, tests, and builds              |
+| pnpm           | >= 11   | Package manager (`corepack enable` picks the pinned version)   |
+| Go             | >= 1.21 | Required only for desktop Go execution                         |
+| Rust (`rustc`) | stable  | Required only for desktop Rust execution                       |
 
 ## Quickstart
 
 ```bash
 git clone https://github.com/johnny4young/lingua.git
 cd lingua
-npm install
-npm run dev:desktop
+pnpm install
+pnpm run dev:desktop
 ```
 
 Common commands:
 
 ```bash
-npm run dev:web          # browser-only iteration
-npm run dev:desktop      # real Electron app + renderer dev server
-npm run dev:web:pro      # web build with throwaway dev license token printed
-npm run dev:desktop:pro  # desktop build with throwaway dev license token printed
-npm run smoke:desktop    # repeatable Electron smoke flow across all 5 languages
-npm run build:web        # static web build for app.linguacode.dev
+pnpm run dev:web          # browser-only iteration
+pnpm run dev:desktop      # real Electron app + renderer dev server
+pnpm run dev:web:pro      # web build with throwaway dev license token printed
+pnpm run dev:desktop:pro  # desktop build with throwaway dev license token printed
+pnpm run smoke:desktop    # repeatable Electron smoke flow across all 5 languages
+pnpm run build:web        # static web build for app.linguacode.dev
 ```
 
 Full contributor workflow — quality checks, i18n contributor flow, UI smoke against the web preview, desktop launcher flags, packaged-app smoke variants, build commands, automation/delivery — lives in [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md).
