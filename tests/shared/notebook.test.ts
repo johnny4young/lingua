@@ -162,6 +162,17 @@ describe('parseNotebook reject paths (closed enum)', () => {
     expect(result).toEqual({ ok: false, reason: 'oversized' });
   });
 
+  it('oversized when UTF-8 bytes exceed MAX_NOTEBOOK_BYTES', () => {
+    const title = 'é'.repeat(Math.ceil(MAX_NOTEBOOK_BYTES / 2));
+    const raw = JSON.stringify({ ...validNotebook(), title });
+
+    expect(raw.length).toBeLessThan(MAX_NOTEBOOK_BYTES);
+    expect(new TextEncoder().encode(raw).length).toBeGreaterThan(
+      MAX_NOTEBOOK_BYTES
+    );
+    expect(parseNotebook(raw)).toEqual({ ok: false, reason: 'oversized' });
+  });
+
   it('oversized when a single cell source exceeds MAX_CELL_SOURCE_LENGTH', () => {
     const nb: NotebookV1 = {
       ...validNotebook(),
@@ -234,6 +245,26 @@ describe('serializeNotebook + round-trip', () => {
         },
       ],
     };
+    expect(serializeNotebook(huge)).toBeNull();
+  });
+
+  it('returns null when the serialized UTF-8 byte size exceeds MAX_NOTEBOOK_BYTES', () => {
+    const huge: NotebookV1 = {
+      ...validNotebook(),
+      cells: [
+        {
+          kind: 'markdown',
+          id: 'cell-large',
+          source: 'é'.repeat(Math.ceil(MAX_NOTEBOOK_BYTES / 2)),
+        },
+      ],
+    };
+
+    const raw = JSON.stringify(huge, null, 2);
+    expect(raw.length).toBeLessThan(MAX_NOTEBOOK_BYTES);
+    expect(new TextEncoder().encode(raw).length).toBeGreaterThan(
+      MAX_NOTEBOOK_BYTES
+    );
     expect(serializeNotebook(huge)).toBeNull();
   });
 });

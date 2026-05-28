@@ -241,6 +241,14 @@ export interface EditorState {
   restoreTabs: (tabs: Array<Omit<FileTab, 'isDirty'>>, activeTabId?: string | null) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
+  /**
+   * RL-100 Slice 2 fold F — switch a tab's language without
+   * re-creating it. Used by the `.ipynb` import flow to flip a
+   * freshly-imported notebook tab's language chip to the dominant
+   * cell language. No-op on unknown tab, matching language, or
+   * tier-blocked language.
+   */
+  setTabLanguage: (id: string, language: Language) => void;
   updateContent: (id: string, content: string) => void;
   /**
    * RL-024 Slice 2 — refresh a tab's buffer from disk content without
@@ -329,10 +337,12 @@ export interface EditorState {
   /**
    * RL-043 Slice A — create a fresh notebook tab. Wraps `addTab` with
    * `kind: 'notebook'` + seeds the companion `useNotebookStore`
-   * entry. Returns the new tab id on success, `null` if the tab
+   * entry. `language` is the notebook-level display/default cell
+   * language used when an importer knows the dominant code-cell
+   * language. Returns the new tab id on success, `null` if the tab
    * budget is exhausted or the entitlement gate denies.
    */
-  addNotebookTab: (opts?: { title?: string }) => string | null;
+  addNotebookTab: (opts?: { title?: string; language?: Language }) => string | null;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The

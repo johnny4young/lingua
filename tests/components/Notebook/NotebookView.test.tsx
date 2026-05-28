@@ -6,7 +6,7 @@
  * dispatches the per-cell handler.
  */
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -26,10 +26,29 @@ import {
 } from '../../../src/renderer/stores/notebookStore';
 import { useEditorStore } from '../../../src/renderer/stores/editorStore';
 import { runnerManager } from '../../../src/renderer/runners';
+import type { NotebookCellV1 } from '../../../src/shared/notebook';
 
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
 
 const TAB_ID = 'tab-test';
+
+function seedNotebookCells(cells: NotebookCellV1[], activeCellId = cells[0]?.id ?? null) {
+  useNotebookStore.setState({
+    notebooks: {
+      [TAB_ID]: {
+        notebook: {
+          version: 1,
+          id: 'notebook-test',
+          title: 'Hello',
+          createdAt: '2026-05-27T00:00:00.000Z',
+          cells,
+        },
+        cellRunStatus: {},
+        activeCellId,
+      },
+    },
+  });
+}
 
 describe('<NotebookView />', () => {
   beforeAll(async () => {
@@ -88,6 +107,36 @@ describe('<NotebookView />', () => {
     expect(screen.getAllByTestId('notebook-code-cell-row')).toHaveLength(2);
   });
 
+  it('adds new code cells in the notebook tab language for imported Python notebooks', async () => {
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: TAB_ID,
+          name: 'Hello.linguanb',
+          language: 'python',
+          content: '',
+          isDirty: false,
+          kind: 'notebook',
+        },
+      ],
+      activeTabId: TAB_ID,
+    });
+    const user = userEvent.setup();
+    render(<NotebookView tabId={TAB_ID} />);
+
+    await user.click(screen.getByTestId('notebook-toolbar-add-code'));
+
+    const codeCells = useNotebookStore
+      .getState()
+      .getNotebookForTab(TAB_ID)!
+      .cells.filter((cell) => cell.kind === 'code');
+    expect(codeCells.at(-1)).toMatchObject({ language: 'python' });
+    const lastSource = screen
+      .getAllByTestId('notebook-code-cell-source')
+      .at(-1) as HTMLTextAreaElement;
+    expect(lastSource.getAttribute('placeholder')).toContain('Python');
+  });
+
   it('deletes a cell via the row action', async () => {
     const user = userEvent.setup();
     render(<NotebookView tabId={TAB_ID} />);
@@ -138,6 +187,122 @@ describe('<NotebookView />', () => {
       key: 'Enter',
       metaKey: true,
     });
+    await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+  });
+
+  it('Shift+Enter on the last code cell runs it and appends a fresh code cell (Jupyter parity)', async () => {
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: { stdout: [], stderr: [], sessionDelta: {} },
+      stdout: [],
+      stderr: [],
+    });
+    render(<NotebookView tabId={TAB_ID} />);
+    // Seed notebook has one code cell (the last cell). Shift+Enter on
+    // it runs + appends a new code cell below.
+    const before = screen.getAllByTestId('notebook-code-cell-row').length;
+    fireEvent.keyDown(screen.getByTestId('notebook-code-cell-source'), {
+      key: 'Enter',
+      shiftKey: true,
+    });
+    await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getAllByTestId('notebook-code-cell-row').length).toBe(
+        before + 1
+      )
+    );
+  });
+
+  it('Alt+Enter runs the cell and inserts a code cell directly below', async () => {
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: { stdout: [], stderr: [], sessionDelta: {} },
+      stdout: [],
+      stderr: [],
+    });
+    render(<NotebookView tabId={TAB_ID} />);
+    const before = screen.getAllByTestId('notebook-code-cell-row').length;
+    fireEvent.keyDown(screen.getByTestId('notebook-code-cell-source'), {
+      key: 'Enter',
+      altKey: true,
+    });
+    await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getAllByTestId('notebook-code-cell-row').length).toBe(
+        before + 1
+      )
+    );
+  });
+
+  it('Shift+Enter preserves the current code cell language when appending below', async () => {
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: { stdout: [], stderr: [], sessionDelta: {} },
+      stdout: [],
+      stderr: [],
+    });
+    seedNotebookCells([
+      {
+        kind: 'code',
+        id: 'cell-py',
+        language: 'python',
+        source: 'print("hi")',
+        outputs: [],
+      },
+    ]);
+    render(<NotebookView tabId={TAB_ID} />);
+
+    await act(async () => {
+      fireEvent.keyDown(screen.getByTestId('notebook-code-cell-source'), {
+        key: 'Enter',
+        shiftKey: true,
+      });
+    });
+
+    expect(mockExecute).not.toHaveBeenCalled();
+    await waitFor(() => {
+      const codeCells = useNotebookStore
+        .getState()
+        .getNotebookForTab(TAB_ID)!
+        .cells.filter((cell) => cell.kind === 'code');
+      expect(codeCells).toHaveLength(2);
+    });
+    const codeCells = useNotebookStore
+      .getState()
+      .getNotebookForTab(TAB_ID)!
+      .cells.filter((cell) => cell.kind === 'code');
+    expect(codeCells[1]).toMatchObject({ language: 'python' });
+  });
+
+  it('Run above uses the active cell instead of always targeting the last code cell', async () => {
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: { stdout: [], stderr: [], sessionDelta: {} },
+      stdout: [],
+      stderr: [],
+    });
+    seedNotebookCells([
+      {
+        kind: 'code',
+        id: 'cell-one',
+        language: 'javascript',
+        source: 'console.log(1)',
+        outputs: [],
+      },
+      {
+        kind: 'code',
+        id: 'cell-two',
+        language: 'javascript',
+        source: 'console.log(2)',
+        outputs: [],
+      },
+    ]);
+    render(<NotebookView tabId={TAB_ID} />);
+
+    screen.getAllByTestId('notebook-code-cell-source')[0]!.focus();
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('notebook-toolbar-run-above'));
+
     await waitFor(() => expect(mockExecute).toHaveBeenCalledTimes(1));
   });
 

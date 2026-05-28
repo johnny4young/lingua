@@ -158,6 +158,8 @@ export function useNotebookRun(): UseNotebookRunResult {
           ? notebook.cells.length - 1
           : notebook.cells.findIndex((c) => c.id === throughCellId);
       if (stopIdx === -1) return;
+      let ranRunnableCell = false;
+      let skippedUnsupportedCodeCell = false;
       setIsAnyCellRunning(true);
       try {
         for (let i = 0; i <= stopIdx; i += 1) {
@@ -165,14 +167,21 @@ export function useNotebookRun(): UseNotebookRunResult {
           const cell = notebook.cells[i]!;
           if (cell.kind !== 'code') continue;
           if (!isNotebookRunnableLanguage(cell.language as NotebookCellLanguage)) {
-            // Skip non-runnable cells silently in a runRange loop —
-            // the user clicked "Run all" knowing some cells may be
-            // markdown / Python.
+            // Keep mixed-language notebooks moving, but do not let an
+            // all-Python import make Run all look like a broken button.
+            skippedUnsupportedCodeCell = true;
             continue;
           }
+          ranRunnableCell = true;
           const outcome = await runCellInternal(tabId, cell.id);
           if (outcome === null) break;
           if (outcome.status === 'error' || outcome.status === 'stopped') break;
+        }
+        if (!ranRunnableCell && skippedUnsupportedCodeCell) {
+          useUIStore.getState().pushStatusNotice({
+            tone: 'info',
+            messageKey: 'notebook.notice.languageNotSupported',
+          });
         }
       } finally {
         setIsAnyCellRunning(false);

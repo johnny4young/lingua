@@ -197,6 +197,11 @@ export const TELEMETRY_EVENT_NAMES = [
   // src/shared/telemetry.ts. Parity test cross-imports
   // IMPORTER_IDS_SET and IMPORT_STATUSES_SET.
   'import.applied',
+  // RL-100 Slice 2 fold E — `.ipynb` warning band. Closed-enum
+  // `{ warningKindCount, dominantKind }` mirrored from
+  // src/shared/telemetry.ts. Parity test cross-imports
+  // NOTEBOOK_WARNING_KINDS_SET.
+  'import.notebook_warnings_surfaced',
   // RL-097 Slice 2 fold F — SQL workspace query execution. Closed-enum
   // `{ status, rowCountBucket, durationBucket }` mirrored from
   // src/shared/telemetry.ts. Parity test cross-imports
@@ -338,6 +343,7 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'http.request_executed': ['method', 'statusBucket', 'redactedHeadersBucket'],
   // RL-100 Slice 1 fold E — mirror of src/shared/telemetry.ts.
   'import.applied': ['importerId', 'status', 'sizeBucket'],
+  'import.notebook_warnings_surfaced': ['warningKindCount', 'dominantKind'],
   // RL-097 Slice 2 fold F — mirror of src/shared/telemetry.ts.
   'sql.query_executed': ['status', 'rowCountBucket', 'durationBucket'],
   // RL-099 Slice 1 fold F — mirror of src/shared/telemetry.ts.
@@ -516,8 +522,17 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
 // `IMPORT_STATUSES_SET` in `src/shared/telemetry.ts`. Parity test
 // cross-imports the renderer source-of-truth `IMPORTER_IDS` from
 // `src/shared/importers/types.ts` to keep them in sync.
-export const IMPORTER_IDS_SET = new Set(['curl-http']);
+export const IMPORTER_IDS_SET = new Set(['curl-http', 'ipynb-notebook']);
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
+// RL-100 Slice 2 fold E — mirrors `NOTEBOOK_WARNING_KINDS_SET` in
+// `src/shared/telemetry.ts`. Parity test cross-imports the renderer
+// source of truth from `src/shared/importers/types.ts`.
+export const NOTEBOOK_WARNING_KINDS_SET = new Set([
+  'raw-cell-dropped',
+  'rich-output-dropped',
+  'unknown-language',
+  'execute-result-stripped',
+]);
 // RL-039 Slice B fold B — mirror of `RECIPE_RUN_STATUSES_SET` in
 // `src/shared/telemetry.ts`. Parity test cross-imports the renderer
 // source-of-truth `RECIPE_RUN_STATUSES` from
@@ -1260,6 +1275,16 @@ function isAllowedValue(
         return typeof value === 'string' && IMPORT_STATUSES_SET.has(value);
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'import.notebook_warnings_surfaced':
+      if (key === 'warningKindCount')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value)
+        );
+      if (key === 'dominantKind')
+        return (
+          typeof value === 'string' && NOTEBOOK_WARNING_KINDS_SET.has(value)
+        );
       return false;
     case 'sql.query_executed':
       if (key === 'status')

@@ -41,15 +41,15 @@
  */
 
 /**
- * Closed enum of importer ids. Slice 1 ships `'curl-http'` only;
- * the enum stays open for `'ipynb-notebook'` (Slice 2),
- * `'postman-collection'` + `'bruno-collection'` (Slice 3), and
- * `'codepen-url'` (Slice 4+).
+ * Closed enum of importer ids. Slice 1 shipped `'curl-http'`;
+ * Slice 2 (2026-05-27) adds `'ipynb-notebook'`. The enum stays
+ * open for `'postman-collection'` + `'bruno-collection'` (Slice 3)
+ * and `'codepen-url'` (Slice 4+).
  *
  * Mirrored on `update-server/src/telemetry.ts` as
  * `IMPORTER_IDS_SET` — see the parity test there.
  */
-export const IMPORTER_IDS = ['curl-http'] as const;
+export const IMPORTER_IDS = ['curl-http', 'ipynb-notebook'] as const;
 export type ImporterId = (typeof IMPORTER_IDS)[number];
 
 /**
@@ -81,8 +81,66 @@ export const IMPORTER_LOSSY_WARNINGS = [
   'curl-cookie-write',
   'curl-output-file',
   'curl-other-flag',
+  // RL-100 Slice 2 — `.ipynb` adapter lossy codes. The `.ipynb`
+  // → `NotebookV1` mapping is intentionally lossy in Slice 2:
+  //   - `cell_type: 'raw'` cells are dropped (Lingua has no raw kind);
+  //   - rich outputs (`image/png`, `text/html`, `application/json`,
+  //     etc.) are dropped, only the `text/plain` MIME variant survives
+  //     as a `NotebookCellOutputV1`;
+  //   - cells whose kernelspec language is not in
+  //     `NOTEBOOK_CELL_LANGUAGES` (Slice A: JS / TS / Python) fall
+  //     back to JS with `ipynb-unknown-language`;
+  //   - cells with `execute_count` metadata lose it on import (only
+  //     content + outputs survive).
+  // Slice B+ promotes via RL-043 Slice B rich outputs + RL-043 Slice D
+  // round-trip export.
+  'ipynb-raw-cell-dropped',
+  'ipynb-rich-output-dropped',
+  'ipynb-unknown-language',
+  'ipynb-execute-result-stripped',
 ] as const;
 export type ImporterLossyWarning = (typeof IMPORTER_LOSSY_WARNINGS)[number];
+
+/**
+ * RL-100 Slice 2 — `.ipynb` adapter's internal reject taxonomy.
+ *
+ * Surfaced via `ImporterPreviewOutcome.detail` (NOT a new closed
+ * enum on the outer outcome) so the generic `IMPORTER_REJECT_REASONS`
+ * shape stays uniform across every importer. The UI reads
+ * `detail` when the reason is `'malformed'` / `'unsupported-feature'`
+ * to render a more specific localized hint via
+ * `importPreview.reject.ipynb.<code>` keys.
+ *
+ * `'malformed-json'` and `'invalid-shape'` map outward to
+ * `IMPORTER_REJECT_REASONS = 'malformed'`. `'wrong-version'`,
+ * `'oversized'`, and `'too-many-cells'` map to `'unsupported-feature'`.
+ */
+export const IPYNB_REJECT_REASONS = [
+  'malformed-json',
+  'wrong-version',
+  'invalid-shape',
+  'oversized',
+  'too-many-cells',
+] as const;
+export type IpynbRejectReason = (typeof IPYNB_REJECT_REASONS)[number];
+
+/**
+ * RL-100 Slice 2 fold E — closed enum of `.ipynb` warning kinds
+ * surfaced via the `import.notebook_warnings_surfaced` telemetry
+ * event. The renderer derives `dominantKind` from the warnings
+ * array on a successful import; if no warnings, the event does NOT
+ * fire.
+ *
+ * Mirrored on `update-server/src/telemetry.ts` as
+ * `NOTEBOOK_WARNING_KINDS_SET` — parity test there.
+ */
+export const NOTEBOOK_WARNING_KINDS = [
+  'raw-cell-dropped',
+  'rich-output-dropped',
+  'unknown-language',
+  'execute-result-stripped',
+] as const;
+export type NotebookWarningKind = (typeof NOTEBOOK_WARNING_KINDS)[number];
 
 /**
  * Result of `adapter.preview(source)`. The `preview` field is the

@@ -724,7 +724,7 @@ describe('editorStore', () => {
     it('renames notebook tabs by syncing the notebook title without marking the tab dirty', () => {
       const tabId = useEditorStore
         .getState()
-        .addNotebookTab({ title: 'Notebook draft' });
+        .addNotebookTab({ title: 'Notebook draft', language: 'python' });
       expect(tabId).toBeTruthy();
 
       useEditorStore.getState().renameTab(tabId!, '  Analysis.linguanb  ');
@@ -732,7 +732,7 @@ describe('editorStore', () => {
       const tab = useEditorStore.getState().tabs.find((item) => item.id === tabId);
       expect(tab).toMatchObject({
         name: 'Analysis.linguanb',
-        language: 'javascript',
+        language: 'python',
         kind: 'notebook',
         isDirty: false,
       });

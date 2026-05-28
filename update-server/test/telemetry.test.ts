@@ -36,6 +36,7 @@ import {
   PIPELINE_RUN_STATUSES_SET as WORKER_PIPELINE_RUN_STATUSES_SET,
   IMPORTER_IDS_SET as WORKER_IMPORTER_IDS_SET,
   IMPORT_STATUSES_SET as WORKER_IMPORT_STATUSES_SET,
+  NOTEBOOK_WARNING_KINDS_SET as WORKER_NOTEBOOK_WARNING_KINDS_SET,
   RECIPE_RUN_STATUSES_SET as WORKER_RECIPE_RUN_STATUSES_SET,
   NOTEBOOK_CELL_STATUSES_SET as WORKER_NOTEBOOK_CELL_STATUSES_SET,
   DEPENDENCY_COUNT_BUCKETS as WORKER_DEPENDENCY_COUNT_BUCKETS,
@@ -60,6 +61,7 @@ import {
   PIPELINE_RUN_STATUSES_SET as RENDERER_PIPELINE_RUN_STATUSES_SET,
   IMPORTER_IDS_SET as RENDERER_IMPORTER_IDS_SET,
   IMPORT_STATUSES_SET as RENDERER_IMPORT_STATUSES_SET,
+  NOTEBOOK_WARNING_KINDS_SET as RENDERER_NOTEBOOK_WARNING_KINDS_SET,
   RECIPE_RUN_STATUSES_SET as RENDERER_RECIPE_RUN_STATUSES_SET,
   NOTEBOOK_CELL_STATUSES_SET as RENDERER_NOTEBOOK_CELL_STATUSES_SET,
   DEPENDENCY_COUNT_BUCKETS_SET as RENDERER_DEPENDENCY_COUNT_BUCKETS_SET,
@@ -67,7 +69,10 @@ import {
   PRIVACY_DASHBOARD_SURFACES as RENDERER_PRIVACY_DASHBOARD_SURFACES,
   TELEMETRY_EVENTS as RENDERER_TELEMETRY_EVENTS,
 } from '../../src/shared/telemetry';
-import { IMPORTER_IDS as RENDERER_IMPORTER_IDS } from '../../src/shared/importers/types';
+import {
+  IMPORTER_IDS as RENDERER_IMPORTER_IDS,
+  NOTEBOOK_WARNING_KINDS as RENDERER_NOTEBOOK_WARNING_KINDS,
+} from '../../src/shared/importers/types';
 // RL-039 Slice B fold B — cross-import the canonical `RECIPE_RUN_STATUSES`
 // const tuple from the renderer source-of-truth (`lessonRunner.ts`).
 // The two `_SET` duplicates in `src/shared/telemetry.ts` +
@@ -965,7 +970,11 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual(
       [...RENDERER_IMPORTER_IDS_SET].sort()
     );
-    expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual(['curl-http']);
+    // RL-100 Slice 2 widened to include the `.ipynb` adapter.
+    expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual([
+      'curl-http',
+      'ipynb-notebook',
+    ]);
     expect([...WORKER_IMPORT_STATUSES_SET].sort()).toEqual(
       [...RENDERER_IMPORT_STATUSES_SET].sort()
     );
@@ -973,6 +982,30 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       'cancelled',
       'ok',
       'rejected',
+    ]);
+  });
+
+  it('notebook warning kinds stay in sync (RL-100 Slice 2 fold E)', () => {
+    // 3-way closed-enum parity for `import.notebook_warnings_surfaced.dominantKind`:
+    //   1. canonical const tuple `NOTEBOOK_WARNING_KINDS` in
+    //      `src/shared/importers/types.ts`,
+    //   2. duplicated Set `NOTEBOOK_WARNING_KINDS_SET` in
+    //      `src/shared/telemetry.ts`,
+    //   3. duplicated Set `NOTEBOOK_WARNING_KINDS_SET` in
+    //      `update-server/src/telemetry.ts`.
+    // Drift between any pair would let either side accept a kind the
+    // others reject. Mirrors the RL-039 Slice B 3-way parity precedent.
+    expect([...WORKER_NOTEBOOK_WARNING_KINDS_SET].sort()).toEqual(
+      [...RENDERER_NOTEBOOK_WARNING_KINDS].sort()
+    );
+    expect([...WORKER_NOTEBOOK_WARNING_KINDS_SET].sort()).toEqual(
+      [...RENDERER_NOTEBOOK_WARNING_KINDS_SET].sort()
+    );
+    expect([...WORKER_NOTEBOOK_WARNING_KINDS_SET].sort()).toEqual([
+      'execute-result-stripped',
+      'raw-cell-dropped',
+      'rich-output-dropped',
+      'unknown-language',
     ]);
   });
 
