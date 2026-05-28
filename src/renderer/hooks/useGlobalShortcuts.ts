@@ -18,6 +18,7 @@ import { useDebuggerStore } from '../stores/debuggerStore';
 import { getActiveEditorCursorLine } from '../runtime/editorAccess';
 import { useEditorStore } from '../stores/editorStore';
 import { languageSupportsDebugger } from '../utils/languageMeta';
+import { claimCapsuleListSurface } from '../components/CapsuleList/capsuleListSurface';
 
 export type AppOverlay =
   | 'none'
@@ -36,6 +37,10 @@ export type AppOverlay =
   // Mounted by App.tsx + opened via Mod+Shift+Y, Settings → Account
   // → Run Capsules → Import, and command palette `action-import-capsule`.
   | 'capsule-import'
+  // RL-094 Slice 3 — Pro-gated capsule browse overlay. Mounted by
+  // App.tsx + opened via Mod+Alt+C, the `Browse run capsules` palette
+  // entry, the Settings → Run Capsules button, and the floating pill.
+  | 'capsule-list'
   // RL-100 Slice 1 — global Import overlay (cURL → HTTP request
   // adapter Slice 1; `.ipynb` Slice 2; Bruno/Postman Slice 3).
   // Opened via Mod+Alt+I and command palette
@@ -229,6 +234,12 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
       void options.closeActiveTab();
     },
     'overlay-capsule-import': () => options.toggleOverlay('capsule-import'),
+    'overlay-capsule-list': () => {
+      // Claim the surface BEFORE toggling so the overlay's mount-time
+      // `capsule.browse_opened` telemetry attributes the keyboard path.
+      claimCapsuleListSurface('shortcut');
+      options.toggleOverlay('capsule-list');
+    },
     'nav-quick-open': () => options.toggleOverlay('quick-open'),
     'nav-go-to-symbol': () => options.toggleOverlay('go-to-symbol'),
     'nav-project-search': () => options.toggleOverlay('search'),

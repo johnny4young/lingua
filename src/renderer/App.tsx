@@ -15,6 +15,11 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardS
 import { SnippetsModal } from './components/Snippets';
 import { ProjectTemplatesOverlay } from './components/Welcome/ProjectTemplatesOverlay';
 import { CapsuleImportOverlay } from './components/CapsuleImport';
+import { CapsuleListOverlay } from './components/CapsuleList';
+import {
+  claimCapsuleListSurface,
+  type CapsuleBrowseSurface,
+} from './components/CapsuleList/capsuleListSurface';
 import { ImportPreviewOverlay } from './components/ImportPreview/ImportPreviewOverlay';
 import { RecipesOverlay } from './components/Recipes/RecipesOverlay';
 import { useRecipeStore } from './stores/recipeStore';
@@ -762,6 +767,22 @@ function AppChrome({
       window.removeEventListener('lingua-open-capsule-import', handler);
   }, [openOverlay]);
 
+  // RL-094 Slice 3 — the Settings → Run Capsules "Browse all" button
+  // and the floating action pill both dispatch `lingua-open-capsule-list`
+  // with the originating surface in `detail.surface`. Claim the surface
+  // for the overlay's `capsule.browse_opened` telemetry, then open.
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const surface = (event as CustomEvent<{ surface?: CapsuleBrowseSurface }>)
+        .detail?.surface;
+      claimCapsuleListSurface(surface ?? 'settings');
+      openOverlay('capsule-list');
+    };
+    window.addEventListener('lingua-open-capsule-list', handler);
+    return () =>
+      window.removeEventListener('lingua-open-capsule-list', handler);
+  }, [openOverlay]);
+
   const handleStartGuidedTour = () => {
     closeOverlay();
     startTour();
@@ -841,6 +862,10 @@ function AppChrome({
           }}
           onNewProjectFromTemplate={() => openOverlay('project-templates')}
           onOpenCapsuleImport={() => openOverlay('capsule-import')}
+          onBrowseCapsules={() => {
+            claimCapsuleListSurface('palette');
+            openOverlay('capsule-list');
+          }}
           onOpenImportOverlay={() => openOverlay('import-preview')}
           onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
           onNewNotebook={() => useEditorStore.getState().addNotebookTab()}
@@ -852,6 +877,9 @@ function AppChrome({
       )}
       {overlay === 'capsule-import' && (
         <CapsuleImportOverlay onClose={closeOverlay} />
+      )}
+      {overlay === 'capsule-list' && (
+        <CapsuleListOverlay onClose={closeOverlay} />
       )}
       {overlay === 'import-preview' && (
         <ImportPreviewOverlay onClose={closeOverlay} />

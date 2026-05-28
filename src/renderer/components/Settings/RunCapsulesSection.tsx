@@ -103,6 +103,27 @@ export function RunCapsulesSection() {
              * Settings section decoupled from the overlay state
              * slot (same pattern as the snippets surface).
              */}
+            {/*
+             * RL-094 Slice 3 — Browse opens the Pro-gated capsule
+             * browse overlay. Same window-event decoupling as Import;
+             * the surface tag drives the overlay's
+             * `capsule.browse_opened` telemetry.
+             */}
+            <button
+              type="button"
+              className="rounded-md border border-border/60 px-3 py-1.5 text-xs text-foreground hover:bg-surface-strong/60"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent('lingua-open-capsule-list', {
+                    detail: { surface: 'settings' },
+                  })
+                );
+              }}
+              data-testid="capsule-browse-button"
+              title={t('settings.account.runCapsules.browse.helper')}
+            >
+              {t('settings.account.runCapsules.browse.button')}
+            </button>
             <button
               type="button"
               className="rounded-md border border-border/60 px-3 py-1.5 text-xs text-foreground hover:bg-surface-strong/60"

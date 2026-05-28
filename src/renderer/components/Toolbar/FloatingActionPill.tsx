@@ -40,6 +40,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
+  Archive,
   BookOpenText,
   Bug,
   Braces,
@@ -774,6 +775,27 @@ export function FloatingActionPill({
               </Tooltip>
             ) : null}
             {onOpenRecipes ? <RecipesActionPillButton onOpenRecipes={onOpenRecipes} onMenuClose={() => setOpenMenu(null)} /> : null}
+            {/* RL-094 Slice 3 fold F — Browse run capsules. Dispatches
+                the window event App.tsx listens for (no prop threading
+                through AppLayout); the overlay owns Pro-gating. */}
+            <Tooltip content={t('chrome.browseCapsules.tooltip')}>
+              <button
+                type="button"
+                data-testid="action-pill-browse-capsules"
+                aria-label={t('chrome.browseCapsules.aria')}
+                onClick={() => {
+                  setOpenMenu(null);
+                  window.dispatchEvent(
+                    new CustomEvent('lingua-open-capsule-list', {
+                      detail: { surface: 'action-pill' },
+                    })
+                  );
+                }}
+                className="action-pill-icon-button"
+              >
+                <Archive size={13} aria-hidden />
+              </button>
+            </Tooltip>
           </div>
         </>
       ) : null}

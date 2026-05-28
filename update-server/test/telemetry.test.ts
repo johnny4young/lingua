@@ -482,9 +482,38 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       .sort();
     expect(workerValues).toEqual(sharedValues);
     expect(workerValues).toEqual([
+      'list-export',
       'palette-export',
       'result-panel-export',
       'settings-export',
+    ]);
+  });
+
+  it('CAPSULE_BROWSE_SURFACES stays in sync with the renderer enum (RL-094 Slice 3 fold G)', async () => {
+    // Closed-enum parity for the `capsule.browse_opened.surface` field.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe = /CAPSULE_BROWSE_SURFACES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual([
+      'action-pill',
+      'palette',
+      'settings',
+      'shortcut',
     ]);
   });
 
@@ -654,6 +683,33 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
       line.includes('"gigantic"')
     );
     expect(unknownBucketLine).toBeUndefined();
+    consoleSpy.mockRestore();
+  });
+
+  it('capsule.browse_opened accepts closed-enum surface + safe-token tier, drops unknown (RL-094 Slice 3 fold G)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const okResponse = await postTelemetry({
+      event: 'capsule.browse_opened',
+      properties: { surface: 'palette', tier: 'pro' },
+    });
+    expect(okResponse.status).toBe(204);
+    const unknownSurface = await postTelemetry({
+      event: 'capsule.browse_opened',
+      properties: { surface: 'telepathy', tier: 'free' },
+    });
+    expect(unknownSurface.status).toBe(204);
+    const eventLines = consoleSpy.mock.calls
+      .map((call) => String(call[0] ?? ''))
+      .filter((line) => line.includes('"capsule.browse_opened"'));
+    expect(eventLines.length).toBeGreaterThanOrEqual(2);
+    const okLine = eventLines.find(
+      (line) => line.includes('"surface":"palette"') && line.includes('"tier":"pro"')
+    );
+    expect(okLine).toBeDefined();
+    const unknownSurfaceLine = eventLines.find((line) =>
+      line.includes('"telepathy"')
+    );
+    expect(unknownSurfaceLine).toBeUndefined();
     consoleSpy.mockRestore();
   });
 
@@ -970,10 +1026,13 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual(
       [...RENDERER_IMPORTER_IDS_SET].sort()
     );
-    // RL-100 Slice 2 widened to include the `.ipynb` adapter.
+    // RL-100 Slice 2 widened to include the `.ipynb` adapter; Slice 3
+    // added the Postman + Bruno collection adapters.
     expect([...WORKER_IMPORTER_IDS_SET].sort()).toEqual([
+      'bruno-collection',
       'curl-http',
       'ipynb-notebook',
+      'postman-collection',
     ]);
     expect([...WORKER_IMPORT_STATUSES_SET].sort()).toEqual(
       [...RENDERER_IMPORT_STATUSES_SET].sort()

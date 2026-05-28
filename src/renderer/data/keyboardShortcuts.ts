@@ -402,6 +402,28 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     ],
   },
   {
+    // RL-094 Slice 3 — open the Pro-gated capsule browse overlay.
+    // `Mod+Alt+C` (C = capsules) verified free against the catalog by
+    // the conflict-free regression test in `keyboardShortcuts.test.ts`
+    // (Mod+Shift+C is an OS/browser binding; Mod+Alt+C is free).
+    id: 'overlay-capsule-list',
+    group: 'navigation',
+    labelKey: 'shortcuts.item.browseCapsules.label',
+    descriptionKey: 'shortcuts.item.browseCapsules.description',
+    combos: [{ tokens: ['Mod', 'Alt', 'C'] }],
+    keywords: [
+      'capsule',
+      'browse',
+      'list',
+      'history',
+      'export',
+      'preview',
+      'explorar',
+      'capsula',
+      'cápsula',
+    ],
+  },
+  {
     id: 'overlay-command-palette',
     group: 'overlays',
     labelKey: 'shortcuts.item.commandPalette.label',

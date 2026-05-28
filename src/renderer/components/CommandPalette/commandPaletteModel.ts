@@ -275,6 +275,15 @@ interface BuildCommandPaletteModelArgs {
    */
   onOpenCapsuleImport?: () => void;
   /**
+   * RL-094 Slice 3 — fires when the user activates the "Browse run
+   * capsules" palette command. App.tsx claims the `palette` surface
+   * and opens the `capsule-list` AppOverlay; the overlay owns the
+   * Pro-gating + per-row actions. Optional; when omitted the action
+   * hides. Always available when wired (no history precondition) so
+   * a Free user can discover the surface and hit the upsell.
+   */
+  onBrowseCapsules?: () => void;
+  /**
    * RL-100 Slice 1 — fires when the user activates the "Import
    * data…" palette command. App.tsx opens the `import-preview`
    * AppOverlay; the overlay owns the rest of the flow. Optional;
@@ -654,6 +663,7 @@ export function buildCommandPaletteModel({
   onExportLatestCapsule,
   latestCapsuleAvailable = false,
   onOpenCapsuleImport,
+  onBrowseCapsules,
   onOpenImportOverlay,
   onOpenRecipes,
   onNewNotebook,
@@ -820,6 +830,35 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onOpenCapsuleImport();
+            }
+          ),
+        ]
+      : []),
+    // RL-094 Slice 3 — Browse run capsules. Surfaces whenever App.tsx
+    // wires the AppOverlay branch, with no history precondition: a
+    // Free user must be able to discover the surface and hit the
+    // upsell, and a Pro user with an empty session sees the empty
+    // state. The overlay owns the Pro-gating.
+    ...(onBrowseCapsules
+      ? [
+          buildActionCommand(
+            'action-browse-capsules',
+            translate('commandPalette.action.browseCapsules.label'),
+            translate('commandPalette.action.browseCapsules.description'),
+            [
+              'capsule',
+              'browse',
+              'list',
+              'history',
+              'export',
+              'preview',
+              'explorar',
+              'capsula',
+              'cápsula',
+            ],
+            () => {
+              onClose();
+              onBrowseCapsules();
             }
           ),
         ]

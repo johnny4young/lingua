@@ -7,6 +7,7 @@ import {
 } from '../../utils/redactionPreview';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useLicenseStore } from '../../stores/licenseStore';
+import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
 import {
   TRUST_EVENT_STORAGE_KEY,
@@ -64,6 +65,12 @@ export function PrivacyTrustSection() {
   // surface the most recent install timestamp in the network
   // activity table. We take the max across every tab so the row
   // reflects "any install in this session", not just the active tab.
+  // RL-094 Slice 3 fold E — count of run capsules retained in memory.
+  // Derive a primitive (not the `capsuleEntries()` array) so the
+  // subscription stays stable and never trips zustand v5's update loop.
+  const capsulesRetained = useExecutionHistoryStore(
+    (s) => s.entries.filter((entry) => entry.lastCapsule !== undefined).length
+  );
   const dependencyInstallLastAt = useDependencyDetectionStore((s) => {
     let latest: number | null = null;
     for (const entry of s.installByTab.values()) {
@@ -216,6 +223,21 @@ export function PrivacyTrustSection() {
             </tbody>
           </table>
         </div>
+        {/*
+         * RL-094 Slice 3 fold E — run capsules live in the in-memory
+         * execution-history ring, NOT in localStorage, so they are
+         * called out separately from the audit table above. The count
+         * makes the Pro-gated capsule browse retention transparent;
+         * the copy is explicit that a reload clears them.
+         */}
+        <p
+          data-testid="privacy-capsules-retained"
+          className="mt-2 text-xs text-fg-muted"
+        >
+          {t('settings.privacy.localStores.capsulesRetained', {
+            count: capsulesRetained,
+          })}
+        </p>
       </Section>
 
       <Section

@@ -87,6 +87,7 @@ interface CommandPaletteProps {
    * honest about wired surfaces.
    */
   onOpenCapsuleImport?: () => void;
+  onBrowseCapsules?: () => void;
   onOpenImportOverlay?: () => void;
   /**
    * RL-039 Slice B fold A — opens the Recipes overlay (`Mod+Alt+L`).
@@ -116,6 +117,7 @@ export function CommandPalette({
   onReplayEntry,
   onToggleVimMode,
   onOpenCapsuleImport,
+  onBrowseCapsules,
   onOpenImportOverlay,
   onOpenRecipes,
   onNewNotebook,
@@ -445,6 +447,7 @@ export function CommandPalette({
         : undefined,
       latestCapsuleAvailable: latestCapsule !== null,
       onOpenCapsuleImport,
+      onBrowseCapsules,
       onOpenImportOverlay,
       onOpenRecipes,
       onNewNotebook,

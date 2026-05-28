@@ -89,6 +89,8 @@ describe('keyboardShortcuts catalog', () => {
       'nav-quick-open',
       'nav-go-to-symbol',
       'nav-project-search',
+      // RL-094 Slice 3 — capsule browse overlay shortcut.
+      'overlay-capsule-list',
       'overlay-command-palette',
       'overlay-settings',
       'overlay-developer-utilities',
@@ -123,6 +125,15 @@ describe('keyboardShortcuts catalog', () => {
     expect(shortcut).toBeDefined();
     expect(shortcut?.group).toBe('run');
     expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Alt', 'H'] }]);
+  });
+
+  it('declares the capsule browse shortcut as Mod+Alt+C (RL-094 Slice 3)', () => {
+    const shortcut = KEYBOARD_SHORTCUTS.find(
+      (entry) => entry.id === 'overlay-capsule-list'
+    );
+    expect(shortcut).toBeDefined();
+    expect(shortcut?.group).toBe('navigation');
+    expect(shortcut?.combos).toEqual([{ tokens: ['Mod', 'Alt', 'C'] }]);
   });
 
   it('declares the project-replace shortcut as Mod+Shift+H', () => {
