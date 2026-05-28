@@ -35,6 +35,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, FileUp, X } from 'lucide-react';
 import { detectImporter } from '../../../shared/importers/registry';
+import type { ImporterId } from '../../../shared/importers/types';
 import { useImportPreview } from '../../hooks/useImportPreview';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -43,6 +44,19 @@ import { ImportPreviewBody } from './ImportPreviewBody';
 
 export interface ImportPreviewOverlayProps {
   onClose: () => void;
+}
+
+function formatLabelKeyForImporter(importerId: ImporterId): string {
+  switch (importerId) {
+    case 'curl-http':
+      return 'importPreview.format.curl';
+    case 'ipynb-notebook':
+      return 'importPreview.format.ipynb';
+    case 'postman-collection':
+      return 'importPreview.format.postman';
+    case 'bruno-collection':
+      return 'importPreview.format.bruno';
+  }
 }
 
 export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
@@ -109,8 +123,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
           tone: 'info',
           messageKey: 'importPreview.notice.clipboardAutoDetected',
           values: {
-            format:
-              detectedImporter === 'curl-http' ? 'cURL' : 'Jupyter .ipynb',
+            format: t(formatLabelKeyForImporter(detectedImporter)),
           },
         });
       })
@@ -121,7 +134,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     return () => {
       cancelled = true;
     };
-  }, [clipboardConsent, previewSource, pushStatusNotice]);
+  }, [clipboardConsent, previewSource, pushStatusNotice, t]);
 
   const handleClose = useCallback(() => {
     trackCancelled();
@@ -234,6 +247,15 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         tone: 'success',
         messageKey: 'importPreview.success.notebookOpened',
       });
+    } else if (
+      created.kind === 'postman-collection' ||
+      created.kind === 'bruno-collection'
+    ) {
+      pushStatusNotice({
+        tone: 'success',
+        messageKey: 'importPreview.success.collectionImported',
+        values: { count: created.requestCount ?? 0 },
+      });
     }
     closeRef.current();
   }, [confirm, pushStatusNotice]);
@@ -242,19 +264,30 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   const rejected = state.phase === 'rejected' ? state.reason : null;
   const canConfirm = state.phase === 'previewed' && !!previewed;
   const importerId = state.importerId;
+  const isCollection =
+    importerId === 'postman-collection' || importerId === 'bruno-collection';
+  const collectionCount =
+    previewed && previewed.kind === 'http-collection' ? previewed.counts.total : 0;
   // Fold C — confirm label per importer kind.
   const confirmLabel =
     importerId === 'ipynb-notebook'
       ? t('importPreview.action.confirm.notebook')
       : importerId === 'curl-http'
         ? t('importPreview.action.confirm.curl')
-        : t('importPreview.action.confirm');
-  // Slice 2 — reject hint copy. Generic outer reason + optional
-  // ipynb-specific detail.
+        : isCollection
+          ? t('importPreview.action.confirm.collection', { count: collectionCount })
+          : t('importPreview.action.confirm');
+  // Reject hint copy. Generic outer reason + optional importer-specific
+  // detail (ipynb / postman carry a `detail` reject code mapped to a
+  // more precise localized hint).
   const rejectKey = rejected ? `importPreview.reject.${rejected}` : null;
-  const rejectIpynbKey =
-    rejected && state.rejectDetail && importerId === 'ipynb-notebook'
-      ? `importPreview.reject.ipynb.${state.rejectDetail}`
+  const rejectDetailKey =
+    rejected && state.rejectDetail
+      ? importerId === 'ipynb-notebook'
+        ? `importPreview.reject.ipynb.${state.rejectDetail}`
+        : importerId === 'postman-collection'
+          ? `importPreview.reject.postman.${state.rejectDetail}`
+          : null
       : null;
 
   return (
@@ -339,7 +372,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".curl,.txt,.ipynb,text/plain,application/json,application/x-ipynb+json"
+                accept=".curl,.txt,.ipynb,.json,.postman_collection.json,.bru,text/plain,application/json,application/x-ipynb+json"
                 onChange={handleFileChange}
                 className="sr-only"
                 data-testid="import-preview-file-input"
@@ -389,13 +422,13 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
                     bold header and skip the generic outer-reason copy,
                     which is written for the Slice 1 "importer not
                     wired" meaning and reads wrong for these cases. */}
-                {rejectIpynbKey ? (
+                {rejectDetailKey ? (
                   <div
-                    data-testid="import-preview-reject-ipynb-detail"
+                    data-testid="import-preview-reject-detail"
                     className="flex items-center gap-1 font-semibold"
                   >
                     <AlertCircle size={12} aria-hidden="true" />
-                    {t(rejectIpynbKey)}
+                    {t(rejectDetailKey)}
                   </div>
                 ) : (
                   <div className="flex items-center gap-1 font-semibold">

@@ -17,17 +17,23 @@
  */
 
 import { useTranslation } from 'react-i18next';
-import { BookOpenText, Lock } from 'lucide-react';
+import { BookOpenText, FolderTree, Lock } from 'lucide-react';
+import { BASELINE_SENSITIVE_HEADERS } from '../../../shared/httpWorkspace';
 import type { CurlImporterPreview } from '../../../shared/importers/curlImporter';
 import type {
   IpynbCellSnippet,
   IpynbImporterPreview,
 } from '../../../shared/importers/ipynbImporter';
+import type {
+  CollectionImporterPreview,
+  ParsedCollectionRequest,
+} from '../../../shared/importers/postmanImporter';
 import { cn } from '../../utils/cn';
 
 export type ImportPreviewBodyShape =
   | (CurlImporterPreview & { readonly kind: 'curl-http' })
-  | IpynbImporterPreview;
+  | IpynbImporterPreview
+  | CollectionImporterPreview;
 
 export interface ImportPreviewBodyProps {
   preview: ImportPreviewBodyShape;
@@ -61,7 +67,20 @@ export function ImportPreviewBody({ preview }: ImportPreviewBodyProps) {
   if (preview.kind === 'ipynb-notebook') {
     return <NotebookPreviewBand preview={preview} />;
   }
+  if (preview.kind === 'http-collection') {
+    return <CollectionPreviewBand preview={preview} />;
+  }
   return <CurlPreviewBand preview={preview} />;
+}
+
+/** Count of headers whose name is a baseline-sensitive header (their
+ * values are redacted on display; originals round-trip on confirm). */
+function countSensitiveHeaders(request: ParsedCollectionRequest): number {
+  return request.headers.filter((h) =>
+    (BASELINE_SENSITIVE_HEADERS as readonly string[]).includes(
+      h.name.toLowerCase()
+    )
+  ).length;
 }
 
 // ---------------------------------------------------------------------------
@@ -306,5 +325,135 @@ function CellSnippetRow({ snippet }: { snippet: IpynbCellSnippet }) {
         {snippet.preview.length > 0 ? snippet.preview : '(empty)'}
       </pre>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Slice 3 — Postman / Bruno collection preview
+// ---------------------------------------------------------------------------
+
+function CollectionPreviewBand({
+  preview,
+}: {
+  preview: CollectionImporterPreview;
+}) {
+  const { t } = useTranslation();
+  const { source, title, requests, counts } = preview;
+  const badgeLabel =
+    source === 'bruno'
+      ? t('importPreview.collection.badgeBruno')
+      : t('importPreview.collection.badgePostman');
+
+  return (
+    <div
+      data-testid="import-preview-body"
+      data-preview-kind="http-collection"
+      data-collection-source={source}
+      className="grid gap-3 rounded-md border border-border/60 bg-surface/30 p-3"
+    >
+      <header className="flex items-center gap-2">
+        <span
+          className="inline-flex h-5 items-center gap-1 rounded bg-orange-500/15 px-1.5 text-[10px] font-bold uppercase tracking-wider text-orange-700 ring-1 ring-orange-500/30 dark:text-orange-300"
+          data-testid="import-preview-collection-badge"
+        >
+          <FolderTree size={11} aria-hidden="true" />
+          {badgeLabel}
+        </span>
+        <span
+          data-testid="import-preview-collection-title"
+          className="min-w-0 flex-1 truncate font-mono text-xs text-foreground"
+          title={title}
+        >
+          {title}
+        </span>
+      </header>
+
+      <section className="flex flex-wrap items-center gap-2">
+        <span
+          data-testid="import-preview-collection-summary"
+          className="inline-flex h-5 items-center rounded-full border border-border/60 bg-surface/50 px-2 text-[10px] text-foreground"
+        >
+          {t('importPreview.collection.summary', {
+            requests: counts.total,
+            folders: counts.folders,
+          })}
+        </span>
+        {counts.truncated > 0 ? (
+          <span
+            data-testid="import-preview-collection-truncated"
+            className="inline-flex h-5 items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 text-[10px] text-amber-700 dark:text-amber-300"
+          >
+            {t('importPreview.collection.truncated', {
+              count: counts.truncated,
+            })}
+          </span>
+        ) : null}
+      </section>
+
+      <section className="grid gap-1">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-muted">
+          {t('importPreview.collection.requestsTitle')}
+        </div>
+        <ul
+          role="list"
+          data-testid="import-preview-collection-requests"
+          className="grid max-h-[260px] gap-1 overflow-auto rounded border border-border/40 bg-background-elevated/50 p-2"
+        >
+          {requests.map((request, idx) => (
+            <li
+              key={`req-${idx}`}
+              data-request-method={request.method}
+              className="flex items-center gap-2"
+            >
+              <CollectionRequestRow request={request} />
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+function CollectionRequestRow({
+  request,
+}: {
+  request: ParsedCollectionRequest;
+}) {
+  const { t } = useTranslation();
+  const methodTone =
+    METHOD_TONE[request.method] ?? 'bg-slate-500/15 text-muted ring-slate-500/30';
+  const sensitiveCount = countSensitiveHeaders(request);
+  return (
+    <>
+      <span
+        className={cn(
+          'inline-flex w-14 shrink-0 items-center justify-center rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ring-1',
+          methodTone
+        )}
+      >
+        {request.method}
+      </span>
+      <div className="grid min-w-0 flex-1">
+        <span className="truncate text-[11px] text-foreground" title={request.name}>
+          {request.name}
+        </span>
+        <span
+          className="truncate font-mono text-[9px] text-muted"
+          title={request.url}
+        >
+          {request.url}
+        </span>
+      </div>
+      {sensitiveCount > 0 ? (
+        <span
+          className="inline-flex shrink-0 items-center gap-0.5 text-[9px] text-amber-700 dark:text-amber-300"
+          title={t('importPreview.collection.redactedHeaderHint')}
+          data-testid="import-preview-collection-redacted"
+        >
+          <Lock size={9} aria-hidden="true" />
+          {sensitiveCount}
+        </span>
+      ) : null}
+    </>
   );
 }

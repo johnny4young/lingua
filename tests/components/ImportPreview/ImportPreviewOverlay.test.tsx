@@ -34,6 +34,18 @@ describe('ImportPreviewOverlay', () => {
     render(<ImportPreviewOverlay onClose={() => {}} />);
     expect(screen.getByTestId('import-preview-overlay')).toBeTruthy();
     expect(screen.getByTestId('import-preview-empty')).toBeTruthy();
+    expect(screen.getByTestId('import-preview-empty').textContent).toMatch(
+      /Postman/i
+    );
+    expect(screen.getByTestId('import-preview-empty').textContent).toMatch(
+      /Bruno/i
+    );
+    expect(screen.getByTestId('import-preview-pick-file').textContent).toMatch(
+      /Postman/i
+    );
+    expect(screen.getByTestId('import-preview-pick-file').textContent).toMatch(
+      /Bruno/i
+    );
     // Confirm starts disabled when nothing is parsed yet.
     const confirm = screen.getByTestId('import-preview-confirm') as HTMLButtonElement;
     expect(confirm.disabled).toBe(true);
@@ -175,10 +187,10 @@ describe('ImportPreviewOverlay — ipynb arm (RL-100 Slice 2)', () => {
     await user.click(paste);
     await user.paste(JSON.stringify({ nbformat: 3, cells: [] }));
     await waitFor(() => {
-      expect(screen.getByTestId('import-preview-reject-ipynb-detail')).toBeTruthy();
+      expect(screen.getByTestId('import-preview-reject-detail')).toBeTruthy();
     });
     expect(
-      screen.getByTestId('import-preview-reject-ipynb-detail').textContent
+      screen.getByTestId('import-preview-reject-detail').textContent
     ).toMatch(/v4/i);
   });
 
@@ -196,5 +208,89 @@ describe('ImportPreviewOverlay — ipynb arm (RL-100 Slice 2)', () => {
     expect((screen.getByTestId('import-preview-paste') as HTMLTextAreaElement).value).toBe('');
     expect(screen.getByTestId('import-preview-empty')).toBeTruthy();
     expect(useUIStore.getState().statusNotice).toBeNull();
+  });
+});
+
+describe('ImportPreviewOverlay — collection arm (RL-100 Slice 3)', () => {
+  const samplePostman = JSON.stringify({
+    info: {
+      name: 'Demo API',
+      schema:
+        'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+    },
+    item: [
+      { name: 'List', request: { method: 'GET', url: 'https://x.dev/items' } },
+      { name: 'Create', request: { method: 'POST', url: 'https://x.dev/items' } },
+    ],
+  });
+
+  it('renders the collection preview band + summary on paste', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
+    await user.click(paste);
+    await user.paste(samplePostman);
+    await waitFor(() => {
+      const body = screen.getByTestId('import-preview-body');
+      expect(body.getAttribute('data-preview-kind')).toBe('http-collection');
+      expect(body.getAttribute('data-collection-source')).toBe('postman');
+    });
+    expect(
+      screen.getByTestId('import-preview-collection-summary').textContent
+    ).toMatch(/2 requests/);
+    expect(
+      screen.getByTestId('import-preview-collection-requests').children.length
+    ).toBe(2);
+  });
+
+  it('flips the confirm label to the collection variant with the count (fold C)', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
+    await user.click(paste);
+    await user.paste(samplePostman);
+    await waitFor(() => {
+      const btn = screen.getByTestId('import-preview-confirm');
+      expect(btn.textContent).toMatch(/Import 2 requests/i);
+    });
+  });
+
+  it('shows the postman-specific reject hint for a v2.0 schema', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
+    await user.click(paste);
+    await user.paste(
+      JSON.stringify({
+        info: { name: 'Old', schema: 'v1.0.0' },
+        item: [],
+      })
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('import-preview-reject-detail')).toBeTruthy();
+    });
+    expect(
+      screen.getByTestId('import-preview-reject-detail').textContent
+    ).toMatch(/v2\.1/i);
+  });
+
+  it('labels Postman clipboard auto-detect as Postman, not Jupyter', async () => {
+    const readText = vi.fn().mockResolvedValue(samplePostman);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { readText },
+      configurable: true,
+    });
+    useSettingsStore.setState({ importPreviewClipboardOnFocusConsent: 'granted' });
+
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+
+    await waitFor(() => {
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'importPreview.notice.clipboardAutoDetected'
+      );
+    });
+    expect(useUIStore.getState().statusNotice?.values).toMatchObject({
+      format: 'Postman collection',
+    });
   });
 });

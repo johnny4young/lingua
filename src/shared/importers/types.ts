@@ -42,14 +42,19 @@
 
 /**
  * Closed enum of importer ids. Slice 1 shipped `'curl-http'`;
- * Slice 2 (2026-05-27) adds `'ipynb-notebook'`. The enum stays
- * open for `'postman-collection'` + `'bruno-collection'` (Slice 3)
- * and `'codepen-url'` (Slice 4+).
+ * Slice 2 (2026-05-27) added `'ipynb-notebook'`; Slice 3 (2026-05-28)
+ * adds `'postman-collection'` + `'bruno-collection'`. The enum stays
+ * open for `'codepen-url'` (Slice 4+).
  *
  * Mirrored on `update-server/src/telemetry.ts` as
  * `IMPORTER_IDS_SET` — see the parity test there.
  */
-export const IMPORTER_IDS = ['curl-http', 'ipynb-notebook'] as const;
+export const IMPORTER_IDS = [
+  'curl-http',
+  'ipynb-notebook',
+  'postman-collection',
+  'bruno-collection',
+] as const;
 export type ImporterId = (typeof IMPORTER_IDS)[number];
 
 /**
@@ -98,6 +103,28 @@ export const IMPORTER_LOSSY_WARNINGS = [
   'ipynb-rich-output-dropped',
   'ipynb-unknown-language',
   'ipynb-execute-result-stripped',
+  // RL-100 Slice 3 — Postman / Bruno collection lossy codes. A
+  // collection import is intentionally lossy: Postman's auth helpers,
+  // pre-request / test scripts, environment variables, and non-text
+  // body modes have no Lingua HTTP-workspace equivalent, so they are
+  // surfaced as warnings rather than silently dropped.
+  //   - `postman-auth-helper`: an `auth` block (basic / apikey / oauth)
+  //     we could not flatten to a single header (bearer IS mapped).
+  //   - `postman-prerequest-script` / `postman-test-script`: the
+  //     `event` scripts are dropped (Lingua has no scripting runtime).
+  //   - `postman-variable`: `{{var}}` placeholders left literal because
+  //     Slice 3 does not resolve environment / globals files.
+  //   - `postman-graphql-body`: GraphQL body kept as raw text only.
+  //   - `postman-formdata-file`: multipart / file-upload body parts
+  //     are not importable; the text parts survive.
+  //   - `bruno-script-dropped`: a `.bru` `script:*` / `tests` block.
+  'postman-auth-helper',
+  'postman-prerequest-script',
+  'postman-test-script',
+  'postman-variable',
+  'postman-graphql-body',
+  'postman-formdata-file',
+  'bruno-script-dropped',
 ] as const;
 export type ImporterLossyWarning = (typeof IMPORTER_LOSSY_WARNINGS)[number];
 
@@ -141,6 +168,39 @@ export const NOTEBOOK_WARNING_KINDS = [
   'execute-result-stripped',
 ] as const;
 export type NotebookWarningKind = (typeof NOTEBOOK_WARNING_KINDS)[number];
+
+/**
+ * RL-100 Slice 3 — Postman Collection adapter's internal reject
+ * taxonomy. Surfaced via `ImporterPreviewOutcome.detail` (same
+ * pattern as `IPYNB_REJECT_REASONS`) so the generic
+ * `IMPORTER_REJECT_REASONS` shape stays uniform across importers.
+ *
+ * Outward mapping (to `IMPORTER_REJECT_REASONS`):
+ *   - `'malformed-json'` / `'invalid-shape'` → `'malformed'`.
+ *   - `'wrong-version'` / `'empty-collection'` / `'oversized'` →
+ *     `'unsupported-feature'`.
+ */
+export const POSTMAN_REJECT_REASONS = [
+  'malformed-json',
+  'wrong-version',
+  'invalid-shape',
+  'empty-collection',
+  'oversized',
+] as const;
+export type PostmanRejectReason = (typeof POSTMAN_REJECT_REASONS)[number];
+
+/**
+ * RL-100 Slice 3 — Bruno `.bru` adapter's internal reject taxonomy.
+ * Surfaced via `ImporterPreviewOutcome.detail`. Outward mapping:
+ *   - `'malformed'` / `'invalid-shape'` → `'malformed'`.
+ *   - `'empty-input'` → `'empty-input'`.
+ */
+export const BRUNO_REJECT_REASONS = [
+  'empty-input',
+  'malformed',
+  'invalid-shape',
+] as const;
+export type BrunoRejectReason = (typeof BRUNO_REJECT_REASONS)[number];
 
 /**
  * Result of `adapter.preview(source)`. The `preview` field is the

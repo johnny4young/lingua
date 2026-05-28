@@ -522,7 +522,12 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
 // `IMPORT_STATUSES_SET` in `src/shared/telemetry.ts`. Parity test
 // cross-imports the renderer source-of-truth `IMPORTER_IDS` from
 // `src/shared/importers/types.ts` to keep them in sync.
-export const IMPORTER_IDS_SET = new Set(['curl-http', 'ipynb-notebook']);
+export const IMPORTER_IDS_SET = new Set([
+  'curl-http',
+  'ipynb-notebook',
+  'postman-collection',
+  'bruno-collection',
+]);
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
 // RL-100 Slice 2 fold E — mirrors `NOTEBOOK_WARNING_KINDS_SET` in
 // `src/shared/telemetry.ts`. Parity test cross-imports the renderer

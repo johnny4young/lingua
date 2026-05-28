@@ -22,8 +22,13 @@ describe('IMPORTER_REGISTRY', () => {
     );
   });
 
-  it('Slice 2 ships curl-http + ipynb-notebook', () => {
-    expect([...IMPORTER_IDS].sort()).toEqual(['curl-http', 'ipynb-notebook']);
+  it('Slice 3 ships curl-http + ipynb-notebook + postman/bruno collections', () => {
+    expect([...IMPORTER_IDS].sort()).toEqual([
+      'bruno-collection',
+      'curl-http',
+      'ipynb-notebook',
+      'postman-collection',
+    ]);
   });
 });
 
@@ -36,6 +41,11 @@ describe('getImporter', () => {
   it('returns the ipynb adapter for "ipynb-notebook"', () => {
     const adapter = getImporter('ipynb-notebook');
     expect(adapter?.id).toBe('ipynb-notebook');
+  });
+
+  it('returns the postman + bruno adapters', () => {
+    expect(getImporter('postman-collection')?.id).toBe('postman-collection');
+    expect(getImporter('bruno-collection')?.id).toBe('bruno-collection');
   });
 
   it('returns undefined for unknown ids', () => {
@@ -59,6 +69,20 @@ describe('detectImporter', () => {
     expect(
       detectImporter('{ "nbformat": 4, "cells": [] }')
     ).toBe('ipynb-notebook');
+  });
+
+  it('auto-picks postman-collection for a v2.1 collection JSON', () => {
+    expect(
+      detectImporter(
+        '{ "info": { "schema": "v2.1.0" }, "item": [{ "request": { "method": "GET", "url": "https://x.dev" } }] }'
+      )
+    ).toBe('postman-collection');
+  });
+
+  it('auto-picks bruno-collection for a .bru request file', () => {
+    expect(
+      detectImporter('get {\n  url: https://x.dev\n}\n')
+    ).toBe('bruno-collection');
   });
 
   it('returns null when nothing claims the input', () => {

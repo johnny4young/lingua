@@ -20,8 +20,10 @@
  * `src/shared/utilities/registry.ts`).
  */
 
+import { brunoImporterAdapter } from './brunoImporter';
 import { curlImporterAdapter } from './curlImporter';
 import { ipynbImporterAdapter } from './ipynbImporter';
+import { postmanImporterAdapter } from './postmanImporter';
 import type { ImporterAdapter, ImporterId } from './types';
 
 // `unknown` generic params mirror the utility-registry precedent —
@@ -32,6 +34,8 @@ export const IMPORTER_REGISTRY: Readonly<
 > = {
   'curl-http': curlImporterAdapter as ImporterAdapter<unknown, unknown>,
   'ipynb-notebook': ipynbImporterAdapter as ImporterAdapter<unknown, unknown>,
+  'postman-collection': postmanImporterAdapter as ImporterAdapter<unknown, unknown>,
+  'bruno-collection': brunoImporterAdapter as ImporterAdapter<unknown, unknown>,
 };
 
 export function getImporter(
