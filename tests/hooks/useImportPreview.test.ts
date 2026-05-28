@@ -7,9 +7,44 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  bucketWarningKindCount,
+  countDistinctNotebookWarningKinds,
+  deriveDominantNotebookWarning,
+} from '../../src/renderer/hooks/importTelemetry';
 import { useImportPreview } from '../../src/renderer/hooks/useImportPreview';
+import { useEditorStore } from '../../src/renderer/stores/editorStore';
+import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
+import { useNotebookStore } from '../../src/renderer/stores/notebookStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
 import { useWorkspaceToolStore } from '../../src/renderer/stores/workspaceToolStore';
+
+function seedProTier() {
+  // RL-100 Slice 2 — `addNotebookTab` gates on the NOTEBOOK_MODE
+  // entitlement (Pro+). Seed a Pro license so the ipynb confirm flow
+  // can mint a tab in the test environment. Mirrors the pattern in
+  // `tests/stores/editorStore.test.ts`.
+  useLicenseStore.setState({
+    token: 'test.token',
+    status: {
+      kind: 'active',
+      verification: {
+        ok: true,
+        state: 'active',
+        supportWindowEndsAt: Date.now() + 86_400_000,
+        payload: {
+          productId: 'lingua-desktop',
+          tier: 'pro',
+          issuedTo: 'test@example.com',
+          issuedAt: new Date().toISOString(),
+          supportWindowEndsAt: new Date(Date.now() + 86_400_000).toISOString(),
+          entitlements: [],
+        },
+      },
+    },
+    lastVerifiedAt: Date.now(),
+  });
+}
 
 beforeEach(() => {
   localStorage.clear();
@@ -22,6 +57,9 @@ beforeEach(() => {
     isExecutingActive: false,
   });
   useUIStore.setState({ activeBottomPanel: 'console' });
+  useEditorStore.setState({ tabs: [], activeTabId: null });
+  useNotebookStore.setState({ notebooks: {} });
+  seedProTier();
 });
 
 describe('useImportPreview', () => {
@@ -110,5 +148,107 @@ describe('useImportPreview', () => {
       result.current.reset();
     });
     expect(result.current.state.phase).toBe('idle');
+  });
+});
+
+describe('useImportPreview — ipynb arm (RL-100 Slice 2)', () => {
+  const sampleIpynb = JSON.stringify({
+    nbformat: 4,
+    nbformat_minor: 5,
+    metadata: { kernelspec: { language: 'python' } },
+    cells: [
+      { cell_type: 'markdown', source: ['# Hello'] },
+      { cell_type: 'code', source: ["print('hi')"], outputs: [] },
+    ],
+  });
+
+  it('detects + previews an .ipynb payload as kind notebook', () => {
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource(sampleIpynb);
+    });
+    expect(result.current.state.phase).toBe('previewed');
+    expect(result.current.state.importerId).toBe('ipynb-notebook');
+    expect(result.current.state.preview?.kind).toBe('ipynb-notebook');
+  });
+
+  it('rejects an .ipynb with nbformat: 3 carrying the wrong-version detail', () => {
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource(
+        JSON.stringify({ nbformat: 3, cells: [] })
+      );
+    });
+    expect(result.current.state.phase).toBe('rejected');
+    expect(result.current.state.reason).toBe('unsupported-feature');
+    expect(result.current.state.rejectDetail).toBe('wrong-version');
+  });
+
+  it('confirm writes the notebook into stores + does NOT flip http panel', () => {
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource(sampleIpynb);
+    });
+    let returned: ReturnType<typeof result.current.confirm> = null;
+    act(() => {
+      returned = result.current.confirm();
+    });
+    expect(returned).not.toBeNull();
+    expect(returned?.kind).toBe('ipynb-notebook');
+    expect(returned?.notebookTabId).toBeDefined();
+    expect(returned?.dominantLanguage).toBe('python');
+    expect(
+      useEditorStore
+        .getState()
+        .tabs.find((tab) => tab.id === returned?.notebookTabId)?.language
+    ).toBe('python');
+    // Bottom panel NOT flipped to http (only curl-http does that).
+    expect(useUIStore.getState().activeBottomPanel).toBe('console');
+  });
+
+  it('does not attribute unrecognized rejects to cURL when cancelled', () => {
+    const { result } = renderHook(() => useImportPreview());
+    act(() => {
+      result.current.previewSource('{"not":"an importer"}');
+    });
+    expect(result.current.state.phase).toBe('rejected');
+    expect(result.current.state.importerId).toBeUndefined();
+
+    act(() => {
+      result.current.trackCancelled();
+    });
+
+    expect(result.current.state.phase).toBe('idle');
+  });
+});
+
+describe('import notebook warning telemetry helpers', () => {
+  it('derives the dominant warning from occurrences, not unique codes', () => {
+    expect(
+      deriveDominantNotebookWarning([
+        'ipynb-raw-cell-dropped',
+        'ipynb-rich-output-dropped',
+        'ipynb-rich-output-dropped',
+      ])
+    ).toBe('rich-output-dropped');
+  });
+
+  it('counts only distinct notebook warning kinds for the privacy bucket', () => {
+    expect(
+      countDistinctNotebookWarningKinds([
+        'ipynb-raw-cell-dropped',
+        'ipynb-rich-output-dropped',
+        'ipynb-rich-output-dropped',
+        'curl-basic-auth',
+      ])
+    ).toBe(2);
+  });
+
+  it('buckets warning-kind counts with the dependency-count ladder', () => {
+    expect(bucketWarningKindCount(0)).toBe('0');
+    expect(bucketWarningKindCount(1)).toBe('1');
+    expect(bucketWarningKindCount(5)).toBe('2-5');
+    expect(bucketWarningKindCount(6)).toBe('6-10');
+    expect(bucketWarningKindCount(11)).toBe('>10');
   });
 });

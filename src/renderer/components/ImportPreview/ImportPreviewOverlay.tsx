@@ -1,5 +1,5 @@
 /**
- * RL-100 Slice 1 — global Import overlay.
+ * RL-100 Slice 1 + Slice 2 — global Import overlay.
  *
  * Mod+Alt+I from anywhere opens this overlay. 3-section layout
  * mirroring `<CapsuleImportOverlay>` (RL-094 Slice 2):
@@ -11,8 +11,20 @@
  *              reject band when the source doesn't parse.
  *              Warning band lists lossy cURL flags (fold C codes).
  *   - BOTTOM : Action bar — Cancel + Import (disabled until valid
- *              preview). Fold G — confirm flips the bottom-panel
- *              to the HTTP workspace tab.
+ *              preview). Fold G (Slice 1) — confirm flips the
+ *              bottom-panel to the HTTP workspace tab for cURL;
+ *              fold F (Slice 2) — the hook creates notebook tabs with
+ *              the detected dominant code-cell language.
+ *
+ * Slice 2 folds:
+ *   A. Drag-drop accepts `.ipynb` (file input `accept` widened).
+ *   B. `detectImporter` content-sniff handles both adapters; file
+ *      extension hint kicks in for drop events.
+ *   C. Confirm button label adapts per importer kind.
+ *   D. Notebook preview band renders cell summary + snippets.
+ *   E. Warning telemetry fires for ipynb imports with lossy bits.
+ *   F. After-confirm language chip auto-flip.
+ *   G. Clipboard auto-detect on overlay focus when consent granted.
  *
  * Escape closes. Click-outside closes. Telemetry (fold E) is
  * owned by `useImportPreview`; the overlay just calls
@@ -22,7 +34,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, FileUp, X } from 'lucide-react';
+import { detectImporter } from '../../../shared/importers/registry';
 import { useImportPreview } from '../../hooks/useImportPreview';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../utils/cn';
 import { ImportPreviewBody } from './ImportPreviewBody';
@@ -41,6 +55,9 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   const { state, previewSource, confirm, reset, trackCancelled, warnings } =
     useImportPreview();
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
+  const clipboardConsent = useSettingsStore(
+    (s) => s.importPreviewClipboardOnFocusConsent
+  );
 
   const [pasteValue, setPasteValue] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
@@ -64,6 +81,47 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [trackCancelled]);
+
+  // Fold G — when consent is granted and the clipboard contains
+  // recognized content, auto-populate the paste textarea on mount.
+  // ALWAYS gated on consent. NEVER auto-imports — only previews;
+  // the user must still click Confirm.
+  useEffect(() => {
+    if (clipboardConsent !== 'granted') return;
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.readText) {
+      return;
+    }
+    let cancelled = false;
+    navigator.clipboard
+      .readText()
+      .then((text) => {
+        if (cancelled) return;
+        const trimmed = text.trim();
+        if (trimmed.length === 0) return;
+        // Cheap pre-check: only auto-populate when the content looks
+        // like one of our known formats. Avoids leaking arbitrary
+        // clipboard contents into the overlay.
+        const detectedImporter = detectImporter(trimmed);
+        if (detectedImporter === null) return;
+        setPasteValue(text);
+        previewSource(text);
+        pushStatusNotice({
+          tone: 'info',
+          messageKey: 'importPreview.notice.clipboardAutoDetected',
+          values: {
+            format:
+              detectedImporter === 'curl-http' ? 'cURL' : 'Jupyter .ipynb',
+          },
+        });
+      })
+      .catch(() => {
+        // Clipboard read denied — silently ignore. The user can
+        // still paste manually.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clipboardConsent, previewSource, pushStatusNotice]);
 
   const handleClose = useCallback(() => {
     trackCancelled();
@@ -160,18 +218,44 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
 
   const handleConfirm = useCallback(() => {
     const created = confirm();
-    if (created) {
+    if (!created) {
+      // Confirm failed (tier ceiling etc.) — the hook already
+      // surfaced the upsell notice. Just close the overlay.
+      closeRef.current();
+      return;
+    }
+    if (created.kind === 'curl-http') {
       pushStatusNotice({
         tone: 'success',
         messageKey: 'importPreview.success.toast',
       });
-      closeRef.current();
+    } else if (created.kind === 'ipynb-notebook') {
+      pushStatusNotice({
+        tone: 'success',
+        messageKey: 'importPreview.success.notebookOpened',
+      });
     }
+    closeRef.current();
   }, [confirm, pushStatusNotice]);
 
   const previewed = state.phase === 'previewed' ? state.preview : undefined;
   const rejected = state.phase === 'rejected' ? state.reason : null;
   const canConfirm = state.phase === 'previewed' && !!previewed;
+  const importerId = state.importerId;
+  // Fold C — confirm label per importer kind.
+  const confirmLabel =
+    importerId === 'ipynb-notebook'
+      ? t('importPreview.action.confirm.notebook')
+      : importerId === 'curl-http'
+        ? t('importPreview.action.confirm.curl')
+        : t('importPreview.action.confirm');
+  // Slice 2 — reject hint copy. Generic outer reason + optional
+  // ipynb-specific detail.
+  const rejectKey = rejected ? `importPreview.reject.${rejected}` : null;
+  const rejectIpynbKey =
+    rejected && state.rejectDetail && importerId === 'ipynb-notebook'
+      ? `importPreview.reject.ipynb.${state.rejectDetail}`
+      : null;
 
   return (
     <div
@@ -229,7 +313,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
                 data-testid="import-preview-paste"
                 value={pasteValue}
                 onChange={handlePasteChange}
-                placeholder={t('importPreview.source.pastePlaceholder')}
+                placeholder={t('importPreview.source.pastePlaceholderNotebook')}
                 rows={4}
                 spellCheck={false}
                 className="min-h-[80px] resize-none rounded-md border border-border/60 bg-bg-elevated p-2 font-mono text-xs text-foreground outline-none focus:border-border-strong"
@@ -250,12 +334,12 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
                 )}
               >
                 <FileUp size={14} aria-hidden="true" />
-                <span>{t('importPreview.source.dropHint')}</span>
+                <span>{t('importPreview.source.dropHintWithIpynb')}</span>
               </button>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".curl,.txt,text/plain"
+                accept=".curl,.txt,.ipynb,text/plain,application/json,application/x-ipynb+json"
                 onChange={handleFileChange}
                 className="sr-only"
                 data-testid="import-preview-file-input"
@@ -291,17 +375,34 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
                   </div>
                 ) : null}
               </div>
-            ) : rejected ? (
+            ) : rejected && rejectKey ? (
               <div
                 role="alert"
                 data-testid="import-preview-reject"
                 data-reject-reason={rejected}
+                data-reject-detail={state.rejectDetail ?? ''}
                 className="grid gap-1 rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-[12px] text-rose-700 dark:text-rose-300"
               >
-                <div className="flex items-center gap-1 font-semibold">
-                  <AlertCircle size={12} aria-hidden="true" />
-                  {t(`importPreview.reject.${rejected}`)}
-                </div>
+                {/* When an importer-specific detail exists (e.g. an
+                    `.ipynb` `wrong-version` / `oversized` reject), the
+                    detail IS the accurate message — promote it to the
+                    bold header and skip the generic outer-reason copy,
+                    which is written for the Slice 1 "importer not
+                    wired" meaning and reads wrong for these cases. */}
+                {rejectIpynbKey ? (
+                  <div
+                    data-testid="import-preview-reject-ipynb-detail"
+                    className="flex items-center gap-1 font-semibold"
+                  >
+                    <AlertCircle size={12} aria-hidden="true" />
+                    {t(rejectIpynbKey)}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 font-semibold">
+                    <AlertCircle size={12} aria-hidden="true" />
+                    {t(rejectKey)}
+                  </div>
+                )}
               </div>
             ) : (
               <div
@@ -330,7 +431,7 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
               data-testid="import-preview-confirm"
               className="inline-flex h-7 items-center rounded border border-emerald-500/40 bg-emerald-500/10 px-3 text-[11px] font-medium text-emerald-700 hover:border-emerald-500 dark:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {t('importPreview.action.confirm')}
+              {confirmLabel}
             </button>
           </footer>
         </div>

@@ -31,6 +31,7 @@ import type {
 } from '../../../shared/notebook';
 import type { NotebookCellRunStatus } from '../../stores/notebookStore';
 import { cn } from '../../utils/cn';
+import { languageLabel } from '../../utils/languageMeta';
 
 export interface NotebookCodeCellRowProps {
   readonly cell: NotebookCodeCellV1;
@@ -41,6 +42,18 @@ export interface NotebookCodeCellRowProps {
   readonly disabled: boolean;
   onSourceChange: (cellId: string, source: string) => void;
   onRunCell: (cellId: string) => void;
+  /**
+   * Jupyter-parity keybind — `Shift+Enter` runs the cell then moves
+   * focus to the next cell (creating one when this is the last). Falls
+   * back to a plain in-place run when not provided.
+   */
+  onRunAndAdvance?: (cellId: string) => void;
+  /**
+   * Jupyter-parity keybind — `Alt+Enter` runs the cell then inserts a
+   * fresh code cell directly below + focuses it. Falls back to a plain
+   * in-place run when not provided.
+   */
+  onRunAndInsertBelow?: (cellId: string) => void;
   onMoveUp: (cellId: string) => void;
   onMoveDown: (cellId: string) => void;
   onDelete: (cellId: string) => void;
@@ -90,12 +103,15 @@ export function NotebookCodeCellRow({
   disabled,
   onSourceChange,
   onRunCell,
+  onRunAndAdvance,
+  onRunAndInsertBelow,
   onMoveUp,
   onMoveDown,
   onDelete,
 }: NotebookCodeCellRowProps) {
   const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const label = languageLabel(cell.language);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -110,7 +126,14 @@ export function NotebookCodeCellRow({
       data-cell-id={cell.id}
       data-cell-kind="code"
       data-status={status}
-      className="grid gap-2 rounded-md border border-border/60 bg-background-elevated/60 p-3"
+      className={cn(
+        'grid gap-2 rounded-md border border-border/60 bg-background-elevated/60 p-3 transition-colors',
+        // Active-cell accent — the focused cell gets a primary-tinted
+        // border + faint ring so the user always knows which cell the
+        // keyboard targets (Jupyter highlights the active cell the
+        // same way).
+        'focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/25'
+      )}
     >
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -199,16 +222,35 @@ export function NotebookCodeCellRow({
         onChange={(event) => onSourceChange(cell.id, event.target.value)}
         onKeyDown={(event) => {
           if (event.key !== 'Enter') return;
-          if (!event.metaKey && !event.ctrlKey) return;
+          // Jupyter-parity run keybinds (the muscle memory every
+          // notebook user expects):
+          //   Cmd/Ctrl+Enter — run in place, keep focus here.
+          //   Shift+Enter    — run, then advance to the next cell
+          //                    (create one if this is the last).
+          //   Alt+Enter      — run, then insert a fresh cell below.
+          // A plain Enter falls through to the textarea (newline).
+          const runInPlace = event.metaKey || event.ctrlKey;
+          const advance = event.shiftKey;
+          const insertBelow = event.altKey;
+          if (!runInPlace && !advance && !insertBelow) return;
           event.preventDefault();
           event.stopPropagation();
           if (disabled || status === 'running') return;
-          onRunCell(cell.id);
+          if (advance) {
+            (onRunAndAdvance ?? onRunCell)(cell.id);
+          } else if (insertBelow) {
+            (onRunAndInsertBelow ?? onRunCell)(cell.id);
+          } else {
+            onRunCell(cell.id);
+          }
         }}
         disabled={disabled || status === 'running'}
         data-testid="notebook-code-cell-source"
         spellCheck={false}
-        placeholder={t('notebook.cell.codeSourcePlaceholder')}
+        placeholder={t('notebook.cell.codeSourcePlaceholder', {
+          language: label,
+        })}
+        title={t('notebook.cell.codeSourceShortcutHint')}
         rows={3}
         className="min-h-[64px] resize-none rounded border border-border/60 bg-background p-2 font-mono text-xs text-foreground outline-none focus:border-border-strong disabled:cursor-not-allowed"
       />

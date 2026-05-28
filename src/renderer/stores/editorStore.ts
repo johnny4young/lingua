@@ -608,6 +608,36 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setActiveTab: (id) => set({ activeTabId: id }),
 
+  /**
+   * RL-100 Slice 2 fold F — switch a tab's language without
+   * re-creating it. Used by the `.ipynb` import flow to flip a
+   * freshly-imported notebook tab's language chip to the dominant
+   * cell language (e.g. Python) so the FloatingActionPill displays
+   * the right badge after import.
+   *
+   * No-op when the tab doesn't exist, when the language matches,
+   * or when the user is on a tier that doesn't allow the new
+   * language. Tab content is preserved.
+   */
+  setTabLanguage: (id, language) => {
+    const tabs = get().tabs;
+    const target = tabs.find((t) => t.id === id);
+    if (!target) return;
+    if (target.language === language) return;
+    if (!isLanguageAllowed(currentEffectiveTier(), language)) {
+      pushUpsellNotice({
+        messageKey: 'upsell.freeCeilingReached',
+        featureLabel: i18next.t('upsell.feature.extraLanguages'),
+      });
+      return;
+    }
+    set((state) => ({
+      tabs: state.tabs.map((t) =>
+        t.id === id ? { ...t, language } : t
+      ),
+    }));
+  },
+
   updateContent: (id, content) =>
     set((state) => ({
       // RL-070 — clear lifecycle markers when the user edits the buffer.
@@ -897,7 +927,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       });
       return null;
     }
-    if (!isLanguageAllowed(tier, 'javascript')) {
+    const requestedLanguage = opts?.language ?? 'javascript';
+    if (!isLanguageAllowed(tier, requestedLanguage)) {
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
         featureLabel: i18next.t('upsell.feature.extraLanguages'),
@@ -916,7 +947,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const newTab: FileTab = {
       id: tabId,
       name: title.endsWith('.linguanb') ? title : `${title}.linguanb`,
-      language: 'javascript',
+      language: requestedLanguage,
       content: '',
       isDirty: false,
       kind: 'notebook',
@@ -1206,7 +1237,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           return {
             ...tab,
             name,
-            language: 'javascript',
+            language: tab.language,
             isDirty: false,
           };
         }),

@@ -26,6 +26,7 @@ import {
   resetNotebookStoreForTests,
   useNotebookStore,
 } from '../../src/renderer/stores/notebookStore';
+import { useUIStore } from '../../src/renderer/stores/uiStore';
 
 const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
 const mockStop = runnerManager.stop as unknown as ReturnType<typeof vi.fn>;
@@ -44,6 +45,32 @@ function seedNotebook(tabId: string): {
   };
 }
 
+function seedPythonOnlyNotebook(tabId: string): void {
+  resetNotebookStoreForTests();
+  useNotebookStore.setState({
+    notebooks: {
+      [tabId]: {
+        notebook: {
+          version: 1,
+          id: `notebook-${tabId}`,
+          title: 'Python import',
+          cells: [
+            {
+              kind: 'code',
+              id: 'cell-python',
+              language: 'python',
+              source: 'print("hi")',
+              outputs: [],
+            },
+          ],
+        },
+        cellRunStatus: {},
+        activeCellId: 'cell-python',
+      },
+    },
+  });
+}
+
 describe('useNotebookRun', () => {
   beforeEach(() => {
     resetNotebookSessionsForTests();
@@ -52,11 +79,13 @@ describe('useNotebookRun', () => {
     mockStop.mockReset();
     mockTrack.mockReset();
     localStorage.clear();
+    useUIStore.setState({ statusNotice: null });
   });
   afterEach(() => {
     resetNotebookSessionsForTests();
     resetNotebookStoreForTests();
     localStorage.clear();
+    useUIStore.setState({ statusNotice: null });
   });
 
   it('runCell flips status to running then ok and writes outputs', async () => {
@@ -162,6 +191,21 @@ describe('useNotebookRun', () => {
     });
     // Second cell never runs.
     expect(mockExecute).toHaveBeenCalledTimes(1);
+  });
+
+  it('runAll surfaces a notice instead of silently no-oping when every code cell is unsupported', async () => {
+    seedPythonOnlyNotebook('tab-python');
+    const { result } = renderHook(() => useNotebookRun());
+
+    await act(async () => {
+      await result.current.runAll('tab-python');
+    });
+
+    expect(mockExecute).not.toHaveBeenCalled();
+    expect(useUIStore.getState().statusNotice).toMatchObject({
+      tone: 'info',
+      messageKey: 'notebook.notice.languageNotSupported',
+    });
   });
 
   it('stop signals the runner', () => {

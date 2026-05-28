@@ -95,6 +95,9 @@ describe('TELEMETRY_EVENTS', () => {
       // between `http.request_executed` and `language_scorecard_viewed`
       // because `import.` < `language_`.
       'import.applied',
+      // RL-100 Slice 2 fold E — `.ipynb` warning band. Sorts right
+      // after `import.applied` (lex order on the dotted segment).
+      'import.notebook_warnings_surfaced',
       // RL-095 Slice 1 fold A — Language Support Scorecard adoption
       // signal. Closed-enum payload `{ surface }` from
       // `LANGUAGE_SCORECARD_SURFACES` (settings | palette). The key

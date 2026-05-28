@@ -4,7 +4,7 @@
  * Replaces the Monaco editor when `activeTab.kind === 'notebook'`.
  * Layout:
  *   - Toolbar: Add markdown / Add code / Run all / Run above / Stop /
- *     Export as JS.
+ *     language-aware script export.
  *   - Cell list: scrollable column of `<NotebookMarkdownCellRow>` +
  *     `<NotebookCodeCellRow>` interspersed in user-defined order.
  *
@@ -29,6 +29,7 @@ import {
   isNotebookCodeCell,
   isNotebookMarkdownCell,
   MAX_CELLS_PER_NOTEBOOK,
+  NOTEBOOK_CELL_LANGUAGES,
   type NotebookCellLanguage,
 } from '../../../shared/notebook';
 import { useEditorStore } from '../../stores/editorStore';
@@ -40,8 +41,12 @@ import { useUIStore } from '../../stores/uiStore';
 import { useNotebookRun } from '../../hooks/useNotebookRun';
 import { NotebookCodeCellRow } from './NotebookCodeCellRow';
 import { NotebookMarkdownCellRow } from './NotebookMarkdownCellRow';
-import { exportNotebookAsJs } from './notebookExportToScript';
+import {
+  exportNotebookAsScript,
+  pickNotebookExportLanguage,
+} from './notebookExportToScript';
 import { cn } from '../../utils/cn';
+import { languageLabel } from '../../utils/languageMeta';
 
 export interface NotebookViewProps {
   readonly tabId: string;
@@ -62,13 +67,32 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     const tab = s.tabs.find((item) => item.id === tabId);
     return tab?.kind === 'notebook' ? tab.name : null;
   });
+  const backingTabLanguage = useEditorStore((s) => {
+    const tab = s.tabs.find((item) => item.id === tabId);
+    return tab?.kind === 'notebook'
+      ? coerceNotebookCellLanguage(tab.language)
+      : null;
+  });
   const renameTab = useEditorStore((s) => s.renameTab);
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
   const { isAnyCellRunning, runCell, runAll, runAbove, stop } = useNotebookRun();
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
+  const activeCellId = useNotebookStore(
+    (s) => s.notebooks[tabId]?.activeCellId ?? null
+  );
+  const setActiveCell = useNotebookStore((s) => s.setActiveCell);
 
   const codeCellsCount = useMemo(
     () => notebook?.cells.filter(isNotebookCodeCell).length ?? 0,
+    [notebook]
+  );
+  const preferredCodeLanguage = useMemo<NotebookCellLanguage>(() => {
+    if (backingTabLanguage) return backingTabLanguage;
+    const firstCodeCell = notebook?.cells.find(isNotebookCodeCell);
+    return firstCodeCell?.language ?? 'javascript';
+  }, [backingTabLanguage, notebook]);
+  const exportLanguage = useMemo(
+    () => (notebook ? pickNotebookExportLanguage(notebook) : null),
     [notebook]
   );
 
@@ -128,9 +152,99 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [removeCell, tabId]
   );
 
+  // Jupyter-parity run keybinds. Focus is moved imperatively after
+  // the next paint (the target cell may have just been created), so
+  // we avoid a setState-in-effect cascade — the focus is a DOM side
+  // effect, not React state.
+  const focusCellSoon = useCallback((cellId: string) => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLTextAreaElement>(
+        `[data-cell-id="${cellId}"] [data-testid="notebook-code-cell-source"]`
+      );
+      el?.focus();
+    });
+  }, []);
+
+  const handleRunAndAdvance = useCallback(
+    (cellId: string) => {
+      void runCell(tabId, cellId);
+      if (!notebook) return;
+      const idx = notebook.cells.findIndex((c) => c.id === cellId);
+      if (idx === -1) return;
+      const nextCodeCell = notebook.cells
+        .slice(idx + 1)
+        .find(isNotebookCodeCell);
+      if (nextCodeCell) {
+        focusCellSoon(nextCodeCell.id);
+        return;
+      }
+      // Last cell — create a fresh code cell below to keep the flow
+      // going, mirroring Jupyter's Shift+Enter at the bottom.
+      if (notebook.cells.length >= MAX_CELLS_PER_NOTEBOOK) {
+        pushStatusNotice({
+          tone: 'warning',
+          messageKey: 'notebook.notice.tooManyCells',
+        });
+        return;
+      }
+      const currentCell = notebook.cells[idx];
+      const language =
+        currentCell && isNotebookCodeCell(currentCell)
+          ? currentCell.language
+          : preferredCodeLanguage;
+      const newId = addCell(tabId, cellId, {
+        kind: 'code',
+        language,
+      });
+      if (newId) focusCellSoon(newId);
+    },
+    [
+      addCell,
+      focusCellSoon,
+      notebook,
+      preferredCodeLanguage,
+      pushStatusNotice,
+      runCell,
+      tabId,
+    ]
+  );
+
+  const handleRunAndInsertBelow = useCallback(
+    (cellId: string) => {
+      void runCell(tabId, cellId);
+      if (!notebook) return;
+      if (notebook.cells.length >= MAX_CELLS_PER_NOTEBOOK) {
+        pushStatusNotice({
+          tone: 'warning',
+          messageKey: 'notebook.notice.tooManyCells',
+        });
+        return;
+      }
+      const currentCell = notebook.cells.find((cell) => cell.id === cellId);
+      const language =
+        currentCell && isNotebookCodeCell(currentCell)
+          ? currentCell.language
+          : preferredCodeLanguage;
+      const newId = addCell(tabId, cellId, {
+        kind: 'code',
+        language,
+      });
+      if (newId) focusCellSoon(newId);
+    },
+    [
+      addCell,
+      focusCellSoon,
+      notebook,
+      preferredCodeLanguage,
+      pushStatusNotice,
+      runCell,
+      tabId,
+    ]
+  );
+
   const handleExport = useCallback(() => {
     if (!notebook) return;
-    const result = exportNotebookAsJs(notebook);
+    const result = exportNotebookAsScript(notebook);
     if (result.source.length === 0) {
       pushStatusNotice({
         tone: 'info',
@@ -140,7 +254,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     }
     try {
       const blob = new Blob([result.source], {
-        type: 'text/javascript;charset=utf-8',
+        type: 'text/plain;charset=utf-8',
       });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -189,6 +303,18 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   const lastCodeCellId =
     [...notebook.cells].reverse().find(isNotebookCodeCell)?.id ?? null;
   const disabled = isAnyCellRunning;
+  const activeCellIndex =
+    activeCellId === null
+      ? -1
+      : notebook.cells.findIndex((cell) => cell.id === activeCellId);
+  const canRunThroughActiveCell =
+    activeCellIndex >= 0 &&
+    notebook.cells
+      .slice(0, activeCellIndex + 1)
+      .some(isNotebookCodeCell);
+  const exportLanguageLabel = exportLanguage
+    ? languageLabel(exportLanguage)
+    : t('notebook.toolbar.exportScriptGeneric');
 
   return (
     <div
@@ -236,7 +362,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
           </button>
           <button
             type="button"
-            onClick={() => handleAddCode('javascript')}
+            onClick={() => handleAddCode(preferredCodeLanguage)}
             disabled={disabled}
             data-testid="notebook-toolbar-add-code"
             className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
@@ -247,8 +373,10 @@ export function NotebookView({ tabId }: NotebookViewProps) {
           <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
           <button
             type="button"
-            onClick={() => runAbove(tabId, lastCodeCellId ?? '')}
-            disabled={disabled || lastCodeCellId === null}
+            onClick={() => {
+              if (activeCellId) runAbove(tabId, activeCellId);
+            }}
+            disabled={disabled || !canRunThroughActiveCell}
             data-testid="notebook-toolbar-run-above"
             className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -299,7 +427,9 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles size={11} aria-hidden="true" />
-            {t('notebook.toolbar.exportAsJs')}
+            {t('notebook.toolbar.exportScript', {
+              language: exportLanguageLabel,
+            })}
           </button>
         </div>
       </header>
@@ -327,7 +457,15 @@ export function NotebookView({ tabId }: NotebookViewProps) {
               const canMoveDown = idx < notebook.cells.length - 1;
               if (isNotebookMarkdownCell(cell)) {
                 return (
-                  <li key={cell.id}>
+                  <li
+                    key={cell.id}
+                    onFocusCapture={() => setActiveCell(tabId, cell.id)}
+                    onMouseDown={() => setActiveCell(tabId, cell.id)}
+                    className={cn(
+                      activeCellId === cell.id &&
+                        'rounded-md ring-1 ring-primary/25'
+                    )}
+                  >
                     <NotebookMarkdownCellRow
                       cell={cell}
                       cellIndex={idx}
@@ -345,7 +483,15 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                 );
               }
               return (
-                <li key={cell.id}>
+                <li
+                  key={cell.id}
+                  onFocusCapture={() => setActiveCell(tabId, cell.id)}
+                  onMouseDown={() => setActiveCell(tabId, cell.id)}
+                  className={cn(
+                    activeCellId === cell.id &&
+                      'rounded-md ring-1 ring-primary/25'
+                  )}
+                >
                   <NotebookCodeCellRow
                     cell={cell}
                     cellIndex={idx}
@@ -357,6 +503,8 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                       updateCellSource(tabId, cellId, source)
                     }
                     onRunCell={(cellId) => void runCell(tabId, cellId)}
+                    onRunAndAdvance={handleRunAndAdvance}
+                    onRunAndInsertBelow={handleRunAndInsertBelow}
                     onMoveUp={(cellId) => handleMove(cellId, 'up')}
                     onMoveDown={(cellId) => handleMove(cellId, 'down')}
                     onDelete={handleDelete}
@@ -370,7 +518,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
           <div className="mt-3 flex items-center justify-center gap-2">
             <button
               type="button"
-              onClick={handleAddCode.bind(null, 'javascript')}
+              onClick={() => handleAddCode(preferredCodeLanguage)}
               disabled={disabled}
               data-testid="notebook-cells-append-code"
               className="inline-flex h-7 items-center gap-1 rounded border border-dashed border-border/40 bg-transparent px-3 text-[11px] text-muted hover:border-border-strong hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
@@ -400,4 +548,16 @@ function notebookTitleFromTabName(name: string): string {
     ? name.slice(0, -'.linguanb'.length)
     : name;
   return withoutExtension.trim() || 'Untitled notebook';
+}
+
+function coerceNotebookCellLanguage(
+  language: string | null | undefined
+): NotebookCellLanguage | null {
+  if (
+    typeof language === 'string' &&
+    (NOTEBOOK_CELL_LANGUAGES as readonly string[]).includes(language)
+  ) {
+    return language as NotebookCellLanguage;
+  }
+  return null;
 }

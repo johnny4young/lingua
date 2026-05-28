@@ -1,5 +1,5 @@
 /**
- * RL-100 Slice 1 — `useImportPreview` hook.
+ * RL-100 Slice 1 + Slice 2 — `useImportPreview` hook.
  *
  * Orchestrates the global Import overlay flow:
  *
@@ -8,13 +8,21 @@
  *      adapter id.
  *   3. The adapter's `preview(source)` is invoked synchronously.
  *      The result lives in the hook's state machine
- *      `{ idle | previewed | rejected }`.
+ *      `{ idle | previewed | rejected }` as a discriminated union
+ *      keyed on `importerId`.
  *   4. The user clicks `Confirm` → the hook calls `adapter.import`
- *      then writes the result into the right Zustand store. For
- *      `curl-http` this is `useWorkspaceToolStore.createRequest`.
- *   5. Fold G — on a successful commit, the hook also flips the
- *      bottom-panel to the `'http'` tab via `useUIStore` so the
- *      imported request is visible immediately.
+ *      then writes the result into the appropriate store.
+ *      - `'curl-http'` → `useWorkspaceToolStore.createRequest` +
+ *        flips bottom panel to `'http'`.
+ *      - `'ipynb-notebook'` (Slice 2) → `editorStore.addNotebookTab`
+ *        with the dominant notebook language + walks parsed cells via
+ *        `addCell`; fold F keeps the FloatingActionPill language chip
+ *        and new code cells oriented to that language.
+ *   5. Fold E (Slice 2) — when the ipynb import succeeded WITH
+ *      warnings, the hook also fires
+ *      `import.notebook_warnings_surfaced { warningKindCount,
+ *      dominantKind }` so we can measure how often Jupyter imports
+ *      drop rich outputs vs other warning categories.
  *
  * Stays a pure hook (no IPC); shared importer adapters all run in
  * the renderer.
@@ -35,29 +43,69 @@ import type {
   CurlImporterResult,
 } from '../../shared/importers/curlImporter';
 import type {
+  IpynbImporterPreview,
+  IpynbImporterResult,
+} from '../../shared/importers/ipynbImporter';
+import type {
   ImporterId,
   ImporterLossyWarning,
   ImporterRejectReason,
 } from '../../shared/importers/types';
+import {
+  isNotebookCodeCell,
+  type NotebookCellLanguage,
+  type NotebookV1,
+} from '../../shared/notebook';
 import { bucketCapsuleSize } from '../../shared/runCapsule';
+import { useEditorStore } from '../stores/editorStore';
+import { useNotebookStore } from '../stores/notebookStore';
 import { useUIStore } from '../stores/uiStore';
 import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
-import { trackImportApplied } from './importTelemetry';
+import {
+  bucketWarningKindCount,
+  countDistinctNotebookWarningKinds,
+  deriveDominantNotebookWarning,
+  trackImportApplied,
+  trackNotebookWarningsSurfaced,
+} from './importTelemetry';
 
 export type ImportPreviewPhase = 'idle' | 'previewed' | 'rejected';
+
+/**
+ * Discriminated union of preview shapes. Adding a new importer means
+ * extending this union with the adapter's TPreview type; the UI's
+ * `<ImportPreviewBody>` branches on `kind`.
+ *
+ * Note: `CurlImporterPreview` is the legacy Slice 1 shape; we widen
+ * it here with a `kind: 'curl-http'` discriminator at the hook
+ * boundary so the union stays uniform.
+ */
+export type AnyImporterPreview =
+  | (CurlImporterPreview & { readonly kind: 'curl-http' })
+  | IpynbImporterPreview;
 
 export interface ImportPreviewState {
   phase: ImportPreviewPhase;
   /** Resolved importer id when phase !== 'idle'. */
   importerId?: ImporterId;
-  /** Parsed preview shape when phase === 'previewed'. Slice 1: cURL-specific. */
-  preview?: CurlImporterPreview;
+  /** Parsed preview shape when phase === 'previewed'. */
+  preview?: AnyImporterPreview;
   /** Closed-enum reject reason when phase === 'rejected'. */
   reason?: ImporterRejectReason;
-  /** Optional dev-facing reject detail (not user-facing copy). */
+  /** Optional dev-facing reject detail (carries ipynb-specific code for the UI hint). */
   rejectDetail?: string;
   /** Size of the source input at the time of preview (bytes). */
   sourceBytes: number;
+}
+
+export interface ConfirmResult {
+  readonly kind: 'curl-http' | 'ipynb-notebook';
+  /** Slice 1 — newly-created request. Null for ipynb. */
+  readonly request?: HttpRequestV1;
+  /** Slice 2 — newly-minted notebook tab id. Null for cURL. */
+  readonly notebookTabId?: string;
+  /** Slice 2 fold F — dominant code-cell language used to seed the notebook tab. */
+  readonly dominantLanguage?: NotebookCellLanguage | null;
 }
 
 export interface UseImportPreviewResult {
@@ -65,7 +113,7 @@ export interface UseImportPreviewResult {
   /** Run the preview pass against pasted text. */
   previewSource: (source: string) => void;
   /** Commit the previewed import; on success closes the overlay. */
-  confirm: () => HttpRequestV1 | null;
+  confirm: () => ConfirmResult | null;
   /** Reset the hook back to idle. */
   reset: () => void;
   /** Track a user-cancelled flow without committing. */
@@ -124,57 +172,147 @@ export function useImportPreview(): UseImportPreviewResult {
       });
       return;
     }
-    // Slice 1 only knows the cURL shape — narrow defensively.
-    if (importerId !== 'curl-http') {
-      setState({
-        phase: 'rejected',
-        importerId,
-        reason: 'unsupported-feature',
-        rejectDetail: `importer "${importerId}" not wired Slice 1`,
-        sourceBytes,
-      });
-      return;
-    }
+    // Stamp the `kind` discriminator at the hook boundary so the
+    // outer UI doesn't have to introspect the adapter id. cURL is
+    // the only adapter whose preview shape predates the discriminator.
+    const widened: AnyImporterPreview =
+      importerId === 'ipynb-notebook'
+        ? (outcome.preview as IpynbImporterPreview)
+        : ({
+            ...(outcome.preview as CurlImporterPreview),
+            kind: 'curl-http' as const,
+          } satisfies AnyImporterPreview);
     setState({
       phase: 'previewed',
       importerId,
-      preview: outcome.preview as CurlImporterPreview,
+      preview: widened,
       sourceBytes,
     });
   }, []);
 
-  const confirm = useCallback((): HttpRequestV1 | null => {
+  const confirm = useCallback((): ConfirmResult | null => {
     if (state.phase !== 'previewed' || !state.importerId || !state.preview) {
       return null;
     }
     const adapter = getImporter(state.importerId);
     if (!adapter) return null;
-    // Slice 1 — only cURL → HTTP. The future-proof shape will switch
-    // on `importerId` and route to the matching store (e.g.
-    // `'ipynb-notebook'` → notebook store, `'postman-collection'` →
-    // multiple HTTP requests).
-    const result = adapter.import(state.preview) as CurlImporterResult;
-    const newRequest = createBlankHttpRequest({
-      id: crypto.randomUUID(),
-      name: deriveRequestName(result),
-    });
-    const merged: HttpRequestV1 = {
-      ...newRequest,
-      method: result.method,
-      url: result.url,
-      headers: result.headers.map((h) => ({ ...h })),
-      ...(result.body ? { body: { ...result.body } } : {}),
-    };
-    useWorkspaceToolStore.getState().createRequest(merged);
-    // Fold G — surface the new request immediately.
-    useUIStore.getState().openBottomPanel('http');
-    trackImportApplied({
-      importerId: 'curl-http',
-      status: 'ok',
-      sizeBucket: bucketCapsuleSize(state.sourceBytes),
-    });
-    setState(INITIAL_STATE);
-    return merged;
+
+    if (state.importerId === 'curl-http' && state.preview.kind === 'curl-http') {
+      const result = adapter.import(state.preview) as CurlImporterResult;
+      const newRequest = createBlankHttpRequest({
+        id: crypto.randomUUID(),
+        name: deriveRequestName(result),
+      });
+      const merged: HttpRequestV1 = {
+        ...newRequest,
+        method: result.method,
+        url: result.url,
+        headers: result.headers.map((h) => ({ ...h })),
+        ...(result.body ? { body: { ...result.body } } : {}),
+      };
+      useWorkspaceToolStore.getState().createRequest(merged);
+      // Fold G (Slice 1) — surface the new request immediately.
+      useUIStore.getState().openBottomPanel('http');
+      trackImportApplied({
+        importerId: 'curl-http',
+        status: 'ok',
+        sizeBucket: bucketCapsuleSize(state.sourceBytes),
+      });
+      setState(INITIAL_STATE);
+      return { kind: 'curl-http', request: merged };
+    }
+
+    if (
+      state.importerId === 'ipynb-notebook' &&
+      state.preview.kind === 'ipynb-notebook'
+    ) {
+      const result = adapter.import(state.preview) as IpynbImporterResult;
+      const editorState = useEditorStore.getState();
+      const tabLanguage =
+        result.dominantLanguage ??
+        firstNotebookCodeLanguage(result.notebook) ??
+        'javascript';
+      const tabId =
+        editorState.addNotebookTab?.({
+          title: result.title,
+          language: tabLanguage,
+        }) ?? null;
+      if (tabId === null) {
+        // Entitlement / tab-budget rejected — push status notice
+        // (the addNotebookTab itself surfaces the upsell). Treat as
+        // cancelled telemetry-wise.
+        trackImportApplied({
+          importerId: 'ipynb-notebook',
+          status: 'cancelled',
+          sizeBucket: bucketCapsuleSize(state.sourceBytes),
+        });
+        setState(INITIAL_STATE);
+        return null;
+      }
+      // `addNotebookTab` already seeded the notebookStore with a
+      // blank notebook (2 cells). Replace those with the imported
+      // notebook's cells.
+      const notebookStore = useNotebookStore.getState();
+      // Drop the seeded entry + reinstall with the imported payload.
+      notebookStore.disposeNotebookForTab(tabId);
+      notebookStore.createNotebookForTab(tabId, result.title);
+      // Walk the imported cells and append; the freshly-created
+      // notebook still has 2 seed cells we need to clear first.
+      const seeded = notebookStore.getNotebookForTab(tabId);
+      if (seeded) {
+        for (const seedCell of seeded.cells) {
+          notebookStore.removeCell(tabId, seedCell.id);
+        }
+      }
+      for (const cell of result.notebook.cells) {
+        if (cell.kind === 'markdown') {
+          const cellId = notebookStore.addCell(tabId, null, { kind: 'markdown' });
+          if (cellId !== null) {
+            notebookStore.updateCellSource(tabId, cellId, cell.source);
+          }
+        } else {
+          const cellId = notebookStore.addCell(tabId, null, {
+            kind: 'code',
+            language: cell.language,
+          });
+          if (cellId !== null) {
+            notebookStore.updateCellSource(tabId, cellId, cell.source);
+            if (cell.outputs.length > 0) {
+              notebookStore.setCellOutputs(tabId, cellId, [...cell.outputs]);
+            }
+          }
+        }
+      }
+      trackImportApplied({
+        importerId: 'ipynb-notebook',
+        status: 'ok',
+        sizeBucket: bucketCapsuleSize(state.sourceBytes),
+      });
+      // Fold E — surface aggregate warning telemetry when the import
+      // dropped lossy bits.
+      const dominantWarning = deriveDominantNotebookWarning(
+        state.preview.warnings
+      );
+      if (dominantWarning !== null) {
+        const distinctKinds = countDistinctNotebookWarningKinds(
+          state.preview.warnings
+        );
+        trackNotebookWarningsSurfaced({
+          warningKindCount: bucketWarningKindCount(distinctKinds),
+          dominantKind: dominantWarning,
+        });
+      }
+      setState(INITIAL_STATE);
+      return {
+        kind: 'ipynb-notebook',
+        notebookTabId: tabId,
+        dominantLanguage: result.dominantLanguage,
+      };
+    }
+
+    // Unknown discriminator — defensive branch (closed enums make
+    // this unreachable but TypeScript can't always prove that).
+    return null;
   }, [state]);
 
   const reset = useCallback(() => {
@@ -186,6 +324,10 @@ export function useImportPreview(): UseImportPreviewResult {
     // attempt — a click on the empty overlay's Cancel button is
     // noise.
     if (state.phase === 'idle') return;
+    if (!state.importerId) {
+      setState(INITIAL_STATE);
+      return;
+    }
     const status: 'rejected' | 'cancelled' =
       state.phase === 'rejected' ? 'rejected' : 'cancelled';
     trackImportApplied({
@@ -199,7 +341,7 @@ export function useImportPreview(): UseImportPreviewResult {
   const warnings = useMemo<ReadonlyArray<ImporterLossyWarning>>(
     () =>
       state.phase === 'previewed' && state.preview
-        ? state.preview.warnings
+        ? [...new Set(state.preview.warnings)]
         : [],
     [state]
   );
@@ -222,4 +364,11 @@ function deriveRequestName(result: CurlImporterResult): string {
   } catch {
     return `${result.method} import`;
   }
+}
+
+function firstNotebookCodeLanguage(
+  notebook: NotebookV1
+): NotebookCellLanguage | null {
+  const firstCodeCell = notebook.cells.find(isNotebookCodeCell);
+  return firstCodeCell?.language ?? null;
 }

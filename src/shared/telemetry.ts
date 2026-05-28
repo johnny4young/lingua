@@ -384,6 +384,16 @@ export const TELEMETRY_EVENTS = [
   // and the qualitative outcome. Mirrored on update-server with
   // parity test.
   'import.applied',
+  // RL-100 Slice 2 fold E — `.ipynb` warning band. Fires once per
+  // successful Jupyter notebook import when at least one warning
+  // code surfaced (raw cell dropped, rich output dropped, unknown
+  // kernel language, execute_result stripped). Closed-enum
+  // `{ warningKindCount, dominantKind }` where `warningKindCount`
+  // reuses DEPENDENCY_COUNT_BUCKETS_SET and `dominantKind` ∈
+  // NOTEBOOK_WARNING_KINDS_SET. NO cell content, NO output bytes,
+  // NO kernel name reach the wire. Mirrored on update-server with
+  // parity test.
+  'import.notebook_warnings_surfaced',
   // RL-097 Slice 2 fold F — SQL workspace query execution. Fires
   // once per Run / Cmd+Enter against the DuckDB-WASM engine.
   // Closed-enum `{ status, rowCountBucket, durationBucket }` where
@@ -687,6 +697,11 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // CAPSULE_SIZE_BUCKETS (reused from RL-094). No URL, no header
   // values, no body content on the wire.
   'import.applied': ['importerId', 'status', 'sizeBucket'],
+  // RL-100 Slice 2 fold E — `warningKindCount` ∈
+  // DEPENDENCY_COUNT_BUCKETS_SET, `dominantKind` ∈
+  // NOTEBOOK_WARNING_KINDS_SET. No cell text, no output bytes, no
+  // kernel name on the wire.
+  'import.notebook_warnings_surfaced': ['warningKindCount', 'dominantKind'],
   // RL-097 Slice 2 fold F — `status` ∈ SQL_QUERY_STATUSES_SET,
   // `rowCountBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET, `durationBucket`
   // ∈ SQL_DURATION_BUCKETS_SET. No query text, schema names, or row
@@ -893,9 +908,22 @@ export const CAPSULE_IMPORT_STATUSES = new Set([
 // duplicated here so the telemetry validator stays import-cycle-free.
 // Parity test in `update-server/test/telemetry.test.ts` cross-imports
 // the renderer source of truth to keep the two copies in sync.
-export const IMPORTER_IDS_SET = new Set(['curl-http']);
+// RL-100 Slice 2 widens with `'ipynb-notebook'`.
+export const IMPORTER_IDS_SET = new Set(['curl-http', 'ipynb-notebook']);
 // RL-100 Slice 1 fold E — closed enum of import outcomes.
 export const IMPORT_STATUSES_SET = new Set(['ok', 'rejected', 'cancelled']);
+// RL-100 Slice 2 fold E — closed enum of `.ipynb` warning kinds
+// surfaced by the `import.notebook_warnings_surfaced` event when an
+// ipynb import succeeds WITH warnings. Source of truth lives in
+// `src/shared/importers/types.ts` (`NOTEBOOK_WARNING_KINDS`);
+// duplicated here for the import-cycle-free validator. Parity test
+// in `update-server/test/telemetry.test.ts`.
+export const NOTEBOOK_WARNING_KINDS_SET = new Set([
+  'raw-cell-dropped',
+  'rich-output-dropped',
+  'unknown-language',
+  'execute-result-stripped',
+]);
 // RL-039 Slice B fold B — closed enum of recipe run statuses. Source
 // of truth lives in `src/shared/lessonRunner.ts`
 // (`RECIPE_RUN_STATUSES`). Duplicated here so the telemetry
@@ -1610,6 +1638,16 @@ function isAllowedValue(
         return typeof value === 'string' && IMPORT_STATUSES_SET.has(value);
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'import.notebook_warnings_surfaced':
+      if (key === 'warningKindCount')
+        return (
+          typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value)
+        );
+      if (key === 'dominantKind')
+        return (
+          typeof value === 'string' && NOTEBOOK_WARNING_KINDS_SET.has(value)
+        );
       return false;
     case 'recipe.opened':
       if (key === 'language') return typeof value === 'string' && isSafeToken(value);

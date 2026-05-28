@@ -21,6 +21,7 @@
  */
 
 import { curlImporterAdapter } from './curlImporter';
+import { ipynbImporterAdapter } from './ipynbImporter';
 import type { ImporterAdapter, ImporterId } from './types';
 
 // `unknown` generic params mirror the utility-registry precedent —
@@ -30,6 +31,7 @@ export const IMPORTER_REGISTRY: Readonly<
   Record<ImporterId, ImporterAdapter<unknown, unknown>>
 > = {
   'curl-http': curlImporterAdapter as ImporterAdapter<unknown, unknown>,
+  'ipynb-notebook': ipynbImporterAdapter as ImporterAdapter<unknown, unknown>,
 };
 
 export function getImporter(

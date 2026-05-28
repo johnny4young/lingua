@@ -149,6 +149,10 @@ export const MAX_OUTPUTS_PER_CELL = 50;
 /** Cap per single output text length. */
 export const MAX_OUTPUT_TEXT_LENGTH = 16 * 1024;
 
+export function utf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).length;
+}
+
 // ---------------------------------------------------------------------------
 // Parser
 // ---------------------------------------------------------------------------
@@ -170,7 +174,7 @@ export function parseNotebook(input: unknown): NotebookParseOutcome {
   // 1. Decode + size cap.
   let raw: unknown = input;
   if (typeof input === 'string') {
-    if (input.length > MAX_NOTEBOOK_BYTES) {
+    if (utf8ByteLength(input) > MAX_NOTEBOOK_BYTES) {
       return { ok: false, reason: 'oversized' };
     }
     try {
@@ -320,7 +324,7 @@ export function serializeNotebook(notebook: NotebookV1): string | null {
   } catch {
     return null;
   }
-  if (serialized.length > MAX_NOTEBOOK_BYTES) return null;
+  if (utf8ByteLength(serialized) > MAX_NOTEBOOK_BYTES) return null;
   return serialized;
 }
 

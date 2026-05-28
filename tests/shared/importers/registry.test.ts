@@ -22,8 +22,8 @@ describe('IMPORTER_REGISTRY', () => {
     );
   });
 
-  it('Slice 1 ships only curl-http', () => {
-    expect([...IMPORTER_IDS]).toEqual(['curl-http']);
+  it('Slice 2 ships curl-http + ipynb-notebook', () => {
+    expect([...IMPORTER_IDS].sort()).toEqual(['curl-http', 'ipynb-notebook']);
   });
 });
 
@@ -31,6 +31,11 @@ describe('getImporter', () => {
   it('returns the cURL adapter for "curl-http"', () => {
     const adapter = getImporter('curl-http');
     expect(adapter?.id).toBe('curl-http');
+  });
+
+  it('returns the ipynb adapter for "ipynb-notebook"', () => {
+    const adapter = getImporter('ipynb-notebook');
+    expect(adapter?.id).toBe('ipynb-notebook');
   });
 
   it('returns undefined for unknown ids', () => {
@@ -48,6 +53,12 @@ describe('listImporters', () => {
 describe('detectImporter', () => {
   it('auto-picks curl-http for cURL input', () => {
     expect(detectImporter('curl https://example.com')).toBe('curl-http');
+  });
+
+  it('auto-picks ipynb-notebook for a Jupyter v4 JSON payload', () => {
+    expect(
+      detectImporter('{ "nbformat": 4, "cells": [] }')
+    ).toBe('ipynb-notebook');
   });
 
   it('returns null when nothing claims the input', () => {

@@ -8,9 +8,10 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { ImportPreviewOverlay } from '../../../src/renderer/components/ImportPreview/ImportPreviewOverlay';
+import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { useWorkspaceToolStore } from '../../../src/renderer/stores/workspaceToolStore';
 
@@ -23,6 +24,7 @@ beforeEach(() => {
     isExecutingActive: false,
   });
   useUIStore.setState({ activeBottomPanel: 'console', statusNotice: null });
+  useSettingsStore.setState({ importPreviewClipboardOnFocusConsent: 'unset' });
   // Reset to EN before each test so a previous ES test doesn't bleed in.
   void i18next.changeLanguage('en');
 });
@@ -125,5 +127,74 @@ describe('ImportPreviewOverlay', () => {
     expect(screen.queryByText(/Importá datos/i)).toBeNull();
     // Cancel button copy.
     expect(screen.getByText(/^Cancelar$/i)).toBeTruthy();
+  });
+});
+
+describe('ImportPreviewOverlay — ipynb arm (RL-100 Slice 2)', () => {
+  const sampleIpynb = JSON.stringify({
+    nbformat: 4,
+    nbformat_minor: 5,
+    metadata: { kernelspec: { language: 'python' } },
+    cells: [
+      { cell_type: 'markdown', source: ['# Hello'] },
+      { cell_type: 'code', source: ["print('hi')"], outputs: [] },
+    ],
+  });
+
+  it('renders the notebook preview band on paste', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
+    await user.click(paste);
+    await user.paste(sampleIpynb);
+    await waitFor(() => {
+      const body = screen.getByTestId('import-preview-body');
+      expect(body.getAttribute('data-preview-kind')).toBe('ipynb-notebook');
+    });
+    expect(screen.getByTestId('import-preview-notebook-summary').textContent).toMatch(
+      /2 cells/
+    );
+  });
+
+  it('flips the confirm button label to the notebook variant (fold C)', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
+    await user.click(paste);
+    await user.paste(sampleIpynb);
+    await waitFor(() => {
+      const btn = screen.getByTestId('import-preview-confirm');
+      expect(btn.textContent).toMatch(/Import as notebook/i);
+    });
+  });
+
+  it('shows the ipynb-specific reject hint for nbformat: 3', async () => {
+    const user = userEvent.setup();
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+    const paste = screen.getByTestId('import-preview-paste') as HTMLTextAreaElement;
+    await user.click(paste);
+    await user.paste(JSON.stringify({ nbformat: 3, cells: [] }));
+    await waitFor(() => {
+      expect(screen.getByTestId('import-preview-reject-ipynb-detail')).toBeTruthy();
+    });
+    expect(
+      screen.getByTestId('import-preview-reject-ipynb-detail').textContent
+    ).toMatch(/v4/i);
+  });
+
+  it('ignores unrelated JSON on clipboard auto-detect instead of labeling it .ipynb', async () => {
+    const readText = vi.fn().mockResolvedValue('{"hello":"world"}');
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { readText },
+      configurable: true,
+    });
+    useSettingsStore.setState({ importPreviewClipboardOnFocusConsent: 'granted' });
+
+    render(<ImportPreviewOverlay onClose={() => {}} />);
+
+    await waitFor(() => expect(readText).toHaveBeenCalledTimes(1));
+    expect((screen.getByTestId('import-preview-paste') as HTMLTextAreaElement).value).toBe('');
+    expect(screen.getByTestId('import-preview-empty')).toBeTruthy();
+    expect(useUIStore.getState().statusNotice).toBeNull();
   });
 });

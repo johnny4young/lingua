@@ -4443,7 +4443,7 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
 - New renderer components:
   - `src/renderer/components/Notebook/NotebookView.tsx` — toolbar
     with Add markdown / Add code / Run above / Run all / Stop /
-    Export as JS + editable title via `renameTab` + empty-state
+    language-aware script export + editable title via `renameTab` + empty-state
     CTAs + append-cell buttons at the bottom.
   - `src/renderer/components/Notebook/NotebookCodeCellRow.tsx` —
     language badge JS/TS/PY + cell index + closed-enum status pill
@@ -4456,9 +4456,10 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
     fenced code blocks / bullet lists; NO HTML pass-through, NO
     `dangerouslySetInnerHTML`).
   - `src/renderer/components/Notebook/notebookExportToScript.ts` —
-    `exportNotebookAsJs(notebook)` joins code cells with
-    `// --- cell <id> ---` separators + markdown cells as block
-    comments (closing marker escaped as `* /`).
+    `exportNotebookAsScript(notebook)` joins code cells with
+    language-aware comment separators + markdown cells as line
+    comments; single-language notebooks export as `.js`, `.ts`, or
+    `.py`, while mixed-language notebooks export as `.txt`.
 - New renderer hook:
   - `src/renderer/hooks/useNotebookRun.ts` — `runCell` /
     `runAll` / `runAbove` / `stop`. Bypasses `useRunner` so notebook
@@ -4506,9 +4507,9 @@ Lingua's .gitignore is already more focused and cleaner. WizardJS includes many 
     failures + stops still restore the originals.
   - **E** Run above + Run all toolbar actions with early-stop on
     error.
-  - **F** Export as JS via `exportNotebookAsJs(notebook)`. Component
-    layer wraps in `Blob` + `URL.createObjectURL` to surface a
-    download.
+  - **F** Language-aware script export via
+    `exportNotebookAsScript(notebook)`. Component layer wraps in
+    `Blob` + `URL.createObjectURL` to surface a download.
   - **G** Stop button + `runnerManager.stop('javascript')` — current
     cell flips to `'stopped'`; subsequent cells in a `runAll` chain
     do not run.
@@ -11472,8 +11473,8 @@ Deferred to Slice 2+:
 ### RL-100 Importers
 
 - Priority: `P2`
-- Status: `Planned`
-- Readiness: `Slice 1 ready when RL-097 Slice 1 (HTTP workspace) ships — cURL needs an HTTP workspace to import INTO`
+- Status: `Partial`
+- Readiness: `Slice 1 (cURL) shipped 2026-05-26; Slice 2 (.ipynb) shipped 2026-05-27. Slice 3 (Bruno/Postman collections) + Slice 4+ (CodePen / JSFiddle / CodeSandbox URL → multi-file project, depends on RL-024) still pending.`
 - Why this matters:
   - Lower switching cost. A user with a Postman collection, `.ipynb` notebook, or cURL command shouldn't have to rebuild from scratch.
 - Slice 1 scope (registry + cURL → HTTP request):
@@ -11559,6 +11560,153 @@ Deferred to Slice 2+:
 - Drag-drop of a directory (Slice 3+).
 - CLI `lingua import curl --input req.curl --output req.json` (Slice 5+; needs the JSON output schema first).
 - Shell completions for cURL flags (Slice 2 polish).
+
+#### § Slice 2 landed (2026-05-27)
+
+Shipped Jupyter `.ipynb` → `NotebookV1` adapter end-to-end. Builds
+directly on RL-043 Slice A (Notebook foundation, commit `d4ffc55`)
+and on the RL-100 Slice 1 importer registry (commit `8b13797`). All
+7 suggested folds (A/B/C/D/E/F/G) landed.
+
+- New shared:
+  - `src/shared/importers/ipynbImporter.ts` (~430 LOC) — adapter +
+    parser + cell mapper + output flattener. Closed-enum
+    `IPYNB_REJECT_REASONS = ['malformed-json' | 'wrong-version' |
+    'invalid-shape' | 'oversized' | 'too-many-cells']` surfaced via
+    the existing `ImporterPreviewOutcome.detail` slot so the generic
+    `IMPORTER_REJECT_REASONS` taxonomy stays uniform. Closed-enum
+    `NOTEBOOK_WARNING_KINDS = ['raw-cell-dropped' |
+    'rich-output-dropped' | 'unknown-language' |
+    'execute-result-stripped']` for fold E telemetry.
+- Widened types:
+  - `IMPORTER_IDS = ['curl-http', 'ipynb-notebook']`.
+  - `IMPORTER_LOSSY_WARNINGS` extended with `'ipynb-raw-cell-dropped'`,
+    `'ipynb-rich-output-dropped'`, `'ipynb-unknown-language'`,
+    `'ipynb-execute-result-stripped'`.
+- Cell mapping:
+  - `cell_type: 'markdown'` → `NotebookMarkdownCellV1`.
+  - `cell_type: 'code'` → `NotebookCodeCellV1` with language from
+    `metadata.kernelspec.language` (aliases handled: `python3`/`py`/`py3`
+    → `python`, `js`/`node`/`nodejs` → `javascript`, `ts` →
+    `typescript`).
+  - `cell_type: 'raw'` → dropped with `'ipynb-raw-cell-dropped'`
+    warning.
+- Output flattening:
+  - `stream` (stdout/stderr) → preserved verbatim with the right
+    stream tag.
+  - `execute_result` / `display_data` → only the `text/plain` MIME
+    variant survives; anything else (`image/png`, `text/html`,
+    `application/json`, vega) drops with `'ipynb-rich-output-dropped'`.
+    `execute_result` additionally surfaces
+    `'ipynb-execute-result-stripped'` because `execute_count` metadata
+    is lost.
+  - `error` → joined `ename: evalue\n<traceback>` into stderr, with
+    ANSI escape sequences stripped.
+- Caps enforced at the preview boundary (`MAX_NOTEBOOK_BYTES`,
+  `MAX_CELLS_PER_NOTEBOOK = 200`, `MAX_CELL_SOURCE_LENGTH = 32 KiB`,
+  `MAX_OUTPUTS_PER_CELL = 50`, `MAX_OUTPUT_TEXT_LENGTH = 16 KiB`) so
+  the resulting `NotebookV1` always passes `parseNotebook` on commit.
+- `useImportPreview` hook now discriminates on `importerId`:
+  - `'curl-http'` branch writes to `useWorkspaceToolStore.createRequest`
+    + flips `'http'` bottom-panel (Slice 1 unchanged).
+  - `'ipynb-notebook'` branch calls `editorStore.addNotebookTab`
+    (Pro entitlement `NOTEBOOK_MODE`) with the dominant notebook
+    language, then walks the parsed cells via `notebookStore.addCell`
+    + `setCellOutputs`. Confirm returns
+    `{ kind, notebookTabId, dominantLanguage }` for telemetry and
+    caller evidence.
+- `<ImportPreviewBody>` branches on `preview.kind`. The notebook band
+  renders the IPYNB badge + title + summary chip + first-3 cell
+  snippets.
+- `<ImportPreviewOverlay>` extended:
+  - File input `accept` widened to `.curl,.txt,.ipynb,text/plain,application/json,application/x-ipynb+json`.
+  - Drop-zone hint copy mentions `.ipynb` alongside `.curl` / `.txt`.
+  - Paste textarea placeholder mentions both formats.
+  - Confirm button label adapts per importer kind via i18n.
+  - Reject band shows the ipynb-specific localized detail when present.
+- New `editorStore.addNotebookTab({ language })` option — fold F opens
+  the imported notebook tab with the dominant language already applied,
+  so the FloatingActionPill chip and new code cells are oriented to
+  Python / TypeScript / JavaScript from the first render. Tier-gated
+  through the same `isLanguageAllowed` check `addTab` uses.
+- Folds:
+  - **A** Drag-drop accepts `.ipynb`.
+  - **B** Content-sniff detection — `detectIpynb` reads up to 4 KiB
+    of the source, checks for `{"cells":[` OR `{"nbformat":` substring
+    near the start. Cheap probe; runs in microseconds.
+  - **C** Confirm button label per kind. Two new i18n keys (en + es
+    tuteo): `importPreview.action.confirm.curl` and
+    `importPreview.action.confirm.notebook`.
+  - **D** Cell summary chip + first-3 cell snippets in the preview
+    band. Slice 2 caps the preview at 3 snippets and 200 chars/snippet
+    to keep the DOM cost bounded.
+  - **E** New closed-enum telemetry event
+    `import.notebook_warnings_surfaced { warningKindCount, dominantKind }`
+    fires AFTER a successful ipynb import that emitted at least one
+    warning. `warningKindCount ∈ DEPENDENCY_COUNT_BUCKETS_SET` (reused
+    bucket). `dominantKind ∈ NOTEBOOK_WARNING_KINDS_SET`. Mirrored on
+    `update-server/src/telemetry.ts`. New 3-way parity test in
+    `update-server/test/telemetry.test.ts` cross-imports the canonical
+    `NOTEBOOK_WARNING_KINDS` tuple from
+    `src/shared/importers/types.ts` and asserts both Sets equal it
+    byte-for-byte (RL-039 Slice B precedent).
+  - **F** After-confirm opens the notebook tab with the dominant cell
+    language already applied via `editorStore.addNotebookTab({ language })`.
+    If the user's tier does not allow that language, the existing
+    notebook/language upsell blocks the import rather than landing in a
+    misleading JavaScript tab.
+  - **G** Clipboard auto-detect on overlay focus — gated on
+    `importPreviewClipboardOnFocusConsent === 'granted'` (Slice 1
+    settings field). On mount the overlay reads the clipboard via
+    `navigator.clipboard.readText()`, pre-populates the paste
+    textarea ONLY when `detectImporter` recognizes a supported source
+    (`curl …` or a valid Jupyter `.ipynb` JSON object), surfaces a
+    localized notice, and runs the preview. NEVER auto-imports —
+    the user still clicks Confirm. Read failures (denied permission)
+    fail silent.
+- Telemetry posture:
+  - `import.applied` widened — `importerId: 'ipynb-notebook'` joins
+    the closed enum. Existing 3-way parity test now expects both
+    `'curl-http'` and `'ipynb-notebook'`.
+  - `import.notebook_warnings_surfaced` is opt-in: only fires when
+    warnings were surfaced. NO cell content, NO output bytes, NO
+    kernel name reach the wire — only the bucketed count + the
+    dominant closed-enum kind.
+- Test fixtures (3 small `.ipynb` files, <8 KiB each):
+  - `hello-python.ipynb` — markdown intro + two code cells (stream
+    output + execute_result).
+  - `mixed-markdown.ipynb` — markdown + JS code + raw cell (dropped on
+    import).
+  - `with-outputs.ipynb` — Python `import matplotlib` cell with PNG
+    + traceback outputs (both lossy).
+- i18n: ~30 new keys × en + es tuteo. Tuteo verified: `Importa`,
+  `Acepta`, `Revisa`, `Suelta`, `Pega`, `Cancelar`. NO voseo
+  (`Importá`, `Aceptá`, `Revisá`, `Soltá`, `Pegá`, `Cancelá`).
+- Tests (~32 new + extended cases):
+  - `tests/shared/importers/ipynbImporter.test.ts` — 23 cases
+    (surface + detect + happy paths + language inference + every
+    reject path + warning mapping + adapter import round-trip).
+  - `tests/shared/importers/registry.test.ts` extended — closed-enum
+    widening + ipynb detect.
+  - `tests/hooks/useImportPreview.test.ts` extended — 3 ipynb cases
+    (detect + reject ipynb-specific detail + confirm writes notebook
+    + does NOT flip http panel). Pro license seeded in beforeEach so
+    the NOTEBOOK_MODE entitlement clears.
+  - `tests/components/ImportPreview/ImportPreviewOverlay.test.tsx`
+    extended — 3 cases (notebook preview band + confirm label per
+    kind + ipynb-specific reject hint).
+  - `tests/e2e/importPreview.spec.ts` extended — 2 cases (happy
+    notebook preview EN + nbformat:3 reject ES).
+  - `tests/shared/telemetry.test.ts` sorted-events list extended with
+    `'import.notebook_warnings_surfaced'`.
+- Out of scope (Slice 3+):
+  - Round-trip export `.ipynb` ← `NotebookV1` — that's RL-043 Slice D.
+  - Rich-output preservation (image / chart / HTML) — closes
+    naturally with RL-043 Slice B's `<RichValueChart>` / `<RichValueImage>`
+    wire-up.
+  - Multi-language runner support for non-JS cells — RL-043 Slice B+
+    extends `NOTEBOOK_RUNNABLE_LANGUAGES`. Slice 2 imports faithfully
+    but only JS cells run.
 
 ### RL-101 Onboarding Choreography
 
