@@ -42,3 +42,12 @@ blockExoticSubdeps: false
 # asserted by the depFreshness test).
 overrides:
   "monaco-editor>dompurify": "^3.4.1"
+  # tmp <0.2.6 has a path-traversal advisory (GHSA-ph9p-34f9-6g65). It
+  # reaches the tree only through dev/build tooling — @electron-forge's
+  # @inquirer/editor prompts and the fengari → electron-installer Linux
+  # makers — so the release-blocking `pnpm audit --prod` was already
+  # clean. Force the patched 0.2.7 anyway to clear the advisory from the
+  # full (advisory) audit and keep the dev toolchain off the vulnerable
+  # range. (tar's open advisories flag every published version, so there
+  # is no fixed range to pin yet; it stays dev-only + advisory.)
+  "tmp": "^0.2.7"
