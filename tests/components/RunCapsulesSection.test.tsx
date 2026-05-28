@@ -84,6 +84,22 @@ describe('RunCapsulesSection', () => {
     ).not.toBeNull();
   });
 
+  it('dispatches lingua-open-capsule-list with the settings surface when Browse is clicked (RL-094 Slice 3)', () => {
+    const events: CustomEvent[] = [];
+    const handler = (event: Event) => events.push(event as CustomEvent);
+    window.addEventListener('lingua-open-capsule-list', handler);
+    try {
+      render(<RunCapsulesSection />);
+      fireEvent.click(screen.getByTestId('capsule-browse-button'));
+      expect(events).toHaveLength(1);
+      expect((events[0]!.detail as { surface?: string }).surface).toBe(
+        'settings'
+      );
+    } finally {
+      window.removeEventListener('lingua-open-capsule-list', handler);
+    }
+  });
+
   it('exports the latest capsule via the clipboard happy path', async () => {
     latestCapsuleRef.current = FIXTURE_MINIMAL_JS;
     const writeText = vi.fn().mockResolvedValue(undefined);

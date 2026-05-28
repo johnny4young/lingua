@@ -49,9 +49,8 @@ import {
 } from '../utils/importCapsule';
 import { trackEvent } from '../utils/telemetry';
 import type { RunCapsuleV1, CapsuleSizeBucket } from '../../shared/runCapsule';
-import { useEditorStore, createDefaultTab } from '../stores/editorStore';
 import { useSettingsStore } from '../stores/settingsStore';
-import type { Language } from '../types';
+import { openCapsuleSourceInNewTab } from '../utils/openCapsuleTab';
 
 export type CapsuleImportSourceSurface = 'paste' | 'file-picker' | 'drag-drop';
 
@@ -324,16 +323,10 @@ async function defaultReadClipboard(): Promise<string> {
 
 /**
  * Default openInNewTab handler — creates a new editor tab whose
- * content matches `capsule.source.content`. The tab name is derived
- * from `capsule.tab.name` when present; otherwise a fresh
- * `untitled-${short}.${ext}` is minted.
- *
- * Runtime + workflow mode are deliberately NOT threaded from the
- * capsule. The new tab starts in `createDefaultTab` defaults
- * (workflow=run for Scratchpad languages, runtimeMode=worker for
- * JS/TS) so the user has to explicitly opt into replay via Run /
- * Cmd+Enter — "no silent execution" is the core RL-094 Slice 2
- * promise.
+ * content matches `capsule.source.content`. Delegates to the shared
+ * `openCapsuleSourceInNewTab` helper so the import flow and the
+ * capsule browse overlay (RL-094 Slice 3) stay identical in how they
+ * materialise a capsule's source.
  *
  * RL-094 Slice 2 fold G — when the capsule's `tab.language === 'http'`
  * the consumer (overlay) should offer "Open in HTTP workspace" as a
@@ -342,14 +335,5 @@ async function defaultReadClipboard(): Promise<string> {
  * NOT auto-applied to avoid silent workspace mutations.
  */
 function pushCapsuleAsTab(capsule: RunCapsuleV1): void {
-  const editor = useEditorStore.getState();
-  const language = (capsule.tab.language || 'javascript') as Language;
-  const defaults = createDefaultTab(language);
-  editor.addTab({
-    ...defaults,
-    content: capsule.source.content,
-    name: capsule.tab.name?.trim().length
-      ? capsule.tab.name.trim()
-      : defaults.name,
-  });
+  openCapsuleSourceInNewTab(capsule);
 }

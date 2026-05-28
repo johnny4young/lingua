@@ -1,0 +1,211 @@
+/**
+ * RL-094 Slice 3 — tests for the capsule browse overlay.
+ *
+ * Covers the Pro list (rows + count + preview + browse_opened
+ * telemetry), the per-row actions (export → list-export telemetry,
+ * delete → store mutation), the status filter (fold C), the Free-tier
+ * upsell variant (fold G funnel still fires browse_opened), and ES
+ * tuteo copy.
+ */
+
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import i18next from 'i18next';
+
+const trackEvent = vi.fn();
+vi.mock('../../../src/renderer/utils/telemetry', () => ({
+  trackEvent: (...args: unknown[]) => trackEvent(...args),
+}));
+
+let mockEntitled = true;
+let mockTier = 'pro';
+vi.mock('../../../src/renderer/hooks/useEntitlement', () => ({
+  useEntitlement: () => mockEntitled,
+  useEffectiveTier: () => mockTier,
+  // editorStore.addTab (reached via the open-in-tab action) reads this
+  // non-hook tier helper from the same module — provide it so the mock
+  // is complete.
+  currentEffectiveTier: () => mockTier,
+}));
+
+const pushUpsellNotice = vi.fn();
+vi.mock('../../../src/renderer/utils/upsellNotice', () => ({
+  pushUpsellNotice: (...args: unknown[]) => pushUpsellNotice(...args),
+}));
+
+import { CapsuleListOverlay } from '../../../src/renderer/components/CapsuleList';
+import {
+  useExecutionHistoryStore,
+  type ExecutionHistoryEntry,
+} from '../../../src/renderer/stores/executionHistoryStore';
+import { useEditorStore } from '../../../src/renderer/stores/editorStore';
+import { _resetCapsuleListSurfaceForTesting } from '../../../src/renderer/components/CapsuleList/capsuleListSurface';
+import {
+  FIXTURE_MINIMAL_JS,
+  FIXTURE_FULL_TS,
+} from '../../shared/runCapsule.fixtures';
+
+function entry(
+  id: string,
+  language: string,
+  status: 'ok' | 'error',
+  capsule: ExecutionHistoryEntry['lastCapsule']
+): ExecutionHistoryEntry {
+  return {
+    id,
+    language,
+    status,
+    durationMs: 1,
+    timestamp: 1_700_000_000_000,
+    snapshot: null,
+    lastCapsule: capsule,
+  };
+}
+
+function seedTwoCapsules() {
+  useExecutionHistoryStore.setState({
+    entries: [
+      entry('e1', 'javascript', 'ok', FIXTURE_MINIMAL_JS),
+      entry('e2', 'typescript', 'error', FIXTURE_FULL_TS),
+    ],
+  });
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockEntitled = true;
+  mockTier = 'pro';
+  _resetCapsuleListSurfaceForTesting();
+  useExecutionHistoryStore.setState({ entries: [] });
+  useEditorStore.setState({ tabs: [], activeTabId: null });
+});
+
+afterEach(async () => {
+  await i18next.changeLanguage('en');
+});
+
+describe('CapsuleListOverlay — Pro tier', () => {
+  it('renders a row per retained capsule with a count chip + preview', () => {
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+
+    expect(screen.getByTestId('capsule-list-overlay')).not.toBeNull();
+    expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(2);
+    expect(screen.getByTestId('capsule-list-count').textContent).toContain('2');
+    // The preview pane auto-selects the newest capsule.
+    expect(screen.getByTestId('capsule-list-preview-pane')).not.toBeNull();
+    expect(screen.getByTestId('capsule-import-preview')).not.toBeNull();
+  });
+
+  it('renders relative timestamps for retained capsules', () => {
+    const nowSpy = vi
+      .spyOn(Date, 'now')
+      .mockReturnValue(1_700_000_030_000);
+    try {
+      seedTwoCapsules();
+      render(<CapsuleListOverlay onClose={vi.fn()} />);
+      expect(screen.getAllByText('30 seconds ago')).toHaveLength(2);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it('fires capsule.browse_opened with surface + tier on mount (fold G)', () => {
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(trackEvent).toHaveBeenCalledWith('capsule.browse_opened', {
+      surface: 'palette',
+      tier: 'pro',
+    });
+  });
+
+  it('renders the empty state when no capsules are retained', () => {
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByTestId('capsule-list-empty')).not.toBeNull();
+    expect(screen.queryByTestId('capsule-list-row')).toBeNull();
+  });
+
+  it('exports a row with the list-export trigger (fold)', async () => {
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByTestId('capsule-list-row-export')[0]!);
+    await waitFor(() => {
+      expect(trackEvent).toHaveBeenCalledWith('capsule.exported', {
+        trigger: 'list-export',
+        sizeBucket: expect.any(String),
+      });
+    });
+  });
+
+  it('deletes a row capsule via clearCapsule (fold B)', () => {
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(2);
+    fireEvent.click(screen.getAllByTestId('capsule-list-row-delete')[0]!);
+    // The newest (typescript) capsule is dropped; one row remains.
+    expect(
+      useExecutionHistoryStore.getState().capsuleEntries()
+    ).toHaveLength(1);
+    expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(1);
+  });
+
+  it('opens a capsule source in a new tab and closes (explicit, no replay)', () => {
+    seedTwoCapsules();
+    const onClose = vi.fn();
+    render(<CapsuleListOverlay onClose={onClose} />);
+    fireEvent.click(screen.getAllByTestId('capsule-list-row-open')[0]!);
+    expect(useEditorStore.getState().tabs).toHaveLength(1);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('filters rows by status (fold C)', () => {
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('capsule-list-filter-status-error'));
+    expect(screen.getAllByTestId('capsule-list-row')).toHaveLength(1);
+  });
+});
+
+describe('CapsuleListOverlay — Free tier upsell (fold G)', () => {
+  beforeEach(() => {
+    mockEntitled = false;
+    mockTier = 'free';
+  });
+
+  it('renders the upsell variant instead of the list and still fires browse_opened', () => {
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(screen.getByTestId('capsule-list-upsell')).not.toBeNull();
+    expect(screen.queryByTestId('capsule-list-row')).toBeNull();
+    expect(trackEvent).toHaveBeenCalledWith('capsule.browse_opened', {
+      surface: 'palette',
+      tier: 'free',
+    });
+  });
+
+  it('the upgrade CTA pushes the upsell notice + feature.blocked', () => {
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('capsule-list-upsell-cta'));
+    expect(pushUpsellNotice).toHaveBeenCalledTimes(1);
+    expect(trackEvent).toHaveBeenCalledWith('feature.blocked', {
+      entitlement: 'execution-history',
+      tier: 'free',
+    });
+  });
+});
+
+describe('CapsuleListOverlay — ES tuteo', () => {
+  it('renders the Spanish title under the es locale', async () => {
+    await i18next.changeLanguage('es');
+    seedTwoCapsules();
+    render(<CapsuleListOverlay onClose={vi.fn()} />);
+    expect(
+      screen.getByRole('dialog', { name: 'Cápsulas de ejecución' })
+    ).not.toBeNull();
+    expect(
+      screen.getAllByTestId('capsule-list-row-export')[0]!.getAttribute(
+        'aria-label'
+      )
+    ).toBe('Exporta');
+  });
+});

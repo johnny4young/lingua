@@ -181,12 +181,20 @@ export const TELEMETRY_EVENTS = [
   // "Open folder" wall on browsers without File System Access API
   // before we promote a richer fallback. Mirrored on update-server.
   'runtime.fs_directory_picker_unsupported',
+  // RL-094 Slice 3 fold G — adoption signal for the Pro-gated capsule
+  // browse overlay. Closed-enum `{ surface, tier }` where
+  // `surface ∈ CAPSULE_BROWSE_SURFACES` (palette / shortcut / settings
+  // / action-pill) and `tier` is the safe-token license tier (same
+  // open-token treatment as `feature.blocked.tier`). Fires once per
+  // overlay mount so the upsell funnel (Free opens browse → upsell) is
+  // measurable. NO capsuleId, NO source content. Mirrored on
+  // update-server with a parity test.
+  'capsule.browse_opened',
   // RL-094 Slice 1 fold A — adoption signal for the Run Capsule
   // export surface. Closed-enum `{ trigger, sizeBucket }` where
-  // `trigger ∈ {'settings-export', 'palette-export'}` and
-  // `sizeBucket ∈ CAPSULE_SIZE_BUCKETS`. No source content, no
-  // capsuleId, no environment leaks. Mirrored on update-server with
-  // a parity test.
+  // `trigger ∈ CAPSULE_EXPORT_TRIGGERS` and `sizeBucket ∈
+  // CAPSULE_SIZE_BUCKETS`. No source content, no capsuleId, no
+  // environment leaks. Mirrored on update-server with a parity test.
   'capsule.exported',
   // RL-094 Slice 2 fold D — inverse adoption signal for the capsule
   // import surface. Closed-enum `{ surface, status, sizeBucket }`
@@ -603,6 +611,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // RL-024 Slice 1 — `userAgentBucket` ∈
   // `FS_DIRECTORY_PICKER_UA_BUCKETS`.
   'runtime.fs_directory_picker_unsupported': ['userAgentBucket'],
+  // RL-094 Slice 3 fold G — `surface` ∈ `CAPSULE_BROWSE_SURFACES`,
+  // `tier` is an open safe-token (license tier; mirrors
+  // `feature.blocked.tier`).
+  'capsule.browse_opened': ['surface', 'tier'],
   // RL-094 Slice 1 fold A — `trigger` ∈ `CAPSULE_EXPORT_TRIGGERS`,
   // `sizeBucket` ∈ `CAPSULE_SIZE_BUCKETS`. Both closed enums.
   'capsule.exported': ['trigger', 'sizeBucket'],
@@ -866,6 +878,20 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   // adoption of the in-context surface vs the audit (Settings) and
   // power-user (palette) entries.
   'result-panel-export',
+  // RL-094 Slice 3 — per-row export from the Pro-gated capsule browse
+  // overlay. Distinct so the dashboard can attribute exports that
+  // originate from browsing history vs the latest-run surfaces.
+  'list-export',
+]);
+// RL-094 Slice 3 fold G — closed enum of surfaces that can open the
+// capsule browse overlay. Mirrored in `update-server/src/telemetry.ts`
+// with a parity test. The order is the render/discovery order of the
+// entry points (keyboard, palette, Settings button, floating pill).
+export const CAPSULE_BROWSE_SURFACES = new Set([
+  'palette',
+  'shortcut',
+  'settings',
+  'action-pill',
 ]);
 export const CAPSULE_SIZE_BUCKETS = new Set([
   '<10kb',
@@ -1468,6 +1494,15 @@ function isAllowedValue(
           typeof value === 'string' &&
           FS_DIRECTORY_PICKER_UA_BUCKETS.has(value)
         );
+      return false;
+    case 'capsule.browse_opened':
+      if (key === 'surface')
+        return (
+          typeof value === 'string' && CAPSULE_BROWSE_SURFACES.has(value)
+        );
+      // `tier` is an open safe-token (free / pro / pro_lifetime / team /
+      // trial / education) — same treatment as `feature.blocked.tier`.
+      if (key === 'tier') return isSafeToken(value);
       return false;
     case 'capsule.exported':
       if (key === 'trigger')

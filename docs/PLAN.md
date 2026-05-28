@@ -10658,6 +10658,98 @@ Deferred to subsequent slices (Slices 3 / 4+):
   (deferred until IPC surface ships).
 - Side-by-side capsule diff comparator.
 
+#### § Slice 3 landed (2026-05-28)
+
+Pro-gated capsule browse overlay — the surface that turns the
+in-memory capsule ring from an invisible artifact into something the
+user can see, preview, export, and prune. Folds A–G all shipped.
+
+Shipped:
+
+- **`src/renderer/components/CapsuleList/CapsuleListOverlay.tsx`
+  (new)** — master/detail overlay. Reads `capsuleEntries()`
+  (newest-first, capsule-only) from `executionHistoryStore`. Left
+  pane: capsule rows with a language badge + status + relative
+  timestamp + `summarizeRunCapsule` line, plus per-row actions
+  Preview / Export / Open in new tab / Copy summary / Remove. Right
+  pane: `<CapsuleImportPreview>` reused verbatim (pure, no side
+  effects) for the selected capsule. Selection is DERIVED (picked id
+  falls back to the first visible row) so a filter change or a delete
+  never leaves a stale preview and never needs a setState-in-effect.
+- **`src/renderer/components/CapsuleList/capsuleListSurface.ts`
+  (new)** — surface-claim helper (`claimCapsuleListSurface` /
+  `readCapsuleListSurfaceForMount`) mirroring `privacyTrustTelemetry`,
+  minus the once-per-session guard (every browse-open counts).
+- **`src/renderer/utils/openCapsuleTab.ts` (new)** —
+  `openCapsuleSourceInNewTab(capsule)` shared by the import flow and
+  the browse overlay; `useCapsuleImport`'s private `pushCapsuleAsTab`
+  now delegates to it (single source of truth, explicit open, no
+  auto-replay).
+- **`src/renderer/stores/executionHistoryStore.ts`** —
+  `capsuleEntries()` selector + `clearCapsule(id)` action (fold B —
+  drops `lastCapsule`, keeps the run row). **Fold A**: the capsule
+  LRU cap is now tier-aware — `CAPSULE_LRU_CAP_PRO = 20` for tiers
+  that grant `EXECUTION_HISTORY`, `CAPSULE_LRU_CAP = 5` for Free;
+  `record()` resolves the cap per-run via `currentEffectiveTier()`
+  so a tier flip takes effect on the next run with no store reset.
+- **Entry points**: `Mod+Alt+C` shortcut (`overlay-capsule-list`,
+  verified free against the catalog), `Browse run capsules` palette
+  command (`action-browse-capsules`), a `Browse all capsules…` button
+  in `<RunCapsulesSection>`, and a floating-action-pill `Archive`
+  button (**fold F**, dispatches the `lingua-open-capsule-list`
+  window event — no AppLayout prop threading). The Settings button
+  and pill carry `detail.surface` so the overlay attributes the
+  telemetry surface.
+- **Pro-gating**: `useEntitlement('EXECUTION_HISTORY')`. Free tier
+  renders an upsell variant (mirror of `RecentRunsPill` fold E) whose
+  CTA pushes `pushUpsellNotice` + fires `feature.blocked`. The
+  `capsule.browse_opened` telemetry fires on mount for BOTH tiers so
+  the upsell funnel (Free opens → upsell) is measurable.
+- **Fold E**: `<PrivacyTrustSection>` local-stores section gains an
+  in-memory `privacy-capsules-retained` count. Capsules live in the
+  ring (not localStorage), so the line is rendered separately from
+  the audit table with copy that is explicit they clear on reload.
+- **Fold G** telemetry: new closed-enum `capsule.browse_opened
+  { surface, tier }` where `surface ∈ CAPSULE_BROWSE_SURFACES`
+  (`palette` / `shortcut` / `settings` / `action-pill`) and `tier`
+  is an open safe-token (same treatment as `feature.blocked.tier`);
+  `CAPSULE_EXPORT_TRIGGERS` widened with `'list-export'` for per-row
+  exports. Both mirrored on update-server with parity tests.
+- **i18n**: 24 keys × en + es tuteo (`Explora`, `Previsualiza`,
+  `Exporta`, `Abre`, `Copia`, `Elimina`).
+
+Tests:
+
+- `tests/stores/executionHistoryCapsule.test.ts` (new) —
+  `capsuleEntries` ordering, `clearCapsule` semantics, tier-aware cap
+  on Free + Pro (mocks `currentEffectiveTier`).
+- `tests/components/CapsuleList/CapsuleListOverlay.test.tsx` (new) —
+  Pro list + count + preview + `capsule.browse_opened`, per-row
+  export (`list-export`) + delete + open-in-tab, status filter, Free
+  upsell + `feature.blocked`, ES tuteo.
+- `tests/e2e/capsuleList.spec.ts` (new) — `Mod+Alt+C` opens the
+  overlay EN + ES (Free upsell observable in the default web session).
+- Extended: `commandPaletteModel.test.ts`, `keyboardShortcuts.test.ts`,
+  `RunCapsulesSection.test.tsx`, `tests/shared/telemetry.test.ts`,
+  `update-server/test/telemetry.test.ts`.
+
+Prerequisite fixes:
+
+- `tests/hooks/useGlobalShortcuts.test.tsx` moved the
+  `utility-copy-output` override fixture from `Mod+Alt+C` to
+  `Mod+Alt+J` (the default `Mod+Alt+C` now binds capsule-browse;
+  same precedent as the Slice 2 `Mod+Shift+Y` → `Mod+Shift+U` move).
+- `update-server/test/telemetry.test.ts` `IMPORTER_IDS` parity
+  expectation refreshed to include the `postman-collection` +
+  `bruno-collection` adapters shipped in RL-100 Slice 3 (the
+  hardcoded list was stale and failing on `main` before this slice).
+
+Still deferred:
+
+- Auto-capsule on every run / disk persistence — gated on disk-cost
+  telemetry, unchanged from Slice 1's deferred list.
+- Desktop saveDialog IPC + side-by-side capsule diff comparator.
+
 ### RL-095 Language Support Scorecard
 
 - Priority: `P1`

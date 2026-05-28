@@ -201,19 +201,24 @@ describe('useGlobalShortcuts', () => {
       configurable: true,
       value: { writeText },
     });
+    // RL-094 Slice 3 — Mod+Alt+C is now the default capsule-browse
+    // binding (`overlay-capsule-list`), so this fixture's "free combo"
+    // moved to Mod+Alt+J to keep exercising a custom override without a
+    // catalog collision (same precedent as the Slice 2 Mod+Shift+Y→U
+    // move).
     useSettingsStore
       .getState()
-      .setShortcutOverride('utility-copy-output', [{ tokens: ['Mod', 'Alt', 'C'] }]);
+      .setShortcutOverride('utility-copy-output', [{ tokens: ['Mod', 'Alt', 'J'] }]);
     useUtilityOutputStore.getState().setProvider(() => 'copied text');
 
     renderShortcuts();
-    dispatchKeyDown({ key: 'c', ctrlKey: true, altKey: true });
+    dispatchKeyDown({ key: 'j', ctrlKey: true, altKey: true });
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('copied text'));
     expect(useUIStore.getState().statusNotice).toMatchObject({
       tone: 'success',
       messageKey: 'utilities.toast.copyOutputSuccess',
-      values: { shortcut: 'Ctrl+Alt+C' },
+      values: { shortcut: 'Ctrl+Alt+J' },
     });
   });
 

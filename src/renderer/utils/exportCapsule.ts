@@ -37,7 +37,9 @@ import { trackEvent } from './telemetry';
 export type CapsuleExportTrigger =
   | 'settings-export'
   | 'palette-export'
-  | 'result-panel-export';
+  | 'result-panel-export'
+  // RL-094 Slice 3 — per-row export from the capsule browse overlay.
+  | 'list-export';
 
 export interface CapsuleExportOptions {
   /** `true` (default) pretty-prints with 2-space indentation. */

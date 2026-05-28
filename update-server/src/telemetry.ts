@@ -96,6 +96,10 @@ export const TELEMETRY_EVENT_NAMES = [
   // `runtime.fs_directory_picker_unsupported`. Closed-enum
   // `{ userAgentBucket }`.
   'runtime.fs_directory_picker_unsupported',
+  // RL-094 Slice 3 fold G — mirror of `capsule.browse_opened`.
+  // Closed-enum `{ surface, tier }` where `surface ∈
+  // CAPSULE_BROWSE_SURFACES` and `tier` is an open safe-token.
+  'capsule.browse_opened',
   // RL-094 Slice 1 fold A — mirror of `capsule.exported`. Closed-enum
   // `{ trigger, sizeBucket }` from `CAPSULE_EXPORT_TRIGGERS` /
   // `CAPSULE_SIZE_BUCKETS`.
@@ -286,6 +290,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   // `runtime.fs_directory_picker_unsupported`. Closed-enum
   // `{ userAgentBucket }`.
   'runtime.fs_directory_picker_unsupported': ['userAgentBucket'],
+  // RL-094 Slice 3 fold G — mirror of `capsule.browse_opened`.
+  'capsule.browse_opened': ['surface', 'tier'],
   // RL-094 Slice 1 fold A — mirror of `capsule.exported`.
   'capsule.exported': ['trigger', 'sizeBucket'],
   // RL-094 Slice 2 fold D — mirror of `capsule.imported`. All three
@@ -496,6 +502,16 @@ export const CAPSULE_EXPORT_TRIGGERS = new Set([
   'palette-export',
   // RL-094 Slice 1.5 — mirror of the result-panel-export trigger.
   'result-panel-export',
+  // RL-094 Slice 3 — mirror of the list-export trigger.
+  'list-export',
+]);
+// RL-094 Slice 3 fold G — mirror of `CAPSULE_BROWSE_SURFACES` in
+// `src/shared/telemetry.ts`. Parity test asserts alignment.
+export const CAPSULE_BROWSE_SURFACES = new Set([
+  'palette',
+  'shortcut',
+  'settings',
+  'action-pill',
 ]);
 export const CAPSULE_SIZE_BUCKETS = new Set([
   '<10kb',
@@ -1120,6 +1136,12 @@ function isAllowedValue(
           typeof value === 'string' &&
           FS_DIRECTORY_PICKER_UA_BUCKETS.has(value)
         );
+      return false;
+    case 'capsule.browse_opened':
+      if (key === 'surface')
+        return typeof value === 'string' && CAPSULE_BROWSE_SURFACES.has(value);
+      // `tier` is an open safe-token, same as `feature.blocked.tier`.
+      if (key === 'tier') return isSafeToken(value);
       return false;
     case 'capsule.exported':
       if (key === 'trigger')

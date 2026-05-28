@@ -24,6 +24,8 @@
 
 import { create } from 'zustand';
 import type { RunCapsuleV1 } from '../../shared/runCapsule';
+import { currentEffectiveTier } from '../hooks/useEntitlement';
+import { isEntitled } from '../../shared/entitlements';
 
 export type ExecutionStatus = 'ok' | 'error';
 
@@ -76,16 +78,16 @@ export interface ExecutionHistoryEntry {
    */
   pinned?: boolean;
   /**
-   * RL-094 Slice 1 fold F — captured RunCapsuleV1 for the most recent
-   * runs. Only the newest `CAPSULE_LRU_CAP` (5) entries carry this;
-   * older entries lose `lastCapsule` on subsequent records so the
-   * in-memory cost stays bounded (capsules can be hundreds of KB
-   * each when stdout/stderr are saturated). Absent (`undefined`) when
-   * either the run never produced a capsule (the runner threw before
-   * `buildRunCapsule`) or the LRU eviction stripped it on a later
-   * record. Settings → Account "Export latest run" reads
-   * `latestCapsule()` which walks the entries newest-first looking
-   * for the first defined `lastCapsule`.
+   * RL-094 Slice 1 fold F / Slice 3 fold A — captured RunCapsuleV1 for
+   * the most recent runs. Only the newest tier-aware capsule-cap entries
+   * carry this (`CAPSULE_LRU_CAP` for Free, `CAPSULE_LRU_CAP_PRO` for
+   * paid tiers); older entries lose `lastCapsule` on subsequent records
+   * so the in-memory cost stays bounded. Absent (`undefined`) when either
+   * the run never produced a capsule (the runner threw before
+   * `buildRunCapsule`) or the LRU eviction stripped it on a later record.
+   * Settings → Account "Export latest run" reads `latestCapsule()` which
+   * walks the entries newest-first looking for the first defined
+   * `lastCapsule`.
    */
   lastCapsule?: RunCapsuleV1;
 }
@@ -110,9 +112,9 @@ export interface ExecutionHistoryRecord {
    */
   tabId?: string;
   /**
-   * RL-094 Slice 1 — optional captured capsule. When present, the
-   * store attaches it to the new entry and prunes `lastCapsule` from
-   * any entry beyond the newest `CAPSULE_LRU_CAP` so the in-memory
+   * RL-094 Slice 1 / Slice 3 — optional captured capsule. When present,
+   * the store attaches it to the new entry and prunes `lastCapsule` from
+   * any entry beyond the current tier-aware capsule cap so the in-memory
    * cost stays bounded. Omit when the run produced no capsule.
    */
   lastCapsule?: RunCapsuleV1;
@@ -126,8 +128,38 @@ export interface ExecutionHistoryRecord {
  * 5-entry cap matches the typical "recent runs" surface depth — the
  * Settings → Account "Export latest run" reads the newest, and any
  * history-list view (Slice 3+) can re-build on demand.
+ *
+ * RL-094 Slice 3 fold A — the cap is now tier-aware. Free keeps the
+ * 5-entry ceiling; paid tiers (anything granting `EXECUTION_HISTORY`)
+ * retain `CAPSULE_LRU_CAP_PRO` so the Pro-gated capsule browse view
+ * (`<CapsuleListOverlay>`) has more than a handful of rows to show.
+ * Capsules still live in memory only and stay truncated to 1 MiB each
+ * (`MAX_STREAM_BYTES` in `runCapsule.ts`), so the worst-case heap at
+ * the Pro cap stays bounded. Disk persistence remains deliberately
+ * out of scope until disk-cost telemetry lands.
  */
 export const CAPSULE_LRU_CAP = 5;
+
+/**
+ * RL-094 Slice 3 fold A — paid-tier capsule retention ceiling. Chosen
+ * at 20 so the browse view is meaningfully deeper than the Free cap
+ * without letting in-memory capsules dominate the heap on long
+ * sessions (20 × 1 MiB worst case, typically far less).
+ */
+export const CAPSULE_LRU_CAP_PRO = 20;
+
+/**
+ * Resolve the active capsule-retention cap from the current license
+ * tier. Reads the license store imperatively (no hook) the same way
+ * `executeTabManually` gates capsule capture, so the store stays
+ * framework-agnostic. When a Pro session downgrades, the next
+ * `record()` re-applies the lower cap and strips the overflow.
+ */
+function resolveCapsuleCap(): number {
+  return isEntitled(currentEffectiveTier(), 'EXECUTION_HISTORY')
+    ? CAPSULE_LRU_CAP_PRO
+    : CAPSULE_LRU_CAP;
+}
 
 export const MAX_HISTORY_ENTRIES = 50;
 
@@ -192,7 +224,25 @@ export interface ExecutionHistoryState {
    * beyond the find().
    */
   latestCapsule: () => RunCapsuleV1 | null;
+  /**
+   * RL-094 Slice 3 — newest-first list of the entries that still carry
+   * a `lastCapsule`, for the Pro-gated capsule browse overlay. Only the
+   * retained (`resolveCapsuleCap()`) entries qualify; older runs whose
+   * capsule the LRU stripped are excluded. Returns a fresh array on
+   * each call, so component subscribers must derive it inside a
+   * `useMemo` keyed on `entries` rather than selecting the call result
+   * directly (otherwise zustand v5's snapshot equality check loops —
+   * the same caveat `RecentRunsPill` documents for `byTabId`).
+   */
+  capsuleEntries: () => readonly ExecutionHistoryEntry[];
   clear: () => void;
+  /**
+   * RL-094 Slice 3 fold B — drop the captured capsule from a single
+   * history entry while keeping the run row itself. Lets a user remove
+   * a capsule whose source is sensitive before exporting or sharing.
+   * No-op when `id` is unknown or the entry has no capsule.
+   */
+  clearCapsule: (id: string) => void;
   byLanguage: (language: string) => readonly ExecutionHistoryEntry[];
   /**
    * RL-020 Slice 4 — return only the entries recorded against this
@@ -254,14 +304,17 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
         ];
       }
       // RL-094 Slice 1 fold F — capsule LRU cap. Walk newest-first;
-      // keep `lastCapsule` on the first CAPSULE_LRU_CAP entries that
-      // have one, strip it from the rest. Idempotent across records.
+      // keep `lastCapsule` on the first `cap` entries that have one,
+      // strip it from the rest. Idempotent across records. The cap is
+      // resolved per-record (RL-094 Slice 3 fold A) so a license tier
+      // change takes effect on the next run without a store reset.
+      const cap = resolveCapsuleCap();
       const withCapsule: ExecutionHistoryEntry[] = [];
       let keptCapsules = 0;
       for (let i = trimmed.length - 1; i >= 0; i -= 1) {
         const e = trimmed[i]!;
         if (e.lastCapsule !== undefined) {
-          if (keptCapsules < CAPSULE_LRU_CAP) {
+          if (keptCapsules < cap) {
             withCapsule.unshift(e);
             keptCapsules += 1;
           } else {
@@ -289,8 +342,36 @@ export const useExecutionHistoryStore = create<ExecutionHistoryState>()((set, ge
     return null;
   },
 
+  capsuleEntries: () => {
+    const entries = get().entries;
+    const withCapsule: ExecutionHistoryEntry[] = [];
+    // Newest first so the browse overlay renders most-recent at the top
+    // without reversing.
+    for (let i = entries.length - 1; i >= 0; i -= 1) {
+      const entry = entries[i]!;
+      if (entry.lastCapsule !== undefined) {
+        withCapsule.push(entry);
+      }
+    }
+    return withCapsule;
+  },
+
   clear: () => {
     set({ entries: [] });
+  },
+
+  clearCapsule: (id) => {
+    set((state) => {
+      let changed = false;
+      const entries = state.entries.map((entry) => {
+        if (entry.id !== id || entry.lastCapsule === undefined) return entry;
+        changed = true;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { lastCapsule: _dropped, ...rest } = entry;
+        return rest;
+      });
+      return changed ? { entries } : state;
+    });
   },
 
   byLanguage: (language) => {

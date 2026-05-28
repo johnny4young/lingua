@@ -33,6 +33,9 @@ describe('TELEMETRY_EVENTS', () => {
   it('matches the allowed event names and does not grow without review', () => {
     expect([...TELEMETRY_EVENTS].sort()).toEqual([
       'app.launched',
+      // RL-094 Slice 3 fold G — capsule browse overlay adoption signal.
+      // Closed-enum `{ surface, tier }`. Sorts before `capsule.exported`.
+      'capsule.browse_opened',
       // RL-094 Slice 1 fold A — Run Capsule export adoption signal.
       // Closed-enum `{ trigger, sizeBucket }`. Sorts at the top of the
       // alphabetical list.
@@ -999,6 +1002,8 @@ describe('capsule.exported value validator (RL-094 Slice 1 fold A)', () => {
       'palette-export',
       // RL-094 Slice 1.5 — primary result-panel surface trigger.
       'result-panel-export',
+      // RL-094 Slice 3 — per-row export from the browse overlay.
+      'list-export',
     ] as const) {
       const { event } = redactForTelemetry(
         buildEvent({
@@ -1039,6 +1044,46 @@ describe('capsule.exported value validator (RL-094 Slice 1 fold A)', () => {
     );
     expect(event.properties).not.toHaveProperty('sizeBucket');
     expect(droppedKeys).toContain('sizeBucket');
+  });
+});
+
+describe('capsule.browse_opened value validator (RL-094 Slice 3 fold G)', () => {
+  it('accepts every closed-enum surface', () => {
+    for (const surface of [
+      'palette',
+      'shortcut',
+      'settings',
+      'action-pill',
+    ] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'capsule.browse_opened',
+          properties: { surface, tier: 'pro' },
+        })
+      );
+      expect(event.properties).toEqual({ surface, tier: 'pro' });
+    }
+  });
+  it('accepts free + paid tiers as safe tokens', () => {
+    for (const tier of ['free', 'pro', 'team', 'education'] as const) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'capsule.browse_opened',
+          properties: { surface: 'palette', tier },
+        })
+      );
+      expect(event.properties).toEqual({ surface: 'palette', tier });
+    }
+  });
+  it('drops an unknown surface', () => {
+    const { event, droppedKeys } = redactForTelemetry(
+      buildEvent({
+        event: 'capsule.browse_opened',
+        properties: { surface: 'telepathy', tier: 'pro' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('surface');
+    expect(droppedKeys).toContain('surface');
   });
 });
 
