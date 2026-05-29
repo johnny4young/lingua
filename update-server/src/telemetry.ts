@@ -45,6 +45,10 @@ export const TELEMETRY_EVENT_NAMES = [
   'runtime.workflow_mode_changed',
   'runtime.magic_comment_emitted',
   'runtime.history_replay',
+  // RL-044 next slice — mirror of `runtime.image_clipboard_pasted`.
+  // The parity test enforces both event arrays + the status set stay
+  // aligned at CI time.
+  'runtime.image_clipboard_pasted',
   // RL-020 Slice 5 — mirror of `runtime.auto_log_enabled` /
   // `runtime.auto_log_emitted` in `src/shared/telemetry.ts`. The
   // parity test enforces both arrays stay aligned at CI time.
@@ -255,6 +259,8 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'runtime.workflow_mode_changed': ['language', 'from', 'to', 'trigger'],
   'runtime.magic_comment_emitted': ['language', 'hasArrow', 'hasWatch'],
   'runtime.history_replay': ['language', 'status', 'surface'],
+  // RL-044 next slice — mirror of `runtime.image_clipboard_pasted`.
+  'runtime.image_clipboard_pasted': ['status', 'sizeBucket'],
   'runtime.auto_log_enabled': ['language', 'enabled'],
   'runtime.auto_log_emitted': ['language', 'countBucket'],
   'runtime.stdin_used': ['language'],
@@ -519,6 +525,13 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
   '<1mb',
   '<4mb',
   '>=4mb',
+]);
+// RL-044 next slice — mirror of `IMAGE_CLIPBOARD_PASTE_STATUSES` in
+// `src/shared/telemetry.ts`. Parity test asserts alignment.
+export const IMAGE_CLIPBOARD_PASTE_STATUSES = new Set([
+  'pasted',
+  'rejected-oversized',
+  'rejected-unreadable',
 ]);
 // RL-094 Slice 2 fold D — mirrors of `CAPSULE_IMPORT_SOURCES` /
 // `CAPSULE_IMPORT_STATUSES` in `src/shared/telemetry.ts`. Parity
@@ -1154,6 +1167,14 @@ function isAllowedValue(
         return typeof value === 'string' && CAPSULE_IMPORT_SOURCES.has(value);
       if (key === 'status')
         return typeof value === 'string' && CAPSULE_IMPORT_STATUSES.has(value);
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'runtime.image_clipboard_pasted':
+      if (key === 'status')
+        return (
+          typeof value === 'string' && IMAGE_CLIPBOARD_PASTE_STATUSES.has(value)
+        );
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
       return false;

@@ -11,6 +11,12 @@ import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { trackEvent } from '../../utils/telemetry';
 import { originSuppressedByMagicComment } from '../../utils/magicComments';
+import { useUIStore } from '../../stores/uiStore';
+import { bucketCapsuleSize } from '../../../shared/runCapsule';
+import {
+  extractClipboardImageFile,
+  readPastedImageFile,
+} from './clipboardImagePaste';
 import { IconButton, Kbd, Tooltip } from '../ui/chrome';
 import { EyebrowMono, MonoBadge } from '../ui/primitives';
 import { ExecutionComparisonModal } from './ExecutionComparisonModal';
@@ -362,6 +368,23 @@ function entryFilteredByPayloadKind(
   });
 }
 
+/**
+ * RL-044 next slice — true when a paste should be left to its native
+ * target instead of being captured as a console image. Editors and
+ * form fields own their own paste semantics (Monaco code paste, env-var
+ * inputs, the share/import textareas), so an image paste while one of
+ * them is focused must NOT be hijacked into the console.
+ */
+function isEditablePasteTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return true;
+  if (target.isContentEditable) return true;
+  // Monaco renders into a focusable container with `.monaco-editor`.
+  if (target.closest('.monaco-editor')) return true;
+  return false;
+}
+
 export function ConsolePanel() {
   const { t } = useTranslation();
   const { run, isRunning } = useRunner();
@@ -372,6 +395,7 @@ export function ConsolePanel() {
     activeFilters,
     hiddenPayloadKinds,
     showTimestamps,
+    addEntry,
     clear,
     toggleFilter,
     togglePayloadKindFilter,
@@ -388,6 +412,63 @@ export function ConsolePanel() {
         activeTab.content
       )
     : false;
+  // RL-044 next slice — paste an image into the console. The listener
+  // lives on `document` (a read-only console row is not a focusable
+  // paste target) but is scoped to the ConsolePanel lifetime via this
+  // effect, and bails on editable targets so Monaco / inputs keep their
+  // native paste. An image becomes an in-memory `image` rich console
+  // entry (reusing `<RichValueImage>`); oversize images are dropped
+  // with a toast. No bytes ever leave the renderer — telemetry carries
+  // only the closed status + size bucket.
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      if (isEditablePasteTarget(event.target)) return;
+      const data = event.clipboardData;
+      if (!data) return;
+      // Cheap synchronous probe: only engage when an image File is
+      // present so plain-text pastes are never intercepted / delayed.
+      // Reuse the helper instead of checking `items` inline so browsers
+      // that only populate the legacy `files` list still work.
+      const file = extractClipboardImageFile(data);
+      if (!file) return;
+      event.preventDefault();
+      void readPastedImageFile(file).then((result) => {
+        if (result.ok) {
+          addEntry({
+            type: 'log',
+            content: `[image ${result.mime}]`,
+            payload: [{ kind: 'image', src: result.dataUri, mime: result.mime }],
+          });
+          useUIStore.getState().pushStatusNotice({
+            tone: 'success',
+            messageKey: 'console.imagePaste.pasted',
+          });
+          void trackEvent('runtime.image_clipboard_pasted', {
+            status: 'pasted',
+            sizeBucket: bucketCapsuleSize(result.byteLength),
+          });
+          return;
+        }
+        if (result.reason === 'too-large') {
+          useUIStore.getState().pushStatusNotice({
+            tone: 'warning',
+            messageKey: 'console.imagePaste.tooLarge',
+          });
+          void trackEvent('runtime.image_clipboard_pasted', {
+            status: 'rejected-oversized',
+            sizeBucket: bucketCapsuleSize(result.byteLength),
+          });
+        } else if (result.reason === 'unreadable') {
+          void trackEvent('runtime.image_clipboard_pasted', {
+            status: 'rejected-unreadable',
+            sizeBucket: bucketCapsuleSize(result.byteLength),
+          });
+        }
+      });
+    };
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [addEntry]);
   // RL-044 Slice 1B — apply both the legacy type filter AND the new
   // payload-kind chip filter (fold A), then collapse consecutive
   // identical entries (fold H). Memoised so a flooded console only

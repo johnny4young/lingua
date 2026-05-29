@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import type { ConsoleState, ConsoleEntryType, FileTab } from '../../src/renderer/types/index';
 import { useExecutionHistoryStore } from '../../src/renderer/stores/executionHistoryStore';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
-import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 
 // ---------------------------------------------------------------------------
 // Mock the console store
@@ -13,6 +12,7 @@ import { useSettingsStore } from '../../src/renderer/stores/settingsStore';
 const mockClear = vi.fn();
 const mockToggleFilter = vi.fn();
 const mockToggleTimestamps = vi.fn();
+const mockAddEntry = vi.fn();
 const mockRun = vi.fn().mockResolvedValue(undefined);
 const mockPushStatusNotice = vi.fn();
 const { mockTrackEvent, mockTrackOutputOriginClicked } = vi.hoisted(() => ({
@@ -54,7 +54,7 @@ vi.mock('../../src/renderer/stores/consoleStore', () => ({
     togglePayloadKindFilter: vi.fn(),
     clearPayloadKindFilters: vi.fn(),
     toggleTimestamps: mockToggleTimestamps,
-    addEntry: vi.fn(),
+    addEntry: mockAddEntry,
   }),
 }));
 
@@ -180,6 +180,99 @@ describe('ConsolePanel', () => {
   it('renders the empty-state message when entries array is empty', () => {
     render(<ConsolePanel />);
     expect(screen.getByText('Output will appear here...')).toBeTruthy();
+  });
+
+  // RL-044 next slice — image clipboard paste into the console.
+  describe('image clipboard paste', () => {
+    function dispatchImagePaste(opts: {
+      mime?: string;
+      bytes?: number;
+      asText?: boolean;
+    }) {
+      const event = new Event('paste', { bubbles: true });
+      const file = opts.asText
+        ? null
+        : new File([new Uint8Array(opts.bytes ?? 16)], 'p.png', {
+            type: opts.mime ?? 'image/png',
+          });
+      const items = opts.asText
+        ? [{ kind: 'string', type: 'text/plain', getAsFile: () => null }]
+        : [{ kind: 'file', type: opts.mime ?? 'image/png', getAsFile: () => file }];
+      Object.defineProperty(event, 'clipboardData', {
+        value: { items, files: file ? [file] : [] },
+      });
+      document.dispatchEvent(event);
+    }
+
+    it('appends an image rich entry + success toast + telemetry on a valid paste', async () => {
+      render(<ConsolePanel />);
+      await act(async () => {
+        dispatchImagePaste({ bytes: 32 });
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      await vi.waitFor(() => expect(mockAddEntry).toHaveBeenCalledTimes(1));
+      const entry = mockAddEntry.mock.calls[0]![0];
+      expect(entry.payload?.[0]).toMatchObject({ kind: 'image' });
+      expect(entry.payload?.[0].src.startsWith('data:image/')).toBe(true);
+      expect(mockPushStatusNotice).toHaveBeenCalledWith(
+        expect.objectContaining({ messageKey: 'console.imagePaste.pasted' })
+      );
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'runtime.image_clipboard_pasted',
+        expect.objectContaining({ status: 'pasted' })
+      );
+    });
+
+    it('reads an image from clipboardData.files when items are empty', async () => {
+      render(<ConsolePanel />);
+      const event = new Event('paste', { bubbles: true });
+      const file = new File([new Uint8Array(32)], 'from-files.png', {
+        type: 'image/png',
+      });
+      Object.defineProperty(event, 'clipboardData', {
+        value: { items: [], files: [file] },
+      });
+      await act(async () => {
+        document.dispatchEvent(event);
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      await vi.waitFor(() => expect(mockAddEntry).toHaveBeenCalledTimes(1));
+      expect(mockAddEntry.mock.calls[0]![0].payload?.[0]).toMatchObject({
+        kind: 'image',
+      });
+    });
+
+    it('ignores a text-only paste (no entry, no telemetry)', async () => {
+      render(<ConsolePanel />);
+      await act(async () => {
+        dispatchImagePaste({ asText: true });
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      expect(mockAddEntry).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalledWith(
+        'runtime.image_clipboard_pasted',
+        expect.anything()
+      );
+    });
+
+    it('rejects an oversized image with a toast + rejected-oversized telemetry', async () => {
+      render(<ConsolePanel />);
+      await act(async () => {
+        // 2 MiB + 1 byte trips the cap.
+        dispatchImagePaste({ bytes: 2 * 1024 * 1024 + 1 });
+        await new Promise((r) => setTimeout(r, 0));
+      });
+      await vi.waitFor(() =>
+        expect(mockTrackEvent).toHaveBeenCalledWith(
+          'runtime.image_clipboard_pasted',
+          expect.objectContaining({ status: 'rejected-oversized' })
+        )
+      );
+      expect(mockAddEntry).not.toHaveBeenCalled();
+      expect(mockPushStatusNotice).toHaveBeenCalledWith(
+        expect.objectContaining({ messageKey: 'console.imagePaste.tooLarge' })
+      );
+    });
   });
 
   it('renders a log entry when entries contains a log item', () => {

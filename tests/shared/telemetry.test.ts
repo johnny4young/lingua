@@ -170,6 +170,10 @@ describe('TELEMETRY_EVENTS', () => {
       // RL-020 Slice 4 — execution-history replay dispatched.
       // Closed-enum payload `{ language, status, surface }`.
       'runtime.history_replay',
+      // RL-044 next slice — console image clipboard paste. Closed-enum
+      // payload `{ status, sizeBucket }`. Sorts between `history_replay`
+      // and `magic_comment_emitted` alphabetically.
+      'runtime.image_clipboard_pasted',
       // RL-020 Slice 3 — magic-comment results emitted on a clean
       // run. Closed-enum payload `{ language, hasArrow, hasWatch }`.
       'runtime.magic_comment_emitted',
@@ -465,6 +469,48 @@ describe('runtime.mode_changed value validator (RL-019 Slice 1 + Slice 3)', () =
     );
     expect(event.properties.mode).toBe('browser-preview');
     expect(event.properties).not.toHaveProperty('language');
+  });
+});
+
+describe('runtime.image_clipboard_pasted value validator (RL-044 next slice)', () => {
+  it('accepts the closed status enum + a CAPSULE_SIZE_BUCKETS value', () => {
+    for (const status of ['pasted', 'rejected-oversized', 'rejected-unreadable']) {
+      const { event } = redactForTelemetry(
+        buildEvent({
+          event: 'runtime.image_clipboard_pasted',
+          properties: { status, sizeBucket: '<1mb' },
+        })
+      );
+      expect(event.properties.status, `status ${status} should survive`).toBe(status);
+      expect(event.properties.sizeBucket).toBe('<1mb');
+    }
+  });
+
+  it('drops an unknown status and a non-bucket sizeBucket', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.image_clipboard_pasted',
+        properties: { status: 'exfiltrated', sizeBucket: '1234 bytes' },
+      })
+    );
+    expect(event.properties).not.toHaveProperty('status');
+    expect(event.properties).not.toHaveProperty('sizeBucket');
+  });
+
+  it('never lets a data URI or raw bytes through as an extra property', () => {
+    const { event } = redactForTelemetry(
+      buildEvent({
+        event: 'runtime.image_clipboard_pasted',
+        properties: {
+          status: 'pasted',
+          sizeBucket: '<100kb',
+          // Defense-in-depth: a stray data URI must be dropped (not in
+          // the field allow-list).
+          src: 'data:image/png;base64,AAAA',
+        },
+      })
+    );
+    expect(event.properties).toEqual({ status: 'pasted', sizeBucket: '<100kb' });
   });
 });
 

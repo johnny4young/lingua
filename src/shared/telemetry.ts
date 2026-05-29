@@ -69,6 +69,13 @@ export const TELEMETRY_EVENTS = [
   // dispatch, gated by the same EXECUTION_HISTORY entitlement that
   // controls the replay surfaces.
   'runtime.history_replay',
+  // RL-044 next slice — image pasted into the ConsolePanel rendered
+  // as a rich `image` console entry. Closed-enum payload
+  // `{ status, sizeBucket }`: `status ∈ IMAGE_CLIPBOARD_PASTE_STATUSES`
+  // (`'pasted'` / `'rejected-oversized'` / `'rejected-unreadable'`),
+  // `sizeBucket ∈ CAPSULE_SIZE_BUCKETS` (reused). NO image bytes, NO
+  // data URI, NO MIME on the wire — only the closed buckets.
+  'runtime.image_clipboard_pasted',
   // RL-020 Slice 5 — bare-expression auto-log mode adoption.
   // `runtime.auto_log_enabled` fires when the user toggles the
   // per-language Settings default (`{ language, enabled }`). The
@@ -542,6 +549,10 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // `surface` is the closed `HistoryReplaySurface` enum (see
   // `HISTORY_REPLAY_SURFACES` below).
   'runtime.history_replay': ['language', 'status', 'surface'],
+  // RL-044 next slice — `status` ∈ IMAGE_CLIPBOARD_PASTE_STATUSES,
+  // `sizeBucket` ∈ CAPSULE_SIZE_BUCKETS. Mirrored on update-server;
+  // the parity test asserts the status set stays aligned.
+  'runtime.image_clipboard_pasted': ['status', 'sizeBucket'],
   // RL-020 Slice 5 — `language` is the language-pack id (JS / TS
   // for the Slice 5 surfaces; the validator stays generic so a
   // future widening to Python does not require an allowlist
@@ -899,6 +910,18 @@ export const CAPSULE_SIZE_BUCKETS = new Set([
   '<1mb',
   '<4mb',
   '>=4mb',
+]);
+// RL-044 next slice — closed enum backing the
+// `runtime.image_clipboard_pasted` event. `'pasted'` = an image was
+// read from the clipboard and appended as a rich console entry;
+// `'rejected-oversized'` = the image exceeded `MAX_PASTED_IMAGE_BYTES`
+// (2 MiB) and was dropped with a toast; `'rejected-unreadable'` = the
+// File read failed or the resulting data URI failed `validateImageSrc`.
+// Mirrored in `update-server/src/telemetry.ts` with a parity test.
+export const IMAGE_CLIPBOARD_PASTE_STATUSES = new Set([
+  'pasted',
+  'rejected-oversized',
+  'rejected-unreadable',
 ]);
 // RL-094 Slice 2 fold D — closed enums backing the
 // `capsule.imported` event. Mirrored in `update-server/src/telemetry.ts`
@@ -1520,6 +1543,15 @@ function isAllowedValue(
       if (key === 'status')
         return (
           typeof value === 'string' && CAPSULE_IMPORT_STATUSES.has(value)
+        );
+      if (key === 'sizeBucket')
+        return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);
+      return false;
+    case 'runtime.image_clipboard_pasted':
+      if (key === 'status')
+        return (
+          typeof value === 'string' &&
+          IMAGE_CLIPBOARD_PASTE_STATUSES.has(value)
         );
       if (key === 'sizeBucket')
         return typeof value === 'string' && CAPSULE_SIZE_BUCKETS.has(value);

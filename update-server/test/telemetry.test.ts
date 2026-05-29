@@ -489,6 +489,34 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
+  it('IMAGE_CLIPBOARD_PASTE_STATUSES stays in sync with the renderer enum (RL-044 next slice)', async () => {
+    // Closed-enum parity for `runtime.image_clipboard_pasted.status`.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerPath = path.resolve(process.cwd(), 'src/telemetry.ts');
+    const sharedPath = path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts');
+    const workerSource = await fs.readFile(workerPath, 'utf-8');
+    const sharedSource = await fs.readFile(sharedPath, 'utf-8');
+    const literalRe =
+      /IMAGE_CLIPBOARD_PASTE_STATUSES\s*=\s*new\s+Set\(\s*\[([^\]]+)\]\s*\)/u;
+    const workerMatch = workerSource.match(literalRe);
+    const sharedMatch = sharedSource.match(literalRe);
+    expect(workerMatch).not.toBeNull();
+    expect(sharedMatch).not.toBeNull();
+    const workerValues = [...(workerMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    const sharedValues = [...(sharedMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    expect(workerValues).toEqual(sharedValues);
+    expect(workerValues).toEqual([
+      'pasted',
+      'rejected-oversized',
+      'rejected-unreadable',
+    ]);
+  });
+
   it('CAPSULE_BROWSE_SURFACES stays in sync with the renderer enum (RL-094 Slice 3 fold G)', async () => {
     // Closed-enum parity for the `capsule.browse_opened.surface` field.
     const fs = await import('node:fs/promises');

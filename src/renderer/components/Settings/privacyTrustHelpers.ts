@@ -104,6 +104,12 @@ export const NETWORK_ACTIVITY_FEATURES = [
   // Settings master toggle; the dashboard row is transparency for
   // the baseline local-only surface.
   'gitReadOnlyLayer',
+  // RL-044 next slice fold E — console image clipboard paste. A pasted
+  // image becomes an in-memory `image` rich console entry; it is NEVER
+  // persisted to localStorage and NEVER sent over the network (only a
+  // closed-enum telemetry status + size bucket is emitted, no bytes).
+  // The row exists purely for transparency on the new input surface.
+  'consoleImagePaste',
 ] as const;
 
 export type NetworkActivityFeature =
@@ -208,6 +214,16 @@ export function buildNetworkActivityRows(args: {
       // baseline); the per-file `// @git-ignore-status` directive
       // remains as the user-controlled opt-out. Row is `'enabled'`
       // whenever the binary + repo posture resolved.
+      status: 'enabled',
+      lastCallAt: null,
+    },
+    {
+      feature: 'consoleImagePaste',
+      // RL-044 next slice — pasting an image into the console renders
+      // it as an in-memory `image` rich entry. Pure local: the bytes
+      // never touch localStorage and never leave the renderer (only a
+      // closed-enum status + size bucket is emitted as telemetry). Row
+      // is `'enabled'` for transparency on the input surface.
       status: 'enabled',
       lastCallAt: null,
     },
