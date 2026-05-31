@@ -6,6 +6,8 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
+import { stripArgSeparator } from './lib/cli-args.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
@@ -243,7 +245,7 @@ Options:
 
 export async function main(argv = process.argv.slice(2)) {
   const { values } = parseArgs({
-    args: argv,
+    args: stripArgSeparator(argv),
     options: {
       'base-url': { type: 'string' },
       'old-version': { type: 'string' },

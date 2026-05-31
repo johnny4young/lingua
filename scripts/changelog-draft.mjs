@@ -4,6 +4,8 @@ import { execFileSync } from 'node:child_process';
 import process from 'node:process';
 import { parseArgs } from 'node:util';
 
+import { stripArgSeparator } from './lib/cli-args.mjs';
+
 export const CHANGELOG_SECTIONS = [
   'Added',
   'Changed',
@@ -183,7 +185,7 @@ Generate a markdown draft from conventional commits. Commits can opt out with
 
 export function main(argv = process.argv.slice(2), { cwd = process.cwd() } = {}) {
   const { values } = parseArgs({
-    args: argv,
+    args: stripArgSeparator(argv),
     options: {
       from: { type: 'string' },
       to: { type: 'string', default: 'HEAD' },

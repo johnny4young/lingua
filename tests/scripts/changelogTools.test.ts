@@ -1,11 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   classifyCommit,
+  main as draftMain,
   parseCommitLog,
   renderChangelogDraft,
 } from '../../scripts/changelog-draft.mjs';
-import { validateChangelogState } from '../../scripts/changelog-check.mjs';
+import {
+  main as checkMain,
+  validateChangelogState,
+} from '../../scripts/changelog-check.mjs';
+import { stripArgSeparator } from '../../scripts/lib/cli-args.mjs';
 
 describe('changelog automation scripts', () => {
   it('parses git log records and groups conventional commits into a draft', () => {
@@ -134,5 +139,53 @@ describe('changelog automation scripts', () => {
     });
 
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('pnpm argument-separator handling', () => {
+  it('strips a leading -- so pnpm-forwarded flags reach parseArgs', () => {
+    expect(
+      stripArgSeparator(['--', '--release-tag', 'v0.5.0', '--from', 'v0.5.0'])
+    ).toEqual(['--release-tag', 'v0.5.0', '--from', 'v0.5.0']);
+  });
+
+  it('is a no-op for npm-style argv that already dropped the separator', () => {
+    expect(stripArgSeparator(['--release-tag', 'v0.5.0'])).toEqual([
+      '--release-tag',
+      'v0.5.0',
+    ]);
+  });
+
+  it('removes every standalone -- token without touching flags or values', () => {
+    expect(stripArgSeparator(['--', '--a', 'one', '--', '--b'])).toEqual([
+      '--a',
+      'one',
+      '--b',
+    ]);
+  });
+
+  // Regression for the v0.5.0 release: the Release workflow invokes
+  // `pnpm run changelog:check -- --release-tag <tag> --from <tag>`, and
+  // pnpm 11 forwards the `--` into argv. Before the fix this threw
+  // ERR_PARSE_ARGS_UNEXPECTED_POSITIONAL inside parseArgs. Using --help
+  // keeps the assertion hermetic (no git/fs/version coupling).
+  it('lets changelog-check main tolerate the pnpm-forwarded -- separator', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      expect(() => checkMain(['--', '--help'])).not.toThrow();
+      expect(checkMain(['--', '--help'])).toBe(0);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  it('lets changelog-draft main tolerate the pnpm-forwarded -- separator', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      expect(() => draftMain(['--', '--help'])).not.toThrow();
+      expect(draftMain(['--', '--help'])).toBe(0);
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 });

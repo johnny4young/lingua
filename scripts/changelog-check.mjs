@@ -11,6 +11,7 @@ import {
   collectGitCommits,
   resolveLatestTag,
 } from './changelog-draft.mjs';
+import { stripArgSeparator } from './lib/cli-args.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -148,7 +149,7 @@ Use "Changelog: none" in a commit body for explicit non-user-facing fixes.`);
 
 export function main(argv = process.argv.slice(2), { cwd = repoRoot } = {}) {
   const { values } = parseArgs({
-    args: argv,
+    args: stripArgSeparator(argv),
     options: {
       from: { type: 'string' },
       to: { type: 'string', default: 'HEAD' },
