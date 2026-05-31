@@ -10,7 +10,7 @@
  * the toggle without learning a new pattern.
  */
 
-import { useEditorStore } from '../../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { gitLayerAvailable, useGitStore } from '../../stores/gitStore';
 import { gitStatusSuppressedByMagicComment } from '../../utils/magicComments';
 
@@ -18,7 +18,7 @@ export function useGitDiffTabAvailable(): boolean {
   const posture = useGitStore((s) => s.posture);
   const activeTabEligible = useEditorStore((s) => {
     if (!s.activeTabId) return false;
-    const tab = s.tabs.find((t) => t.id === s.activeTabId);
+    const tab = getActiveTab(s);
     if (!tab?.filePath) return false;
     return !gitStatusSuppressedByMagicComment(
       tab.language ?? '',

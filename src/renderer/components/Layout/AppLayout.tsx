@@ -40,7 +40,8 @@ import { FloatingActionPill } from '../Toolbar/FloatingActionPill';
 import { IconButton, OverlayBackdrop, Tooltip } from '../ui/chrome';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
-import { useEditorStore } from '../../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { useDebuggerStore } from '../../stores/debuggerStore';
 import { executionModeForLanguage, languageSupportsDebugger } from '../../utils/languageMeta';
@@ -132,10 +133,7 @@ function countStdinLines(buffer: string | undefined): number {
 
 function PanelChipsRow() {
   const { t } = useTranslation();
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
   const setTabCompareEnabled = useEditorStore((state) => state.setTabCompareEnabled);
   const setTabVariableInspectorEnabled = useEditorStore(
     (state) => state.setTabVariableInspectorEnabled,
@@ -299,7 +297,7 @@ function EditorArea() {
   // re-renders when the active tab's kind hasn't changed.
   const activeNotebookTabId = useEditorStore((s) => {
     if (!s.activeTabId) return null;
-    const active = s.tabs.find((tab) => tab.id === s.activeTabId);
+    const active = getActiveTab(s);
     return active?.kind === 'notebook' ? active.id : null;
   });
   // MOV.02 (FASE 3) — same primitive-or-null selector shape for the
@@ -309,12 +307,12 @@ function EditorArea() {
   // workspace store (SqlQueryV1.id / HttpRequestV1.id).
   const activeSqlTabId = useEditorStore((s) => {
     if (!s.activeTabId) return null;
-    const active = s.tabs.find((tab) => tab.id === s.activeTabId);
+    const active = getActiveTab(s);
     return active?.kind === 'sql' ? active.id : null;
   });
   const activeHttpTabId = useEditorStore((s) => {
     if (!s.activeTabId) return null;
-    const active = s.tabs.find((tab) => tab.id === s.activeTabId);
+    const active = getActiveTab(s);
     return active?.kind === 'http' ? active.id : null;
   });
 
@@ -459,13 +457,13 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   const { t } = useTranslation();
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const activeLanguage = useEditorStore(
-    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.language
+    (s) => getActiveTab(s)?.language
   );
   const activeRuntimeMode = useEditorStore(
-    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.runtimeMode
+    (s) => getActiveTab(s)?.runtimeMode
   );
   const activeVariableInspectorEnabled = useEditorStore(
-    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.variableInspectorEnabled === true
+    (s) => getActiveTab(s)?.variableInspectorEnabled === true
   );
   // RL-019 Slice 3 — the Browser preview tab is only relevant for
   // JS/TS tabs whose runtime mode is `browser-preview`. Other tabs
@@ -547,7 +545,7 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
   const activeRecipeBindingId = useEditorStore((state) => {
     if (!state.activeTabId) return null;
     return (
-      state.tabs.find((tab) => tab.id === state.activeTabId)?.recipeBindingId ??
+      getActiveTab(state)?.recipeBindingId ??
       null
     );
   });
@@ -1028,10 +1026,10 @@ export function AppLayout({
   });
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const activeLanguage = useEditorStore(
-    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.language
+    (s) => getActiveTab(s)?.language
   );
   const activeRuntimeMode = useEditorStore(
-    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.runtimeMode
+    (s) => getActiveTab(s)?.runtimeMode
   );
   // Slice 2 — debugger is baseline; the Settings toggle is gone.
   const debuggerEnabled = true;
@@ -1068,7 +1066,7 @@ export function AppLayout({
     (state) => state.variableInspectorSurface,
   );
   const activeVariableInspectorEnabled = useEditorStore(
-    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.variableInspectorEnabled === true,
+    (s) => getActiveTab(s)?.variableInspectorEnabled === true,
   );
   const scopeSnapshotForLayout = useResultStore((state) => state.scopeSnapshot);
   const showStdinTabBody =
@@ -1096,7 +1094,7 @@ export function AppLayout({
   const activeRecipeBindingIdForLayout = useEditorStore((state) => {
     if (!state.activeTabId) return null;
     return (
-      state.tabs.find((tab) => tab.id === state.activeTabId)?.recipeBindingId ??
+      getActiveTab(state)?.recipeBindingId ??
       null
     );
   });

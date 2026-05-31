@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import {
   defaultWorkflowMode,
   type WorkflowMode,
@@ -29,10 +29,7 @@ const MODE_LABEL_KEY: Record<WorkflowMode, string> = {
 
 export function WorkflowModeStatusPill() {
   const { t } = useTranslation();
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
   if (!activeTab) return null;
 
   const mode: WorkflowMode =

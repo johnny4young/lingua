@@ -20,7 +20,7 @@ import {
   useGitStore,
   type GitRepoPosture,
 } from '../stores/gitStore';
-import { useEditorStore } from '../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
 import { gitWatchHeadSuppressedByMagicComment } from '../utils/magicComments';
@@ -136,8 +136,7 @@ export function useGitDetectOnProjectChange(): void {
       // should not blink"; an inactive tab's directive does not
       // imply the same intent. If the user later switches tabs,
       // the next head change fires normally for the new active.
-      const { tabs, activeTabId } = useEditorStore.getState();
-      const activeTab = tabs.find((tab) => tab.id === activeTabId);
+      const activeTab = getActiveTab(useEditorStore.getState());
       if (
         activeTab &&
         gitWatchHeadSuppressedByMagicComment(

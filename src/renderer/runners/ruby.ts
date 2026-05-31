@@ -8,7 +8,7 @@ import type {
   WorkerResponse,
 } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
-import { useEditorStore } from '../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import {
   resolveTimeoutMs,
   type RuntimeTimeoutPreset,
@@ -530,7 +530,7 @@ function splitLines(text: string): string[] {
 function resolveActiveFilePath(): string | undefined {
   try {
     const editor = useEditorStore.getState();
-    const tab = editor.tabs.find((entry) => entry.id === editor.activeTabId);
+    const tab = getActiveTab(editor);
     return typeof tab?.filePath === 'string' ? tab.filePath : undefined;
   } catch {
     return undefined;

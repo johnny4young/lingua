@@ -25,7 +25,7 @@
 import { useTranslation } from 'react-i18next';
 import { useMemo } from 'react';
 import { Check, Hammer, Loader2, Play, Sparkles, X } from 'lucide-react';
-import { useEditorStore } from '../../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useRecipeStore } from '../../stores/recipeStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getRecipeById } from '../../data/recipes';
@@ -60,9 +60,7 @@ export function RecipeRunPanel() {
   const locale: 'en' | 'es' = i18n.language?.startsWith('es') ? 'es' : 'en';
 
   const activeTabId = useEditorStore((s) => s.activeTabId);
-  const activeTab = useEditorStore((s) =>
-    s.activeTabId ? s.tabs.find((entry) => entry.id === s.activeTabId) ?? null : null
-  );
+  const activeTab = useEditorStore((s) => getActiveTab(s));
   const lastResults = useRecipeStore((s) => s.lastRunResults);
   const isRunning = useRecipeStore((s) =>
     activeTabId ? s.isRunning.get(activeTabId) ?? false : false

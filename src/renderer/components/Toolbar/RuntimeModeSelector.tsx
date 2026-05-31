@@ -2,6 +2,7 @@ import { ChevronDown, Cpu, Globe, Layers } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import {
   RUNTIME_MODES,
   isRuntimeModeImplemented,
@@ -53,13 +54,11 @@ const MODE_ICON: Record<RuntimeMode, typeof Cpu> = {
 
 export function RuntimeModeSelector() {
   const { t } = useTranslation();
-  const activeTabId = useEditorStore((state) => state.activeTabId);
-  const tabs = useEditorStore((state) => state.tabs);
   const setTabRuntimeMode = useEditorStore((state) => state.setTabRuntimeMode);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const activeTab = useActiveTab();
 
   useEffect(() => {
     if (!open) return;

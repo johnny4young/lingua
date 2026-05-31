@@ -14,6 +14,7 @@
 import { Eye } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { trackEvent } from '../../utils/telemetry';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
@@ -21,10 +22,7 @@ import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 
 export function VariableInspectorToggleButton() {
   const { t } = useTranslation();
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
   const setTabVariableInspectorEnabled = useEditorStore(
     (state) => state.setTabVariableInspectorEnabled
   );

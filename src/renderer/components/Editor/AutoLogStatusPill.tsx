@@ -13,17 +13,14 @@
 
 import { MoveRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
 import { StatusBadge } from '../ui/StatusBadge';
 
 export function AutoLogStatusPill() {
   const { t } = useTranslation();
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
   const scratchpadAutoLogByLanguage = useSettingsStore(
     (state) => state.scratchpadAutoLogByLanguage
   );

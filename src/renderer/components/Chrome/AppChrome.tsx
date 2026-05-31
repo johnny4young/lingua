@@ -1,6 +1,6 @@
 import { Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useUpdateStore } from '../../stores/updateStore';
 import { LicenseBadge } from '../Toolbar/LicenseBadge';
 import { cn } from '../../utils/cn';
@@ -20,10 +20,7 @@ interface AppChromeProps {
  */
 export function AppChrome({ onOpenSettings }: AppChromeProps) {
   const { t } = useTranslation();
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
   const isWebBuild =
     typeof window !== 'undefined' && window.lingua?.platform === 'web';
   const filename = activeTab?.name ?? t('chrome.filename.untitled');

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 
 /**
@@ -19,10 +19,7 @@ import { useResultStore } from '../../stores/resultStore';
 export function AutoRunGateNotice() {
   const { t } = useTranslation();
   const reason = useResultStore((state) => state.autoRunGateReason);
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
 
   if (reason !== 'incomplete') return null;
 

@@ -59,6 +59,33 @@ export default tseslint.config(
     },
   },
   {
+    // RL-121 / AUDIT-01 — ban inline active-tab derivation in the
+    // renderer. The one canonical tabs.find(... === activeTabId)
+    // lives in editorStore.ts (getActiveTab / getActiveTabIndex);
+    // every other site must go through getActiveTab(state) or the
+    // useActiveTab() / useActiveTabId() hooks so the selector stays
+    // referentially stable and re-render fan-out stays bounded.
+    files: ['src/renderer/**/*.{ts,tsx}'],
+    ignores: ['src/renderer/stores/editorStore.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'CallExpression[callee.property.name="find"][callee.object.name="tabs"]:has(Identifier[name="activeTabId"])',
+          message:
+            'Use useActiveTab() / getActiveTab(state) instead of an inline tabs.find(... === activeTabId). See RL-121.',
+        },
+        {
+          selector:
+            'CallExpression[callee.property.name="find"][callee.object.property.name="tabs"]:has(Identifier[name="activeTabId"])',
+          message:
+            'Use useActiveTab() / getActiveTab(state) instead of an inline state.tabs.find(... === activeTabId). See RL-121.',
+        },
+      ],
+    },
+  },
+  {
     files: ['src/main/**/*.ts', 'src/preload/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],

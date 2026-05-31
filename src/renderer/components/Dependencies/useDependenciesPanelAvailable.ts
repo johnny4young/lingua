@@ -1,14 +1,10 @@
 import { useDependencyDetectionStore } from '../../stores/dependencyDetectionStore';
-import { useEditorStore } from '../../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 
 export function useDependenciesPanelAvailable(): boolean {
   const enabled = useSettingsStore((s) => s.dependencyDetectionEnabled);
-  const activeTab = useEditorStore((s) =>
-    s.activeTabId
-      ? s.tabs.find((tab) => tab.id === s.activeTabId) ?? null
-      : null
-  );
+  const activeTab = useEditorStore((s) => getActiveTab(s));
   return useDependencyDetectionStore((s) => {
     if (!enabled || !activeTab) return false;
     const entry = s.byTab.get(activeTab.id);

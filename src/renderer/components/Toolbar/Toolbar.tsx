@@ -10,6 +10,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useEffectiveTier } from '../../hooks/useEntitlement';
 import { useRunner } from '../../hooks/useRunner';
 import { useUIStore } from '../../stores/uiStore';
@@ -48,7 +49,8 @@ interface ToolbarProps {
 }
 
 export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
-  const { tabs, activeTabId, addTab } = useEditorStore();
+  const tabCount = useEditorStore((state) => state.tabs.length);
+  const addTab = useEditorStore((state) => state.addTab);
   const { run, stop, isRunning, isInitializing, loadingMessage, runMode } = useRunner();
   const { sidebarVisible, toggleSidebar } = useUIStore();
   // Slice 2 — debugger is baseline; the Settings master toggle is gone.
@@ -72,9 +74,9 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
   const runMenuRef = useRef<HTMLDivElement | null>(null);
   const { t } = useTranslation();
 
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const activeTab = useActiveTab();
   const activeTabSupportsDebugger = languageSupportsDebugger(activeTab?.language);
-  const hasTabs = tabs.length > 0;
+  const hasTabs = tabCount > 0;
   const languages = [
     ...BUILT_IN_LANGUAGES,
     ...plugins

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { LANGUAGE_PACKS } from '../../../shared/languagePacks';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useSnippetsStore } from '../../stores/snippetsStore';
 import type { Language } from '../../types';
 import {
@@ -76,7 +77,9 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
     updateSnippet,
     setPendingLinkedSnippetId,
   } = useSnippetsStore();
-  const { tabs, activeTabId, addTab, updateContent } = useEditorStore();
+  const activeTabId = useEditorStore((state) => state.activeTabId);
+  const addTab = useEditorStore((state) => state.addTab);
+  const updateContent = useEditorStore((state) => state.updateContent);
   const { t } = useTranslation();
   // Same platform-gating idiom Toolbar / FileTree use — only the web
   // build surfaces the "(desktop only)" hint; on packaged Electron the
@@ -95,7 +98,7 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
   );
   const selectedSnippet =
     sortedSnippets.find((snippet) => snippet.id === selectedSnippetId) ?? null;
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const activeTab = useActiveTab();
   const canSaveSnippet = draft.label.trim().length > 0 && draft.code.trim().length > 0;
 
   useEffect(() => {

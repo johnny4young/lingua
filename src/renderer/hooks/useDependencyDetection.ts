@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useMemo } from 'react';
-import { useEditorStore } from '../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import {
   useDependencyDetectionStore,
@@ -239,11 +239,7 @@ export function __resetDependencyDetectionTelemetryDedup(): void {
 
 export function useDependencyDetection(): void {
   const enabled = useSettingsStore((s) => s.dependencyDetectionEnabled);
-  const activeTab = useEditorStore((state) =>
-    state.activeTabId
-      ? state.tabs.find((t) => t.id === state.activeTabId) ?? null
-      : null
-  );
+  const activeTab = useEditorStore((state) => getActiveTab(state));
   const setDetection = useDependencyDetectionStore((s) => s.setDetection);
   const clearDetections = useDependencyDetectionStore((s) => s.clear);
   const evictTab = useDependencyDetectionStore((s) => s.evictTab);

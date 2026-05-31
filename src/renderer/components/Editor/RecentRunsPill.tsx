@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import {
   type ExecutionHistoryEntry,
   useExecutionHistoryStore,
@@ -70,10 +71,7 @@ export function RecentRunsPill() {
   const { t } = useTranslation();
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const activeTabId = useEditorStore((state) => state.activeTabId);
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
   // Subscribe to the underlying `entries` array (stable reference)
   // and derive the per-tab slice via `useMemo`. Calling
   // `state.byTabId(activeTabId)` directly inside the selector

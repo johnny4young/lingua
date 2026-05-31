@@ -16,7 +16,7 @@ import { trackEvent } from '../utils/telemetry';
 import { isDebugWorkerActive, postDebuggerMessage } from '../runtime/debuggerWorkerBridge';
 import { useDebuggerStore } from '../stores/debuggerStore';
 import { getActiveEditorCursorLine } from '../runtime/editorAccess';
-import { useEditorStore } from '../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { languageSupportsDebugger } from '../utils/languageMeta';
 import { claimCapsuleListSurface } from '../components/CapsuleList/capsuleListSurface';
 
@@ -350,9 +350,7 @@ function canDispatchDebuggerShortcut(id: string): boolean {
 }
 
 function getActiveDebuggerTab(): { id: string; language: string } | null {
-  const { tabs, activeTabId } = useEditorStore.getState();
-  if (!activeTabId) return null;
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const activeTab = getActiveTab(useEditorStore.getState());
   if (!activeTab || !languageSupportsDebugger(activeTab.language)) return null;
   return activeTab;
 }

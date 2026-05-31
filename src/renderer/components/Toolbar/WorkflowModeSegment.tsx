@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { Bug, Play, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import {
   WORKFLOW_MODES,
   defaultWorkflowMode,
@@ -69,12 +70,10 @@ const MODE_UNSUPPORTED_HINT_KEY: Record<WorkflowMode, string> = {
 
 export function WorkflowModeSegment() {
   const { t } = useTranslation();
-  const activeTabId = useEditorStore((state) => state.activeTabId);
-  const tabs = useEditorStore((state) => state.tabs);
   const setTabWorkflowMode = useEditorStore((state) => state.setTabWorkflowMode);
   const groupRef = useRef<HTMLDivElement | null>(null);
 
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const activeTab = useActiveTab();
   if (!activeTab) return null;
 
   const language = activeTab.language;

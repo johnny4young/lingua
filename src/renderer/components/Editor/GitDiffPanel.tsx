@@ -28,7 +28,7 @@ import { DiffEditor } from '@monaco-editor/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { trackGitDiffPanelOpened } from '../../hooks/gitTelemetry';
-import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useGitStore } from '../../stores/gitStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -49,10 +49,7 @@ const EMPTY_DIFF: DiffState = {
 
 export function GitDiffPanel() {
   const { t } = useTranslation();
-  const activeTabId = useEditorStore((state) => state.activeTabId);
-  const activeTab = useEditorStore((state) =>
-    state.tabs.find((tab) => tab.id === activeTabId) ?? null
-  );
+  const activeTab = useActiveTab();
   const posture = useGitStore((state) => state.posture);
   const fileEntry = useGitStore((state) =>
     activeTab?.filePath ? state.byFile.get(activeTab.filePath) : undefined

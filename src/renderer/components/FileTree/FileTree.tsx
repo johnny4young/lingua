@@ -9,7 +9,7 @@ import {
   FolderOpen as OpenFolderIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useEditorStore } from '../../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import { useProjectStore, type FileTreeNode as ProjectFileTreeNode } from '../../stores/projectStore';
 import { countFiles } from '../../stores/projectTree';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
@@ -47,11 +47,11 @@ export function FileTree({ onNavigate }: FileTreeProps) {
   // when the active tab's capability binding changes, never on a
   // per-keystroke `content` mutation.
   const activeTabRootId = useEditorStore((state) => {
-    const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+    const active = getActiveTab(state);
     return active?.rootId ?? null;
   });
   const activeTabRelativePath = useEditorStore((state) => {
-    const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+    const active = getActiveTab(state);
     return active?.relativePath ?? null;
   });
 

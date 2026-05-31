@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Eye, GripVertical, Minimize2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -45,10 +46,7 @@ function valuePreview(value: ScopeValue): string {
 
 export function FloatingVariablesCard() {
   const { t } = useTranslation();
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
   const setTabVariableInspectorEnabled = useEditorStore(
     (state) => state.setTabVariableInspectorEnabled,
   );

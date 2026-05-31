@@ -2,7 +2,7 @@ import { Eye, ExternalLink, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { setActiveBrowserPreviewIframe } from '../../runtime/browserPreviewBridge';
-import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { Tooltip } from '../ui/chrome';
 import { cn } from '../../utils/cn';
@@ -28,10 +28,7 @@ export function BrowserPreviewPanel() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const isManualRunning = useResultStore((state) => state.isManualRunning);
   const error = useResultStore((state) => state.error);
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
   // Status text key — running / error / idle.
   const statusKey = isManualRunning
     ? 'browserPreview.running'

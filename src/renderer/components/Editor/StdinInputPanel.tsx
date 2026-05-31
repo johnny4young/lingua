@@ -46,6 +46,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { Kbd } from '../ui/chrome';
 import { TypePill, type TypePillKind, MonoBadge, EyebrowMono } from '../ui/primitives';
@@ -138,10 +139,7 @@ function randomPreset(language: 'javascript' | 'typescript' | 'python', count = 
 
 export function StdinInputPanel() {
   const { t } = useTranslation();
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
   const setTabStdinBuffer = useEditorStore((state) => state.setTabStdinBuffer);
   const stdinConsumed = useResultStore((state) => state.stdinConsumed);
 

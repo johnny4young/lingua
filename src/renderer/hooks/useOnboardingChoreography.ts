@@ -7,7 +7,7 @@ import {
   SEEDED_SCRATCHPAD_VERSION,
 } from '../onboarding/seedScratchpad';
 import { useConsoleStore } from '../stores/consoleStore';
-import { createDefaultTab, useEditorStore } from '../stores/editorStore';
+import { createDefaultTab, getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useExecutionHistoryStore } from '../stores/executionHistoryStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useSnippetsStore } from '../stores/snippetsStore';
@@ -212,9 +212,8 @@ function handleFirstSuccessfulRun(language: string): void {
       // modal prompt. Falls back to a generic name if the tab is
       // somehow unnamed (defensive — the seeded scratchpad is
       // always named).
-      const { tabs, activeTabId } = useEditorStore.getState();
-      const activeTab =
-        tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null;
+      const editor = useEditorStore.getState();
+      const activeTab = getActiveTab(editor) ?? editor.tabs[0] ?? null;
       if (!activeTab) return;
       const snippetId = useSnippetsStore.getState().addSnippet({
         label: activeTab.name || 'untitled',

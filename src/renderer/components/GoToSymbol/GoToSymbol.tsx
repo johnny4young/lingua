@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useDocumentSymbols } from '../../hooks/useDocumentSymbols';
 import { filterSymbols, type SymbolEntry } from '../../utils/symbolNavigation';
 import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
@@ -45,14 +46,9 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const tabs = useEditorStore((state) => state.tabs);
-  const activeTabId = useEditorStore((state) => state.activeTabId);
   const requestReveal = useEditorStore((state) => state.requestReveal);
 
-  const activeTab = useMemo(
-    () => tabs.find((tab) => tab.id === activeTabId) ?? null,
-    [tabs, activeTabId]
-  );
+  const activeTab = useActiveTab();
 
   // Symbols are only loaded while the overlay is mounted — the hook's
   // `enabled` flag skips the TS-worker round-trip when this component is

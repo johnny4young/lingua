@@ -28,7 +28,7 @@ import { strToU8 } from 'fflate';
 import { packBundle, type ProjectBundleFile } from '../../shared/projectBundle';
 import { useUIStore } from '../stores/uiStore';
 import { useProjectStore } from '../stores/projectStore';
-import { useEditorStore } from '../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { languageFromPath } from '../utils/language';
 import type { Language } from '../types';
 import {
@@ -65,7 +65,7 @@ export function useProjectBundle(): UseProjectBundleApi {
     // Stamp the active tab into the manifest ONLY when it belongs to this
     // project (a scratchpad / single-file tab has no project-relative path).
     const editor = useEditorStore.getState();
-    const active = editor.tabs.find((tab) => tab.id === editor.activeTabId);
+    const active = getActiveTab(editor);
     const entryFile =
       active && active.rootId === project.rootId ? active.relativePath : undefined;
     const languageHint = entryFile ? active?.language : undefined;

@@ -3,7 +3,7 @@ import i18next from 'i18next';
 import { executeTabManually } from '../runtime/executeTabManually';
 import { runnerManager } from '../runners';
 import { useConsoleStore } from '../stores/consoleStore';
-import { useEditorStore } from '../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useNativeExecutionGateStore } from '../stores/nativeExecutionGateStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
@@ -106,8 +106,7 @@ export function useRunner() {
   }, []);
 
   const run = useCallback(async (options: RunOptions = {}) => {
-    const { tabs, activeTabId } = useEditorStore.getState();
-    const activeTab = tabs.find((tab) => tab.id === activeTabId);
+    const activeTab = getActiveTab(useEditorStore.getState());
 
     if (!activeTab) {
       useConsoleStore.getState().addEntry({

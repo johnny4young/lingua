@@ -2,6 +2,7 @@ import MonacoEditor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { monacoLanguageFor } from '../../utils/languageMeta';
@@ -62,7 +63,8 @@ function loadMonacoVim(): Promise<MonacoVimModule | null> {
 // ---------------------------------------------------------------------------
 
 export function CodeEditor() {
-  const { tabs, activeTabId, updateContent } = useEditorStore();
+  const activeTabId = useEditorStore((state) => state.activeTabId);
+  const updateContent = useEditorStore((state) => state.updateContent);
   const pendingReveal = useEditorStore((state) => state.pendingReveal);
   const clearPendingReveal = useEditorStore((state) => state.clearPendingReveal);
   const {
@@ -116,7 +118,7 @@ export function CodeEditor() {
   );
   const effectiveFontLigatures = fontStackSupportsLigatures(fontFamily);
 
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const activeTab = useActiveTab();
   useLanguageIntelligenceDiagnostics(editorInstance, monacoInstance, activeTab);
   useRustLspDocumentSync(editorInstance, activeTab);
   useGoLspDocumentSync(editorInstance, activeTab);

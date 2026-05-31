@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useUIStore } from '../../stores/uiStore';
 import {
   bucketShareSize,
@@ -69,9 +69,7 @@ function releaseShareFlow(): void {
 }
 
 function useShareLinkFlow() {
-  const activeTabId = useEditorStore((state) => state.activeTabId);
-  const tabs = useEditorStore((state) => state.tabs);
-  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+  const activeTab = useActiveTab();
   const pushStatusNotice = useUIStore((state) => state.pushStatusNotice);
   // Slice 2 — `shareLinkConfirmEnabled` removed; the confirmation
   // modal is now the only path. Safer default for clipboard writes.
@@ -305,9 +303,7 @@ export function ShareLinkButton() {
   // (mounted at AppChrome scope) so button, palette, and shortcut triggers
   // share one modal owner and one concurrency guard. The modal itself portals
   // to document.body for stacking safety.
-  const activeTabId = useEditorStore((state) => state.activeTabId);
-  const tabs = useEditorStore((state) => state.tabs);
-  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? null;
+  const activeTab = useActiveTab();
   const [justCopied, setJustCopied] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

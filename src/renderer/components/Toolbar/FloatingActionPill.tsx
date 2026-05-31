@@ -58,7 +58,8 @@ import {
   Package,
   Wrench,
 } from 'lucide-react';
-import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { getActiveTab, useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useRunner } from '../../hooks/useRunner';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useLessonProgressStore } from '../../stores/lessonProgressStore';
@@ -186,8 +187,7 @@ export function FloatingActionPill({
   onOpenSettings,
 }: FloatingActionPillProps) {
   const { t } = useTranslation();
-  const tabs = useEditorStore((s) => s.tabs);
-  const activeTabId = useEditorStore((s) => s.activeTabId);
+  const tabCount = useEditorStore((s) => s.tabs.length);
   const addTab = useEditorStore((s) => s.addTab);
   const addNotebookTab = useEditorStore((s) => s.addNotebookTab);
   const setTabRuntimeMode = useEditorStore((s) => s.setTabRuntimeMode);
@@ -213,7 +213,7 @@ export function FloatingActionPill({
     'lang' | 'workflow' | 'runtime' | 'run' | null
   >(null);
 
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const activeTab = useActiveTab();
   const isNotebookTab = activeTab?.kind === 'notebook';
   const language = activeTab?.language ?? 'javascript';
   const supportsDebug = languageSupportsDebugger(language);
@@ -360,9 +360,9 @@ export function FloatingActionPill({
     : desktopOnlyGate
       ? t('toolbar.run.desktopOnlyTooltip')
       : undefined;
-  const noActiveTab = tabs.length === 0;
+  const noActiveTab = tabCount === 0;
   const ensureTabForLanguage = (lang: Language) => {
-    const existing = useEditorStore.getState().tabs.find((tab) => tab.id === activeTabId);
+    const existing = getActiveTab(useEditorStore.getState());
     if (existing) return existing;
     const fresh = createDefaultTab(lang);
     addTab(fresh);

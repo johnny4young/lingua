@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ConsoleEntry, ConsoleEntryType, ConsolePayloadKindFilter } from '../../types';
 import { useConsoleStore } from '../../stores/consoleStore';
-import { useEditorStore } from '../../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
@@ -401,11 +401,7 @@ export function ConsolePanel() {
     togglePayloadKindFilter,
     toggleTimestamps,
   } = useConsoleStore();
-  const activeTab = useEditorStore((state) =>
-    state.activeTabId
-      ? state.tabs.find((tab) => tab.id === state.activeTabId)
-      : undefined
-  );
+  const activeTab = useEditorStore((state) => getActiveTab(state));
   const originSuppressed = activeTab
     ? originSuppressedByMagicComment(
         activeTab.language ?? 'plaintext',

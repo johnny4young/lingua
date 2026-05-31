@@ -2,7 +2,7 @@ import { Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatExecTime } from '../../hooks/runnerOutput';
-import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { isHiddenUndefinedLineResult } from '../../hooks/useInlineResults';
@@ -42,10 +42,7 @@ function FullOutputView({
 export function ResultPanel() {
   const { t } = useTranslation();
   const { lineResults, fullOutput, error, executionTime, isAutoRunning } = useResultStore();
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
   const scrollRef = useRef<HTMLDivElement>(null);
   // Slice 2 — hide-undefined is baseline; the runtime button + Settings
   // toggle were removed. `undefined` rows never reach the inline panel.

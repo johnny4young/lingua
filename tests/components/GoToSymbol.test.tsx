@@ -17,6 +17,10 @@ vi.mock('../../src/renderer/stores/editorStore', () => ({
     };
     return selector ? selector(state) : state;
   },
+  getActiveTab: (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
+    s.tabs.find((t) => t.id === s.activeTabId) ?? null,
+  getActiveTabIndex: (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
+    s.activeTabId == null ? -1 : s.tabs.findIndex((t) => t.id === s.activeTabId),
 }));
 
 vi.mock('../../src/renderer/hooks/useDocumentSymbols', () => ({

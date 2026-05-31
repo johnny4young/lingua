@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { BUILT_IN_TEMPLATES } from '../../data/templates';
 import type { DeveloperUtilityId } from '../../data/developerUtilities';
 import { useEditorStore, createDefaultTab } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import { isRuntimeTimeoutSupportedLanguage } from '../../../shared/runtimeTimeoutPresets';
 import { defaultWorkflowMode } from '../../../shared/workflowMode';
@@ -132,18 +133,17 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const {
-    addTab,
-    openFileFromDisk,
-    saveActiveTabAs,
-    duplicateActiveTab,
-    setTabRuntimeMode,
-    setTabAutoLogEnabled,
-    updateContent,
-  } = useEditorStore();
+  const addTab = useEditorStore((state) => state.addTab);
+  const openFileFromDisk = useEditorStore((state) => state.openFileFromDisk);
+  const saveActiveTabAs = useEditorStore((state) => state.saveActiveTabAs);
+  const duplicateActiveTab = useEditorStore((state) => state.duplicateActiveTab);
+  const setTabRuntimeMode = useEditorStore((state) => state.setTabRuntimeMode);
+  const setTabAutoLogEnabled = useEditorStore(
+    (state) => state.setTabAutoLogEnabled
+  );
+  const updateContent = useEditorStore((state) => state.updateContent);
   const activeTabId = useEditorStore((state) => state.activeTabId);
-  const tabs = useEditorStore((state) => state.tabs);
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const activeTab = useActiveTab();
   const activeRuntimeMode = languageHasRuntimeModes(activeTab?.language)
     ? (activeTab?.runtimeMode ?? 'worker')
     : null;
@@ -155,7 +155,7 @@ export function CommandPalette({
       ? activeTab.language
       : null;
   const isAutoLogCommandEligible =
-    activeTab !== undefined &&
+    activeTab !== null &&
     (activeTab.language === 'javascript' ||
       activeTab.language === 'typescript') &&
     activeWorkflowMode === 'scratchpad';
@@ -181,7 +181,7 @@ export function CommandPalette({
   );
   const dependenciesPanelAvailable =
     dependencyDetectionEnabled &&
-    activeTab !== undefined &&
+    activeTab !== null &&
     dependencyDetectionEntry !== null &&
     dependencyDetectionEntry.language === activeTab.language &&
     (dependencyDetectionEntry.dependencies.length > 0 ||
@@ -359,7 +359,7 @@ export function CommandPalette({
         activeTab?.compareWithSnapshotEnabled === true,
       compareSnapshotAvailable: (() => {
         return (
-          activeTab !== undefined &&
+          activeTab !== null &&
           snapshotRing.some((entry) => entry.language === activeTab.language)
         );
       })(),

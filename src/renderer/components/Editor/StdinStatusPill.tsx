@@ -15,7 +15,7 @@
 
 import { MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useEditorStore } from '../../stores/editorStore';
+import { useActiveTab } from '../../hooks/useActiveTab';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { StatusBadge } from '../ui/StatusBadge';
 
@@ -28,10 +28,7 @@ const SUPPORTED: ReadonlySet<string> = new Set([
 export function StdinStatusPill() {
   const { t } = useTranslation();
   const showStdinPanel = useSettingsStore((state) => state.showStdinPanel);
-  const activeTab = useEditorStore((state) => {
-    const tab = state.tabs.find((item) => item.id === state.activeTabId);
-    return tab ?? null;
-  });
+  const activeTab = useActiveTab();
 
   if (!showStdinPanel) return null;
   if (!activeTab) return null;

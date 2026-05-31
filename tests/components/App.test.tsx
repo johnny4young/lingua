@@ -188,7 +188,11 @@ vi.mock('../../src/renderer/stores/editorStore', () => {
     stdinBuffer: '',
     isDirty: false,
   });
-  return { useEditorStore, createDefaultTab };
+  const getActiveTab = (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
+    s.tabs.find((t) => t.id === s.activeTabId) ?? null;
+  const getActiveTabIndex = (s: { tabs: Array<{ id: string }>; activeTabId: string | null }) =>
+    s.activeTabId == null ? -1 : s.tabs.findIndex((t) => t.id === s.activeTabId);
+  return { useEditorStore, createDefaultTab, getActiveTab, getActiveTabIndex };
 });
 
 vi.mock('../../src/renderer/stores/pluginStore', () => ({

@@ -26,7 +26,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Boxes, Package, Download, X } from 'lucide-react';
-import { useEditorStore } from '../../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import {
   mapInstallStatusToDependencyStatus,
   useDependencyDetectionStore,
@@ -198,11 +198,7 @@ function fireInstallTelemetryFailureReason(
 
 export function DependenciesPanel() {
   const { t } = useTranslation();
-  const activeTab = useEditorStore((s) =>
-    s.activeTabId
-      ? s.tabs.find((tab) => tab.id === s.activeTabId) ?? null
-      : null
-  );
+  const activeTab = useEditorStore((s) => getActiveTab(s));
   const detection = useDependencyDetectionStore((s) =>
     activeTab
       ? (() => {

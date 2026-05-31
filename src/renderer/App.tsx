@@ -64,7 +64,7 @@ import { useProjectWatchSync } from './hooks/useProjectWatchSync';
 import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
-import { useEditorStore } from './stores/editorStore';
+import { getActiveTab, useEditorStore } from './stores/editorStore';
 import { useDependencyDetectionStore } from './stores/dependencyDetectionStore';
 import { useExecutionHistoryStore } from './stores/executionHistoryStore';
 import { useResultStore } from './stores/resultStore';
@@ -480,7 +480,7 @@ function AppChrome({
       // RL-019 Slice 1 fold D — cycle the active JS/TS tab through
       // the implemented runtime modes. No-op for non-JS/TS tabs.
       const state = useEditorStore.getState();
-      const tab = state.tabs.find((t) => t.id === state.activeTabId);
+      const tab = getActiveTab(state);
       if (!tab || !languageHasRuntimeModes(tab.language)) return;
       const current = tab.runtimeMode ?? 'worker';
       const next = cycleRuntimeMode(current);
@@ -494,7 +494,7 @@ function AppChrome({
       // landing on Debug. No-op when there is no active tab or
       // when the supported subset has size <= 1.
       const state = useEditorStore.getState();
-      const tab = state.tabs.find((t) => t.id === state.activeTabId);
+      const tab = getActiveTab(state);
       if (!tab) return;
       const current = tab.workflowMode ?? defaultWorkflowMode(tab.language);
       const next = cycleWorkflowMode(current, tab.language);
@@ -521,12 +521,10 @@ function AppChrome({
       // surfaces a stale diff. No-op + localized notice when the
       // gate fails.
       const editorState = useEditorStore.getState();
-      const tab = editorState.tabs.find(
-        (item) => item.id === editorState.activeTabId
-      );
+      const tab = getActiveTab(editorState);
       const snapshotRing = useResultStore.getState().snapshotRing;
       const snapshotIsRelevant =
-        tab !== undefined &&
+        tab !== null &&
         snapshotRing.some((entry) => entry.language === tab.language);
       if (!tab || !snapshotIsRelevant) {
         useUIStore.getState().pushStatusNotice({
@@ -549,12 +547,10 @@ function AppChrome({
       // surfaces a stale capture. No-op + notice when there's no
       // capture for the active language.
       const editorState = useEditorStore.getState();
-      const tab = editorState.tabs.find(
-        (item) => item.id === editorState.activeTabId
-      );
+      const tab = getActiveTab(editorState);
       const scopeSnapshot = useResultStore.getState().scopeSnapshot;
       const snapshotIsRelevant =
-        tab !== undefined &&
+        tab !== null &&
         tab.runtimeMode !== 'node' &&
         scopeSnapshot !== null &&
         scopeSnapshot.language === tab.language;
@@ -583,9 +579,7 @@ function AppChrome({
       // setting. The state shape mirrors the panel chip click handler
       // in AppLayout.PanelChipsRow so keystroke and click stay in sync.
       const editorState = useEditorStore.getState();
-      const tab = editorState.tabs.find(
-        (item) => item.id === editorState.activeTabId
-      );
+      const tab = getActiveTab(editorState);
       const settings = useSettingsStore.getState();
       const uiState = useUIStore.getState();
       const stdinAvailable =
@@ -630,9 +624,7 @@ function AppChrome({
         settings.variableInspectorSurface === 'floating' ? 'bottom' : 'floating';
       settings.setVariableInspectorSurface(next);
       const editorState = useEditorStore.getState();
-      const tab = editorState.tabs.find(
-        (item) => item.id === editorState.activeTabId
-      );
+      const tab = getActiveTab(editorState);
       const scopeSnapshot = useResultStore.getState().scopeSnapshot;
       const uiState = useUIStore.getState();
       const canShowBottomVariables =
@@ -720,10 +712,7 @@ function AppChrome({
     // never feels broken — the user gets a hint that detection has
     // either nothing to show OR is disabled.
     showDependenciesPanel: () => {
-      const { activeTabId, tabs } = useEditorStore.getState();
-      const activeTab = activeTabId
-        ? tabs.find((tab) => tab.id === activeTabId) ?? null
-        : null;
+      const activeTab = getActiveTab(useEditorStore.getState());
       const entry = activeTab
         ? useDependencyDetectionStore.getState().byTab.get(activeTab.id)
         : null;

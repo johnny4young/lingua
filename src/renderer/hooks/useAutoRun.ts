@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useEditorStore } from '../stores/editorStore';
+import { getActiveTab, useEditorStore } from '../stores/editorStore';
 import { useResultStore } from '../stores/resultStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { runnerManager } from '../runners';
@@ -71,9 +71,7 @@ export function useAutoRun() {
   const lastRunInputRef = useRef<LastAutoRunInput | null>(null);
 
   const activeTabId = useEditorStore((s) => s.activeTabId);
-  const activeTab = useEditorStore((s) => {
-    return s.tabs.find((t) => t.id === s.activeTabId) ?? null;
-  });
+  const activeTab = useEditorStore((s) => getActiveTab(s));
 
   const code = activeTab?.content ?? '';
   const language = activeTab?.language ?? 'javascript';
