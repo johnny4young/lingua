@@ -36,7 +36,19 @@ const osxNotarize =
 /** macOS signing identity from keychain, e.g. "Developer ID Application: ..." */
 const osxSign =
   isMac && process.env.APPLE_SIGNING_IDENTITY
-    ? { identity: process.env.APPLE_SIGNING_IDENTITY, hardened: true }
+    ? {
+        identity: process.env.APPLE_SIGNING_IDENTITY,
+        hardened: true,
+        // The release workflow imports the signing cert into a dedicated
+        // keychain and exports APPLE_KEYCHAIN_PATH. Pass it explicitly so
+        // codesign resolves the identity from THAT keychain instead of
+        // relying on the default-keychain search list — the fragile part
+        // in CI. Omitted locally (var unset) so ad-hoc / dev signing is
+        // unchanged.
+        ...(process.env.APPLE_KEYCHAIN_PATH
+          ? { keychain: process.env.APPLE_KEYCHAIN_PATH }
+          : {}),
+      }
     : undefined;
 
 /** Windows Authenticode cert — requires WIN_CERT_FILE + WIN_CERT_PASSWORD */

@@ -233,6 +233,14 @@ jobs:
           # missing, which masks the failure until
           # Verify macOS artifacts runs.
           NODE_OPTIONS: --max-old-space-size=4096
+          # v0.5.0 mac release regressed after the npm->pnpm migration:
+          # codesign / notarytool throw during "Finalizing package" and
+          # Forge swallows the exception, exiting 0 without writing the
+          # ZIP (caught only by Verify macOS artifacts). Enable the
+          # signing + notarization debug namespaces so the real
+          # codesign / notarytool stderr prints inline instead of being
+          # hidden. Narrow this back once mac signing is green again.
+          DEBUG: 'electron-*,@electron/*'
 
       - name: Verify macOS artifacts
         shell: bash
