@@ -4,6 +4,42 @@ All notable changes to Lingua are documented here.
 
 The format follows Keep a Changelog and groups changes by release.
 
+## [0.5.0] — 2026-05-31
+
+### Added
+- **Signal-Slate redesign**: A workspace-wide redesign pass that lands the new notebook surface, tightens the editor chrome, and folds in broad platform hardening across the renderer. The visual language carries forward from Signal-Slate v2 while the workspace layout, panels, and notebook entry points are rebuilt around it.
+- **Notebook workspace**: A literate, multi-cell notebook surface — ordered code and prose cells in one document — with one-step import of existing Jupyter `.ipynb` notebooks into native Lingua notebooks.
+- **SQL and HTTP workspaces**: A dedicated SQL workspace for ad-hoc querying and a full HTTP workspace for composing, sending, and inspecting requests, including import of Postman and Bruno collections.
+- **Recipe practice library**: A built-in library of runnable recipes for guided practice, with a run panel wired into the editor.
+- **Run capsules**: Portable, self-contained snapshots of a run (code plus inputs plus settings). Export a capsule, share it, and re-import it through paste, file picker, or drag-drop — all three load surfaces converge on a single shared `parseRunCapsule` validator. Includes a capsule browse overlay and an import-preview overlay.
+- **Project bundle export and import**: Pack an entire project into a portable `.zip` (isomorphic fflate, `lingua-bundle.json` manifest) and import it back through one zip-slip-guarded validation chokepoint with file-count, size, and zip-bomb caps. Export excludes `node_modules/.git/dist/build`; `Mod+Alt+E`, a FileTree button, and two command-palette actions drive it.
+- **No-backend share links**: Share a scratchpad as a self-contained link that gzips its payload into the URL fragment — no server round-trip, nothing leaves the device until you paste the link.
+- **CLI companion**: A `lingua` command-line companion for driving the toolchain outside the desktop shell.
+- **Dependency management**: A dependency detection panel plus install flows — JS packages and Python via Pyodide micropip on the web build.
+- **Multi-file projects and cross-project replace**: A multi-file project foundation with a find-and-replace workflow that spans every file in the project.
+- **Utility pipelines**: Chain developer utilities so the output of one tool feeds the next.
+- **Ruby support**: A hybrid Ruby runtime and language support, extending the multi-language matrix.
+- **Rich media and rich console output**: Inline chart rendering and a rich-media worker bridge for the console, Python rich-media parity, rich console payloads, and output source-mapping badges that trace each line back to its origin.
+- **Onboarding choreography**: A staged onboarding flow with status-notice priority so first-run guidance never collides with other notices.
+- **Privacy and trust dashboard, language scorecard**: A Settings dashboard surfacing privacy and trust posture, and a per-language support scorecard.
+- **Git read-only layer**: A read-only git surface with head refresh and reload notices, alongside a Settings cleanup that retired 11 Tier-S toggles.
+
+### Changed
+- **Console image paste**: Paste images directly into the console.
+- **Workflow canvas gating**: The workflow canvas is now scoped to builder tabs on the web build.
+- **Toolchain migration to pnpm**: All three projects (desktop app, update-server, license-server) moved from npm to pnpm, with the operational docs swept to match. The worker projects bumped to TypeScript 6 and Vitest 4; inline charts now render on Vega 6 / Vega-Lite 6 / Vega-Embed 7.
+- **Performance baselines**: Web and desktop renderer footprint budgets rebaselined after the new features landed.
+
+### Fixed
+- **Update state across polling**: Desktop now preserves downloaded-update state across the polling cycle instead of dropping it between checks.
+- **Update-server caching**: The GitHub API fetch cache is capped at 60 seconds and 204 responses are no longer cached, so update checks stop serving stale data.
+- **Output source mapping**: Tightened the gates that decide when an output line earns a source badge.
+- **R2 release mirror**: Pass `--copy-props none` so the mirror sync stops tripping over `GetObjectTagging`.
+
+### Security
+- **Patched `tmp` across the toolchain**: Forced `tmp` 0.2.7 across the dev toolchain to clear the advisory.
+- **Hardened GitHub Actions**: Pinned every GitHub Actions step to a commit SHA and added least-privilege permissions and concurrency groups across the workflows.
+
 ## [0.4.0] — 2026-05-18
 
 ### Added
