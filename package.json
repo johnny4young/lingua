@@ -123,6 +123,7 @@
     "electron-squirrel-startup": "^1.0.1",
     "esbuild-wasm": "^0.28.0",
     "fengari": "^0.1.5",
+    "fflate": "^0.8.3",
     "i18next": "^26.0.8",
     "js-yaml": "^4.1.1",
     "jsqr": "^1.4.0",

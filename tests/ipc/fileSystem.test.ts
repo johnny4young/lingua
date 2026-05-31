@@ -11,8 +11,17 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
+import { strToU8, zipSync } from 'fflate';
+import { packBundle, unpackBundle } from '../../src/shared/projectBundle';
 
 const {
   handlers,
@@ -1123,5 +1132,153 @@ describe('fs:delete confirmation dialog', () => {
           'Esto eliminará permanentemente la carpeta y todo su contenido. Esta acción no se puede deshacer.',
       })
     );
+  });
+});
+
+// ----------------------------------------------- RL-024 Slice 3 bundles
+
+describe('fs:exportBundle', () => {
+  it('packs visible files (excluding node_modules / dist) into a saved zip', async () => {
+    await writeFile(path.join(tmpRoot, 'index.js'), 'console.log(1)');
+    await mkdir(path.join(tmpRoot, 'src'));
+    await writeFile(path.join(tmpRoot, 'src', 'lib.ts'), 'export const x = 1;');
+    // Excluded dir — must NOT appear in the bundle (fold G via shouldHide).
+    await mkdir(path.join(tmpRoot, 'node_modules', 'dep'), { recursive: true });
+    await writeFile(
+      path.join(tmpRoot, 'node_modules', 'dep', 'index.js'),
+      'module.exports = {}'
+    );
+    const { rootId } = mintFor(tmpRoot);
+    const outPath = path.join(tmpRoot, '..', `bundle-${path.basename(tmpRoot)}.zip`);
+    showSaveDialog.mockResolvedValue({ canceled: false, filePath: outPath });
+
+    const result = (await invoke('fs:exportBundle', rootId, {
+      entryFile: 'index.js',
+      languageHint: 'javascript',
+    })) as { ok: true; fileCount: number; byteLength: number };
+
+    expect(result.ok).toBe(true);
+    expect(result.fileCount).toBe(2);
+
+    const written = await readFile(outPath);
+    const unpacked = unpackBundle(new Uint8Array(written));
+    expect(unpacked.ok).toBe(true);
+    if (unpacked.ok) {
+      expect(unpacked.files.map((f) => f.path).sort()).toEqual([
+        'index.js',
+        'src/lib.ts',
+      ]);
+      expect(unpacked.manifest?.entryFile).toBe('index.js');
+    }
+    await rm(outPath, { force: true });
+  });
+
+  it('returns canceled when the save dialog is dismissed', async () => {
+    await writeFile(path.join(tmpRoot, 'a.js'), '1');
+    const { rootId } = mintFor(tmpRoot);
+    showSaveDialog.mockResolvedValue({ canceled: true });
+    expect(await invoke('fs:exportBundle', rootId)).toEqual({ canceled: true });
+  });
+
+  it('reports empty for a project with no visible files', async () => {
+    const { rootId } = mintFor(tmpRoot);
+    expect(await invoke('fs:exportBundle', rootId)).toEqual({
+      ok: false,
+      reason: 'empty',
+    });
+  });
+});
+
+describe('fs:importBundle', () => {
+  it('extracts a bundle into a chosen empty dir and approves the root', async () => {
+    const zip = packBundle(
+      [
+        { path: 'index.js', bytes: strToU8('console.log(1)') },
+        { path: 'src/lib.ts', bytes: strToU8('export const x = 1;') },
+      ],
+      { createdAt: '2026-05-30T00:00:00.000Z', entryFile: 'index.js' }
+    );
+    const target = path.join(tmpRoot, 'imported');
+    await mkdir(target);
+    showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [target] });
+
+    const result = (await invoke('fs:importBundle', zip)) as {
+      ok: true;
+      rootPath: string;
+      fileCount: number;
+      entryFile?: string;
+    };
+    expect(result.ok).toBe(true);
+    expect(result.fileCount).toBe(2);
+    expect(result.entryFile).toBe('index.js');
+    expect(await readFile(path.join(target, 'index.js'), 'utf-8')).toBe(
+      'console.log(1)'
+    );
+    expect(await readFile(path.join(target, 'src', 'lib.ts'), 'utf-8')).toBe(
+      'export const x = 1;'
+    );
+
+    // rememberApprovedRoot ran, so reopen-root now succeeds for the target.
+    const reopened = (await invoke('fs:reopen-root', target)) as {
+      ok: boolean;
+    };
+    expect(reopened.ok).toBe(true);
+  });
+
+  it('never writes a traversal entry outside the chosen dir (zip-slip)', async () => {
+    // unpackBundle drops `../escape` as a reject; nothing escapes the dir.
+    const hostile = zipSync({
+      'ok.js': strToU8('1'),
+      '../escape.js': strToU8('pwned'),
+    });
+    const target = path.join(tmpRoot, 'slip-target');
+    await mkdir(target);
+    showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [target] });
+
+    const result = (await invoke('fs:importBundle', hostile)) as {
+      ok: true;
+      fileCount: number;
+    };
+    expect(result.ok).toBe(true);
+    expect(result.fileCount).toBe(1);
+    // The escape target must not exist as a sibling of the chosen dir.
+    await expect(
+      readFile(path.join(tmpRoot, 'escape.js'), 'utf-8')
+    ).rejects.toThrow();
+  });
+
+  it('refuses to import into a non-empty directory', async () => {
+    const zip = packBundle([{ path: 'a.js', bytes: strToU8('1') }], {
+      createdAt: '2026-05-30T00:00:00.000Z',
+    });
+    const target = path.join(tmpRoot, 'occupied');
+    await mkdir(target);
+    await writeFile(path.join(target, 'existing.txt'), 'keep me');
+    showOpenDialog.mockResolvedValue({ canceled: false, filePaths: [target] });
+
+    expect(await invoke('fs:importBundle', zip)).toEqual({
+      ok: false,
+      reason: 'non-empty-dir',
+    });
+  });
+
+  it('rejects a malformed (non-zip) payload before prompting for a folder', async () => {
+    const result = await invoke('fs:importBundle', strToU8('not a zip'));
+    expect(result).toEqual({ ok: false, reason: 'malformed-zip' });
+    expect(showOpenDialog).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-binary payload before prompting for a folder', async () => {
+    const result = await invoke('fs:importBundle', { bytes: 'not-a-typed-array' });
+    expect(result).toEqual({ ok: false, reason: 'malformed-zip' });
+    expect(showOpenDialog).not.toHaveBeenCalled();
+  });
+
+  it('returns canceled when the folder picker is dismissed', async () => {
+    const zip = packBundle([{ path: 'a.js', bytes: strToU8('1') }], {
+      createdAt: '2026-05-30T00:00:00.000Z',
+    });
+    showOpenDialog.mockResolvedValue({ canceled: true, filePaths: [] });
+    expect(await invoke('fs:importBundle', zip)).toEqual({ canceled: true });
   });
 });

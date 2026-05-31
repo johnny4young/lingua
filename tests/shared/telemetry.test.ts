@@ -132,6 +132,11 @@ describe('TELEMETRY_EVENTS', () => {
       // signal. Closed-enum `{ surface }` from
       // `PRIVACY_DASHBOARD_SURFACES` ('settings' | 'palette').
       'privacy.dashboard_opened',
+      // RL-024 Slice 3 — project zip bundle events sort between
+      // `privacy.*` and `recipe.*` alphabetically.
+      'project.bundle_exported',
+      'project.bundle_imported',
+      'project.bundle_rejected',
       // RL-039 Slice B fold B — Recipes overlay open + Run + Test
       // settle. `recipe.*` sorts between `privacy.dashboard_opened`
       // and `runner.executed` alphabetically. NO recipe id on the

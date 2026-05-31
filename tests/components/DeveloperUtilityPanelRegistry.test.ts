@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DEVELOPER_UTILITIES } from '../../src/renderer/data/developerUtilities';
-import { DEVELOPER_UTILITY_PANEL_COMPONENTS } from '../../src/renderer/components/DeveloperUtilities/UtilityPanels';
+import { DEVELOPER_UTILITY_PANEL_COMPONENTS } from '../../src/renderer/components/DeveloperUtilities/UtilityPanelRegistry';
 
 const ROUTER_PATH = resolve(
   __dirname,

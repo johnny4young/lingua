@@ -145,6 +145,10 @@ export const TELEMETRY_EVENT_NAMES = [
   // RL-096 Slice 1 fold A — mirror of `privacy.dashboard_opened`.
   // Closed-enum `{ surface }` from `PRIVACY_DASHBOARD_SURFACES`.
   'privacy.dashboard_opened',
+  // RL-024 Slice 3 — mirrors of the project zip bundle events.
+  'project.bundle_exported',
+  'project.bundle_imported',
+  'project.bundle_rejected',
   // RL-025 Slice A — mirrors of the dependency detection events.
   // Closed-enum `{ language, countBucket }` for per-cycle detection;
   // `{ language }` for the once-per-(tab, language) banner; bucketed
@@ -317,6 +321,10 @@ export const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly strin
   'onboarding.toast_clobbered': ['outstandingStage'],
   // RL-096 Slice 1 fold A — mirror.
   'privacy.dashboard_opened': ['surface'],
+  // RL-024 Slice 3 — mirror of the project zip bundle allow-lists.
+  'project.bundle_exported': ['status', 'fileCountBucket'],
+  'project.bundle_imported': ['status', 'fileCountBucket'],
+  'project.bundle_rejected': ['reason'],
   // RL-025 Slice A — mirrors of dependency detection allow-lists.
   'dependency.detected_in_tab': ['language', 'countBucket'],
   'dependency.banner_shown': ['language'],
@@ -697,6 +705,32 @@ export const DEPENDENCY_COUNT_BUCKETS = new Set([
 export const REPLACE_IN_FILES_SCOPES = new Set([
   'single-file',
   'all-files',
+]);
+// RL-024 Slice 3 — mirrors of the project zip bundle enums in
+// `src/shared/telemetry.ts`. `PROJECT_BUNDLE_REJECT_REASONS` also
+// mirrors `BUNDLE_REJECT_REASONS` in `src/shared/projectBundle.ts`; the
+// parity test cross-imports that canonical tuple.
+export const PROJECT_BUNDLE_EXPORT_STATUSES = new Set([
+  'cancelled',
+  'empty',
+  'exported',
+  'failed',
+]);
+export const PROJECT_BUNDLE_IMPORT_STATUSES = new Set([
+  'cancelled',
+  'imported',
+  'non-empty-dir',
+  'rejected',
+]);
+export const PROJECT_BUNDLE_REJECT_REASONS = new Set([
+  'empty',
+  'entry-too-large',
+  'malformed-zip',
+  'no-files',
+  'path-traversal',
+  'too-large',
+  'too-many-files',
+  'zip-bomb',
 ]);
 // RL-097 Slice 1 fold F — mirror of HTTP_METHODS_SET. Source of
 // truth on the renderer side at `src/shared/httpWorkspace.ts`;
@@ -1218,6 +1252,28 @@ function isAllowedValue(
           typeof value === 'string' && PRIVACY_DASHBOARD_SURFACES.has(value)
         );
       return false;
+    case 'project.bundle_exported':
+      if (key === 'status')
+        return (
+          typeof value === 'string' && PROJECT_BUNDLE_EXPORT_STATUSES.has(value)
+        );
+      if (key === 'fileCountBucket')
+        return typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value);
+      return false;
+    case 'project.bundle_imported':
+      if (key === 'status')
+        return (
+          typeof value === 'string' && PROJECT_BUNDLE_IMPORT_STATUSES.has(value)
+        );
+      if (key === 'fileCountBucket')
+        return typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS.has(value);
+      return false;
+    case 'project.bundle_rejected':
+      return (
+        key === 'reason' &&
+        typeof value === 'string' &&
+        PROJECT_BUNDLE_REJECT_REASONS.has(value)
+      );
     case 'dependency.detected_in_tab':
       if (key === 'language') return isSafeToken(value);
       if (key === 'countBucket')

@@ -89,7 +89,7 @@ export function RecentRunsPill() {
   const isAutoRunning = useResultStore((state) => state.isAutoRunning);
   const { run } = useRunner();
 
-  const [open, setOpen] = useState(false);
+  const [openTabId, setOpenTabId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -107,13 +107,13 @@ export function RecentRunsPill() {
     activeTabId !== null &&
     runnableSurface &&
     tabEntries.length > 0;
+  const open = activeTabId !== null && openTabId === activeTabId && canOpenRecentRuns;
 
   // Fold F — refresh the rendered relative-time strings every minute
   // while the popover is open. Clearing the interval on close keeps
   // the surface idle when nothing is on screen.
   useEffect(() => {
     if (!open) return;
-    setNow(Date.now());
     const handle = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(handle);
   }, [open]);
@@ -124,10 +124,10 @@ export function RecentRunsPill() {
     const handlePointer = (event: PointerEvent) => {
       const target = event.target as Node | null;
       if (target && containerRef.current?.contains(target)) return;
-      setOpen(false);
+      setOpenTabId(null);
     };
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') setOpenTabId(null);
     };
     document.addEventListener('pointerdown', handlePointer);
     document.addEventListener('keydown', handleKey);
@@ -149,18 +149,15 @@ export function RecentRunsPill() {
       setRecentRunsPopoverOpener(null);
       return;
     }
-    const opener: RecentRunsPopoverOpener = () => setOpen((value) => !value);
+    const opener: RecentRunsPopoverOpener = () => {
+      setNow(Date.now());
+      setOpenTabId((current) => (current === activeTabId ? null : activeTabId));
+    };
     setRecentRunsPopoverOpener(opener);
     return () => {
       setRecentRunsPopoverOpener(null);
     };
-  }, [canOpenRecentRuns]);
-
-  useEffect(() => {
-    if (!canOpenRecentRuns && open) {
-      setOpen(false);
-    }
-  }, [canOpenRecentRuns, open]);
+  }, [activeTabId, canOpenRecentRuns]);
 
   const handleReplay = useCallback(
     (entry: ExecutionHistoryEntry) => {
@@ -178,7 +175,7 @@ export function RecentRunsPill() {
           surface: 'tab_pill',
         });
       }
-      setOpen(false);
+      setOpenTabId(null);
     },
     [isManualRunning, isAutoRunning, run]
   );
@@ -223,7 +220,10 @@ export function RecentRunsPill() {
         aria-expanded={open}
         aria-label={t('executionHistory.tabPill.tooltip')}
         title={t('executionHistory.tabPill.tooltip')}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          setNow(Date.now());
+          setOpenTabId((current) => (current === activeTabId ? null : activeTabId));
+        }}
         className={cn(
           'status-pill border-border/40 bg-surface-strong/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted hover:bg-surface',
           open && 'border-primary/40 text-primary'

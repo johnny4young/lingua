@@ -738,6 +738,46 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     return false;
   },
 
+  // RL-024 Slice 3 — project zip bundles. The web build branches on
+  // `platform === 'web'` BEFORE calling these (export does an in-renderer
+  // Blob download via the shared `packBundle`; import surfaces
+  // `projectBundle.web.unsupported`), so these stubs only exist to keep
+  // the `window.lingua.fs` contract uniform and resolve to an honest
+  // failure if ever reached from a non-UI surface.
+  exportBundle: async (
+    _rootId: string,
+    _opts?: { entryFile?: string; languageHint?: string },
+  ): Promise<
+    | { ok: true; fileCount: number; byteLength: number }
+    | { canceled: true }
+    | { ok: false; reason: 'empty' | 'too-many-files' | 'write-failed' }
+  > => {
+    return { ok: false, reason: 'write-failed' } as const;
+  },
+
+  importBundle: async (
+    _zipBytes: Uint8Array,
+  ): Promise<
+    | { ok: true; rootPath: string; fileCount: number; entryFile?: string }
+    | { canceled: true }
+    | {
+        ok: false;
+        reason:
+          | 'empty'
+          | 'entry-too-large'
+          | 'malformed-zip'
+          | 'no-files'
+          | 'path-traversal'
+          | 'too-large'
+          | 'too-many-files'
+          | 'zip-bomb'
+          | 'non-empty-dir'
+          | 'write-failed';
+      }
+  > => {
+    return { ok: false, reason: 'write-failed' } as const;
+  },
+
   watchStart: async (
     _rootId: string,
     _relativePath?: string,

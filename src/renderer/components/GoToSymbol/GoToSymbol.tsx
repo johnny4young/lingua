@@ -65,22 +65,18 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
     inputRef.current?.focus();
   }, []);
 
-  // Clamp selection whenever the filtered list changes so empty states cannot
-  // leave the cursor at -1 and later successful queries still have a default
-  // highlighted row for Enter/arrow-key navigation.
-  useEffect(() => {
-    if (selectedIndex < 0 || selectedIndex >= filtered.length) {
-      setSelectedIndex(0);
-    }
-  }, [filtered.length, selectedIndex]);
+  const activeSelectedIndex =
+    filtered.length === 0 ? 0 : Math.min(selectedIndex, filtered.length - 1);
 
   // Keep the selected row visible in the scroller.
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
-    const row = Array.from(list.children)[selectedIndex] as HTMLElement | undefined;
+    const row = Array.from(list.children)[activeSelectedIndex] as
+      | HTMLElement
+      | undefined;
     row?.scrollIntoView({ block: 'nearest' });
-  }, [selectedIndex]);
+  }, [activeSelectedIndex]);
 
   const selectSymbol = (entry: SymbolEntry) => {
     if (!activeTab) return;
@@ -110,7 +106,7 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
     }
     if (event.key === 'Enter') {
       event.preventDefault();
-      const target = filtered[selectedIndex];
+      const target = filtered[activeSelectedIndex];
       if (target) selectSymbol(target);
       return;
     }
@@ -142,7 +138,10 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
           <input
             ref={inputRef}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSelectedIndex(0);
+            }}
             onKeyDown={handleKeyDown}
             placeholder={t('goToSymbol.placeholder')}
             aria-label={t('goToSymbol.placeholder')}
@@ -154,7 +153,7 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
         <div ref={listRef} className="max-h-[22rem] overflow-y-auto px-2 py-2">
           {showList ? (
             filtered.map((entry, index) => {
-              const isSelected = index === selectedIndex;
+              const isSelected = index === activeSelectedIndex;
               const key = `${entry.qualifiedName}:${entry.line}:${entry.column}`;
               return (
                 <button

@@ -43,12 +43,6 @@ export function EditorTabs() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
 
-  // Close a menu anchored to a tab that may have disappeared after
-  // another close operation.
-  useEffect(() => {
-    setContextMenu(null);
-  }, [tabs.length]);
-
   if (tabs.length === 0) return null;
 
   const handleActivationKey = (

@@ -222,6 +222,59 @@ describe('buildCommandPaletteModel', () => {
     expect(onOpenGoToSymbol).toHaveBeenCalledOnce();
   });
 
+  it('exposes the project bundle export + import actions only when wired (RL-024 Slice 3)', () => {
+    const onExportProjectBundle = vi.fn();
+    const onImportProjectBundle = vi.fn();
+    const baseArgs = {
+      templates: [],
+      snippets: [],
+      updateStatus: 'idle' as const,
+      createTab: vi.fn(),
+      createDefaultTab: (language: string) => ({
+        id: `tab-${language}`,
+        name: `untitled-${language}`,
+        language,
+        content: '',
+        isDirty: false,
+      }),
+      setLayoutPreset: vi.fn(),
+      onClose: vi.fn(),
+      onOpenSettings: vi.fn(),
+      onOpenWhatsNew: vi.fn(),
+      onStartGuidedTour: vi.fn(),
+      onOpenSnippets: vi.fn(),
+      checkForUpdates: vi.fn().mockResolvedValue(undefined),
+      restartToApply: vi.fn().mockResolvedValue(true),
+      t: i18next.t.bind(i18next),
+    };
+
+    const withoutBundle = buildCommandPaletteModel(baseArgs);
+    expect(
+      withoutBundle.find((c) => c.id === 'action-export-project-bundle')
+    ).toBeUndefined();
+    expect(
+      withoutBundle.find((c) => c.id === 'action-import-project-bundle')
+    ).toBeUndefined();
+
+    const withBundle = buildCommandPaletteModel({
+      ...baseArgs,
+      onExportProjectBundle,
+      onImportProjectBundle,
+    });
+    const exportAction = withBundle.find(
+      (c) => c.id === 'action-export-project-bundle'
+    );
+    const importAction = withBundle.find(
+      (c) => c.id === 'action-import-project-bundle'
+    );
+    expect(exportAction).toBeDefined();
+    expect(importAction).toBeDefined();
+    exportAction?.action();
+    importAction?.action();
+    expect(onExportProjectBundle).toHaveBeenCalledOnce();
+    expect(onImportProjectBundle).toHaveBeenCalledOnce();
+  });
+
   it('exposes the project search action only when the opener is wired in', () => {
     const onOpenProjectSearch = vi.fn();
     const baseArgs = {

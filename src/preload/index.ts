@@ -296,6 +296,15 @@ contextBridge.exposeInMainWorld('lingua', {
     // the FSA adapter (no underlying absolute path).
     revealInFinder: (rootId: string, relativePath: string) =>
       ipcRenderer.invoke('fs:reveal-in-finder', rootId, relativePath),
+    // RL-024 Slice 3 — project zip bundles. Export packs the root into
+    // a `.zip` via a save dialog; import extracts renderer-supplied
+    // bytes into a chosen folder after authoritative re-validation.
+    exportBundle: (
+      rootId: string,
+      opts?: { entryFile?: string; languageHint?: string }
+    ) => ipcRenderer.invoke('fs:exportBundle', rootId, opts),
+    importBundle: (zipBytes: Uint8Array) =>
+      ipcRenderer.invoke('fs:importBundle', zipBytes),
     watchStart: (rootId: string, relativePath?: string) =>
       ipcRenderer.invoke('fs:watch-start', rootId, relativePath),
     watchStop: (watchId: string) =>

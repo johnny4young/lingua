@@ -113,9 +113,8 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
     );
   }, [allFiles, query]);
 
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [filtered.length]);
+  const activeSelectedIndex =
+    filtered.length === 0 ? 0 : Math.min(selectedIndex, filtered.length - 1);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -123,10 +122,10 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
 
   useEffect(() => {
     const element = listRef.current?.querySelector<HTMLElement>(
-      `[data-result-index="${selectedIndex}"]`
+      `[data-result-index="${activeSelectedIndex}"]`
     );
     element?.scrollIntoView({ block: 'nearest' });
-  }, [selectedIndex]);
+  }, [activeSelectedIndex]);
 
   const select = async (file: FileResult) => {
     if (file.source === 'open-tab') {
@@ -188,7 +187,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
 
     if (event.key === 'Enter') {
       event.preventDefault();
-      const file = filtered[selectedIndex];
+      const file = filtered[activeSelectedIndex];
       if (file) {
         void select(file);
       }
@@ -213,7 +212,10 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
           <input
             ref={inputRef}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSelectedIndex(0);
+            }}
             onKeyDown={handleKeyDown}
             placeholder={t('quickOpen.placeholder')}
             className="min-w-0 flex-1 bg-transparent text-sm text-fg-base outline-none placeholder:text-fg-subtle"
@@ -244,7 +246,14 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
             }
           />
         ) : (
-          renderQuickOpenResults(filtered, query, selectedIndex, setSelectedIndex, select, t)
+          renderQuickOpenResults(
+            filtered,
+            query,
+            activeSelectedIndex,
+            setSelectedIndex,
+            select,
+            t
+          )
         )}
       </div>
     </ModalShell>

@@ -23,9 +23,26 @@ function collectMarkdownFiles(dir: string, files: string[] = []): string[] {
     if (SKIP_DIRS.has(entry)) {
       continue;
     }
+    // Skip per-test scratch dirs (e.g. `.tmp-lingua-fs-*`,
+    // `.tmp-lingua-watch-alt-*`). They are gitignored, never hold
+    // committed docs, and — created/removed by other suites running in
+    // parallel — would otherwise race this walk: an entry returned by
+    // `readdirSync` can vanish before `statSync`, throwing ENOENT and
+    // flaking the whole suite.
+    if (entry.startsWith('.tmp-')) {
+      continue;
+    }
 
     const fullPath = join(dir, entry);
-    const stat = statSync(fullPath);
+    let stat;
+    try {
+      stat = statSync(fullPath);
+    } catch {
+      // The entry disappeared between readdir and stat (a parallel
+      // suite's transient tmpdir). Nothing committed vanishes mid-run,
+      // so skipping it is safe.
+      continue;
+    }
     if (stat.isDirectory()) {
       collectMarkdownFiles(fullPath, files);
       continue;

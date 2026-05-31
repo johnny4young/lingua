@@ -91,10 +91,6 @@ export function DeveloperUtilitiesModal({
     };
   }, [shortcutOverrides]);
 
-  useEffect(() => {
-    setSelectedUtilityId(initialUtilityId);
-  }, [initialUtilityId]);
-
   // RL-069 Slice 3 — emit favorite-pinned telemetry from a one-shot
   // store subscription. We listen on the store so the trackEvent call
   // lives in one place even when the user pins from the sidebar OR
@@ -119,8 +115,6 @@ export function DeveloperUtilitiesModal({
   useEffect(() => {
     searchRef.current?.focus();
   }, []);
-
-  const selectedUtility = findDeveloperUtility(selectedUtilityId);
 
   const filteredUtilities = useMemo(() => {
     const q = searchQuery.trim();
@@ -152,14 +146,11 @@ export function DeveloperUtilitiesModal({
     return ranked.map((r) => r.utility);
   }, [searchQuery, t]);
 
-  useEffect(() => {
-    if (filteredUtilities.length === 0) return;
-    if (filteredUtilities.some((utility) => utility.id === selectedUtilityId)) return;
-    const firstUtility = filteredUtilities[0];
-    if (firstUtility) {
-      setSelectedUtilityId(firstUtility.id);
-    }
-  }, [filteredUtilities, selectedUtilityId]);
+  const activeSelectedUtilityId =
+    filteredUtilities.find((utility) => utility.id === selectedUtilityId)?.id ??
+    filteredUtilities[0]?.id ??
+    selectedUtilityId;
+  const selectedUtility = findDeveloperUtility(activeSelectedUtilityId);
 
   const focusUtilityButton = (utilityId: DeveloperUtilityId) => {
     window.requestAnimationFrame(() => {
@@ -179,7 +170,7 @@ export function DeveloperUtilitiesModal({
   const selectRelativeUtility = (delta: number, shouldFocusButton: boolean) => {
     if (filteredUtilities.length === 0) return;
     const currentIndex = filteredUtilities.findIndex(
-      (utility) => utility.id === selectedUtilityId
+      (utility) => utility.id === activeSelectedUtilityId
     );
     const fallbackIndex = delta > 0 ? -1 : 0;
     const baseIndex = currentIndex >= 0 ? currentIndex : fallbackIndex;
@@ -204,7 +195,7 @@ export function DeveloperUtilitiesModal({
       event.preventDefault();
       event.stopPropagation();
       const currentIndex = filteredUtilities.findIndex(
-        (utility) => utility.id === selectedUtilityId
+        (utility) => utility.id === activeSelectedUtilityId
       );
       selectUtilityAt(Math.max(currentIndex, 0), true);
     }
@@ -315,7 +306,7 @@ export function DeveloperUtilitiesModal({
             </div>
           </div>
           <FavoritesRow
-            selectedUtilityId={selectedUtilityId}
+            selectedUtilityId={activeSelectedUtilityId}
             onSelect={setSelectedUtilityId}
           />
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -327,7 +318,7 @@ export function DeveloperUtilitiesModal({
               </div>
             ) : (
               filteredUtilities.map((utility) => {
-                const isSelected = utility.id === selectedUtilityId;
+                const isSelected = utility.id === activeSelectedUtilityId;
                 return (
                   <div
                     key={utility.id}
@@ -398,7 +389,7 @@ export function DeveloperUtilitiesModal({
             </p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-            <DeveloperUtilityPanel toolId={selectedUtilityId} />
+            <DeveloperUtilityPanel toolId={activeSelectedUtilityId} />
           </div>
         </main>
       </div>

@@ -110,6 +110,14 @@ export const NETWORK_ACTIVITY_FEATURES = [
   // closed-enum telemetry status + size bucket is emitted, no bytes).
   // The row exists purely for transparency on the new input surface.
   'consoleImagePaste',
+  // RL-024 Slice 3 fold F — project zip bundle export / import. Reads
+  // and writes whole project trees on disk via the capability-sandboxed
+  // `fs:exportBundle` / `fs:importBundle` IPCs. Pure local: a `.zip` is
+  // written to / read from a user-chosen path; nothing is sent over the
+  // network (only a closed-enum status + file-count bucket is emitted as
+  // telemetry, never paths or bytes). Row exists for transparency on the
+  // new whole-tree read/write surface.
+  'projectBundle',
 ] as const;
 
 export type NetworkActivityFeature =
@@ -224,6 +232,16 @@ export function buildNetworkActivityRows(args: {
       // never touch localStorage and never leave the renderer (only a
       // closed-enum status + size bucket is emitted as telemetry). Row
       // is `'enabled'` for transparency on the input surface.
+      status: 'enabled',
+      lastCallAt: null,
+    },
+    {
+      feature: 'projectBundle',
+      // RL-024 Slice 3 fold F — export/import a project as a `.zip`.
+      // Pure local disk I/O through the capability sandbox; nothing
+      // leaves the machine. Always `'enabled'` (the feature is always
+      // available); the closed-enum telemetry carries only status +
+      // file-count bucket, never paths or bytes.
       status: 'enabled',
       lastCallAt: null,
     },

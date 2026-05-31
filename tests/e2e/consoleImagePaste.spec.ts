@@ -50,6 +50,30 @@ async function pasteImage(page: import('@playwright/test').Page, dataUri: string
   }, dataUri);
 }
 
+async function pasteImageAndExpectRendered(
+  page: import('@playwright/test').Page,
+  dataUri: string
+) {
+  const img = page.locator('[data-testid="console-rich-image-wrapper"] img');
+
+  await expect
+    .poll(
+      async () => {
+        await pasteImage(page, dataUri);
+        return img.count();
+      },
+      {
+        message: 'console image paste should render an inline image',
+        timeout: 10000,
+        intervals: [100, 250, 500, 1000],
+      }
+    )
+    .toBeGreaterThan(0);
+
+  await expect(img.first()).toBeVisible();
+  return img.first();
+}
+
 test.describe('Console image clipboard paste (RL-044)', () => {
   test('pasting an image renders it inline in the console (EN)', async ({ page }) => {
     const consoleErrors: string[] = [];
@@ -60,11 +84,9 @@ test.describe('Console image clipboard paste (RL-044)', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await waitForConsole(page);
-    await pasteImage(page, TINY_PNG);
 
-    const img = page.locator('[data-testid="console-rich-image-wrapper"] img');
-    await expect(img.first()).toBeVisible();
-    await expect(img.first()).toHaveAttribute('src', /^data:image\//);
+    const img = await pasteImageAndExpectRendered(page, TINY_PNG);
+    await expect(img).toHaveAttribute('src', /^data:image\//);
 
     // Ignore the expected cross-origin license-status fetch noise that
     // the local preview produces against the prod license API.
@@ -78,9 +100,6 @@ test.describe('Console image clipboard paste (RL-044)', () => {
     await seedSession(page, { language: 'es' });
     await gotoApp(page);
     await waitForConsole(page);
-    await pasteImage(page, TINY_PNG);
-
-    const img = page.locator('[data-testid="console-rich-image-wrapper"] img');
-    await expect(img.first()).toBeVisible();
+    await pasteImageAndExpectRendered(page, TINY_PNG);
   });
 });

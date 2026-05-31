@@ -129,7 +129,8 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
     : enabledBreakpointCount === 0
       ? t('toolbar.debug.noBreakpoint')
       : t('toolbar.debug.title');
-  const primaryActionIsDebug = showDebugAction && selectedExecutionAction === 'debug';
+  const effectiveExecutionAction = showDebugAction ? selectedExecutionAction : 'run';
+  const primaryActionIsDebug = effectiveExecutionAction === 'debug';
   const primaryActionDisabled = primaryActionIsDebug ? debugActionDisabled : actionDisabled;
   const primaryActionLabel = primaryActionIsDebug ? debugLabel : actionLabel;
   const primaryActionTooltip = primaryActionIsDebug ? debugTooltip : actionTooltip;
@@ -179,12 +180,6 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
     }
     void run();
   };
-
-  useEffect(() => {
-    if (!showDebugAction && selectedExecutionAction !== 'run') {
-      setSelectedExecutionAction('run');
-    }
-  }, [selectedExecutionAction, showDebugAction]);
 
   useEffect(() => {
     if (isRunning) {

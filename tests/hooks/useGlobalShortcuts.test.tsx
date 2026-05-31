@@ -45,6 +45,7 @@ function renderShortcuts(options: HarnessOptions = {}) {
     resetFloatingPositions: vi.fn(),
     toggleVariableInspectorSurface: vi.fn(),
     openImportOverlay: vi.fn(),
+    exportProjectBundle: vi.fn(),
     openRecipesOverlay: vi.fn(),
   };
 
@@ -187,6 +188,12 @@ describe('useGlobalShortcuts', () => {
     const calls = renderShortcuts();
     dispatchKeyDown({ key: 'i', ctrlKey: true, altKey: true });
     expect(calls.openImportOverlay).toHaveBeenCalledTimes(1);
+  });
+
+  it('exports the current project bundle from Mod+Alt+E', () => {
+    const calls = renderShortcuts();
+    dispatchKeyDown({ key: 'e', ctrlKey: true, altKey: true });
+    expect(calls.exportProjectBundle).toHaveBeenCalledTimes(1);
   });
 
   it('opens the Recipes overlay from Mod+Alt+L', () => {

@@ -350,6 +350,17 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['import', 'curl', 'paste', 'drop', 'bring in'],
   },
   {
+    // RL-024 Slice 3 — export the open project as a `.zip` bundle.
+    // Mod+Alt+E (E for Export); pairs with Mod+Alt+I (Import). Verified
+    // free vs the catalog (the conflict-free regression test guards it).
+    id: 'action-export-project-bundle',
+    group: 'overlays',
+    labelKey: 'shortcuts.item.exportProjectBundle.label',
+    descriptionKey: 'shortcuts.item.exportProjectBundle.description',
+    combos: [{ tokens: ['Mod', 'Alt', 'E'] }],
+    keywords: ['export', 'zip', 'bundle', 'project', 'download', 'archive'],
+  },
+  {
     // RL-039 Slice B fold A — Open the global Recipes overlay so the
     // user can browse curated practice problems and load one into a
     // new tab. Mod+Alt+L (L for Lessons / Library). Verified free vs

@@ -93,18 +93,21 @@ export function ExecutionHistoryPopover({
     if (!thisTabOnly || !activeTabId) return entries;
     return entries.filter((entry) => entry.tabId === activeTabId);
   }, [entries, thisTabOnly, activeTabId]);
-  const selectableEntryIds = useMemo(() => {
-    return new Set(
-      visibleEntries
-        .filter((entry) => entry.snapshot !== null)
-        .map((entry) => entry.id)
-    );
-  }, [visibleEntries]);
   const selectedEntries = useMemo(() => {
     return visibleEntries.filter(
       (entry) => selectedIds.has(entry.id) && entry.snapshot !== null
     );
   }, [visibleEntries, selectedIds]);
+
+  const resetEphemeralState = useCallback(() => {
+    setSelectedIds(new Set());
+    setThisTabOnly(false);
+  }, []);
+
+  const closePopover = useCallback(() => {
+    setOpen(false);
+    resetEphemeralState();
+  }, [resetEphemeralState]);
 
   // Refresh relative timestamps every 30s while the popover is visible — the
   // store itself never changes purely because of clock drift, so we drive
@@ -123,11 +126,11 @@ export function ExecutionHistoryPopover({
     const onDown = (event: MouseEvent) => {
       if (!containerRef.current) return;
       if (!containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
+        closePopover();
       }
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') closePopover();
     };
     window.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey);
@@ -135,41 +138,14 @@ export function ExecutionHistoryPopover({
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('keydown', onKey);
     };
-  }, [open]);
-
-  // Selection is intentionally ephemeral: closing the popover clears it so
-  // the next open starts fresh. Reopening with stale selection would
-  // surprise the user, especially after they `Clear`ed the buffer.
-  useEffect(() => {
-    if (!open) {
-      if (selectedIds.size > 0) {
-        setSelectedIds(new Set());
-      }
-      // RL-020 Slice 4 fold C — also reset the per-tab filter on
-      // close so a fresh open starts with the global view, matching
-      // the implementer-documented contract above and avoiding the
-      // surprising "empty popover" you'd otherwise see after a Clear
-      // followed by reopening.
-      if (thisTabOnly) {
-        setThisTabOnly(false);
-      }
-      return;
-    }
-    setSelectedIds((current) => {
-      const next = new Set<string>();
-      for (const id of current) {
-        if (selectableEntryIds.has(id)) next.add(id);
-      }
-      return next.size === current.size ? current : next;
-    });
-  }, [open, selectableEntryIds, selectedIds.size, thisTabOnly]);
+  }, [closePopover, open]);
 
   const handleRerun = useCallback(
     (entry: ExecutionHistoryEntry) => {
       onRerun?.(entry);
-      setOpen(false);
+      closePopover();
     },
-    [onRerun]
+    [closePopover, onRerun]
   );
 
   const toggleSelected = useCallback((id: string) => {
@@ -186,7 +162,7 @@ export function ExecutionHistoryPopover({
 
   const handleCompare = useCallback(() => {
     if (!onCompare) return;
-    if (selectedIds.size !== 2 || selectedEntries.length !== 2) return;
+    if (selectedEntries.length !== 2) return;
     // Sort oldest → newest so the modal can render Older / Newer panes
     // deterministically. Tie-break on the numeric id suffix (it's
     // monotonic per timestamp bucket — see `nextId` in the store).
@@ -195,8 +171,8 @@ export function ExecutionHistoryPopover({
       ExecutionHistoryEntry,
     ];
     onCompare(older, newer);
-    setOpen(false);
-  }, [onCompare, selectedEntries, selectedIds.size]);
+    closePopover();
+  }, [closePopover, onCompare, selectedEntries]);
 
   const handleClear = useCallback(() => {
     clear();
@@ -208,8 +184,12 @@ export function ExecutionHistoryPopover({
       onBlocked?.();
       return;
     }
+    if (open) {
+      closePopover();
+      return;
+    }
     setNow(Date.now());
-    setOpen((current) => !current);
+    setOpen(true);
   };
 
   const hasEntries = visibleEntries.length > 0;
@@ -227,13 +207,12 @@ export function ExecutionHistoryPopover({
       (entry) => entry.tabId !== undefined && entry.tabId === activeTabId
     );
   }, [entries, activeTabId]);
-  const compareEnabled =
-    onCompare !== undefined && selectedIds.size === 2 && selectedEntries.length === 2;
+  const compareEnabled = onCompare !== undefined && selectedEntries.length === 2;
   const compareDisabledHintKey = useMemo(() => {
-    if (selectedIds.size === 0) return 'executionHistory.compare.button.disabled.zero';
-    if (selectedIds.size === 1) return 'executionHistory.compare.button.disabled.one';
+    if (selectedEntries.length === 0) return 'executionHistory.compare.button.disabled.zero';
+    if (selectedEntries.length === 1) return 'executionHistory.compare.button.disabled.one';
     return 'executionHistory.compare.button.disabled.tooMany';
-  }, [selectedIds.size]);
+  }, [selectedEntries.length]);
 
   return (
     <div ref={containerRef} className="relative">

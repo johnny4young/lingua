@@ -286,6 +286,18 @@ interface BuildCommandPaletteModelArgs {
    */
   onBrowseCapsules?: () => void;
   /**
+   * RL-024 Slice 3 — fires when the user activates "Export project as
+   * zip". Direct action (App.tsx calls `useProjectBundle().
+   * exportProjectBundle`); no overlay. Optional; hides when omitted.
+   */
+  onExportProjectBundle?: () => void;
+  /**
+   * RL-024 Slice 3 — fires when the user activates "Import project from
+   * zip". App.tsx opens the `project-bundle-import` AppOverlay.
+   * Optional; hides when omitted.
+   */
+  onImportProjectBundle?: () => void;
+  /**
    * RL-100 Slice 1 — fires when the user activates the "Import
    * data…" palette command. App.tsx opens the `import-preview`
    * AppOverlay; the overlay owns the rest of the flow. Optional;
@@ -666,6 +678,8 @@ export function buildCommandPaletteModel({
   latestCapsuleAvailable = false,
   onOpenCapsuleImport,
   onBrowseCapsules,
+  onExportProjectBundle,
+  onImportProjectBundle,
   onOpenImportOverlay,
   onOpenRecipes,
   onNewNotebook,
@@ -879,6 +893,41 @@ export function buildCommandPaletteModel({
             () => {
               onClose();
               onOpenImportOverlay();
+            }
+          ),
+        ]
+      : []),
+    // RL-024 Slice 3 — export the open project as a `.zip` bundle. Same
+    // create path as the FileTree button + `Mod+Alt+E`. Direct action
+    // (no overlay); `onClose` first so the palette dismisses before the
+    // save dialog opens.
+    ...(onExportProjectBundle
+      ? [
+          buildActionCommand(
+            'action-export-project-bundle',
+            translate('commandPalette.action.exportProjectBundle.label'),
+            translate('commandPalette.action.exportProjectBundle.description'),
+            ['export', 'zip', 'bundle', 'project', 'download', 'archive', 'exportar', 'proyecto'],
+            () => {
+              onClose();
+              onExportProjectBundle();
+            }
+          ),
+        ]
+      : []),
+    // RL-024 Slice 3 — open the bundle import overlay. Mirror of the
+    // capsule-import wiring; App.tsx opens the `project-bundle-import`
+    // AppOverlay branch.
+    ...(onImportProjectBundle
+      ? [
+          buildActionCommand(
+            'action-import-project-bundle',
+            translate('commandPalette.action.importProjectBundle.label'),
+            translate('commandPalette.action.importProjectBundle.description'),
+            ['import', 'zip', 'bundle', 'project', 'extract', 'unzip', 'importar', 'proyecto'],
+            () => {
+              onClose();
+              onImportProjectBundle();
             }
           ),
         ]

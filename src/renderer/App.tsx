@@ -15,6 +15,8 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardS
 import { SnippetsModal } from './components/Snippets';
 import { ProjectTemplatesOverlay } from './components/Welcome/ProjectTemplatesOverlay';
 import { CapsuleImportOverlay } from './components/CapsuleImport';
+import { ProjectBundleImportOverlay } from './components/ProjectBundle/ProjectBundleImportOverlay';
+import { useProjectBundle } from './hooks/useProjectBundle';
 import { CapsuleListOverlay } from './components/CapsuleList';
 import {
   claimCapsuleListSurface,
@@ -155,6 +157,10 @@ function AppChrome({
   const { hasCompletedTour, startTour } = useGuidedTour();
   const smokeEnabled = desktopSmokeEnabled();
   const hasHandledDeepLink = useDeepLinks({ openOverlay });
+  // RL-024 Slice 3 — project zip bundle export/import choreography,
+  // shared by the FileTree button, the Mod+Alt+E shortcut, and the
+  // command-palette actions.
+  const { exportProjectBundle } = useProjectBundle();
   const hasRestoredSessionRef = useRef(false);
   const hasHandledWhatsNewRef = useRef(false);
   const hasHandledAutoTourRef = useRef(false);
@@ -449,6 +455,11 @@ function AppChrome({
     // overlay (cURL → HTTP request adapter Slice 1).
     openImportOverlay: () => {
       openOverlay('import-preview');
+    },
+    // RL-024 Slice 3 — Mod+Alt+E exports the active project as a `.zip`
+    // bundle (same path as the FileTree button + palette action).
+    exportProjectBundle: () => {
+      void exportProjectBundle();
     },
     // RL-039 Slice B fold A — Mod+Alt+L opens the global Recipes
     // overlay. Overlay open state lives on `useRecipeStore`, not the
@@ -852,6 +863,8 @@ function AppChrome({
             claimCapsuleListSurface('palette');
             openOverlay('capsule-list');
           }}
+          onExportProjectBundle={() => void exportProjectBundle()}
+          onImportProjectBundle={() => openOverlay('project-bundle-import')}
           onOpenImportOverlay={() => openOverlay('import-preview')}
           onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
           onNewNotebook={() => useEditorStore.getState().addNotebookTab()}
@@ -869,6 +882,9 @@ function AppChrome({
       )}
       {overlay === 'import-preview' && (
         <ImportPreviewOverlay onClose={closeOverlay} />
+      )}
+      {overlay === 'project-bundle-import' && (
+        <ProjectBundleImportOverlay onClose={closeOverlay} />
       )}
       {/* RL-039 Slice B — Recipes overlay. Visibility flag lives on
           `useRecipeStore` (not the AppOverlay union) so the overlay
@@ -889,6 +905,7 @@ function AppChrome({
       {overlay === 'utilities' && (
         <Suspense fallback={null}>
           <DeveloperUtilitiesModal
+            key={selectedUtilityId}
             onClose={closeOverlay}
             initialUtilityId={selectedUtilityId}
           />

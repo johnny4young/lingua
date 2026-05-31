@@ -78,15 +78,6 @@ export interface SqlResultPreviewProps {
    */
   rowDisplayLimit: number;
   /**
-   * Session-scoped list of CREATE TABLE table names (Fold C, legacy).
-   * The schema/table browser in the left rail is now the primary
-   * introspection surface; these two props remain optional for
-   * call-site compatibility and are no longer rendered here.
-   */
-  knownTableNames?: ReadonlyArray<string>;
-  /** Legacy SHOW TABLES probe trigger. Optional; unused here now. */
-  onShowTables?: () => void;
-  /**
    * Whether a query is bound to the surface (an active query exists).
    * Drives the no-result EmptyState CTA — without a query there is
    * nothing to run, so the CTA hides.

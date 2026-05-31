@@ -265,6 +265,17 @@ export const TELEMETRY_EVENTS = [
   // `'palette'` for the command-palette entry). Once-per-mount.
   // Mirrored on update-server with parity test.
   'privacy.dashboard_opened',
+  // RL-024 Slice 3 — project zip bundle export / import / reject.
+  // `project.bundle_exported { status, fileCountBucket }` (status ∈
+  // PROJECT_BUNDLE_EXPORT_STATUSES); `project.bundle_imported
+  // { status, fileCountBucket }` (status ∈ PROJECT_BUNDLE_IMPORT_STATUSES);
+  // `project.bundle_rejected { reason }` (reason ∈ BUNDLE_REJECT_REASONS,
+  // structural archive failures only). `fileCountBucket` reuses
+  // DEPENDENCY_COUNT_BUCKETS_SET. NO file paths, NO names, NO bytes on
+  // the wire — only closed buckets. Mirrored on update-server.
+  'project.bundle_exported',
+  'project.bundle_imported',
+  'project.bundle_rejected',
   // RL-025 Slice A — per-cycle adoption signal for the dependency
   // detection runner. Fires after each completed detect+classify
   // pass. Closed-enum `{ language, countBucket }` where countBucket
@@ -657,6 +668,12 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   'onboarding.toast_clobbered': ['outstandingStage'],
   // RL-096 Slice 1 fold A — `surface` ∈ `PRIVACY_DASHBOARD_SURFACES`.
   'privacy.dashboard_opened': ['surface'],
+  // RL-024 Slice 3 — `status` ∈ PROJECT_BUNDLE_EXPORT_STATUSES /
+  // PROJECT_BUNDLE_IMPORT_STATUSES, `reason` ∈ BUNDLE_REJECT_REASONS,
+  // `fileCountBucket` ∈ DEPENDENCY_COUNT_BUCKETS_SET.
+  'project.bundle_exported': ['status', 'fileCountBucket'],
+  'project.bundle_imported': ['status', 'fileCountBucket'],
+  'project.bundle_rejected': ['reason'],
   // RL-025 Slice A — `language` is the adapter id (any `isSafeToken`
   // string; the set widens with Slice B/C). `countBucket` is a
   // closed-enum bucket from `DEPENDENCY_COUNT_BUCKETS_SET`.
@@ -1145,6 +1162,41 @@ export const DEPENDENCY_COUNT_BUCKETS_SET = new Set([
   '6-10',
   '>10',
 ]);
+// RL-024 Slice 3 — closed enums backing the project zip bundle events.
+// Export funnel: `cancelled` (save dialog dismissed), `empty` (no
+// visible files), `exported` (zip written), `failed` (pack / write
+// error). Import funnel: `cancelled` (folder picker dismissed),
+// `imported` (extracted), `non-empty-dir` (target had files),
+// `rejected` (structural archive failure — the qualitative reason rides
+// the separate `project.bundle_rejected` event). Mirrored on
+// update-server with a parity test.
+export const PROJECT_BUNDLE_EXPORT_STATUSES = new Set([
+  'cancelled',
+  'empty',
+  'exported',
+  'failed',
+]);
+export const PROJECT_BUNDLE_IMPORT_STATUSES = new Set([
+  'cancelled',
+  'imported',
+  'non-empty-dir',
+  'rejected',
+]);
+// Mirror of `BUNDLE_REJECT_REASONS` in `src/shared/projectBundle.ts`,
+// duplicated here (not imported) so this redactor stays a pure module
+// free of the `fflate` import that `projectBundle` pulls in. The parity
+// test in `update-server/test/telemetry.test.ts` cross-imports the
+// canonical tuple to keep both copies aligned.
+export const PROJECT_BUNDLE_REJECT_REASONS = new Set([
+  'empty',
+  'entry-too-large',
+  'malformed-zip',
+  'no-files',
+  'path-traversal',
+  'too-large',
+  'too-many-files',
+  'zip-bomb',
+]);
 // RL-025 Slice B — closed enums backing the install lifecycle events.
 // Canonical home is `src/shared/dependencies/types.ts`; duplicated here
 // for the same reason as `CONSOLE_RICH_KIND_BUCKETS` (this redactor
@@ -1597,6 +1649,24 @@ function isAllowedValue(
       if (key === 'outstandingStage')
         return typeof value === 'string' && ONBOARDING_TOAST_STAGES.has(value);
       return false;
+    case 'project.bundle_exported':
+      if (key === 'status')
+        return typeof value === 'string' && PROJECT_BUNDLE_EXPORT_STATUSES.has(value);
+      if (key === 'fileCountBucket')
+        return typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value);
+      return false;
+    case 'project.bundle_imported':
+      if (key === 'status')
+        return typeof value === 'string' && PROJECT_BUNDLE_IMPORT_STATUSES.has(value);
+      if (key === 'fileCountBucket')
+        return typeof value === 'string' && DEPENDENCY_COUNT_BUCKETS_SET.has(value);
+      return false;
+    case 'project.bundle_rejected':
+      return (
+        key === 'reason' &&
+        typeof value === 'string' &&
+        PROJECT_BUNDLE_REJECT_REASONS.has(value)
+      );
     case 'privacy.dashboard_opened':
       if (key === 'surface')
         return (

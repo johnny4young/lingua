@@ -899,6 +899,51 @@ interface LinguaAPI {
      */
     revealInFinder: (rootId: string, relativePath: string) => Promise<boolean>;
     /**
+     * RL-024 Slice 3 — pack every visible file under the capability
+     * root into a `.zip` bundle (with a `lingua-bundle.json` manifest)
+     * and write it to a user-chosen path. Desktop-only; the web stub
+     * resolves `{ ok: false, reason: 'write-failed' }` since the web
+     * export goes through a Blob download instead. `opts.entryFile` /
+     * `opts.languageHint` are stamped into the manifest so a re-import
+     * can restore the active tab + language.
+     */
+    exportBundle: (
+      rootId: string,
+      opts?: { entryFile?: string; languageHint?: string }
+    ) => Promise<
+      | { ok: true; fileCount: number; byteLength: number }
+      | { canceled: true }
+      | { ok: false; reason: 'empty' | 'too-many-files' | 'write-failed' }
+    >;
+    /**
+     * RL-024 Slice 3 — extract a `.zip` bundle (raw bytes from the
+     * renderer) into a user-chosen empty folder, after authoritative
+     * zip-slip / zip-bomb / cap re-validation in main. Returns the new
+     * root path so the renderer adopts it via `openProject(rootPath)`.
+     * The reject `reason` is a closed enum mirroring
+     * `BUNDLE_REJECT_REASONS` plus the two write-time outcomes.
+     */
+    importBundle: (
+      zipBytes: Uint8Array
+    ) => Promise<
+      | { ok: true; rootPath: string; fileCount: number; entryFile?: string }
+      | { canceled: true }
+      | {
+          ok: false;
+          reason:
+            | 'empty'
+            | 'entry-too-large'
+            | 'malformed-zip'
+            | 'no-files'
+            | 'path-traversal'
+            | 'too-large'
+            | 'too-many-files'
+            | 'zip-bomb'
+            | 'non-empty-dir'
+            | 'write-failed';
+        }
+    >;
+    /**
      * RL-087 — returns either the `watchId` string on success or a
      * tagged-union `{ ok: false, diagnostic }` shape when fs.watch
      * registration fails (EACCES, EMFILE, ENOSPC, ENOENT). Callers

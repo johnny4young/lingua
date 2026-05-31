@@ -517,6 +517,69 @@ describe('fold C — allowlist parity vs src/shared/telemetry.ts', () => {
     ]);
   });
 
+  it('PROJECT_BUNDLE_* enums stay in sync across worker, shared, and projectBundle (RL-024 Slice 3)', async () => {
+    // 3-way closed-enum parity for the project zip bundle events. The
+    // status enums live in worker + shared telemetry; the reject-reason
+    // enum additionally mirrors the canonical `BUNDLE_REJECT_REASONS`
+    // tuple in `src/shared/projectBundle.ts`. Source-regex (not import)
+    // so the worker test never pulls fflate.
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const workerSource = await fs.readFile(
+      path.resolve(process.cwd(), 'src/telemetry.ts'),
+      'utf-8'
+    );
+    const sharedSource = await fs.readFile(
+      path.resolve(process.cwd(), '..', 'src/shared/telemetry.ts'),
+      'utf-8'
+    );
+    const bundleSource = await fs.readFile(
+      path.resolve(process.cwd(), '..', 'src/shared/projectBundle.ts'),
+      'utf-8'
+    );
+    const extractSet = (source: string, name: string): string[] => {
+      const match = source.match(
+        new RegExp(`${name}\\s*=\\s*new\\s+Set\\(\\s*\\[([^\\]]+)\\]`, 'u')
+      );
+      expect(match, `${name} Set literal not found`).not.toBeNull();
+      return [...(match![1] ?? '').matchAll(/'([^']+)'/gu)]
+        .map((m) => m[1]!)
+        .sort();
+    };
+
+    for (const name of [
+      'PROJECT_BUNDLE_EXPORT_STATUSES',
+      'PROJECT_BUNDLE_IMPORT_STATUSES',
+      'PROJECT_BUNDLE_REJECT_REASONS',
+    ]) {
+      expect(extractSet(workerSource, name)).toEqual(extractSet(sharedSource, name));
+    }
+    expect(extractSet(workerSource, 'PROJECT_BUNDLE_EXPORT_STATUSES')).toEqual([
+      'cancelled',
+      'empty',
+      'exported',
+      'failed',
+    ]);
+    expect(extractSet(workerSource, 'PROJECT_BUNDLE_IMPORT_STATUSES')).toEqual([
+      'cancelled',
+      'imported',
+      'non-empty-dir',
+      'rejected',
+    ]);
+    // The reject-reason enum mirrors the canonical const tuple
+    // `BUNDLE_REJECT_REASONS = [ ... ] as const` in projectBundle.ts.
+    const bundleTupleMatch = bundleSource.match(
+      /BUNDLE_REJECT_REASONS\s*=\s*\[([^\]]+)\]\s*as\s+const/u
+    );
+    expect(bundleTupleMatch, 'BUNDLE_REJECT_REASONS tuple not found').not.toBeNull();
+    const canonical = [...(bundleTupleMatch![1] ?? '').matchAll(/'([^']+)'/gu)]
+      .map((m) => m[1]!)
+      .sort();
+    expect(extractSet(workerSource, 'PROJECT_BUNDLE_REJECT_REASONS')).toEqual(
+      canonical
+    );
+  });
+
   it('CAPSULE_BROWSE_SURFACES stays in sync with the renderer enum (RL-094 Slice 3 fold G)', async () => {
     // Closed-enum parity for the `capsule.browse_opened.surface` field.
     const fs = await import('node:fs/promises');

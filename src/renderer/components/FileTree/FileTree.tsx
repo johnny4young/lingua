@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ChevronsDownUp,
+  FileArchive,
   FolderOpen,
   FolderPlus,
   FilePlus,
@@ -14,6 +15,7 @@ import { countFiles } from '../../stores/projectTree';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
 import { joinAbsolute, smartTruncatePath } from '../../utils/filePath';
 import { useDirtyTabPaths, dirtyTabKey } from '../../hooks/useDirtyTabPaths';
+import { useProjectBundle } from '../../hooks/useProjectBundle';
 import { IconButton } from '../ui/chrome';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
@@ -65,6 +67,8 @@ export function FileTree({ onNavigate }: FileTreeProps) {
   const collapseAllDirectories = useProjectStore(
     (state) => state.collapseAllDirectories
   );
+  // RL-024 Slice 3 — export the open project as a `.zip` bundle.
+  const { exportProjectBundle } = useProjectBundle();
 
   const [creating, setCreating] = useState<CreationTarget>(null);
 
@@ -226,6 +230,13 @@ export function FileTree({ onNavigate }: FileTreeProps) {
             tooltip={t('fileTree.actions.refresh')}
           >
             <RefreshCw size={13} />
+          </IconButton>
+          <IconButton
+            onClick={() => void exportProjectBundle()}
+            tooltip={t('fileTree.actions.exportProject')}
+            aria-label={t('fileTree.actions.exportProject')}
+          >
+            <FileArchive size={13} />
           </IconButton>
         </div>
       </div>

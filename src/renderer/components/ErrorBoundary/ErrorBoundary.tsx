@@ -24,10 +24,7 @@ import { Btn, Eyebrow } from '../ui/primitives';
  * production logs to keep the boundary side-effect-free.
  *
  * The component is a class because React requires class components
- * for `componentDidCatch` / `getDerivedStateFromError`. It exports a
- * function helper `withErrorBoundary` for the common "wrap a single
- * component" use case so callers don't need to deal with the class
- * shape.
+ * for `componentDidCatch` / `getDerivedStateFromError`.
  */
 
 export type ErrorBoundaryScope = 'panel' | 'app';
@@ -160,20 +157,4 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       </div>
     );
   }
-}
-
-/**
- * Convenience wrapper for "wrap one component in a panel-scoped
- * boundary". Use as `withErrorBoundary(<MyComponent />, 'Console')`.
- */
-export function withErrorBoundary(
-  children: ReactNode,
-  regionName?: string,
-  scope: ErrorBoundaryScope = 'panel'
-): ReactNode {
-  return (
-    <ErrorBoundary scope={scope} regionName={regionName}>
-      {children}
-    </ErrorBoundary>
-  );
 }

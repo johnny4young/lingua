@@ -45,7 +45,12 @@ export type AppOverlay =
   // adapter Slice 1; `.ipynb` Slice 2; Bruno/Postman Slice 3).
   // Opened via Mod+Alt+I and command palette
   // `action-open-import-overlay`.
-  | 'import-preview';
+  | 'import-preview'
+  // RL-024 Slice 3 — project zip bundle import overlay (drop / pick a
+  // `.zip`, preview, extract into a new folder). Opened via command
+  // palette `action-import-project-bundle`; export is a direct action
+  // (Mod+Alt+E / FileTree button), not an overlay.
+  | 'project-bundle-import';
 
 interface UseGlobalShortcutsOptions {
   isRunning: boolean;
@@ -87,6 +92,12 @@ interface UseGlobalShortcutsOptions {
    * Mod+Alt+I. Caller wires this to `openOverlay('import-preview')`.
    */
   openImportOverlay: () => void;
+  /**
+   * RL-024 Slice 3 — export the active project as a `.zip` bundle.
+   * Bound to Mod+Alt+E (`action-export-project-bundle`); a direct
+   * action, not an overlay open.
+   */
+  exportProjectBundle: () => void;
   /**
    * RL-039 Slice B fold A — open the global Recipes overlay via
    * Mod+Alt+L. Caller wires this to
@@ -254,6 +265,7 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'workspace-toggle-sql': () => options.toggleSqlWorkspace(),
     'action-open-utility-pipelines': () => options.openUtilityPipelines(),
     'action-open-import-overlay': () => options.openImportOverlay(),
+    'action-export-project-bundle': () => options.exportProjectBundle(),
     'action-open-recipes': () => options.openRecipesOverlay(),
     'action-new-notebook': () => options.openNewNotebook(),
     'overlay-command-palette': () => options.toggleOverlay('palette'),

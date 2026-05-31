@@ -46,7 +46,6 @@ export function RunStatusPill() {
   useEffect(() => {
     if (!showCountdown || runDeadlineAt === null) return;
     const handle = setInterval(() => setNow(Date.now()), 1_000);
-    setNow(Date.now());
     return () => clearInterval(handle);
   }, [showCountdown, runDeadlineAt]);
 
