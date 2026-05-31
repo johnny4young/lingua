@@ -11,6 +11,20 @@ const COPY_ATTRIBUTES = new Set(['title', 'aria-label', 'placeholder', 'alt', 'l
 const SKIPPED_TAGS = new Set(['Kbd', 'code', 'pre']);
 const ALLOWED_LITERALS = new Set(['Lingua']);
 
+// Dev-only surfaces that carry no user-facing copy to translate.
+// `src/renderer/devShowcase/**` is the Signal-Slate recipe gallery: it
+// is dynamically imported only when the URL carries `?lingua-showcase`,
+// so it code-splits into a lazy chunk that loads behind that param and
+// is never reached in normal use (it is reviewed against the prod
+// `preview:web` build). The "no hardcoded copy" rule guards shippable
+// product copy, not internal demo scaffolding — mirroring the eslint
+// `ignores` precedent for `dist/`, `out/`, and friends.
+const EXCLUDED_PATH_SEGMENTS = [`${path.sep}src${path.sep}renderer${path.sep}devShowcase${path.sep}`];
+
+function isExcludedPath(filePath) {
+  return EXCLUDED_PATH_SEGMENTS.some((segment) => filePath.includes(segment));
+}
+
 function normalizeText(value) {
   return value.replace(/\s+/gu, ' ').trim();
 }
@@ -156,7 +170,10 @@ async function listTouchedRendererFiles(args) {
 
 export async function checkRendererCopy(fileArgs = []) {
   const files = (await listTouchedRendererFiles(fileArgs)).filter(
-    (filePath) => filePath.includes(`${path.sep}src${path.sep}renderer${path.sep}`) && /\.(ts|tsx)$/u.test(filePath)
+    (filePath) =>
+      filePath.includes(`${path.sep}src${path.sep}renderer${path.sep}`) &&
+      /\.(ts|tsx)$/u.test(filePath) &&
+      !isExcludedPath(filePath)
   );
 
   const violations = [];

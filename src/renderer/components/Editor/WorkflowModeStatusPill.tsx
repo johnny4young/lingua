@@ -4,6 +4,7 @@ import {
   defaultWorkflowMode,
   type WorkflowMode,
 } from '../../../shared/workflowMode';
+import { StatusBadge } from '../ui/StatusBadge';
 
 /**
  * RL-020 Slice 2 fold B — ambient pill that mirrors the active tab's
@@ -37,14 +38,18 @@ export function WorkflowModeStatusPill() {
   const mode: WorkflowMode =
     activeTab.workflowMode ?? defaultWorkflowMode(activeTab.language);
 
+  // FASE 2b (MOV.05) — the ambient mode mirror is intentionally
+  // low-contrast and non-warning, so it maps to the `neutral` tone of
+  // the shared StatusBadge. The wrapper keeps the data-* hooks and the
+  // tooltip the rest of the result-panel header relies on.
   return (
     <span
       data-testid="workflow-mode-status-pill"
       data-workflow-mode={mode}
       title={t('workflowMode.toggle.description')}
-      className="status-pill border-border/40 bg-surface-strong/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-muted"
+      className="inline-flex"
     >
-      {t(MODE_LABEL_KEY[mode])}
+      <StatusBadge tone="neutral">{t(MODE_LABEL_KEY[mode])}</StatusBadge>
     </span>
   );
 }

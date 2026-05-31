@@ -6,7 +6,6 @@ import type {
 import {
   ChevronDown,
   ChevronRight,
-  FileCode,
   FilePlus,
   Folder,
   FolderOpen,
@@ -15,9 +14,10 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProjectStore, type FileTreeNode as ProjectFileTreeNode } from '../../stores/projectStore';
+import { PLAINTEXT_LANGUAGE } from '../../utils/language';
 import {
+  languageBadgeTone,
   languageCapabilityBadgeKey,
-  languageTextColorClass,
 } from '../../utils/languageMeta';
 import { Tooltip } from '../ui/chrome';
 import { dirtyTabKey } from '../../hooks/useDirtyTabPaths';
@@ -37,6 +37,14 @@ interface FileTreeNodeProps {
    * (tests, storybook) that don't need the dirty-dot affordance.
    */
   dirtyTabPaths?: ReadonlySet<string>;
+  /**
+   * FASE 4 — `rootId::relativePath` key of the file backing the active
+   * editor tab, or null when the active tab is not a project file.
+   * Lifted to the tree root (like `dirtyTabPaths`) so the active-row
+   * accent lights up the matching node without a per-node subscription
+   * to `editorStore.activeTabId`.
+   */
+  activeFileKey?: string | null;
   onCreateConfirm: (value: string) => void;
   onCancelCreate: () => void;
   onFileClick: (node: ProjectFileTreeNode) => void;
@@ -52,6 +60,7 @@ export function FileTreeNode({
   depth,
   creating,
   dirtyTabPaths = EMPTY_DIRTY_SET,
+  activeFileKey = null,
   onCreateConfirm,
   onCancelCreate,
   onFileClick,
@@ -65,7 +74,16 @@ export function FileTreeNode({
   const [contextMenu, setContextMenu] = useState<
     { top: number; left: number } | null
   >(null);
-  const { expandDirectory, collapseDirectory, renameEntry } = useProjectStore();
+  // PERF-001 — select each action individually. The previous
+  // store-wide `useProjectStore()` destructure subscribed every node to
+  // the whole project store, so any `nodes` mutation (expand / collapse
+  // / create / delete) re-rendered the entire recursive tree. Zustand
+  // actions are stable references, so selecting them this way never
+  // triggers a re-render; only the explicit `currentProject` selector
+  // below drives node updates.
+  const expandDirectory = useProjectStore((state) => state.expandDirectory);
+  const collapseDirectory = useProjectStore((state) => state.collapseDirectory);
+  const renameEntry = useProjectStore((state) => state.renameEntry);
   const currentProject = useProjectStore((state) => state.currentProject);
   // RL-024 Slice 1 fold A — only surface the "Reveal in Finder"
   // menu item on the desktop build. The web FSA wrapper resolves
@@ -80,6 +98,16 @@ export function FileTreeNode({
     !node.isDirectory &&
     currentProject !== null &&
     dirtyTabPaths.has(dirtyTabKey(currentProject.rootId, node.path));
+
+  // FASE 4 — proto active-row accent. A file row lights up
+  // (accent-soft bg + 2px accent left border) when it backs the active
+  // editor tab, matched by the same `rootId::relativePath` key used for
+  // the dirty dot. Directories never carry the active accent.
+  const isActiveFile =
+    !node.isDirectory &&
+    currentProject !== null &&
+    activeFileKey !== null &&
+    activeFileKey === dirtyTabKey(currentProject.rootId, node.path);
 
   const indent = depth * 12;
 
@@ -163,8 +191,13 @@ export function FileTreeNode({
   return (
     <div>
       <div
-        className={`group flex items-center gap-1 rounded-xl px-1.5 py-1 text-xs transition-colors ${
-          hovered ? 'bg-surface-strong/78' : 'hover:bg-surface-strong/58'
+        data-active={isActiveFile ? 'true' : undefined}
+        className={`group flex items-center gap-1 rounded-xl border-l-2 px-1.5 py-1 text-xs transition-colors ${
+          isActiveFile
+            ? 'border-primary bg-primary-soft'
+            : hovered
+              ? 'border-transparent bg-surface-strong/78'
+              : 'border-transparent hover:bg-surface-strong/58'
         }`}
         style={{ paddingLeft: `${indent + 4}px` }}
         onMouseEnter={() => setHovered(true)}
@@ -206,10 +239,7 @@ export function FileTreeNode({
             )}
           </button>
         ) : (
-          <FileCode
-            size={13}
-            className={languageTextColorClass(node.language ?? 'javascript')}
-          />
+          <FileTreeGlyph language={node.language ?? PLAINTEXT_LANGUAGE} />
         )}
 
         {renaming ? (
@@ -221,7 +251,9 @@ export function FileTreeNode({
         ) : (
           <Tooltip content={node.path}>
             <button
-              className="flex-1 truncate text-left text-foreground/88 hover:text-foreground"
+              className={`flex-1 truncate text-left hover:text-foreground ${
+                isActiveFile ? 'text-foreground' : 'text-foreground/88'
+              }`}
               onClick={() => (node.isDirectory ? handleToggle() : onFileClick(node))}
               onDoubleClick={() => setRenaming(true)}
               onKeyDown={handleNameKeyDown}
@@ -316,6 +348,7 @@ export function FileTreeNode({
               depth={depth + 1}
               creating={creating}
               dirtyTabPaths={dirtyTabPaths}
+              activeFileKey={activeFileKey}
               onCreateConfirm={onCreateConfirm}
               onCancelCreate={onCancelCreate}
               onFileClick={onFileClick}
@@ -344,5 +377,32 @@ export function FileTreeNode({
         />
       )}
     </div>
+  );
+}
+
+/**
+ * FASE 4 — colored filled mono glyph badge for a file row (proto lines
+ * 59-60), replacing the former monochrome `FileCode` icon. Renders the
+ * `languageBadgeTone` triple via inline `style` — the same token-backed
+ * tone object `EditorTabs`, `FloatingActionPill`, and the open-tabs
+ * foot consume, so no hardcoded color lives in this file.
+ */
+function FileTreeGlyph({ language }: { language: ProjectFileTreeNode['language'] }) {
+  const tone = languageBadgeTone(language ?? PLAINTEXT_LANGUAGE);
+  return (
+    <span
+      aria-hidden
+      className="inline-flex shrink-0 items-center justify-center rounded-[3px] font-mono text-[8px] font-bold uppercase leading-none"
+      style={{
+        minWidth: 16,
+        height: 16,
+        padding: '0 3px',
+        letterSpacing: '0.04em',
+        background: tone.background,
+        color: tone.foreground,
+      }}
+    >
+      {tone.code}
+    </span>
   );
 }

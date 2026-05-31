@@ -62,17 +62,18 @@ interface UseGlobalShortcutsOptions {
   openDeveloperUtilities: () => void;
   closeOverlay: () => void;
   /**
-   * RL-097 Slice 1 — toggle the HTTP workspace bottom-panel tab via
-   * Mod+Shift+K. Toggle (not just open) so a second press hides it.
-   * Caller wires this to `useUIStore.openBottomPanel('http')` /
-   * `setActiveBottomPanel('console')` per the surface convention.
+   * RL-097 Slice 1 → MOV.02 (FASE 3) — open or focus the full-screen
+   * HTTP workspace tab via Mod+Shift+K. The HTTP dock panel was
+   * removed; the workspace is now a `FileTab`. Caller wires this to
+   * `openHttpWorkspaceTab()`. The legacy `toggle*` name is kept so
+   * the shortcut id + binding stay stable, but there is no toggle-off
+   * — a full-screen tab is closed via the tab strip.
    */
   toggleHttpWorkspace: () => void;
   /**
-   * RL-097 Slice 2 — toggle the SQL workspace bottom-panel tab via
-   * Mod+Alt+S. Mirror of `toggleHttpWorkspace`. Caller wires this
-   * to `useUIStore.openBottomPanel('sql')` /
-   * `setActiveBottomPanel('console')`.
+   * RL-097 Slice 2 → MOV.02 (FASE 3) — open or focus the full-screen
+   * SQL workspace tab via Mod+Alt+S. Mirror of `toggleHttpWorkspace`;
+   * caller wires this to `openSqlWorkspaceTab()`.
    */
   toggleSqlWorkspace: () => void;
   /**
@@ -244,11 +245,12 @@ function buildActionMap(options: UseGlobalShortcutsOptions): Record<string, Shor
     'nav-go-to-symbol': () => options.toggleOverlay('go-to-symbol'),
     'nav-project-search': () => options.toggleOverlay('search'),
     'nav-project-replace': () => options.toggleOverlay('replace'),
-    // RL-097 Slice 1 — Toggle the HTTP workspace bottom-panel tab.
-    // Mod+Shift+K shortcut delegates to a dedicated option callback
-    // so the App.tsx wiring can flip the active bottom-panel + show
-    // it without re-implementing the openBottomPanel choreography.
+    // RL-097 Slice 1 → MOV.02 — open or focus the full-screen HTTP
+    // workspace tab. Mod+Shift+K delegates to the App wiring so the
+    // workspace tab remains a normal editor-tab surface.
     'workspace-toggle-http': () => options.toggleHttpWorkspace(),
+    // RL-097 Slice 2 → MOV.02 — mirror for the full-screen SQL
+    // workspace tab via Mod+Alt+S.
     'workspace-toggle-sql': () => options.toggleSqlWorkspace(),
     'action-open-utility-pipelines': () => options.openUtilityPipelines(),
     'action-open-import-overlay': () => options.openImportOverlay(),

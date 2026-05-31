@@ -72,6 +72,7 @@ import { languageHasRuntimeModes } from '../../../shared/runtimeModes';
 import type { WorkflowMode } from '../../../shared/workflowMode';
 import {
   executionModeForLanguage,
+  languageCapabilityBadgeKey,
   languageBadgeTone,
   languageLabel,
   languageSupportsDebugger,
@@ -99,6 +100,13 @@ function LanguageChip({
 }) {
   const meta = languageBadgeTone(language);
   const dimension = size === 'menu' ? 22 : 18;
+  // Most badge codes are 2–3 glyphs (JS, TS, GO, PY, SQL). A 4-glyph
+  // code (e.g. HTTP) overflows the fixed square at the base 9px size,
+  // so tighten the type for long codes instead of widening the box —
+  // keeps every chip a uniform square. Length-driven so it covers any
+  // future 4-char code, not just HTTP.
+  const isLongCode = meta.code.length >= 4;
+  const baseFont = size === 'menu' ? 9.5 : 9;
   return (
     <span
       className="inline-flex items-center justify-center font-mono font-bold"
@@ -106,8 +114,8 @@ function LanguageChip({
         width: dimension,
         height: dimension,
         borderRadius: size === 'menu' ? 5 : 4,
-        fontSize: size === 'menu' ? 9.5 : 9,
-        letterSpacing: '0.04em',
+        fontSize: isLongCode ? baseFont - 1.5 : baseFont,
+        letterSpacing: isLongCode ? '0' : '0.04em',
         background: meta.background,
         color: meta.foreground,
       }}
@@ -211,6 +219,14 @@ export function FloatingActionPill({
   const supportsDebug = languageSupportsDebugger(language);
   const supportsRuntimeModes = languageHasRuntimeModes(language);
   const executionMode = executionModeForLanguage(language);
+  const isWebBuild =
+    typeof window !== 'undefined' && window.lingua?.platform === 'web';
+  const languageIsDesktopOnly =
+    languageCapabilityBadgeKey(language) === 'language.capability.desktopOnly';
+  const proLanguageGate =
+    executionMode === 'run' && !isLanguageAllowed(effectiveTier, language);
+  const desktopOnlyGate =
+    !proLanguageGate && isWebBuild && languageIsDesktopOnly && executionMode === 'run';
   const estimatedPillWidth =
     typeof window !== 'undefined' && window.innerWidth >= 1500
       ? FULL_PILL_WIDTH
@@ -262,15 +278,22 @@ export function FloatingActionPill({
 
   const pillRef = useRef<HTMLDivElement | null>(null);
 
-  // Close any open dropdown on outside click.
+  // Close any open dropdown on outside click or Escape.
   useEffect(() => {
     if (!openMenu) return;
     function onClickAway(e: MouseEvent) {
       if (!pillRef.current) return;
       if (!pillRef.current.contains(e.target as Node)) setOpenMenu(null);
     }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpenMenu(null);
+    }
     window.addEventListener('mousedown', onClickAway);
-    return () => window.removeEventListener('mousedown', onClickAway);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onClickAway);
+      window.removeEventListener('keydown', onKeyDown);
+    };
   }, [openMenu]);
 
   // History → last 5 runs (newest right).
@@ -330,7 +353,13 @@ export function FloatingActionPill({
   // auto-create a tab when none exists so the chip always advances
   // the user instead of silently no-op'ing — that's the
   // "click no funciona" report from review.
-  const runDisabled = executionMode === 'view' || isNotebookTab;
+  const runDisabled =
+    executionMode === 'view' || isNotebookTab || desktopOnlyGate || proLanguageGate;
+  const runDisabledTooltip = proLanguageGate
+    ? t('toolbar.run.proOnlyTooltip')
+    : desktopOnlyGate
+      ? t('toolbar.run.desktopOnlyTooltip')
+      : undefined;
   const noActiveTab = tabs.length === 0;
   const ensureTabForLanguage = (lang: Language) => {
     const existing = useEditorStore.getState().tabs.find((tab) => tab.id === activeTabId);
@@ -378,11 +407,22 @@ export function FloatingActionPill({
         <GripVertical size={12} aria-hidden />
       </button>
 
-      {/* 1. Language chip */}
-      <div className="relative">
+      {/* Runtime control — language · runtime · run read as ONE
+          structured segmented group (Signal-Slate RuntimeSelector
+          recipe): a single inset shell (rounded-lg border-border-subtle
+          bg-bg-inset) with hairline `.action-pill-divider` separators
+          between segments and a GREEN run segment at the end. The shell
+          is NOT `overflow-hidden` so the run group's resting glow + the
+          `data-running` run-pulse box-shadow still escape its bounds.
+          The drag handle, meta cluster, command actions, and settings
+          cog stay OUTSIDE this group — they are not part of the runtime
+          control. */}
+      <div className="action-pill-runtime-group inline-flex items-stretch self-stretch rounded-lg border border-border-subtle bg-bg-inset">
+        {/* 1. Language chip */}
+        <div className="relative inline-flex items-stretch">
         <button
           type="button"
-          className="action-pill-segment action-pill-lang"
+          className="action-pill-segment action-pill-lang rounded-l-lg rounded-r-none"
           aria-haspopup="menu"
           aria-expanded={openMenu === 'lang'}
           onClick={() => setOpenMenu(openMenu === 'lang' ? null : 'lang')}
@@ -396,6 +436,9 @@ export function FloatingActionPill({
           <div className="dropdown-rich absolute left-0 top-[calc(100%+0.4rem)] z-50 w-[280px]" role="menu">
             {LANGUAGE_LIST.map((lang) => {
               const isPro = !isLanguageAllowed(effectiveTier, lang);
+              const isDesktopOnly =
+                isWebBuild &&
+                languageCapabilityBadgeKey(lang) === 'language.capability.desktopOnly';
               return (
                 <button
                   key={lang}
@@ -408,6 +451,8 @@ export function FloatingActionPill({
                   <span className="row-label self-center">{languageLabel(lang)}</span>
                   {isPro ? (
                     <MonoBadge tone="accent">{t('actionPill.badgePro')}</MonoBadge>
+                  ) : isDesktopOnly ? (
+                    <MonoBadge tone="accent">{t('language.capability.desktopOnly')}</MonoBadge>
                   ) : (
                     <span />
                   )}
@@ -464,7 +509,7 @@ export function FloatingActionPill({
           <div className="relative">
             <button
               type="button"
-              className="action-pill-segment"
+              className="action-pill-segment rounded-none"
               aria-haspopup="menu"
               aria-expanded={openMenu === 'runtime'}
               onClick={() => setOpenMenu(openMenu === 'runtime' ? null : 'runtime')}
@@ -505,6 +550,7 @@ export function FloatingActionPill({
                       type="button"
                       role="menuitem"
                       className="dropdown-rich-row w-full"
+                      data-testid={`action-pill-runtime-option-${item.k}`}
                       data-active={isActive ? 'true' : 'false'}
                       onClick={() => {
                         setOpenMenu(null);
@@ -562,7 +608,8 @@ export function FloatingActionPill({
           data-workflow={currentWorkflow}
           data-testid="action-pill-run"
           aria-label={workflowChip.label}
-          className="action-pill-run action-pill-run-main"
+          title={runDisabledTooltip}
+          className="action-pill-run action-pill-run-main rounded-l-none"
         >
           {isInitializing || isRunning ? (
             <Loader2 size={11} className="animate-spin" aria-hidden />
@@ -578,7 +625,8 @@ export function FloatingActionPill({
           aria-expanded={openMenu === 'run'}
           aria-label={t('actionPill.workflowMenu')}
           data-workflow={currentWorkflow}
-          className="action-pill-run action-pill-run-menu"
+          data-testid="action-pill-run-menu"
+          className="action-pill-run action-pill-run-menu rounded-r-lg"
           onClick={() => setOpenMenu(openMenu === 'run' ? null : 'run')}
         >
           <ChevronDown size={11} aria-hidden />
@@ -593,7 +641,7 @@ export function FloatingActionPill({
                   label: t('actionPill.run'),
                   desc: t('actionPill.workflow.run'),
                   kbd: '⌘⏎',
-                  disabled: isNotebookTab,
+                  disabled: runDisabled,
                   fire: () => void run(),
                 },
                 {
@@ -602,7 +650,7 @@ export function FloatingActionPill({
                   label: t('toolbar.debug.label'),
                   desc: t('actionPill.workflow.debug'),
                   kbd: '⌥⏎',
-                  disabled: isNotebookTab || !supportsDebug || !debuggerEnabled,
+                  disabled: runDisabled || !supportsDebug || !debuggerEnabled,
                   fire: () => void run({ debug: true }),
                 },
                 {
@@ -611,7 +659,7 @@ export function FloatingActionPill({
                   label: t('workflowMode.scratchpad.label'),
                   desc: t('actionPill.workflow.scratchpad'),
                   kbd: null as string | null,
-                  disabled: false,
+                  disabled: isNotebookTab || desktopOnlyGate || proLanguageGate,
                   fire: () => undefined,
                 },
               ] as const
@@ -625,6 +673,7 @@ export function FloatingActionPill({
                   className="dropdown-rich-row w-full disabled:opacity-45 disabled:cursor-not-allowed"
                   data-active={isActive ? 'true' : 'false'}
                   data-workflow={item.k}
+                  data-testid={`action-pill-workflow-option-${item.k}`}
                   disabled={item.disabled}
                   onClick={() => {
                     setOpenMenu(null);
@@ -667,6 +716,8 @@ export function FloatingActionPill({
           </div>
         ) : null}
       </div>
+      </div>
+      {/* end runtime segmented group (language · runtime · run) */}
 
       <span className="action-pill-divider action-pill-meta-divider" />
 
@@ -865,7 +916,7 @@ function RecipesActionPillButton({
             data-testid="action-pill-recipes-badge"
             data-passed-count={passedCount}
             aria-label={t('chrome.recipes.badgeAria', { count: passedCount })}
-            className="absolute -right-1 -top-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full border border-emerald-500/60 bg-emerald-500 px-0.5 text-[8px] font-bold leading-none text-white shadow-sm"
+            className="absolute -right-1 -top-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full border border-success-border bg-success-fg px-0.5 text-[8px] font-bold leading-none text-fg-on-accent shadow-sm"
           >
             {passedCount > 99 ? '99+' : passedCount}
           </span>

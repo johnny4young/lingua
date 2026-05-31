@@ -58,6 +58,13 @@ for (const arg of process.argv.slice(2)) {
 const distDir = path.join(repoRoot, 'dist', 'web');
 const cacheDir = path.join(repoRoot, '.cache', 'playwright-e2e');
 const licenseCachePath = path.join(cacheDir, 'dev-license.json');
+const buildMetadataPath = path.join(cacheDir, 'web-build-metadata.json');
+const distIndexPath = path.join(distDir, 'index.html');
+const e2eBuildMetadata = {
+  cacheVersion: 2,
+  e2eHooks: true,
+  telemetryUrl: 'https://updates.linguacode.dev/telemetry',
+};
 
 function newestMtimeMs(anchorPath) {
   if (!existsSync(anchorPath)) return 0;
@@ -95,8 +102,26 @@ const distIsFresh = (() => {
 })();
 
 let needsRebuild;
+function cachedLicenseMatchesBundle() {
+  if (!existsSync(licenseCachePath) || !existsSync(distIndexPath)) return false;
+  if (!existsSync(buildMetadataPath)) return false;
+  try {
+    // The public key is baked into dist/web during the build. If someone
+    // runs `pnpm run build:web` after this script, dist/web can be newer
+    // than the cached keypair and every primed-Pro e2e case will stay FREE.
+    const metadata = JSON.parse(readFileSync(buildMetadataPath, 'utf8'));
+    return (
+      statSync(licenseCachePath).mtimeMs >= statSync(distIndexPath).mtimeMs &&
+      statSync(buildMetadataPath).mtimeMs >= statSync(distIndexPath).mtimeMs &&
+      JSON.stringify(metadata) === JSON.stringify(e2eBuildMetadata)
+    );
+  } catch {
+    return false;
+  }
+}
+
 if (skipBuild) {
-  if (!existsSync(path.join(distDir, 'index.html'))) {
+  if (!existsSync(distIndexPath)) {
     console.error(
       '[run-playwright-web-validation] --no-rebuild was passed but dist/web/index.html does not exist. Drop the flag for one invocation.'
     );
@@ -104,7 +129,7 @@ if (skipBuild) {
   }
   console.log('[run-playwright-web-validation] --no-rebuild: reusing dist/web');
   needsRebuild = false;
-} else if (buildIfStale && distIsFresh && existsSync(licenseCachePath)) {
+} else if (buildIfStale && distIsFresh && cachedLicenseMatchesBundle()) {
   console.log(
     '[run-playwright-web-validation] dist/web is fresh; skipping build. Use --force-rebuild to override.'
   );
@@ -139,9 +164,6 @@ if (needsRebuild) {
       }
     )
   );
-  mkdirSync(cacheDir, { recursive: true });
-  writeFileSync(licenseCachePath, JSON.stringify(mintedLicense, null, 2));
-
   console.log('[run-playwright-web-validation] building dist/web…');
   execFileSync(
     process.execPath,
@@ -157,9 +179,14 @@ if (needsRebuild) {
       env: {
         ...process.env,
         VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK: mintedLicense.publicKeyJwk,
+        VITE_LINGUA_TELEMETRY_URL: e2eBuildMetadata.telemetryUrl,
+        LINGUA_E2E_HOOKS: '1',
       },
     }
   );
+  mkdirSync(cacheDir, { recursive: true });
+  writeFileSync(licenseCachePath, JSON.stringify(mintedLicense, null, 2));
+  writeFileSync(buildMetadataPath, JSON.stringify(e2eBuildMetadata, null, 2));
 } else {
   console.log(
     '[run-playwright-web-validation] reusing cached keypair + bundle (token validates against baked-in public key).'

@@ -1,11 +1,18 @@
 import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { loadEnv } from 'vite';
 import {
   WEB_DEV_PRO_PORT,
   buildViteDevServerEnv,
   buildViteDevServerArgs,
   resolveVitePort,
 } from '../../scripts/dev-web-pro.mjs';
+// @ts-expect-error — JS helper without bundled types; only used in tests.
+import { mintDevLicense } from '../../scripts/dev-license-shared.mjs';
+import { verifyLicenseToken } from '../../src/shared/license';
 
 /**
  * Smoke tests for `scripts/dev-web-pro.mjs`.
@@ -85,6 +92,65 @@ describe('scripts/dev-web-pro.mjs', () => {
     expect(resolveVitePort(['--port', '5180'])).toBe('5180');
     expect(resolveVitePort(['--port=5181'])).toBe('5181');
     expect(resolveVitePort(['--port', '5180', '--port=5182'])).toBe('5182');
+  });
+
+  /**
+   * The end-to-end guard for the documented `dev:web:pro` flow: a token
+   * minted by the throwaway dev keypair MUST verify against the public key
+   * that Vite actually resolves into the bundle. The repo-root `.env`
+   * independently defines `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` as a
+   * dotenv-expand alias of the PRODUCTION key, so the only thing keeping
+   * the flow working is that the dev key injected via `process.env`
+   * (through `buildViteDevServerEnv`) wins inside Vite's `loadEnv`. If a
+   * Vite upgrade ever flipped that precedence, every pasted dev token
+   * would fail `invalid-signature` — this test fails first. Reproduced
+   * hermetically (the real `.env` is gitignored, absent in CI).
+   */
+  it('mint -> inject public key -> verify: the injected dev key wins over a .env production-key alias and the token verifies', async () => {
+    const minted = (await mintDevLicense({ tier: 'pro', days: 7, issuedTo: 'roundtrip@local' })) as {
+      publicKeyJwk: string;
+      token: string;
+    };
+
+    const envDir = mkdtempSync(path.join(os.tmpdir(), 'lingua-devwebpro-env-'));
+    writeFileSync(
+      path.join(envDir, '.env'),
+      [
+        // Mirror the repo-root .env: a production public key plus a
+        // VITE_* alias resolved by dotenv-expand.
+        `LINGUA_LICENSE_PUBLIC_KEY_JWK='{"kty":"OKP","crv":"Ed25519","x":"PRODUCTIONkeyPRODUCTIONkeyPRODUCTIONkeyXYZ"}'`,
+        `VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK='$LINGUA_LICENSE_PUBLIC_KEY_JWK'`,
+        `VITE_LINGUA_LICENSE_SERVER_URL=''`,
+        '',
+      ].join('\n')
+    );
+
+    // Replicate exactly what dev-web-pro.mjs hands the spawned Vite child.
+    const childEnv = buildViteDevServerEnv(minted.publicKeyJwk, { ...process.env });
+    const savedEnv = { ...process.env };
+    try {
+      for (const key of Object.keys(process.env)) delete process.env[key];
+      Object.assign(process.env, childEnv);
+
+      const env = loadEnv('development', envDir, 'VITE_');
+
+      // The injected dev key — not the .env production alias — must reach
+      // the bundle, and the server URL must be forced empty (local-verify).
+      expect(env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK).toBe(minted.publicKeyJwk);
+      expect(env.VITE_LINGUA_LICENSE_SERVER_URL).toBe('');
+
+      const publicKey = JSON.parse(env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK) as JsonWebKey;
+      const result = await verifyLicenseToken(minted.token, publicKey);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.payload.tier).toBe('pro');
+        expect(result.state).toBe('active');
+      }
+    } finally {
+      for (const key of Object.keys(process.env)) delete process.env[key];
+      Object.assign(process.env, savedEnv);
+      rmSync(envDir, { recursive: true, force: true });
+    }
   });
 });
 

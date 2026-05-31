@@ -7,7 +7,8 @@ import { changeAppLanguage } from '../../i18n';
 import type { AppLanguage } from '../../types';
 import { trackEvent } from '../../utils/telemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
-import { Row, Section, Select } from './shared';
+import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
+import { Select } from './shared';
 
 const APP_THEMES = [
   {
@@ -15,14 +16,12 @@ const APP_THEMES = [
     labelKey: 'appearance.theme.dark.label',
     descriptionKey: 'appearance.theme.dark.description',
     icon: MoonStar,
-    previewClass: 'from-[#10141c] via-[#1b2130] to-[#11161f]',
   },
   {
     id: 'light' as const,
     labelKey: 'appearance.theme.light.label',
     descriptionKey: 'appearance.theme.light.description',
     icon: SunMedium,
-    previewClass: 'from-[#f6f1e9] via-[#fbf7f1] to-[#ece5da]',
   },
 ];
 
@@ -67,28 +66,50 @@ export function AppearanceSection() {
   };
 
   return (
-    <Section
-      title={t('appearance.title')}
-      description={t('appearance.description')}
-    >
-      <Row
-        label={t('settings.themePack.label')}
-        hint={t(activePack.descriptionKey)}
-      >
-        <Select
-          value={themePack}
-          onChange={(event) => handleThemePackChange(event.currentTarget.value)}
-          data-testid="theme-pack-select"
-        >
-          {THEME_PACKS.map((pack) => (
-            <option key={pack.id} value={pack.id}>
-              {pack.id === DEFAULT_THEME_PACK_ID || canUseExtendedThemePacks
-                ? t(pack.labelKey)
-                : `${t(pack.labelKey)} · ${t('license.badge.pro')}`}
-            </option>
-          ))}
-        </Select>
-      </Row>
+    <SettingsSection eyebrow={t('appearance.title')} description={t('appearance.description')}>
+      {/*
+       * MOV.04 rhythm — the two field Selects (theme pack + language)
+       * are read-only-shaped metadata rows grouped into ONE SpecCard.
+       * The bespoke theme tile grid below stays a custom selectable card
+       * cluster (proto keeps it custom), so it is NOT a SpecRow.
+       */}
+      <SpecCard>
+        <SpecRow
+          label={t('settings.themePack.label')}
+          description={t(activePack.descriptionKey)}
+          control={
+            <Select
+              value={themePack}
+              onChange={(event) => handleThemePackChange(event.currentTarget.value)}
+              data-testid="theme-pack-select"
+            >
+              {THEME_PACKS.map((pack) => (
+                <option key={pack.id} value={pack.id}>
+                  {pack.id === DEFAULT_THEME_PACK_ID || canUseExtendedThemePacks
+                    ? t(pack.labelKey)
+                    : `${t(pack.labelKey)} · ${t('license.badge.pro')}`}
+                </option>
+              ))}
+            </Select>
+          }
+        />
+        <SpecRow
+          label={t('language.label')}
+          description={t('language.hint')}
+          last
+          control={
+            <Select
+              value={language}
+              onChange={(e) => handleLanguageChange(e.currentTarget.value)}
+              data-testid="app-language-select"
+            >
+              <option value="system">{t('language.system')}</option>
+              <option value="en">{t('language.en')}</option>
+              <option value="es">{t('language.es')}</option>
+            </Select>
+          }
+        />
+      </SpecCard>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {APP_THEMES.map((option) => {
@@ -100,54 +121,31 @@ export function AppearanceSection() {
               key={option.id}
               type="button"
               onClick={() => setTheme(option.id)}
-              className={`rounded-[1.2rem] border p-3.5 text-left transition-all ${
+              className={`rounded-lg border p-4 text-left transition-all ${
                 selected
-                  ? 'border-primary/35 bg-primary-soft shadow-[0_16px_55px_rgba(77,54,156,0.16)]'
-                  : 'border-border/80 bg-background-elevated/72 hover:border-border-strong/90 hover:bg-surface/88'
+                  ? 'border-accent bg-primary-soft'
+                  : 'border-border-subtle bg-bg-inset hover:border-border'
               }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-display text-lg font-semibold tracking-[-0.03em] text-foreground">
-                    {t(option.labelKey)}
-                  </p>
-                  <p className="mt-1.5 text-[13px] leading-5 text-muted">
-                    {t(option.descriptionKey)}
-                  </p>
-                </div>
-                <div
-                  className={`inline-flex h-9 w-9 items-center justify-center rounded-xl ${
-                    selected ? 'bg-primary text-primary-foreground' : 'bg-surface-strong text-muted'
-                  }`}
-                >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[15px] font-semibold text-fg-base">
+                  {t(option.labelKey)}
+                </span>
+                <span className={selected ? 'text-accent' : 'text-fg-subtle'}>
                   <Icon size={16} />
-                </div>
+                </span>
               </div>
-
-              <div
-                className={`mt-3 h-16 rounded-[1rem] border border-white/6 bg-gradient-to-br ${option.previewClass} p-2.5`}
-              >
-                <div className="flex h-full gap-2">
-                  <div className="w-[28%] rounded-[0.9rem] border border-white/10 bg-black/10" />
-                  <div className="flex-1 rounded-[0.9rem] border border-white/10 bg-black/6" />
-                </div>
+              <p className="mt-1.5 text-[12px] leading-5 text-fg-subtle">
+                {t(option.descriptionKey)}
+              </p>
+              <div className="mt-3 flex gap-2">
+                <span className="h-[26px] w-[70px] shrink-0 rounded-md bg-bg-panel-alt" />
+                <span className="h-[26px] flex-1 rounded-md bg-bg-panel" />
               </div>
             </button>
           );
         })}
       </div>
-
-      <Row label={t('language.label')} hint={t('language.hint')}>
-        <Select
-          value={language}
-          onChange={(e) => handleLanguageChange(e.currentTarget.value)}
-          data-testid="app-language-select"
-        >
-          <option value="system">{t('language.system')}</option>
-          <option value="en">{t('language.en')}</option>
-          <option value="es">{t('language.es')}</option>
-        </Select>
-      </Row>
-    </Section>
+    </SettingsSection>
   );
 }

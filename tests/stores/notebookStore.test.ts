@@ -2,20 +2,39 @@
  * RL-043 Slice A — `useNotebookStore` CRUD + rehydrate coverage.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../src/renderer/runners', () => ({
+  runnerManager: {
+    execute: vi.fn(),
+    stop: vi.fn(),
+  },
+}));
+
 import {
   resetNotebookStoreForTests,
   useNotebookStore,
 } from '../../src/renderer/stores/notebookStore';
+import {
+  getNotebookSessionKeys,
+  resetNotebookSessionsForTests,
+  runNotebookCell,
+} from '../../src/renderer/runtime/notebookSession';
+import { runnerManager } from '../../src/renderer/runners';
 import { MAX_CELLS_PER_NOTEBOOK } from '../../src/shared/notebook';
+
+const mockExecute = runnerManager.execute as unknown as ReturnType<typeof vi.fn>;
 
 describe('useNotebookStore CRUD', () => {
   beforeEach(() => {
     resetNotebookStoreForTests();
+    resetNotebookSessionsForTests();
+    mockExecute.mockReset();
     localStorage.clear();
   });
   afterEach(() => {
     resetNotebookStoreForTests();
+    resetNotebookSessionsForTests();
     localStorage.clear();
   });
 
@@ -209,5 +228,243 @@ describe('useNotebookStore CRUD', () => {
     const state = useNotebookStore.getState().notebooks;
     expect(Object.keys(state)).toEqual(['tab-good']);
     expect(state['tab-good']?.cellRunStatus).toEqual({});
+  });
+
+  // ------- Signal-Slate: execution count ----------------------------------
+
+  it('setCellExecutionOrder assigns a monotonic per-tab [N] counter', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-exec');
+    const cells = useNotebookStore.getState().getNotebookForTab('tab-exec')!.cells;
+    const a = cells[0]!.id;
+    const b = cells[1]!.id;
+    expect(useNotebookStore.getState().getCellExecutionOrder('tab-exec', a)).toBeNull();
+    useNotebookStore.getState().setCellExecutionOrder('tab-exec', a);
+    useNotebookStore.getState().setCellExecutionOrder('tab-exec', b);
+    // Re-running cell a earns the NEXT number, not its old one.
+    useNotebookStore.getState().setCellExecutionOrder('tab-exec', a);
+    expect(useNotebookStore.getState().getCellExecutionOrder('tab-exec', b)).toBe(2);
+    expect(useNotebookStore.getState().getCellExecutionOrder('tab-exec', a)).toBe(3);
+  });
+
+  it('setCellExecutionOrder ignores an unknown cell id', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-exec-bad');
+    useNotebookStore.getState().setCellExecutionOrder('tab-exec-bad', 'nope');
+    const cells = useNotebookStore.getState().getNotebookForTab('tab-exec-bad')!.cells;
+    // Counter never advanced — the first real cell still earns [1].
+    useNotebookStore.getState().setCellExecutionOrder('tab-exec-bad', cells[0]!.id);
+    expect(
+      useNotebookStore.getState().getCellExecutionOrder('tab-exec-bad', cells[0]!.id)
+    ).toBe(1);
+  });
+
+  // ------- Signal-Slate: clear outputs ------------------------------------
+
+  it('clearAllOutputs empties every code cell but keeps the cells', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-clear');
+    const codeCell = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-clear')!
+      .cells.find((c) => c.kind === 'code')!;
+    useNotebookStore.getState().setCellOutputs('tab-clear', codeCell.id, [
+      { kind: 'text', text: 'hi', stream: 'stdout' },
+    ]);
+    useNotebookStore.getState().clearAllOutputs('tab-clear');
+    const after = useNotebookStore.getState().getNotebookForTab('tab-clear')!;
+    expect(after.cells).toHaveLength(2);
+    const cleared = after.cells.find((c) => c.id === codeCell.id);
+    if (cleared?.kind === 'code') {
+      expect(cleared.outputs).toEqual([]);
+    } else {
+      throw new Error('expected code cell');
+    }
+  });
+
+  it('clearCellOutput empties a single code cell', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-clear-one');
+    const codeCell = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-clear-one')!
+      .cells.find((c) => c.kind === 'code')!;
+    useNotebookStore.getState().setCellOutputs('tab-clear-one', codeCell.id, [
+      { kind: 'text', text: 'hi', stream: 'stdout' },
+    ]);
+    useNotebookStore.getState().clearCellOutput('tab-clear-one', codeCell.id);
+    const cleared = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-clear-one')!
+      .cells.find((c) => c.id === codeCell.id);
+    if (cleared?.kind === 'code') {
+      expect(cleared.outputs).toEqual([]);
+    } else {
+      throw new Error('expected code cell');
+    }
+  });
+
+  // ------- Signal-Slate: restart session ----------------------------------
+
+  it('restartNotebookSession clears outputs + transient state + disposes the sandbox', async () => {
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: { stdout: ['hi'], stderr: [], sessionDelta: { x: 42 } },
+      stdout: [],
+      stderr: [],
+    });
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-restart');
+    const codeCell = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-restart')!
+      .cells.find((c) => c.kind === 'code')!;
+    // Populate the runtime sandbox + transient store state.
+    await runNotebookCell({
+      tabId: 'tab-restart',
+      language: 'javascript',
+      source: 'const x = 42;',
+    });
+    useNotebookStore.getState().setCellOutputs('tab-restart', codeCell.id, [
+      { kind: 'text', text: 'hi', stream: 'stdout' },
+    ]);
+    useNotebookStore.getState().setCellRunStatus('tab-restart', codeCell.id, 'ok');
+    useNotebookStore.getState().setCellDurationMs('tab-restart', codeCell.id, 5);
+    useNotebookStore.getState().setCellExecutionOrder('tab-restart', codeCell.id);
+    expect(getNotebookSessionKeys('tab-restart')).toContain('x');
+
+    useNotebookStore.getState().restartNotebookSession('tab-restart');
+
+    const slice = useNotebookStore.getState().notebooks['tab-restart']!;
+    const cleared = slice.notebook.cells.find((c) => c.id === codeCell.id);
+    if (cleared?.kind === 'code') {
+      expect(cleared.outputs).toEqual([]);
+    } else {
+      throw new Error('expected code cell');
+    }
+    expect(slice.cellRunStatus).toEqual({});
+    expect(slice.cellDurationMs).toEqual({});
+    expect(slice.cellExecutionOrder).toEqual({});
+    expect(slice.executionCounter).toBe(0);
+    // Sandbox disposal runs via a lazy `import('../runtime/notebookSession')`
+    // (keeps the runner/esbuild-wasm chain out of notebookStore's static
+    // graph), so it settles a few ticks after the synchronous state reset.
+    // Poll until the dynamic import + chained `disposeNotebookSession` land.
+    await vi.waitFor(() => {
+      // Sandbox disposed — `x` from the earlier run is gone.
+      expect(getNotebookSessionKeys('tab-restart')).toEqual([]);
+    });
+  });
+
+  // ------- Signal-Slate: transformCell ------------------------------------
+
+  it('transformCell toggles code → markdown preserving the source text', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-xform');
+    const codeCell = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-xform')!
+      .cells.find((c) => c.kind === 'code')!;
+    const originalSource = codeCell.source;
+    useNotebookStore.getState().transformCell('tab-xform', codeCell.id, 'markdown');
+    const after = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-xform')!
+      .cells.find((c) => c.id === codeCell.id)!;
+    expect(after.kind).toBe('markdown');
+    expect(after.id).toBe(codeCell.id);
+    expect(after.source).toBe(originalSource);
+  });
+
+  it('transformCell toggles markdown → code preserving source + seeding JS', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-xform2');
+    const mdCell = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-xform2')!
+      .cells.find((c) => c.kind === 'markdown')!;
+    const originalSource = mdCell.source;
+    const originalIndex = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-xform2')!
+      .cells.findIndex((c) => c.id === mdCell.id);
+    useNotebookStore.getState().transformCell('tab-xform2', mdCell.id, 'code');
+    const after = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-xform2')!
+      .cells.find((c) => c.id === mdCell.id)!;
+    expect(after.kind).toBe('code');
+    expect(after.source).toBe(originalSource);
+    expect(after.id).toBe(mdCell.id);
+    if (after.kind === 'code') {
+      expect(after.language).toBe('javascript');
+      expect(after.outputs).toEqual([]);
+    }
+    // Position preserved.
+    const afterIndex = useNotebookStore
+      .getState()
+      .getNotebookForTab('tab-xform2')!
+      .cells.findIndex((c) => c.id === mdCell.id);
+    expect(afterIndex).toBe(originalIndex);
+  });
+
+  it('transformCell is a no-op when the kind already matches', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-xform3');
+    const before = useNotebookStore.getState().getNotebookForTab('tab-xform3')!;
+    const mdCell = before.cells.find((c) => c.kind === 'markdown')!;
+    useNotebookStore.getState().transformCell('tab-xform3', mdCell.id, 'markdown');
+    expect(useNotebookStore.getState().getNotebookForTab('tab-xform3')).toBe(
+      before
+    );
+  });
+
+  // ------- Signal-Slate: soft delete + undo --------------------------------
+
+  it('undoDeleteCell re-inserts the last deleted cell at its original index', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-undo');
+    const before = useNotebookStore.getState().getNotebookForTab('tab-undo')!.cells;
+    const target = before[1]!; // the code cell at index 1
+    useNotebookStore.getState().removeCell('tab-undo', target.id);
+    expect(
+      useNotebookStore.getState().getNotebookForTab('tab-undo')!.cells
+    ).toHaveLength(1);
+    useNotebookStore.getState().undoDeleteCell('tab-undo');
+    const after = useNotebookStore.getState().getNotebookForTab('tab-undo')!.cells;
+    expect(after).toHaveLength(2);
+    expect(after[1]?.id).toBe(target.id);
+    expect(after[1]?.source).toBe(target.source);
+    // Active cell follows the restored cell.
+    expect(useNotebookStore.getState().getActiveCellId('tab-undo')).toBe(target.id);
+  });
+
+  it('undoDeleteCell is a one-shot — a second undo restores nothing', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-undo2');
+    const target = useNotebookStore.getState().getNotebookForTab('tab-undo2')!.cells[1]!;
+    useNotebookStore.getState().removeCell('tab-undo2', target.id);
+    useNotebookStore.getState().undoDeleteCell('tab-undo2');
+    const restored = useNotebookStore.getState().getNotebookForTab('tab-undo2')!.cells;
+    // Second undo no-ops (buffer consumed).
+    useNotebookStore.getState().undoDeleteCell('tab-undo2');
+    expect(
+      useNotebookStore.getState().getNotebookForTab('tab-undo2')!.cells
+    ).toHaveLength(restored.length);
+  });
+
+  it('removeCell keeps only the MOST RECENT delete in the undo buffer', () => {
+    const store = useNotebookStore.getState();
+    store.createNotebookForTab('tab-undo3');
+    const cells = useNotebookStore.getState().getNotebookForTab('tab-undo3')!.cells;
+    const first = cells[0]!;
+    const second = cells[1]!;
+    useNotebookStore.getState().removeCell('tab-undo3', first.id);
+    useNotebookStore.getState().removeCell('tab-undo3', second.id);
+    // Only the second delete is restorable.
+    useNotebookStore.getState().undoDeleteCell('tab-undo3');
+    const after = useNotebookStore.getState().getNotebookForTab('tab-undo3')!.cells;
+    expect(after.some((c) => c.id === second.id)).toBe(true);
+    expect(after.some((c) => c.id === first.id)).toBe(false);
   });
 });

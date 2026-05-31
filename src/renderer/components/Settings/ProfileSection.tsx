@@ -31,7 +31,7 @@ import {
 } from '../../../shared/profile/profile';
 import { buildProfile, downloadProfileFile } from '../../utils/profileExport';
 import { applyProfile } from '../../utils/profileImport';
-import { Row, Section } from './shared';
+import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 
 function errorKeyFor(error: ProfileImportError): string {
   switch (error.kind) {
@@ -145,152 +145,160 @@ export function ProfileSection() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  return (
-    <Section title={t('profile.title')} description={t('profile.description')}>
-      <Row label={t('profile.export.button')} hint="">
-        <button
-          type="button"
-          onClick={handleExport}
-          className="button-primary"
-          data-testid="profile-export-button"
-        >
-          <Download size={14} />
-          <span>{t('profile.export.button')}</span>
-        </button>
-      </Row>
+  const importControl = (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json,.json"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void handleFileChange(file);
+        }}
+        className="hidden"
+        data-testid="profile-import-file"
+        aria-label={t('profile.import.fileButton')}
+      />
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        className="button-secondary"
+        data-testid="profile-import-file-button"
+      >
+        <FileUp size={14} />
+        <span>{t('profile.import.fileButton')}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => setShowPaste((value) => !value)}
+        className="button-secondary"
+        aria-expanded={showPaste}
+        aria-controls={pasteToggleId}
+        data-testid="profile-import-paste-toggle"
+      >
+        <span>{t('profile.import.pasteToggle')}</span>
+      </button>
+    </div>
+  );
 
-      <Row label={t('profile.import.label')} hint="">
-        <div className="grid w-full gap-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json,.json"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void handleFileChange(file);
-              }}
-              className="hidden"
-              data-testid="profile-import-file"
-              aria-label={t('profile.import.fileButton')}
-            />
+  return (
+    <SettingsSection eyebrow={t('profile.title')} description={t('profile.description')}>
+      <SpecCard>
+        <SpecRow
+          label={t('profile.export.button')}
+          control={
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="button-secondary"
-              data-testid="profile-import-file-button"
+              onClick={handleExport}
+              className="button-primary"
+              data-testid="profile-export-button"
             >
-              <FileUp size={14} />
-              <span>{t('profile.import.fileButton')}</span>
+              <Download size={14} />
+              <span>{t('profile.export.button')}</span>
             </button>
+          }
+        />
+        <SpecRow
+          label={t('profile.import.label')}
+          control={importControl}
+          last
+        />
+      </SpecCard>
+
+      {showPaste ? (
+        <div id={pasteToggleId} className="grid gap-2">
+          <textarea
+            value={pasted}
+            onChange={(event) => setPasted(event.target.value)}
+            placeholder={t('profile.import.placeholder')}
+            rows={6}
+            className="field-shell font-mono text-xs"
+            data-testid="profile-import-textarea"
+            aria-label={t('profile.import.placeholder')}
+          />
+          <div>
             <button
               type="button"
-              onClick={() => setShowPaste((value) => !value)}
+              onClick={handlePastePreview}
               className="button-secondary"
-              aria-expanded={showPaste}
-              aria-controls={pasteToggleId}
-              data-testid="profile-import-paste-toggle"
+              disabled={!pasted.trim()}
+              data-testid="profile-import-validate"
             >
-              <span>{t('profile.import.pasteToggle')}</span>
+              <span>{t('profile.import.validate')}</span>
             </button>
           </div>
-
-          {showPaste ? (
-            <div id={pasteToggleId} className="grid gap-2">
-              <textarea
-                value={pasted}
-                onChange={(event) => setPasted(event.target.value)}
-                placeholder={t('profile.import.placeholder')}
-                rows={6}
-                className="field-shell font-mono text-xs"
-                data-testid="profile-import-textarea"
-                aria-label={t('profile.import.placeholder')}
-              />
-              <div>
-                <button
-                  type="button"
-                  onClick={handlePastePreview}
-                  className="button-secondary"
-                  disabled={!pasted.trim()}
-                  data-testid="profile-import-validate"
-                >
-                  <span>{t('profile.import.validate')}</span>
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {parsed ? (
-            <div
-              data-testid="profile-import-dry-run"
-              className="grid gap-2 rounded-[1rem] border border-border/80 bg-background-elevated/55 px-3 py-2.5 text-xs leading-5 text-muted"
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground">
-                {t('profile.import.dryRun.title')}
-              </p>
-              <ul className="list-disc pl-4">
-                <li>
-                  {t('profile.import.dryRun.snippets', {
-                    count: parsed.profile.data.snippets.length,
-                  })}
-                </li>
-                <li>
-                  {t('profile.import.dryRun.envVars', {
-                    count: countEnvVars(parsed.profile),
-                  })}
-                </li>
-                <li>
-                  {t('profile.import.dryRun.settingsCount', {
-                    count: countSettings(parsed.profile),
-                  })}
-                </li>
-              </ul>
-
-              <fieldset className="grid gap-1.5">
-                <legend className="text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground">
-                  {t('profile.import.policy.label')}
-                </legend>
-                {(['replace', 'merge', 'preserve'] as const).map((option) => (
-                  <label
-                    key={option}
-                    className="flex items-start gap-2 text-foreground"
-                  >
-                    <input
-                      type="radio"
-                      name={policyName}
-                      value={option}
-                      checked={policy === option}
-                      onChange={() => setPolicy(option)}
-                      className="mt-[3px]"
-                      data-testid={`profile-import-policy-${option}`}
-                    />
-                    <span className="grid">
-                      <span>{t(`profile.import.policy.${option}`)}</span>
-                      {option === 'merge' ? (
-                        <span className="text-[11px] text-muted">
-                          {t('profile.import.policy.merge.hint')}
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
-                ))}
-              </fieldset>
-
-              <div>
-                <button
-                  type="button"
-                  onClick={() => void handleApply()}
-                  className="button-primary"
-                  data-testid="profile-import-apply"
-                >
-                  <Upload size={14} />
-                  <span>{t('profile.import.apply')}</span>
-                </button>
-              </div>
-            </div>
-          ) : null}
         </div>
-      </Row>
-    </Section>
+      ) : null}
+
+      {parsed ? (
+        <div
+          data-testid="profile-import-dry-run"
+          className="grid gap-2 rounded-lg border border-border-subtle bg-bg-inset px-[18px] py-3 text-xs leading-5 text-fg-muted"
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-base">
+            {t('profile.import.dryRun.title')}
+          </p>
+          <ul className="list-disc pl-4">
+            <li>
+              {t('profile.import.dryRun.snippets', {
+                count: parsed.profile.data.snippets.length,
+              })}
+            </li>
+            <li>
+              {t('profile.import.dryRun.envVars', {
+                count: countEnvVars(parsed.profile),
+              })}
+            </li>
+            <li>
+              {t('profile.import.dryRun.settingsCount', {
+                count: countSettings(parsed.profile),
+              })}
+            </li>
+          </ul>
+
+          <fieldset className="grid gap-1.5">
+            <legend className="text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-base">
+              {t('profile.import.policy.label')}
+            </legend>
+            {(['replace', 'merge', 'preserve'] as const).map((option) => (
+              <label
+                key={option}
+                className="flex items-start gap-2 text-fg-base"
+              >
+                <input
+                  type="radio"
+                  name={policyName}
+                  value={option}
+                  checked={policy === option}
+                  onChange={() => setPolicy(option)}
+                  className="mt-[3px]"
+                  data-testid={`profile-import-policy-${option}`}
+                />
+                <span className="grid">
+                  <span>{t(`profile.import.policy.${option}`)}</span>
+                  {option === 'merge' ? (
+                    <span className="text-[11px] text-fg-subtle">
+                      {t('profile.import.policy.merge.hint')}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => void handleApply()}
+              className="button-primary"
+              data-testid="profile-import-apply"
+            >
+              <Upload size={14} />
+              <span>{t('profile.import.apply')}</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </SettingsSection>
   );
 }

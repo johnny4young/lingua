@@ -243,6 +243,45 @@ function dropVariableInspectorIfLanguageChanged<T extends FileTab>(
   return rest as T;
 }
 
+/**
+ * SQL/HTTP MODEL rework — the SQL and HTTP surfaces are COLLECTION
+ * workspaces, not one-editor-tab-per-query. There is at most ONE SQL
+ * workspace tab and ONE HTTP workspace tab, each carrying a STABLE
+ * constant id so session restore and focus-or-create are idempotent.
+ * The collection of queries / requests lives in `useWorkspaceSqlStore`
+ * / `useWorkspaceToolStore` and is navigated by the in-panel rail
+ * (`activeQueryId` / `activeRequestId`); the tab no longer maps to a
+ * single query/request id.
+ */
+export const SQL_WORKSPACE_TAB_ID = 'lingua:workspace:sql';
+export const HTTP_WORKSPACE_TAB_ID = 'lingua:workspace:http';
+
+/**
+ * Display names for the two workspace tabs. The tab strip shows the
+ * SQL / HTTP glyph + this name, never a single query/request name.
+ */
+const SQL_WORKSPACE_TAB_NAME = 'SQL';
+const HTTP_WORKSPACE_TAB_NAME = 'HTTP';
+
+/**
+ * A SQL / HTTP workspace tab is the container for a whole collection,
+ * not a single document, so it is EXEMPT from the RL-060 Free tab
+ * budget — a Free user always gets the two workspaces. Only
+ * non-workspace tabs (code + notebook) count toward the ceiling.
+ */
+function isWorkspaceTab(tab: Pick<FileTab, 'kind'>): boolean {
+  return tab.kind === 'sql' || tab.kind === 'http';
+}
+
+/**
+ * Count only the tabs that consume the Free tab budget — workspace
+ * tabs (SQL / HTTP) are exempt. Callers add the proposed new tab
+ * themselves before comparing against `withinTabBudget`.
+ */
+function budgetedTabCount(tabs: ReadonlyArray<FileTab>): number {
+  return tabs.reduce((acc, tab) => (isWorkspaceTab(tab) ? acc : acc + 1), 0);
+}
+
 export const createDefaultTab = (language: Language = 'javascript'): FileTab => {
   const id = crypto.randomUUID();
   const short = id.slice(0, 8);
@@ -495,8 +534,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     // RL-060: block new-tab creation once the Free ceiling is hit. Users
     // already over the ceiling (grandfathered data from before gating
     // shipped) keep their tabs; only additions past the ceiling are
-    // refused so nobody loses work in the upgrade.
-    if (!withinTabBudget(currentEffectiveTier(), tabs.length + 1)) {
+    // refused so nobody loses work in the upgrade. Workspace tabs
+    // (SQL / HTTP) are exempt — they never reach this `addTab` path,
+    // and `budgetedTabCount` excludes any that exist so they don't
+    // crowd out the Free user's single code tab.
+    if (!withinTabBudget(currentEffectiveTier(), budgetedTabCount(tabs) + 1)) {
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
         featureLabel: i18next.t('upsell.feature.extraTabs'),
@@ -603,6 +645,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         mod.disposeNotebookSession(id)
       );
       useNotebookStore.getState().disposeNotebookForTab(id);
+      // SQL/HTTP MODEL rework — closing a SQL / HTTP workspace tab does
+      // NOT delete the collection. The queries/requests live in
+      // `useWorkspaceSqlStore` / `useWorkspaceToolStore`, persisted on
+      // their own localStorage keys; reopening the workspace (Mod+Alt+S
+      // / Mod+Shift+K / palette) re-creates the single stable tab and
+      // the rail rehydrates every saved query/request. Only the tab is
+      // dropped here. (Individual query/request deletion is the rail's
+      // job via `deleteQuery` / `deleteRequest`, not tab close.)
       return { tabs, activeTabId };
     }),
 
@@ -935,7 +985,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       });
       return null;
     }
-    if (!withinTabBudget(tier, tabs.length + 1)) {
+    if (!withinTabBudget(tier, budgetedTabCount(tabs) + 1)) {
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
         featureLabel: i18next.t('upsell.feature.extraTabs'),
@@ -958,6 +1008,85 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
     useNotebookStore.getState().createNotebookForTab(tabId, title);
     return tabId;
+  },
+
+  /**
+   * SQL/HTTP MODEL rework — focus (or create) the SINGLE SQL workspace
+   * tab. The SQL surface is a TablePlus-style COLLECTION workspace, not
+   * one editor tab per query, so there is at most ONE SQL tab carrying
+   * the stable `SQL_WORKSPACE_TAB_ID`. The collection of queries lives
+   * in `useWorkspaceSqlStore.queries` and is navigated by the in-panel
+   * rail (`activeQueryId`); the tab does NOT seed or map to a single
+   * query.
+   *
+   * This path deliberately bypasses `addTab` because `addTab` runs
+   * `isLanguageAllowed` against `'sql'` (not in the Free language
+   * allowlist) and would wrongly upsell-block the workspace. Workspace
+   * tabs are exempt from the RL-060 tab budget (see `budgetedTabCount`),
+   * so a Free user always gets the SQL workspace.
+   *
+   * `opts` is accepted for signature compatibility with legacy callers
+   * but ignored — there is only one SQL tab to focus-or-create, and the
+   * query name lives on the `SqlQueryV1`, not the tab. Returns the
+   * stable workspace tab id.
+   */
+  addSqlTab: () => {
+    const { tabs } = get();
+    const existing = tabs.find((t) => t.id === SQL_WORKSPACE_TAB_ID);
+    if (existing) {
+      set({ activeTabId: existing.id });
+      return existing.id;
+    }
+    const newTab: FileTab = {
+      id: SQL_WORKSPACE_TAB_ID,
+      name: SQL_WORKSPACE_TAB_NAME,
+      // Neutral marker language — not Monaco-runnable. Keeps every
+      // language-gated guard (runtime mode, workflow mode, auto-log,
+      // stdin, recipe, variable inspector) dormant for this tab.
+      language: 'sql',
+      content: '',
+      isDirty: false,
+      kind: 'sql',
+    };
+    set((state) => ({
+      tabs: [...state.tabs, newTab],
+      activeTabId: newTab.id,
+    }));
+    // No companion query is seeded here — the rail owns query
+    // creation. The workspace store rehydrates its own collection
+    // across reloads, independent of this tab.
+    return newTab.id;
+  },
+
+  /**
+   * SQL/HTTP MODEL rework — focus (or create) the SINGLE HTTP workspace
+   * tab. Mirror of `addSqlTab`: an Insomnia/Postman-style COLLECTION
+   * workspace, not one editor tab per request. The collection lives in
+   * `useWorkspaceToolStore.requests`, navigated by the in-panel rail
+   * (`activeRequestId`). Carries the stable `HTTP_WORKSPACE_TAB_ID`,
+   * exempt from the tab budget, and seeds no request. Returns the
+   * stable workspace tab id.
+   */
+  addHttpTab: () => {
+    const { tabs } = get();
+    const existing = tabs.find((t) => t.id === HTTP_WORKSPACE_TAB_ID);
+    if (existing) {
+      set({ activeTabId: existing.id });
+      return existing.id;
+    }
+    const newTab: FileTab = {
+      id: HTTP_WORKSPACE_TAB_ID,
+      name: HTTP_WORKSPACE_TAB_NAME,
+      language: 'http',
+      content: '',
+      isDirty: false,
+      kind: 'http',
+    };
+    set((state) => ({
+      tabs: [...state.tabs, newTab],
+      activeTabId: newTab.id,
+    }));
+    return newTab.id;
   },
 
   setTabNextRunTimeoutOverride: (id, timeoutMs) => {
@@ -995,7 +1124,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return;
     }
 
-    if (!withinTabBudget(currentEffectiveTier(), tabs.length + 1)) {
+    if (!withinTabBudget(currentEffectiveTier(), budgetedTabCount(tabs) + 1)) {
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
         featureLabel: i18next.t('upsell.feature.extraTabs'),
@@ -1056,7 +1185,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return;
     }
 
-    if (!withinTabBudget(currentEffectiveTier(), tabs.length + 1)) {
+    if (!withinTabBudget(currentEffectiveTier(), budgetedTabCount(tabs) + 1)) {
       await window.lingua.fs.revokeRoot(result.rootId).catch(() => {});
       pushUpsellNotice({
         messageKey: 'upsell.freeCeilingReached',
@@ -1110,6 +1239,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const { tabs } = get();
     const tab = tabs.find((t) => t.id === id);
     if (!tab) return false;
+    // MOV.02 — SQL / HTTP workspace tabs have no disk representation;
+    // their query/request is auto-persisted to the workspace store on
+    // every edit. A Save / Save-As gesture (Cmd+S, palette) would
+    // otherwise open a file dialog and write the empty `content` to
+    // disk. There is nothing pending here (unlike notebooks), so we
+    // no-op silently rather than surfacing a notice.
+    if (tab.kind === 'sql' || tab.kind === 'http') {
+      return false;
+    }
     if (tab.kind === 'notebook') {
       useUIStore.getState().pushStatusNotice({
         tone: 'info',
@@ -1204,6 +1342,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const tab = tabs.find((t) => t.id === activeTabId);
     if (!tab) return;
 
+    // SQL/HTTP MODEL rework — a SQL / HTTP workspace tab is a single
+    // collection container, not a document. "Duplicate tab" has no
+    // meaning here (there is exactly one workspace tab per kind); the
+    // rail owns duplicating an individual query/request inside the
+    // collection. Refuse silently rather than mint a second workspace
+    // tab with a colliding stable id.
+    if (isWorkspaceTab(tab)) {
+      return;
+    }
+
     addTab({
       id: crypto.randomUUID(),
       name: `Copy of ${tab.name}`,
@@ -1227,6 +1375,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const trimmed = name.trim();
     if (!trimmed) return;
     const existingTab = get().tabs.find((tab) => tab.id === id);
+    // SQL/HTTP MODEL rework — a SQL / HTTP workspace tab always shows the
+    // fixed "SQL" / "HTTP" workspace label + kind glyph, never a query /
+    // request name (those are renamed in the rail). Refuse a tab rename
+    // so an inline F2 / double-click can't drift the workspace label.
+    if (existingTab && isWorkspaceTab(existingTab)) return;
     if (existingTab?.kind === 'notebook') {
       const title = normalizeNotebookTitle(trimmed);
       const name = notebookFileNameForTitle(title);

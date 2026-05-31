@@ -1,4 +1,4 @@
-import { ChevronDown, Loader2, X } from 'lucide-react';
+import { BookOpen, ChevronDown, Database, Globe, Loader2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -95,30 +95,60 @@ export function EditorTabs() {
   // user activates anything past index 4 from the overflow dropdown
   // (or by keyboard). Without `data-active="true"` on any visible
   // tab, the strip then has no highlight and the user has to reopen
-  // the dropdown to confirm which file is foreground. Pin the active
-  // tab into the last visible slot when it sits past the cap so the
-  // 5-tab budget is respected and the active highlight stays anchored.
+  // the dropdown to confirm which file is foreground.
+  //
+  // MOV.02 (FASE 3) — workspace + notebook tabs are full-screen
+  // surfaces the user juggles deliberately, so they must never be
+  // buried in the overflow either. We compute a priority set
+  // (every kind-bearing tab + the active tab), guarantee those are
+  // visible, and fill the remaining slots with code tabs in their
+  // original order. Original strip order is always preserved so the
+  // tabs don't reshuffle as priority changes.
   const VISIBLE_TAB_CAP = 5;
-  const activeIndex = tabs.findIndex((tab) => tab.id === activeTabId);
-  const visibleTabs =
-    tabs.length <= VISIBLE_TAB_CAP
-      ? tabs
-      : activeIndex >= VISIBLE_TAB_CAP
-        ? [...tabs.slice(0, VISIBLE_TAB_CAP - 1), tabs[activeIndex]!]
-        : tabs.slice(0, VISIBLE_TAB_CAP);
+  let visibleTabs: FileTab[];
+  if (tabs.length <= VISIBLE_TAB_CAP) {
+    visibleTabs = [...tabs];
+  } else {
+    const isPriority = (tab: FileTab) =>
+      tab.id === activeTabId ||
+      tab.kind === 'sql' ||
+      tab.kind === 'http' ||
+      tab.kind === 'notebook';
+    const pinnedIds = new Set(
+      tabs.filter(isPriority).map((tab) => tab.id)
+    );
+    // If the priority set alone exceeds the cap, keep all of it —
+    // dropping a workspace tab or the active tab would be worse than
+    // a slightly longer strip.
+    const remainingSlots = Math.max(0, VISIBLE_TAB_CAP - pinnedIds.size);
+    let filled = 0;
+    visibleTabs = tabs.filter((tab) => {
+      if (pinnedIds.has(tab.id)) return true;
+      if (filled < remainingSlots) {
+        filled += 1;
+        return true;
+      }
+      return false;
+    });
+  }
   const hiddenTabCount = tabs.length - visibleTabs.length;
 
   return (
     <>
       <div
-        role="tablist"
+        role="group"
         aria-label={t('editorTabs.ariaLabel')}
         className="relative flex h-[34px] items-stretch overflow-hidden bg-surface-strong/72"
       >
         {visibleTabs.map((tab, index) => {
           const isActive = tab.id === activeTabId;
           const isRenaming = renamingTabId === tab.id;
-          const tabLabel = `${languageShortLabel(tab.language)} ${tab.name}`;
+          // MOV.02 (FASE 3) — workspace + notebook tabs carry a neutral
+          // marker language ('sql' / 'http') whose shortLabel resolves
+          // to "TXT", which would mislead a screen-reader user. Prefix
+          // the accessible label with the kind code instead so the tab
+          // announces "SQL …" / "HTTP …" / "NB …" to match the glyph.
+          const tabLabel = `${tabKindShortCode(tab) ?? languageShortLabel(tab.language)} ${tab.name}`;
 
           return (
             <Tooltip
@@ -127,15 +157,9 @@ export function EditorTabs() {
               disabled={isRenaming}
             >
               <div
-                role="tab"
-                tabIndex={isActive ? 0 : -1}
-                aria-selected={isActive}
-                aria-label={tabLabel}
                 data-tab-id={tab.id}
                 data-active={isActive}
                 data-execution-state={tab.executionState ?? 'idle'}
-                onClick={() => !isRenaming && setActiveTab(tab.id)}
-                onKeyDown={(event) => handleActivationKey(event, tab.id)}
                 onContextMenu={(event) => handleContextMenu(event, tab.id)}
                 className={cn(
                   'group relative flex h-full min-w-[11rem] shrink-0 items-center gap-2 border-r border-border/60 px-3 text-xs transition-colors',
@@ -146,33 +170,55 @@ export function EditorTabs() {
                     : 'cursor-pointer border-t-2 border-t-transparent bg-surface-strong/72 text-muted hover:bg-surface-strong hover:text-foreground'
                 )}
               >
-                {/* Lang chip — uppercase DS badge. The mono face is set
-                    inline so the filename span remains the only
-                    `.font-mono` element legacy callers query. */}
-                <TabLanguageChip language={tab.language} />
-                {isRenaming ? (
-                  <RenameInput
-                    initialName={tab.name}
-                    placeholder={t('editorTabs.rename.placeholder')}
-                    ariaLabel={t('editorTabs.rename.ariaLabel', { name: tab.name })}
-                    onCommit={(next) => {
-                      renameTab(tab.id, next);
-                      setRenamingTabId(null);
-                    }}
-                    onCancel={() => setRenamingTabId(null)}
-                  />
-                ) : (
-                  <span
-                    data-testid="editor-tab-filename"
-                    onDoubleClick={() => setRenamingTabId(tab.id)}
-                    className={cn(
-                      'min-w-0 flex-1 truncate font-mono text-[11.5px] leading-none',
-                      tab.executionState === 'error' && 'text-error/95'
-                    )}
-                  >
-                    {tab.name}
-                  </span>
-                )}
+                <div
+                  role="button"
+                  tabIndex={isActive ? 0 : -1}
+                  aria-current={isActive ? 'page' : undefined}
+                  aria-label={tabLabel}
+                  data-testid="editor-tab-activation"
+                  onClick={() => !isRenaming && setActiveTab(tab.id)}
+                  onKeyDown={(event) => handleActivationKey(event, tab.id)}
+                  className="flex h-full min-w-0 flex-1 items-center gap-2"
+                >
+                  {/* MOV.02 (FASE 3) — workspace + notebook tabs lead with
+                      a kind glyph (Database / Globe / BookOpen) instead of
+                      the language code chip, which would otherwise read
+                      "TXT" for the neutral 'sql' / 'http' marker languages.
+                      Code tabs keep the uppercase DS language chip. The
+                      mono face on the chip is set inline so the filename
+                      span remains the only `.font-mono` element legacy
+                      callers query. */}
+                  {tab.kind === 'sql' ||
+                  tab.kind === 'http' ||
+                  tab.kind === 'notebook' ? (
+                    <TabKindGlyph kind={tab.kind} />
+                  ) : (
+                    <TabLanguageChip language={tab.language} />
+                  )}
+                  {isRenaming ? (
+                    <RenameInput
+                      initialName={tab.name}
+                      placeholder={t('editorTabs.rename.placeholder')}
+                      ariaLabel={t('editorTabs.rename.ariaLabel', { name: tab.name })}
+                      onCommit={(next) => {
+                        renameTab(tab.id, next);
+                        setRenamingTabId(null);
+                      }}
+                      onCancel={() => setRenamingTabId(null)}
+                    />
+                  ) : (
+                    <span
+                      data-testid="editor-tab-filename"
+                      onDoubleClick={() => setRenamingTabId(tab.id)}
+                      className={cn(
+                        'min-w-0 flex-1 truncate font-mono text-[11.5px] leading-none',
+                        tab.executionState === 'error' && 'text-error/95'
+                      )}
+                    >
+                      {tab.name}
+                    </span>
+                  )}
+                </div>
 
                 {/* RL-102 Slice 1 — Git status pill (clean / modified /
                     untracked / unknown) inline between the filename and
@@ -191,7 +237,7 @@ export function EditorTabs() {
                     running > error > success > dirty > none.
                     Hidden when the close button takes over on hover. */}
                 {!isRenaming ? (
-                  <TabStatusDot
+                  <TabStatusControl
                     tab={tab}
                     unsavedLabel={t('editorTabs.unsaved', { name: tab.name })}
                     closeLabel={t('editorTabs.close', { name: tab.name })}
@@ -351,7 +397,7 @@ function RenameInput({
  *   dirty   → primary dot
  *   idle    → no dot (close button still appears on hover)
  */
-function TabStatusDot({
+function TabStatusControl({
   tab,
   unsavedLabel,
   closeLabel,
@@ -546,7 +592,13 @@ function TabsOverflowDropdown({
                     }}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    <TabLanguageChip language={tab.language} size="menu" />
+                    {tab.kind === 'sql' ||
+                    tab.kind === 'http' ||
+                    tab.kind === 'notebook' ? (
+                      <TabKindGlyph kind={tab.kind} size="menu" />
+                    ) : (
+                      <TabLanguageChip language={tab.language} size="menu" />
+                    )}
                     <span
                       className={cn(
                         'min-w-0 flex-1 truncate font-mono text-[12px]',
@@ -600,6 +652,62 @@ function TabsOverflowDropdown({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * MOV.02 (FASE 3) — short type code for workspace + notebook tabs,
+ * used in the accessible tab label so it doesn't fall back to the
+ * neutral marker language's "TXT". Returns null for code tabs (they
+ * keep their language short label). Matches the prototype TypeGlyph
+ * codes (SQL / HTTP / NB).
+ */
+function tabKindShortCode(tab: FileTab): string | null {
+  if (tab.kind === 'sql') return 'SQL';
+  if (tab.kind === 'http') return 'HTTP';
+  if (tab.kind === 'notebook') return 'NB';
+  return null;
+}
+
+/**
+ * MOV.02 (FASE 3) — per-kind type glyph rendered before the language
+ * chip. Workspace + notebook tabs carry a `kind` discriminator
+ * (`'sql' | 'http' | 'notebook'`); code tabs do not. The glyph gives
+ * those special tabs an at-a-glance identity (Database / Globe /
+ * BookOpen) matching the prototype's TypeGlyph, while code tabs keep
+ * the language code chip alone. Returns null for code tabs so the
+ * existing chip-only layout is untouched.
+ */
+function TabKindGlyph({
+  kind,
+  size = 'tab',
+}: {
+  kind: FileTab['kind'];
+  size?: 'tab' | 'menu';
+}) {
+  if (kind !== 'sql' && kind !== 'http' && kind !== 'notebook') return null;
+  const Icon = kind === 'sql' ? Database : kind === 'http' ? Globe : BookOpen;
+  const iconSize = size === 'menu' ? 13 : 12;
+  // Kind-tinted so SQL / HTTP / Notebook read distinctly without
+  // leaning on color alone (icon shape carries the identity too).
+  // HTTP uses the informational (blue) tone rather than green: the
+  // Signal-Slate rule reserves the success hue for the Run action and
+  // Success results only, so a green tab-kind marker would dilute it.
+  const tone =
+    kind === 'sql'
+      ? 'text-accent'
+      : kind === 'http'
+        ? 'text-info-fg'
+        : 'text-primary';
+  return (
+    <span
+      data-testid="editor-tab-kind-glyph"
+      data-tab-kind={kind}
+      aria-hidden
+      className={cn('inline-flex shrink-0 items-center justify-center', tone)}
+    >
+      <Icon size={iconSize} />
+    </span>
   );
 }
 

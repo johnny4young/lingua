@@ -198,12 +198,21 @@ export interface FileTab {
    * cell sources are the source of truth); `language` is informational
    * only — per-cell language is the runner dispatch key.
    *
-   * Slice A is the only Slice that ships a `kind` field; Slice B+ may
-   * widen to `'docs'` / `'preview'` / etc. Cleared on rename to a
-   * non-notebook file (rejected upstream) and on tab close (the
-   * notebookStore + notebookSession both dispose).
+   * MOV.02 — widened to `'sql'` / `'http'`. These ascend the SQL +
+   * HTTP workspaces from the bottom dock to full-screen workspace
+   * tabs that sit alongside the Notebook tab. As with `'notebook'`,
+   * the `content` field is unused: a `'sql'` tab's query text lives in
+   * `useWorkspaceSqlStore` (a `SqlQueryV1` whose `id` equals
+   * `tab.id`), and an `'http'` tab's request lives in
+   * `useWorkspaceToolStore` (an `HttpRequestV1` whose `id` equals
+   * `tab.id`). `language` is the neutral marker `'sql'` / `'http'`
+   * (not a real Monaco-runnable language) so every language-gated
+   * code path (runtime mode, workflow mode, auto-log, stdin, recipe
+   * binding, variable inspector) falls through its existing guards
+   * and stays dormant. Cleared on tab close, which disposes the
+   * companion workspace-store entry keyed by `tab.id`.
    */
-  kind?: 'notebook';
+  kind?: 'notebook' | 'sql' | 'http';
 }
 
 /**
@@ -343,6 +352,24 @@ export interface EditorState {
    * budget is exhausted or the entitlement gate denies.
    */
   addNotebookTab: (opts?: { title?: string; language?: Language }) => string | null;
+  /**
+   * SQL/HTTP MODEL rework — focus (or create) the SINGLE SQL workspace
+   * tab. The SQL surface is a TablePlus-style COLLECTION workspace, so
+   * there is at most ONE SQL tab (stable id `SQL_WORKSPACE_TAB_ID`),
+   * never one tab per query. The collection of queries lives in
+   * `useWorkspaceSqlStore`, navigated by the in-panel rail. Workspace
+   * tabs are exempt from the Free tab budget, so this always succeeds
+   * and returns the stable workspace tab id.
+   */
+  addSqlTab: () => string | null;
+  /**
+   * SQL/HTTP MODEL rework — focus (or create) the SINGLE HTTP workspace
+   * tab. Mirror of `addSqlTab`: an Insomnia/Postman-style COLLECTION
+   * workspace (stable id `HTTP_WORKSPACE_TAB_ID`), not one tab per
+   * request. The collection lives in `useWorkspaceToolStore`, navigated
+   * by the rail. Always succeeds; returns the stable workspace tab id.
+   */
+  addHttpTab: () => string | null;
   /**
    * Open a file from disk via a capability token. If a tab with the
    * same `(rootId, relativePath)` is already open, activate it. The

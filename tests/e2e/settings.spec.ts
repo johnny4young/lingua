@@ -42,6 +42,8 @@ test.describe('Settings — structural tour', () => {
     await expect(
       page.getByRole('heading', { name: 'Execution history', exact: true })
     ).toBeVisible();
+
+    await openSettingsTab(page, 'plugins');
     await expect(page.getByRole('heading', { name: 'Plugins', exact: true })).toBeVisible();
 
     // RL-095 Slice 1 (post-review refactor) — Languages tab hosts the
@@ -62,6 +64,11 @@ test.describe('Settings — structural tour', () => {
     await openSettingsTab(page, 'account');
     await expect(page.getByRole('heading', { name: 'License', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Privacy', exact: true })).toBeVisible();
+
+    await openSettingsTab(page, 'privacy');
+    await expect(
+      page.getByRole('heading', { name: 'Privacy + Trust', exact: true })
+    ).toBeVisible();
   });
 });
 

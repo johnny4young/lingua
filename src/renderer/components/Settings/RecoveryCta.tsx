@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { startRecovery } from '../../services/recoveryServer';
-import { Row } from './shared';
+import { SpecRow } from '../ui/SpecRow';
 
 /**
  * RL-061 Slice 4 — License recovery magic-link start CTA.
@@ -21,7 +21,14 @@ import { Row } from './shared';
  * branch, EducationCta's duplicate-email branch) pre-populate the
  * input so the user clicks Resend without retyping.
  */
-export function RecoveryCta({ prefilledEmail }: { prefilledEmail?: string }) {
+export function RecoveryCta({
+  prefilledEmail,
+  last = false,
+}: {
+  prefilledEmail?: string;
+  /** Drops the bottom hairline when this is the final row in its SpecCard. */
+  last?: boolean;
+}) {
   const { t } = useTranslation();
   const [email, setEmail] = useState(prefilledEmail ?? '');
   const [busy, setBusy] = useState(false);
@@ -84,49 +91,56 @@ export function RecoveryCta({ prefilledEmail }: { prefilledEmail?: string }) {
 
   if (resendSentTo) {
     return (
-      <Row
+      <SpecRow
+        last={last}
         label={t('license.recovery.confirmingTitle')}
-        hint={t('license.recovery.confirmingBody', { email: resendSentTo })}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setResendSentTo(null);
-            setEmail('');
-          }}
-          data-testid="recovery-restart"
-          className="button-secondary w-fit self-end"
-        >
-          {t('license.recovery.restart')}
-        </button>
-      </Row>
+        description={t('license.recovery.confirmingBody', { email: resendSentTo })}
+        control={
+          <button
+            type="button"
+            onClick={() => {
+              setResendSentTo(null);
+              setEmail('');
+            }}
+            data-testid="recovery-restart"
+            className="button-secondary"
+          >
+            {t('license.recovery.restart')}
+          </button>
+        }
+      />
     );
   }
 
   return (
-    <Row label={t('license.recovery.title')} hint={t('license.recovery.body')}>
-      <div className="grid w-full gap-2">
-        <input
-          type="email"
-          aria-label={t('license.recovery.emailLabel')}
-          placeholder={t('license.recovery.emailPlaceholder')}
-          value={email}
-          spellCheck={false}
-          autoComplete="email"
-          onChange={(event) => setEmail(event.target.value)}
-          data-testid="recovery-email-input"
-          className="w-full rounded-[1rem] border border-border/80 bg-background/88 px-3 py-2 text-xs text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
-        />
-        <button
-          type="button"
-          onClick={() => void handleResend()}
-          disabled={busy || email.trim().length === 0}
-          data-testid="recovery-start"
-          className="button-primary w-fit self-end disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {busy ? t('license.recovery.starting') : t('license.recovery.startCta')}
-        </button>
-      </div>
-    </Row>
+    <SpecRow
+      last={last}
+      label={t('license.recovery.title')}
+      description={t('license.recovery.body')}
+      control={
+        <div className="flex w-full max-w-[280px] flex-col items-end gap-2">
+          <input
+            type="email"
+            aria-label={t('license.recovery.emailLabel')}
+            placeholder={t('license.recovery.emailPlaceholder')}
+            value={email}
+            spellCheck={false}
+            autoComplete="email"
+            onChange={(event) => setEmail(event.target.value)}
+            data-testid="recovery-email-input"
+            className="w-full rounded-md border border-border-default bg-bg-base px-3 py-2 text-[12.5px] text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55"
+          />
+          <button
+            type="button"
+            onClick={() => void handleResend()}
+            disabled={busy || email.trim().length === 0}
+            data-testid="recovery-start"
+            className="button-primary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? t('license.recovery.starting') : t('license.recovery.startCta')}
+          </button>
+        </div>
+      }
+    />
   );
 }

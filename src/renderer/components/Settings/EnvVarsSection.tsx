@@ -1,23 +1,31 @@
-import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
-import { ChevronDown, Trash2 } from 'lucide-react';
+import { useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { ChevronDown, FolderTree, Globe, SquareTerminal, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEnvVarsStore } from '../../stores/envVarsStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { traceEnvScopes } from '../../../shared/envVarScopes';
-import { Section } from './shared';
+import { SettingsSection } from '../ui/SpecRow';
+import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
+import { EmptyState } from '../ui/EmptyState';
 
 /**
  * RL-011 Slice C — Settings UI for the env-var tiers.
  *
- * Slice C second increment (2026-04-20 bis) adds the tab-tier editor on
- * top of the existing global editor. The tab tier is the most useful
- * day-to-day knob (each tab can override global vars without bleeding
- * into other tabs) and wires directly to `useEditorStore.activeTabId`.
+ * FASE 2a (MOV.04) restructures the presentation onto the Signal-Slate
+ * Settings rhythm: one `SettingsSection` (eyebrow + description) wraps
+ * the three scope blocks at the `space-7` rhythm, each with its own
+ * `ScopeHeading` + add-form + var rows; the genuinely-empty project/tab
+ * states use the canonical `EmptyState` recipe inset; the effective-env
+ * trace is promoted from a buried `<details>` into a visually
+ * highlighted accent tile that reads as the payoff —
+ * `tab > project > global > host shell`. All store wiring, handlers,
+ * test ids, and i18n keys are preserved; only markup changed.
  *
- * Project-tier editor and the effective-env trace panel land in the
- * third increment (Slice C step 5). The shared precedence note already
- * mentions all three tiers so the user isn't surprised.
+ * The tab tier remains the most useful day-to-day knob (each tab can
+ * override global vars without bleeding into other tabs) and wires
+ * directly to `useEditorStore.activeTabId`; the project tier wires to
+ * `useProjectStore.currentProject`.
  */
 export function EnvVarsSection() {
   const { t } = useTranslation();
@@ -38,68 +46,127 @@ export function EnvVarsSection() {
   const projectScope = activeProjectId ? (projectScopes[activeProjectId] ?? {}) : {};
 
   return (
-    <Section
-      id="env-vars"
-      title={t('envVars.title')}
-      description={t('envVars.description')}
-    >
-      <div
-        className="space-y-2"
-        data-testid="env-vars-global-region"
-        aria-label={t('envVars.globalTitle')}
+    <section id="env-vars">
+      <SettingsSection
+        eyebrow={t('envVars.title')}
+        description={t('envVars.description')}
       >
-        <h4 className="text-sm font-semibold text-foreground">
-          {t('envVars.globalTitle')}
-        </h4>
-        <ScopeEditor
-          testidPrefix="env-vars"
-          ariaRegion={t('envVars.globalTitle')}
-          entries={globalScope}
-          onAdd={(key, value) => setGlobalVar(key, value)}
-          onRemove={(key) => removeGlobalVar(key)}
-        />
-      </div>
+        {/*
+         * Three scopes stacked at the section's `space-7` rhythm, then
+         * the highlighted effective-env tile as the payoff. Each scope is
+         * its own labelled block with a `ScopeHeading`; the section
+         * eyebrow names the whole tab so the scope names never duplicate
+         * it.
+         */}
+        <div className="flex flex-col gap-7">
+          <div
+            className="space-y-3"
+            data-testid="env-vars-global-region"
+            aria-label={t('envVars.globalTitle')}
+          >
+            <ScopeHeading
+              icon={<Globe size={14} aria-hidden="true" />}
+              title={t('envVars.globalTitle')}
+            />
+            <ScopeEditor
+              testidPrefix="env-vars"
+              ariaRegion={t('envVars.globalTitle')}
+              entries={globalScope}
+              onAdd={(key, value) => setGlobalVar(key, value)}
+              onRemove={(key) => removeGlobalVar(key)}
+            />
+            <p
+              className="text-[11.5px] leading-5 text-fg-subtle"
+              data-testid="env-vars-precedence-note"
+            >
+              {t('envVars.precedenceNote')}
+            </p>
+          </div>
 
-      <ProjectScopeEditor
-        activeProjectId={activeProjectId}
-        projectName={currentProject?.name ?? null}
-        entries={projectScope}
-        onAdd={(key, value) =>
-          activeProjectId ? setProjectVar(activeProjectId, key, value) : false
-        }
-        onRemove={(key) => {
-          if (activeProjectId) removeProjectVar(activeProjectId, key);
-        }}
-      />
+          <ProjectScopeEditor
+            activeProjectId={activeProjectId}
+            projectName={currentProject?.name ?? null}
+            entries={projectScope}
+            onAdd={(key, value) =>
+              activeProjectId ? setProjectVar(activeProjectId, key, value) : false
+            }
+            onRemove={(key) => {
+              if (activeProjectId) removeProjectVar(activeProjectId, key);
+            }}
+          />
 
-      <TabScopeEditor
-        activeTabId={activeTabId}
-        entries={tabScope}
-        onAdd={(key, value) =>
-          activeTabId ? setTabVar(activeTabId, key, value) : false
-        }
-        onRemove={(key) => {
-          if (activeTabId) removeTabVar(activeTabId, key);
-        }}
-      />
+          <TabScopeEditor
+            activeTabId={activeTabId}
+            entries={tabScope}
+            onAdd={(key, value) =>
+              activeTabId ? setTabVar(activeTabId, key, value) : false
+            }
+            onRemove={(key) => {
+              if (activeTabId) removeTabVar(activeTabId, key);
+            }}
+          />
 
-      <p className="text-xs text-muted" data-testid="env-vars-precedence-note">
-        {t('envVars.precedenceNote')}
-      </p>
-
-      <EffectiveEnvPanel
-        globalScope={globalScope}
-        projectScope={projectScope}
-        tabScope={tabScope}
-      />
-    </Section>
+          <EffectiveEnvPanel
+            globalScope={globalScope}
+            projectScope={projectScope}
+            tabScope={tabScope}
+          />
+        </div>
+      </SettingsSection>
+    </section>
   );
 }
 
 /**
- * Collapsible panel that renders `traceEnvScopes` output — each key in
- * the merged env plus the tier that won. Closed by default so it doesn't
- * crowd the Settings card; opens on explicit user request.
+ * Per-tier label block — icon + title on the first line, supporting
+ * description beneath. Mirrors the proto's `KV` heading without the
+ * ad-hoc inline styles.
+ */
+function ScopeHeading({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <span className="text-fg-muted" aria-hidden="true">
+          {icon}
+        </span>
+        <h4 className="text-[13px] font-semibold text-fg-base">{title}</h4>
+      </div>
+      {description ? (
+        <p className="text-[11.5px] leading-5 text-fg-subtle">{description}</p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Maps each trace tier onto a StatusBadge tone. The badge is a state
+ * marker for "which scope won": the two override tiers (tab, project)
+ * read as `info`, while the baseline tiers (global, host shell) stay
+ * `neutral`, so an override visually pops above the baseline.
+ */
+const TIER_TONE: Record<string, StatusBadgeTone> = {
+  tab: 'info',
+  project: 'info',
+  global: 'neutral',
+  processEnv: 'neutral',
+};
+
+/**
+ * Highlighted effective-environment tile. FASE 2a promotes the trace
+ * out of a quiet collapsed panel into an ACCENT-toned tile (primary-soft
+ * surface, accent border) so it reads as the payoff of the three tiers.
+ * The summary always shows the precedence chain
+ * `tab > project > global > host shell` plus the resolved var count; the
+ * per-key breakdown stays expandable below. `traceEnvScopes` output is
+ * unchanged — each key plus the tier that won.
  */
 function EffectiveEnvPanel({
   globalScope,
@@ -132,54 +199,74 @@ function EffectiveEnvPanel({
 
   return (
     <details
-      className="rounded-[1.15rem] border border-border/80 bg-background-elevated/72 px-3.5 py-2.5"
+      className="overflow-hidden rounded-lg border border-accent/45 bg-primary-soft"
       open={open}
       onToggle={(event) => setOpen((event.target as HTMLDetailsElement).open)}
       data-testid="env-vars-effective"
     >
-      <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs font-semibold text-foreground">
-        <span>{t('envVars.effectiveTitle')}</span>
-        <ChevronDown size={14} className={open ? 'rotate-180 transition-transform' : 'transition-transform'} />
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <SquareTerminal size={15} className="shrink-0 text-accent-fg" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-accent-fg">
+              {t('envVars.effectiveTitle')}
+            </p>
+            <p className="mt-0.5 truncate font-mono text-[11px] text-accent-fg/85">
+              {t('envVars.precedenceChain')}
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="font-mono text-[11px] text-accent-fg/85">
+            {t('envVars.effectiveCount', { count: entries.length })}
+          </span>
+          <ChevronDown
+            size={14}
+            className={open ? 'rotate-180 text-accent-fg transition-transform' : 'text-accent-fg transition-transform'}
+            aria-hidden="true"
+          />
+        </div>
       </summary>
-      {entries.length === 0 ? (
-        <p
-          className="pt-2 text-xs text-muted"
-          data-testid="env-vars-effective-empty"
-        >
-          {t('envVars.effectiveEmpty')}
-        </p>
-      ) : (
-        <ul className="mt-2 space-y-1" data-testid="env-vars-effective-list">
-          {entries.map(([key, record]) => (
-            <li
-              key={key}
-              className="flex flex-col gap-0.5 rounded-lg border border-border/60 bg-background/40 px-2.5 py-1.5 text-xs"
-              data-testid={`env-vars-effective-row-${key}`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-mono font-semibold text-foreground">{key}</span>
-                <span
-                  className="status-pill border-border/60 bg-transparent px-2 text-[0.65rem] text-muted"
-                  data-testid={`env-vars-effective-tier-${key}`}
-                >
-                  {t(`envVars.trace.tier.${record.from}`)}
+      <div className="border-t border-accent/30 px-4 py-3">
+        {entries.length === 0 ? (
+          <p
+            className="text-[11.5px] leading-5 text-fg-subtle"
+            data-testid="env-vars-effective-empty"
+          >
+            {t('envVars.effectiveEmpty')}
+          </p>
+        ) : (
+          <ul className="space-y-1.5" data-testid="env-vars-effective-list">
+            {entries.map(([key, record]) => (
+              <li
+                key={key}
+                className="flex flex-col gap-0.5 rounded-md border border-border-subtle bg-bg-inset px-3 py-2"
+                data-testid={`env-vars-effective-row-${key}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[12px] font-semibold text-fg-base">{key}</span>
+                  <span data-testid={`env-vars-effective-tier-${key}`}>
+                    <StatusBadge tone={TIER_TONE[record.from] ?? 'neutral'}>
+                      {t(`envVars.trace.tier.${record.from}`)}
+                    </StatusBadge>
+                  </span>
+                </div>
+                <span className="truncate font-mono text-[11.5px] text-fg-muted" title={record.value}>
+                  {record.value === '' ? t('envVars.emptyValueDisplay') : record.value}
                 </span>
-              </div>
-              <span className="truncate font-mono text-muted" title={record.value}>
-                {record.value === '' ? t('envVars.emptyValueDisplay') : record.value}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </details>
   );
 }
 
 /**
  * Project-tier editor. Reads `useProjectStore.currentProject` for the
- * active projectId and falls back to a placeholder when no project is
- * open.
+ * active projectId and falls back to the canonical empty-state recipe
+ * when no project is open.
  */
 function ProjectScopeEditor({
   activeProjectId,
@@ -198,27 +285,21 @@ function ProjectScopeEditor({
 
   return (
     <div
-      className="mt-4 space-y-2"
+      className="space-y-3"
       data-testid="env-vars-project-region"
       aria-label={t('envVars.projectTitle')}
     >
-      <div className="space-y-1">
-        <h4 className="text-sm font-semibold text-foreground">
-          {t('envVars.projectTitle')}
-        </h4>
-        <p className="text-xs leading-5 text-muted">
-          {projectName
+      <ScopeHeading
+        icon={<FolderTree size={14} aria-hidden="true" />}
+        title={t('envVars.projectTitle')}
+        description={
+          projectName
             ? t('envVars.projectDescription', { project: projectName })
-            : t('envVars.projectDescriptionNoProject')}
-        </p>
-      </div>
+            : t('envVars.projectDescriptionNoProject')
+        }
+      />
       {activeProjectId === null ? (
-        <p
-          className="rounded-[1.15rem] border border-dashed border-border/60 bg-transparent px-3.5 py-4 text-xs text-muted"
-          data-testid="env-vars-project-no-active"
-        >
-          {t('envVars.noActiveProject')}
-        </p>
+        <ScopeEmpty testid="env-vars-project-no-active" message={t('envVars.noActiveProject')} />
       ) : (
         <ScopeEditor
           testidPrefix="env-vars-project"
@@ -235,7 +316,7 @@ function ProjectScopeEditor({
 
 /**
  * Dedicated wrapper around `ScopeEditor` for the tab tier. Handles the
- * "no active tab" empty state without cluttering the parent component.
+ * "no active tab" empty state with the canonical recipe inset.
  */
 function TabScopeEditor({
   activeTabId,
@@ -252,25 +333,17 @@ function TabScopeEditor({
 
   return (
     <div
-      className="mt-4 space-y-2"
+      className="space-y-3"
       data-testid="env-vars-tab-region"
       aria-label={t('envVars.tabTitle')}
     >
-      <div className="space-y-1">
-        <h4 className="text-sm font-semibold text-foreground">
-          {t('envVars.tabTitle')}
-        </h4>
-        <p className="text-xs leading-5 text-muted">
-          {t('envVars.tabDescription')}
-        </p>
-      </div>
+      <ScopeHeading
+        icon={<SquareTerminal size={14} aria-hidden="true" />}
+        title={t('envVars.tabTitle')}
+        description={t('envVars.tabDescription')}
+      />
       {activeTabId === null ? (
-        <p
-          className="rounded-[1.15rem] border border-dashed border-border/60 bg-transparent px-3.5 py-4 text-xs text-muted"
-          data-testid="env-vars-tab-no-active"
-        >
-          {t('envVars.noActiveTab')}
-        </p>
+        <ScopeEmpty testid="env-vars-tab-no-active" message={t('envVars.noActiveTab')} />
       ) : (
         <ScopeEditor
           testidPrefix="env-vars-tab"
@@ -281,6 +354,27 @@ function TabScopeEditor({
           emptyMessageKey="envVars.tabEmpty"
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Canonical empty-state inset for a scope that has no active target
+ * (no project open / no tab focused). A dashed inset wrapping the
+ * `EmptyState` recipe, matching the Plugins-tab empty pattern.
+ */
+function ScopeEmpty({ testid, message }: { testid: string; message: string }) {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="rounded-lg border border-dashed border-border-default px-4 py-8"
+      data-testid={testid}
+    >
+      <EmptyState
+        icon={<SquareTerminal size={18} aria-hidden="true" />}
+        title={t('envVars.emptyScopeTitle')}
+        description={message}
+      />
     </div>
   );
 }
@@ -345,13 +439,13 @@ function ScopeEditor({
   const errorId = `${testidPrefix}-error`;
 
   return (
-    <div aria-label={ariaRegion} role="group" className="space-y-2">
+    <div aria-label={ariaRegion} role="group" className="space-y-2.5">
       <form
-        className="flex flex-col gap-2 rounded-[1.15rem] border border-border/80 bg-background-elevated/72 px-3.5 py-3 sm:flex-row sm:items-end sm:gap-3"
+        className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-bg-inset px-3.5 py-3 sm:flex-row sm:items-end sm:gap-3"
         onSubmit={handleSubmit}
         data-testid={`${testidPrefix}-form`}
       >
-        <label className="grid flex-1 gap-1 text-xs font-medium text-foreground">
+        <label className="grid flex-1 gap-1 text-[11.5px] font-medium text-fg-base">
           <span>{t('envVars.keyLabel')}</span>
           <input
             type="text"
@@ -364,7 +458,7 @@ function ScopeEditor({
             data-testid={`${testidPrefix}-key-input`}
           />
         </label>
-        <label className="grid flex-1 gap-1 text-xs font-medium text-foreground">
+        <label className="grid flex-1 gap-1 text-[11.5px] font-medium text-fg-base">
           <span>{t('envVars.valueLabel')}</span>
           <input
             type="text"
@@ -388,7 +482,7 @@ function ScopeEditor({
         <p
           id={errorId}
           role="alert"
-          className="text-xs text-error"
+          className="text-[11.5px] text-error"
           data-testid={`${testidPrefix}-error`}
         >
           {error}
@@ -397,7 +491,7 @@ function ScopeEditor({
 
       {sortedEntries.length === 0 ? (
         <p
-          className="rounded-[1.15rem] border border-dashed border-border/60 bg-transparent px-3.5 py-4 text-xs text-muted"
+          className="rounded-lg border border-dashed border-border-default px-3.5 py-4 text-[11.5px] text-fg-subtle"
           data-testid={`${testidPrefix}-empty`}
         >
           {t(emptyMessageKey)}
@@ -407,11 +501,11 @@ function ScopeEditor({
           {sortedEntries.map(([key, value]) => (
             <li
               key={key}
-              className="flex items-center justify-between gap-3 rounded-[1.15rem] border border-border/80 bg-background-elevated/72 px-3.5 py-2.5 text-xs"
+              className="flex items-center justify-between gap-3 rounded-lg border border-border-subtle bg-bg-inset px-3.5 py-2.5"
             >
               <div className="min-w-0 flex-1">
-                <p className="font-mono font-semibold text-foreground">{key}</p>
-                <p className="truncate font-mono text-muted" title={value}>
+                <p className="font-mono text-[12px] font-semibold text-fg-base">{key}</p>
+                <p className="truncate font-mono text-[11.5px] text-fg-muted" title={value}>
                   {value === '' ? t('envVars.emptyValueDisplay') : value}
                 </p>
               </div>

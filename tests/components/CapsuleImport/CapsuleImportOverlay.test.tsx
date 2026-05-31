@@ -147,8 +147,10 @@ describe('CapsuleImportOverlay', () => {
   it('Escape key closes the overlay', () => {
     const onClose = vi.fn();
     render(<CapsuleImportOverlay onClose={onClose} />);
+    // Escape is owned by <ModalShell> (a React onKeyDown on the scrim),
+    // so fire the key through the dialog rather than document.
     act(() => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     });
     expect(onClose).toHaveBeenCalled();
   });

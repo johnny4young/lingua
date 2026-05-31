@@ -17,6 +17,7 @@ import { MessageSquare } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { StatusBadge } from '../ui/StatusBadge';
 
 const SUPPORTED: ReadonlySet<string> = new Set([
   'javascript',
@@ -45,14 +46,20 @@ export function StdinStatusPill() {
   const lineCount = lines.length;
   if (lineCount === 0) return null;
 
+  // FASE 2b (MOV.05) — "stdin staged" is an informational marker, so
+  // it adopts the quiet `neutral` StatusBadge tone. The MessageSquare
+  // icon and the line-count label ride along as badge children; the
+  // wrapper keeps the data-* hook and the tooltip.
   return (
     <span
       data-result-kind="stdin-pill"
       title={t('stdin.statusPill.tooltip', { lineCount })}
-      className="status-pill inline-flex items-center gap-1 text-[10px]"
+      className="inline-flex"
     >
-      <MessageSquare size={10} aria-hidden="true" className="opacity-70" />
-      {t('stdin.statusPill.label', { lineCount })}
+      <StatusBadge tone="neutral">
+        <MessageSquare size={10} aria-hidden="true" className="opacity-70" />
+        {t('stdin.statusPill.label', { lineCount })}
+      </StatusBadge>
     </span>
   );
 }

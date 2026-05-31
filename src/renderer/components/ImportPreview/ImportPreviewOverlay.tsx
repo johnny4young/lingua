@@ -12,7 +12,7 @@
  *              Warning band lists lossy cURL flags (fold C codes).
  *   - BOTTOM : Action bar — Cancel + Import (disabled until valid
  *              preview). Fold G (Slice 1) — confirm flips the
- *              bottom-panel to the HTTP workspace tab for cURL;
+ *              opens or focuses the HTTP workspace editor tab for cURL;
  *              fold F (Slice 2) — the hook creates notebook tabs with
  *              the detected dominant code-cell language.
  *
@@ -29,17 +29,25 @@
  * Escape closes. Click-outside closes. Telemetry (fold E) is
  * owned by `useImportPreview`; the overlay just calls
  * `trackCancelled()` on dismiss.
+ *
+ * FASE 1 (MOV.01) — the ad-hoc backdrop/card chrome was replaced by the
+ * shared `<ModalShell>` (title-header variant + `x` close button + the
+ * 900px clamp). Escape / scrim-click / the header `x` all route through
+ * the shell's `onClose` (wired to `handleClose`, which fires the cancel
+ * telemetry). Full-overlay drag-drop is preserved by attaching the drag
+ * handlers to the body wrapper the shell renders our children into.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, FileUp, X } from 'lucide-react';
+import { AlertCircle, FileUp } from 'lucide-react';
 import { detectImporter } from '../../../shared/importers/registry';
 import type { ImporterId } from '../../../shared/importers/types';
 import { useImportPreview } from '../../hooks/useImportPreview';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUIStore } from '../../stores/uiStore';
 import { cn } from '../../utils/cn';
+import { ModalShell } from '../ui/ModalShell';
 import { ImportPreviewBody } from './ImportPreviewBody';
 
 export interface ImportPreviewOverlayProps {
@@ -83,18 +91,10 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
     };
   }, [reset]);
 
-  // Escape closes.
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        trackCancelled();
-        closeRef.current();
-      }
-    }
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [trackCancelled]);
+  // Escape is owned by `<ModalShell>` now — it routes Escape (and
+  // scrim-click and the header `x`) through the `onClose` we pass it
+  // (`handleClose`), which fires `trackCancelled()`. No document-level
+  // listener here, otherwise the cancel telemetry would double-fire.
 
   // Fold G — when consent is granted and the clipboard contains
   // recognized content, auto-populate the paste textarea on mount.
@@ -277,6 +277,14 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         : isCollection
           ? t('importPreview.action.confirm.collection', { count: collectionCount })
           : t('importPreview.action.confirm');
+  // Footer-left hint — the detected source format, mirroring the
+  // MOV.01 prototype's "Detected: …" legend. Only shown once a preview
+  // resolves (so `importerId` is known); reuses the existing
+  // `importPreview.format.*` value strings.
+  const detectedFormatLabel =
+    previewed && importerId
+      ? t(formatLabelKeyForImporter(importerId))
+      : null;
   // Reject hint copy. Generic outer reason + optional importer-specific
   // detail (ipynb / postman carry a `detail` reject code mapped to a
   // more precise localized hint).
@@ -291,184 +299,185 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
       : null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('importPreview.overlay.title')}
-      data-testid="import-preview-overlay"
-      className={cn(
-        'fixed inset-0 z-40 flex items-start justify-center bg-bg-base/80 p-6 backdrop-blur-sm',
-        isDragOver && 'ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-bg-base'
-      )}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) handleClose();
-      }}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <div className="mt-12 flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-xl">
-        <header className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
-          <div>
-            <h2 className="font-display text-base font-semibold tracking-[-0.01em] text-foreground">
-              {t('importPreview.overlay.title')}
-            </h2>
-            <p className="mt-0.5 text-[11px] text-muted">
-              {t('importPreview.overlay.description')}
-            </p>
-          </div>
+    <ModalShell
+      onClose={handleClose}
+      size="max-w-[900px]"
+      labelledById="import-preview-title"
+      headerClose="button"
+      closeLabel={t('importPreview.overlay.close')}
+      header={
+        <div className="min-w-0">
+          <h2
+            id="import-preview-title"
+            className="truncate text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
+          >
+            {t('importPreview.overlay.title')}
+          </h2>
+          <p className="mt-0.5 text-[12.5px] text-fg-subtle">
+            {t('importPreview.overlay.description')}
+          </p>
+        </div>
+      }
+      footerLegend={
+        detectedFormatLabel ? (
+          <span
+            data-testid="import-preview-detected"
+            className="text-[11.5px] text-fg-subtle"
+          >
+            {t('importPreview.footer.detected', { format: detectedFormatLabel })}
+          </span>
+        ) : (
+          <span />
+        )
+      }
+      trailing={
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleClose}
-            aria-label={t('importPreview.overlay.close')}
-            data-testid="import-preview-overlay-close"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-surface-strong/60 hover:text-foreground"
+            data-testid="import-preview-cancel"
+            className="button-ghost"
           >
-            <X size={14} aria-hidden="true" />
+            {t('importPreview.action.cancel')}
           </button>
-        </header>
-
-        <div className="grid min-h-0 flex-1 grid-rows-[auto_1fr_auto] gap-3 p-4">
-          {/* TOP — load source */}
-          <section
-            data-testid="import-preview-load"
-            className="grid gap-3 md:grid-cols-2"
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={!canConfirm}
+            data-testid="import-preview-confirm"
+            className="button-primary"
           >
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="import-preview-paste"
-                className="text-[11px] font-semibold uppercase tracking-wider text-muted"
-              >
-                {t('importPreview.source.pasteLabel')}
-              </label>
-              <textarea
-                id="import-preview-paste"
-                data-testid="import-preview-paste"
-                value={pasteValue}
-                onChange={handlePasteChange}
-                placeholder={t('importPreview.source.pastePlaceholderNotebook')}
-                rows={4}
-                spellCheck={false}
-                className="min-h-[80px] resize-none rounded-md border border-border/60 bg-bg-elevated p-2 font-mono text-xs text-foreground outline-none focus:border-border-strong"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                {t('importPreview.source.fileCta')}
-              </span>
-              <button
-                type="button"
-                onClick={handlePickFile}
-                data-testid="import-preview-pick-file"
-                className={cn(
-                  'flex h-[80px] flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-border/60 bg-surface/30 px-3 text-center text-xs text-muted transition-colors',
-                  'hover:border-border-strong hover:text-foreground',
-                  isDragOver && 'border-emerald-500/80 bg-emerald-500/10 text-foreground'
-                )}
-              >
-                <FileUp size={14} aria-hidden="true" />
-                <span>{t('importPreview.source.dropHintWithIpynb')}</span>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".curl,.txt,.ipynb,.json,.postman_collection.json,.bru,text/plain,application/json,application/x-ipynb+json"
-                onChange={handleFileChange}
-                className="sr-only"
-                data-testid="import-preview-file-input"
-              />
-            </div>
-          </section>
-
-          {/* MIDDLE — preview band OR reject band */}
-          <section
-            data-testid="import-preview-band"
-            className="min-h-0 overflow-y-auto"
+            {confirmLabel}
+          </button>
+        </div>
+      }
+    >
+      {/* The shell renders our children into its scrollable body. We
+          attach the drag-drop handlers + the drag-over ring here so a
+          file dropped anywhere over the modal body still imports, and
+          carry the legacy `import-preview-overlay` testid the suite
+          asserts against. `bodyClassName` is intentionally left at the
+          shell default; this inner wrapper owns the grid layout. */}
+      <div
+        data-testid="import-preview-overlay"
+        className={cn(
+          'grid grid-cols-1 gap-4 rounded-md p-1.5 md:grid-cols-2',
+          isDragOver && 'ring-2 ring-accent/70 ring-offset-2 ring-offset-bg-panel'
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* TOP — load source (two columns: paste + pick-a-file) */}
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="import-preview-paste"
+            className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-subtle"
           >
-            {previewed ? (
-              <div className="grid gap-2">
-                <ImportPreviewBody preview={previewed} />
-                {warnings.length > 0 ? (
-                  <div
-                    data-testid="import-preview-warnings"
-                    role="status"
-                    className="grid gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-300"
-                  >
-                    <div className="flex items-center gap-1 font-semibold">
-                      <AlertCircle size={12} aria-hidden="true" />
-                      {t('importPreview.warning.title')}
-                    </div>
-                    <ul role="list" className="grid gap-0.5 pl-4">
-                      {warnings.map((code) => (
-                        <li key={code} data-warning-code={code}>
-                          {t(`importPreview.warning.lossy.${code}`)}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-            ) : rejected && rejectKey ? (
-              <div
-                role="alert"
-                data-testid="import-preview-reject"
-                data-reject-reason={rejected}
-                data-reject-detail={state.rejectDetail ?? ''}
-                className="grid gap-1 rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-[12px] text-rose-700 dark:text-rose-300"
-              >
-                {/* When an importer-specific detail exists (e.g. an
-                    `.ipynb` `wrong-version` / `oversized` reject), the
-                    detail IS the accurate message — promote it to the
-                    bold header and skip the generic outer-reason copy,
-                    which is written for the Slice 1 "importer not
-                    wired" meaning and reads wrong for these cases. */}
-                {rejectDetailKey ? (
-                  <div
-                    data-testid="import-preview-reject-detail"
-                    className="flex items-center gap-1 font-semibold"
-                  >
-                    <AlertCircle size={12} aria-hidden="true" />
-                    {t(rejectDetailKey)}
-                  </div>
-                ) : (
+            {t('importPreview.source.pasteLabel')}
+          </label>
+          <textarea
+            id="import-preview-paste"
+            data-testid="import-preview-paste"
+            value={pasteValue}
+            onChange={handlePasteChange}
+            placeholder={t('importPreview.source.pastePlaceholderNotebook')}
+            rows={4}
+            spellCheck={false}
+            className="min-h-[88px] resize-none rounded-md border border-border-default bg-bg-inset p-2.5 font-mono text-xs text-fg-base outline-none focus:border-border-strong"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">
+            {t('importPreview.source.fileCta')}
+          </span>
+          <button
+            type="button"
+            onClick={handlePickFile}
+            data-testid="import-preview-pick-file"
+            className={cn(
+              'flex min-h-[88px] flex-1 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-default bg-bg-inset px-3 text-center text-xs text-fg-subtle transition-colors',
+              'hover:border-border-strong hover:text-fg-base',
+              isDragOver && 'border-accent bg-accent/10 text-fg-base'
+            )}
+          >
+            <FileUp size={14} aria-hidden="true" />
+            <span>{t('importPreview.source.dropHintWithIpynb')}</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".curl,.txt,.ipynb,.json,.postman_collection.json,.bru,text/plain,application/json,application/x-ipynb+json"
+            onChange={handleFileChange}
+            className="sr-only"
+            data-testid="import-preview-file-input"
+          />
+        </div>
+
+        {/* MIDDLE — preview band OR reject band (full width) */}
+        <section data-testid="import-preview-band" className="md:col-span-2">
+          {previewed ? (
+            <div className="grid gap-2">
+              <ImportPreviewBody preview={previewed} />
+              {warnings.length > 0 ? (
+                <div
+                  data-testid="import-preview-warnings"
+                  role="status"
+                  className="grid gap-1 rounded-md border border-warning-border/60 bg-warning-bg p-3 text-[11px] text-warning-fg"
+                >
                   <div className="flex items-center gap-1 font-semibold">
                     <AlertCircle size={12} aria-hidden="true" />
-                    {t(rejectKey)}
+                    {t('importPreview.warning.title')}
                   </div>
-                )}
-              </div>
-            ) : (
-              <div
-                data-testid="import-preview-empty"
-                className="grid place-items-center rounded-md border border-dashed border-border/40 bg-surface/20 p-6 text-center text-xs text-muted"
-              >
-                {t('importPreview.preview.emptyHint')}
-              </div>
-            )}
-          </section>
-
-          {/* BOTTOM — action bar */}
-          <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-border/60 pt-3">
-            <button
-              type="button"
-              onClick={handleClose}
-              data-testid="import-preview-cancel"
-              className="inline-flex h-7 items-center rounded border border-border/60 bg-surface/40 px-3 text-[11px] text-muted hover:text-foreground"
+                  <ul role="list" className="grid gap-0.5 pl-4">
+                    {warnings.map((code) => (
+                      <li key={code} data-warning-code={code}>
+                        {t(`importPreview.warning.lossy.${code}`)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : rejected && rejectKey ? (
+            <div
+              role="alert"
+              data-testid="import-preview-reject"
+              data-reject-reason={rejected}
+              data-reject-detail={state.rejectDetail ?? ''}
+              className="grid gap-1 rounded-md border border-error-border/60 bg-error-bg p-3 text-[12px] text-error-fg"
             >
-              {t('importPreview.action.cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={!canConfirm}
-              data-testid="import-preview-confirm"
-              className="inline-flex h-7 items-center rounded border border-emerald-500/40 bg-emerald-500/10 px-3 text-[11px] font-medium text-emerald-700 hover:border-emerald-500 dark:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+              {/* When an importer-specific detail exists (e.g. an
+                  `.ipynb` `wrong-version` / `oversized` reject), the
+                  detail IS the accurate message — promote it to the
+                  bold header and skip the generic outer-reason copy,
+                  which is written for the Slice 1 "importer not
+                  wired" meaning and reads wrong for these cases. */}
+              {rejectDetailKey ? (
+                <div
+                  data-testid="import-preview-reject-detail"
+                  className="flex items-center gap-1 font-semibold"
+                >
+                  <AlertCircle size={12} aria-hidden="true" />
+                  {t(rejectDetailKey)}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 font-semibold">
+                  <AlertCircle size={12} aria-hidden="true" />
+                  {t(rejectKey)}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              data-testid="import-preview-empty"
+              className="grid place-items-center rounded-md border border-dashed border-border-subtle bg-bg-inset p-6 text-center text-xs text-fg-subtle"
             >
-              {confirmLabel}
-            </button>
-          </footer>
-        </div>
+              {t('importPreview.preview.emptyHint')}
+            </div>
+          )}
+        </section>
       </div>
-    </div>
+    </ModalShell>
   );
 }

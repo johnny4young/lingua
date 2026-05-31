@@ -5,11 +5,9 @@ import {
   Bug,
   ChevronUp,
   Clock3,
-  Database,
   Eye,
   GitBranch,
   GitCompare,
-  Globe,
   GraduationCap,
   MessageSquare,
   PanelLeft,
@@ -32,8 +30,6 @@ import { DependenciesPanel } from '../Dependencies/DependenciesPanel';
 import { useDependenciesPanelAvailable } from '../Dependencies/useDependenciesPanelAvailable';
 import { useGitDiffTabAvailable } from '../Editor/useGitDiffTabAvailable';
 import { GitDiffPanel } from '../Editor/GitDiffPanel';
-import { HttpWorkspacePanel } from '../HttpWorkspace';
-import { SqlWorkspacePanel } from '../SqlWorkspace';
 import { RecipeRunPanel } from '../Recipes/RecipeRunPanel';
 import { getRecipeById } from '../../data/recipes';
 import { AppChrome } from '../Chrome';
@@ -71,6 +67,20 @@ const CodeEditor = lazy(async () => {
 const LazyNotebookView = lazy(async () => {
   const module = await import('../Notebook/NotebookView');
   return { default: module.NotebookView };
+});
+
+// MOV.02 (FASE 3) — SQL / HTTP workspaces mount as full-screen tabs
+// in the editor area (replacing the dock panels). Lazy so the DuckDB
+// WASM + HTTP client chunks stay out of the initial bundle until a
+// workspace tab is actually opened.
+const LazySqlWorkspaceView = lazy(async () => {
+  const module = await import('../SqlWorkspace/SqlWorkspaceView');
+  return { default: module.SqlWorkspaceView };
+});
+
+const LazyHttpWorkspaceView = lazy(async () => {
+  const module = await import('../HttpWorkspace/HttpWorkspaceView');
+  return { default: module.HttpWorkspaceView };
 });
 
 function useCompactShellLayout() {
@@ -292,6 +302,21 @@ function EditorArea() {
     const active = s.tabs.find((tab) => tab.id === s.activeTabId);
     return active?.kind === 'notebook' ? active.id : null;
   });
+  // MOV.02 (FASE 3) — same primitive-or-null selector shape for the
+  // SQL / HTTP workspace tabs. When the active tab carries
+  // `kind: 'sql' | 'http'` we mount the full-screen workspace view
+  // instead of Monaco; the FileTab id is the binding into the
+  // workspace store (SqlQueryV1.id / HttpRequestV1.id).
+  const activeSqlTabId = useEditorStore((s) => {
+    if (!s.activeTabId) return null;
+    const active = s.tabs.find((tab) => tab.id === s.activeTabId);
+    return active?.kind === 'sql' ? active.id : null;
+  });
+  const activeHttpTabId = useEditorStore((s) => {
+    if (!s.activeTabId) return null;
+    const active = s.tabs.find((tab) => tab.id === s.activeTabId);
+    return active?.kind === 'http' ? active.id : null;
+  });
 
   return (
     <div id="guided-tour-editor" className="flex h-full flex-col">
@@ -329,6 +354,24 @@ function EditorArea() {
           <Suspense fallback={<EditorLoadingState />}>
             <LazyNotebookView tabId={activeNotebookTabId} />
           </Suspense>
+        ) : activeSqlTabId !== null ? (
+          /* MOV.02 (FASE 3) — SQL workspace as a full-screen tab. The
+             view fills the editor area height (h-full min-h-0) instead
+             of the old ~30% dock slot, and binds the workspace store
+             to this tab id. No editor + ResultPanel split here. */
+          <div className="h-full min-h-0">
+            <Suspense fallback={<EditorLoadingState />}>
+              <LazySqlWorkspaceView tabId={activeSqlTabId} />
+            </Suspense>
+          </div>
+        ) : activeHttpTabId !== null ? (
+          /* MOV.02 (FASE 3) — HTTP workspace as a full-screen tab.
+             Mirror of the SQL branch above. */
+          <div className="h-full min-h-0">
+            <Suspense fallback={<EditorLoadingState />}>
+              <LazyHttpWorkspaceView tabId={activeHttpTabId} />
+            </Suspense>
+          </div>
         ) : hasTabs ? (
           <>
             <Group
@@ -460,12 +503,6 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     scopeSnapshot.language === activeLanguage;
   const consoleVisible = useUIStore((state) => state.consoleVisible);
   const activeBottomPanel = useUIStore((state) => state.activeBottomPanel);
-  const httpWorkspaceTabVisible = useUIStore(
-    (state) => state.httpWorkspaceTabVisible
-  );
-  const sqlWorkspaceTabVisible = useUIStore(
-    (state) => state.sqlWorkspaceTabVisible
-  );
   const openBottomPanel = useUIStore((state) => state.openBottomPanel);
   const setActiveBottomPanel = useUIStore((state) => state.setActiveBottomPanel);
   // RL-044 Slice 2b-β-α — Prerequisite fix surfaced during validation.
@@ -524,8 +561,6 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     | 'variables'
     | 'dependencies'
     | 'git-diff'
-    | 'http'
-    | 'sql'
     | 'recipe' =
     variablesAvailable && activeBottomPanel === 'variables'
       ? 'variables'
@@ -539,20 +574,12 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
               ? 'dependencies'
               : gitDiffAvailable && activeBottomPanel === 'git-diff'
                 ? 'git-diff'
-                // RL-097 Slice 1 — HTTP workspace tab. Always available
-                // (no entitlement / folder gate); shows when explicitly
-                // activated via Mod+Shift+K or the command palette.
-                : activeBottomPanel === 'http'
-                  ? 'http'
-                  // RL-097 Slice 2 — SQL workspace tab. Same posture as HTTP.
-                  : activeBottomPanel === 'sql'
-                    ? 'sql'
-                    // RL-039 Slice B — Recipes Run + Test panel. Only when
-                    // the active tab is bound (the overlay's "open recipe"
-                    // confirm flips here automatically).
-                    : recipeTabAvailable && activeBottomPanel === 'recipe'
-                      ? 'recipe'
-                      : 'console';
+                // RL-039 Slice B — Recipes Run + Test panel. Only when
+                // the active tab is bound (the overlay's "open recipe"
+                // confirm flips here automatically).
+                : recipeTabAvailable && activeBottomPanel === 'recipe'
+                  ? 'recipe'
+                  : 'console';
 
   useEffect(() => {
     if (activeBottomPanel === 'debugger' && !debuggerAvailable) {
@@ -597,8 +624,6 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
       | 'variables'
       | 'dependencies'
       | 'git-diff'
-      | 'http'
-      | 'sql'
       | 'recipe'
   ) => {
     if (tab === 'debugger' && !debuggerAvailable) return;
@@ -608,7 +633,6 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
     if (tab === 'dependencies' && !dependenciesAvailable) return;
     if (tab === 'git-diff' && !gitDiffAvailable) return;
     if (tab === 'recipe' && !recipeTabAvailable) return;
-    // RL-097 — `'http'` and `'sql'` are unconditional (always available).
     openBottomPanel(tab);
   };
 
@@ -776,52 +800,11 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
             </button>
           </Tooltip>
         ) : null}
-        {/* RL-097 Slice 1 — HTTP workspace tab. Hidden on first boot;
-            remains in the strip after first activation via Mod+Shift+K
-            or the palette so the user can switch back from Console. */}
-        {httpWorkspaceTabVisible || effectiveTab === 'http' ? (
-          <Tooltip content={t('httpWorkspace.tab.hint')} side="bottom">
-            <button
-              type="button"
-              role="tab"
-              data-testid="bottom-panel-http-tab"
-              aria-selected={effectiveTab === 'http'}
-              onClick={() => selectTab('http')}
-              className={cn(
-                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                effectiveTab === 'http'
-                  ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
-                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
-              )}
-            >
-              <Globe size={12} aria-hidden="true" />
-              {t('httpWorkspace.tab.label')}
-            </button>
-          </Tooltip>
-        ) : null}
-        {/* RL-097 Slice 2 — SQL workspace tab. Same posture as HTTP:
-            hidden until the user activates it via Mod+Alt+S or the
-            palette, then sticks in the strip for the session. */}
-        {sqlWorkspaceTabVisible || effectiveTab === 'sql' ? (
-          <Tooltip content={t('sqlWorkspace.tab.hint')} side="bottom">
-            <button
-              type="button"
-              role="tab"
-              data-testid="bottom-panel-sql-tab"
-              aria-selected={effectiveTab === 'sql'}
-              onClick={() => selectTab('sql')}
-              className={cn(
-                'relative -mb-px inline-flex h-10 items-center gap-2 rounded-t-md border border-border/70 border-b-border/80 bg-surface/45 px-3 text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-                effectiveTab === 'sql'
-                  ? 'border-border-strong border-t-primary border-b-background bg-background text-foreground shadow-[0_1px_0_0_var(--app-background)]'
-                  : 'text-muted hover:border-border-strong/80 hover:bg-background/70 hover:text-foreground'
-              )}
-            >
-              <Database size={12} aria-hidden="true" />
-              {t('sqlWorkspace.tab.label')}
-            </button>
-          </Tooltip>
-        ) : null}
+        {/* MOV.02 (FASE 3) — the HTTP + SQL workspace dock tabs were
+            removed. Both surfaces are now full-screen `FileTab`s mounted
+            in the editor area (see EditorArea's activeSqlTabId /
+            activeHttpTabId branches). The dock keeps only ephemeral
+            streams + contextual panels. */}
         {/* RL-039 Slice B — Recipes Run + Test tab. Only mounts when
             the active tab has a recipe binding (the overlay's open-
             recipe confirm sets the binding + flips the panel here). */}
@@ -870,10 +853,6 @@ function BottomPanel({ debuggerAvailable }: { debuggerAvailable: boolean }) {
           <DependenciesPanel />
         ) : effectiveTab === 'git-diff' ? (
           <GitDiffPanel />
-        ) : effectiveTab === 'http' ? (
-          <HttpWorkspacePanel />
-        ) : effectiveTab === 'sql' ? (
-          <SqlWorkspacePanel />
         ) : effectiveTab === 'recipe' ? (
           <RecipeRunPanel />
         ) : (
@@ -1325,7 +1304,7 @@ export function AppLayout({
         <OverlayBackdrop
           align="top"
           onClose={() => setSidebarVisible(false)}
-          className="justify-start bg-black/46 p-2 pt-18 backdrop-blur-sm sm:p-3 sm:pt-20"
+          className="justify-start bg-overlay/70 p-2 pt-18 backdrop-blur-sm sm:p-3 sm:pt-20"
         >
           <div
             ref={compactDrawerRef}

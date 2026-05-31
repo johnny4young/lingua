@@ -18,18 +18,11 @@ export type BottomPanelTab =
   // not a git repo never see the chrome. Mount fires the
   // `git.diff_panel_opened` telemetry (fold D).
   | 'git-diff'
-  // RL-097 Slice 1 — bottom-panel sibling for the HTTP workspace.
-  // Always available (no entitlement, no folder requirement). Tab
-  // surfaces via Mod+Shift+K (Mod+Shift+J first considered but taken
-  // by `view-show-dependencies`) or the `Open HTTP workspace`
-  // palette entry. Slice 2 mirrors this surface with the SQL
-  // workspace tab below.
-  | 'http'
-  // RL-097 Slice 2 — bottom-panel sibling for the SQL workspace
-  // (DuckDB-WASM). Same "always available" posture as HTTP. Tab
-  // surfaces via Mod+Alt+S (Mod+Shift+Q rejected — macOS log-out
-  // OS-level conflict) or the `Open SQL workspace` palette entry.
-  | 'sql'
+  // MOV.02 (FASE 3) — the HTTP and SQL workspaces are no longer dock
+  // panels. They ascended to full-screen `FileTab`s owned by
+  // `useEditorStore` (one stable tab per workspace). `'http'` / `'sql'`
+  // were removed from this union; the dock keeps only the ephemeral
+  // streams (Console, Input) + the contextual panels below.
   // RL-039 Slice B — bottom-panel sibling for the Recipes Run + Test
   // surface. Conditional render in `AppLayout.tsx` gates on the
   // active tab having a `recipeBindingId` (set by the overlay's
@@ -181,47 +174,6 @@ function readPersistedBoolean(key: string, fallback: boolean): boolean {
   }
 }
 
-/**
- * Reviewer pass — probe the persisted `lingua-workspace-tool-state`
- * key for any saved requests so the boot-time
- * `httpWorkspaceTabVisible` can default to `true` when the user
- * has saved work. Avoids the friction of having to re-trigger
- * Mod+Shift+K on every reload to find a request you already have.
- * Fully defensive: any localStorage / JSON malformation falls
- * through to `false` so a corrupt store can never crash the boot.
- */
-function hasPersistedHttpRequests(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    const raw = window.localStorage.getItem('lingua-workspace-tool-state');
-    if (!raw) return false;
-    const parsed = JSON.parse(raw) as { state?: { requests?: unknown } };
-    const requests = parsed?.state?.requests;
-    return Array.isArray(requests) && requests.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * RL-097 Slice 2 — mirror of `hasPersistedHttpRequests` for the
- * SQL workspace store. Keeps boot ergonomics symmetrical: a user
- * with saved queries sees the SQL tab without having to hit the
- * shortcut every reload.
- */
-function hasPersistedSqlQueries(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    const raw = window.localStorage.getItem('lingua-workspace-sql-state');
-    if (!raw) return false;
-    const parsed = JSON.parse(raw) as { state?: { queries?: unknown } };
-    const queries = parsed?.state?.queries;
-    return Array.isArray(queries) && queries.length > 0;
-  } catch {
-    return false;
-  }
-}
-
 function writePersisted<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return;
   try {
@@ -239,18 +191,6 @@ interface UIState {
   sidebarVisible: boolean;
   consoleVisible: boolean;
   activeBottomPanel: BottomPanelTab;
-  /**
-   * RL-097 Slice 1 — HTTP tab is hidden on first boot, then remains
-   * in the bottom-panel tab strip after the user opens it once via
-   * shortcut or palette.
-   */
-  httpWorkspaceTabVisible: boolean;
-  /**
-   * RL-097 Slice 2 — SQL tab is hidden on first boot, then remains
-   * in the strip after the user opens it once. Mirrors
-   * `httpWorkspaceTabVisible`.
-   */
-  sqlWorkspaceTabVisible: boolean;
   statusNotice: StatusNotice | null;
   /**
    * Custom position for the floating Action Pill, when the user has
@@ -310,15 +250,6 @@ export const useUIStore = create<UIState>((set) => ({
   sidebarVisible: false,
   consoleVisible: false,
   activeBottomPanel: 'console',
-  // Reviewer pass — seed `httpWorkspaceTabVisible` from the
-  // persisted workspaceToolStore: if the user has any saved
-  // requests on this device, surface the tab so they can find
-  // them again without having to remember the Mod+Shift+K
-  // shortcut after every reload. localStorage read happens lazily
-  // here (the workspaceToolStore is another module which may not
-  // have hydrated yet — we read the JSON directly).
-  httpWorkspaceTabVisible: hasPersistedHttpRequests(),
-  sqlWorkspaceTabVisible: hasPersistedSqlQueries(),
   statusNotice: null,
   actionPillPosition: readPersistedPosition(ACTION_PILL_POSITION_KEY),
   variablesCardPosition: readPersistedPosition(VARIABLES_CARD_POSITION_KEY),
@@ -335,15 +266,8 @@ export const useUIStore = create<UIState>((set) => ({
     set({
       activeBottomPanel,
       consoleVisible: true,
-      ...(activeBottomPanel === 'http' ? { httpWorkspaceTabVisible: true } : {}),
-      ...(activeBottomPanel === 'sql' ? { sqlWorkspaceTabVisible: true } : {}),
     }),
-  setActiveBottomPanel: (activeBottomPanel) =>
-    set({
-      activeBottomPanel,
-      ...(activeBottomPanel === 'http' ? { httpWorkspaceTabVisible: true } : {}),
-      ...(activeBottomPanel === 'sql' ? { sqlWorkspaceTabVisible: true } : {}),
-    }),
+  setActiveBottomPanel: (activeBottomPanel) => set({ activeBottomPanel }),
   setSidebarVisible: (sidebarVisible) => set({ sidebarVisible }),
   setConsoleVisible: (consoleVisible) => set({ consoleVisible }),
   pushStatusNotice: (notice) => {

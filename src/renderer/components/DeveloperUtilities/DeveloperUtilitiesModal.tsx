@@ -1,4 +1,4 @@
-import { Search, Wrench, X } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -14,7 +14,7 @@ import {
   type DeveloperUtilityDefinition,
   type DeveloperUtilityId,
 } from '../../data/developerUtilities';
-import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { ModalShell, Kbd } from '../ui/ModalShell';
 import { EyebrowMono } from '../ui/primitives';
 import { cn } from '../../utils/cn';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
@@ -25,21 +25,26 @@ import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
 import { trackEvent } from '../../utils/telemetry';
 
 /**
- * RL-070 Sub-slice 3 — Adaptive utilities layout.
+ * FASE 1 (MOV.01) — Developer utilities migrated onto the Signal-Slate
+ * `ModalShell`.
  *
- * Changes from the original modal:
+ * The overlay keeps its adaptive master-detail layout (searchable
+ * sidebar + workspace panel) but now renders inside the canonical shell
+ * instead of the bespoke `OverlayBackdrop`/`OverlayCard` chrome:
  *
- *   - Sidebar gains a search input that filters by title / description /
- *     keyword (the keywords already live on every utility definition).
- *   - Search empty state ("No utility matches «foo»") replaces the list
- *     when nothing matches; pressing Esc clears the query.
- *   - Modal grows to use the available viewport width (matches what
- *     SettingsModal does post-Sub-slice 2). Tall surfaces like the JWT
- *     debugger now have room for three columns without horizontal scroll
- *     even on 13" laptops.
- *   - Sidebar header uses the new Eyebrow primitive.
- *   - Selected-utility chip in the sidebar uses an accented dot for
- *     stronger visual anchoring instead of the previous bold-blue tint.
+ *   - HEADER → the shell's TITLE variant (title + subtitle) with the
+ *     `x` close button (`headerClose="button"`). The two legacy
+ *     `IconButton` close affordances (mobile + desktop) collapse into
+ *     that single header `x`.
+ *   - BODY → the master-detail grid passed as `children`, with
+ *     `bodyClassName` removing the shell's default padding so the
+ *     two-column layout owns its own gutters. The sidebar list and the
+ *     workspace each scroll independently within the shell's body.
+ *   - FOOTER → `footerLegend` carries the existing copy-output shortcut
+ *     hint; `trailing` shows the live tool count.
+ *
+ * Everything the overlay *does* — fuzzy search, arrow-key navigation,
+ * favorites, telemetry, the selected-utility workspace — is unchanged.
  */
 
 interface DeveloperUtilitiesModalProps {
@@ -231,63 +236,57 @@ export function DeveloperUtilitiesModal({
     }
   };
 
-  return (
-    <OverlayBackdrop onClose={onClose}>
-      <OverlayCard
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="developer-utilities-modal-title"
-        data-testid="developer-utilities-modal"
-        className="um-modal-shell relative flex h-[min(86vh,860px)] w-[min(96vw,1480px)] max-w-none flex-col overflow-hidden lg:flex-row"
+  const header = (
+    <div className="min-w-0">
+      <h2
+        id="developer-utilities-modal-title"
+        className="text-[16px] font-semibold leading-tight tracking-[-0.01em] text-fg-base"
       >
-        <aside className="flex w-full shrink-0 flex-col border-b border-border/60 bg-transparent lg:w-[300px] lg:border-b-0 lg:border-r">
-          <div className="px-5 pb-3 pt-6">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <EyebrowMono className="mb-2 block">
-                  {t('utilities.panelTitle')}
-                </EyebrowMono>
-                <div className="flex items-center gap-3">
-                  <span
-                    aria-hidden
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-[10px] bg-primary-soft text-accent-fg"
-                  >
-                    <Wrench size={18} />
-                  </span>
-                  <h2
-                    id="developer-utilities-modal-title"
-                    className="text-[18px] font-bold text-fg-base"
-                  >
-                    {t('utilities.title')}
-                  </h2>
-                </div>
-              </div>
-              <IconButton
-                onClick={onClose}
-                tooltip={t('utilities.close')}
-                aria-label={t('utilities.close')}
-                className="lg:hidden"
-              >
-                <X size={16} />
-              </IconButton>
-            </div>
-            <p className="mb-4 max-w-[26ch] text-[12.5px] leading-[1.55] text-fg-muted">
-              {t('utilities.description')}
-            </p>
-            {copyOutputShortcutHint ? (
-              <div
-                className="mb-3 flex flex-wrap items-center gap-2"
-                aria-label={t('utilities.shortcuts.outputAriaLabel')}
-                data-testid="utilities-sidebar-shortcuts"
-              >
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-background/70 px-2.5 py-1 text-[11px] leading-none text-muted">
-                  <span>{t(copyOutputShortcutHint.labelKey)}</span>
-                  <span className="kbd-shell border-border/70 bg-background-elevated text-[10px] text-foreground">
-                    {copyOutputShortcutHint.combo}
-                  </span>
-                </span>
-              </div>
-            ) : null}
+        {t('utilities.title')}
+      </h2>
+      <p className="mt-0.5 truncate text-[12.5px] text-fg-subtle">
+        {t('utilities.description')}
+      </p>
+    </div>
+  );
+
+  const footerLegend = copyOutputShortcutHint ? (
+    <span
+      className="flex items-center gap-[6px] text-[11.5px] text-fg-subtle"
+      aria-label={t('utilities.shortcuts.outputAriaLabel')}
+      data-testid="utilities-sidebar-shortcuts"
+    >
+      <Kbd>{copyOutputShortcutHint.combo}</Kbd>
+      {t(copyOutputShortcutHint.labelKey)}
+    </span>
+  ) : (
+    <span />
+  );
+
+  const trailing = (
+    <span className="font-mono text-[11px] text-fg-subtle">
+      {t('utilities.toolCount', { count: DEVELOPER_UTILITIES.length })}
+    </span>
+  );
+
+  return (
+    <ModalShell
+      onClose={onClose}
+      size="max-w-[1120px]"
+      labelledById="developer-utilities-modal-title"
+      headerClose="button"
+      closeLabel={t('utilities.close')}
+      header={header}
+      footerLegend={footerLegend}
+      trailing={trailing}
+      bodyClassName="h-[min(70vh,640px)] overflow-hidden"
+    >
+      <div
+        data-testid="developer-utilities-modal"
+        className="grid h-full grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)]"
+      >
+        <aside className="flex min-h-0 flex-col border-b border-border-subtle lg:border-b-0 lg:border-r">
+          <div className="px-4 pb-3 pt-4">
             <div className="relative">
               <Search
                 size={13}
@@ -319,10 +318,10 @@ export function DeveloperUtilitiesModal({
             selectedUtilityId={selectedUtilityId}
             onSelect={setSelectedUtilityId}
           />
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {filteredUtilities.length === 0 ? (
               <div className="px-3 py-6 text-center">
-                <p className="text-[12px] text-muted">
+                <p className="text-[12px] text-fg-muted">
                   {t('utilities.search.empty', { query: searchQuery })}
                 </p>
               </div>
@@ -388,31 +387,21 @@ export function DeveloperUtilitiesModal({
           </div>
         </aside>
 
-        <main className="flex min-h-0 flex-1 flex-col bg-bg-panel-alt/40">
-          <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-8 pb-5 pt-7">
-            <div className="grid gap-1.5">
-              <EyebrowMono>{t('utilities.workspaceLabel')}</EyebrowMono>
-              <h2 className="text-[26px] font-bold leading-[1.15] text-fg-base">
-                {t(selectedUtility.titleKey)}
-              </h2>
-              <p className="mt-1 max-w-3xl text-[13px] leading-[1.55] text-fg-muted">
-                {t(selectedUtility.descriptionKey)}
-              </p>
-            </div>
-            <IconButton
-              onClick={onClose}
-              tooltip={t('utilities.close')}
-              aria-label={t('utilities.close')}
-              className="hidden lg:inline-flex"
-            >
-              <X size={16} />
-            </IconButton>
+        <main className="flex min-h-0 min-w-0 flex-col bg-bg-panel-alt/40">
+          <div className="border-b border-border-subtle px-7 pb-5 pt-6">
+            <EyebrowMono>{t('utilities.workspaceLabel')}</EyebrowMono>
+            <h2 className="mt-1.5 text-[22px] font-bold leading-[1.15] tracking-[-0.01em] text-fg-base">
+              {t(selectedUtility.titleKey)}
+            </h2>
+            <p className="mt-1 max-w-3xl text-[13px] leading-[1.55] text-fg-muted">
+              {t(selectedUtility.descriptionKey)}
+            </p>
           </div>
-          <div className="flex-1 overflow-y-auto px-8 py-7">
+          <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
             <DeveloperUtilityPanel toolId={selectedUtilityId} />
           </div>
         </main>
-      </OverlayCard>
-    </OverlayBackdrop>
+      </div>
+    </ModalShell>
   );
 }

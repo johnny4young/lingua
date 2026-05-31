@@ -4,7 +4,7 @@ import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { summarizeRunCapsule } from '../../../shared/runCapsule';
 import { exportCapsuleToClipboard } from '../../utils/exportCapsule';
-import { Row, Section } from './shared';
+import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
 
 /**
  * RL-094 Slice 1 — Settings → Account → Run Capsules.
@@ -74,96 +74,100 @@ export function RunCapsulesSection() {
   }, [capsule, prettyPrint, pushStatusNotice]);
 
   return (
-    <Section
-      title={t('settings.account.runCapsules.title')}
+    <SettingsSection
+      eyebrow={t('settings.account.runCapsules.title')}
       description={t('settings.account.runCapsules.description')}
     >
-      <Row
-        label={t('settings.account.runCapsules.latestRun')}
-        hint={
-          summary ?? t('settings.account.runCapsules.emptyState')
-        }
-      >
-        <div className="grid w-full gap-2 text-right">
-          <label className="flex items-center justify-end gap-2 text-xs text-muted">
-            <input
-              type="checkbox"
-              checked={prettyPrint}
-              onChange={(event) => setPrettyPrint(event.target.checked)}
-              data-testid="capsule-pretty-toggle"
-            />
-            {t('settings.account.runCapsules.prettyToggle')}
-          </label>
-          <div className="flex items-center justify-end gap-2">
-            {/*
-             * RL-094 Slice 2 — Import button mirrors the Export
-             * affordance so the surface advertises both directions of
-             * the capsule loop. Click dispatches a window event the
-             * App-level overlay listener picks up; this keeps the
-             * Settings section decoupled from the overlay state
-             * slot (same pattern as the snippets surface).
-             */}
-            {/*
-             * RL-094 Slice 3 — Browse opens the Pro-gated capsule
-             * browse overlay. Same window-event decoupling as Import;
-             * the surface tag drives the overlay's
-             * `capsule.browse_opened` telemetry.
-             */}
-            <button
-              type="button"
-              className="rounded-md border border-border/60 px-3 py-1.5 text-xs text-foreground hover:bg-surface-strong/60"
-              onClick={() => {
-                window.dispatchEvent(
-                  new CustomEvent('lingua-open-capsule-list', {
-                    detail: { surface: 'settings' },
-                  })
-                );
-              }}
-              data-testid="capsule-browse-button"
-              title={t('settings.account.runCapsules.browse.helper')}
-            >
-              {t('settings.account.runCapsules.browse.button')}
-            </button>
-            <button
-              type="button"
-              className="rounded-md border border-border/60 px-3 py-1.5 text-xs text-foreground hover:bg-surface-strong/60"
-              onClick={() => {
-                window.dispatchEvent(
-                  new CustomEvent('lingua-open-capsule-import')
-                );
-              }}
-              data-testid="capsule-import-button"
-              title={t('settings.account.runCapsules.import.helper')}
-            >
-              {t('settings.account.runCapsules.import.button')}
-            </button>
-            <button
-              type="button"
-              className="button-primary"
-              onClick={handleExport}
-              disabled={!capsule}
-              data-testid="capsule-export-button"
-            >
-              {t('settings.account.runCapsules.exportButton')}
-            </button>
-          </div>
-        </div>
-      </Row>
-      {inlineFallback !== null ? (
-        <Row
-          label={t('settings.account.runCapsules.fallbackLabel')}
-          hint={t('settings.account.runCapsules.fallbackHint')}
-        >
-          <textarea
-            readOnly
-            value={inlineFallback}
-            rows={6}
-            className="w-full rounded-md border border-border/60 bg-bg-elevated p-2 font-mono text-xs"
-            data-testid="capsule-fallback-textarea"
-            onFocus={(event) => event.currentTarget.select()}
+      <SpecCard>
+        <SpecRow
+          last={inlineFallback === null}
+          label={t('settings.account.runCapsules.latestRun')}
+          description={summary ?? t('settings.account.runCapsules.emptyState')}
+          control={
+            <div className="flex flex-col items-end gap-2">
+              <label className="flex items-center gap-2 text-[11.5px] text-fg-subtle">
+                <input
+                  type="checkbox"
+                  checked={prettyPrint}
+                  onChange={(event) => setPrettyPrint(event.target.checked)}
+                  data-testid="capsule-pretty-toggle"
+                />
+                {t('settings.account.runCapsules.prettyToggle')}
+              </label>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {/*
+                 * RL-094 Slice 2 — Import button mirrors the Export
+                 * affordance so the surface advertises both directions of
+                 * the capsule loop. Click dispatches a window event the
+                 * App-level overlay listener picks up; this keeps the
+                 * Settings section decoupled from the overlay state
+                 * slot (same pattern as the snippets surface).
+                 */}
+                {/*
+                 * RL-094 Slice 3 — Browse opens the Pro-gated capsule
+                 * browse overlay. Same window-event decoupling as Import;
+                 * the surface tag drives the overlay's
+                 * `capsule.browse_opened` telemetry.
+                 */}
+                <button
+                  type="button"
+                  className="rounded-md border border-border-default px-3 py-1.5 text-[12px] text-fg-base transition-colors hover:bg-bg-panel-alt"
+                  onClick={() => {
+                    window.dispatchEvent(
+                      new CustomEvent('lingua-open-capsule-list', {
+                        detail: { surface: 'settings' },
+                      })
+                    );
+                  }}
+                  data-testid="capsule-browse-button"
+                  title={t('settings.account.runCapsules.browse.helper')}
+                >
+                  {t('settings.account.runCapsules.browse.button')}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-border-default px-3 py-1.5 text-[12px] text-fg-base transition-colors hover:bg-bg-panel-alt"
+                  onClick={() => {
+                    window.dispatchEvent(
+                      new CustomEvent('lingua-open-capsule-import')
+                    );
+                  }}
+                  data-testid="capsule-import-button"
+                  title={t('settings.account.runCapsules.import.helper')}
+                >
+                  {t('settings.account.runCapsules.import.button')}
+                </button>
+                <button
+                  type="button"
+                  className="button-primary"
+                  onClick={handleExport}
+                  disabled={!capsule}
+                  data-testid="capsule-export-button"
+                >
+                  {t('settings.account.runCapsules.exportButton')}
+                </button>
+              </div>
+            </div>
+          }
+        />
+        {inlineFallback !== null ? (
+          <SpecRow
+            last
+            label={t('settings.account.runCapsules.fallbackLabel')}
+            description={t('settings.account.runCapsules.fallbackHint')}
+            control={
+              <textarea
+                readOnly
+                value={inlineFallback}
+                rows={6}
+                className="w-full max-w-[320px] rounded-md border border-border-default bg-bg-base p-2 font-mono text-[12px] text-fg-base"
+                data-testid="capsule-fallback-textarea"
+                onFocus={(event) => event.currentTarget.select()}
+              />
+            }
           />
-        </Row>
-      ) : null}
-    </Section>
+        ) : null}
+      </SpecCard>
+    </SettingsSection>
   );
 }

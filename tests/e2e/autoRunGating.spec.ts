@@ -29,6 +29,7 @@ import {
   expect,
   gotoApp,
   seedSession,
+  selectRuntimeMode,
   test,
 } from './licenseWeb.helpers';
 
@@ -93,8 +94,7 @@ test.describe('Auto-run completion gate (RL-020 Slice 1)', () => {
     await createJavaScriptTab(page);
 
     // Flip the tab into browser-preview runtime mode.
-    await page.getByTestId('runtime-mode-selector-button').click();
-    await page.getByTestId('runtime-mode-option-browser-preview').click();
+    await selectRuntimeMode(page, 'browser-preview');
     await expect(page.getByTestId('bottom-panel-browser-preview-tab')).toBeVisible();
 
     // Same no-bracket trailing-operator shape so Monaco auto-pair

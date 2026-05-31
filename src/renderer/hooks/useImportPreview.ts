@@ -13,7 +13,7 @@
  *   4. The user clicks `Confirm` → the hook calls `adapter.import`
  *      then writes the result into the appropriate store.
  *      - `'curl-http'` → `useWorkspaceToolStore.createRequest` +
- *        flips bottom panel to `'http'`.
+ *        opens or focuses the stable HTTP workspace editor tab.
  *      - `'ipynb-notebook'` (Slice 2) → `editorStore.addNotebookTab`
  *        with the dominant notebook language + walks parsed cells via
  *        `addCell`; fold F keeps the FloatingActionPill language chip
@@ -63,8 +63,8 @@ import {
 import { bucketCapsuleSize } from '../../shared/runCapsule';
 import { useEditorStore } from '../stores/editorStore';
 import { useNotebookStore } from '../stores/notebookStore';
-import { useUIStore } from '../stores/uiStore';
 import { useWorkspaceToolStore } from '../stores/workspaceToolStore';
+import { openHttpWorkspaceTab } from '../runtime/openWorkspaceTab';
 import {
   bucketWarningKindCount,
   countDistinctNotebookWarningKinds,
@@ -224,8 +224,11 @@ export function useImportPreview(): UseImportPreviewResult {
         ...(result.body ? { body: { ...result.body } } : {}),
       };
       useWorkspaceToolStore.getState().createRequest(merged);
-      // Fold G (Slice 1) — surface the new request immediately.
-      useUIStore.getState().openBottomPanel('http');
+      // Fold G (Slice 1) → MOV.02 (FASE 3) — surface the new request
+      // as a full-screen HTTP workspace tab (the dock panel is gone).
+      // Adopt the just-created request id so the tab.id === request.id
+      // binding contract holds.
+      openHttpWorkspaceTab({ adoptEntryId: merged.id });
       trackImportApplied({
         importerId: 'curl-http',
         status: 'ok',
@@ -347,8 +350,13 @@ export function useImportPreview(): UseImportPreviewResult {
         return null;
       }
       useWorkspaceToolStore.getState().createRequests(newRequests);
-      // Surface the imported requests immediately (mirror of fold G).
-      useUIStore.getState().openBottomPanel('http');
+      // MOV.02 (FASE 3) — surface the imported collection as the single
+      // full-screen HTTP workspace tab. We make the first imported
+      // request active (createRequests sets it active too), and the
+      // remaining requests stay first-class rail rows inside the same
+      // collection. No per-request FileTab is minted, so large imports
+      // remain navigable without creating an up-front tab/upsell storm.
+      openHttpWorkspaceTab({ adoptEntryId: newRequests[0]?.id });
       trackImportApplied({
         importerId: state.importerId,
         status: 'ok',

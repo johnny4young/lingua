@@ -133,12 +133,12 @@ export function ExhaustedDevicesModal({ onClose }: ExhaustedDevicesModalProps) {
         <div className="surface-header px-5 py-4">
           <h2
             id="license-exhausted-modal-title"
-            className="font-display text-xl font-semibold tracking-[-0.02em] text-foreground"
+            className="font-display text-xl font-semibold tracking-[-0.02em] text-fg-base"
           >
             {t('license.devices.exhaustedModal.title')}
           </h2>
         </div>
-        <div className="space-y-4 px-5 py-5 text-sm leading-6 text-muted">
+        <div className="space-y-4 px-5 py-5 text-sm leading-6 text-fg-muted">
           <p>{t('license.devices.exhaustedModal.body', { surface: surfaceLabel })}</p>
           {devices && deviceLimit ? (
             <DeviceList
@@ -150,7 +150,7 @@ export function ExhaustedDevicesModal({ onClose }: ExhaustedDevicesModalProps) {
             />
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/80 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border-subtle px-5 py-4">
           <button
             type="button"
             className="button-secondary"

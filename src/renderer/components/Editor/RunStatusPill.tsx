@@ -23,6 +23,7 @@ import { AlarmClock, AlertTriangle, Hourglass, Square } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useResultStore } from '../../stores/resultStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { StatusBadge } from '../ui/StatusBadge';
 
 function formatMmSs(remainingMs: number): string {
   const safeMs = Math.max(0, Math.floor(remainingMs));
@@ -51,7 +52,8 @@ export function RunStatusPill() {
 
   // In-flight countdown (fold E). Wins over the post-termination
   // variant so the user sees the live counter, not a stale "Error"
-  // pill from a previous run.
+  // pill from a previous run. The countdown is informational (not an
+  // alarm yet), so it adopts the quiet `neutral` StatusBadge tone.
   if (showCountdown && runDeadlineAt !== null) {
     const remaining = runDeadlineAt - now;
     const label = formatMmSs(Math.max(0, remaining));
@@ -61,10 +63,12 @@ export function RunStatusPill() {
         data-run-status="countdown"
         title={t('runtime.statusPill.countdown.tooltip', { label })}
         aria-label={t('runtime.statusPill.countdown.tooltip', { label })}
-        className="inline-flex items-center gap-1 rounded-full bg-transparent px-1.5 text-[10px] italic text-muted"
+        className="inline-flex"
       >
-        <Hourglass size={10} aria-hidden="true" className="opacity-70" />
-        {label}
+        <StatusBadge tone="neutral">
+          <Hourglass size={10} aria-hidden="true" className="opacity-70" />
+          <span className="tabular-nums">{label}</span>
+        </StatusBadge>
       </span>
     );
   }
@@ -97,10 +101,12 @@ export function RunStatusPill() {
           data-run-status="timeout"
           title={tooltip}
           aria-label={tooltip}
-          className="inline-flex items-center gap-1 rounded-full bg-transparent px-1.5 text-[10px] italic text-muted"
+          className="inline-flex"
         >
-          <AlarmClock size={10} aria-hidden="true" className="opacity-70" />
-          {t('runtime.statusPill.timeout.label')}
+          <StatusBadge tone="warning" dot>
+            <AlarmClock size={10} aria-hidden="true" className="opacity-70" />
+            {t('runtime.statusPill.timeout.label')}
+          </StatusBadge>
         </span>
       );
     }
@@ -111,10 +117,12 @@ export function RunStatusPill() {
           data-run-status="stopped"
           title={t('runtime.statusPill.stopped.tooltip')}
           aria-label={t('runtime.statusPill.stopped.tooltip')}
-          className="inline-flex items-center gap-1 rounded-full bg-transparent px-1.5 text-[10px] italic text-muted"
+          className="inline-flex"
         >
-          <Square size={10} aria-hidden="true" className="opacity-70" />
-          {t('runtime.statusPill.stopped.label')}
+          <StatusBadge tone="neutral" dot>
+            <Square size={10} aria-hidden="true" className="opacity-70" />
+            {t('runtime.statusPill.stopped.label')}
+          </StatusBadge>
         </span>
       );
     }
@@ -125,10 +133,12 @@ export function RunStatusPill() {
           data-run-status="error"
           title={t('runtime.statusPill.error.tooltip')}
           aria-label={t('runtime.statusPill.error.tooltip')}
-          className="inline-flex items-center gap-1 rounded-full bg-transparent px-1.5 text-[10px] italic text-muted"
+          className="inline-flex"
         >
-          <AlertTriangle size={10} aria-hidden="true" className="opacity-70" />
-          {t('runtime.statusPill.error.label')}
+          <StatusBadge tone="error" dot>
+            <AlertTriangle size={10} aria-hidden="true" className="opacity-70" />
+            {t('runtime.statusPill.error.label')}
+          </StatusBadge>
         </span>
       );
     }

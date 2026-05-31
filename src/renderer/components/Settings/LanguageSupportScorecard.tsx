@@ -9,7 +9,8 @@ import {
   type LanguageSupportProfile,
 } from '../../../shared/languageSupport';
 import { trackEvent } from '../../utils/telemetry';
-import { Section } from './shared';
+import { SettingsSection } from '../ui/SpecRow';
+import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import {
   clearLanguageScorecardSurfaceClaim,
   hasLanguageScorecardSurfaceFired,
@@ -30,15 +31,16 @@ import {
  *
  * Design choices:
  *   - **Table-style render** with one row per language + 9 columns
- *     for the closed `LanguageCapability` enum. Status chips are
- *     color-coded so the user can scan vertically (which languages
- *     are fully supported) and horizontally (where a language is
- *     weak).
+ *     for the closed `LanguageCapability` enum. Status chips reuse the
+ *     shared `<StatusBadge>` so the matrix speaks the same status
+ *     family as license / run / unsaved signals elsewhere: the user
+ *     scans vertically (which languages are fully supported) and
+ *     horizontally (where a language is weak).
  *   - **Fold C — per-platform chips**: capabilities with
- *     `perPlatform` overrides render two small W / D pills inside
- *     the cell, each carrying its own status. The default `capabilities`
- *     value still drives the cell color so the at-a-glance read
- *     stays simple.
+ *     `perPlatform` overrides render two small W / D `<StatusBadge>`
+ *     pills inside the cell, each carrying its own status tone. The
+ *     default `capabilities` value still drives the primary cell badge
+ *     so the at-a-glance read stays simple.
  *   - **Fold D — status legend popover**: a "?" button in the
  *     header opens a popover with the definition of each
  *     `LanguageCapabilityStatus` so first-time readers don't have
@@ -55,13 +57,21 @@ import {
  *     contains 'source'.
  */
 
-const STATUS_TONE: Record<LanguageCapabilityStatus, string> = {
-  available: 'border-success-border/55 bg-success-bg/70 text-success-fg',
-  partial: 'border-warning-border/55 bg-warning-bg/70 text-warning-fg',
-  'desktop-only': 'border-info-border/55 bg-info-bg/70 text-info-fg',
-  'web-only': 'border-accent/40 bg-primary-soft/70 text-accent-fg',
-  planned: 'border-border/40 bg-bg-elevated/60 text-fg-muted',
-  unsupported: 'border-error-border/55 bg-error-bg/70 text-error-fg',
+/**
+ * Maps each `LanguageCapabilityStatus` onto a shared `<StatusBadge>`
+ * tone so the scorecard, its legend, and the per-platform pills all
+ * speak the system status family (no bespoke chip styling):
+ *   available  → success   partial      → warning
+ *   desktop-only/web-only → info        planned   → neutral
+ *   unsupported → error
+ */
+const STATUS_TONE: Record<LanguageCapabilityStatus, StatusBadgeTone> = {
+  available: 'success',
+  partial: 'warning',
+  'desktop-only': 'info',
+  'web-only': 'info',
+  planned: 'neutral',
+  unsupported: 'error',
 };
 
 export interface LanguageSupportScorecardProps {
@@ -126,18 +136,18 @@ export function LanguageSupportScorecard({
   }, [surface]);
 
   return (
-    <Section
-      title={t('languageSupport.scorecard.title')}
+    <SettingsSection
+      eyebrow={t('languageSupport.scorecard.title')}
       description={t('languageSupport.scorecard.description')}
     >
       <div
         ref={containerRef}
-        className="overflow-x-auto rounded-[1.15rem] border border-border/80 bg-background-elevated/72 p-3"
+        className="rounded-lg border border-border-subtle bg-bg-inset"
         data-testid="language-support-scorecard"
         data-surface={surface}
       >
-        <div className="flex items-center justify-between gap-3 pb-2">
-          <span className="text-[11px] uppercase tracking-[0.14em] text-fg-subtle">
+        <div className="flex items-center justify-between gap-3 px-[18px] py-3">
+          <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-fg-subtle">
             {t('languageSupport.scorecard.tableLabel')}
           </span>
           <button
@@ -145,7 +155,7 @@ export function LanguageSupportScorecard({
             onClick={() => setLegendOpen((v) => !v)}
             data-testid="language-support-scorecard-legend-toggle"
             aria-expanded={legendOpen}
-            className="rounded-full border border-border/60 px-2 py-0.5 text-[10px] font-mono text-fg-muted hover:bg-bg-elevated"
+            className="rounded-sm border border-border-subtle px-2 py-0.5 font-mono text-[10px] text-fg-muted hover:bg-bg-panel-alt"
             title={t('languageSupport.scorecard.legendButton')}
             aria-label={t('languageSupport.scorecard.legendButton')}
           >
@@ -155,7 +165,7 @@ export function LanguageSupportScorecard({
         {legendOpen ? (
           <ul
             data-testid="language-support-scorecard-legend"
-            className="mb-3 grid gap-1.5 rounded-md border border-border/60 bg-bg-elevated/80 p-2 text-[11px] text-fg-muted sm:grid-cols-2"
+            className="mx-[18px] mb-3 grid gap-1.5 rounded-md border border-border-subtle bg-bg-panel-alt px-3 py-2 text-[11.5px] text-fg-subtle sm:grid-cols-2"
           >
             {LANGUAGE_CAPABILITY_STATUSES.map((status) => (
               <li
@@ -163,11 +173,9 @@ export function LanguageSupportScorecard({
                 className="flex items-start gap-2"
                 data-status={status}
               >
-                <span
-                  className={`mt-0.5 inline-flex shrink-0 rounded-full border px-2 py-0.5 font-mono text-[9px] ${STATUS_TONE[status]}`}
-                >
+                <StatusBadge tone={STATUS_TONE[status]}>
                   {t(`languageSupport.status.${statusKeyFragment(status)}`)}
-                </span>
+                </StatusBadge>
                 <span className="leading-snug">
                   {t(`languageSupport.statusDescription.${statusKeyFragment(status)}`)}
                 </span>
@@ -175,46 +183,57 @@ export function LanguageSupportScorecard({
             ))}
           </ul>
         ) : null}
-        <table className="w-full border-collapse text-[11px]">
-          <thead>
-            <tr className="text-left text-fg-subtle">
-              <th className="px-2 py-1 font-semibold uppercase tracking-[0.12em]">
-                {t('languageSupport.scorecard.languageColumn')}
-              </th>
-              {LANGUAGE_CAPABILITIES.map((cap) => (
-                <th
-                  key={cap}
-                  scope="col"
-                  className="px-2 py-1 font-semibold uppercase tracking-[0.12em]"
-                  title={t(`languageSupport.capability.${cap}`)}
-                >
-                  {t(`languageSupport.capability.${cap}`)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {LANGUAGE_SUPPORT_PROFILES.map((profile) => (
-              <tr
-                key={profile.languageId}
-                className="border-t border-border/40"
-                data-testid={`language-support-scorecard-row-${profile.languageId}`}
-              >
-                <th
-                  scope="row"
-                  className="px-2 py-2 text-left font-medium text-fg-base"
-                >
-                  {profile.displayName}
+        {/*
+         * RL-095 / FASE 2a — horizontal scroll wrapper. The cell badges
+         * never wrap, so the 9-column table is wider than the panel. A
+         * fixed `min-w-[720px]` (matches the mockup's `minWidth: 720`)
+         * forces every column — including the rightmost DEBUG axis,
+         * which previously clipped — to lay out at full width; the
+         * `overflow-auto` parent then scrolls the whole table sideways
+         * instead of squeezing the last column to nothing.
+         */}
+        <div className="overflow-auto px-[18px] pb-3">
+          <table className="min-w-[720px] border-collapse text-[11.5px]">
+            <thead>
+              <tr className="text-left text-fg-subtle">
+                <th className="px-2 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.1em]">
+                  {t('languageSupport.scorecard.languageColumn')}
                 </th>
                 {LANGUAGE_CAPABILITIES.map((cap) => (
-                  <ScorecardCell key={cap} capability={cap} profile={profile} t={t} />
+                  <th
+                    key={cap}
+                    scope="col"
+                    className="whitespace-nowrap px-2 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.08em]"
+                    title={t(`languageSupport.capability.${cap}`)}
+                  >
+                    {t(`languageSupport.capability.${cap}`)}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {LANGUAGE_SUPPORT_PROFILES.map((profile) => (
+                <tr
+                  key={profile.languageId}
+                  className="border-t border-border-subtle"
+                  data-testid={`language-support-scorecard-row-${profile.languageId}`}
+                >
+                  <th
+                    scope="row"
+                    className="whitespace-nowrap px-2 py-2 text-left text-[12.5px] font-medium text-fg-base"
+                  >
+                    {profile.displayName}
+                  </th>
+                  {LANGUAGE_CAPABILITIES.map((cap) => (
+                    <ScorecardCell key={cap} capability={cap} profile={profile} t={t} />
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </Section>
+    </SettingsSection>
   );
 }
 
@@ -251,35 +270,27 @@ function ScorecardCell({ capability, profile, t }: ScorecardCellProps) {
       data-status={status}
       title={cellTitle}
     >
-      <div className="flex flex-col gap-1">
-        <span
-          className={`inline-flex w-fit rounded-full border px-2 py-0.5 font-mono text-[10px] ${STATUS_TONE[status]}`}
-        >
+      <div className="flex flex-col items-start gap-1">
+        <StatusBadge tone={STATUS_TONE[status]}>
           {t(`languageSupport.status.${statusKeyFragment(status)}`)}
-        </span>
+        </StatusBadge>
         {hasPlatformOverride ? (
           <span
-            className="flex gap-1 text-[9px] text-fg-subtle"
+            className="flex gap-1"
             data-testid={`language-support-scorecard-platform-${profile.languageId}-${capability}`}
           >
             {platform!.web !== undefined ? (
-              <span
-                data-platform="web"
-                className={`rounded-sm border px-1 py-0 font-mono ${STATUS_TONE[platform!.web]}`}
-                title={webTitle}
-                aria-label={webTitle}
-              >
-                {t('languageSupport.platform.webShort')}
+              <span data-platform="web" title={webTitle} aria-label={webTitle}>
+                <StatusBadge tone={STATUS_TONE[platform!.web]}>
+                  {t('languageSupport.platform.webShort')}
+                </StatusBadge>
               </span>
             ) : null}
             {platform!.desktop !== undefined ? (
-              <span
-                data-platform="desktop"
-                className={`rounded-sm border px-1 py-0 font-mono ${STATUS_TONE[platform!.desktop]}`}
-                title={desktopTitle}
-                aria-label={desktopTitle}
-              >
-                {t('languageSupport.platform.desktopShort')}
+              <span data-platform="desktop" title={desktopTitle} aria-label={desktopTitle}>
+                <StatusBadge tone={STATUS_TONE[platform!.desktop]}>
+                  {t('languageSupport.platform.desktopShort')}
+                </StatusBadge>
               </span>
             ) : null}
           </span>

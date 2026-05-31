@@ -214,8 +214,12 @@ describe('SnippetsModal', () => {
     try {
       render(<SnippetsModal onClose={vi.fn()} />);
 
-      expect(screen.getByText('Biblioteca de fragmentos')).toBeTruthy();
       expect(screen.getByText('Fragmentos')).toBeTruthy();
+      expect(
+        screen.getByText(
+          'Guarda c\u00f3digo reutilizable, ed\u00edtalo y vuelve a abrirlo m\u00e1s tarde desde la paleta de comandos o esta biblioteca.'
+        )
+      ).toBeTruthy();
       expect(screen.getByText('A\u00fan no hay fragmentos guardados.')).toBeTruthy();
       expect(
         screen.getByRole('button', { name: 'Guardar pesta\u00f1a activa' })

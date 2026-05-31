@@ -6,6 +6,7 @@ import type {
   LicenseServerDevicesBucket,
   LicenseServerSurface,
 } from '../../services/licenseServer';
+import { StatusBadge } from '../ui/StatusBadge';
 import { cn } from '../../utils/cn';
 
 export interface DeviceListProps {
@@ -77,21 +78,21 @@ function DeviceBucket({
   return (
     <div
       data-testid={`license-devices-bucket-${surface}`}
-      className="rounded-[1rem] border border-border/70 bg-background/80 px-3 py-2.5"
+      className="rounded-md border border-border-subtle bg-bg-base px-3 py-2.5"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+        <span className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
           {t(headingKey)}
         </span>
         <span
           data-testid={`license-devices-counter-${surface}`}
-          className="text-xs text-muted"
+          className="font-mono text-[11px] text-fg-subtle"
         >
           {t('license.devices.counter', { count: rows.length, limit })}
         </span>
       </div>
       {rows.length === 0 ? (
-        <p className="mt-2 text-xs text-muted/85">{t(emptyKey)}</p>
+        <p className="mt-2 text-[12px] text-fg-subtle">{t(emptyKey)}</p>
       ) : (
         <ul className="mt-2 grid gap-1.5">
           {rows.map((device) => (
@@ -140,23 +141,20 @@ function DeviceRow({
       data-testid={`license-device-row-${device.id}`}
       data-device-id={device.deviceId}
       data-current-device={isCurrent ? 'true' : undefined}
-      className="flex items-center justify-between gap-2 rounded-[0.85rem] border border-border/60 bg-background-elevated/60 px-2.5 py-1.5"
+      className="flex items-center justify-between gap-2 rounded-md border border-border-subtle bg-bg-inset px-2.5 py-1.5"
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-sm text-foreground" title={device.deviceName}>
+          <span className="truncate text-[13px] text-fg-base" title={device.deviceName}>
             {device.deviceName}
           </span>
           {isCurrent ? (
-            <span
-              data-testid="license-current-device-chip"
-              className="inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary"
-            >
-              {t('license.devices.currentChip')}
+            <span data-testid="license-current-device-chip">
+              <StatusBadge tone="info">{t('license.devices.currentChip')}</StatusBadge>
             </span>
           ) : null}
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted">
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-fg-subtle">
           <span>{device.os}</span>
           <span aria-hidden="true">·</span>
           <span>{t('license.devices.lastSeen', { relative: lastSeenRelative })}</span>
@@ -174,7 +172,7 @@ function DeviceRow({
             : t('license.devices.remove')
         }
         className={cn(
-          'shrink-0 rounded-[0.65rem] border border-border/70 px-2 py-0.5 text-[11px] text-muted transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60'
+          'shrink-0 rounded-md border border-border-default px-2 py-0.5 text-[11px] text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60'
         )}
       >
         {isPending ? t('license.devices.removing') : t('license.devices.remove')}

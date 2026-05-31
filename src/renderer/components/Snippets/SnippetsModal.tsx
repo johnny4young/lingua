@@ -1,4 +1,4 @@
-import { BookCopy, Plus, Save, Trash2, X } from 'lucide-react';
+import { BookCopy, Plus, Save, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -11,7 +11,7 @@ import {
   languageCapabilityBadgeKey,
   languageLabel,
 } from '../../utils/languageMeta';
-import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
+import { ModalShell } from '../ui/ModalShell';
 
 interface SnippetsModalProps {
   onClose: () => void;
@@ -231,97 +231,133 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
     : selectedSnippet?.label ?? t('snippets.detail.fallbackHeading');
 
   return (
-    <OverlayBackdrop onClose={onClose}>
-      <OverlayCard
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="snippets-modal-title"
+    <ModalShell
+      onClose={onClose}
+      size="max-w-[900px]"
+      labelledById="snippets-modal-title"
+      headerClose="button"
+      closeLabel={t('snippets.close')}
+      header={
+        <div className="flex items-center gap-3">
+          <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border-subtle bg-bg-panel-alt text-accent">
+            <BookCopy size={15} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2
+              id="snippets-modal-title"
+              className="truncate text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
+            >
+              {t('snippets.header')}
+            </h2>
+            <p className="truncate text-[12.5px] text-fg-subtle">
+              {t('snippets.detail.description')}
+            </p>
+          </div>
+        </div>
+      }
+      bodyClassName="max-h-[min(72vh,560px)] overflow-y-auto p-4"
+      footerLegend={
+        <span className="text-[12px] text-fg-subtle">
+          {activeTab
+            ? t('snippets.activeTab.label', { name: activeTab.name })
+            : t('snippets.activeTab.hint')}
+        </span>
+      }
+      trailing={
+        <div className="flex flex-wrap items-center gap-2">
+          {!isCreatingNew && selectedSnippet ? (
+            <button
+              type="button"
+              onClick={handleDeleteSnippet}
+              className="button-danger"
+            >
+              <Trash2 size={13} />
+              {t('snippets.actions.delete')}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleSaveSnippet}
+            disabled={!canSaveSnippet}
+            className="button-primary"
+          >
+            <Save size={13} />
+            {isCreatingNew
+              ? t('snippets.actions.saveNew')
+              : t('snippets.actions.saveExisting')}
+          </button>
+        </div>
+      }
+    >
+      <div
         data-tour-id="snippets-modal"
-        className="relative flex h-[min(82vh,760px)] w-full max-w-6xl flex-col overflow-hidden lg:flex-row"
+        className="grid gap-4 md:grid-cols-[240px_minmax(0,1fr)]"
       >
-        <aside className="flex w-full shrink-0 flex-col border-b border-border/80 bg-background/55 lg:w-80 lg:border-b-0 lg:border-r">
-          <div className="surface-header flex items-center justify-between px-5 py-4">
-            <div className="flex items-center gap-2">
-              <BookCopy size={16} className="text-primary" />
-              <div>
-                <p className="panel-title">{t('snippets.panelTitle')}</p>
-                <h2 id="snippets-modal-title" className="text-sm font-semibold text-foreground">
-                  {t('snippets.header')}
-                </h2>
-              </div>
-            </div>
-            <IconButton
-              onClick={onClose}
-              tooltip={t('snippets.close')}
-              aria-label={t('snippets.close')}
-            >
-              <X size={16} />
-            </IconButton>
-          </div>
+        {/* MASTER — actions + snippet list */}
+        <aside className="flex min-w-0 flex-col gap-3">
+          <button
+            type="button"
+            onClick={handleStartNewSnippet}
+            className="button-secondary w-full"
+          >
+            <Plus size={13} />
+            {t('snippets.actions.new')}
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveActiveTab}
+            disabled={!activeTab}
+            data-tour-id="snippets-save-active-tab"
+            className="button-primary w-full"
+          >
+            <Save size={13} />
+            {t('snippets.actions.saveActiveTab')}
+          </button>
 
-          <div className="grid gap-2 border-b border-border/80 px-4 py-4">
-            <button
-              type="button"
-              onClick={handleStartNewSnippet}
-              className="button-secondary w-full"
-            >
-              <Plus size={13} />
-              {t('snippets.actions.new')}
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveActiveTab}
-              disabled={!activeTab}
-              data-tour-id="snippets-save-active-tab"
-              className="button-primary w-full"
-            >
-              <Save size={13} />
-              {t('snippets.actions.saveActiveTab')}
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex flex-col gap-1">
             {sortedSnippets.length === 0 ? (
-              <div className="rounded-[1.25rem] border border-dashed border-border/80 px-4 py-6 text-center text-xs text-muted">
+              <div className="rounded-lg border border-dashed border-border-subtle bg-bg-inset px-4 py-6 text-center text-[12px] text-fg-subtle">
                 {t('snippets.empty')}
               </div>
             ) : (
-              sortedSnippets.map((snippet) => (
-                <button
-                  key={snippet.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedSnippetId(snippet.id);
-                    setIsCreatingNew(false);
-                  }}
-                  className={`mb-1 flex w-full flex-col rounded-[1.2rem] px-3 py-3 text-left transition-colors ${
-                    !isCreatingNew && snippet.id === selectedSnippetId
-                      ? 'bg-primary-soft'
-                      : 'hover:bg-surface-strong/72'
-                  }`}
-                >
-                  <span className="truncate text-sm font-medium text-foreground">
-                    {snippet.label}
-                  </span>
-                  <span className="truncate text-xs text-muted">
-                    {snippet.description || languageLabel(snippet.language)}
-                  </span>
-                </button>
-              ))
+              sortedSnippets.map((snippet) => {
+                const isActive =
+                  !isCreatingNew && snippet.id === selectedSnippetId;
+                return (
+                  <button
+                    key={snippet.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSnippetId(snippet.id);
+                      setIsCreatingNew(false);
+                    }}
+                    className={
+                      isActive
+                        ? 'flex w-full flex-col rounded-lg border border-slate-300 bg-slate-100 px-3 py-[9px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70'
+                        : 'flex w-full flex-col rounded-lg border border-transparent px-3 py-[9px] text-left hover:bg-bg-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70'
+                    }
+                  >
+                    <span className="truncate text-[13.5px] font-medium text-fg-base">
+                      {snippet.label}
+                    </span>
+                    <span className="truncate text-[12px] text-fg-subtle">
+                      {snippet.description || languageLabel(snippet.language)}
+                    </span>
+                  </button>
+                );
+              })
             )}
           </div>
         </aside>
 
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="surface-header flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+        {/* DETAIL — heading + editor fields */}
+        <section className="flex min-w-0 flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="panel-title">{t('snippets.detail.title')}</p>
-              <h3 className="mt-1 font-display text-2xl font-semibold tracking-[-0.04em] text-foreground">
+              <h3 className="mt-1 truncate text-[15px] font-semibold tracking-[-0.01em] text-fg-base">
                 {detailHeading}
               </h3>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-                {t('snippets.detail.description')}
-              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -343,125 +379,91 @@ export function SnippetsModal({ onClose }: SnippetsModalProps) {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
-              <label className="flex min-w-0 flex-col gap-2">
-                <span className="field-label">{t('snippets.fields.name.label')}</span>
-                <input
-                  value={draft.label}
-                  onChange={(event) =>
-                    setDraft((currentValue) => ({
-                      ...currentValue,
-                      label: event.target.value,
-                    }))
-                  }
-                  placeholder={t('snippets.fields.name.placeholder')}
-                  className="field-shell"
-                />
-              </label>
-
-              <label className="flex min-w-0 flex-col gap-2">
-                <span className="field-label">{t('snippets.fields.language.label')}</span>
-                <select
-                  value={draft.language}
-                  onChange={(event) =>
-                    setDraft((currentValue) => ({
-                      ...currentValue,
-                      language: event.target.value as Language,
-                    }))
-                  }
-                  className="field-shell"
-                  data-testid="snippets-language-select"
-                >
-                  {SNIPPET_LANGUAGE_PACKS.map((pack) => {
-                    // Append a localized "(desktop only)" suffix on the web
-                    // build so users picking Go / Rust know runtime support
-                    // is desktop-only — informational, the option stays
-                    // selectable so a snippet can still be saved on web.
-                    const isDesktopOnly =
-                      languageCapabilityBadgeKey(pack.id) ===
-                      'language.capability.desktopOnly';
-                    const suffix =
-                      isWebBuild && isDesktopOnly
-                        ? t('language.capability.desktopOnlyOptionSuffix')
-                        : '';
-                    return (
-                      <option key={pack.id} value={pack.id}>
-                        {`${languageLabel(pack.id)}${suffix}`}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-            </div>
-
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
             <label className="flex min-w-0 flex-col gap-2">
-              <span className="field-label">
-                {t('snippets.fields.description.label')}
-              </span>
+              <span className="field-label">{t('snippets.fields.name.label')}</span>
               <input
-                value={draft.description}
+                value={draft.label}
                 onChange={(event) =>
                   setDraft((currentValue) => ({
                     ...currentValue,
-                    description: event.target.value,
+                    label: event.target.value,
                   }))
                 }
-                placeholder={t('snippets.fields.description.placeholder')}
+                placeholder={t('snippets.fields.name.placeholder')}
                 className="field-shell"
               />
             </label>
 
-            <label className="flex min-h-0 flex-1 flex-col gap-2">
-              <span className="field-label">{t('snippets.fields.code.label')}</span>
-              <textarea
-                value={draft.code}
+            <label className="flex min-w-0 flex-col gap-2">
+              <span className="field-label">{t('snippets.fields.language.label')}</span>
+              <select
+                value={draft.language}
                 onChange={(event) =>
                   setDraft((currentValue) => ({
                     ...currentValue,
-                    code: event.target.value,
+                    language: event.target.value as Language,
                   }))
                 }
-                placeholder={t('snippets.fields.code.placeholder')}
-                className="field-shell min-h-[280px] flex-1 font-mono text-sm leading-6"
-                spellCheck={false}
-              />
+                className="field-shell"
+                data-testid="snippets-language-select"
+              >
+                {SNIPPET_LANGUAGE_PACKS.map((pack) => {
+                  // Append a localized "(desktop only)" suffix on the web
+                  // build so users picking Go / Rust know runtime support
+                  // is desktop-only — informational, the option stays
+                  // selectable so a snippet can still be saved on web.
+                  const isDesktopOnly =
+                    languageCapabilityBadgeKey(pack.id) ===
+                    'language.capability.desktopOnly';
+                  const suffix =
+                    isWebBuild && isDesktopOnly
+                      ? t('language.capability.desktopOnlyOptionSuffix')
+                      : '';
+                  return (
+                    <option key={pack.id} value={pack.id}>
+                      {`${languageLabel(pack.id)}${suffix}`}
+                    </option>
+                  );
+                })}
+              </select>
             </label>
           </div>
 
-          <div className="surface-header flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-muted">
-              {activeTab
-                ? t('snippets.activeTab.label', { name: activeTab.name })
-                : t('snippets.activeTab.hint')}
-            </div>
+          <label className="flex min-w-0 flex-col gap-2">
+            <span className="field-label">
+              {t('snippets.fields.description.label')}
+            </span>
+            <input
+              value={draft.description}
+              onChange={(event) =>
+                setDraft((currentValue) => ({
+                  ...currentValue,
+                  description: event.target.value,
+                }))
+              }
+              placeholder={t('snippets.fields.description.placeholder')}
+              className="field-shell"
+            />
+          </label>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {!isCreatingNew && selectedSnippet && (
-                <button
-                  type="button"
-                  onClick={handleDeleteSnippet}
-                  className="button-danger"
-                >
-                  <Trash2 size={13} />
-                  {t('snippets.actions.delete')}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleSaveSnippet}
-                disabled={!canSaveSnippet}
-                className="button-primary"
-              >
-                <Save size={13} />
-                {isCreatingNew
-                  ? t('snippets.actions.saveNew')
-                  : t('snippets.actions.saveExisting')}
-              </button>
-            </div>
-          </div>
+          <label className="flex min-w-0 flex-col gap-2">
+            <span className="field-label">{t('snippets.fields.code.label')}</span>
+            <textarea
+              value={draft.code}
+              onChange={(event) =>
+                setDraft((currentValue) => ({
+                  ...currentValue,
+                  code: event.target.value,
+                }))
+              }
+              placeholder={t('snippets.fields.code.placeholder')}
+              className="field-shell min-h-[220px] font-mono text-sm leading-6"
+              spellCheck={false}
+            />
+          </label>
         </section>
-      </OverlayCard>
-    </OverlayBackdrop>
+      </div>
+    </ModalShell>
   );
 }

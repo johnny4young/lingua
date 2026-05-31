@@ -8,7 +8,7 @@
  * native confirm matches the "no silent mutation" principle).
  */
 
-import { Plus, Trash2 } from 'lucide-react';
+import { Copy, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HttpRequestV1 } from '../../../shared/httpWorkspace';
@@ -20,6 +20,7 @@ export interface HttpRequestListProps {
   onSelect: (id: string) => void;
   onCreate: () => void;
   onRename: (id: string, name: string) => void;
+  onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
@@ -29,6 +30,7 @@ export function HttpRequestList({
   onSelect,
   onCreate,
   onRename,
+  onDuplicate,
   onDelete,
 }: HttpRequestListProps) {
   const { t } = useTranslation();
@@ -54,10 +56,10 @@ export function HttpRequestList({
   return (
     <div
       data-testid="http-request-list"
-      className="flex h-full flex-col overflow-hidden border-r border-border/60"
+      className="flex h-full flex-col overflow-hidden border-r border-border-subtle bg-bg-panel"
     >
-      <header className="flex items-center justify-between gap-2 border-b border-border/40 px-2 py-1.5">
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+      <header className="flex items-center justify-between gap-2 border-b border-border-subtle px-3 py-2.5">
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">
           {t('httpWorkspace.requestList.label')}
         </span>
         <button
@@ -66,18 +68,18 @@ export function HttpRequestList({
           aria-label={t('httpWorkspace.requestList.create')}
           title={t('httpWorkspace.requestList.create')}
           data-testid="http-request-list-create"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground"
+          className="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md border border-border-subtle text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
         >
           <Plus size={12} aria-hidden="true" />
         </button>
       </header>
       <ul
         role="list"
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto p-1.5"
         aria-label={t('httpWorkspace.requestList.ariaLabel')}
       >
         {requests.length === 0 ? (
-          <li className="px-3 py-4 text-xs text-muted">
+          <li className="px-2 py-3 text-xs text-fg-subtle">
             {t('httpWorkspace.requestList.empty')}
           </li>
         ) : null}
@@ -100,11 +102,16 @@ export function HttpRequestList({
               role="button"
               tabIndex={isRenaming ? -1 : 0}
               aria-current={isActive ? 'true' : undefined}
+              // FASE 3 — proto rail row: rounded inset surface + 2px
+              // accent left-border when active (httpWs `Rail`,
+              // `borderLeft: 2px solid D.acc`). The left-border slot is
+              // always reserved (transparent when inactive) so the row
+              // text never shifts on selection.
               className={cn(
-                'group flex min-h-[28px] items-center gap-2 border-b border-border/30 px-2 py-1 text-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
+                'group mb-0.5 flex min-h-[32px] cursor-pointer items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
                 isActive
-                  ? 'bg-background-elevated text-foreground'
-                  : 'text-muted hover:bg-surface-strong/60 hover:text-foreground'
+                  ? 'border-l-accent bg-bg-inset text-fg-base'
+                  : 'border-l-transparent text-fg-muted hover:bg-bg-inset/60 hover:text-fg-base'
               )}
               onClick={() => {
                 if (!isRenaming) onSelect(req.id);
@@ -119,7 +126,7 @@ export function HttpRequestList({
             >
               <span
                 data-testid="http-request-list-row-method"
-                className="shrink-0 rounded bg-surface-strong/60 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-muted"
+                className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-[0.04em] text-fg-subtle"
               >
                 {req.method}
               </span>
@@ -158,20 +165,56 @@ export function HttpRequestList({
                     : t('httpWorkspace.requestList.rename.placeholder')}
                 </span>
               )}
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleDeleteClick(req.id);
-                }}
-                aria-label={t('httpWorkspace.requestList.delete.aria', {
-                  name: req.name,
-                })}
-                data-testid="http-request-list-delete"
-                className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted opacity-0 hover:text-rose-500 group-hover:opacity-100"
-              >
-                <Trash2 size={11} aria-hidden="true" />
-              </button>
+              {/* Row actions: rename / duplicate / delete. Hidden until
+                  hover or keyboard focus to keep the rail uncluttered;
+                  always reachable via Tab (focus-visible reveals them). */}
+              <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setRenamingId(req.id);
+                  }}
+                  aria-label={t('httpWorkspace.requestList.rename.aria', {
+                    name: req.name,
+                  })}
+                  title={t('httpWorkspace.requestList.rename.title')}
+                  data-testid="http-request-list-rename"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded text-fg-subtle transition-colors hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+                >
+                  <Pencil size={11} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDuplicate(req.id);
+                  }}
+                  aria-label={t('httpWorkspace.requestList.duplicate.aria', {
+                    name: req.name,
+                  })}
+                  title={t('httpWorkspace.requestList.duplicate.title')}
+                  data-testid="http-request-list-duplicate"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded text-fg-subtle transition-colors hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+                >
+                  <Copy size={11} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleDeleteClick(req.id);
+                  }}
+                  aria-label={t('httpWorkspace.requestList.delete.aria', {
+                    name: req.name,
+                  })}
+                  title={t('httpWorkspace.requestList.delete.title')}
+                  data-testid="http-request-list-delete"
+                  className="inline-flex h-5 w-5 items-center justify-center rounded text-fg-subtle transition-colors hover:text-error-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+                >
+                  <Trash2 size={11} aria-hidden="true" />
+                </button>
+              </span>
             </li>
           );
         })}

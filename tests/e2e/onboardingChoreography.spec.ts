@@ -57,7 +57,7 @@ test.describe('RL-101 Onboarding choreography', () => {
     // Tab strip should carry the seeded welcome.js tab as the only
     // entry; the title bar mirrors the active tab name.
     await expect(
-      page.getByRole('tab', { name: /welcome\.js/u })
+      page.getByTestId('editor-tab-activation').filter({ hasText: /welcome\.js/u })
     ).toBeVisible();
     await expect(
       page.locator('.monaco-editor').getByText(/console\.table\(/u)

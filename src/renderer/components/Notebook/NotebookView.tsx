@@ -14,14 +14,18 @@
  * `@tanstack/react-virtual` once cell editors promote to Monaco.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CodeXml,
   FileText,
   Hammer,
+  Keyboard,
   Loader2,
   Play,
+  RotateCcw,
+  Eraser,
+  PlayCircle,
   Square,
   Sparkles,
 } from 'lucide-react';
@@ -45,6 +49,8 @@ import {
   exportNotebookAsScript,
   pickNotebookExportLanguage,
 } from './notebookExportToScript';
+import { useNotebookCommandMode } from './useNotebookCommandMode';
+import { Kbd } from '../ui/ModalShell';
 import { cn } from '../../utils/cn';
 import { languageLabel } from '../../utils/languageMeta';
 
@@ -52,17 +58,60 @@ export interface NotebookViewProps {
   readonly tabId: string;
 }
 
+/**
+ * Signal-Slate — the discoverable command-mode cheat sheet. Each row
+ * pairs a translated description with the literal key caps (rendered in
+ * `<Kbd>`, which the copy-check intentionally skips). Keeping the caps as
+ * raw glyphs here is correct: they are key names, not translatable copy.
+ */
+const NOTEBOOK_SHORTCUT_HINTS: ReadonlyArray<{
+  readonly keys: ReadonlyArray<string>;
+  readonly labelKey: string;
+}> = [
+  { keys: ['Enter'], labelKey: 'notebook.command.legend.edit' },
+  { keys: ['Esc'], labelKey: 'notebook.command.legend.command' },
+  { keys: ['j', 'k'], labelKey: 'notebook.command.legend.navigate' },
+  { keys: ['a', 'b'], labelKey: 'notebook.command.legend.insert' },
+  { keys: ['d', 'd'], labelKey: 'notebook.command.legend.delete' },
+  { keys: ['z'], labelKey: 'notebook.command.legend.undo' },
+  { keys: ['m', 'y'], labelKey: 'notebook.command.legend.changeType' },
+  { keys: ['⌘/Ctrl', '↵'], labelKey: 'notebook.command.legend.runInPlace' },
+  { keys: ['⇧', '↵'], labelKey: 'notebook.command.legend.runAdvance' },
+  { keys: ['⌥', '↵'], labelKey: 'notebook.command.legend.runInsert' },
+  { keys: ['Ctrl', 'C'], labelKey: 'notebook.command.legend.interrupt' },
+];
+
 export function NotebookView({ tabId }: NotebookViewProps) {
   const { t } = useTranslation();
   const notebook = useNotebookStore((s) => s.notebooks[tabId]?.notebook);
   const cellRunStatusMap = useNotebookStore(
     (s) => s.notebooks[tabId]?.cellRunStatus
   );
+  // FASE 4 — transient per-cell latency + variable-flow maps, threaded
+  // into each code-cell row alongside `status`.
+  const cellDurationMsMap = useNotebookStore(
+    (s) => s.notebooks[tabId]?.cellDurationMs
+  );
+  const cellVarFlowMap = useNotebookStore(
+    (s) => s.notebooks[tabId]?.cellVarFlow
+  );
+  // Signal-Slate — per-cell Jupyter [N] execution-order stamp map,
+  // threaded into each code-cell row alongside status + latency.
+  const cellExecutionOrderMap = useNotebookStore(
+    (s) => s.notebooks[tabId]?.cellExecutionOrder
+  );
   const createNotebookForTab = useNotebookStore((s) => s.createNotebookForTab);
   const addCell = useNotebookStore((s) => s.addCell);
   const removeCell = useNotebookStore((s) => s.removeCell);
   const updateCellSource = useNotebookStore((s) => s.updateCellSource);
   const moveCell = useNotebookStore((s) => s.moveCell);
+  // Signal-Slate — new engine actions for the command-mode UX + toolbar.
+  const transformCell = useNotebookStore((s) => s.transformCell);
+  const undoDeleteCell = useNotebookStore((s) => s.undoDeleteCell);
+  const clearAllOutputs = useNotebookStore((s) => s.clearAllOutputs);
+  const restartNotebookSession = useNotebookStore(
+    (s) => s.restartNotebookSession
+  );
   const backingTabName = useEditorStore((s) => {
     const tab = s.tabs.find((item) => item.id === tabId);
     return tab?.kind === 'notebook' ? tab.name : null;
@@ -75,8 +124,28 @@ export function NotebookView({ tabId }: NotebookViewProps) {
   });
   const renameTab = useEditorStore((s) => s.renameTab);
   const pushStatusNotice = useUIStore((s) => s.pushStatusNotice);
-  const { isAnyCellRunning, runCell, runAll, runAbove, stop } = useNotebookRun();
+  const { isAnyCellRunning, runCell, runAll, runAbove, runFromHere, stop } =
+    useNotebookRun();
   const [titleDraft, setTitleDraft] = useState<string | null>(null);
+  // Signal-Slate — keyboard-shortcut legend disclosure (the discoverable
+  // command-mode cheat sheet). Token-only popover anchored to the "?"
+  // button in the toolbar.
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const shortcutsAnchorRef = useRef<HTMLDivElement | null>(null);
+  // Signal-Slate — command-mode "enter edit" request. Markdown rows
+  // start in preview, so command-mode Enter must flip them into their
+  // editor. We bump a `{ cellId, nonce }` request the row watches; the
+  // nonce lets a repeat-Enter on the same cell still re-trigger.
+  const [editRequest, setEditRequest] = useState<{
+    readonly cellId: string;
+    readonly nonce: number;
+  } | null>(null);
+  const requestEditMode = useCallback((cellId: string) => {
+    setEditRequest((prev) => ({
+      cellId,
+      nonce: (prev?.cellId === cellId ? prev.nonce : 0) + 1,
+    }));
+  }, []);
   const activeCellId = useNotebookStore(
     (s) => s.notebooks[tabId]?.activeCellId ?? null
   );
@@ -100,6 +169,26 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     if (notebook || backingTabName === null) return;
     createNotebookForTab(tabId, notebookTitleFromTabName(backingTabName));
   }, [backingTabName, createNotebookForTab, notebook, tabId]);
+
+  // Dismiss the shortcuts legend on outside-click / Escape so it never
+  // strands an open popover when the user moves on.
+  useEffect(() => {
+    if (!shortcutsOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (!shortcutsAnchorRef.current?.contains(event.target as Node)) {
+        setShortcutsOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShortcutsOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [shortcutsOpen]);
 
   const handleAddMarkdown = useCallback(() => {
     if (!notebook) return;
@@ -164,6 +253,60 @@ export function NotebookView({ tabId }: NotebookViewProps) {
       el?.focus();
     });
   }, []);
+
+  // Focus a cell SHELL (command mode) after the next paint — used after
+  // a structural edit so focus follows the active cell back into command
+  // mode rather than getting orphaned on a removed element.
+  const focusShellSoon = useCallback((cellId: string) => {
+    requestAnimationFrame(() => {
+      // The shell carries `data-cell-id` + the `data-notebook-cell-shell`
+      // marker on one node; the combined attribute selector matches it.
+      const el = document.querySelector<HTMLElement>(
+        `[data-cell-id="${cellId}"][data-notebook-cell-shell="true"]`
+      );
+      el?.focus();
+    });
+  }, []);
+
+  // Insert a code cell ABOVE / BELOW the given cell + focus the new one
+  // in edit mode (Jupyter `a` / `b`). The engine `addCell` only inserts
+  // AFTER an anchor (or appends when null), so "above" inserts after the
+  // anchor then walks the new cell up one slot via `moveCell` — that
+  // lands it at the anchor's original index, which is "above" it.
+  const insertCodeRelative = useCallback(
+    (anchorCellId: string, position: 'above' | 'below') => {
+      if (!notebook) return;
+      if (notebook.cells.length >= MAX_CELLS_PER_NOTEBOOK) {
+        pushStatusNotice({
+          tone: 'warning',
+          messageKey: 'notebook.notice.tooManyCells',
+        });
+        return;
+      }
+      const idx = notebook.cells.findIndex((c) => c.id === anchorCellId);
+      if (idx === -1) return;
+      const newId = addCell(tabId, anchorCellId, {
+        kind: 'code',
+        language: preferredCodeLanguage,
+      });
+      if (!newId) return;
+      if (position === 'above') {
+        // `addCell` placed the cell at idx+1; pull it up to idx so it
+        // sits before the anchor.
+        moveCell(tabId, idx + 1, idx);
+      }
+      focusCellSoon(newId);
+    },
+    [
+      addCell,
+      focusCellSoon,
+      moveCell,
+      notebook,
+      preferredCodeLanguage,
+      pushStatusNotice,
+      tabId,
+    ]
+  );
 
   const handleRunAndAdvance = useCallback(
     (cellId: string) => {
@@ -288,6 +431,96 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     [notebook, renameTab, tabId]
   );
 
+  // Signal-Slate — kernel-restart toolbar action. Disposes the sandbox +
+  // wipes every transient run map (status / latency / var-flow / [N]) so
+  // the next run starts from a clean kernel.
+  const handleRestart = useCallback(() => {
+    restartNotebookSession(tabId);
+    pushStatusNotice({
+      tone: 'info',
+      messageKey: 'notebook.notice.kernelRestarted',
+    });
+  }, [pushStatusNotice, restartNotebookSession, tabId]);
+
+  const handleClearOutputs = useCallback(() => {
+    clearAllOutputs(tabId);
+  }, [clearAllOutputs, tabId]);
+
+  const handleRunFromHere = useCallback(() => {
+    if (activeCellId) void runFromHere(tabId, activeCellId);
+  }, [activeCellId, runFromHere, tabId]);
+
+  // Signal-Slate — command-mode keyboard actions. Each maps a Jupyter
+  // command-mode keybind onto the engine API; the `useNotebookCommandMode`
+  // hook dispatches them from the cells-container `onKeyDown`.
+  const commandModeActions = useMemo(
+    () => ({
+      insertCodeAbove: (cellId: string) => insertCodeRelative(cellId, 'above'),
+      insertCodeBelow: (cellId: string) => insertCodeRelative(cellId, 'below'),
+      deleteCell: (cellId: string) => {
+        handleDelete(cellId);
+        // After a delete the store reselects a neighbour; pull focus to
+        // its shell so command mode keeps working.
+        requestAnimationFrame(() => {
+          const next = useNotebookStore.getState().getActiveCellId(tabId);
+          if (next) focusShellSoon(next);
+        });
+      },
+      undoDelete: () => {
+        undoDeleteCell(tabId);
+        requestAnimationFrame(() => {
+          const restored = useNotebookStore.getState().getActiveCellId(tabId);
+          if (restored) focusShellSoon(restored);
+        });
+      },
+      toMarkdown: (cellId: string) => {
+        // Drop any lingering "enter edit" request: a transform leaves
+        // the cell in COMMAND mode, and a stale nonce on the fresh
+        // markdown row would otherwise auto-open its editor a couple of
+        // frames after `focusShellSoon`, yanking focus off the shell.
+        setEditRequest(null);
+        transformCell(tabId, cellId, 'markdown');
+        focusShellSoon(cellId);
+      },
+      toCode: (cellId: string) => {
+        setEditRequest(null);
+        transformCell(tabId, cellId, 'code');
+        focusShellSoon(cellId);
+      },
+      moveCell: (cellId: string, direction: 'up' | 'down') =>
+        handleMove(cellId, direction),
+      runInPlace: (cellId: string) => void runCell(tabId, cellId),
+      runAndAdvance: (cellId: string) => handleRunAndAdvance(cellId),
+      runAndInsertBelow: (cellId: string) => handleRunAndInsertBelow(cellId),
+      interrupt: () => stop(),
+      setActiveCell: (cellId: string) => setActiveCell(tabId, cellId),
+      requestEdit: (cellId: string) => requestEditMode(cellId),
+    }),
+    [
+      focusShellSoon,
+      handleDelete,
+      handleMove,
+      handleRunAndAdvance,
+      handleRunAndInsertBelow,
+      insertCodeRelative,
+      requestEditMode,
+      runCell,
+      setActiveCell,
+      stop,
+      tabId,
+      transformCell,
+      undoDeleteCell,
+    ]
+  );
+
+  const { handleContainerKeyDown } = useNotebookCommandMode({
+    notebook,
+    activeCellId,
+    disabled: isAnyCellRunning,
+    isAnyCellRunning,
+    actions: commandModeActions,
+  });
+
   if (!notebook) {
     return (
       <div
@@ -312,6 +545,14 @@ export function NotebookView({ tabId }: NotebookViewProps) {
     notebook.cells
       .slice(0, activeCellIndex + 1)
       .some(isNotebookCodeCell);
+  // Run-from-here is enabled when the active cell (or any cell below it)
+  // is runnable — mirrors `canRunThroughActiveCell` for the inverse range.
+  const canRunFromActiveCell =
+    activeCellIndex >= 0 &&
+    notebook.cells.slice(activeCellIndex).some(isNotebookCodeCell);
+  const hasOutputsToClear = notebook.cells.some(
+    (cell) => isNotebookCodeCell(cell) && cell.outputs.length > 0
+  );
   const exportLanguageLabel = exportLanguage
     ? languageLabel(exportLanguage)
     : t('notebook.toolbar.exportScriptGeneric');
@@ -385,6 +626,16 @@ export function NotebookView({ tabId }: NotebookViewProps) {
           </button>
           <button
             type="button"
+            onClick={handleRunFromHere}
+            disabled={disabled || !canRunFromActiveCell}
+            data-testid="notebook-toolbar-run-from-here"
+            className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <PlayCircle size={11} aria-hidden="true" />
+            {t('notebook.toolbar.runFromHere')}
+          </button>
+          <button
+            type="button"
             onClick={() => runAll(tabId)}
             disabled={disabled || lastCodeCellId === null}
             data-testid="notebook-toolbar-run-all"
@@ -392,7 +643,7 @@ export function NotebookView({ tabId }: NotebookViewProps) {
               'inline-flex h-7 items-center gap-1 rounded border px-2 text-[11px] font-medium',
               disabled
                 ? 'border-border/40 bg-surface/40 text-muted'
-                : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500 dark:text-emerald-300',
+                : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
               'disabled:cursor-not-allowed disabled:opacity-50'
             )}
           >
@@ -413,12 +664,33 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             onClick={stop}
             disabled={!isAnyCellRunning}
             data-testid="notebook-toolbar-stop"
-            className="inline-flex h-7 items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 text-[11px] font-medium text-amber-700 hover:border-amber-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-amber-300"
+            className="inline-flex h-7 items-center gap-1 rounded border border-warning-border bg-warning-bg px-2 text-[11px] font-medium text-warning-fg hover:border-warning-fg disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Square size={11} aria-hidden="true" />
             {t('notebook.toolbar.stop')}
           </button>
           <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
+          <button
+            type="button"
+            onClick={handleRestart}
+            disabled={disabled}
+            title={t('notebook.toolbar.restartHint')}
+            data-testid="notebook-toolbar-restart"
+            className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <RotateCcw size={11} aria-hidden="true" />
+            {t('notebook.toolbar.restart')}
+          </button>
+          <button
+            type="button"
+            onClick={handleClearOutputs}
+            disabled={disabled || !hasOutputsToClear}
+            data-testid="notebook-toolbar-clear-outputs"
+            className="inline-flex h-7 items-center gap-1 rounded border border-border/60 bg-surface/40 px-2 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Eraser size={11} aria-hidden="true" />
+            {t('notebook.toolbar.clearOutputs')}
+          </button>
           <button
             type="button"
             onClick={handleExport}
@@ -431,11 +703,59 @@ export function NotebookView({ tabId }: NotebookViewProps) {
               language: exportLanguageLabel,
             })}
           </button>
+          <span className="mx-1 h-4 w-px bg-border/60" aria-hidden="true" />
+          <div className="relative" ref={shortcutsAnchorRef}>
+            <button
+              type="button"
+              onClick={() => setShortcutsOpen((open) => !open)}
+              aria-expanded={shortcutsOpen}
+              aria-haspopup="dialog"
+              aria-label={t('notebook.command.shortcutsTitle')}
+              title={t('notebook.command.shortcutsTitle')}
+              data-testid="notebook-toolbar-shortcuts"
+              className={cn(
+                'inline-flex h-7 w-7 items-center justify-center rounded border text-[11px]',
+                shortcutsOpen
+                  ? 'border-primary/60 bg-primary/10 text-foreground'
+                  : 'border-border/60 bg-surface/40 text-muted hover:text-foreground'
+              )}
+            >
+              <Keyboard size={12} aria-hidden="true" />
+            </button>
+            {shortcutsOpen ? (
+              <div
+                role="dialog"
+                aria-label={t('notebook.command.shortcutsTitle')}
+                data-testid="notebook-shortcuts-legend"
+                className="absolute right-0 top-9 z-20 w-72 rounded-md border border-border/60 bg-bg-elevated p-3 shadow-lg"
+              >
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                  {t('notebook.command.shortcutsTitle')}
+                </p>
+                <ul className="grid gap-1.5">
+                  {NOTEBOOK_SHORTCUT_HINTS.map(({ keys, labelKey }) => (
+                    <li
+                      key={labelKey}
+                      className="flex items-center justify-between gap-2 text-[11px] text-foreground"
+                    >
+                      <span>{t(labelKey)}</span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        {keys.map((cap) => (
+                          <Kbd key={cap}>{cap}</Kbd>
+                        ))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
         </div>
       </header>
 
       <section
         data-testid="notebook-cells"
+        onKeyDown={handleContainerKeyDown}
         className="min-h-0 overflow-y-auto px-4 py-3"
       >
         {notebook.cells.length === 0 ? (
@@ -453,25 +773,27 @@ export function NotebookView({ tabId }: NotebookViewProps) {
             {notebook.cells.map((cell, idx) => {
               const status: NotebookCellRunStatus =
                 cellRunStatusMap?.[cell.id] ?? 'idle';
+              const durationMs = cellDurationMsMap?.[cell.id];
+              const varFlow = cellVarFlowMap?.[cell.id];
               const canMoveUp = idx > 0;
               const canMoveDown = idx < notebook.cells.length - 1;
+              const isActive = activeCellId === cell.id;
               if (isNotebookMarkdownCell(cell)) {
                 return (
-                  <li
-                    key={cell.id}
-                    onFocusCapture={() => setActiveCell(tabId, cell.id)}
-                    onMouseDown={() => setActiveCell(tabId, cell.id)}
-                    className={cn(
-                      activeCellId === cell.id &&
-                        'rounded-md ring-1 ring-primary/25'
-                    )}
-                  >
+                  <li key={cell.id}>
                     <NotebookMarkdownCellRow
                       cell={cell}
                       cellIndex={idx}
+                      isActive={isActive}
+                      editRequestNonce={
+                        editRequest?.cellId === cell.id
+                          ? editRequest.nonce
+                          : null
+                      }
                       canMoveUp={canMoveUp}
                       canMoveDown={canMoveDown}
                       disabled={disabled}
+                      onActivate={(cellId) => setActiveCell(tabId, cellId)}
                       onSourceChange={(cellId, source) =>
                         updateCellSource(tabId, cellId, source)
                       }
@@ -483,22 +805,19 @@ export function NotebookView({ tabId }: NotebookViewProps) {
                 );
               }
               return (
-                <li
-                  key={cell.id}
-                  onFocusCapture={() => setActiveCell(tabId, cell.id)}
-                  onMouseDown={() => setActiveCell(tabId, cell.id)}
-                  className={cn(
-                    activeCellId === cell.id &&
-                      'rounded-md ring-1 ring-primary/25'
-                  )}
-                >
+                <li key={cell.id}>
                   <NotebookCodeCellRow
                     cell={cell}
                     cellIndex={idx}
                     status={status}
+                    durationMs={durationMs}
+                    varFlow={varFlow}
+                    executionOrder={cellExecutionOrderMap?.[cell.id] ?? null}
+                    isActive={isActive}
                     canMoveUp={canMoveUp}
                     canMoveDown={canMoveDown}
                     disabled={disabled}
+                    onActivate={(cellId) => setActiveCell(tabId, cellId)}
                     onSourceChange={(cellId, source) =>
                       updateCellSource(tabId, cellId, source)
                     }

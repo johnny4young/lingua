@@ -13,8 +13,10 @@ import {
   applyDevLicense,
   clearLicense,
   clickRun,
+  createAdditionalJavaScriptTab,
   closeDeveloperUtilities,
   createJavaScriptTab,
+  createLanguageTab,
   expect,
   expectTier,
   gotoApp,
@@ -138,23 +140,24 @@ test.describe('Pro tier unlocks — seeded Pro session', () => {
 
   test('unlimited tab creation beyond the Free ceiling', async ({ page }) => {
     await createJavaScriptTab(page);
-    await page.getByRole('button', { name: 'New JavaScript' }).click();
-    await page.getByRole('button', { name: 'New JavaScript' }).click();
+    await createAdditionalJavaScriptTab(page);
+    await createAdditionalJavaScriptTab(page);
 
-    await expect(page.getByRole('tab', { name: /JS .*\.js/i })).toHaveCount(3);
+    await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(3);
   });
 
   test('Go language is selectable as a tab but Run stays disabled in web build', async ({
     page,
   }) => {
-    await page.getByRole('button', { name: 'New file language menu' }).click();
+    await page.getByTestId('action-pill-lang').click();
     // On Pro, the Go menu item shows "Desktop only" rather than "PRO".
     await expect(page.getByRole('menuitem', { name: /^Go/ })).toContainText('Desktop only');
-    await page.getByRole('menuitem', { name: /^Go/ }).click();
-    await expect(page.getByRole('tab', { name: /Go .*\.go/i })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await createLanguageTab(page, /^Go\b/i, /Go .*\.go/i);
+    await expect(page.getByRole('button', { name: /Go .*\.go/i })).toBeVisible();
 
     // The Run button remains disabled with the desktop-only tooltip.
-    await expect(page.getByTestId('toolbar-run-button')).toBeDisabled();
+    await expect(page.getByTestId('action-pill-run')).toBeDisabled();
   });
 
   test('keyboard-shortcuts palette action opens the full shortcuts modal', async ({ page }) => {

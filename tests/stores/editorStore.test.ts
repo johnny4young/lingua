@@ -8,7 +8,12 @@ vi.mock('@/utils/telemetry', () => ({
   trackEvent: mockTrackEvent,
 }));
 
-import { useEditorStore, createDefaultTab } from '@/stores/editorStore';
+import {
+  useEditorStore,
+  createDefaultTab,
+  SQL_WORKSPACE_TAB_ID,
+  HTTP_WORKSPACE_TAB_ID,
+} from '@/stores/editorStore';
 import { useDependencyDetectionStore } from '@/stores/dependencyDetectionStore';
 import {
   resetRecipeStoreForTests,
@@ -1138,6 +1143,153 @@ describe('editorStore', () => {
         ([event]) => event === 'feature.blocked'
       );
       expect(blockedCalls).toHaveLength(0);
+    });
+  });
+
+  // SQL/HTTP MODEL rework — SQL and HTTP are full-screen COLLECTION
+  // workspaces: at most ONE SQL tab + ONE HTTP tab, each on a stable
+  // constant id, exempt from the Free tab budget, never renamed /
+  // duplicated / saved through the document tab gestures.
+  describe('SQL / HTTP workspace tabs', () => {
+    const freeTier = {
+      token: null,
+      status: { kind: 'free' as const },
+      lastVerifiedAt: null,
+    };
+
+    it('addSqlTab creates the single SQL workspace tab on the stable id', () => {
+      const id = useEditorStore.getState().addSqlTab();
+      expect(id).toBe(SQL_WORKSPACE_TAB_ID);
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs).toHaveLength(1);
+      expect(tabs[0]).toMatchObject({
+        id: SQL_WORKSPACE_TAB_ID,
+        kind: 'sql',
+        language: 'sql',
+      });
+      expect(activeTabId).toBe(SQL_WORKSPACE_TAB_ID);
+    });
+
+    it('addHttpTab creates the single HTTP workspace tab on the stable id', () => {
+      const id = useEditorStore.getState().addHttpTab();
+      expect(id).toBe(HTTP_WORKSPACE_TAB_ID);
+      const { tabs, activeTabId } = useEditorStore.getState();
+      expect(tabs).toHaveLength(1);
+      expect(tabs[0]).toMatchObject({
+        id: HTTP_WORKSPACE_TAB_ID,
+        kind: 'http',
+        language: 'http',
+      });
+      expect(activeTabId).toBe(HTTP_WORKSPACE_TAB_ID);
+    });
+
+    it('addSqlTab focuses the existing workspace tab instead of minting a duplicate', () => {
+      const first = useEditorStore.getState().addSqlTab();
+      // Move focus elsewhere so the focus-or-create path is observable.
+      useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      expect(useEditorStore.getState().activeTabId).not.toBe(first);
+
+      const second = useEditorStore.getState().addSqlTab();
+
+      expect(second).toBe(first);
+      const sqlTabs = useEditorStore
+        .getState()
+        .tabs.filter((t) => t.kind === 'sql');
+      expect(sqlTabs).toHaveLength(1);
+      expect(useEditorStore.getState().activeTabId).toBe(SQL_WORKSPACE_TAB_ID);
+    });
+
+    it('addHttpTab focuses the existing workspace tab instead of minting a duplicate', () => {
+      const first = useEditorStore.getState().addHttpTab();
+      useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      const second = useEditorStore.getState().addHttpTab();
+      expect(second).toBe(first);
+      expect(
+        useEditorStore.getState().tabs.filter((t) => t.kind === 'http')
+      ).toHaveLength(1);
+    });
+
+    it('exempts workspace tabs from the Free tab budget so a Free user still gets a code tab', async () => {
+      const { useLicenseStore } = await import('@/stores/licenseStore');
+      const { useUIStore } = await import('@/stores/uiStore');
+      useLicenseStore.setState(freeTier);
+      useUIStore.setState({ statusNotice: null });
+
+      // Open both workspaces — exempt, so always succeed.
+      expect(useEditorStore.getState().addSqlTab()).toBe(SQL_WORKSPACE_TAB_ID);
+      expect(useEditorStore.getState().addHttpTab()).toBe(HTTP_WORKSPACE_TAB_ID);
+      expect(useEditorStore.getState().tabs).toHaveLength(2);
+
+      // The single Free code tab must still fit — the two workspace
+      // tabs do NOT crowd it out of the budget.
+      useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      expect(useEditorStore.getState().tabs).toHaveLength(3);
+      expect(useUIStore.getState().statusNotice).toBeNull();
+
+      // A SECOND code tab is over the Free ceiling and is refused, even
+      // though workspace tabs are present.
+      useEditorStore.getState().addTab(createDefaultTab('python'));
+      expect(
+        useEditorStore.getState().tabs.filter((t) => !t.kind)
+      ).toHaveLength(1);
+      expect(useUIStore.getState().statusNotice?.messageKey).toBe(
+        'upsell.freeCeilingReached'
+      );
+    });
+
+    it('addSqlTab succeeds on Free even though sql is not in the Free language allowlist', async () => {
+      const { useLicenseStore } = await import('@/stores/licenseStore');
+      const { useUIStore } = await import('@/stores/uiStore');
+      useLicenseStore.setState(freeTier);
+      useUIStore.setState({ statusNotice: null });
+
+      const id = useEditorStore.getState().addSqlTab();
+
+      // Bypasses the isLanguageAllowed gate that 'sql' would otherwise
+      // trip in the addTab path — no upsell notice, tab created.
+      expect(id).toBe(SQL_WORKSPACE_TAB_ID);
+      expect(useUIStore.getState().statusNotice).toBeNull();
+    });
+
+    it('duplicateActiveTab is a no-op on a workspace tab (no colliding stable id)', () => {
+      useEditorStore.getState().addSqlTab();
+      useEditorStore.getState().duplicateActiveTab();
+      expect(
+        useEditorStore.getState().tabs.filter((t) => t.kind === 'sql')
+      ).toHaveLength(1);
+      expect(useEditorStore.getState().tabs).toHaveLength(1);
+    });
+
+    it('renameTab refuses to rename a workspace tab so the label never drifts', () => {
+      useEditorStore.getState().addHttpTab();
+      useEditorStore.getState().renameTab(HTTP_WORKSPACE_TAB_ID, 'Custom name');
+      const tab = useEditorStore
+        .getState()
+        .tabs.find((t) => t.id === HTTP_WORKSPACE_TAB_ID);
+      expect(tab?.name).toBe('HTTP');
+    });
+
+    it('saveTabById no-ops on a workspace tab without opening a file dialog', async () => {
+      useEditorStore.getState().addSqlTab();
+      const saved = await useEditorStore
+        .getState()
+        .saveTabById(SQL_WORKSPACE_TAB_ID);
+      expect(saved).toBe(false);
+      // No save dialog gesture for a workspace tab.
+      expect(window.lingua.fs.saveDialog).not.toHaveBeenCalled();
+      expect(window.lingua.fs.write).not.toHaveBeenCalled();
+    });
+
+    it('removeTab drops only the workspace tab, leaving sibling tabs intact', () => {
+      useEditorStore.getState().addTab(createDefaultTab('javascript'));
+      useEditorStore.getState().addSqlTab();
+      expect(useEditorStore.getState().tabs).toHaveLength(2);
+
+      useEditorStore.getState().removeTab(SQL_WORKSPACE_TAB_ID);
+
+      const { tabs } = useEditorStore.getState();
+      expect(tabs).toHaveLength(1);
+      expect(tabs.some((t) => t.kind === 'sql')).toBe(false);
     });
   });
 });

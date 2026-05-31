@@ -1,32 +1,40 @@
 /**
  * RL-039 Slice B — Recipes overlay (`Mod+Alt+L`).
  *
- * Full-screen overlay mirroring `<CommandPalette>` + `<QuickOpen>`
- * shape:
+ * FASE 1 (MOV.01): chrome migrated onto the Signal-Slate `<ModalShell>`.
+ * The four zones map as:
  *
- *   - Top   : search input + language filter chips.
- *   - Middle: fuzzy-filtered scrollable list. Each row carries the
- *             title, the first-line prompt preview (fold D), tag
- *             chips, and a progress badge (passed / attempted).
- *   - Bottom: action bar (Open + Cancel + keyboard hint).
+ *   - HEADER : title + subtitle, with `headerClose="button"` so an `x`
+ *              replaces the legacy floating close button.
+ *   - BODY   : search input + language filter chips + the
+ *              fuzzy-filtered scrollable list (default shell padding).
+ *   - FOOTER : `<ModalFooterLegend navigate open close />` on the left
+ *              and the Cancel + Open recipe action row in the trailing
+ *              slot — matching the MOV.01 prototype.
+ *
+ * Each list row carries the title, the first-line prompt preview
+ * (fold D), tag chips, and a progress badge (passed / attempted) via
+ * the shared `<StatusBadge>` primitive.
  *
  * Selection opens a NEW editor tab with the recipe's `starterCode`
- * pre-filled + flips the bottom panel to the new `'recipe'` sibling
- * tab so the prompt + Run + Test button surface immediately.
+ * pre-filled + flips the bottom panel to the `'recipe'` sibling tab so
+ * the prompt + Run + Test button surface immediately. "Open recipe"
+ * does NOT fire a run, so it uses the slate accent — green is reserved
+ * for the Run + Test action in the bottom panel.
  *
  * Closed on:
- *   - Escape
- *   - Click outside the modal body
+ *   - Escape (handled by ModalShell + the catalog key handler)
+ *   - Scrim click (ModalShell)
+ *   - Header `x` button
  *   - Confirm `Open` (success path)
  *   - Cancel button
  *
- * Telemetry: `recipe.opened { language }` on confirm. NO recipe id
- * on the wire (fold B in the plan — privacy posture).
+ * Telemetry: `recipe.opened { language }` on confirm. NO recipe id on
+ * the wire (fold B in the plan — privacy posture).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, Sparkles, X } from 'lucide-react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useLessonProgressStore } from '../../stores/lessonProgressStore';
 import { useRecipeStore } from '../../stores/recipeStore';
@@ -34,6 +42,9 @@ import { useUIStore } from '../../stores/uiStore';
 import { RECIPE_CATALOG } from '../../data/recipes';
 import { pickProse, previewPromptLine, type LessonPackV1 } from '../../../shared/lessonPack';
 import { trackRecipeOpened } from '../../hooks/recipeTelemetry';
+import { ModalShell } from '../ui/ModalShell';
+import { ModalFooterLegend } from '../ui/ModalFooterLegend';
+import { StatusBadge } from '../ui/StatusBadge';
 import { cn } from '../../utils/cn';
 
 export interface RecipesOverlayProps {
@@ -67,6 +78,7 @@ function scoreRecipe(
 export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
   const { t, i18n } = useTranslation();
   const locale: 'en' | 'es' = i18n.language?.startsWith('es') ? 'es' : 'en';
+  const titleId = useId();
   const closeRef = useRef(onClose);
   useEffect(() => {
     closeRef.current = onClose;
@@ -120,14 +132,11 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
     [addTab, bindRecipeToTab, openBottomPanel, recordOpened]
   );
 
-  // Escape closes.
+  // Arrow / Enter navigation. Escape is owned by ModalShell, so it is
+  // intentionally not re-handled here (double-close is harmless, but we
+  // keep the single owner to avoid competing preventDefault calls).
   useEffect(() => {
     function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeRef.current();
-        return;
-      }
       if (event.key === 'ArrowDown') {
         event.preventDefault();
         setActiveIdx((idx) => (filtered.length === 0 ? 0 : (idx + 1) % filtered.length));
@@ -151,182 +160,168 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
   }, [filtered, effectiveActiveIdx, handleOpen]);
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('recipes.overlay.title')}
-      data-testid="recipes-overlay"
-      className="fixed inset-0 z-40 flex items-start justify-center bg-bg-base/80 p-6 backdrop-blur-sm"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) closeRef.current();
-      }}
-    >
-      <div className="mt-12 flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-xl">
-        <header className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
+    // `display: contents` keeps this test/identity wrapper out of the
+    // layout box tree so the ModalShell scrim it wraps still owns the
+    // full-viewport overlay. Playwright treats a `display: contents`
+    // node as visible when it has a visible child, so the existing
+    // `recipes-overlay` test id assertion keeps passing.
+    <div data-testid="recipes-overlay" style={{ display: 'contents' }}>
+      <ModalShell
+        onClose={() => closeRef.current()}
+        size="max-w-[720px]"
+        labelledById={titleId}
+        headerClose="button"
+        closeLabel={t('recipes.overlay.close')}
+        header={
           <div>
-            <h2 className="font-display text-base font-semibold tracking-[-0.01em] text-foreground">
+            <h2
+              id={titleId}
+              className="font-display text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
+            >
               {t('recipes.overlay.title')}
             </h2>
-            <p className="mt-0.5 text-[11px] text-muted">
+            <p className="mt-0.5 text-[12.5px] text-fg-subtle">
               {t('recipes.overlay.description')}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => closeRef.current()}
-            aria-label={t('recipes.overlay.close')}
-            data-testid="recipes-overlay-close"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-surface-strong/60 hover:text-foreground"
-          >
-            <X size={14} aria-hidden="true" />
-          </button>
-        </header>
-
-        <div className="grid min-h-0 flex-1 grid-rows-[auto_1fr_auto] gap-3 p-4">
-          {/* TOP — search + language chips */}
-          <section className="grid gap-2">
-            <input
-              type="text"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setActiveIdx(0);
-              }}
-              placeholder={t('recipes.overlay.searchPlaceholder')}
-              data-testid="recipes-search-input"
-              autoFocus
-              spellCheck={false}
-              className="rounded-md border border-border/60 bg-bg-elevated p-2 font-mono text-xs text-foreground outline-none focus:border-border-strong"
-            />
-            <div
-              role="radiogroup"
-              aria-label={t('recipes.filter.label')}
-              data-testid="recipes-filter-group"
-              className="flex flex-wrap gap-1"
+        }
+        footerLegend={<ModalFooterLegend navigate select={false} open close />}
+        trailing={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => closeRef.current()}
+              data-testid="recipes-cancel"
+              className="inline-flex h-7 items-center rounded-md border border-border-subtle bg-transparent px-3 text-[12.5px] text-fg-muted hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
             >
-              {LANGUAGE_FILTERS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={language === value}
-                  onClick={() => setLanguage(value)}
-                  data-testid={`recipes-filter-${value}`}
-                  className={cn(
-                    'inline-flex h-6 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-wider',
-                    language === value
-                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                      : 'border-border/60 bg-surface/40 text-muted hover:text-foreground'
-                  )}
-                >
-                  {t(`recipes.filter.${value}`)}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* MIDDLE — list */}
-          <section
-            data-testid="recipes-list"
-            className="min-h-0 overflow-y-auto rounded-md border border-border/40 bg-surface/20"
+              {t('recipes.action.cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const recipe = filtered[effectiveActiveIdx];
+                if (recipe) handleOpen(recipe);
+              }}
+              disabled={filtered.length === 0}
+              data-testid="recipes-open"
+              className="inline-flex h-7 items-center rounded-md border border-accent bg-accent px-3 text-[12.5px] font-medium text-fg-on-accent hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {t('recipes.action.open')}
+            </button>
+          </div>
+        }
+      >
+        {/* TOP — search + language chips */}
+        <div className="grid gap-2 px-1.5 pb-2.5 pt-1.5">
+          <input
+            type="text"
+            value={search}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setActiveIdx(0);
+            }}
+            placeholder={t('recipes.overlay.searchPlaceholder')}
+            data-testid="recipes-search-input"
+            autoFocus
+            spellCheck={false}
+            className="rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-xs text-fg-base outline-none focus:border-border-strong"
+          />
+          <div
+            role="radiogroup"
+            aria-label={t('recipes.filter.label')}
+            data-testid="recipes-filter-group"
+            className="flex flex-wrap gap-2"
           >
-            {filtered.length === 0 ? (
-              <div
-                data-testid="recipes-empty"
-                className="grid place-items-center p-6 text-center text-xs text-muted"
-              >
-                {t('recipes.overlay.empty')}
-              </div>
-            ) : (
-              <ul role="listbox" className="grid divide-y divide-border/40">
-                {filtered.map((recipe, idx) => {
-                  const entry = progressEntries[recipe.id];
-                  const isActive = idx === effectiveActiveIdx;
-                  const isPassed = entry?.status === 'passed';
-                  return (
-                    <li
-                      key={recipe.id}
-                      role="option"
-                      aria-selected={isActive}
-                      data-testid="recipes-list-row"
-                      data-recipe-id={recipe.id}
-                      data-active={isActive}
-                      onMouseEnter={() => setActiveIdx(idx)}
-                      onClick={() => handleOpen(recipe)}
-                      className={cn(
-                        'grid cursor-pointer gap-1 p-3 text-[12px] transition-colors',
-                        isActive ? 'bg-emerald-500/10 text-foreground' : 'text-foreground hover:bg-surface-strong/40'
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="flex-1 font-semibold tracking-tight">
-                          {pickProse(recipe.title, locale)}
-                        </span>
-                        {isPassed ? (
-                          <CheckCircle
-                            size={12}
-                            aria-label={t('recipes.progress.statusPassed')}
-                            className="text-emerald-600 dark:text-emerald-400"
-                          />
-                        ) : entry !== undefined ? (
-                          <Sparkles
-                            size={12}
-                            aria-label={t(`recipes.progress.status${capitalize(entry.status)}`)}
-                            className="text-amber-500"
-                          />
-                        ) : null}
-                      </div>
-                      <span
-                        className="line-clamp-2 text-[11px] text-muted"
-                        data-testid="recipes-row-prompt-preview"
-                      >
-                        {previewPromptLine(recipe.prompt, locale, 96)}
-                      </span>
-                      <div className="flex flex-wrap gap-1">
-                        {recipe.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-flex h-4 items-center rounded-full border border-border/60 bg-surface/40 px-1.5 text-[9px] uppercase tracking-wider text-muted"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-
-          {/* BOTTOM — action bar */}
-          <footer className="flex shrink-0 items-center justify-between border-t border-border/60 pt-3 text-[11px] text-muted">
-            <span aria-hidden="true">{t('recipes.overlay.keyboardHint')}</span>
-            <div className="flex items-center gap-2">
+            {LANGUAGE_FILTERS.map((value) => (
               <button
+                key={value}
                 type="button"
-                onClick={() => closeRef.current()}
-                data-testid="recipes-cancel"
-                className="inline-flex h-7 items-center rounded border border-border/60 bg-surface/40 px-3 text-[11px] text-muted hover:text-foreground"
+                role="radio"
+                aria-checked={language === value}
+                onClick={() => setLanguage(value)}
+                data-testid={`recipes-filter-${value}`}
+                className={cn(
+                  'inline-flex h-6 items-center rounded-full border px-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.08em]',
+                  language === value
+                    ? 'border-accent/40 bg-accent/10 text-accent-fg'
+                    : 'border-border-subtle bg-bg-inset text-fg-muted hover:text-fg-base'
+                )}
               >
-                {t('recipes.action.cancel')}
+                {t(`recipes.filter.${value}`)}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const recipe = filtered[effectiveActiveIdx];
-                  if (recipe) handleOpen(recipe);
-                }}
-                disabled={filtered.length === 0}
-                data-testid="recipes-open"
-                className="inline-flex h-7 items-center rounded border border-emerald-500/40 bg-emerald-500/10 px-3 text-[11px] font-medium text-emerald-700 hover:border-emerald-500 dark:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {t('recipes.action.open')}
-              </button>
-            </div>
-          </footer>
+            ))}
+          </div>
         </div>
-      </div>
+
+        {/* MIDDLE — list */}
+        <div data-testid="recipes-list" className="px-1.5 pb-1.5">
+          {filtered.length === 0 ? (
+            <div
+              data-testid="recipes-empty"
+              className="grid place-items-center px-6 py-8 text-center text-xs text-fg-subtle"
+            >
+              {t('recipes.overlay.empty')}
+            </div>
+          ) : (
+            <ul role="listbox" className="grid gap-1.5">
+              {filtered.map((recipe, idx) => {
+                const entry = progressEntries[recipe.id];
+                const isActive = idx === effectiveActiveIdx;
+                const isPassed = entry?.status === 'passed';
+                return (
+                  <li
+                    key={recipe.id}
+                    role="option"
+                    aria-selected={isActive}
+                    data-testid="recipes-list-row"
+                    data-recipe-id={recipe.id}
+                    data-active={isActive}
+                    onMouseEnter={() => setActiveIdx(idx)}
+                    onClick={() => handleOpen(recipe)}
+                    className={cn(
+                      'grid cursor-pointer gap-2 rounded-lg border p-3 transition-colors',
+                      isActive
+                        ? 'border-accent/40 bg-accent/10'
+                        : 'border-border-subtle bg-bg-inset hover:border-border'
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="flex-1 font-display text-[13.5px] font-semibold tracking-tight text-fg-base">
+                        {pickProse(recipe.title, locale)}
+                      </span>
+                      {isPassed ? (
+                        <StatusBadge tone="success" dot>
+                          {t('recipes.progress.statusPassed')}
+                        </StatusBadge>
+                      ) : entry !== undefined ? (
+                        <StatusBadge tone="neutral">
+                          {t(`recipes.progress.status${capitalize(entry.status)}`)}
+                        </StatusBadge>
+                      ) : null}
+                    </div>
+                    <span
+                      className="line-clamp-2 text-[12px] text-fg-subtle"
+                      data-testid="recipes-row-prompt-preview"
+                    >
+                      {previewPromptLine(recipe.prompt, locale, 96)}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {recipe.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center rounded-[3px] border border-border-subtle px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-[0.06em] text-fg-subtle"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </ModalShell>
     </div>
   );
 }

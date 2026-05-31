@@ -35,8 +35,9 @@ import { SHARE_LINK_TRIGGER_EVENT } from '../Share/shareLinkEvents';
 import { syncVariableInspectorSurfaceAfterToggle } from '../../utils/variableInspectorSurface';
 import { bucketVariableCount } from '../../../shared/scopeSnapshot';
 import type { Language } from '../../types';
-import { Kbd, OverlayBackdrop, OverlayCard, Tooltip } from '../ui/chrome';
-import { handleCloseOnEscape } from '../ui/keyboard';
+import { Tooltip } from '../ui/chrome';
+import { ModalShell } from '../ui/ModalShell';
+import { ModalFooterLegend } from '../ui/ModalFooterLegend';
 import { CommandPaletteResults } from './CommandPaletteResults';
 import {
   buildCommandPaletteModel,
@@ -659,19 +660,22 @@ export function CommandPalette({
       return;
     }
 
-    handleCloseOnEscape(event, onClose);
+    // Escape (and scrim click) are handled by ModalShell's key handler on
+    // the surrounding scrim — the event bubbles up from this input, so we
+    // intentionally do not preventDefault/stopPropagation here.
   };
 
   return (
-    <OverlayBackdrop align="top" onClose={onClose}>
-      <OverlayCard
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('shortcuts.item.commandPalette.label')}
-        className="w-full max-w-2xl"
-      >
-        <div className="surface-header flex items-center gap-3 px-4 py-3">
-          <Search size={16} className="shrink-0 text-muted" />
+    <ModalShell
+      onClose={onClose}
+      size="max-w-[620px]"
+      labelledById="command-palette-title"
+      icon={<Search size={16} aria-hidden="true" />}
+      header={
+        <div className="flex items-center gap-3">
+          <h2 id="command-palette-title" className="sr-only">
+            {t('shortcuts.item.commandPalette.label')}
+          </h2>
           <input
             ref={inputRef}
             data-tour-id="command-palette-search"
@@ -682,7 +686,8 @@ export function CommandPalette({
             }}
             onKeyDown={handleKeyDown}
             placeholder={t('commandPalette.search.placeholder')}
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
+            aria-label={t('shortcuts.item.commandPalette.label')}
+            className="min-w-0 flex-1 bg-transparent text-sm text-fg-base outline-none placeholder:text-fg-subtle"
           />
           {query && (
             <Tooltip content={t('commandPalette.search.clear')}>
@@ -692,35 +697,29 @@ export function CommandPalette({
                   setQuery('');
                   setSelectedIndex(0);
                 }}
-                className="button-ghost p-1.5"
+                className="grid size-7 shrink-0 place-items-center rounded-md text-fg-subtle hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
                 aria-label={t('commandPalette.search.clear')}
               >
-                <X size={14} />
+                <X size={14} aria-hidden="true" />
               </button>
             </Tooltip>
           )}
-          <Kbd>esc</Kbd>
         </div>
-        <CommandPaletteResults
-          commands={filtered}
-          query={query}
-          selectedIndex={visibleSelectedIndex}
-          listRef={listRef}
-          onHoverIndex={setSelectedIndex}
-        />
-
-        <div className="surface-header flex items-center gap-4 px-4 py-3 text-[11px] text-muted">
-          <span>
-            <Kbd>↑↓</Kbd> {t('commandPalette.hint.navigate')}
-          </span>
-          <span>
-            <Kbd>↵</Kbd> {t('commandPalette.hint.select')}
-          </span>
-          <span className="ml-auto">
-            {t('commandPalette.results.count', { count: filtered.length })}
-          </span>
-        </div>
-      </OverlayCard>
-    </OverlayBackdrop>
+      }
+      footerLegend={<ModalFooterLegend navigate select close={false} />}
+      trailing={
+        <span className="font-mono text-[11px] text-fg-subtle">
+          {t('commandPalette.results.count', { count: filtered.length })}
+        </span>
+      }
+    >
+      <CommandPaletteResults
+        commands={filtered}
+        query={query}
+        selectedIndex={visibleSelectedIndex}
+        listRef={listRef}
+        onHoverIndex={setSelectedIndex}
+      />
+    </ModalShell>
   );
 }

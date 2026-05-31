@@ -457,7 +457,7 @@ export function UtilityPipelinePanel() {
                 onClick={handleImportConfirm}
                 disabled={!importTextareaValue.trim()}
                 data-testid="utility-pipeline-import-confirm"
-                className="inline-flex h-6 items-center rounded border border-emerald-500/40 bg-emerald-500/10 px-2 text-[10px] text-emerald-700 dark:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-6 items-center rounded border border-accent/40 bg-accent/10 px-2 text-[10px] text-accent-fg hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {t('utilityPipeline.import.confirm')}
               </button>
@@ -504,7 +504,7 @@ export function UtilityPipelinePanel() {
                 }
                 data-testid="utility-pipeline-editor-run"
                 aria-label={t('utilityPipeline.editor.run')}
-                className="inline-flex h-7 items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 text-[11px] font-medium text-emerald-700 hover:border-emerald-500 dark:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-7 items-center gap-1 rounded-md border border-success-border bg-success-bg px-2 text-[11px] font-medium text-success-fg hover:border-success-fg disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <PlayCircle size={11} aria-hidden="true" />
                 <span>

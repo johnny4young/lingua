@@ -7,5 +7,6 @@
  */
 
 export { SqlWorkspacePanel } from './SqlWorkspacePanel';
+export { SqlWorkspaceView } from './SqlWorkspaceView';
 export { SqlStatusPill } from './SqlStatusPill';
 export { rowsToCsv, rowsToMarkdownTable } from './sqlResultFormatters';

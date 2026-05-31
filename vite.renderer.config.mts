@@ -48,6 +48,31 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src/renderer'),
     },
+    // Keep a single React/i18n instance in the Electron renderer dev
+    // server. Mirrors vite.web.config.mts — see the optimizeDeps note
+    // below for why the include list matters.
+    dedupe: ['react', 'react-dom', 'i18next', 'react-i18next'],
+  },
+  optimizeDeps: {
+    // Pre-bundle every React entrypoint in one optimize pass so the dev
+    // server never re-optimizes a React subpath late and splits it into
+    // a second instance. `src/renderer/main.tsx` renders via
+    // `react-dom/client`; the JSX runtimes are pulled in by every
+    // component. Without listing them here, late discovery behind the
+    // lazy Monaco/CodeEditor boundary produces mismatched optimize-dep
+    // hashes (`react.js?v=A` vs `react-dom_client.js?v=B`) → two React
+    // copies → "Invalid hook call … more than one copy of React" on the
+    // first hook. Web config hit this first; the renderer (dev:desktop)
+    // shares the same crawl shape, so it gets the same guard.
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+      'react-i18next',
+      'i18next',
+    ],
   },
   build: {
     rollupOptions: {

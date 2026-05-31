@@ -98,14 +98,11 @@ describe('TabsOverflowDropdown (via EditorTabs)', () => {
       render(<EditorTabs />);
       // The strip still shows five tabs total: the first four plus
       // the active one bumped into the last slot.
-      const tabs = screen.getAllByRole('tab');
+      const tabs = screen.getAllByTestId('editor-tab-activation');
       expect(tabs).toHaveLength(5);
-      // The active tab is one of them, with aria-selected=true.
-      const activeTab = tabs.find(
-        (tab) => tab.getAttribute('data-tab-id') === 't7'
-      );
-      expect(activeTab).toBeDefined();
-      expect(activeTab!.getAttribute('aria-selected')).toBe('true');
+      // The active tab is one of them, marked as the current page.
+      const activeTab = screen.getByRole('button', { name: 'TS eta.ts' });
+      expect(activeTab.getAttribute('aria-current')).toBe('page');
       // The overflow count drops to 2 (zeta + the bumped-out fifth
       // first-window tab, epsilon).
       const overflow = screen.getByTestId('editor-tabs-overflow');

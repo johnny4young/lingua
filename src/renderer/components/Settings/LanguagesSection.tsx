@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next';
+import { SettingsSection, SpecCard } from '../ui/SpecRow';
 import { GoLanguageIntelligenceRow } from './GoLanguageIntelligenceRow';
 import { LanguageSupportScorecard } from './LanguageSupportScorecard';
 import { RubyRuntimeRow } from './RubyRuntimeRow';
 import { RustLanguageIntelligenceRow } from './RustLanguageIntelligenceRow';
-import { Section } from './shared';
 
 /**
  * RL-095 Slice 1 (post-review refactor) — dedicated Settings tab for
@@ -16,20 +16,30 @@ import { Section } from './shared';
  * discoverable surface — Cmd+8 in Settings, plus the palette
  * `Show language support` command (fold B) which dispatches the
  * `lingua-settings-navigate-tab` event so this tab opens on demand.
+ *
+ * FASE 2a — rebuilt on the canonical Settings rhythm: the scorecard is
+ * its own `SettingsSection`, and the per-language preference rows are
+ * grouped into ONE `SpecCard` of divided `SpecRow`s. Rust/Go mount
+ * conditionally (only when their LSP is unavailable/degraded); Ruby
+ * always renders and is therefore the last visible row, so it carries
+ * `last` to drop the card's final hairline regardless of how many of
+ * the LSP rows are present.
  */
 export function LanguagesSection() {
   const { t } = useTranslation();
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       <LanguageSupportScorecard />
-      <Section
-        title={t('settings.languages.perLanguage.title')}
+      <SettingsSection
+        eyebrow={t('settings.languages.perLanguage.title')}
         description={t('settings.languages.perLanguage.description')}
       >
-        <RustLanguageIntelligenceRow />
-        <GoLanguageIntelligenceRow />
-        <RubyRuntimeRow />
-      </Section>
+        <SpecCard>
+          <RustLanguageIntelligenceRow />
+          <GoLanguageIntelligenceRow />
+          <RubyRuntimeRow last />
+        </SpecCard>
+      </SettingsSection>
     </div>
   );
 }

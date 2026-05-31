@@ -46,8 +46,12 @@ async function replaceEditorText(page: Page, source: string): Promise<void> {
 }
 
 async function fillStdinTextarea(page: Page, text: string): Promise<void> {
-  const textarea = page.getByTestId('stdin-panel-textarea');
-  await textarea.fill(text);
+  const lines = text.split('\n');
+  for (const [idx, line] of lines.entries()) {
+    await page
+      .getByRole('textbox', { name: `Response for call ${idx + 1}` })
+      .fill(line);
+  }
 }
 
 async function openStdinTab(page: Page): Promise<void> {

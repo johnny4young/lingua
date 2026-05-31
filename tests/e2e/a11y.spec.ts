@@ -199,7 +199,9 @@ test.describe('Keyboard-only flows', () => {
     await expect(paletteInput(page)).toBeFocused();
 
     await paletteInput(page).fill('snippets');
-    await expect(page.getByRole('button', { name: /Open Snippets/i })).toBeVisible();
+    await expect(
+      page.locator('[data-result-index]').filter({ hasText: /Open Snippets/i }).first()
+    ).toBeVisible();
 
     await page.keyboard.press('Escape');
     await expect(paletteInput(page)).toBeHidden();
@@ -253,7 +255,7 @@ test.describe('Focus restoration', () => {
   });
 
   test('Settings restores focus to its toolbar trigger when dismissed', async ({ page }) => {
-    const trigger = page.getByRole('button', { name: /settings \(cmd\+,?\)/i });
+    const trigger = page.getByTestId('action-pill-settings');
     await trigger.focus();
     await expect(trigger).toBeFocused();
     await trigger.press('Enter');
@@ -282,7 +284,7 @@ test.describe('Focus restoration', () => {
   test('Quick Open restores focus to its toolbar trigger after autofocus input closes', async ({
     page,
   }) => {
-    const trigger = page.getByRole('button', { name: /go to file/i });
+    const trigger = page.getByTestId('action-pill-quick-open');
     await trigger.focus();
     await expect(trigger).toBeFocused();
     await trigger.press('Enter');
@@ -295,7 +297,7 @@ test.describe('Focus restoration', () => {
   });
 
   test('Snippets restores focus to its toolbar trigger when dismissed', async ({ page }) => {
-    const trigger = page.getByRole('button', { name: /^Snippets$/i });
+    const trigger = page.getByTestId('action-pill-snippets');
     await trigger.focus();
     await trigger.press('Enter');
     await expect(

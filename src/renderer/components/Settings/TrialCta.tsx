@@ -4,7 +4,7 @@ import { useLicenseStore } from '../../stores/licenseStore';
 import { useUIStore } from '../../stores/uiStore';
 import { startTrial } from '../../services/trialServer';
 import { getDeviceName, getOrMintDeviceId, getOs } from '../../services/deviceFingerprint';
-import { Row } from './shared';
+import { SpecRow } from '../ui/SpecRow';
 
 /**
  * RL-061 Slice 4 — Trial start CTA.
@@ -20,7 +20,14 @@ import { Row } from './shared';
  * RecoveryCta — emitted by LicenseSection on the
  * `setRecoveryEmailHint`-style state, not directly here).
  */
-export function TrialCta({ onRequestRecovery }: { onRequestRecovery?: (email: string) => void }) {
+export function TrialCta({
+  onRequestRecovery,
+  last = false,
+}: {
+  onRequestRecovery?: (email: string) => void;
+  /** Drops the bottom hairline when this is the final row in its SpecCard. */
+  last?: boolean;
+}) {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -106,29 +113,34 @@ export function TrialCta({ onRequestRecovery }: { onRequestRecovery?: (email: st
   };
 
   return (
-    <Row label={t('license.trial.title')} hint={t('license.trial.body')}>
-      <div className="grid w-full gap-2">
-        <input
-          type="email"
-          aria-label={t('license.trial.emailLabel')}
-          placeholder={t('license.trial.emailPlaceholder')}
-          value={email}
-          spellCheck={false}
-          autoComplete="email"
-          onChange={(event) => setEmail(event.target.value)}
-          data-testid="trial-email-input"
-          className="w-full rounded-[1rem] border border-border/80 bg-background/88 px-3 py-2 text-xs text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
-        />
-        <button
-          type="button"
-          onClick={() => void handleStart()}
-          disabled={busy || email.trim().length === 0}
-          data-testid="trial-start"
-          className="button-primary w-fit self-end disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {busy ? t('license.trial.starting') : t('license.trial.startCta')}
-        </button>
-      </div>
-    </Row>
+    <SpecRow
+      last={last}
+      label={t('license.trial.title')}
+      description={t('license.trial.body')}
+      control={
+        <div className="flex w-full max-w-[280px] flex-col items-end gap-2">
+          <input
+            type="email"
+            aria-label={t('license.trial.emailLabel')}
+            placeholder={t('license.trial.emailPlaceholder')}
+            value={email}
+            spellCheck={false}
+            autoComplete="email"
+            onChange={(event) => setEmail(event.target.value)}
+            data-testid="trial-email-input"
+            className="w-full rounded-md border border-border-default bg-bg-base px-3 py-2 text-[12.5px] text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55"
+          />
+          <button
+            type="button"
+            onClick={() => void handleStart()}
+            disabled={busy || email.trim().length === 0}
+            data-testid="trial-start"
+            className="button-primary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? t('license.trial.starting') : t('license.trial.startCta')}
+          </button>
+        </div>
+      }
+    />
   );
 }

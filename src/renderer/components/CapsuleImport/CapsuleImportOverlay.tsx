@@ -29,16 +29,19 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, FileUp, X } from 'lucide-react';
+import { AlertCircle, FileUp } from 'lucide-react';
 import { useCapsuleImport } from '../../hooks/useCapsuleImport';
 import { useUIStore } from '../../stores/uiStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useWorkspaceToolStore } from '../../stores/workspaceToolStore';
+import { openHttpWorkspaceTab } from '../../runtime/openWorkspaceTab';
 import {
   createBlankHttpRequest,
   parseHttpRequest,
 } from '../../../shared/httpWorkspace';
 import { cn } from '../../utils/cn';
+import { ModalShell } from '../ui/ModalShell';
+import { EmptyState } from '../ui/EmptyState';
 import { CapsuleImportPreview } from './CapsuleImportPreview';
 
 export interface CapsuleImportOverlayProps {
@@ -61,17 +64,10 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
     attemptClipboardAutofill,
   } = useCapsuleImport();
 
-  // ─── Escape + body scroll lock ──────────────────────────────────
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeRef.current();
-      }
-    }
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, []);
+  // Escape (and scrim-click and the header `x`) are owned by
+  // `<ModalShell>` now — they route through the `onClose` we pass it.
+  // No document-level listener here, otherwise the close would fire
+  // twice when the shell already handles the key.
 
   // ─── Clipboard auto-detect (Fold C) ─────────────────────────────
   const clipboardConsent = useSettingsStore(
@@ -242,7 +238,10 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
       body: parsed.body,
       timeoutMs: parsed.timeoutMs,
     });
-    useUIStore.getState().openBottomPanel('http');
+    // MOV.02 (FASE 3) — surface the imported request as a full-screen
+    // HTTP workspace tab (the dock panel is gone). Adopt the just-
+    // created request id so tab.id === request.id.
+    openHttpWorkspaceTab({ adoptEntryId: blank.id });
     pushStatusNotice({
       tone: 'success',
       messageKey: 'capsuleImport.notice.openedInHttp',
@@ -251,204 +250,194 @@ export function CapsuleImportOverlay({ onClose }: CapsuleImportOverlayProps) {
   }, [isHttpCapsule, pushStatusNotice, sourceJson]);
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('capsuleImport.overlay.title')}
-      data-testid="capsule-import-overlay"
-      className={cn(
-        'fixed inset-0 z-40 flex items-start justify-center bg-bg-base/80 p-6 backdrop-blur-sm',
-        isDragOver && 'ring-2 ring-emerald-500/80 ring-offset-2 ring-offset-bg-base'
-      )}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <div className="mt-12 flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-xl">
-        <header className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
-          <div>
-            <h2 className="font-display text-base font-semibold tracking-[-0.01em] text-foreground">
-              {t('capsuleImport.overlay.title')}
-            </h2>
-            <p className="mt-0.5 text-[11px] text-muted">
-              {t('capsuleImport.overlay.subtitle')}
-            </p>
-          </div>
+    <ModalShell
+      onClose={onClose}
+      size="max-w-4xl"
+      labelledById="capsule-import-title"
+      headerClose="button"
+      closeLabel={t('capsuleImport.overlay.close')}
+      header={
+        <div className="min-w-0">
+          <h2
+            id="capsule-import-title"
+            className="truncate text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
+          >
+            {t('capsuleImport.overlay.title')}
+          </h2>
+          <p className="mt-0.5 text-[12.5px] text-fg-subtle">
+            {t('capsuleImport.overlay.subtitle')}
+          </p>
+        </div>
+      }
+      footerLegend={<span />}
+      trailing={
+        <div
+          data-testid="capsule-import-overlay-actions"
+          className="flex flex-wrap items-center justify-end gap-2"
+        >
           <button
             type="button"
             onClick={onClose}
-            aria-label={t('capsuleImport.overlay.close')}
-            data-testid="capsule-import-overlay-close"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-surface-strong/60 hover:text-foreground"
+            data-testid="capsule-import-overlay-cancel"
+            className="button-ghost"
           >
-            <X size={14} aria-hidden="true" />
+            {t('capsuleImport.action.cancel')}
           </button>
-        </header>
-
-        <div className="grid min-h-0 flex-1 grid-rows-[auto_1fr_auto] gap-3 p-4">
-          {/* TOP — load source */}
-          <section
-            data-testid="capsule-import-overlay-load"
-            className="grid gap-3 md:grid-cols-2"
-          >
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="capsule-import-paste"
-                className="text-[11px] font-semibold uppercase tracking-wider text-muted"
-              >
-                {t('capsuleImport.load.paste')}
-              </label>
-              <textarea
-                id="capsule-import-paste"
-                data-testid="capsule-import-paste-textarea"
-                value={pasteValue}
-                onChange={handlePasteChange}
-                placeholder={t('capsuleImport.load.pastePlaceholder')}
-                rows={4}
-                spellCheck={false}
-                className="min-h-[80px] resize-none rounded-md border border-border/60 bg-bg-elevated p-2 font-mono text-xs text-foreground outline-none focus:border-border-strong"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
-                {t('capsuleImport.load.dropZone')}
-              </span>
-              <button
-                type="button"
-                onClick={handlePickFile}
-                data-testid="capsule-import-open-file"
-                className={cn(
-                  'flex h-[80px] flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-border/60 bg-surface/30 px-3 text-center text-xs text-muted transition-colors',
-                  'hover:border-border-strong hover:text-foreground',
-                  isDragOver && 'border-emerald-500/80 bg-emerald-500/10 text-foreground'
-                )}
-              >
-                <FileUp size={14} aria-hidden="true" />
-                <span>{t('capsuleImport.load.file')}</span>
-                <span className="text-[10px]">
-                  {t('capsuleImport.load.dropZoneHint')}
-                </span>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/json,.json"
-                data-testid="capsule-import-file-input"
-                className="hidden"
-                onChange={handleFilePicked}
-              />
-            </div>
-            {clipboardConsent === 'unset' ? (
-              <div
-                data-testid="capsule-import-clipboard-consent"
-                className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/40 bg-surface/30 px-3 py-2 text-[11px] text-muted"
-              >
-                <span>{t('capsuleImport.load.clipboardConsentPrompt')}</span>
-                <span className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setClipboardConsent('declined')}
-                    data-testid="capsule-import-clipboard-decline"
-                    className="rounded border border-border/60 px-2 py-1 text-foreground hover:bg-surface-strong/60"
-                  >
-                    {t('capsuleImport.load.clipboardConsentDecline')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setClipboardConsent('granted')}
-                    data-testid="capsule-import-clipboard-grant"
-                    className="rounded border border-emerald-500/60 bg-emerald-500/10 px-2 py-1 text-emerald-200 hover:bg-emerald-500/20"
-                  >
-                    {t('capsuleImport.load.clipboardConsentGrant')}
-                  </button>
-                </span>
-              </div>
-            ) : null}
-          </section>
-
-          {/* MIDDLE — preview / reject / empty */}
-          <section
-            data-testid="capsule-import-overlay-body"
-            className="min-h-0"
-          >
-            {decoded ? (
-              <CapsuleImportPreview
-                capsule={decoded.capsule}
-                byteLength={decoded.byteLength}
-              />
-            ) : rejected ? (
-              <RejectBanner
-                reason={rejected.reason}
-                detail={rejected.detail}
-                byteLength={rejected.byteLength}
-              />
-            ) : (
-              <EmptyState />
-            )}
-          </section>
-
-          {/* BOTTOM — action bar */}
-          <section
-            data-testid="capsule-import-overlay-actions"
-            className="flex flex-wrap items-center justify-end gap-2 border-t border-border/40 pt-3"
-          >
+          {decoded ? (
             <button
               type="button"
-              onClick={onClose}
-              data-testid="capsule-import-overlay-cancel"
-              className="rounded-md border border-border/60 px-3 py-1.5 text-xs text-foreground hover:bg-surface-strong/60"
+              onClick={handleCopySource}
+              data-testid="capsule-import-overlay-copy-source"
+              className="button-ghost"
             >
-              {t('capsuleImport.action.cancel')}
+              {t('capsuleImport.action.copySource')}
             </button>
-            {decoded ? (
-              <button
-                type="button"
-                onClick={handleCopySource}
-                data-testid="capsule-import-overlay-copy-source"
-                className="rounded-md border border-border/60 px-3 py-1.5 text-xs text-foreground hover:bg-surface-strong/60"
-              >
-                {t('capsuleImport.action.copySource')}
-              </button>
-            ) : null}
-            {isHttpCapsule ? (
-              <button
-                type="button"
-                onClick={handleOpenInHttpWorkspace}
-                data-testid="capsule-import-overlay-open-http"
-                className="rounded-md border border-sky-500/60 bg-sky-500/10 px-3 py-1.5 text-xs text-sky-200 hover:bg-sky-500/20"
-              >
-                {t('capsuleImport.action.openInHttp')}
-              </button>
-            ) : null}
+          ) : null}
+          {isHttpCapsule ? (
             <button
               type="button"
-              onClick={handleConfirmOpenTab}
-              disabled={!decoded}
-              data-testid="capsule-import-overlay-confirm"
-              className="rounded-md bg-foreground px-3 py-1.5 text-xs font-semibold text-background disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={handleOpenInHttpWorkspace}
+              data-testid="capsule-import-overlay-open-http"
+              className="button-ghost"
             >
-              {t('capsuleImport.action.openAsNewTab')}
+              {t('capsuleImport.action.openInHttp')}
             </button>
-          </section>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleConfirmOpenTab}
+            disabled={!decoded}
+            data-testid="capsule-import-overlay-confirm"
+            className="button-primary"
+          >
+            {t('capsuleImport.action.openAsNewTab')}
+          </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState() {
-  const { t } = useTranslation();
-  return (
-    <div
-      data-testid="capsule-import-empty"
-      className="flex h-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/40 bg-surface/20 p-6 text-center text-xs text-muted"
+      }
     >
-      <p className="text-foreground">{t('capsuleImport.empty.title')}</p>
-      <p>{t('capsuleImport.empty.hint')}</p>
-    </div>
+      {/* The shell renders our children into its scrollable body. The
+          drag-drop handlers + the drag-over ring attach here so a file
+          dropped anywhere over the modal body still imports, and we
+          carry the legacy `capsule-import-overlay` testid the suite
+          asserts against. */}
+      <div
+        data-testid="capsule-import-overlay"
+        className={cn(
+          'grid gap-3 rounded-md p-1',
+          isDragOver && 'ring-2 ring-accent/70 ring-offset-2 ring-offset-bg-panel'
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* TOP — load source */}
+        <section
+          data-testid="capsule-import-overlay-load"
+          className="grid gap-3 md:grid-cols-2"
+        >
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="capsule-import-paste"
+              className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle"
+            >
+              {t('capsuleImport.load.paste')}
+            </label>
+            <textarea
+              id="capsule-import-paste"
+              data-testid="capsule-import-paste-textarea"
+              value={pasteValue}
+              onChange={handlePasteChange}
+              placeholder={t('capsuleImport.load.pastePlaceholder')}
+              rows={4}
+              spellCheck={false}
+              className="min-h-[80px] resize-none rounded-md border border-border-default bg-bg-inset p-2 font-mono text-xs text-fg-base outline-none focus:border-border-strong"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
+              {t('capsuleImport.load.dropZone')}
+            </span>
+            <button
+              type="button"
+              onClick={handlePickFile}
+              data-testid="capsule-import-open-file"
+              className={cn(
+                'flex h-[80px] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border-default bg-bg-inset px-3 text-center text-xs text-fg-subtle transition-colors',
+                'hover:border-border-strong hover:text-fg-base',
+                isDragOver && 'border-accent bg-accent/10 text-fg-base'
+              )}
+            >
+              <FileUp size={14} aria-hidden="true" />
+              <span>{t('capsuleImport.load.file')}</span>
+              <span className="text-[10px]">
+                {t('capsuleImport.load.dropZoneHint')}
+              </span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              data-testid="capsule-import-file-input"
+              className="hidden"
+              onChange={handleFilePicked}
+            />
+          </div>
+          {clipboardConsent === 'unset' ? (
+            <div
+              data-testid="capsule-import-clipboard-consent"
+              className="md:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-subtle bg-bg-inset px-3 py-2 text-[11px] text-fg-subtle"
+            >
+              <span>{t('capsuleImport.load.clipboardConsentPrompt')}</span>
+              <span className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setClipboardConsent('declined')}
+                  data-testid="capsule-import-clipboard-decline"
+                  className="button-ghost"
+                >
+                  {t('capsuleImport.load.clipboardConsentDecline')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClipboardConsent('granted')}
+                  data-testid="capsule-import-clipboard-grant"
+                  className="button-primary"
+                >
+                  {t('capsuleImport.load.clipboardConsentGrant')}
+                </button>
+              </span>
+            </div>
+          ) : null}
+        </section>
+
+        {/* MIDDLE — preview / reject / empty */}
+        <section data-testid="capsule-import-overlay-body" className="min-h-0">
+          {decoded ? (
+            <CapsuleImportPreview
+              capsule={decoded.capsule}
+              byteLength={decoded.byteLength}
+            />
+          ) : rejected ? (
+            <RejectBanner
+              reason={rejected.reason}
+              detail={rejected.detail}
+              byteLength={rejected.byteLength}
+            />
+          ) : (
+            <div
+              data-testid="capsule-import-empty"
+              className="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle bg-bg-inset py-8"
+            >
+              <EmptyState
+                icon={<FileUp size={18} aria-hidden="true" />}
+                title={t('capsuleImport.empty.title')}
+                description={t('capsuleImport.empty.hint')}
+              />
+            </div>
+          )}
+        </section>
+      </div>
+    </ModalShell>
   );
 }
 
@@ -468,16 +457,16 @@ function RejectBanner({
       role="alert"
       data-testid="capsule-import-reject"
       data-reason={reason}
-      className="flex h-full flex-col gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 p-4 text-xs text-rose-100"
+      className="flex h-full flex-col gap-2 rounded-lg border border-error-border/60 bg-error-bg p-4 text-xs text-error-fg"
     >
-      <header className="flex items-center gap-2 text-rose-200">
+      <header className="flex items-center gap-2 text-error-fg">
         <AlertCircle size={14} aria-hidden="true" />
         <h3 className="font-semibold">
           {t('capsuleImport.reject.title')}
         </h3>
       </header>
       <p>{t(messageKey)}</p>
-      <p className="font-mono text-[10px] text-rose-100/70">
+      <p className="font-mono text-[10px] text-error-fg/70">
         {byteLength.toLocaleString()} B
         {detail ? ` · ${detail}` : ''}
       </p>

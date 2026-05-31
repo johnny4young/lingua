@@ -38,7 +38,7 @@ test.describe('Recipes overlay — Mod+Alt+L binding (RL-039 Slice B)', () => {
     await gotoApp(page);
 
     await page.getByRole('button', { name: /close welcome\.js/i }).click();
-    await expect(page.getByRole('tab', { name: /welcome\.js/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /welcome\.js/i })).toHaveCount(0);
 
     await page.keyboard.press('ControlOrMeta+Alt+L');
     await page.getByTestId('recipes-search-input').fill('vowels');

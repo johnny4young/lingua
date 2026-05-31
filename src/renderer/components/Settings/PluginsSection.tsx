@@ -1,5 +1,7 @@
+import { Puzzle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePluginStore } from '../../stores/pluginStore';
+import { EmptyState } from '../ui/EmptyState';
 import { Section } from './shared';
 
 type TranslationFn = ReturnType<typeof useTranslation>['t'];
@@ -88,9 +90,13 @@ export function PluginsSection() {
       </div>
 
       {plugins.length === 0 ? (
-        <p className="rounded-[1.35rem] border border-dashed border-border/80 px-4 py-5 text-sm text-muted">
-          {t('plugins.empty')}
-        </p>
+        <div className="rounded-[1.35rem] border border-dashed border-border/80 px-4 py-8">
+          <EmptyState
+            icon={<Puzzle size={18} aria-hidden="true" />}
+            title={t('plugins.empty')}
+            description={t('plugins.description')}
+          />
+        </div>
       ) : (
         <div className="space-y-3">
           {plugins.map((plugin) => (

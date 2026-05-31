@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { LspLanguageStore } from '../../stores/lspLanguageStoreFactory';
-import { Row } from './shared';
+import { SpecRow } from '../ui/SpecRow';
+import { StatusBadge } from '../ui/StatusBadge';
 
 /**
  * RL-026 Slice 4 — generic conditional Settings row for a desktop LSP.
@@ -32,10 +33,17 @@ export interface LanguageIntelligenceRowConfig {
   copyNamespace: string;
   /** Restart IPC entry point. */
   restartIpc: () => Promise<unknown> | undefined;
+  /**
+   * FASE 2a — drops the SpecRow bottom hairline when this is the last
+   * visible row in the shared per-language `SpecCard`. Defaults to
+   * `false`; the parent decides ordering (Rust/Go are never last
+   * because the always-rendered Ruby row follows them).
+   */
+  last?: boolean;
 }
 
 export function LanguageIntelligenceRow(config: LanguageIntelligenceRowConfig) {
-  const { language, store, copyNamespace, restartIpc } = config;
+  const { language, store, copyNamespace, restartIpc, last = false } = config;
   const status = store((state) => state.status);
   const { t } = useTranslation();
   const [restarting, setRestarting] = useState(false);
@@ -54,22 +62,24 @@ export function LanguageIntelligenceRow(config: LanguageIntelligenceRowConfig) {
 
   if (status.kind === 'degraded') {
     return (
-      <Row
+      <SpecRow
+        last={last}
         label={t(`${copyNamespace}.degraded.title`)}
-        hint={status.detail ?? t(`${copyNamespace}.degraded.body`)}
-      >
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={() => {
-            void handleRestart();
-          }}
-          disabled={restarting}
-          data-testid={`settings-${language}-lsp-restart`}
-        >
-          {t(`${copyNamespace}.degraded.restartButton`)}
-        </button>
-      </Row>
+        description={status.detail ?? t(`${copyNamespace}.degraded.body`)}
+        control={
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => {
+              void handleRestart();
+            }}
+            disabled={restarting}
+            data-testid={`settings-${language}-lsp-restart`}
+          >
+            {t(`${copyNamespace}.degraded.restartButton`)}
+          </button>
+        }
+      />
     );
   }
 
@@ -88,16 +98,17 @@ export function LanguageIntelligenceRow(config: LanguageIntelligenceRowConfig) {
         : `${copyNamespace}.unavailable.missing.hint`;
 
   return (
-    <Row
+    <SpecRow
+      last={last}
       label={t(labelKey)}
-      hint={status.detail ? `${t(hintKey)} · ${status.detail}` : t(hintKey)}
-    >
-      <span
-        className="text-xs text-muted"
-        data-testid={`settings-${language}-lsp-status`}
-      >
-        {t(`${copyNamespace}.unavailable.badge`)}
-      </span>
-    </Row>
+      description={status.detail ? `${t(hintKey)} · ${status.detail}` : t(hintKey)}
+      control={
+        <span data-testid={`settings-${language}-lsp-status`}>
+          <StatusBadge tone="warning">
+            {t(`${copyNamespace}.unavailable.badge`)}
+          </StatusBadge>
+        </span>
+      }
+    />
   );
 }

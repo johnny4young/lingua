@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import { startEducation } from '../../services/educationServer';
 import { getDeviceName, getOrMintDeviceId, getOs } from '../../services/deviceFingerprint';
-import { Row } from './shared';
+import { SpecRow } from '../ui/SpecRow';
 
 /**
  * RL-061 Slice 4 — Education magic-link start CTA.
@@ -23,8 +23,11 @@ import { Row } from './shared';
  */
 export function EducationCta({
   onRequestRecovery,
+  last = false,
 }: {
   onRequestRecovery?: (email: string) => void;
+  /** Drops the bottom hairline when this is the final row in its SpecCard. */
+  last?: boolean;
 }) {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
@@ -110,49 +113,56 @@ export function EducationCta({
 
   if (confirmationSentTo) {
     return (
-      <Row
+      <SpecRow
+        last={last}
         label={t('license.education.confirmingTitle')}
-        hint={t('license.education.confirmingBody', { email: confirmationSentTo })}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setConfirmationSentTo(null);
-            setEmail('');
-          }}
-          data-testid="education-restart"
-          className="button-secondary w-fit self-end"
-        >
-          {t('license.education.restart')}
-        </button>
-      </Row>
+        description={t('license.education.confirmingBody', { email: confirmationSentTo })}
+        control={
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmationSentTo(null);
+              setEmail('');
+            }}
+            data-testid="education-restart"
+            className="button-secondary"
+          >
+            {t('license.education.restart')}
+          </button>
+        }
+      />
     );
   }
 
   return (
-    <Row label={t('license.education.title')} hint={t('license.education.body')}>
-      <div className="grid w-full gap-2">
-        <input
-          type="email"
-          aria-label={t('license.education.emailLabel')}
-          placeholder={t('license.education.emailPlaceholder')}
-          value={email}
-          spellCheck={false}
-          autoComplete="email"
-          onChange={(event) => setEmail(event.target.value)}
-          data-testid="education-email-input"
-          className="w-full rounded-[1rem] border border-border/80 bg-background/88 px-3 py-2 text-xs text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
-        />
-        <button
-          type="button"
-          onClick={() => void handleStart()}
-          disabled={busy || email.trim().length === 0}
-          data-testid="education-start"
-          className="button-primary w-fit self-end disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {busy ? t('license.education.starting') : t('license.education.startCta')}
-        </button>
-      </div>
-    </Row>
+    <SpecRow
+      last={last}
+      label={t('license.education.title')}
+      description={t('license.education.body')}
+      control={
+        <div className="flex w-full max-w-[280px] flex-col items-end gap-2">
+          <input
+            type="email"
+            aria-label={t('license.education.emailLabel')}
+            placeholder={t('license.education.emailPlaceholder')}
+            value={email}
+            spellCheck={false}
+            autoComplete="email"
+            onChange={(event) => setEmail(event.target.value)}
+            data-testid="education-email-input"
+            className="w-full rounded-md border border-border-default bg-bg-base px-3 py-2 text-[12.5px] text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55"
+          />
+          <button
+            type="button"
+            onClick={() => void handleStart()}
+            disabled={busy || email.trim().length === 0}
+            data-testid="education-start"
+            className="button-primary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {busy ? t('license.education.starting') : t('license.education.startCta')}
+          </button>
+        </div>
+      }
+    />
   );
 }

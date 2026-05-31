@@ -14,6 +14,10 @@ import { ImportPreviewOverlay } from '../../../src/renderer/components/ImportPre
 import { useSettingsStore } from '../../../src/renderer/stores/settingsStore';
 import { useUIStore } from '../../../src/renderer/stores/uiStore';
 import { useWorkspaceToolStore } from '../../../src/renderer/stores/workspaceToolStore';
+import {
+  useEditorStore,
+  HTTP_WORKSPACE_TAB_ID,
+} from '../../../src/renderer/stores/editorStore';
 
 beforeEach(() => {
   localStorage.clear();
@@ -23,6 +27,11 @@ beforeEach(() => {
     responsesByRequestId: {},
     isExecutingActive: false,
   });
+  // MOV.02 (FASE 3) — the cURL import now opens a full-screen HTTP
+  // tab via the editor store, which enforces the tab budget. Reset
+  // the editor tab list so a leaked tab from a prior test can't push
+  // a fresh single-tab import past the Free ceiling.
+  useEditorStore.setState({ tabs: [], activeTabId: null });
   useUIStore.setState({ activeBottomPanel: 'console', statusNotice: null });
   useSettingsStore.setState({ importPreviewClipboardOnFocusConsent: 'unset' });
   // Reset to EN before each test so a previous ES test doesn't bleed in.
@@ -103,7 +112,7 @@ describe('ImportPreviewOverlay', () => {
     expect(headers.textContent).not.toContain('Bearer xyz');
   });
 
-  it('confirm writes the new request + flips bottom-panel + closes (fold G)', async () => {
+  it('confirm writes the request + opens a full-screen HTTP tab + closes (fold G, MOV.02)', async () => {
     let closed = false;
     const user = userEvent.setup();
     render(<ImportPreviewOverlay onClose={() => (closed = true)} />);
@@ -119,7 +128,18 @@ describe('ImportPreviewOverlay', () => {
     const requests = useWorkspaceToolStore.getState().requests;
     expect(requests).toHaveLength(1);
     expect(requests[0]?.method).toBe('POST');
-    expect(useUIStore.getState().activeBottomPanel).toBe('http');
+    // SQL/HTTP MODEL rework — the imported request lands in the HTTP
+    // collection (its own id); a single HTTP workspace tab (stable id)
+    // is opened/focused and active. The rail selects the imported
+    // request — the workspace tab id is NOT the request id.
+    const { tabs, activeTabId } = useEditorStore.getState();
+    const httpTabs = tabs.filter((tab) => tab.kind === 'http');
+    expect(httpTabs).toHaveLength(1);
+    expect(httpTabs[0]?.id).toBe(HTTP_WORKSPACE_TAB_ID);
+    expect(activeTabId).toBe(HTTP_WORKSPACE_TAB_ID);
+    expect(useWorkspaceToolStore.getState().activeRequestId).toBe(
+      requests[0]?.id
+    );
   });
 
   it('cancel button closes without writing to the workspace store', async () => {

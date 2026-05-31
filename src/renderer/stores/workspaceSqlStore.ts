@@ -68,6 +68,16 @@ interface WorkspaceSqlState {
 
   /** Append a new query to the top of the list. */
   createQuery: (query: SqlQueryV1) => void;
+  /**
+   * Clone an existing query under a brand-new id, insert the clone at
+   * the top of the list, and make it active. The clone copies the
+   * source name (with a duplicate suffix) + query text + timeout but
+   * carries fresh `createdAt`/`updatedAt` stamps and NO response
+   * history (a clone starts unrun). No-ops on an unknown source id.
+   * The caller supplies both the fresh id and the cloned name so the
+   * store stays free of i18n / `crypto` concerns.
+   */
+  duplicateQuery: (sourceId: string, options: { id: string; name: string }) => void;
   /** Patch fields on an existing query; updates `updatedAt`. */
   updateQuery: (id: string, patch: Partial<SqlQueryV1>) => void;
   /** Drop the query + its entire response history. */
@@ -116,6 +126,29 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
           queries: [query, ...state.queries],
           activeQueryId: query.id,
         })),
+
+      duplicateQuery: (sourceId, options) =>
+        set((state) => {
+          const source = state.queries.find((q) => q.id === sourceId);
+          if (!source) return state;
+          const now = new Date().toISOString();
+          const clone: SqlQueryV1 = {
+            version: 1,
+            id: options.id,
+            name: options.name,
+            query: source.query,
+            ...(source.timeoutMs !== undefined
+              ? { timeoutMs: source.timeoutMs }
+              : {}),
+            createdAt: now,
+            updatedAt: now,
+          };
+          // A clone starts unrun: it inherits no response history.
+          return {
+            queries: [clone, ...state.queries],
+            activeQueryId: clone.id,
+          };
+        }),
 
       updateQuery: (id, patch) =>
         set((state) => {

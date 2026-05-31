@@ -8,8 +8,8 @@ import type { Page } from '@playwright/test';
  *   1. Gutter mark renders for a programmatically-set breakpoint.
  *   2. Breakpoint state stays in the bottom-panel Debugger tab,
  *      without stealing the output panel by default.
- *   3. The Settings → Editor → Debugger row reads + writes the
- *      master `debuggerEnabled` flag.
+ *   3. Settings → Editor no longer exposes a Debugger master toggle;
+ *      debugging is baseline.
  *   4. Spanish copy renders breakpoint actions in the Debugger panel,
  *      not in Settings.
  *
@@ -24,11 +24,14 @@ import type { Page } from '@playwright/test';
 
 import {
   closeSettings,
+  clickRun,
   createJavaScriptTab,
   createTypeScriptTab,
   expect,
   gotoApp,
+  openConsole,
   openSettings,
+  selectWorkflowMode,
   seedSession,
   test,
   waitForRunCompleted,
@@ -52,13 +55,16 @@ async function moveEditorCursorToLine(page: Page, line: number) {
   }
 }
 
+function inlineValue(page: Page, value: RegExp | string) {
+  return page.locator('.lingua-inline-result-value').filter({ hasText: value }).first();
+}
+
 async function openRunMenu(page: Page) {
-  await page.getByTestId('toolbar-run-menu-button').click();
+  await page.getByTestId('action-pill-run-menu').click();
 }
 
 async function clickDebug(page: Page) {
-  await openRunMenu(page);
-  await page.getByTestId('toolbar-debug-button').click();
+  await selectWorkflowMode(page, 'debug');
 }
 
 test.describe('Debugger (RL-027 Slice 1.5)', () => {
@@ -68,16 +74,13 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
     await createJavaScriptTab(page);
   });
 
-  test('the Debugger row is visible in Settings → Editor and toggles persistently', async ({
+  test('Settings → Editor keeps Debugger breakpoint controls out of settings', async ({
     page,
   }) => {
     await openSettings(page);
     await page.getByRole('tab', { name: 'Editor' }).click();
-    const toggle = page.getByRole('switch', { name: /^Debugger$/ });
-    await expect(toggle).toBeVisible();
-    await expect(toggle).toHaveAttribute('aria-checked', 'true');
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByRole('switch', { name: /^Debugger$/ })).toHaveCount(0);
+    await expect(page.getByTestId('settings-debugger-clear-all')).toHaveCount(0);
     await closeSettings(page);
   });
 
@@ -95,7 +98,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
     await expect(page.getByTestId('debugger-drawer')).toHaveCount(0);
     await expect(page.getByTestId('toolbar-breakpoint-pill')).toHaveCount(0);
 
-    await page.getByRole('button', { name: /toggle console/i }).click();
+    await openConsole(page);
     await expect(page.getByTestId('bottom-panel-debugger-tab')).toBeVisible();
     await expect(page.getByTestId('bottom-panel-debugger-count')).toContainText('1');
     await page.getByTestId('bottom-panel-debugger-tab').click();
@@ -103,7 +106,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
     await expect(page.getByTestId('debugger-breakpoint-summary')).toContainText('1/1');
 
     await openRunMenu(page);
-    await expect(page.getByTestId('toolbar-debug-button')).toBeEnabled();
+    await expect(page.getByTestId('action-pill-workflow-option-debug')).toBeEnabled();
   });
 
   test('Run ignores breakpoints while Debug pauses, highlights the line, and steps over', async ({
@@ -123,7 +126,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
 
     await expect(page.locator('.monaco-editor .lingua-bp-glyph')).toHaveCount(1);
 
-    await page.getByTestId('toolbar-run-button').click();
+    await clickRun(page);
     await waitForRunCompleted(page);
     await expect(page.locator('.monaco-editor .lingua-debugger-paused-line')).toHaveCount(0);
 
@@ -162,8 +165,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
 
     await clickDebug(page);
     await expect(page.getByText(/Paused at line 4/i)).toBeVisible();
-    const resultsPanel = page.locator('#results-panel');
-    await expect(resultsPanel.getByText('Hello, World!')).toBeVisible();
+    await expect(inlineValue(page, /^Hello, World!$/)).toBeVisible();
     await expect(page.getByTestId('debugger-locals')).toContainText(
       'No variables are available before this line.'
     );
@@ -175,8 +177,8 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
 
     await page.getByTestId('debugger-continue').click();
     await waitForRunCompleted(page);
-    await expect(resultsPanel.getByText('Hello, World!')).toBeVisible();
-    await expect(resultsPanel.getByText(/^11$/)).toBeVisible();
+    await expect(inlineValue(page, /^Hello, World!$/)).toBeVisible();
+    await expect(inlineValue(page, /^11$/)).toBeVisible();
     await expect(page.getByText(/time limit of 30 s/i)).toHaveCount(0);
   });
 
@@ -211,10 +213,9 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
     await clickDebug(page);
     await expect(page.getByText(/Paused at line 11/i)).toBeVisible();
     await expect(page.getByTestId('debugger-step-out')).toBeDisabled();
-    const resultsPanel = page.locator('#results-panel');
-    await expect(resultsPanel.getByText('Hello, World!')).toBeVisible();
-    await expect(resultsPanel.getByText(/^21$/)).toBeVisible();
-    await expect(resultsPanel.getByText(/^6$/)).toBeVisible();
+    await expect(inlineValue(page, /^Hello, World!$/)).toBeVisible();
+    await expect(inlineValue(page, /^21$/)).toBeVisible();
+    await expect(inlineValue(page, /^6$/)).toBeVisible();
 
     await page.getByTestId('debugger-step-into').click();
     await expect(page.getByText(/Paused at line 15/i)).toBeVisible();
@@ -224,7 +225,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
 
     await page.getByTestId('debugger-step-out').click();
     await waitForRunCompleted(page);
-    await expect(resultsPanel.getByText('1calling')).toBeVisible();
+    await expect(inlineValue(page, /^1calling$/)).toBeVisible();
   });
 
   test('Spanish copy keeps breakpoint actions in the Debugger panel', async ({
@@ -243,7 +244,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
 
       await openSettings(esPage);
       await esPage.getByRole('tab', { name: /Editor/i }).click();
-      await expect(esPage.getByRole('switch', { name: /^Depurador$/ })).toBeVisible();
+      await expect(esPage.getByRole('switch', { name: /^Depurador$/ })).toHaveCount(0);
       await expect(
         esPage.getByRole('switch', { name: /Pausa desactivada para todos/i })
       ).toHaveCount(0);
@@ -252,7 +253,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
 
       await esPage.locator('.monaco-editor').click({ position: { x: 120, y: 36 } });
       await esPage.keyboard.press('Control+Shift+B');
-      await esPage.getByRole('button', { name: /alternar consola/i }).click();
+      await openConsole(esPage);
       await esPage.getByTestId('bottom-panel-debugger-tab').click();
 
       await expect(esPage.getByTestId('debugger-clear-all-breakpoints')).toContainText(
@@ -264,7 +265,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
     }
   });
 
-  test('the console-error gate stays clean while flipping the Debugger toggle', async ({
+  test('the console-error gate stays clean while visiting Editor settings', async ({
     page,
   }) => {
     const errors: string[] = [];
@@ -275,9 +276,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
 
     await openSettings(page);
     await page.getByRole('tab', { name: 'Editor' }).click();
-    const toggle = page.getByRole('switch', { name: /^Debugger$/ });
-    await toggle.click();
-    await toggle.click();
+    await expect(page.getByRole('switch', { name: /^Debugger$/ })).toHaveCount(0);
     await closeSettings(page);
 
     expect(errors).toEqual([]);
@@ -286,7 +285,7 @@ test.describe('Debugger (RL-027 Slice 1.5)', () => {
 
 test.describe('Debugger TypeScript smoke (RL-027 Slice 1.5)', () => {
   test.beforeEach(async ({ page }) => {
-    await seedSession(page, { language: 'en' });
+    await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await createTypeScriptTab(page);
   });
@@ -300,12 +299,12 @@ test.describe('Debugger TypeScript smoke (RL-027 Slice 1.5)', () => {
     await expect(page.getByTestId('debugger-drawer')).toHaveCount(0);
     await expect(page.getByTestId('toolbar-breakpoint-pill')).toHaveCount(0);
 
-    await page.getByRole('button', { name: /toggle console/i }).click();
+    await openConsole(page);
     await expect(page.getByTestId('bottom-panel-debugger-tab')).toBeVisible();
     await expect(page.getByTestId('bottom-panel-debugger-count')).toContainText('1');
 
     await openRunMenu(page);
-    await expect(page.getByTestId('toolbar-debug-button')).toBeEnabled();
+    await expect(page.getByTestId('action-pill-workflow-option-debug')).toBeEnabled();
   });
 
   test('Debug pauses on the original TypeScript line with typed locals', async ({ page }) => {

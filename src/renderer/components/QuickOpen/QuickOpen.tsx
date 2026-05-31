@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../stores/editorStore';
 import {
@@ -12,8 +12,10 @@ import { PLAINTEXT_LANGUAGE } from '../../utils/language';
 import { joinAbsolute } from '../../utils/filePath';
 import type { Language } from '../../types';
 import { languageBadgeClass } from '../../utils/languageMeta';
-import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
-import { handleCloseOnEscape } from '../ui/keyboard';
+import { EmptyState } from '../ui/EmptyState';
+import { ModalShell } from '../ui/ModalShell';
+import { ModalFooterLegend } from '../ui/ModalFooterLegend';
+import { StatusBadge } from '../ui/StatusBadge';
 
 interface FileResult {
   name: string;
@@ -31,6 +33,7 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const labelId = useId();
 
   const { t } = useTranslation();
   const { tabs, setActiveTab, openFile } = useEditorStore();
@@ -192,67 +195,59 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
       return;
     }
 
-    handleCloseOnEscape(event, onClose);
+    // Escape closing is owned by ModalShell's scrim/key handler; the
+    // surrounding shell catches it even while the input is focused.
   };
 
   return (
-    <OverlayBackdrop align="top" onClose={onClose}>
-      <OverlayCard
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('shortcuts.item.quickOpen.label')}
-        className="w-full max-w-xl"
-      >
-        <div className="surface-header flex items-center gap-3 px-4 py-3">
-          <Search size={16} className="shrink-0 text-muted" />
+    <ModalShell
+      onClose={onClose}
+      icon={<Search size={16} aria-hidden="true" />}
+      labelledById={labelId}
+      headerClose="esc"
+      header={
+        <>
+          <span id={labelId} className="sr-only">
+            {t('shortcuts.item.quickOpen.label')}
+          </span>
           <input
             ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t('quickOpen.placeholder')}
-            className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted"
+            className="min-w-0 flex-1 bg-transparent text-sm text-fg-base outline-none placeholder:text-fg-subtle"
           />
-          <Kbd>esc</Kbd>
-        </div>
-
-        <div ref={listRef} className="max-h-80 overflow-y-auto px-2 py-2">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-              <p className="text-sm text-muted">
-                {allFiles.length === 0
-                  ? t('quickOpen.empty.noProject')
-                  : t('quickOpen.empty.noMatch', { query })}
-              </p>
-              {allFiles.length === 0 && (
-                <p className="text-xs text-muted/80">
-                  {t('quickOpen.empty.noProject.hint')}
-                </p>
-              )}
-              {allFiles.length > 0 && (
-                <p className="text-xs text-muted/80">
-                  {t('quickOpen.empty.noMatch.hint')}
-                </p>
-              )}
-            </div>
-          ) : (
-            renderQuickOpenResults(filtered, query, selectedIndex, setSelectedIndex, select, t)
-          )}
-        </div>
-
-        <div className="surface-header flex items-center gap-4 px-4 py-3 text-[11px] text-muted">
-          <span>
-            <Kbd>↑↓</Kbd> {t('quickOpen.hint.navigate')}
-          </span>
-          <span>
-            <Kbd>↵</Kbd> {t('quickOpen.hint.open')}
-          </span>
-          <span className="ml-auto">
-            {t('quickOpen.count', { count: filtered.length })}
-          </span>
-        </div>
-      </OverlayCard>
-    </OverlayBackdrop>
+        </>
+      }
+      footerLegend={<ModalFooterLegend navigate open select={false} close={false} />}
+      trailing={
+        <span className="font-mono text-[11px] text-fg-subtle">
+          {t('quickOpen.count', { count: filtered.length })}
+        </span>
+      }
+    >
+      <div ref={listRef}>
+        {filtered.length === 0 ? (
+          <EmptyState
+            className="py-10"
+            icon={<Search size={18} aria-hidden="true" />}
+            title={
+              allFiles.length === 0
+                ? t('quickOpen.empty.noProject')
+                : t('quickOpen.empty.noMatch', { query })
+            }
+            description={
+              allFiles.length === 0
+                ? t('quickOpen.empty.noProject.hint')
+                : t('quickOpen.empty.noMatch.hint')
+            }
+          />
+        ) : (
+          renderQuickOpenResults(filtered, query, selectedIndex, setSelectedIndex, select, t)
+        )}
+      </div>
+    </ModalShell>
   );
 }
 
@@ -290,24 +285,24 @@ function renderQuickOpenResults(
       onClick={() => void select(file)}
       onMouseEnter={() => setSelectedIndex(index)}
       data-result-index={index}
-      className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors ${
+      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-[9px] text-left transition-colors ${
         index === selectedIndex
-          ? 'bg-primary-soft'
-          : 'hover:bg-surface-strong/68'
+          ? 'border-slate-300 bg-slate-100'
+          : 'border-transparent hover:bg-bg-panel-alt'
       }`}
     >
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium text-foreground">{file.name}</span>
+        <span className="truncate text-sm font-medium text-fg-base">{file.name}</span>
         {file.path !== file.name && (
-          <span className="truncate text-xs text-muted">{file.path}</span>
+          <span className="truncate text-xs text-fg-subtle">{file.path}</span>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {file.source === 'open-tab' && (
-          <span className="status-pill">{t('quickOpen.badge.open')}</span>
+          <StatusBadge tone="neutral">{t('quickOpen.badge.open')}</StatusBadge>
         )}
         {file.source === 'recent' && (
-          <span className="status-pill">{t('quickOpen.badge.recent')}</span>
+          <StatusBadge tone="neutral">{t('quickOpen.badge.recent')}</StatusBadge>
         )}
         {file.language && (
           <span
@@ -343,7 +338,7 @@ function renderQuickOpenResults(
     return [
       <p
         key={`section-${source}`}
-        className="panel-title px-3 pt-3 pb-1.5"
+        className="px-3 pb-1.5 pt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle"
         role="presentation"
       >
         {t(QUICK_OPEN_SECTION_LABEL_KEY[source])}

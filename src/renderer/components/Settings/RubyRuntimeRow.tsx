@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { resolveUserEnvForRunner } from '../../runners/env';
-import { Row, Select } from './shared';
+import { SpecRow } from '../ui/SpecRow';
+import { Select } from './shared';
 
 /**
  * RL-042 Slice 6 — Settings → Languages row that lets the user pick
@@ -35,7 +36,16 @@ function getDesktopBridge(): DesktopBridge | null {
   return bridge ?? null;
 }
 
-export function RubyRuntimeRow() {
+export interface RubyRuntimeRowProps {
+  /**
+   * FASE 2a — drops the SpecRow bottom hairline. Ruby is the
+   * always-rendered last row of the shared per-language `SpecCard`,
+   * so the parent passes `last` to keep the card's final divider off.
+   */
+  last?: boolean;
+}
+
+export function RubyRuntimeRow({ last = false }: RubyRuntimeRowProps = {}) {
   const { t } = useTranslation();
   const preference = useSettingsStore((state) => state.rubyRuntimePreference);
   const setPreference = useSettingsStore(
@@ -98,47 +108,49 @@ export function RubyRuntimeRow() {
   };
 
   return (
-    <Row
+    <SpecRow
+      last={last}
       label={t('settings.editor.rubyRuntime.label')}
-      hint={t('settings.editor.rubyRuntime.description')}
-    >
-      <div className="flex flex-col gap-1.5">
-        <Select
-          value={preference}
-          onChange={(event) => {
-            const next = event.target.value;
-            if (next === 'auto' || next === 'system' || next === 'wasm') {
-              setPreference(next);
-            }
-          }}
-          aria-label={t('settings.editor.rubyRuntime.label')}
-          data-testid="settings-ruby-runtime"
-        >
-          <option value="auto">{t('settings.editor.rubyRuntime.option.auto')}</option>
-          <option value="system" disabled={isWebBuild}>
-            {t('settings.editor.rubyRuntime.option.system')}
-            {isWebBuild ? ` — ${t('settings.editor.rubyRuntime.statusUnavailable')}` : ''}
-          </option>
-          <option value="wasm">{t('settings.editor.rubyRuntime.option.wasm')}</option>
-        </Select>
-        {status ? (
-          <p className="text-xs text-fg-subtle" data-testid="settings-ruby-runtime-status">
-            {status}
-          </p>
-        ) : null}
-        {/* RL-042 Slice 6 fold G — quick affordance to the upstream
-            Ruby docs. Uses `window.lingua.openExternal` on desktop so
-            the link opens in the user's browser instead of inside the
-            Electron window. */}
-        <button
-          type="button"
-          className="self-start text-xs text-accent hover:underline"
-          onClick={onDocsClick}
-          data-testid="settings-ruby-runtime-docs-link"
-        >
-          {t('settings.editor.rubyRuntime.docsLink')}
-        </button>
-      </div>
-    </Row>
+      description={t('settings.editor.rubyRuntime.description')}
+      control={
+        <div className="flex flex-col items-end gap-1.5">
+          <Select
+            value={preference}
+            onChange={(event) => {
+              const next = event.target.value;
+              if (next === 'auto' || next === 'system' || next === 'wasm') {
+                setPreference(next);
+              }
+            }}
+            aria-label={t('settings.editor.rubyRuntime.label')}
+            data-testid="settings-ruby-runtime"
+          >
+            <option value="auto">{t('settings.editor.rubyRuntime.option.auto')}</option>
+            <option value="system" disabled={isWebBuild}>
+              {t('settings.editor.rubyRuntime.option.system')}
+              {isWebBuild ? ` — ${t('settings.editor.rubyRuntime.statusUnavailable')}` : ''}
+            </option>
+            <option value="wasm">{t('settings.editor.rubyRuntime.option.wasm')}</option>
+          </Select>
+          {status ? (
+            <p className="text-[11.5px] text-fg-subtle" data-testid="settings-ruby-runtime-status">
+              {status}
+            </p>
+          ) : null}
+          {/* RL-042 Slice 6 fold G — quick affordance to the upstream
+              Ruby docs. Uses `window.lingua.openExternal` on desktop so
+              the link opens in the user's browser instead of inside the
+              Electron window. */}
+          <button
+            type="button"
+            className="text-[11.5px] text-accent hover:underline"
+            onClick={onDocsClick}
+            data-testid="settings-ruby-runtime-docs-link"
+          >
+            {t('settings.editor.rubyRuntime.docsLink')}
+          </button>
+        </div>
+      }
+    />
   );
 }

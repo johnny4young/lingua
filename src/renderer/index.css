@@ -98,6 +98,12 @@
   --color-accent-hover: oklch(0.44 0.18 210);
   --color-accent-fg: oklch(0.36 0.17 210);
 
+  /* Overlay scrim base — the modal backdrop tint. A scrim must DIM the
+     content beneath it, so even on light surfaces it is a dark neutral
+     ink (≈ neutral-800), not a light value. Consumers add the alpha via
+     `bg-overlay/70`. Dark theme drops it nearly to black below. */
+  --color-overlay: oklch(0.21 0.012 210);
+
   /* Status (each semantic role keeps its hue per DS spec) */
   --color-success-bg: oklch(0.94 0.06 155);
   --color-success-fg: oklch(0.35 0.14 155);
@@ -289,6 +295,11 @@
   --color-accent-hover: oklch(0.8 0.16 210);
   --color-accent-fg: oklch(0.85 0.14 210);
 
+  /* Overlay scrim base (dark) — drops nearly to black so the blurred
+     backdrop reads as "everything behind is dimmed". Matches the
+     proposal mockup scrim base oklch(0.10 0.005 210). */
+  --color-overlay: oklch(0.1 0.005 210);
+
   --color-success-bg: oklch(0.25 0.06 155);
   --color-success-fg: oklch(0.78 0.14 155);
   --color-success-border: oklch(0.65 0.14 155);
@@ -426,6 +437,10 @@
   --color-accent: var(--color-accent);
   --color-accent-hover: var(--color-accent-hover);
   --color-accent-fg: var(--color-accent-fg);
+
+  /* Overlay scrim — surfaces `bg-overlay` so the modal backdrop can use
+     `bg-overlay/70` for its dimming tint in both themes. */
+  --color-overlay: var(--color-overlay);
 
   /* Semantic statuses — `bg-success-bg`, `text-success-fg`,
      `border-success-border`, and the same for warning/error/info. */
@@ -889,18 +904,24 @@
      matches Quokka and the v2 design's right-edge alignment, while
      keeping per-line vertical sync as the editor scrolls. */
   .lingua-inline-result {
-    --inline-result-bg: color-mix(in srgb, var(--color-bg-panel-alt) 94%, transparent);
-    --inline-result-border: var(--color-border-subtle);
+    /* MOV.05 — quiet inline markers. Match the `InlineMarker` React
+       reference: an inset tint instead of an opaque panel, a hairline
+       (border-subtle) instead of a boxed-and-shadowed pill, and the
+       type label separated from the value by a LEFT hairline only.
+       Sizes drop to the reference's 11.5px value / 9.5px type so the
+       marker stops competing with the code it annotates. The
+       `data-type-pill` hue + `@watch` accent semantics are unchanged;
+       only visual weight moves here, not the widget/decoration logic. */
+    --inline-result-bg: color-mix(in srgb, var(--color-bg-inset) 60%, transparent);
     --inline-result-arrow: var(--color-fg-muted);
     --inline-result-value: var(--color-fg-base);
-    --inline-result-shadow: 0 6px 18px color-mix(in srgb, black 10%, transparent);
     display: inline-flex;
     align-items: center;
     gap: 6px;
     min-height: 18px;
     line-height: 1;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--color-fg-muted);
     pointer-events: none;
     white-space: nowrap;
@@ -913,8 +934,9 @@
     transform: translateY(3px);
     /* RL-044 Slice 1C follow-up — cap the overlay width so long
        Python tracebacks or 3+ stacked results never paint past the
-       editor padding. The opaque editor background masks any code
-       behind the pill so the overlap stops reading as visual noise. */
+       editor padding. After MOV.05 the marker rides a quiet inset
+       tint (not an opaque panel), so the cap is what keeps a long
+       value from overrunning the gutter rather than a masking fill. */
     max-width: 50%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -930,53 +952,57 @@
   }
 
   .lingua-inline-result-part {
+    /* Quiet inset tint + hairline only — no boxed border, no shadow.
+       Mirrors `InlineMarker`'s `bg-bg-inset/60` container so the marker
+       reads as a faint annotation rather than a competing chip. */
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     min-width: 0;
-    border: 1px solid var(--inline-result-border);
     border-radius: 5px;
     background: var(--inline-result-bg);
-    box-shadow: var(--inline-result-shadow);
-    padding: 2px 5px;
+    padding: 3px 5px 3px 8px;
   }
 
   .lingua-inline-result-arrow {
     color: var(--inline-result-arrow);
-    font-size: 13px;
+    font-size: 11.5px;
     line-height: 1;
   }
 
   .lingua-inline-result-value {
     min-width: 0;
     color: var(--inline-result-value);
-    font-weight: 700;
+    font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .lingua-inline-result-pill {
+    /* Type label: separated from the value by a LEFT hairline (no full
+       border box, no fill) per the `InlineMarker` reference. The
+       per-kind `data-type-pill` hue rules below still tint the text. */
     display: inline-flex;
     align-items: center;
-    padding: 1px 5px;
-    border-radius: 3px;
-    border: 1px solid var(--color-border-subtle);
-    background: var(--color-bg-panel-alt);
+    padding-left: 8px;
+    border-left: 1px solid var(--color-border-subtle);
     color: var(--color-fg-subtle);
-    font-size: 9px;
-    font-weight: 700;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
 
   .lingua-inline-result-watch {
+    /* @WATCH marker: a quiet accent text label (no filled chip) to
+       match `InlineMarker`'s `text-accent` glyph. Keeps the watch
+       semantic — the accent hue still flags a pinned expression. */
     display: inline-flex;
     align-items: center;
-    padding: 1px 5px;
-    border-radius: 3px;
-    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-    color: var(--color-accent-fg);
-    font-size: 9px;
-    font-weight: 700;
+    color: var(--color-accent);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
@@ -987,11 +1013,11 @@
 
   .monaco-editor.vs .lingua-inline-result,
   .monaco-editor.hc-light .lingua-inline-result {
-    --inline-result-bg: color-mix(in srgb, white 94%, oklch(0.93 0.02 210));
-    --inline-result-border: oklch(0.82 0.018 210);
+    /* Quiet inset tint (no opaque panel, no drop shadow) so the marker
+       reads as a faint annotation in the light editor theme too. */
+    --inline-result-bg: color-mix(in srgb, oklch(0.93 0.02 210) 55%, transparent);
     --inline-result-arrow: oklch(0.5 0.018 210);
     --inline-result-value: oklch(0.2 0.018 210);
-    --inline-result-shadow: 0 8px 20px color-mix(in srgb, oklch(0.38 0.02 210) 16%, transparent);
     color: oklch(0.48 0.014 210);
   }
 
@@ -1006,11 +1032,10 @@
   }
 
   .monaco-editor.vs-dark .lingua-inline-result {
-    --inline-result-bg: color-mix(in srgb, oklch(0.18 0.012 220) 92%, transparent);
-    --inline-result-border: oklch(0.38 0.024 220);
+    /* Quiet inset tint (no opaque panel, no drop shadow). */
+    --inline-result-bg: color-mix(in srgb, oklch(0.14 0.008 220) 55%, transparent);
     --inline-result-arrow: oklch(0.7 0.02 220);
     --inline-result-value: oklch(0.96 0.012 220);
-    --inline-result-shadow: 0 8px 22px color-mix(in srgb, black 34%, transparent);
     color: oklch(0.74 0.018 220);
   }
 
@@ -1023,29 +1048,24 @@
   }
 
   .monaco-editor.vs-dark .lingua-inline-result-pill {
-    border-color: oklch(0.32 0.018 220);
-    background: oklch(0.2 0.014 220);
     color: oklch(0.76 0.018 220);
   }
 
+  /* Per-kind type hue — text colour only; the borderless/fill-less
+     pill keeps its LEFT hairline divider neutral so only the label
+     tints. The `data-type-pill` semantic is preserved. */
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='string'] {
-    border-color: color-mix(in srgb, oklch(0.78 0.14 155) 30%, transparent);
-    background: color-mix(in srgb, oklch(0.78 0.14 155) 16%, transparent);
     color: oklch(0.8 0.14 155);
   }
 
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='number'],
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='boolean'] {
-    border-color: color-mix(in srgb, oklch(0.75 0.13 250) 30%, transparent);
-    background: color-mix(in srgb, oklch(0.75 0.13 250) 16%, transparent);
     color: oklch(0.8 0.12 250);
   }
 
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='object'],
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='array'],
   .monaco-editor.vs-dark .lingua-inline-result-pill[data-type-pill='error'] {
-    border-color: color-mix(in srgb, oklch(0.77 0.1 45) 30%, transparent);
-    background: color-mix(in srgb, oklch(0.77 0.1 45) 16%, transparent);
     color: oklch(0.82 0.1 45);
   }
 
@@ -1335,6 +1355,18 @@
     background: color-mix(in srgb, var(--app-border) 55%, transparent);
   }
 
+  /* Keyboard focus ring — adopt the DS slate ring every other ui/
+     primitive uses (ResultHeader tabs, RuntimeSelector segments,
+     ModalShell close, .icon-button) instead of the browser's default
+     UA outline. `ring-inset` because the pill clips its children; the
+     run segment keeps its green glow alongside this ring. */
+  .action-pill-segment:focus-visible,
+  .action-pill-run:focus-visible,
+  .action-pill-icon-button:focus-visible,
+  .action-pill-drag-handle:focus-visible {
+    @apply outline-none ring-2 ring-ring/70 ring-inset;
+  }
+
   @media (max-width: 1499px) {
     .action-pill .action-pill-meta,
     .action-pill .action-pill-meta-divider {
@@ -1362,9 +1394,15 @@
     font-weight: 600;
     line-height: 1;
     transition: background-color 150ms ease, box-shadow 150ms ease;
-    background: oklch(0.66 0.18 145);
-    color: oklch(0.18 0.1 145);
-    box-shadow: 0 0 0 3px oklch(0.66 0.18 145 / 0.18);
+    /* Run green routes through the DS success token (hue 155) — the
+       same fill the RuntimeSelector and SQL Run affordances use
+       (`bg-success-fg` + `text-fg-on-accent`). Sharing one token
+       means every run/success green stays in lockstep across themes;
+       `--color-fg-on-accent` flips light/dark so the label keeps
+       contrast on both fills. */
+    background: var(--color-success-fg);
+    color: var(--color-fg-on-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success-fg) 18%, transparent);
   }
 
   .action-pill-run[data-workflow='debug'] {
@@ -1416,7 +1454,7 @@
 
   .action-pill-run-menu {
     width: 32px;
-    border-left: 1px solid color-mix(in srgb, oklch(0.18 0.1 145) 18%, transparent);
+    border-left: 1px solid color-mix(in srgb, var(--color-fg-on-accent) 18%, transparent);
     border-radius: 0 999px 999px 0;
   }
 
@@ -1436,15 +1474,16 @@
     line-height: 1;
   }
 
-  .dark .action-pill-run,
-  [data-theme='dark'] .action-pill-run {
-    background: oklch(0.68 0.2 145);
-    color: oklch(0.16 0.08 145);
-    box-shadow: 0 0 0 3px oklch(0.68 0.2 145 / 0.22);
-  }
+  /* No dark-theme fill override needed: --color-success-fg and
+     --color-fg-on-accent already swap to the dark ramp (light-green
+     fill + near-black label), matching how RuntimeSelector's run
+     segment flips. */
 
   .action-pill-run:hover {
-    background: oklch(0.72 0.18 145);
+    /* Darken the fill on hover by mixing toward the deeper success
+       border token — stays on the single success ramp in both
+       themes instead of a one-off green. */
+    background: color-mix(in srgb, var(--color-success-fg) 82%, var(--color-success-border));
   }
 
   .action-pill-run[data-running='true'] {
@@ -1707,7 +1746,7 @@
   /* Effective config tile — JSON readonly preview at the bottom of
      each Settings tab. */
   .effective-config-tile {
-    @apply mt-6 overflow-hidden rounded-xl border border-border/80 bg-bg-inset/60;
+    @apply relative mt-6 overflow-hidden rounded-xl border border-border/80 bg-bg-inset/60;
   }
 
   .effective-config-tile-header {
@@ -1742,9 +1781,9 @@
 @keyframes run-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, oklch(0.66 0.18 145) 18%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-success-fg) 18%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 7px color-mix(in srgb, oklch(0.66 0.18 145) 14%, transparent);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--color-success-fg) 14%, transparent);
   }
 }

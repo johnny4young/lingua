@@ -6,16 +6,18 @@
  * symbols through the suggest widget, and stays console-clean in EN + ES.
  */
 
-import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import {
+  createLanguageTab,
+  expect,
+  gotoApp,
+  seedSession,
+  test,
+} from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
 async function createPythonTab(page: import('@playwright/test').Page): Promise<void> {
-  await page
-    .getByRole('button', { name: /new file language menu|menú de lenguaje para nuevo archivo/i })
-    .click();
-  await page.getByRole('menuitem', { name: /^Python$/i }).click();
-  await expect(page.getByRole('tab', { name: /Py .*\.py/i })).toBeVisible();
+  await createLanguageTab(page, /^Python\b/i, /PY .*\.py/i);
 }
 
 async function replaceEditorContent(
@@ -29,7 +31,7 @@ async function replaceEditorContent(
 
 test.describe('Python language intelligence (RL-026)', () => {
   test('renders diagnostics and symbol-aware completions in English', async ({ page }) => {
-    await seedSession(page, { language: 'en' });
+    await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await createPythonTab(page);
 
@@ -60,7 +62,7 @@ test.describe('Python language intelligence (RL-026)', () => {
   });
 
   test('keeps the Spanish surface console-clean while diagnostics render', async ({ page }) => {
-    await seedSession(page, { language: 'es' });
+    await seedSession(page, { language: 'es', primeProLicense: true });
     await gotoApp(page);
     await createPythonTab(page);
 
@@ -70,7 +72,7 @@ test.describe('Python language intelligence (RL-026)', () => {
   });
 
   test('surfaces hover info for a locally-defined function', async ({ page }) => {
-    await seedSession(page, { language: 'en' });
+    await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await createPythonTab(page);
 
@@ -108,7 +110,7 @@ test.describe('Python language intelligence (RL-026)', () => {
   });
 
   test('surfaces signature help when the cursor sits inside a call', async ({ page }) => {
-    await seedSession(page, { language: 'en' });
+    await seedSession(page, { language: 'en', primeProLicense: true });
     await gotoApp(page);
     await createPythonTab(page);
 

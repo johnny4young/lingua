@@ -9,7 +9,8 @@ import {
   FONT_FAMILIES,
   FONT_SIZES,
 } from './settingsOptions';
-import { Row, Section, Select, StepperButton, Toggle } from './shared';
+import { Select, StepperButton, Toggle } from './shared';
+import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 import { ThemePresetControls } from './ThemePresetControls';
 import {
   RUNTIME_MODES,
@@ -140,384 +141,440 @@ export function EditorSection() {
   };
 
   return (
-    <Section
-      title={t('editor.title')}
-      description={t('editor.description')}
-    >
-      <Row label={t('editor.theme.label')} hint={t('editor.theme.hint')}>
-        <Select value={editorTheme} onChange={(event) => setEditorTheme(event.target.value)}>
-          {EDITOR_THEMES.map((theme) => (
-            <option key={theme.id} value={theme.id}>
-              {theme.label}
-            </option>
-          ))}
-        </Select>
-      </Row>
-
-      <Row label={t('editor.fontFamily.label')} hint={t('editor.fontFamily.hint')}>
-        <div className="grid w-full gap-2">
-          <Select
-            value={fontFamily}
-            onChange={(event) => handleFontFamilyChange(event.target.value)}
-            data-testid="editor-font-family-select"
-            aria-label={t('editor.fontFamily.label')}
-          >
-            {FONT_FAMILIES.map((font) => (
-              <option key={font.value} value={font.value}>
-                {formatFontOptionLabel(font)}
-              </option>
-            ))}
-          </Select>
-          <div
-            data-testid="editor-font-preview"
-            aria-label={t('editor.fontFamily.previewLabel')}
-            className="rounded-[0.9rem] border border-border/80 bg-background/65 px-3 py-2 text-sm leading-6 text-foreground"
-            style={{
-              fontFamily,
-              fontVariantLigatures: ligaturesAvailable ? 'contextual' : 'none',
-              fontFeatureSettings: ligaturesAvailable ? undefined : '"liga" 0, "calt" 0',
-            }}
-          >
-            {t('editor.fontFamily.previewSample')}
-          </div>
-        </div>
-      </Row>
-
-      <Row label={t('editor.fontSize.label')} hint={t('editor.fontSize.hint')}>
-        <div className="flex items-center gap-2">
-          <StepperButton type="button" onClick={() => setFontSize(Math.max(10, fontSize - 1))}>
-            -
-          </StepperButton>
-          <Select
-            value={fontSize}
-            onChange={(event) => setFontSize(Number(event.target.value))}
-            className="min-w-[7rem]"
-            aria-label={t('editor.fontSize.label')}
-          >
-            {FONT_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {size}px
-              </option>
-            ))}
-          </Select>
-          <StepperButton type="button" onClick={() => setFontSize(Math.min(32, fontSize + 1))}>
-            +
-          </StepperButton>
-        </div>
-      </Row>
-
-      <Row label={t('editor.wordWrap.label')} hint={t('editor.wordWrap.hint')}>
-        <Toggle value={wordWrap} onChange={toggleWordWrap} />
-      </Row>
-
-      <Row label={t('editor.minimap.label')} hint={t('editor.minimap.hint')}>
-        <Toggle value={minimap} onChange={toggleMinimap} />
-      </Row>
-
-      <Row label={t('editor.maxIterations.label')} hint={t('editor.maxIterations.hint')}>
-          <Select
-            value={maxLoopIterations}
-            onChange={(event) => setMaxLoopIterations(Number(event.target.value))}
-          >
-            {[1000, 5000, 10000, 50000, 100000].map((count) => (
-              <option key={count} value={count}>
-                {count.toLocaleString()}
-              </option>
-            ))}
-          </Select>
-      </Row>
-
-      <Row
-        label={t('editor.restoreSession.label')}
-        hint={t('editor.restoreSession.hint')}
-      >
-        <Toggle value={restoreSession} onChange={toggleRestoreSession} />
-      </Row>
-
-      <Row
-        label={t('editor.formatOnSave.label')}
-        hint={t('editor.formatOnSave.hint')}
-      >
-        <Toggle value={formatOnSave} onChange={toggleFormatOnSave} />
-      </Row>
-
-      <Row
-        label={t('editor.executionHistorySnapshot.label')}
-        hint={
-          canUseExecutionHistory
-            ? t('editor.executionHistorySnapshot.hint')
-            : t('editor.executionHistorySnapshot.lockedHint')
-        }
-      >
-        {canUseExecutionHistory ? (
-          <Toggle
-            value={executionHistorySnapshotEnabled}
-            onChange={toggleExecutionHistorySnapshot}
-            aria-label={t('editor.executionHistorySnapshot.label')}
-          />
-        ) : (
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={handleExecutionHistorySnapshotUnlock}
-            data-testid="editor-execution-history-snapshot-unlock"
-            aria-label={t('executionHistory.unlockButton')}
-          >
-            {t('executionHistory.unlockButton')}
-          </button>
-        )}
-      </Row>
-
-      <Row
-        label={t('editor.vimMode.label')}
-        hint={t('editor.vimMode.hint')}
-      >
-        <Toggle
-          value={vimMode}
-          onChange={toggleVimMode}
-          aria-label={t('editor.vimMode.label')}
+    // Editor + ThemePreset render as two sibling SettingsSections. The
+    // gap matches the modal-level section rhythm (SettingsModal wraps the
+    // editor tab's sections in the same spacing scale).
+    <div className="space-y-6">
+      <SettingsSection eyebrow={t('editor.title')} description={t('editor.description')}>
+      {/* FIELDS card — each option keeps its place as a spec row whose
+          Select/Stepper control sits on the right. The font preview
+          stays directly under the font-family row inside its cell. */}
+      <SpecCard>
+        <SpecRow
+          label={t('editor.theme.label')}
+          description={t('editor.theme.hint')}
+          control={
+            <Select
+              value={editorTheme}
+              onChange={(event) => setEditorTheme(event.target.value)}
+              aria-label={t('editor.theme.label')}
+            >
+              {EDITOR_THEMES.map((theme) => (
+                <option key={theme.id} value={theme.id}>
+                  {theme.label}
+                </option>
+              ))}
+            </Select>
+          }
         />
-      </Row>
 
-      {/* RL-019 — default JS/TS runtime mode for new tabs. Disabled
-          options still render with explanatory tooltips, while
-          shipped modes keep their operational hints in Settings. */}
-      <Row
-        label={t('runtimeMode.settings.title')}
-        hint={t('runtimeMode.settings.description')}
-      >
-        <Select
-          value={defaultRuntimeMode}
-          onChange={(event) => setDefaultRuntimeMode(event.target.value as RuntimeMode)}
-          aria-label={t('runtimeMode.settings.title')}
-          data-testid="settings-default-runtime-mode"
-        >
-          {RUNTIME_MODES.map((mode) => {
-            const enabled = isRuntimeModeImplemented(mode);
-            const labelKey =
-              mode === 'browser-preview'
-                ? 'runtimeMode.mode.browserPreview'
-                : `runtimeMode.mode.${mode}`;
-            const hintKey =
-              mode === 'worker'
-                ? 'runtimeMode.hint.worker'
-                : mode === 'node'
-                  ? 'runtimeMode.hint.node.ready'
-                  : 'runtimeMode.hint.browserPreview.shipping';
-            return (
-              <option key={mode} value={mode} disabled={!enabled} title={t(hintKey)}>
-                {t(labelKey)}
-                {enabled ? '' : ` — ${t(hintKey)}`}
+        <SpecRow
+          label={t('editor.fontFamily.label')}
+          description={t('editor.fontFamily.hint')}
+          control={
+            <div className="grid w-72 gap-2">
+              <Select
+                value={fontFamily}
+                onChange={(event) => handleFontFamilyChange(event.target.value)}
+                data-testid="editor-font-family-select"
+                aria-label={t('editor.fontFamily.label')}
+              >
+                {FONT_FAMILIES.map((font) => (
+                  <option key={font.value} value={font.value}>
+                    {formatFontOptionLabel(font)}
+                  </option>
+                ))}
+              </Select>
+              <div
+                data-testid="editor-font-preview"
+                aria-label={t('editor.fontFamily.previewLabel')}
+                className="rounded-md border border-border-subtle bg-bg-base px-3 py-2 text-sm leading-6 text-fg-base"
+                style={{
+                  fontFamily,
+                  fontVariantLigatures: ligaturesAvailable ? 'contextual' : 'none',
+                  fontFeatureSettings: ligaturesAvailable ? undefined : '"liga" 0, "calt" 0',
+                }}
+              >
+                {t('editor.fontFamily.previewSample')}
+              </div>
+            </div>
+          }
+        />
+
+        <SpecRow
+          label={t('editor.fontSize.label')}
+          description={t('editor.fontSize.hint')}
+          control={
+            <div className="flex items-center gap-2">
+              <StepperButton type="button" onClick={() => setFontSize(Math.max(10, fontSize - 1))}>
+                -
+              </StepperButton>
+              <Select
+                value={fontSize}
+                onChange={(event) => setFontSize(Number(event.target.value))}
+                className="min-w-[7rem]"
+                aria-label={t('editor.fontSize.label')}
+              >
+                {FONT_SIZES.map((size) => (
+                  <option key={size} value={size}>
+                    {size}px
+                  </option>
+                ))}
+              </Select>
+              <StepperButton type="button" onClick={() => setFontSize(Math.min(32, fontSize + 1))}>
+                +
+              </StepperButton>
+            </div>
+          }
+        />
+
+        <SpecRow
+          label={t('editor.maxIterations.label')}
+          description={t('editor.maxIterations.hint')}
+          control={
+            <Select
+              value={maxLoopIterations}
+              onChange={(event) => setMaxLoopIterations(Number(event.target.value))}
+              aria-label={t('editor.maxIterations.label')}
+            >
+              {[1000, 5000, 10000, 50000, 100000].map((count) => (
+                <option key={count} value={count}>
+                  {count.toLocaleString()}
+                </option>
+              ))}
+            </Select>
+          }
+        />
+
+        {/* RL-019 — default JS/TS runtime mode for new tabs. Disabled
+            options still render with explanatory tooltips, while
+            shipped modes keep their operational hints in Settings. */}
+        <SpecRow
+          label={t('runtimeMode.settings.title')}
+          description={t('runtimeMode.settings.description')}
+          control={
+            <Select
+              value={defaultRuntimeMode}
+              onChange={(event) => setDefaultRuntimeMode(event.target.value as RuntimeMode)}
+              aria-label={t('runtimeMode.settings.title')}
+              data-testid="settings-default-runtime-mode"
+            >
+              {RUNTIME_MODES.map((mode) => {
+                const enabled = isRuntimeModeImplemented(mode);
+                const labelKey =
+                  mode === 'browser-preview'
+                    ? 'runtimeMode.mode.browserPreview'
+                    : `runtimeMode.mode.${mode}`;
+                const hintKey =
+                  mode === 'worker'
+                    ? 'runtimeMode.hint.worker'
+                    : mode === 'node'
+                      ? 'runtimeMode.hint.node.ready'
+                      : 'runtimeMode.hint.browserPreview.shipping';
+                return (
+                  <option key={mode} value={mode} disabled={!enabled} title={t(hintKey)}>
+                    {t(labelKey)}
+                    {enabled ? '' : ` — ${t(hintKey)}`}
+                  </option>
+                );
+              })}
+            </Select>
+          }
+        />
+
+        {/* RL-093 Slice 3 — variable inspector surface preference. */}
+        <SpecRow
+          label={t('settings.editor.variableInspectorSurface.label')}
+          description={t('settings.editor.variableInspectorSurface.hint')}
+          last
+          control={
+            <Select
+              value={variableInspectorSurface}
+              onChange={(event) =>
+                setVariableInspectorSurface(
+                  event.target.value === 'bottom' ? 'bottom' : 'floating'
+                )
+              }
+              aria-label={t('settings.editor.variableInspectorSurface.label')}
+              data-testid="settings-variable-inspector-surface"
+            >
+              <option value="floating">
+                {t('settings.editor.variableInspectorSurface.floating')}
               </option>
-            );
-          })}
-        </Select>
-      </Row>
-
-      {/* RL-020 Slice 2 — per-language default workflow mode.
-          Settings intentionally surfaces the lightweight in-process
-          languages first (JS / TS / Python); Go / Rust keep the
-          shared Scratchpad default until native-runner workflow
-          presets get their own product pass. Each Select lists
-          exactly the supported modes for the surfaced language. */}
-      <Row
-        label={t('settings.workflowMode.title')}
-        hint={t('settings.workflowMode.description')}
-      >
-        <div
-          data-testid="settings-workflow-mode-defaults"
-          className="grid gap-2"
-        >
-          {(['javascript', 'typescript', 'python'] as const).map((lang) => {
-            const stored = workflowModeDefaultsByLanguage[lang];
-            const value: WorkflowMode =
-              stored !== undefined ? stored : defaultWorkflowMode(lang);
-            return (
-              <label
-                key={lang}
-                className="flex items-center justify-between gap-2 text-xs text-foreground"
-              >
-                <span className="text-muted">
-                  {t(`workflowMode.languageLabel.${lang}`)}
-                </span>
-                <Select
-                  value={value}
-                  data-testid={`settings-workflow-mode-default-${lang}`}
-                  onChange={(event) =>
-                    setWorkflowModeDefault(lang, event.target.value as WorkflowMode)
-                  }
-                >
-                  {WORKFLOW_MODES.filter((mode) =>
-                    supportsWorkflowMode(lang, mode)
-                  ).map((mode) => (
-                    <option key={mode} value={mode}>
-                      {t(`workflowMode.${mode}.label`)}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            );
-          })}
-        </div>
-      </Row>
-
-      {/* RL-020 Slice 5 — per-language opt-in for the bare-expression
-          auto-log mode. JS / TS only this slice. Default OFF so the
-          first install never surfaces a wall of inline values before
-          the user explicitly enables the feature. */}
-      <Row
-        label={t('autoLog.settings.title')}
-        hint={t('autoLog.settings.description')}
-      >
-        <div data-testid="settings-auto-log-defaults" className="grid gap-2">
-          {(['javascript', 'typescript'] as const).map((lang) => {
-            const enabled = scratchpadAutoLogByLanguage[lang] === true;
-            return (
-              <label
-                key={lang}
-                className="flex items-center justify-between gap-2 text-xs text-foreground"
-              >
-                <span className="text-muted">
-                  {t(`autoLog.settings.${lang}.label`)}
-                </span>
-                <Toggle
-                  value={enabled}
-                  onChange={() => setScratchpadAutoLogDefault(lang, !enabled)}
-                  aria-label={t(`autoLog.settings.${lang}.label`)}
-                  data-testid={`settings-auto-log-default-${lang}`}
-                />
-              </label>
-            );
-          })}
-        </div>
-      </Row>
-
-      {/* RL-020 Slice 7 — per-language execution timeout preset.
-          Four supported languages (JS / TS / Python / Go). Rust is
-          intentionally absent because its desktop kill path is in
-          main and unchanged. */}
-      <Row
-        label={t('runtime.timeout.section.title')}
-        hint={t('runtime.timeout.section.description')}
-      >
-        <div
-          data-testid="settings-runtime-timeout-presets"
-          className="grid gap-2"
-        >
-          {RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES.map((lang) => {
-            const stored = runtimeTimeoutPresetByLanguage[lang];
-            const value: RuntimeTimeoutPreset =
-              stored !== undefined ? stored : defaultRuntimeTimeoutPreset(lang);
-            return (
-              <label
-                key={lang}
-                className="flex items-center justify-between gap-2 text-xs text-foreground"
-              >
-                <span className="text-muted">
-                  {t('runtime.timeout.row.label', {
-                    language: t(`workflowMode.languageLabel.${lang}`),
-                  })}
-                </span>
-                <Select
-                  value={value}
-                  data-testid={`settings-runtime-timeout-preset-${lang}`}
-                  // RL-020 Slice 7 — the localized preset labels carry
-                  // a parenthetical duration (`Quick (5s)` /
-                  // `Rápida (5s)`). Tablet widths truncate the
-                  // default `Select` so the duration disappears.
-                  // Lock a minimum width so the trailing parenthesis
-                  // always survives even on a 1024-wide viewport.
-                  className="min-w-[8rem]"
-                  onChange={(event) =>
-                    setRuntimeTimeoutPreset(
-                      lang,
-                      event.target.value as RuntimeTimeoutPreset
-                    )
-                  }
-                  aria-label={t('runtime.timeout.row.label', {
-                    language: t(`workflowMode.languageLabel.${lang}`),
-                  })}
-                >
-                  {RUNTIME_TIMEOUT_PRESETS.map((preset) => (
-                    <option key={preset} value={preset}>
-                      {t(`runtime.timeout.preset.${preset}.label`)}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            );
-          })}
-        </div>
-      </Row>
-
-      {/* RL-020 Slice 7 fold E — countdown pill toggle. Default OFF
-          so the result panel header stays quiet by default. */}
-      <Row
-        label={t('runtime.timeout.countdown.label')}
-        hint={t('runtime.timeout.countdown.hint')}
-      >
-        <Toggle
-          value={showTimeoutCountdown}
-          onChange={toggleShowTimeoutCountdown}
-          aria-label={t('runtime.timeout.countdown.label')}
-          data-testid="settings-show-timeout-countdown"
+              <option value="bottom">
+                {t('settings.editor.variableInspectorSurface.bottom')}
+              </option>
+            </Select>
+          }
         />
-      </Row>
+      </SpecCard>
 
-      {/* RL-020 Slice 6 fold D — bottom-panel Input tab visibility.
-          The buffer state per tab is preserved either way; hiding the
-          tab keeps the leaner three-tab strip without losing data. */}
-      <Row label={t('stdin.settings.label')} hint={t('stdin.settings.hint')}>
-        <Toggle
-          value={showStdinPanel}
-          onChange={toggleShowStdinPanel}
-          aria-label={t('stdin.settings.label')}
-          data-testid="settings-show-stdin-panel"
+      {/* TOGGLES card — affine on/off editor behaviors grouped into one
+          card with divided rows; the last row drops its hairline. */}
+      <SpecCard>
+        <SpecRow
+          label={t('editor.wordWrap.label')}
+          description={t('editor.wordWrap.hint')}
+          control={<Toggle value={wordWrap} onChange={toggleWordWrap} />}
         />
-      </Row>
 
-      {/* RL-093 Slice 3 — variable inspector surface preference. */}
-      <Row
-        label={t('settings.editor.variableInspectorSurface.label')}
-        hint={t('settings.editor.variableInspectorSurface.hint')}
-      >
-        <Select
-          value={variableInspectorSurface}
-          onChange={(event) =>
-            setVariableInspectorSurface(
-              event.target.value === 'bottom' ? 'bottom' : 'floating'
+        <SpecRow
+          label={t('editor.minimap.label')}
+          description={t('editor.minimap.hint')}
+          control={<Toggle value={minimap} onChange={toggleMinimap} />}
+        />
+
+        <SpecRow
+          label={t('editor.restoreSession.label')}
+          description={t('editor.restoreSession.hint')}
+          control={<Toggle value={restoreSession} onChange={toggleRestoreSession} />}
+        />
+
+        <SpecRow
+          label={t('editor.formatOnSave.label')}
+          description={t('editor.formatOnSave.hint')}
+          control={<Toggle value={formatOnSave} onChange={toggleFormatOnSave} />}
+        />
+
+        <SpecRow
+          label={t('editor.executionHistorySnapshot.label')}
+          description={
+            canUseExecutionHistory
+              ? t('editor.executionHistorySnapshot.hint')
+              : t('editor.executionHistorySnapshot.lockedHint')
+          }
+          control={
+            canUseExecutionHistory ? (
+              <Toggle
+                value={executionHistorySnapshotEnabled}
+                onChange={toggleExecutionHistorySnapshot}
+                aria-label={t('editor.executionHistorySnapshot.label')}
+              />
+            ) : (
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={handleExecutionHistorySnapshotUnlock}
+                data-testid="editor-execution-history-snapshot-unlock"
+                aria-label={t('executionHistory.unlockButton')}
+              >
+                {t('executionHistory.unlockButton')}
+              </button>
             )
           }
-          aria-label={t('settings.editor.variableInspectorSurface.label')}
-          data-testid="settings-variable-inspector-surface"
-        >
-          <option value="floating">
-            {t('settings.editor.variableInspectorSurface.floating')}
-          </option>
-          <option value="bottom">
-            {t('settings.editor.variableInspectorSurface.bottom')}
-          </option>
-        </Select>
-      </Row>
-
-      <Row
-        label={t('settings.editor.dependencyDetection.label')}
-        hint={t('settings.editor.dependencyDetection.hint')}
-      >
-        <Toggle
-          value={dependencyDetectionEnabled}
-          onChange={toggleDependencyDetectionEnabled}
-          aria-label={t('settings.editor.dependencyDetection.label')}
-          data-testid="settings-editor-dependency-detection-toggle"
         />
-      </Row>
+
+        <SpecRow
+          label={t('editor.vimMode.label')}
+          description={t('editor.vimMode.hint')}
+          control={
+            <Toggle
+              value={vimMode}
+              onChange={toggleVimMode}
+              aria-label={t('editor.vimMode.label')}
+            />
+          }
+        />
+
+        {/* RL-020 Slice 6 fold D — bottom-panel Input tab visibility.
+            The buffer state per tab is preserved either way; hiding the
+            tab keeps the leaner three-tab strip without losing data. */}
+        <SpecRow
+          label={t('stdin.settings.label')}
+          description={t('stdin.settings.hint')}
+          control={
+            <Toggle
+              value={showStdinPanel}
+              onChange={toggleShowStdinPanel}
+              aria-label={t('stdin.settings.label')}
+              data-testid="settings-show-stdin-panel"
+            />
+          }
+        />
+
+        <SpecRow
+          label={t('settings.editor.dependencyDetection.label')}
+          description={t('settings.editor.dependencyDetection.hint')}
+          control={
+            <Toggle
+              value={dependencyDetectionEnabled}
+              onChange={toggleDependencyDetectionEnabled}
+              aria-label={t('settings.editor.dependencyDetection.label')}
+              data-testid="settings-editor-dependency-detection-toggle"
+            />
+          }
+        />
+
+        {/* RL-020 Slice 7 fold E — countdown pill toggle. Default OFF
+            so the result panel header stays quiet by default. */}
+        <SpecRow
+          label={t('runtime.timeout.countdown.label')}
+          description={t('runtime.timeout.countdown.hint')}
+          last
+          control={
+            <Toggle
+              value={showTimeoutCountdown}
+              onChange={toggleShowTimeoutCountdown}
+              aria-label={t('runtime.timeout.countdown.label')}
+              data-testid="settings-show-timeout-countdown"
+            />
+          }
+        />
+      </SpecCard>
+
+      {/* PER-LANGUAGE card — the three sub-grids (workflow mode, auto-log,
+          execution timeout) each keep their nested per-language grid as
+          the spec-row control; the wide control fills a fixed column. */}
+      <SpecCard>
+        {/* RL-020 Slice 2 — per-language default workflow mode.
+            Settings intentionally surfaces the lightweight in-process
+            languages first (JS / TS / Python); Go / Rust keep the
+            shared Scratchpad default until native-runner workflow
+            presets get their own product pass. Each Select lists
+            exactly the supported modes for the surfaced language. */}
+        <SpecRow
+          label={t('settings.workflowMode.title')}
+          description={t('settings.workflowMode.description')}
+          control={
+            <div
+              data-testid="settings-workflow-mode-defaults"
+              className="grid w-72 gap-2"
+            >
+              {(['javascript', 'typescript', 'python'] as const).map((lang) => {
+                const stored = workflowModeDefaultsByLanguage[lang];
+                const value: WorkflowMode =
+                  stored !== undefined ? stored : defaultWorkflowMode(lang);
+                return (
+                  <label
+                    key={lang}
+                    className="flex items-center justify-between gap-2 text-xs text-fg-base"
+                  >
+                    <span className="text-fg-muted">
+                      {t(`workflowMode.languageLabel.${lang}`)}
+                    </span>
+                    <Select
+                      value={value}
+                      data-testid={`settings-workflow-mode-default-${lang}`}
+                      onChange={(event) =>
+                        setWorkflowModeDefault(lang, event.target.value as WorkflowMode)
+                      }
+                    >
+                      {WORKFLOW_MODES.filter((mode) =>
+                        supportsWorkflowMode(lang, mode)
+                      ).map((mode) => (
+                        <option key={mode} value={mode}>
+                          {t(`workflowMode.${mode}.label`)}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                );
+              })}
+            </div>
+          }
+        />
+
+        {/* RL-020 Slice 5 — per-language opt-in for the bare-expression
+            auto-log mode. JS / TS only this slice. Default OFF so the
+            first install never surfaces a wall of inline values before
+            the user explicitly enables the feature. */}
+        <SpecRow
+          label={t('autoLog.settings.title')}
+          description={t('autoLog.settings.description')}
+          control={
+            <div data-testid="settings-auto-log-defaults" className="grid w-72 gap-2">
+              {(['javascript', 'typescript'] as const).map((lang) => {
+                const enabled = scratchpadAutoLogByLanguage[lang] === true;
+                return (
+                  <label
+                    key={lang}
+                    className="flex items-center justify-between gap-2 text-xs text-fg-base"
+                  >
+                    <span className="text-fg-muted">
+                      {t(`autoLog.settings.${lang}.label`)}
+                    </span>
+                    <Toggle
+                      value={enabled}
+                      onChange={() => setScratchpadAutoLogDefault(lang, !enabled)}
+                      aria-label={t(`autoLog.settings.${lang}.label`)}
+                      data-testid={`settings-auto-log-default-${lang}`}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          }
+        />
+
+        {/* RL-020 Slice 7 — per-language execution timeout preset.
+            Four supported languages (JS / TS / Python / Go). Rust is
+            intentionally absent because its desktop kill path is in
+            main and unchanged. */}
+        <SpecRow
+          label={t('runtime.timeout.section.title')}
+          description={t('runtime.timeout.section.description')}
+          last
+          control={
+            <div
+              data-testid="settings-runtime-timeout-presets"
+              className="grid w-72 gap-2"
+            >
+              {RUNTIME_TIMEOUT_SUPPORTED_LANGUAGES.map((lang) => {
+                const stored = runtimeTimeoutPresetByLanguage[lang];
+                const value: RuntimeTimeoutPreset =
+                  stored !== undefined ? stored : defaultRuntimeTimeoutPreset(lang);
+                return (
+                  <label
+                    key={lang}
+                    className="flex items-center justify-between gap-2 text-xs text-fg-base"
+                  >
+                    <span className="text-fg-muted">
+                      {t('runtime.timeout.row.label', {
+                        language: t(`workflowMode.languageLabel.${lang}`),
+                      })}
+                    </span>
+                    <Select
+                      value={value}
+                      data-testid={`settings-runtime-timeout-preset-${lang}`}
+                      // RL-020 Slice 7 — the localized preset labels carry
+                      // a parenthetical duration (`Quick (5s)` /
+                      // `Rápida (5s)`). Tablet widths truncate the
+                      // default `Select` so the duration disappears.
+                      // Lock a minimum width so the trailing parenthesis
+                      // always survives even on a 1024-wide viewport.
+                      className="min-w-[8rem]"
+                      onChange={(event) =>
+                        setRuntimeTimeoutPreset(
+                          lang,
+                          event.target.value as RuntimeTimeoutPreset
+                        )
+                      }
+                      aria-label={t('runtime.timeout.row.label', {
+                        language: t(`workflowMode.languageLabel.${lang}`),
+                      })}
+                    >
+                      {RUNTIME_TIMEOUT_PRESETS.map((preset) => (
+                        <option key={preset} value={preset}>
+                          {t(`runtime.timeout.preset.${preset}.label`)}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                );
+              })}
+            </div>
+          }
+        />
+      </SpecCard>
+      </SettingsSection>
 
       {/* RL-095 Slice 1 (post-review refactor) — the Language Support
           Scorecard + per-language preference rows (Rust / Go LSP, Ruby
           runtime) moved to their own Settings → Languages tab
           (`LanguagesSection.tsx`, Cmd+8). The Editor tab now stays
-          focused on editor-shell concerns. */}
+          focused on editor-shell concerns. ThemePresetControls renders
+          as its own sibling SettingsSection below. */}
       <ThemePresetControls />
-    </Section>
+    </div>
   );
 }

@@ -30,6 +30,26 @@ const BASE_PATH = new URL(self.registration.scope).pathname;
 // Resources to pre-cache on install (app shell)
 const APP_SHELL = [BASE_PATH, `${BASE_PATH}index.html`];
 
+// Vite dev servers (`dev:web` + `dev:web:pro`, both on :5174; :5173 is
+// the legacy default) serve UNHASHED module URLs whose transformed
+// contents change every session. The cache-first strategy below would
+// pin the first session's modules — including the inlined
+// `import.meta.env.VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK` and the
+// `@vite/client` HMR token — and shadow every later session. That
+// strands `dev:web:pro` on a stale license public key (a freshly minted
+// dev token then fails `invalid-signature` even after a reload) and
+// breaks HMR after a server restart. So on those exact dev origins this
+// SW stays inert and self-destructs (see the activate handler); browsers
+// always revalidate the SW script on navigation, so this reaches an
+// already-registered install without any manual cache clear.
+//
+// Scoped to localhost:5173/5174 ONLY — production and local
+// `preview:web` (port 4173, hashed build assets where cache-first is
+// correct) keep the full offline strategy untouched.
+const IS_DEV_SERVER =
+  ['localhost', '127.0.0.1', '[::1]'].includes(self.location.hostname) &&
+  ['5173', '5174'].includes(self.location.port);
+
 // Cross-origin API origins are always passthrough — never cached. The
 // SW Cache API does not enforce HTTP cache headers by itself, so the
 // cache-first strategy would otherwise keep safety-critical API data
@@ -50,7 +70,11 @@ const PASSTHROUGH_ORIGINS = [
 // ------------------------------------------------------------------ Install
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
+  // Dev servers never pre-cache — the activate handler tears this SW down
+  // instead of seeding a cache that would shadow fresh dev modules.
+  if (!IS_DEV_SERVER) {
+    event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)));
+  }
   // Activate immediately — don't wait for old tabs to close
   self.skipWaiting();
 });
@@ -58,6 +82,24 @@ self.addEventListener('install', event => {
 // ------------------------------------------------------------------ Activate
 
 self.addEventListener('activate', event => {
+  if (IS_DEV_SERVER) {
+    // Self-destruct: drop every cache, unregister, and reload open dev
+    // tabs so the dev server's fresh modules (rotated license key, HMR
+    // token) win immediately instead of waiting for the developer to
+    // manually clear the SW. Reaches already-affected installs because
+    // the browser revalidates this script on each navigation.
+    event.waitUntil(
+      (async () => {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(key => caches.delete(key)));
+        await self.registration.unregister();
+        const clients = await self.clients.matchAll({ type: 'window' });
+        await Promise.all(clients.map(client => client.navigate(client.url).catch(() => {})));
+      })()
+    );
+    return;
+  }
+
   event.waitUntil(
     caches
       .keys()
@@ -77,6 +119,11 @@ self.addEventListener('fetch', event => {
 
   // Only handle GET requests
   if (request.method !== 'GET') return;
+
+  // Dev servers: never serve from cache. Belt-and-suspenders with the
+  // activate self-destruct so no dev request is shadowed by a stale
+  // cache even in the brief window before this SW deregisters.
+  if (IS_DEV_SERVER) return;
 
   // RL-061 — API requests bypass the cache entirely. Returning early
   // without `respondWith` lets the browser run its default fetch path,

@@ -53,7 +53,28 @@ export default defineConfig({
     dedupe: ['react', 'react-dom', 'i18next', 'react-i18next'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-i18next', 'i18next'],
+    // React must be pre-bundled in a SINGLE optimize pass. List every
+    // entrypoint the app + its deps reach — not just `react`/`react-dom`.
+    // `react-dom/client` (the root render call in src/web/main.tsx) and
+    // the JSX runtimes are otherwise discovered late during the dep
+    // crawl, behind the lazy Monaco/CodeEditor boundary. That late
+    // discovery triggers a second optimize pass with a fresh browser
+    // hash, so the page ends up loading `react.js?v=A` and
+    // `react-dom_client.js?v=B` — two React instances. The moment a
+    // component calls a hook the dispatcher is null and React throws
+    // "Invalid hook call … more than one copy of React". Pre-including
+    // all entrypoints collapses everything into one pass / one hash.
+    // Dev-server-only: `build:web` bundles a single React and is
+    // unaffected (verified on the prod preview).
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+      'react-i18next',
+      'i18next',
+    ],
   },
   build: {
     outDir: path.resolve(__dirname, 'dist/web'),

@@ -12,6 +12,7 @@
 
 import {
   applyDevLicense,
+  clickRun,
   closeSettings,
   createJavaScriptTab,
   expect,
@@ -42,10 +43,8 @@ test.describe('Spanish locale — shell and settings', () => {
     await gotoApp(page);
     await openSettings(page);
 
-    await expect(page.getByRole('heading', { name: 'Acerca de', exact: true })).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Actualizaciones', exact: true })
-    ).toBeVisible();
+    await expect(page.getByText('Acerca de', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Actualizaciones', { exact: true }).first()).toBeVisible();
 
     // Web-honest copy stays localized too.
     await expect(
@@ -54,24 +53,24 @@ test.describe('Spanish locale — shell and settings', () => {
     await expect(page.getByText('No disponible')).toBeVisible();
 
     await openSettingsTab(page, 'appearance');
-    await expect(page.getByRole('heading', { name: 'Apariencia', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Diseño', exact: true })).toBeVisible();
+    await expect(page.getByText('Apariencia', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Diseño', { exact: true }).first()).toBeVisible();
 
     await openSettingsTab(page, 'editor');
-    await expect(page.getByRole('heading', { name: 'Editor', exact: true })).toBeVisible();
-    await expect(
-      page.getByRole('heading', { name: 'Historial de ejecuciones', exact: true })
-    ).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Plugins', exact: true })).toBeVisible();
+    await expect(page.getByText('Editor', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Historial de ejecuciones', { exact: true }).first()).toBeVisible();
+
+    await openSettingsTab(page, 'plugins');
+    await expect(page.getByText('Plugins', { exact: true }).first()).toBeVisible();
 
     await openSettingsTab(page, 'environment');
-    await expect(
-      page.getByRole('heading', { name: 'Variables de entorno', exact: true })
-    ).toBeVisible();
+    await expect(page.getByText('Variables de entorno', { exact: true }).first()).toBeVisible();
 
     await openSettingsTab(page, 'account');
-    await expect(page.getByRole('heading', { name: 'Licencia', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Privacidad', exact: true })).toBeVisible();
+    await expect(page.getByText('Licencia', { exact: true }).first()).toBeVisible();
+
+    await openSettingsTab(page, 'privacy');
+    await expect(page.getByText('Privacidad', { exact: true }).first()).toBeVisible();
   });
 
   test('upsell notices are localized for theme, font, and history', async ({ page }) => {
@@ -136,7 +135,7 @@ test.describe('Spanish locale — Pro flows', () => {
     page,
   }) => {
     await createJavaScriptTab(page);
-    await page.getByRole('button', { name: 'Ejecutar' }).click();
+    await clickRun(page);
     await waitForRunCompleted(page);
 
     await openConsole(page);

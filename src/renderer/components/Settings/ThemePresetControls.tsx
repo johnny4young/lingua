@@ -9,7 +9,7 @@ import {
   type ParseThemePresetResult,
 } from '../../utils/themePreset';
 import { joinAbsolute } from '../../utils/filePath';
-import { Row } from './shared';
+import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 
 const DEFAULT_FILENAME = 'lingua-theme.json';
 
@@ -140,28 +140,34 @@ export function ThemePresetControls() {
   };
 
   return (
-    <Row
-      label={t('settings.themePreset.label')}
-      hint={t('settings.themePreset.hint')}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="button-secondary inline-flex items-center gap-1.5"
-          onClick={() => void handleExport()}
-        >
-          <Download size={14} />
-          {t('settings.themePreset.export')}
-        </button>
-        <button
-          type="button"
-          className="button-secondary inline-flex items-center gap-1.5"
-          onClick={() => void handleImport()}
-        >
-          <Upload size={14} />
-          {t('settings.themePreset.import')}
-        </button>
-      </div>
-    </Row>
+    <SettingsSection eyebrow={t('settings.themePreset.label')}>
+      <SpecCard>
+        <SpecRow
+          label={t('settings.themePreset.label')}
+          description={t('settings.themePreset.hint')}
+          last
+          control={
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                className="button-secondary inline-flex items-center gap-1.5"
+                onClick={() => void handleExport()}
+              >
+                <Download size={14} />
+                {t('settings.themePreset.export')}
+              </button>
+              <button
+                type="button"
+                className="button-secondary inline-flex items-center gap-1.5"
+                onClick={() => void handleImport()}
+              >
+                <Upload size={14} />
+                {t('settings.themePreset.import')}
+              </button>
+            </div>
+          }
+        />
+      </SpecCard>
+    </SettingsSection>
   );
 }

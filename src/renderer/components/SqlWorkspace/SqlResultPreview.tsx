@@ -1,45 +1,67 @@
 /**
  * RL-097 Slice 2 — Right column: render the latest SQL response.
  *
+ * FASE 3 (MOV.02/03) — Signal-Slate polish. The header converged onto
+ * the shared `<ResultHeader>` (StatusBadge + mono `rows · timing` meta +
+ * Table/JSON body tabs + copy actions in the trailing slot), the
+ * no-result state onto the canonical `<EmptyState>` (No result yet · CTA
+ * Run query), and a Save-as-snippet nudge lands beneath a first
+ * successful result. All palette colors resolve through DS tokens — no
+ * hex / oklch literals.
+ *
  * Layout:
- *   - Header: status pill + duration + row count + export buttons.
- *   - Body: scrollable result table OR error band OR too-large band
- *     OR engine-load-failed band, depending on `response.status`.
+ *   - Header: `<ResultHeader>` — status pill + rows·timing meta +
+ *     Table/JSON sub-tabs + copy (JSON / CSV / Markdown) trailing.
+ *   - Body: scrollable typed-column result table OR JSON view OR error
+ *     band OR too-large band, depending on `response.status` + the
+ *     active body tab.
+ *   - Footer: Save-as-snippet nudge on a successful run.
  *
  * Folds wired here:
  *
- *   - **D** — Copy as CSV / JSON / Markdown buttons in the header
- *     when a successful result is in view.
+ *   - **D** — Copy as CSV / JSON / Markdown buttons in the header when
+ *     a successful result is in view.
  *   - **E** — Result row pagination chip. When `response.tooLarge`
  *     is true and `rowCount > rows.length`, the band discloses that
- *     the table and copy actions use the truncated preview. A future
- *     slice can add an inline "Load next 10k" affordance; Slice 2
- *     stays static because DuckDB-WASM has no worker-bridge streaming
- *     cursor API today.
+ *     the table and copy actions use the truncated preview.
  *   - **C** — `SHOW TABLES` introspection chip strip rendered above
  *     the table when the panel detects the session has run
- *     `CREATE TABLE ...` statements. Chips are inert — clicking one
- *     in Slice 3+ would auto-fill `SELECT * FROM <name>` into the
- *     editor. For Slice 2 the chips are pure read-only signal.
+ *     `CREATE TABLE ...` statements. Chips are inert read-only signal.
  */
 
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  Bookmark,
+  CheckCircle2,
   FileJson,
   FileSpreadsheet,
   FileText,
+  Hash,
   Loader2,
-  Table as TableIcon,
+  Search,
+  X,
 } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../../stores/uiStore';
 import type {
   SqlColumnMetadata,
+  SqlQueryStatus,
   SqlResponseV1,
 } from '../../../shared/sqlWorkspace';
-import { SqlStatusPill } from './SqlStatusPill';
+import { EmptyState } from '../ui/EmptyState';
+import { ResultHeader } from '../ui/ResultHeader';
+import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { rowsToCsv, rowsToMarkdownTable } from './sqlResultFormatters';
+import { SqlRunHistory } from './SqlRunHistory';
+import {
+  filterRows,
+  nextSortState,
+  sortRows,
+  type SqlSortState,
+} from './sqlResultGrid';
 
 export interface SqlResultPreviewProps {
   /**
@@ -56,32 +78,95 @@ export interface SqlResultPreviewProps {
    */
   rowDisplayLimit: number;
   /**
-   * Session-scoped list of CREATE TABLE table names (Fold C). The
-   * parent maintains this via a SHOW TABLES probe after each
-   * successful run; passes `[]` if none known.
+   * Session-scoped list of CREATE TABLE table names (Fold C, legacy).
+   * The schema/table browser in the left rail is now the primary
+   * introspection surface; these two props remain optional for
+   * call-site compatibility and are no longer rendered here.
    */
-  knownTableNames: ReadonlyArray<string>;
+  knownTableNames?: ReadonlyArray<string>;
+  /** Legacy SHOW TABLES probe trigger. Optional; unused here now. */
+  onShowTables?: () => void;
   /**
-   * Fold C — fire `SHOW TABLES` against the active connection. The
-   * parent decides what to do with the result (typically: stuff the
-   * table names into `knownTableNames`).
+   * Whether a query is bound to the surface (an active query exists).
+   * Drives the no-result EmptyState CTA — without a query there is
+   * nothing to run, so the CTA hides.
    */
-  onShowTables: () => void;
+  canRun?: boolean;
+  /** Run the active query (no-result EmptyState CTA). */
+  onRun?: () => void;
+  /** Stash the active query in the snippet library (footer nudge). */
+  onSaveSnippet?: () => void;
+  /**
+   * Per-query response LRU (newest-first) for the run-history list.
+   * Defaults to the single `response` when omitted so callers that
+   * don't track history still render a coherent grid.
+   */
+  responses?: ReadonlyArray<SqlResponseV1>;
+  /**
+   * Index into `responses` of the run currently shown in the grid
+   * (`0` = newest). Drives the history highlight.
+   */
+  selectedResponseIndex?: number;
+  /** Select a history entry to view (by index into `responses`). */
+  onSelectResponse?: (index: number) => void;
+}
+
+type ResultBodyTab = 'table' | 'json';
+
+/**
+ * DuckDB status → StatusBadge tone. Mirrors `<SqlStatusPill>`'s
+ * classifier so the header badge and any deep-link pill stay in lockstep.
+ */
+function toneForStatus(status: SqlQueryStatus): StatusBadgeTone {
+  if (status === 'success') return 'success';
+  if (status === 'sql-error') return 'error';
+  if (status === 'timeout' || status === 'too-large') return 'warning';
+  return 'neutral';
 }
 
 export function SqlResultPreview({
   response,
   isExecuting,
   rowDisplayLimit,
-  knownTableNames,
-  onShowTables,
+  canRun = false,
+  onRun,
+  onSaveSnippet,
+  responses,
+  selectedResponseIndex = 0,
+  onSelectResponse,
 }: SqlResultPreviewProps) {
   const { t } = useTranslation();
+  // Table/JSON view preference. Persists across re-runs by design — the
+  // user's last-picked view is the one they want for the next result,
+  // so we deliberately do NOT reset it when a fresh response lands.
+  const [bodyTab, setBodyTab] = useState<ResultBodyTab>('table');
+  // In-memory grid controls. Sort is per-column asc/desc/off; the filter
+  // box hides rows whose cells don't contain the needle. Both operate on
+  // the already-fetched preview rows — they never re-run the query.
+  const [sort, setSort] = useState<SqlSortState>({
+    column: null,
+    direction: 'asc',
+  });
+  const [filter, setFilter] = useState<string>('');
 
+  const handleSort = useCallback((column: string) => {
+    setSort((current) => nextSortState(current, column));
+  }, []);
+
+  // The filtered + sorted + capped rows the table / JSON view render.
   const displayRows = useMemo(() => {
     if (!response || response.rows.length === 0) return [];
-    return response.rows.slice(0, Math.max(1, rowDisplayLimit));
-  }, [response, rowDisplayLimit]);
+    const filtered = filterRows(response.rows, filter);
+    const sorted = sortRows(filtered, sort);
+    return sorted.slice(0, Math.max(1, rowDisplayLimit));
+  }, [response, rowDisplayLimit, filter, sort]);
+
+  // Count of preview rows surviving the filter (before the display cap)
+  // so the filter chip can disclose "N of M" without re-filtering.
+  const filteredCount = useMemo(() => {
+    if (!response || response.rows.length === 0) return 0;
+    return filterRows(response.rows, filter).length;
+  }, [response, filter]);
 
   const handleCopyJson = useCallback(() => {
     if (!response) return;
@@ -108,117 +193,126 @@ export function SqlResultPreview({
       <div
         data-testid="sql-result-preview"
         data-state={isExecuting ? 'executing' : 'empty'}
-        className="flex h-full flex-col items-center justify-center gap-2 px-4 py-6 text-center"
+        className="grid h-full place-items-center bg-bg-base px-6 py-10 text-center"
       >
         {isExecuting ? (
-          <>
+          <div className="flex flex-col items-center gap-2">
             <Loader2
               size={18}
               aria-hidden="true"
-              className="animate-spin text-muted"
+              className="animate-spin text-fg-subtle"
             />
-            <div className="text-xs text-muted">
+            <div className="text-[12.5px] text-fg-subtle">
               {t('sqlWorkspace.response.loading')}
             </div>
-          </>
-        ) : (
-          <div className="text-xs text-muted">
-            {t('sqlWorkspace.response.emptyResult')}
           </div>
+        ) : (
+          <EmptyState
+            icon={<Hash size={19} aria-hidden="true" />}
+            title={t('sqlWorkspace.response.emptyTitle')}
+            description={t('sqlWorkspace.response.emptyBody')}
+            action={
+              canRun && onRun ? (
+                <button
+                  type="button"
+                  onClick={onRun}
+                  data-testid="sql-result-preview-run"
+                  className="inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-[12.5px] font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base"
+                >
+                  {t('sqlWorkspace.response.emptyCta')}
+                </button>
+              ) : undefined
+            }
+          />
         )}
       </div>
     );
   }
 
-  return (
-    <div
-      data-testid="sql-result-preview"
-      data-state={response.status}
-      className="flex h-full min-w-0 flex-col"
-    >
-      <header className="flex flex-wrap items-center gap-2 border-b border-border/40 px-3 py-2">
-        <SqlStatusPill
-          status={response.status}
-          rowCount={response.rowCount}
-          durationMs={response.durationMs}
-        />
-        {response.statementCount > 1 ? (
+  const tone = toneForStatus(response.status);
+  // A successful (or capped-but-successful) run gets the rows·timing
+  // meta, the Table/JSON sub-tabs, and the copy actions — an error /
+  // timeout / engine-load failure has no result body to act on.
+  const hasResultBody =
+    response.status === 'success' || response.status === 'too-large';
+  const meta = hasResultBody
+    ? [
+        t('sqlWorkspace.response.rowCount', { count: response.rowCount }),
+        `${Math.max(0, Math.round(response.durationMs))} ms`,
+      ].join(' · ')
+    : undefined;
+  const showStatementCount = response.statementCount > 1;
+  const showSnippetNudge =
+    response.status === 'success' && onSaveSnippet !== undefined;
+  const trailing =
+    hasResultBody || showStatementCount ? (
+      <span className="flex items-center gap-1">
+        {showStatementCount ? (
           <span
             data-testid="sql-result-preview-statement-count"
-            className="rounded bg-surface-strong/60 px-1.5 py-0.5 text-[10px] font-medium text-muted"
+            className="mr-1 rounded-sm bg-bg-panel-alt px-1.5 py-0.5 text-[10px] font-medium text-fg-muted"
           >
             {t('sqlWorkspace.response.statementCount', {
               count: response.statementCount,
             })}
           </span>
         ) : null}
-        {response.status === 'success' || response.status === 'too-large' ? (
-          <div className="ml-auto flex items-center gap-1">
-            <button
-              type="button"
+        {hasResultBody ? (
+          <>
+            <CopyButton
               onClick={handleCopyJson}
-              data-testid="sql-result-preview-copy-json"
-              title={t('sqlWorkspace.action.copyAsJson')}
-              aria-label={t('sqlWorkspace.action.copyAsJson')}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground"
-            >
-              <FileJson size={11} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
+              testId="sql-result-preview-copy-json"
+              label={t('sqlWorkspace.action.copyAsJson')}
+              icon={<FileJson size={11} aria-hidden="true" />}
+            />
+            <CopyButton
               onClick={handleCopyCsv}
-              data-testid="sql-result-preview-copy-csv"
-              title={t('sqlWorkspace.action.copyAsCsv')}
-              aria-label={t('sqlWorkspace.action.copyAsCsv')}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground"
-            >
-              <FileSpreadsheet size={11} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
+              testId="sql-result-preview-copy-csv"
+              label={t('sqlWorkspace.action.copyAsCsv')}
+              icon={<FileSpreadsheet size={11} aria-hidden="true" />}
+            />
+            <CopyButton
               onClick={handleCopyMarkdown}
-              data-testid="sql-result-preview-copy-markdown"
-              title={t('sqlWorkspace.action.copyAsMarkdown')}
-              aria-label={t('sqlWorkspace.action.copyAsMarkdown')}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground"
-            >
-              <FileText size={11} aria-hidden="true" />
-            </button>
-          </div>
+              testId="sql-result-preview-copy-markdown"
+              label={t('sqlWorkspace.action.copyAsMarkdown')}
+              icon={<FileText size={11} aria-hidden="true" />}
+            />
+          </>
         ) : null}
-      </header>
+      </span>
+    ) : undefined;
 
-      {/* Fold C — schema introspection chip strip. Renders SHOW TABLES
-          button + the discovered table names as inert chips. */}
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-border/30 px-3 py-1.5 text-[10px]">
-        <button
-          type="button"
-          onClick={onShowTables}
-          data-testid="sql-result-preview-show-tables"
-          className="inline-flex h-5 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-1.5 text-[10px] font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground"
-        >
-          {/* Reviewer pass — swapped `ClipboardCopy` (reads as copy-to-clipboard,
-              semantic mismatch) for the `Table` lucide glyph so the chip strip's
-              left affordance reads as "list tables", not "copy". */}
-          <TableIcon size={9} aria-hidden="true" />
-          <span>{t('sqlWorkspace.action.showTables')}</span>
-        </button>
-        {knownTableNames.length === 0 ? (
-          <span className="text-muted/70">
-            {t('sqlWorkspace.response.tablesEmpty')}
+  return (
+    <div
+      data-testid="sql-result-preview"
+      data-state={response.status}
+      className="flex h-full min-w-0 flex-col bg-bg-base"
+    >
+      <ResultHeader
+        status={
+          <span
+            data-testid="sql-status-pill"
+            data-tone={tone}
+            data-status={response.status}
+          >
+            <StatusBadge tone={tone} dot>
+              {t(`sqlWorkspace.statusPill.${response.status}`)}
+            </StatusBadge>
           </span>
-        ) : (
-          knownTableNames.map((name) => (
-            <span
-              key={name}
-              data-testid="sql-result-preview-table-chip"
-              className="inline-flex items-center rounded-full bg-sky-500/15 px-2 py-0.5 font-mono text-[10px] text-sky-700 dark:text-sky-300 ring-1 ring-sky-500/30"
-            >
-              {name}
-            </span>
-          ))
-        )}
-      </div>
+        }
+        meta={meta}
+        tabs={
+          hasResultBody
+            ? [
+                { id: 'table', label: t('sqlWorkspace.response.tabTable') },
+                { id: 'json', label: t('sqlWorkspace.response.tabJson') },
+              ]
+            : undefined
+        }
+        activeTab={bodyTab}
+        onTabChange={(id) => setBodyTab(id as ResultBodyTab)}
+        trailing={trailing}
+      />
 
       {response.status === 'sql-error' ||
       response.status === 'timeout' ||
@@ -230,10 +324,14 @@ export function SqlResultPreview({
         <div
           role="alert"
           data-testid="sql-result-preview-too-large"
-          className="border-b border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200"
+          className="border-b border-warning-border bg-warning-bg px-3 py-2 text-[11px] text-warning-fg"
         >
           <div className="flex items-start gap-2">
-            <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <AlertTriangle
+              size={12}
+              className="mt-0.5 shrink-0"
+              aria-hidden="true"
+            />
             <div>
               <p className="font-semibold">
                 {t('sqlWorkspace.response.tooLargeBand', {
@@ -241,11 +339,55 @@ export function SqlResultPreview({
                   total: response.rowCount,
                 })}
               </p>
-              <p className="mt-0.5 text-[10px] text-amber-100/80">
+              <p className="mt-0.5 text-[10px] text-warning-fg/80">
                 {t('sqlWorkspace.response.tooLargeHint')}
               </p>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {hasResultBody && response.rows.length > 0 ? (
+        <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-1.5">
+          <span className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel-alt px-2 py-1 focus-within:border-border-strong">
+            <Search
+              size={11}
+              aria-hidden="true"
+              className="shrink-0 text-fg-subtle"
+            />
+            <input
+              type="text"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              data-testid="sql-result-preview-filter"
+              placeholder={t('sqlWorkspace.grid.filterPlaceholder')}
+              aria-label={t('sqlWorkspace.grid.filterAria')}
+              className="min-w-0 flex-1 bg-transparent font-mono text-[11.5px] text-fg-base placeholder:text-fg-subtle focus:outline-none"
+            />
+            {filter.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setFilter('')}
+                aria-label={t('sqlWorkspace.grid.filterClear')}
+                title={t('sqlWorkspace.grid.filterClear')}
+                data-testid="sql-result-preview-filter-clear"
+                className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded text-fg-subtle transition-colors hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              >
+                <X size={10} aria-hidden="true" />
+              </button>
+            ) : null}
+          </span>
+          {filter.trim().length > 0 ? (
+            <span
+              data-testid="sql-result-preview-filter-count"
+              className="shrink-0 font-mono text-[10px] tabular-nums text-fg-subtle"
+            >
+              {t('sqlWorkspace.grid.filterMatches', {
+                shown: filteredCount,
+                total: response.rows.length,
+              })}
+            </span>
+          ) : null}
         </div>
       ) : null}
 
@@ -254,14 +396,88 @@ export function SqlResultPreview({
         className="min-h-0 flex-1 overflow-auto"
       >
         {displayRows.length > 0 ? (
-          <ResultTable columns={response.columns} rows={displayRows} />
+          bodyTab === 'json' ? (
+            <JsonView rows={displayRows} />
+          ) : (
+            <ResultTable
+              columns={response.columns}
+              rows={displayRows}
+              sort={sort}
+              onSort={handleSort}
+            />
+          )
+        ) : hasResultBody && response.rows.length > 0 && filter.trim().length > 0 ? (
+          <div
+            data-testid="sql-result-preview-filter-empty"
+            className="grid h-full place-items-center px-4 py-6 text-center text-xs text-fg-subtle"
+          >
+            {t('sqlWorkspace.grid.filterEmpty')}
+          </div>
         ) : response.status === 'success' ? (
-          <div className="flex h-full flex-col items-center justify-center gap-1 px-4 py-6 text-center text-xs text-muted">
+          <div className="grid h-full place-items-center px-4 py-6 text-center text-xs text-fg-subtle">
             {t('sqlWorkspace.response.noRows')}
           </div>
         ) : null}
       </div>
+
+      {responses && responses.length > 1 && onSelectResponse ? (
+        <SqlRunHistory
+          responses={responses}
+          selectedIndex={selectedResponseIndex}
+          onSelect={onSelectResponse}
+        />
+      ) : null}
+
+      {showSnippetNudge ? (
+        <div
+          data-testid="sql-result-preview-snippet-nudge"
+          className="mt-auto flex items-center gap-2.5 border-t border-border-subtle bg-bg-panel-alt px-3 py-2"
+        >
+          <CheckCircle2
+            size={13}
+            aria-hidden="true"
+            className="shrink-0 text-success-fg"
+          />
+          <span className="text-[12px] text-fg-muted">
+            {t('sqlWorkspace.snippet.nudge')}
+          </span>
+          <button
+            type="button"
+            onClick={onSaveSnippet}
+            data-testid="sql-result-preview-save-snippet"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 py-1 text-[11.5px] font-medium text-fg-base transition-colors hover:border-border-strong hover:bg-bg-panel-alt focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          >
+            <Bookmark size={12} aria-hidden="true" />
+            {t('sqlWorkspace.snippet.cta')}
+          </button>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+function CopyButton({
+  onClick,
+  testId,
+  label,
+  icon,
+}: {
+  onClick: () => void;
+  testId: string;
+  label: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      title={label}
+      aria-label={label}
+      className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border-default bg-bg-panel-alt text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+    >
+      {icon}
+    </button>
   );
 }
 
@@ -287,19 +503,23 @@ function ErrorBand({
     <div
       role="alert"
       data-testid={`sql-result-preview-error-${status}`}
-      className="border-b border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-200"
+      className="border-b border-error-border bg-error-bg px-3 py-2 text-[11px] text-error-fg"
     >
       <div className="flex items-start gap-2">
-        <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+        <AlertTriangle
+          size={12}
+          className="mt-0.5 shrink-0"
+          aria-hidden="true"
+        />
         <div>
           <p className="font-semibold">{t(bandKey)}</p>
           {message ? (
-            <pre className="mt-1 max-h-[120px] overflow-auto whitespace-pre-wrap break-all rounded bg-rose-500/15 p-2 font-mono text-[10px] text-rose-100">
+            <pre className="mt-1 max-h-[120px] overflow-auto whitespace-pre-wrap break-all rounded bg-error-bg p-2 font-mono text-[10px] text-error-fg">
               {message}
             </pre>
           ) : null}
           {hintKey ? (
-            <p className="mt-1 text-[10px] text-rose-100/80">{t(hintKey)}</p>
+            <p className="mt-1 text-[10px] text-error-fg/80">{t(hintKey)}</p>
           ) : null}
         </div>
       </div>
@@ -310,26 +530,67 @@ function ErrorBand({
 interface ResultTableProps {
   columns: ReadonlyArray<SqlColumnMetadata>;
   rows: ReadonlyArray<Record<string, unknown>>;
+  sort: SqlSortState;
+  onSort: (column: string) => void;
 }
 
-function ResultTable({ columns, rows }: ResultTableProps) {
+function ResultTable({ columns, rows, sort, onSort }: ResultTableProps) {
+  const { t } = useTranslation();
   return (
     <table
       data-testid="sql-result-preview-table"
-      className="w-full min-w-max table-fixed border-collapse font-mono text-[11px]"
+      className="w-full min-w-max table-fixed border-collapse font-mono text-[12.5px]"
     >
-      <thead className="sticky top-0 z-10 bg-surface/95 backdrop-blur">
+      <thead className="sticky top-0 z-10 bg-bg-base/95 backdrop-blur">
         <tr>
-          {columns.map((col) => (
-            <th
-              key={col.name}
-              scope="col"
-              className="border-b border-border/40 px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-wider text-muted"
-            >
-              <span className="text-foreground">{col.name}</span>
-              <span className="ml-1 text-fg-subtle">{col.type}</span>
-            </th>
-          ))}
+          {columns.map((col) => {
+            const isSorted = sort.column === col.name;
+            const ariaSort = isSorted
+              ? sort.direction === 'asc'
+                ? 'ascending'
+                : 'descending'
+              : 'none';
+            return (
+              <th
+                key={col.name}
+                scope="col"
+                aria-sort={ariaSort}
+                className="whitespace-nowrap border-b border-border-subtle p-0 text-left"
+              >
+                <button
+                  type="button"
+                  onClick={() => onSort(col.name)}
+                  data-testid="sql-result-preview-sort"
+                  data-column={col.name}
+                  data-sort={isSorted ? sort.direction : 'none'}
+                  title={t('sqlWorkspace.grid.sortBy', { name: col.name })}
+                  className="flex w-full items-center gap-1.5 px-3 py-2 text-left transition-colors hover:bg-bg-panel-alt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
+                >
+                  <span className="text-[10px] uppercase tracking-[0.08em] text-fg-muted">
+                    {col.name}
+                  </span>
+                  <span className="text-[9px] tracking-[0.04em] text-accent">
+                    {col.type}
+                  </span>
+                  {isSorted ? (
+                    sort.direction === 'asc' ? (
+                      <ArrowUp
+                        size={10}
+                        aria-hidden="true"
+                        className="ml-auto shrink-0 text-fg-base"
+                      />
+                    ) : (
+                      <ArrowDown
+                        size={10}
+                        aria-hidden="true"
+                        className="ml-auto shrink-0 text-fg-base"
+                      />
+                    )
+                  ) : null}
+                </button>
+              </th>
+            );
+          })}
         </tr>
       </thead>
       <tbody>
@@ -337,12 +598,12 @@ function ResultTable({ columns, rows }: ResultTableProps) {
           <tr
             key={idx}
             data-testid="sql-result-preview-row"
-            className="border-b border-border/20 hover:bg-surface-strong/40"
+            className="border-b border-border-subtle hover:bg-bg-panel-alt/60"
           >
             {columns.map((col) => (
               <td
                 key={col.name}
-                className="break-all px-2 py-1 align-top text-foreground"
+                className={cellClass(row[col.name])}
               >
                 {renderCell(row[col.name])}
               </td>
@@ -354,10 +615,54 @@ function ResultTable({ columns, rows }: ResultTableProps) {
   );
 }
 
+/**
+ * Token-only typed-column tinting — mirrors the prototype's per-type
+ * color (string → syntax-string, boolean → syntax-keyword, numeric →
+ * syntax-number, null → fg-subtle, fallback → fg-base).
+ */
+function cellClass(value: unknown): string {
+  const base = 'break-all px-3 py-2 align-top';
+  if (value === null || value === undefined) return `${base} text-fg-subtle`;
+  if (typeof value === 'string') return `${base} text-syntax-string`;
+  if (typeof value === 'boolean') return `${base} text-syntax-keyword`;
+  if (typeof value === 'number' || typeof value === 'bigint')
+    return `${base} text-syntax-number`;
+  return `${base} text-fg-base`;
+}
+
+function JsonView({
+  rows,
+}: {
+  rows: ReadonlyArray<Record<string, unknown>>;
+}) {
+  const serialized = useMemo(() => {
+    try {
+      return JSON.stringify(rows, jsonReplacer, 2);
+    } catch {
+      return String(rows);
+    }
+  }, [rows]);
+  return (
+    <pre
+      data-testid="sql-result-preview-json"
+      className="overflow-auto px-3 py-2 font-mono text-[12px] leading-[1.7] text-fg-base"
+    >
+      {serialized}
+    </pre>
+  );
+}
+
+/** BigInt is not JSON-serializable; coerce to a string so the view
+ * never throws on integer columns DuckDB returns as BigInt. */
+function jsonReplacer(_key: string, value: unknown): unknown {
+  return typeof value === 'bigint' ? value.toString() : value;
+}
+
 function renderCell(value: unknown): string {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'number' || typeof value === 'boolean')
+    return String(value);
   if (typeof value === 'bigint') return value.toString();
   try {
     return JSON.stringify(value);

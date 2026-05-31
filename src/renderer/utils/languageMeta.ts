@@ -109,6 +109,19 @@ const LANGUAGE_BADGE_TONES: Record<string, LanguageBadgeTone> = {
     background: 'oklch(0.95 0.04 24)',
     foreground: 'oklch(0.42 0.15 25)',
   },
+  // Workspace kinds (sql/http) ride the DS accent token instead of a
+  // bespoke hue — the same tone the SQL/HTTP workspace lists use for
+  // their badges — so the pill chip stays on-system in both themes.
+  sql: {
+    code: 'SQL',
+    background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
+    foreground: 'var(--color-accent)',
+  },
+  http: {
+    code: 'HTTP',
+    background: 'color-mix(in srgb, var(--color-accent) 16%, transparent)',
+    foreground: 'var(--color-accent)',
+  },
 };
 
 const FALLBACK_META: LanguageMeta = {
@@ -122,6 +135,30 @@ const FALLBACK_META: LanguageMeta = {
   executionMode: 'view',
 };
 const FALLBACK_EXTENSION = 'txt';
+
+// Workspace tab kinds (`kind: 'sql' | 'http'`) carry a neutral
+// `language` marker that is intentionally NOT a real language pack —
+// every language-gated code path treats it as inert. But the chrome
+// surfaces (FloatingActionPill chip, tab strip) still ask for a label
+// and badge, and the pack-less fallback resolves to a misleading
+// TXT / Text. Pin a proper SQL / HTTP label + short code here so the
+// pill reads the workspace kind correctly without re-deriving it.
+const WORKSPACE_KIND_META: Record<string, LanguageMeta> = {
+  sql: {
+    ...FALLBACK_META,
+    label: 'SQL',
+    shortLabel: 'SQL',
+    extensions: ['sql'],
+    monacoLanguage: 'sql',
+  },
+  http: {
+    ...FALLBACK_META,
+    label: 'HTTP',
+    shortLabel: 'HTTP',
+    extensions: ['http'],
+    monacoLanguage: 'http',
+  },
+};
 
 function packToMeta(pack: LanguagePack): LanguageMeta {
   const fallback = ENGLISH_FALLBACK_LABELS[pack.id];
@@ -148,6 +185,9 @@ function normalizeExtension(extension: string): string {
 export function getLanguageMeta(language: Language): LanguageMeta {
   const pack = getLanguagePackById(language);
   if (pack) return packToMeta(pack);
+
+  const workspaceMeta = WORKSPACE_KIND_META[language];
+  if (workspaceMeta) return workspaceMeta;
 
   const plugin = pluginRegistry.getByLanguage(language);
   if (!plugin) return FALLBACK_META;

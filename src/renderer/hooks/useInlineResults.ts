@@ -370,6 +370,7 @@ export function renderInlineResultNode(items: readonly LineResult[]): HTMLElemen
     const kind = richPreview ? richPreview.kindLabel : inferKind(valueStr);
     const part = document.createElement('span');
     part.className = 'lingua-inline-result-part';
+    part.setAttribute('data-result-kind', result.type);
 
     if (isWatch) {
       const badge = document.createElement('span');

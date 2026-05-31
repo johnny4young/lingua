@@ -2,11 +2,17 @@
  * RL-097 Slice 1 — Center column: edit the active request (method,
  * URL, headers, body, Send).
  *
+ * HTTP workspace usability upgrade — the request builder gained
+ * Insomnia-style sub-tabs (Params | Auth | Headers | Body) plus a
+ * "Copy as cURL" affordance. The Params table stays in two-way sync
+ * with the URL bar; the Auth tab injects an Authorization / API-key
+ * header on send.
+ *
  * Folds wired here:
  *
  *   - **A**: Cmd/Ctrl+Enter while focus is inside any input fires
  *     the Send handler. Mirrors the run-shortcut muscle memory the
- *     scratchpad uses.
+ *     scratchpad uses. The shortcut hint is surfaced inline on Send.
  *   - **B**: pasting a `curl …` command into the URL field detects
  *     the shape and offers an "Import as request?" notice. The
  *     parser handles the common cases (method via `-X`, headers via
@@ -15,28 +21,44 @@
  *     `onPatch` — no explicit Save button.
  */
 
-import { Loader2, Plus, Send, Trash2 } from 'lucide-react';
+import { Copy, Loader2, Plus, SendHorizontal, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   HTTP_METHODS,
   MAX_REQUEST_BODY_BYTES,
+  buildCurlCommand,
+  paramsToUrl,
+  urlToParams,
   utf8ByteLength,
   type HttpMethod,
+  type HttpQueryParam,
+  type HttpRequestAuth,
   type HttpRequestBody,
   type HttpRequestBodyKind,
   type HttpRequestHeader,
   type HttpRequestV1,
 } from '../../../shared/httpWorkspace';
+import { writeToClipboard } from '../../utils/clipboard';
 import { useUIStore } from '../../stores/uiStore';
+import { cn } from '../../utils/cn';
 import { tryParseCurl } from './curlImport';
+import { HttpParamsTab } from './HttpParamsTab';
+import { HttpAuthTab } from './HttpAuthTab';
 
 const AUTO_SAVE_DEBOUNCE_MS = 500;
 
+type BuilderTab = 'params' | 'auth' | 'headers' | 'body';
+
 export interface HttpRequestEditorProps {
   request: HttpRequestV1;
-  /** Patches land via this callback (auto-save). */
-  onPatch: (patch: Partial<HttpRequestV1>) => void;
+  /**
+   * Patches land via this callback (auto-save). The target request id
+   * is passed explicitly so a debounced flush always lands on the
+   * entry the edit was typed into, even if the active request switched
+   * during the debounce quiet window (RQ-02).
+   */
+  onPatch: (requestId: string, patch: Partial<HttpRequestV1>) => void;
   /** Send the current request. Caller disables during in-flight. */
   onSend: (request: HttpRequestV1) => void;
   isExecuting: boolean;
@@ -58,23 +80,77 @@ export function HttpRequestEditor({
   const [method, setMethod] = useState<HttpMethod>(request.method);
   const [headers, setHeaders] = useState<HttpRequestHeader[]>(request.headers);
   const [body, setBody] = useState<HttpRequestBody | undefined>(request.body);
+  // Params seed from the persisted `queryParams` when present, else
+  // derive from the URL (back-compat: pre-feature requests carry their
+  // params only in the URL string).
+  const [params, setParams] = useState<HttpQueryParam[]>(
+    request.queryParams ?? urlToParams(request.url)
+  );
+  const [auth, setAuth] = useState<HttpRequestAuth | undefined>(request.auth);
+  const [builderTab, setBuilderTab] = useState<BuilderTab>('params');
+
+  // Fold D — debounced auto-save. One timer covers all fields so a
+  // rapid edit across URL + params + headers + body settles to a
+  // single patch.
+  //
+  // RQ-02 — the pending patch carries the id of the request it was
+  // typed into (`pendingTargetIdRef`), captured at schedule time. A
+  // flush always targets that captured id, never the (possibly
+  // already-switched) active request, so an edit to request A can
+  // never leak onto request B when the user switches inside the 500 ms
+  // quiet window. `latestOnPatchRef` keeps the flush wired to the
+  // current callback identity without re-arming the timer.
+  const patchTimerRef = useRef<number | null>(null);
+  const pendingPatchRef = useRef<Partial<HttpRequestV1> | null>(null);
+  const pendingTargetIdRef = useRef<string | null>(null);
+  const latestOnPatchRef = useRef(onPatch);
+  useEffect(() => {
+    latestOnPatchRef.current = onPatch;
+  }, [onPatch]);
+
+  // Flush any pending debounced patch to the request it was typed
+  // into. Stable identity (no deps) so the unmount / switch effects
+  // can call it without re-arming on every render.
+  const flushPendingPatch = useCallback(() => {
+    if (patchTimerRef.current !== null) {
+      window.clearTimeout(patchTimerRef.current);
+      patchTimerRef.current = null;
+    }
+    const pendingPatch = pendingPatchRef.current;
+    const targetId = pendingTargetIdRef.current;
+    pendingPatchRef.current = null;
+    pendingTargetIdRef.current = null;
+    if (pendingPatch && targetId !== null) {
+      latestOnPatchRef.current(targetId, pendingPatch);
+    }
+  }, []);
 
   // Sync local state when the active request switches (different id).
+  // Flush the previous request's pending edit FIRST so it lands on the
+  // entry it was typed into before we overwrite the draft with the
+  // newly-active request (RQ-02).
   const lastRequestIdRef = useRef<string>(request.id);
   useEffect(() => {
     if (lastRequestIdRef.current === request.id) return;
+    flushPendingPatch();
     lastRequestIdRef.current = request.id;
     setUrl(request.url);
     setMethod(request.method);
     setHeaders(request.headers);
     setBody(request.body);
-  }, [request.id, request.url, request.method, request.headers, request.body]);
+    setParams(request.queryParams ?? urlToParams(request.url));
+    setAuth(request.auth);
+  }, [
+    request.id,
+    request.url,
+    request.method,
+    request.headers,
+    request.body,
+    request.queryParams,
+    request.auth,
+    flushPendingPatch,
+  ]);
 
-  // Fold D — debounced auto-save. One timer covers all four fields
-  // so a rapid edit across URL + headers + body settles to a single
-  // patch.
-  const patchTimerRef = useRef<number | null>(null);
-  const pendingPatchRef = useRef<Partial<HttpRequestV1> | null>(null);
   const pushBodyTooLargeNotice = useCallback(() => {
     useUIStore.getState().pushStatusNotice({
       tone: 'warning',
@@ -92,26 +168,29 @@ export function HttpRequestEditor({
       method: patch.method ?? method,
       url: patch.url ?? url,
       headers: patch.headers ?? headers,
+      queryParams: patch.queryParams ?? params,
+      auth: patch.auth ?? auth,
       body: patch.body ?? body ?? { kind: 'none' },
     }),
-    [method, url, headers, body]
+    [method, url, headers, params, auth, body]
   );
 
   const scheduleAutoSave = useCallback(
     (patch: Partial<HttpRequestV1>) => {
       const fullPatch = buildDraftPatch(patch);
       pendingPatchRef.current = fullPatch;
+      // Capture the id of the request being edited NOW. The flush reads
+      // this captured id, so a switch before the timer fires cannot
+      // redirect the patch onto the newly-active request (RQ-02).
+      pendingTargetIdRef.current = request.id;
       if (patchTimerRef.current !== null) {
         window.clearTimeout(patchTimerRef.current);
       }
       patchTimerRef.current = window.setTimeout(() => {
-        patchTimerRef.current = null;
-        const pendingPatch = pendingPatchRef.current;
-        pendingPatchRef.current = null;
-        if (pendingPatch) onPatch(pendingPatch);
+        flushPendingPatch();
       }, AUTO_SAVE_DEBOUNCE_MS);
     },
-    [buildDraftPatch, onPatch]
+    [buildDraftPatch, flushPendingPatch, request.id]
   );
 
   const buildDraftRequest = useCallback((): HttpRequestV1 => {
@@ -120,9 +199,11 @@ export function HttpRequestEditor({
       method,
       url,
       headers,
+      queryParams: params,
+      ...(auth ? { auth } : {}),
       body: body ?? { kind: 'none' },
     };
-  }, [request, method, url, headers, body]);
+  }, [request, method, url, headers, params, auth, body]);
 
   const flushDraftBeforeSend = useCallback((): HttpRequestV1 | null => {
     const draft = buildDraftRequest();
@@ -131,18 +212,31 @@ export function HttpRequestEditor({
       pushBodyTooLargeNotice();
       return null;
     }
+    // Drop any pending debounced patch (its content is subsumed by the
+    // synchronous flush below) and persist the draft straight to the
+    // request being sent.
     if (patchTimerRef.current !== null) {
       window.clearTimeout(patchTimerRef.current);
       patchTimerRef.current = null;
     }
-    onPatch({
+    pendingPatchRef.current = null;
+    pendingTargetIdRef.current = null;
+    onPatch(request.id, {
       method: draft.method,
       url: draft.url,
       headers: draft.headers,
+      queryParams: draft.queryParams,
+      ...(draft.auth ? { auth: draft.auth } : {}),
       body: draft.body,
     });
     return draft;
-  }, [buildDraftRequest, bodyExceedsCap, onPatch, pushBodyTooLargeNotice]);
+  }, [
+    buildDraftRequest,
+    bodyExceedsCap,
+    onPatch,
+    pushBodyTooLargeNotice,
+    request.id,
+  ]);
 
   const sendCurrentDraft = useCallback(() => {
     if (isExecuting) return;
@@ -151,17 +245,28 @@ export function HttpRequestEditor({
     onSend(draft);
   }, [flushDraftBeforeSend, isExecuting, onSend]);
 
+  // Copy as cURL — build a shell command from the resolved draft (URL
+  // incl. params, composed headers incl. injected auth, body) and copy
+  // it. A one-shot notice confirms / surfaces a clipboard failure.
+  const handleCopyCurl = useCallback(async () => {
+    const draft = buildDraftRequest();
+    const command = buildCurlCommand(draft);
+    const ok = await writeToClipboard(command);
+    useUIStore.getState().pushStatusNotice({
+      tone: ok ? 'success' : 'warning',
+      messageKey: ok
+        ? 'httpWorkspace.editor.copyCurl.copied'
+        : 'httpWorkspace.editor.copyCurl.failed',
+    });
+  }, [buildDraftRequest]);
+
+  // Flush on unmount so an edit typed <500 ms before the editor
+  // unmounts (tab close, panel teardown) still lands on its request.
   useEffect(() => {
     return () => {
-      if (patchTimerRef.current !== null) {
-        window.clearTimeout(patchTimerRef.current);
-        patchTimerRef.current = null;
-        const pendingPatch = pendingPatchRef.current;
-        pendingPatchRef.current = null;
-        if (pendingPatch) onPatch(pendingPatch);
-      }
+      flushPendingPatch();
     };
-  }, [onPatch]);
+  }, [flushPendingPatch]);
 
   // Fold A — Cmd/Ctrl+Enter sends.
   const handleKeyDown = useCallback(
@@ -172,6 +277,60 @@ export function HttpRequestEditor({
       sendCurrentDraft();
     },
     [sendCurrentDraft]
+  );
+
+  // Edit the URL bar directly. Re-seed the Params table from the new
+  // query string so the two views stay coherent (URL → params).
+  const handleUrlChange = useCallback(
+    (nextUrl: string) => {
+      setUrl(nextUrl);
+      const nextParams = urlToParams(nextUrl);
+      setParams(nextParams);
+      scheduleAutoSave({ url: nextUrl, queryParams: nextParams });
+    },
+    [scheduleAutoSave]
+  );
+
+  // Edit a param row. Rebuild the URL from the rows so the URL bar
+  // reflects the change (params → URL).
+  const applyParams = useCallback(
+    (nextParams: HttpQueryParam[]) => {
+      const nextUrl = paramsToUrl(url, nextParams);
+      setParams(nextParams);
+      setUrl(nextUrl);
+      scheduleAutoSave({ url: nextUrl, queryParams: nextParams });
+    },
+    [url, scheduleAutoSave]
+  );
+
+  const handleAddParam = useCallback(() => {
+    applyParams([...params, { key: '', value: '', enabled: true }]);
+  }, [params, applyParams]);
+
+  const handleUpdateParam = useCallback(
+    (index: number, patch: Partial<HttpQueryParam>) => {
+      const next = params.slice();
+      const current = next[index];
+      if (!current) return;
+      next[index] = { ...current, ...patch };
+      applyParams(next);
+    },
+    [params, applyParams]
+  );
+
+  const handleRemoveParam = useCallback(
+    (index: number) => {
+      applyParams(params.filter((_, i) => i !== index));
+    },
+    [params, applyParams]
+  );
+
+  const handleAuthChange = useCallback(
+    (nextAuth: HttpRequestAuth) => {
+      setAuth(nextAuth);
+      scheduleAutoSave({ auth: nextAuth });
+    },
+    [scheduleAutoSave]
   );
 
   // Fold B — cURL paste import. Listens on the URL input only.
@@ -196,13 +355,16 @@ export function HttpRequestEditor({
           {
             labelKey: 'httpWorkspace.curlImport.accept',
             onClick: () => {
+              const importedParams = urlToParams(parsed.url);
               setMethod(parsed.method);
               setUrl(parsed.url);
+              setParams(importedParams);
               if (parsed.headers.length > 0) setHeaders(parsed.headers);
               if (parsed.body) setBody(parsed.body);
-              onPatch({
+              onPatch(request.id, {
                 method: parsed.method,
                 url: parsed.url,
+                queryParams: importedParams,
                 ...(parsed.headers.length > 0 ? { headers: parsed.headers } : {}),
                 ...(parsed.body ? { body: parsed.body } : {}),
               });
@@ -211,7 +373,7 @@ export function HttpRequestEditor({
         ],
       });
     },
-    [bodyExceedsCap, onPatch, pushBodyTooLargeNotice]
+    [bodyExceedsCap, onPatch, pushBodyTooLargeNotice, request.id]
   );
 
   const handleAddHeader = useCallback(() => {
@@ -251,6 +413,55 @@ export function HttpRequestEditor({
 
   const bodyKind: HttpRequestBodyKind = body?.kind ?? 'none';
 
+  // Count badges on the sub-tabs (enabled rows / active auth) so the
+  // user sees what is configured without switching tabs — Insomnia
+  // surfaces the same dot/count cue.
+  const enabledParamCount = useMemo(
+    () => params.filter((p) => p.enabled && p.key.length > 0).length,
+    [params]
+  );
+  const enabledHeaderCount = useMemo(
+    () => headers.filter((h) => h.enabled && h.name.trim().length > 0).length,
+    [headers]
+  );
+  const authActive = (auth?.kind ?? 'none') !== 'none';
+
+  const builderTabs: ReadonlyArray<{ id: BuilderTab; label: string; badge?: string }> =
+    useMemo(() => {
+      const tabs: Array<{ id: BuilderTab; label: string; badge?: string }> = [
+        {
+          id: 'params',
+          label: t('httpWorkspace.editor.tab.params'),
+          ...(enabledParamCount > 0 ? { badge: String(enabledParamCount) } : {}),
+        },
+        {
+          id: 'auth',
+          label: t('httpWorkspace.editor.tab.auth'),
+          ...(authActive ? { badge: '•' } : {}),
+        },
+        {
+          id: 'headers',
+          label: t('httpWorkspace.editor.tab.headers'),
+          ...(enabledHeaderCount > 0 ? { badge: String(enabledHeaderCount) } : {}),
+        },
+      ];
+      if (supportsBody) {
+        tabs.push({
+          id: 'body',
+          label: t('httpWorkspace.editor.tab.body'),
+          ...(bodyKind !== 'none' ? { badge: '•' } : {}),
+        });
+      }
+      return tabs;
+    }, [t, enabledParamCount, authActive, enabledHeaderCount, supportsBody, bodyKind]);
+
+  // If the active sub-tab is Body but the method stops supporting a
+  // body (GET/HEAD/OPTIONS), fall back to Params so the editor never
+  // shows an empty pane. Derive the effective tab during render rather
+  // than via a reset effect (avoids the cascading-render lint).
+  const effectiveBuilderTab: BuilderTab =
+    builderTab === 'body' && !supportsBody ? 'params' : builderTab;
+
   return (
     <div
       data-testid="http-request-editor"
@@ -271,7 +482,7 @@ export function HttpRequestEditor({
             setMethod(next);
             scheduleAutoSave({ method: next });
           }}
-          className="h-8 shrink-0 rounded-md border border-border/60 bg-surface/40 px-2 text-xs font-bold tabular-nums focus:border-border-strong focus:outline-none"
+          className="h-8 shrink-0 rounded-md border border-border bg-bg-panel px-2 font-mono text-xs font-semibold tabular-nums text-fg-base focus:border-border-strong focus:outline-none"
         >
           {HTTP_METHODS.map((m) => (
             <option key={m} value={m}>
@@ -285,13 +496,26 @@ export function HttpRequestEditor({
           placeholder={t('httpWorkspace.editor.url.placeholder')}
           aria-label={t('httpWorkspace.editor.url.ariaLabel')}
           value={url}
-          onChange={(event) => {
-            setUrl(event.target.value);
-            scheduleAutoSave({ url: event.target.value });
-          }}
+          onChange={(event) => handleUrlChange(event.target.value)}
           onPaste={handleUrlPaste}
-          className="h-8 min-w-0 flex-1 rounded-md border border-border/60 bg-background px-2 text-xs focus:border-border-strong focus:outline-none"
+          className="h-8 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-3 font-mono text-[12.5px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
         />
+        {/* Copy as cURL — ghost icon button, sits left of Send. */}
+        <button
+          type="button"
+          onClick={handleCopyCurl}
+          disabled={url.trim().length === 0}
+          data-testid="http-request-editor-copy-curl"
+          aria-label={t('httpWorkspace.editor.copyCurl.label')}
+          title={t('httpWorkspace.editor.copyCurl.label')}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-subtle text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Copy size={14} aria-hidden="true" />
+        </button>
+        {/* FASE 3 — Send is the SLATE accent primary per the proto
+            (httpWs `Btn variant="primary"`, `bg: D.acc / fg: D.onAcc`).
+            Green stays reserved for SQL Run / success states. Label +
+            shortcut hint show inline. */}
         <button
           type="button"
           onClick={sendCurrentDraft}
@@ -299,93 +523,144 @@ export function HttpRequestEditor({
           data-testid="http-request-editor-send"
           aria-label={t('httpWorkspace.editor.send.label')}
           title={`${t('httpWorkspace.editor.send.label')} · ${t('httpWorkspace.editor.send.shortcutHint')}`}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-primary/60 bg-primary/10 text-primary hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-accent bg-accent px-3 text-xs font-semibold text-fg-on-accent transition-colors hover:bg-accent-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-inset disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isExecuting ? (
             <Loader2 size={14} className="animate-spin" aria-hidden="true" />
           ) : (
-            <Send size={14} aria-hidden="true" />
+            <SendHorizontal size={14} aria-hidden="true" />
           )}
+          <span>{t('httpWorkspace.editor.send.label')}</span>
         </button>
       </div>
 
-      {/* Headers + Body — keep both visible in a 2-row layout so the
-          user does not need to switch tabs to inspect either. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-        <section data-testid="http-request-editor-headers">
-          <header className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-foreground">
-              {t('httpWorkspace.editor.headers.label')}
-            </span>
+      {/* Request builder sub-tabs (Params | Auth | Headers | Body). */}
+      <div
+        role="tablist"
+        aria-label={t('httpWorkspace.editor.tabs.ariaLabel')}
+        data-testid="http-request-editor-tabs"
+        className="flex shrink-0 items-center gap-1 border-b border-border-subtle pb-1.5"
+      >
+        {builderTabs.map((bt) => {
+          const active = bt.id === effectiveBuilderTab;
+          return (
             <button
+              key={bt.id}
               type="button"
-              onClick={handleAddHeader}
-              data-testid="http-request-editor-headers-add"
-              aria-label={t('httpWorkspace.editor.headers.add')}
-              title={t('httpWorkspace.editor.headers.add')}
-              className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-border/60 bg-surface/40 text-muted hover:border-border-strong hover:bg-background hover:text-foreground"
+              role="tab"
+              aria-selected={active}
+              data-testid={`http-request-editor-tab-${bt.id}`}
+              data-active={active}
+              onClick={() => setBuilderTab(bt.id)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+                active
+                  ? 'bg-bg-inset font-semibold text-fg-base'
+                  : 'text-fg-subtle hover:text-fg-base'
+              )}
             >
-              <Plus size={12} aria-hidden="true" />
+              <span>{bt.label}</span>
+              {bt.badge ? (
+                <span className="rounded-sm bg-bg-panel-alt px-1 text-[9.5px] font-semibold tabular-nums text-fg-muted">
+                  {bt.badge}
+                </span>
+              ) : null}
             </button>
-            {headers.length === 0 ? (
-              <span className="text-[11px] text-muted">
-                {t('httpWorkspace.editor.headers.empty')}
-              </span>
-            ) : null}
-          </header>
-          <ul role="list" className="mt-1 flex flex-col gap-1">
-            {headers.map((h, i) => (
-              <li key={i} className="flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={h.enabled}
-                  onChange={(event) =>
-                    handleUpdateHeader(i, { enabled: event.target.checked })
-                  }
-                  data-testid="http-request-editor-header-enabled"
-                  aria-label={t('httpWorkspace.editor.headers.enabledAria', {
-                    name: h.name,
-                  })}
-                />
-                <input
-                  type="text"
-                  value={h.name}
-                  onChange={(event) =>
-                    handleUpdateHeader(i, { name: event.target.value })
-                  }
-                  placeholder={t('httpWorkspace.editor.headers.name.placeholder')}
-                  aria-label={t('httpWorkspace.editor.headers.name.placeholder')}
-                  data-testid="http-request-editor-header-name"
-                  className="h-7 w-36 rounded-md border border-border/40 bg-background px-2 text-[11px] focus:border-border-strong focus:outline-none"
-                />
-                <input
-                  type="text"
-                  value={h.value}
-                  onChange={(event) =>
-                    handleUpdateHeader(i, { value: event.target.value })
-                  }
-                  placeholder={t('httpWorkspace.editor.headers.value.placeholder')}
-                  aria-label={t('httpWorkspace.editor.headers.value.placeholder')}
-                  data-testid="http-request-editor-header-value"
-                  className="h-7 min-w-0 flex-1 rounded-md border border-border/40 bg-background px-2 text-[11px] focus:border-border-strong focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveHeader(i)}
-                  aria-label={t('httpWorkspace.editor.headers.remove.aria')}
-                  className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:text-rose-500"
-                >
-                  <Trash2 size={11} aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
+          );
+        })}
+      </div>
 
-        {supportsBody ? (
+      {/* Active sub-tab body. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+        {effectiveBuilderTab === 'params' ? (
+          <HttpParamsTab
+            params={params}
+            onAdd={handleAddParam}
+            onUpdate={handleUpdateParam}
+            onRemove={handleRemoveParam}
+          />
+        ) : null}
+
+        {effectiveBuilderTab === 'auth' ? (
+          <HttpAuthTab auth={auth} onChange={handleAuthChange} />
+        ) : null}
+
+        {effectiveBuilderTab === 'headers' ? (
+          <section data-testid="http-request-editor-headers">
+            <header className="flex items-center gap-2">
+              <span className="text-[11.5px] font-semibold text-fg-base">
+                {t('httpWorkspace.editor.headers.label')}
+              </span>
+              <button
+                type="button"
+                onClick={handleAddHeader}
+                data-testid="http-request-editor-headers-add"
+                aria-label={t('httpWorkspace.editor.headers.add')}
+                title={t('httpWorkspace.editor.headers.add')}
+                className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-border-subtle text-fg-subtle transition-colors hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+              >
+                <Plus size={12} aria-hidden="true" />
+              </button>
+              {headers.length === 0 ? (
+                <span className="text-[11px] text-fg-subtle">
+                  {t('httpWorkspace.editor.headers.empty')}
+                </span>
+              ) : null}
+            </header>
+            <ul role="list" className="mt-1 flex flex-col gap-1">
+              {headers.map((h, i) => (
+                <li key={i} className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={h.enabled}
+                    onChange={(event) =>
+                      handleUpdateHeader(i, { enabled: event.target.checked })
+                    }
+                    data-testid="http-request-editor-header-enabled"
+                    aria-label={t('httpWorkspace.editor.headers.enabledAria', {
+                      name: h.name,
+                    })}
+                  />
+                  <input
+                    type="text"
+                    value={h.name}
+                    onChange={(event) =>
+                      handleUpdateHeader(i, { name: event.target.value })
+                    }
+                    placeholder={t('httpWorkspace.editor.headers.name.placeholder')}
+                    aria-label={t('httpWorkspace.editor.headers.name.placeholder')}
+                    data-testid="http-request-editor-header-name"
+                    className="h-7 w-36 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={h.value}
+                    onChange={(event) =>
+                      handleUpdateHeader(i, { value: event.target.value })
+                    }
+                    placeholder={t('httpWorkspace.editor.headers.value.placeholder')}
+                    aria-label={t('httpWorkspace.editor.headers.value.placeholder')}
+                    data-testid="http-request-editor-header-value"
+                    className="h-7 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveHeader(i)}
+                    aria-label={t('httpWorkspace.editor.headers.remove.aria')}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded text-fg-subtle transition-colors hover:text-error-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+                  >
+                    <Trash2 size={11} aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {effectiveBuilderTab === 'body' && supportsBody ? (
           <section data-testid="http-request-editor-body">
             <header className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted">
+              <span className="text-[11.5px] font-semibold text-fg-base">
                 {t('httpWorkspace.editor.body.label')}
               </span>
               <select
@@ -400,7 +675,7 @@ export function HttpRequestEditor({
                   scheduleAutoSave({ body: next });
                 }}
                 data-testid="http-request-editor-body-kind"
-                className="h-6 rounded-md border border-border/40 bg-surface/40 px-1.5 text-[10px] font-bold focus:border-border-strong focus:outline-none"
+                className="h-6 rounded-md border border-border-subtle bg-bg-panel px-1.5 text-[10px] font-semibold text-fg-base focus:border-border-strong focus:outline-none"
               >
                 <option value="none">
                   {t('httpWorkspace.editor.body.kind.none')}
@@ -434,7 +709,7 @@ export function HttpRequestEditor({
                 placeholder={t('httpWorkspace.editor.body.placeholder')}
                 aria-label={t('httpWorkspace.editor.body.label')}
                 data-testid="http-request-editor-body-content"
-                className="mt-1 h-24 w-full resize-y rounded-md border border-border/40 bg-background p-2 font-mono text-[11px] focus:border-border-strong focus:outline-none"
+                className="mt-1 h-40 w-full resize-y rounded-md border border-border-subtle bg-bg-inset p-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
               />
             ) : null}
           </section>

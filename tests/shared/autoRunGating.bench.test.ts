@@ -11,7 +11,7 @@
  * Sizing rationale: a typical Lingua scratchpad tab body is 1–5 KB.
  * We bench at 5 KB × 5 000 iterations — that simulates ~70 minutes of
  * sustained typing (one auto-run candidate per 0.8 s) compressed
- * into a single test run. The budget is 750 ms wall clock (~150 µs /
+ * into a single test run. The budget is 750 ms CPU time (~150 µs /
  * call), still orders of magnitude under the 1.2 s auto-run debounce
  * while leaving room for Vitest's full-suite CPU contention. A flake
  * here is the signal that someone wired a Monaco / TS-worker
@@ -20,6 +20,23 @@
 
 import { describe, it, expect } from 'vitest';
 import { isLikelyComplete } from '#src/shared/autoRunGating';
+
+function createElapsedTimer(): () => number {
+  if (typeof process !== 'undefined' && typeof process.cpuUsage === 'function') {
+    const start = process.cpuUsage();
+    return () => {
+      const elapsed = process.cpuUsage(start);
+      return (elapsed.user + elapsed.system) / 1_000;
+    };
+  }
+
+  const now = () =>
+    typeof performance !== 'undefined' && performance.now
+      ? performance.now()
+      : Date.now();
+  const startMs = now();
+  return () => now() - startMs;
+}
 
 function buildBuffer(minBytes: number): string {
   // Repeat a realistic JS sample until we cross the byte target.
@@ -52,22 +69,17 @@ describe('autoRunGating bench — 5 KB / 5 000 iterations', () => {
     // Warm-up — let V8 inline before measuring.
     for (let i = 0; i < 100; i++) isLikelyComplete('javascript', buffer);
 
-    const now = () =>
-      typeof performance !== 'undefined' && performance.now
-        ? performance.now()
-        : Date.now();
-
-    const startMs = now();
+    const elapsed = createElapsedTimer();
     let last = { ready: true, reason: 'ok' as const };
     for (let i = 0; i < 5_000; i++) {
       last = isLikelyComplete('javascript', buffer);
     }
-    const elapsedMs = now() - startMs;
+    const elapsedMs = elapsed();
 
     // The sample buffer always ends on a blank line, so the gate
     // should clear.
     expect(last.ready).toBe(true);
-    // Hard wall-clock budget. 750 ms × 5000 calls = 150 µs / call,
+    // Hard CPU-time budget. 750 ms x 5000 calls = 150 us / call,
     // comfortably under the perceptible threshold and with enough
     // headroom that shared CI runners do not fail from contention.
     expect(elapsedMs).toBeLessThan(750);

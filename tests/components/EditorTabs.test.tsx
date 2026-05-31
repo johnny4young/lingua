@@ -67,16 +67,16 @@ describe('EditorTabs', () => {
     }
   });
 
-  it('renders an accessible tablist with selected state', () => {
+  it('renders an accessible open-files group with current state', () => {
     render(<EditorTabs />);
 
-    expect(screen.getByRole('tablist', { name: 'Open files' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'Open files' })).toBeTruthy();
     expect(
-      screen.getByRole('tab', { name: 'JS untitled.js' }).getAttribute('aria-selected')
-    ).toBe('false');
+      screen.getByRole('button', { name: 'JS untitled.js' }).getAttribute('aria-current')
+    ).toBeNull();
     expect(
-      screen.getByRole('tab', { name: 'Go main.go' }).getAttribute('aria-selected')
-    ).toBe('true');
+      screen.getByRole('button', { name: 'Go main.go' }).getAttribute('aria-current')
+    ).toBe('page');
   });
 
   it('exposes the unsaved marker with an accessible label', () => {
@@ -89,7 +89,7 @@ describe('EditorTabs', () => {
     const user = userEvent.setup();
     render(<EditorTabs />);
 
-    await user.click(screen.getByRole('tab', { name: 'JS untitled.js' }));
+    await user.click(screen.getByRole('button', { name: 'JS untitled.js' }));
     expect(mockSetActiveTab).toHaveBeenCalledWith('tab-js');
 
     await user.click(screen.getByRole('button', { name: 'Close untitled.js' }));
@@ -115,7 +115,7 @@ describe('EditorTabs', () => {
     // label and the close button). Before this fix only the label text
     // triggered activation — the surrounding rounded surface was dead
     // space.
-    const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
+    const tab = screen.getByRole('button', { name: 'JS untitled.js' });
     await user.pointer({ target: tab, coords: { clientX: 1, clientY: 1 } });
     await user.click(tab);
 
@@ -126,7 +126,7 @@ describe('EditorTabs', () => {
     const user = userEvent.setup();
     render(<EditorTabs />);
 
-    const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
+    const tab = screen.getByRole('button', { name: 'JS untitled.js' });
     await act(async () => {
       tab.focus();
     });
@@ -143,7 +143,7 @@ describe('EditorTabs', () => {
     const user = userEvent.setup();
     render(<EditorTabs />);
 
-    await user.hover(screen.getByRole('tab', { name: 'Go main.go' }));
+    await user.hover(screen.getByRole('button', { name: 'Go main.go' }));
 
     expect(screen.getByRole('tooltip').textContent).toContain('main.go');
   });
@@ -152,7 +152,7 @@ describe('EditorTabs', () => {
     const user = userEvent.setup();
     render(<EditorTabs />);
 
-    const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
+    const tab = screen.getByRole('button', { name: 'JS untitled.js' });
     await user.pointer({ keys: '[MouseRight]', target: tab });
 
     // Right-click activates the tab AND opens the menu — both
@@ -168,7 +168,7 @@ describe('EditorTabs', () => {
     const user = userEvent.setup();
     render(<EditorTabs />);
 
-    const activeTab = screen.getByRole('tab', { name: 'Go main.go' });
+    const activeTab = screen.getByRole('button', { name: 'Go main.go' });
     await act(async () => {
       activeTab.focus();
     });
@@ -195,7 +195,7 @@ describe('EditorTabs', () => {
 
     await user.pointer({
       keys: '[MouseRight]',
-      target: screen.getByRole('tab', { name: 'JS untitled.js' }),
+      target: screen.getByRole('button', { name: 'JS untitled.js' }),
     });
 
     await user.click(screen.getByRole('menuitem', { name: /^Close others/ }));
@@ -205,14 +205,14 @@ describe('EditorTabs', () => {
     // assertion so we exercise the full open → click → close cycle.
     await user.pointer({
       keys: '[MouseRight]',
-      target: screen.getByRole('tab', { name: 'JS untitled.js' }),
+      target: screen.getByRole('button', { name: 'JS untitled.js' }),
     });
     await user.click(screen.getByRole('menuitem', { name: /^Close all/ }));
     expect(mockCloseAllTabs).toHaveBeenCalled();
 
     await user.pointer({
       keys: '[MouseRight]',
-      target: screen.getByRole('tab', { name: 'JS untitled.js' }),
+      target: screen.getByRole('button', { name: 'JS untitled.js' }),
     });
     await user.click(screen.getByRole('menuitem', { name: /^Duplicate/ }));
     expect(mockDuplicateActiveTab).toHaveBeenCalled();
@@ -222,8 +222,8 @@ describe('EditorTabs', () => {
     const user = userEvent.setup();
     render(<EditorTabs />);
 
-    const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
-    // The filename span lives inside the tab; targeting the tab
+    const tab = screen.getByRole('button', { name: 'JS untitled.js' });
+    // The filename span lives inside the file button; targeting the button
     // node bubbles to it without depending on a fragile testid.
     const filename = tab.querySelector('span.font-mono') as HTMLElement;
     await user.dblClick(filename);
@@ -242,7 +242,7 @@ describe('EditorTabs', () => {
     const user = userEvent.setup();
     render(<EditorTabs />);
 
-    const tab = screen.getByRole('tab', { name: 'JS untitled.js' });
+    const tab = screen.getByRole('button', { name: 'JS untitled.js' });
     const filename = tab.querySelector('span.font-mono') as HTMLElement;
     await user.dblClick(filename);
 

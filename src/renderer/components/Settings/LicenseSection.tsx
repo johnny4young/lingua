@@ -3,11 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { useLicenseStore, type LicenseStatus } from '../../stores/licenseStore';
 import { useUIStore } from '../../stores/uiStore';
 import { getOrMintDeviceId } from '../../services/deviceFingerprint';
+import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
+import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { DeviceList } from './DeviceList';
 import { EducationCta } from './EducationCta';
 import { ExhaustedDevicesModal } from './ExhaustedDevicesModal';
 import { RecoveryCta } from './RecoveryCta';
-import { Row, Section } from './shared';
 import { TrialCta } from './TrialCta';
 
 /**
@@ -19,19 +20,24 @@ import { TrialCta } from './TrialCta';
  * notice so the copy stays consistent with the rest of Settings.
  */
 
-function statusToneClass(status: LicenseStatus): string {
+/**
+ * Maps a license state onto a `StatusBadge` tone. `active` is the only
+ * green/success state; `grace` warns, `invalid` errors, and the quiet
+ * `free` / `verifying` states sit on the neutral chip — matching the
+ * proto's "plan as a spec row with a system StatusBadge".
+ */
+function statusBadgeTone(status: LicenseStatus): StatusBadgeTone {
   switch (status.kind) {
     case 'active':
-      return 'border-success/60 bg-success/10 text-success';
+      return 'success';
     case 'grace':
-      return 'border-warning/60 bg-warning/10 text-warning';
+      return 'warning';
     case 'invalid':
-      return 'border-danger/60 bg-danger/10 text-danger';
+      return 'error';
     case 'verifying':
-      return 'border-border/80 bg-surface-strong/85 text-muted';
     case 'free':
     default:
-      return 'border-border/80 bg-surface-strong/85 text-foreground';
+      return 'neutral';
   }
 }
 
@@ -259,69 +265,89 @@ export function LicenseSection() {
     }
   };
 
+  const showCtas =
+    status.kind === 'free' ||
+    (status.kind === 'invalid' && status.reason !== 'devices-exhausted');
+
   return (
-    <Section title={t('license.title')} description={t('license.description')}>
-      <Row label={t('license.current.label')} hint={t('license.current.hint')}>
-        <div className="grid w-full gap-2 text-right">
-          <span
-            data-testid="license-status-pill"
-            aria-live="polite"
-            className={`inline-flex w-fit items-center gap-2 self-end rounded-[0.8rem] border px-2 py-1 text-xs font-medium ${statusToneClass(status)}`}
-          >
-            {t(statusLabelKey(status), { tier: tierLabel(t, status) })}
-          </span>
-          {token ? (
-            <button
-              type="button"
-              onClick={() => void handleClear()}
-              disabled={isClearing || isApplying}
-              className="self-end rounded-[0.65rem] border border-border/70 px-2 py-0.5 text-[11px] text-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              data-testid="license-clear"
-            >
-              {t('license.clear')}
-            </button>
-          ) : null}
-        </div>
-      </Row>
+    <SettingsSection eyebrow={t('license.title')} description={t('license.description')}>
+      {/* Current plan — proto's spec row with a system StatusBadge. */}
+      <SpecCard>
+        <SpecRow
+          last
+          label={t('license.current.label')}
+          description={t('license.current.hint')}
+          control={
+            <div className="flex items-center gap-2">
+              <span data-testid="license-status-pill" aria-live="polite">
+                <StatusBadge tone={statusBadgeTone(status)} dot>
+                  {t(statusLabelKey(status), { tier: tierLabel(t, status) })}
+                </StatusBadge>
+              </span>
+              {token ? (
+                <button
+                  type="button"
+                  onClick={() => void handleClear()}
+                  disabled={isClearing || isApplying}
+                  className="rounded-md border border-border-default px-2 py-0.5 text-[11px] text-fg-muted transition-colors hover:text-fg-base disabled:cursor-not-allowed disabled:opacity-60"
+                  data-testid="license-clear"
+                >
+                  {t('license.clear')}
+                </button>
+              ) : null}
+            </div>
+          }
+        />
+      </SpecCard>
 
-      <Row label={t('license.paste.label')} hint={t('license.paste.hint')}>
-        <div className="grid w-full gap-2">
-          <textarea
-            aria-label={t('license.paste.label')}
-            placeholder={t('license.paste.placeholder')}
-            value={draft}
-            spellCheck={false}
-            onChange={event => setDraft(event.target.value)}
-            data-testid="license-input"
-            className="min-h-20 w-full rounded-[1rem] border border-border/80 bg-background/88 px-3 py-2 font-mono text-xs text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary/50"
-          />
-          <button
-            type="button"
-            onClick={() => void handleApply()}
-            disabled={isApplying || isClearing || draft.trim().length === 0}
-            data-testid="license-apply"
-            className="button-primary w-fit self-end disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isApplying ? t('license.applying') : t('license.apply')}
-          </button>
-        </div>
-      </Row>
+      {/* Paste a license token. */}
+      <SpecCard>
+        <SpecRow
+          last
+          label={t('license.paste.label')}
+          description={t('license.paste.hint')}
+          control={
+            <div className="flex w-full max-w-[320px] flex-col items-end gap-2">
+              <textarea
+                aria-label={t('license.paste.label')}
+                placeholder={t('license.paste.placeholder')}
+                value={draft}
+                spellCheck={false}
+                onChange={event => setDraft(event.target.value)}
+                data-testid="license-input"
+                className="min-h-20 w-full rounded-md border border-border-default bg-bg-base px-3 py-2 font-mono text-[12px] text-fg-base outline-none transition-colors placeholder:text-fg-subtle focus:border-accent/55"
+              />
+              <button
+                type="button"
+                onClick={() => void handleApply()}
+                disabled={isApplying || isClearing || draft.trim().length === 0}
+                data-testid="license-apply"
+                className="button-primary disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isApplying ? t('license.applying') : t('license.apply')}
+              </button>
+            </div>
+          }
+        />
+      </SpecCard>
 
-      {status.kind === 'free' || (status.kind === 'invalid' && status.reason !== 'devices-exhausted') ? (
+      {showCtas ? (
         <>
-          <TrialCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
-          <EducationCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
-          <RecoveryCta prefilledEmail={recoveryPrefill ?? undefined} />
+          <SpecCard>
+            <TrialCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
+            <EducationCta onRequestRecovery={(email) => setRecoveryPrefill(email)} />
+            <RecoveryCta prefilledEmail={recoveryPrefill ?? undefined} last />
+          </SpecCard>
           {recoverHint ? (
             <div
-              className="rounded-[1.15rem] border border-warning/60 bg-warning/10 px-3.5 py-3 text-xs leading-5 text-warning"
+              className="rounded-md border border-warning-border bg-warning-bg px-3.5 py-3 text-[12px] leading-5 text-warning-fg"
               data-testid="license-recover-hint"
             >
               <p className="mb-2">{t('license.recovery.staleHint', { email: recoverHint.email })}</p>
               <button
                 type="button"
                 onClick={handleDismissRecoverHint}
-                className="text-[11px] text-warning underline-offset-2 hover:underline"
+                className="text-[11px] text-warning-fg underline-offset-2 hover:underline"
               >
                 {t('license.recovery.dismissHint')}
               </button>
@@ -334,32 +360,31 @@ export function LicenseSection() {
       serverSync === 'synced' &&
       devices &&
       deviceLimit ? (
-        <div
-          className="rounded-[1.15rem] border border-border/80 bg-background-elevated/72 px-3.5 py-3"
-          data-testid="license-devices-row"
-        >
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-foreground">{t('license.devices.title')}</p>
-            <p className="text-xs leading-5 text-muted">
-              {t('license.devices.hint', {
-                desktop: deviceLimit.desktop,
-                web: deviceLimit.web,
-              })}
-            </p>
-          </div>
-          <div className="mt-3">
-            <DeviceList
-              devices={devices}
-              deviceLimit={deviceLimit}
-              currentDeviceId={getOrMintDeviceId()}
-              pendingRemovalId={pendingRemovalId}
-              onRemove={(deviceId) => void handleRemoveDevice(deviceId)}
-            />
-          </div>
+        <div data-testid="license-devices-row">
+          <SpecCard className="py-[14px]">
+            <div className="space-y-1">
+              <p className="text-[13px] font-medium text-fg-base">{t('license.devices.title')}</p>
+              <p className="text-[11.5px] leading-5 text-fg-subtle">
+                {t('license.devices.hint', {
+                  desktop: deviceLimit.desktop,
+                  web: deviceLimit.web,
+                })}
+              </p>
+            </div>
+            <div className="mt-3">
+              <DeviceList
+                devices={devices}
+                deviceLimit={deviceLimit}
+                currentDeviceId={getOrMintDeviceId()}
+                pendingRemovalId={pendingRemovalId}
+                onRemove={(deviceId) => void handleRemoveDevice(deviceId)}
+              />
+            </div>
+          </SpecCard>
         </div>
       ) : null}
 
       {exhaustedModalOpen ? <ExhaustedDevicesModal onClose={handleExhaustedModalClose} /> : null}
-    </Section>
+    </SettingsSection>
   );
 }

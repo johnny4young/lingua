@@ -15,7 +15,8 @@ import {
 } from '../../stores/trustEventStore';
 import { useUIStore } from '../../stores/uiStore';
 import { OverlayBackdrop, OverlayCard } from '../ui/chrome';
-import { Section } from './shared';
+import { SettingsSection } from '../ui/SpecRow';
+import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 import { trackEvent } from '../../utils/telemetry';
 import {
   clearPrivacyDashboardSurfaceClaim,
@@ -145,13 +146,12 @@ export function PrivacyTrustSection() {
 
   return (
     <div
-      className="space-y-6"
+      className="space-y-7"
       data-testid="privacy-trust-section"
       data-surface={surface}
     >
-      <Section
-        id="privacy-trust"
-        title={t('settings.privacy.title')}
+      <SettingsSection
+        eyebrow={t('settings.privacy.title')}
         description={t('settings.privacy.hint')}
       >
         {/* Redaction preview */}
@@ -160,18 +160,18 @@ export function PrivacyTrustSection() {
           result={previewResult}
           onChange={setPasteInput}
         />
-      </Section>
+      </SettingsSection>
 
-      <Section
-        title={t('settings.privacy.localStores.title')}
+      <SettingsSection
+        eyebrow={t('settings.privacy.localStores.title')}
         description={t('settings.privacy.localStores.hint')}
       >
-        <div className="overflow-x-auto rounded-[1.15rem] border border-border/80">
+        <div className="overflow-x-auto rounded-lg border border-border-subtle bg-bg-inset">
           <table
             className="min-w-full text-sm"
             data-testid="privacy-local-stores-table"
           >
-            <thead className="bg-background-elevated/60 text-xs uppercase text-fg-subtle">
+            <thead className="bg-bg-panel-alt text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">
                   {t('settings.privacy.localStores.col.key')}
@@ -191,7 +191,7 @@ export function PrivacyTrustSection() {
               {localRows.map((row) => (
                 <tr
                   key={row.key}
-                  className="border-t border-border/60"
+                  className="border-t border-border-subtle"
                   data-testid={`privacy-local-stores-row-${row.key}`}
                 >
                   <td className="px-3 py-2 font-mono text-xs text-fg-base">
@@ -201,7 +201,7 @@ export function PrivacyTrustSection() {
                     {t(row.purposeKey)}
                   </td>
                   <td
-                    className="px-3 py-2 text-right font-mono text-xs text-fg-base"
+                    className="px-3 py-2 text-right font-mono text-xs text-fg-muted"
                     data-testid={`privacy-local-stores-size-${row.key}`}
                   >
                     {formatBytes(row.bytes)}
@@ -232,24 +232,24 @@ export function PrivacyTrustSection() {
          */}
         <p
           data-testid="privacy-capsules-retained"
-          className="mt-2 text-xs text-fg-muted"
+          className="text-xs text-fg-subtle"
         >
           {t('settings.privacy.localStores.capsulesRetained', {
             count: capsulesRetained,
           })}
         </p>
-      </Section>
+      </SettingsSection>
 
-      <Section
-        title={t('settings.privacy.network.title')}
+      <SettingsSection
+        eyebrow={t('settings.privacy.network.title')}
         description={t('settings.privacy.network.hint')}
       >
-        <div className="overflow-x-auto rounded-[1.15rem] border border-border/80">
+        <div className="overflow-x-auto rounded-lg border border-border-subtle bg-bg-inset">
           <table
             className="min-w-full text-sm"
             data-testid="privacy-network-activity-table"
           >
-            <thead className="bg-background-elevated/60 text-xs uppercase text-fg-subtle">
+            <thead className="bg-bg-panel-alt text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">
                   {t('settings.privacy.network.col.feature')}
@@ -266,7 +266,7 @@ export function PrivacyTrustSection() {
               {networkRows.map((row) => (
                 <tr
                   key={row.feature}
-                  className="border-t border-border/60"
+                  className="border-t border-border-subtle"
                   data-testid={`privacy-network-row-${row.feature}`}
                 >
                   <td className="px-3 py-2 text-xs text-fg-base">
@@ -285,7 +285,7 @@ export function PrivacyTrustSection() {
             </tbody>
           </table>
         </div>
-      </Section>
+      </SettingsSection>
 
       {confirmKey ? (
         <ClearConfirmationModal
@@ -310,14 +310,9 @@ function RedactionPreviewBlock({
   const { t } = useTranslation();
   return (
     <div className="space-y-3" data-testid="privacy-redaction-preview">
-      <div>
-        <h3 className="text-[14px] font-semibold leading-tight text-fg-base">
-          {t('settings.privacy.redaction.title')}
-        </h3>
-        <p className="mt-1 max-w-[72ch] text-[12.5px] leading-relaxed text-fg-muted">
-          {t('settings.privacy.redaction.hint')}
-        </p>
-      </div>
+      <h3 className="text-[13px] font-medium leading-tight text-fg-base">
+        {t('settings.privacy.redaction.title')}
+      </h3>
       <textarea
         value={input}
         onChange={(event) => onChange(event.target.value)}
@@ -325,16 +320,16 @@ function RedactionPreviewBlock({
         rows={4}
         spellCheck={false}
         aria-label={t('settings.privacy.redaction.title')}
-        className="w-full rounded-md border border-border/80 bg-bg-elevated/80 p-3 text-sm font-mono text-fg-base focus:border-primary/60 focus:outline-none"
+        className="w-full rounded-lg border border-border-subtle bg-bg-inset p-3 text-sm font-mono text-fg-base outline-none transition-colors focus:border-accent/55"
         data-testid="privacy-redaction-input"
       />
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-md border border-border/60 bg-background-elevated/30 p-3">
-          <p className="mb-2 text-xs uppercase text-fg-subtle">
+        <div className="rounded-lg border border-border-subtle bg-bg-inset p-3">
+          <p className="mb-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">
             {t('settings.privacy.redaction.before')}
           </p>
           <pre
-            className="max-h-40 overflow-auto text-[11px] leading-snug text-fg-base whitespace-pre-wrap break-words"
+            className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-fg-base"
             data-testid="privacy-redaction-before"
           >
             {input.length === 0
@@ -342,12 +337,12 @@ function RedactionPreviewBlock({
               : input}
           </pre>
         </div>
-        <div className="rounded-md border border-border/60 bg-background-elevated/30 p-3">
-          <p className="mb-2 text-xs uppercase text-fg-subtle">
+        <div className="rounded-lg border border-border-subtle bg-bg-inset p-3">
+          <p className="mb-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">
             {t('settings.privacy.redaction.after')}
           </p>
           <pre
-            className="max-h-40 overflow-auto text-[11px] leading-snug text-fg-base whitespace-pre-wrap break-words"
+            className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-snug text-fg-base"
             data-testid="privacy-redaction-after"
           >
             {input.length === 0
@@ -360,20 +355,22 @@ function RedactionPreviewBlock({
   );
 }
 
+const NETWORK_STATUS_TONE: Record<NetworkActivityStatus, StatusBadgeTone> = {
+  enabled: 'success',
+  disabled: 'warning',
+  unavailable: 'neutral',
+};
+
 function NetworkStatusChip({ status }: { status: NetworkActivityStatus }) {
   const { t } = useTranslation();
-  const palette =
-    status === 'enabled'
-      ? 'border-success/40 bg-success/15 text-success'
-      : status === 'disabled'
-        ? 'border-warning/40 bg-warning/15 text-warning'
-        : 'border-border/60 bg-background-elevated/60 text-fg-muted';
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10.5px] uppercase tracking-wide ${palette}`}
+      className="inline-flex"
       data-testid={`privacy-network-status-${status}`}
     >
-      {t(`settings.privacy.network.status.${status}`)}
+      <StatusBadge tone={NETWORK_STATUS_TONE[status]}>
+        {t(`settings.privacy.network.status.${status}`)}
+      </StatusBadge>
     </span>
   );
 }

@@ -41,6 +41,7 @@ import type {
 } from '../../../shared/dependencies/types';
 import { bucketDependencyCount } from '../../../shared/dependencies/types';
 import { trackEvent } from '../../utils/telemetry';
+import { StatusBadge, type StatusBadgeTone } from '../ui/StatusBadge';
 
 type PillTone =
   | 'detected'
@@ -50,13 +51,20 @@ type PillTone =
   | 'unsupported'
   | 'needs-desktop';
 
-const STATUS_TONE: Record<DependencyStatus, string> = {
-  detected: 'border-warning/40 bg-warning/15 text-warning',
-  installed: 'border-success/40 bg-success/15 text-success',
-  installing: 'border-info/40 bg-info/15 text-info',
-  failed: 'border-error/40 bg-error/15 text-error',
-  unsupported: 'border-border/60 bg-background-elevated/60 text-fg-muted',
-  'needs-desktop': 'border-border/60 bg-background-elevated/60 text-fg-muted',
+/**
+ * FASE 5 — map each `DependencyStatus` onto a shared `<StatusBadge>`
+ * tone so the dependency pill speaks the same status family as
+ * license / run / scorecard signals (no bespoke chip styling):
+ *   detected → warning   installed → success   installing → info
+ *   failed   → error      unsupported / needs-desktop → neutral
+ */
+const STATUS_TONE: Record<DependencyStatus, StatusBadgeTone> = {
+  detected: 'warning',
+  installed: 'success',
+  installing: 'info',
+  failed: 'error',
+  unsupported: 'neutral',
+  'needs-desktop': 'neutral',
 };
 
 const STATUS_I18N_KEY: Record<DependencyStatus, string> = {
@@ -610,11 +618,10 @@ function DependencyRow({
           ) : null}
         </p>
       </div>
-      <span
-        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10.5px] uppercase tracking-wide ${STATUS_TONE[status]}`}
-        data-testid={`dependency-status-${dep.name}`}
-      >
-        {t(STATUS_I18N_KEY[status])}
+      <span data-testid={`dependency-status-${dep.name}`}>
+        <StatusBadge tone={STATUS_TONE[status]}>
+          {t(STATUS_I18N_KEY[status])}
+        </StatusBadge>
       </span>
       <button
         type="button"

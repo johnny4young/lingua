@@ -25,7 +25,7 @@ export function JsonUtilityPanel() {
   }, [analysis.formatted]);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
+    <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
       <PanelSection
         title={t('utilities.tool.json.title')}
         description={t('utilities.tool.json.panelDescription')}

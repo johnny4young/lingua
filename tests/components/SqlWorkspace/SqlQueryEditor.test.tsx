@@ -38,7 +38,7 @@ describe('SqlQueryEditor', () => {
     });
 
     expect(onPatch).toHaveBeenCalledTimes(1);
-    expect(onPatch).toHaveBeenLastCalledWith({ query: 'SELECT 42;' });
+    expect(onPatch).toHaveBeenLastCalledWith('q1', { query: 'SELECT 42;' });
   });
 
   it('flushes the latest draft on unmount before the debounce settles', () => {
@@ -64,9 +64,85 @@ describe('SqlQueryEditor', () => {
     unmount();
 
     expect(onPatch).toHaveBeenCalledTimes(1);
-    expect(onPatch).toHaveBeenLastCalledWith({
+    expect(onPatch).toHaveBeenLastCalledWith('q1', {
       query: 'SELECT * FROM late_draft;',
     });
+  });
+
+  it('appends an insert-signal table starter to the draft', () => {
+    const query = createBlankSqlQuery({
+      id: 'q1',
+      query: 'SELECT 1;',
+      now: '2026-05-26T00:00:00.000Z',
+    });
+    const onPatch = vi.fn();
+
+    const { rerender } = render(
+      <SqlQueryEditor
+        query={query}
+        onPatch={onPatch}
+        onRun={vi.fn()}
+        isExecuting={false}
+        insertSignal={{ text: 'SELECT * FROM users LIMIT 100;', nonce: 1 }}
+      />
+    );
+
+    const textarea = screen.getByTestId(
+      'sql-query-editor-textarea'
+    ) as HTMLTextAreaElement;
+    // nonce 1 was the initial value; bumping it triggers the append.
+    rerender(
+      <SqlQueryEditor
+        query={query}
+        onPatch={onPatch}
+        onRun={vi.fn()}
+        isExecuting={false}
+        insertSignal={{ text: 'SELECT * FROM users LIMIT 100;', nonce: 2 }}
+      />
+    );
+
+    expect(textarea.value).toBe(
+      'SELECT 1;\nSELECT * FROM users LIMIT 100;'
+    );
+
+    // The appended text auto-saves after the debounce settles.
+    act(() => {
+      vi.advanceTimersByTime(getSqlQueryAutoSaveDebounceMs());
+    });
+    expect(onPatch).toHaveBeenLastCalledWith('q1', {
+      query: 'SELECT 1;\nSELECT * FROM users LIMIT 100;',
+    });
+  });
+
+  it('uses the bare starter when inserting into an empty draft', () => {
+    const query = createBlankSqlQuery({
+      id: 'q1',
+      now: '2026-05-26T00:00:00.000Z',
+    });
+
+    const { rerender } = render(
+      <SqlQueryEditor
+        query={query}
+        onPatch={vi.fn()}
+        onRun={vi.fn()}
+        isExecuting={false}
+        insertSignal={{ text: 'SELECT * FROM users LIMIT 100;', nonce: 0 }}
+      />
+    );
+    rerender(
+      <SqlQueryEditor
+        query={query}
+        onPatch={vi.fn()}
+        onRun={vi.fn()}
+        isExecuting={false}
+        insertSignal={{ text: 'SELECT * FROM users LIMIT 100;', nonce: 1 }}
+      />
+    );
+
+    expect(
+      (screen.getByTestId('sql-query-editor-textarea') as HTMLTextAreaElement)
+        .value
+    ).toBe('SELECT * FROM users LIMIT 100;');
   });
 
   it('flushes the previous query draft when the active query switches', () => {
@@ -79,13 +155,12 @@ describe('SqlQueryEditor', () => {
       query: 'SELECT 2;',
       now: '2026-05-26T00:00:00.000Z',
     });
-    const onFirstPatch = vi.fn();
-    const onSecondPatch = vi.fn();
+    const onPatch = vi.fn();
 
     const { rerender } = render(
       <SqlQueryEditor
         query={firstQuery}
-        onPatch={onFirstPatch}
+        onPatch={onPatch}
         onRun={vi.fn()}
         isExecuting={false}
       />
@@ -98,16 +173,24 @@ describe('SqlQueryEditor', () => {
     rerender(
       <SqlQueryEditor
         query={secondQuery}
-        onPatch={onSecondPatch}
+        onPatch={onPatch}
         onRun={vi.fn()}
         isExecuting={false}
       />
     );
 
-    expect(onFirstPatch).toHaveBeenCalledTimes(1);
-    expect(onFirstPatch).toHaveBeenLastCalledWith({
+    // RQ-02 — the in-flight edit lands on the query it was typed into
+    // (q1), never on the newly-active query (q2).
+    expect(onPatch).toHaveBeenCalledTimes(1);
+    expect(onPatch).toHaveBeenLastCalledWith('q1', {
       query: 'SELECT * FROM previous_query_draft;',
     });
-    expect(onSecondPatch).not.toHaveBeenCalled();
+    expect(onPatch.mock.calls.some(([id]) => id === 'q2')).toBe(false);
+
+    // Draining any residual timer must not produce a patch onto q2.
+    act(() => {
+      vi.advanceTimersByTime(getSqlQueryAutoSaveDebounceMs());
+    });
+    expect(onPatch.mock.calls.some(([id]) => id === 'q2')).toBe(false);
   });
 });

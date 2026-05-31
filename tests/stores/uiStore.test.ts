@@ -26,20 +26,21 @@ describe('uiStore', () => {
     expect(useUIStore.getState().consoleVisible).toBe(true);
   });
 
-  it('keeps the HTTP workspace tab visible after first open', () => {
+  // MOV.02 (FASE 3) — the HTTP / SQL workspaces left the dock to
+  // become full-screen tabs, so `openBottomPanel` no longer accepts
+  // `'http'` / `'sql'` and the `*WorkspaceTabVisible` flags were
+  // removed. `openBottomPanel` now just sets the active panel +
+  // forces the console visible for the surviving dock tabs.
+  it('opens a dock panel and forces the console visible', () => {
     useUIStore.setState({
       activeBottomPanel: 'console',
-      consoleVisible: true,
-      httpWorkspaceTabVisible: false,
+      consoleVisible: false,
     });
-    useUIStore.getState().openBottomPanel('http');
+    useUIStore.getState().openBottomPanel('git-diff');
     expect(useUIStore.getState()).toMatchObject({
-      activeBottomPanel: 'http',
+      activeBottomPanel: 'git-diff',
       consoleVisible: true,
-      httpWorkspaceTabVisible: true,
     });
-    useUIStore.getState().setActiveBottomPanel('console');
-    expect(useUIStore.getState().httpWorkspaceTabVisible).toBe(true);
   });
 
   it('should set sidebar visibility directly', () => {

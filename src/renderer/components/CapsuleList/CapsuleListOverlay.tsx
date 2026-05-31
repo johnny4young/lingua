@@ -8,8 +8,11 @@
  * external one; this overlay finally lets them browse, preview and
  * export ANY retained capsule.
  *
- * Layout:
- *   - Header: title + count chip + close.
+ * Layout (FASE 1 MOV.01 — now rendered inside the shared `ModalShell`):
+ *   - Header (title variant): title + subtitle, with the shell's `x`
+ *     close button (`headerClose="button"`). The count moves to the
+ *     footer `trailing` slot; the legend rail shows just `esc close`
+ *     since navigation here is click-driven, not ↑↓/↵.
  *   - Free tier: an upsell card instead of the list (mirror of
  *     `RecentRunsPill` fold E). The `capsule.browse_opened` telemetry
  *     still fires so the upsell funnel is measurable (fold G).
@@ -25,9 +28,9 @@
  * one history entry.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Archive, Copy, ExternalLink, Eye, Trash2, X } from 'lucide-react';
+import { Copy, ExternalLink, Eye, Package, Trash2 } from 'lucide-react';
 import {
   useExecutionHistoryStore,
   type ExecutionHistoryEntry,
@@ -40,6 +43,10 @@ import { openCapsuleSourceInNewTab } from '../../utils/openCapsuleTab';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { trackEvent } from '../../utils/telemetry';
 import { cn } from '../../utils/cn';
+import { ModalShell } from '../ui/ModalShell';
+import { ModalFooterLegend } from '../ui/ModalFooterLegend';
+import { StatusBadge } from '../ui/StatusBadge';
+import { EmptyState } from '../ui/EmptyState';
 import { CapsuleImportPreview } from '../CapsuleImport';
 import { readCapsuleListSurfaceForMount } from './capsuleListSurface';
 
@@ -70,6 +77,7 @@ function formatRelative(
 
 export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   const { t } = useTranslation();
+  const titleId = useId();
   const closeRef = useRef(onClose);
   useEffect(() => {
     closeRef.current = onClose;
@@ -262,54 +270,59 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
   // ─── Free-tier upsell variant ────────────────────────────────────
   if (!canBrowse) {
     return (
-      <OverlayShell
-        title={t('capsuleList.overlay.title')}
-        subtitle={t('capsuleList.overlay.subtitle')}
+      <CapsuleShell
+        titleId={titleId}
         onClose={onClose}
-        testid="capsule-list-overlay"
+        footerTrailing={null}
       >
-        <div
-          data-testid="capsule-list-upsell"
-          className="flex h-full flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/40 bg-surface/20 p-8 text-center"
-        >
-          <Archive size={28} className="text-muted" aria-hidden="true" />
-          <h3 className="text-sm font-semibold text-foreground">
-            {t('capsuleList.upsell.title')}
-          </h3>
-          <p className="max-w-[42ch] text-xs text-muted">
-            {t('capsuleList.upsell.body')}
-          </p>
-          <button
-            type="button"
-            onClick={handleUpgrade}
-            data-testid="capsule-list-upsell-cta"
-            className="rounded-md border border-emerald-500/60 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20"
-          >
-            {t('capsuleList.upsell.cta')}
-          </button>
+        <div data-testid="capsule-list-upsell">
+          <EmptyState
+            className="py-10"
+            icon={<Package size={18} aria-hidden="true" />}
+            title={t('capsuleList.upsell.title')}
+            description={t('capsuleList.upsell.body')}
+            action={
+              <button
+                type="button"
+                onClick={handleUpgrade}
+                data-testid="capsule-list-upsell-cta"
+                className="button-primary"
+              >
+                {t('capsuleList.upsell.cta')}
+              </button>
+            }
+          />
         </div>
-      </OverlayShell>
+      </CapsuleShell>
     );
   }
 
   return (
-    <OverlayShell
-      title={t('capsuleList.overlay.title')}
-      subtitle={t('capsuleList.overlay.subtitle')}
+    <CapsuleShell
+      titleId={titleId}
       onClose={onClose}
-      testid="capsule-list-overlay"
-      count={capsuleEntries.length}
+      footerTrailing={
+        <span
+          data-testid="capsule-list-count"
+          className="font-mono text-[11px] text-fg-subtle"
+        >
+          {t('capsuleList.count', { count: capsuleEntries.length })}
+        </span>
+      }
     >
       {capsuleEntries.length === 0 ? (
-        <div
-          data-testid="capsule-list-empty"
-          className="flex h-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/40 bg-surface/20 p-6 text-center text-xs text-muted"
-        >
-          <p className="text-foreground">{t('capsuleList.empty.title')}</p>
-          <p>{t('capsuleList.empty.hint')}</p>
-        </div>
+        <EmptyState
+          className="py-10"
+          icon={<Package size={18} aria-hidden="true" />}
+          title={
+            <span data-testid="capsule-list-empty">
+              {t('capsuleList.empty.title')}
+            </span>
+          }
+          description={t('capsuleList.empty.hint')}
+        />
       ) : (
-        <div className="grid min-h-0 flex-1 grid-rows-[auto_1fr] gap-3">
+        <div className="grid h-[min(56vh,400px)] min-h-0 grid-rows-[auto_1fr] gap-3">
           {/* Filter chips (fold C) */}
           <div
             data-testid="capsule-list-filters"
@@ -332,7 +345,10 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                 {lang}
               </FilterChip>
             ))}
-            <span className="mx-1 h-3.5 w-px bg-border/50" aria-hidden="true" />
+            <span
+              className="mx-1 h-3.5 w-px bg-border-subtle"
+              aria-hidden="true"
+            />
             <FilterChip
               active={statusFilter === 'all'}
               onClick={() => setStatusFilter('all')}
@@ -373,8 +389,8 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                       className={cn(
                         'rounded-md border px-2.5 py-2 text-xs transition-colors',
                         isSelected
-                          ? 'border-border-strong bg-surface-strong/50'
-                          : 'border-border/50 bg-surface/30 hover:bg-surface-strong/40'
+                          ? 'border-border-strong bg-bg-panel-alt'
+                          : 'border-border-subtle bg-bg-inset/40 hover:bg-bg-panel-alt'
                       )}
                     >
                       <button
@@ -384,24 +400,19 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
                         className="block w-full text-left"
                       >
                         <span className="flex items-center gap-2">
-                          <span className="rounded bg-surface-strong/60 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground">
+                          <StatusBadge tone="neutral">
                             {capsule.tab.language}
-                          </span>
-                          <span
-                            className={cn(
-                              'font-mono text-[10px] uppercase',
-                              entry.status === 'ok'
-                                ? 'text-emerald-300'
-                                : 'text-rose-300'
-                            )}
+                          </StatusBadge>
+                          <StatusBadge
+                            tone={entry.status === 'ok' ? 'success' : 'error'}
                           >
                             {entry.status}
-                          </span>
-                          <span className="ml-auto font-mono text-[10px] text-muted">
+                          </StatusBadge>
+                          <span className="ml-auto font-mono text-[10px] text-fg-subtle">
                             {formatRelative(entry.timestamp, now, t)}
                           </span>
                         </span>
-                        <span className="mt-1 block truncate text-[11px] text-muted">
+                        <span className="mt-1 block truncate text-[11px] text-fg-subtle">
                           {summarizeRunCapsule(capsule)}
                         </span>
                       </button>
@@ -445,7 +456,7 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
               {filtered.length === 0 ? (
                 <li
                   data-testid="capsule-list-filtered-empty"
-                  className="rounded-md border border-dashed border-border/40 px-3 py-4 text-center text-[11px] text-muted"
+                  className="rounded-md border border-dashed border-border-subtle px-3 py-4 text-center text-[11px] text-fg-subtle"
                 >
                   {t('capsuleList.filter.noMatches')}
                 </li>
@@ -453,14 +464,17 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
             </ul>
 
             {/* RIGHT — preview of the selected capsule */}
-            <div className="min-h-0" data-testid="capsule-list-preview-pane">
+            <div
+              className="min-h-0 overflow-auto"
+              data-testid="capsule-list-preview-pane"
+            >
               {selected?.lastCapsule ? (
                 <CapsuleImportPreview
                   capsule={selected.lastCapsule}
                   byteLength={previewByteLength}
                 />
               ) : (
-                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/40 bg-surface/20 p-6 text-center text-xs text-muted">
+                <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border-subtle bg-bg-inset/40 p-6 text-center text-xs text-fg-subtle">
                   {t('capsuleList.preview.placeholder')}
                 </div>
               )}
@@ -468,66 +482,56 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
           </div>
         </div>
       )}
-    </OverlayShell>
+    </CapsuleShell>
   );
 }
 
-function OverlayShell({
-  title,
-  subtitle,
+/**
+ * Thin wrapper over the shared `ModalShell` that fixes the capsule
+ * overlay's invariant chrome: a TITLE-variant header (title + subtitle
+ * with the shell's `x` close button), the `max-w-[720px]` clamp from the
+ * MOV.01 prototype, and a footer whose legend is just `esc close`
+ * (navigation here is click-driven, not ↑↓/↵) with the live count in the
+ * trailing slot. Body padding stays at the shell default; the populated
+ * grid manages its own internal scroll.
+ */
+function CapsuleShell({
+  titleId,
   onClose,
-  testid,
-  count,
+  footerTrailing,
   children,
 }: {
-  title: string;
-  subtitle: string;
+  titleId: string;
   onClose: () => void;
-  testid: string;
-  count?: number;
+  footerTrailing: React.ReactNode;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      data-testid={testid}
-      className="fixed inset-0 z-40 flex items-start justify-center bg-bg-base/80 p-6 backdrop-blur-sm"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="mt-12 flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-xl">
-        <header className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
-          <div>
-            <h2 className="flex items-center gap-2 font-display text-base font-semibold tracking-[-0.01em] text-foreground">
-              {title}
-              {typeof count === 'number' ? (
-                <span
-                  data-testid="capsule-list-count"
-                  className="rounded-full bg-surface-strong/60 px-2 py-0.5 text-[11px] font-medium text-muted"
-                >
-                  {t('capsuleList.count', { count })}
-                </span>
-              ) : null}
-            </h2>
-            <p className="mt-0.5 text-[11px] text-muted">{subtitle}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('capsuleList.overlay.close')}
-            data-testid="capsule-list-overlay-close"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-surface-strong/60 hover:text-foreground"
+    <ModalShell
+      size="max-w-[720px]"
+      onClose={onClose}
+      labelledById={titleId}
+      headerClose="button"
+      closeLabel={t('capsuleList.overlay.close')}
+      header={
+        <div data-testid="capsule-list-overlay">
+          <div
+            id={titleId}
+            className="text-[16px] font-semibold tracking-[-0.01em] text-fg-base"
           >
-            <X size={14} aria-hidden="true" />
-          </button>
-        </header>
-        <div className="flex min-h-0 flex-1 flex-col p-4">{children}</div>
-      </div>
-    </div>
+            {t('capsuleList.overlay.title')}
+          </div>
+          <div className="mt-0.5 text-[12.5px] text-fg-subtle">
+            {t('capsuleList.overlay.subtitle')}
+          </div>
+        </div>
+      }
+      footerLegend={<ModalFooterLegend navigate={false} select={false} close />}
+      trailing={footerTrailing}
+    >
+      {children}
+    </ModalShell>
   );
 }
 
@@ -552,8 +556,8 @@ function FilterChip({
       className={cn(
         'rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide',
         active
-          ? 'border-border-strong bg-surface-strong/60 text-foreground'
-          : 'border-border/50 text-muted hover:bg-surface-strong/40'
+          ? 'border-accent/40 bg-accent/10 text-accent-fg'
+          : 'border-border-subtle bg-bg-inset text-fg-muted hover:text-fg-base'
       )}
     >
       {children}
@@ -582,10 +586,10 @@ function RowAction({
       title={label}
       aria-label={label}
       className={cn(
-        'inline-flex items-center justify-center rounded p-1 text-muted transition-colors',
+        'inline-flex items-center justify-center rounded p-1 text-fg-subtle transition-colors',
         danger
-          ? 'hover:bg-rose-500/15 hover:text-rose-200'
-          : 'hover:bg-surface-strong/60 hover:text-foreground'
+          ? 'hover:bg-error-bg hover:text-error-fg'
+          : 'hover:bg-bg-panel-alt hover:text-fg-base'
       )}
     >
       {icon}

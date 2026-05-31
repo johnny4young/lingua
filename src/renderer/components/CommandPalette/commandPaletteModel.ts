@@ -235,8 +235,10 @@ interface BuildCommandPaletteModelArgs {
   // `action-project-replace` palette entry.
   onOpenProjectReplace?: () => void;
   // RL-097 Slice 1 — invoked when the user picks the
-  // `action-open-http-workspace` palette entry. Flips the bottom
-  // panel to the HTTP workspace tab.
+  // `action-open-http-workspace` palette entry. MOV.02 (FASE 3):
+  // opens or focuses the full-screen HTTP workspace tab (the dock
+  // panel was removed); the caller wires this to
+  // `openHttpWorkspaceTab()`.
   onOpenHttpWorkspace?: () => void;
   // RL-097 Slice 2 — invoked when the user picks the
   // `action-open-sql-workspace` palette entry. Mirror of
@@ -1474,9 +1476,9 @@ export function buildCommandPaletteModel({
     );
   }
 
-  // RL-097 Slice 1 — Open the HTTP workspace bottom-panel tab.
-  // Surface aliases pick up the common "fetch / api / rest /
-  // request" mental model.
+  // RL-097 Slice 1 — Open the full-screen HTTP workspace tab
+  // (MOV.02 moved it out of the dock). Surface aliases pick up the
+  // common "fetch / api / rest / request" mental model.
   if (onOpenHttpWorkspace) {
     commands.push(
       buildActionCommand(
@@ -1492,9 +1494,10 @@ export function buildCommandPaletteModel({
     );
   }
 
-  // RL-097 Slice 2 — Open the SQL workspace bottom-panel tab.
-  // Surface aliases pick up the common "sql / query / duckdb / table"
-  // mental model. Mirror of `action-open-http-workspace`.
+  // RL-097 Slice 2 — Open the full-screen SQL workspace tab
+  // (MOV.02 moved it out of the dock). Surface aliases pick up the
+  // common "sql / query / duckdb / table" mental model. Mirror of
+  // `action-open-http-workspace`.
   if (onOpenSqlWorkspace) {
     commands.push(
       buildActionCommand(

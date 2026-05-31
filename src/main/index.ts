@@ -175,6 +175,11 @@ const createWindow = () => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // SEC-01 — pin the same-origin policy explicitly. This is the
+      // Electron default, but pinning it ensures a future edit cannot
+      // silently disable web security (which would let a compromised
+      // renderer bypass CORS and read cross-origin resources).
+      webSecurity: true,
     },
   });
   mainWindow = window;

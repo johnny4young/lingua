@@ -40,6 +40,29 @@ export function rowsToMarkdownTable(
   return [header, sep, ...body].join('\n');
 }
 
+/**
+ * Quote a DuckDB identifier (table / column name) for safe inlining
+ * into generated SQL. DuckDB follows ANSI quoting: wrap in double
+ * quotes and double any embedded double quote. Without this a table
+ * name with a space, a reserved word (e.g. `select`), mixed case (which
+ * DuckDB folds to lowercase when unquoted), or an injected `";` would
+ * produce broken — or statement-chaining — SQL when interpolated as a
+ * bare identifier.
+ */
+export function quoteSqlIdentifier(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Build the runnable `SELECT * FROM <table> LIMIT 100;` starter the
+ * schema browser inserts into the editor. The table name is quoted so
+ * any identifier the engine reports (spaces, reserved words, mixed
+ * case, special characters) round-trips into a valid, single statement.
+ */
+export function buildSelectStarter(tableName: string): string {
+  return `SELECT * FROM ${quoteSqlIdentifier(tableName)} LIMIT 100;`;
+}
+
 function stringifyCell(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value;

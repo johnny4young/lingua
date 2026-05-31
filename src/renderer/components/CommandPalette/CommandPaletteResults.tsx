@@ -1,16 +1,18 @@
-import { Code, FileCode, Zap } from 'lucide-react';
+import { Code, FileCode, Search, Zap } from 'lucide-react';
 import type { ReactNode, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   languageBadgeClass,
   languageShortLabel,
 } from '../../utils/languageMeta';
+import { cn } from '../../utils/cn';
+import { EmptyState } from '../ui/EmptyState';
 import type { CommandCategory, CommandEntry } from './commandPaletteModel';
 
 const CATEGORY_ICON: Record<CommandCategory, ReactNode> = {
-  template: <FileCode size={13} className="shrink-0 text-primary" />,
-  snippet: <Code size={13} className="shrink-0 text-info" />,
-  action: <Zap size={13} className="shrink-0 text-warning" />,
+  template: <FileCode size={14} aria-hidden="true" />,
+  snippet: <Code size={14} aria-hidden="true" />,
+  action: <Zap size={14} aria-hidden="true" />,
 };
 
 /**
@@ -54,15 +56,14 @@ export function CommandPaletteResults({
   const isEmptyQuery = query.trim().length === 0;
 
   return (
-    <div ref={listRef} className="max-h-[26rem] overflow-y-auto px-2 py-2">
+    <div ref={listRef}>
       {commands.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-          <p className="text-sm text-muted">
-            {t('commandPalette.results.empty', { query })}
-          </p>
-          <p className="text-xs text-muted/80">
-            {t('commandPalette.results.empty.hint')}
-          </p>
+        <div className="px-4 py-10">
+          <EmptyState
+            icon={<Search size={18} aria-hidden="true" />}
+            title={t('commandPalette.results.empty', { query })}
+            description={t('commandPalette.results.empty.hint')}
+          />
         </div>
       ) : isEmptyQuery ? (
         renderGrouped(commands, t, selectedIndex, onHoverIndex)
@@ -81,6 +82,7 @@ function renderEntry(
   selectedIndex: number,
   onHoverIndex: (index: number) => void
 ) {
+  const isActive = index === selectedIndex;
   return (
     <button
       key={command.id}
@@ -88,18 +90,28 @@ function renderEntry(
       onClick={command.action}
       onMouseEnter={() => onHoverIndex(index)}
       data-result-index={index}
-      className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors ${
-        index === selectedIndex ? 'bg-primary-soft' : 'hover:bg-surface-strong/68'
-      }`}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-lg border px-3 py-[9px] text-left transition-colors',
+        isActive
+          ? 'border-accent/40 bg-primary-soft'
+          : 'border-transparent hover:bg-bg-panel-alt'
+      )}
     >
-      <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-surface-strong/82">
+      <span
+        className={cn(
+          'grid size-7 shrink-0 place-items-center rounded-md border border-border-subtle bg-bg-panel-alt',
+          isActive ? 'text-accent' : 'text-fg-muted'
+        )}
+      >
         {CATEGORY_ICON[command.category]}
-      </div>
+      </span>
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium text-foreground">
+        <span className="truncate text-[13.5px] font-medium text-fg-base">
           {command.label}
         </span>
-        <span className="truncate text-xs text-muted">{command.description}</span>
+        <span className="truncate text-xs text-fg-subtle">
+          {command.description}
+        </span>
       </div>
       {command.language && (
         <span

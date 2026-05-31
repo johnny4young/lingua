@@ -33,11 +33,24 @@ import { getSqlQueryAutoSaveDebounceMs } from './sqlQueryEditorTiming';
 
 export interface SqlQueryEditorProps {
   query: SqlQueryV1;
-  /** Patches land via this callback (auto-save). */
-  onPatch: (patch: Partial<SqlQueryV1>) => void;
+  /**
+   * Patches land via this callback (auto-save). The target query id is
+   * passed explicitly so a debounced flush always lands on the query
+   * the edit was typed into, even if the active query switched during
+   * the debounce quiet window (RQ-02).
+   */
+  onPatch: (queryId: string, patch: Partial<SqlQueryV1>) => void;
   /** Run the current query. Caller disables during in-flight. */
   onRun: (query: SqlQueryV1) => void;
   isExecuting: boolean;
+  /**
+   * Schema-browser insert signal. When `nonce` increments the editor
+   * appends `text` to the current draft (on its own line when the draft
+   * is non-empty) and schedules the usual debounced auto-save. A signal
+   * object (rather than a bare string) lets the same table be inserted
+   * twice in a row — the changing nonce is what the effect keys on.
+   */
+  insertSignal?: { text: string; nonce: number };
 }
 
 export function SqlQueryEditor({
@@ -45,12 +58,21 @@ export function SqlQueryEditor({
   onPatch,
   onRun,
   isExecuting,
+  insertSignal,
 }: SqlQueryEditorProps) {
   const { t } = useTranslation();
   const [text, setText] = useState<string>(query.query);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const lastInsertNonceRef = useRef<number>(insertSignal?.nonce ?? 0);
   const lastSavedRef = useRef<string>(query.query);
   const latestTextRef = useRef<string>(query.query);
   const latestOnPatchRef = useRef(onPatch);
+  // RQ-02 — the id of the query the pending draft was typed into,
+  // captured whenever the draft diverges from the saved text. The
+  // flush reads THIS captured id, not the live `query.id` prop, so a
+  // switch before the debounce settles cannot redirect the patch onto
+  // the newly-active query.
+  const pendingTargetIdRef = useRef<string>(query.id);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sizeBytes = utf8ByteLength(text);
   const overCap = sizeBytes > MAX_QUERY_BYTES;
@@ -62,7 +84,7 @@ export function SqlQueryEditor({
     }
     const latestText = latestTextRef.current;
     if (latestText !== lastSavedRef.current) {
-      latestOnPatchRef.current({ query: latestText });
+      latestOnPatchRef.current(pendingTargetIdRef.current, { query: latestText });
       lastSavedRef.current = latestText;
     }
   }, []);
@@ -76,6 +98,7 @@ export function SqlQueryEditor({
     setText(query.query);
     latestTextRef.current = query.query;
     lastSavedRef.current = query.query;
+    pendingTargetIdRef.current = query.id;
   }, [query.id, query.query]);
 
   useEffect(() => {
@@ -86,6 +109,26 @@ export function SqlQueryEditor({
     latestOnPatchRef.current = onPatch;
   }, [onPatch]);
 
+  // Schema-browser insert. Keyed on the signal nonce so re-inserting
+  // the same table (identical text) still fires. Appends on a fresh
+  // line when the draft already has content, then focuses the textarea
+  // so the user can keep editing. The debounce effect picks up the
+  // resulting `text` change and auto-saves.
+  useEffect(() => {
+    if (insertSignal === undefined) return;
+    if (insertSignal.nonce === lastInsertNonceRef.current) return;
+    lastInsertNonceRef.current = insertSignal.nonce;
+    if (insertSignal.text.length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: this effect subscribes to an external imperative signal (the schema browser's table-insert nonce) and folds it into the editor draft. The functional update reads the latest draft so concurrent typing is preserved.
+    setText((current) => {
+      const trimmed = current.replace(/\s+$/, '');
+      return trimmed.length === 0
+        ? insertSignal.text
+        : `${trimmed}\n${insertSignal.text}`;
+    });
+    textareaRef.current?.focus();
+  }, [insertSignal]);
+
   useEffect(() => {
     return () => {
       flushPendingDraft();
@@ -93,19 +136,22 @@ export function SqlQueryEditor({
   }, [query.id, flushPendingDraft]);
 
   // Auto-save debounce. Stable timer ref means rapid edits collapse
-  // to one onPatch call after the user pauses for 500 ms.
+  // to one onPatch call after the user pauses for 500 ms. The flush
+  // targets the captured `query.id` at schedule time so a switch
+  // mid-debounce never lands the patch on the wrong query (RQ-02).
   useEffect(() => {
     if (text === lastSavedRef.current) return;
+    const targetId = query.id;
     if (debounceRef.current !== null) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
       lastSavedRef.current = text;
-      onPatch({ query: text });
+      onPatch(targetId, { query: text });
     }, getSqlQueryAutoSaveDebounceMs());
     return () => {
       if (debounceRef.current !== null) clearTimeout(debounceRef.current);
     };
-  }, [text, onPatch]);
+  }, [text, onPatch, query.id]);
 
   // The query-id cleanup above flushes pending drafts on both unmount
   // and active-query switches, before the new query state is synced.
@@ -122,7 +168,7 @@ export function SqlQueryEditor({
     }
     if (text !== lastSavedRef.current) {
       lastSavedRef.current = text;
-      onPatch({ query: text });
+      onPatch(query.id, { query: text });
     }
     onRun({ ...query, query: text });
   }, [isExecuting, overCap, text, query, onPatch, onRun]);
@@ -174,14 +220,14 @@ export function SqlQueryEditor({
   return (
     <div
       data-testid="sql-query-editor"
-      className="flex h-full min-w-0 flex-col"
+      className="flex h-full min-w-0 flex-col bg-bg-base"
     >
-      <header className="flex items-center gap-2 border-b border-border/40 px-3 py-2">
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+      <header className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-fg-subtle">
           {t('sqlWorkspace.editor.queryLabel')}
         </span>
         <span
-          className={`ml-auto text-[10px] tabular-nums ${overCap ? 'text-rose-500' : 'text-muted'}`}
+          className={`ml-auto font-mono text-[10.5px] tabular-nums ${overCap ? 'text-error-fg' : 'text-fg-subtle'}`}
           data-testid="sql-query-editor-size"
           aria-live="polite"
         >
@@ -200,7 +246,7 @@ export function SqlQueryEditor({
           data-testid="sql-query-editor-format"
           aria-label={t('sqlWorkspace.editor.format')}
           title={t('sqlWorkspace.editor.format')}
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-border/60 bg-surface/40 px-2 text-[11px] font-medium text-muted hover:border-border-strong hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border-default bg-bg-panel px-2.5 text-[12px] font-medium text-fg-muted transition-colors hover:border-border-strong hover:bg-bg-panel-alt hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Wand2 size={11} aria-hidden="true" />
           <span>{t('sqlWorkspace.editor.format')}</span>
@@ -211,7 +257,7 @@ export function SqlQueryEditor({
           disabled={isExecuting || overCap || text.trim().length === 0}
           data-testid="sql-query-editor-run"
           aria-label={t('sqlWorkspace.editor.run')}
-          className="inline-flex h-7 items-center gap-1 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-2 text-[11px] font-medium text-emerald-700 hover:border-emerald-500 hover:bg-emerald-500/20 dark:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-success-fg bg-success-fg px-2.5 text-[12px] font-semibold text-bg-base transition-colors hover:bg-success-border hover:border-success-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isExecuting ? (
             <Loader2 size={11} aria-hidden="true" className="animate-spin" />
@@ -219,19 +265,20 @@ export function SqlQueryEditor({
             <Play size={11} aria-hidden="true" />
           )}
           <span>{t('sqlWorkspace.editor.run')}</span>
-          <span className="ml-1 hidden text-[10px] text-emerald-700/70 dark:text-emerald-300/70 sm:inline">
+          <span className="ml-1 hidden font-mono text-[10px] opacity-80 sm:inline">
             {runShortcutHint}
           </span>
         </button>
       </header>
       <textarea
+        ref={textareaRef}
         data-testid="sql-query-editor-textarea"
         value={text}
         onChange={(event) => setText(event.target.value)}
         onKeyDown={handleKeyDown}
         spellCheck={false}
         placeholder={t('sqlWorkspace.editor.placeholder')}
-        className="min-h-0 flex-1 resize-none border-0 bg-background px-3 py-2 font-mono text-[12px] text-foreground placeholder:text-fg-subtle focus-visible:outline-none"
+        className="min-h-0 flex-1 resize-none border-0 bg-bg-base px-3 py-2.5 font-mono text-[13px] leading-[1.7] text-fg-base placeholder:text-fg-subtle focus-visible:outline-none"
       />
     </div>
   );

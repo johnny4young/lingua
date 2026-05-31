@@ -13,11 +13,12 @@ import { useProjectStore, type FileTreeNode as ProjectFileTreeNode } from '../..
 import { countFiles } from '../../stores/projectTree';
 import { PLAINTEXT_LANGUAGE } from '../../utils/language';
 import { joinAbsolute, smartTruncatePath } from '../../utils/filePath';
-import { useDirtyTabPaths } from '../../hooks/useDirtyTabPaths';
+import { useDirtyTabPaths, dirtyTabKey } from '../../hooks/useDirtyTabPaths';
 import { IconButton } from '../ui/chrome';
 import { FileTreeEmptyState } from './FileTreeEmptyState';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
 import { FileTreeNode } from './FileTreeNode';
+import { FileTreeOpenTabs } from './FileTreeOpenTabs';
 import type { CreationTarget } from './fileTreeTypes';
 
 // ------------------------------------------------------------------ main FileTree
@@ -28,19 +29,42 @@ interface FileTreeProps {
 
 export function FileTree({ onNavigate }: FileTreeProps) {
   const { t } = useTranslation();
-  const { tabs, activeTabId, setActiveTab, openFile } = useEditorStore();
-  const {
-    currentProject,
-    recentProjects,
-    nodes,
-    createProject,
-    openProject,
-    refreshTree,
-    createFile,
-    createDirectory,
-    deleteEntry,
-    collapseAllDirectories,
-  } = useProjectStore();
+  // PERF-001 — granular selectors only. The previous store-wide
+  // `useEditorStore()` / `useProjectStore()` destructures re-rendered the
+  // entire recursive tree on every editor keystroke (a `content` update
+  // rewrites `editorStore.tabs`, and a store-wide subscription fires on
+  // any slice change). We now subscribe to the narrow slices the tree
+  // body actually needs and pull every action as its own stable
+  // reference (Zustand actions never change identity, so selecting one
+  // never triggers a re-render). The open-tabs foot owns its own
+  // narrowed `tabs` projection via `useShallow` in `FileTreeOpenTabs`,
+  // so the tree no longer subscribes to the tab list at all.
+  const openFile = useEditorStore((state) => state.openFile);
+  // Derive the active editor tab's identity WITHOUT subscribing to the
+  // whole `tabs` array: a primitive-returning selector only re-fires
+  // when the active tab's capability binding changes, never on a
+  // per-keystroke `content` mutation.
+  const activeTabRootId = useEditorStore((state) => {
+    const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+    return active?.rootId ?? null;
+  });
+  const activeTabRelativePath = useEditorStore((state) => {
+    const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+    return active?.relativePath ?? null;
+  });
+
+  const currentProject = useProjectStore((state) => state.currentProject);
+  const recentProjects = useProjectStore((state) => state.recentProjects);
+  const nodes = useProjectStore((state) => state.nodes);
+  const createProject = useProjectStore((state) => state.createProject);
+  const openProject = useProjectStore((state) => state.openProject);
+  const refreshTree = useProjectStore((state) => state.refreshTree);
+  const createFile = useProjectStore((state) => state.createFile);
+  const createDirectory = useProjectStore((state) => state.createDirectory);
+  const deleteEntry = useProjectStore((state) => state.deleteEntry);
+  const collapseAllDirectories = useProjectStore(
+    (state) => state.collapseAllDirectories
+  );
 
   const [creating, setCreating] = useState<CreationTarget>(null);
 
@@ -65,6 +89,25 @@ export function FileTree({ onNavigate }: FileTreeProps) {
   // `editorStore.tabs`, and every keystroke creates a fresh `tabs`
   // array, so N nodes would mean N re-renders per character.
   const dirtyTabPaths = useDirtyTabPaths();
+
+  // FASE 4 — derive the `rootId::relativePath` key of the active editor
+  // tab so the matching tree row can render the proto active accent.
+  // PERF-001 — computed from the narrow `activeTabRootId` /
+  // `activeTabRelativePath` selectors (primitives that only change on a
+  // tab switch / save), never the whole `tabs` array, so editor
+  // keystrokes leave this key — and the tree rows it drives —
+  // untouched. Lights up only when the active tab is a file inside the
+  // currently-open project root.
+  const activeFileKey = useMemo(() => {
+    if (!currentProject) return null;
+    if (
+      activeTabRootId !== currentProject.rootId ||
+      !activeTabRelativePath
+    ) {
+      return null;
+    }
+    return dirtyTabKey(currentProject.rootId, activeTabRelativePath);
+  }, [currentProject, activeTabRootId, activeTabRelativePath]);
 
   // When a project is persisted but nodes haven't been loaded yet, reload tree
   useEffect(() => {
@@ -123,18 +166,13 @@ export function FileTree({ onNavigate }: FileTreeProps) {
     return (
       <FileTreeEmptyState
         recentProjects={recentProjects}
-        tabs={tabs}
-        activeTabId={activeTabId}
         onCreateProject={createProject}
         onOpenProject={openProject}
         onOpenRecentProject={async (project) => {
           await openProject(project.rootPath);
           onNavigate?.();
         }}
-        onSelectTab={(tabId) => {
-          setActiveTab(tabId);
-          onNavigate?.();
-        }}
+        onSelectTab={onNavigate}
       />
     );
   }
@@ -216,6 +254,7 @@ export function FileTree({ onNavigate }: FileTreeProps) {
             depth={0}
             creating={creating}
             dirtyTabPaths={dirtyTabPaths}
+            activeFileKey={activeFileKey}
             onCreateConfirm={handleCreateConfirm}
             onCancelCreate={() => setCreating(null)}
             onFileClick={handleFileClick}
@@ -249,6 +288,12 @@ export function FileTree({ onNavigate }: FileTreeProps) {
           {t('fileTree.openDifferent')}
         </button>
       </div>
+
+      {/* FASE 4 — synced Open-tabs foot, identical to the no-project
+          empty state. Self-renders to null when no tabs are open.
+          PERF-001 — it owns its own narrowed `tabs` projection so a
+          keystroke in the editor does not re-render the explorer tree. */}
+      <FileTreeOpenTabs onNavigate={onNavigate} />
     </div>
   );
 }

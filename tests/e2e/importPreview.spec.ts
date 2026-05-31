@@ -7,7 +7,12 @@
  * the keyboard binding + the locale-correct title.
  */
 
-import { expect, gotoApp, seedSession, test } from './licenseWeb.helpers';
+import {
+  expect,
+  gotoApp,
+  seedSession,
+  test,
+} from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -116,6 +121,61 @@ test.describe('Import overlay — Mod+Alt+I binding (RL-100 Slice 1)', () => {
     ).toContainText(/2 requests/);
     await expect(page.getByTestId('import-preview-confirm')).toContainText(
       /Import 2 requests/i
+    );
+  });
+
+  test('confirming a collection lands every request in the stable HTTP workspace rail (RL-100 Slice 3 / MOV.02, EN)', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en' });
+    await gotoApp(page);
+
+    await page.keyboard.press('ControlOrMeta+Alt+I');
+    await expect(page.getByTestId('import-preview-overlay')).toBeVisible();
+
+    // Distinct method + URL per request so the editor binding is unambiguous.
+    const postman = JSON.stringify({
+      info: {
+        name: 'E2E API',
+        schema:
+          'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+      },
+      item: [
+        { name: 'List items', request: { method: 'GET', url: 'https://x.dev/list' } },
+        {
+          name: 'Create item',
+          request: { method: 'POST', url: 'https://x.dev/create' },
+        },
+      ],
+    });
+    await page.getByTestId('import-preview-paste').fill(postman);
+    await page.getByTestId('import-preview-confirm').click();
+
+    // The collection lands as a full-screen HTTP workspace tab: ONE stable
+    // FileTab plus a rail listing BOTH requests. (The
+    // `http-request-list` id is shared by the resizable Panel wrapper, so we
+    // assert on the unambiguous rows + editor instead of the list container.)
+    const rows = page.getByTestId('http-request-list-row');
+    await expect(rows).toHaveCount(2);
+    // The editor is bound to the adopted first request (List, GET).
+    await expect(page.getByTestId('http-request-editor-url')).toHaveValue(
+      'https://x.dev/list'
+    );
+
+    const openFilesTabs = page.getByTestId('editor-tab-activation');
+    const tabsBefore = await openFilesTabs.count();
+
+    // Click the OTHER request's rail row. Before the collection rework this
+    // was modeled as a per-request FileTab. The current contract keeps one
+    // workspace FileTab and re-binds the editor from the in-panel rail.
+    await rows.filter({ hasText: 'Create item' }).click();
+
+    await expect(openFilesTabs).toHaveCount(tabsBefore);
+    await expect(page.getByTestId('http-request-editor-url')).toHaveValue(
+      'https://x.dev/create'
+    );
+    await expect(page.getByTestId('http-request-editor-method')).toHaveValue(
+      'POST'
     );
   });
 });

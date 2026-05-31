@@ -135,8 +135,8 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
   const primaryActionTooltip = primaryActionIsDebug ? debugTooltip : actionTooltip;
   const primaryActionClassName = cn(
     primaryActionIsDebug
-      ? 'button-danger inline-flex h-10 w-10 items-center justify-center rounded-l-xl rounded-r-none'
-      : 'button-primary inline-flex h-10 w-10 items-center justify-center rounded-l-xl rounded-r-none bg-success text-background hover:bg-success/92',
+      ? 'button-danger inline-flex h-10 w-10 items-center justify-center rounded-l-lg rounded-r-none'
+      : 'button-primary inline-flex h-10 w-10 items-center justify-center rounded-l-lg rounded-r-none bg-success-fg text-fg-on-accent hover:opacity-90',
     // RL-071 v2 — visible pulse around the run button while a task is
     // executing. The animation is declared in index.css under
     // @keyframes run-pulse and only applies when data-running="true".
@@ -258,7 +258,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
 
         {!showFloatingPill && (showDebugAction ? (
           <div ref={runMenuRef} className="relative shrink-0">
-            <div className="inline-flex overflow-hidden rounded-xl">
+            <div className="inline-flex overflow-hidden rounded-lg">
               <Tooltip
                 content={primaryActionTooltip}
                 disabled={
@@ -299,7 +299,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
                     'inline-flex w-10 items-center justify-center border-l px-2 text-xs font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45',
                     primaryActionIsDebug
                       ? 'border-error/20 bg-error/12 text-error hover:bg-error/18'
-                      : 'border-white/15 bg-success text-background hover:bg-success/92'
+                      : 'border-fg-on-accent/15 bg-success-fg text-fg-on-accent hover:opacity-90'
                   )}
                 >
                   <ChevronDown size={13} />
@@ -319,10 +319,10 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
                   onClick={() => runFromMenu('run')}
                   disabled={actionDisabled}
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                    'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
                     selectedExecutionAction === 'run'
-                      ? 'bg-success/12 text-success'
-                      : 'text-foreground hover:bg-surface-strong/78'
+                      ? 'bg-success-bg text-success-fg'
+                      : 'text-fg-base hover:bg-bg-panel-alt'
                   )}
                 >
                   <Play size={13} fill="currentColor" />
@@ -335,7 +335,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
                   disabled={debugActionDisabled}
                   data-testid="toolbar-debug-button"
                   className={cn(
-                    'flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
+                    'flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45',
                     selectedExecutionAction === 'debug'
                       ? 'bg-danger/12 text-danger'
                       : 'text-danger hover:bg-danger/10'
@@ -365,7 +365,7 @@ export function Toolbar({ showFloatingPill = false }: ToolbarProps) {
               data-running={isRunning ? 'true' : 'false'}
               aria-label={actionLabel}
               title={actionLabel}
-              className="button-primary inline-flex h-10 w-10 items-center justify-center rounded-xl bg-success text-background hover:bg-success/92 data-[running=true]:[animation:run-pulse_1.4s_ease-in-out_infinite]"
+              className="button-primary inline-flex h-10 w-10 items-center justify-center rounded-lg bg-success-fg text-fg-on-accent hover:opacity-90 data-[running=true]:[animation:run-pulse_1.4s_ease-in-out_infinite]"
             >
               {isInitializing ? (
                 <Loader2 size={15} className="animate-spin" />

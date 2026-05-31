@@ -28,6 +28,7 @@ import {
   MAX_REQUEST_TIMEOUT_MS,
   MAX_RESPONSE_BODY_BYTES,
   bucketHttpStatus,
+  composeRequestHeaders,
   isHeaderSensitive,
   utf8ByteLength,
   type HttpRequestV1,
@@ -205,11 +206,14 @@ function buildRequestHeaders(
   willSendBody: boolean
 ): Headers {
   const headers = new Headers();
-  for (const entry of request.headers) {
-    if (!entry.enabled) continue;
-    if (!entry.name || entry.name.trim().length === 0) continue;
+  // `composeRequestHeaders` already drops `enabled: false` + empty-name
+  // rows and injects the Auth sub-tab header (auth wins a name
+  // collision). The injected header is always baseline-sensitive
+  // (`Authorization` / `x-api-key`), so the response-side redaction
+  // still scrubs the echo on the way back.
+  for (const entry of composeRequestHeaders(request)) {
     try {
-      headers.append(entry.name.trim(), entry.value);
+      headers.append(entry.name, entry.value);
     } catch {
       // The browser rejects some header names (e.g. with newlines).
       // Skip rather than abort the whole send — the user can fix

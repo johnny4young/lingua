@@ -9,7 +9,6 @@
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { initI18n } from '@/i18n';
 import { EditorSection } from '@/components/Settings/EditorSection';

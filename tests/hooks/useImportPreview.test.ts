@@ -13,7 +13,10 @@ import {
   deriveDominantNotebookWarning,
 } from '../../src/renderer/hooks/importTelemetry';
 import { useImportPreview } from '../../src/renderer/hooks/useImportPreview';
-import { useEditorStore } from '../../src/renderer/stores/editorStore';
+import {
+  useEditorStore,
+  HTTP_WORKSPACE_TAB_ID,
+} from '../../src/renderer/stores/editorStore';
 import { useLicenseStore } from '../../src/renderer/stores/licenseStore';
 import { useNotebookStore } from '../../src/renderer/stores/notebookStore';
 import { useUIStore } from '../../src/renderer/stores/uiStore';
@@ -109,7 +112,7 @@ describe('useImportPreview', () => {
     expect(result.current.warnings).toContain('curl-basic-auth');
   });
 
-  it('confirm writes a new request into the workspace store + flips bottom-panel (fold G)', () => {
+  it('confirm writes a request + opens a full-screen HTTP tab (fold G, MOV.02)', () => {
     const { result } = renderHook(() => useImportPreview());
     act(() => {
       result.current.previewSource(
@@ -121,11 +124,26 @@ describe('useImportPreview', () => {
       returned = result.current.confirm();
     });
     expect(returned).not.toBeNull();
+    // SQL/HTTP MODEL rework — the imported request lands in the HTTP
+    // collection workspace (its own id), and the single HTTP workspace
+    // tab is opened/focused. The importer does NOT mint a per-request
+    // tab; instead it marks the imported request active so the rail
+    // selects it.
     const requests = useWorkspaceToolStore.getState().requests;
     expect(requests).toHaveLength(1);
     expect(requests[0]?.method).toBe('PUT');
     expect(requests[0]?.url).toBe('https://api.example.com/items/42');
-    expect(useUIStore.getState().activeBottomPanel).toBe('http');
+    // Exactly one HTTP workspace tab exists, on the stable id, active.
+    const { tabs, activeTabId } = useEditorStore.getState();
+    const httpTabs = tabs.filter((tab) => tab.kind === 'http');
+    expect(httpTabs).toHaveLength(1);
+    expect(httpTabs[0]?.id).toBe(HTTP_WORKSPACE_TAB_ID);
+    expect(activeTabId).toBe(HTTP_WORKSPACE_TAB_ID);
+    // The rail selects the imported request (the collection's active id),
+    // which is the request's OWN id, not the workspace tab id.
+    expect(useWorkspaceToolStore.getState().activeRequestId).toBe(
+      requests[0]?.id
+    );
   });
 
   it('confirm is a no-op when phase is not previewed', () => {
@@ -206,7 +224,7 @@ describe('useImportPreview — ipynb arm (RL-100 Slice 2)', () => {
     expect(useUIStore.getState().activeBottomPanel).toBe('console');
   });
 
-  it('confirm writes every collection request into the workspace + flips http panel (Slice 3)', () => {
+  it('confirm writes every collection request + opens a full-screen HTTP tab (Slice 3, MOV.02)', () => {
     const postman = JSON.stringify({
       info: {
         name: 'Demo',
@@ -229,11 +247,19 @@ describe('useImportPreview — ipynb arm (RL-100 Slice 2)', () => {
     });
     expect(returned?.kind).toBe('postman-collection');
     expect(returned?.requestCount).toBe(2);
+    // SQL/HTTP MODEL rework — every imported request lands in the HTTP
+    // collection (each keeps its own id); `createRequests` selects the
+    // first. A single HTTP workspace tab (stable id) is opened/focused —
+    // never one tab per request. The rail surfaces all of them.
     const { requests, activeRequestId } = useWorkspaceToolStore.getState();
     expect(requests).toHaveLength(2);
     expect(requests[0]?.name).toBe('List');
     expect(activeRequestId).toBe(requests[0]?.id);
-    expect(useUIStore.getState().activeBottomPanel).toBe('http');
+    const { tabs, activeTabId } = useEditorStore.getState();
+    const httpTabs = tabs.filter((tab) => tab.kind === 'http');
+    expect(httpTabs).toHaveLength(1);
+    expect(httpTabs[0]?.id).toBe(HTTP_WORKSPACE_TAB_ID);
+    expect(activeTabId).toBe(HTTP_WORKSPACE_TAB_ID);
   });
 
   it('does not attribute unrecognized rejects to cURL when cancelled', () => {

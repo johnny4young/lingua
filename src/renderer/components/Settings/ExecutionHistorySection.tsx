@@ -3,7 +3,7 @@ import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
 import { useExecutionHistoryStore } from '../../stores/executionHistoryStore';
 import { trackEvent } from '../../utils/telemetry';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
-import { Row, Section } from './shared';
+import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 
 /**
  * RL-028 second slice — Settings row that surfaces the in-memory
@@ -34,46 +34,53 @@ export function ExecutionHistorySection() {
   };
 
   return (
-    <Section
-      id="execution-history"
-      title={t('executionHistory.title')}
-      description={t('executionHistory.description')}
-    >
-      <Row
-        label={
-          canUseExecutionHistory
-            ? t('executionHistory.countLabel', { count: entryCount })
-            : t('executionHistory.lockedLabel')
-        }
-        hint={
-          canUseExecutionHistory
-            ? t('executionHistory.privacyNote')
-            : t('executionHistory.lockedHint')
-        }
+    // `id` preserved as a scroll/anchor target; SettingsSection renders
+    // its own <section>, so the wrapper carries the anchor.
+    <div id="execution-history">
+      <SettingsSection
+        eyebrow={t('executionHistory.title')}
+        description={t('executionHistory.description')}
       >
-        {canUseExecutionHistory ? (
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={() => clear()}
-            disabled={entryCount === 0}
-            data-testid="execution-history-clear"
-            aria-label={t('executionHistory.clearButton')}
-          >
-            {t('executionHistory.clearButton')}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={handleUnlock}
-            data-testid="execution-history-unlock"
-            aria-label={t('executionHistory.unlockButton')}
-          >
-            {t('executionHistory.unlockButton')}
-          </button>
-        )}
-      </Row>
-    </Section>
+        <SpecCard>
+          <SpecRow
+            label={
+              canUseExecutionHistory
+                ? t('executionHistory.countLabel', { count: entryCount })
+                : t('executionHistory.lockedLabel')
+            }
+            description={
+              canUseExecutionHistory
+                ? t('executionHistory.privacyNote')
+                : t('executionHistory.lockedHint')
+            }
+            last
+            control={
+              canUseExecutionHistory ? (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => clear()}
+                  disabled={entryCount === 0}
+                  data-testid="execution-history-clear"
+                  aria-label={t('executionHistory.clearButton')}
+                >
+                  {t('executionHistory.clearButton')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={handleUnlock}
+                  data-testid="execution-history-unlock"
+                  aria-label={t('executionHistory.unlockButton')}
+                >
+                  {t('executionHistory.unlockButton')}
+                </button>
+              )
+            }
+          />
+        </SpecCard>
+      </SettingsSection>
+    </div>
   );
 }

@@ -22,6 +22,7 @@ import {
   expect,
   gotoApp,
   seedSession,
+  selectRuntimeMode,
   test,
 } from './licenseWeb.helpers';
 
@@ -32,8 +33,8 @@ test.describe('Browser preview runtime (RL-019 Slice 3)', () => {
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
 
-    await page.getByTestId('runtime-mode-selector-button').click();
-    const browserPreview = page.getByTestId('runtime-mode-option-browser-preview');
+    await page.getByTestId('action-pill-runtime').click();
+    const browserPreview = page.getByTestId('action-pill-runtime-option-browser-preview');
     await expect(browserPreview).toBeVisible();
     await expect(browserPreview).not.toBeDisabled();
     await page.keyboard.press('Escape');
@@ -47,8 +48,7 @@ test.describe('Browser preview runtime (RL-019 Slice 3)', () => {
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
 
-    await page.getByTestId('runtime-mode-selector-button').click();
-    await page.getByTestId('runtime-mode-option-browser-preview').click();
+    await selectRuntimeMode(page, 'browser-preview');
 
     const tab = page.getByTestId('bottom-panel-browser-preview-tab');
     await expect(tab).toBeVisible();
@@ -66,14 +66,12 @@ test.describe('Browser preview runtime (RL-019 Slice 3)', () => {
     await createJavaScriptTab(page);
 
     // Switch to browser-preview and confirm the tab appears.
-    await page.getByTestId('runtime-mode-selector-button').click();
-    await page.getByTestId('runtime-mode-option-browser-preview').click();
+    await selectRuntimeMode(page, 'browser-preview');
     await expect(page.getByTestId('bottom-panel-browser-preview-tab')).toBeVisible();
 
     // Switch back to Worker — the tab vanishes for non-browser-
     // preview tabs.
-    await page.getByTestId('runtime-mode-selector-button').click();
-    await page.getByTestId('runtime-mode-option-worker').click();
+    await selectRuntimeMode(page, 'worker');
     await expect(page.getByTestId('bottom-panel-browser-preview-tab')).toBeHidden();
   });
 });

@@ -64,6 +64,28 @@ async function bootstrap() {
   const root = document.getElementById('root');
   if (!root) throw new Error('Root element not found');
 
+  // FASE 0 dev-only acceptance artifact. When the URL carries
+  // `?lingua-showcase`, mount the recipe gallery instead of the app.
+  // The dynamic import code-splits the showcase into its own lazy
+  // chunk, so it stays out of the INITIAL bundle and only loads when
+  // the param is present. (The chunk still ships in the build — Rollup
+  // cannot prove the runtime param is never set — which is intentional:
+  // it is validated against the prod `preview:web` build at
+  // `http://localhost:4173/?lingua-showcase`.)
+  if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('lingua-showcase')
+  ) {
+    const { RecipeShowcase } = await import('./devShowcase/RecipeShowcase');
+    createRoot(root).render(
+      <StrictMode>
+        <RecipeShowcase />
+      </StrictMode>
+    );
+    scheduleRecoveryMarksClear();
+    return;
+  }
+
   createRoot(root).render(
     <StrictMode>
       <App />

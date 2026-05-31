@@ -22,6 +22,7 @@ import {
   dismissWhatsNew,
   expect,
   gotoApp,
+  selectWorkflowMode,
   seedSession,
   test,
 } from './licenseWeb.helpers';
@@ -33,8 +34,8 @@ async function replaceEditorText(page: Page, source: string): Promise<void> {
   await page.keyboard.insertText(source);
 }
 
-test.describe('Workflow mode segmented control (RL-020 Slice 2)', () => {
-  test('renders the 3-segment toggle with Scratchpad active on a fresh JS tab', async ({
+test.describe('Workflow mode action pill (RL-020 Slice 2)', () => {
+  test('renders the workflow action with Scratchpad active on a fresh JS tab', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });
@@ -42,13 +43,17 @@ test.describe('Workflow mode segmented control (RL-020 Slice 2)', () => {
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
 
-    const segment = page.getByTestId('workflow-mode-segment');
-    await expect(segment).toBeVisible();
-    await expect(segment).toHaveAttribute('data-workflow-mode', 'scratchpad');
-    // The result-panel pill mirrors the active mode (fold B).
-    const pill = page.getByTestId('workflow-mode-status-pill');
-    await expect(pill).toBeVisible();
-    await expect(pill).toHaveAttribute('data-workflow-mode', 'scratchpad');
+    const runButton = page.getByTestId('action-pill-run');
+    await expect(runButton).toBeVisible();
+    await expect(runButton).toHaveAttribute('data-workflow', 'scratchpad');
+    await page.getByTestId('action-pill-run-menu').click();
+    await expect(page.getByTestId('action-pill-workflow-option-run')).toBeVisible();
+    await expect(page.getByTestId('action-pill-workflow-option-debug')).toBeVisible();
+    await expect(page.getByTestId('action-pill-workflow-option-scratchpad')).toHaveAttribute(
+      'data-active',
+      'true'
+    );
+    await page.keyboard.press('Escape');
   });
 
   test('clicking Run silences auto-run on subsequent keystrokes', async ({
@@ -64,19 +69,15 @@ test.describe('Workflow mode segmented control (RL-020 Slice 2)', () => {
     // this assertion — we're checking that Run mode SKIPS auto-run.
     await replaceEditorText(page, 'const x = 1;');
     await page.waitForTimeout(1_400);
-    await expect(page.getByTestId('workflow-mode-segment')).toHaveAttribute(
-      'data-workflow-mode',
+    await expect(page.getByTestId('action-pill-run')).toHaveAttribute(
+      'data-workflow',
       'scratchpad'
     );
 
-    // Flip to Run mode via the toolbar segment.
-    await page.getByTestId('workflow-mode-segment-run').click();
-    await expect(page.getByTestId('workflow-mode-segment')).toHaveAttribute(
-      'data-workflow-mode',
-      'run'
-    );
-    await expect(page.getByTestId('workflow-mode-status-pill')).toHaveAttribute(
-      'data-workflow-mode',
+    // Flip to Run mode via the action-pill workflow menu.
+    await selectWorkflowMode(page, 'run');
+    await expect(page.getByTestId('action-pill-run')).toHaveAttribute(
+      'data-workflow',
       'run'
     );
 
@@ -97,15 +98,15 @@ test.describe('Workflow mode segmented control (RL-020 Slice 2)', () => {
     await createJavaScriptTab(page);
 
     // Toggle through Run → Scratchpad and verify the gate still works.
-    await page.getByTestId('workflow-mode-segment-run').click();
-    await expect(page.getByTestId('workflow-mode-segment')).toHaveAttribute(
-      'data-workflow-mode',
+    await selectWorkflowMode(page, 'run');
+    await expect(page.getByTestId('action-pill-run')).toHaveAttribute(
+      'data-workflow',
       'run'
     );
 
-    await page.getByTestId('workflow-mode-segment-scratchpad').click();
-    await expect(page.getByTestId('workflow-mode-segment')).toHaveAttribute(
-      'data-workflow-mode',
+    await selectWorkflowMode(page, 'scratchpad');
+    await expect(page.getByTestId('action-pill-run')).toHaveAttribute(
+      'data-workflow',
       'scratchpad'
     );
 

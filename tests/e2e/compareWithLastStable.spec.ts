@@ -4,10 +4,10 @@
  * Locks the user-visible contract:
  *
  *   - Clean JS run captures the snapshot; editing produces a
- *     different output; Compare toggle lights up and renders the
- *     diff.
- *   - Toggle disabled before the first successful run.
- *   - Language change clears the snapshot and disables the toggle.
+ *     different output; the Compare panel chip lights up and renders
+ *     the diff.
+ *   - The chip is disabled before the first successful run.
+ *   - Language change clears the snapshot and disables the chip.
  */
 
 import type { Page } from '@playwright/test';
@@ -42,8 +42,8 @@ test.describe('compare with last stable run (RL-020 Slice 8)', () => {
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
 
-    const toggle = page.locator('[data-testid="compare-toggle"]');
-    await expect(toggle).toHaveAttribute('data-state', 'disabled');
+    const toggle = page.getByTestId('panel-chip-compare');
+    await expect(toggle).toBeDisabled();
   });
 
   test('clean run + diverging edit lights up Compare and renders the diff', async ({
@@ -59,14 +59,15 @@ test.describe('compare with last stable run (RL-020 Slice 8)', () => {
     // Wait for the auto-run debounce + the panel update.
     await page.waitForTimeout(1_400);
 
-    const toggle = page.locator('[data-testid="compare-toggle"]');
-    await expect(toggle).toHaveAttribute('data-state', 'off');
+    const toggle = page.getByTestId('panel-chip-compare');
+    await expect(toggle).not.toBeDisabled();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
 
     await replaceEditorText(page, 'console.log(4)');
     await page.waitForTimeout(1_400);
 
     await toggle.click();
-    await expect(toggle).toHaveAttribute('data-state', 'on');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await expect(
       page.locator('[data-testid="compare-results-panel"]')
     ).toBeVisible();

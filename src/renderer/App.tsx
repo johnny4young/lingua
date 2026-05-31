@@ -40,6 +40,10 @@ import { useRunner } from './hooks/useRunner';
 import { useDesktopSmoke } from './hooks/useDesktopSmoke';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
+import {
+  openHttpWorkspaceTab,
+  openSqlWorkspaceTab,
+} from './runtime/openWorkspaceTab';
 import { useGoLspLifecycle } from './hooks/useGoLspLifecycle';
 import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
@@ -424,26 +428,17 @@ function AppChrome({
     toggleOverlay,
     openDeveloperUtilities: () => handleOpenDeveloperUtility(),
     closeOverlay,
-    // RL-097 Slice 1 — Mod+Shift+K toggles the HTTP workspace
-    // bottom-panel tab. Toggle behaviour: ON → OFF (back to console)
-    // when the tab is already active, OFF → ON otherwise.
+    // RL-097 Slice 1 → MOV.02 (FASE 3) — Mod+Shift+K now opens or
+    // focuses a full-screen HTTP workspace tab (the dock panel was
+    // removed). No toggle-off: a full-screen tab is closed via the
+    // tab strip, not by re-pressing the shortcut.
     toggleHttpWorkspace: () => {
-      const ui = useUIStore.getState();
-      if (ui.activeBottomPanel === 'http' && ui.consoleVisible) {
-        ui.setActiveBottomPanel('console');
-      } else {
-        ui.openBottomPanel('http');
-      }
+      openHttpWorkspaceTab();
     },
-    // RL-097 Slice 2 — Mod+Alt+S toggles the SQL workspace bottom-
-    // panel tab. Mirror of `toggleHttpWorkspace`.
+    // RL-097 Slice 2 → MOV.02 (FASE 3) — Mod+Alt+S opens or focuses a
+    // full-screen SQL workspace tab. Mirror of `toggleHttpWorkspace`.
     toggleSqlWorkspace: () => {
-      const ui = useUIStore.getState();
-      if (ui.activeBottomPanel === 'sql' && ui.consoleVisible) {
-        ui.setActiveBottomPanel('console');
-      } else {
-        ui.openBottomPanel('sql');
-      }
+      openSqlWorkspaceTab();
     },
     // RL-099 Slice 1 fold A — Mod+Shift+G opens the Developer
     // Utilities overlay with the Pipelines panel preselected.
@@ -821,25 +816,16 @@ function AppChrome({
           onOpenProjectSearch={() => openOverlay('search')}
           onOpenProjectReplace={() => openOverlay('replace')}
           onOpenHttpWorkspace={() => {
-            // RL-097 Slice 1 — palette opens the HTTP workspace as
-            // a bottom-panel tab; no overlay. Flips visibility on
-            // each invocation (matches the Mod+Shift+K toggle).
-            const ui = useUIStore.getState();
-            if (ui.activeBottomPanel === 'http' && ui.consoleVisible) {
-              ui.setActiveBottomPanel('console');
-            } else {
-              ui.openBottomPanel('http');
-            }
+            // RL-097 Slice 1 → MOV.02 (FASE 3) — palette opens or
+            // focuses the full-screen HTTP workspace tab (no dock
+            // panel). Same create-or-focus path as Mod+Shift+K.
+            openHttpWorkspaceTab();
           }}
           onOpenSqlWorkspace={() => {
-            // RL-097 Slice 2 — palette opens the SQL workspace
-            // bottom-panel tab. Mirror of `onOpenHttpWorkspace`.
-            const ui = useUIStore.getState();
-            if (ui.activeBottomPanel === 'sql' && ui.consoleVisible) {
-              ui.setActiveBottomPanel('console');
-            } else {
-              ui.openBottomPanel('sql');
-            }
+            // RL-097 Slice 2 → MOV.02 (FASE 3) — palette opens or
+            // focuses the full-screen SQL workspace tab. Mirror of
+            // `onOpenHttpWorkspace`.
+            openSqlWorkspaceTab();
           }}
           onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
           onOpenDeveloperUtility={(utilityId) => handleOpenDeveloperUtility(utilityId)}

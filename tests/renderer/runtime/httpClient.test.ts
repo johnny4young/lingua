@@ -211,6 +211,53 @@ describe('executeHttpRequest (RL-097 Slice 1)', () => {
     const headers = captured?.headers as Headers;
     expect(headers.get('content-type')).toBe('application/json');
   });
+
+  it('injects the Auth sub-tab header on send (Bearer)', async () => {
+    let captured: RequestInit | undefined;
+    const fetchImpl = async (_url: unknown, init?: RequestInit) => {
+      captured = init;
+      return new Response('', { status: 200 });
+    };
+    await executeHttpRequest(
+      makeRequest({ auth: { kind: 'bearer', token: 'tok-123' } }),
+      { fetchImpl: fetchImpl as typeof fetch }
+    );
+    const headers = captured?.headers as Headers;
+    expect(headers.get('authorization')).toBe('Bearer tok-123');
+  });
+
+  it('injects a Basic auth header and lets it override a manual row', async () => {
+    let captured: RequestInit | undefined;
+    const fetchImpl = async (_url: unknown, init?: RequestInit) => {
+      captured = init;
+      return new Response('', { status: 200 });
+    };
+    await executeHttpRequest(
+      makeRequest({
+        headers: [{ name: 'Authorization', value: 'Bearer stale', enabled: true }],
+        auth: { kind: 'basic', username: 'aladdin', password: 'open sesame' },
+      }),
+      { fetchImpl: fetchImpl as typeof fetch }
+    );
+    const headers = captured?.headers as Headers;
+    expect(headers.get('authorization')).toBe('Basic YWxhZGRpbjpvcGVuIHNlc2FtZQ==');
+  });
+
+  it('injects an API-key header under a custom name', async () => {
+    let captured: RequestInit | undefined;
+    const fetchImpl = async (_url: unknown, init?: RequestInit) => {
+      captured = init;
+      return new Response('', { status: 200 });
+    };
+    await executeHttpRequest(
+      makeRequest({
+        auth: { kind: 'apiKey', apiKeyHeader: 'X-Api-Key', apiKeyValue: 'k3y' },
+      }),
+      { fetchImpl: fetchImpl as typeof fetch }
+    );
+    const headers = captured?.headers as Headers;
+    expect(headers.get('x-api-key')).toBe('k3y');
+  });
 });
 
 describe('statusBucketForResponse', () => {

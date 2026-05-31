@@ -4,6 +4,15 @@
  * Body of the bottom-panel `'recipe'` sibling tab. Only mounts when
  * the active tab has a persistent `recipeBindingId`.
  *
+ * Signal-Slate FASE 3 (MOV.02 #4): restyled toward a light editor SIDE
+ * PANEL presentation — a left hairline + `bg-bg-panel` surface read as a
+ * side rail attached to the editor rather than a dock tab body, all on DS
+ * tokens (no legacy `--app-*` aliases, no hardcoded emerald/rose/amber).
+ * The Run + Test action KEEPS green (DS `success` triple) because it is a
+ * real run. NOTE: the physical relocation of the mount out of the dock
+ * into an editor side rail is owned by the layout/routing slice
+ * (`AppLayout`); this pass delivers the visual treatment only.
+ *
  * Layout:
  *   - Header  : recipe title + "Open another" + "Unbind" actions.
  *   - Prompt  : markdown subset rendered via `<RecipeMarkdown>`.
@@ -34,12 +43,16 @@ import { useRecipeRun } from '../../hooks/useRecipeRun';
 import { cn } from '../../utils/cn';
 import { RecipeMarkdown } from './recipeMarkdown';
 
+// Each assertion-result tone maps onto a DS semantic status triple so it
+// resolves in both light and dark via the token system (no hardcoded
+// emerald/rose/amber). Hue intent is preserved: pass → success (green),
+// fail → error (red), thrown → warning (amber), sentinel-missing → a quiet
+// neutral panel surface.
 const STATUS_TONE: Record<AssertionResultStatus, string> = {
-  pass: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  fail: 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300',
-  thrown: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  'sentinel-missing':
-    'border-slate-500/40 bg-slate-500/10 text-muted',
+  pass: 'border-success-border bg-success-bg text-success-fg',
+  fail: 'border-error-border bg-error-bg text-error-fg',
+  thrown: 'border-warning-border bg-warning-bg text-warning-fg',
+  'sentinel-missing': 'border-border-subtle bg-bg-panel-alt text-fg-muted',
 };
 
 export function RecipeRunPanel() {
@@ -72,7 +85,7 @@ export function RecipeRunPanel() {
     return (
       <div
         data-testid="recipe-run-panel-unbound"
-        className="grid h-full place-items-center p-6 text-center text-xs text-muted"
+        className="grid h-full place-items-center border-l border-border-subtle bg-bg-panel p-6 text-center text-xs text-fg-subtle"
       >
         <div className="grid gap-2">
           <p>{t('recipes.panel.unboundFallback')}</p>
@@ -80,7 +93,7 @@ export function RecipeRunPanel() {
             type="button"
             onClick={openOverlay}
             data-testid="recipe-run-panel-open-overlay"
-            className="inline-flex h-7 items-center justify-self-center rounded border border-emerald-500/40 bg-emerald-500/10 px-3 text-[11px] font-medium text-emerald-700 hover:border-emerald-500 dark:text-emerald-300"
+            className="inline-flex h-7 items-center justify-self-center rounded-md border border-accent/40 bg-accent/10 px-3 text-[11px] font-medium text-accent-fg hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             {t('recipes.panel.openAnother')}
           </button>
@@ -109,17 +122,22 @@ export function RecipeRunPanel() {
   const allPassed = isAllPassed(results);
 
   return (
+    // Light editor side-panel presentation (MOV.02 #4). The left hairline
+    // + `bg-bg-panel` surface read as a side rail attached to the editor
+    // rather than a dock tab body. The mount still lives in the dock today
+    // (AppLayout owns the physical relocation — see follow-up note); this
+    // pass delivers the visual side-panel treatment with DS tokens only.
     <div
       data-testid="recipe-run-panel"
       data-recipe-id={recipe.id}
-      className="grid h-full grid-rows-[auto_1fr_auto] gap-0 overflow-hidden"
+      className="grid h-full grid-rows-[auto_1fr_auto] gap-0 overflow-hidden border-l border-border-subtle bg-bg-panel"
     >
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border/40 px-4 py-2">
+      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-2.5">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-display text-sm font-semibold tracking-tight text-foreground">
+          <h3 className="truncate font-display text-[15px] font-semibold tracking-[-0.01em] text-fg-base">
             {pickProse(recipe.title, locale)}
           </h3>
-          <p className="mt-0.5 text-[10px] uppercase tracking-wider text-muted">
+          <p className="mt-0.5 truncate font-mono text-[10px] uppercase tracking-[0.08em] text-fg-subtle">
             {recipe.tags.join(' · ')}
           </p>
         </div>
@@ -128,7 +146,7 @@ export function RecipeRunPanel() {
             type="button"
             onClick={openOverlay}
             data-testid="recipe-run-panel-open-another"
-            className="inline-flex h-6 items-center rounded border border-border/60 bg-surface/40 px-2 text-[10px] uppercase tracking-wider text-muted hover:text-foreground"
+            className="inline-flex h-6 items-center rounded-md border border-border-subtle bg-bg-inset px-2 text-[10px] uppercase tracking-[0.08em] text-fg-muted hover:border-border hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             {t('recipes.panel.openAnother')}
           </button>
@@ -137,7 +155,7 @@ export function RecipeRunPanel() {
             onClick={handleUnbind}
             aria-label={t('recipes.panel.unbind')}
             data-testid="recipe-run-panel-unbind"
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted hover:bg-surface-strong/60 hover:text-foreground"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-fg-muted hover:bg-bg-inset hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
           >
             <X size={12} aria-hidden="true" />
           </button>
@@ -145,13 +163,13 @@ export function RecipeRunPanel() {
       </header>
 
       <section
-        className="min-h-0 overflow-y-auto px-4 py-3"
+        className="min-h-0 overflow-y-auto px-4 py-3.5"
         data-testid="recipe-run-panel-prompt"
       >
         <RecipeMarkdown source={pickProse(recipe.prompt, locale)} />
       </section>
 
-      <footer className="grid shrink-0 gap-2 border-t border-border/40 bg-surface/30 px-4 py-3">
+      <footer className="grid shrink-0 gap-2 border-t border-border-subtle bg-bg-panel-alt px-4 py-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -159,10 +177,13 @@ export function RecipeRunPanel() {
             disabled={isRunning || !runnable}
             data-testid="recipe-run-panel-run"
             className={cn(
-              'inline-flex h-8 items-center gap-1 rounded border px-3 text-[11px] font-medium transition-colors',
+              'inline-flex h-8 items-center gap-1 rounded-md border px-3 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70',
+              // Run + Test KEEPS green — it is a real run. The hardcoded
+              // emerald is replaced by the DS `success` triple so it stays
+              // green and resolves correctly in both themes.
               isRunning
-                ? 'border-border/40 bg-surface/40 text-muted'
-                : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 hover:border-emerald-500 dark:text-emerald-300',
+                ? 'border-border-subtle bg-bg-inset text-fg-muted'
+                : 'border-success-border bg-success-bg text-success-fg hover:border-success-fg',
               !runnable && 'cursor-not-allowed opacity-50'
             )}
           >
@@ -179,16 +200,16 @@ export function RecipeRunPanel() {
             )}
           </button>
           {!runnable ? (
-            <span className="text-[11px] text-amber-700 dark:text-amber-300">
+            <span className="text-[11px] text-warning-fg">
               {t('recipes.notice.disabledForNonJs')}
             </span>
           ) : results.length > 0 ? (
             <span
               data-testid="recipe-run-panel-summary"
-              className="text-[11px] text-muted"
+              className="text-[11px] text-fg-muted"
             >
               {allPassed ? (
-                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                <span className="inline-flex items-center gap-1 text-success-fg">
                   <Sparkles size={11} aria-hidden="true" />
                   {t('recipes.panel.summaryPassed')}
                 </span>
@@ -256,13 +277,13 @@ function AssertionResultRow({
       data-assertion-id={result.assertionId}
       data-status={result.status}
       className={cn(
-        'grid gap-1 rounded border p-2 text-[11px]',
+        'grid gap-1 rounded-md border p-2 text-[11px]',
         tone
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-foreground">{label}</span>
-        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider">
+        <span className="font-medium text-fg-base">{label}</span>
+        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.08em]">
           {result.status === 'pass' ? (
             <Check size={11} aria-hidden="true" />
           ) : null}
@@ -272,9 +293,9 @@ function AssertionResultRow({
       {result.details !== undefined && result.details.length > 0 ? (
         <div
           data-testid="recipe-run-panel-result-details"
-          className="rounded bg-background-elevated/60 p-1.5 font-mono text-[10px] text-muted"
+          className="rounded-md bg-bg-inset p-1.5 font-mono text-[10px] text-fg-muted"
         >
-          <span className="text-[9px] uppercase tracking-wider text-muted/70">
+          <span className="text-[9px] uppercase tracking-[0.08em] text-fg-subtle">
             {t('recipes.assertion.detailsLabel')}
           </span>
           <div className="whitespace-pre-wrap break-all">{result.details}</div>
@@ -282,7 +303,7 @@ function AssertionResultRow({
       ) : assertion?.hint !== undefined && result.status !== 'pass' ? (
         <p
           data-testid="recipe-run-panel-result-hint"
-          className="text-[10px] text-muted"
+          className="text-[10px] text-fg-muted"
         >
           {pickProse(assertion.hint, locale)}
         </p>

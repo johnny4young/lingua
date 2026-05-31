@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useAppInfo } from '../../hooks/useAppInfo';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUpdateStore } from '../../stores/updateStore';
+import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
+import { Toggle } from './shared';
 import { ProfileSection } from './ProfileSection';
-import { Row, Section, Toggle } from './shared';
 
 function formatBuildDate(value: string | null, locale: string, unavailable: string): string {
   if (!value) {
@@ -71,122 +72,139 @@ export function AboutSection({
   const licenseType = appInfo?.licenseType ?? t('about.value.loading');
 
   return (
-    <>
-    <Section
-      id="settings-about"
-      title={t('about.title')}
-      description={t('about.description')}
-    >
-      <div className="rounded-[1.2rem] border border-border/80 bg-background-elevated/72 p-4">
-        <div className="flex items-start gap-3">
+    <div className="space-y-7">
+      <SettingsSection eyebrow={t('about.title')} description={t('about.description')}>
+        {/* Hero identity tile — LG glyph + product name, above the spec card. */}
+        <div className="flex items-start gap-3 rounded-lg border border-border-subtle bg-bg-inset p-4">
           <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-sm font-semibold text-primary-foreground shadow-[0_14px_35px_rgba(98,71,190,0.25)]">
             LG
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-display text-xl font-semibold tracking-[-0.04em] text-foreground">
+            <p className="font-display text-xl font-semibold tracking-[-0.04em] text-fg-base">
               {productName}
             </p>
-            <p className="mt-1 text-sm leading-6 text-muted">
+            <p className="mt-1 text-sm leading-6 text-fg-subtle">
               {t('about.hero.copy')}
             </p>
           </div>
         </div>
-      </div>
 
-      <Row label={t('about.field.version')} hint={t('about.field.versionHint')}>
-        <span className="status-pill">{version}</span>
-      </Row>
+        {/* Read-only metadata — one spec card, three divided rows, quiet
+            font-mono values (plain data, not states → no StatusBadge). */}
+        <SpecCard>
+          <SpecRow
+            label={t('about.field.version')}
+            control={
+              <span className="font-mono text-[12.5px] text-fg-base">{version}</span>
+            }
+          />
+          <SpecRow
+            label={t('about.field.buildDate')}
+            control={
+              <span className="font-mono text-[12.5px] text-fg-base">{buildDate}</span>
+            }
+          />
+          <SpecRow
+            label={t('about.field.license')}
+            control={
+              <span className="font-mono text-[12.5px] text-fg-base">{licenseType}</span>
+            }
+            last
+          />
+        </SpecCard>
+      </SettingsSection>
 
-      <Row label={t('about.field.buildDate')} hint={t('about.field.buildDateHint')}>
-        <span className="text-sm text-foreground">{buildDate}</span>
-      </Row>
+      <SettingsSection eyebrow={t('about.links.label')} description={t('about.links.hint')}>
+        <SpecCard>
+          <SpecRow
+            label={t('about.links.label')}
+            description={t('about.links.hint')}
+            control={
+              <div className="flex flex-wrap justify-end gap-2">
+                {appInfo?.repositoryUrl && (
+                  <ExternalLinkButton
+                    label={t('about.links.github')}
+                    href={appInfo.repositoryUrl}
+                    icon={<GitBranch size={14} />}
+                  />
+                )}
+                {appInfo?.websiteUrl && (
+                  <ExternalLinkButton
+                    label={t('about.links.website')}
+                    href={appInfo.websiteUrl}
+                    icon={<Sparkles size={14} />}
+                  />
+                )}
+                {appInfo?.licenseUrl && (
+                  <ExternalLinkButton
+                    label={t('about.links.license')}
+                    href={appInfo.licenseUrl}
+                    icon={<ShieldCheck size={14} />}
+                  />
+                )}
+              </div>
+            }
+          />
+          <SpecRow
+            label={t('about.actions.label')}
+            description={t('about.actions.hint')}
+            control={
+              <div className="flex flex-wrap justify-end gap-2">
+                {onStartGuidedTour && (
+                  <button
+                    type="button"
+                    onClick={onStartGuidedTour}
+                    data-testid="about-start-tour"
+                    className="button-secondary"
+                  >
+                    <BookCopy size={14} />
+                    <span>{t('about.actions.startTour')}</span>
+                  </button>
+                )}
+                {onOpenWhatsNew && (
+                  <button
+                    type="button"
+                    onClick={onOpenWhatsNew}
+                    className="button-secondary"
+                  >
+                    <Sparkles size={14} />
+                    <span>{t('about.actions.whatsNew')}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void checkForUpdates()}
+                  disabled={updateStatus === 'checking'}
+                  className="button-primary"
+                >
+                  <Info size={14} />
+                  <span>
+                    {updateStatus === 'checking'
+                      ? t('updates.actions.checking')
+                      : t('about.actions.checkUpdates')}
+                  </span>
+                </button>
+              </div>
+            }
+          />
+          <SpecRow
+            label={t('about.actions.showTourOnStartup.label')}
+            description={t('about.actions.showTourOnStartup.hint')}
+            control={
+              <div data-testid="settings-show-tour-toggle">
+                <Toggle
+                  value={!suppressTourAutoStart}
+                  onChange={() => setSuppressTourAutoStart(!suppressTourAutoStart)}
+                  aria-label={t('about.actions.showTourOnStartup.label')}
+                />
+              </div>
+            }
+            last
+          />
+        </SpecCard>
+      </SettingsSection>
 
-      <Row label={t('about.field.license')} hint={t('about.field.licenseHint')}>
-        <span className="text-sm text-foreground">{licenseType}</span>
-      </Row>
-
-      <Row label={t('about.links.label')} hint={t('about.links.hint')}>
-        <div className="flex flex-wrap justify-end gap-2">
-          {appInfo?.repositoryUrl && (
-            <ExternalLinkButton
-              label={t('about.links.github')}
-              href={appInfo.repositoryUrl}
-              icon={<GitBranch size={14} />}
-            />
-          )}
-          {appInfo?.websiteUrl && (
-            <ExternalLinkButton
-              label={t('about.links.website')}
-              href={appInfo.websiteUrl}
-              icon={<Sparkles size={14} />}
-            />
-          )}
-          {appInfo?.licenseUrl && (
-            <ExternalLinkButton
-              label={t('about.links.license')}
-              href={appInfo.licenseUrl}
-              icon={<ShieldCheck size={14} />}
-            />
-          )}
-        </div>
-      </Row>
-
-      <Row label={t('about.actions.label')} hint={t('about.actions.hint')}>
-        <div className="flex flex-wrap justify-end gap-2">
-          {onStartGuidedTour && (
-            <button
-              type="button"
-              onClick={onStartGuidedTour}
-              data-testid="about-start-tour"
-              className="button-secondary"
-            >
-              <BookCopy size={14} />
-              <span>{t('about.actions.startTour')}</span>
-            </button>
-          )}
-          {onOpenWhatsNew && (
-            <button
-              type="button"
-              onClick={onOpenWhatsNew}
-              className="button-secondary"
-            >
-              <Sparkles size={14} />
-              <span>{t('about.actions.whatsNew')}</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => void checkForUpdates()}
-            disabled={updateStatus === 'checking'}
-            className="button-primary"
-          >
-            <Info size={14} />
-            <span>
-              {updateStatus === 'checking'
-                ? t('updates.actions.checking')
-                : t('about.actions.checkUpdates')}
-            </span>
-          </button>
-        </div>
-      </Row>
-
-      <Row
-        label={t('about.actions.showTourOnStartup.label')}
-        hint={t('about.actions.showTourOnStartup.hint')}
-      >
-        <div className="flex justify-end">
-          <div data-testid="settings-show-tour-toggle">
-            <Toggle
-              value={!suppressTourAutoStart}
-              onChange={() => setSuppressTourAutoStart(!suppressTourAutoStart)}
-              aria-label={t('about.actions.showTourOnStartup.label')}
-            />
-          </div>
-        </div>
-      </Row>
-    </Section>
-
-    <ProfileSection />
-    </>
+      <ProfileSection />
+    </div>
   );
 }

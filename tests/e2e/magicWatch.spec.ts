@@ -3,9 +3,8 @@
  *
  * Locks the user-visible contract:
  *
- *   - A fresh JS tab's seeded template surfaces BOTH an arrow (`=>`)
- *     and a pin watch (`📌` / Pin icon + `data-result-kind="watch"`)
- *     without typing.
+ *   - A JS scratchpad with an arrow (`=>`) and a pin watch
+ *     (`data-result-kind="watch"`) surfaces both inline.
  *   - Breaking the buffer fires Slice 1's gate AND the pin watches
  *     stay on screen (Slice 1 snapshot restore + Slice 3 watch
  *     persistence).
@@ -48,14 +47,27 @@ async function appendToEditor(page: Page, source: string): Promise<void> {
   await page.keyboard.insertText(source);
 }
 
+async function seedWatchBuffer(page: Page, counter = 5): Promise<void> {
+  await replaceEditorText(
+    page,
+    [
+      `const counter = ${counter};`,
+      'counter //=> counter',
+      'counter * 10 // @watch counter * 10',
+      '',
+    ].join('\n')
+  );
+}
+
 test.describe('@watch magic-comment pin (RL-020 Slice 3)', () => {
-  test('fresh JS tab template surfaces both an arrow and a pinned watch', async ({
+  test('JS scratchpad surfaces both an arrow and a pinned watch', async ({
     page,
   }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
+    await seedWatchBuffer(page);
 
     // Wait past the debounce so the seeded template auto-runs.
     await page.waitForTimeout(1_400);
@@ -73,6 +85,7 @@ test.describe('@watch magic-comment pin (RL-020 Slice 3)', () => {
     await gotoApp(page);
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
+    await seedWatchBuffer(page);
     await page.waitForTimeout(1_400);
 
     // Sanity — the watch is on screen before we break anything.

@@ -7,13 +7,14 @@ import { LanguageIntelligenceRow } from './LanguageIntelligenceRow';
  * stays as the rust-specific facade so the Settings layout import
  * keeps its name.
  */
-export function RustLanguageIntelligenceRow() {
+export function RustLanguageIntelligenceRow({ last = false }: { last?: boolean } = {}) {
   return (
     <LanguageIntelligenceRow
       language="rust"
       store={useRustLanguageStore}
       copyNamespace="languageIntelligence.rust"
       restartIpc={() => window.lingua.lsp?.rust.restart()}
+      last={last}
     />
   );
 }

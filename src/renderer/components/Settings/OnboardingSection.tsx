@@ -8,7 +8,8 @@ import {
   SEEDED_SCRATCHPAD_NAME,
   SEEDED_SCRATCHPAD_SOURCE,
 } from '../../onboarding/seedScratchpad';
-import { Row, Section, Toggle } from './shared';
+import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
+import { Toggle } from './shared';
 
 /**
  * RL-101 Slice 1 — Settings → General → Onboarding section.
@@ -66,49 +67,56 @@ export function OnboardingSection() {
   };
 
   return (
-    <Section
-      id="general-onboarding"
-      title={t('onboarding.section.title')}
+    <SettingsSection
+      eyebrow={t('onboarding.section.title')}
       description={t('onboarding.section.hint')}
     >
-      <Row
-        label={t('onboarding.reset.welcome.label')}
-        hint={t('onboarding.reset.welcome.hint')}
-      >
-        <Toggle
-          value={hasCompletedOnboardingWelcome}
-          onChange={flipWelcome}
-          aria-label={t('onboarding.reset.welcome.label')}
+      {/* Affine reset toggles — one spec card, divided rows. */}
+      <SpecCard>
+        <SpecRow
+          label={t('onboarding.reset.welcome.label')}
+          description={t('onboarding.reset.welcome.hint')}
+          control={
+            <Toggle
+              value={hasCompletedOnboardingWelcome}
+              onChange={flipWelcome}
+              aria-label={t('onboarding.reset.welcome.label')}
+            />
+          }
         />
-      </Row>
-      <Row
-        label={t('onboarding.reset.firstRun.label')}
-        hint={t('onboarding.reset.firstRun.hint')}
-      >
-        <Toggle
-          value={hasCompletedOnboardingFirstRun}
-          onChange={flipFirstRun}
-          aria-label={t('onboarding.reset.firstRun.label')}
+        <SpecRow
+          label={t('onboarding.reset.firstRun.label')}
+          description={t('onboarding.reset.firstRun.hint')}
+          control={
+            <Toggle
+              value={hasCompletedOnboardingFirstRun}
+              onChange={flipFirstRun}
+              aria-label={t('onboarding.reset.firstRun.label')}
+            />
+          }
         />
-      </Row>
-      <Row
-        label={t('onboarding.reset.firstSnippet.label')}
-        hint={t('onboarding.reset.firstSnippet.hint')}
-      >
-        <Toggle
-          value={hasCompletedOnboardingFirstSnippet}
-          onChange={flipFirstSnippet}
-          aria-label={t('onboarding.reset.firstSnippet.label')}
+        <SpecRow
+          label={t('onboarding.reset.firstSnippet.label')}
+          description={t('onboarding.reset.firstSnippet.hint')}
+          control={
+            <Toggle
+              value={hasCompletedOnboardingFirstSnippet}
+              onChange={flipFirstSnippet}
+              aria-label={t('onboarding.reset.firstSnippet.label')}
+            />
+          }
+          last
         />
-      </Row>
-      <div className="rounded-[1.15rem] border border-border/80 bg-background-elevated/72 px-3.5 py-3">
+      </SpecCard>
+
+      <div className="rounded-lg border border-border-subtle bg-bg-inset px-[18px] py-3">
         <button
           type="button"
           onClick={() => setPreviewOpen((open) => !open)}
           aria-expanded={previewOpen}
           aria-controls="onboarding-seed-preview"
           data-testid="onboarding-section-preview-toggle"
-          className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium text-foreground"
+          className="flex w-full items-center justify-between gap-3 text-left text-sm font-medium text-fg-base"
         >
           <span>{t('onboarding.section.previewLabel')}</span>
           {previewOpen ? (
@@ -123,18 +131,18 @@ export function OnboardingSection() {
             className="mt-3 space-y-2"
             data-testid="onboarding-section-preview-body"
           >
-            <p className="text-xs text-muted font-mono">
+            <p className="text-xs text-fg-muted font-mono">
               {SEEDED_SCRATCHPAD_NAME} · {SEEDED_SCRATCHPAD_LANGUAGE}
             </p>
             <pre
               data-testid="onboarding-section-preview-source"
-              className="max-h-[40vh] overflow-auto rounded-md border border-border/70 bg-bg-elevated/80 p-3 text-[11px] leading-snug text-fg-base whitespace-pre-wrap break-words"
+              className="max-h-[40vh] overflow-auto rounded-md border border-border-subtle bg-bg-base/80 p-3 text-[11px] leading-snug text-fg-base whitespace-pre-wrap break-words"
             >
               {SEEDED_SCRATCHPAD_SOURCE}
             </pre>
           </div>
         ) : null}
       </div>
-    </Section>
+    </SettingsSection>
   );
 }

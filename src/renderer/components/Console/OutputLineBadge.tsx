@@ -21,6 +21,13 @@ import { trackOutputOriginClicked } from '../../utils/telemetry';
  * burst-throttled at the helper level). Hover is intentionally
  * silent — see the comment on `OUTPUT_ORIGIN_SURFACES` in
  * `src/shared/telemetry.ts`.
+ *
+ * FASE 2b (MOV.05) — deliberately NOT migrated to `<StatusBadge>`.
+ * StatusBadge is a non-interactive uppercase status chip; this is an
+ * interactive mono navigation affordance (click + hover bus dispatch +
+ * telemetry). It already speaks the Signal-Slate mono-meta language
+ * (`font-mono`, `text-fg-subtle`, `rounded`, `focus-visible:outline-accent`),
+ * so no token change is needed.
  */
 export interface OutputLineBadgeProps {
   origin: RichOutputOrigin;

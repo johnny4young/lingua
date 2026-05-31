@@ -74,6 +74,61 @@ describe('useWorkspaceSqlStore', () => {
     expect(got?.version).toBe(1);
   });
 
+  it('duplicateQuery clones the query text + timeout under a fresh id and selects it', () => {
+    const source = createBlankSqlQuery({
+      id: 'a',
+      name: 'src',
+      query: 'SELECT 1;',
+      now: '2026-05-26T00:00:00.000Z',
+    });
+    useWorkspaceSqlStore.getState().createQuery(source);
+    useWorkspaceSqlStore.getState().updateQuery('a', { timeoutMs: 1234 });
+
+    useWorkspaceSqlStore
+      .getState()
+      .duplicateQuery('a', { id: 'clone', name: 'src copy' });
+
+    const state = useWorkspaceSqlStore.getState();
+    // Clone is prepended + active.
+    expect(state.queries.map((q) => q.id)).toEqual(['clone', 'a']);
+    expect(state.activeQueryId).toBe('clone');
+    const clone = state.getQuery('clone');
+    expect(clone?.name).toBe('src copy');
+    expect(clone?.query).toBe('SELECT 1;');
+    expect(clone?.timeoutMs).toBe(1234);
+    // The source is untouched.
+    expect(state.getQuery('a')?.name).toBe('src');
+  });
+
+  it('duplicateQuery gives the clone no response history', () => {
+    useWorkspaceSqlStore
+      .getState()
+      .createQuery(createBlankSqlQuery({ id: 'a', query: 'SELECT 1;' }));
+    useWorkspaceSqlStore.getState().recordResponse('a', freshResponse());
+
+    useWorkspaceSqlStore
+      .getState()
+      .duplicateQuery('a', { id: 'clone', name: 'copy' });
+
+    expect(
+      useWorkspaceSqlStore.getState().getLatestResponse('clone')
+    ).toBeUndefined();
+    // The source keeps its history.
+    expect(
+      useWorkspaceSqlStore.getState().getLatestResponse('a')
+    ).toBeDefined();
+  });
+
+  it('duplicateQuery no-ops on an unknown source id', () => {
+    useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'a' }));
+    const before = useWorkspaceSqlStore.getState().queries.length;
+    useWorkspaceSqlStore
+      .getState()
+      .duplicateQuery('missing', { id: 'clone', name: 'copy' });
+    expect(useWorkspaceSqlStore.getState().queries.length).toBe(before);
+    expect(useWorkspaceSqlStore.getState().getQuery('clone')).toBeUndefined();
+  });
+
   it('deleteQuery shifts the active id when deleting the active', () => {
     useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'a' }));
     useWorkspaceSqlStore.getState().createQuery(createBlankSqlQuery({ id: 'b' }));

@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
 import { trackEvent } from '../../utils/telemetry';
-import { Row, Section, Toggle } from './shared';
+import { Toggle } from './shared';
+import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 
 /**
  * RL-069 Slice 3 — Developer Utilities settings.
@@ -49,59 +50,64 @@ export function UtilitiesSection() {
   };
 
   return (
-    <Section
-      title={t('utilities.settings.title')}
+    <SettingsSection
+      eyebrow={t('utilities.settings.title')}
       description={t('utilities.settings.description')}
     >
-      <Row
-        label={t('utilities.settings.clipboardOnFocus.label')}
-        hint={t('utilities.settings.clipboardOnFocus.hint')}
-      >
-        <div className="grid w-full gap-1 text-right">
-          <Toggle
-            value={consent === 'granted'}
-            onChange={() =>
-              setConsent(consent === 'granted' ? 'declined' : 'granted')
-            }
-            aria-label={t('utilities.settings.clipboardOnFocus.label')}
-          />
-          <span
-            data-testid="utilities-clipboard-on-focus-status"
-            role="status"
-            aria-live="polite"
-            className="text-xs text-muted"
-          >
-            {t(consentStatusKey)}
-          </span>
-        </div>
-      </Row>
-      <Row
-        label={t('utilities.settings.clearAll.label')}
-        hint={t('utilities.settings.clearAll.hint')}
-      >
-        <div className="grid w-full gap-1 text-right">
-          <button
-            type="button"
-            data-testid="utilities-clear-all-history"
-            onClick={handleClearAll}
-            className="button-secondary justify-self-end"
-          >
-            {confirmingClear
-              ? t('utilities.settings.clearAll.confirm')
-              : t('utilities.settings.clearAll.label')}
-          </button>
-          {confirmingClear ? (
-            <button
-              type="button"
-              data-testid="utilities-clear-all-history-cancel"
-              onClick={() => setConfirmingClear(false)}
-              className="text-xs text-muted underline-offset-2 hover:text-foreground hover:underline"
-            >
-              {t('utilities.settings.clearAll.cancel')}
-            </button>
-          ) : null}
-        </div>
-      </Row>
-    </Section>
+      <SpecCard>
+        <SpecRow
+          label={t('utilities.settings.clipboardOnFocus.label')}
+          description={t('utilities.settings.clipboardOnFocus.hint')}
+          control={
+            <div className="grid justify-items-end gap-1">
+              <Toggle
+                value={consent === 'granted'}
+                onChange={() =>
+                  setConsent(consent === 'granted' ? 'declined' : 'granted')
+                }
+                aria-label={t('utilities.settings.clipboardOnFocus.label')}
+              />
+              <span
+                data-testid="utilities-clipboard-on-focus-status"
+                role="status"
+                aria-live="polite"
+                className="text-xs text-fg-subtle"
+              >
+                {t(consentStatusKey)}
+              </span>
+            </div>
+          }
+        />
+        <SpecRow
+          label={t('utilities.settings.clearAll.label')}
+          description={t('utilities.settings.clearAll.hint')}
+          last
+          control={
+            <div className="grid justify-items-end gap-1">
+              <button
+                type="button"
+                data-testid="utilities-clear-all-history"
+                onClick={handleClearAll}
+                className="button-secondary"
+              >
+                {confirmingClear
+                  ? t('utilities.settings.clearAll.confirm')
+                  : t('utilities.settings.clearAll.label')}
+              </button>
+              {confirmingClear ? (
+                <button
+                  type="button"
+                  data-testid="utilities-clear-all-history-cancel"
+                  onClick={() => setConfirmingClear(false)}
+                  className="text-xs text-fg-subtle underline-offset-2 hover:text-fg-base hover:underline"
+                >
+                  {t('utilities.settings.clearAll.cancel')}
+                </button>
+              ) : null}
+            </div>
+          }
+        />
+      </SpecCard>
+    </SettingsSection>
   );
 }

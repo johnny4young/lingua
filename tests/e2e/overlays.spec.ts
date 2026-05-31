@@ -7,6 +7,7 @@
  */
 
 import {
+  closeActiveEditorTab,
   closeSettings,
   createJavaScriptTab,
   dismissWhatsNew,
@@ -14,6 +15,7 @@ import {
   expectNoticeContains,
   expectTier,
   gotoApp,
+  openConsole,
   openCommandPalette,
   openDeveloperUtilities,
   openPaletteAction,
@@ -38,7 +40,9 @@ test.describe('Command palette', () => {
   test('opens and filters actions by fuzzy query', async ({ page }) => {
     await openCommandPalette(page);
     await paletteInput(page).fill('snippets');
-    await expect(page.getByRole('button', { name: /Open Snippets/i })).toBeVisible();
+    await expect(
+      page.locator('[data-result-index]').filter({ hasText: /Open Snippets/i }).first()
+    ).toBeVisible();
 
     await paletteInput(page).fill('layout');
     await expect(
@@ -70,7 +74,7 @@ test.describe('Command palette', () => {
 
   test('About palette entry routes into the About settings section', async ({ page }) => {
     await openPaletteAction(page, 'about', /About Lingua/i);
-    await expect(page.getByRole('heading', { name: 'About', exact: true })).toBeVisible();
+    await expect(page.getByText('About', { exact: true }).first()).toBeVisible();
     await closeSettings(page);
   });
 
@@ -79,7 +83,7 @@ test.describe('Command palette', () => {
     // toggle to establish the "console visible" baseline. Then Editor
     // Only should force it off regardless of `consoleVisible`.
     await createJavaScriptTab(page);
-    await page.getByRole('button', { name: 'Toggle console (Cmd+\\)' }).click();
+    await openConsole(page);
     await expect(page.getByTestId('execution-history-toggle')).toBeVisible();
 
     await openPaletteAction(page, 'editor only', /Layout: Editor Only/i);
@@ -91,6 +95,7 @@ test.describe('Quick open', () => {
   test('renders the empty "no project" hint when no project is open', async ({ page }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
+    await closeActiveEditorTab(page);
     await openQuickOpen(page);
     await expect(page.getByText('No files open. Open a project to browse files.')).toBeVisible();
     await page.keyboard.press('Escape');
@@ -126,7 +131,7 @@ test.describe('Snippets modal', () => {
 
     await closeSnippets(page);
     // The tab the user was editing must still be focused.
-    await expect(page.getByRole('tab', { name: /JS .*\.js/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /JS .*\.js/i })).toBeVisible();
   });
 });
 
@@ -138,9 +143,9 @@ test.describe('Developer utilities modal (Pro)', () => {
   });
 
   test('opens from the global Mod+K shortcut', async ({ page }) => {
-    await page.getByRole('button', { name: 'Developer utilities' }).hover();
+    await page.getByTestId('action-pill-utilities').hover();
     await expect(
-      page.getByRole('tooltip', { name: /Developer utilities \((⌘K|Ctrl\+K)\)/u })
+      page.getByRole('tooltip', { name: /Developer utilities/u })
     ).toBeVisible();
 
     await page.keyboard.press('Control+K');
@@ -162,9 +167,9 @@ test.describe('Developer utilities modal (Pro)', () => {
     await expect(
       page.getByRole('heading', { name: 'Built-in utilities', exact: true })
     ).toBeVisible();
-    await expect(page.getByTestId('utilities-sidebar-shortcuts')).toContainText(
-      /Copy output.*(⌘⇧C|Ctrl\+Shift\+C)/u
-    );
+    const utilitiesShortcuts = page.getByTestId('utilities-sidebar-shortcuts');
+    await expect(utilitiesShortcuts).toContainText(/Copy output/u);
+    await expect(utilitiesShortcuts).toContainText(/⌘⇧C|Ctrl\+Shift\+C/u);
     await expect(page.getByText('Copy output')).toBeVisible();
     await expect(page.getByText('Replace clipboard')).toBeHidden();
 

@@ -36,8 +36,8 @@ test.describe('Free tier gates', () => {
     await expectTier(page, 'FREE');
   });
 
-  test('toolbar language menu labels Go/Rust as PRO and blocks selection', async ({ page }) => {
-    await page.getByRole('button', { name: 'New file language menu' }).click();
+  test('action pill language menu labels Go/Rust as PRO and blocks selection', async ({ page }) => {
+    await page.getByTestId('action-pill-lang').click();
 
     const goItem = page.getByRole('menuitem', { name: /^Go/ });
     const rustItem = page.getByRole('menuitem', { name: /^Rust/ });
@@ -49,16 +49,17 @@ test.describe('Free tier gates', () => {
     await expectNoticeContains(page, 'additional language runtimes');
     // No Go tab should have been created — the ceiling check fires before
     // the editor store sees the addTab request.
-    await expect(page.getByRole('tab', { name: /Go .*\.go/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Go .*\.go/i })).toHaveCount(0);
   });
 
   test('one-tab ceiling upsells on second New JavaScript click', async ({ page }) => {
     await createJavaScriptTab(page);
-    await expect(page.getByRole('tab', { name: /JS .*\.js/i })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(1);
 
-    await page.getByRole('button', { name: 'New JavaScript' }).click();
+    await page.getByTestId('action-pill-lang').click();
+    await page.getByRole('menuitem', { name: /^JavaScript\b/i }).click();
     await expectNoticeContains(page, 'additional open tabs');
-    await expect(page.getByRole('tab', { name: /JS .*\.js/i })).toHaveCount(1);
+    await expect(page.getByRole('button', { name: /JS .*\.js/i })).toHaveCount(1);
   });
 
   test('snippet library caps at 5 saved items', async ({ page }) => {
@@ -75,6 +76,8 @@ test.describe('Free tier gates', () => {
 
     for (let i = 0; i < 5; i += 1) {
       await saveOne();
+      await dismissNotice(page);
+      await dismissNotice(page);
     }
 
     // Verify the 5 snippets actually landed in the persisted store first —
@@ -90,6 +93,8 @@ test.describe('Free tier gates', () => {
 
     // Sixth save attempt: the draft re-renders but the store mutation is
     // a no-op, so the persisted count stays at 5.
+    await dismissNotice(page);
+    await dismissNotice(page);
     await saveOne();
     await expectNoticeContains(page, 'additional saved snippets');
 
@@ -203,8 +208,11 @@ test.describe('Free tier gates', () => {
   test('consecutive upsells queue cleanly (theme then font)', async ({ page }) => {
     await openSettings(page);
     await openSettingsTab(page, 'appearance');
+    await dismissNotice(page);
+    await dismissNotice(page);
     await page.getByTestId('theme-pack-select').selectOption('solarized-daylight');
     await expectNoticeContains(page, 'additional theme packs');
+    await dismissNotice(page);
     await dismissNotice(page);
 
     await openSettingsTab(page, 'editor');

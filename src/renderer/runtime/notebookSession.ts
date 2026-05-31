@@ -310,6 +310,14 @@ export interface NotebookCellRunOutcome {
   readonly errorMessage?: string;
   /** Number of sandbox keys after merge (post-run). For tests + tooling. */
   readonly sandboxKeyCount: number;
+  /**
+   * FASE 4 — the top-level declaration names this cell PRODUCED
+   * (`Object.keys(safeDelta)`), i.e. the new sandbox keys the merge
+   * added on the ok path. Surfaced as the `→ name` variable-flow chip
+   * in the cell header. Empty on stopped / error / non-producing runs.
+   * Additive only — this does NOT change the kernel merge behavior.
+   */
+  readonly producedKeys: ReadonlyArray<string>;
 }
 
 export type NotebookCellRunResult =
@@ -357,6 +365,7 @@ export async function runNotebookCell(
           stdout: [],
           stderr: [],
           sandboxKeyCount: Object.keys(session.sandbox).length,
+          producedKeys: [],
         },
       };
     }
@@ -370,6 +379,7 @@ export async function runNotebookCell(
           stderr: [...flattenStdoutText(result.stderr), errorMessage],
           errorMessage,
           sandboxKeyCount: Object.keys(session.sandbox).length,
+          producedKeys: [],
         },
       };
     }
@@ -408,6 +418,10 @@ export async function runNotebookCell(
     // Merge the new top-level declarations into the per-tab sandbox.
     // The filter pass drops any non-serializable values defensively.
     const safeDelta = extractSerializableDelta(sessionDelta);
+    // FASE 4 — capture the produced keys BEFORE the cap merge so the
+    // variable-flow chip reflects exactly what this cell declared. The
+    // cap merge below can only ever drop OLDER keys, never these.
+    const producedKeys = Object.keys(safeDelta);
     session.sandbox = enforceSandboxCap({ ...session.sandbox, ...safeDelta });
     return {
       ok: true,
@@ -416,6 +430,7 @@ export async function runNotebookCell(
         stdout: composedStdout,
         stderr: composedStderr,
         sandboxKeyCount: Object.keys(session.sandbox).length,
+        producedKeys,
       },
     };
   } finally {

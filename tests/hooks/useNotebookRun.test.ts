@@ -208,6 +208,92 @@ describe('useNotebookRun', () => {
     });
   });
 
+  it('runFromHere runs the given cell + every code cell below it in order', async () => {
+    const { jsCellId } = seedNotebook('tab-from');
+    // Notebook seeds [markdown, code]. Insert a second code cell after
+    // the first so we have an above / from-here split: [md, code1, code2].
+    const secondCellId = useNotebookStore.getState().addCell('tab-from', jsCellId, {
+      kind: 'code',
+      language: 'javascript',
+    });
+    expect(typeof secondCellId).toBe('string');
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: { stdout: ['ok'], stderr: [], sessionDelta: {} },
+      stdout: [],
+      stderr: [],
+    });
+    const { result } = renderHook(() => useNotebookRun());
+    // Run from the SECOND code cell — only it should run, not the first.
+    await act(async () => {
+      await result.current.runFromHere('tab-from', secondCellId as string);
+    });
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    expect(
+      useNotebookStore.getState().getCellRunStatus('tab-from', secondCellId as string)
+    ).toBe('ok');
+    // The first code cell above the start point never ran.
+    expect(
+      useNotebookStore.getState().getCellRunStatus('tab-from', jsCellId)
+    ).toBe('idle');
+  });
+
+  it('runFromHere stops at the first error', async () => {
+    const { jsCellId } = seedNotebook('tab-from-err');
+    const secondCellId = useNotebookStore.getState().addCell(
+      'tab-from-err',
+      jsCellId,
+      { kind: 'code', language: 'javascript' }
+    );
+    mockExecute
+      .mockResolvedValueOnce({
+        kind: 'error',
+        error: { message: 'boom' },
+        stdout: [],
+        stderr: [],
+      })
+      .mockResolvedValueOnce({
+        kind: 'ok',
+        result: { stdout: [], stderr: [], sessionDelta: {} },
+        stdout: [],
+        stderr: [],
+      });
+    const { result } = renderHook(() => useNotebookRun());
+    await act(async () => {
+      await result.current.runFromHere('tab-from-err', jsCellId);
+    });
+    // First cell errors → second code cell never runs.
+    expect(mockExecute).toHaveBeenCalledTimes(1);
+    void secondCellId;
+  });
+
+  it('a settled run stamps a monotonic [N] execution order onto the cell', async () => {
+    mockExecute.mockResolvedValue({
+      kind: 'ok',
+      result: { stdout: [], stderr: [], sessionDelta: {} },
+      stdout: [],
+      stderr: [],
+    });
+    const { jsCellId } = seedNotebook('tab-exec-run');
+    const { result } = renderHook(() => useNotebookRun());
+    expect(
+      useNotebookStore.getState().getCellExecutionOrder('tab-exec-run', jsCellId)
+    ).toBeNull();
+    await act(async () => {
+      await result.current.runCell('tab-exec-run', jsCellId);
+    });
+    expect(
+      useNotebookStore.getState().getCellExecutionOrder('tab-exec-run', jsCellId)
+    ).toBe(1);
+    // Re-running bumps the stamp.
+    await act(async () => {
+      await result.current.runCell('tab-exec-run', jsCellId);
+    });
+    expect(
+      useNotebookStore.getState().getCellExecutionOrder('tab-exec-run', jsCellId)
+    ).toBe(2);
+  });
+
   it('stop signals the runner', () => {
     const { result } = renderHook(() => useNotebookRun());
     act(() => {

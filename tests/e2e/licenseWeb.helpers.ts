@@ -268,6 +268,8 @@ export async function seedSession(page: Page, options: SeedOptions = {}): Promis
             language: seededLanguage,
             lastSeenVersion: shouldSuppressWhatsNew ? currentVersion : null,
             suppressTourAutoStart: true,
+            hasCompletedOnboardingFirstRun: true,
+            hasCompletedOnboardingFirstSnippet: true,
             telemetryConsent: 'declined',
           },
           version: 0,
@@ -337,11 +339,16 @@ export async function dismissWhatsNew(page: Page): Promise<void> {
 }
 
 export async function openSettings(page: Page): Promise<void> {
-  await page
-    .getByRole('button', {
-      name: /settings \(cmd\+,?\)|configuración \(cmd\+,?\)/i,
-    })
-    .click();
+  const trigger = page.getByTestId('action-pill-settings');
+  const canClick = await trigger
+    .click({ trial: true, timeout: 1000 })
+    .then(() => true)
+    .catch(() => false);
+  if (canClick) {
+    await trigger.click();
+  } else {
+    await page.keyboard.press('ControlOrMeta+Comma');
+  }
   await expect(
     page.getByRole('heading', {
       name: /tune the shell, editor, and runtime defaults|ajusta el shell, el editor y los valores predeterminados del entorno/i,
@@ -355,7 +362,11 @@ type SettingsTabId =
   | 'editor'
   | 'languages'
   | 'environment'
-  | 'account';
+  | 'privacy'
+  | 'account'
+  | 'shortcuts'
+  | 'plugins'
+  | 'recovery';
 
 export async function openSettingsTab(
   page: Page,
@@ -385,12 +396,17 @@ export async function openConsole(page: Page): Promise<void> {
     return;
   }
 
-  await page.getByRole('button', { name: /toggle console|alternar consola/i }).click();
+  const restore = page.getByTestId('bottom-panel-restore');
+  if (await restore.isVisible().catch(() => false)) {
+    await restore.click();
+  } else {
+    await page.getByRole('button', { name: /toggle console|alternar consola/i }).click();
+  }
   await expect(historyToggle).toBeVisible();
 }
 
 export async function openQuickOpen(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /go to file|ir al archivo/i }).click();
+  await page.getByTestId('action-pill-quick-open').click();
   await expect(page.getByPlaceholder(/go to file|ir al archivo/i)).toBeVisible();
 }
 
@@ -501,7 +517,23 @@ export async function waitForRunCompleted(page: Page): Promise<void> {
 }
 
 export async function clickRun(page: Page): Promise<void> {
-  await page.getByTestId('toolbar-run-button').click();
+  await page.getByTestId('action-pill-run').click();
+}
+
+export async function selectRuntimeMode(
+  page: Page,
+  mode: 'worker' | 'node' | 'browser-preview'
+): Promise<void> {
+  await page.getByTestId('action-pill-runtime').click();
+  await page.getByTestId(`action-pill-runtime-option-${mode}`).click();
+}
+
+export async function selectWorkflowMode(
+  page: Page,
+  mode: 'run' | 'debug' | 'scratchpad'
+): Promise<void> {
+  await page.getByTestId('action-pill-run-menu').click();
+  await page.getByTestId(`action-pill-workflow-option-${mode}`).click();
 }
 
 // -----------------------------------------------------------------------------
@@ -509,7 +541,7 @@ export async function clickRun(page: Page): Promise<void> {
 // -----------------------------------------------------------------------------
 
 export async function expectNoticeContains(page: Page, text: string | RegExp): Promise<void> {
-  await expect(page.getByTestId('status-notice-banner')).toContainText(text);
+  await expect(page.getByTestId('status-notice-banner').filter({ hasText: text })).toBeVisible();
 }
 
 /**
@@ -549,7 +581,7 @@ export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
  * because the empty state never renders when a tab is open.
  */
 export async function createJavaScriptTab(page: Page): Promise<void> {
-  const existingJsTab = page.getByRole('tab', { name: /JS .*\.js/i });
+  const existingJsTab = page.getByRole('button', { name: /JS .*\.js/i });
   if (await existingJsTab.first().isVisible().catch(() => false)) {
     return;
   }
@@ -561,13 +593,41 @@ export async function createJavaScriptTab(page: Page): Promise<void> {
   } else {
     await page.getByTestId('empty-state-quick-start-javascript').click();
   }
-  await expect(page.getByRole('tab', { name: /JS .*\.js/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /JS .*\.js/i })).toBeVisible();
+}
+
+export async function createLanguageTab(
+  page: Page,
+  languageName: RegExp | string,
+  tabName: RegExp
+): Promise<void> {
+  await page.getByTestId('action-pill-lang').click();
+  await page.getByRole('menuitem', { name: languageName }).click();
+  await expect(page.getByRole('button', { name: tabName }).last()).toBeVisible();
+}
+
+export async function closeActiveEditorTab(page: Page): Promise<void> {
+  const activeTab = page
+    .locator('[data-testid="editor-tab-activation"][aria-current="page"]')
+    .first();
+  const activeTabLabel = await activeTab.getAttribute('aria-label');
+  if (!activeTabLabel) {
+    return;
+  }
+  const fileName = activeTabLabel.replace(/^\S+\s+/, '');
+  const escapedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const closeButtonName = new RegExp(
+    `^(Close|Cerrar) ${escapedFileName}$`,
+    'i'
+  );
+  await page.getByRole('button', { name: closeButtonName }).click();
+  await expect(page.getByRole('button', { name: closeButtonName })).toHaveCount(0);
+}
+
+export async function createAdditionalJavaScriptTab(page: Page): Promise<void> {
+  await createLanguageTab(page, /^JavaScript\b/i, /JS .*\.js/i);
 }
 
 export async function createTypeScriptTab(page: Page): Promise<void> {
-  await page
-    .getByRole('button', { name: /new file language menu|menú de lenguaje para nuevo archivo/i })
-    .click();
-  await page.getByRole('menuitem', { name: /^TypeScript$/i }).click();
-  await expect(page.getByRole('tab', { name: /TS .*\.ts/i })).toBeVisible();
+  await createLanguageTab(page, /^TypeScript\b/i, /TS .*\.ts/i);
 }

@@ -297,11 +297,11 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['replace', 'substitute', 'find', 'project', 'rename'],
   },
   {
-    // RL-097 Slice 1 — Toggle the HTTP workspace bottom-panel tab.
-    // Mod+Shift+K is free in Lingua + not reserved by browsers
-    // (Mod+Shift+R / +T / +N are all browser-reserved or already
-    // taken). Tab stays in the tab strip once activated; this
-    // shortcut toggles visibility.
+    // RL-097 Slice 1 → MOV.02 — open or focus the full-screen HTTP
+    // workspace tab. Mod+Shift+K is free in Lingua + not reserved by
+    // browsers (Mod+Shift+R / +T / +N are all browser-reserved or
+    // already taken). A second press focuses the tab; closing happens
+    // through the editor tab strip.
     id: 'workspace-toggle-http',
     group: 'navigation',
     labelKey: 'shortcuts.item.httpWorkspace.label',
@@ -309,11 +309,13 @@ export const KEYBOARD_SHORTCUTS: readonly ShortcutDefinition[] = [
     keywords: ['http', 'request', 'fetch', 'api', 'rest', 'workspace'],
   },
   {
-    // RL-097 Slice 2 — Toggle the SQL workspace bottom-panel tab.
-    // Mod+Alt+S (S for SQL) — verified free against the catalog.
-    // Mod+Shift+Q rejected: macOS Cmd+Shift+Q is the OS-level log-out
-    // shortcut and is intercepted by the system. Mod+Alt namespace is
-    // less crowded (currently only +M / +H / +R are claimed).
+    // RL-097 Slice 2 → MOV.02 — open or focus the full-screen SQL
+    // workspace tab. Mod+Alt+S (S for SQL) — verified free against the
+    // catalog. Mod+Shift+Q rejected: macOS Cmd+Shift+Q is the OS-level
+    // log-out shortcut and is intercepted by the system. Mod+Alt
+    // namespace is less crowded (currently only +M / +H / +R are
+    // claimed). A second press focuses the tab; closing happens through
+    // the editor tab strip.
     id: 'workspace-toggle-sql',
     group: 'navigation',
     labelKey: 'shortcuts.item.sqlWorkspace.label',

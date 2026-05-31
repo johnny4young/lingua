@@ -145,6 +145,52 @@ export interface HttpRequestBody {
   content?: string;
 }
 
+/**
+ * One URL query parameter row in the request builder's Params sub-tab.
+ * Mirrors the header-row shape (`enabled: false` "comments out" the
+ * row). The Params table is kept in two-way sync with the URL query
+ * string by the editor (`paramsToUrl` / `urlToParams`).
+ */
+export interface HttpQueryParam {
+  key: string;
+  value: string;
+  enabled: boolean;
+}
+
+/**
+ * Closed enum of auth schemes the Auth sub-tab supports. `'none'` is
+ * the default (no header injected). Each non-none scheme injects a
+ * single header on send:
+ *
+ *   - `'bearer'` → `Authorization: Bearer <token>`
+ *   - `'basic'`  → `Authorization: Basic base64(user:pass)`
+ *   - `'apiKey'` → a custom header named by `apiKeyHeader`, value
+ *     `apiKeyValue` (defaults to `X-API-Key`).
+ *
+ * The injected header is ALWAYS baseline-sensitive (`Authorization`
+ * and `x-api-key` are in `BASELINE_SENSITIVE_HEADERS`), so the
+ * existing response-side + capsule redaction covers it. The auth
+ * config itself (token / password) is persisted in plain in the
+ * request store the same way an explicit `Authorization` header row
+ * already is — redaction is a TELEMETRY / SHARE-time guarantee, not a
+ * local-storage-at-rest one (see the file header).
+ */
+export type HttpAuthKind = 'none' | 'bearer' | 'basic' | 'apiKey';
+
+export interface HttpRequestAuth {
+  kind: HttpAuthKind;
+  /** Bearer token. Used only when `kind === 'bearer'`. */
+  token?: string;
+  /** Basic auth username. Used only when `kind === 'basic'`. */
+  username?: string;
+  /** Basic auth password. Used only when `kind === 'basic'`. */
+  password?: string;
+  /** API key header name (defaults to `X-API-Key`). `kind === 'apiKey'`. */
+  apiKeyHeader?: string;
+  /** API key header value. `kind === 'apiKey'`. */
+  apiKeyValue?: string;
+}
+
 export interface HttpRequestV1 {
   /** Hard-coded `1`. `parseHttpRequest` rejects any other value. */
   version: 1;
@@ -156,6 +202,21 @@ export interface HttpRequestV1 {
   /** URL string. The runtime validates with `new URL()` before sending. */
   url: string;
   headers: HttpRequestHeader[];
+  /**
+   * Optional URL query parameters editable in the Params sub-tab. Kept
+   * in two-way sync with the query string of `url` by the editor.
+   * Optional + back-compat: requests persisted before this field
+   * existed (and the runtime) treat its absence as "params live
+   * entirely in the URL string". When present, `enabled` rows are the
+   * source of truth that produced the current `url`.
+   */
+  queryParams?: HttpQueryParam[];
+  /**
+   * Optional auth config injected as a header on send. Absent / `'none'`
+   * means no injection. Back-compat: old persisted requests load with
+   * no auth.
+   */
+  auth?: HttpRequestAuth;
   body?: HttpRequestBody;
   /** Optional per-request timeout override. Capped at `MAX_REQUEST_TIMEOUT_MS`. */
   timeoutMs?: number;
@@ -260,6 +321,51 @@ function parseHeaderEntry(value: unknown): HttpRequestHeader | null {
   return { name: name.trim(), value: headerValue, enabled };
 }
 
+/**
+ * Parse one query-param row. Same null-on-mismatch discipline as the
+ * header parser. `key` may be empty (a draft row in the editor); empty
+ * keys are skipped at URL-build time.
+ */
+function parseQueryParamEntry(value: unknown): HttpQueryParam | null {
+  if (!isRecord(value)) return null;
+  const key = value.key;
+  const paramValue = value.value;
+  const enabled = value.enabled;
+  if (typeof key !== 'string') return null;
+  if (typeof paramValue !== 'string') return null;
+  if (typeof enabled !== 'boolean') return null;
+  return { key, value: paramValue, enabled };
+}
+
+function isHttpAuthKind(value: unknown): value is HttpAuthKind {
+  return (
+    value === 'none' ||
+    value === 'bearer' ||
+    value === 'basic' ||
+    value === 'apiKey'
+  );
+}
+
+/**
+ * Parse the optional auth block. Returns `null` ONLY on a structural
+ * mismatch (caller distinguishes "absent" from "invalid"). Unknown
+ * fields for the active kind are tolerated — we read only the fields
+ * the kind needs at send time, so a `basic` block carrying a stale
+ * `token` is harmless.
+ */
+function parseAuth(value: unknown): HttpRequestAuth | null {
+  if (value === undefined || value === null) return null;
+  if (!isRecord(value)) return null;
+  if (!isHttpAuthKind(value.kind)) return null;
+  const auth: HttpRequestAuth = { kind: value.kind };
+  if (typeof value.token === 'string') auth.token = value.token;
+  if (typeof value.username === 'string') auth.username = value.username;
+  if (typeof value.password === 'string') auth.password = value.password;
+  if (typeof value.apiKeyHeader === 'string') auth.apiKeyHeader = value.apiKeyHeader;
+  if (typeof value.apiKeyValue === 'string') auth.apiKeyValue = value.apiKeyValue;
+  return auth;
+}
+
 function parseBody(value: unknown): HttpRequestBody | null {
   if (value === undefined || value === null) return null;
   if (!isRecord(value)) return null;
@@ -294,6 +400,28 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     if (parsed === null) return null;
     headers.push(parsed);
   }
+  // Back-compat: `queryParams` is optional. Absent → undefined (params
+  // live in the URL string). Present-but-not-an-array → reject the
+  // whole entry (corrupt). Present array → drop only the invalid rows.
+  let queryParams: HttpQueryParam[] | undefined;
+  if (value.queryParams !== undefined) {
+    if (!Array.isArray(value.queryParams)) return null;
+    const parsedParams: HttpQueryParam[] = [];
+    for (const raw of value.queryParams) {
+      const parsed = parseQueryParamEntry(raw);
+      if (parsed === null) return null;
+      parsedParams.push(parsed);
+    }
+    queryParams = parsedParams;
+  }
+  // Back-compat: `auth` is optional. Absent → undefined (no injection).
+  // Present-but-invalid → reject the whole entry.
+  let auth: HttpRequestAuth | undefined;
+  if (value.auth !== undefined) {
+    const parsedAuth = parseAuth(value.auth);
+    if (parsedAuth === null) return null;
+    auth = parsedAuth;
+  }
   const body = parseBody(value.body);
   if (value.body !== undefined && body === null) return null;
   const createdAt = value.createdAt;
@@ -314,6 +442,8 @@ export function parseHttpRequest(value: unknown): HttpRequestV1 | null {
     method: value.method,
     url: value.url,
     headers,
+    ...(queryParams !== undefined ? { queryParams } : {}),
+    ...(auth !== undefined ? { auth } : {}),
     ...(body ? { body } : {}),
     ...(timeoutMs !== undefined ? { timeoutMs } : {}),
     createdAt,
@@ -433,6 +563,229 @@ export function isHeaderSensitive(
     if (allow.toLowerCase().trim() === lc) return true;
   }
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// Params <-> URL sync. The Params sub-tab and the URL bar are two views
+// of the same query string; these helpers keep them coherent.
+// ---------------------------------------------------------------------------
+
+/**
+ * Split a URL string into its base (everything before `?`) and its
+ * raw query string (everything after the first `?`, sans the `?`
+ * itself, and dropping any `#fragment`). Works on partial / invalid
+ * URLs too — the editor lets the user type `api.exa` before it parses
+ * — so we operate on the raw string, never `new URL()`.
+ */
+function splitUrlQuery(url: string): { base: string; query: string } {
+  const hashIdx = url.indexOf('#');
+  const withoutHash = hashIdx === -1 ? url : url.slice(0, hashIdx);
+  const qIdx = withoutHash.indexOf('?');
+  if (qIdx === -1) return { base: withoutHash, query: '' };
+  return {
+    base: withoutHash.slice(0, qIdx),
+    query: withoutHash.slice(qIdx + 1),
+  };
+}
+
+/**
+ * Derive query-param rows from a URL string. Used to seed the Params
+ * table from a URL the user typed / pasted (or a back-compat request
+ * with no `queryParams`). Decodes `+` and percent-escapes per
+ * `URLSearchParams`. Every derived row is `enabled: true`.
+ */
+export function urlToParams(url: string): HttpQueryParam[] {
+  const { query } = splitUrlQuery(url);
+  if (query.length === 0) return [];
+  const params: HttpQueryParam[] = [];
+  // `URLSearchParams` handles `+` → space, percent-decoding, and
+  // repeated keys (each becomes its own row, preserving order).
+  for (const [key, value] of new URLSearchParams(query)) {
+    params.push({ key, value, enabled: true });
+  }
+  return params;
+}
+
+/**
+ * Rebuild a URL string from a base URL + query-param rows. The base is
+ * taken from `url` (everything before `?`); enabled rows with a
+ * non-empty key are appended as a fresh query string. Disabled rows
+ * and empty-key rows are dropped. A trailing `#fragment` on the input
+ * is preserved. Encoding matches `URLSearchParams` (so it round-trips
+ * with `urlToParams`).
+ */
+export function paramsToUrl(url: string, params: ReadonlyArray<HttpQueryParam>): string {
+  const hashIdx = url.indexOf('#');
+  const fragment = hashIdx === -1 ? '' : url.slice(hashIdx);
+  const { base } = splitUrlQuery(url);
+  const search = new URLSearchParams();
+  for (const param of params) {
+    if (!param.enabled) continue;
+    if (param.key.length === 0) continue;
+    search.append(param.key, param.value);
+  }
+  const query = search.toString();
+  return query.length > 0 ? `${base}?${query}${fragment}` : `${base}${fragment}`;
+}
+
+// ---------------------------------------------------------------------------
+// Auth header injection. Pure — the runtime applies the result before
+// sending; the curl builder reuses it so the printed command matches
+// the wire request exactly.
+// ---------------------------------------------------------------------------
+
+/**
+ * UTF-8-safe base64 for Basic auth. `btoa` only handles Latin-1, so a
+ * username / password with non-ASCII bytes would throw — encode to
+ * UTF-8 bytes first.
+ */
+function base64Utf8(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = bytes.subarray(offset, offset + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+/** Default header name when an API-key auth row leaves it blank. */
+export const DEFAULT_API_KEY_HEADER = 'X-API-Key';
+
+/**
+ * Resolve the auth config into the single header it injects, or `null`
+ * for `'none'` / incomplete config (e.g. a bearer scheme with an empty
+ * token injects nothing — the user is still filling it in). Header
+ * names are always baseline-sensitive, so the response/capsule
+ * redaction covers the resulting request.
+ */
+export function buildAuthHeader(
+  auth: HttpRequestAuth | undefined
+): { name: string; value: string } | null {
+  if (!auth || auth.kind === 'none') return null;
+  if (auth.kind === 'bearer') {
+    const token = auth.token ?? '';
+    if (token.length === 0) return null;
+    return { name: 'Authorization', value: `Bearer ${token}` };
+  }
+  if (auth.kind === 'basic') {
+    const username = auth.username ?? '';
+    const password = auth.password ?? '';
+    if (username.length === 0 && password.length === 0) return null;
+    return {
+      name: 'Authorization',
+      value: `Basic ${base64Utf8(`${username}:${password}`)}`,
+    };
+  }
+  // apiKey
+  const headerName = (auth.apiKeyHeader ?? '').trim() || DEFAULT_API_KEY_HEADER;
+  const headerValue = auth.apiKeyValue ?? '';
+  if (headerValue.length === 0) return null;
+  return { name: headerName, value: headerValue };
+}
+
+/**
+ * Compose the full outgoing header list for a request: the user's
+ * enabled header rows PLUS the injected auth header (auth wins on a
+ * name collision — the explicit Auth sub-tab is the more specific
+ * intent). Empty-name rows are dropped. Pure: the runtime feeds this
+ * into a `Headers` instance; the curl builder prints it verbatim.
+ */
+export function composeRequestHeaders(
+  request: HttpRequestV1
+): Array<{ name: string; value: string }> {
+  const injected = buildAuthHeader(request.auth);
+  const injectedLc = injected ? injected.name.toLowerCase() : null;
+  const out: Array<{ name: string; value: string }> = [];
+  for (const header of request.headers) {
+    if (!header.enabled) continue;
+    const name = header.name.trim();
+    if (name.length === 0) continue;
+    // Auth header takes precedence over a same-named manual row.
+    if (injectedLc !== null && name.toLowerCase() === injectedLc) continue;
+    out.push({ name, value: header.value });
+  }
+  if (injected) out.push(injected);
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Copy as cURL. Builds a shell-safe `curl` command from the resolved
+// request (method, URL incl. params, composed headers incl. auth, body).
+// ---------------------------------------------------------------------------
+
+/**
+ * Single-quote a token for a POSIX shell. Wraps in `'…'` and escapes
+ * embedded single quotes via the `'\''` idiom — safe for arbitrary
+ * bytes (no interpolation happens inside single quotes).
+ */
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Build a `curl` command string equivalent to sending `request`. The
+ * URL already carries the query params (the editor keeps `url` in sync
+ * with the Params table), so no extra param handling is needed here.
+ * Auth is injected via `composeRequestHeaders`, so the printed `-H`
+ * lines match the wire request. The body is emitted via `--data` for
+ * non-none kinds on methods that carry a body.
+ *
+ * Content-Type fidelity: the runtime (`buildRequestHeaders`) auto-adds
+ * a default `Content-Type` for JSON / form / text bodies when the user
+ * did not set one explicitly. We mirror that here so the printed `-H`
+ * lines match the bytes actually sent — without it, `curl` would
+ * default a `--data` body to `application/x-www-form-urlencoded` and
+ * the copied command would diverge from the wire request.
+ *
+ * NOTE: this prints the user's ACTUAL header / token values (it is a
+ * copy-MY-request affordance, like Chrome DevTools "Copy as cURL"),
+ * not the redacted shape. Redaction is a telemetry / share guarantee;
+ * the clipboard is the user's own surface.
+ */
+export function buildCurlCommand(request: HttpRequestV1): string {
+  const parts: string[] = ['curl'];
+  if (request.method !== 'GET') {
+    parts.push('-X', request.method);
+  }
+  parts.push(shellQuote(request.url));
+  const composed = composeRequestHeaders(request);
+  for (const header of composed) {
+    parts.push('-H', shellQuote(`${header.name}: ${header.value}`));
+  }
+  const carriesBody =
+    request.method !== 'GET' &&
+    request.method !== 'HEAD' &&
+    request.method !== 'OPTIONS';
+  const willSendBody =
+    carriesBody &&
+    !!request.body &&
+    request.body.kind !== 'none' &&
+    (request.body.content ?? '').length > 0;
+  if (willSendBody && request.body) {
+    // Mirror the runtime's default Content-Type injection so the copied
+    // command sends the same bytes. Only fires when the user has not
+    // already supplied a Content-Type row (case-insensitive).
+    const hasContentType = composed.some(
+      (h) => h.name.toLowerCase() === 'content-type'
+    );
+    if (!hasContentType) {
+      const defaultContentType =
+        request.body.kind === 'json'
+          ? 'application/json'
+          : request.body.kind === 'form'
+            ? 'application/x-www-form-urlencoded'
+            : request.body.kind === 'text'
+              ? 'text/plain'
+              : null;
+      if (defaultContentType !== null) {
+        parts.push('-H', shellQuote(`Content-Type: ${defaultContentType}`));
+      }
+    }
+    parts.push('--data', shellQuote(request.body.content ?? ''));
+  }
+  return parts.join(' ');
 }
 
 /**

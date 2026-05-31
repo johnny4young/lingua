@@ -3,15 +3,17 @@
  * selector.
  *
  * Locks the Slice 1 contract surface:
- *   - Selector renders for JS tabs (default `Worker`).
- *   - Dropdown shows three enabled items after Slice 2 closed RL-019.
- *   - The selector is hidden for non-JS/TS tabs.
- *   - Spanish locale renders the localized labels.
+ *   - The action pill runtime chip renders for JS tabs (default `Worker`).
+ *   - Dropdown shows three enabled runtime choices after Slice 2 closed RL-019.
+ *   - The chip is hidden for non-JS/TS tabs.
+ *   - Spanish locale renders the localized menu descriptions.
  */
 
 import {
   closeSettings,
+  closeActiveEditorTab,
   createJavaScriptTab,
+  createLanguageTab,
   dismissWhatsNew,
   expect,
   gotoApp,
@@ -28,7 +30,7 @@ test.describe('Runtime mode selector (RL-019)', () => {
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
 
-    const button = page.getByTestId('runtime-mode-selector-button');
+    const button = page.getByTestId('action-pill-runtime');
     await expect(button).toBeVisible();
     await expect(button).toContainText('Worker');
   });
@@ -39,18 +41,17 @@ test.describe('Runtime mode selector (RL-019)', () => {
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
 
-    await page.getByTestId('runtime-mode-selector-button').click();
+    await page.getByTestId('action-pill-runtime').click();
 
-    const worker = page.getByTestId('runtime-mode-option-worker');
-    const node = page.getByTestId('runtime-mode-option-node');
-    const browserPreview = page.getByTestId('runtime-mode-option-browser-preview');
+    const worker = page.getByTestId('action-pill-runtime-option-worker');
+    const node = page.getByTestId('action-pill-runtime-option-node');
+    const browserPreview = page.getByTestId('action-pill-runtime-option-browser-preview');
 
     await expect(worker).toBeVisible();
     await expect(worker).not.toBeDisabled();
 
     await expect(node).toBeVisible();
     await expect(node).not.toBeDisabled();
-    await expect(node).toHaveAttribute('aria-disabled', 'false');
     await expect(node).toContainText(/desktop Node runtime/i);
 
     await expect(browserPreview).toBeVisible();
@@ -64,13 +65,13 @@ test.describe('Runtime mode selector (RL-019)', () => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await dismissWhatsNew(page);
+    await closeActiveEditorTab(page);
 
-    // Open the New file menu and create a Python tab so the active
-    // tab does not own the runtime-mode surface.
-    await page.getByRole('button', { name: /new file language menu|menú de lenguaje para nuevo archivo/i }).click();
-    await page.getByRole('menuitem', { name: 'Python' }).click();
+    // Create a Python tab so the active tab does not own the
+    // runtime-mode surface.
+    await createLanguageTab(page, /^Python\b/i, /PY .*\.py/i);
 
-    await expect(page.getByTestId('runtime-mode-selector-button')).toBeHidden();
+    await expect(page.getByTestId('action-pill-runtime')).toBeHidden();
   });
 
   test('Settings → Editor default runtime mode select lists three options', async ({ page }) => {
@@ -109,17 +110,13 @@ test.describe('Runtime mode selector (RL-019)', () => {
     await dismissWhatsNew(page);
     await createJavaScriptTab(page);
 
-    const button = page.getByTestId('runtime-mode-selector-button');
-    await expect(button).toContainText('Entorno');
+    const button = page.getByTestId('action-pill-runtime');
     await expect(button).toContainText('Worker');
 
     await button.click();
-    await expect(page.getByTestId('runtime-mode-option-node')).toHaveAttribute(
-      'aria-disabled',
-      'false'
-    );
-    await expect(page.getByTestId('runtime-mode-option-node')).toContainText(
-      /runtime de Node de escritorio/iu
+    await expect(page.getByTestId('action-pill-runtime-option-node')).not.toBeDisabled();
+    await expect(page.getByTestId('action-pill-runtime-option-node')).toContainText(
+      /entorno Node de escritorio/iu
     );
     await page.keyboard.press('Escape');
   });

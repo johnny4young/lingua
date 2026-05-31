@@ -17,6 +17,7 @@
 
 import type { Page } from '@playwright/test';
 import {
+  clickRun,
   createJavaScriptTab,
   createTypeScriptTab,
   dismissWhatsNew,
@@ -27,10 +28,10 @@ import {
 } from './licenseWeb.helpers';
 
 async function pressRun(page: Page): Promise<void> {
-  // The toolbar Run button is the most reliable trigger across
+  // The action pill Run button is the most reliable trigger across
   // viewport sizes / focus state. Keyboard shortcut Mod+Enter
   // also works but can be swallowed by the Monaco textarea in CI.
-  await page.getByTestId('toolbar-run-button').click();
+  await clickRun(page);
 }
 
 test.describe('Recent Runs pill (RL-020 Slice 4)', () => {

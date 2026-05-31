@@ -35,7 +35,7 @@ test.describe('Language intelligence Settings rows (RL-026 Slice 3 + 4)', () => 
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
     await openSettings(page);
-    await openSettingsTab(page, 'editor');
+    await openSettingsTab(page, 'languages');
 
     await expect(
       page.getByText(/Rust language intelligence — desktop only/i)
@@ -53,7 +53,7 @@ test.describe('Language intelligence Settings rows (RL-026 Slice 3 + 4)', () => 
     await seedSession(page, { language: 'es' });
     await gotoApp(page);
     await openSettings(page);
-    await openSettingsTab(page, 'editor');
+    await openSettingsTab(page, 'languages');
 
     await expect(page.getByText(/Inteligencia de Rust — solo escritorio/i)).toBeVisible();
     await expect(page.getByText(/Inteligencia de Go — solo escritorio/i)).toBeVisible();

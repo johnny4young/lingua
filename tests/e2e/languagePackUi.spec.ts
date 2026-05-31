@@ -3,7 +3,14 @@
  * UI consumers added after Toolbar / FileTree.
  */
 
-import { expect, gotoApp, openSnippets, seedSession, test } from './licenseWeb.helpers';
+import {
+  closeActiveEditorTab,
+  expect,
+  gotoApp,
+  openSnippets,
+  seedSession,
+  test,
+} from './licenseWeb.helpers';
 
 test.describe.configure({ mode: 'parallel' });
 
@@ -13,6 +20,7 @@ test.describe('Language-pack capability UI', () => {
   }) => {
     await seedSession(page, { language: 'en' });
     await gotoApp(page);
+    await closeActiveEditorTab(page);
 
     await expect(page.getByTestId('empty-state-quick-start-javascript')).toBeVisible();
     await expect(page.getByTestId('empty-state-quick-start-typescript')).toBeVisible();
@@ -47,6 +55,7 @@ test.describe('Language-pack capability UI', () => {
   test('desktop-only badges and option suffixes localize in Spanish', async ({ page }) => {
     await seedSession(page, { language: 'es' });
     await gotoApp(page);
+    await closeActiveEditorTab(page);
 
     await expect(page.getByTestId('empty-state-desktop-only-go')).toHaveText(
       'Solo escritorio'

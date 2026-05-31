@@ -71,7 +71,7 @@ export function useDeepLinks({ openOverlay }: UseDeepLinksOptions): boolean {
     });
 
     return unsubscribe;
-  }, [applyDeepLink]);
+  }, []);
 
   return hasHandledDeepLink;
 }

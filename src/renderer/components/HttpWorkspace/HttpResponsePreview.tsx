@@ -1,6 +1,15 @@
 /**
  * RL-097 Slice 1 — Right column: response preview.
  *
+ * FASE 3 (MOV.02/03) — converged the bespoke status/meta/tabs bar onto
+ * the shared `<ResultHeader>` primitive and the no-response / loading
+ * states onto `<EmptyState>`, matching the Signal-Slate proto
+ * (`proto-workspaces.jsx` httpWs: shared result header `200 OK` +
+ * `245 ms · 83 B` + Body/Headers/Raw + Pretty; EmptyState "No request
+ * sent yet" / CTA Send request). The body renderers, the typed-failure
+ * error bands, the pretty/raw toggle, and every data-testid survive
+ * verbatim — only the chrome changes.
+ *
  * Three sub-tabs: Body / Headers / Raw. The Body view picks the
  * renderer based on content-type:
  *
@@ -18,14 +27,51 @@
  * Fold C — `<HttpStatusPill>` renders the status color-coded.
  */
 
-import { Loader2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Loader2, SendHorizontal, X } from 'lucide-react';
+import { Fragment, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { HttpResponseV1 } from '../../../shared/httpWorkspace';
-import { cn } from '../../utils/cn';
+import { EmptyState } from '../ui/EmptyState';
+import { ResultHeader, type ResultHeaderTab } from '../ui/ResultHeader';
 import { HttpStatusPill } from './HttpStatusPill';
 
 type PreviewTab = 'body' | 'headers' | 'raw';
+
+/** Escape a user string for use as a literal in a RegExp. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Split `text` on every (case-insensitive) occurrence of `query`,
+ * returning alternating non-match / match segments so the renderer can
+ * wrap matches in a highlight `<mark>`. Returns a single non-match
+ * segment when the query is empty or never matches.
+ */
+function splitForHighlight(
+  text: string,
+  query: string
+): Array<{ text: string; match: boolean }> {
+  if (query.length === 0) return [{ text, match: false }];
+  const re = new RegExp(escapeRegExp(query), 'gi');
+  const segments: Array<{ text: string; match: boolean }> = [];
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > lastIndex) {
+      segments.push({ text: text.slice(lastIndex, m.index), match: false });
+    }
+    segments.push({ text: m[0], match: true });
+    lastIndex = m.index + m[0].length;
+    // Guard against zero-length matches (escaped query never produces
+    // one, but be defensive against an infinite loop).
+    if (m[0].length === 0) re.lastIndex += 1;
+  }
+  if (lastIndex < text.length) {
+    segments.push({ text: text.slice(lastIndex), match: false });
+  }
+  return segments;
+}
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
@@ -93,6 +139,8 @@ export function HttpResponsePreview({
   const [tab, setTab] = useState<PreviewTab>('body');
   // Fold E — pretty/raw toggle.
   const [prettyJson, setPrettyJson] = useState<boolean>(true);
+  // Response body search/filter (Body tab). Highlights matches inline.
+  const [search, setSearch] = useState<string>('');
 
   const prettyBody = useMemo(() => {
     if (!response) return null;
@@ -109,15 +157,27 @@ export function HttpResponsePreview({
     [response]
   );
 
+  const responseTabs = useMemo<ReadonlyArray<ResultHeaderTab>>(
+    () =>
+      (['body', 'headers', 'raw'] as const).map((tabId) => ({
+        id: tabId,
+        label: t(`httpWorkspace.response.tab.${tabId}`),
+      })),
+    [t]
+  );
+
   if (isExecuting && !response) {
     return (
       <div
         data-testid="http-response-preview"
         data-state="executing"
-        className="flex h-full flex-col items-center justify-center gap-2 px-4 py-6 text-center text-sm text-muted"
+        className="flex h-full flex-col items-center justify-center px-4 py-6"
       >
-        <Loader2 size={18} className="animate-spin" aria-hidden="true" />
-        <span>{t('httpWorkspace.response.loading')}</span>
+        <EmptyState
+          icon={<Loader2 size={18} className="animate-spin" aria-hidden="true" />}
+          title={t('httpWorkspace.response.loading')}
+          description={t('httpWorkspace.response.empty.body')}
+        />
       </div>
     );
   }
@@ -127,17 +187,35 @@ export function HttpResponsePreview({
       <div
         data-testid="http-response-preview"
         data-state="empty"
-        className="flex h-full flex-col items-center justify-center gap-1 px-4 py-6 text-center"
+        className="flex h-full flex-col items-center justify-center px-4 py-6"
       >
-        <div className="text-sm font-medium">
-          {t('httpWorkspace.response.empty.title')}
-        </div>
-        <div className="text-xs text-muted">
-          {t('httpWorkspace.response.empty.body')}
-        </div>
+        <EmptyState
+          icon={<SendHorizontal size={18} aria-hidden="true" />}
+          title={t('httpWorkspace.response.empty.title')}
+          description={t('httpWorkspace.response.empty.body')}
+        />
       </div>
     );
   }
+
+  // Mono meta line: `245 ms · 83 B`, matching the proto's shared
+  // result header (timing first, then size).
+  const meta = `${response.durationMs} ms · ${formatBytes(response.sizeBytes)}`;
+  const prettyToggleVisible =
+    tab === 'body' && isJsonContentType(response.contentType);
+
+  // The text the Body tab renders (pretty JSON when toggled, else raw).
+  const displayedBody = prettyBody !== null ? prettyBody : response.body;
+  const trimmedSearch = search.trim();
+  const bodySegments =
+    tab === 'body' && imageSrc === null && trimmedSearch.length > 0
+      ? splitForHighlight(displayedBody, trimmedSearch)
+      : null;
+  const matchCount = bodySegments
+    ? bodySegments.reduce((n, seg) => n + (seg.match ? 1 : 0), 0)
+    : 0;
+  // The search box only makes sense for a textual body.
+  const searchVisible = tab === 'body' && imageSrc === null;
 
   return (
     <div
@@ -146,24 +224,38 @@ export function HttpResponsePreview({
       data-response-kind={response.kind}
       className="flex h-full min-w-0 flex-col overflow-hidden"
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-border/40 px-3 py-1.5 text-xs">
-        <HttpStatusPill response={response} />
-        <span className="text-muted">{formatBytes(response.sizeBytes)}</span>
-        <span className="text-muted">·</span>
-        <span className="text-muted tabular-nums">
-          {response.durationMs} ms
-        </span>
-        {response.redactedHeaders.length > 0 ? (
-          <span
-            data-testid="http-response-preview-redacted-badge"
-            className="ml-auto rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
-          >
-            {t('httpWorkspace.response.redactedHeaders.badge', {
-              count: response.redactedHeaders.length,
-            })}
+      <ResultHeader
+        status={<HttpStatusPill response={response} />}
+        meta={meta}
+        tabs={responseTabs}
+        activeTab={tab}
+        onTabChange={(id) => setTab(id as PreviewTab)}
+        trailing={
+          <span className="flex items-center gap-2">
+            {prettyToggleVisible ? (
+              <label className="inline-flex items-center gap-1.5 text-[11.5px] text-fg-subtle">
+                <input
+                  type="checkbox"
+                  checked={prettyJson}
+                  onChange={(event) => setPrettyJson(event.target.checked)}
+                  data-testid="http-response-preview-pretty-toggle"
+                />
+                {t('httpWorkspace.response.body.pretty')}
+              </label>
+            ) : null}
+            {response.redactedHeaders.length > 0 ? (
+              <span
+                data-testid="http-response-preview-redacted-badge"
+                className="rounded-sm bg-warning-bg px-1.5 py-0.5 text-[10px] font-semibold text-warning-fg"
+              >
+                {t('httpWorkspace.response.redactedHeaders.badge', {
+                  count: response.redactedHeaders.length,
+                })}
+              </span>
+            ) : null}
           </span>
-        ) : null}
-      </header>
+        }
+      />
 
       {/* Error band for typed failures — gives the user actionable copy. */}
       {response.kind === 'cors-error' ||
@@ -171,7 +263,7 @@ export function HttpResponsePreview({
       response.kind === 'timeout' ? (
         <div
           data-testid="http-response-preview-error"
-          className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-200"
+          className="border-b border-warning-border bg-warning-bg px-3 py-2 text-[11px] text-warning-fg"
         >
           {response.kind === 'cors-error'
             ? t('httpWorkspace.response.error.cors')
@@ -190,7 +282,7 @@ export function HttpResponsePreview({
                 window.open(externalUrl, '_blank', 'noopener,noreferrer')
               }
               data-testid="http-response-preview-open-external"
-              className="ml-2 underline underline-offset-2 hover:text-amber-900"
+              className="ml-2 underline underline-offset-2 hover:text-warning-fg/80"
             >
               {t('httpWorkspace.openExternal.cta')}
             </button>
@@ -201,48 +293,46 @@ export function HttpResponsePreview({
       {response.kind === 'too-large' ? (
         <div
           data-testid="http-response-preview-too-large"
-          className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-200"
+          className="border-b border-warning-border bg-warning-bg px-3 py-2 text-[11px] text-warning-fg"
         >
           {t('httpWorkspace.response.error.tooLarge')}
         </div>
       ) : null}
 
-      {/* Sub-tabs */}
-      <nav
-        role="tablist"
-        aria-label={t('httpWorkspace.response.tabs.ariaLabel')}
-        className="flex shrink-0 gap-1 border-b border-border/30 px-2 pt-1"
-      >
-        {(['body', 'headers', 'raw'] as const).map((tabId) => (
-          <button
-            key={tabId}
-            type="button"
-            role="tab"
-            aria-selected={tab === tabId}
-            onClick={() => setTab(tabId)}
-            data-testid={`http-response-preview-tab-${tabId}`}
-            className={cn(
-              '-mb-px rounded-t-md border border-transparent px-2 py-1 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors',
-              tab === tabId
-                ? 'border-border-strong border-b-background bg-background text-foreground'
-                : 'text-muted hover:bg-surface-strong/40 hover:text-foreground'
-            )}
-          >
-            {t(`httpWorkspace.response.tab.${tabId}`)}
-          </button>
-        ))}
-        {tab === 'body' && isJsonContentType(response.contentType) ? (
-          <label className="ml-auto inline-flex items-center gap-1.5 self-center text-[10px] text-muted">
-            <input
-              type="checkbox"
-              checked={prettyJson}
-              onChange={(event) => setPrettyJson(event.target.checked)}
-              data-testid="http-response-preview-pretty-toggle"
-            />
-            {t('httpWorkspace.response.body.pretty')}
-          </label>
-        ) : null}
-      </nav>
+      {/* Body search / filter — highlights matches inline. */}
+      {searchVisible ? (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle px-3 py-1.5">
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t('httpWorkspace.response.search.placeholder')}
+            aria-label={t('httpWorkspace.response.search.ariaLabel')}
+            data-testid="http-response-preview-search"
+            className="h-6 min-w-0 flex-1 rounded-md border border-border-subtle bg-bg-inset px-2 font-mono text-[11px] text-fg-base placeholder:text-fg-subtle focus:border-border-strong focus:outline-none"
+          />
+          {trimmedSearch.length > 0 ? (
+            <span
+              data-testid="http-response-preview-search-count"
+              className="shrink-0 font-mono text-[10.5px] tabular-nums text-fg-subtle"
+            >
+              {t('httpWorkspace.response.search.matches', { count: matchCount })}
+            </span>
+          ) : null}
+          {search.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label={t('httpWorkspace.response.search.clear')}
+              title={t('httpWorkspace.response.search.clear')}
+              data-testid="http-response-preview-search-clear"
+              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-subtle transition-colors hover:text-fg-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+            >
+              <X size={12} aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
         {tab === 'body' ? (
@@ -259,7 +349,21 @@ export function HttpResponsePreview({
               data-mode={prettyBody !== null ? 'pretty' : 'raw'}
               className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed"
             >
-              {prettyBody !== null ? prettyBody : response.body}
+              {bodySegments !== null
+                ? bodySegments.map((seg, i) =>
+                    seg.match ? (
+                      <mark
+                        key={i}
+                        data-testid="http-response-preview-body-match"
+                        className="rounded-sm bg-warning-bg text-warning-fg"
+                      >
+                        {seg.text}
+                      </mark>
+                    ) : (
+                      <Fragment key={i}>{seg.text}</Fragment>
+                    )
+                  )
+                : displayedBody}
             </pre>
           )
         ) : null}
@@ -271,14 +375,14 @@ export function HttpResponsePreview({
             className="flex flex-col gap-1 text-[11px]"
           >
             {response.headers.length === 0 ? (
-              <li className="text-muted">
+              <li className="text-fg-subtle">
                 {t('httpWorkspace.response.headers.empty')}
               </li>
             ) : null}
             {response.headers.map((h, i) => (
               <li key={i} className="flex gap-2">
-                <span className="font-semibold text-muted">{h.name}:</span>
-                <span className={h.redacted ? 'italic text-amber-600' : ''}>
+                <span className="font-semibold text-fg-subtle">{h.name}:</span>
+                <span className={h.redacted ? 'italic text-warning-fg' : ''}>
                   {h.value}
                 </span>
               </li>

@@ -8,7 +8,7 @@
  *
  * Sizing rationale: 5 KB realistic JS buffer with a mix of regular
  * lines, `//=>` arrows, and `// @watch` watches × 10 000 iterations.
- * Budget: 400 ms wall clock (~40 µs / call). Same shape as
+ * Budget: 400 ms CPU time (~40 µs / call). Same shape as
  * `autoRunGating.bench.test.ts` (Slice 1 fold F), with extra
  * headroom because the magic-comment scanner also matches the
  * watch-shape regex which is materially slower per line.
@@ -21,6 +21,23 @@ import {
   detectJSAutoLogLines,
   transformJSAutoLog,
 } from '@/utils/magicComments';
+
+function createElapsedTimer(): () => number {
+  if (typeof process !== 'undefined' && typeof process.cpuUsage === 'function') {
+    const start = process.cpuUsage();
+    return () => {
+      const elapsed = process.cpuUsage(start);
+      return (elapsed.user + elapsed.system) / 1_000;
+    };
+  }
+
+  const now = () =>
+    typeof performance !== 'undefined' && performance.now
+      ? performance.now()
+      : Date.now();
+  const startMs = now();
+  return () => now() - startMs;
+}
 
 function buildBuffer(minBytes: number): string {
   // Realistic mix: variable declarations, arrow + watch markers,
@@ -53,12 +70,7 @@ describe('magicComments bench — 5 KB / 10 000 iterations', () => {
       transformJSMagicComments(buffer);
     }
 
-    const now = () =>
-      typeof performance !== 'undefined' && performance.now
-        ? performance.now()
-        : Date.now();
-
-    const startMs = now();
+    const elapsed = createElapsedTimer();
     let lastLength = 0;
     for (let i = 0; i < 10_000; i++) {
       const detected = detectJSMagicComments(buffer);
@@ -69,7 +81,7 @@ describe('magicComments bench — 5 KB / 10 000 iterations', () => {
         transformJSMagicComments(buffer);
       }
     }
-    const elapsedMs = now() - startMs;
+    const elapsedMs = elapsed();
 
     expect(lastLength).toBeGreaterThan(0);
     expect(elapsedMs).toBeLessThan(400);
@@ -104,12 +116,7 @@ describe('RL-020 Slice 5 fold F — auto-log detector bench', () => {
       transformJSAutoLog(buffer, lines);
     }
 
-    const now = () =>
-      typeof performance !== 'undefined' && performance.now
-        ? performance.now()
-        : Date.now();
-
-    const startMs = now();
+    const elapsed = createElapsedTimer();
     let lastCount = 0;
     for (let i = 0; i < 5_000; i++) {
       const lines = detectJSAutoLogLines(buffer);
@@ -118,7 +125,7 @@ describe('RL-020 Slice 5 fold F — auto-log detector bench', () => {
         transformJSAutoLog(buffer, lines);
       }
     }
-    const elapsedMs = now() - startMs;
+    const elapsedMs = elapsed();
     expect(lastCount).toBeGreaterThan(0);
     expect(elapsedMs).toBeLessThan(750);
   });

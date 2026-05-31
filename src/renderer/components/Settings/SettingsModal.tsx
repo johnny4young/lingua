@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type RefObject,
 } from 'react';
@@ -45,6 +46,13 @@ import { UtilitiesSection } from './UtilitiesSection';
 import { useShallow } from 'zustand/react/shallow';
 import { IconButton, Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { EyebrowMono } from '../ui/primitives';
+import { SettingsSection, SpecCard, SpecRow } from '../ui/SpecRow';
+import {
+  KEYBOARD_SHORTCUTS,
+  formatShortcutCombo,
+  resolveCombos,
+  resolveShortcutDisplayPlatform,
+} from '../../data/keyboardShortcuts';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { cn } from '../../utils/cn';
 
@@ -253,6 +261,41 @@ interface SettingsRailProps {
 function SettingsRail({ active, filter, onSelect }: SettingsRailProps) {
   const { t } = useTranslation();
   const groups = ['workspace', 'advanced'] as const;
+  const focusRailItem = (id: TabId) => {
+    document.getElementById(`settings-rail-${id}`)?.focus();
+  };
+  const handleRailKeyDown = (
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    itemId: TabId
+  ) => {
+    const currentIndex = RAIL_ITEMS.findIndex((item) => item.id === itemId);
+    if (currentIndex < 0) return;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      event.preventDefault();
+      const nextItem = RAIL_ITEMS[(currentIndex + 1) % RAIL_ITEMS.length];
+      if (nextItem) focusRailItem(nextItem.id);
+      return;
+    }
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const previousItem =
+        RAIL_ITEMS[(currentIndex - 1 + RAIL_ITEMS.length) % RAIL_ITEMS.length];
+      if (previousItem) focusRailItem(previousItem.id);
+      return;
+    }
+    if (event.key === 'Home') {
+      event.preventDefault();
+      const firstItem = RAIL_ITEMS[0];
+      if (firstItem) focusRailItem(firstItem.id);
+      return;
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      const lastItem = RAIL_ITEMS[RAIL_ITEMS.length - 1];
+      if (lastItem) focusRailItem(lastItem.id);
+    }
+  };
+
   return (
     <aside
       className="settings-rail"
@@ -280,6 +323,7 @@ function SettingsRail({ active, filter, onSelect }: SettingsRailProps) {
                 aria-selected={isActive}
                 aria-controls={`settings-panel-${item.id}`}
                 onClick={() => onSelect(item.id)}
+                onKeyDown={(event) => handleRailKeyDown(event, item.id)}
                 data-active={isActive ? 'true' : 'false'}
                 data-dim={!isActive && filter && !isMatch ? 'true' : 'false'}
                 className="settings-rail-row w-full"
@@ -474,7 +518,7 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
   // (and bug reporters) can expand to inspect or copy.
   return (
     <details className="effective-config-tile">
-      <summary className="effective-config-tile-header cursor-pointer list-none">
+      <summary className="effective-config-tile-header cursor-pointer list-none pr-28">
         <div className="flex items-center gap-2">
           <Braces size={13} className="text-fg-subtle" aria-hidden />
           <EyebrowMono>{t('settings.effectiveConfig.label')}</EyebrowMono>
@@ -482,25 +526,21 @@ function EffectiveConfigTile({ tab }: EffectiveConfigTileProps) {
             {t('settings.effectiveConfig.hint')}
           </span>
         </div>
-        <button
-          type="button"
-          className="button-ghost text-[11px]"
-          onClick={(event) => {
-            // Stop the click from toggling the <details> open/close so
-            // copying doesn't accidentally collapse / expand the tile.
-            event.stopPropagation();
-            event.preventDefault();
-            void navigator.clipboard.writeText(json).then(() => {
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 1500);
-            });
-          }}
-          aria-label={t('settings.effectiveConfig.copy')}
-        >
-          {copied ? <Check size={11} /> : <Copy size={11} />}
-          {copied ? t('settings.effectiveConfig.copied') : t('settings.effectiveConfig.copy')}
-        </button>
       </summary>
+      <button
+        type="button"
+        className="button-ghost absolute right-3 top-2 text-[11px]"
+        onClick={() => {
+          void navigator.clipboard.writeText(json).then(() => {
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+          });
+        }}
+        aria-label={t('settings.effectiveConfig.copy')}
+      >
+        {copied ? <Check size={11} /> : <Copy size={11} />}
+        {copied ? t('settings.effectiveConfig.copied') : t('settings.effectiveConfig.copy')}
+      </button>
       <pre className="effective-config-tile-body whitespace-pre">{json}</pre>
     </details>
   );
@@ -537,6 +577,65 @@ function SettingsStatusBar({ active }: SettingsStatusBarProps) {
         <span className="text-fg-muted">{t('settings.statusBar.escape')}</span>
       </span>
     </div>
+  );
+}
+
+/**
+ * The six most-common shortcuts surfaced inline on the Shortcuts tab so
+ * the surface reads as a preview, not a bare CTA (proto
+ * `settings-proto.jsx` shortcuts section). Each row reuses the canonical
+ * `shortcuts.item.*.label` key and resolves its keystroke from the same
+ * `KEYBOARD_SHORTCUTS` catalog the full list + command palette read —
+ * so user overrides and the platform-aware glyphs (⌘ / Ctrl) match
+ * what the KeyboardShortcuts modal renders. We keep the keystroke as a
+ * `<Kbd>` chip (chrome primitive), not a StatusBadge: it's an input
+ * affordance, not a status signal.
+ */
+const SHORTCUTS_PREVIEW_IDS = [
+  'run-toggle',
+  'overlay-command-palette',
+  'nav-quick-open',
+  'view-toggle-console',
+  'overlay-settings',
+  'overlay-capsule-list',
+] as const;
+
+function ShortcutsPreviewCard() {
+  const { t } = useTranslation();
+  const overrides = useSettingsStore((state) => state.shortcutOverrides);
+  const platform = resolveShortcutDisplayPlatform(
+    window.lingua?.platform ?? 'unknown',
+    window.navigator?.platform,
+  );
+
+  const rows = useMemo(
+    () =>
+      SHORTCUTS_PREVIEW_IDS.flatMap((id) => {
+        const definition = KEYBOARD_SHORTCUTS.find((entry) => entry.id === id);
+        if (!definition) return [];
+        const [primaryCombo] = resolveCombos(definition, overrides);
+        return [
+          {
+            id,
+            label: t(definition.labelKey),
+            combo: primaryCombo ? formatShortcutCombo(primaryCombo, platform) : null,
+          },
+        ];
+      }),
+    [overrides, platform, t],
+  );
+
+  return (
+    <SpecCard>
+      {rows.map((row, index) => (
+        <SpecRow
+          key={row.id}
+          label={row.label}
+          last={index === rows.length - 1}
+          control={row.combo ? <Kbd>{row.combo}</Kbd> : null}
+        />
+      ))}
+    </SpecCard>
   );
 }
 
@@ -664,30 +763,38 @@ export function SettingsModal({
         );
       case 'shortcuts':
         return (
-          <div className="space-y-3">
-            <div className="rounded-xl border border-border/80 bg-bg-panel-alt p-5">
-              <h3 className="text-[14px] font-semibold leading-tight text-fg-base">
-                {t('settings.shortcuts.linkLabel')}
-              </h3>
-              <p className="mt-1.5 max-w-[60ch] text-[12.5px] leading-relaxed text-fg-muted">
-                {t('settings.shortcuts.linkHint')}
-              </p>
-              <button
-                type="button"
-                className="button-primary mt-4 text-[12px]"
-                onClick={() => {
-                  if (onOpenKeyboardShortcuts) {
-                    onClose();
-                    window.setTimeout(onOpenKeyboardShortcuts, 0);
-                  }
-                }}
-                disabled={!onOpenKeyboardShortcuts}
-              >
-                <Keyboard size={12} />
-                {t('settings.shortcuts.modal.cta')}
-                <Kbd className="ml-2">⌘/</Kbd>
-              </button>
-            </div>
+          <div className="space-y-7">
+            <SettingsSection
+              eyebrow={t('settings.shortcuts.eyebrow')}
+              description={t('settings.shortcuts.description')}
+            >
+              <ShortcutsPreviewCard />
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border-subtle bg-bg-inset px-[18px] py-[13px]">
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium text-fg-base">
+                    {t('settings.shortcuts.linkLabel')}
+                  </div>
+                  <div className="mt-[2px] max-w-[52ch] text-[11.5px] leading-relaxed text-fg-subtle">
+                    {t('settings.shortcuts.linkHint')}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="button-primary shrink-0 text-[12px]"
+                  onClick={() => {
+                    if (onOpenKeyboardShortcuts) {
+                      onClose();
+                      window.setTimeout(onOpenKeyboardShortcuts, 0);
+                    }
+                  }}
+                  disabled={!onOpenKeyboardShortcuts}
+                >
+                  <Keyboard size={12} />
+                  {t('settings.shortcuts.modal.cta')}
+                  <Kbd className="ml-2">⌘/</Kbd>
+                </button>
+              </div>
+            </SettingsSection>
           </div>
         );
       case 'plugins':

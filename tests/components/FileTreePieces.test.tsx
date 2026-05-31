@@ -1,10 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import i18next from 'i18next';
 import { initI18n } from '../../src/renderer/i18n';
 import { FileTreeEmptyState } from '../../src/renderer/components/FileTree/FileTreeEmptyState';
 import { FileTreeInlineInput } from '../../src/renderer/components/FileTree/FileTreeInlineInput';
+import { useEditorStore } from '../../src/renderer/stores/editorStore';
+
+const initialEditorState = useEditorStore.getState();
 
 vi.mock('lucide-react', () => ({
   FileCode: () => <span aria-hidden="true">file</span>,
@@ -74,26 +77,39 @@ describe('FileTreeEmptyState', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('surfaces recent projects and open tabs through explicit callbacks', async () => {
+  afterEach(() => {
+    cleanup();
+    // PERF-001 — the open-tabs foot (`FileTreeOpenTabs`) now self-
+    // subscribes to a narrowed `editorStore.tabs` projection, so each
+    // test seeds the store and resets it afterward.
+    useEditorStore.setState(initialEditorState, true);
+  });
+
+  it('surfaces recent projects and selects an open tab through the editor store', async () => {
     const user = userEvent.setup();
     const onCreateProject = vi.fn();
     const onOpenProject = vi.fn();
     const onOpenRecentProject = vi.fn();
     const onSelectTab = vi.fn();
 
+    // Seed the open-tabs foot via the real editor store (the foot owns
+    // its own narrowed subscription now).
+    useEditorStore.setState({
+      tabs: [
+        {
+          id: 'tab-1',
+          name: 'main.ts',
+          language: 'typescript',
+          content: '',
+          isDirty: true,
+        },
+      ],
+      activeTabId: null,
+    });
+
     render(
       <FileTreeEmptyState
         recentProjects={[baseProject]}
-        tabs={[
-          {
-            id: 'tab-1',
-            name: 'main.ts',
-            language: 'typescript',
-            content: '',
-            isDirty: true,
-          },
-        ]}
-        activeTabId="tab-1"
         onCreateProject={onCreateProject}
         onOpenProject={onOpenProject}
         onOpenRecentProject={onOpenRecentProject}
@@ -109,7 +125,10 @@ describe('FileTreeEmptyState', () => {
     expect(onCreateProject).toHaveBeenCalledTimes(1);
     expect(onOpenProject).toHaveBeenCalledTimes(1);
     expect(onOpenRecentProject).toHaveBeenCalledWith(baseProject);
-    expect(onSelectTab).toHaveBeenCalledWith('tab-1');
+    // The foot owns the `setActiveTab` write; the caller's `onSelectTab`
+    // is the post-select navigation hook.
+    expect(onSelectTab).toHaveBeenCalledTimes(1);
+    expect(useEditorStore.getState().activeTabId).toBe('tab-1');
     expect(screen.getByLabelText('Unsaved changes')).toBeTruthy();
   });
 
@@ -119,8 +138,6 @@ describe('FileTreeEmptyState', () => {
     render(
       <FileTreeEmptyState
         recentProjects={[]}
-        tabs={[]}
-        activeTabId={null}
         onCreateProject={() => {}}
         onOpenProject={() => {}}
         onOpenRecentProject={() => {}}
