@@ -1,7 +1,11 @@
 import { copyFile, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
-import { RUNTIME_ASSETS } from '../src/shared/runtimeAssets';
+import { RUNTIME_ASSETS, type RuntimeAssetId } from '../src/shared/runtimeAssets';
+
+type CopyRuntimeAssetsPluginOptions = {
+  readonly exclude?: readonly RuntimeAssetId[];
+};
 
 type RuntimeAssetRequestResolution =
   | { status: 'next' }
@@ -98,8 +102,19 @@ export async function copyRuntimeAssetFiles(
  * prefix. Registered as `pre` so Vite's static-file pipeline does not
  * 404 the request before we do.
  */
-export function copyRuntimeAssetsPlugin(): Plugin {
-  const assetEntries = Object.values(RUNTIME_ASSETS);
+export function selectRuntimeAssetEntries(
+  excluded: readonly RuntimeAssetId[] = []
+): Array<(typeof RUNTIME_ASSETS)[RuntimeAssetId]> {
+  const excludedSet = new Set<RuntimeAssetId>(excluded);
+  return Object.entries(RUNTIME_ASSETS)
+    .filter(([id]) => !excludedSet.has(id as RuntimeAssetId))
+    .map(([, asset]) => asset);
+}
+
+export function copyRuntimeAssetsPlugin(
+  options: CopyRuntimeAssetsPluginOptions = {}
+): Plugin {
+  const assetEntries = selectRuntimeAssetEntries(options.exclude);
 
   return {
     name: 'lingua:copy-runtime-assets',

@@ -20,6 +20,11 @@ export default defineConfig({
     // <renderer-out-dir>/pyodide/. The web build overrides this to
     // the CDN until RL-083 Slice 2 picks the first-party hosting path.
     __LINGUA_PYODIDE_INDEX_URL__: JSON.stringify(null),
+    // Desktop packages keep large WASM runtimes inside the app bundle.
+    // The standalone web build overrides these to public R2 URLs so
+    // Cloudflare Pages never receives >25 MiB single assets.
+    __LINGUA_DUCKDB_MVP_WASM_URL__: JSON.stringify(null),
+    __LINGUA_RUBY_WASM_URL__: JSON.stringify(null),
   },
   // Repo-root `.env` / `.env.production` are the canonical source for
   // VITE_* values across all build configs (renderer, web, main). When

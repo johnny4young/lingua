@@ -140,7 +140,49 @@ Download CTAs there must point to the R2 mirror, not GitHub:
 The `/latest/` prefix is a copy the workflow re-writes on every
 publish (Part 2 below).
 
-### 1.7 Wire the marketing-site sync trigger (optional)
+### 1.7 Web runtime assets
+
+The same bucket also serves oversized web runtime WASM files that
+Cloudflare Pages cannot accept as static assets:
+
+- `https://downloads.linguacode.dev/web-runtime/duckdb/<version>/duckdb-mvp.wasm`
+- `https://downloads.linguacode.dev/web-runtime/ruby/<version>/ruby+stdlib.wasm`
+
+`.github/workflows/deploy-web.yml` uploads these files before running
+`wrangler pages deploy`, then fails if any file larger than 25 MiB
+remains in `dist/web`.
+
+Because these files are fetched by browser code from
+`https://app.linguacode.dev`, the bucket CORS policy must allow that
+origin:
+
+```json
+{
+  "rules": [
+    {
+      "allowed": {
+        "origins": ["https://app.linguacode.dev"],
+        "methods": ["GET", "HEAD"]
+      }
+    }
+  ]
+}
+```
+
+Apply and verify it with Wrangler:
+
+```bash
+pnpm exec wrangler r2 bucket cors set lingua-releases --file cors.json
+pnpm exec wrangler r2 bucket cors list lingua-releases
+```
+
+The deploy workflow sends `Origin: https://app.linguacode.dev` to both
+runtime URLs and fails before `wrangler pages deploy` if R2 does not
+return a matching `Access-Control-Allow-Origin` header. If CORS was
+added after objects were already cached on the custom domain, purge the
+`downloads.linguacode.dev` cache before retrying the deploy.
+
+### 1.8 Wire the marketing-site sync trigger (optional)
 
 The `lingua-marketing` repo runs `sync-content.yml` daily at 12:00 UTC
 to pull the latest `CHANGELOG.md` into its committed `changelog.json`.

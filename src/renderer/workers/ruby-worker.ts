@@ -9,10 +9,12 @@
  * persistent across runs — same pattern as `python-worker.ts` so the
  * ~1-2s Ruby bootstrap is amortized.
  *
- * The runtime is fully self-hosted. The build pipeline copies
- * `node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm` into
- * `<outDir>/ruby/` via `build/copyRuntimeAssetsPlugin.mts`, and the
- * worker resolves the URL through `new URL('../ruby/...', import.meta.url)`.
+ * Desktop and dev builds self-host the runtime: the build pipeline
+ * copies `node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm`
+ * into `<outDir>/ruby/` via `build/copyRuntimeAssetsPlugin.mts`, and
+ * the worker resolves the URL through `new URL('../ruby/...',
+ * import.meta.url)`. The standalone web build uses an R2-hosted URL
+ * instead because Cloudflare Pages rejects >25 MiB single assets.
  *
  * Security note: executing arbitrary Ruby is the SANCTIONED purpose
  * of this worker — same posture as Pyodide and the JS worker. User
@@ -39,10 +41,15 @@ import { File, OpenFile, PreopenDirectory, WASI } from '@bjorn3/browser_wasi_shi
 
 const ctx = self as unknown as Worker;
 
-const RUBY_WASM_URL = new URL(
-  /* @vite-ignore */ '../ruby/ruby+stdlib.wasm',
-  import.meta.url
-).href;
+function resolveRubyWasmUrl(): string {
+  if (__LINGUA_RUBY_WASM_URL__) return __LINGUA_RUBY_WASM_URL__;
+  return new URL(
+    /* @vite-ignore */ '../ruby/ruby+stdlib.wasm',
+    import.meta.url
+  ).href;
+}
+
+const RUBY_WASM_URL = resolveRubyWasmUrl();
 
 let vm: RubyVM | null = null;
 // Bound reference to the VM's code-execution entry point — captured

@@ -8,7 +8,7 @@
  *
  *   - In CI as the post-`mirror-r2` validation step.
  *   - On the operator's machine before promoting a draft release
- *     (`npm run check:r2-mirror -- --release-tag v0.4.0`).
+ *     (`pnpm run check:r2-mirror -- --release-tag v0.4.0`).
  *
  * Exit codes:
  *
@@ -104,7 +104,18 @@ function resolveRepo(cli) {
 }
 
 async function listGitHubReleaseAssets(repo, releaseTag, token) {
-  const url = `https://api.github.com/repos/${repo}/releases/tags/${releaseTag}`;
+  const release = await fetchGitHubRelease(repo, releaseTag, token);
+  if (!Array.isArray(release.assets)) {
+    bail(2, `Release ${releaseTag} response missing assets array`);
+  }
+  return release.assets.map(asset => ({
+    name: asset.name,
+    size: asset.size,
+    downloadUrl: asset.url, // API URL — authenticated download endpoint
+  }));
+}
+
+async function fetchGitHubJson(url, token) {
   const response = await fetch(url, {
     headers: {
       Accept: 'application/vnd.github+json',
@@ -113,21 +124,47 @@ async function listGitHubReleaseAssets(repo, releaseTag, token) {
       'User-Agent': 'lingua-release-mirror-check',
     },
   });
-  if (response.status === 404) {
-    bail(2, `GitHub Release ${releaseTag} not found on ${repo} (404). Was the publish job successful?`);
-  }
+
+  if (response.status === 404) return { status: 404, body: null };
   if (!response.ok) {
     bail(2, `GitHub API ${response.status}: ${await response.text()}`);
   }
-  const body = await response.json();
-  if (!Array.isArray(body.assets)) {
-    bail(2, `Release ${releaseTag} response missing assets array`);
+
+  return { status: response.status, body: await response.json() };
+}
+
+async function fetchGitHubRelease(repo, releaseTag, token) {
+  const tagUrl = `https://api.github.com/repos/${repo}/releases/tags/${releaseTag}`;
+  const byTag = await fetchGitHubJson(tagUrl, token);
+  if (byTag.body) return byTag.body;
+
+  // GitHub's release-by-tag endpoint only resolves published releases.
+  // The release workflow intentionally validates the R2 mirror while
+  // the release is still a human-reviewed draft, so fall back to the
+  // authenticated list endpoint, which includes drafts for callers
+  // with push access.
+  for (let page = 1; page <= 10; page += 1) {
+    const listUrl = `https://api.github.com/repos/${repo}/releases?per_page=100&page=${page}`;
+    const listed = await fetchGitHubJson(listUrl, token);
+    if (!Array.isArray(listed.body)) {
+      bail(2, `GitHub releases list response was not an array after ${tagUrl} returned 404`);
+    }
+
+    const release = listed.body.find(candidate => candidate?.tag_name === releaseTag);
+    if (release) {
+      if (release.draft) {
+        console.log(`GitHub Release ${releaseTag} is still draft; validating via releases list.`);
+      }
+      return release;
+    }
+
+    if (listed.body.length < 100) break;
   }
-  return body.assets.map((asset) => ({
-    name: asset.name,
-    size: asset.size,
-    downloadUrl: asset.url, // API URL — authenticated download endpoint
-  }));
+
+  bail(
+    2,
+    `GitHub Release ${releaseTag} not found on ${repo} (404). Was the publish job successful?`
+  );
 }
 
 async function fetchSha256Manifest(publicBase, releaseTag) {
@@ -197,7 +234,8 @@ async function main() {
   if (!token) bail(2, 'GITHUB_TOKEN env var is required');
 
   const publicBase = process.env.R2_PUBLIC_BASE;
-  if (!publicBase) bail(2, 'R2_PUBLIC_BASE env var is required (e.g. https://downloads.linguacode.dev)');
+  if (!publicBase)
+    bail(2, 'R2_PUBLIC_BASE env var is required (e.g. https://downloads.linguacode.dev)');
 
   const repo = resolveRepo(cli);
 
@@ -215,10 +253,7 @@ async function main() {
 
   const sha256Manifest = await fetchSha256Manifest(publicBase, cli.releaseTag);
   if (!sha256Manifest) {
-    bail(
-      1,
-      `R2 mirror missing SHA256SUMS.txt for ${cli.releaseTag} — did the mirror-r2 job run?`
-    );
+    bail(1, `R2 mirror missing SHA256SUMS.txt for ${cli.releaseTag} — did the mirror-r2 job run?`);
   }
   console.log(`R2 SHA256SUMS.txt entries: ${sha256Manifest.size}`);
   console.log('');
@@ -266,7 +301,11 @@ async function main() {
       if (asset.size < 25 * 1024 * 1024) {
         const downloaded = await fetchAndHashR2Asset(publicBase, cli.releaseTag, asset.name);
         if (!downloaded.ok) {
-          findings.push({ kind: 'r2-download-failed', asset: asset.name, status: downloaded.status });
+          findings.push({
+            kind: 'r2-download-failed',
+            asset: asset.name,
+            status: downloaded.status,
+          });
           console.log(`  ✗ ${asset.name} — R2 download failed (HTTP ${downloaded.status})`);
           continue;
         }
@@ -277,7 +316,9 @@ async function main() {
             expected: expectedSha,
             actual: downloaded.sha,
           });
-          console.log(`  ✗ ${asset.name} — SHA mismatch (manifest=${expectedSha.slice(0, 12)}…, actual=${downloaded.sha.slice(0, 12)}…)`);
+          console.log(
+            `  ✗ ${asset.name} — SHA mismatch (manifest=${expectedSha.slice(0, 12)}…, actual=${downloaded.sha.slice(0, 12)}…)`
+          );
           continue;
         }
       }
@@ -314,7 +355,7 @@ async function main() {
   }
 
   // Sanity-check ONE asset through the `latest/` prefix.
-  const probeAsset = ghAssets.find((a) => a.name === 'SHA256SUMS.txt') ?? ghAssets[0];
+  const probeAsset = ghAssets.find(a => a.name === 'SHA256SUMS.txt') ?? ghAssets[0];
   if (probeAsset) {
     const latestHead = await headR2LatestAsset(publicBase, probeAsset.name);
     if (!latestHead.ok) {
@@ -353,19 +394,23 @@ async function main() {
   console.log(`Evidence: ${evidencePath}`);
 
   if (findings.length > 0) {
-    console.error(`\n✗ R2 mirror is NOT in sync — ${findings.length} finding(s). Re-run the mirror-r2 job.`);
+    console.error(
+      `\n✗ R2 mirror is NOT in sync — ${findings.length} finding(s). Re-run the mirror-r2 job.`
+    );
     process.exit(1);
   }
   console.log('\n✓ R2 mirror is in sync with the GitHub Release.');
   process.exit(0);
 }
 
-main().catch((err) => {
-  bail(2, err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err));
-});
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch(err => {
+    bail(2, err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err));
+  });
+}
 
 // Existence check is also re-used by the dirty-check guard.
-export { OUTPUT_DIR };
+export { OUTPUT_DIR, fetchGitHubRelease, listGitHubReleaseAssets };
 if (!existsSync) {
   // Defensive: ensure the import binding is consumed by the bundler.
   void existsSync;

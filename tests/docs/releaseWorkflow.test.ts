@@ -168,6 +168,21 @@ describe('release workflow', () => {
     expect(stepMatch![1]).not.toMatch(/continue-on-error:\s*true/u);
   });
 
+  it('verifies the imported macOS signing identity before building artifacts', () => {
+    expect(workflow).toContain('Verify macOS signing identity');
+    expect(workflow).toContain('security find-identity -v -p codesigning "$APPLE_KEYCHAIN_PATH"');
+    expect(workflow).toContain(
+      'APPLE_SIGNING_IDENTITY was not found in the imported macOS signing keychain'
+    );
+    expect(workflow).toContain('electron-osx-sign*');
+
+    const importIndex = workflow.indexOf('Import macOS signing certificate');
+    const identityIndex = workflow.indexOf('Verify macOS signing identity');
+    const buildIndex = workflow.indexOf('Build macOS artifacts');
+    expect(identityIndex).toBeGreaterThan(importIndex);
+    expect(buildIndex).toBeGreaterThan(identityIndex);
+  });
+
   it('re-verifies SHA256SUMS.txt against the downloaded payload before publishing (RL-080 Slice 2)', () => {
     // The `Verify release checksums` step runs after `Generate
     // release checksums` and uses the shared payload helper so a
@@ -236,7 +251,7 @@ describe('release workflow', () => {
     // Root manifest.json so the marketing site reads the canonical
     // latest version + per-platform asset URLs in one HTTP call.
     expect(workflow).toContain('Write manifest.json at bucket root');
-    expect(workflow).toContain("s3://${BUCKET}/manifest.json");
+    expect(workflow).toContain('s3://${BUCKET}/manifest.json');
     // Per-release parity check + evidence artifact (mirrors the
     // `update-feed-validation` pattern from RL-061 Slice 5).
     expect(workflow).toContain('Validate R2 mirror parity');
@@ -248,6 +263,12 @@ describe('release workflow', () => {
   it('records Cloudflare web deploy validation artifacts for every web release', () => {
     expect(packageJson.devDependencies.wrangler).toMatch(/^\^?4\./u);
     expect(deployWebWorkflow).toContain('Start Cloudflare deploy validation artifact');
+    expect(deployWebWorkflow).toContain('Upload oversized web runtime assets to R2');
+    expect(deployWebWorkflow).toContain('web-runtime/duckdb/${duckdb_version}/duckdb-mvp.wasm');
+    expect(deployWebWorkflow).toContain('web-runtime/ruby/${ruby_version}/ruby+stdlib.wasm');
+    expect(deployWebWorkflow).toContain('Origin: https://app.linguacode.dev');
+    expect(deployWebWorkflow).toContain('Access-Control-Allow-Origin');
+    expect(deployWebWorkflow).toContain('find dist/web -type f -size +25M');
     expect(deployWebWorkflow).toMatch(
       /wrangler pages deploy dist\/web[\s\S]*?tee output\/cloudflare-deploy-validation\/wrangler-pages-deploy\.log/u
     );

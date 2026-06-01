@@ -49,7 +49,7 @@ jobs:
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: '24'
+          node-version: '24.x'
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
@@ -75,6 +75,10 @@ jobs:
           # (app.linguacode.dev/), not under a /lingua/ path prefix
           # as the legacy GH Pages deploy did.
           VITE_BASE_PATH: /
+          # Cloudflare Pages rejects individual assets above 25 MiB.
+          # The web build therefore references Ruby/DuckDB WASM from
+          # the public R2 runtime prefix uploaded in the next step.
+          VITE_LINGUA_WEB_RUNTIME_BASE: ${{ secrets.R2_PUBLIC_BASE }}/web-runtime
           # RL-065 Slice 5 — point the web bundle at the telemetry
           # ingest endpoint on the update-server worker. Only the
           # web build sets this; the desktop release workflow leaves
@@ -94,6 +98,102 @@ jobs:
           # smaller default.
           NODE_OPTIONS: --max-old-space-size=8192
         run: pnpm run build:web
+
+      - name: Upload oversized web runtime assets to R2
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_PUBLIC_BASE: ${{ secrets.R2_PUBLIC_BASE }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for var in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY R2_ENDPOINT R2_PUBLIC_BASE; do
+            if [[ -z "${!var:-}" ]]; then
+              missing+=("$var")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::Web build references R2-hosted WASM runtime assets, but required R2 secrets are missing: ${missing[*]}."
+            exit 1
+          fi
+
+          BUCKET="lingua-releases"
+          runtime_base="${R2_PUBLIC_BASE%/}/web-runtime"
+          read_pkg_version() {
+            node -e 'const fs = require("node:fs"); const path = process.argv[1]; const pkg = JSON.parse(fs.readFileSync(path, "utf8")); if (!pkg.version) process.exit(2); process.stdout.write(pkg.version);' "$1"
+          }
+
+          duckdb_version="$(read_pkg_version node_modules/@duckdb/duckdb-wasm/package.json)"
+          ruby_version="$(read_pkg_version node_modules/@ruby/3.4-wasm-wasi/package.json)"
+          duckdb_src="node_modules/@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm"
+          ruby_src="node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm"
+
+          upload_runtime_asset() {
+            local src="$1"
+            local key="$2"
+            local url="$3"
+            if [[ ! -f "${src}" ]]; then
+              echo "::error::Missing web runtime asset ${src}"
+              exit 1
+            fi
+            echo "Uploading ${src} to ${url}"
+            aws s3 cp "${src}" "s3://${BUCKET}/${key}" \
+              --endpoint-url "${R2_ENDPOINT}" \
+              --copy-props none \
+              --content-type 'application/wasm' \
+              --cache-control 'public, max-age=31536000, immutable' \
+              --no-progress
+          }
+
+          upload_runtime_asset \
+            "${duckdb_src}" \
+            "web-runtime/duckdb/${duckdb_version}/duckdb-mvp.wasm" \
+            "${runtime_base}/duckdb/${duckdb_version}/duckdb-mvp.wasm"
+          upload_runtime_asset \
+            "${ruby_src}" \
+            "web-runtime/ruby/${ruby_version}/ruby+stdlib.wasm" \
+            "${runtime_base}/ruby/${ruby_version}/ruby+stdlib.wasm"
+
+          validate_runtime_cors() {
+            local url="$1"
+            local headers_file
+            headers_file="$(mktemp)"
+            for attempt in 1 2 3 4; do
+              if curl --fail --silent --show-error --location --head \
+                --header 'Origin: https://app.linguacode.dev' \
+                "${url}" > "${headers_file}"; then
+                if tr -d '\r' < "${headers_file}" | grep -Eiq '^access-control-allow-origin:[[:space:]]*(\*|https://app\.linguacode\.dev)[[:space:]]*$'; then
+                  return 0
+                fi
+              fi
+              echo "::warning::R2 runtime asset CORS check failed for ${url} on attempt ${attempt}; retrying."
+              sleep 10
+            done
+
+            echo "::error::R2 runtime asset ${url} is missing Access-Control-Allow-Origin for https://app.linguacode.dev. Configure the lingua-releases bucket CORS policy before deploying Pages."
+            echo "Response headers:"
+            cat "${headers_file}" || true
+            exit 1
+          }
+
+          validate_runtime_cors "${runtime_base}/duckdb/${duckdb_version}/duckdb-mvp.wasm"
+          validate_runtime_cors "${runtime_base}/ruby/${ruby_version}/ruby+stdlib.wasm"
+
+          find dist/web -type f -size +25M -print > output/cloudflare-deploy-validation/oversized-pages-assets.txt
+          if [[ -s output/cloudflare-deploy-validation/oversized-pages-assets.txt ]]; then
+            echo "::error::Cloudflare Pages cannot deploy these >25 MiB assets:"
+            cat output/cloudflare-deploy-validation/oversized-pages-assets.txt
+            exit 1
+          fi
+
+          {
+            echo
+            echo "- DuckDB WASM: ${runtime_base}/duckdb/${duckdb_version}/duckdb-mvp.wasm"
+            echo "- Ruby WASM: ${runtime_base}/ruby/${ruby_version}/ruby+stdlib.wasm"
+          } >> output/cloudflare-deploy-validation/README.md
 
       - name: Deploy to Cloudflare Pages
         shell: bash

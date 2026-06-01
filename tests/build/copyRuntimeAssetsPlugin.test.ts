@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   copyRuntimeAssetFiles,
   resolveRuntimeAssetRequestPath,
+  selectRuntimeAssetEntries,
 } from '../../build/copyRuntimeAssetsPlugin.mts';
 
 const tempDirs: string[] = [];
@@ -94,5 +95,11 @@ describe('copyRuntimeAssetsPlugin helpers', () => {
         ['pyodide.asm.wasm']
       )
     ).rejects.toThrow(/critical runtime asset pyodide\.asm\.wasm/u);
+  });
+
+  it('can exclude runtime assets that are hosted outside the Pages bundle', () => {
+    const entries = selectRuntimeAssetEntries(['ruby']);
+
+    expect(entries.map((entry) => entry.servedPath)).toEqual(['pyodide']);
   });
 });

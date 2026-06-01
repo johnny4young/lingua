@@ -138,24 +138,29 @@ export async function getDuckDbEngine(): Promise<DuckDbEngineHandle> {
 /**
  * Production factory. Dynamically imports `@duckdb/duckdb-wasm` so
  * the bundler emits it on the `duckdb-wasm` chunk (see
- * `vite.web.config.mts` + `vite.renderer.config.mts`). The WASM blob
- * + worker JS are served from the same origin via the bundled
- * `dist/...wasm` assets, so the renderer never reaches out to the
- * jsDelivr CDN.
+ * `vite.web.config.mts` + `vite.renderer.config.mts`). Desktop keeps
+ * the WASM blob bundled; the standalone web build points the >25 MiB
+ * MVP WASM at the public R2 runtime prefix because Cloudflare Pages
+ * rejects oversized single assets.
  */
 async function productionEngineFactory(): Promise<DuckDbEngineHandle> {
   // Dynamic imports keep the chunk lazy. The browser fetches the
-  // ~1 MiB JS shim first; the WASM (~7 MiB) only when DuckDB
+  // ~1 MiB JS shim first; the WASM only when DuckDB
   // actually instantiates.
   const duckdb = await import('@duckdb/duckdb-wasm');
   const mvpWorkerModule = await import(
     '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url'
   );
-  const mvpWasmModule = await import(
-    '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url'
-  );
   const mvpWorkerUrl: string = mvpWorkerModule.default;
-  const mvpWasmUrl: string = mvpWasmModule.default;
+  let mvpWasmUrl: string;
+  if (__LINGUA_DUCKDB_MVP_WASM_URL__) {
+    mvpWasmUrl = __LINGUA_DUCKDB_MVP_WASM_URL__;
+  } else {
+    const mvpWasmModule = await import(
+      '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url'
+    );
+    mvpWasmUrl = mvpWasmModule.default;
+  }
   // Wrap the worker URL into an actual `Worker` instance. DuckDB's
   // `createWorker` would normally fetch the URL itself; we pass our
   // bundled URL directly so the same-origin guarantee holds.
