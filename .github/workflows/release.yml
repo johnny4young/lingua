@@ -105,7 +105,7 @@ jobs:
   # overrides or alpha Forge packages. Gate the releasable dependency
   # graph, then keep the full graph visible as advisory output so the
   # release does not hide build-tool drift. The run block uses only
-  # static npm commands plus the already-validated RELEASE_TAG env
+  # static pnpm commands plus the already-validated RELEASE_TAG env
   # value, so there is no script-injection surface.
   security-audit:
     name: Security audit (release-blocking)
@@ -122,7 +122,7 @@ jobs:
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: '24'
+          node-version: '24.x'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - name: Check changelog and release version
@@ -157,7 +157,7 @@ jobs:
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: '24'
+          node-version: '24.x'
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
@@ -283,9 +283,9 @@ jobs:
       # Pyodide runtime executes offline. Reduced to a 2-runtime-case
       # subset (javascript + python) plus the offline no-CDN assertion
       # so the step stays under ~2 minutes; the full 9-case matrix
-      # already runs against the dev server in `npm run smoke:desktop`.
+      # already runs against the dev server in `pnpm run smoke:desktop`.
       # Bloqueante — a failure aborts the release before publish runs.
-      # Run block uses only static npm / bash commands; no github.event
+      # Run block uses only static pnpm / bash commands; no github.event
       # interpolation.
       - name: Packaged desktop smoke
         if: ${{ !inputs.release_skip_packaged_smoke }}
@@ -296,7 +296,7 @@ jobs:
           # WASM init latency on top of the regular smoke duration.
           # 180s (the script default) timed out; 360s covers the slow
           # first launch with comfortable headroom. Local
-          # `npm run smoke:desktop:packaged` keeps the 180s default.
+          # `pnpm run smoke:desktop:packaged` keeps the 180s default.
           LINGUA_SMOKE_TIMEOUT_MS: '360000'
         run: |
           set -euo pipefail
@@ -335,7 +335,7 @@ jobs:
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: '24'
+          node-version: '24.x'
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
@@ -438,7 +438,7 @@ jobs:
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: '24'
+          node-version: '24.x'
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
@@ -532,31 +532,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd out/make
-          find . -type f ! -name 'SHA256SUMS.txt' -print0 \
-            | sort -z \
-            | xargs -0 shasum -a 256 > SHA256SUMS.txt
-
-          echo "Generated SHA256SUMS.txt"
+          node ./scripts/prepare-release-payload.mjs --root out/make --write-checksums
           {
             echo "### Release checksums"
             echo "- Generated: \`out/make/SHA256SUMS.txt\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # RL-080 Slice 2 — re-verify SHA256SUMS.txt against the
-      # downloaded artifacts as a defensive sanity check. `shasum -c`
-      # recomputes the hash for every file referenced in the manifest
-      # and exits non-zero on the first mismatch. If the manifest
-      # generation step left a stale or corrupted entry behind, this
-      # step catches it before the draft release is published. The
-      # run block uses only static shasum invocations — no
+      # public release payload as a defensive sanity check. The helper
+      # recomputes each hash against the file that will actually be
+      # uploaded, and it requires manifest entries to use the public
+      # asset basename because GitHub Release and R2 uploads flatten
+      # paths. If the manifest generation step left a stale or corrupted
+      # entry behind, this step catches it before the draft release is
+      # published. The run block uses only static node invocations — no
       # github.event interpolation.
       - name: Verify release checksums
         shell: bash
         run: |
           set -euo pipefail
-          cd out/make
-          shasum -a 256 -c SHA256SUMS.txt
+          node ./scripts/prepare-release-payload.mjs --root out/make --verify-checksums
           {
             echo "### Release checksum verification"
             echo "- Re-verified \`SHA256SUMS.txt\` against the downloaded payload."
@@ -567,31 +562,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t assets < <(find out/make -type f \( \
-              -name '*.zip' -o -name '*.exe' -o -name '*.deb' \
-              -o -name '*.rpm' -o -name '*.nupkg' \
-              -o -name 'RELEASES' -o -name 'SHA256SUMS.txt' \
-              -o -name 'lingua-sbom.cyclonedx.json' \
-              -o -name 'THIRD_PARTY_LICENSE_REPORT.md' \
-            \) | sort)
-
-          if (( ${#assets[@]} == 0 )); then
-            echo "::error::No release assets matched the expected patterns under out/make"
-            exit 1
-          fi
-
-          {
-            echo "### Release assets"
-            for asset in "${assets[@]}"; do
-              printf -- '- `%s`\n' "$asset"
-            done
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          {
-            echo 'assets<<__LINGUA_ASSETS__'
-            printf '%s\n' "${assets[@]}"
-            echo '__LINGUA_ASSETS__'
-          } >> "$GITHUB_OUTPUT"
+          node ./scripts/prepare-release-payload.mjs \
+            --root out/make \
+            --github-output "$GITHUB_OUTPUT" \
+            --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Publish draft GitHub Release
         shell: bash
@@ -647,7 +621,7 @@ jobs:
       - uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: '24'
+          node-version: '24.x'
           cache: 'pnpm'
 
       # Every `${{ secrets.* }}` interpolation lives ONLY inside an
@@ -703,6 +677,16 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare R2 mirror payload
+        if: steps.r2_secrets.outputs.configured == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node ./scripts/prepare-release-payload.mjs \
+            --root out/make \
+            --write-checksums \
+            --verify-checksums
+
       # AWS CLI ships in ubuntu-latest by default. R2 is S3-compatible
       # via `--endpoint-url`; no extra install needed. The scoped R2
       # token is bucket-bound, so a compromised runner token cannot
@@ -719,26 +703,15 @@ jobs:
           set -euo pipefail
           BUCKET="lingua-releases"
 
-          # Asset whitelist parity with the `Collect release assets`
-          # step in `publish`. Update both in lockstep.
-          tmp_assets="$(mktemp)"
-          find out/make -type f \( \
-              -name '*.zip' -o -name '*.exe' -o -name '*.deb' \
-              -o -name '*.rpm' -o -name '*.nupkg' \
-              -o -name '*.dmg' -o -name '*.AppImage' \
-              -o -name 'RELEASES' -o -name 'SHA256SUMS.txt' \
-              -o -name 'lingua-sbom.cyclonedx.json' \
-              -o -name 'THIRD_PARTY_LICENSE_REPORT.md' \
-            \) > "$tmp_assets"
-
-          asset_count="$(wc -l < "$tmp_assets")"
+          mapfile -t assets < <(node ./scripts/prepare-release-payload.mjs --root out/make --print-assets)
+          asset_count="${#assets[@]}"
           if (( asset_count == 0 )); then
             echo "::error::No mirror-eligible assets found under out/make"
             exit 1
           fi
 
           echo "Mirroring ${asset_count} asset(s) to s3://${BUCKET}/${RELEASE_TAG}/"
-          while IFS= read -r src; do
+          for src in "${assets[@]}"; do
             name="$(basename "$src")"
             # `--copy-props none` keeps aws-cli from preserving
             # object tagging on the destination object. Cloudflare R2
@@ -750,7 +723,7 @@ jobs:
               --endpoint-url "${R2_ENDPOINT}" \
               --copy-props none \
               --no-progress
-          done < "$tmp_assets"
+          done
 
       - name: Refresh latest/ prefix
         if: steps.r2_secrets.outputs.configured == 'true'
@@ -764,27 +737,29 @@ jobs:
           set -euo pipefail
           BUCKET="lingua-releases"
 
-          # `aws s3 sync --delete` from the tag prefix into `latest/`
-          # gives marketing-site CTAs stable URLs that always point at
-          # the current release. The brief window during sync is
-          # acceptable — the previous `latest/` is the prior version,
-          # which is still a valid (older) download.
+          mapfile -t assets < <(node ./scripts/prepare-release-payload.mjs --root out/make --print-assets)
+
+          # Rewrite `latest/` from the local payload instead of copying
+          # R2 objects to other R2 objects. R2's CopyObject compatibility
+          # does not implement the tagging directives aws-cli emits for
+          # some sync paths, which can leave `latest/` half-populated.
+          # Clearing first preserves the old `sync --delete` semantics:
+          # stale filenames disappear before the new release files land.
           #
-          # `--copy-props none` is REQUIRED on Cloudflare R2 — the
-          # default `aws s3 sync` behaviour calls `GetObjectTagging`
-          # to compare per-object metadata, which R2 returns
-          # `NotImplemented` for. Without this flag the sync aborts
-          # on the first comparable file with "GetObjectTagging not
-          # implemented" and `latest/` is left half-populated. See
-          # https://github.com/aws/aws-cli/issues/8419 for the upstream
-          # discussion + Cloudflare R2 compat docs.
-          aws s3 sync \
-            "s3://${BUCKET}/${RELEASE_TAG}/" \
-            "s3://${BUCKET}/latest/" \
+          # The brief window during refresh is acceptable — the previous
+          # `latest/` is the prior version, which is still a valid
+          # (older) download until the clear starts.
+          aws s3 rm "s3://${BUCKET}/latest/" \
             --endpoint-url "${R2_ENDPOINT}" \
-            --copy-props none \
-            --delete \
-            --no-progress
+            --recursive
+
+          for src in "${assets[@]}"; do
+            name="$(basename "$src")"
+            aws s3 cp "$src" "s3://${BUCKET}/latest/${name}" \
+              --endpoint-url "${R2_ENDPOINT}" \
+              --copy-props none \
+              --no-progress
+          done
 
       - name: Write manifest.json at bucket root
         if: steps.r2_secrets.outputs.configured == 'true'

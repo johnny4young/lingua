@@ -31,8 +31,11 @@ describe('release workflow', () => {
     ? readFileSync(DEPLOY_WEB_WORKFLOW_PATH, 'utf-8')
     : '';
   const packageJson = existsSync(PACKAGE_JSON_PATH)
-    ? (JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as { scripts: Record<string, string> })
-    : { scripts: {} };
+    ? (JSON.parse(readFileSync(PACKAGE_JSON_PATH, 'utf-8')) as {
+        scripts: Record<string, string>;
+        devDependencies: Record<string, string>;
+      })
+    : { scripts: {}, devDependencies: {} };
 
   it('downloads pre-built artifacts before publishing', () => {
     expect(workflow).toMatch(/uses:\s*actions\/download-artifact@[0-9a-f]{40}/u);
@@ -41,7 +44,8 @@ describe('release workflow', () => {
 
   it('generates SHA256SUMS.txt before the draft release is created', () => {
     expect(workflow).toContain('SHA256SUMS.txt');
-    expect(workflow).toMatch(/shasum\s+-a\s+256/u);
+    expect(workflow).toContain('node ./scripts/prepare-release-payload.mjs');
+    expect(workflow).toContain('--write-checksums');
     const checksumIndex = workflow.indexOf('Generate release checksums');
     const publishIndex = workflow.indexOf('Publish draft GitHub Release');
     expect(checksumIndex).toBeGreaterThan(0);
@@ -52,7 +56,7 @@ describe('release workflow', () => {
     // The legacy `electron-forge publish` shape would have re-run `make`
     // on the publish runner and silently dropped the macOS / Windows
     // assets — this guard makes that regression loud.
-    expect(workflow).not.toMatch(/npm run publish:desktop/u);
+    expect(workflow).not.toMatch(/(^|\s)npm run publish:desktop/u);
     expect(workflow).toMatch(/gh release create[\s\S]*?--draft/u);
     expect(workflow).toMatch(/gh release upload "\$\{RELEASE_TAG\}"/u);
   });
@@ -116,7 +120,7 @@ describe('release workflow', () => {
       /Run advisory full audit[\s\S]*?pnpm audit --audit-level high[\s\S]*?continue-on-error: true/u
     );
     expect(workflow).toMatch(
-      /Check changelog and release version[\s\S]*?npm run changelog:check -- --release-tag "\$\{RELEASE_TAG\}" --from "\$\{RELEASE_TAG\}"/u
+      /Check changelog and release version[\s\S]*?pnpm run changelog:check -- --release-tag "\$\{RELEASE_TAG\}" --from "\$\{RELEASE_TAG\}"/u
     );
 
     // Match either the inline-array form `needs: [prepare-release-tag,
@@ -144,7 +148,7 @@ describe('release workflow', () => {
     // the artifact from ever leaving the build runner. Bloqueante:
     // there is NO `continue-on-error: true` on the step.
     expect(workflow).toContain('Packaged desktop smoke');
-    expect(workflow).toMatch(/npm run smoke:desktop:packaged/u);
+    expect(workflow).toMatch(/pnpm run smoke:desktop:packaged/u);
     expect(packageJson.scripts['smoke:desktop:packaged']).toContain('--offline');
     const signingIndex = workflow.indexOf('Verify macOS signing');
     const packagedSmokeIndex = workflow.indexOf('Packaged desktop smoke');
@@ -166,11 +170,12 @@ describe('release workflow', () => {
 
   it('re-verifies SHA256SUMS.txt against the downloaded payload before publishing (RL-080 Slice 2)', () => {
     // The `Verify release checksums` step runs after `Generate
-    // release checksums` and uses `shasum -a 256 -c SHA256SUMS.txt`
-    // so a manifest mismatch (corrupted asset, wrong file order,
-    // tampering between generate and publish) aborts the publish.
+    // release checksums` and uses the shared payload helper so a
+    // manifest mismatch (corrupted asset, wrong file order, nested
+    // artifact path, tampering between generate and publish) aborts
+    // the publish.
     expect(workflow).toContain('Verify release checksums');
-    expect(workflow).toMatch(/shasum\s+-a\s+256\s+-c\s+SHA256SUMS\.txt/u);
+    expect(workflow).toContain('--verify-checksums');
     const generateIndex = workflow.indexOf('Generate release checksums');
     const verifyIndex = workflow.indexOf('Verify release checksums');
     const publishIndex = workflow.indexOf('Publish draft GitHub Release');
@@ -220,10 +225,13 @@ describe('release workflow', () => {
     }
     // Uploads to both the per-tag prefix AND a stable `latest/` prefix
     // the marketing site can hard-code into CTA URLs.
+    expect(workflow).toContain('Prepare R2 mirror payload');
+    expect(workflow).toContain('scripts/prepare-release-payload.mjs');
     expect(workflow).toContain('Upload artifacts to R2 (tag prefix)');
     expect(workflow).toContain('Refresh latest/ prefix');
     expect(workflow).toContain('aws s3 cp');
-    expect(workflow).toContain('aws s3 sync');
+    expect(workflow).toContain('aws s3 rm "s3://${BUCKET}/latest/"');
+    expect(workflow).not.toContain('aws s3 sync');
     expect(workflow).toMatch(/--endpoint-url\s+"\$\{R2_ENDPOINT\}"/u);
     // Root manifest.json so the marketing site reads the canonical
     // latest version + per-platform asset URLs in one HTTP call.
@@ -238,6 +246,7 @@ describe('release workflow', () => {
   });
 
   it('records Cloudflare web deploy validation artifacts for every web release', () => {
+    expect(packageJson.devDependencies.wrangler).toMatch(/^\^?4\./u);
     expect(deployWebWorkflow).toContain('Start Cloudflare deploy validation artifact');
     expect(deployWebWorkflow).toMatch(
       /wrangler pages deploy dist\/web[\s\S]*?tee output\/cloudflare-deploy-validation\/wrangler-pages-deploy\.log/u

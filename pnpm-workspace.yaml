@@ -22,6 +22,10 @@ allowBuilds:
   # confirm the Windows installer still builds in CI with this blocked;
   # flip to true on the Windows runner via a CI-local pnpm setting if not.
   electron-winstaller: false
+  # Root deploy-web uses Wrangler for Cloudflare Pages direct uploads.
+  # Wrangler's install graph needs workerd and sharp build scripts.
+  sharp: true
+  workerd: true
 
 # electron-forge 7.x pulls @electron/rebuild → @electron/node-gyp, which
 # is declared as a git-URL dependency. pnpm 11 blocks exotic (git/tarball)

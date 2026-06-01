@@ -172,7 +172,7 @@ This is the operator step that goes on the release checklist
 workflow.
 
 ```bash
-npm run check:r2-mirror -- --release-tag v0.4.0
+pnpm run check:r2-mirror -- --release-tag v0.4.0
 ```
 
 The script:
@@ -238,23 +238,25 @@ compromised.
 
 ## Part 4.5 — R2 + aws-cli gotchas
 
-R2 implements most of the S3 API but not all of it. Two flags are
-mandatory when scripting against R2 with `aws-cli`:
+R2 implements most of the S3 API but not all of it. The release
+workflow intentionally uploads from the local release payload to both
+`<tag>/` and `latest/`. Do not use `aws s3 sync` or `aws s3 cp` to
+copy from one R2 prefix to another for this flow: `aws-cli` can emit
+tagging directives for `CopyObject`, and R2 rejects those paths with
+`NotImplemented` (for example
+`Header 'x-amz-tagging-directive' with value 'REPLACE' not implemented`).
 
-- **`--copy-props none`** on every `aws s3 cp` / `aws s3 sync` call.
-  R2 returns `NotImplemented` for `GetObjectTagging` /
-  `PutObjectTagging`. The default behaviour of `aws s3 sync` is to
-  preserve object tags from source to destination, so without this
-  flag the second-run sync to `latest/` (or any sync that compares
-  pre-existing destination objects) aborts with
-  `An error occurred (NotImplemented) when calling the GetObjectTagging operation`.
-  The release workflow already passes this flag; if you script
-  uploads manually, add it too.
-- **`AWS_DEFAULT_REGION=auto`** (set in the workflow env). R2 ignores
-  region but `aws-cli` requires the env var to be present.
+Two rules are mandatory when scripting against R2 with `aws-cli`:
 
-If you ever hit the `GetObjectTagging not implemented` error, the
-recovery without re-running the workflow is:
+- **Upload local files with `aws s3 cp ... --copy-props none`**. Local
+  uploads do not need source object tags, and the flag keeps aws-cli
+  away from tag-preservation behavior on paths that support it.
+- **Use `AWS_DEFAULT_REGION=auto`** (set in the workflow env). R2
+  ignores region but `aws-cli` requires the env var to be present.
+
+If `latest/` is half-populated, the recovery without re-running the
+whole workflow is to clear the prefix and re-upload from a local copy
+of the release payload:
 
 ```bash
 export AWS_ACCESS_KEY_ID='...'
@@ -262,16 +264,18 @@ export AWS_SECRET_ACCESS_KEY='...'
 export AWS_DEFAULT_REGION=auto
 export R2_ENDPOINT='https://<account-id>.r2.cloudflarestorage.com'
 
-# Clear half-populated latest/, then sync with the fix:
+# Clear half-populated latest/, then upload the exact release files
+# from a local payload directory.
 aws s3 rm s3://lingua-releases/latest/ --recursive \
   --endpoint-url "$R2_ENDPOINT"
 
-aws s3 sync \
-  s3://lingua-releases/<release-tag>/ \
-  s3://lingua-releases/latest/ \
-  --endpoint-url "$R2_ENDPOINT" \
-  --copy-props none \
-  --delete
+while IFS= read -r src; do
+  name="$(basename "$src")"
+  aws s3 cp "$src" "s3://lingua-releases/latest/${name}" \
+    --endpoint-url "$R2_ENDPOINT" \
+    --copy-props none \
+    --no-progress
+done < <(node ./scripts/prepare-release-payload.mjs --root out/make --print-assets)
 ```
 
 ## Part 5 — Cost expectations
