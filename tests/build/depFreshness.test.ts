@@ -87,6 +87,16 @@ describe('dependency override hygiene', () => {
       existsSync(resolve(ROOT, 'node_modules/monaco-editor/node_modules/dompurify'))
     ).toBe(false);
   });
+
+  it('keeps Electron ZIP extraction on the Node 24-compatible yauzl line', () => {
+    const workspace = readFileSync(PNPM_WORKSPACE_PATH, 'utf-8');
+    expect(workspace).toMatch(/["']?yauzl["']?:\s*["']3\.3\./u);
+
+    const rootYauzl = JSON.parse(
+      readFileSync(resolve(ROOT, 'node_modules/yauzl/package.json'), 'utf-8')
+    ) as { version?: string };
+    expect(rootYauzl.version).toMatch(/^3\./u);
+  });
 });
 
 describe.skipIf(process.env.LINGUA_CHECK_FRESHNESS !== '1')(

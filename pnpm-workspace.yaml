@@ -42,6 +42,12 @@ blockExoticSubdeps: false
 # asserted by the depFreshness test).
 overrides:
   "monaco-editor>dompurify": "^3.4.1"
+  # Electron Forge's macOS packager extracts the Electron ZIP through
+  # extract-zip -> yauzl. With yauzl 2.x under Node 24.16.x, that extract
+  # can let the process exit before the promise resolves, so Forge exits 0
+  # without out/make artifacts. Keep the release workflow on Node 24.x by
+  # moving only the ZIP reader forward instead of pinning Node.
+  "yauzl": "3.3.1"
   # tmp <0.2.6 has a path-traversal advisory (GHSA-ph9p-34f9-6g65). It
   # reaches the tree only through dev/build tooling — @electron-forge's
   # @inquirer/editor prompts and the fengari → electron-installer Linux
