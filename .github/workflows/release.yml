@@ -610,8 +610,15 @@ jobs:
         needs.publish.result == 'success'
       }}
     runs-on: ubuntu-latest
+    # `contents: write` (not `read`) so the GITHUB_TOKEN carries push
+    # access: GitHub's `GET /releases` list only includes DRAFT releases
+    # for callers with push access. The R2 mirror runs while the release
+    # is still a human-reviewed draft (draft-first publishing), so the
+    # `check-r2-mirror` parity step must be able to list the draft to
+    # compare its assets against the bucket. With `read`, the draft is
+    # invisible and the step fails with a spurious 404.
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
