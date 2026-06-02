@@ -20,8 +20,33 @@
  *   return their own `kind` discriminators so the renderer copy can
  *   localize without parsing free-form messages.
  */
-import QRCode from 'qrcode';
 import jsQR from 'jsqr';
+
+/**
+ * RL-125 / AUDIT-05 — `qrcode` is a single-use dependency only the QR generator
+ * needs, so it loads on demand via a cached dynamic import instead of shipping
+ * inside the Developer Utilities chunk eagerly. The generation helpers are
+ * already async, so awaiting the loader adds no caller ripple. (`jsqr`, the
+ * decode path, stays static — it sits behind the sync `decodeQrFromImageData`
+ * contract and is out of this slice's scope.)
+ */
+type QrCodeApi = typeof import('qrcode');
+let qrCodeModulePromise: Promise<QrCodeApi> | null = null;
+function loadQrCode(): Promise<QrCodeApi> {
+  // `qrcode` ships as a CommonJS `export =` module; under Vite the dynamic
+  // import exposes it on `.default`, while bundler/test interop can also hand
+  // back the namespace directly — accept either so types and runtime agree.
+  qrCodeModulePromise ??= import('qrcode')
+    .then((module) => ((module as { default?: QrCodeApi }).default ?? module) as QrCodeApi)
+    .catch((error) => {
+      // Drop the cached rejection so a later QR generation can retry instead of
+      // permanently failing the session; the caller's try/catch still surfaces
+      // this as a tagged-union error.
+      qrCodeModulePromise = null;
+      throw error;
+    });
+  return qrCodeModulePromise;
+}
 
 export type QrErrorCorrectionLevel = 'L' | 'M' | 'Q' | 'H';
 
@@ -210,6 +235,7 @@ export async function generateQrSvg(
   const invalid = validatePayload(payload, level);
   if (invalid) return { ok: false, ...invalid };
   try {
+    const QRCode = await loadQrCode();
     const svg = await QRCode.toString(payload, {
       type: 'svg',
       errorCorrectionLevel: level,
@@ -275,6 +301,7 @@ export async function generateQrPngDataUrl(
   const invalid = validatePayload(payload, level);
   if (invalid) return { ok: false, ...invalid };
   try {
+    const QRCode = await loadQrCode();
     const dataUrl = await QRCode.toDataURL(payload, {
       errorCorrectionLevel: level,
       margin: 1,

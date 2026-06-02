@@ -59,6 +59,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
 
   it('beautifies the initial JSON input and shows the indented output', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const output = screen.getByTestId('beautify-minify-output') as HTMLTextAreaElement;
     await waitFor(() => {
@@ -70,6 +71,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
   it('minify mode compacts the seeded JSON into the standard minified form', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');
 
@@ -82,6 +84,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
   it('shows the parseError copy when the JSON input is malformed', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');
     const input = screen.getByTestId('beautify-minify-input') as HTMLTextAreaElement;
@@ -97,6 +100,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
   it('switching language resets an existing error banner when the new language accepts the input', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');
     const input = screen.getByTestId('beautify-minify-input') as HTMLTextAreaElement;
@@ -118,14 +122,16 @@ describe('BeautifyMinifyUtilityPanel', () => {
   it('renders Spanish copy when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(
       screen.getByRole('heading', { level: 3, name: /Embellecer \/ Minificar/ })
     ).toBeTruthy();
   });
 
-  it('lists the full 7-language set in order (JSON, JS, HTML, CSS, SCSS, LESS, XML)', () => {
+  it('lists the full 7-language set in order (JSON, JS, HTML, CSS, SCSS, LESS, XML)', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const select = screen.getByTestId('beautify-minify-language') as HTMLSelectElement;
     const options = Array.from(select.options).map((option) => option.value);
@@ -135,6 +141,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
   it('beautifies HTML through formatSource when the HTML language is picked', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('beautify-minify-language'), 'html');
     const input = screen.getByTestId('beautify-minify-input') as HTMLTextAreaElement;
@@ -155,6 +162,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
   it('minifies HTML using the real minifier and shows the html hint', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('beautify-minify-language'), 'html');
     await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');
@@ -176,6 +184,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
   it('minifies CSS using the real minifier and shows the css hint', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('beautify-minify-language'), 'css');
     await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');
@@ -196,6 +205,7 @@ describe('BeautifyMinifyUtilityPanel', () => {
   it('minifies XML using the real minifier and shows the xml hint', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="beautify-minify" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('beautify-minify-language'), 'xml');
     await user.selectOptions(screen.getByTestId('beautify-minify-mode'), 'minify');

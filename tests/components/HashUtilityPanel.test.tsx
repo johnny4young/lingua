@@ -37,6 +37,7 @@ describe('HashUtilityPanel', () => {
 
   it('defaults to Plain mode, Text source, SHA-256 and renders the seeded digest', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect((screen.getByTestId('hash-mode') as HTMLSelectElement).value).toBe('plain');
     expect((screen.getByTestId('hash-source') as HTMLSelectElement).value).toBe('text');
@@ -54,6 +55,7 @@ describe('HashUtilityPanel', () => {
   it('switching the algorithm to SHA-384 re-renders the digest with 96 hex chars', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('hash-algorithm'), 'SHA-384');
 
@@ -66,6 +68,7 @@ describe('HashUtilityPanel', () => {
   it('switching the algorithm to MD5 produces the known 32-char hex digest', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = screen.getByTestId('hash-input-text') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: 'abc' } });
@@ -80,6 +83,7 @@ describe('HashUtilityPanel', () => {
   it('HMAC mode hides MD5 from the algorithm list and shows the key field', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('hash-mode'), 'hmac');
 
@@ -94,6 +98,7 @@ describe('HashUtilityPanel', () => {
   it('HMAC mode with an empty key surfaces the emptyKey error', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('hash-mode'), 'hmac');
 
@@ -106,6 +111,7 @@ describe('HashUtilityPanel', () => {
   it('HMAC-SHA-256 with the pinned key produces the RFC-style vector', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = screen.getByTestId('hash-input-text') as HTMLTextAreaElement;
     fireEvent.change(input, {
@@ -126,6 +132,7 @@ describe('HashUtilityPanel', () => {
   it('switching the input source to File reveals the drop zone and hides the text area', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('hash-source'), 'file');
 
@@ -142,6 +149,7 @@ describe('HashUtilityPanel', () => {
 
   it('clearing the text input shows the empty-state hint', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = screen.getByTestId('hash-input-text') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '' } });
@@ -161,6 +169,7 @@ describe('HashUtilityPanel', () => {
 
     try {
       render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+      await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
       await waitFor(() => {
         expect(screen.getByTestId('hash-error').textContent).toContain(
@@ -178,6 +187,7 @@ describe('HashUtilityPanel', () => {
   it('localizes the panel to Spanish when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const modeSelect = screen.getByTestId('hash-mode') as HTMLSelectElement;
     const modeLabels = Array.from(modeSelect.options).map((option) => option.textContent);

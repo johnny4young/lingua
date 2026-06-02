@@ -35,8 +35,9 @@ describe('CurlToCodePanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('defaults to the fetch target and renders a POST body from the seeded cURL', () => {
+  it('defaults to the fetch target and renders a POST body from the seeded cURL', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="curl-to-code" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect((screen.getByTestId('curl-to-code-target') as HTMLSelectElement).value).toBe('fetch');
     const output = (screen.getByTestId('curl-to-code-output') as HTMLTextAreaElement).value;
@@ -48,6 +49,7 @@ describe('CurlToCodePanel', () => {
   it('re-renders in Python when the target switches to requests', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="curl-to-code" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('curl-to-code-target'), 'requests');
 
@@ -61,6 +63,7 @@ describe('CurlToCodePanel', () => {
   it('re-renders as Go when the target switches to net-http', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="curl-to-code" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('curl-to-code-target'), 'net-http');
 
@@ -73,6 +76,7 @@ describe('CurlToCodePanel', () => {
 
   it('shows the error banner for an unclosed quote input', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="curl-to-code" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = screen.getByTestId('curl-to-code-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: 'curl -H "unclosed' } });
@@ -85,6 +89,7 @@ describe('CurlToCodePanel', () => {
 
   it('surfaces warnings when the input contains an unknown flag', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="curl-to-code" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = screen.getByTestId('curl-to-code-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: 'curl --retry 3 https://api.example.com/health' } });
@@ -99,6 +104,7 @@ describe('CurlToCodePanel', () => {
   it('localizes the target dropdown to Spanish when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="curl-to-code" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const select = screen.getByTestId('curl-to-code-target') as HTMLSelectElement;
     const labels = Array.from(select.options).map((opt) => opt.textContent);

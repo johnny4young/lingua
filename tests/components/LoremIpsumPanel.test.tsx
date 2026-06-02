@@ -34,8 +34,9 @@ describe('LoremIpsumPanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('renders with default unit=paragraphs, count=3, classic toggle on, empty output', () => {
+  it('renders with default unit=paragraphs, count=3, classic toggle on, empty output', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="lorem-ipsum" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect((screen.getByTestId('lorem-ipsum-unit') as HTMLSelectElement).value).toBe('paragraphs');
     expect((screen.getByTestId('lorem-ipsum-count') as HTMLInputElement).value).toBe('3');
@@ -46,6 +47,7 @@ describe('LoremIpsumPanel', () => {
   it('generates paragraphs that open with the canonical phrase when classic is on', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="lorem-ipsum" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.click(screen.getByTestId('lorem-ipsum-generate'));
 
@@ -60,6 +62,7 @@ describe('LoremIpsumPanel', () => {
   it('drops the canonical opening when the classic toggle is off', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="lorem-ipsum" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.click(screen.getByTestId('lorem-ipsum-classic'));
     await user.click(screen.getByTestId('lorem-ipsum-generate'));
@@ -75,6 +78,7 @@ describe('LoremIpsumPanel', () => {
   it('unit change resets the count to a unit-appropriate default and clears the output', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="lorem-ipsum" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.click(screen.getByTestId('lorem-ipsum-generate'));
     expect(await screen.findByTestId('lorem-ipsum-output')).toBeTruthy();
@@ -90,6 +94,7 @@ describe('LoremIpsumPanel', () => {
   it('respects the count input in words mode', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="lorem-ipsum" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('lorem-ipsum-unit'), 'words');
     const countInput = screen.getByTestId('lorem-ipsum-count') as HTMLInputElement;
@@ -104,6 +109,7 @@ describe('LoremIpsumPanel', () => {
   it('localizes the panel title to Spanish when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="lorem-ipsum" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(
       screen.getByRole('heading', { level: 3, name: /Generar Lorem Ipsum/ }),

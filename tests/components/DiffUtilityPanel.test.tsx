@@ -6,7 +6,7 @@
  * counts reflect the current granularity.
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -31,8 +31,9 @@ describe('DiffUtilityPanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('renders line-mode by default with add/remove rows for a simple edit', () => {
+  it('renders line-mode by default with add/remove rows for a simple edit', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="diff" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(screen.getByTestId('diff-result-line')).toBeTruthy();
     // Seeded inputs differ on the second line and add a trailing line —
@@ -44,6 +45,7 @@ describe('DiffUtilityPanel', () => {
   it('switches to word granularity and renders inline segments', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="diff" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('diff-granularity-select'), 'word');
 
@@ -55,6 +57,7 @@ describe('DiffUtilityPanel', () => {
   it('switches to character granularity and keeps rendering inline segments', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="diff" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('diff-granularity-select'), 'character');
     expect(screen.getByTestId('diff-result-inline')).toBeTruthy();
@@ -63,6 +66,7 @@ describe('DiffUtilityPanel', () => {
   it('localizes the granularity labels and summary into Spanish', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="diff" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(screen.getByText('Granularidad')).toBeTruthy();
     // The select options show localized labels.

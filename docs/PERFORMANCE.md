@@ -68,6 +68,24 @@ guards that contract. The web `initial` bundle dropped accordingly
 Refresh `docs/performance/baseline.json` to tighten the ceiling after a
 full `build:web` + desktop-renderer build per "Refreshing the baseline".
 
+## Lazy Developer Utilities panels (RL-125)
+
+The Developer Utilities modal is itself a lazy chunk, and `UtilityPanelRegistry`
+now loads each tool's panel through `React.lazy` (see
+`src/renderer/components/DeveloperUtilities/UtilityPanelRegistry.ts`), with
+`<Suspense>` in `UtilityPanels.tsx` and an on-hover `prefetchUtilityPanel` warm
+from the sidebar. Single-use deps (`qrcode`, `sql-formatter`) load via dynamic
+import at their util call sites.
+
+Effect on this report: the shared `DeveloperUtilities` chunk drops from ~362 KiB
+to ~19 KiB, and each panel (plus its deps) becomes its own `lazy` chunk — so
+opening JSON or Base64 no longer pays for the QR / SQL / Markdown panels. The
+`initial` bucket stays flat (the modal was already lazy, so there was nothing in
+`initial` to remove); the win is the per-tool split in the `lazy` bucket, which
+grows in file count as the single 362 KiB chunk fans out.
+`tests/e2e/devUtilitiesLazyPanels.spec.ts` guards that the default tool does not
+fetch the heavy panel chunks and that selecting QR loads its chunk on demand.
+
 ## Budget policy
 
 The baseline stores current measurements plus conservative headroom:

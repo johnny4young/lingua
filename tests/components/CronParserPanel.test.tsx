@@ -36,6 +36,7 @@ describe('CronParserPanel', () => {
 
   it('renders the seeded expression plus a description and 5 next-run rows', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="cron-parser" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect((screen.getByTestId('cron-parser-input') as HTMLInputElement).value).toBe('*/5 * * * *');
     expect((screen.getByTestId('cron-parser-next-count') as HTMLInputElement).value).toBe('5');
@@ -53,6 +54,7 @@ describe('CronParserPanel', () => {
 
   it('updates the run count when the upcoming-runs input changes', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="cron-parser" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await waitFor(() => {
       expect(within(screen.getByTestId('cron-parser-next-runs')).getAllByRole('listitem')).toHaveLength(5);
@@ -68,6 +70,7 @@ describe('CronParserPanel', () => {
 
   it('shows the invalid-expression error banner for garbage input', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="cron-parser" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = screen.getByTestId('cron-parser-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'not a cron' } });
@@ -81,6 +84,7 @@ describe('CronParserPanel', () => {
 
   it('shows the empty-state hint when the expression is cleared', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="cron-parser" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await waitFor(() => {
       expect(screen.getByTestId('cron-parser-description')).toBeTruthy();
@@ -100,6 +104,7 @@ describe('CronParserPanel', () => {
   it('localizes the description to Spanish when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="cron-parser" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await waitFor(() => {
       const description = screen.getByTestId('cron-parser-description') as HTMLTextAreaElement;

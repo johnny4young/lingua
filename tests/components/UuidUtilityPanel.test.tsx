@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -30,6 +30,7 @@ describe('UuidUtilityPanel', () => {
   it('switching the identifier type immediately regenerates the batch', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="uuid" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const firstBatch = screen
       .getAllByTestId('uuid-generated-value')
@@ -62,6 +63,7 @@ describe('UuidUtilityPanel', () => {
   it('decodes a pasted UUID v7 and surfaces its embedded timestamp', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="uuid" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // Generate a v7 so we have a real one to paste.
     await user.selectOptions(screen.getByTestId('uuid-version-select'), 'v7');
@@ -79,6 +81,7 @@ describe('UuidUtilityPanel', () => {
   it('shows the unrecognized hint for a random string', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="uuid" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.type(screen.getByTestId('uuid-decoder-input'), 'totally bogus');
     expect(
@@ -86,14 +89,16 @@ describe('UuidUtilityPanel', () => {
     ).toBeTruthy();
   });
 
-  it('shows the idle copy when the decoder field is empty', () => {
+  it('shows the idle copy when the decoder field is empty', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="uuid" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     expect(screen.getByText('Paste an identifier to decode it.')).toBeTruthy();
   });
 
   it('renders Spanish copy when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="uuid" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     expect(
       screen.getByRole('heading', { level: 3, name: /Decodificar identificador/i })
     ).toBeTruthy();

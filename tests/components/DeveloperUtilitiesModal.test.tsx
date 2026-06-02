@@ -34,16 +34,18 @@ describe('DeveloperUtilitiesModal', () => {
     });
   });
 
-  it('opens on the JSON utility by default', () => {
+  it('opens on the JSON utility by default', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(screen.getByTestId('developer-utilities-modal')).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'JSON Formatter' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Pretty print' })).toBeTruthy();
   });
 
-  it('supports opening directly into a selected utility', () => {
+  it('supports opening directly into a selected utility', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="timestamp" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(screen.getByRole('heading', { name: 'Timestamp Converter' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Use current time' })).toBeTruthy();
@@ -52,6 +54,7 @@ describe('DeveloperUtilitiesModal', () => {
   it('focuses search on open and navigates utilities with arrow keys', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const search = screen.getByTestId('utilities-search-input');
     await waitFor(() => {
@@ -81,12 +84,13 @@ describe('DeveloperUtilitiesModal', () => {
     });
   });
 
-  it('surfaces only the copy output shortcut in the modal chrome', () => {
+  it('surfaces only the copy output shortcut in the modal chrome', async () => {
     useSettingsStore
       .getState()
       .setShortcutOverride('utility-copy-output', [{ tokens: ['Mod', 'Alt', 'C'] }]);
 
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(screen.queryByLabelText('Developer utilities shortcuts')).toBeNull();
     expect(screen.getByLabelText('Utility output shortcuts')).toBeTruthy();
@@ -101,6 +105,7 @@ describe('DeveloperUtilitiesModal', () => {
   it('switches utilities and updates derived output live', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // Use the testid because RL-069 Slice 3 adds a sibling
     // FavoriteToggleButton whose aria-label also contains "Base64
@@ -122,6 +127,7 @@ describe('DeveloperUtilitiesModal', () => {
   it('shows regex matches with capture groups and a count label', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="regex" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(screen.getByRole('heading', { name: 'Regex Tester' })).toBeTruthy();
     expect(screen.getByText('2 matches')).toBeTruthy();
@@ -131,16 +137,18 @@ describe('DeveloperUtilitiesModal', () => {
     expect(screen.getByText('No matches for the current pattern.')).toBeTruthy();
   });
 
-  it('surfaces color conversions for the current input', () => {
+  it('surfaces color conversions for the current input', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="color" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(screen.getByRole('heading', { name: 'Color Converter' })).toBeTruthy();
     expect(screen.getByText('rgb(79, 70, 229)')).toBeTruthy();
     expect(screen.getByText('Color parsed successfully.')).toBeTruthy();
   });
 
-  it('reports a summary when comparing two different inputs in the diff viewer', () => {
+  it('reports a summary when comparing two different inputs in the diff viewer', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="diff" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(screen.getByRole('heading', { name: 'Diff Viewer' })).toBeTruthy();
     expect(
@@ -151,6 +159,7 @@ describe('DeveloperUtilitiesModal', () => {
   it('formats JSON input in place', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = screen.getByLabelText('Input');
     fireEvent.change(input, { target: { value: '{"name":"Lingua"}' } });

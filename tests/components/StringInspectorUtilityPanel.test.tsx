@@ -6,7 +6,7 @@
  * copy resolves.
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -31,8 +31,9 @@ describe('StringInspectorPanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('renders summary cards and a zero-width warning for the seeded input', () => {
+  it('renders summary cards and a zero-width warning for the seeded input', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="string-inspector" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // Seeded input is 'hello\u200Bworld' → 11 grapheme code points.
     expect(screen.getByTestId('string-inspector-graphemes').textContent).toBe('11');
@@ -46,6 +47,7 @@ describe('StringInspectorPanel', () => {
   it('updates the counts live as the user types more characters', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="string-inspector" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = screen.getByTestId('string-inspector-input') as HTMLTextAreaElement;
     await user.clear(input);
@@ -58,6 +60,7 @@ describe('StringInspectorPanel', () => {
   it('renders a bidi warning for a right-to-left override and tags the row accordingly', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="string-inspector" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = screen.getByTestId('string-inspector-input') as HTMLTextAreaElement;
     await user.clear(input);
@@ -73,6 +76,7 @@ describe('StringInspectorPanel', () => {
   it('dismisses the warnings section entirely when the input is clean', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="string-inspector" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = screen.getByTestId('string-inspector-input') as HTMLTextAreaElement;
     await user.clear(input);
@@ -84,6 +88,7 @@ describe('StringInspectorPanel', () => {
   it('localizes the panel and column headers to Spanish', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="string-inspector" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(screen.getByText('Grafemas')).toBeTruthy();
     expect(screen.getByText('Unidades UTF-16')).toBeTruthy();

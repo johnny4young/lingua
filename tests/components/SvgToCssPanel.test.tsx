@@ -34,8 +34,9 @@ describe('SvgToCssPanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('defaults to Base64 mode and renders a full data-URI plus CSS block for the seeded SVG', () => {
+  it('defaults to Base64 mode and renders a full data-URI plus CSS block for the seeded SVG', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="svg-to-css" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect((screen.getByTestId('svg-to-css-mode') as HTMLSelectElement).value).toBe('base64');
 
@@ -53,6 +54,7 @@ describe('SvgToCssPanel', () => {
   it('switching to URL-encoded flips the data-URI prefix without mutating the input', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="svg-to-css" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const inputBefore = (screen.getByTestId('svg-to-css-input') as HTMLTextAreaElement).value;
 
@@ -70,6 +72,7 @@ describe('SvgToCssPanel', () => {
 
   it('hides the size hint when the SVG root has no width/height and no viewBox', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="svg-to-css" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const inputArea = screen.getByTestId('svg-to-css-input') as HTMLTextAreaElement;
     fireEvent.change(inputArea, {
@@ -85,6 +88,7 @@ describe('SvgToCssPanel', () => {
 
   it('shows the error banner when the input is not SVG', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="svg-to-css" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const inputArea = screen.getByTestId('svg-to-css-input') as HTMLTextAreaElement;
     fireEvent.change(inputArea, { target: { value: 'definitely not svg' } });
@@ -98,6 +102,7 @@ describe('SvgToCssPanel', () => {
 
   it('shows the empty hint when the textarea is cleared', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="svg-to-css" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const inputArea = screen.getByTestId('svg-to-css-input') as HTMLTextAreaElement;
     fireEvent.change(inputArea, { target: { value: '' } });
@@ -117,6 +122,7 @@ describe('SvgToCssPanel', () => {
   it('localizes the mode selector and panel description to Spanish', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="svg-to-css" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const select = screen.getByTestId('svg-to-css-mode') as HTMLSelectElement;
     const labels = Array.from(select.options).map((opt) => opt.textContent);

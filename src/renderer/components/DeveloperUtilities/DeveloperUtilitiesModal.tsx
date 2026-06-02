@@ -21,6 +21,7 @@ import { fuzzyMatch } from '../../utils/fuzzyMatch';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useUtilityHistoryStore } from '../../stores/utilityHistoryStore';
 import { DeveloperUtilityPanel } from './UtilityPanels';
+import { prefetchUtilityPanel } from './UtilityPanelRegistry';
 import { FavoriteToggleButton, FavoritesRow } from './FavoritesRow';
 import { trackEvent } from '../../utils/telemetry';
 
@@ -354,6 +355,8 @@ export function DeveloperUtilitiesModal({
                       }}
                       onClick={() => setSelectedUtilityId(utility.id)}
                       onKeyDown={handleUtilityKeyDown}
+                      onMouseEnter={() => prefetchUtilityPanel(utility.id)}
+                      onFocus={() => prefetchUtilityPanel(utility.id)}
                       aria-pressed={isSelected}
                       data-testid={`utility-item-${utility.id}`}
                       className="flex flex-1 items-start gap-2.5 px-3 py-3 text-left"

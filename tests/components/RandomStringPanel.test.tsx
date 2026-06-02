@@ -36,8 +36,9 @@ describe('RandomStringPanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('renders with the default 32-char length, count-5, and Lowercase + Uppercase + Digits on', () => {
+  it('renders with the default 32-char length, count-5, and Lowercase + Uppercase + Digits on', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="random-string" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect((screen.getByTestId('random-string-length') as HTMLInputElement).value).toBe('32');
     expect((screen.getByTestId('random-string-count') as HTMLInputElement).value).toBe('5');
@@ -63,6 +64,7 @@ describe('RandomStringPanel', () => {
   it('generates count rows of length chars when the user clicks Generate', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="random-string" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.click(screen.getByTestId('random-string-generate'));
 
@@ -85,6 +87,7 @@ describe('RandomStringPanel', () => {
   it('respects the Count input when Generate is clicked', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="random-string" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const countInput = screen.getByTestId('random-string-count') as HTMLInputElement;
     fireEvent.change(countInput, { target: { value: '2' } });
@@ -99,6 +102,7 @@ describe('RandomStringPanel', () => {
   it('shows an error banner and disables Generate when every charset toggle is off', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="random-string" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.click(screen.getByTestId('random-string-toggle-lowercase'));
     await user.click(screen.getByTestId('random-string-toggle-uppercase'));
@@ -115,6 +119,7 @@ describe('RandomStringPanel', () => {
   it('honours Exclude Ambiguous so 0, 1, l, o never appear in the output', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="random-string" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.click(screen.getByTestId('random-string-toggle-excludeAmbiguous'));
     // Leave Lowercase + Uppercase + Digits ON — the ambiguous set
@@ -136,6 +141,7 @@ describe('RandomStringPanel', () => {
   it('renders per-row copy buttons with indexed testids (random-string-value-copy-0, -1, …)', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="random-string" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.click(screen.getByTestId('random-string-generate'));
 
@@ -153,6 +159,7 @@ describe('RandomStringPanel', () => {
   it('localizes the generate action to Spanish when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="random-string" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(
       screen.getByRole('heading', { level: 3, name: /Generar cadenas aleatorias/ }),

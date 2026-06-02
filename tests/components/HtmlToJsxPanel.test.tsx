@@ -33,8 +33,9 @@ describe('HtmlToJsxPanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('renders the seeded output with className and a JSX comment', () => {
+  it('renders the seeded output with className and a JSX comment', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-to-jsx" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     const output = (screen.getByTestId('html-to-jsx-output') as HTMLTextAreaElement).value;
     expect(output).toContain('className="card"');
     expect(output).toContain('htmlFor="name"');
@@ -43,13 +44,15 @@ describe('HtmlToJsxPanel', () => {
     expect(output).toContain('style={{ color: "red", margin: "10px" }}');
   });
 
-  it('reports the root-count status line', () => {
+  it('reports the root-count status line', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-to-jsx" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     expect(screen.getByTestId('html-to-jsx-root-count').textContent).toMatch(/1 root/);
   });
 
   it('surfaces the empty-state hint when the input is cleared', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-to-jsx" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     const input = screen.getByTestId('html-to-jsx-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '' } });
 
@@ -63,6 +66,7 @@ describe('HtmlToJsxPanel', () => {
 
   it('wraps multi-root input in a fragment and unwraps when the toggle flips off', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-to-jsx" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     const input = screen.getByTestId('html-to-jsx-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '<p>a</p><p>b</p>' } });
 
@@ -84,6 +88,7 @@ describe('HtmlToJsxPanel', () => {
   it('localizes the panel heading to Spanish when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-to-jsx" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     expect(
       screen.getByRole('heading', { level: 3, name: /Conversor de HTML a JSX/ }),
     ).toBeTruthy();

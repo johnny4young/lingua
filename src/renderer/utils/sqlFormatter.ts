@@ -1,15 +1,10 @@
 /**
  * RL-068 — SQL Formatter helper.
  *
- * Pure, offline, renderer-side. Statically imports `sql-formatter`
- * (MIT, ~30 KB gz). The lib lives inside the lazy DevUtils chunk
- * regardless of where the import statement lives — the chunk only
- * hydrates when a user opens the Developer Utilities modal.
- *
- * Why static instead of `await import()`? A lazy variant timed out
- * past 5 s on cold cache inside vitest's jsdom environment. Static
- * import is deterministic across the Vite browser build and the
- * vitest SSR transform with no runtime difference for end users.
+ * Pure, offline, renderer-side. Lazily imports `sql-formatter`
+ * (MIT, ~30 KB gz) so the largest single-use Developer Utilities dep
+ * ships in its own chunk and only downloads when a user opens the SQL
+ * Formatter tool (RL-125 / AUDIT-05) — not for every DevUtils open.
  *
  * Supported dialects line up with the AC: ANSI standard, PostgreSQL,
  * MySQL — the three the audience runs into most often. Other dialects
@@ -38,13 +33,25 @@ export const SQL_FORMATTER_MAX_BYTES = 200 * 1024; // 200 KB
 export const SQL_FORMATTER_MAX_KB = Math.round(SQL_FORMATTER_MAX_BYTES / 1024);
 
 /**
- * Static `sql-formatter` import. The lib is small (~30 KB gz) and
- * pure-JS — no DOM/Node-only APIs — so it tree-shakes cleanly into
- * the lazy DevUtils chunk. Static import also sidesteps a flaky
- * `await import('sql-formatter')` resolution inside vitest's jsdom
- * environment that timed out at >5 s on cold cache.
+ * Cached dynamic `sql-formatter` loader. A prior lazy attempt timed out
+ * (>5 s) on cold cache inside vitest's jsdom; `tests/utils/sqlFormatter.test.ts`
+ * now mocks the module so this dynamic path stays fast and deterministic in CI
+ * while production gets the per-tool chunk split.
  */
-import { format as sqlFormat } from 'sql-formatter';
+type SqlFormatFn = typeof import('sql-formatter').format;
+let sqlFormatPromise: Promise<SqlFormatFn> | null = null;
+function loadSqlFormat(): Promise<SqlFormatFn> {
+  sqlFormatPromise ??= import('sql-formatter')
+    .then((module) => module.format)
+    .catch((error) => {
+      // Drop the cached rejection so a later format can retry instead of
+      // permanently failing the session; `formatSql`'s try/catch still surfaces
+      // this as the parseFailure error key.
+      sqlFormatPromise = null;
+      throw error;
+    });
+  return sqlFormatPromise;
+}
 
 export async function formatSql(
   source: string,
@@ -60,6 +67,7 @@ export async function formatSql(
   }
 
   try {
+    const sqlFormat = await loadSqlFormat();
     const output = sqlFormat(source, {
       language: options.dialect,
       tabWidth: options.tabWidth,

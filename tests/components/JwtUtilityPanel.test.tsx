@@ -31,8 +31,9 @@ describe('JwtUtilityPanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('renders the Decode form by default and preserves the existing decode output', () => {
+  it('renders the Decode form by default and preserves the existing decode output', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // Mode selector lands on `decode`.
     const modeSelect = screen.getByTestId('jwt-mode') as HTMLSelectElement;
@@ -46,6 +47,7 @@ describe('JwtUtilityPanel', () => {
   it('swaps to the Sign form when the user picks Sign mode', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('jwt-mode'), 'sign');
 
@@ -60,6 +62,7 @@ describe('JwtUtilityPanel', () => {
   it('round-trips Sign → Verify with HS256 and shows the PASS indicator', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // Sign a token first.
     await user.selectOptions(screen.getByTestId('jwt-mode'), 'sign');
@@ -89,6 +92,7 @@ describe('JwtUtilityPanel', () => {
   it('shows the FAIL indicator when the Verify key does not match', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // Seeded token uses "signature" as its third segment — not a real
     // signature. So any real key will fail verification with HS256.
@@ -106,6 +110,7 @@ describe('JwtUtilityPanel', () => {
   it('flags invalid JSON in the Sign header with the discriminated error', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('jwt-mode'), 'sign');
 
@@ -126,6 +131,7 @@ describe('JwtUtilityPanel', () => {
   it('localizes the mode selector options to Spanish', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const modeSelect = screen.getByTestId('jwt-mode') as HTMLSelectElement;
     const labels = Array.from(modeSelect.options).map((opt) => opt.textContent);
@@ -137,6 +143,7 @@ describe('JwtUtilityPanel', () => {
   it('exposes the full HS / RS / ES / PS algorithm set in both Verify and Sign selects', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="jwt" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const expected = [
       'HS256',

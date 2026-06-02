@@ -35,8 +35,9 @@ describe('RegexUtilityPanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('defaults to Match mode and hides the replacement input', () => {
+  it('defaults to Match mode and hides the replacement input', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="regex" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect((screen.getByTestId('regex-mode') as HTMLSelectElement).value).toBe('match');
     expect(screen.queryByTestId('regex-replacement')).toBeNull();
@@ -47,6 +48,7 @@ describe('RegexUtilityPanel', () => {
   it('switching to Replace mode reveals the replacement field and the replace output pane', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="regex" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('regex-mode'), 'replace');
 
@@ -63,6 +65,7 @@ describe('RegexUtilityPanel', () => {
   it('updates the replace output live as the user edits the replacement field', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="regex" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('regex-mode'), 'replace');
     const replacement = screen.getByTestId('regex-replacement') as HTMLInputElement;
@@ -78,6 +81,7 @@ describe('RegexUtilityPanel', () => {
   it('surfaces the invalid-pattern error banner in Replace mode', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="regex" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('regex-mode'), 'replace');
     const pattern = screen.getByTestId('regex-pattern') as HTMLInputElement;
@@ -95,6 +99,7 @@ describe('RegexUtilityPanel', () => {
   it('switching back to Match mode clears the replace output', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="regex" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('regex-mode'), 'replace');
     expect(screen.getByTestId('regex-replace-output')).toBeTruthy();
@@ -109,6 +114,7 @@ describe('RegexUtilityPanel', () => {
   it('shows a neutral empty status (not a green count) when the pattern matches nothing', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="regex" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('regex-mode'), 'replace');
     // Swap the seeded pattern for one that never matches the seeded input.
@@ -125,6 +131,7 @@ describe('RegexUtilityPanel', () => {
   it('localizes the mode selector to Spanish', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="regex" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const select = screen.getByTestId('regex-mode') as HTMLSelectElement;
     const labels = Array.from(select.options).map((opt) => opt.textContent);

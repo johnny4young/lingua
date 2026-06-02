@@ -43,8 +43,9 @@ describe('Base64ImagePanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('renders the Encode form by default with a dropzone and the empty preview', () => {
+  it('renders the Encode form by default with a dropzone and the empty preview', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64-image" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect((screen.getByTestId('base64-image-mode') as HTMLSelectElement).value).toBe('encode');
     expect(screen.getByTestId('base64-image-dropzone')).toBeTruthy();
@@ -54,6 +55,7 @@ describe('Base64ImagePanel', () => {
 
   it('encodes an uploaded PNG into a data-URI with a preview and metadata', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64-image" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const file = new File([ONE_BY_ONE_PNG], 'pixel.png', { type: 'image/png' });
     const input = screen.getByTestId('base64-image-file-input') as HTMLInputElement;
@@ -74,6 +76,7 @@ describe('Base64ImagePanel', () => {
 
   it('surfaces the not-image error when a non-image file is dropped in encode mode', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64-image" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const file = new File(['hello'], 'greeting.txt', { type: 'text/plain' });
     const input = screen.getByTestId('base64-image-file-input') as HTMLInputElement;
@@ -92,6 +95,7 @@ describe('Base64ImagePanel', () => {
   it('decodes a pasted PNG data-URI and renders the preview + metadata', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64-image" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('base64-image-mode'), 'decode');
 
@@ -110,6 +114,7 @@ describe('Base64ImagePanel', () => {
   it('shows the invalid-uri error when decode input is not a data URI', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64-image" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('base64-image-mode'), 'decode');
 
@@ -127,6 +132,7 @@ describe('Base64ImagePanel', () => {
   it('shows the not-image error when decode input points to a non-image MIME', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64-image" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('base64-image-mode'), 'decode');
 
@@ -145,6 +151,7 @@ describe('Base64ImagePanel', () => {
   it('rejects oversized pasted data-URIs before rendering a preview', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64-image" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('base64-image-mode'), 'decode');
 
@@ -164,6 +171,7 @@ describe('Base64ImagePanel', () => {
   it('localizes the panel title to Spanish when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64-image" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect(
       screen.getByRole('heading', { level: 3, name: /Codificar \/ decodificar imagen Base64/ }),

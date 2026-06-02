@@ -5,7 +5,7 @@
  * and Spanish locale parity.
  */
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -30,8 +30,9 @@ describe('HtmlEntityPanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('defaults to named encoding and produces escaped output for the seeded input', () => {
+  it('defaults to named encoding and produces escaped output for the seeded input', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-entity" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const output = screen.getByTestId('html-entity-output') as HTMLTextAreaElement;
     expect(output.value).toContain('&lt;p class=&quot;lead&quot;&gt;');
@@ -42,6 +43,7 @@ describe('HtmlEntityPanel', () => {
   it('switches to minimal encoding and drops named entities for non-structural chars', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-entity" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('html-entity-mode'), 'encode-minimal');
 
@@ -56,6 +58,7 @@ describe('HtmlEntityPanel', () => {
   it('switches to numeric encoding and emits decimal references for non-ASCII chars', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-entity" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('html-entity-mode'), 'encode-numeric');
 
@@ -67,6 +70,7 @@ describe('HtmlEntityPanel', () => {
   it('decodes in decode mode and surfaces the unresolved counter for unknown references', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-entity" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('html-entity-mode'), 'decode');
     const input = screen.getByTestId('html-entity-input') as HTMLTextAreaElement;
@@ -83,6 +87,7 @@ describe('HtmlEntityPanel', () => {
   it('hides the unresolved counter when every reference decodes cleanly', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-entity" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await user.selectOptions(screen.getByTestId('html-entity-mode'), 'decode');
     const input = screen.getByTestId('html-entity-input') as HTMLTextAreaElement;
@@ -97,6 +102,7 @@ describe('HtmlEntityPanel', () => {
   it('localizes the mode selector options to Spanish', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-entity" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const select = screen.getByTestId('html-entity-mode') as HTMLSelectElement;
     const labels = Array.from(select.options).map((opt) => opt.textContent);

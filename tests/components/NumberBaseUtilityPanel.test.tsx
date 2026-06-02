@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,8 +23,9 @@ describe('NumberBaseUtilityPanel', () => {
     await i18next.changeLanguage('en');
   });
 
-  it('renders with the initial demo value propagated across every base', () => {
+  it('renders with the initial demo value propagated across every base', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="number-base" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     expect((screen.getByTestId('number-base-input-decimal') as HTMLInputElement).value).toBe('255');
     expect((screen.getByTestId('number-base-input-hex') as HTMLInputElement).value).toBe('FF');
@@ -37,6 +38,7 @@ describe('NumberBaseUtilityPanel', () => {
   it('propagates typing in the hex field to every other base', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="number-base" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const hex = screen.getByTestId('number-base-input-hex') as HTMLInputElement;
     await user.clear(hex);
@@ -53,6 +55,7 @@ describe('NumberBaseUtilityPanel', () => {
   it('flags an invalid binary entry without clobbering the other views', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="number-base" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const binary = screen.getByTestId('number-base-input-binary') as HTMLInputElement;
     await user.clear(binary);
@@ -69,6 +72,7 @@ describe('NumberBaseUtilityPanel', () => {
   it('clears the invalid banner on blur once the field snaps back to the last good value', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="number-base" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const binary = screen.getByTestId('number-base-input-binary') as HTMLInputElement;
     await user.clear(binary);
@@ -86,6 +90,7 @@ describe('NumberBaseUtilityPanel', () => {
   it('honors the 0x prefix in the decimal field', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="number-base" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const decimal = screen.getByTestId('number-base-input-decimal') as HTMLInputElement;
     await user.clear(decimal);
@@ -100,6 +105,7 @@ describe('NumberBaseUtilityPanel', () => {
   it('surfaces localized Spanish copy when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="number-base" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // The panel heading specifically (not the nav/action label) uses the
     // `utilities.tool.numberBase.title` key, which renders as "Bases

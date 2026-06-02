@@ -1530,6 +1530,7 @@
   "shortcuts.preset.classicIde.label": "Classic IDE (JetBrains-style)",
   "shortcuts.preset.classicIde.description": "Moves Go to Symbol to Mod+Alt+O, project search to Mod+Alt+F, and the console toggle to Mod+J — the IntelliJ-classic keymap.",
   "utilities.panelTitle": "Developer Utilities",
+  "utilities.panel.loading": "Loading tool…",
   "utilities.toolCount_one": "{{count}} tool",
   "utilities.toolCount_other": "{{count}} tools",
   "utilities.title": "Built-in utilities",

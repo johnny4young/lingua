@@ -44,6 +44,7 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
   it('JSON: Apply enabled with valid input, disabled after clearing', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="json" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // Default seed is valid JSON.
     const apply = await screen.findByTestId('utility-apply-button');
@@ -65,6 +66,7 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
   it('JSON: registers an apply descriptor whose run reformats the input', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="json" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     await waitFor(() => {
       expect(useUtilityOutputStore.getState().getApplyHandler()).not.toBeNull();
@@ -96,6 +98,7 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
   it('Base64: Apply auto-flips to decode when input looks base64', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="base64" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // Default seed is plain text in encode mode. Replace with a base64 paste.
     const inputs = screen.getAllByLabelText('Input');
@@ -119,6 +122,7 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
   it('HTML Entity: Apply encodes raw HTML and decodes encoded entities', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="html-entity" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const mode = await screen.findByTestId('html-entity-mode') as HTMLSelectElement;
     await screen.findByTestId('utility-apply-button');
@@ -143,6 +147,7 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
   it('YAML ↔ JSON: Apply carries a pasted JSON payload into JSON-to-YAML mode', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="yaml-json" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = await screen.findByTestId('yaml-json-input') as HTMLTextAreaElement;
     const mode = screen.getByTestId('yaml-json-mode') as HTMLSelectElement;
@@ -165,6 +170,7 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
   it('JSON ↔ CSV: Apply carries a pasted CSV payload into CSV-to-JSON mode', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="json-csv" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     const input = await screen.findByTestId('json-csv-input') as HTMLTextAreaElement;
     const mode = screen.getByTestId('json-csv-mode') as HTMLSelectElement;
@@ -184,14 +190,16 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
     });
   });
 
-  it('Random String: pure generator panel exposes no Apply button', () => {
+  it('Random String: pure generator panel exposes no Apply button', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="random-string" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     expect(screen.queryByTestId('utility-apply-button')).toBeNull();
   });
 
   it('Diff: Apply requires both panes filled (dual-input carve-out)', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="diff" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // Default seeds are both filled — Apply is enabled.
     const apply = await screen.findByTestId('utility-apply-button');
@@ -210,6 +218,7 @@ describe('UtilityToolbar Apply (RL-069 Slice 2)', () => {
 
   it('Hash: output provider returns the hex digest only when result is ok', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="hash" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
 
     // After mount + the live useEffect resolves, an output provider
     // should be registered and produce a non-null hex string for the

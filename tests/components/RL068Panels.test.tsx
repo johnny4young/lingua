@@ -35,8 +35,9 @@ beforeEach(async () => {
 });
 
 describe('YamlJsonPanel', () => {
-  it('renders the seeded YAML → JSON output and surfaces the comments-dropped warning', () => {
+  it('renders the seeded YAML → JSON output and surfaces the comments-dropped warning', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="yaml-json" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     const output = (screen.getByTestId('yaml-json-output') as HTMLTextAreaElement).value;
     expect(output).toContain('"name": "lingua"');
     expect(output).toContain('"services"');
@@ -46,6 +47,7 @@ describe('YamlJsonPanel', () => {
   it('switches to JSON → YAML mode and re-renders', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="yaml-json" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     await user.selectOptions(screen.getByTestId('yaml-json-mode'), 'json-to-yaml');
     await waitFor(() => {
       const output = (screen.getByTestId('yaml-json-output') as HTMLTextAreaElement).value;
@@ -55,6 +57,7 @@ describe('YamlJsonPanel', () => {
 
   it('shows the empty-state hint when the input is cleared', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="yaml-json" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     const input = screen.getByTestId('yaml-json-input') as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: '' } });
     await waitFor(() => {
@@ -66,8 +69,9 @@ describe('YamlJsonPanel', () => {
 });
 
 describe('JsonCsvPanel', () => {
-  it('renders the seeded JSON → CSV output with the header row', () => {
+  it('renders the seeded JSON → CSV output with the header row', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="json-csv" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     const output = (screen.getByTestId('json-csv-output') as HTMLTextAreaElement).value;
     expect(output.split('\n')[0]).toBe('name,score');
     expect(output).toContain('Alice,92');
@@ -77,6 +81,7 @@ describe('JsonCsvPanel', () => {
   it('toggles to CSV → JSON mode and parses rows back into objects', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="json-csv" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     await user.selectOptions(screen.getByTestId('json-csv-mode'), 'csv-to-json');
     await waitFor(() => {
       const output = (screen.getByTestId('json-csv-output') as HTMLTextAreaElement).value;
@@ -87,6 +92,7 @@ describe('JsonCsvPanel', () => {
   it('switches the delimiter to tab and re-emits a TSV', async () => {
     const user = userEvent.setup();
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="json-csv" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     await user.selectOptions(screen.getByTestId('json-csv-delimiter'), '\t');
     await waitFor(() => {
       const output = (screen.getByTestId('json-csv-output') as HTMLTextAreaElement).value;
@@ -98,6 +104,7 @@ describe('JsonCsvPanel', () => {
 describe('MarkdownPreviewPanel', () => {
   it('renders the seeded Markdown into sanitized HTML', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="markdown-preview" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     await screen.findByTestId('markdown-preview-rendered');
     const html = (
       (await screen.findByTestId('markdown-preview-html')) as HTMLTextAreaElement
@@ -108,6 +115,7 @@ describe('MarkdownPreviewPanel', () => {
 
   it('toggles GFM off and continues to render plain Markdown', async () => {
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="markdown-preview" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     await screen.findByTestId('markdown-preview-html');
     fireEvent.click(screen.getByTestId('markdown-preview-gfm'));
     await waitFor(() => {
@@ -121,6 +129,7 @@ describe('SqlFormatterPanel', () => {
     'renders the dialect select and lets the user format the seeded statement',
     async () => {
       render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="sql-formatter" />);
+      await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
       // The dialect select renders synchronously even while the format
       // promise is in flight; use it as the deterministic mount anchor.
       await screen.findByTestId('sql-formatter-dialect', undefined, { timeout: 5000 });
@@ -142,6 +151,7 @@ describe('SqlFormatterPanel', () => {
   it('localizes the dialect label set to Spanish when the locale switches', async () => {
     await i18next.changeLanguage('es');
     render(<DeveloperUtilitiesModal onClose={vi.fn()} initialUtilityId="sql-formatter" />);
+    await waitFor(() => expect(screen.queryByTestId('utility-panel-loading')).toBeNull());
     const select = (await screen.findByTestId('sql-formatter-dialect', undefined, {
       timeout: 5000,
     })) as HTMLSelectElement;

@@ -5,11 +5,17 @@
  * branches, and a parse-failure surface.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   SQL_FORMATTER_MAX_BYTES,
   formatSql,
 } from '../../src/renderer/utils/sqlFormatter';
+
+// `formatSql` now loads `sql-formatter` via a dynamic import (RL-125). Resolve
+// it through the actual module up front so the cold-import path that previously
+// timed out in vitest's jsdom never runs at test time, while still exercising
+// the real formatter so these assertions stay meaningful.
+vi.mock('sql-formatter', async () => await vi.importActual('sql-formatter'));
 
 describe('formatSql', () => {
   it('formats an ANSI SELECT with upper-case keywords', async () => {

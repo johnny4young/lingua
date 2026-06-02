@@ -1530,6 +1530,7 @@
   "shortcuts.preset.classicIde.label": "IDE cl\u00e1sico (estilo JetBrains)",
   "shortcuts.preset.classicIde.description": "Mueve Ir al s\u00edmbolo a Mod+Alt+O, b\u00fasqueda en proyecto a Mod+Alt+F y alternar consola a Mod+J: el keymap cl\u00e1sico de IntelliJ.",
   "utilities.panelTitle": "Utilidades de desarrollo",
+  "utilities.panel.loading": "Cargando herramienta…",
   "utilities.toolCount_one": "{{count}} herramienta",
   "utilities.toolCount_other": "{{count}} herramientas",
   "utilities.title": "Utilidades integradas",
