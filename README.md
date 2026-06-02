@@ -1,7 +1,7 @@
 # Lingua
 
 [![CI](https://github.com/johnny4young/lingua/actions/workflows/ci.yml/badge.svg)](https://github.com/johnny4young/lingua/actions/workflows/ci.yml)
-[![Node 24+](https://img.shields.io/badge/node-%3E%3D24-brightgreen)](https://nodejs.org)
+[![Node 24.x](https://img.shields.io/badge/node-24.x-brightgreen)](https://nodejs.org)
 [![License: Source-available (commercial)](https://img.shields.io/badge/license-source--available%20(commercial)-6f42c1)](./LICENSE)
 
 **Multi-language desktop code runner — JavaScript, TypeScript, Python, Go, and Rust in one offline-first Monaco-powered app.** Lingua combines Monaco Editor, a project file tree, inline console output, and language-specific execution backends for both desktop and web builds. It is the multi-language answer to RunJS: the same "open, write, run" ergonomics, but with Go, Rust, and Python as first-class citizens instead of JavaScript-only.
@@ -57,7 +57,7 @@ For deeper architecture detail and the per-capability execution-class decision, 
 
 | Dependency     | Version | Notes                                                          |
 | -------------- | ------- | -------------------------------------------------------------- |
-| Node.js        | >= 24   | Required for local development, tests, and builds              |
+| Node.js        | 24.x    | Required for local development, tests, and builds              |
 | pnpm           | >= 11   | Package manager (`corepack enable` picks the pinned version)   |
 | Go             | >= 1.21 | Required only for desktop Go execution                         |
 | Rust (`rustc`) | stable  | Required only for desktop Rust execution                       |
@@ -101,6 +101,7 @@ Contributor and operator entry points:
 
 - [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) — clone/install, dev/test/smoke/build commands, Pro testing, automation/delivery.
 - [`docs/USAGE.md`](./docs/USAGE.md) — keyboard shortcuts, deep links, plugin manifest format, browser-only limitations, update behavior.
+- [`docs/ROADMAP.md`](./docs/ROADMAP.md), [`docs/SPRINT-PLAN.md`](./docs/SPRINT-PLAN.md), [`docs/ARCHIVED.md`](./docs/ARCHIVED.md), and [`docs/BACKLOG.md`](./docs/BACKLOG.md) — live planning state, active pull order, closed-ticket archive policy, and raw idea capture.
 - [`AGENTS.md`](./AGENTS.md) — canonical guidance for any agent (Claude Code, Cursor, Codex, Aider) working in this repo. `CLAUDE.md` is a symlink pointing to it.
 - [`RELEASE.md`](./RELEASE.md) — release operator checklist (preconditions, release steps, validation gate, rollback plan).
 

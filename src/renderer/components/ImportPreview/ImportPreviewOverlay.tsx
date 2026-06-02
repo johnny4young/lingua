@@ -69,6 +69,8 @@ function formatLabelKeyForImporter(importerId: ImporterId): string {
 
 export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
   const { t } = useTranslation();
+  // Async handlers call the latest close callback without forcing every
+  // import/clipboard callback to rebind when the parent rerenders.
   const closeRef = useRef(onClose);
   useEffect(() => {
     closeRef.current = onClose;
@@ -117,6 +119,8 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         // clipboard contents into the overlay.
         const detectedImporter = detectImporter(trimmed);
         if (detectedImporter === null) return;
+        // Auto-detect stops at preview. The user still has to press the
+        // adapter-specific confirm button before any workspace/tab is created.
         setPasteValue(text);
         previewSource(text);
         pushStatusNotice({
@@ -199,6 +203,8 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
         // Maybe text was dragged (some browsers serialize as text/plain).
         const text = event.dataTransfer?.getData('text/plain') ?? '';
         if (text.trim().length > 0) {
+          // Text drops intentionally share the paste path so detection,
+          // warning telemetry, and reject handling stay centralized.
           setPasteValue(text);
           previewSource(text);
         }
@@ -237,6 +243,8 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
       closeRef.current();
       return;
     }
+    // `confirm()` owns the state mutation; the overlay only translates the
+    // returned adapter kind into the most specific success copy.
     if (created.kind === 'curl-http') {
       pushStatusNotice({
         tone: 'success',
@@ -262,6 +270,8 @@ export function ImportPreviewOverlay({ onClose }: ImportPreviewOverlayProps) {
 
   const previewed = state.phase === 'previewed' ? state.preview : undefined;
   const rejected = state.phase === 'rejected' ? state.reason : null;
+  // The confirm button stays tied to the state machine phase rather than to
+  // local text/file state, so malformed-but-present source cannot import.
   const canConfirm = state.phase === 'previewed' && !!previewed;
   const importerId = state.importerId;
   const isCollection =

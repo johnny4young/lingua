@@ -14,6 +14,7 @@ import { joinAbsolute } from '../../utils/filePath';
 import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { handleCloseOnEscape } from '../ui/keyboard';
 
+// Long enough to coalesce typing bursts without making search feel stale.
 const SEARCH_DEBOUNCE_MS = 220;
 
 interface ProjectSearchProps {
@@ -85,6 +86,8 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
   // Debounce query → search. Disabled when no project is active.
   useEffect(() => {
     if (!currentProject) return;
+    // Snapshot the root id so a late timeout cannot route an old query into a
+    // newly selected project after the effect has been scheduled.
     const rootId = currentProject.rootId;
     const timeout = window.setTimeout(() => {
       void search(rootId, query);
@@ -101,6 +104,8 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
     };
   }, [clear]);
 
+  // The rendered list keeps file headers for grouping, while selection and
+  // Enter handling operate only on concrete match rows.
   const rows = useMemo(() => buildFlatRows(results), [results]);
   const matchRows = useMemo(() => rows.filter((row) => row.kind === 'match'), [rows]);
 
@@ -142,6 +147,8 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
       languageFromPath(row.result.relativePath) ?? PLAINTEXT_LANGUAGE;
     const name =
       row.result.relativePath.split(/[\\/]/).pop() ?? row.result.relativePath;
+    // Editor markers/reveal requests use absolute display paths; the file
+    // bridge still opens by project root id plus relative path.
     const displayPath = joinAbsolute(
       currentProject.rootPath,
       row.result.relativePath
@@ -178,6 +185,8 @@ export function ProjectSearch({ onClose }: ProjectSearchProps) {
         0,
         matchRows.findIndex((row) => row.key === selectedMatchKey)
       );
+      // Clamp instead of wrapping so repeated arrows stop predictably at the
+      // first/last visible match in the current result set.
       const nextIndex =
         event.key === 'ArrowDown'
           ? Math.min(currentIndex + 1, matchRows.length - 1)

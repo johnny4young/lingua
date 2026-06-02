@@ -245,6 +245,13 @@ function decodeIssuedTo(token: string): string | null {
  * the canonical `licenses.token` via `refreshedToken`, so a stale T1
  * resolves to the active T2 silently.
  *
+ * Grace-window contract: this helper is only allowed to run after
+ * local verification has proven the stale token is authentic but
+ * outside its local support window. It never rescues malformed,
+ * unsigned, wrong-key, or clock-skewed tokens, and it re-verifies the
+ * server-provided replacement locally before storing it. If any step
+ * fails, callers fall through to the recovery-hint UX.
+ *
  * Returns a usable `{ token, status }` pair when the swap succeeds.
  * Otherwise `null` — caller falls through to the recover-hint UX.
  */

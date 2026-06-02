@@ -96,6 +96,11 @@ function blankRange(line: string, from: number, to: number): string {
   return `${line.slice(0, from)}${' '.repeat(Math.max(0, to - from))}${line.slice(to)}`;
 }
 
+/**
+ * Return a same-length line with comments and string literal contents blanked.
+ * Ruby syntax allows `#`, delimiters, and `end` inside strings/comments; keeping
+ * columns stable lets the heuristic diagnostics point back to source positions.
+ */
 function stripRubyLine(line: string, state: RubyStripState): string {
   const trimmed = line.trim();
   if (state.blockComment) {
@@ -158,6 +163,10 @@ function rubyBlockKeyword(strippedLine: string): string | null {
 }
 
 function parseRubyMethodSignature(line: string): RubyMethodSignature | null {
+  // Handles the common `def foo(a, b)`, `def foo a, b`, and
+  // `def self.foo(...)` shapes. It is deliberately single-line because Ruby's
+  // parser rules for continuation are broad; unsupported shapes simply skip
+  // signature help instead of producing misleading parameter lists.
   const match = line.match(
     /^\s*def\s+(?:(?:self|[A-Z]\w*(?:::[A-Z]\w*)*)\.)?([A-Za-z_]\w*[!?=]?)\s*(?:(?:\((.*)\))|(.+?))?\s*$/
   );
@@ -170,6 +179,8 @@ function parseRubyMethodSignature(line: string): RubyMethodSignature | null {
 }
 
 function splitTopLevelArgs(args: string): string[] {
+  // Split by commas that belong to the method parameter list itself; commas
+  // inside default values such as arrays/hashes remain part of that parameter.
   const parts: string[] = [];
   let depth = 0;
   let buffer = '';
@@ -245,6 +256,11 @@ function addBlockParameterSymbols(
   }
 }
 
+/**
+ * Build the lightweight Ruby symbol index used by completions, hover, and
+ * signature help. This is a browser-safe heuristic pass over stripped source,
+ * not a full Ruby parser; unknown forms are ignored rather than guessed.
+ */
 function buildRubySymbolTable(strippedLines: readonly string[]): RubySymbolTable {
   const table: RubySymbolTable = { byName: new Map() };
 
@@ -317,6 +333,9 @@ function symbolsToCompletions(table: RubySymbolTable): LanguageIntelligenceCompl
 function analyzeRubyDiagnostics(
   strippedLines: readonly string[]
 ): LanguageIntelligenceDiagnostic[] {
+  // Syntax-shaped diagnostics only: delimiter balance plus block opener/end
+  // pairing. This avoids runtime execution and keeps the adapter deterministic
+  // for web builds where no Ruby parser is available.
   const diagnostics: LanguageIntelligenceDiagnostic[] = [];
   const delimiters: DelimiterEntry[] = [];
   const blocks: BlockEntry[] = [];
@@ -495,6 +514,9 @@ function findEnclosingCall(
   line: number,
   column: number
 ): CallContext | null {
+  // Walk to the cursor with a delimiter stack. The innermost open paren with a
+  // callee owns signature help; commas only increment that call's active
+  // parameter when the current stack frame is the call itself.
   const stack: OpenDelimiterContext[] = [];
 
   for (let row = 0; row < line; row += 1) {
@@ -563,6 +585,8 @@ export function provideRubySignatureHelp(
 }
 
 export function analyzeRubyLanguageIntelligence(content: string): LanguageIntelligenceResult {
+  // Share the stripped source between diagnostics and symbols so comments and
+  // string literals are ignored consistently across all Ruby editor features.
   const strippedLines = strippedRubyLines(content);
   const table = buildRubySymbolTable(strippedLines);
 

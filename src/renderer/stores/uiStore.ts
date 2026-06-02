@@ -1,3 +1,11 @@
+/**
+ * Renderer-only shell state.
+ *
+ * Most fields are intentionally transient (sidebars, active bottom tab, current
+ * status notice). The exceptions are manual localStorage writes for draggable
+ * floating surfaces and the Variables bottom-panel view mode; those hydrate
+ * synchronously before React renders so the chrome does not jump after mount.
+ */
 import { create } from 'zustand';
 
 export type StatusNoticeTone = 'info' | 'success' | 'warning' | 'error';
@@ -163,6 +171,11 @@ function readPersistedVariablesViewMode(): VariablesViewMode {
   return 'list';
 }
 
+/**
+ * LocalStorage booleans use exact string matching. Any malformed value falls
+ * back instead of being truthy, which keeps hand-edited storage from forcing a
+ * collapsed card or other shell preference.
+ */
 function readPersistedBoolean(key: string, fallback: boolean): boolean {
   if (typeof window === 'undefined') return fallback;
   try {
@@ -174,6 +187,11 @@ function readPersistedBoolean(key: string, fallback: boolean): boolean {
   }
 }
 
+/**
+ * Best-effort synchronous persistence for small shell preferences. Failures
+ * from private browsing, quota, or disabled storage are swallowed because the
+ * live Zustand state is still authoritative for the current session.
+ */
 function writePersisted<T>(key: string, value: T): void {
   if (typeof window === 'undefined') return;
   try {
@@ -365,6 +383,8 @@ export const useUIStore = create<UIState>((set) => ({
   resetFloatingPositions: () => {
     writePersisted<null>(ACTION_PILL_POSITION_KEY, null);
     writePersisted<null>(VARIABLES_CARD_POSITION_KEY, null);
+    // Revision lets mounted draggable components reset their internal geometry
+    // even when their external position prop was already `null`.
     set((s) => ({
       actionPillPosition: null,
       variablesCardPosition: null,

@@ -6,42 +6,90 @@ const README_PATH = resolve(__dirname, '../../README.md');
 const AGENTS_PATH = resolve(__dirname, '../../AGENTS.md');
 const RELEASE_PATH = resolve(__dirname, '../../RELEASE.md');
 const PACKAGE_PATH = resolve(__dirname, '../../package.json');
+const FIRST_PARTY_PACKAGE_PATHS = [
+  'package.json',
+  'license-server/package.json',
+  'update-server/package.json',
+];
+const CHANGELOG_PATH = resolve(__dirname, '../../CHANGELOG.md');
+const GITIGNORE_PATH = resolve(__dirname, '../../.gitignore');
+const VITE_UPGRADE_ADR_PATH = resolve(__dirname, '../../docs/VITE_UPGRADE_ADR.md');
+const DEVELOPMENT_PATH = resolve(__dirname, '../../docs/DEVELOPMENT.md');
+const CURRENT_OPERATOR_DOC_PATHS = [
+  'README.md',
+  'RELEASE.md',
+  'docs/DEVELOPMENT.md',
+  'docs/SPRINT-PLAN.md',
+  'docs/ROADMAP.md',
+  'docs/README.md',
+  'docs/ARCHIVED.md',
+  'docs/PUBLIC_READINESS_AUDIT.md',
+  'docs/PUBLIC_RELEASE_CHECKLIST.md',
+  'docs/TEST_PLAN.md',
+  'license-server/README.md',
+  'license-server/migrations/0001_initial.sql',
+  'license-server/migrations/0002_add_surface_column.sql',
+  'license-server/migrations/0003_relax_devices_os_check.sql',
+  'license-server/migrations/0004_add_educations_and_pending_tables.sql',
+  'license-server/scripts/diagnose-keypair.mjs',
+  'license-server/test/emails/templates.test.ts',
+  'update-server/wrangler.toml',
+];
+const WORKFLOW_PATHS = [
+  resolve(__dirname, '../../.github/workflows/ci.yml'),
+  resolve(__dirname, '../../.github/workflows/deploy-update-server.yml'),
+  resolve(__dirname, '../../.github/workflows/deploy-web.yml'),
+  resolve(__dirname, '../../.github/workflows/release.yml'),
+];
 
 describe('Script naming docs guard', () => {
   const readme = existsSync(README_PATH) ? readFileSync(README_PATH, 'utf-8') : '';
   const agents = existsSync(AGENTS_PATH) ? readFileSync(AGENTS_PATH, 'utf-8') : '';
   const release = existsSync(RELEASE_PATH) ? readFileSync(RELEASE_PATH, 'utf-8') : '';
+  const changelog = existsSync(CHANGELOG_PATH) ? readFileSync(CHANGELOG_PATH, 'utf-8') : '';
+  const gitignore = existsSync(GITIGNORE_PATH) ? readFileSync(GITIGNORE_PATH, 'utf-8') : '';
+  const viteUpgradeAdr = existsSync(VITE_UPGRADE_ADR_PATH)
+    ? readFileSync(VITE_UPGRADE_ADR_PATH, 'utf-8')
+    : '';
+  const development = existsSync(DEVELOPMENT_PATH)
+    ? readFileSync(DEVELOPMENT_PATH, 'utf-8')
+    : '';
+  const workflows = WORKFLOW_PATHS.map((path) =>
+    existsSync(path) ? readFileSync(path, 'utf-8') : ''
+  );
   const packageJson = existsSync(PACKAGE_PATH)
     ? (JSON.parse(readFileSync(PACKAGE_PATH, 'utf-8')) as {
+        engines?: Record<string, string>;
+        packageManager?: string;
         scripts?: Record<string, string>;
       })
     : {};
 
   it('README documents the canonical web and desktop dev entrypoints', () => {
-    expect(readme).toContain('npm run dev:web');
-    expect(readme).toContain('npm run dev:web:pro');
-    expect(readme).toContain('npm run dev:desktop');
-    expect(readme).toContain('npm run dev:desktop:pro');
-    expect(readme).toContain('npm run smoke:desktop');
+    expect(readme).toContain('pnpm run dev:web');
+    expect(readme).toContain('pnpm run dev:web:pro');
+    expect(readme).toContain('pnpm run dev:desktop');
+    expect(readme).toContain('pnpm run dev:desktop:pro');
+    expect(readme).toContain('pnpm run smoke:desktop');
   });
 
   it('AGENTS documents the canonical desktop and paid-tier commands', () => {
-    expect(agents).toContain('npm run dev:desktop');
-    expect(agents).toContain('npm run dev:desktop:pro');
-    expect(agents).toContain('npm run smoke:desktop');
-    expect(agents).toContain('npm run dev:web:pro');
+    expect(agents).toContain('pnpm run dev:desktop');
+    expect(agents).toContain('pnpm run dev:desktop:pro');
+    expect(agents).toContain('pnpm run smoke:desktop');
+    expect(agents).toContain('pnpm run dev:web:pro');
   });
 
   it('release docs refer only to the new desktop packaging/smoke commands', () => {
-    expect(release).toContain('npm run smoke:desktop');
-    expect(release).not.toContain('npm run desktop:smoke');
+    expect(release).toContain('pnpm run smoke:desktop');
+    expect(release).not.toContain('pnpm run desktop:smoke');
   });
 
   it('key docs do not mention the old desktop command family anymore', () => {
     const combined = `${readme}\n${agents}\n${release}`;
-    expect(combined).not.toContain('npm run desktop:dev');
-    expect(combined).not.toContain('npm run desktop:dev:sync');
-    expect(combined).not.toContain('npm run desktop:smoke');
+    expect(combined).not.toContain('pnpm run desktop:dev');
+    expect(combined).not.toContain('pnpm run desktop:dev:sync');
+    expect(combined).not.toContain('pnpm run desktop:smoke');
     expect(combined).not.toContain('npm start');
   });
 
@@ -101,8 +149,8 @@ describe('Script naming docs guard', () => {
       'make:desktop:linux',
       'make:desktop:win',
       'publish:desktop',
-      // RL-098 Slice 1 fold G — rebuild CLI bundle on `npm install`
-      // so a `git pull` doesn't require remembering `npm run build:cli`.
+      // RL-098 Slice 1 fold G — rebuild CLI bundle on `pnpm install`
+      // so a `git pull` doesn't require remembering `pnpm run build:cli`.
       'prepare',
     ]);
     expect(scripts).not.toHaveProperty('start');
@@ -121,5 +169,59 @@ describe('Script naming docs guard', () => {
     expect(scripts['smoke:desktop:packaged']).toContain('--against-packaged out/make');
     expect(scripts['check:update-feed']).toContain('validate-update-feed.mjs');
     expect(scripts['check:r2-mirror']).toContain('check-r2-mirror.mjs');
+  });
+
+  it('keeps the first-party Node policy on the 24.x family, not a fixed patch', () => {
+    expect(packageJson.engines?.node).toBe('24.x');
+    expect(readme).toContain('Node 24.x');
+    expect(readme).not.toContain('Node 24+');
+    expect(readme).not.toContain('| Node.js        | >= 24');
+
+    for (const workflow of workflows) {
+      expect(workflow).toMatch(/node-version:\s*['"]24\.x['"]/u);
+      expect(workflow).not.toMatch(/node-version:\s*['"]24(?:\.\d+\.\d+)?['"]/u);
+    }
+
+    const policyDocs = `${readme}\n${changelog}\n${viteUpgradeAdr}`;
+    expect(policyDocs).toContain('24.x');
+    expect(policyDocs).toContain('24.X.Y');
+    expect(policyDocs).not.toMatch(/\b24\.\d+\.\d+\b/u);
+    expect(policyDocs).not.toMatch(/(?:^|[\s`])>=\s*24\.\d+\.\d+\b/u);
+  });
+
+  it('keeps every first-party package manager policy pnpm-only', () => {
+    for (const path of FIRST_PARTY_PACKAGE_PATHS) {
+      const json = JSON.parse(
+        readFileSync(resolve(__dirname, '../..', path), 'utf-8')
+      ) as { packageManager?: string };
+      expect(json, path).toMatchObject({ packageManager: 'pnpm@11.3.0' });
+    }
+    expect(development).toMatch(/pnpm-only across all first-party\s+Node packages/u);
+    expect(development).toContain('license-server/package.json');
+    expect(development).toContain('update-server/package.json');
+    expect(gitignore).toContain('package-lock.json');
+    expect(gitignore).toContain('npm-shrinkwrap.json');
+    expect(gitignore).toContain('yarn.lock');
+  });
+
+  it('documents every package script in the development workflow reference', () => {
+    const scripts = Object.keys(packageJson.scripts ?? {});
+
+    expect(development).toContain('## Package script reference');
+    for (const script of scripts) {
+      expect(development, `docs/DEVELOPMENT.md must document ${script}`).toContain(
+        `\`${script}\``
+      );
+    }
+  });
+
+  it('keeps current operator docs on pnpm commands', () => {
+    const forbiddenCommand = /\b(?:npm run|npx\s|npm install|npm ci|npm --prefix)\b/u;
+    const offenders = CURRENT_OPERATOR_DOC_PATHS.filter((path) => {
+      const text = readFileSync(resolve(__dirname, '../..', path), 'utf-8');
+      return forbiddenCommand.test(text);
+    });
+
+    expect(offenders).toEqual([]);
   });
 });

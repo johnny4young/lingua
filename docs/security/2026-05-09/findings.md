@@ -2,6 +2,14 @@
 
 Severity reflects the reviewed pre-fix tree. Status reflects the patched tree.
 
+> Historical note: this matrix records the 2026-05-09 security remediation
+> packet, so validation command names and runtime-asset wording in individual
+> findings are evidence from that date. Current repo commands use `pnpm`, and
+> the current web runtime policy is documented in
+> [`../../RUNTIME_ASSETS_ADR.md`](../../RUNTIME_ASSETS_ADR.md): Pyodide stays
+> same-origin while oversized DuckDB/Ruby WASM is served from the owned R2
+> `web-runtime/` prefix.
+
 | ID | Severity | Status | Area |
 | -- | -------- | ------ | ---- |
 | SEC-001 | High | Fixed | Filesystem reopen root |

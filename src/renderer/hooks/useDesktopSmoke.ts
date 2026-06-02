@@ -282,7 +282,7 @@ export function useDesktopSmoke(enabled: boolean) {
       // SMOKE_CASES to javascript + python — the runtime-critical
       // pair that proves the binary boots, the renderer chunks load,
       // and the vendored Pyodide runs offline. The full 9-case matrix
-      // already runs against the dev server in `npm run smoke:desktop`,
+      // already runs against the dev server in `pnpm run smoke:desktop`,
       // so the release gate trades coverage for runtime budget
       // (~2 min instead of ~3-4) and still catches packaging bugs.
       const PACKAGED_SUBSET_IDS = new Set(['javascript', 'python']);

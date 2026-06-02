@@ -31,7 +31,7 @@ The active release workflow supports the PFX-backed Authenticode path:
 
 `.github/workflows/release.yml` fails fast when either secret is missing,
 materializes `WIN_CERT_FILE` into `$RUNNER_TEMP/lingua-signing.pfx`, runs
-`npm run make:desktop:win`, and verifies the produced executable with
+`pnpm run make:desktop:win`, and verifies the produced executable with
 `Get-AuthenticodeSignature`.
 
 `forge.config.ts` passes the certificate through Electron Forge's
@@ -89,7 +89,7 @@ Fast CI preflight:
 Local Windows verification after a build:
 
 ```powershell
-npm run make:desktop:win
+pnpm run make:desktop:win
 Get-ChildItem out/make -Recurse -Filter *.exe |
   ForEach-Object { Get-AuthenticodeSignature $_.FullName }
 ```

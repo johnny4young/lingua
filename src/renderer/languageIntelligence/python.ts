@@ -93,6 +93,12 @@ function blankRange(line: string, from: number, to: number): string {
   return `${line.slice(0, from)}${' '.repeat(Math.max(0, to - from))}${line.slice(to)}`;
 }
 
+/**
+ * Return a same-length line with comments and string literal contents blanked.
+ * Keeping offsets stable lets diagnostics, hover, and signature help report
+ * Monaco's original line/column positions while avoiding false positives from
+ * delimiters that appear inside strings or comments.
+ */
 function stripLineForPythonAnalysis(line: string, state: TripleQuoteState): string {
   let stripped = line;
   let index = 0;
@@ -164,6 +170,9 @@ function parseFunctionSignature(
   strippedLines: readonly string[],
   startIndex: number
 ): PythonFunctionSignature | null {
+  // Python signatures often span multiple lines. This scanner consumes from
+  // the opening paren until its matching close paren and returns only the
+  // argument payload so the caller can split top-level parameters.
   const line = strippedLines[startIndex] ?? '';
   const functionStart = line.match(/^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\((.*)$/);
   const name = functionStart?.[1];
@@ -283,6 +292,11 @@ function addParameterSymbols(
   }
 }
 
+/**
+ * Build the lightweight symbol index used by Python completions, hover, and
+ * signature help. This is intentionally heuristic rather than an AST parser:
+ * it covers the editor fast path without loading a Python runtime or LSP.
+ */
 function buildPythonSymbolTable(strippedLines: readonly string[]): PythonSymbolTable {
   const table: PythonSymbolTable = { byName: new Map() };
 
@@ -394,6 +408,9 @@ function symbolsToCompletions(table: PythonSymbolTable): LanguageIntelligenceCom
 function analyzePythonDiagnostics(
   strippedLines: readonly string[]
 ): LanguageIntelligenceDiagnostic[] {
+  // The diagnostics pass is syntax-shaped, not semantic: it only checks
+  // delimiter balance plus missing colons for block headers. That keeps it
+  // deterministic in the browser and avoids pretending to be a full linter.
   const diagnostics: LanguageIntelligenceDiagnostic[] = [];
   const delimiters: DelimiterEntry[] = [];
   let pendingBlockHeader: PendingBlockHeader | null = null;
@@ -572,6 +589,9 @@ function findEnclosingCall(
   line: number,
   column: number
 ): CallContext | null {
+  // Walk from the document start to the cursor and keep a delimiter stack.
+  // The innermost open paren with an associated callee owns signature help;
+  // commas inside nested arrays/dicts do not advance that call's parameter.
   const stack: OpenDelimiterContext[] = [];
 
   for (let row = 0; row < line; row += 1) {
@@ -645,6 +665,8 @@ export function providePythonSignatureHelp(
 }
 
 export function analyzePythonLanguageIntelligence(content: string): LanguageIntelligenceResult {
+  // Share the stripped lines across diagnostics and symbols so every feature
+  // sees the same comment/string-free view of the document.
   const strippedLines = strippedPythonLines(content);
   const table = buildPythonSymbolTable(strippedLines);
 

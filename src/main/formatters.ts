@@ -202,13 +202,34 @@ export function resetFormatterAvailabilityCache(): void {
 }
 
 export function registerFormatterHandlers(): void {
-  ipcMain.handle('format:gofmt', async (_event, source: string) =>
-    formatWithGofmt(source)
-  );
-  ipcMain.handle('format:rustfmt', async (_event, source: string) =>
-    formatWithRustfmt(source)
-  );
-  ipcMain.handle('format:python', async (_event, source: string) =>
-    formatWithPython(source)
-  );
+  ipcMain.handle('format:gofmt', async (_event, source: unknown) => {
+    if (typeof source !== 'string') {
+      return {
+        available: true,
+        success: false,
+        error: 'gofmt formatter received invalid source.',
+      } satisfies FormatIpcResult;
+    }
+    return formatWithGofmt(source);
+  });
+  ipcMain.handle('format:rustfmt', async (_event, source: unknown) => {
+    if (typeof source !== 'string') {
+      return {
+        available: true,
+        success: false,
+        error: 'rustfmt formatter received invalid source.',
+      } satisfies FormatIpcResult;
+    }
+    return formatWithRustfmt(source);
+  });
+  ipcMain.handle('format:python', async (_event, source: unknown) => {
+    if (typeof source !== 'string') {
+      return {
+        available: true,
+        success: false,
+        error: 'Python formatter received invalid source.',
+      } satisfies FormatIpcResult;
+    }
+    return formatWithPython(source);
+  });
 }

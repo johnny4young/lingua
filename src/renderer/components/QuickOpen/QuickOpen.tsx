@@ -21,6 +21,9 @@ interface FileResult {
   name: string;
   path: string;
   language?: Language;
+  // Drives both result ordering and the open path: existing tabs activate by
+  // id, recent files reopen through the approved-file bridge, and project
+  // files open relative to the current root capability.
   source: 'open-tab' | 'recent' | 'project';
 }
 
@@ -81,6 +84,9 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
   const allFiles = useMemo<FileResult[]>(() => {
     const openPaths = new Set(tabs.map((tab) => tab.filePath).filter(Boolean) as string[]);
 
+    // Order is intentional: open tabs win, recent files fill in previous
+    // context, and indexed project files provide the long tail. Later buckets
+    // are deduped so a path never appears with two different open semantics.
     const openTabs: FileResult[] = tabs.map((tab) => ({
       name: tab.name,
       path: tab.filePath ?? tab.id,
@@ -175,6 +181,8 @@ export function QuickOpen({ onClose }: QuickOpenProps) {
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
+      // Clamp instead of wrapping so keyboard navigation matches the visible
+      // top-to-bottom order in both sectioned and filtered modes.
       setSelectedIndex((currentIndex) => Math.min(currentIndex + 1, filtered.length - 1));
       return;
     }

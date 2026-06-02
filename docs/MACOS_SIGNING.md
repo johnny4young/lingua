@@ -74,8 +74,11 @@ release jobs:
 | `APPLE_CERT_PASSWORD` | Password used when exporting the `.p12`. |
 
 The release workflow imports the certificate into a temporary keychain,
-validates the identity, runs `npm run make:desktop:mac`, verifies the app
-signature, and then runs the packaged desktop smoke gate.
+validates that `APPLE_SIGNING_IDENTITY` is present in that keychain, runs
+`pnpm run make:desktop:mac`, verifies the app signature, and then runs the
+packaged desktop smoke gate. Forge is configured with
+`osxSign.continueOnError: false` so codesign failures fail at the build step
+with the original stderr instead of surfacing later as a missing ZIP.
 
 ## Local dry run
 
@@ -83,7 +86,7 @@ If the certificate is installed in your login keychain, run:
 
 ```bash
 APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" \
-npm run make:desktop:mac
+pnpm run make:desktop:mac
 ```
 
 For notarization in CI, the release workflow also needs `APPLE_ID`,
@@ -107,7 +110,7 @@ xcrun stapler validate out/Lingua-darwin-*/Lingua.app
 Then run the packaged smoke:
 
 ```bash
-npm run smoke:desktop:packaged
+pnpm run smoke:desktop:packaged
 ```
 
 ## Troubleshooting

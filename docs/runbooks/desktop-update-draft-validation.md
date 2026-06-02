@@ -42,7 +42,7 @@ Cloudflare preview URL so stable users cannot discover draft artifacts.
 Run the feed check against staging before launching the app:
 
 ```bash
-npm run check:update-feed -- \
+pnpm run check:update-feed -- \
   --base-url "$STAGING_UPDATE_URL" \
   --old-version "$OLD_VERSION" \
   --expected-version "$EXPECTED_VERSION"
@@ -60,7 +60,7 @@ Also run the stable-feed no-update check so production cannot accidentally see
 the draft:
 
 ```bash
-npm run check:update-feed -- \
+pnpm run check:update-feed -- \
   --base-url https://updates.linguacode.dev \
   --old-version "$EXPECTED_VERSION"
 ```
@@ -91,7 +91,7 @@ candidate before promotion.
 3. Re-run:
 
    ```bash
-   npm run check:update-feed -- \
+   pnpm run check:update-feed -- \
      --base-url "$STAGING_UPDATE_URL" \
      --old-version "$OLD_VERSION"
    ```

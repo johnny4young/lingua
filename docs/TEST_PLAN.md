@@ -7,10 +7,13 @@ This document defines the executable end-to-end test matrix for Lingua across bo
 - `web`: fast renderer/UI validation through local preview
 - `electron`: full desktop validation including local filesystem access, native/compiled language support, and Electron-specific behavior
 
-The goal is to make future automation straightforward with:
+The goal is to keep current automation and future coverage planning in one
+place:
 
-- Playwright Web
-- Playwright Electron
+- Playwright Web through `pnpm run test:e2e:web`
+- component/unit coverage through `pnpm test -- --run`
+- managed Electron desktop smoke through `pnpm run smoke:desktop`
+- packaged-app smoke through `pnpm run smoke:desktop:packaged`
 
 This file is intentionally implementation-oriented. It is not a roadmap; it is the source of truth for future E2E coverage planning.
 
@@ -55,25 +58,49 @@ Use the desktop flow for:
 
 ## Standard Preconditions
 
+### Baseline Gates
+
+Run these before treating a broad UI/runtime slice as healthy:
+
+```bash
+pnpm test -- --run
+pnpm exec tsc --noEmit
+pnpm run lint
+pnpm run check:i18n
+pnpm run check:i18n:copy
+```
+
+Add `pnpm run check:performance`, `pnpm run check:licenses`, and
+`pnpm run compliance:release` when the slice touches release posture,
+dependency/runtime assets, or public release evidence.
+
 ### Web Base
 
 ```bash
-npm run build:web
-npm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4173
+pnpm run build:web
+pnpm exec vite preview -- --config vite.web.config.mts --host 127.0.0.1 --port 4173
 ```
 
 ### Electron Base
 
-Use the managed desktop launcher once stable:
+For interactive desktop debugging, use the managed desktop launcher:
 
 ```bash
-npm run dev:desktop
+pnpm run dev:desktop
 ```
 
 Or when main/preload changes require sync:
 
 ```bash
-npm run dev:desktop:sync
+pnpm run dev:desktop:sync
+```
+
+For repeatable validation, prefer the scripted smoke commands:
+
+```bash
+pnpm run smoke:desktop
+pnpm run smoke:desktop:offline
+pnpm run smoke:desktop:packaged
 ```
 
 Desktop baseline must guarantee:

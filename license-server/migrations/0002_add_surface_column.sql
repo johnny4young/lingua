@@ -20,9 +20,9 @@
 -- customer requests it; the v1 design keeps the shape symmetric.
 --
 -- Apply locally during development:
---   npm run migrations:apply:local
+--   pnpm run migrations:apply:local
 -- Apply against the production D1:
---   npm run migrations:apply:remote
+--   pnpm run migrations:apply:remote
 
 ALTER TABLE devices
   ADD COLUMN surface TEXT NOT NULL DEFAULT 'desktop'

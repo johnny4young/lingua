@@ -308,7 +308,7 @@ export function CompareResultsPanel({ language }: CompareResultsPanelProps) {
                   : segment.kind === 'remove'
                     ? '-'
                     : ' ';
-          const tone =
+              const tone =
                 segment.kind === 'add'
                   ? 'bg-success-bg/45 text-success-fg'
                   : segment.kind === 'remove'

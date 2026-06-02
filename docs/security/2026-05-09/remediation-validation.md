@@ -4,6 +4,29 @@ This document records the validation performed after remediating the security
 scan findings. It is intentionally command-oriented so future release reviewers
 can reproduce the same checks.
 
+Historical note: the command blocks below are the exact validation evidence
+from 2026-05-09. Current repo commands use `pnpm` and are documented in
+[`DEVELOPMENT.md`](../../DEVELOPMENT.md) and
+[`SPRINT-PLAN.md`](../../SPRINT-PLAN.md).
+
+## Current Equivalent Commands
+
+Use this block when repeating the same class of validation against the current
+tree. The dated sections below remain unchanged historical evidence from the
+2026-05-09 remediation run.
+
+```bash
+pnpm test -- --run
+pnpm run lint
+pnpm exec tsc --noEmit
+pnpm run check:i18n
+pnpm run check:i18n:copy
+(cd license-server && pnpm test)
+(cd update-server && pnpm test)
+pnpm run build:web
+pnpm run preview:web -- --host 127.0.0.1
+```
+
 ## Remediation Map
 
 | Area | Main files changed | Validation |
@@ -18,7 +41,10 @@ can reproduce the same checks.
 | Parser bounds | `src/renderer/utils/markdownPreview.ts`, `src/renderer/utils/htmlToJsx.ts` | Markdown and HTML-to-JSX tests |
 | Diagnostic redaction and privacy copy | `src/renderer/utils/redactedErrorReport.ts`, `src/main/crashReporter.ts`, EN/ES locale files | Redacted report tests, i18n checks, web smoke |
 
-## Validation Commands
+## Historical Validation Commands
+
+These commands are the 2026-05-09 evidence. Use the current equivalent block
+above for a fresh run on the modern repo.
 
 ### Full repository tests
 

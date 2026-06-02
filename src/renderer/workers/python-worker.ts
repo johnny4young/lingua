@@ -6,7 +6,7 @@
  *
  * RL-083 Slice 1 — desktop/dev resolve `pyodide.mjs` against the
  * renderer build output (file:// in packaged Electron, the dev server
- * origin in `npm run dev:desktop`). The build pipeline copies
+ * origin in `pnpm run dev:desktop`). The build pipeline copies
  * `node_modules/pyodide/*` to `<outDir>/pyodide/` via
  * `build/copyRuntimeAssetsPlugin.mts`. The web build explicitly
  * overrides the index URL to the CDN until Slice 2 picks the
@@ -55,7 +55,7 @@ const ctx = self as unknown as Worker;
 // `<outDir>/pyodide/`, where `build/copyRuntimeAssetsPlugin.mts`
 // copies the files at build time.
 //
-// In `npm run dev:desktop` Vite serves the worker source at
+// In `pnpm run dev:desktop` Vite serves the worker source at
 // `/src/renderer/workers/python-worker.ts`, so `../pyodide/` lands at
 // `/src/renderer/pyodide/` — the same plugin's `configureServer`
 // middleware serves the same files there from `node_modules/pyodide/`.

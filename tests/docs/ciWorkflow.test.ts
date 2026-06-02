@@ -25,14 +25,14 @@ describe('CI workflow', () => {
     expect(workflow).toContain('windows-path-hardening:');
     expect(workflow).toMatch(/windows-path-hardening:[\s\S]*?runs-on:\s*windows-latest/u);
     expect(workflow).toMatch(
-      /windows-path-hardening:[\s\S]*?npm test -- tests\/ipc\/permissions\.test\.ts/u
+      /windows-path-hardening:[\s\S]*?pnpm test -- tests\/ipc\/permissions\.test\.ts/u
     );
   });
 
   it('runs the performance budget check after the web build report', () => {
-    const buildIndex = workflow.indexOf('npm run build:web');
-    const reportIndex = workflow.indexOf('npm run performance:report');
-    const checkIndex = workflow.indexOf('npm run check:performance');
+    const buildIndex = workflow.indexOf('pnpm run build:web');
+    const reportIndex = workflow.indexOf('pnpm run performance:report');
+    const checkIndex = workflow.indexOf('pnpm run check:performance');
 
     expect(buildIndex).toBeGreaterThan(-1);
     expect(reportIndex).toBeGreaterThan(buildIndex);
@@ -40,9 +40,9 @@ describe('CI workflow', () => {
   });
 
   it('runs the changelog guard before the test suite', () => {
-    const i18nCopyIndex = workflow.indexOf('npm run check:i18n:copy');
-    const changelogIndex = workflow.indexOf('npm run changelog:check');
-    const testsIndex = workflow.indexOf('npm test');
+    const i18nCopyIndex = workflow.indexOf('pnpm run check:i18n:copy');
+    const changelogIndex = workflow.indexOf('pnpm run changelog:check');
+    const testsIndex = workflow.indexOf('pnpm test');
 
     expect(i18nCopyIndex).toBeGreaterThan(-1);
     expect(changelogIndex).toBeGreaterThan(i18nCopyIndex);

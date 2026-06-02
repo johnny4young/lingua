@@ -111,6 +111,9 @@ function splitSpecifier(
   if (raw.startsWith('.') || raw.startsWith('/')) return null;
   const noProtocol = raw.startsWith('node:') ? raw.slice('node:'.length) : raw;
   if (noProtocol.length === 0) return null;
+  // Reject URL-like protocols (`https:`, `data:`, `bun:`). The special
+  // `node:` protocol is handled above because it can point at real built-ins
+  // that should be filtered, not offered as installable npm packages.
   if (/^[a-z][a-z0-9+.-]*:/iu.test(noProtocol)) return null;
   if (noProtocol.startsWith('#') || noProtocol.startsWith('~/')) return null;
   if (noProtocol.startsWith('@')) {
@@ -144,6 +147,9 @@ function splitSpecifier(
 function isInstallable(raw: string, name: string): boolean {
   if (raw.startsWith('node:')) {
     const noProtocol = raw.slice('node:'.length);
+    // Some Node modules are only valid with the `node:` protocol in newer
+    // releases. Check both the raw protocol target and the parsed package name
+    // so `node:test/reporters` never becomes an install suggestion.
     return (
       !NODE_BUILTINS.has(noProtocol) &&
       !NODE_BUILTINS.has(name) &&
@@ -250,6 +256,8 @@ function detectViaAst(source: string, scratch: DetectorScratch): boolean {
     });
     walkAst(ast as Node, (node) => {
       const typed = node as AcornImportNode;
+      // Static import/export declarations carry the package specifier on
+      // `source`; dynamic `import()` and CommonJS `require()` are below.
       if (
         typed.type === 'ImportDeclaration' ||
         typed.type === 'ExportNamedDeclaration' ||
@@ -316,12 +324,17 @@ function blankRangePreservingNewlines(
   start: number,
   end: number
 ): void {
+  // Keep offsets and line numbers stable for later regex matches while
+  // ensuring comments / unrelated strings cannot synthesize fake imports.
   for (let i = start; i < end; i += 1) {
     if (chars[i] !== '\n') chars[i] = ' ';
   }
 }
 
 function isLikelySpecifierString(chars: readonly string[], quoteIndex: number): boolean {
+  // In fallback mode we cannot parse the file, so preserve only strings whose
+  // immediate left context looks like import/from/require syntax. This keeps
+  // `const s = "import lodash"` from becoming a false dependency.
   const before = chars
     .slice(Math.max(0, quoteIndex - 160), quoteIndex)
     .join('')
@@ -377,6 +390,8 @@ function maskFallbackSource(source: string): string {
     }
     if (ch === '`') {
       const start = i;
+      // Template literals are never installable specifiers in this detector:
+      // the panel must not suggest packages from interpolated runtime values.
       i += 1;
       while (i < chars.length) {
         if (chars[i] === '\\') {
@@ -398,6 +413,8 @@ function maskFallbackSource(source: string): string {
 }
 
 function detectViaRegex(source: string, scratch: DetectorScratch): void {
+  // Regex fallback is intentionally second-class. It improves mid-edit UX after
+  // parse errors, but the AST path remains authoritative whenever possible.
   const masked = maskFallbackSource(source);
   for (const { re, kind } of FALLBACK_PATTERNS) {
     for (const match of masked.matchAll(re)) {

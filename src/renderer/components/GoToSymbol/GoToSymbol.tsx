@@ -55,6 +55,8 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
   // torn down.
   const { status, entries } = useDocumentSymbols(activeTab, true);
 
+  // Keep matching logic in the pure utility so the overlay only owns focus,
+  // keyboard selection, and reveal orchestration.
   const filtered = useMemo(() => filterSymbols(entries, query), [entries, query]);
 
   useEffect(() => {
@@ -91,6 +93,8 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       if (filtered.length === 0) return;
+      // Navigation is bounded rather than circular; repeated arrows stop at
+      // the first/last symbol just like QuickOpen and ProjectSearch.
       setSelectedIndex((current) => Math.min(current + 1, filtered.length - 1));
       return;
     }
@@ -109,6 +113,8 @@ export function GoToSymbol({ onClose }: GoToSymbolProps) {
     handleCloseOnEscape(event, onClose);
   };
 
+  // Status copy is ordered from structural blockers to query-level misses so
+  // unsupported tabs do not show a misleading "no symbols" empty state.
   const emptyCopy = (() => {
     if (!activeTab) return t('goToSymbol.empty.noTab');
     if (status === 'unsupported') return t('goToSymbol.empty.unsupported');

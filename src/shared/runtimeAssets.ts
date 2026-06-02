@@ -1,24 +1,30 @@
 /**
- * Runtime-asset registry — RL-083 Slice 1.
+ * Runtime-asset registry — RL-083 Slice 1, extended by RL-042.
  *
  * Single source of truth for any runtime asset that ships outside the
  * normal JS / CSS bundles. Consumed by:
  *
  *   - `src/renderer/workers/python-worker.ts` — to resolve the local
  *     Pyodide directory under packaged + dev modes.
+ *   - `src/renderer/workers/ruby-worker.ts` — to resolve the bundled
+ *     Ruby WASM in desktop/dev, unless the web build injects an R2 URL.
+ *   - `build/copyRuntimeAssetsPlugin.mts` — to copy/serve selected
+ *     runtime files for desktop, dev, and same-origin web assets.
  *   - `scripts/build-runtime-asset-manifest.mjs` — to compute and
  *     enforce the `runtime-assets.lock.json` integrity snapshot.
  *   - `tests/shared/runtimeAssets.test.ts` — to assert the lock matches
- *     the freshly-installed `node_modules/pyodide/` files.
+ *     the freshly-installed runtime files.
  *
  * The integrity hash is recorded only in the lock file (committed to
  * git). This module names the files we care about and the version we
  * pin against.
  *
- * Web builds also read `sourceUrl`: `vite.web.config.mts` injects it
- * into the shared Python worker as the CDN index URL, and `public/sw.js`
- * cache-firsts the same prefix so Python is offline-tolerant after the
- * first successful web load.
+ * Runtime URL policy lives in the Vite configs, not here. Desktop/dev
+ * generally serve these files from the copied local tree. The web build keeps
+ * Pyodide same-origin but may inject public R2 URLs for oversized WASM files
+ * (currently Ruby; DuckDB's MVP WASM is handled by its package import path)
+ * because Cloudflare Pages rejects single assets above 25 MiB. `sourceUrl`
+ * remains upstream provenance for docs, lock drift review, and version checks.
  */
 
 export type RuntimeAssetId = 'pyodide' | 'ruby';

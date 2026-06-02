@@ -35,6 +35,8 @@ const NON_EDITABLE_SHORTCUTS: ReadonlySet<string> = new Set(['overlay-close']);
 function importFailureKey(
   result: Extract<ParseShortcutPresetResult, { ok: false }>
 ): string {
+  // Keep parser reasons decoupled from i18n keys so the preset format can
+  // evolve without leaking transport-level enum names into UI copy.
   switch (result.reason) {
     case 'invalid-json':
       return 'shortcuts.editor.importInvalidJson';
@@ -47,6 +49,8 @@ function importFailureKey(
 }
 
 function groupShortcuts(shortcuts: readonly ShortcutDefinition[]) {
+  // Preserve catalog order inside each group. The renderer iterates
+  // SHORTCUT_GROUPS later, so this map only buckets filtered rows.
   const byGroup = new Map<ShortcutGroupId, ShortcutDefinition[]>();
   for (const shortcut of shortcuts) {
     const bucket = byGroup.get(shortcut.group) ?? [];
@@ -168,6 +172,7 @@ function ShortcutRow({
                 type="button"
                 onClick={onCancelRecording}
                 className="rounded-[0.55rem] border border-transparent px-1.5 py-0.5 text-[11px] text-muted hover:border-border/70 hover:text-foreground"
+                aria-label={t('shortcuts.editor.cancelAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.cancel')}
               </button>
@@ -177,6 +182,7 @@ function ShortcutRow({
                 onClick={onStartRecording}
                 data-testid={`shortcut-edit-${shortcut.id}`}
                 className="rounded-[0.55rem] border border-transparent px-1.5 py-0.5 text-[11px] text-muted hover:border-border/70 hover:text-foreground"
+                aria-label={t('shortcuts.editor.editAria', { label: t(shortcut.labelKey) })}
               >
                 {t('shortcuts.editor.edit')}
               </button>
@@ -230,6 +236,9 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
     if (!recordingId) return;
 
     const handler = (event: KeyboardEvent) => {
+      // Capture-phase listener wins over app/global shortcuts while a row is
+      // recording, so the typed combo edits the binding instead of triggering
+      // the existing command.
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
@@ -243,6 +252,9 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       event.preventDefault();
       event.stopPropagation();
 
+      // "Reserved" combos are ignored above so browser/system escape hatches
+      // still work. Editable combos are stricter: they must include enough
+      // modifier signal to avoid accidental single-letter app-wide bindings.
       if (!isEditableShortcutCombo(combo)) {
         pushStatusNotice({
           tone: 'error',
@@ -251,6 +263,8 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
         return;
       }
 
+      // Conflict detection includes defaults plus user overrides, but excludes
+      // the row being edited so re-recording the same combo is a no-op success.
       const conflictId = findComboConflict(KEYBOARD_SHORTCUTS, overrides, combo, recordingId);
       if (conflictId) {
         const other = KEYBOARD_SHORTCUTS.find((entry) => entry.id === conflictId);
@@ -299,6 +313,8 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       const chosen = await saveDialog('lingua-shortcuts.json');
       if (chosen.canceled) return;
       mintedRootId = chosen.rootId;
+      // Export only user overrides. Built-in preset ids are derivable from the
+      // catalog and would make imported files stale when defaults change.
       const preset = buildShortcutPreset(overrides);
       await write(chosen.rootId, chosen.fileRelativePath, serializeShortcutPreset(preset));
       pushStatusNotice({

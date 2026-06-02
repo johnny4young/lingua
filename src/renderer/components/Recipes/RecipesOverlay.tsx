@@ -53,6 +53,8 @@ export interface RecipesOverlayProps {
 
 type LanguageFilter = 'all' | 'javascript';
 
+// The catalog is JS-only today; keep the filter typed narrowly so future
+// language recipe packs must expand this union and the i18n keys together.
 const LANGUAGE_FILTERS: ReadonlyArray<LanguageFilter> = ['all', 'javascript'];
 
 function scoreRecipe(
@@ -68,6 +70,8 @@ function scoreRecipe(
     recipe.id,
   ].join(' ');
   const needle = search.toLowerCase().trim();
+  // Exact phrase hits should sort above broad token matches so a title/id
+  // search keeps the intended recipe at the top of keyboard selection.
   if (haystack.includes(needle)) return 2; // direct substring
   // token match (every needle token appears somewhere in the catalog text)
   const tokens = needle.split(/\s+/);
@@ -101,6 +105,8 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
       .sort((a, b) => b.score - a.score)
       .map(({ recipe }) => recipe);
   }, [search, language, locale]);
+  // Search/filter changes can shrink the list after `activeIdx` points past
+  // the end; Enter and the footer CTA must always resolve to an existing row.
   const effectiveActiveIdx =
     filtered.length === 0 ? 0 : Math.min(activeIdx, filtered.length - 1);
 
@@ -119,6 +125,8 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
         content: recipe.starterCode,
         recipeBindingId: recipe.id,
       });
+      // `addTab` can refuse a write when tab limits or store guards fail.
+      // Only bind progress/telemetry/close once the new tab actually exists.
       const opened = useEditorStore
         .getState()
         .tabs.some((tab) => tab.id === tabId);
@@ -139,6 +147,8 @@ export function RecipesOverlay({ onClose }: RecipesOverlayProps) {
     function handleKey(event: KeyboardEvent) {
       if (event.key === 'ArrowDown') {
         event.preventDefault();
+        // Wrap navigation keeps the modal keyboard-only without requiring
+        // focus to move into the scrollable listbox.
         setActiveIdx((idx) => (filtered.length === 0 ? 0 : (idx + 1) % filtered.length));
         return;
       }

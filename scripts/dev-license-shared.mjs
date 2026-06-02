@@ -162,7 +162,7 @@ export async function mintDevLicense({
   // comment for the `jq -r` (NOT `-c`) extraction pattern. Do NOT
   // change this to return embedded objects without updating every
   // downstream caller (the Vite define on the desktop launcher,
-  // `npm run dev:desktop:pro`, and the wrangler-secret usage in
+  // `pnpm run dev:desktop:pro`, and the wrangler-secret usage in
   // `license-server/README.md`).
   return {
     publicKeyJwk: JSON.stringify(normalizeEd25519PublicJwk(publicKeyJwk)),

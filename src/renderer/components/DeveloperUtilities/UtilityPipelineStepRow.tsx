@@ -34,6 +34,8 @@ const STATUS_TONE: Record<PipelineStepStatus, string> = {
     'text-amber-700 dark:text-amber-300 bg-amber-500/15 ring-amber-500/30',
 };
 
+// Keep this map total over PipelineStepStatus: adding a runner status should
+// fail typecheck until the row has an intentional visual affordance for it.
 const STATUS_GLYPH: Record<PipelineStepStatus, string> = {
   ok: '✓',
   error: '✗',
@@ -75,11 +77,16 @@ export function UtilityPipelineStepRow({
 
   const handleOptionChange = useCallback(
     (key: string, value: unknown) => {
+      // Preserve unknown option keys during edits. Older saved pipelines can
+      // carry adapter options that current schemas no longer render; dropping
+      // them here would make a harmless UI visit mutate persisted data.
       onOptionsChange(step.id, { ...step.options, [key]: value });
     },
     [step.id, step.options, onOptionsChange]
   );
 
+  // @dnd-kit supplies transform-only movement, so the row keeps a stable box
+  // in the list while the drag overlay handles the pointer-following clone.
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -183,6 +190,9 @@ interface OptionFieldInputProps {
 
 function OptionFieldInput({ field, value, onChange }: OptionFieldInputProps) {
   const { t } = useTranslation();
+  // The registry owns user-facing option metadata. This component only
+  // coerces stale/unknown persisted values back to schema defaults so one
+  // broken option cannot poison the whole pipeline editor.
   const placeholder =
     field.type === 'text' || field.type === 'textarea'
       ? field.placeholderKey

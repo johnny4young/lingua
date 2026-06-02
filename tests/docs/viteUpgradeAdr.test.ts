@@ -1,7 +1,7 @@
 /**
- * RL-033 Vite upgrade plan guard — pins the impact matrix, the four
- * blocker peer ranges, the verification matrix, and the rollback plan
- * so the bump stays disciplined when someone finally pulls the trigger.
+ * RL-033 Vite upgrade ADR guard — pins the shipped Vite 8 outcome plus the
+ * preserved historical Vite 7 plan so the doc opens with current reality
+ * without losing the original risk analysis.
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -18,18 +18,20 @@ describe('VITE_UPGRADE_ADR.md', () => {
 
   const adr = existsSync(ADR_PATH) ? readFileSync(ADR_PATH, 'utf-8') : '';
 
-  it('records an accepted "wait, prep, then bump" decision', () => {
+  it('opens with the shipped Vite 8 outcome, not the superseded Vite 7 plan', () => {
     expect(adr).toMatch(/Status\s*\|\s*Accepted/iu);
-    expect(adr).toMatch(/Decision\s*\|\s*Plan the Vite 5 → 7 upgrade/u);
+    expect(adr).toMatch(/Decision\s*\|\s*Lingua skipped the intermediate Vite 7 hop and shipped the Vite 5 → 8 upgrade/u);
+    expect(adr).toMatch(/Current versions\s*\|\s*`vite \^8\.0\.13`/u);
   });
 
-  it('explicitly chooses Vite 7 over Vite 8 with a documented rationale', () => {
-    expect(adr).toMatch(/## Why Vite 7, not Vite 8/u);
+  it('preserves the original Vite 7-over-Vite 8 rationale as historical context', () => {
+    expect(adr).toMatch(/## Original rationale: why Vite 7, not Vite 8/u);
     expect(adr).toMatch(/One major at a time/u);
+    expect(adr).toMatch(/Superseded 2026-05-17/u);
   });
 
   it('lists the four blocker peer ranges by name', () => {
-    expect(adr).toMatch(/## Blocker checklist/iu);
+    expect(adr).toMatch(/## Original blocker checklist/iu);
     for (const dep of [
       '@electron-forge/plugin-vite',
       '@vitejs/plugin-react',
@@ -41,7 +43,7 @@ describe('VITE_UPGRADE_ADR.md', () => {
   });
 
   it('ships an impact matrix that names the load-bearing risk axes', () => {
-    expect(adr).toMatch(/## Impact analysis/u);
+    expect(adr).toMatch(/## Original impact analysis/u);
     for (const axis of [
       'Bundler (esbuild + Rollup)',
       'esbuild-wasm transpiler',
@@ -54,23 +56,23 @@ describe('VITE_UPGRADE_ADR.md', () => {
   });
 
   it('verification matrix walks through install, typecheck, lint, tests, web build, desktop dev/smoke, and packaging', () => {
-    expect(adr).toMatch(/## Verification matrix/iu);
+    expect(adr).toMatch(/## Original verification matrix/iu);
     for (const command of [
-      'npm install',
-      'npx tsc --noEmit',
-      'npm run lint',
-      'npm test',
-      'npm run build:web',
-      'npm run dev:desktop',
-      'npm run smoke:desktop',
-      'npm run make:desktop:mac',
+      'pnpm install',
+      'pnpm exec tsc --noEmit',
+      'pnpm run lint',
+      'pnpm test',
+      'pnpm run build:web',
+      'pnpm run dev:desktop',
+      'pnpm run smoke:desktop',
+      'pnpm run make:desktop:mac',
     ]) {
       expect(adr).toContain(command);
     }
   });
 
   it('rollback plan pins to 5.4.21 via overrides so a future install cannot resolve forward', () => {
-    expect(adr).toMatch(/## Rollback plan/iu);
+    expect(adr).toMatch(/## Original rollback plan/iu);
     expect(adr).toMatch(/5\.4\.21/u);
     expect(adr).toMatch(/overrides/iu);
   });

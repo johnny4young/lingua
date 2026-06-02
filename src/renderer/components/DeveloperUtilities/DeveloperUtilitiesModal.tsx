@@ -75,9 +75,14 @@ export function DeveloperUtilitiesModal({
     useState<DeveloperUtilityId>(initialUtilityId);
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  // Button refs let keyboard navigation move actual focus into the list
+  // after a search-box arrow key, matching a roving-tabindex pattern
+  // without storing focus state separately.
   const utilityButtonRefs = useRef(new Map<DeveloperUtilityId, HTMLButtonElement>());
 
   const copyOutputShortcutHint = useMemo(() => {
+    // The footer reflects user shortcut overrides and platform glyphs, so
+    // resolve it from the same shortcut catalog used by the key handler.
     const displayPlatform = getShortcutDisplayPlatform();
     const definition = KEYBOARD_SHORTCUTS.find(
       (entry) => entry.id === COPY_OUTPUT_SHORTCUT_HINT.id
@@ -137,6 +142,8 @@ export function DeveloperUtilitiesModal({
       for (const { value, weight } of candidates) {
         const score = fuzzyMatch(q, value);
         if (score === null) continue;
+        // Weighting keeps aliases and titles ahead of broad description hits
+        // while still allowing keyword-only discovery.
         const weighted = score * weight;
         if (weighted > best) best = weighted;
       }
@@ -150,9 +157,14 @@ export function DeveloperUtilitiesModal({
     filteredUtilities.find((utility) => utility.id === selectedUtilityId)?.id ??
     filteredUtilities[0]?.id ??
     selectedUtilityId;
+  // `selectedUtility` never falls back to null because the catalog owns
+  // DEFAULT_DEVELOPER_UTILITY_ID and `activeSelectedUtilityId` preserves the
+  // last known id when a search produces no rows.
   const selectedUtility = findDeveloperUtility(activeSelectedUtilityId);
 
   const focusUtilityButton = (utilityId: DeveloperUtilityId) => {
+    // Defer until React has committed the filtered list; otherwise the ref
+    // can still point at a pre-filter button that is about to unmount.
     window.requestAnimationFrame(() => {
       utilityButtonRefs.current.get(utilityId)?.focus();
     });
@@ -188,6 +200,8 @@ export function DeveloperUtilitiesModal({
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       event.stopPropagation();
+      // Arrowing from the search field selects and focuses a concrete tool
+      // row so subsequent Home/End/Escape behavior belongs to the list.
       selectRelativeUtility(event.key === 'ArrowDown' ? 1 : -1, true);
       return;
     }

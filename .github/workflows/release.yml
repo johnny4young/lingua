@@ -216,6 +216,22 @@ jobs:
 
           echo "APPLE_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
+      - name: Verify macOS signing identity
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          identity_log="$RUNNER_TEMP/lingua-codesigning-identities.txt"
+          security find-identity -v -p codesigning "$APPLE_KEYCHAIN_PATH" | tee "$identity_log"
+
+          if ! grep -F -- "$APPLE_SIGNING_IDENTITY" "$identity_log" >/dev/null; then
+            echo "::error::APPLE_SIGNING_IDENTITY was not found in the imported macOS signing keychain"
+            exit 1
+          fi
+
+          echo "Verified imported macOS signing identity"
+
       - name: Build macOS artifacts
         run: pnpm run make:desktop:mac
         env:
@@ -240,7 +256,7 @@ jobs:
           # signing + notarization debug namespaces so the real
           # codesign / notarytool stderr prints inline instead of being
           # hidden. Narrow this back once mac signing is green again.
-          DEBUG: 'electron-*,@electron/*'
+          DEBUG: 'electron-*,@electron/*,electron-osx-sign*,@electron/notarize*'
 
       - name: Verify macOS artifacts
         shell: bash
@@ -248,6 +264,7 @@ jobs:
           set -euo pipefail
           if ! find out/make -type f -name '*.zip' -print -quit | grep -q .; then
             echo "::error::Expected at least one macOS ZIP artifact in out/make"
+            find out -maxdepth 5 -print || true
             exit 1
           fi
           echo "Verified macOS ZIP artifacts in out/make"

@@ -82,6 +82,6 @@ if (stats.size > SOFT_CAP_BYTES) {
     `[build-cli] WARNING: bundle exceeds ${SOFT_CAP_BYTES.toLocaleString()} byte soft cap. ` +
       'A transitive import probably dragged in renderer-only code; ' +
       'audit with `node --inspect-brk dist/cli/lingua.cjs --help` or rerun ' +
-      '`npm run lint` to check the src/cli/** → src/renderer/** ban.'
+      '`pnpm run lint` to check the src/cli/** → src/renderer/** ban.'
   );
 }

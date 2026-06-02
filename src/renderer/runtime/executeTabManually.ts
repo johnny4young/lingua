@@ -69,6 +69,12 @@ function snapshotPayloadFor(
   }
 }
 
+/**
+ * Collect rich payloads from every runner channel that can surface them:
+ * streamed stdout/stderr entries and magic-comment side results. Capsules keep
+ * these as opaque payloads so replay/import flows preserve the renderer-visible
+ * artifact without this module knowing every rich-output kind.
+ */
 function collectRichOutputs(result: ExecutionResult): unknown[] | undefined {
   const richOutputs: unknown[] = [];
   const collectFromConsole = (outputs: ConsoleOutput[]) => {
@@ -272,6 +278,17 @@ export interface ManualExecutionSummary {
   message: string;
 }
 
+/**
+ * Shared manual execution orchestrator for toolbar Run, command-palette run,
+ * history replay, desktop smoke, and debug entry points.
+ *
+ * This function owns the cross-cutting state contract around one execution:
+ * clear visible output, prepare the runner, resolve timeout/debug/stdin/scope
+ * context, stream console output, update result-store presentation, record
+ * history, and build a run capsule. Keep feature hooks here only when they must
+ * observe the exact code string passed to `runner.execute`; otherwise prefer a
+ * narrower hook/store module so this path does not become incidental glue.
+ */
 export async function executeTabManually(
   activeTab: FileTab,
   lifecycle: ManualExecutionLifecycle = {}

@@ -87,7 +87,7 @@ packaged smoke both pass against a draft release.
 Repo-side validation support landed on 2026-05-07. The update worker now keeps
 production on stable GitHub Releases by default and can serve draft releases
 only when an isolated staging deployment sets `GITHUB_RELEASE_CHANNEL=draft`.
-`npm run check:update-feed` validates the Squirrel.Mac JSON and Windows
+`pnpm run check:update-feed` validates the Squirrel.Mac JSON and Windows
 `RELEASES` feed shapes, writes evidence under
 `output/update-feed-validation/`, and is documented in
 `docs/runbooks/desktop-update-draft-validation.md`.
@@ -107,9 +107,9 @@ leaving legacy backend slugs intact for token compatibility.
 
 **P2-1 — Changelog discipline needs to become part of every release branch.**
 
-Resolved on 2026-05-07. CI now runs `npm run changelog:check` after the
+Resolved on 2026-05-07. CI now runs `pnpm run changelog:check` after the
 i18n copy guard, and the release workflow runs
-`npm run changelog:check -- --release-tag "${RELEASE_TAG}" --from "${RELEASE_TAG}"`
+`pnpm run changelog:check -- --release-tag "${RELEASE_TAG}" --from "${RELEASE_TAG}"`
 inside the release-blocking audit job. The script also validates that the
 requested release tag exactly matches `package.json` and the top `CHANGELOG.md`
 release heading.
@@ -126,7 +126,7 @@ and uploads the evidence as the `cloudflare-deploy-validation` artifact.
 **P2-3 — Linux should be validated first.**
 
 Resolved on 2026-05-07. Linux now has a release-blocking package validation
-step after `npm run make:desktop:linux`: the job records Debian metadata, RPM
+step after `pnpm run make:desktop:linux`: the job records Debian metadata, RPM
 metadata, installs the `.deb`, launches the installed binary under `xvfb` in
 packaged smoke mode, removes the Debian package, verifies the `lingua` binary is
 gone, and uploads the evidence as `linux-package-validation`. RPM remains
@@ -158,7 +158,7 @@ commercial, not open source, MIT, Apache, or GPL.
 
 | Target  | Current path                                                                   | Public release recommendation                                                        |
 | ------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| Web     | `npm run build:web` and Cloudflare Pages deploy.                               | Validate first; already the lowest-friction public surface.                          |
+| Web     | `pnpm run build:web` and Cloudflare Pages deploy.                               | Validate first; already the lowest-friction public surface.                          |
 | Linux   | Electron Forge Deb/RPM makers plus CI package validation.                      | Validate after web; no signing secrets needed, but no built-in Electron auto-update. |
 | macOS   | Electron Forge ZIP with Developer ID signing and notarization.                 | Keep blocked until Apple secrets are configured and packaged smoke passes.           |
 | Windows | Electron Forge Squirrel maker with Authenticode signing through `windowsSign`. | Keep blocked until certificate strategy and signing secrets are configured.          |
@@ -194,8 +194,8 @@ Relevant references:
 During feature or fix work:
 
 ```bash
-npm run changelog:draft
-npm run changelog:check
+pnpm run changelog:draft
+pnpm run changelog:check
 ```
 
 CI runs `changelog:check` on every push and pull request. Release automation
@@ -258,16 +258,16 @@ criteria and priority are clear.
 
 ## Manual test
 
-1. Run `npm run changelog:draft` and confirm a grouped markdown draft appears.
-2. Run `npm run changelog:check` and confirm package/changelog/tag drift is not
+1. Run `pnpm run changelog:draft` and confirm a grouped markdown draft appears.
+2. Run `pnpm run changelog:check` and confirm package/changelog/tag drift is not
    reported.
-3. Run `npm run build:web`.
-4. Run `npm run performance:report`.
+3. Run `pnpm run build:web`.
+4. Run `pnpm run performance:report`.
 5. Confirm `output/performance/performance-report.md` includes Runtime
    Observability, marked unavailable until a desktop smoke artifact exists.
-6. Run `npm run check:performance`.
-7. Run `npm run check:licenses`.
-8. Run `npm run compliance:release`.
+6. Run `pnpm run check:performance`.
+7. Run `pnpm run check:licenses`.
+8. Run `pnpm run compliance:release`.
 9. For web releases, confirm the GitHub Actions run contains the
    `cloudflare-deploy-validation` artifact with the Wrangler log and
    `web-validation.json`.
@@ -275,8 +275,8 @@ criteria and priority are clear.
     `linux-package-validation` artifact with Debian/RPM metadata,
     packaged smoke output, and uninstall verification.
 11. For macOS/Windows releases, run
-    `npm run check:update-feed -- --base-url "$STAGING_UPDATE_URL" --old-version "$OLD_VERSION" --expected-version "$EXPECTED_VERSION"` and confirm `output/update-feed-validation/update-feed-validation.json` records passing `darwin` / `win32` feed checks.
+    `pnpm run check:update-feed -- --base-url "$STAGING_UPDATE_URL" --old-version "$OLD_VERSION" --expected-version "$EXPECTED_VERSION"` and confirm `output/update-feed-validation/update-feed-validation.json` records passing `darwin` / `win32` feed checks.
 12. Re-run full-history Gitleaks before visibility changes.
-13. Run `npm run smoke:desktop` before promoting a desktop release branch.
-14. Re-run `npm run performance:report` and confirm Runtime Observability is
+13. Run `pnpm run smoke:desktop` before promoting a desktop release branch.
+14. Re-run `pnpm run performance:report` and confirm Runtime Observability is
     populated from `output/playwright/desktop-smoke/desktop-smoke-performance.json`.

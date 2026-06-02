@@ -34,6 +34,11 @@ export function parseConventionalSubject(subject) {
   };
 }
 
+/**
+ * Parse `git log --format=%H%x1f%s%x1f%b%x1e` output into records without
+ * trusting newlines as separators. The unit/record separators keep multiline
+ * commit bodies intact so `Changelog:` trailers can still be read.
+ */
 export function parseCommitLog(raw) {
   return raw
     .split('\x1e')
@@ -93,6 +98,14 @@ function cleanDescription(description) {
     .replace(/^[-:—]\s*/u, '');
 }
 
+/**
+ * Convert one conventional commit into a public changelog item.
+ *
+ * Commit bodies can opt out with `Changelog: none` / `skip`, or override both
+ * section and public copy with `Changelog: Added - ...`. Without a trailer, the
+ * classifier includes only user-facing conventional types and strips internal
+ * RL/slice prefixes from the subject.
+ */
 export function classifyCommit(commit) {
   const parsed = parseConventionalSubject(commit.subject);
   const trailer = parseChangelogTrailer(commit.body);
@@ -133,6 +146,11 @@ export function groupChangelogItems(commits) {
   return grouped;
 }
 
+/**
+ * Render a release-note draft for human editing. This intentionally keeps
+ * commit hashes beside each bullet so reviewers can trace every suggested line
+ * back to the source commit before copying it into `CHANGELOG.md`.
+ */
 export function renderChangelogDraft({ commits, from, to, generatedAt = new Date() }) {
   const grouped = groupChangelogItems(commits);
   const lines = [
@@ -162,6 +180,11 @@ export function renderChangelogDraft({ commits, from, to, generatedAt = new Date
   return `${lines.join('\n').trimEnd()}\n`;
 }
 
+/**
+ * Collect commits for either `<latest-tag>..HEAD` or a caller-provided range.
+ * `changelog:check` reuses this helper so both drafting and release validation
+ * classify exactly the same commit stream.
+ */
 export function collectGitCommits({ from, to = 'HEAD', cwd = process.cwd() } = {}) {
   const range = from ? `${from}..${to}` : to;
   const raw = runGit(['log', '--format=%H%x1f%s%x1f%b%x1e', range], { cwd });
@@ -177,7 +200,7 @@ export function resolveLatestTag({ cwd = process.cwd() } = {}) {
 }
 
 function printHelp() {
-  console.log(`Usage: npm run changelog:draft -- [--from <ref>] [--to <ref>]
+  console.log(`Usage: pnpm run changelog:draft -- [--from <ref>] [--to <ref>]
 
 Generate a markdown draft from conventional commits. Commits can opt out with
 "Changelog: none" or provide public copy with "Changelog: Added - ...".`);

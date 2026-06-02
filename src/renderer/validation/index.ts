@@ -3,16 +3,24 @@ import { load as parseYaml } from 'js-yaml';
 import type { EditorDiagnostic, Language } from '../types';
 
 /**
+ * Editor-time validators for structured text formats. These checks are
+ * intentionally lightweight and side-effect free: they produce Monaco-style
+ * diagnostics plus a console-friendly summary, but they do not try to replace
+ * format-native tools such as shellcheck, make, Docker, or a CSV parser that
+ * understands multi-line records.
+ */
+
+/**
  * RL-058 i18n: every diagnostic message and success-state copy below
  * routes through `t()`. The keys live under `validation.<source>.<rule>`
  * so they're discoverable per validator. New messages MUST add the key
- * to both en and es locales — `npm run check:i18n` enforces that.
+ * to both en and es locales — `pnpm run check:i18n` enforces that.
  */
 function t(key: string, values?: Record<string, string | number>): string {
   return i18next.t(key, { ...values, defaultValue: key });
 }
 
-export interface ValidationResult {
+interface ValidationResult {
   diagnostics: EditorDiagnostic[];
   fullOutput: string;
   executionTime: number;
@@ -24,6 +32,11 @@ function now(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
+/**
+ * Convert parser offsets, which are usually 0-based absolute character
+ * indexes, into the 1-based line/column pairs Monaco diagnostics expect.
+ * The offset is clamped so malformed parser messages cannot point past EOF.
+ */
 function locationFromOffset(content: string, offset: number): Pick<EditorDiagnostic, 'line' | 'column'> {
   const boundedOffset = Math.max(0, Math.min(offset, content.length));
   const prefix = content.slice(0, boundedOffset);
@@ -34,6 +47,12 @@ function locationFromOffset(content: string, offset: number): Pick<EditorDiagnos
   return { line, column };
 }
 
+/**
+ * Keep the textual validation output in lockstep with the marker list. The
+ * result panel and editor gutter should describe the same diagnostics, so this
+ * formatter consumes the already-normalized marker objects instead of reparsing
+ * validator-specific errors.
+ */
 function formatDiagnosticsOutput(language: Language, diagnostics: EditorDiagnostic[]): string {
   if (diagnostics.length === 0) {
     const successKeyByLanguage: Partial<Record<Language, string>> = {
@@ -167,6 +186,12 @@ interface ParsedCsvRow {
   error?: EditorDiagnostic;
 }
 
+/**
+ * Parse one RFC-4180-style CSV row. Multi-line quoted fields are deliberately
+ * out of scope for the editor validator because line-oriented diagnostics are
+ * more useful here than a full document parser that shifts errors far from the
+ * line the user is editing.
+ */
 function parseCsvLine(line: string, lineNumber: number): ParsedCsvRow {
   const cells: string[] = [];
   let current = '';
@@ -200,7 +225,7 @@ function parseCsvLine(line: string, lineNumber: number): ParsedCsvRow {
     return {
       cells,
       error: {
-        message: t('validation.dotenv.unclosedQuote'),
+        message: t('validation.csv.unclosedQuote'),
         line: lineNumber,
         column: Math.max(line.length, 1),
         severity: 'error',
@@ -650,9 +675,12 @@ const IMPLICIT_MAKE_VARIABLES: ReadonlySet<string> = new Set([
   'VERSION',
 ]);
 
+/**
+ * Collect Make variable expansions that can make an assignment "used". This
+ * catches `$(FOO)`, `${FOO}`, and single-character `$F`; escaped `$$` literals
+ * are ignored so recipe strings like `echo $$PATH` do not mark `P` as used.
+ */
 function collectReferencedMakefileVars(source: string, sink: Set<string>): void {
-  // `$(FOO)` / `${FOO}` / single-char `$X` — we deliberately accept both.
-  // The lookbehind avoids capturing `$$` literal dollars.
   const patterns: readonly RegExp[] = [
     /(?<!\$)\$\(([A-Za-z_][A-Za-z0-9_]*)\)/gu,
     /(?<!\$)\$\{([A-Za-z_][A-Za-z0-9_]*)\}/gu,
@@ -887,6 +915,11 @@ export function supportsValidation(language: Language): boolean {
   return language in validators;
 }
 
+/**
+ * Public validation entry point used by the editor/runtime validation panel.
+ * Unknown languages intentionally return an empty success result so callers can
+ * invoke this defensively without branching on every editor language first.
+ */
 export function validateDocument(language: Language, content: string): ValidationResult {
   const startedAt = now();
   const diagnostics = validators[language]?.(content) ?? [];

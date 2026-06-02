@@ -3,8 +3,8 @@
  *
  * Spawns `dist/cli/lingua.cjs` via `child_process.spawnSync` to
  * verify the artifact actually runs end-to-end. Skips automatically
- * when the bundle is missing (so `npm test` doesn't fail on a fresh
- * checkout that hasn't run `npm run build:cli` yet).
+ * when the bundle is missing (so `pnpm test` doesn't fail on a fresh
+ * checkout that hasn't run `pnpm run build:cli` yet).
  *
  * The pre-stage Phase 2 build step (and the future `prepare` hook,
  * fold G) ensures the bundle is fresh whenever these tests run in
@@ -80,6 +80,6 @@ if (!BUNDLE_AVAILABLE) {
   // Surface a clear notice when the bundle is missing so the
   // operator knows why this block was skipped.
   console.warn(
-    `[cli/integration] Skipping CLI integration tests — run "npm run build:cli" to produce ${BUNDLE_PATH}.`
+    `[cli/integration] Skipping CLI integration tests — run "pnpm run build:cli" to produce ${BUNDLE_PATH}.`
   );
 }

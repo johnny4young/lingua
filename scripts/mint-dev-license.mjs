@@ -39,7 +39,7 @@
  * Usage (bash) — local dev with env-var public key:
  *   node scripts/mint-dev-license.mjs --tier pro --days 30 > dev-license.json
  *   export VITE_LINGUA_LICENSE_PUBLIC_KEY_JWK="$(jq -r .publicKeyJwk dev-license.json)"
- *   npm run dev:desktop    # or: npm run dev:web
+ *   pnpm run dev:desktop    # or: pnpm run dev:web
  *   # Then paste the token inside Settings > License > Paste license
  *
  * Usage (bash) — uploading the keypair to Cloudflare for license-server:

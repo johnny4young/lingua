@@ -109,14 +109,15 @@ a renderer-only concept and works in both shells.
 
 Three tiers that merge with **tab > project > global** precedence:
 
-- **Global** (`settingsStore.envVars`) — persisted across sessions,
+- **Global** (`envVarsStore.global`) — persisted across sessions,
   shipped to every runner that accepts env. The default for "set
   `RUST_BACKTRACE=1` everywhere".
-- **Project** (`projectStore.envVars`) — persisted per project (only
-  when a project is open). The default for "this repo's `GOPROXY`".
-- **Tab** (`editorStore.tabs[i].envVars`) — ephemeral, lives only as
-  long as the tab. The default for "I want to test what happens if
-  `DEBUG=1` for one run."
+- **Project** (`envVarsStore.project[projectId]`) — persisted per
+  project key (only editable when a project is open). The default for
+  "this repo's `GOPROXY`".
+- **Tab** (`envVarsStore.tab[tabId]`) — persisted in the local
+  env-var store but intentionally excluded from profile export. The
+  default for "I want to test what happens if `DEBUG=1` for one run."
 
 A runner sees the **merged** env at execution time:
 
@@ -151,12 +152,11 @@ handler that builds the `execFile` options).
   The merge order is fixed; a future ADR can revisit if customer
   feedback reveals the inverse is more useful.
 
-## Implementation slices (out of scope for this ADR; tracked here
-for the next session)
+## Implementation status
 
 ### Slice A — pure scope merger
 
-- `src/shared/envVarScopes.ts` (new) — types + the
+- `src/shared/envVarScopes.ts` — types + the
   `mergeEnvScopes(scopes)` pure function. Empty string preserved.
   Unicode key validation (POSIX-name regex). Hard cap at 100 keys
   per scope to keep merge cost bounded.
@@ -165,35 +165,32 @@ for the next session)
 
 ### Slice B — settings + project + tab plumbing
 
-- Extend `settingsStore` with `envVars: Record<string, string>` +
-  `setEnvVar`, `unsetEnvVar`, `clearEnvVars` actions.
-- Extend `projectStore` with the same shape, persisted alongside
-  the project's other state.
-- Extend `editorStore.FileTab` with optional `envVars`. Tab
-  envVars do not survive a save → restore (they are ephemeral
-  per the scope decision).
-- Extend `runners/manager.ts` to call `mergeEnvScopes` at
-  `execute(...)` time and pass the merged env to runner-specific
-  IPC handlers.
+- `src/renderer/stores/envVarsStore.ts` owns all three user tiers
+  (`global`, `project[projectId]`, `tab[tabId]`) under the
+  `lingua-env-vars` localStorage key. The store sanitizes every tier
+  on write and again on rehydrate.
+- Profile import/export uses the same store-level shape: global +
+  project scopes are portable; tab-scoped env vars are not exported.
+- Runtime runners ask the store for `resolveEffectiveEnv(...)` at
+  execute time and hand the merged user record to the runtime-specific
+  bridge.
 
 ### Slice C — Settings UI
 
-- New `EnvVarsSection` in Settings, with a key/value table for the
-  global tier and an explanatory secret-storage warning.
-- Project tier surfaces in the project settings drawer (when one
-  exists); fall back to "open a project to define project env
-  vars" when no project is open.
-- Tab tier surfaces as a small affordance in the editor tab
-  context menu; resets on tab close.
-- i18n: every label, every column header, every warning copy goes
-  through `i18next.t()` and lands in both en + es.
+- `EnvVarsSection` in Settings exposes the global/project/tab tiers
+  with the secret-storage warning from this ADR.
+- The project tier is available when a project is open; otherwise the
+  Settings row explains why no project scope can be edited.
+- The tab tier is bound to the active editor tab and is intentionally
+  excluded from profile export.
+- i18n: labels, validation feedback, column headers, and warning copy
+  live in both English and Spanish locale files.
 
 ### Slice D — Honest web-mode limit
 
-- Web adapter stub returns `web-unavailable` for any IPC the
-  envVars feature needs (none today, but the future implementation
-  will read `window.lingua.go` / `.rust` / `.python` configs which
-  the web stub already returns the correct error for).
+- Web mode still has no host `process.env` tier. Renderer-owned user
+  env values can flow into Pyodide because that runtime is already
+  renderer-local; Go/Rust host env forwarding remains desktop-only.
 
 ## Verification matrix (for the implementation slices, not this ADR)
 
@@ -210,7 +207,7 @@ After Slice B + C ship:
    "desktop only".
 4. Define an invalid key (`123FOO`, `WITH SPACE`, etc.) and
    confirm the validator rejects it before persistence.
-5. Run `npm run smoke:desktop` to confirm Go and Rust still
+5. Run `pnpm run smoke:desktop` to confirm Go and Rust still
    execute correctly when no env vars are defined (regression
    protection for the merge plumbing).
 

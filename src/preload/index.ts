@@ -206,7 +206,9 @@ contextBridge.exposeInMainWorld('lingua', {
   },
   forceClose: () => ipcRenderer.send('app:force-close'),
 
-  // File system IPC — RL-077 capability sandbox
+  // File system IPC — RL-077 capability sandbox. Preload is a narrow typed
+  // pass-through; main owns approval checks, capability resolution, and
+  // containment validation for every rootId + relativePath pair.
   fs: {
     selectDirectory: () => ipcRenderer.invoke('fs:select-directory'),
     selectFile: () => ipcRenderer.invoke('fs:select-file'),

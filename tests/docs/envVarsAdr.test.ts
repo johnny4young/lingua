@@ -47,7 +47,7 @@ describe('ENV_VARS_ADR.md', () => {
     expect(adr).toMatch(/Lingua is a scratchpad, not a vault/u);
   });
 
-  it('lists the four implementation slices A through D for the next session', () => {
+  it('lists the four implementation slices A through D with current status', () => {
     for (const slice of ['Slice A', 'Slice B', 'Slice C', 'Slice D']) {
       expect(adr).toContain(slice);
     }

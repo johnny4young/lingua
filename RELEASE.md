@@ -51,7 +51,7 @@ This repository uses a draft-first manual release process, with the release tag 
    - Linux package validation (`linux-package-validation` artifact with Debian install smoke + RPM metadata)
    - Desktop update feed validation (`check:update-feed` evidence for any macOS/Windows release)
    - generated checksums
-   - re-verified checksums (`shasum -c SHA256SUMS.txt`)
+   - re-verified checksums (`node ./scripts/prepare-release-payload.mjs --root out/make --verify-checksums`)
    - Cloudflare deploy validation artifact for web releases
 7. Open the draft GitHub Release created by the workflow.
 8. Verify attached artifacts, `SHA256SUMS.txt`, `lingua-sbom.cyclonedx.json`, and `THIRD_PARTY_LICENSE_REPORT.md`.
@@ -79,7 +79,7 @@ This repository uses a draft-first manual release process, with the release tag 
 - macOS signing verification passed
 - Windows signing verification passed
 - `SHA256SUMS.txt` is attached or present in the release payload
-- `SHA256SUMS.txt` re-verified against the downloaded payload during `publish` (`shasum -a 256 -c SHA256SUMS.txt`)
+- `SHA256SUMS.txt` re-verified against the downloaded payload during `publish` (`node ./scripts/prepare-release-payload.mjs --root out/make --verify-checksums`)
 - `lingua-sbom.cyclonedx.json` is attached or present in the release payload
 - `THIRD_PARTY_LICENSE_REPORT.md` is attached or present in the release payload
 - Packaged desktop smoke passed in CI (the `Packaged desktop smoke` step in `build-macos`, RL-080 Slice 3 — release-blocking offline, 2-runtime-case subset against the actual `.app`)

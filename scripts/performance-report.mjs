@@ -88,6 +88,12 @@ async function listFiles(root) {
   return files;
 }
 
+/**
+ * Extract the JS/CSS files eagerly referenced by an HTML entrypoint.
+ * Performance budgets treat these as `initial` assets because the browser
+ * needs them before the app can render; lazy chunks discovered elsewhere in
+ * the output tree are classified separately.
+ */
 export function parseInitialAssetReferences(html) {
   const initial = new Set();
   const attrPattern = /\b(?:src|href)=["']([^"']+)["']/giu;
@@ -101,6 +107,12 @@ export function parseInitialAssetReferences(html) {
   return initial;
 }
 
+/**
+ * Bucket one emitted file into the budget category used by
+ * `docs/performance/baseline.json`. The categories are intentionally broad:
+ * they make regressions actionable without depending on Vite/Rollup hash
+ * names, and they keep runtime WASM separate from JavaScript chunk growth.
+ */
 export function classifyAsset(relativePath, initialAssets = new Set()) {
   const normalized = normalizeRelativePath(relativePath);
   const baseName = path.basename(normalized);
@@ -134,6 +146,11 @@ function addToTotals(totals, category, bytes, gzipBytes) {
   bucket.gzipBytes += gzipBytes;
 }
 
+/**
+ * Measure one build output root. Required targets fail loudly when missing;
+ * optional targets return an unavailable record so local web-only checks do
+ * not require a desktop renderer build.
+ */
 export async function collectBuildTarget(target) {
   if (!(await pathExists(target.root))) {
     if (target.required) {
@@ -183,6 +200,11 @@ export async function collectBuildTarget(target) {
   };
 }
 
+/**
+ * Create a new baseline from measured assets using the category-specific
+ * headroom multipliers. This is the write path for `performance:baseline`,
+ * not the check path used in CI.
+ */
 export function deriveBudgetsFromMeasurements(measurements) {
   const budgets = {};
   for (const target of measurements.targets) {
@@ -203,6 +225,11 @@ export function deriveBudgetsFromMeasurements(measurements) {
   return budgets;
 }
 
+/**
+ * Compare current measurements with the committed baseline and return every
+ * violation instead of failing fast. CI prints the full set so reviewers can
+ * see whether a change is a single chunk regression or a broad build shift.
+ */
 export function compareWithBudgets(measurements, baseline, { requireAllTargets = false } = {}) {
   const violations = [];
   const targetById = new Map(measurements.targets.map((target) => [target.id, target]));

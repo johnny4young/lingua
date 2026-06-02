@@ -15,6 +15,11 @@ const repoRoot = path.resolve(__dirname, '..');
 export const DEFAULT_ARTIFACTS_ROOT = path.join(repoRoot, 'out', 'make');
 export const DEFAULT_OUTPUT_DIR = path.join(repoRoot, 'output', 'linux-release-validation');
 
+/**
+ * Collect files below Forge's Linux output tree. The tree shape changes by
+ * maker/arch (`deb/x64`, `rpm/x64`, etc.), so callers should not assume a
+ * fixed depth when locating release artifacts.
+ */
 async function walkFiles(root, files = []) {
   const entries = await readdir(root, { withFileTypes: true });
   for (const entry of entries) {
@@ -38,6 +43,11 @@ export async function findLinuxPackageArtifacts(artifactsRoot) {
   };
 }
 
+/**
+ * Run one host tool and optionally persist combined stdout/stderr as release
+ * evidence. Metadata commands must fail hard; cleanup probes pass
+ * `allowFailure` when absence is the expected signal.
+ */
 function runCommand(
   command,
   args,
@@ -82,6 +92,11 @@ async function readSmokeSummary(summaryPath) {
   return summary;
 }
 
+/**
+ * Human-readable companion to `linux-package-validation.json`. Release
+ * operators attach both files: JSON for machine diffing, Markdown for a quick
+ * audit trail in the workflow summary or release notes.
+ */
 export function buildMarkdownSummary(summary) {
   const lines = [
     '# Linux package validation',
@@ -106,6 +121,9 @@ async function validateLinuxReleaseArtifacts({
 } = {}) {
   await mkdir(outputDir, { recursive: true });
 
+  // Validate package metadata before installing anything. This catches broken
+  // Forge output early and still produces deb/rpm evidence when the install
+  // smoke is skipped in focused unit tests.
   const artifacts = await findLinuxPackageArtifacts(artifactsRoot);
   if (!artifacts.deb) {
     throw new Error(`Expected a .deb package under ${artifactsRoot}`);
@@ -136,6 +154,9 @@ async function validateLinuxReleaseArtifacts({
   };
 
   if (!skipInstallSmoke) {
+    // The install smoke intentionally uses the generated .deb, not the unpacked
+    // app, because the release gate must prove package manager install, PATH
+    // exposure, offline desktop boot, and uninstall cleanup as one flow.
     if (process.platform !== 'linux') {
       throw new Error('Linux package install smoke must run on Linux');
     }
@@ -179,6 +200,9 @@ async function validateLinuxReleaseArtifacts({
       runCommand('sudo', ['apt-get', 'remove', '-y', 'lingua']);
     }
     const removed = runCommand('bash', ['-lc', 'command -v lingua'], { allowFailure: true });
+    // `command -v` exits non-zero when the binary disappeared from PATH. That
+    // is the success condition after `apt-get remove`; a zero exit means the
+    // package left a runnable binary behind.
     installSmoke.uninstallVerified = removed.status !== 0;
     if (!installSmoke.uninstallVerified) {
       throw new Error(`lingua binary still exists after uninstall: ${removed.stdout.trim()}`);

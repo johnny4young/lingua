@@ -233,10 +233,16 @@ export function registerGoHandlers(): void {
     'go:compile',
     async (
       _event,
-      sourceCode: string,
+      sourceCode: unknown,
       userEnv?: Record<string, string>,
       messages?: NativeRunnerMessages
-    ) => {
+    ): Promise<GoCompileResult> => {
+      if (typeof sourceCode !== 'string') {
+        return {
+          success: false,
+          error: 'Go compiler received invalid source.',
+        };
+      }
       return compileGoToWasm(sourceCode, userEnv, messages);
     }
   );

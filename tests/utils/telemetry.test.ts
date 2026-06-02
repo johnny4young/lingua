@@ -118,7 +118,7 @@ describe('readEndpoint URL validation (fold F)', () => {
     useSettingsStore.setState({ ...initialSettings, telemetryConsent: 'granted' });
     expect(isTelemetryEnabled()).toBe(false);
     // Warning fires once for the misconfigured value so a developer
-    // hitting this in `npm run preview:web` can diagnose without it
+    // hitting this in `pnpm run preview:web` can diagnose without it
     // spamming the console.
     expect(warnSpy).toHaveBeenCalledTimes(1);
     expect(warnSpy.mock.calls[0]?.[0]).toContain('telemetry');

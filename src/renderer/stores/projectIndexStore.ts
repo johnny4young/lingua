@@ -25,6 +25,8 @@ interface ProjectIndexState {
 }
 
 function decorateEntries(raw: FsIndexedFile[]): ProjectIndexEntry[] {
+  // The main/web filesystem bridge owns traversal and ignored-path filtering;
+  // the renderer only adds presentation metadata for navigation surfaces.
   return raw.map((file) => ({
     name: file.name,
     relativePath: file.relativePath,
@@ -60,6 +62,9 @@ export const useProjectIndexStore = create<ProjectIndexState>((set, get) => ({
 
     try {
       const raw = await listAllFiles(rootId, '');
+      // `rootId` is the freshness token for the index. Absolute paths are not
+      // compared here because web handles and desktop capabilities expose the
+      // same contract with different backing identifiers.
       // Guard against stale responses: if the user switched projects mid-walk,
       // drop this result and keep whatever the newer walk produced.
       if (get().rootId !== rootId) return;

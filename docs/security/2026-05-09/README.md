@@ -7,6 +7,13 @@ changes landed after the Codex Security scan. This packet documents the analysis
 used to fix the findings; it is not a replacement for `SECURITY.md`,
 `docs/RELEASE_SECURITY.md`, or the public release checklist.
 
+Historical note: command blocks in this packet are preserved as the validation
+evidence from 2026-05-09. Current repo commands use `pnpm`; see
+[`DEVELOPMENT.md`](../../DEVELOPMENT.md) and
+[`SPRINT-PLAN.md`](../../SPRINT-PLAN.md) for the live validation matrix, and
+[`remediation-validation.md`](./remediation-validation.md#current-equivalent-commands)
+for the equivalent current command block.
+
 ## Documents
 
 | File | Purpose |
@@ -38,7 +45,27 @@ The remediation tightened the highest-risk areas first:
 - Crash/privacy copy and redacted error reports now avoid overclaiming and
   scrub sensitive values from raw exception text.
 
-## Validation Snapshot
+## Current Equivalent Validation
+
+Use this block when repeating the same class of validation against the current
+tree. The dated snapshot below remains the historical 2026-05-09 evidence.
+
+```bash
+pnpm test -- --run
+pnpm run lint
+pnpm exec tsc --noEmit
+pnpm run check:i18n
+pnpm run check:i18n:copy
+(cd license-server && pnpm test)
+(cd update-server && pnpm test)
+pnpm run build:web
+pnpm run preview:web -- --host 127.0.0.1
+```
+
+## Historical Validation Snapshot
+
+The original security packet was captured before the repo standardized on
+`pnpm`, so the commands in this section intentionally remain npm-era evidence.
 
 The patched tree was validated with:
 

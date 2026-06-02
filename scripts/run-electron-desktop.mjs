@@ -12,6 +12,9 @@ const require = createRequire(import.meta.url);
 const electronBinary = require('electron');
 
 function resolveElectronAppPath(binaryPath) {
+  // The `electron` package returns either the executable inside Electron.app or
+  // a platform binary path. Walk upward first so macOS LaunchServices can open
+  // the .app bundle; fall back to the package's historical four-level layout.
   let current = binaryPath;
   while (current !== path.dirname(current)) {
     if (path.basename(current).endsWith('.app')) {
@@ -107,6 +110,10 @@ async function extractRendererUrlFromBuiltMain(filePath) {
     return null;
   }
 
+  // Keep the dev launcher pointed at the same renderer URL baked into the
+  // cached main bundle unless the caller overrides it. This avoids the common
+  // "server on 5174, main bundle still loads 5173" split-brain during local
+  // desktop iteration.
   const source = await readFile(filePath, 'utf8');
   const match = source.match(/mainWindow\.loadURL\((["'`])([^"'`]+)\1\)/);
   return match?.[2] ?? null;
@@ -119,6 +126,8 @@ async function waitForServer(url, timeoutMs) {
   while (Date.now() < deadline) {
     try {
       const response = await fetch(url, { redirect: 'manual' });
+      // Vite may answer 404 for a deep path before the SPA fallback kicks in;
+      // the important signal is that the dev server accepted TCP/HTTP.
       if (response.ok || response.status === 404) {
         return;
       }
@@ -206,6 +215,8 @@ async function terminateChild(label, child, options = {}) {
     if (graceful) {
       child.kill('SIGTERM');
     } else {
+      // Server children can spawn their own subprocesses. When possible, kill
+      // the detached process group so Vite/esbuild descendants do not linger.
       process.kill(-child.pid, 'SIGTERM');
     }
   } catch {
@@ -265,6 +276,9 @@ async function ensureMainArtifacts(rendererUrl, syncMain) {
   const modeLabel = needsBootstrap ? 'Bootstrapping' : 'Syncing';
   console.log(`[desktop] ${modeLabel} Electron main/preload bundles`);
 
+  // Forge normally injects these defines. The managed launcher bypasses Forge
+  // for speed, so it must recreate the defines that main/preload expect,
+  // including env-derived license/update URLs for production-parity dev modes.
   await runEsbuild([
     path.join(repoRoot, 'src', 'main', 'index.ts'),
     '--bundle',
@@ -328,6 +342,8 @@ async function main() {
         : Promise.resolve(),
     ]);
 
+    // Exit explicitly after child cleanup so signal handlers and async fatal
+    // paths all converge on the same process status.
     process.exit(exitCode);
   };
 

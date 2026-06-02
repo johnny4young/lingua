@@ -67,10 +67,14 @@ export function RecipeRunPanel() {
   );
 
   const recipeId = activeTab?.recipeBindingId ?? null;
+  // The binding id is persisted on the editor tab. Resolve the catalog
+  // record lazily so stale/deleted ids fall through to the unbound state.
   const recipe = useMemo(
     () => (recipeId ? getRecipeById(recipeId) ?? null : null),
     [recipeId]
   );
+  // Results are keyed by tab, not by recipe id, so two tabs opened from the
+  // same recipe can keep independent assertion history.
   const results = useMemo<ReadonlyArray<AssertionRunResult>>(
     () => (activeTabId ? lastResults.get(activeTabId) ?? [] : []),
     [activeTabId, lastResults]
@@ -104,6 +108,9 @@ export function RecipeRunPanel() {
 
   const handleRun = async () => {
     if (!runnable) {
+      // The button is disabled in the normal UI, but this guard keeps the
+      // hook path safe for keyboard/programmatic invocation and future
+      // recipe languages that are visible before runner support lands.
       useUIStore.getState().pushStatusNotice({
         tone: 'info',
         messageKey: 'recipes.notice.disabledForNonJs',
@@ -231,6 +238,9 @@ export function RecipeRunPanel() {
             className="grid gap-1"
           >
             {results.map((result) => {
+              // Assertion definitions come from the catalog, while results
+              // are persisted per tab. Missing definitions still render by id
+              // so old stored results remain inspectable after catalog edits.
               const assertion = recipe.assertions.find(
                 (a) => a.id === result.assertionId
               );
@@ -267,6 +277,8 @@ function AssertionResultRow({
     assertion?.name !== undefined
       ? pickProse(assertion.name, locale)
       : result.assertionId;
+  // Keep the i18n key mapping explicit so adding a new result status fails
+  // type checking until copy and UI tone are decided.
   const statusLabel = t(`recipes.assertion.${statusKey(result.status)}`);
   return (
     <li

@@ -8,11 +8,10 @@ transparently — edit this file, not the symlink.
 ## Read on arrival
 
 Before making non-trivial changes, open these files (in order). The
-three planning files in `docs/` are intentionally split by cost —
-load the cheapest one that answers your current question, not
-`PLAN.md` by default. **All planning state lives in `docs/*.md`
-committed to git; do not rely on `.claude/plans/*` or any other
-machine-local state.**
+planning files in `docs/` are intentionally split by cost — load the
+cheapest one that answers your current question, not `PLAN.md` by
+default. **All planning state lives in `docs/*.md` committed to git;
+do not rely on `.claude/plans/*` or any other machine-local state.**
 
 1. This file — routing, skill preferences, landmines, UI validation,
    commit rules.
@@ -27,13 +26,16 @@ machine-local state.**
    ROADMAP wins.
 5. `docs/BACKLOG.md` — pre-commitment raw ideas. Read when capturing
    something new; never pick implementation work from here.
-6. `docs/ARCHITECTURE.md` — project lifecycle, IPC filesystem bridge,
+6. `docs/ARCHIVED.md` — compact archive policy + shipped-ticket index.
+   Read when checking where closed slice detail went or closing a
+   shipped iter without bloating active planning docs.
+7. `docs/ARCHITECTURE.md` — project lifecycle, IPC filesystem bridge,
    and watch-state model.
-7. `docs/CAPABILITY_MATRIX.md` — which execution class (browser WASM,
+8. `docs/CAPABILITY_MATRIX.md` — which execution class (browser WASM,
    browser interpreter, WebContainer, desktop native, hybrid) owns
    each capability today. Do not propose WASM-first migrations
    outside the promotion rules there.
-8. `src/renderer/README.md` — renderer folder map and state ownership.
+9. `src/renderer/README.md` — renderer folder map and state ownership.
 
 ## Routing
 

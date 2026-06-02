@@ -76,6 +76,9 @@ interface FilesystemApprovalsFile {
 
 const FILESYSTEM_APPROVALS_FILENAME = 'filesystem-approvals.json';
 
+// Approval persistence is only a convenience layer for recent projects/files.
+// Authority still comes from minting a fresh process-local rootId and routing
+// every later operation through resolveCapabilityPath.
 let filesystemApprovalsLoaded = false;
 let approvedRoots = new Set<string>();
 let approvedFiles = new Set<string>();
@@ -157,6 +160,8 @@ async function hasApprovedFile(absolutePath: string): Promise<boolean> {
   await loadFilesystemApprovals();
   const normalized = normalizeApprovalPath(absolutePath);
   if (approvedFiles.has(normalized)) return true;
+  // Files under an approved project root can be reopened individually for
+  // recent-file/session restore flows without approving every child file.
   for (const root of approvedRoots) {
     if (isPathWithinProject(normalized, root)) return true;
   }

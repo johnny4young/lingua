@@ -64,11 +64,18 @@ export function useDeepLinks({ openOverlay }: UseDeepLinksOptions): boolean {
       void applyDeepLink(target);
     });
     deepLinks.markReady();
-    void deepLinks.consumePending().then((target) => {
-      if (target) {
-        return applyDeepLink(target);
-      }
-    });
+    void deepLinks
+      .consumePending()
+      .then((target) => {
+        if (target) {
+          return applyDeepLink(target);
+        }
+      })
+      .catch((error) => {
+        // IPC for the pending deep link failed; nothing to open.
+        // markReady() above already let main know the renderer is live.
+        console.warn('[deep-links] consumePending failed', error);
+      });
 
     return unsubscribe;
   }, []);

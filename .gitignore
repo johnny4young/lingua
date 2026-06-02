@@ -1,5 +1,9 @@
 # Dependencies
 node_modules/
+# This repo is pnpm-only; ignore accidental lockfiles from other JS package managers.
+package-lock.json
+npm-shrinkwrap.json
+yarn.lock
 
 # Build output
 out/
@@ -7,6 +11,7 @@ dist/
 .vite/
 .playwright-cli/
 .playwright-mcp/
+test-results/
 Library/
 
 # Local artifacts

@@ -335,6 +335,10 @@ export interface ExecuteQueryOptions {
 interface QueryTimeoutSentinel {
   readonly __sqlWorkspaceTimeout: true;
 }
+/**
+ * Private race marker for the soft-timeout path. Keep it object-shaped instead
+ * of a string so a query result can never collide with it accidentally.
+ */
 const TIMEOUT_SENTINEL: QueryTimeoutSentinel = { __sqlWorkspaceTimeout: true };
 const DUCKDB_WASM_INTERNAL_ERROR = /_setThrew is not defined/i;
 const DUCKDB_WASM_INTERNAL_ERROR_MESSAGE =
@@ -357,11 +361,10 @@ function errorMessageForUser(err: unknown, fallback: string): string {
 }
 
 /**
- * Count the number of statements in a multi-statement query. Naive
- * but conservative: splits on semicolons and counts non-whitespace
- * fragments. Won't be 100% accurate for SQL strings containing
- * literal semicolons (e.g. `';' AS sep`) but it's a UX badge, not a
- * security gate — false positives just over-count by one.
+ * Count the number of statements in a multi-statement query. This is a UX badge,
+ * not a SQL parser: it tracks simple single- and double-quoted strings so
+ * `';' AS sep` stays one statement, but intentionally ignores comments,
+ * PostgreSQL dollar-quoted strings, and dialect-specific escaping.
  */
 export function countSqlStatements(query: string): number {
   let count = 0;

@@ -19,13 +19,13 @@ The privacy contract:
 
 ```bash
 cd update-server
-npx wrangler tail lingua-update-server --format pretty
+pnpm exec wrangler tail lingua-update-server --format pretty
 ```
 
 Filter to telemetry-only lines:
 
 ```bash
-npx wrangler tail lingua-update-server --format json \
+pnpm exec wrangler tail lingua-update-server --format json \
   | jq 'select(.event == "telemetry.event")'
 ```
 
@@ -59,7 +59,7 @@ Workers Observability retains structured `console.log` lines for ~3 days on the 
 For a quick CLI alternative when the dashboard is degraded:
 
 ```bash
-npx wrangler tail lingua-update-server --format json --since 1h \
+pnpm exec wrangler tail lingua-update-server --format json --since 1h \
   | jq 'select(.event == "telemetry.event")
        | { time: .timestamp, name: .eventName, props: .properties }'
 ```
@@ -67,7 +67,7 @@ npx wrangler tail lingua-update-server --format json --since 1h \
 ## Kill switches
 
 - **Server-side kill** — bind no traffic to the new route. Either:
-  1. Comment out the `/telemetry` route in `update-server/src/index.ts` and redeploy (`npx wrangler deploy`), OR
+  1. Comment out the `/telemetry` route in `update-server/src/index.ts` and redeploy (`cd update-server && pnpm run deploy`), OR
   2. Block the route at the Cloudflare zone via a WAF rule.
   Both surfaces fail closed: the renderer's emitter swallows any non-2xx response silently, so users see nothing.
 - **Client-side kill** — set `VITE_LINGUA_TELEMETRY_DISABLED=1` in the web build env and redeploy `app.linguacode.dev`. Overrides user consent — no emits regardless. (Desktop is already kill-switched by leaving `VITE_LINGUA_TELEMETRY_URL` unset.)

@@ -41,7 +41,7 @@
  * `update-feed-validation.json`.
  */
 
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -409,9 +409,4 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   });
 }
 
-// Existence check is also re-used by the dirty-check guard.
 export { OUTPUT_DIR, fetchGitHubRelease, listGitHubReleaseAssets };
-if (!existsSync) {
-  // Defensive: ensure the import binding is consumed by the bundler.
-  void existsSync;
-}

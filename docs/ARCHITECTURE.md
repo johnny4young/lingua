@@ -166,6 +166,7 @@ Technical reason:
 This method:
 
 - stops the current watcher if one exists
+- revokes the current `rootId` capability in the main process
 - clears `currentProject`
 - clears `nodes`
 - clears `watchId`
@@ -259,6 +260,13 @@ Most file operations use `invoke/handle` because they are command-like and need 
 | `watchStart(rootId, relativePath)` | `fs:watch-start`   | create native watcher with an opaque watchId, or return a typed watcher diagnostic |
 | `watchStop(watchId)`            | `fs:watch-stop`       | close native watcher                               |
 
+`reopenRoot` and `reopenFile` do not authorize arbitrary absolute paths.
+Main stores a small approval list for paths that came from native pickers
+or from files under an approved project root, then mints a fresh process-local
+`rootId` for the reopened path. The approval list makes recent projects and
+saved tabs ergonomic; the rootId capability remains the authority for every
+later read, write, watcher, search, or bundle operation.
+
 ### Event-style IPC
 
 The push-style filesystem channels in this architecture are:
@@ -323,8 +331,10 @@ The desktop watch flow is:
 3. Node's `fs.watch` emits coarse change events.
 4. The main process forwards them as `fs:changed`.
 5. `useProjectWatchSync()` debounces the burst.
-6. The renderer calls `refreshTree()`.
-7. `refreshTree()` rebuilds the tree while preserving expanded paths.
+6. Content `change` events that identify an open tab schedule a reload-from-disk notice.
+7. The renderer calls `refreshTree()` for the active project root.
+8. `refreshTree()` rebuilds the tree while preserving expanded paths.
+9. After the refresh, loaded open tabs whose files vanished get one debounced stale-file notice.
 
 ### Why watch IDs are opaque
 

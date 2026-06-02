@@ -34,9 +34,9 @@
 -- the operator can safely retry.
 --
 -- Apply locally during development:
---   npm run migrations:apply:local
+--   pnpm run migrations:apply:local
 -- Apply against the production D1:
---   npm run migrations:apply:remote
+--   pnpm run migrations:apply:remote
 --
 -- Apply order matters: this migration MUST land in prod D1 BEFORE the
 -- worker is redeployed with the relaxed validator, otherwise an

@@ -30,17 +30,26 @@ import type {
  */
 
 export interface GoAdapterTransport {
+  /**
+   * Request/response leg over the main-process LSP bridge. The bridge
+   * returns an explicit ok/error union so Monaco providers can degrade to
+   * empty completions or no hover instead of throwing into the editor.
+   */
   request: (
     method: string,
     params: unknown
   ) => Promise<{ ok: true; result: unknown } | { ok: false; error: string }>;
+  /** Fire-and-forget JSON-RPC notifications such as didOpen/didChange. */
   notify: (method: string, params: unknown) => void;
+  /** Subscribe to LSP server pushes, primarily publishDiagnostics. */
   onNotification: (callback: (notification: LspNotification) => void) => () => void;
 }
 
 interface OpenDocument {
   uri: string;
+  /** Monotonic local version used for full-document sync with gopls. */
   version: number;
+  /** Last text sent to gopls; duplicate Monaco notifications are ignored. */
   latestContent: string;
 }
 
@@ -83,7 +92,9 @@ interface LspSignatureHelp {
 export class GoLanguageIntelligenceAdapter implements LspLanguageIntelligenceAdapter {
   readonly language = 'go';
   private readonly transport: GoAdapterTransport;
+  /** URI -> latest full-sync state for every Monaco model opened in gopls. */
   private readonly documents = new Map<string, OpenDocument>();
+  /** Renderer marker owners subscribe here instead of polling gopls. */
   private readonly diagnosticsListeners = new Set<
     (uri: string, diagnostics: readonly LanguageIntelligenceDiagnostic[]) => void
   >();
@@ -110,6 +121,9 @@ export class GoLanguageIntelligenceAdapter implements LspLanguageIntelligenceAda
   openDocument(uri: string, content: string): void {
     const existing = this.documents.get(uri);
     if (existing) {
+      // Monaco can re-register a model that gopls already knows. Treat
+      // that as a content refresh instead of sending an invalid duplicate
+      // didOpen.
       this.changeDocument(uri, content);
       return;
     }
@@ -128,6 +142,9 @@ export class GoLanguageIntelligenceAdapter implements LspLanguageIntelligenceAda
     if (document.latestContent === content) return;
     document.version += 1;
     document.latestContent = content;
+    // Full-sync keeps this adapter stateless with respect to Monaco edits.
+    // Incremental sync would require converting each editor delta into LSP
+    // ranges, which is not worth the added race surface for Lingua-sized files.
     this.transport.notify('textDocument/didChange', {
       textDocument: { uri, version: document.version },
       contentChanges: [{ text: content }],
@@ -196,6 +213,8 @@ export class GoLanguageIntelligenceAdapter implements LspLanguageIntelligenceAda
       | undefined;
     if (!params || typeof params.uri !== 'string') return;
     const diagnostics = parseDiagnostics(params.diagnostics ?? []);
+    // Fan out the normalized diagnostics; marker ownership stays outside this
+    // adapter so Go and Rust can share the same Monaco model cleanly.
     for (const listener of this.diagnosticsListeners) {
       listener(params.uri, diagnostics);
     }
@@ -206,11 +225,15 @@ function lspPositionFromOneBased(
   line: number,
   column: number
 ): { line: number; character: number } {
+  // Monaco-facing callers use 1-based positions; LSP wire positions are
+  // 0-based. Clamp here so every provider uses the same boundary behavior.
   return { line: Math.max(0, line - 1), character: Math.max(0, column - 1) };
 }
 
 function parseCompletions(raw: unknown): readonly LanguageIntelligenceCompletion[] {
   if (!raw) return [];
+  // gopls may answer with either CompletionItem[] or CompletionList. Normalize
+  // both to the renderer's language-agnostic completion contract.
   const items: LspCompletionItem[] = Array.isArray(raw)
     ? (raw as LspCompletionItem[])
     : Array.isArray((raw as { items?: LspCompletionItem[] }).items)
@@ -272,6 +295,8 @@ function parseDiagnostics(
 ): readonly LanguageIntelligenceDiagnostic[] {
   const out: LanguageIntelligenceDiagnostic[] = [];
   for (const diagnostic of raw) {
+    // Treat malformed server payloads as absent diagnostics. A single bad
+    // entry should not drop the rest of the publishDiagnostics batch.
     if (!diagnostic || typeof diagnostic.message !== 'string') continue;
     const start = diagnostic.range?.start;
     const end = diagnostic.range?.end;
@@ -328,6 +353,8 @@ function extractHoverText(contents: LspHover['contents']): string | null {
   if (!contents) return null;
   if (typeof contents === 'string') return contents;
   if (Array.isArray(contents)) {
+    // LSP MarkedString arrays are ordered prose/code fragments. Joining with
+    // newlines preserves enough structure for the headline extractor below.
     const parts = contents
       .map((entry) => (typeof entry === 'string' ? entry : entry.value))
       .filter((entry): entry is string => typeof entry === 'string');
@@ -357,6 +384,8 @@ function parseSignatureHelp(raw: unknown): LanguageIntelligenceSignatureHelp | n
   const activeSignatureIndex = clampIndex(help.activeSignature, help.signatures.length);
   const signature = help.signatures[activeSignatureIndex];
   if (!signature) return null;
+  // LSP allows parameter labels to be literal strings or [start, end] slices
+  // into the signature label. Convert both before the shared UI sees them.
   const parameters: LanguageIntelligenceSignatureParameter[] = (signature.parameters ?? [])
     .map(
       (
@@ -385,6 +414,8 @@ function parseSignatureHelp(raw: unknown): LanguageIntelligenceSignatureHelp | n
 }
 
 function clampIndex(value: number | undefined, length: number): number {
+  // gopls can omit active indexes or return stale indexes after edits. Clamp
+  // defensively so the renderer never indexes outside the selected signature.
   if (typeof value !== 'number' || Number.isNaN(value)) return 0;
   if (value < 0) return 0;
   if (value >= length) return Math.max(0, length - 1);

@@ -23,6 +23,12 @@ function normalizeVersion(version) {
   return /^\d+\.\d+\.\d+$/u.test(normalized) ? normalized : null;
 }
 
+/**
+ * Collapse repeated `--platform` flags into the canonical validation order while
+ * rejecting values the update server does not serve. Linux is intentionally
+ * absent: Electron's built-in updater only has darwin/win32 release-feed
+ * contracts today.
+ */
 function parsePlatforms(value) {
   const values = Array.isArray(value) ? value : value ? [value] : DEFAULT_PLATFORMS;
   const platforms = [];
@@ -35,6 +41,12 @@ function parsePlatforms(value) {
   return platforms;
 }
 
+/**
+ * Build the exact update-feed probe URL without trusting caller-provided path
+ * fragments. Staging feeds may point at localhost; every other target must be
+ * HTTPS because release validation fetches signed update metadata and should
+ * never exercise a downgrade path.
+ */
 function resolveFeedUrl(baseUrl, platform, oldVersion) {
   let parsed;
   try {
@@ -49,6 +61,11 @@ function resolveFeedUrl(baseUrl, platform, oldVersion) {
   return `${trimmed}/update/${encodeURIComponent(platform)}/${encodeURIComponent(oldVersion)}`;
 }
 
+/**
+ * Validate the Squirrel.Mac JSON shape returned by `GET /update/darwin/*`.
+ * The checker records human-readable evidence instead of downloading the asset;
+ * release workflow checksum and mirror jobs verify payload bytes.
+ */
 export function validateDarwinPayload(payload, expectedVersion = null) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error('darwin update payload must be a JSON object.');
@@ -71,6 +88,11 @@ export function validateDarwinPayload(payload, expectedVersion = null) {
   return { versionEvidence: name, assetEvidence: url };
 }
 
+/**
+ * Validate Windows Squirrel RELEASES text after it has been rewritten through
+ * the update server's `/download/<id>/<asset>` proxy. Raw GitHub asset names
+ * are rejected because private-repo release assets are not public-downloadable.
+ */
 export function validateWin32Payload(text, expectedVersion = null) {
   if (typeof text !== 'string' || text.trim().length === 0) {
     throw new Error('win32 RELEASES payload is empty.');
@@ -106,6 +128,11 @@ export function validateWin32Payload(text, expectedVersion = null) {
   };
 }
 
+/**
+ * Probe one platform and normalize every outcome into a result row.
+ * Platform-specific payload errors are captured in the row instead of thrown so
+ * the final report can show darwin and win32 evidence side by side.
+ */
 async function validatePlatform({ baseUrl, oldVersion, expectedVersion, platform, fetchImpl }) {
   const url = resolveFeedUrl(baseUrl, platform, oldVersion);
   const response = await fetchImpl(url, { method: 'GET' });
@@ -172,6 +199,13 @@ export function renderMarkdownReport(report) {
   return `${lines.join('\n')}\n`;
 }
 
+/**
+ * Release-gate entry point used by `pnpm run check:update-feed`.
+ *
+ * It probes selected platforms, writes JSON and Markdown evidence under
+ * `output/update-feed-validation/`, and returns `ok: false` for feed shape
+ * failures. Argument validation still throws before any network call.
+ */
 export async function validateUpdateFeed({
   baseUrl = DEFAULT_BASE_URL,
   oldVersion,
@@ -232,7 +266,7 @@ export async function validateUpdateFeed({
 }
 
 function printHelp() {
-  console.log(`Usage: npm run check:update-feed -- --old-version <x.y.z> [options]
+  console.log(`Usage: pnpm run check:update-feed -- --old-version <x.y.z> [options]
 
 Options:
   --base-url <url>           Update server base URL. Default: ${DEFAULT_BASE_URL}

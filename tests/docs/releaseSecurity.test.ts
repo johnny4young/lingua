@@ -46,7 +46,7 @@ describe('docs/RELEASE_SECURITY.md release security checklist (RL-092)', () => {
       'GITHUB_RELEASE_CHANNEL=draft',
       'license tokens',
       'payload redaction',
-      'npm run check:licenses',
+      'pnpm run check:licenses',
       'lingua-sbom.cyclonedx.json',
     ]) {
       expect(checklist).toContain(term);

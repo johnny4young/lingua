@@ -291,6 +291,12 @@ interface NotebookSessionState {
 
 const sessions = new Map<string, NotebookSessionState>();
 
+/**
+ * Allocate the sandbox only when the first cell actually runs. Notebook tabs
+ * can be created, renamed, rehydrated, and deleted without ever touching the
+ * runner layer; lazy allocation keeps those UI-only flows from pulling runtime
+ * state into memory and gives `disposeNotebookSession` a simple Map delete.
+ */
 function getOrCreateSession(tabId: string): NotebookSessionState {
   let state = sessions.get(tabId);
   if (!state) {
@@ -503,6 +509,9 @@ export function getNotebookSessionSnapshotForTests(
 function flattenStdoutText(
   entries: ReadonlyArray<{ args: string[] }> | undefined
 ): string[] {
+  // Runner stdout/stderr entries preserve console argument boundaries. Notebook
+  // output rows are line-oriented, so normalize each entry to the same joined
+  // text shape as the composed console capture path and enforce the same caps.
   if (!entries) return [];
   const lines: string[] = [];
   for (const entry of entries) {

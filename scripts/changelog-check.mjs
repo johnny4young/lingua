@@ -43,6 +43,12 @@ function tryNormalizeVersionText(value) {
   }
 }
 
+/**
+ * Compare stable MAJOR.MINOR.PATCH versions after accepting either raw `x.y.z`
+ * or release-tag `vx.y.z` text. Prerelease tags are intentionally rejected by
+ * `parseVersion` before comparison because the stable release workflow only
+ * accepts `vX.Y.Z`.
+ */
 export function compareVersions(left, right) {
   const a = parseVersion(left);
   const b = parseVersion(right);
@@ -58,6 +64,12 @@ export function parseTopChangelogVersion(changelogText) {
   return match?.[1] ?? null;
 }
 
+/**
+ * Shared policy engine for local `changelog:check` and release CI. It keeps
+ * package.json, the top CHANGELOG entry, the latest tag, and an optional
+ * requested release tag aligned, while allowing commits to opt out of
+ * user-facing release notes via `Changelog: none`.
+ */
 export function validateChangelogState({
   packageVersion,
   changelogText,
@@ -140,7 +152,7 @@ export function validateChangelogState({
 }
 
 function printHelp() {
-  console.log(`Usage: npm run changelog:check -- [--from <ref>] [--to <ref>] [--release-tag <vX.Y.Z>]
+  console.log(`Usage: pnpm run changelog:check -- [--from <ref>] [--to <ref>] [--release-tag <vX.Y.Z>]
 
 Checks that package.json, CHANGELOG.md, and the latest tag are not drifting.
 Use --release-tag in release automation to require an exact tag/version match.
@@ -163,6 +175,8 @@ export function main(argv = process.argv.slice(2), { cwd = repoRoot } = {}) {
     return 0;
   }
 
+  // Release CI passes both --release-tag and --from so this validates the exact
+  // tag being published without depending on whichever tag is latest locally.
   const releaseTag = values['release-tag'] ?? '';
   const latestTag = values.from ?? releaseTag ?? resolveLatestTag({ cwd });
   const packageJson = JSON.parse(

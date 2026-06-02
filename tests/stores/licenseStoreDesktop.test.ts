@@ -2,7 +2,7 @@
  * RL-059 Slice 0 — renderer licenseStore against the desktop IPC bridge.
  *
  * The store auto-detects `window.lingua.license` at module-load time. When
- * the bridge is present (packaged desktop / `npm run dev:desktop:pro`),
+ * the bridge is present (packaged desktop / `pnpm run dev:desktop:pro`),
  * every mutation flows through main and the renderer keeps a mirror of
  * the snapshot — no localStorage, no local verifier.
  *

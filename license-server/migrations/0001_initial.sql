@@ -10,9 +10,9 @@
 -- email and will populate the licenses + devices + trials tables.
 --
 -- Apply locally during development:
---   npm run migrations:apply:local
+--   pnpm run migrations:apply:local
 -- Apply against the production D1:
---   npm run migrations:apply:remote
+--   pnpm run migrations:apply:remote
 -- Both wrap `wrangler d1 migrations apply` against the binding declared in
 -- wrangler.toml.
 

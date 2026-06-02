@@ -43,6 +43,14 @@ import {
   type WorkflowMode,
 } from '../../shared/workflowMode';
 
+/**
+ * This store frequently strips optional tab fields via object rest
+ * destructuring (`const { field: _drop, ...rest } = tab`). The
+ * follow-up `void _drop` statements are intentional: they make the
+ * omission explicit to TypeScript/ESLint while preserving the runtime
+ * shape of the returned object.
+ */
+
 function runtimeModeForNewTab(
   language: Language,
   explicit?: RuntimeMode
@@ -929,10 +937,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   // override on a tab. `null` or a non-positive number clears the
   // field. Positive numbers are stored as-is and consumed at most
   // once by `executeTabManually`.
-  // RL-020 Slice 8 — write the per-tab Compare toggle. `null` clears
-  // the field (the toggle returns to disabled). No-op when the tab
-  // is missing. Mutual exclusion with `setTabVariableInspectorEnabled`
-  // is enforced here: turning Compare on forces Variables off.
+  /**
+   * RL-020 Slice 8/9 — write the per-tab Compare toggle. `null`
+   * clears the field (the toggle returns to disabled). Compare and
+   * Variables are mutually exclusive because both consume the result
+   * panel's focused inspection surface; enforce that invariant here
+   * so keyboard shortcuts, command palette actions, and UI buttons all
+   * share the same state transition.
+   */
   setTabCompareEnabled: (id, enabled) => {
     set((state) => ({
       tabs: state.tabs.map((t) => {
@@ -951,9 +963,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }));
   },
 
-  // RL-020 Slice 9 — write the per-tab Variables toggle. `null`
-  // clears the field. Mutually exclusive with `setTabCompareEnabled`:
-  // enabling Variables forces Compare off.
+  /**
+   * RL-020 Slice 9 — write the per-tab Variables toggle. `null`
+   * clears the field. Mutually exclusive with `setTabCompareEnabled`:
+   * enabling Variables forces Compare off. Unsupported runtimes no-op
+   * before clearing Compare so the user cannot lose a valid Compare
+   * view by trying to enable Variables on an ineligible tab.
+   */
   setTabVariableInspectorEnabled: (id, enabled) => {
     set((state) => ({
       tabs: state.tabs.map((t) => {

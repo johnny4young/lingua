@@ -639,7 +639,6 @@ export interface SettingsState {
    */
   variableInspectorScopeDepth: number;
   /**
-  /**
    * RL-042 Slice 6 — Ruby runtime dispatcher preference. `auto` (the
    * default) prefers the system `ruby` binary when detected and falls
    * back to the bundled `@ruby/wasm-wasi` worker otherwise. `system`
@@ -684,8 +683,20 @@ export interface SettingsState {
    * regardless of `hasCompletedOnboardingWelcome`.
    */
   onboardingWelcomeSeedVersion: number;
+  /**
+   * App locale preference. `'system'` delegates to browser/OS locale; concrete
+   * values pin the UI language and are mirrored through i18next on boot.
+   */
   language: AppLanguage;
+  /**
+   * Last product version for the "what's new" surface. `null` means the user
+   * has not acknowledged any release note version yet.
+   */
   lastSeenVersion: string | null;
+  /**
+   * True once the legacy guided tour reaches its final step. Kept separate from
+   * `suppressTourAutoStart` so a skipped tour can be re-enabled later.
+   */
   hasCompletedTour: boolean;
   /**
    * When true, the guided tour is never auto-started on app launch. Set when

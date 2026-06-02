@@ -5,7 +5,7 @@
  * and the output is snapshotted to `__snapshots__/`. A copy or
  * structure drift on any template fails the snapshot loud — the
  * maintainer reviewing a PR sees the exact diff and either
- * approves it (running `npx vitest -u` to update) or pushes back.
+ * approves it (running `pnpm exec vitest -u` to update) or pushes back.
  *
  * No DOM-style HTML parsing — we treat the output as a pinned
  * string. The brittleness is intentional: emails are

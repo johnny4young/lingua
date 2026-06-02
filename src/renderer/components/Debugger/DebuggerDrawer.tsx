@@ -57,6 +57,8 @@ export function DebuggerDrawer({
   const drawerCollapsed = useDebuggerStore((state) => state.drawerCollapsed);
   const toggleDrawerCollapsed = useDebuggerStore((state) => state.toggleDrawerCollapsed);
   const allBreakpoints = useDebuggerStore((state) => state.breakpoints);
+  // Toolbar actions are global, even though drawer visibility and the
+  // summary pill stay scoped to the active editor tab.
   const allBreakpointCount = Object.keys(allBreakpoints).length;
   const allBreakpointsDisabled =
     allBreakpointCount > 0 &&
@@ -82,6 +84,8 @@ export function DebuggerDrawer({
     return count;
   });
 
+  // Keep unsupported languages and tabs with no debugger state from
+  // resizing the editor layout.
   if (!debuggerEnabled || !supportsDebugger) return null;
   if (!session && breakpointCount === 0) return null;
 
@@ -93,6 +97,8 @@ export function DebuggerDrawer({
     breakpointCount > 0 && enabledBreakpointCount === 0
       ? 'debugger.empty.noEnabled'
       : 'debugger.empty.ready';
+  // Some runtimes can pause without stack metadata; do not expose a
+  // step-out action that the worker cannot satisfy.
   const canStepOut = isPaused && (pausedFrame?.callStack.length ?? 0) > 0;
   const breakpointSummary =
     breakpointCount > 0
@@ -125,10 +131,14 @@ export function DebuggerDrawer({
 
   const sendResume = () => {
     postDebuggerMessage({ type: 'resume' });
+    // Optimistically clear the pause state so stale variables/callstack
+    // are not shown while the worker resumes execution.
     useDebuggerStore.getState().setPausedFrame(null);
   };
   const sendStep = (mode: 'over' | 'into' | 'out') => {
     postDebuggerMessage({ type: 'step', mode });
+    // A step command immediately invalidates the current frame; the
+    // worker will publish a fresh pause frame if execution stops again.
     useDebuggerStore.getState().setPausedFrame(null);
   };
   const detach = () => {
@@ -144,6 +154,8 @@ export function DebuggerDrawer({
     detachSession();
   };
   const toggleAllBreakpoints = () => {
+    // Bulk enable/disable intentionally spans every tab so a hidden
+    // breakpoint cannot keep surprising future runs.
     setAllBreakpointsEnabled(allBreakpointsDisabled);
   };
   const clearBreakpoints = () => {
@@ -325,6 +337,8 @@ export function DebuggerDrawer({
           {t(idleCopyKey)}
         </p>
       ) : (
+        // The branch is guarded by `isPaused`, so the non-null frame reads
+        // below reflect the runtime contract instead of optional UI state.
         <div
           id="debugger-drawer-body"
           className="grid min-h-0 flex-1 gap-3 overflow-auto px-4 pb-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)_minmax(0,1fr)]"

@@ -143,6 +143,9 @@ export const useProjectStore = create<ProjectState>()(
         let newWatchId: string | null = null;
         let nodes: FileTreeNode[];
         try {
+          // Activate the newly picked root only after both the initial tree and
+          // watcher attempt complete. Until then the previous project remains
+          // live, so a failed open cannot leave the app with no usable root.
           const entries = await window.lingua.fs.readdir(result.rootId, '');
           nodes = entriesToNodes(entries);
           newWatchId = unwrapWatchStart(
@@ -157,6 +160,9 @@ export const useProjectStore = create<ProjectState>()(
         }
 
         const { watchId, currentProject: previous } = get();
+        // The new root is ready; now retire the old watcher/capability. This
+        // ordering prevents a transient gap where editor tabs still point at
+        // a revoked root if `readdir` or `watchStart` failed above.
         if (watchId) {
           await window.lingua.fs.watchStop(watchId);
         }
@@ -197,6 +203,8 @@ export const useProjectStore = create<ProjectState>()(
         let activeRootPath: string;
 
         if (rootPath) {
+          // Recent-project rows persist only absolute paths. Main must re-mint
+          // a fresh root capability before the renderer can read that tree.
           const reopen = await window.lingua.fs.reopenRoot(rootPath);
           if (!reopen.ok) return;
           activeRootId = reopen.rootId;
@@ -221,6 +229,8 @@ export const useProjectStore = create<ProjectState>()(
         let newWatchId: string | null = null;
         let nodes: FileTreeNode[];
         try {
+          // Same activation contract as createProject(): prove the new root can
+          // be read and watched before revoking the old project capability.
           const entries = await window.lingua.fs.readdir(activeRootId, '');
           nodes = entriesToNodes(entries);
           newWatchId = unwrapWatchStart(
@@ -276,6 +286,8 @@ export const useProjectStore = create<ProjectState>()(
       refreshTree: async () => {
         const { currentProject, nodes } = get();
         if (!currentProject) return;
+        // Preserve expansion by relative path, then rebuild those subtrees from
+        // disk. The store deliberately reuses rootId, never absolute paths.
         const expandedPaths = new Set(collectExpandedPaths(nodes));
         const nextNodes = await loadNodesForDirectory(
           currentProject.rootId,

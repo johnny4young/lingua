@@ -39,9 +39,15 @@ import type {
 import { NODE_TOOLCHAIN_KEYS, buildNativeRunnerEnv } from './runners/nativeEnv';
 import { resolveNodeCwd } from './node-runner';
 
+// This is intentionally npm-name strict, not package-manager generic:
+// the installed dependency belongs to the user's JS/TS project and the
+// child process below always invokes the user's `npm` binary. Repo
+// maintenance commands still use pnpm; do not rewrite this path to
+// `pnpm add` unless the product decision changes.
+//
 // Keep `-` last in each character class so it is treated as a literal
-// hyphen. This shape is npm-name strict: lowercase / digits / dot /
-// underscore / hyphen, with an optional `@scope/` prefix.
+// hyphen. Shape: lowercase / digits / dot / underscore / hyphen, with
+// an optional `@scope/` prefix.
 const SAFE_PACKAGE_NAME_RE = /^(?:@[a-z0-9][a-z0-9_.-]*\/)?[a-z0-9][a-z0-9_.-]*$/iu;
 
 export type DependencyResolveStatus = 'installed' | 'detected' | 'invalid';
@@ -314,6 +320,10 @@ export async function installJsDependencyBatch(
 
   const env = buildNativeRunnerEnv([...NODE_TOOLCHAIN_KEYS], undefined);
 
+  // Product install command, not repository setup. `npm install --save`
+  // matches the copy shown in the dependency panel and the broadest
+  // JavaScript project default; argv is fixed here so no renderer value
+  // can add flags such as `--global`, `--prefix`, or lifecycle bypasses.
   const argv = [
     'install',
     ...toInstall,

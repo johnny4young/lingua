@@ -26,6 +26,10 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`stores/`](stores)         | Zustand stores and pure helpers that own renderer state                   |
 | [`hooks/`](hooks)           | React hooks that coordinate stores, runners, shortcuts, and shell effects |
 | [`runners/`](runners)       | Language-specific execution adapters and result shaping                   |
+| [`runtime/`](runtime)       | Cross-surface runtime orchestration: manual run, notebooks, debugger, HTTP/SQL clients, capsule builders |
+| [`services/`](services)     | Renderer-side HTTP clients for license, trial, education, recovery, update, and web dependency flows |
+| [`languageSupport/`](languageSupport) | Declarative editor/language descriptors consumed by Monaco and language intelligence |
+| [`languageIntelligence/`](languageIntelligence) | Renderer adapters for diagnostics, completion, hover, and signature help |
 | [`validation/`](validation) | Validate-only document checks for non-runnable development files          |
 | [`workers/`](workers)       | Web Worker entry points for JS/TS/Python/Go browser execution             |
 | [`utils/`](utils)           | Framework-agnostic helpers and renderer-specific utilities                |
@@ -33,6 +37,10 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [`i18n/`](i18n)             | Translation bootstrap and locale files                                    |
 | [`themes/`](themes)         | Monaco/editor theme definitions                                           |
 | [`plugins/`](plugins)       | Renderer-side plugin catalog, diagnostics, and safe runtime hooks         |
+| [`onboarding/`](onboarding) | First-run scratchpad seed and guided-start helpers                        |
+| [`testing/`](testing)       | Test-only renderer harness helpers                                        |
+| [`types/`](types)           | Renderer-local type declarations that should not leak into shared code    |
+| [`devShowcase/`](devShowcase) | Local visual/system showcase utilities, not product runtime code        |
 
 ## Component surfaces
 
@@ -41,14 +49,37 @@ The renderer is intentionally split by feature instead of by component type.
 | Feature folder                                                                                                    | Main files                                            | Notes                                                          |
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
 | [`components/Layout/`](components/Layout)                 | `AppLayout.tsx`                                       | Owns shell composition, panel layout, sidebar/drawer behavior  |
+| [`components/Chrome/`](components/Chrome)                 | `AppChrome.tsx`                                       | App-level chrome frame and shell wrapper primitives            |
 | [`components/Editor/`](components/Editor)                 | `CodeEditor.tsx`, `EditorTabs.tsx`, `ResultPanel.tsx` | Owns Monaco, tabs, inline result surface, completion providers |
+| [`components/ErrorBoundary/`](components/ErrorBoundary)   | `ErrorBoundary.tsx`                                   | Render-crash containment and fallback surfaces                 |
 | [`components/FileTree/`](components/FileTree)             | `FileTree.tsx`, `FileTreeNode.tsx`                    | Owns project explorer rendering and inline tree interactions   |
 | [`components/Toolbar/`](components/Toolbar)               | `Toolbar.tsx`                                         | Owns primary shell actions and status affordances              |
 | [`components/Settings/`](components/Settings)             | `SettingsModal.tsx` plus section files                | Split by settings domain instead of one monolith               |
 | [`components/CommandPalette/`](components/CommandPalette) | `CommandPalette.tsx`, `commandPaletteModel.ts`        | UI plus command catalog/model logic                            |
 | [`components/Console/`](components/Console)               | `ConsolePanel.tsx`                                    | Runtime logs, filters, output actions                          |
-| [`components/QuickOpen/`](components/QuickOpen)           | `QuickOpen.tsx`                                       | Project file search and open flows                             |
+| [`components/GuidedTour/`](components/GuidedTour)         | `GuidedTourProvider.tsx`, step helpers                | First-run tour orchestration and target selectors              |
+| [`components/Notebook/`](components/Notebook)             | `NotebookView.tsx`, cell row components               | Notebook cells, keyboard command mode, export-to-script flow   |
+| [`components/DeveloperUtilities/`](components/DeveloperUtilities) | utility panel files                           | 29 utility panels plus panel-specific validation/output UX      |
+| [`components/Dependencies/`](components/Dependencies)     | `DependenciesPanel.tsx`                               | JS/TS and Python dependency detection/install surfaces          |
+| [`components/BrowserPreview/`](components/BrowserPreview) | `BrowserPreviewPanel.tsx`                             | Iframe preview panel and active iframe bridge integration       |
+| [`components/Debugger/`](components/Debugger)             | `DebuggerDrawer.tsx`                                  | JS/TS debugger drawer controls and paused-frame display         |
+| [`components/HttpWorkspace/`](components/HttpWorkspace)   | `HttpWorkspacePanel.tsx`                              | HTTP request workspace, response preview, capsule creation      |
+| [`components/ImportPreview/`](components/ImportPreview)   | `ImportPreviewOverlay.tsx`, `ImportPreviewBody.tsx`   | cURL, `.ipynb`, Postman, and Bruno preview before opening workspace tabs |
+| [`components/KeyboardShortcuts/`](components/KeyboardShortcuts) | `KeyboardShortcutsModal.tsx`                   | Shortcut editor modal and preset import/export UI              |
+| [`components/NativeExecutionWarning/`](components/NativeExecutionWarning) | `NativeExecutionWarning.tsx`             | Desktop-native runtime warning copy                            |
+| [`components/SqlWorkspace/`](components/SqlWorkspace)     | `SqlWorkspacePanel.tsx`                               | DuckDB SQL workspace, schema browser, result preview            |
+| [`components/CapsuleImport/`](components/CapsuleImport)   | `CapsuleImportOverlay.tsx`                            | Run Capsule import validation and open/focus routing            |
+| [`components/CapsuleList/`](components/CapsuleList)       | `CapsuleListOverlay.tsx`                              | Capsule browsing, filters, and replay affordances              |
+| [`components/ProjectSearch/`](components/ProjectSearch)   | `ProjectSearch.tsx`                                   | Project-wide search, result selection, and reveal routing      |
+| [`components/ProjectReplace/`](components/ProjectReplace) | `ProjectReplaceOverlay.tsx`                           | Project-wide replacement preview/apply flow                    |
+| [`components/ProjectBundle/`](components/ProjectBundle)   | bundle import/export overlays                         | Project bundle import/export UX                                |
+| [`components/GoToSymbol/`](components/GoToSymbol)         | `GoToSymbol.tsx`                                      | Current-document symbol filtering and same-tab reveal routing  |
+| [`components/QuickOpen/`](components/QuickOpen)           | `QuickOpen.tsx`                                       | Open-tab, recent-file, and project-index file navigation       |
+| [`components/Share/`](components/Share)                   | `ShareLinkButton.tsx`, confirmation modal             | Share-link generation affordances and copied-link feedback      |
 | [`components/Snippets/`](components/Snippets)             | `SnippetsModal.tsx`                                   | Snippet browser and insert flow                                |
+| [`components/StatusNotice/`](components/StatusNotice)     | `StatusNoticeBanner.tsx`                              | Global status-notice banner rendering                          |
+| [`components/Welcome/`](components/Welcome)               | welcome/project template overlays                     | Empty-state entry points and project template launcher          |
+| [`components/Recipes/`](components/Recipes)               | `RecipesOverlay.tsx`, `RecipeRunPanel.tsx`            | Recipe browser, tab binding, assertion runner panel            |
 | [`components/ui/`](components/ui)                         | `chrome.tsx`, `keyboard.ts`                           | Shared presentational primitives only                          |
 
 ## State ownership
@@ -57,14 +88,31 @@ Use the closest store that already owns the product concept instead of adding cr
 
 | Store                                                                                               | Owns                                                              |
 | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [editorStore.ts](stores/editorStore.ts)     | tabs, active editor session, file/language metadata               |
-| [resultStore.ts](stores/resultStore.ts)     | inline results, validation markers, result timing, reveal behavior |
+| [editorStore.ts](stores/editorStore.ts)     | tabs, active editor session, file/language metadata, pending reveal requests |
+| [resultStore.ts](stores/resultStore.ts)     | inline results, diagnostics, run timing, compare snapshots, variable scope |
 | [consoleStore.ts](stores/consoleStore.ts)   | console entries and runtime output filters                        |
 | [projectStore.ts](stores/projectStore.ts)   | active project lifecycle and explorer tree state                  |
-| [settingsStore.ts](stores/settingsStore.ts) | persisted renderer preferences                                    |
-| [uiStore.ts](stores/uiStore.ts)             | transient shell visibility and modal state                        |
+| [notebookStore.ts](stores/notebookStore.ts) | per-tab notebook cells, outputs, transient run state, active cell |
+| [dependencyDetectionStore.ts](stores/dependencyDetectionStore.ts) | per-tab dependency detection cache, install state, streamed install logs |
+| [gitStore.ts](stores/gitStore.ts)           | git posture, per-file status cache, HEAD-change updates           |
+| [executionHistoryStore.ts](stores/executionHistoryStore.ts) | run history, snapshots, capsules, comparison anchors             |
+| [debuggerStore.ts](stores/debuggerStore.ts) | debugger breakpoints, paused frames, watch/logpoint state         |
+| [licenseStore.ts](stores/licenseStore.ts)   | license token, verification status, device/recovery metadata      |
+| [envVarsStore.ts](stores/envVarsStore.ts)   | execution environment-variable tiers and validation state         |
+| [workspaceSqlStore.ts](stores/workspaceSqlStore.ts) | SQL workspace drafts, schema/result state                         |
+| [workspaceToolStore.ts](stores/workspaceToolStore.ts) | HTTP/tool workspace drafts and active workspace metadata          |
+| [goLanguageStore.ts](stores/goLanguageStore.ts), [rustLanguageStore.ts](stores/rustLanguageStore.ts), [lspLanguageStoreFactory.ts](stores/lspLanguageStoreFactory.ts) | desktop LSP detection/status state for Go and Rust |
+| [nativeExecutionGateStore.ts](stores/nativeExecutionGateStore.ts) | per-language native execution warning acknowledgements            |
+| [projectIndexStore.ts](stores/projectIndexStore.ts), [recentFilesStore.ts](stores/recentFilesStore.ts) | project indexing and recent-file ordering                         |
+| [sessionStore.ts](stores/sessionStore.ts) | persisted editor-session snapshot and restore translation          |
+| [settingsStore.ts](stores/settingsStore.ts) | sanitized persisted preferences, theme/keymap packs, consent and onboarding flags |
+| [uiStore.ts](stores/uiStore.ts)             | transient shell visibility, status notices, bottom panel, floating positions |
 | [updateStore.ts](stores/updateStore.ts)     | updater status, messages, last-check timing                       |
 | [pluginStore.ts](stores/pluginStore.ts)     | local plugin discovery and diagnostics surface                    |
+| [projectSearchStore.ts](stores/projectSearchStore.ts) / [projectReplaceStore.ts](stores/projectReplaceStore.ts) | project-wide search and replacement sessions |
+| [snippetsStore.ts](stores/snippetsStore.ts), [recipeStore.ts](stores/recipeStore.ts), [lessonProgressStore.ts](stores/lessonProgressStore.ts) | user-created snippets, built-in recipe state, guided lesson progress |
+| [trustEventStore.ts](stores/trustEventStore.ts) | Privacy + Trust event ledger surfaced in Settings                  |
+| [utilityHistoryStore.ts](stores/utilityHistoryStore.ts), [utilityOutputStore.ts](stores/utilityOutputStore.ts), [utilityPipelineStore.ts](stores/utilityPipelineStore.ts) | Developer Utilities history, output, and pipeline state |
 
 ## Naming conventions
 
@@ -171,9 +219,19 @@ If you add a new global class, place it in the closest subsection instead of app
 Touch these areas together:
 
 - [`hooks/useRunner.ts`](hooks/useRunner.ts)
+- [`runtime/executeTabManually.ts`](runtime/executeTabManually.ts)
 - [`stores/resultStore.ts`](stores/resultStore.ts)
 - the relevant file in [`runners/`](runners)
 - [`utils/executionPresentation.ts`](utils/executionPresentation.ts) when output formatting changes
+
+### Change notebook behavior
+
+Touch these areas together:
+
+- [`components/Notebook/`](components/Notebook) for visible cell, toolbar, command-mode, and export UX
+- [`stores/notebookStore.ts`](stores/notebookStore.ts) for cells, outputs, transient run state, active cell, and persistence
+- [`runtime/notebookSession.ts`](runtime/notebookSession.ts) for shared sandbox and per-cell execution semantics
+- [`hooks/useNotebookRun.ts`](hooks/useNotebookRun.ts) for run-all/run-above orchestration, timing, telemetry, and variable-flow chips
 
 ### Change editor behavior
 
@@ -183,6 +241,15 @@ Touch these areas together:
 - [`components/Editor/editorOptions.ts`](components/Editor/editorOptions.ts)
 - [`monaco.ts`](monaco.ts)
 - completion providers in [`components/Editor/completionProviders/`](components/Editor/completionProviders)
+
+### Change file or project navigation
+
+Touch these areas together:
+
+- [`components/QuickOpen/`](components/QuickOpen) for open-tab, recent-file, and project-index navigation UX
+- [`components/ProjectSearch/`](components/ProjectSearch) and [`components/ProjectReplace/`](components/ProjectReplace) for project-wide content search flows
+- [`stores/projectIndexStore.ts`](stores/projectIndexStore.ts), [`hooks/useProjectIndexSync.ts`](hooks/useProjectIndexSync.ts), and [`stores/recentFilesStore.ts`](stores/recentFilesStore.ts) for index freshness and recency ordering
+- [`stores/projectStore.ts`](stores/projectStore.ts) when the change touches root capabilities, file-tree lifecycle, or watcher behavior
 
 ### Change shell or modal behavior
 
@@ -203,8 +270,13 @@ Keep tests close to the behavior they validate, even though the repository uses 
 | Shell layout and modal behavior         | `tests/components/AppLayout.test.tsx`, relevant modal tests                   |
 | Settings UX                             | `tests/components/SettingsModal.test.tsx` plus section-specific tests         |
 | File/project tree logic                 | `tests/stores/projectStore.test.ts`, tree-related component tests             |
+| File/project navigation                 | `tests/components/QuickOpen.test.tsx`, `tests/components/ProjectSearch.test.tsx`, `tests/hooks/useProjectIndexSync.test.tsx`, `tests/stores/projectIndexStore.test.ts`, `tests/stores/recentFilesStore.test.ts` |
 | Execution formatting and inline results | `tests/utils/executionPresentation.test.ts`, runner tests, result panel tests |
-| i18n copy plumbing                      | `npm run check:i18n` and `npm run check:i18n:copy`                            |
+| Notebook behavior                       | `tests/stores/notebookStore.test.ts`, `tests/renderer/runtime/notebookSession.test.ts`, `tests/hooks/useNotebookRun.test.ts`, `tests/components/Notebook/*` |
+| HTTP / SQL workspaces                   | `tests/renderer/runtime/httpClient.test.ts`, `tests/renderer/runtime/duckdbClient.test.ts`, workspace component tests |
+| Language intelligence                   | `tests/languageIntelligence/*.test.ts`, `tests/languageSupportRegistry.test.ts` |
+| Licensing / server services             | `tests/services/*.test.ts`, license section/device component tests            |
+| i18n copy plumbing                      | `pnpm run check:i18n` and `pnpm run check:i18n:copy`                          |
 
 ## Anti-patterns to avoid
 

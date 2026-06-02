@@ -93,6 +93,8 @@ export function collapseAll(
 }
 
 export function entriesToNodes(entries: FsDirEntry[]): FileTreeNode[] {
+  // Main already returns entries sorted and filtered for the active root. The
+  // renderer converts them into tree nodes without storing absolute paths.
   return entries.map((entry) => ({
     name: entry.name,
     path: entry.relativePath,
@@ -122,6 +124,8 @@ export async function loadNodesForDirectory(
   const entries = await window.lingua.fs.readdir(rootId, relativePath);
   const nodes = entriesToNodes(entries);
 
+  // Recurse only into directories that were expanded before refresh. This
+  // keeps refresh proportional to the visible tree, not the whole project.
   return Promise.all(
     nodes.map(async (node) => {
       if (!node.isDirectory || !expandedPaths.has(node.path)) {

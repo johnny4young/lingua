@@ -38,6 +38,8 @@ const RELOAD_NOTICE_DEBOUNCE_MS = 500;
 const RELOAD_BATCH_THRESHOLD = 3;
 
 function collectFilePaths(nodes: ReadonlyArray<FileTreeNode>): Set<string> {
+  // Snapshot only loaded file nodes. Unexpanded subtrees are intentionally
+  // absent, so deletion checks must pair this with collectLoadedDirs().
   const out = new Set<string>();
   const walk = (list: ReadonlyArray<FileTreeNode>): void => {
     for (const node of list) {
@@ -173,6 +175,9 @@ function maybeScheduleReloadNotice(
   if (event.filename === null) return;
 
   const { tabs } = useEditorStore.getState();
+  // Match by rootId + relativePath, never by display path. Recent-file tabs
+  // and project tabs may share names, but only the active root capability
+  // identifies the file that the watcher event came from.
   const match = tabs.find(
     (tab) =>
       tab.rootId === event.rootId &&
@@ -386,6 +391,9 @@ export function useProjectWatchSync(): void {
         window.clearTimeout(refreshTimerRef.current);
       }
 
+      // Every watch event remains an invalidation signal for the tree. The
+      // reload notice above handles open-file content; this debounced path
+      // keeps explorer/search state coherent for creates, deletes, and renames.
       refreshTimerRef.current = window.setTimeout(async () => {
         refreshTimerRef.current = null;
         const { currentProject, refreshTree } = useProjectStore.getState();
@@ -393,6 +401,8 @@ export function useProjectWatchSync(): void {
           return;
         }
 
+        // Capture loaded dirs before refresh so a deleted loaded directory can
+        // still mark its open child tabs as stale after the tree disappears.
         const previousTree = {
           rootId: currentProject.rootId,
           loadedDirs: collectLoadedDirs(useProjectStore.getState().nodes),

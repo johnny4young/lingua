@@ -116,7 +116,7 @@ if (!verified) {
 console.log(`✓ verify() succeeded — keypair is internally consistent`);
 
 console.log(`\n✓✓ keypair file is valid end-to-end. If wrangler still rejects:`);
-console.log(`   1. Check secrets are deployed: cd license-server && npx wrangler secret list`);
+console.log(`   1. Check secrets are deployed: cd license-server && pnpm exec wrangler secret list`);
 console.log(`   2. Re-upload BOTH secrets via stdin (jq -r, NOT -c)`);
-console.log(`   3. Re-deploy: npx wrangler deploy`);
+console.log(`   3. Re-deploy: cd license-server && pnpm run deploy`);
 console.log(`   4. Wait 30s for edge propagation, then re-run smoke`);

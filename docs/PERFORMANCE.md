@@ -3,12 +3,12 @@
 Lingua tracks performance as an engineering/release surface, not as a
 user-facing app panel. The current gate is intentionally dev/CI only:
 
-- `npm run performance:report` prints a table and writes
+- `pnpm run performance:report` prints a table and writes
   `output/performance/performance-report.{json,md}`.
-- `npm run check:performance` compares the current build against
+- `pnpm run check:performance` compares the current build against
   `docs/performance/baseline.json` and exits non-zero on budget
   violations.
-- `npm run performance:baseline` refreshes the committed baseline from
+- `pnpm run performance:baseline` refreshes the committed baseline from
   the build outputs currently on disk.
 
 ## What is measured
@@ -59,8 +59,8 @@ The baseline stores current measurements plus conservative headroom:
 - `runtime`: strict; change only when the runtime asset version changes
 - `other`: baseline + 10%
 
-Normal CI runs `npm run performance:report` after `npm run build:web` so
-reviewers can see the table in logs, then runs `npm run check:performance`
+Normal CI runs `pnpm run performance:report` after `pnpm run build:web` so
+reviewers can see the table in logs, then runs `pnpm run check:performance`
 as the explicit blocking budget gate for build outputs that exist on disk.
 A strict release/local check can require every baseline target with:
 
@@ -74,23 +74,23 @@ Refresh the baseline only when a reviewed feature intentionally changes
 bundle/runtime size.
 
 ```bash
-npm run build:web
-npm run smoke:desktop
-npm run performance:baseline
-npm run check:performance
+pnpm run build:web
+pnpm run smoke:desktop
+pnpm run performance:baseline
+pnpm run check:performance
 ```
 
 `performance:baseline` requires every versioned target to exist so a
 web-only refresh cannot accidentally delete desktop renderer budgets.
 Use `performance:report` for a non-mutating web-only report; it still
 marks the desktop renderer as unavailable when that build output is not
-present. Run `npm run smoke:desktop` before `performance:report` when
+present. Run `pnpm run smoke:desktop` before `performance:report` when
 you want the runtime observability section populated from a fresh smoke
 artifact.
 
 ## Investigating regressions
 
-1. Run `npm run performance:report`.
+1. Run `pnpm run performance:report`.
 2. Open `output/performance/performance-report.md`.
 3. Check the largest-assets list for the category that regressed.
 4. Check the Runtime Observability section for launch-to-smoke-ready,
@@ -103,21 +103,21 @@ artifact.
 
 ## Manual test
 
-1. Run `npm run build:web`.
-2. Run `npm run performance:report`.
+1. Run `pnpm run build:web`.
+2. Run `pnpm run performance:report`.
 3. Confirm the terminal shows a table with initial bundles, lazy
    chunks, workers, runtime assets, and utilities.
 4. Open `output/performance/performance-report.json` and confirm it
    contains `generatedAt`, `budgets`, `measurements`, `violations`, and
    `runtimeObservability`.
-5. Run `npm run check:performance` and confirm it passes against the
+5. Run `pnpm run check:performance` and confirm it passes against the
    committed baseline.
-6. Run `npm run smoke:desktop`.
+6. Run `pnpm run smoke:desktop`.
 7. Open `output/playwright/desktop-smoke/desktop-smoke-performance.json`
    and confirm it includes launch-to-smoke-ready, first editor
    interaction, JS, TS, Python timings, and memory snapshots or an
    `unsupported` memory result.
-8. Run `npm run performance:report` again and confirm
+8. Run `pnpm run performance:report` again and confirm
    `output/performance/performance-report.md` includes the Runtime
    Observability section populated from the desktop smoke artifact.
 9. Confirm Pyodide and Developer Utilities assets are not listed as

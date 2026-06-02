@@ -10,6 +10,13 @@ const DESKTOP_SMOKE_FLAG = '--lingua-desktop-smoke';
 const SMOKE_ARTIFACT_DIR_PREFIX = '--lingua-smoke-artifact-dir=';
 const SMOKE_LAUNCHED_AT_ENV = 'LINGUA_SMOKE_LAUNCHED_AT_MS';
 
+/**
+ * Desktop smoke IPC is opt-in only. The handlers are registered in every
+ * desktop boot, but each side-effectful operation below checks this gate before
+ * capturing screenshots, writing files, or exiting the app. That keeps the
+ * preload surface inert for normal production sessions while still letting the
+ * packaged release smoke reuse the real app binary.
+ */
 function isDesktopSmokeEnabled(): boolean {
   return (
     process.env.LINGUA_DESKTOP_SMOKE === '1' ||
@@ -22,7 +29,7 @@ function isDesktopSmokeEnabled(): boolean {
  * launched against a release artifact (the `.app` bundle on macOS),
  * we run a reduced 2-case subset (javascript + python) instead of the
  * full 9-case matrix. The full matrix already runs against the dev
- * server in `npm run smoke:desktop`; the packaged run is a release
+ * server in `pnpm run smoke:desktop`; the packaged run is a release
  * gate that proves the binary boots and the runtime-critical paths
  * (renderer load + Pyodide vendored offline) still work end-to-end.
  */
@@ -47,6 +54,12 @@ function getLaunchedAtMs(): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+/**
+ * Artifact names originate in renderer-side smoke case labels. Keep filenames
+ * deterministic and path-free before joining them with the harness-provided
+ * artifact directory; the directory itself is resolved separately by
+ * `getArtifactDir()`.
+ */
 function sanitizeArtifactName(name: string): string {
   return name
     .trim()
@@ -66,6 +79,8 @@ async function ensureArtifactDir(): Promise<string | null> {
 }
 
 export function registerDesktopSmokeHandlers(): void {
+  // Read-only config is safe to expose even when the smoke is disabled; callers
+  // use `enabled` to decide whether to continue the scripted run.
   ipcMain.handle('desktop-smoke:get-config', async () => {
     const launchedAtMs = getLaunchedAtMs();
 
@@ -78,6 +93,9 @@ export function registerDesktopSmokeHandlers(): void {
     };
   });
 
+  // Offline blocking evidence is only meaningful during the offline smoke. A
+  // disabled run gets an empty list instead of stale state from a previous app
+  // launch.
   ipcMain.handle('desktop-smoke:get-offline-blocks', async () => {
     if (!isDesktopSmokeEnabled() || !isOfflineSmokeRequested()) {
       return [];
@@ -159,6 +177,8 @@ export function registerDesktopSmokeHandlers(): void {
       return;
     }
 
+    // Let the renderer finish sending its final IPC response before terminating
+    // the process. Exiting synchronously here can truncate the harness summary.
     setImmediate(() => {
       app.exit(success ? 0 : 1);
     });

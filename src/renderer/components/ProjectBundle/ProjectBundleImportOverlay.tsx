@@ -35,11 +35,15 @@ export function ProjectBundleImportOverlay({
 }: ProjectBundleImportOverlayProps) {
   const { t } = useTranslation();
   const { importProjectBundle } = useProjectBundle();
+  // Keep the latest close callback available to async confirm handlers
+  // without making the import callback churn on every parent render.
   const closeRef = useRef(onClose);
   useEffect(() => {
     closeRef.current = onClose;
   }, [onClose]);
 
+  // `bytes` are the exact payload sent to the main process; `preview`
+  // is renderer-only advisory state produced from the same byte array.
   const [bytes, setBytes] = useState<Uint8Array | null>(null);
   const [preview, setPreview] = useState<UnpackBundleResult | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -51,6 +55,8 @@ export function ProjectBundleImportOverlay({
       const buffer = await file.arrayBuffer();
       const next = new Uint8Array(buffer);
       setBytes(next);
+      // Preview failures stay local so users can correct the file before
+      // the authoritative main-process import prompts for a destination.
       setPreview(unpackBundle(next));
     } catch {
       setBytes(null);
@@ -65,6 +71,8 @@ export function ProjectBundleImportOverlay({
   const handleFilePicked = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
+      // Reset the hidden input so choosing the same zip twice still
+      // emits a change event after a failed preview.
       event.target.value = '';
       if (!file) return;
       void ingestFile(file);
@@ -74,6 +82,8 @@ export function ProjectBundleImportOverlay({
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     const hasFiles = Array.from(event.dataTransfer.types).includes('Files');
+    // Ignore text/URL drags; only file drags should capture the modal's
+    // drop zone or show the import ring.
     if (!hasFiles) return;
     event.preventDefault();
     setIsDragOver(true);
@@ -104,6 +114,8 @@ export function ProjectBundleImportOverlay({
     if (!bytes || !decoded || importing) return;
     setImporting(true);
     try {
+      // Main re-validates zip-slip, zip-bomb, and size caps before writing;
+      // the renderer preview is never treated as sufficient authority.
       await importProjectBundle(bytes);
     } finally {
       setImporting(false);

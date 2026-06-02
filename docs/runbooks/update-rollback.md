@@ -43,7 +43,7 @@ Most users haven't received the auto-update yet. Pull the bad release before the
    ```
    Then validate the desktop feed evidence:
    ```bash
-   npm run check:update-feed -- --old-version <old_tag>
+   pnpm run check:update-feed -- --old-version <old_tag>
    ```
 4. Tail logs to confirm clients are no longer being served the bad version:
    ```bash
@@ -97,7 +97,7 @@ For pre-update users, point at the marketing-site banner.
 1. `https://updates.linguacode.dev/update/darwin/<previous_tag>` returns `204` (no update available — they're already current).
 2. `https://updates.linguacode.dev/update/darwin/<old_tag>` returns the GOOD release, not the rolled-back one.
 3. `https://updates.linguacode.dev/web/version` returns the good tag.
-4. `npm run check:update-feed -- --old-version <old_tag>` writes
+4. `pnpm run check:update-feed -- --old-version <old_tag>` writes
    `output/update-feed-validation/update-feed-validation.json` without the bad
    version in the evidence.
 5. Crash report rate returns to baseline within 1h (auto-update window) for the rolled-back cohort.

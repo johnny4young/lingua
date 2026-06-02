@@ -43,4 +43,8 @@ describe('forge config', () => {
     expect(makerSquirrelBlock).toContain('...windowsSign');
     expect(makerSquirrelBlock).not.toContain('certificateFile: process.env.WIN_CERT_FILE');
   });
+
+  it('fails macOS packaging immediately when codesign fails', () => {
+    expect(FORGE_CONFIG_SOURCE).toContain('continueOnError: false');
+  });
 });

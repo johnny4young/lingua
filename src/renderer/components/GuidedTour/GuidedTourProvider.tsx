@@ -68,6 +68,11 @@ function toTargetRect(rect: DOMRect): GuidedTourTargetRect {
   };
 }
 
+/**
+ * Position the tour card near the highlighted element while keeping it inside
+ * the viewport. The panel height is an estimate because copy length changes by
+ * locale; the final clamp is the safety rail that prevents offscreen controls.
+ */
 function calculatePanelStyle(
   targetRect: GuidedTourTargetRect | null,
   placement: GuidedTourPlacement | null
@@ -125,6 +130,10 @@ function calculatePanelStyle(
   };
 }
 
+/**
+ * Expand the visible spotlight beyond the target element so focus rings and
+ * small toolbar buttons do not feel clipped by the overlay cutout.
+ */
 function calculateSpotlightStyle(targetRect: GuidedTourTargetRect): CSSProperties {
   return {
     height: Math.max(0, targetRect.height + TARGET_PADDING * 2),
@@ -223,6 +232,9 @@ function GuidedTourRuntime({
       return;
     }
 
+    // A step can run async setup (opening panels, palettes, snippets) before
+    // its target exists. Keep a cancellation flag so a fast skip/next does not
+    // apply a stale rectangle or highlight class after the step has changed.
     let cancelled = false;
     let highlightedElement: HTMLElement | null = null;
 
@@ -278,6 +290,9 @@ function GuidedTourRuntime({
       return;
     }
 
+    // Some steps advance after the user interacts with a target rendered by a
+    // different overlay. Capture the step index when the listener is installed
+    // so delayed events cannot advance a newer step accidentally.
     let cancelled = false;
     let element: HTMLElement | null = null;
     const { event, selector } = activeStep.advanceOn;
@@ -314,6 +329,9 @@ function GuidedTourRuntime({
 
     useUIStore.getState().openBottomPanel('console');
 
+    // `startTour` can be called by Settings, the command palette, and
+    // first-run choreography. If a tour is already active, leave the current
+    // step in control instead of restarting underneath the user.
     if (activeStepIndexRef.current !== null) {
       return;
     }

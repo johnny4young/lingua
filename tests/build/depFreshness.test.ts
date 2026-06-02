@@ -7,7 +7,7 @@
  *   - npm view is a network call (flake-prone in CI on cold runners)
  *   - the guard is intended for periodic maintenance checks, not
  *     every PR. Run via:
- *       LINGUA_CHECK_FRESHNESS=1 npm test -- --run tests/build/depFreshness.test.ts
+ *       LINGUA_CHECK_FRESHNESS=1 pnpm test -- --run tests/build/depFreshness.test.ts
  *
  * Hold-back exemptions live in HELD_BACK below — packages with a
  * documented reason to stay on a previous major (cross-link the
@@ -27,6 +27,7 @@ interface PackageJson {
 
 const ROOT = resolve(__dirname, '../..');
 const PACKAGE_JSON_PATH = resolve(ROOT, 'package.json');
+const PNPM_LOCK_PATH = resolve(ROOT, 'pnpm-lock.yaml');
 const PNPM_WORKSPACE_PATH = resolve(ROOT, 'pnpm-workspace.yaml');
 
 // Documented hold-backs: package -> reason. When you add an entry,
@@ -92,10 +93,12 @@ describe('dependency override hygiene', () => {
     const workspace = readFileSync(PNPM_WORKSPACE_PATH, 'utf-8');
     expect(workspace).toMatch(/["']?yauzl["']?:\s*["']3\.3\./u);
 
-    const rootYauzl = JSON.parse(
-      readFileSync(resolve(ROOT, 'node_modules/yauzl/package.json'), 'utf-8')
-    ) as { version?: string };
-    expect(rootYauzl.version).toMatch(/^3\./u);
+    // Do not read node_modules here: pnpm can leave local trees stale until a
+    // full relink, while CI installs from the lockfile. The lock is the
+    // release-build source of truth for this transitive override.
+    const lockfile = readFileSync(PNPM_LOCK_PATH, 'utf-8');
+    expect(lockfile).toMatch(/^\s+yauzl@3\.3\.1:/mu);
+    expect(lockfile).not.toMatch(/^\s+yauzl@2\./mu);
   });
 });
 

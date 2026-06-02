@@ -15,7 +15,7 @@
  * Devices section will not render on desktop because `serverSync`
  * stays `'disabled'` and `devices` stays `null`. To exercise the
  * full server-aware path today, use the web build with
- * `npm run build:web` + paste a real CF token there.
+ * `pnpm run build:web` + paste a real CF token there.
  *
  * Usage:
  *   node scripts/dev-desktop-prod.mjs                 # local-verify with prod key

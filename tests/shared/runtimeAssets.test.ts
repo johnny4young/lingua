@@ -9,11 +9,11 @@ import { RUNTIME_ASSETS } from '#src/shared/runtimeAssets';
  * RL-083 Slice 1 — integrity gate for vendored runtime assets.
  *
  * The committed `runtime-assets.lock.json` is the authoritative
- * fingerprint of the Pyodide files we ship inside the desktop app. If
- * `node_modules/pyodide/` changes (intentional upgrade or accidental
- * postinstall mutation) without a matching lock update, this test
- * fails — the same diff that bumps the package must also run
- * `npm run build:runtime-assets`.
+ * fingerprint of runtime files we ship inside desktop/dev builds or
+ * mirror for web runtime hosting. If `node_modules` changes
+ * (intentional upgrade or accidental postinstall mutation) without a
+ * matching lock update, this test fails — the same diff that bumps a
+ * runtime package must also run `pnpm run build:runtime-assets`.
  *
  * The script in `scripts/build-runtime-asset-manifest.mjs` does the
  * same work for CLI / CI use; this test is a Vitest mirror so failures
@@ -87,15 +87,20 @@ describe('RL-083 — runtime-assets.lock.json integrity', () => {
     }
   });
 
-  it('keeps desktop and web on copied local Pyodide assets', async () => {
+  it('keeps Pyodide copied locally and oversized web WASM routed through R2 defines', async () => {
     const rendererConfig = await readFile(rendererConfigPath, 'utf8');
     const webConfig = await readFile(webConfigPath, 'utf8');
 
     expect(rendererConfig).toContain('__LINGUA_PYODIDE_INDEX_URL__');
     expect(rendererConfig).toContain('JSON.stringify(null)');
+    expect(rendererConfig).toContain('__LINGUA_DUCKDB_MVP_WASM_URL__');
+    expect(rendererConfig).toContain('__LINGUA_RUBY_WASM_URL__');
     expect(webConfig).toContain('__LINGUA_PYODIDE_INDEX_URL__');
     expect(webConfig).toContain('JSON.stringify(null)');
-    expect(webConfig).toContain('copyRuntimeAssetsPlugin()');
+    expect(webConfig).toContain('VITE_LINGUA_WEB_RUNTIME_BASE');
+    expect(webConfig).toContain('__LINGUA_DUCKDB_MVP_WASM_URL__');
+    expect(webConfig).toContain('__LINGUA_RUBY_WASM_URL__');
+    expect(webConfig).toContain("copyRuntimeAssetsPlugin({ exclude: useExternalWebRuntime ? ['ruby'] : [] })");
   });
 
   it('service worker no longer pins or caches the Pyodide CDN prefix', async () => {

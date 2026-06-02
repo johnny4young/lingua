@@ -7,6 +7,7 @@ import { getActiveTab, useEditorStore } from '../../stores/editorStore';
 import type { ExecutionHistoryEntry } from '../../stores/executionHistoryStore';
 import { useRunner } from '../../hooks/useRunner';
 import { useEffectiveTier, useEntitlement } from '../../hooks/useEntitlement';
+import { formatExecTime } from '../../hooks/runnerOutput';
 import { pushUpsellNotice } from '../../utils/upsellNotice';
 import { replayHistoryEntry } from '../../utils/replayHistoryEntry';
 import { trackEvent } from '../../utils/telemetry';
@@ -146,11 +147,6 @@ function formatTime(timestamp: number): string {
     minute: '2-digit',
     second: '2-digit',
   });
-}
-
-function formatExecTime(ms: number): string {
-  if (ms < 1000) return `${ms.toFixed(1)} ms`;
-  return `${(ms / 1000).toFixed(2)} s`;
 }
 
 // `nextReplayTabId` and `replayTabName` moved to

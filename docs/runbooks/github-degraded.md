@@ -24,7 +24,7 @@ For most degradations (<1h), the existing 5-minute cache TTL plus the desktop cl
 If the GitHub incident is going to last more than ~30 minutes, bump the update-server cache TTL to keep the existing release available longer:
 
 1. Edit `update-server/src/index.ts` constant `CACHE_TTL` from `300` to `3600` (1 hour).
-2. Deploy: `cd update-server && npx wrangler deploy`.
+2. Deploy: `cd update-server && pnpm run deploy`.
 3. Set a calendar reminder to revert after the incident.
 
 This keeps the cache warm so users who haven't yet updated continue to see the latest release even while GitHub is down. Users currently updating won't be affected — Squirrel.Mac and Squirrel.Windows handle 4xx/5xx by retrying on the next interval.
@@ -45,7 +45,7 @@ When GitHub is healthy again:
    ```bash
    cd update-server
    git checkout src/index.ts # if uncommitted
-   npx wrangler deploy
+   pnpm run deploy
    ```
 2. Purge the cache so users re-fetch the latest release within the standard 5-minute window:
    ```bash

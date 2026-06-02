@@ -135,6 +135,9 @@ export async function readPersistedLicense(filePath: string): Promise<PersistedL
     }
     return null;
   } catch {
+    // Safe fallback by design: a missing, corrupt, or unreadable license file
+    // must never grant a paid tier. Future diagnostics should hook this branch
+    // so support can distinguish "no license" from "could not read license".
     return null;
   }
 }

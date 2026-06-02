@@ -39,6 +39,10 @@ const osxSign =
     ? {
         identity: process.env.APPLE_SIGNING_IDENTITY,
         hardened: true,
+        // Electron Packager defaults to continuing after osx-sign failures.
+        // Release CI verifies the signature later, but failing here preserves
+        // the actual codesign stderr instead of surfacing only a missing ZIP.
+        continueOnError: false,
         // The release workflow imports the signing cert into a dedicated
         // keychain and exports APPLE_KEYCHAIN_PATH. Pass it explicitly so
         // codesign resolves the identity from THAT keychain instead of

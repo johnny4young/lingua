@@ -70,6 +70,12 @@ export interface TabInstallState {
   readonly lastAttemptAt: number | null;
 }
 
+/**
+ * Build an ephemeral install row on demand. Log chunks can arrive before the
+ * panel has read the first `startInstall` state update, and tests can append
+ * directly; creating the shell lazily keeps those paths total without making
+ * the store persistent.
+ */
 function createEmptyInstallState(tabId: string): TabInstallState {
   return {
     tabId,
@@ -102,6 +108,11 @@ interface DependencyDetectionStateShape {
   ) => void;
 }
 
+/**
+ * Retain the tail of streamed npm output. The last stderr/stdout lines are the
+ * actionable failure context, and capping here prevents a noisy install from
+ * turning a session-scoped store into an unbounded memory sink.
+ */
 const INSTALL_LOG_CAP = 64 * 1024;
 
 export const useDependencyDetectionStore = create<DependencyDetectionStateShape>(

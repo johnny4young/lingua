@@ -16,6 +16,11 @@
  * result so the renderer and main verifiers can handle them the same way.
  */
 
+/**
+ * Closed tier list accepted by every verifier. Keep this in sync with the
+ * issuer and entitlement mapping; unknown string tiers are a hard reject so a
+ * stale client never accidentally treats a new paid tier as Free.
+ */
 export const LICENSE_TIERS = ['free', 'pro', 'pro_lifetime', 'team', 'trial', 'education'] as const;
 export type LicenseTier = (typeof LICENSE_TIERS)[number];
 
@@ -78,6 +83,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_GRACE_PERIOD_MS = 14 * DAY_MS;
 const DEFAULT_CLOCK_SKEW_MS = DAY_MS;
 
+/**
+ * Decode unpadded RFC 4648 section 5 base64url. Returns null instead of
+ * throwing so malformed user-pasted tokens stay on the discriminated
+ * `malformed` path.
+ */
 function base64UrlDecode(value: string): Uint8Array | null {
   if (typeof value !== 'string' || value.length === 0) return null;
   const padLength = (4 - (value.length % 4)) % 4;
@@ -94,6 +104,10 @@ function base64UrlDecode(value: string): Uint8Array | null {
   }
 }
 
+/**
+ * Encode without padding because license tokens are pasted and stored as
+ * compact URL-safe strings. Exported for issuer/dev-token helpers and tests.
+ */
 export function base64UrlEncode(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) {
@@ -114,6 +128,11 @@ function isStringArray(value: unknown): value is readonly string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
+/**
+ * Minimal structural validator for the signed JSON payload. It deliberately
+ * does not interpret dates beyond "parseable ISO timestamp"; temporal policy
+ * lives in `verifyLicenseToken` so tests and callers can control `now`.
+ */
 function isValidPayload(value: unknown): value is LicensePayload {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Record<string, unknown>;
@@ -132,6 +151,11 @@ function isValidPayload(value: unknown): value is LicensePayload {
   return (LICENSE_TIERS as readonly string[]).includes(candidate.tier);
 }
 
+/**
+ * Parse the two-segment token and validate signed payload shape without doing
+ * crypto. `signingInput` is the original base64url payload segment, not the
+ * decoded JSON bytes; Ed25519 must verify exactly the bytes the issuer signed.
+ */
 export function decodeLicenseToken(token: string): DecodedLicense {
   if (typeof token !== 'string' || token.length === 0) {
     return { ok: false, reason: 'malformed', message: 'License token is empty.' };
@@ -171,6 +195,10 @@ export function decodeLicenseToken(token: string): DecodedLicense {
   };
 }
 
+/**
+ * Resolve WebCrypto from both browser/Electron globals and Node test globals.
+ * Returning null keeps unsupported runtimes on a typed failure path.
+ */
 async function getSubtleCrypto(): Promise<SubtleCrypto | null> {
   if (typeof crypto !== 'undefined' && crypto.subtle) return crypto.subtle;
   if (typeof globalThis.crypto !== 'undefined' && globalThis.crypto.subtle) {
@@ -197,6 +225,11 @@ function normalizeEd25519PublicJwk(jwk: JsonWebKey): JsonWebKey {
   return { kty: jwk.kty, crv: jwk.crv, x: jwk.x };
 }
 
+/**
+ * Full verifier shared by renderer and main-process license paths. Signature
+ * validity is checked before any clock-window decision so tampered-but-expired
+ * tokens still report `invalid-signature`, not a misleading expiry state.
+ */
 export async function verifyLicenseToken(
   token: string,
   publicKeyJwk: JsonWebKey,

@@ -33,6 +33,12 @@ import {
 
 const STORAGE_KEY = 'lingua-env-vars';
 
+/**
+ * Sanitize the persisted project tier. `projectId` is an opaque renderer key,
+ * not a filesystem capability, so the only structural requirement here is a
+ * non-empty string; each nested scope still gets the same env-key/value guards
+ * as the global tier.
+ */
 function sanitizeProjectScopes(raw: unknown): Record<string, EnvVarScope> {
   if (!raw || typeof raw !== 'object') return {};
   const out: Record<string, EnvVarScope> = {};
@@ -44,6 +50,11 @@ function sanitizeProjectScopes(raw: unknown): Record<string, EnvVarScope> {
   return out;
 }
 
+/**
+ * Sanitize the persisted tab tier. Tab ids are session-local and can outlive
+ * their real tab after a restore/import; empty sanitized scopes are pruned so
+ * old tab ids do not accumulate inert rows forever.
+ */
 function sanitizeTabScopes(raw: unknown): Record<string, EnvVarScope> {
   if (!raw || typeof raw !== 'object') return {};
   const out: Record<string, EnvVarScope> = {};
@@ -91,6 +102,9 @@ function writeScope(
   key: string,
   value: string
 ): { next: EnvVarScope; accepted: boolean } {
+  // Setter contract: reject the whole write rather than partially accepting a
+  // malformed key/value. Callers use the boolean to decide whether to surface a
+  // validation error, and the existing scope must remain byte-for-byte intact.
   const validation = validateEnvVarKey(key);
   if (!validation.ok) return { next: current, accepted: false };
   if (typeof value !== 'string') return { next: current, accepted: false };
@@ -228,6 +242,9 @@ export const useEnvVarsStore = create<EnvVarsStoreState>()(
       }),
       merge: (persistedState, currentState) => {
         const persisted = (persistedState ?? {}) as Partial<EnvVarsStoreState>;
+        // Rehydrate is the second guardrail after runtime setters. Profile
+        // import and hand-edited localStorage can bypass the setters, so every
+        // persisted tier is narrowed again before the live store sees it.
         return {
           ...currentState,
           global: sanitizeScope(persisted.global),

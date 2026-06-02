@@ -110,7 +110,7 @@ async function main() {
   const expected = await readExistingLock();
   if (!expected) {
     console.error(
-      `[runtime-assets] ${path.relative(repoRoot, lockPath)} is missing — run "npm run build:runtime-assets" first.`
+      `[runtime-assets] ${path.relative(repoRoot, lockPath)} is missing — run "pnpm run build:runtime-assets" first.`
     );
     process.exitCode = 1;
     return;
@@ -123,7 +123,7 @@ async function main() {
       console.error(`  - ${issue}`);
     }
     console.error(
-      '[runtime-assets] run "npm run build:runtime-assets" after intentional upgrades.'
+      '[runtime-assets] run "pnpm run build:runtime-assets" after intentional upgrades.'
     );
     process.exitCode = 1;
     return;

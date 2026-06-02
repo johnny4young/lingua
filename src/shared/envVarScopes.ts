@@ -6,9 +6,10 @@
  * Designed to live in `src/shared/` so renderer + main can reason
  * about the same merge.
  *
- * Implementation slice B (store plumbing) will call this from the
- * runner manager at execute-time; slice C (Settings UI) will
- * validate user input through the same helpers before persisting.
+ * Current consumers:
+ *   - renderer `envVarsStore` validates/sanitizes persisted user tiers,
+ *   - Go/Rust desktop runners merge the user record with host env in main,
+ *   - the Python worker receives the user record and hydrates `os.environ`.
  */
 
 /** Single tier in the precedence stack. Keys are validated per entry. */

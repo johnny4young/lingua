@@ -51,6 +51,11 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+/**
+ * Resolve a viewport-safe tooltip position. The preferred side is advisory:
+ * when there is not enough room, the tooltip flips to the opposite side and
+ * then clamps along the cross-axis so the arrow still points at the trigger.
+ */
 function resolveTooltipPosition(
   triggerRect: DOMRect,
   tooltipRect: DOMRect,
@@ -159,6 +164,8 @@ export function Tooltip({
       );
     };
 
+    // Measure after the tooltip is portalled into `document.body`; before that
+    // the tooltip rect is zero and any position would flash in the wrong place.
     updatePosition();
 
     window.addEventListener('resize', updatePosition);
@@ -336,6 +343,9 @@ export function OverlayBackdrop({
         ? window.cancelAnimationFrame.bind(window)
         : window.clearTimeout.bind(window);
 
+    // Move focus into the overlay on the next frame so children rendered by
+    // portals/lazy branches have mounted. Restore the prior focus target on
+    // unmount when it is still connected to the document.
     const frame = requestFrame(() => {
       const root = backdropRef.current;
       if (!root || root.contains(document.activeElement)) return;
@@ -368,6 +378,9 @@ export function OverlayBackdrop({
       return;
     }
 
+    // Trap Tab within the overlay. This shared primitive backs settings,
+    // importers, and rich-output popovers, so focus leakage here would make
+    // every modal surface keyboard-hostile.
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
     const active = document.activeElement;

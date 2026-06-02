@@ -112,6 +112,197 @@ describe('public documentation hygiene', () => {
     expect(publicDocs).toContain('app.linguacode.dev');
   });
 
+  it('documents the current web runtime asset delivery path', () => {
+    const development = readFileSync(resolve(ROOT, 'docs/DEVELOPMENT.md'), 'utf-8');
+    const docsReadme = readFileSync(resolve(ROOT, 'docs/README.md'), 'utf-8');
+    const envExample = readFileSync(resolve(ROOT, '.env.example'), 'utf-8');
+
+    for (const text of [development, docsReadme]) {
+      expect(text).toContain('VITE_LINGUA_WEB_RUNTIME_BASE');
+      expect(text).toContain('DuckDB');
+      expect(text).toContain('Ruby');
+      expect(text).toContain('R2');
+    }
+    expect(development).toContain('25 MiB');
+    expect(development).toContain('web-runtime/');
+    expect(envExample).toContain('VITE_LINGUA_WEB_RUNTIME_BASE=');
+    expect(envExample).toContain('VITE_LINGUA_APP_VERSION=');
+    expect(envExample).toContain('LINGUA_WEBSITE_URL=');
+  });
+
+  it('documents desktop launcher and smoke environment toggles', () => {
+    const development = readFileSync(resolve(ROOT, 'docs/DEVELOPMENT.md'), 'utf-8');
+
+    for (const envName of [
+      'LINGUA_RENDERER_URL',
+      'LINGUA_ELECTRON_LAUNCHER',
+      'LINGUA_DEV_SESSION_SKIP_LAUNCH',
+      'LINGUA_SMOKE_TIMEOUT_MS',
+      'LINGUA_SMOKE_ARTIFACT_DIR',
+      'LINGUA_DESKTOP_SMOKE_OFFLINE',
+      'LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET',
+    ]) {
+      expect(development, `docs/DEVELOPMENT.md must document ${envName}`).toContain(envName);
+    }
+  });
+
+  it('keeps the docs index linked to root planning and compliance references', () => {
+    const docsReadme = readFileSync(resolve(ROOT, 'docs/README.md'), 'utf-8');
+
+    for (const file of [
+      'ANTI_FEATURES.md',
+      'PROJECT_AUDIT_2026_05_24.md',
+      'THIRD_PARTY_LICENSE_REPORT.md',
+      'WORLD_CLASS_TO_RL_PROPOSAL.md',
+      'WORLD_CLASS_TICKETS.md',
+    ]) {
+      expect(docsReadme, `docs/README.md must reference ${file}`).toContain(file);
+    }
+  });
+
+  it('keeps the docs index linked to every top-level docs markdown file', () => {
+    const docsReadme = readFileSync(resolve(ROOT, 'docs/README.md'), 'utf-8');
+    const topLevelDocs = readdirSync(resolve(ROOT, 'docs'))
+      .filter((name) => name.endsWith('.md') && name !== 'README.md')
+      .sort();
+
+    for (const doc of topLevelDocs) {
+      expect(docsReadme, `docs/README.md must reference ${doc}`).toContain(doc);
+    }
+  });
+
+  it('keeps singleton docs subdirectories discoverable from the docs index', () => {
+    const docsReadme = readFileSync(resolve(ROOT, 'docs/README.md'), 'utf-8');
+    const singletonSubdirDocs = readdirSync(resolve(ROOT, 'docs'), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .flatMap((entry) => {
+        const dir = resolve(ROOT, 'docs', entry.name);
+        const markdownFiles = readdirSync(dir)
+          .filter((name) => name.endsWith('.md'))
+          .sort();
+        return markdownFiles.length === 1
+          ? [`${entry.name}/${markdownFiles[0]}`]
+          : [];
+      })
+      .sort();
+
+    for (const doc of singletonSubdirDocs) {
+      expect(docsReadme, `docs/README.md must reference ${doc}`).toContain(doc);
+    }
+  });
+
+  it('keeps the docs index linked to every ADR and operator runbook', () => {
+    const docsReadme = readFileSync(resolve(ROOT, 'docs/README.md'), 'utf-8');
+    const adrFiles = readdirSync(resolve(ROOT, 'docs'))
+      .filter((name) => name.endsWith('_ADR.md'))
+      .sort();
+    const runbookFiles = readdirSync(resolve(ROOT, 'docs/runbooks'))
+      .filter((name) => name.endsWith('.md'))
+      .sort();
+
+    for (const adr of adrFiles) {
+      expect(docsReadme, `docs/README.md must reference ADR ${adr}`).toContain(adr);
+    }
+
+    for (const runbook of runbookFiles) {
+      expect(docsReadme, `docs/README.md must reference runbook ${runbook}`).toContain(
+        runbook
+      );
+    }
+  });
+
+  it('marks dated security command logs as historical evidence', () => {
+    const packetReadme = readFileSync(
+      resolve(ROOT, 'docs/security/2026-05-09/README.md'),
+      'utf-8'
+    );
+    const validationRecord = readFileSync(
+      resolve(ROOT, 'docs/security/2026-05-09/remediation-validation.md'),
+      'utf-8'
+    );
+    const findings = readFileSync(
+      resolve(ROOT, 'docs/security/2026-05-09/findings.md'),
+      'utf-8'
+    );
+
+    for (const text of [packetReadme, validationRecord, findings]) {
+      expect(text).toContain('Historical note');
+      expect(text).toContain('Current repo commands use `pnpm`');
+    }
+    expect(packetReadme).toContain(
+      'remediation-validation.md#current-equivalent-commands'
+    );
+    for (const command of [
+      'pnpm test -- --run',
+      'pnpm run lint',
+      'pnpm exec tsc --noEmit',
+      'pnpm run check:i18n',
+      'pnpm run check:i18n:copy',
+      '(cd license-server && pnpm test)',
+      '(cd update-server && pnpm test)',
+      'pnpm run build:web',
+      'pnpm run preview:web -- --host 127.0.0.1',
+    ]) {
+      expect(validationRecord).toContain(command);
+    }
+    expect(findings).toContain('web-runtime/');
+  });
+
+  it('README points planning readers at the active docs and archive', () => {
+    const readme = readFileSync(resolve(ROOT, 'README.md'), 'utf-8');
+
+    for (const planningDoc of [
+      'docs/ROADMAP.md',
+      'docs/SPRINT-PLAN.md',
+      'docs/ARCHIVED.md',
+      'docs/BACKLOG.md',
+    ]) {
+      expect(readme, `README must reference ${planningDoc}`).toContain(planningDoc);
+    }
+
+    expect(readme).toContain('closed-ticket archive policy');
+    expect(readme).toContain('raw idea capture');
+  });
+
+  it('keeps the renderer reference aligned with current major folders and stores', () => {
+    const rendererReadme = readFileSync(resolve(ROOT, 'src/renderer/README.md'), 'utf-8');
+
+    const rendererFolders = readdirSync(resolve(ROOT, 'src/renderer'), {
+      withFileTypes: true,
+    })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => `${entry.name}/`)
+      .sort();
+
+    for (const folder of rendererFolders) {
+      expect(rendererReadme, `renderer README must document ${folder}`).toContain(folder);
+    }
+
+    const componentFolders = readdirSync(resolve(ROOT, 'src/renderer/components'), {
+      withFileTypes: true,
+    })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => `components/${entry.name}/`)
+      .sort();
+
+    for (const componentFolder of componentFolders) {
+      expect(rendererReadme, `renderer README must document ${componentFolder}`).toContain(
+        componentFolder
+      );
+    }
+
+    const storeFiles = readdirSync(resolve(ROOT, 'src/renderer/stores'), {
+      withFileTypes: true,
+    })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .map((entry) => entry.name)
+      .sort();
+
+    for (const store of storeFiles) {
+      expect(rendererReadme, `renderer README must document ${store}`).toContain(store);
+    }
+  });
+
   it('README preserves the strings other doc guards depend on (RL-082 spotter)', () => {
     // README ownership is split across `scriptCommands.test.ts`,
     // `marketingSite.test.ts`, and the `keeps public docs on the
@@ -124,11 +315,11 @@ describe('public documentation hygiene', () => {
     // scriptCommands guard — README must mention the canonical dev
     // entrypoints. Mirrors `tests/docs/scriptCommands.test.ts`.
     for (const command of [
-      'npm run dev:web',
-      'npm run dev:web:pro',
-      'npm run dev:desktop',
-      'npm run dev:desktop:pro',
-      'npm run smoke:desktop',
+      'pnpm run dev:web',
+      'pnpm run dev:web:pro',
+      'pnpm run dev:desktop',
+      'pnpm run dev:desktop:pro',
+      'pnpm run smoke:desktop',
     ]) {
       expect(readme, `README must mention \`${command}\``).toContain(command);
     }

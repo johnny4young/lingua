@@ -112,18 +112,6 @@ export function CapsuleListOverlay({ onClose }: CapsuleListOverlayProps) {
     void trackEvent('capsule.browse_opened', { surface, tier });
   }, [tier]);
 
-  // ─── Escape to close ─────────────────────────────────────────────
-  useEffect(() => {
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeRef.current();
-      }
-    }
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, []);
-
   // ─── Filters (fold C) ────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [languageFilter, setLanguageFilter] = useState<string>('all');

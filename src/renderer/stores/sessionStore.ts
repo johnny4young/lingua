@@ -1,3 +1,13 @@
+/**
+ * Persisted editor-session boundary.
+ *
+ * The store records only enough data to rebuild the visible workspace after a
+ * reload: untitled tab content, disk-backed paths, active index, and stable ids
+ * for surfaces whose data lives in their own persisted stores. Restore treats
+ * the saved blob as stale/tamperable: disk tabs must re-mint file capabilities,
+ * runtime modes are coerced through the shared enum guard, and legacy SQL/HTTP
+ * workspace tabs collapse to the current one-tab-per-workspace model.
+ */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
@@ -159,6 +169,9 @@ export const useSessionStore = create<SessionState>()(
           }
         > = [];
 
+        // Restore is intentionally a translator, not a blind hydrate. It
+        // converts the persisted session shape into the current `FileTab`
+        // contract while preserving user intent across older workspace models.
         // SQL/HTTP MODEL rework — collapse legacy per-query/request
         // workspace tabs to a SINGLE stable workspace tab per kind. A
         // pre-rework session could hold N `sql` tabs (one per query) and
@@ -353,6 +366,8 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: 'lingua-session',
+      // Only the serializable snapshot belongs in localStorage. Actions and
+      // live editor/UI state are rebuilt from the store creators at runtime.
       partialize: (state) => ({
         savedTabs: state.savedTabs,
         savedActiveIndex: state.savedActiveIndex,

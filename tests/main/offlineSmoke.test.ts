@@ -8,7 +8,7 @@ import { RUNTIME_ASSETS } from '#src/shared/runtimeAssets';
  * `src/main/offlineSmoke.ts`. The end-to-end desktop smoke proves
  * the offline gate works in practice, but a regression in the
  * protocol allowlist or the loopback check would only surface as a
- * red `npm run smoke:desktop:offline` after a full Electron boot.
+ * red `pnpm run smoke:desktop:offline` after a full Electron boot.
  * These tests pin the URL-classification logic and the listener
  * registration so a misclassified scheme fails inside Vitest.
  */

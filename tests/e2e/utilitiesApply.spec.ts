@@ -1,7 +1,7 @@
 /**
  * RL-069 Slice 2 — Functional smoke for the ⚡ Apply-from-input
  * gesture and the Mod+Shift+A shortcut. Drives the real preview build
- * (`npm run preview:web`) through the full Developer Utilities flow
+ * (`pnpm run preview:web`) through the full Developer Utilities flow
  * across multiple panel shapes and asserts both visual state and
  * console cleanliness.
  *

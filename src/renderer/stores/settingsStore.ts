@@ -1,3 +1,14 @@
+/**
+ * Renderer settings store.
+ *
+ * This is the long-lived `lingua-settings` localStorage boundary, so the store
+ * treats every rehydrated value as untrusted user-controlled input. Runtime
+ * setters reject invalid enum values at call time, while the `merge` function
+ * below repeats those guards for hand-edited localStorage, stale profile
+ * imports, and forward-version drift. Fields that affect privacy or telemetry
+ * are persisted as explicit user choices; telemetry events emitted by setters
+ * are adoption signals only and rely on `trackEvent` for consent enforcement.
+ */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
@@ -160,6 +171,12 @@ function hasOwn(value: object, key: string): boolean {
 const MAX_TOKENS_PER_COMBO = 5;
 const MAX_COMBOS_PER_SHORTCUT = 4;
 
+/**
+ * Exact equality check used only for preset normalization. A persisted
+ * `keymapPreset` should remain selected only while the sanitized override map
+ * still matches the preset bundle byte-for-byte; any manual edit downgrades
+ * the visible selector to `default` / custom.
+ */
 function shortcutOverridesEqual(
   left: ShortcutOverrideMap,
   right: ShortcutOverrideMap
@@ -221,6 +238,12 @@ export function sanitizeShortcutOverrides(value: unknown): ShortcutOverrideMap {
   return out;
 }
 
+/**
+ * Theme-pack normalization mirror for appearance fields. A selected pack is
+ * considered active only if every pack-owned setting still equals the catalog
+ * bundle; manual edits to theme, editor theme, font, size, or layout clear the
+ * pack marker so Settings never shows a stale active preset.
+ */
 function themePackAppearanceMatchesSettings(
   settings: Pick<
     SettingsState,
@@ -253,6 +276,11 @@ function syncConsentMirror(
   });
 }
 
+/**
+ * Single renderer source of truth for user preferences. The persist wrapper is
+ * deliberately explicit: `partialize` lists every durable field and `merge`
+ * sanitizes every persisted map/enum before the live store sees it.
+ */
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
@@ -715,7 +743,9 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'lingua-settings',
-      // Omit functions from persistence
+      // Durable schema for `lingua-settings`. Keep this list explicit so new
+      // runtime-only helpers/functions do not accidentally become localStorage
+      // state just because they were added to `SettingsState`.
       partialize: (state) => ({
         theme: state.theme,
         editorTheme: state.editorTheme,
@@ -779,6 +809,9 @@ export const useSettingsStore = create<SettingsState>()(
         sqlWorkspaceRowDisplayLimit: state.sqlWorkspaceRowDisplayLimit,
         sqlWorkspaceQueryTimeoutMs: state.sqlWorkspaceQueryTimeoutMs,
       }),
+      // Rehydrate sanitizer. `persistedState` is attacker/tamper-controlled
+      // input from localStorage, so every enum/map/number gets narrowed before
+      // it can influence Settings UI, runtime dispatch, or telemetry payloads.
       merge: (persistedState, currentState) => {
         const persisted =
           persistedState && typeof persistedState === 'object'

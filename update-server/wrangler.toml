@@ -2,7 +2,7 @@ name = "lingua-update-server"
 main = "src/index.ts"
 compatibility_date = "2025-04-01"
 
-# GITHUB_TOKEN is set via `npx wrangler secret put GITHUB_TOKEN`
+# GITHUB_TOKEN is set via `pnpm exec wrangler secret put GITHUB_TOKEN`
 # GITHUB_OWNER and GITHUB_REPO can be overridden as secrets or left as defaults in code
 
 # Custom domain for production. Slice 5 of RL-061 surfaces this

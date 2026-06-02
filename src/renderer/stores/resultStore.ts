@@ -87,6 +87,9 @@ export interface ResultSnapshot {
 }
 
 function nextSnapshotCapturedAt(snapshotRing: readonly ResultSnapshot[]): number {
+  // `capturedAt` is both display metadata and the stable selection key for
+  // compare targets/pin toggles. Make it monotonic so two fast captures in the
+  // same millisecond never collide.
   const latestCapturedAt = snapshotRing.reduce(
     (max, entry) => Math.max(max, entry.capturedAt),
     0
@@ -255,6 +258,78 @@ interface ResultState {
    * result.
    */
   clearVisibleResults: () => void;
+}
+
+/**
+ * RL-122 — true when at least one comparator snapshot in the ring was
+ * captured for `language`. Drives the `Compare` panel-chip + bottom-panel
+ * availability. Returns a primitive boolean so a subscriber re-renders
+ * only when the flag flips, not on every `snapshotRing` array
+ * replacement. `language` is optional so callers can pass
+ * `activeTab?.language` without a guard; an undefined language never
+ * matches.
+ */
+export function hasComparableSnapshotFor(
+  state: Pick<ResultState, 'snapshotRing'>,
+  language: string | undefined,
+): boolean {
+  if (!language) return false;
+  return state.snapshotRing.some((entry) => entry.language === language);
+}
+
+/**
+ * RL-122 — count of comparator snapshots captured for `language`. Drives
+ * the `Compare` chip badge. Primitive return → identity-stable
+ * subscription (re-renders only when the count itself changes). `0` when
+ * none match or no active language.
+ */
+export function comparableSnapshotCountFor(
+  state: Pick<ResultState, 'snapshotRing'>,
+  language: string | undefined,
+): number {
+  if (!language) return 0;
+  return state.snapshotRing.reduce(
+    (count, entry) => (entry.language === language ? count + 1 : count),
+    0,
+  );
+}
+
+/**
+ * RL-122 — true when the captured variable-scope snapshot belongs to
+ * `language` AND the tab is not running in Node mode (the inspector is
+ * worker-only). Drives the `Variables` panel-chip + the bottom Variables
+ * drawer availability. Primitive boolean → a `scopeSnapshot` object
+ * replacement that does not change availability is a no-op for
+ * subscribers. `runtimeMode` is optional and only `'node'` is excluded;
+ * any other value (including undefined) passes the runtime gate.
+ */
+export function hasScopeSnapshotFor(
+  state: Pick<ResultState, 'scopeSnapshot'>,
+  language: string | undefined,
+  runtimeMode: string | undefined,
+): boolean {
+  if (!language || runtimeMode === 'node') return false;
+  const snapshot = state.scopeSnapshot;
+  return snapshot !== null && snapshot.language === language;
+}
+
+/**
+ * RL-122 — number of captured scope variables for `language`, or `null`
+ * when no matching scope snapshot exists. Drives the `Variables` chip
+ * badge. `null` (not `0`) distinguishes "no snapshot" from "snapshot
+ * with zero variables"; the primitive-or-null return keeps the
+ * subscription identity-stable. Note: this does NOT apply the Node
+ * runtime gate — callers pair it with `runtimeMode` checks (or
+ * `hasScopeSnapshotFor`) when gating the inspector surface.
+ */
+export function scopeSnapshotVariableCountFor(
+  state: Pick<ResultState, 'scopeSnapshot'>,
+  language: string | undefined,
+): number | null {
+  if (!language) return null;
+  const snapshot = state.scopeSnapshot;
+  if (snapshot === null || snapshot.language !== language) return null;
+  return snapshot.variables.length;
 }
 
 export const useResultStore = create<ResultState>((set, get) => ({
@@ -433,6 +508,8 @@ export const useResultStore = create<ResultState>((set, get) => ({
     // (Cmd+A → Backspace) and when a new run is starting; the
     // accumulated snapshots should survive until the run either
     // captures a new stable result or the user switches tabs.
+    // Scope snapshots also stay intact here; the Variables surface should not
+    // disappear just because a transient run-start clears visible output.
     set({
       lineResults: [],
       fullOutput: '',

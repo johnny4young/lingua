@@ -52,7 +52,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
   });
 
   it('requires the packaged desktop smoke before promotion', () => {
-    // Pre-RL-080-Slice-3 the gate was "the human runs npm run
+    // Pre-RL-080-Slice-3 the gate was "the human runs pnpm run
     // smoke:desktop against the downloaded .app". Slice 3 promoted
     // that into the `Packaged desktop smoke` CI step (release-blocking
     // offline, 2-runtime-case subset plus no-CDN assertion). The
@@ -60,7 +60,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     // still references the artifact directory for the optional local
     // run, but the primary gate is now the CI step visible in the
     // workflow summary.
-    expect(checklist).toContain('npm run smoke:desktop');
+    expect(checklist).toContain('pnpm run smoke:desktop');
     expect(checklist).toContain('output/playwright/desktop-smoke');
     expect(checklist).toMatch(/Packaged desktop smoke/u);
     expect(checklist).toMatch(/release-blocking[^\n]*offline|offline[^\n]*release-blocking/iu);
@@ -74,7 +74,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
 
   it('requires desktop update feed validation before macOS or Windows promotion', () => {
     expect(checklist).toContain('docs/runbooks/desktop-update-draft-validation.md');
-    expect(checklist).toContain('npm run check:update-feed');
+    expect(checklist).toContain('pnpm run check:update-feed');
     expect(checklist).toContain('output/update-feed-validation/update-feed-validation.json');
   });
 
@@ -89,8 +89,9 @@ describe('RELEASE.md release checklist (RL-016)', () => {
 
   it('requires the RL-080 Slice 2 release-blocking audit + checksum re-verify gates', () => {
     // RL-080 Slice 2 — the release pipeline runs a blocking
-    // production dependency audit and re-runs `shasum -a 256 -c`
-    // against the downloaded payload after the manifest is generated.
+    // production dependency audit and re-runs the shared release
+    // payload helper against the downloaded payload after the manifest
+    // is generated.
     // The full dependency audit remains advisory because the stable
     // Electron Forge 7 build toolchain still carries dev-only audit
     // findings with no stable upstream fix. Both release gates must
@@ -98,12 +99,13 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     // in lockstep with `release.yml`.
     expect(checklist).toMatch(/release-blocking.*pnpm audit|pnpm audit.*release-blocking/i);
     expect(checklist).toContain('pnpm audit --prod --audit-level high');
-    expect(checklist).toMatch(/shasum\s+-a\s+256\s+-c\s+SHA256SUMS\.txt/u);
+    expect(checklist).toContain('scripts/prepare-release-payload.mjs');
+    expect(checklist).toContain('--verify-checksums');
   });
 
   it('requires the RL-085 release compliance artifacts', () => {
-    expect(checklist).toContain('npm run check:licenses');
-    expect(checklist).toContain('npm run compliance:release');
+    expect(checklist).toContain('pnpm run check:licenses');
+    expect(checklist).toContain('pnpm run compliance:release');
     expect(checklist).toContain('lingua-sbom.cyclonedx.json');
     expect(checklist).toContain('THIRD_PARTY_LICENSE_REPORT.md');
   });
@@ -111,9 +113,9 @@ describe('RELEASE.md release checklist (RL-016)', () => {
   it('links desktop signing setup and changelog/performance readiness gates', () => {
     expect(checklist).toContain('docs/MACOS_SIGNING.md');
     expect(checklist).toContain('docs/WINDOWS_SIGNING.md');
-    expect(checklist).toContain('npm run changelog:draft');
-    expect(checklist).toContain('npm run changelog:check');
-    expect(checklist).toContain('npm run check:performance');
+    expect(checklist).toContain('pnpm run changelog:draft');
+    expect(checklist).toContain('pnpm run changelog:check');
+    expect(checklist).toContain('pnpm run check:performance');
     expect(checklist).toMatch(/version.*CHANGELOG/i);
   });
 
@@ -143,7 +145,7 @@ describe('RELEASE.md release checklist (RL-016)', () => {
     // setup runbook reference so a future contributor cannot drop the
     // public download surface silently.
     expect(checklist).toContain('R2 release mirror');
-    expect(checklist).toContain('npm run check:r2-mirror');
+    expect(checklist).toContain('pnpm run check:r2-mirror');
     expect(checklist).toContain('output/r2-mirror-validation');
     expect(checklist).toContain('docs/runbooks/r2-release-mirror-setup.md');
     expect(checklist).toContain('R2_ACCESS_KEY_ID');
