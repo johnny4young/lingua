@@ -296,47 +296,11 @@ const PAYLOAD_KIND_CHIPS: ConsolePayloadKindFilter[] = [
   'errorish',
 ];
 
-/**
- * RL-044 Slice 1B fold H — collapse consecutive identical entries.
- * Two entries are equal when their `type` + `line` + `content` +
- * JSON-shape of `payload` match. The collapse is purely visual: the
- * underlying entries stay in the store, so `Recent runs` and other
- * surfaces still see the full list.
- */
-interface CollapsedRow {
-  entry: ConsoleEntry;
-  repeatCount: number;
-}
-
-function collapseIdenticalEntries(entries: ConsoleEntry[]): CollapsedRow[] {
-  const result: CollapsedRow[] = [];
-  for (const entry of entries) {
-    const last = result.length > 0 ? result[result.length - 1] : undefined;
-    if (last && entriesAreEqual(last.entry, entry)) {
-      last.repeatCount += 1;
-    } else {
-      result.push({ entry, repeatCount: 1 });
-    }
-  }
-  return result;
-}
-
-function entriesAreEqual(a: ConsoleEntry, b: ConsoleEntry): boolean {
-  if (a.type !== b.type) return false;
-  if (a.line !== b.line) return false;
-  if (a.content !== b.content) return false;
-  // Cheap length check before paying for JSON.stringify — short-
-  // circuits the common case where two entries share `content` but
-  // their payload arrays differ in size (e.g. `console.log("x")` vs.
-  // `console.log("x", extra)`).
-  const aLen = a.payload?.length ?? 0;
-  const bLen = b.payload?.length ?? 0;
-  if (aLen !== bLen) return false;
-  if (aLen === 0) return true;
-  const aPayload = JSON.stringify(a.payload);
-  const bPayload = JSON.stringify(b.payload);
-  return aPayload === bPayload;
-}
+// RL-123 / AUDIT-03 — consecutive-identical collapse moved to the console
+// store (computed once per push via a stable equality hash) instead of
+// re-running here on every render. The panel reads `collapsedEntries` and only
+// filters them; collapsed groups are homogeneous so filter-after-collapse
+// matches the previous filter-then-collapse result.
 
 /** True when the row belongs to a payload-kind bucket currently hidden. */
 function entryFilteredByPayloadKind(
@@ -388,6 +352,7 @@ export function ConsolePanel() {
   const canUseExecutionHistory = useEntitlement('EXECUTION_HISTORY');
   const {
     entries,
+    collapsedEntries,
     activeFilters,
     hiddenPayloadKinds,
     showTimestamps,
@@ -461,15 +426,22 @@ export function ConsolePanel() {
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
   }, [addEntry]);
-  // RL-044 Slice 1B — apply both the legacy type filter AND the new
-  // payload-kind chip filter (fold A), then collapse consecutive
-  // identical entries (fold H). Memoised so a flooded console only
-  // re-pays the cost when something actually changed.
-  const visibleEntries = useMemo(() => {
-    const typed = entries.filter(entry => activeFilters.has(entry.type));
-    const filtered = typed.filter(entry => !entryFilteredByPayloadKind(entry, hiddenPayloadKinds));
-    return collapseIdenticalEntries(filtered);
-  }, [entries, activeFilters, hiddenPayloadKinds]);
+  // RL-044 Slice 1B / RL-123 — entries are already collapsed store-side
+  // (consecutive identical → one ×N row, computed once per push). Here we
+  // only apply the legacy type filter AND the payload-kind chip filter
+  // (fold A) to those rows. Collapsed groups are homogeneous, so filtering
+  // after the collapse yields the same visible set as the previous
+  // filter-then-collapse. Memoised so a flooded console only re-pays the
+  // filter cost when entries or filters change.
+  const visibleEntries = useMemo(
+    () =>
+      collapsedEntries.filter(
+        (row) =>
+          activeFilters.has(row.entry.type) &&
+          !entryFilteredByPayloadKind(row.entry, hiddenPayloadKinds)
+      ),
+    [collapsedEntries, activeFilters, hiddenPayloadKinds]
+  );
   const visibleSourceLines = useMemo(() => {
     const lines = new Set<number>();
     if (originSuppressed) return lines;

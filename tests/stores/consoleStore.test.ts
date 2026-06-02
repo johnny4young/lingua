@@ -5,6 +5,7 @@ describe('consoleStore', () => {
   beforeEach(() => {
     useConsoleStore.setState({
       entries: [],
+      collapsedEntries: [],
       activeFilters: new Set(['log', 'info', 'warn', 'error', 'result']),
       hiddenPayloadKinds: new Set(),
       showTimestamps: true,
@@ -173,5 +174,77 @@ describe('consoleStore', () => {
     useConsoleStore.getState().addEntry({ type: 'log', content: 'plain' });
     const entry = useConsoleStore.getState().entries[0]!;
     expect(entry.payload).toBeUndefined();
+  });
+
+  // --- RL-123 / AUDIT-03 — store-side collapse + equality hash ---
+
+  it('stamps a stable equalityHash on each entry', () => {
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'same' });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'same' });
+    const [a, b] = useConsoleStore.getState().entries;
+    expect(a!.equalityHash).toBeTruthy();
+    expect(a!.equalityHash).toBe(b!.equalityHash);
+  });
+
+  it('collapses consecutive identical entries into one row with a repeat count', () => {
+    for (let i = 0; i < 3; i += 1) {
+      useConsoleStore.getState().addEntry({ type: 'log', content: 'tick' });
+    }
+    const { entries, collapsedEntries } = useConsoleStore.getState();
+    // Raw entries stay intact for counts / history surfaces…
+    expect(entries).toHaveLength(3);
+    // …while the collapsed view is a single ×3 row.
+    expect(collapsedEntries).toHaveLength(1);
+    expect(collapsedEntries[0]!.repeatCount).toBe(3);
+    expect(collapsedEntries[0]!.entry.content).toBe('tick');
+  });
+
+  it('keeps distinct consecutive entries as separate collapsed rows', () => {
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'a' });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'b' });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'a' });
+    const rows = useConsoleStore.getState().collapsedEntries;
+    expect(rows).toHaveLength(3);
+    expect(rows.every((row) => row.repeatCount === 1)).toBe(true);
+  });
+
+  it('does not collapse entries that differ only by source line', () => {
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'same', line: 1 });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'same', line: 2 });
+    const rows = useConsoleStore.getState().collapsedEntries;
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.entry.line)).toEqual([1, 2]);
+  });
+
+  it('does not collapse entries that differ only by type', () => {
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'same' });
+    useConsoleStore.getState().addEntry({ type: 'info', content: 'same' });
+    const rows = useConsoleStore.getState().collapsedEntries;
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.entry.type)).toEqual(['log', 'info']);
+  });
+
+  it('does not collapse entries that differ only in payload', () => {
+    useConsoleStore.getState().addEntry({
+      type: 'log',
+      content: 'v',
+      payload: [{ kind: 'table', columns: ['a'], rows: [] }],
+    });
+    useConsoleStore.getState().addEntry({
+      type: 'log',
+      content: 'v',
+      payload: [{ kind: 'table', columns: ['b'], rows: [] }],
+    });
+    const rows = useConsoleStore.getState().collapsedEntries;
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.entry.equalityHash).not.toBe(rows[1]!.entry.equalityHash);
+  });
+
+  it('clear resets the collapsed view too', () => {
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'x' });
+    useConsoleStore.getState().addEntry({ type: 'log', content: 'x' });
+    expect(useConsoleStore.getState().collapsedEntries).toHaveLength(1);
+    useConsoleStore.getState().clear();
+    expect(useConsoleStore.getState().collapsedEntries).toHaveLength(0);
   });
 });

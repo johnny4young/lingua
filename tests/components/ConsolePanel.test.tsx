@@ -39,6 +39,7 @@ let mockState: Omit<
   | 'toggleTimestamps'
   | 'togglePayloadKindFilter'
   | 'clearPayloadKindFilters'
+  | 'collapsedEntries'
 > = {
   entries: [],
   activeFilters: new Set<ConsoleEntryType>(['log', 'info', 'warn', 'error', 'result']),
@@ -46,9 +47,44 @@ let mockState: Omit<
   showTimestamps: false,
 };
 
+// RL-123 — the store now collapses consecutive identical entries at push
+// time and exposes `collapsedEntries`; the panel reads those. Mirror that
+// collapse here so the mocked store hands the panel the same rows the real
+// store would (same type + line + content + payload equality).
+// Mirror the store's `payloadShape`: an empty or absent payload both hash to
+// '' (so an empty array collapses with an undefined payload), which a naive
+// `JSON.stringify` would not — keeps this mock faithful to consoleStore.
+function mockPayloadShape(
+  payload: ConsoleState['entries'][number]['payload']
+): string {
+  return payload && payload.length > 0 ? JSON.stringify(payload) : '';
+}
+
+function collapseForMock(
+  entries: ConsoleState['entries']
+): ConsoleState['collapsedEntries'] {
+  const rows: ConsoleState['collapsedEntries'] = [];
+  for (const entry of entries) {
+    const last = rows[rows.length - 1];
+    if (
+      last &&
+      last.entry.type === entry.type &&
+      last.entry.line === entry.line &&
+      last.entry.content === entry.content &&
+      mockPayloadShape(last.entry.payload) === mockPayloadShape(entry.payload)
+    ) {
+      last.repeatCount += 1;
+    } else {
+      rows.push({ entry, repeatCount: 1 });
+    }
+  }
+  return rows;
+}
+
 vi.mock('../../src/renderer/stores/consoleStore', () => ({
   useConsoleStore: () => ({
     ...mockState,
+    collapsedEntries: collapseForMock(mockState.entries),
     clear: mockClear,
     toggleFilter: mockToggleFilter,
     togglePayloadKindFilter: vi.fn(),

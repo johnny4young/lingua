@@ -440,6 +440,26 @@ export interface ConsoleEntry {
    * fallback path. The renderer must always tolerate missing payload.
    */
   payload?: RichOutputPayload[];
+  /**
+   * RL-123 / AUDIT-03 — content-equality hash of type + line + content +
+   * payload shape, computed once at push time.
+   * The store uses it to collapse consecutive identical entries without
+   * re-running `JSON.stringify` on every render. Optional because callers
+   * outside `consoleStore.addEntry` and test fixtures may omit it; store-created
+   * entries always receive one before they can participate in `collapsedEntries`.
+   */
+  equalityHash?: string;
+}
+
+/**
+ * RL-123 / AUDIT-03 — one visible console row after consecutive identical
+ * entries are collapsed. Derived store-side at push time (not on render);
+ * `repeatCount >= 2` surfaces the ×N badge. `entry` is the first member of
+ * the run and carries its `equalityHash` for the next push's comparison.
+ */
+export interface CollapsedConsoleRow {
+  entry: ConsoleEntry;
+  repeatCount: number;
 }
 
 export type ConsolePayloadKindBucket =
@@ -465,6 +485,15 @@ export type ConsolePayloadKindFilter = ConsolePayloadKindBucket | 'errorish';
 
 export interface ConsoleState {
   entries: ConsoleEntry[];
+  /**
+   * RL-123 / AUDIT-03 — consecutive identical entries collapsed once at
+   * push time. The console renders (and then filters) these rows instead
+   * of recomputing the collapse + `JSON.stringify` equality on every
+   * render. Collapsed groups are homogeneous (same type + content +
+   * payload), so filtering the rows yields the same visible result as
+   * filtering the raw entries first.
+   */
+  collapsedEntries: CollapsedConsoleRow[];
   /** Which entry types are currently visible */
   activeFilters: Set<ConsoleEntryType>;
   /**
