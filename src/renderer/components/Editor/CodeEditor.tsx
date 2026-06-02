@@ -11,7 +11,8 @@ import { fontStackSupportsLigatures } from '../Settings/settingsOptions';
 import {
   configureMonaco,
   applyTypeScriptDefaults,
-  registerLanguageCompletionProviders,
+  registerLanguageOnce,
+  prefetchLanguage,
 } from '../../monaco';
 import { getDiagnosticKey } from '../../utils/editorExecutionDecorations';
 import {
@@ -137,10 +138,29 @@ export function CodeEditor() {
   // offscreen lines via `editor.revealLineInCenter`.
   useEditorHighlightSync(editorRef);
 
+  // RL-124 — lazy per-language Monaco registration. Pre-fetch the active
+  // language once on first mount (idle) so first paint colors fast, then
+  // register on every language change once the editor's monaco instance exists.
+  const activeLanguage = activeTab?.language;
+  const didPrefetchLanguageRef = useRef(false);
+  useEffect(() => {
+    if (didPrefetchLanguageRef.current || !activeLanguage) return;
+    didPrefetchLanguageRef.current = true;
+    prefetchLanguage(monacoLanguageFor(activeLanguage));
+  }, [activeLanguage]);
+  useEffect(() => {
+    if (!monacoInstance || !activeLanguage) return;
+    void registerLanguageOnce(monacoInstance, monacoLanguageFor(activeLanguage));
+  }, [monacoInstance, activeLanguage]);
+
   const handleBeforeMount = useCallback((monaco: Monaco) => {
     defineCustomThemes(monaco);
     applyTypeScriptDefaults(monaco);
-    registerLanguageCompletionProviders(monaco);
+    // RL-124 — pre-register the scratchpad happy-path languages so a blank
+    // JS/TS tab colors within one frame; every other language is registered
+    // lazily by the active-language effect above.
+    void registerLanguageOnce(monaco, 'javascript');
+    void registerLanguageOnce(monaco, 'typescript');
   }, []);
 
   // Sync scroll with ResultPanel

@@ -48,6 +48,26 @@ the report marks runtime observability as unavailable instead of
 failing; this keeps CI web builds readable while still surfacing the
 startup/runtime follow-up work in local release validation.
 
+## Lazy Monaco language registration (RL-124)
+
+Monaco language contributions register per active language through
+`registerLanguageOnce(monaco, languageId)` (see `src/renderer/monaco.ts`),
+not all at once on first editor mount. JavaScript and TypeScript are
+pre-registered for the scratchpad happy path; every other language —
+its tokenizer chunk and its completion / hover / signature provider
+modules — loads the first time a tab activates it.
+
+The practical effect on this report: the per-language editor-provider
+modules (`goCompletions`, `rustCompletions`, `pythonCompletions`,
+`rubyCompletions`, `luaCompletions`, and their hover/signature siblings)
+ship as `lazy` chunks instead of being statically pulled into the
+`initial` bundle. Opening a JavaScript scratchpad no longer fetches the
+Go/Rust/Python/Ruby/Lua provider chunks; `tests/e2e/monacoLazyLanguages.spec.ts`
+guards that contract. The web `initial` bundle dropped accordingly
+(measured ~13 KiB raw / ~2.6 KiB gzip on the `index` chunk at landing).
+Refresh `docs/performance/baseline.json` to tighten the ceiling after a
+full `build:web` + desktop-renderer build per "Refreshing the baseline".
+
 ## Budget policy
 
 The baseline stores current measurements plus conservative headroom:

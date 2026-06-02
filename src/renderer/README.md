@@ -16,7 +16,7 @@ For the project/file-system lifecycle and Electron IPC bridge, see [ARCHITECTURE
 | [main.tsx](main.tsx)   | React bootstrap, i18n/theme startup, app mount                   |
 | [App.tsx](App.tsx)     | Top-level shell orchestration and modal wiring                   |
 | [index.css](index.css) | Global design tokens, shell primitives, shared component classes |
-| [monaco.ts](monaco.ts) | Monaco language registration, workers, completion bootstrap      |
+| [monaco.ts](monaco.ts) | Monaco workers + lazy per-language registration via `registerLanguageOnce` (RL-124): JS/TS pre-registered, every other language's tokenizer + providers load on first activation |
 
 ## Folder map
 

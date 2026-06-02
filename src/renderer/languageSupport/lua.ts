@@ -1,4 +1,3 @@
-import { createLuaCompletionProvider } from '../components/Editor/completionProviders/luaCompletions';
 import type { LanguageSupportDescriptor } from './types';
 
 export const luaLanguageSupport = {
@@ -9,5 +8,12 @@ export const luaLanguageSupport = {
     aliases: ['Lua'],
     loader: () => import('monaco-editor/esm/vs/basic-languages/lua/lua.js'),
   },
-  createCompletionProvider: createLuaCompletionProvider,
+  loadEditorProviders: async () => {
+    const { createLuaCompletionProvider } = await import(
+      '../components/Editor/completionProviders/luaCompletions'
+    );
+    return {
+      createCompletionProvider: createLuaCompletionProvider,
+    };
+  },
 } satisfies LanguageSupportDescriptor;

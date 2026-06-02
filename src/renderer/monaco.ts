@@ -18,7 +18,7 @@ import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
-import { getLanguageSupportDescriptors } from './languageSupport/registry';
+import { getLanguageSupportDescriptor } from './languageSupport/registry';
 
 type MonacoWorkerFactory = new () => Worker;
 
@@ -41,8 +41,15 @@ function getWorkerFactory(label: string): MonacoWorkerFactory {
 }
 
 let configured = false;
-let languageContributionsLoaded = false;
-let completionProvidersRegistered = false;
+
+/**
+ * Per-language registration cache, keyed by Monaco language id. The value is the
+ * in-flight-or-settled promise for that language's contribution + editor
+ * providers. A Map (not a boolean per language) lets parallel callers — the
+ * editor mount, a language switch, and an idle prefetch — dedupe onto a single
+ * registration instead of racing duplicate `register()` / provider calls.
+ */
+const languageRegistrations = new Map<string, Promise<void>>();
 
 /**
  * Set up the worker environment and loader. Must be called once before any
@@ -66,17 +73,40 @@ export function configureMonaco(): void {
 }
 
 /**
- * Register basic language contributions (tokenizer + language config) from
- * the per-language support registry. Idempotent; safe to call multiple times.
+ * Register one language's Monaco contribution (tokenizer + language config) and
+ * its lazily-imported editor providers (completion / hover / signature) exactly
+ * once. Returns the shared registration promise so callers can await readiness
+ * or fire-and-forget. Unknown language ids resolve to a no-op.
+ *
+ * Lazy-registration contract (RL-124 / AUDIT-04): JS/TS are pre-registered by
+ * the editor mount for the scratchpad happy path; every other language is
+ * registered the first time a tab activates it. Opening a JavaScript scratchpad
+ * therefore never pulls the Go / Rust / Python / Ruby / Lua tokenizer or
+ * completion-provider chunks — they load on demand when the matching file type
+ * is opened. Tokenizer coloring applies as soon as the (already code-split)
+ * loader resolves; providers register a tick later, which is invisible because
+ * completion / hover / signature help are user-triggered, not first-paint.
  */
-function ensureLanguageContributions(m: Monaco): void {
-  if (languageContributionsLoaded) return;
-  languageContributionsLoaded = true;
+export function registerLanguageOnce(m: Monaco, languageId: string): Promise<void> {
+  const cached = languageRegistrations.get(languageId);
+  if (cached) return cached;
+  const registration = registerLanguageContribution(m, languageId).catch((error) => {
+    // Never cache a poisoned entry: drop it so a later activation can retry,
+    // and resolve (not reject) so fire-and-forget callers do not emit an
+    // unhandled rejection.
+    languageRegistrations.delete(languageId);
+    console.warn(`[monaco] language registration failed: ${languageId}`, error);
+  });
+  languageRegistrations.set(languageId, registration);
+  return registration;
+}
 
-  for (const descriptor of getLanguageSupportDescriptors()) {
-    const lang = descriptor.monaco;
-    if (!lang) continue;
+async function registerLanguageContribution(m: Monaco, languageId: string): Promise<void> {
+  const descriptor = getLanguageSupportDescriptor(languageId);
+  if (!descriptor) return;
 
+  const lang = descriptor.monaco;
+  if (lang) {
     if (!m.languages.getLanguages().some((l: { id: string }) => l.id === lang.id)) {
       m.languages.register({
         id: lang.id,
@@ -86,21 +116,72 @@ function ensureLanguageContributions(m: Monaco): void {
     }
 
     if (lang.loader) {
-      void lang
-        .loader()
-        .then((mod) => {
-          m.languages.setMonarchTokensProvider(lang.id, mod.language);
-          m.languages.setLanguageConfiguration(lang.id, mod.conf);
-        })
-        .catch(() => {
-          // Optional tokenizer chunks should not create unhandled rejections.
-          // Monaco can still keep the registered language as a plain mode.
-        });
-      continue;
+      try {
+        const mod = await lang.loader();
+        m.languages.setMonarchTokensProvider(lang.id, mod.language);
+        m.languages.setLanguageConfiguration(lang.id, mod.conf);
+      } catch {
+        // Optional tokenizer chunks must not create unhandled rejections;
+        // Monaco keeps the registered language as a plain mode.
+      }
+    } else {
+      m.languages.setMonarchTokensProvider(lang.id, lang.language);
+      m.languages.setLanguageConfiguration(lang.id, lang.config);
     }
+  }
 
-    m.languages.setMonarchTokensProvider(lang.id, lang.language);
-    m.languages.setLanguageConfiguration(lang.id, lang.config);
+  if (descriptor.loadEditorProviders) {
+    try {
+      const providers = await descriptor.loadEditorProviders();
+      if (providers.createCompletionProvider) {
+        m.languages.registerCompletionItemProvider(
+          descriptor.id,
+          providers.createCompletionProvider(m)
+        );
+      }
+      if (providers.createHoverProvider) {
+        m.languages.registerHoverProvider(descriptor.id, providers.createHoverProvider());
+      }
+      if (providers.createSignatureHelpProvider) {
+        m.languages.registerSignatureHelpProvider(
+          descriptor.id,
+          providers.createSignatureHelpProvider()
+        );
+      }
+    } catch {
+      // Editor providers are best-effort; a failed dynamic import leaves the
+      // language usable with tokenizer coloring but no language-specific
+      // completion / hover / signature help.
+    }
+  }
+}
+
+/**
+ * Warm one language's contribution during browser idle time via the Monaco
+ * singleton, so the tokenizer + provider chunks are already in flight before
+ * the editor component finishes mounting. Safe to call before any editor
+ * renders; dedupes through `registerLanguageOnce`. Falls back to a 0ms timeout
+ * where `requestIdleCallback` is unavailable (Electron renderer, jsdom).
+ */
+export function prefetchLanguage(languageId: string): void {
+  const run = (): void => {
+    // `configureMonaco()` calls loader.config({ monaco }), so @monaco-editor/react
+    // and this singleton are the same instance sharing one global language
+    // registry — registering against either is equivalent. The cast only bridges
+    // the narrower editor.api.js namespace type to the full Monaco type.
+    void registerLanguageOnce(monaco as unknown as Monaco, languageId);
+  };
+  const idle = (
+    globalThis as typeof globalThis & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+    }
+  ).requestIdleCallback;
+  if (typeof idle === 'function') {
+    // The timeout guarantees the warm-up still runs under sustained main-thread
+    // load; CodeEditor's active-language effect is the backstop if it slips.
+    idle(run, { timeout: 2000 });
+  } else {
+    setTimeout(run, 0);
   }
 }
 
@@ -140,36 +221,6 @@ export function applyTypeScriptDefaults(m: Monaco): void {
   ts.typescriptDefaults.setEagerModelSync(true);
   ts.typescriptDefaults.setDiagnosticsOptions(diagnosticsOptions);
   ts.typescriptDefaults.setCompilerOptions(compilerOptions);
-}
-
-export function registerLanguageCompletionProviders(m: Monaco): void {
-  ensureLanguageContributions(m);
-
-  if (completionProvidersRegistered) return;
-  completionProvidersRegistered = true;
-
-  for (const descriptor of getLanguageSupportDescriptors()) {
-    if (!descriptor.createCompletionProvider) continue;
-    m.languages.registerCompletionItemProvider(
-      descriptor.id,
-      descriptor.createCompletionProvider(m)
-    );
-  }
-
-  for (const descriptor of getLanguageSupportDescriptors()) {
-    if (descriptor.createHoverProvider) {
-      m.languages.registerHoverProvider(
-        descriptor.id,
-        descriptor.createHoverProvider()
-      );
-    }
-    if (descriptor.createSignatureHelpProvider) {
-      m.languages.registerSignatureHelpProvider(
-        descriptor.id,
-        descriptor.createSignatureHelpProvider()
-      );
-    }
-  }
 }
 
 // The TypeScript contribution augments the global `monaco.languages` object

@@ -1,6 +1,3 @@
-import { createGoCompletionProvider } from '../components/Editor/completionProviders/goCompletions';
-import { createGoHoverProvider } from '../components/Editor/completionProviders/goHoverProvider';
-import { createGoSignatureProvider } from '../components/Editor/completionProviders/goSignatureProvider';
 import type { LanguageSupportDescriptor } from './types';
 
 export const goLanguageSupport = {
@@ -11,7 +8,17 @@ export const goLanguageSupport = {
     aliases: ['Go'],
     loader: () => import('monaco-editor/esm/vs/basic-languages/go/go.js'),
   },
-  createCompletionProvider: createGoCompletionProvider,
-  createHoverProvider: createGoHoverProvider,
-  createSignatureHelpProvider: createGoSignatureProvider,
+  loadEditorProviders: async () => {
+    const [{ createGoCompletionProvider }, { createGoHoverProvider }, { createGoSignatureProvider }] =
+      await Promise.all([
+        import('../components/Editor/completionProviders/goCompletions'),
+        import('../components/Editor/completionProviders/goHoverProvider'),
+        import('../components/Editor/completionProviders/goSignatureProvider'),
+      ]);
+    return {
+      createCompletionProvider: createGoCompletionProvider,
+      createHoverProvider: createGoHoverProvider,
+      createSignatureHelpProvider: createGoSignatureProvider,
+    };
+  },
 } satisfies LanguageSupportDescriptor;

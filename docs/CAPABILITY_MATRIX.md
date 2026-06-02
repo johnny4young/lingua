@@ -197,7 +197,10 @@ edit by hand. To change a row, edit the array + re-run the test
 - **Renderer-side language intelligence ships in the same slice.**
   `src/renderer/languageIntelligence/ruby.ts` (registered via the new
   `src/renderer/languageSupport/` descriptor registry that monaco.ts +
-  languageIntelligence both consume generically) provides
+  languageIntelligence both consume generically; monaco.ts registers
+  each language lazily on first activation via `registerLanguageOnce`
+  per RL-124, so a Ruby tab pulls its tokenizer + provider chunks on
+  demand) provides
   block-balance + delimiter diagnostics, local symbol-aware completions
   (methods, classes, modules, locals, block parameters), hover with
   definition-line, and signature help for local method calls — same

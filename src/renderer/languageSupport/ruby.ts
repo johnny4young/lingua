@@ -1,6 +1,3 @@
-import { createRubyCompletionProvider } from '../components/Editor/completionProviders/rubyCompletions';
-import { createRubyHoverProvider } from '../components/Editor/completionProviders/rubyHoverProvider';
-import { createRubySignatureProvider } from '../components/Editor/completionProviders/rubySignatureProvider';
 import { createRubyLanguageIntelligenceAdapter } from '../languageIntelligence/ruby';
 import type { LanguageSupportDescriptor } from './types';
 
@@ -12,8 +9,21 @@ export const rubyLanguageSupport = {
     aliases: ['Ruby', 'ruby'],
     loader: () => import('monaco-editor/esm/vs/basic-languages/ruby/ruby.js'),
   },
-  createCompletionProvider: createRubyCompletionProvider,
-  createHoverProvider: createRubyHoverProvider,
-  createSignatureHelpProvider: createRubySignatureProvider,
+  loadEditorProviders: async () => {
+    const [
+      { createRubyCompletionProvider },
+      { createRubyHoverProvider },
+      { createRubySignatureProvider },
+    ] = await Promise.all([
+      import('../components/Editor/completionProviders/rubyCompletions'),
+      import('../components/Editor/completionProviders/rubyHoverProvider'),
+      import('../components/Editor/completionProviders/rubySignatureProvider'),
+    ]);
+    return {
+      createCompletionProvider: createRubyCompletionProvider,
+      createHoverProvider: createRubyHoverProvider,
+      createSignatureHelpProvider: createRubySignatureProvider,
+    };
+  },
   createLanguageIntelligenceAdapter: createRubyLanguageIntelligenceAdapter,
 } satisfies LanguageSupportDescriptor;

@@ -198,94 +198,103 @@ describe('applyTypeScriptDefaults', () => {
   });
 });
 
-describe('registerLanguageCompletionProviders', () => {
+describe('registerLanguageOnce', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
   });
 
-  it('registers completion providers for Go, Python, Rust, Lua, and Ruby once', async () => {
-    const { getLanguageSupportDescriptors } = await import('@/languageSupport/registry');
-    const { registerLanguageCompletionProviders } = await import('@/monaco');
-    const descriptors = getLanguageSupportDescriptors();
-    const completionLanguageIds = descriptors
-      .filter((descriptor) => descriptor.createCompletionProvider)
-      .map((descriptor) => descriptor.id);
-    const hoverLanguageIds = descriptors
-      .filter((descriptor) => descriptor.createHoverProvider)
-      .map((descriptor) => descriptor.id);
-    const signatureLanguageIds = descriptors
-      .filter((descriptor) => descriptor.createSignatureHelpProvider)
-      .map((descriptor) => descriptor.id);
+  it('registers a single language tokenizer plus its editor providers on demand', async () => {
+    const { registerLanguageOnce } = await import('@/monaco');
 
-    registerLanguageCompletionProviders(monacoMock as never);
-    registerLanguageCompletionProviders(monacoMock as never);
+    await registerLanguageOnce(monacoMock as never, 'go');
 
-    expect(completionLanguageIds).toEqual(
-      expect.arrayContaining(['go', 'python', 'rust', 'lua', 'ruby'])
+    expect(monacoMock.languages.register).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'go' })
     );
-    expect(registerCompletionItemProvider).toHaveBeenCalledTimes(
-      completionLanguageIds.length
+    expect(monacoMock.languages.setMonarchTokensProvider).toHaveBeenCalledWith(
+      'go',
+      expect.anything()
     );
-    for (const [index, languageId] of completionLanguageIds.entries()) {
-      expect(registerCompletionItemProvider).toHaveBeenNthCalledWith(
-        index + 1,
-        languageId,
-        expect.any(Object)
-      );
-    }
+    expect(registerCompletionItemProvider).toHaveBeenCalledWith('go', expect.any(Object));
+    expect(registerHoverProvider).toHaveBeenCalledWith('go', expect.any(Object));
+    expect(registerSignatureHelpProvider).toHaveBeenCalledWith('go', expect.any(Object));
+  });
 
-    expect(hoverLanguageIds).toEqual(
-      expect.arrayContaining(['python', 'ruby', 'rust', 'go'])
-    );
-    expect(registerHoverProvider).toHaveBeenCalledTimes(hoverLanguageIds.length);
-    for (const languageId of hoverLanguageIds) {
-      expect(registerHoverProvider).toHaveBeenCalledWith(
-        languageId,
-        expect.any(Object)
-      );
-    }
+  it('does not register any other language when one language is requested', async () => {
+    const { registerLanguageOnce } = await import('@/monaco');
 
-    expect(signatureLanguageIds).toEqual(
-      expect.arrayContaining(['python', 'ruby', 'rust', 'go'])
+    // JavaScript is the scratchpad happy path: tokenizer registers, but JS
+    // ships no custom editor providers (it relies on the TypeScript worker).
+    await registerLanguageOnce(monacoMock as never, 'javascript');
+
+    expect(monacoMock.languages.register).toHaveBeenCalledTimes(1);
+    expect(monacoMock.languages.register).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'javascript' })
     );
-    expect(registerSignatureHelpProvider).toHaveBeenCalledTimes(
-      signatureLanguageIds.length
-    );
-    for (const languageId of signatureLanguageIds) {
-      expect(registerSignatureHelpProvider).toHaveBeenCalledWith(
-        languageId,
-        expect.any(Object)
+    expect(registerCompletionItemProvider).not.toHaveBeenCalled();
+    // No Go / Python / Rust contributions leaked in from the eager old path.
+    for (const leaked of ['go', 'python', 'rust', 'ruby', 'lua']) {
+      expect(monacoMock.languages.register).not.toHaveBeenCalledWith(
+        expect.objectContaining({ id: leaked })
       );
     }
   });
 
-  it('registers built-in non-runtime language tokenizers once alongside completion providers', async () => {
-    const { getLanguageSupportDescriptors } = await import('@/languageSupport/registry');
-    const { registerLanguageCompletionProviders } = await import('@/monaco');
+  it('dedupes parallel and repeated calls for the same language', async () => {
+    const { registerLanguageOnce } = await import('@/monaco');
 
-    registerLanguageCompletionProviders(monacoMock as never);
+    await Promise.all([
+      registerLanguageOnce(monacoMock as never, 'rust'),
+      registerLanguageOnce(monacoMock as never, 'rust'),
+    ]);
+    await registerLanguageOnce(monacoMock as never, 'rust');
 
-    const monacoLanguageIds = getLanguageSupportDescriptors()
-      .map((descriptor) => descriptor.monaco?.id)
-      .filter((id): id is string => Boolean(id));
-
-    expect(monacoMock.languages.register).toHaveBeenCalledTimes(
-      monacoLanguageIds.length
+    const rustRegisterCalls = monacoMock.languages.register.mock.calls.filter(
+      ([contribution]: [{ id: string }]) => contribution.id === 'rust'
     );
-    for (const languageId of [
-      'yaml',
-      'dotenv',
-      'csv',
-      'dockerfile',
-      'ruby',
-      'shell',
-      'makefile',
-    ]) {
-      expect(monacoLanguageIds).toContain(languageId);
-      expect(monacoMock.languages.register).toHaveBeenCalledWith(
-        expect.objectContaining({ id: languageId })
-      );
-    }
+    const rustCompletionCalls = registerCompletionItemProvider.mock.calls.filter(
+      ([languageId]: [string]) => languageId === 'rust'
+    );
+    expect(rustRegisterCalls).toHaveLength(1);
+    expect(rustCompletionCalls).toHaveLength(1);
+  });
+
+  it('resolves to a no-op for an unknown language id', async () => {
+    const { registerLanguageOnce } = await import('@/monaco');
+
+    await registerLanguageOnce(monacoMock as never, 'definitely-not-a-language');
+
+    expect(monacoMock.languages.register).not.toHaveBeenCalled();
+    expect(registerCompletionItemProvider).not.toHaveBeenCalled();
+  });
+});
+
+describe('prefetchLanguage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
+  it('warms a language contribution through the monaco singleton at idle', async () => {
+    const idle = vi.fn((callback: () => void) => {
+      callback();
+      return 1;
+    });
+    vi.stubGlobal('requestIdleCallback', idle);
+
+    const monacoModule = await import('@/monaco');
+    monacoModule.prefetchLanguage('python');
+    // Awaiting the same id returns the deduped promise the prefetch started,
+    // so the dynamic provider import has fully settled before we assert.
+    await monacoModule.registerLanguageOnce(monacoMock as never, 'python');
+
+    vi.unstubAllGlobals();
+
+    expect(idle).toHaveBeenCalledOnce();
+    expect(monacoMock.languages.register).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'python' })
+    );
+    expect(registerCompletionItemProvider).toHaveBeenCalledWith('python', expect.any(Object));
   });
 });

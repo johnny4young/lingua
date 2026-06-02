@@ -17,7 +17,7 @@ describe('language support registry', () => {
     expect(new Set(monacoIds).size).toBe(monacoIds.length);
   });
 
-  it('keeps Ruby editor services isolated in the Ruby descriptor', () => {
+  it('keeps Ruby editor services isolated in the Ruby descriptor', async () => {
     const ruby = getLanguageSupportDescriptor('ruby');
 
     expect(ruby).toBeTruthy();
@@ -25,9 +25,13 @@ describe('language support registry', () => {
       id: 'ruby',
       extensions: ['.rb'],
     });
-    expect(ruby?.createCompletionProvider).toEqual(expect.any(Function));
-    expect(ruby?.createHoverProvider).toEqual(expect.any(Function));
-    expect(ruby?.createSignatureHelpProvider).toEqual(expect.any(Function));
+    // RL-124 — editor providers are now lazily imported via loadEditorProviders
+    // so the provider modules stay out of the initial bundle.
+    expect(ruby?.loadEditorProviders).toEqual(expect.any(Function));
+    const providers = await ruby?.loadEditorProviders?.();
+    expect(providers?.createCompletionProvider).toEqual(expect.any(Function));
+    expect(providers?.createHoverProvider).toEqual(expect.any(Function));
+    expect(providers?.createSignatureHelpProvider).toEqual(expect.any(Function));
     expect(ruby?.createLanguageIntelligenceAdapter?.().language).toBe('ruby');
   });
 
