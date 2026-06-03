@@ -30,6 +30,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 import {
   createBlankNotebook,
   MAX_CELLS_PER_NOTEBOOK,
@@ -744,6 +745,7 @@ export const useNotebookStore = create<NotebookState>()(
     {
       name: 'lingua-notebook-state',
       version: 1,
+      migrate: createMigrate('lingua-notebook-state'),
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ notebooks: state.notebooks }),
       merge: (persisted, current) => {

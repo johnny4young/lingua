@@ -28,6 +28,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 
 export const LESSON_PROGRESS_CAP = 200;
 
@@ -241,6 +242,7 @@ export const useLessonProgressStore = create<LessonProgressState>()(
     {
       name: 'lingua-lesson-progress',
       version: 1,
+      migrate: createMigrate('lingua-lesson-progress'),
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ entries: state.entries }),
       merge: (persisted, current) => {

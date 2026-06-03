@@ -11,6 +11,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 import {
   KEYBOARD_SHORTCUTS,
   isEditableShortcutCombo,
@@ -743,6 +744,12 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'lingua-settings',
+      // RL-126 / AUDIT-06 — schema version + central migration. The 0->1 step
+      // is identity (no shape change yet); the existing onRehydrate/merge
+      // sanitizers still run after migrate. A future field rename registers a
+      // step under key 2 in migrationRegistry and bumps this to version: 2.
+      version: 1,
+      migrate: createMigrate('lingua-settings'),
       // Durable schema for `lingua-settings`. Keep this list explicit so new
       // runtime-only helpers/functions do not accidentally become localStorage
       // state just because they were added to `SettingsState`.

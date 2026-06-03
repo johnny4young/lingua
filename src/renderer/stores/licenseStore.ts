@@ -1,5 +1,6 @@
 import { create, type StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 import {
   decodeLicenseToken,
   type LicenseVerificationResult,
@@ -729,6 +730,8 @@ function createWebStore() {
   const store = create<LicenseState>()(
     persist(webStateCreator, {
       name: 'lingua-license',
+      version: 1,
+      migrate: createMigrate('lingua-license'),
       partialize: (state) => ({
         token: state.token,
         status: state.token ? state.status : FREE_STATUS,

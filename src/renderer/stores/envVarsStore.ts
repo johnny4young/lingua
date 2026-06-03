@@ -24,6 +24,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 import {
   type EnvVarScope,
   mergeEnvScopes,
@@ -235,6 +236,8 @@ export const useEnvVarsStore = create<EnvVarsStoreState>()(
     }),
     {
       name: STORAGE_KEY,
+      version: 1,
+      migrate: createMigrate(STORAGE_KEY),
       partialize: (state) => ({
         global: state.global,
         project: state.project,

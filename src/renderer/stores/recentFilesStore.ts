@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
+import { createMigrate } from './persistence/migrationRegistry';
 
 // Keep Quick Open useful without turning localStorage into a long-lived file
 // history ledger. The newest entry is always first.
@@ -47,6 +48,8 @@ export const useRecentFilesStore = create<RecentFilesState>()(
     }),
     {
       name: 'lingua-recent-files',
+      version: 1,
+      migrate: createMigrate('lingua-recent-files'),
       // Persist only the serializable list; store actions are recreated by
       // Zustand at startup and should never be stored in localStorage.
       partialize: (state) => ({ recentFiles: state.recentFiles }),

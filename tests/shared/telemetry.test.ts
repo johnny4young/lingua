@@ -128,6 +128,10 @@ describe('TELEMETRY_EVENTS', () => {
       'onboarding.toast_clobbered',
       'onboarding.toast_dismissed',
       'overlay.opened',
+      // RL-126 / AUDIT-06 — persisted-store schema migration ran on rehydrate.
+      // Closed payload `{ store }` (localStorage key, safe token). Sorts
+      // between `overlay.*` and `privacy.*` (pe < pr).
+      'persistence.migrated',
       // RL-096 Slice 1 fold A — Privacy + Trust dashboard adoption
       // signal. Closed-enum `{ surface }` from
       // `PRIVACY_DASHBOARD_SURFACES` ('settings' | 'palette').

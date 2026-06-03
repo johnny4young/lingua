@@ -289,4 +289,46 @@ test.describe('Settings persistence', () => {
     await openSettingsTab(page, 'environment');
     await expect(page.getByTestId('env-vars-global-region')).toContainText('PERSIST');
   });
+
+  // RL-126 / AUDIT-06 fold E — a returning user whose `lingua-settings` was
+  // written before schema versioning (an unversioned v0 payload) must still
+  // load cleanly through the new migrate path, and the store must re-stamp the
+  // envelope to the current version on the next write.
+  test('an unversioned (v0) settings payload rehydrates and re-stamps to v1', async ({
+    page,
+  }) => {
+    await seedSession(page, { language: 'en' });
+    // Seed a v0 envelope (no `version` field) BEFORE the app boots, mimicking
+    // localStorage written by a build that predated RL-126.
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        'lingua-settings',
+        JSON.stringify({ state: { theme: 'light', fontSize: 18 } })
+      );
+    });
+    await gotoApp(page);
+
+    // The legacy preferences loaded (no data loss on upgrade).
+    const loaded = await page.evaluate(() => {
+      const raw = window.localStorage.getItem('lingua-settings');
+      return raw ? (JSON.parse(raw) as { state?: { fontSize?: number }; version?: number }) : null;
+    });
+    expect(loaded?.state?.fontSize).toBe(18);
+
+    // Toggle a setting so the store persists, then assert the envelope now
+    // carries the current schema version.
+    await openSettings(page);
+    await openSettingsTab(page, 'editor');
+    await page.getByRole('switch', { name: 'Vim mode' }).click();
+    await closeSettings(page);
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const raw = window.localStorage.getItem('lingua-settings');
+          return raw ? (JSON.parse(raw) as { version?: number }).version : undefined;
+        })
+      )
+      .toBe(1);
+  });
 });

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 import {
   DEVELOPER_UTILITIES,
   type DeveloperUtilityId,
@@ -215,6 +216,8 @@ export const useUtilityHistoryStore = create<UtilityHistoryState>()(
     }),
     {
       name: UTILITY_HISTORY_STORAGE_KEY,
+      version: 1,
+      migrate: createMigrate(UTILITY_HISTORY_STORAGE_KEY),
       storage: createJSONStorage(() => localStorage),
       // Slice 3 — only persist the bits the user explicitly opted into.
       // History is filtered per-tool by `persistEnabled[id]`. Favorites +

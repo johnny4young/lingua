@@ -24,6 +24,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 import {
   PIPELINE_CAP,
   parsePipeline,
@@ -235,6 +236,7 @@ export const useUtilityPipelineStore = create<UtilityPipelineState>()(
     {
       name: 'lingua-utility-pipeline-state',
       version: 1,
+      migrate: createMigrate('lingua-utility-pipeline-state'),
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         pipelines: state.pipelines,

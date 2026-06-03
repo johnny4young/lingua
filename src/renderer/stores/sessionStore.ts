@@ -11,6 +11,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
+import { createMigrate } from './persistence/migrationRegistry';
 import {
   useEditorStore,
   SQL_WORKSPACE_TAB_ID,
@@ -366,6 +367,8 @@ export const useSessionStore = create<SessionState>()(
     }),
     {
       name: 'lingua-session',
+      version: 1,
+      migrate: createMigrate('lingua-session'),
       // Only the serializable snapshot belongs in localStorage. Actions and
       // live editor/UI state are rebuilt from the store creators at runtime.
       partialize: (state) => ({

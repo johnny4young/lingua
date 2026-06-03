@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 
 /**
  * RL-027 Slice 1 — Debugger state machine store.
@@ -387,6 +388,8 @@ export const useDebuggerStore = create<DebuggerState>()(
     }),
     {
       name: DEBUGGER_STORAGE_KEY,
+      version: 1,
+      migrate: createMigrate(DEBUGGER_STORAGE_KEY),
       storage: createJSONStorage(() => localStorage),
       // Slice 1 — only persist breakpoints + watches. Session +
       // pausedFrame are transient (rebooting the renderer always

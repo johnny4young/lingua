@@ -463,6 +463,12 @@ export const TELEMETRY_EVENTS = [
   // canonical `NOTEBOOK_CELL_STATUSES` tuple from
   // `src/renderer/runtime/notebookSession.ts`.
   'notebook.cell_executed',
+  // RL-126 / AUDIT-06 — a persisted Zustand store ran a schema migration on
+  // rehydrate (its stored version was older than the current version). Closed
+  // payload `{ store }` where `store` is the localStorage key (a safe token);
+  // NO version numbers, NO persisted state reaches the wire. Lets us see which
+  // stores actually hit a migration in the wild.
+  'persistence.migrated',
 ] as const;
 export type TelemetryEventName = (typeof TELEMETRY_EVENTS)[number];
 
@@ -761,6 +767,8 @@ const EVENT_PROPERTY_ALLOWLIST: Record<TelemetryEventName, readonly string[]> = 
   // (Slice A: javascript only), `status` ∈ NOTEBOOK_CELL_STATUSES_SET
   // (`'ok' / 'error' / 'stopped'`).
   'notebook.cell_executed': ['language', 'status'],
+  // RL-126 / AUDIT-06 — only the store key survives; see the value validator.
+  'persistence.migrated': ['store'],
 };
 
 // RL-094 Slice 1 — extracted to `src/shared/redaction.ts` so the same
@@ -1806,6 +1814,12 @@ function isAllowedValue(
       if (key === 'status')
         return typeof value === 'string' && NOTEBOOK_CELL_STATUSES_SET.has(value);
       return false;
+    case 'persistence.migrated':
+      // RL-126 — `store` is a localStorage key (a safe token like
+      // `lingua-settings`); the closed-enum membership is enforced at the call
+      // site by the `PersistedStoreName` union, and the token shape is enough
+      // here (no PII, no version numbers, no payload).
+      return key === 'store' && isSafeToken(value);
     case 'sql.query_executed':
       if (key === 'status')
         return (

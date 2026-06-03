@@ -57,6 +57,76 @@ Why:
 - a watcher cannot be serialized meaningfully
 - reopening into a stale project root after restart is riskier than starting clean
 
+## Store persistence and schema versioning
+
+Every Zustand store that uses `persist(...)` is schema-versioned through one
+central registry: `src/renderer/stores/persistence/migrationRegistry.ts`
+(RL-126 / AUDIT-06). This exists so that when a persisted shape changes, old
+`localStorage` payloads upgrade cleanly instead of corrupting returning users.
+
+### The contract
+
+Each persisted store declares two things in its `persist` options:
+
+- `version: N` — the current schema version. This is zustand's native envelope
+  version (stored as `{ state, version }` in `localStorage`), not a field
+  inside the state. It **is** the store's `_schemaVersion`.
+- `migrate: createMigrate('<storage-key>')` — routes rehydration through the
+  central registry.
+
+```ts
+persist(creator, {
+  name: 'lingua-example',
+  version: 1,
+  migrate: createMigrate('lingua-example'),
+  partialize: (s) => ({ items: s.items }),
+});
+```
+
+`createMigrate` is a thin wrapper over the pure `migrateState` engine. On
+rehydrate, zustand calls it with `(persistedState, storedVersion)`; it replays
+every registered step whose target version is newer than the stored version, in
+ascending order, then returns the upgraded state.
+
+Two safety properties (RL-126 fold D):
+
+- A **non-record payload** (garbage, a bare string, an array, `null`) or **a
+  step that throws** resets that store to its in-memory defaults instead of
+  crashing the boot. Custom `merge` functions still run afterward and must
+  treat the persisted argument as optional (`persisted ?? {}` /
+  `typeof persisted === 'object'`).
+- An **unversioned (v0) payload** is treated as version 0, so the 0→N steps run.
+  When a store has no shape change yet, its registry entry is an empty map and
+  the migration is identity — the payload is preserved verbatim and zustand
+  re-stamps the envelope to the current version.
+
+When a real migration runs, a `persistence.migrated { store }` telemetry event
+fires (store key only — no version numbers, no payload).
+
+### How to author a migration (runbook)
+
+To change the persisted shape of, say, `lingua-settings` (rename `oldKey` →
+`newKey`):
+
+1. Bump `version: 1` → `version: 2` in `settingsStore`'s `persist` options.
+2. Register the upgrade step under the **target** version key in
+   `migrationRegistry`:
+
+   ```ts
+   'lingua-settings': {
+     2: (s) => {
+       const { oldKey, ...rest } = s as Record<string, unknown>;
+       return { ...rest, newKey: oldKey };
+     },
+   },
+   ```
+3. Add a v1→v2 fixture to `tests/stores/persistence/storeMigrations.test.ts`
+   (the v0 back-compat case is already generated for every store).
+
+The drift guard in that test fails CI if any new `persist(...)` store ships
+without a `version` + `createMigrate(...)`, so a store can never silently go
+unversioned.
+
 ## Project lifecycle
 
 ### What “project lifecycle” means in this codebase

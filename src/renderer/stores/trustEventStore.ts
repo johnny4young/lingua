@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 
 /**
  * RL-096 Slice 1 — Trust event log.
@@ -167,6 +168,8 @@ export const useTrustEventStore = create<TrustEventState>()(
     }),
     {
       name: TRUST_EVENT_STORAGE_KEY,
+      version: 1,
+      migrate: createMigrate(TRUST_EVENT_STORAGE_KEY),
       partialize: (state) => ({ events: state.events }),
       merge: (persisted, current) => {
         const events =

@@ -2,6 +2,7 @@ import i18next from 'i18next';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '../types';
+import { createMigrate } from './persistence/migrationRegistry';
 import { currentEffectiveTier } from '../hooks/useEntitlement';
 import { withinSnippetBudget } from '../../shared/entitlements';
 import { pushUpsellNotice } from '../utils/upsellNotice';
@@ -81,6 +82,8 @@ export const useSnippetsStore = create<SnippetsState>()(
     }),
     {
       name: 'lingua-snippets',
+      version: 1,
+      migrate: createMigrate('lingua-snippets'),
       partialize: (state) => ({ snippets: state.snippets }),
     }
   )

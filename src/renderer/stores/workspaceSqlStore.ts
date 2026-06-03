@@ -29,6 +29,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 import {
   parseSqlQuery,
   parseSqlResponse,
@@ -234,6 +235,7 @@ export const useWorkspaceSqlStore = create<WorkspaceSqlState>()(
     {
       name: 'lingua-workspace-sql-state',
       version: 1,
+      migrate: createMigrate('lingua-workspace-sql-state'),
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         // Transient runtime failures (`timeout` / `engine-load-failed`)

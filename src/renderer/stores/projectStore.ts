@@ -20,6 +20,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getActiveAppLanguage } from '../i18n';
+import { createMigrate } from './persistence/migrationRegistry';
 import { languageFromPath } from '../utils/language';
 import {
   addNodeToParent,
@@ -404,6 +405,8 @@ export const useProjectStore = create<ProjectState>()(
     }),
     {
       name: 'lingua-project-store',
+      version: 1,
+      migrate: createMigrate('lingua-project-store'),
       // Only persist the project registry; runtime state (nodes, watchId,
       // currentProject — which carries a process-lifetime rootId) is
       // always re-derived. The persisted recent-projects entries are

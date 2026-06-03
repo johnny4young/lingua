@@ -25,6 +25,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { createMigrate } from './persistence/migrationRegistry';
 import {
   parseHttpRequest,
   parseHttpResponse,
@@ -221,6 +222,7 @@ export const useWorkspaceToolStore = create<WorkspaceToolState>()(
     {
       name: 'lingua-workspace-tool-state',
       version: 1,
+      migrate: createMigrate('lingua-workspace-tool-state'),
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         // Typed runtime failures (`network-error` / `timeout` /
