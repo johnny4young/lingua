@@ -25,6 +25,7 @@ import { ExecutionHistoryPopover } from './ExecutionHistoryPopover';
 import { ConsoleEntryRenderer } from './ConsoleEntryRenderer';
 import { OutputLineBadge } from './OutputLineBadge';
 import { richKindBucket } from './richConsoleFormat';
+import { useListWindow } from './useListWindow';
 
 interface AnsiSpan {
   text: string;
@@ -520,6 +521,17 @@ export function ConsolePanel() {
   }, []);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userScrolled = useRef(false);
+  const rowKeys = useMemo(
+    () => visibleEntries.map((row) => row.entry.id),
+    [visibleEntries]
+  );
+  // RL-123 Slice 2 — window the (already collapsed + filtered) rows so only
+  // the viewport band mounts. Off-window rows unmount, releasing their
+  // RichValueChart Vega canvases for free.
+  const { listWindow, measureRef, scrollToBottom } = useListWindow({
+    scrollRef,
+    keys: rowKeys,
+  });
   const typeLabel: Record<ConsoleEntryType, string> = {
     log: t('console.filters.type.log'),
     info: t('console.filters.type.info'),
@@ -528,11 +540,18 @@ export function ConsolePanel() {
     result: t('console.filters.type.result'),
   };
 
+  // RL-123 Slice 2 — re-pin to the bottom after every commit while the user is
+  // parked there (no dependency array on purpose). This covers BOTH new
+  // entries and late row measurement: the windower seeds each row at an
+  // estimated height, then the ResizeObserver grows the content as real
+  // heights arrive, which would otherwise leave a sticky-bottom view a few
+  // hundred px short of the true bottom. Reading scrollHeight on each commit
+  // and pinning is the robust fix for that measure-then-grow race.
+  // scrollToBottom is a no-op once already at the bottom, so this converges
+  // and never loops.
   useEffect(() => {
-    const element = scrollRef.current;
-    if (!element || userScrolled.current) return;
-    element.scrollTop = element.scrollHeight;
-  }, [entries]);
+    if (!userScrolled.current) scrollToBottom();
+  });
 
   const handleScroll = () => {
     const element = scrollRef.current;
@@ -686,6 +705,7 @@ export function ConsolePanel() {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
+        data-window-range={`${listWindow.startIndex}:${listWindow.endIndex}`}
         className="flex-1 overflow-y-auto px-3 py-2 font-mono text-xs leading-6"
       >
         {visibleEntries.length === 0 ? (
@@ -703,17 +723,34 @@ export function ConsolePanel() {
             ) : null}
           </div>
         ) : (
-          visibleEntries.map(({ entry, repeatCount }) => (
-            <EntryRow
-              key={entry.id}
-              entry={entry}
-              showTimestamps={showTimestamps}
-              typeLabel={typeLabel}
-              repeatCount={repeatCount}
-              pulseTargetLine={renderedPulseLine}
-              originSuppressed={originSuppressed}
-            />
-          ))
+          <>
+            {/* RL-123 Slice 2 — top spacer reserves the height of the rows
+                above the window so the scrollbar matches the full list. */}
+            <div aria-hidden style={{ height: listWindow.topSpacer }} />
+            {visibleEntries
+              .slice(listWindow.startIndex, listWindow.endIndex + 1)
+              .map(({ entry, repeatCount }) => (
+                // The measure wrapper feeds each row's real height back to the
+                // windower; content-visibility lets the browser skip painting
+                // overscan rows that drift just outside the viewport.
+                <div
+                  key={entry.id}
+                  ref={measureRef(entry.id)}
+                  className="[contain-intrinsic-size:auto_28px] [content-visibility:auto]"
+                >
+                  <EntryRow
+                    entry={entry}
+                    showTimestamps={showTimestamps}
+                    typeLabel={typeLabel}
+                    repeatCount={repeatCount}
+                    pulseTargetLine={renderedPulseLine}
+                    originSuppressed={originSuppressed}
+                  />
+                </div>
+              ))}
+            {/* Bottom spacer reserves the height of the rows below the window. */}
+            <div aria-hidden style={{ height: listWindow.bottomSpacer }} />
+          </>
         )}
       </div>
 
