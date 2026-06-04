@@ -10,6 +10,7 @@ import {
   primeDeepLinkFromArgv,
 } from './deepLinkState';
 import { bootCrashReporter } from './crashReporter';
+import { installPermissionHandlers } from './permissionHandlers';
 import {
   readConsentMirror,
   registerConsentHandlers,
@@ -264,6 +265,12 @@ app.on('open-url', (event, url) => {
 });
 
 app.on('ready', async () => {
+  // RL-127 / AUDIT-07 — deny-by-default permission posture. Install before any
+  // window loads so the very first renderer request is already gated. Only the
+  // main-frame clipboard read/write grants in `permissionHandlers` are allowed;
+  // media / geolocation / notifications / subframe requests / etc. are refused.
+  installPermissionHandlers(session.defaultSession);
+
   // RL-083 Slice 1 — install the offline-smoke webRequest filter
   // before any window loads, so the very first renderer request is
   // already gated. Production sessions never set the env var.

@@ -12,6 +12,8 @@ place:
 
 - Playwright Web through `pnpm run test:e2e:web`
 - component/unit coverage through `pnpm test -- --run`
+- lightweight Electron Stagewright MCP desktop UI smoke through
+  `pnpm run smoke:desktop:stagewright`
 - managed Electron desktop smoke through `pnpm run smoke:desktop`
 - packaged-app smoke through `pnpm run smoke:desktop:packaged`
 
@@ -98,6 +100,7 @@ pnpm run dev:desktop:sync
 For repeatable validation, prefer the scripted smoke commands:
 
 ```bash
+pnpm run smoke:desktop:stagewright
 pnpm run smoke:desktop
 pnpm run smoke:desktop:offline
 pnpm run smoke:desktop:packaged
@@ -107,6 +110,8 @@ Desktop baseline must guarantee:
 
 - renderer dev server is reachable
 - Electron window opens without `chrome-error://chromewebdata/`
+- Electron Stagewright can capture a non-empty accessibility snapshot and
+  confirm zero renderer console errors
 - closing Electron does not leave orphaned renderer/server processes
 - compact-width shell behavior keeps the editor usable, with the sidebar switching to an overlay drawer instead of collapsing into an unusable split
 

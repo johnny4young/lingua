@@ -21,6 +21,7 @@
     "build:cli": "node ./scripts/build-cli.mjs",
     "preview:web": "vite preview --config vite.web.config.mts",
     "smoke:desktop": "node ./scripts/run-desktop-smoke.mjs",
+    "smoke:desktop:stagewright": "node ./scripts/run-electron-stagewright-smoke.mjs",
     "smoke:desktop:offline": "node ./scripts/run-desktop-smoke.mjs --offline",
     "smoke:desktop:packaged": "node ./scripts/run-desktop-smoke.mjs --offline --against-packaged out/make",
     "build:runtime-assets": "node --experimental-strip-types ./scripts/build-runtime-asset-manifest.mjs --write",

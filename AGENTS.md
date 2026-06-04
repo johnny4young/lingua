@@ -75,12 +75,15 @@ Order of preference:
    the gate.
 3. **Electron shell** (fallback when the slice only works in desktop
    — IPC handlers that have no web stub, `crashReporter` boot,
-   `protocol.registerFileProtocol`, etc.) → `pnpm run smoke:desktop`
-   (writes artifacts under `output/playwright/desktop-smoke` and
-   exercises JS, TS, Python, Go, and Rust in the real desktop shell)
-   or Playwright Electron. Only reach for MCP `computer-use` when a
-   flow genuinely can't be scripted — it's the most expensive tier in
-   tokens and time.
+   `protocol.registerFileProtocol`, etc.) → prefer the configured
+   Electron Stagewright MCP for agent-driven desktop UI checks
+   (snapshot/find/expect, screenshot, and console logs). Run
+   `pnpm run smoke:desktop:stagewright` for the lightweight MCP launch
+   + snapshot + zero-console-errors gate. Use `pnpm run smoke:desktop`
+   when you need the full native runtime matrix (JS, TS, Python, Go,
+   Rust), offline mode, or packaged-release coverage. Only reach for
+   MCP `computer-use` when a flow genuinely can't be scripted — it's
+   the most expensive tier in tokens and time.
 4. Avoid raw screenshot + click-by-pixel flows. Last resort for
    native targets with no scriptable alternative.
 

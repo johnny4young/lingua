@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "electron-stagewright": {
+      "command": "node",
+      "args": [
+        "/abs/path/to/electron-stagewright/packages/core/dist/cli.js",
+        "--screenshot-dir",
+        "/abs/path/to/lingua/output/stagewright/screenshots"
+      ]
+    }
+  }
+}

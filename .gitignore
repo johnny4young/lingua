@@ -65,6 +65,7 @@ Thumbs.db
 # .claude/skills/lingua-ship/
 # .agents/skills/lingua-review/
 # .agents/skills/lingua-ship/
+.mcp.json
 .claude/
 .agents/skills/lingua-review/
 .agents/skills/lingua-ship/

@@ -108,6 +108,7 @@ describe('Script naming docs guard', () => {
       'build:cli',
       'preview:web',
       'smoke:desktop',
+      'smoke:desktop:stagewright',
       // RL-083 Slice 1 — runtime-asset lock + offline desktop smoke
       'smoke:desktop:offline',
       // RL-080 Slice 3 — packaged desktop smoke (release-blocking)

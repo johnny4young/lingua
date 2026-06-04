@@ -132,7 +132,7 @@ existing or formally promoted `RL-XXX` entries in `ROADMAP.md` and `PLAN.md`.
 | macOS Developer ID signing and notarization setup                                                                                        | [`MACOS_SIGNING.md`](./MACOS_SIGNING.md)                                                         |
 | Windows Authenticode signing setup                                                                                                       | [`WINDOWS_SIGNING.md`](./WINDOWS_SIGNING.md)                                                     |
 | License + update server observability spec (metrics, alerts, dashboards)                                                                 | [`SERVER_OBSERVABILITY.md`](./SERVER_OBSERVABILITY.md)                                           |
-| Operator runbooks (webhook replay, license recovery, refund handling, desktop update draft validation, R2 release mirror, update rollback, GitHub degraded, telemetry pipeline) | [`runbooks/`](./runbooks)                                                                        |
+| Operator runbooks (webhook replay, license recovery, refund handling, desktop update draft validation, Electron Stagewright desktop validation, R2 release mirror, update rollback, GitHub degraded, telemetry pipeline) | [`runbooks/`](./runbooks)                                                                        |
 | Debugger MVP operator runbook (gutter UX, drawer mount, Settings rows, telemetry, TS source maps)                                        | [`DEBUGGER_SLICE1.md`](./DEBUGGER_SLICE1.md)                                                     |
 | Run Capsule test matrix (fixture catalog + dimensions + per-ticket consumption guide for downstream world-class slices)                                | [`CAPSULE_TEST_MATRIX.md`](./CAPSULE_TEST_MATRIX.md)                                              |
 | Launch / marketing collateral                                                                                                            | [`press-kit/`](./press-kit), [`seo-pages/`](./seo-pages)                                         |
@@ -147,6 +147,7 @@ docs.
 | Runbook | Use when |
 | --- | --- |
 | [`desktop-update-draft-validation.md`](./runbooks/desktop-update-draft-validation.md) | Validating draft-channel macOS/Windows update feeds before promotion. |
+| [`electron-stagewright-desktop-validation.md`](./runbooks/electron-stagewright-desktop-validation.md) | Running the lightweight Electron Stagewright MCP desktop UI check before falling back to the full native smoke matrix. |
 | [`github-degraded.md`](./runbooks/github-degraded.md) | GitHub API, Releases, or webhook paths are degraded and operators need fallback steps. |
 | [`license-recovery.md`](./runbooks/license-recovery.md) | Helping a licensed user recover or re-link a license/device. |
 | [`r2-release-mirror-setup.md`](./runbooks/r2-release-mirror-setup.md) | Provisioning or validating the public R2 release-download mirror. |

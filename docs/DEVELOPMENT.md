@@ -66,6 +66,7 @@ pnpm run check:i18n:copy
 pnpm test
 pnpm exec tsc --noEmit
 pnpm run build:web
+pnpm run smoke:desktop:stagewright
 pnpm run smoke:desktop
 ```
 
@@ -89,6 +90,7 @@ reference for what each command owns.
 | `build:web` | Production web bundle under `dist/web`. |
 | `build:cli` | Rebuilds the distributable `lingua` CLI bundle. |
 | `preview:web` | Serves the latest built web bundle locally. |
+| `smoke:desktop:stagewright` | Lightweight Electron Stagewright MCP desktop UI launch/snapshot/console-error smoke. |
 | `smoke:desktop` | Full desktop smoke flow against the dev server. |
 | `smoke:desktop:offline` | Desktop smoke with non-loopback network requests blocked. |
 | `smoke:desktop:packaged` | Release-blocking packaged-app smoke against `out/make`. |
@@ -246,8 +248,18 @@ Notes:
 Use the repeatable Electron smoke workflow when you need a contributor-friendly UI pass instead of ad hoc manual clicks:
 
 ```bash
+pnpm run smoke:desktop:stagewright
 pnpm run smoke:desktop
 ```
+
+`smoke:desktop:stagewright` is the lightweight MCP check for desktop UI
+surfaces: it syncs main/preload, launches Lingua through Electron
+Stagewright, captures an accessibility snapshot + screenshot, and fails on
+renderer console errors. See
+[`docs/runbooks/electron-stagewright-desktop-validation.md`](./runbooks/electron-stagewright-desktop-validation.md)
+for setup and agent-driven MCP usage.
+
+Use `smoke:desktop` when you need the full native-runtime matrix.
 
 What it does:
 

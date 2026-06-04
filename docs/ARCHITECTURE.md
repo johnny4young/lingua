@@ -127,6 +127,50 @@ The drift guard in that test fails CI if any new `persist(...)` store ships
 without a `version` + `createMigrate(...)`, so a store can never silently go
 unversioned.
 
+## Browser permission posture
+
+The Electron shell is **deny-by-default** for browser permissions (RL-127 /
+AUDIT-07). `src/main/permissionHandlers.ts` installs both
+`setPermissionRequestHandler` (interactive requests) and
+`setPermissionCheckHandler` (synchronous capability checks) on
+`session.defaultSession` at the top of `app.on('ready')`, before any window
+loads, so the first renderer request is already gated. Both delegate to one
+pure predicate, `isPermissionAllowed`, so the policy has a single decision point.
+
+### The contract
+
+- `ALLOWED_PERMISSIONS` is the **complete, explicit** allow-list. Anything not
+  in it — `media`, `geolocation`, `notifications`, `midi`, `hid`, `serial`,
+  `usb`, `openExternal`, `fullscreen`, `pointerLock`, and any permission a future
+  Chromium adds — is denied without a prompt.
+- It currently contains exactly the two main-frame clipboard permissions the app uses:
+  **`clipboard-sanitized-write`** (copy affordances — QR, JWT, snippets, share
+  links, capsule export, SQL results, "Copy JSON" — call
+  `navigator.clipboard.writeText` / `.write`) and **`clipboard-read`** (capsule
+  import from the clipboard, the Utility Pipeline paste action, and
+  clipboard-on-focus paste detection call `navigator.clipboard.readText`).
+  Denying either breaks real app-shell features with `NotAllowedError`.
+- Subframes are denied even for those clipboard permissions, so sandboxed rich
+  HTML and Browser Preview user code do not inherit the app shell's clipboard
+  grants.
+- Denied requests log `[permissions] denied "<name>" (<phase>)` — name + phase
+  only, no origin/URL/PII — so a future feature that silently hits the wall is
+  diagnosable.
+
+### How to allow a new permission
+
+1. Add the permission string to `ALLOWED_PERMISSIONS` in
+   `src/main/permissionHandlers.ts` (this is the reviewed, deliberate change).
+2. Update the allow-list assertion in `tests/main/permissionHandlers.test.ts`.
+3. Prefer the narrowest permission that unblocks the feature; never widen to
+   device permissions (`media`, `hid`, `serial`, `usb`, `geolocation`) without a
+   concrete, reviewed need.
+
+`shell.openExternal` is a main-process API and is NOT gated by these handlers;
+opening external links keeps working. A drift-guard test asserts
+`defaultSession` is the only session the app uses — if a partitioned session is
+added later, it must install the same handlers.
+
 ## Project lifecycle
 
 ### What “project lifecycle” means in this codebase
