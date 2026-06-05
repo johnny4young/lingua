@@ -61,12 +61,13 @@ export default tseslint.config(
   {
     // RL-121 / AUDIT-01 — ban inline active-tab derivation in the
     // renderer. The one canonical tabs.find(... === activeTabId)
-    // lives in editorStore.ts (getActiveTab / getActiveTabIndex);
-    // every other site must go through getActiveTab(state) or the
-    // useActiveTab() / useActiveTabId() hooks so the selector stays
-    // referentially stable and re-render fan-out stays bounded.
+    // lives in editorSelectors.ts (getActiveTab / getActiveTabIndex —
+    // extracted from editorStore.ts by the RL-128 split); every other
+    // site must go through getActiveTab(state) or the useActiveTab() /
+    // useActiveTabId() hooks so the selector stays referentially
+    // stable and re-render fan-out stays bounded.
     files: ['src/renderer/**/*.{ts,tsx}'],
-    ignores: ['src/renderer/stores/editorStore.ts'],
+    ignores: ['src/renderer/stores/editorSelectors.ts'],
     rules: {
       'no-restricted-syntax': [
         'error',
