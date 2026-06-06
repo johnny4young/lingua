@@ -1,29 +1,14 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from './components/Layout';
+import { AppOverlays } from './components/AppOverlays';
 import { GuidedTourProvider } from './components/GuidedTour/GuidedTourProvider';
 import { useGuidedTour } from './components/GuidedTour/guidedTourContext';
-import { SettingsModal } from './components/Settings/SettingsModal';
-import { WhatsNewSection } from './components/Settings/WhatsNewSection';
-import { CommandPalette } from './components/CommandPalette/CommandPalette';
-import { replayHistoryEntry } from './utils/replayHistoryEntry';
-import { GoToSymbol } from './components/GoToSymbol/GoToSymbol';
-import { ProjectSearch } from './components/ProjectSearch/ProjectSearch';
-import { ProjectReplace } from './components/ProjectReplace/ProjectReplace';
-import { QuickOpen } from './components/QuickOpen/QuickOpen';
-import { KeyboardShortcutsModal } from './components/KeyboardShortcuts/KeyboardShortcutsModal';
-import { SnippetsModal } from './components/Snippets';
-import { ProjectTemplatesOverlay } from './components/Welcome/ProjectTemplatesOverlay';
-import { CapsuleImportOverlay } from './components/CapsuleImport';
-import { ProjectBundleImportOverlay } from './components/ProjectBundle/ProjectBundleImportOverlay';
 import { useProjectBundle } from './hooks/useProjectBundle';
-import { CapsuleListOverlay } from './components/CapsuleList';
 import {
   claimCapsuleListSurface,
   type CapsuleBrowseSurface,
 } from './components/CapsuleList/capsuleListSurface';
-import { ImportPreviewOverlay } from './components/ImportPreview/ImportPreviewOverlay';
-import { RecipesOverlay } from './components/Recipes/RecipesOverlay';
 import { useRecipeStore } from './stores/recipeStore';
 import { FirstRunConsentModal } from './components/FirstRunConsentModal';
 import { NativeExecutionWarning } from './components/NativeExecutionWarning/NativeExecutionWarning';
@@ -31,7 +16,6 @@ import { StatusNoticeBanner } from './components/StatusNotice/StatusNoticeBanner
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { isFactoryMode, isSafeMode } from './utils/safeBoot';
 import { WebUpdateBanner } from './components/WebUpdateBanner';
-import { CHANGELOG_ENTRIES } from './data/changelog';
 import {
   DEFAULT_DEVELOPER_UTILITY_ID,
   type DeveloperUtilityId,
@@ -41,11 +25,7 @@ import { useAppInfo } from './hooks/useAppInfo';
 import { useRunner } from './hooks/useRunner';
 import { useDesktopSmoke } from './hooks/useDesktopSmoke';
 import type { AppOverlay } from './hooks/useGlobalShortcuts';
-import { useGlobalShortcuts } from './hooks/useGlobalShortcuts';
-import {
-  openHttpWorkspaceTab,
-  openSqlWorkspaceTab,
-} from './runtime/openWorkspaceTab';
+import { useAppShortcuts } from './hooks/useAppShortcuts';
 import { useGoLspLifecycle } from './hooks/useGoLspLifecycle';
 import { useRustLspLifecycle } from './hooks/useRustLspLifecycle';
 import { useDeepLinks } from './hooks/useDeepLinks';
@@ -53,7 +33,6 @@ import { useDownloadedUpdateNotice } from './hooks/useDownloadedUpdateNotice';
 import { useDefaultOpenFileConsumer } from './hooks/useDefaultOpenFileConsumer';
 import { useShareLinkBoot } from './hooks/useShareLinkBoot';
 import { ShareLinkController } from './components/Share/ShareLinkButton';
-import { SHARE_LINK_TRIGGER_EVENT } from './components/Share/shareLinkEvents';
 import { useOnboardingChoreography } from './hooks/useOnboardingChoreography';
 import { useDependencyDetection } from './hooks/useDependencyDetection';
 import { useGitDetectOnProjectChange } from './hooks/useGitDetectOnProjectChange';
@@ -64,20 +43,7 @@ import { useProjectWatchSync } from './hooks/useProjectWatchSync';
 import { useWatcherDiagnosticsSync } from './hooks/useWatcherDiagnosticsSync';
 import { useAppTheme } from './hooks/useAppTheme';
 import { useEffectiveTier, useEntitlement } from './hooks/useEntitlement';
-import { getActiveTab, useEditorStore } from './stores/editorStore';
-import { useDependencyDetectionStore } from './stores/dependencyDetectionStore';
-import { useExecutionHistoryStore } from './stores/executionHistoryStore';
-import { useResultStore } from './stores/resultStore';
-import { exportCapsuleToClipboard } from './utils/exportCapsule';
-import {
-  cycleRuntimeMode,
-  languageHasRuntimeModes,
-} from '../shared/runtimeModes';
-import {
-  cycleWorkflowMode,
-  defaultWorkflowMode,
-} from '../shared/workflowMode';
-import { toggleRecentRunsPopover } from './runtime/recentRunsPopoverBridge';
+import { useEditorStore } from './stores/editorStore';
 import { usePluginStore } from './stores/pluginStore';
 import { useSessionStore } from './stores/sessionStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -86,13 +52,6 @@ import { useUpdateStore } from './stores/updateStore';
 import { desktopSmokeEnabled } from './utils/desktopSmoke';
 import { pushUpsellNotice } from './utils/upsellNotice';
 import { trackEvent } from './utils/telemetry';
-import { syncVariableInspectorSurfaceAfterToggle } from './utils/variableInspectorSurface';
-import { bucketVariableCount } from '../shared/scopeSnapshot';
-
-const DeveloperUtilitiesModal = lazy(async () => {
-  const module = await import('./components/DeveloperUtilities');
-  return { default: module.DeveloperUtilitiesModal };
-});
 
 function FactoryRecoveryNotice() {
   const { t } = useTranslation();
@@ -416,328 +375,23 @@ function AppChrome({
     });
   };
 
-  useGlobalShortcuts({
+  useAppShortcuts({
     isRunning,
     run,
     stop,
     saveActiveTab,
     saveActiveTabAs,
     openFileFromDisk,
-    closeActiveTab: () => {
-      if (activeTabId) {
-        void closeTab(activeTabId);
-      }
-    },
+    activeTabId,
+    closeTab,
     toggleSidebar,
     toggleConsole,
     overlay,
     toggleOverlay,
-    openDeveloperUtilities: () => handleOpenDeveloperUtility(),
     closeOverlay,
-    // RL-097 Slice 1 → MOV.02 (FASE 3) — Mod+Shift+K now opens or
-    // focuses a full-screen HTTP workspace tab (the dock panel was
-    // removed). No toggle-off: a full-screen tab is closed via the
-    // tab strip, not by re-pressing the shortcut.
-    toggleHttpWorkspace: () => {
-      openHttpWorkspaceTab();
-    },
-    // RL-097 Slice 2 → MOV.02 (FASE 3) — Mod+Alt+S opens or focuses a
-    // full-screen SQL workspace tab. Mirror of `toggleHttpWorkspace`.
-    toggleSqlWorkspace: () => {
-      openSqlWorkspaceTab();
-    },
-    // RL-099 Slice 1 fold A — Mod+Shift+G opens the Developer
-    // Utilities overlay with the Pipelines panel preselected.
-    openUtilityPipelines: () => {
-      handleOpenDeveloperUtility('utility-pipelines');
-    },
-    // RL-100 Slice 1 fold A — Mod+Alt+I opens the global Import
-    // overlay (cURL → HTTP request adapter Slice 1).
-    openImportOverlay: () => {
-      openOverlay('import-preview');
-    },
-    // RL-024 Slice 3 — Mod+Alt+E exports the active project as a `.zip`
-    // bundle (same path as the FileTree button + palette action).
-    exportProjectBundle: () => {
-      void exportProjectBundle();
-    },
-    // RL-039 Slice B fold A — Mod+Alt+L opens the global Recipes
-    // overlay. Overlay open state lives on `useRecipeStore`, not the
-    // single-slot `AppOverlay` union, because a bound recipe tab can
-    // co-exist with an open recipes overlay (e.g. the user wants to
-    // open a second recipe in another tab while the first is still
-    // active).
-    openRecipesOverlay: () => {
-      useRecipeStore.getState().openOverlay();
-    },
-    // RL-043 Slice A fold A — Mod+Alt+N creates a fresh notebook tab
-    // via `useEditorStore.addNotebookTab` which also seeds the
-    // companion notebookStore entry.
-    openNewNotebook: () => {
-      useEditorStore.getState().addNotebookTab();
-    },
-    cycleRuntimeMode: () => {
-      // RL-019 Slice 1 fold D — cycle the active JS/TS tab through
-      // the implemented runtime modes. No-op for non-JS/TS tabs.
-      const state = useEditorStore.getState();
-      const tab = getActiveTab(state);
-      if (!tab || !languageHasRuntimeModes(tab.language)) return;
-      const current = tab.runtimeMode ?? 'worker';
-      const next = cycleRuntimeMode(current);
-      if (next === current) return;
-      state.setTabRuntimeMode(tab.id, next);
-    },
-    cycleWorkflowMode: () => {
-      // RL-020 Slice 2 fold A — cycle the active tab's workflow
-      // mode through the supported subset. Skips disabled segments
-      // so a Python tab cycles Run → Scratchpad → Run, never
-      // landing on Debug. No-op when there is no active tab or
-      // when the supported subset has size <= 1.
-      const state = useEditorStore.getState();
-      const tab = getActiveTab(state);
-      if (!tab) return;
-      const current = tab.workflowMode ?? defaultWorkflowMode(tab.language);
-      const next = cycleWorkflowMode(current, tab.language);
-      if (next === current) return;
-      state.setTabWorkflowMode(tab.id, next);
-    },
-    toggleRecentRunsPopover: () => {
-      // RL-020 Slice 4 fold B — toggle the per-tab Recent Runs
-      // popover. The bridge returns `false` when no pill is mounted
-      // (Free tier, view-only tab, empty per-tab history); surface
-      // a passive notice so the keystroke is never silent.
-      const dispatched = toggleRecentRunsPopover();
-      if (!dispatched) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'executionHistory.tabPill.shortcutUnavailable',
-        });
-      }
-    },
-    toggleCompareWithSnapshot: () => {
-      // RL-020 Slice 8 fold D — toggle the Compare panel. Gates on
-      // the comparator snapshot's language matching the active
-      // tab; mirrors the toggle-button gate so the shortcut never
-      // surfaces a stale diff. No-op + localized notice when the
-      // gate fails.
-      const editorState = useEditorStore.getState();
-      const tab = getActiveTab(editorState);
-      const snapshotRing = useResultStore.getState().snapshotRing;
-      const snapshotIsRelevant =
-        tab !== null &&
-        snapshotRing.some((entry) => entry.language === tab.language);
-      if (!tab || !snapshotIsRelevant) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'compare.toggle.shortcutUnavailable',
-        });
-        return;
-      }
-      const next = tab.compareWithSnapshotEnabled !== true;
-      editorState.setTabCompareEnabled(tab.id, next);
-      void trackEvent('runtime.compare_view_toggled', {
-        language: tab.language,
-        enabled: next,
-      });
-    },
-    toggleVariableInspector: () => {
-      // RL-020 Slice 9 fold C — toggle the Variables panel. Gates
-      // on the scope snapshot's language matching the active tab;
-      // mirrors the toggle-button gate so the shortcut never
-      // surfaces a stale capture. No-op + notice when there's no
-      // capture for the active language.
-      const editorState = useEditorStore.getState();
-      const tab = getActiveTab(editorState);
-      const scopeSnapshot = useResultStore.getState().scopeSnapshot;
-      const snapshotIsRelevant =
-        tab !== null &&
-        tab.runtimeMode !== 'node' &&
-        scopeSnapshot !== null &&
-        scopeSnapshot.language === tab.language;
-      if (!tab || !snapshotIsRelevant) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'variableInspector.toggle.shortcutUnavailable',
-        });
-        return;
-      }
-      const next = tab.variableInspectorEnabled !== true;
-      editorState.setTabVariableInspectorEnabled(tab.id, next);
-      syncVariableInspectorSurfaceAfterToggle(next);
-      const bucket = scopeSnapshot
-        ? bucketVariableCount(scopeSnapshot.variables.length)
-        : '0';
-      void trackEvent('runtime.variable_inspector_opened', {
-        language: tab.language,
-        variableCount: bucket,
-      });
-    },
-    toggleStdinPanel: () => {
-      // RL-093 Slice 3 — open or close the bottom Stdin drawer for the
-      // active tab. Gates on language (JS / TS / Python only), runtime
-      // mode (no Browser preview), and the `showStdinPanel` user
-      // setting. The state shape mirrors the panel chip click handler
-      // in AppLayout.PanelChipsRow so keystroke and click stay in sync.
-      const editorState = useEditorStore.getState();
-      const tab = getActiveTab(editorState);
-      const settings = useSettingsStore.getState();
-      const uiState = useUIStore.getState();
-      const stdinAvailable =
-        !!tab &&
-        settings.showStdinPanel &&
-        tab.runtimeMode !== 'browser-preview' &&
-        (tab.language === 'javascript' ||
-          tab.language === 'typescript' ||
-          tab.language === 'python');
-      if (!stdinAvailable) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'panelChips.stdin.disabled',
-        });
-        return;
-      }
-      if (
-        uiState.activeBottomPanel === 'stdin' &&
-        uiState.consoleVisible
-      ) {
-        uiState.setConsoleVisible(false);
-      } else {
-        uiState.openBottomPanel('stdin');
-      }
-    },
-    resetFloatingPositions: () => {
-      // RL-093 Slice 3 — clear both persisted floating positions back
-      // to the synchronous defaults. Useful when a localStorage value
-      // landed off-screen after a monitor / window-size change.
-      useUIStore.getState().resetFloatingPositions();
-      useUIStore.getState().pushStatusNotice({
-        tone: 'info',
-        messageKey: 'actionPill.resetFloatingNotice',
-      });
-    },
-    toggleVariableInspectorSurface: () => {
-      // RL-093 Slice 3 fold D — flip floating ↔ bottom. Sticks via
-      // settingsStore persist; user sees the chip + card reorder
-      // immediately.
-      const settings = useSettingsStore.getState();
-      const next =
-        settings.variableInspectorSurface === 'floating' ? 'bottom' : 'floating';
-      settings.setVariableInspectorSurface(next);
-      const editorState = useEditorStore.getState();
-      const tab = getActiveTab(editorState);
-      const scopeSnapshot = useResultStore.getState().scopeSnapshot;
-      const uiState = useUIStore.getState();
-      const canShowBottomVariables =
-        next === 'bottom' &&
-        tab?.variableInspectorEnabled === true &&
-        tab.runtimeMode !== 'node' &&
-        scopeSnapshot !== null &&
-        scopeSnapshot.language === tab.language;
-      if (canShowBottomVariables) {
-        uiState.openBottomPanel('variables');
-      } else if (next === 'floating' && uiState.activeBottomPanel === 'variables') {
-        uiState.setConsoleVisible(false);
-      }
-      useUIStore.getState().pushStatusNotice({
-        tone: 'info',
-        messageKey:
-          next === 'floating'
-            ? 'variableInspector.surface.notice.toFloating'
-            : 'variableInspector.surface.notice.toBottom',
-      });
-    },
-    // RL-094 Slice 1.5 fold A — keyboard shortcut for the primary
-    // result-panel export surface. Reads the latest capsule, calls
-    // the shared helper (`exportCapsuleToClipboard`), pushes the
-    // matching status notice. Surfaces a `noCapsule` notice when
-    // there's no run to export rather than silently dropping.
-    exportLatestCapsule: () => {
-      const capsule = useExecutionHistoryStore.getState().latestCapsule();
-      if (!capsule) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'results.actions.exportCapsule.noCapsule',
-        });
-        return;
-      }
-      void exportCapsuleToClipboard(capsule, 'result-panel-export').then(
-        (result) => {
-          useUIStore.getState().pushStatusNotice(
-            result.ok
-              ? {
-                  tone: 'success',
-                  messageKey: 'settings.account.runCapsules.copiedNotice',
-                }
-              : {
-                  tone: 'warning',
-                  messageKey:
-                    'results.actions.exportCapsule.clipboardUnavailable',
-                }
-          );
-        }
-      );
-    },
-    // RL-036 Phase A1 fold D — keyboard shortcut for the share-link
-    // copy. Dispatches the same `lingua-share-link-trigger` event the
-    // command palette uses (fold C) so the always-mounted
-    // `<ShareLinkController>` owns shortcut-triggered confirmation
-    // even when the result panel is hidden. Telemetry tags
-    // `trigger: 'shortcut'`.
-    copyShareLink: () => {
-      window.dispatchEvent(
-        new CustomEvent(SHARE_LINK_TRIGGER_EVENT, {
-          detail: { trigger: 'shortcut' },
-        })
-      );
-    },
-    // RL-101 Slice 1 fold D — `Mod+Shift+W` resets all three onboarding
-    // stages so the welcome scratchpad re-seeds on next eligible mount
-    // and both toasts re-arm. Surfaces an explicit notice so the user
-    // knows the shortcut fired (otherwise the reset would be silent
-    // until the next run / save).
-    replayOnboarding: () => {
-      const settings = useSettingsStore.getState();
-      settings.resetOnboardingWelcome();
-      settings.resetOnboardingFirstRun();
-      settings.resetOnboardingFirstSnippet();
-      useUIStore.getState().pushStatusNotice({
-        tone: 'info',
-        messageKey: 'onboarding.notice.welcomeReplay',
-      });
-    },
-    // RL-025 Slice A fold C — `Mod+Shift+J` focuses the Dependencies
-    // bottom-panel tab when there are detected dependencies for the
-    // active file. When the tab is hidden (count == 0 or master
-    // toggle OFF) we surface a localized notice so the shortcut
-    // never feels broken — the user gets a hint that detection has
-    // either nothing to show OR is disabled.
-    showDependenciesPanel: () => {
-      const activeTab = getActiveTab(useEditorStore.getState());
-      const entry = activeTab
-        ? useDependencyDetectionStore.getState().byTab.get(activeTab.id)
-        : null;
-      const currentEntry =
-        entry?.language === activeTab?.language ? entry : null;
-      const enabled = useSettingsStore.getState().dependencyDetectionEnabled;
-      if (!enabled) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'dependencies.shortcut.disabled',
-        });
-        return;
-      }
-      if (
-        !currentEntry ||
-        (currentEntry.dependencies.length === 0 && !currentEntry.skippedReason)
-      ) {
-        useUIStore.getState().pushStatusNotice({
-          tone: 'info',
-          messageKey: 'dependencies.shortcut.empty',
-        });
-        return;
-      }
-      useUIStore.getState().openBottomPanel('dependencies');
-    },
+    openOverlay,
+    handleOpenDeveloperUtility,
+    exportProjectBundle,
   });
 
   // RL-101 Slice 1 — the snippets-saved toast CTA dispatches a
@@ -802,107 +456,17 @@ function AppChrome({
         utilitiesOpen={overlay === 'utilities'}
       />
       <ShareLinkController />
-      {overlay === 'quick-open' && <QuickOpen onClose={closeOverlay} />}
-      {overlay === 'search' && <ProjectSearch onClose={closeOverlay} />}
-      {overlay === 'replace' && <ProjectReplace onClose={closeOverlay} />}
-      {overlay === 'go-to-symbol' && <GoToSymbol onClose={closeOverlay} />}
-      {overlay === 'palette' && (
-        <CommandPalette
-          onClose={closeOverlay}
-          onOpenSettings={() => openOverlay('settings')}
-          onOpenWhatsNew={() => openOverlay('whats-new')}
-          onStartGuidedTour={handleStartGuidedTour}
-          onOpenSnippets={() => openOverlay('snippets')}
-          onOpenProjectSearch={() => openOverlay('search')}
-          onOpenProjectReplace={() => openOverlay('replace')}
-          onOpenHttpWorkspace={() => {
-            // RL-097 Slice 1 → MOV.02 (FASE 3) — palette opens or
-            // focuses the full-screen HTTP workspace tab (no dock
-            // panel). Same create-or-focus path as Mod+Shift+K.
-            openHttpWorkspaceTab();
-          }}
-          onOpenSqlWorkspace={() => {
-            // RL-097 Slice 2 → MOV.02 (FASE 3) — palette opens or
-            // focuses the full-screen SQL workspace tab. Mirror of
-            // `onOpenHttpWorkspace`.
-            openSqlWorkspaceTab();
-          }}
-          onOpenGoToSymbol={() => openOverlay('go-to-symbol')}
-          onOpenDeveloperUtility={(utilityId) => handleOpenDeveloperUtility(utilityId)}
-          onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
-          onRerunLast={() => void run()}
-          onReplayEntry={(entry) => {
-            // Gate telemetry on the actual replay dispatch so a refused
-            // call (already-running, no-snapshot, open-failed) does
-            // not inflate adoption counts. Same pattern in the pill +
-            // popover surfaces; centralizing here would require an
-            // extra closure layer for marginal gain.
-            const dispatched = replayHistoryEntry(entry, { isRunning, run });
-            if (dispatched) {
-              void trackEvent('runtime.history_replay', {
-                language: entry.language,
-                status: entry.status,
-                surface: 'palette',
-              });
-            }
-          }}
-          onNewProjectFromTemplate={() => openOverlay('project-templates')}
-          onOpenCapsuleImport={() => openOverlay('capsule-import')}
-          onBrowseCapsules={() => {
-            claimCapsuleListSurface('palette');
-            openOverlay('capsule-list');
-          }}
-          onExportProjectBundle={() => void exportProjectBundle()}
-          onImportProjectBundle={() => openOverlay('project-bundle-import')}
-          onOpenImportOverlay={() => openOverlay('import-preview')}
-          onOpenRecipes={() => useRecipeStore.getState().openOverlay()}
-          onNewNotebook={() => useEditorStore.getState().addNotebookTab()}
-          onToggleVimMode={() => useSettingsStore.getState().toggleVimMode()}
-        />
-      )}
-      {overlay === 'project-templates' && (
-        <ProjectTemplatesOverlay onClose={closeOverlay} />
-      )}
-      {overlay === 'capsule-import' && (
-        <CapsuleImportOverlay onClose={closeOverlay} />
-      )}
-      {overlay === 'capsule-list' && (
-        <CapsuleListOverlay onClose={closeOverlay} />
-      )}
-      {overlay === 'import-preview' && (
-        <ImportPreviewOverlay onClose={closeOverlay} />
-      )}
-      {overlay === 'project-bundle-import' && (
-        <ProjectBundleImportOverlay onClose={closeOverlay} />
-      )}
-      {/* RL-039 Slice B — Recipes overlay. Visibility flag lives on
-          `useRecipeStore` (not the AppOverlay union) so the overlay
-          can co-exist with a recipe-bound tab being active. */}
-      <RecipesOverlayMount />
-      {overlay === 'settings' && (
-        <SettingsModal
-          onClose={closeOverlay}
-          onOpenWhatsNew={() => openOverlay('whats-new')}
-          onStartGuidedTour={handleStartGuidedTour}
-          onOpenKeyboardShortcuts={() => openOverlay('keyboard-shortcuts')}
-        />
-      )}
-      {overlay === 'whats-new' && (
-        <WhatsNewSection entries={CHANGELOG_ENTRIES} onClose={closeOverlay} />
-      )}
-      {overlay === 'snippets' && <SnippetsModal onClose={closeOverlay} />}
-      {overlay === 'utilities' && (
-        <Suspense fallback={null}>
-          <DeveloperUtilitiesModal
-            key={selectedUtilityId}
-            onClose={closeOverlay}
-            initialUtilityId={selectedUtilityId}
-          />
-        </Suspense>
-      )}
-      {overlay === 'keyboard-shortcuts' && (
-        <KeyboardShortcutsModal onClose={closeOverlay} />
-      )}
+      <AppOverlays
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        onStartGuidedTour={handleStartGuidedTour}
+        onOpenDeveloperUtility={handleOpenDeveloperUtility}
+        selectedUtilityId={selectedUtilityId}
+        run={run}
+        isRunning={isRunning}
+        exportProjectBundle={exportProjectBundle}
+      />
       <FactoryRecoveryNotice />
       <StatusNoticeBanner />
       <FirstRunConsentModal />
@@ -911,19 +475,6 @@ function AppChrome({
   );
 }
 
-/**
- * RL-039 Slice B — Recipes overlay mount. Visibility flag lives on
- * `useRecipeStore.overlayOpen` instead of the single-slot `AppOverlay`
- * union so the overlay can co-exist with a recipe-bound tab being
- * active (the user opens a second recipe while the first tab keeps
- * its binding).
- */
-function RecipesOverlayMount() {
-  const overlayOpen = useRecipeStore((s) => s.overlayOpen);
-  const closeOverlay = useRecipeStore((s) => s.closeOverlay);
-  if (!overlayOpen) return null;
-  return <RecipesOverlay onClose={closeOverlay} />;
-}
 
 export function App() {
   const [overlay, setOverlay] = useState<AppOverlay>('none');
