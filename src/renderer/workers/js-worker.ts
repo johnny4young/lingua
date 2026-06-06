@@ -20,6 +20,23 @@
  * otherwise the yield function fast-paths to `Promise.resolve()`.
  *
  * Reference: `docs/PLAN.md` RL-027 Slice 1 and `docs/DEBUGGER_ADR.md`.
+ *
+ * RL-144 (AUDIT-24): trust boundary for the `new AsyncFunction(...)`
+ * eval below. The renderer/main thread is already trusted and hands
+ * us the user's own source verbatim — no remote or adversarial input
+ * reaches this surface, so this is NOT a sandbox for hostile code.
+ * The Web Worker isolation exists to bound the blast radius of
+ * runtime faults (unhandled exceptions, infinite loops, runaway
+ * memory) so the renderer can `worker.terminate()` and recover,
+ * not to defend against an attacker who controls `code`. Note that
+ * the Node-only symbols `process` and `require` are absent here by
+ * the Web Worker global contract: this file runs in a DOM-less
+ * worker scope, so reading `globalThis.process` / `globalThis.require`
+ * returns `undefined` and the worker cannot escalate into Node.
+ * `tests/workers/js-worker-helpers.test.ts` locks that invariant.
+ * If a future bundler/runtime change ever leaks either symbol into
+ * the worker scope, that is a security-boundary regression — treat
+ * it as such and do not paper over it.
  */
 
 // Make this file a module so TS doesn't merge its scope with other workers

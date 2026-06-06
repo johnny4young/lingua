@@ -190,6 +190,87 @@ describe('js-worker module', () => {
       );
     })).toBe(true);
   });
+
+  // RL-144 (AUDIT-24) — lock the AsyncFunction trust boundary. The
+  // worker is NOT a sandbox for hostile input, but the Web Worker
+  // global contract still guarantees the Node-only `process` /
+  // `require` symbols are absent from the worker global scope, so
+  // user code that reaches for them gets `undefined` and cannot
+  // escalate into Node.
+  //
+  // The harness imports the worker into vitest's jsdom environment,
+  // which runs *inside* a Node process — so `globalThis.process` and
+  // `globalThis.require` are ambiently present here purely as a
+  // test-host artifact, NOT because the worker exposes them (the
+  // worker file never references either symbol). To make the harness
+  // faithful to the real browser Web Worker scope, we scrub those two
+  // ambient Node globals for the duration of the import + execution,
+  // then restore them. With the Node host globals removed, the only
+  // way the executed body could still see `process`/`require` is if
+  // the worker itself injected them — which is exactly the escape this
+  // test is meant to catch. The body reads `typeof globalThis.process`
+  // from inside the executed code (not the test's own scope) and
+  // throws if either symbol is reachable, so a future bundler/runtime
+  // change that leaks Node access into the worker fails CI here.
+  it('cannot reach globalThis.process / globalThis.require from user code', async () => {
+    const g = globalThis as Record<string, unknown>;
+    const hadProcess = Object.prototype.hasOwnProperty.call(g, 'process');
+    const hadRequire = Object.prototype.hasOwnProperty.call(g, 'require');
+    const savedProcess = g.process;
+    const savedRequire = g.require;
+
+    // Remove the ambient Node host globals so the worker's
+    // `new AsyncFunction(...)` body runs against a global scope that
+    // matches the real Web Worker contract (both symbols absent).
+    delete g.process;
+    delete g.require;
+
+    let messages: Array<Record<string, unknown>>;
+    try {
+      messages = await executeJsWorkerCode(`
+        const hasProcess = typeof globalThis.process;
+        const hasRequire = typeof globalThis.require;
+        if (hasProcess !== 'undefined' || hasRequire !== 'undefined') {
+          throw new Error(
+            'SECURITY: Node symbols reachable — process=' +
+              hasProcess +
+              ' require=' +
+              hasRequire
+          );
+        }
+        console.log('node-symbols-absent');
+      `);
+    } finally {
+      // Restore the Node host globals for the rest of the suite.
+      if (hadProcess) {
+        g.process = savedProcess;
+      } else {
+        delete g.process;
+      }
+      if (hadRequire) {
+        g.require = savedRequire;
+      } else {
+        delete g.require;
+      }
+    }
+
+    // No execution error means neither symbol was reachable (the
+    // body throws if either is present, which would surface as an
+    // `error` message here).
+    const errorMessage = messages.find((message) => message.type === 'error');
+    expect(errorMessage).toBeUndefined();
+
+    // And the success log proves the body actually ran to completion
+    // through the real worker scope rather than short-circuiting.
+    const successLog = messages.find(
+      (message) =>
+        message.type === 'console' &&
+        Array.isArray(message.args) &&
+        (message.args as unknown[]).includes('node-symbols-absent')
+    );
+    expect(successLog).toBeDefined();
+    expect(successLog).toMatchObject({ method: 'log' });
+  });
 });
 
 // ---------------------------------------------------------------------------
