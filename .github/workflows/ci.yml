@@ -47,6 +47,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Type check
         run: pnpm exec tsc --noEmit
+      # RL-132 / AUDIT-12 — the root tsconfig only includes src/**, so the
+      # `tsc --noEmit` above never type-checks files under tests/. This
+      # scoped pass pulls tests/main/projectCapabilitiesBrand.test.ts into
+      # a real tsc program so its `@ts-expect-error` swap matrix becomes a
+      # gate: revert any branded id to a bare string and this step fails
+      # with TS2578 'unused @ts-expect-error directive'. The vitest run
+      # below also enforces this via a shell-out, but this step fails fast
+      # and pinpoints the regression.
+      - name: Type check (tests compile guards)
+        run: pnpm run typecheck:tests
       - name: Lint
         run: pnpm run lint
       - name: i18n keys

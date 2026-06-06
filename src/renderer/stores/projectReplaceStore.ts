@@ -20,6 +20,7 @@
 
 import { create } from 'zustand';
 import i18next from 'i18next';
+import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
 export type ProjectReplaceStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -163,8 +164,8 @@ export const useProjectReplaceStore = create<ProjectReplaceState>(
 
       try {
         const results = await replaceInFiles(
-          rootId,
-          '',
+          asRootId(rootId),
+          asRelativePath(''),
           searchText,
           replacement,
           { regex, caseSensitive }
@@ -229,8 +230,8 @@ export const useProjectReplaceStore = create<ProjectReplaceState>(
             outcome = { ok: false, replaced: 0 };
           } else {
             const result = await applyReplaceInFile(
-              rootId,
-              relativePath,
+              asRootId(rootId),
+              asRelativePath(relativePath),
               query,
               replacement,
               { regex, caseSensitive }

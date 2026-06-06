@@ -5,6 +5,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
 import { trackGitExternalModificationReload } from './gitTelemetry';
 import type { FileTreeNode } from '../stores/projectTree';
+import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
 export const PROJECT_WATCH_REFRESH_DEBOUNCE_MS = 150;
 
@@ -230,7 +231,10 @@ async function readReloadCandidate(
   // disk genuinely changed and the user deserves a prompt.
   let rawDiskContent: string | null;
   try {
-    const result = await window.lingua.fs.read(tab.rootId, tab.relativePath);
+    const result = await window.lingua.fs.read(
+      asRootId(tab.rootId),
+      asRelativePath(tab.relativePath)
+    );
     rawDiskContent = typeof result === 'string' ? result : null;
   } catch {
     return null;

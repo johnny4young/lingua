@@ -11,6 +11,8 @@
  * can read the raw `errorMessage` from logs.
  */
 
+import type { RelativePath, RootId } from './brandedIds';
+
 export type WatcherFailureKind =
   | 'permission-denied' // EACCES / EPERM
   | 'system-limit' // EMFILE / ENFILE / ENOSPC
@@ -19,8 +21,8 @@ export type WatcherFailureKind =
 
 export interface WatcherDiagnostic {
   kind: WatcherFailureKind;
-  rootId: string;
-  relativePath: string;
+  rootId: RootId;
+  relativePath: RelativePath;
   errorMessage: string;
 }
 
@@ -72,8 +74,8 @@ export function classifyWatcherError(error: unknown): WatcherFailureKind {
  */
 export function buildWatcherDiagnostic(
   error: unknown,
-  rootId: string,
-  relativePath: string,
+  rootId: RootId,
+  relativePath: RelativePath,
 ): WatcherDiagnostic {
   const errorMessage =
     error instanceof Error

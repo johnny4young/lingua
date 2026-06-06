@@ -9,6 +9,7 @@ import {
   type ParseThemePresetResult,
 } from '../../utils/themePreset';
 import { joinAbsolute } from '../../utils/filePath';
+import type { RootId } from '../../../shared/fs/brandedIds';
 import { SpecCard, SpecRow, SettingsSection } from '../ui/SpecRow';
 
 const DEFAULT_FILENAME = 'lingua-theme.json';
@@ -57,7 +58,7 @@ export function ThemePresetControls() {
       return;
     }
 
-    let mintedRootId: string | null = null;
+    let mintedRootId: RootId | null = null;
     try {
       const chosen = await saveDialog(DEFAULT_FILENAME);
       if (chosen.canceled) return;
@@ -97,7 +98,7 @@ export function ThemePresetControls() {
       return;
     }
 
-    let mintedRootId: string | null = null;
+    let mintedRootId: RootId | null = null;
     try {
       const picked = await selectFile();
       if (picked.canceled) return;

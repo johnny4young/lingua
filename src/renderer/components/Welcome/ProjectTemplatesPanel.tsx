@@ -23,6 +23,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PROJECT_TEMPLATES } from '../../data/projectTemplates';
 import type { ProjectTemplateV1 } from '../../../shared/projectTemplate';
+import type { RelativePath, RootId } from '../../../shared/fs/brandedIds';
 import {
   languageBadgeClass,
   languageLabel,
@@ -38,9 +39,9 @@ type NoticeState =
   | {
       kind: 'success';
       template: ProjectTemplateV1;
-      rootId: string;
+      rootId: RootId;
       rootPath: string;
-      entryFile: string;
+      entryFile: RelativePath;
     }
   | { kind: 'non-empty-dir' }
   | { kind: 'web-unavailable' }

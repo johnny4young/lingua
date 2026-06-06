@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import i18next from 'i18next';
+import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
 export type ProjectSearchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -101,7 +102,7 @@ export const useProjectSearchStore = create<ProjectSearchState>((set, get) => ({
     set({ query, rootId, status: 'loading', error: null, requestId });
 
     try {
-      const results = await searchInFiles(rootId, '', trimmed);
+      const results = await searchInFiles(asRootId(rootId), asRelativePath(''), trimmed);
       // Drop the response if a newer search has already started. Without this
       // guard, a slow search against a large project could overwrite fresher
       // results typed by the user milliseconds later.

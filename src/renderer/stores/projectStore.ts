@@ -23,6 +23,11 @@ import { getActiveAppLanguage } from '../i18n';
 import { createMigrate } from './persistence/migrationRegistry';
 import { languageFromPath } from '../utils/language';
 import {
+  asRelativePath,
+  type RootId,
+  type WatchId,
+} from '../../shared/fs/brandedIds';
+import {
   addNodeToParent,
   collapseAll,
   collectExpandedPaths,
@@ -46,8 +51,8 @@ import { useUIStore } from './uiStore';
  * so callers do not need to push it again).
  */
 function unwrapWatchStart(
-  response: string | { ok: false; diagnostic: WatcherDiagnostic },
-): string | null {
+  response: WatchId | { ok: false; diagnostic: WatcherDiagnostic },
+): WatchId | null {
   if (typeof response === 'string') return response;
   return null;
 }
@@ -70,14 +75,14 @@ export interface RecentProject {
  * path.
  */
 export interface ActiveProject extends RecentProject {
-  rootId: string;
+  rootId: RootId;
 }
 
 interface ProjectState {
   currentProject: ActiveProject | null;
   recentProjects: RecentProject[];
   nodes: FileTreeNode[];
-  watchId: string | null;
+  watchId: WatchId | null;
 
   // Project lifecycle
   createProject: () => Promise<void>;
@@ -141,16 +146,19 @@ export const useProjectStore = create<ProjectState>()(
         const result = await window.lingua.fs.selectDirectory();
         if (result.canceled) return;
 
-        let newWatchId: string | null = null;
+        let newWatchId: WatchId | null = null;
         let nodes: FileTreeNode[];
         try {
           // Activate the newly picked root only after both the initial tree and
           // watcher attempt complete. Until then the previous project remains
           // live, so a failed open cannot leave the app with no usable root.
-          const entries = await window.lingua.fs.readdir(result.rootId, '');
+          const entries = await window.lingua.fs.readdir(
+            result.rootId,
+            asRelativePath(''),
+          );
           nodes = entriesToNodes(entries);
           newWatchId = unwrapWatchStart(
-            await window.lingua.fs.watchStart(result.rootId, ''),
+            await window.lingua.fs.watchStart(result.rootId, asRelativePath('')),
           );
         } catch (error) {
           if (newWatchId) {
@@ -200,7 +208,7 @@ export const useProjectStore = create<ProjectState>()(
       },
 
       openProject: async (rootPath?: string) => {
-        let activeRootId: string;
+        let activeRootId: RootId;
         let activeRootPath: string;
 
         if (rootPath) {
@@ -227,15 +235,18 @@ export const useProjectStore = create<ProjectState>()(
           rootId: activeRootId,
         };
 
-        let newWatchId: string | null = null;
+        let newWatchId: WatchId | null = null;
         let nodes: FileTreeNode[];
         try {
           // Same activation contract as createProject(): prove the new root can
           // be read and watched before revoking the old project capability.
-          const entries = await window.lingua.fs.readdir(activeRootId, '');
+          const entries = await window.lingua.fs.readdir(
+            activeRootId,
+            asRelativePath(''),
+          );
           nodes = entriesToNodes(entries);
           newWatchId = unwrapWatchStart(
-            await window.lingua.fs.watchStart(activeRootId, ''),
+            await window.lingua.fs.watchStart(activeRootId, asRelativePath('')),
           );
         } catch (error) {
           if (newWatchId) {
@@ -292,7 +303,7 @@ export const useProjectStore = create<ProjectState>()(
         const expandedPaths = new Set(collectExpandedPaths(nodes));
         const nextNodes = await loadNodesForDirectory(
           currentProject.rootId,
-          '',
+          asRelativePath(''),
           expandedPaths
         );
         set({ nodes: nextNodes });
@@ -315,7 +326,7 @@ export const useProjectStore = create<ProjectState>()(
         }
         const entries = await window.lingua.fs.readdir(
           currentProject.rootId,
-          relativePath
+          asRelativePath(relativePath)
         );
         const children = entriesToNodes(entries);
         set((s) => ({
@@ -339,7 +350,10 @@ export const useProjectStore = create<ProjectState>()(
         const { currentProject } = get();
         if (!currentProject) return null;
         const fileRelativePath = joinPath(parentRelativePath, name);
-        await window.lingua.fs.touch(currentProject.rootId, fileRelativePath);
+        await window.lingua.fs.touch(
+          currentProject.rootId,
+          asRelativePath(fileRelativePath)
+        );
 
         const node: FileTreeNode = {
           name,
@@ -359,7 +373,10 @@ export const useProjectStore = create<ProjectState>()(
         const { currentProject } = get();
         if (!currentProject) return;
         const dirRelativePath = joinPath(parentRelativePath, name);
-        await window.lingua.fs.mkdir(currentProject.rootId, dirRelativePath);
+        await window.lingua.fs.mkdir(
+          currentProject.rootId,
+          asRelativePath(dirRelativePath)
+        );
 
         const node: FileTreeNode = {
           name,
@@ -379,7 +396,7 @@ export const useProjectStore = create<ProjectState>()(
         if (!currentProject) return false;
         const deleted = await window.lingua.fs.delete(
           currentProject.rootId,
-          relativePath,
+          asRelativePath(relativePath),
           isDirectory,
           getActiveAppLanguage()
         );
@@ -394,7 +411,7 @@ export const useProjectStore = create<ProjectState>()(
         if (!currentProject) return null;
         const newRelativePath = await window.lingua.fs.rename(
           currentProject.rootId,
-          oldRelativePath,
+          asRelativePath(oldRelativePath),
           newName
         );
         set((s) => ({

@@ -1,5 +1,10 @@
 import type { Language } from '../types';
 import { languageFromPath } from '../utils/language';
+import {
+  asRelativePath,
+  type RelativePath,
+  type RootId,
+} from '../../shared/fs/brandedIds';
 
 /**
  * RL-077 — Tree-node `path` is the relative path of this entry inside
@@ -117,8 +122,8 @@ export function collectExpandedPaths(nodes: FileTreeNode[]): string[] {
 }
 
 export async function loadNodesForDirectory(
-  rootId: string,
-  relativePath: string,
+  rootId: RootId,
+  relativePath: RelativePath,
   expandedPaths: ReadonlySet<string>
 ): Promise<FileTreeNode[]> {
   const entries = await window.lingua.fs.readdir(rootId, relativePath);
@@ -134,7 +139,11 @@ export async function loadNodesForDirectory(
 
       return {
         ...node,
-        children: await loadNodesForDirectory(rootId, node.path, expandedPaths),
+        children: await loadNodesForDirectory(
+          rootId,
+          asRelativePath(node.path),
+          expandedPaths
+        ),
         isExpanded: true,
       };
     })

@@ -52,6 +52,11 @@ import { useProjectStore } from '../stores/projectStore';
 import { useEditorStore } from '../stores/editorStore';
 import type { Language } from '../types';
 import { trackTemplateProjectApplied } from './projectTemplateTelemetry';
+import {
+  asRelativePath,
+  type RelativePath,
+  type RootId,
+} from '../../shared/fs/brandedIds';
 
 /**
  * OS metadata files that the empty-dir guard treats as non-blocking.
@@ -79,7 +84,7 @@ const EMPTY_DIR_IGNORE = new Set<string>([
 ]);
 
 export type ScaffoldResult =
-  | { kind: 'success'; rootId: string; rootPath: string; entryFile: string }
+  | { kind: 'success'; rootId: RootId; rootPath: string; entryFile: RelativePath }
   | { kind: 'canceled' }
   | { kind: 'non-empty-dir'; meaningfulCount: number }
   | { kind: 'web-unavailable' }
@@ -111,7 +116,7 @@ export function useProjectTemplateScaffolder(): UseProjectTemplateScaffolderApi 
       if (picker.canceled) {
         return { kind: 'canceled' };
       }
-      const holdingRootId: string = picker.rootId;
+      const holdingRootId: RootId = picker.rootId;
       const rootPath: string = picker.rootPath;
 
       // Empty-dir safety. `readdir('')` returns the immediate root
@@ -121,7 +126,7 @@ export function useProjectTemplateScaffolder(): UseProjectTemplateScaffolderApi 
       try {
         entries = (await window.lingua.fs.readdir(
           holdingRootId,
-          ''
+          asRelativePath('')
         )) as ReaddirEntry[];
       } catch (error) {
         await window.lingua.fs.revokeRoot(holdingRootId).catch(() => {});
@@ -151,12 +156,12 @@ export function useProjectTemplateScaffolder(): UseProjectTemplateScaffolderApi 
         for (const file of template.files) {
           const parent = projectTemplateDirname(file.relPath);
           if (parent && !dirsCreated.has(parent)) {
-            await window.lingua.fs.mkdir(holdingRootId, parent);
+            await window.lingua.fs.mkdir(holdingRootId, asRelativePath(parent));
             dirsCreated.add(parent);
           }
           await window.lingua.fs.write(
             holdingRootId,
-            file.relPath,
+            asRelativePath(file.relPath),
             file.content
           );
         }
@@ -242,7 +247,7 @@ export function useProjectTemplateScaffolder(): UseProjectTemplateScaffolderApi 
         kind: 'success',
         rootId: cp.rootId,
         rootPath,
-        entryFile: template.entryFile,
+        entryFile: asRelativePath(template.entryFile),
       };
     },
     [openFile, openProject, t]

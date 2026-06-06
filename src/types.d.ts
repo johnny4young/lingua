@@ -216,13 +216,13 @@ interface FsDirEntry {
   name: string;
   isDirectory: boolean;
   /** Path relative to the capability's project root. */
-  relativePath: string;
+  relativePath: RelativePath;
 }
 
 interface FsIndexedFile {
   name: string;
   /** Path relative to the capability's project root. */
-  relativePath: string;
+  relativePath: RelativePath;
 }
 
 interface FsSearchOptions {
@@ -247,7 +247,7 @@ interface FsSearchMatch {
 
 interface FsSearchResult {
   /** Path relative to the capability's project root. */
-  relativePath: string;
+  relativePath: RelativePath;
   matches: FsSearchMatch[];
 }
 
@@ -283,7 +283,7 @@ interface FsReplaceMatch extends FsSearchMatch {
 }
 
 interface FsReplaceResult {
-  relativePath: string;
+  relativePath: RelativePath;
   matches: FsReplaceMatch[];
   /**
    * RL-024 Slice 2 fold C — set when the file was skipped because the
@@ -328,9 +328,9 @@ interface FsStatResult {
 
 interface FsChangedEvent {
   /** Capability id of the project root the watcher belongs to. */
-  rootId: string;
+  rootId: RootId;
   /** Path of the changed entry, relative to the capability's project root. */
-  relativePath: string;
+  relativePath: RelativePath;
   eventType: string;
   filename: string | null;
 }
@@ -525,6 +525,19 @@ type InstalledPluginRecord = import('./shared/plugins/manifest').InstalledPlugin
 type WatcherFailureKind = import('./shared/fs/watcherDiagnostic').WatcherFailureKind;
 type WatcherDiagnostic = import('./shared/fs/watcherDiagnostic').WatcherDiagnostic;
 type PluginDiagnostic = import('./shared/plugins/manifest').PluginDiagnostic;
+
+// --------------------------------------------------------- Branded fs ids
+//
+// RL-132 / AUDIT-12 — branded `string` ids so a `WatchId` / `RelativePath`
+// can never be swapped in where a `RootId` is expected at the IPC seam.
+// Single source of truth: `src/shared/fs/brandedIds.ts`. Aliasing them
+// here makes the renderer see branded types on `window.lingua.fs` without
+// importing from `src/main/*`. Compile-time only — every brand erases to
+// `string` over the structured-clone wire.
+
+type RootId = import('./shared/fs/brandedIds').RootId;
+type WatchId = import('./shared/fs/brandedIds').WatchId;
+type RelativePath = import('./shared/fs/brandedIds').RelativePath;
 
 // ----------------------------------------------------------- Profile types
 //
@@ -777,15 +790,15 @@ interface LinguaAPI {
      * path main has not authorized.
      */
     selectDirectory: () => Promise<
-      | { canceled: false; rootId: string; rootPath: string }
+      | { canceled: false; rootId: RootId; rootPath: string }
       | { canceled: true }
     >;
     selectFile: () => Promise<
       | {
           canceled: false;
-          rootId: string;
+          rootId: RootId;
           rootPath: string;
-          fileRelativePath: string;
+          fileRelativePath: RelativePath;
           fileName: string;
           content: string;
         }
@@ -797,9 +810,9 @@ interface LinguaAPI {
     ) => Promise<
       | {
           canceled: false;
-          rootId: string;
+          rootId: RootId;
           rootPath: string;
-          fileRelativePath: string;
+          fileRelativePath: RelativePath;
         }
       | { canceled: true }
     >;
@@ -812,7 +825,7 @@ interface LinguaAPI {
     reopenRoot: (
       absolutePath: string
     ) => Promise<
-      | { ok: true; rootId: string; rootPath: string }
+      | { ok: true; rootId: RootId; rootPath: string }
       | {
           ok: false;
           error: 'blocked' | 'not-found' | 'not-a-directory' | 'not-approved';
@@ -823,24 +836,24 @@ interface LinguaAPI {
     ) => Promise<
       | {
           ok: true;
-          rootId: string;
+          rootId: RootId;
           rootPath: string;
-          fileRelativePath: string;
+          fileRelativePath: RelativePath;
         }
       | {
           ok: false;
           error: 'blocked' | 'not-found' | 'not-a-file' | 'not-approved';
         }
     >;
-    revokeRoot: (rootId: string) => Promise<boolean>;
-    readdir: (rootId: string, relativePath: string) => Promise<FsDirEntry[]>;
+    revokeRoot: (rootId: RootId) => Promise<boolean>;
+    readdir: (rootId: RootId, relativePath: RelativePath) => Promise<FsDirEntry[]>;
     listAllFiles: (
-      rootId: string,
-      relativePath?: string
+      rootId: RootId,
+      relativePath?: RelativePath
     ) => Promise<FsIndexedFile[]>;
     searchInFiles: (
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       query: string,
       options?: FsSearchOptions
     ) => Promise<FsSearchResult[]>;
@@ -852,8 +865,8 @@ interface LinguaAPI {
      * backrefs.
      */
     replaceInFiles: (
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       query: string,
       replacement: string,
       options?: FsReplaceOptions
@@ -866,38 +879,38 @@ interface LinguaAPI {
      * the failure path.
      */
     applyReplaceInFile: (
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       query: string,
       replacement: string,
       options?: FsReplaceOptions
     ) => Promise<FsApplyReplaceResult>;
-    stat: (rootId: string, relativePath: string) => Promise<FsStatResult>;
-    read: (rootId: string, relativePath: string) => Promise<string>;
+    stat: (rootId: RootId, relativePath: RelativePath) => Promise<FsStatResult>;
+    read: (rootId: RootId, relativePath: RelativePath) => Promise<string>;
     write: (
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       content: string
     ) => Promise<boolean>;
     delete: (
-      rootId: string,
-      relativePath: string,
+      rootId: RootId,
+      relativePath: RelativePath,
       isDirectory?: boolean,
       language?: string
     ) => Promise<boolean>;
     rename: (
-      rootId: string,
-      relativeOldPath: string,
+      rootId: RootId,
+      relativeOldPath: RelativePath,
       newName: string
-    ) => Promise<string>;
-    mkdir: (rootId: string, relativePath: string) => Promise<boolean>;
-    touch: (rootId: string, relativePath: string) => Promise<boolean>;
+    ) => Promise<RelativePath>;
+    mkdir: (rootId: RootId, relativePath: RelativePath) => Promise<boolean>;
+    touch: (rootId: RootId, relativePath: RelativePath) => Promise<boolean>;
     /**
      * RL-024 Slice 1 fold A — open the OS file manager with the
      * entry selected. Desktop: `shell.showItemInFolder`. Web build:
      * no-op (no underlying absolute path).
      */
-    revealInFinder: (rootId: string, relativePath: string) => Promise<boolean>;
+    revealInFinder: (rootId: RootId, relativePath: RelativePath) => Promise<boolean>;
     /**
      * RL-024 Slice 3 — pack every visible file under the capability
      * root into a `.zip` bundle (with a `lingua-bundle.json` manifest)
@@ -908,7 +921,7 @@ interface LinguaAPI {
      * can restore the active tab + language.
      */
     exportBundle: (
-      rootId: string,
+      rootId: RootId,
       opts?: { entryFile?: string; languageHint?: string }
     ) => Promise<
       | { ok: true; fileCount: number; byteLength: number }
@@ -952,10 +965,10 @@ interface LinguaAPI {
      * without polling the return value.
      */
     watchStart: (
-      rootId: string,
-      relativePath?: string
-    ) => Promise<string | { ok: false; diagnostic: WatcherDiagnostic }>;
-    watchStop: (watchId: string) => Promise<boolean>;
+      rootId: RootId,
+      relativePath?: RelativePath
+    ) => Promise<WatchId | { ok: false; diagnostic: WatcherDiagnostic }>;
+    watchStop: (watchId: WatchId) => Promise<boolean>;
     onChanged: (callback: (event: FsChangedEvent) => void) => () => void;
     /**
      * RL-087 — push subscription for typed watcher failures. Main emits

@@ -16,6 +16,7 @@ import type { EditorGet, EditorSet } from './editorStoreContext';
 import { runtimeModeForNewTab, workflowModeForNewTab } from './editorModeHelpers';
 import { budgetedTabCount } from './editorTabUtils';
 import { persistTab } from './editorPersistence';
+import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
 /**
  * RL-128 fold A/B — file-open + save action factory for the editor store.
@@ -62,7 +63,10 @@ export function createSaveActions(
         return;
       }
 
-      const content = await window.lingua.fs.read(rootId, relativePath);
+      const content = await window.lingua.fs.read(
+        asRootId(rootId),
+        asRelativePath(relativePath)
+      );
       const filePath = displayPath ?? relativePath;
 
       const newTab: FileTab = {
@@ -217,7 +221,7 @@ export function createSaveActions(
         );
         const projectRootId = useProjectStore.getState().currentProject?.rootId;
         if (!rootStillUsed && previousRootId !== projectRootId) {
-          await window.lingua.fs.revokeRoot(previousRootId).catch(() => {});
+          await window.lingua.fs.revokeRoot(asRootId(previousRootId)).catch(() => {});
         }
       }
 

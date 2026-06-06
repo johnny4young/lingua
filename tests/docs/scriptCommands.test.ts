@@ -137,6 +137,9 @@ describe('Script naming docs guard', () => {
       'changelog:draft',
       'changelog:check',
       'test',
+      // RL-132 / AUDIT-12 — scoped tsc gate that type-checks the branded-id
+      // swap-attack compile guard under tests/ (tsconfig.test.json).
+      'typecheck:tests',
       'test:e2e:web',
       'test:smoke:web:license',
       'test:watch',

@@ -18,6 +18,14 @@
 import { OPEN_FILE_PICKER_TYPES } from '../shared/filePickerTypes';
 import { useUIStore } from '../renderer/stores/uiStore';
 import { trackEvent } from '../renderer/utils/telemetry';
+import {
+  asRelativePath,
+  asRootId,
+  asWatchId,
+  type RelativePath,
+  type RootId,
+  type WatchId,
+} from '../shared/fs/brandedIds';
 
 // -------------------------------- Minimal File System Access API types
 
@@ -61,12 +69,15 @@ function mintCapability(
   rootHandle: FileSystemDirectoryHandle,
   displayName: string,
   rootPathOverride?: string
-): { rootId: string; rootPath: string } {
-  const rootId = (
-    crypto as Crypto & { randomUUID?: () => string }
-  ).randomUUID
-    ? crypto.randomUUID()
-    : `web-cap-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+): { rootId: RootId; rootPath: string } {
+  // Web mint authority: the FSA adapter is the web-side equivalent of
+  // main's capability registry, so branding the generated token here is
+  // the sanctioned mint point for a web `RootId`.
+  const rootId = asRootId(
+    (crypto as Crypto & { randomUUID?: () => string }).randomUUID
+      ? crypto.randomUUID()
+      : `web-cap-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  );
   const rootPath = rootPathOverride ?? `/${displayName}`;
   REGISTRY.set(rootId, { rootHandle, rootPath });
   return { rootId, rootPath };
@@ -378,7 +389,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
         canceled: false,
         rootId,
         rootPath,
-        fileRelativePath: fileName,
+        fileRelativePath: asRelativePath(fileName),
         fileName,
         content,
       } as const;
@@ -414,7 +425,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
         canceled: false,
         rootId,
         rootPath,
-        fileRelativePath: fileName,
+        fileRelativePath: asRelativePath(fileName),
       } as const;
     } catch {
       return { canceled: true } as const;
@@ -445,7 +456,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
       entries.push({
         name,
         isDirectory: entry.kind === 'directory',
-        relativePath: joinRelative(relativePath, name),
+        relativePath: asRelativePath(joinRelative(relativePath, name)),
       });
     }
     return entries.sort((a, b) => {
@@ -477,7 +488,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
           await walk(entry as IterableFileSystemDirectoryHandle, nextRelative);
           continue;
         }
-        results.push({ name, relativePath: nextRelative });
+        results.push({ name, relativePath: asRelativePath(nextRelative) });
       }
     }
 
@@ -486,8 +497,8 @@ export const webFsAdapter: LinguaAPI['fs'] = {
   },
 
   searchInFiles: async (
-    rootId: string,
-    relativePath: string,
+    rootId: RootId,
+    relativePath: RelativePath,
     query: string,
     options: FsSearchOptions = {}
   ): Promise<FsSearchResult[]> => {
@@ -672,10 +683,10 @@ export const webFsAdapter: LinguaAPI['fs'] = {
   },
 
   rename: async (
-    rootId: string,
-    relativeOldPath: string,
+    rootId: RootId,
+    relativeOldPath: RelativePath,
     newName: string
-  ): Promise<string> => {
+  ): Promise<RelativePath> => {
     if (!isSafeEntryName(newName)) {
       throw new Error('unsafe-path');
     }
@@ -685,7 +696,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     const content = await webFsAdapter.read(rootId, relativeOldPath);
     const lastSlash = relativeOldPath.lastIndexOf('/');
     const dir = lastSlash >= 0 ? relativeOldPath.slice(0, lastSlash) : '';
-    const newRelative = joinRelative(dir, newName);
+    const newRelative = asRelativePath(joinRelative(dir, newName));
     const wrote = await webFsAdapter.write(rootId, newRelative, content);
     if (!wrote) {
       throw new Error('write-failed');
@@ -713,7 +724,7 @@ export const webFsAdapter: LinguaAPI['fs'] = {
     }
   },
 
-  touch: async (rootId: string, relativePath: string): Promise<boolean> => {
+  touch: async (rootId: RootId, relativePath: RelativePath): Promise<boolean> => {
     const entry = lookupCapability(rootId);
     if (!entry) return false;
     try {
@@ -779,13 +790,13 @@ export const webFsAdapter: LinguaAPI['fs'] = {
   },
 
   watchStart: async (
-    _rootId: string,
-    _relativePath?: string,
-  ): Promise<string | { ok: false; diagnostic: WatcherDiagnostic }> => {
-    return 'web-noop-watcher';
+    _rootId: RootId,
+    _relativePath?: RelativePath,
+  ): Promise<WatchId | { ok: false; diagnostic: WatcherDiagnostic }> => {
+    return asWatchId('web-noop-watcher');
   },
 
-  watchStop: async (_watchId: string): Promise<boolean> => {
+  watchStop: async (_watchId: WatchId): Promise<boolean> => {
     return true;
   },
 

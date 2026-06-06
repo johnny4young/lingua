@@ -15,6 +15,7 @@ import {
   RECIPE_BINDING_SUPPORTED_LANGUAGES,
   VARIABLE_INSPECTOR_SUPPORTED_LANGUAGES,
 } from './editorTabUtils';
+import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
 /**
  * RL-128 — disk-persistence helpers extracted verbatim from `editorStore.ts`:
@@ -193,13 +194,19 @@ export async function persistTab(
   let content: string;
   try {
     content = await resolveFormattedContent(nextTab);
-    const wrote = await window.lingua.fs.write(rootId, relativePath, content);
+    const wrote = await window.lingua.fs.write(
+      asRootId(rootId),
+      asRelativePath(relativePath),
+      content
+    );
     if (!wrote) {
-      if (mintedRootId) await window.lingua.fs.revokeRoot(mintedRootId).catch(() => {});
+      if (mintedRootId)
+        await window.lingua.fs.revokeRoot(asRootId(mintedRootId)).catch(() => {});
       return null;
     }
   } catch (error) {
-    if (mintedRootId) await window.lingua.fs.revokeRoot(mintedRootId).catch(() => {});
+    if (mintedRootId)
+      await window.lingua.fs.revokeRoot(asRootId(mintedRootId)).catch(() => {});
     throw error;
   }
 

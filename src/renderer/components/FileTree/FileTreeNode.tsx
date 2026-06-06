@@ -20,6 +20,7 @@ import {
   languageCapabilityBadgeKey,
 } from '../../utils/languageMeta';
 import { Tooltip } from '../ui/chrome';
+import { asRelativePath } from '../../../shared/fs/brandedIds';
 import { dirtyTabKey } from '../../hooks/useDirtyTabPaths';
 import { FileTreeContextMenu, type FileTreeContextMenuItem } from './FileTreeContextMenu';
 import { FileTreeInlineInput } from './FileTreeInlineInput';
@@ -153,7 +154,7 @@ export function FileTreeNode({
         onSelect: () => {
           void window.lingua.fs.revealInFinder(
             currentProject.rootId,
-            node.path
+            asRelativePath(node.path)
           );
         },
       });

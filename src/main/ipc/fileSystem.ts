@@ -44,6 +44,12 @@ import {
   type RootId,
 } from './projectCapabilities';
 import {
+  asRelativePath,
+  asWatchId,
+  type RelativePath,
+  type WatchId,
+} from '../../shared/fs/brandedIds';
+import {
   MAX_BUNDLE_ENTRY_BYTES,
   MAX_BUNDLE_FILES,
   packBundle,
@@ -65,8 +71,8 @@ interface WatcherEntry {
   stop: () => void;
 }
 
-const watchers = new Map<string, WatcherEntry>();
-const watcherIdsByTarget = new Map<string, string>();
+const watchers = new Map<WatchId, WatcherEntry>();
+const watcherIdsByTarget = new Map<string, WatchId>();
 
 interface FilesystemApprovalsFile {
   version: 1;
@@ -288,7 +294,7 @@ async function resolveOrThrow(
   return { absolutePath: resolution.absolutePath, rootPath: resolution.rootPath };
 }
 
-function stopWatcherById(watchId: string): boolean {
+function stopWatcherById(watchId: WatchId): boolean {
   const entry = watchers.get(watchId);
   if (!entry) return false;
   entry.stop();
@@ -352,9 +358,9 @@ interface NullFilenameBurst {
   windowStart: number;
   notifiedAt: number;
 }
-const nullFilenameBursts = new Map<string, NullFilenameBurst>();
+const nullFilenameBursts = new Map<WatchId, NullFilenameBurst>();
 
-function recordNullFilenameBurst(watchId: string): boolean {
+function recordNullFilenameBurst(watchId: WatchId): boolean {
   const now = Date.now();
   const burst = nullFilenameBursts.get(watchId);
   if (!burst || now - burst.windowStart > NULL_FILENAME_WINDOW_MS) {
@@ -703,7 +709,7 @@ export function registerFileSystemHandlers(): void {
 
           results.push({
             name: entry.name,
-            relativePath: entryRelative,
+            relativePath: asRelativePath(entryRelative),
           });
         }
       }
@@ -822,7 +828,7 @@ export function registerFileSystemHandlers(): void {
 
         if (fileMatches.length > 0) {
           results.push({
-            relativePath: fileRelativePath,
+            relativePath: asRelativePath(fileRelativePath),
             matches: fileMatches,
           });
           totalMatches += fileMatches.length;
@@ -1128,14 +1134,14 @@ export function registerFileSystemHandlers(): void {
 
           if (fileMatches.length > 0) {
             results.push({
-              relativePath: fileRelativePath,
+              relativePath: asRelativePath(fileRelativePath),
               matches: fileMatches,
               ...(fileTimedOut ? { regexTimedOut: true } : {}),
             });
             totalMatches += fileMatches.length;
           } else if (fileTimedOut) {
             results.push({
-              relativePath: fileRelativePath,
+              relativePath: asRelativePath(fileRelativePath),
               matches: [],
               regexTimedOut: true,
             });
@@ -1625,7 +1631,7 @@ export function registerFileSystemHandlers(): void {
 
   ipcMain.handle(
     'fs:watch-start',
-    async (event, rootId: RootId, relativePath: string = '') => {
+    async (event, rootId: RootId, relativePath: RelativePath = asRelativePath('')) => {
       const { absolutePath } = await resolveOrThrow(
         rootId,
         relativePath,
@@ -1639,7 +1645,7 @@ export function registerFileSystemHandlers(): void {
       if (existingWatchId) {
         stopWatcherById(existingWatchId);
       }
-      const watchId = randomUUID();
+      const watchId = asWatchId(randomUUID());
 
       // RL-087 — wrap fs.watch in try/catch so registration failures
       // (EACCES, EMFILE, ENOSPC, ENOENT) surface as a typed diagnostic
@@ -1681,7 +1687,9 @@ export function registerFileSystemHandlers(): void {
             // dir; convert to a path relative to the project root so
             // the renderer always speaks the same coordinate space.
             const fileName = String(filename);
-            const eventRelative = joinRelative(relativePath, fileName);
+            const eventRelative = asRelativePath(
+              joinRelative(relativePath, fileName)
+            );
             event.sender.send('fs:changed', {
               rootId,
               relativePath: eventRelative,
@@ -1710,7 +1718,11 @@ export function registerFileSystemHandlers(): void {
   );
 
   ipcMain.handle('fs:watch-stop', (_event, watchId: string) => {
-    stopWatcherById(watchId);
+    // Boundary cast: the renderer hands back the opaque token main
+    // returned from `fs:watch-start`. Branding the raw IPC string here is
+    // the sanctioned mint point; `stopWatcherById` is a no-op for any
+    // token not present in the registry.
+    stopWatcherById(asWatchId(watchId));
     return true;
   });
 }

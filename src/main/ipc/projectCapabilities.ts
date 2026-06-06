@@ -36,12 +36,29 @@ import path from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { isPathBlocked, isPathWithinProject, isSafeEntryName } from './permissions';
+import {
+  asRelativePath,
+  asRootId,
+  type RelativePath,
+  type RootId,
+  type WatchId,
+} from '../../shared/fs/brandedIds';
 
 /**
- * Token shape: opaque, monotonic, unguessable. The renderer treats
- * this as a black box; only main can interpret it.
+ * RL-132 / AUDIT-12 — the capability ids are branded `string` types so a
+ * `WatchId` or a `RelativePath` can never be swapped in where a `RootId`
+ * is expected (and vice versa). The brands are compile-time only and
+ * erase to `string` over the IPC wire; the canonical definitions + cast
+ * helpers live in `src/shared/fs/brandedIds.ts` so the renderer can reach
+ * them through the ambient `LinguaAPI` alias without importing from main.
+ * Re-exported here because the mint/lookup helpers below hand out branded
+ * tokens and the audit calls for the brand surface to be visible from
+ * this module.
+ *
+ * `RootId` is an opaque, unguessable token; the renderer treats it as a
+ * black box and only main can interpret it.
  */
-export type RootId = string;
+export type { RelativePath, RootId, WatchId };
 
 interface CapabilityEntry {
   /** Canonical absolute path of the approved root. */
@@ -91,7 +108,7 @@ export function mintRootCapability(absoluteRootPath: string): {
   rootPath: string;
 } {
   const rootPath = path.normalize(path.resolve(absoluteRootPath));
-  const rootId = randomUUID();
+  const rootId = asRootId(randomUUID());
   REGISTRY.set(rootId, { rootPath, realRootPath: '' });
   return { rootId, rootPath };
 }
@@ -104,12 +121,12 @@ export function mintRootCapability(absoluteRootPath: string): {
 export function mintFileCapability(absoluteFilePath: string): {
   rootId: RootId;
   rootPath: string;
-  fileRelativePath: string;
+  fileRelativePath: RelativePath;
 } {
   const absolutePath = path.normalize(path.resolve(absoluteFilePath));
   const rootPath = path.dirname(absolutePath);
-  const fileRelativePath = path.basename(absolutePath);
-  const rootId = randomUUID();
+  const fileRelativePath = asRelativePath(path.basename(absolutePath));
+  const rootId = asRootId(randomUUID());
   REGISTRY.set(rootId, {
     rootPath,
     realRootPath: '',
@@ -226,7 +243,11 @@ export async function resolveCapabilityPath(
   if (typeof rootId !== 'string' || rootId.length === 0) {
     return { ok: false, error: 'unknown-root' };
   }
-  const entry = REGISTRY.get(rootId);
+  // Boundary cast: this chokepoint accepts an untrusted `unknown` and the
+  // registry lookup IS the validation (an unrecognized token resolves to
+  // `unknown-root` below). Branding the narrowed string here is the
+  // sanctioned mint point for a `RootId` derived from raw IPC input.
+  const entry = REGISTRY.get(asRootId(rootId));
   if (!entry) return { ok: false, error: 'unknown-root' };
 
   if (typeof relativePath !== 'string') {

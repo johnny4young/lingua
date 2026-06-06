@@ -22,6 +22,7 @@ import {
   isWorkspaceTab,
 } from './editorTabUtils';
 import { getActiveTab } from './editorSelectors';
+import { asRootId } from '../../shared/fs/brandedIds';
 
 /**
  * RL-128 fold A/B — tab-lifecycle action factory for the editor store.
@@ -175,7 +176,7 @@ export function createTabActions(
             useProjectStore.getState().currentProject?.rootId;
           if (!stillUsed && target.rootId !== projectRootId) {
             void window.lingua.fs
-              .revokeRoot(target.rootId)
+              .revokeRoot(asRootId(target.rootId))
               .catch(() => {});
           }
         }

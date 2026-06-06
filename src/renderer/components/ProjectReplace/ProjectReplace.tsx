@@ -44,6 +44,7 @@ import {
   type ProjectReplaceResult,
 } from '../../stores/projectReplaceStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { asRelativePath } from '../../../shared/fs/brandedIds';
 import { joinAbsolute } from '../../utils/filePath';
 import { Kbd, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { handleCloseOnEscape } from '../ui/keyboard';
@@ -227,7 +228,7 @@ export function ProjectReplace({ onClose }: ProjectReplaceProps) {
       try {
         const fresh = await window.lingua?.fs?.read?.(
           currentProject.rootId,
-          relativePath
+          asRelativePath(relativePath)
         );
         if (typeof fresh === 'string') {
           setTabContentFromDisk(tabId, fresh);

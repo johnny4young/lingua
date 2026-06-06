@@ -108,6 +108,7 @@ reference for what each command owns.
 | `changelog:draft` | Drafts changelog entries from conventional commits. |
 | `changelog:check` | Blocks version/changelog drift before release. |
 | `test` | Runs the Vitest suite once. |
+| `typecheck:tests` | Scoped `tsc -p tsconfig.test.json` pass that type-checks the branded-id swap-attack compile guard under `tests/` (root `tsc --noEmit` covers `src/**` only). |
 | `test:e2e:web` | Runs the Playwright web validation wrapper. |
 | `test:smoke:web:license` | Runs the web license smoke test. |
 | `test:watch` | Starts Vitest watch mode. |

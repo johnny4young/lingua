@@ -1,0 +1,27 @@
+{
+  // RL-132 / AUDIT-12 — scoped type-check gate for the branded-id
+  // swap-attack compile guard. The root tsconfig.json only includes
+  // `src/**`, and `pnpm test` runs vitest in transpile-only mode, so
+  // neither existing gate ever type-checks files under `tests/`. That
+  // left the `// @ts-expect-error` swap matrix in
+  // `tests/main/projectCapabilitiesBrand.test.ts` unenforced — a brand
+  // could be reverted to a bare `string` and every swap would silently
+  // compile, exactly the regression the test claims it turns red.
+  //
+  // This config wires that one file into a real `tsc --noEmit` program
+  // (alongside the `src/**` it imports) so the directives are checked.
+  // It is deliberately NARROW: the rest of `tests/**` was never
+  // type-checked as a gate and carries hundreds of pre-existing
+  // strictness errors, so widening `include` here would be a large,
+  // out-of-scope change. Add more test files only when they too are
+  // meant to be a compile-time gate and are known to type-check clean.
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/types.d.ts",
+    "forge.env.d.ts",
+    "tests/main/projectCapabilitiesBrand.test.ts"
+  ],
+  "exclude": ["node_modules", "out", ".vite", "dist"]
+}

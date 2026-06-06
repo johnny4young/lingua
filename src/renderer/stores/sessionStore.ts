@@ -21,6 +21,7 @@ import { useRecipeStore } from './recipeStore';
 import { useUIStore } from './uiStore';
 import { resolveFileLanguageOrPlaintext } from '../utils/language';
 import { coerceRuntimeMode, type RuntimeMode } from '../../shared/runtimeModes';
+import type { RelativePath, RootId } from '../../shared/fs/brandedIds';
 
 interface SessionTab {
   name: string;
@@ -194,8 +195,8 @@ export const useSessionStore = create<SessionState>()(
         for (let savedIdx = 0; savedIdx < savedTabs.length; savedIdx += 1) {
           const saved = savedTabs[savedIdx]!;
           let content = saved.content;
-          let rootId: string | undefined;
-          let relativePath: string | undefined;
+          let rootId: RootId | undefined;
+          let relativePath: RelativePath | undefined;
 
           if (saved.filePath) {
             // RL-077 — re-mint a single-file capability for the

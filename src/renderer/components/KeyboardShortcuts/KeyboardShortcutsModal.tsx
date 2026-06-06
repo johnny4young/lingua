@@ -27,6 +27,7 @@ import {
   type ParseShortcutPresetResult,
 } from '../../utils/shortcutPreset';
 import { joinAbsolute } from '../../utils/filePath';
+import type { RootId } from '../../../shared/fs/brandedIds';
 import { IconButton, OverlayBackdrop, OverlayCard } from '../ui/chrome';
 import { Eyebrow } from '../ui/primitives';
 
@@ -308,7 +309,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       });
       return;
     }
-    let mintedRootId: string | null = null;
+    let mintedRootId: RootId | null = null;
     try {
       const chosen = await saveDialog('lingua-shortcuts.json');
       if (chosen.canceled) return;
@@ -349,7 +350,7 @@ export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps)
       });
       return;
     }
-    let mintedRootId: string | null = null;
+    let mintedRootId: RootId | null = null;
     try {
       const picked = await selectFile();
       if (picked.canceled) return;

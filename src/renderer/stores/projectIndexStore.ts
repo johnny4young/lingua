@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Language } from '../types';
 import { languageFromPath } from '../utils/language';
+import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
 export interface ProjectIndexEntry {
   name: string;
@@ -61,7 +62,7 @@ export const useProjectIndexStore = create<ProjectIndexState>((set, get) => ({
     set({ rootId, status: 'loading', error: null });
 
     try {
-      const raw = await listAllFiles(rootId, '');
+      const raw = await listAllFiles(asRootId(rootId), asRelativePath(''));
       // `rootId` is the freshness token for the index. Absolute paths are not
       // compared here because web handles and desktop capabilities expose the
       // same contract with different backing identifiers.

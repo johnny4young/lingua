@@ -116,6 +116,20 @@ through to Electron smoke. Never skip both tiers silently.
   `pnpm run check:i18n`, and `pnpm run check:i18n:copy` before declaring
   a slice done. The `check:i18n` guards catch untranslated keys and
   hardcoded renderer copy.
+- The root `tsconfig.json` includes `src/**` only, and `pnpm test` runs
+  vitest in transpile-only mode, so neither default gate type-checks
+  files under `tests/`. A `// @ts-expect-error` in a test is therefore
+  inert as a gate unless it is also wired into a real tsc program. When a
+  test's purpose IS a compile-time assertion (branded-id swap guards,
+  type-level fixtures), add it to `tsconfig.test.json` and rely on
+  `pnpm run typecheck:tests` (`tsc --noEmit -p tsconfig.test.json`, also a
+  CI step). Prove the lock by temporarily breaking the type and confirming
+  the gate goes red. Do not widen `tsconfig.test.json` to all of `tests/**`
+  — most test files were never type-checked and carry pre-existing
+  strictness errors; add only files that are meant to be compile gates and
+  already type-check clean. The first such guard lives in
+  `tests/main/projectCapabilitiesBrand.test.ts`, which also shells out to
+  the same tsc pass so `pnpm test` alone enforces it.
 - Web builds: `pnpm run build:web`. Desktop dev: `pnpm run dev:desktop`.
 - Keep scope tight. If a review surfaces something out of scope, flag
   it in `docs/PLAN.md` rather than expanding the current slice.
