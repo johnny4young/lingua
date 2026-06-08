@@ -38,6 +38,15 @@ import { createLicenseRuntime, parseEmbeddedPublicKey } from './license';
 import { registerLicenseHandlers } from './ipc/license';
 import { installOfflineSmokeFilter, isOfflineSmokeRequested } from './offlineSmoke';
 
+// Desktop smoke / Stagewright launches must not contend with an already-open
+// installed Lingua.app for Electron's single-instance lock. The harnesses set
+// this to an artifact-local directory before `requestSingleInstanceLock()` so
+// validation can run alongside a user's real app without touching their data.
+const smokeUserDataDir = process.env.LINGUA_SMOKE_USER_DATA_DIR?.trim();
+if (smokeUserDataDir) {
+  app.setPath('userData', smokeUserDataDir);
+}
+
 /**
  * Squirrel.Windows installer / uninstaller lifecycle hook. The
  * `electron-squirrel-startup` package emits `true` when Electron is

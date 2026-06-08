@@ -232,19 +232,25 @@ export function renameNode(
   });
 }
 
+function compareTreeNodes(left: FileTreeNode, right: FileTreeNode): number {
+  if (left.isDirectory !== right.isDirectory) {
+    return left.isDirectory ? -1 : 1;
+  }
+  return left.name.localeCompare(right.name);
+}
+
 export function addNodeToParent(
   nodes: FileTreeNode[],
   parentPath: string,
   newNode: FileTreeNode
 ): FileTreeNode[] {
+  if (parentPath === '') {
+    return [...nodes, newNode].sort(compareTreeNodes);
+  }
+
   return nodes.map((node) => {
     if (node.path === parentPath && node.isDirectory && node.isExpanded && node.children) {
-      const children = [...node.children, newNode].sort((left, right) => {
-        if (left.isDirectory !== right.isDirectory) {
-          return left.isDirectory ? -1 : 1;
-        }
-        return left.name.localeCompare(right.name);
-      });
+      const children = [...node.children, newNode].sort(compareTreeNodes);
 
       return { ...node, children };
     }
@@ -258,4 +264,96 @@ export function addNodeToParent(
 
     return node;
   });
+}
+
+/**
+ * The parent directory of a relative path, or `''` (the project root)
+ * when the path has no separator. Shared by the watcher delta refresh
+ * and the stale-tab notice so both agree on which directory a change
+ * belongs to.
+ */
+export function parentRelativeOf(relativePath: string): string {
+  const idx = relativePath.lastIndexOf('/');
+  return idx === -1 ? '' : relativePath.slice(0, idx);
+}
+
+/**
+ * RL-146 / AUDIT-26 — flat `path -> node` index over the loaded tree.
+ *
+ * A pure derivation of `nodes`: the project store rebuilds it on every
+ * node commit, so it can never drift from the tree it indexes. The
+ * watcher delta refresh uses it for O(1) "is this directory currently
+ * loaded?" lookups instead of walking the whole tree on every event.
+ * Only loaded nodes appear — unexpanded subtrees are absent by design,
+ * exactly like the tree itself.
+ */
+export function buildNodeIndex(
+  nodes: ReadonlyArray<FileTreeNode>,
+): Map<RelativePath, FileTreeNode> {
+  const index = new Map<RelativePath, FileTreeNode>();
+  const walk = (list: ReadonlyArray<FileTreeNode>): void => {
+    for (const node of list) {
+      index.set(asRelativePath(node.path), node);
+      if (node.isDirectory && node.children) walk(node.children);
+    }
+  };
+  walk(nodes);
+  return index;
+}
+
+/**
+ * Whether `relativePath` names a directory whose children are currently
+ * loaded in the tree (so a watcher delta can re-read just that branch
+ * instead of falling back to a full walk). The project root (`''`) is
+ * always loaded once any nodes exist.
+ */
+export function isLoadedDirectory(
+  index: ReadonlyMap<RelativePath, FileTreeNode>,
+  relativePath: string,
+): boolean {
+  if (relativePath === '') return true;
+  const node = index.get(asRelativePath(relativePath));
+  return node !== undefined && node.isDirectory && node.children !== undefined;
+}
+
+/**
+ * RL-146 / AUDIT-26 — replace the children of the directory at
+ * `targetPath`, rebuilding ONLY the nodes along that directory's
+ * ancestor chain. Sibling subtrees keep their existing object identity,
+ * so a watcher delta re-renders O(branch) rather than O(N) — unlike
+ * `setNodeChildren`, which re-allocates every directory node on every
+ * call (it recurses into every branch, not just the target's).
+ *
+ * Returns the ORIGINAL array reference unchanged when `targetPath` is
+ * not present in the tree, so callers can treat reference equality as a
+ * "nothing matched" no-op signal.
+ */
+export function updateChildrenAtPath(
+  nodes: FileTreeNode[],
+  targetPath: string,
+  children: FileTreeNode[],
+): FileTreeNode[] {
+  let changed = false;
+  const next = nodes.map((node) => {
+    if (!node.isDirectory) return node;
+    if (node.path === targetPath) {
+      changed = true;
+      return { ...node, children };
+    }
+    // Descend ONLY into the branch that contains `targetPath`; every
+    // other subtree keeps its object identity untouched.
+    if (node.children && targetPath.startsWith(`${node.path}/`)) {
+      const nextChildren = updateChildrenAtPath(
+        node.children,
+        targetPath,
+        children,
+      );
+      if (nextChildren !== node.children) {
+        changed = true;
+        return { ...node, children: nextChildren };
+      }
+    }
+    return node;
+  });
+  return changed ? next : nodes;
 }

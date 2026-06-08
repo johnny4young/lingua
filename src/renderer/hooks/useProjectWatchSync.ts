@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import i18next from 'i18next';
 import { useEditorStore } from '../stores/editorStore';
-import { useProjectStore } from '../stores/projectStore';
+import { useProjectStore, type WatchChange } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
 import { trackGitExternalModificationReload } from './gitTelemetry';
-import type { FileTreeNode } from '../stores/projectTree';
+import { parentRelativeOf, type FileTreeNode } from '../stores/projectTree';
 import { asRelativePath, asRootId } from '../../shared/fs/brandedIds';
 
 export const PROJECT_WATCH_REFRESH_DEBOUNCE_MS = 150;
@@ -72,11 +72,6 @@ function collectLoadedDirs(nodes: ReadonlyArray<FileTreeNode>): Set<string> {
   };
   walk(nodes);
   return out;
-}
-
-function parentRelativeOf(relativePath: string): string {
-  const idx = relativePath.lastIndexOf('/');
-  return idx === -1 ? '' : relativePath.slice(0, idx);
 }
 
 function maybePushStaleTabNotice(
@@ -377,6 +372,13 @@ export function useProjectWatchSync(): void {
     pendingTabIds: new Set<string>(),
     timer: null,
   });
+  // RL-146 / AUDIT-26 fold C — coalesce the watch events that arrive
+  // within one debounce window, keyed by relativePath so a save-storm on
+  // the same file collapses to its latest event. The flush hands the
+  // deduped set to applyWatchChanges, which re-reads only the directories
+  // that structurally changed instead of re-walking the whole tree.
+  const pendingChangesRef = useRef<Map<string, WatchChange>>(new Map());
+  const pendingChangesRootIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = window.lingua.fs.onChanged((event) => {
@@ -391,6 +393,29 @@ export function useProjectWatchSync(): void {
       // the tree refresh to identify a tab match.
       maybeScheduleReloadNotice(event, reloadBatchRef);
 
+      // RL-146 / AUDIT-26 — accumulate the event for the debounced delta
+      // refresh below. A same-path 'rename' must beat a later 'change'
+      // in the same debounce window: create/write sequences commonly emit
+      // rename -> change, and reducing that to a pure content change would
+      // skip the tree-structure refresh that makes the new entry visible.
+      if (pendingChangesRootIdRef.current !== event.rootId) {
+        pendingChangesRef.current.clear();
+        pendingChangesRootIdRef.current = event.rootId;
+      }
+      const existingChange = pendingChangesRef.current.get(event.relativePath);
+      const nextChange: WatchChange = {
+        relativePath: event.relativePath,
+        eventType: event.eventType,
+        filename: event.filename,
+      };
+      if (
+        !existingChange ||
+        existingChange.eventType === 'change' ||
+        event.eventType !== 'change'
+      ) {
+        pendingChangesRef.current.set(event.relativePath, nextChange);
+      }
+
       if (refreshTimerRef.current !== null) {
         window.clearTimeout(refreshTimerRef.current);
       }
@@ -400,10 +425,18 @@ export function useProjectWatchSync(): void {
       // keeps explorer/search state coherent for creates, deletes, and renames.
       refreshTimerRef.current = window.setTimeout(async () => {
         refreshTimerRef.current = null;
-        const { currentProject, refreshTree } = useProjectStore.getState();
-        if (!currentProject) {
+        const { currentProject, applyWatchChanges } =
+          useProjectStore.getState();
+        const pendingRootId = pendingChangesRootIdRef.current;
+        if (!currentProject || pendingRootId !== currentProject.rootId) {
+          pendingChangesRef.current.clear();
+          pendingChangesRootIdRef.current = null;
           return;
         }
+
+        const changes = Array.from(pendingChangesRef.current.values());
+        pendingChangesRef.current.clear();
+        pendingChangesRootIdRef.current = null;
 
         // Capture loaded dirs before refresh so a deleted loaded directory can
         // still mark its open child tabs as stale after the tree disappears.
@@ -412,7 +445,10 @@ export function useProjectWatchSync(): void {
           loadedDirs: collectLoadedDirs(useProjectStore.getState().nodes),
         };
         try {
-          await refreshTree();
+          // RL-146 / AUDIT-26 — delta refresh: re-read only the changed
+          // directories' branches (full walk stays in refreshTree for
+          // boot / manual refresh / restart).
+          await applyWatchChanges(changes);
         } catch {
           return;
         }
@@ -428,10 +464,11 @@ export function useProjectWatchSync(): void {
       }, PROJECT_WATCH_REFRESH_DEBOUNCE_MS);
     });
 
-    // Snapshot the ref so the cleanup function reads the same
-    // object even if React's StrictMode swaps refs across the
+    // Snapshot the refs so the cleanup function reads the same
+    // objects even if React's StrictMode swaps refs across the
     // double-invoke. (react-hooks/exhaustive-deps lint.)
     const batchRefSnapshot = reloadBatchRef.current;
+    const pendingChangesSnapshot = pendingChangesRef.current;
     return () => {
       if (refreshTimerRef.current !== null) {
         window.clearTimeout(refreshTimerRef.current);
@@ -442,6 +479,8 @@ export function useProjectWatchSync(): void {
         batchRefSnapshot.timer = null;
       }
       batchRefSnapshot.pendingTabIds.clear();
+      pendingChangesSnapshot.clear();
+      pendingChangesRootIdRef.current = null;
 
       unsubscribe();
     };

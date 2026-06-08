@@ -139,6 +139,7 @@ describe('public documentation hygiene', () => {
       'LINGUA_DEV_SESSION_SKIP_LAUNCH',
       'LINGUA_SMOKE_TIMEOUT_MS',
       'LINGUA_SMOKE_ARTIFACT_DIR',
+      'LINGUA_SMOKE_USER_DATA_DIR',
       'LINGUA_DESKTOP_SMOKE_OFFLINE',
       'LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET',
     ]) {

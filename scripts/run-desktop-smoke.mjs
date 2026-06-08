@@ -13,6 +13,7 @@ const repoRoot = path.resolve(__dirname, '..');
 const artifactDir = path.join(repoRoot, 'output', 'playwright', 'desktop-smoke');
 const progressPath = path.join(artifactDir, 'desktop-smoke-progress.json');
 const summaryPath = path.join(artifactDir, 'desktop-smoke-summary.json');
+const smokeUserDataDir = path.join(artifactDir, 'user-data');
 // Default 180s covers the dev-server smoke flow. CI runs against a
 // freshly notarized .app (`--against-packaged`) on macos-14 M1 with
 // 7 GB RAM, where first-boot Gatekeeper ticket validation + JIT warm-up
@@ -264,6 +265,7 @@ async function main() {
           ...process.env,
           LINGUA_DESKTOP_SMOKE: '1',
           LINGUA_SMOKE_ARTIFACT_DIR: artifactDir,
+          LINGUA_SMOKE_USER_DATA_DIR: smokeUserDataDir,
           LINGUA_SMOKE_LAUNCHED_AT_MS: String(launchedAtMs),
           LINGUA_SMOKE_SECRET: '__lingua_smoke_secret__',
           LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET: '1',
@@ -293,6 +295,7 @@ async function main() {
               : process.env.LINGUA_ELECTRON_LAUNCHER,
           LINGUA_DESKTOP_SMOKE: '1',
           LINGUA_SMOKE_ARTIFACT_DIR: artifactDir,
+          LINGUA_SMOKE_USER_DATA_DIR: smokeUserDataDir,
           LINGUA_SMOKE_LAUNCHED_AT_MS: String(launchedAtMs),
           // RL-079 — sentinel secret seeded into Electron's process.env.
           // The go-env-isolation / rust-env-isolation smoke cases run a

@@ -5,15 +5,18 @@ import {
 } from '@/stores/projectStore';
 import {
   entriesToNodes,
+  buildNodeIndex,
   collapseAll,
   collectExpandedPaths,
   countFiles,
   depthOf,
+  isLoadedDirectory,
   MAX_TREE_EXPANSION_DEPTH,
   setNodeChildren,
   toggleExpanded,
   removeNode,
   renameNode,
+  updateChildrenAtPath,
   addNodeToParent,
 } from '@/stores/projectTree';
 import { useUIStore } from '@/stores/uiStore';
@@ -204,6 +207,15 @@ describe('addNodeToParent', () => {
     const result = addNodeToParent(nodes, '/proj/src', newFile);
     expect(result[0].children).toHaveLength(1);
     expect(result[0].children![0].path).toBe('/proj/src/index.ts');
+  });
+
+  it('adds root-level entries when the parent path is the project root', () => {
+    const nodes = [makeFile('README.md', 'README.md')];
+    const newDir = makeDir('src', 'src', []);
+
+    const result = addNodeToParent(nodes, '', newDir);
+
+    expect(result.map((node) => node.path)).toEqual(['src', 'README.md']);
   });
 
   it('sorts directories before files', () => {
@@ -563,5 +575,259 @@ describe('projectStore refreshTree', () => {
       },
     ]);
     expect(readmeNode?.path).toBe('README.md');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyWatchChanges — RL-146 / AUDIT-26 delta refresh
+// ---------------------------------------------------------------------------
+
+describe('projectStore applyWatchChanges (RL-146 / AUDIT-26)', () => {
+  function expandedDir(
+    name: string,
+    path: string,
+    children: FileTreeNode[]
+  ): FileTreeNode {
+    return { ...makeDir(name, path, children), isExpanded: true };
+  }
+
+  function seedTree(nodes: FileTreeNode[]): void {
+    useProjectStore.setState({
+      currentProject: {
+        id: '/proj',
+        name: 'proj',
+        rootId: 'root-proj',
+        rootPath: '/proj',
+        openedAt: 0,
+      },
+      nodes,
+      nodeIndex: buildNodeIndex(nodes),
+      watchId: 'watch-1',
+      recentProjects: [],
+    });
+  }
+
+  function baseTree(): FileTreeNode[] {
+    return [
+      expandedDir('src', 'src', [
+        makeFile('a.ts', 'src/a.ts'),
+        makeFile('b.ts', 'src/b.ts'),
+      ]),
+      expandedDir('lib', 'lib', [makeFile('c.ts', 'lib/c.ts')]),
+      makeFile('README.md', 'README.md'),
+    ];
+  }
+
+  it('skips pure file change events: no readdir, tree identity unchanged (fold B)', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    seedTree(baseTree());
+    const before = useProjectStore.getState().nodes;
+
+    await useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'src/a.ts', eventType: 'change', filename: 'a.ts' },
+    ]);
+
+    expect(mockReaddir).not.toHaveBeenCalled();
+    // No structural change → the whole tree keeps its object identity.
+    expect(useProjectStore.getState().nodes).toBe(before);
+  });
+
+  it('re-reads only the changed directory on a rename, preserving sibling identity (fold D)', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    mockReaddir.mockImplementation(async (_rootId, relativePath) => {
+      if (relativePath === 'src') {
+        return [
+          { name: 'a.ts', isDirectory: false, relativePath: 'src/a.ts' },
+          { name: 'b.ts', isDirectory: false, relativePath: 'src/b.ts' },
+          { name: 'new.ts', isDirectory: false, relativePath: 'src/new.ts' },
+        ];
+      }
+      return [];
+    });
+    seedTree(baseTree());
+    const before = useProjectStore.getState().nodes;
+
+    await useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'src/new.ts', eventType: 'rename', filename: 'new.ts' },
+    ]);
+
+    // Only the changed directory is re-read — never lib or the root.
+    expect(mockReaddir).toHaveBeenCalledTimes(1);
+    expect(mockReaddir).toHaveBeenCalledWith('root-proj', 'src');
+
+    const after = useProjectStore.getState().nodes;
+    const srcAfter = after.find((n) => n.path === 'src');
+    expect(srcAfter?.children?.map((c) => c.path)).toContain('src/new.ts');
+    expect(srcAfter?.isExpanded).toBe(true);
+
+    // Structural sharing: untouched sibling branches keep object identity,
+    // so React re-renders O(branch) not O(N).
+    const libBefore = before.find((n) => n.path === 'lib');
+    const libAfter = after.find((n) => n.path === 'lib');
+    expect(libAfter).toBe(libBefore);
+    expect(after.find((n) => n.path === 'README.md')).toBe(
+      before.find((n) => n.path === 'README.md')
+    );
+  });
+
+  it('removes a deleted file from its branch on a rename event', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    mockReaddir.mockImplementation(async (_rootId, relativePath) => {
+      if (relativePath === 'src') {
+        return [{ name: 'a.ts', isDirectory: false, relativePath: 'src/a.ts' }];
+      }
+      return [];
+    });
+    seedTree(baseTree());
+
+    await useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'src/b.ts', eventType: 'rename', filename: 'b.ts' },
+    ]);
+
+    const srcAfter = useProjectStore
+      .getState()
+      .nodes.find((n) => n.path === 'src');
+    expect(srcAfter?.children?.map((c) => c.path)).toEqual(['src/a.ts']);
+  });
+
+  it('re-reads the aggregated directory when the platform drops the filename', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    mockReaddir.mockResolvedValue([]);
+    seedTree(baseTree());
+
+    await useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'src', eventType: 'rename', filename: null },
+    ]);
+
+    expect(mockReaddir).toHaveBeenCalledTimes(1);
+    expect(mockReaddir).toHaveBeenCalledWith('root-proj', 'src');
+  });
+
+  it('skips changes inside an unexpanded / unloaded subtree', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    // lib is collapsed (children not loaded).
+    seedTree([
+      expandedDir('src', 'src', [makeFile('a.ts', 'src/a.ts')]),
+      makeDir('lib', 'lib'), // children: undefined → not loaded
+    ]);
+    const before = useProjectStore.getState().nodes;
+
+    await useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'lib/x.ts', eventType: 'rename', filename: 'x.ts' },
+    ]);
+
+    expect(mockReaddir).not.toHaveBeenCalled();
+    expect(useProjectStore.getState().nodes).toBe(before);
+  });
+
+  it('treats a change event on a known directory as structural', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    mockReaddir.mockResolvedValue([]);
+    seedTree(baseTree());
+
+    await useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'src', eventType: 'change', filename: 'src' },
+    ]);
+
+    expect(mockReaddir).toHaveBeenCalledTimes(1);
+    expect(mockReaddir).toHaveBeenCalledWith('root-proj', 'src');
+  });
+
+  it('coalesces a burst into one readdir per changed directory', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    mockReaddir.mockResolvedValue([]);
+    seedTree(baseTree());
+
+    await useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'src/a.ts', eventType: 'rename', filename: 'a.ts' },
+      { relativePath: 'src/b.ts', eventType: 'rename', filename: 'b.ts' },
+      { relativePath: 'lib/c.ts', eventType: 'rename', filename: 'c.ts' },
+    ]);
+
+    // Two unique directories (src, lib) → two readdirs, not three events.
+    expect(mockReaddir).toHaveBeenCalledTimes(2);
+    expect(mockReaddir).toHaveBeenCalledWith('root-proj', 'src');
+    expect(mockReaddir).toHaveBeenCalledWith('root-proj', 'lib');
+  });
+
+  it('keeps the node index consistent with the tree after a delta', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    mockReaddir.mockImplementation(async (_rootId, relativePath) => {
+      if (relativePath === 'src') {
+        return [
+          { name: 'a.ts', isDirectory: false, relativePath: 'src/a.ts' },
+          { name: 'new.ts', isDirectory: false, relativePath: 'src/new.ts' },
+        ];
+      }
+      return [];
+    });
+    seedTree(baseTree());
+
+    await useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'src/new.ts', eventType: 'rename', filename: 'new.ts' },
+    ]);
+
+    const { nodes, nodeIndex } = useProjectStore.getState();
+    // Index is a pure derivation of the post-delta tree.
+    expect(nodeIndex).toEqual(buildNodeIndex(nodes));
+    expect(isLoadedDirectory(nodeIndex, 'src')).toBe(true);
+    expect(nodeIndex.has('src/new.ts' as never)).toBe(true);
+    expect(nodeIndex.has('src/b.ts' as never)).toBe(false);
+  });
+
+  it('no-ops without a current project', async () => {
+    const mockReaddir = vi.mocked(window.lingua.fs.readdir);
+    useProjectStore.setState({ currentProject: null, nodes: [] });
+
+    await useProjectStore.getState().applyWatchChanges([
+      { relativePath: 'src/a.ts', eventType: 'rename', filename: 'a.ts' },
+    ]);
+
+    expect(mockReaddir).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateChildrenAtPath — structural-sharing branch replace (RL-146)
+// ---------------------------------------------------------------------------
+
+describe('updateChildrenAtPath (RL-146 / AUDIT-26)', () => {
+  it('returns the original array reference when the target path is absent', () => {
+    const nodes: FileTreeNode[] = [
+      { ...makeDir('src', 'src', []), isExpanded: true },
+    ];
+    expect(updateChildrenAtPath(nodes, 'does/not/exist', [])).toBe(nodes);
+  });
+
+  it('rebuilds only the ancestor chain, sharing untouched siblings', () => {
+    const deepChild = makeFile('deep.ts', 'src/nested/deep.ts');
+    const nested = {
+      ...makeDir('nested', 'src/nested', [deepChild]),
+      isExpanded: true,
+    };
+    const sibling = {
+      ...makeDir('lib', 'lib', [makeFile('c.ts', 'lib/c.ts')]),
+      isExpanded: true,
+    };
+    const src = { ...makeDir('src', 'src', [nested]), isExpanded: true };
+    const nodes: FileTreeNode[] = [src, sibling];
+
+    const newChildren = [
+      makeFile('deep.ts', 'src/nested/deep.ts'),
+      makeFile('added.ts', 'src/nested/added.ts'),
+    ];
+    const next = updateChildrenAtPath(nodes, 'src/nested', newChildren);
+
+    // Target branch rebuilt.
+    expect(next).not.toBe(nodes);
+    const nextSrc = next.find((n) => n.path === 'src');
+    expect(nextSrc).not.toBe(src);
+    expect(
+      nextSrc?.children
+        ?.find((c) => c.path === 'src/nested')
+        ?.children?.map((c) => c.path)
+    ).toEqual(['src/nested/deep.ts', 'src/nested/added.ts']);
+    // Untouched sibling keeps identity.
+    expect(next.find((n) => n.path === 'lib')).toBe(sibling);
   });
 });

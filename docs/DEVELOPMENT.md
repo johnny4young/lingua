@@ -294,6 +294,7 @@ Smoke-only environment knobs:
 | ---- | ------- |
 | `LINGUA_SMOKE_TIMEOUT_MS` | Overrides the smoke watchdog timeout. Release CI uses this for slow first boot of signed/notarized macOS apps. |
 | `LINGUA_SMOKE_ARTIFACT_DIR` | Artifact directory passed from the smoke runner into the Electron app. Defaults under `output/playwright/desktop-smoke`. |
+| `LINGUA_SMOKE_USER_DATA_DIR` | Artifact-local userData directory set by the desktop and Stagewright smoke harnesses so they do not contend with an already-open installed Lingua.app for the single-instance lock. |
 | `LINGUA_DESKTOP_SMOKE_OFFLINE` | Equivalent to the `--offline` flag; blocks non-loopback network requests in the desktop smoke run. |
 | `LINGUA_DESKTOP_SMOKE_PACKAGED_SUBSET` | Internal packaged-smoke subset flag set by `scripts/run-desktop-smoke.mjs`; do not set manually unless debugging that harness. |
 

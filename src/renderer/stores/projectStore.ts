@@ -24,22 +24,27 @@ import { createMigrate } from './persistence/migrationRegistry';
 import { languageFromPath } from '../utils/language';
 import {
   asRelativePath,
+  type RelativePath,
   type RootId,
   type WatchId,
 } from '../../shared/fs/brandedIds';
 import {
   addNodeToParent,
+  buildNodeIndex,
   collapseAll,
   collectExpandedPaths,
   depthOf,
   entriesToNodes,
+  isLoadedDirectory,
   joinPath,
   loadNodesForDirectory,
   MAX_TREE_EXPANSION_DEPTH,
+  parentRelativeOf,
   removeNode,
   renameNode,
   setNodeChildren,
   toggleExpanded,
+  updateChildrenAtPath,
   type FileTreeNode,
 } from './projectTree';
 import { useUIStore } from './uiStore';
@@ -78,10 +83,39 @@ export interface ActiveProject extends RecentProject {
   rootId: RootId;
 }
 
+/**
+ * RL-146 / AUDIT-26 — a single coalesced filesystem-watch event handed
+ * to `applyWatchChanges`. Shaped as a subset of the ambient
+ * `FsChangedEvent` so the watcher hook can forward events directly.
+ *
+ * - `relativePath` — the changed entry's path (or, when the platform
+ *   drops the filename under load, the parent directory it aggregates
+ *   to; see `filename`).
+ * - `eventType` — `'change'` for content modification (no tree-structure
+ *   delta — skipped by the delta refresh) or `'rename'` for
+ *   create / delete / move (re-reads the containing directory).
+ * - `filename` — `null` when the platform aggregated the event to the
+ *   parent directory; in that case `relativePath` IS that directory.
+ */
+export interface WatchChange {
+  relativePath: string;
+  eventType: string;
+  filename: string | null;
+}
+
 interface ProjectState {
   currentProject: ActiveProject | null;
   recentProjects: RecentProject[];
   nodes: FileTreeNode[];
+  /**
+   * RL-146 / AUDIT-26 — flat `path -> node` index over `nodes`, rebuilt
+   * on every node commit (a pure derivation, so it never drifts). Gives
+   * the watcher delta refresh O(1) loaded-directory lookups instead of
+   * walking the whole tree per event. Never persisted (see `partialize`)
+   * and never written to directly — always commit via the internal
+   * `withNodeIndex` helper.
+   */
+  nodeIndex: Map<RelativePath, FileTreeNode>;
   watchId: WatchId | null;
 
   // Project lifecycle
@@ -89,6 +123,16 @@ interface ProjectState {
   openProject: (rootPath?: string) => Promise<void>;
   closeProject: () => void;
   refreshTree: () => Promise<void>;
+  /**
+   * RL-146 / AUDIT-26 — delta refresh for a coalesced burst of watch
+   * events. Re-reads from disk ONLY the loaded directories that actually
+   * changed (skipping pure file-content `'change'` events, whose content
+   * is handled by the reload-from-disk notice), preserving each branch's
+   * expansion and the object identity of untouched sibling subtrees so
+   * React re-renders O(branch) not O(N). `refreshTree` stays the full
+   * walk for boot / manual refresh / restart.
+   */
+  applyWatchChanges: (changes: readonly WatchChange[]) => Promise<void>;
 
   // Tree navigation
   expandDirectory: (relativePath: string) => Promise<void>;
@@ -130,6 +174,20 @@ function pushDepthLimitNoticeOnce(): void {
   });
 }
 
+/**
+ * RL-146 / AUDIT-26 — commit a new node tree together with its
+ * freshly-derived path index. The index is a pure derivation of `nodes`
+ * (rebuilt on every commit, so it can never drift) that gives the
+ * watcher delta refresh O(1) loaded-directory lookups. Spread the result
+ * into the `set` payload alongside any other fields being updated.
+ */
+function withNodeIndex(nodes: FileTreeNode[]): {
+  nodes: FileTreeNode[];
+  nodeIndex: Map<RelativePath, FileTreeNode>;
+} {
+  return { nodes, nodeIndex: buildNodeIndex(nodes) };
+}
+
 // ----------------------------------------------------------------- store
 
 export const useProjectStore = create<ProjectState>()(
@@ -138,6 +196,7 @@ export const useProjectStore = create<ProjectState>()(
       currentProject: null,
       recentProjects: [],
       nodes: [],
+      nodeIndex: new Map<RelativePath, FileTreeNode>(),
       watchId: null,
 
       // --------------------------------------------------------- lifecycle
@@ -196,7 +255,6 @@ export const useProjectStore = create<ProjectState>()(
 
         set((s) => ({
           currentProject: project,
-          nodes,
           watchId: newWatchId,
           recentProjects: [
             persistedRecent,
@@ -204,6 +262,7 @@ export const useProjectStore = create<ProjectState>()(
               .filter((p) => p.id !== persistedRecent.id)
               .slice(0, 9),
           ],
+          ...withNodeIndex(nodes),
         }));
       },
 
@@ -273,7 +332,6 @@ export const useProjectStore = create<ProjectState>()(
 
         set((s) => ({
           currentProject: project,
-          nodes,
           watchId: newWatchId,
           recentProjects: [
             persistedRecent,
@@ -281,6 +339,7 @@ export const useProjectStore = create<ProjectState>()(
               .filter((p) => p.id !== persistedRecent.id)
               .slice(0, 9),
           ],
+          ...withNodeIndex(nodes),
         }));
       },
 
@@ -292,7 +351,7 @@ export const useProjectStore = create<ProjectState>()(
         if (currentProject) {
           window.lingua.fs.revokeRoot(currentProject.rootId).catch(() => {});
         }
-        set({ currentProject: null, nodes: [], watchId: null });
+        set({ currentProject: null, watchId: null, ...withNodeIndex([]) });
       },
 
       refreshTree: async () => {
@@ -300,13 +359,67 @@ export const useProjectStore = create<ProjectState>()(
         if (!currentProject) return;
         // Preserve expansion by relative path, then rebuild those subtrees from
         // disk. The store deliberately reuses rootId, never absolute paths.
+        // This is the full-walk path kept for boot / manual refresh / restart;
+        // the watcher hot path uses applyWatchChanges (RL-146 / AUDIT-26).
         const expandedPaths = new Set(collectExpandedPaths(nodes));
         const nextNodes = await loadNodesForDirectory(
           currentProject.rootId,
           asRelativePath(''),
           expandedPaths
         );
-        set({ nodes: nextNodes });
+        set(withNodeIndex(nextNodes));
+      },
+
+      applyWatchChanges: async (changes) => {
+        const { currentProject, nodes, nodeIndex } = get();
+        if (!currentProject || changes.length === 0) return;
+
+        // Resolve the set of currently-loaded directories whose children
+        // must be re-read from disk. Pure file 'change' events carry no
+        // structural delta — their content is handled by the
+        // reload-from-disk notice — so they are skipped here (the biggest
+        // real-world win: a formatter touching N files no longer re-walks
+        // the tree). 'rename' events (create / delete / move) re-read only
+        // the containing directory's branch. A 'change' on a known
+        // DIRECTORY is treated as structural, since some platforms report
+        // directory-level changes that way.
+        const dirsToRefresh = new Set<string>();
+        for (const change of changes) {
+          if (change.eventType === 'change') {
+            const node = nodeIndex.get(asRelativePath(change.relativePath));
+            if (!node || !node.isDirectory) continue; // file content → no tree work
+            dirsToRefresh.add(change.relativePath);
+            continue;
+          }
+          // When the platform drops the filename (e.g. inotify under load)
+          // the payload already aggregates to the parent directory.
+          const dir = change.filename
+            ? parentRelativeOf(change.relativePath)
+            : change.relativePath;
+          dirsToRefresh.add(dir);
+        }
+        if (dirsToRefresh.size === 0) return;
+
+        // Re-read only the loaded directories that changed, preserving each
+        // branch's expansion. updateChildrenAtPath keeps untouched sibling
+        // subtrees' object identity, so React re-renders O(branch) not O(N).
+        const expandedPaths = new Set(collectExpandedPaths(nodes));
+        let nextNodes = nodes;
+        for (const dir of dirsToRefresh) {
+          if (!isLoadedDirectory(nodeIndex, dir)) continue; // unexpanded subtree
+          const children = await loadNodesForDirectory(
+            currentProject.rootId,
+            asRelativePath(dir),
+            expandedPaths
+          );
+          nextNodes =
+            dir === ''
+              ? children
+              : updateChildrenAtPath(nextNodes, dir, children);
+        }
+        if (nextNodes !== nodes) {
+          set(withNodeIndex(nextNodes));
+        }
       },
 
       // ---------------------------------------------------- tree navigation
@@ -329,19 +442,15 @@ export const useProjectStore = create<ProjectState>()(
           asRelativePath(relativePath)
         );
         const children = entriesToNodes(entries);
-        set((s) => ({
-          nodes: setNodeChildren(s.nodes, relativePath, children, true),
-        }));
+        set((s) => withNodeIndex(setNodeChildren(s.nodes, relativePath, children, true)));
       },
 
       collapseDirectory: (relativePath: string) => {
-        set((s) => ({
-          nodes: toggleExpanded(s.nodes, relativePath, false),
-        }));
+        set((s) => withNodeIndex(toggleExpanded(s.nodes, relativePath, false)));
       },
 
       collapseAllDirectories: () => {
-        set((s) => ({ nodes: collapseAll(s.nodes) }));
+        set((s) => withNodeIndex(collapseAll(s.nodes)));
       },
 
       // ------------------------------------------------------- file ops
@@ -362,9 +471,7 @@ export const useProjectStore = create<ProjectState>()(
           language: languageFromPath(name),
         };
 
-        set((s) => ({
-          nodes: addNodeToParent(s.nodes, parentRelativePath, node),
-        }));
+        set((s) => withNodeIndex(addNodeToParent(s.nodes, parentRelativePath, node)));
 
         return fileRelativePath;
       },
@@ -386,9 +493,7 @@ export const useProjectStore = create<ProjectState>()(
           isExpanded: false,
         };
 
-        set((s) => ({
-          nodes: addNodeToParent(s.nodes, parentRelativePath, node),
-        }));
+        set((s) => withNodeIndex(addNodeToParent(s.nodes, parentRelativePath, node)));
       },
 
       deleteEntry: async (relativePath: string, isDirectory: boolean) => {
@@ -401,7 +506,7 @@ export const useProjectStore = create<ProjectState>()(
           getActiveAppLanguage()
         );
         if (deleted) {
-          set((s) => ({ nodes: removeNode(s.nodes, relativePath) }));
+          set((s) => withNodeIndex(removeNode(s.nodes, relativePath)));
         }
         return deleted;
       },
@@ -414,9 +519,11 @@ export const useProjectStore = create<ProjectState>()(
           asRelativePath(oldRelativePath),
           newName
         );
-        set((s) => ({
-          nodes: renameNode(s.nodes, oldRelativePath, newRelativePath, newName),
-        }));
+        set((s) =>
+          withNodeIndex(
+            renameNode(s.nodes, oldRelativePath, newRelativePath, newName)
+          )
+        );
         return newRelativePath;
       },
     }),

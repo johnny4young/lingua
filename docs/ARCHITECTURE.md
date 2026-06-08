@@ -275,6 +275,39 @@ Technical reason:
 
 - this gives the renderer a fresh snapshot from disk without collapsing the user's navigation context
 
+`refreshTree()` is the **full walk**, kept for boot (rehydrate with a
+persisted project), the manual refresh button, and restart. The
+filesystem watcher does **not** call it on every event — see
+`applyWatchChanges()` below.
+
+#### `applyWatchChanges(changes)`
+
+`applyWatchChanges()` is the watcher hot path (RL-146 / AUDIT-26). On a
+coalesced burst of `fs:changed` events it refreshes the tree
+incrementally instead of re-walking it:
+
+1. Pure file-content `'change'` events are skipped — the tree structure
+   is unchanged (the reload-from-disk notice handles open-file content),
+   so a formatter touching N files does zero tree work.
+2. `'rename'` events (create / delete / move), and `'change'` events on
+   a directory, resolve to the containing directory.
+3. Only the directories that are **currently loaded** (looked up in O(1)
+   via `nodeIndex`) are re-read, preserving each branch's expansion.
+4. `updateChildrenAtPath` replaces just that branch, keeping the object
+   identity of untouched sibling subtrees so React re-renders O(branch)
+   not O(N).
+
+`nodeIndex` is a flat `path -> node` map kept on the store. It is a pure
+derivation of `nodes`, rebuilt on every node commit (via the internal
+`withNodeIndex` helper) so it can never drift, and is never persisted.
+
+Technical reason:
+
+- a watch burst on a large project (e.g. `git checkout`) no longer
+  re-`readdir`s every expanded directory or re-allocates the whole tree;
+  the full walk stays available through `refreshTree()` for the paths
+  that genuinely need a rebuild.
+
 #### `closeProject()`
 
 This method:

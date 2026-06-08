@@ -16,6 +16,7 @@ const rendererConfigPath = path.join(repoRoot, 'vite.renderer.config.mts');
 const builtMainPath = path.join(repoRoot, '.vite', 'build', 'main.js');
 const builtPreloadPath = path.join(repoRoot, '.vite', 'build', 'preload.js');
 const artifactDir = path.join(repoRoot, 'output', 'stagewright', 'desktop-smoke');
+const smokeUserDataDir = path.join(artifactDir, 'user-data');
 const defaultRendererUrl = 'http://localhost:5174';
 // Default to the sibling-repo layout (../electron-stagewright) so the script is
 // portable instead of baking in one machine's home path. Override with
@@ -455,6 +456,7 @@ async function runStagewrightSmoke(options, rendererUrl) {
         cwd: repoRoot,
         env: {
           LINGUA_RENDERER_URL: rendererUrl,
+          LINGUA_SMOKE_USER_DATA_DIR: smokeUserDataDir,
         },
         readyTimeoutMs: 15_000,
       },
