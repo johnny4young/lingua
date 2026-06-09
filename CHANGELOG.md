@@ -4,6 +4,23 @@ All notable changes to Lingua are documented here.
 
 The format follows Keep a Changelog and groups changes by release.
 
+## [0.6.0] — 2026-06-08
+
+### Added
+- **Free developer utilities**: Every single-shot developer utility (JSON, Base64, URL, UUID, hash, timestamp, JWT, color, diff, beautify/minify, regex, and the rest) is now available on the Free tier. The advanced utility *workflows* — multi-step pipelines, history that persists across reloads, and clipboard-on-focus automation — remain Pro, each with an in-app unlock prompt.
+- **Deny-by-default desktop permissions**: The desktop shell now refuses Electron permission requests (camera, microphone, geolocation, and the like) by default, granting only the narrow clipboard access the app actually uses.
+
+### Changed
+- **Faster startup and large-session performance**: Monaco language providers and the developer-utility panels now load lazily, the console de-renders large output sessions (store-side collapse plus list windowing), and the project file-watcher refreshes only the directories that actually changed instead of re-walking the whole tree on every event.
+- **Safer persisted data**: The settings, license, and project stores are now schema-versioned with a migration registry, so upgrading across versions rehydrates saved state cleanly instead of dropping or corrupting it.
+
+### Security
+- **Branded filesystem capability ids**: Root, watch, and relative-path tokens are now nominally distinct types, turning an accidental capability swap at the IPC boundary into a compile-time error rather than a runtime confusion.
+- **Worker trust boundary**: The JavaScript worker's `AsyncFunction` execution path is documented and regression-tested to confirm that Node-only globals (`process`, `require`) stay unreachable from user code.
+
+### Fixed
+- **macOS automatic updates**: The update server now resolves the actual macOS release asset (the `Lingua-darwin-<arch>-<version>.zip` that electron-forge publishes), so packaged macOS builds receive updates again. Previously the server only matched a differently-ordered name, returned "no update," and silently stranded macOS users on the installed version. A regression test now locks the forge asset-name contract.
+
 ## [0.5.0] — 2026-05-31
 
 ### Added

@@ -40,7 +40,7 @@ The public pricing summary lives at [`linguacode.dev/pricing`](https://linguacod
 - Format-on-save via Prettier (JS/TS/JSON/CSS) plus desktop-only gofmt, rustfmt, and Python formatters (ruff preferred, black fallback).
 - Curated developer fonts with a ligature toggle, theme presets with versioned JSON export/import, persisted resizable shell layout with a compact-shell drawer for narrow widths, and a What's New overlay backed by [`CHANGELOG.md`](./CHANGELOG.md).
 - Built-in guided onboarding tour, customizable keyboard shortcuts with preset switching and JSON export/import, and `lingua://` deep links for `open`, `new`, and `snippet` entry points.
-- Commercial license-key infrastructure: Ed25519-signed offline-verifiable tokens, renderer store with active/grace/invalid states, and entitlement-based feature gating (Free ceilings of 1 tab / 5 snippets / JS-TS-Python).
+- Commercial license-key infrastructure: Ed25519-signed offline-verifiable tokens, renderer store with active/grace/invalid states, and entitlement-based feature gating. Free includes 1 open tab, 5 saved snippets, JavaScript/TypeScript/Python/Ruby, and every single-shot developer utility; Pro unlocks unlimited tabs and snippets, Go and Rust, and the utility workflows (multi-step pipelines, history that persists across reloads, and clipboard-on-focus automation).
 - Opt-in privacy-respecting telemetry and crash reporting, off by default, with an explicit allow-list redactor (never user code or file paths) and build-level kill switches.
 
 ## Runtime model
