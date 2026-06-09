@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { stripArgSeparator } from './lib/cli-args.mjs';
+import { isLinguaDarwinZipAsset } from './lib/darwinAsset.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,6 +63,31 @@ function resolveFeedUrl(baseUrl, platform, oldVersion) {
 }
 
 /**
+ * Best-effort extraction of the darwin ZIP filename from a (possibly signed)
+ * download URL. Returns the basename only when it looks like a darwin `.zip`
+ * asset, so opaque signed URLs that drop the filename are skipped rather than
+ * failed. Lets the live-feed checker apply the same filename contract the
+ * release-time guard enforces pre-publish.
+ *
+ * @param {string} url
+ * @returns {string | null}
+ */
+function extractDarwinAssetName(url) {
+  let base;
+  try {
+    const { pathname } = new URL(url);
+    // decodeURIComponent can throw on a stray `%` that `new URL` left intact,
+    // so keep it inside the best-effort guard — a weird URL skips the filename
+    // check and falls back to the version-reference check, never crashes.
+    base = decodeURIComponent(pathname.split('/').pop() ?? '');
+  } catch {
+    return null;
+  }
+  const lower = base.toLowerCase();
+  return lower.endsWith('.zip') && lower.includes('darwin') ? base : null;
+}
+
+/**
  * Validate the Squirrel.Mac JSON shape returned by `GET /update/darwin/*`.
  * The checker records human-readable evidence instead of downloading the asset;
  * release workflow checksum and mirror jobs verify payload bytes.
@@ -84,6 +110,18 @@ export function validateDarwinPayload(payload, expectedVersion = null) {
   }
   if (expectedVersion && !name.includes(expectedVersion) && !url.includes(expectedVersion)) {
     throw new Error(`darwin update payload does not reference ${expectedVersion}.`);
+  }
+  // RL-139 — when the signed URL still carries the asset filename, assert it
+  // honors the darwin update-asset contract shared with the release-time guard
+  // (scripts/lib/darwinAsset.mjs). Opaque signed URLs without a filename fall
+  // back to the version-reference check above.
+  if (expectedVersion) {
+    const assetName = extractDarwinAssetName(url);
+    if (assetName && !isLinguaDarwinZipAsset(assetName, expectedVersion)) {
+      throw new Error(
+        `darwin update asset ${assetName} does not match the update-feed filename contract for ${expectedVersion}.`
+      );
+    }
   }
   return { versionEvidence: name, assetEvidence: url };
 }

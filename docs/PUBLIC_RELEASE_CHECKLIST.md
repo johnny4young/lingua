@@ -4,6 +4,10 @@ Use this checklist before changing the GitHub repository visibility to public.
 It is intentionally separate from `RELEASE.md`: this file gates publication of
 the source repository, while `RELEASE.md` gates product binaries.
 
+> Release-binary signing is gated separately: see
+> [`RELEASE_SECURITY.md` § Signature chain](./RELEASE_SECURITY.md#signature-chain)
+> for the macOS/Windows signature chain and the fail-closed release gates.
+
 ## Current Repository State
 
 - GitHub repository visibility: private.

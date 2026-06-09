@@ -269,6 +269,18 @@ jobs:
           fi
           echo "Verified macOS ZIP artifacts in out/make"
 
+      # RL-139 / AUDIT-19 — fail closed if the published darwin .zip name
+      # cannot be matched by the update feed (update-server/src/darwinAsset.ts).
+      # The worker matcher is unit-tested; this asserts the actual built
+      # artifact honors the same contract, so a maker/name change can never
+      # again silently strand macOS auto-update (an unmatched asset returns
+      # 204, which Squirrel.Mac reads as "up to date"). RELEASE_TAG is the
+      # validated workflow_dispatch input; the script re-validates it is
+      # semver and strips the leading v.
+      - name: Assert darwin update-asset name
+        shell: bash
+        run: node ./scripts/assert-darwin-update-asset.mjs --root out/make --version "$RELEASE_TAG"
+
       - name: Verify macOS signing
         shell: bash
         run: |
@@ -290,6 +302,49 @@ jobs:
             echo "- Identity:"
             echo '```'
             grep '^Authority=' /tmp/lingua-codesign.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # RL-139 / AUDIT-19 — fail closed if the signed app was not also
+      # notarized + stapled. `Verify macOS signing` above proves the
+      # Developer ID signature; this proves Apple notarization, which
+      # Gatekeeper (and Squirrel.Mac on auto-update) require. The
+      # `Validate macOS signing inputs` step already hard-fails the job
+      # without the Apple secrets, so notarization is always expected
+      # here — verify it unconditionally rather than warn.
+      - name: Verify macOS notarization
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_bundle="$(find out -type d -name 'Lingua.app' -print -quit)"
+          if [[ -z "${app_bundle:-}" ]]; then
+            echo "::error::Could not find Lingua.app for macOS notarization verification"
+            exit 1
+          fi
+
+          # Deterministic hard gate: the stapled notarization ticket must
+          # be present and valid on the bundle. Captured to a log so the
+          # evidence survives in the run summary, not just the raw log.
+          stapler_log="$RUNNER_TEMP/lingua-stapler.txt"
+          xcrun stapler validate "$app_bundle" 2>&1 | tee "$stapler_log"
+
+          # Confirming hard gate: Gatekeeper accepts the bundle for
+          # execution. --verbose surfaces the source (Notarized Developer
+          # ID) in the log and the run summary.
+          spctl_log="$RUNNER_TEMP/lingua-spctl.txt"
+          spctl --assess --type execute --verbose=4 "$app_bundle" 2>&1 | tee "$spctl_log"
+
+          echo "macOS notarization verification: passed"
+          {
+            echo "### macOS notarization"
+            echo "- App bundle: \`$app_bundle\`"
+            echo "- Stapler:"
+            echo '```'
+            cat "$stapler_log"
+            echo '```'
+            echo "- Gatekeeper:"
+            echo '```'
+            cat "$spctl_log"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -554,6 +609,26 @@ jobs:
             echo "### Release checksums"
             echo "- Generated: \`out/make/SHA256SUMS.txt\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # RL-139 / AUDIT-19 — Linux deb/rpm are integrity-checked via
+      # SHA256SUMS.txt, not code-signed (Squirrel auto-update is macOS /
+      # Windows only). When a Linux build was selected, assert both
+      # packages actually landed in the manifest so a maker regression
+      # that produces zero packages cannot publish a Linux-less "Linux"
+      # release.
+      - name: Assert Linux packages are checksummed
+        if: ${{ inputs.release_linux }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sums="out/make/SHA256SUMS.txt"
+          for ext in deb rpm; do
+            if ! grep -qiE "\.${ext}([[:space:]]|\$)" "$sums"; then
+              echo "::error::No .${ext} entry found in ${sums}; the Linux build produced no ${ext} package"
+              exit 1
+            fi
+          done
+          echo "Verified .deb and .rpm entries in ${sums}"
 
       # RL-080 Slice 2 — re-verify SHA256SUMS.txt against the
       # public release payload as a defensive sanity check. The helper

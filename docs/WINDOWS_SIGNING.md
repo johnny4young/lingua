@@ -4,6 +4,11 @@ This guide covers direct-distribution Windows builds for Lingua. It does not
 change the repository license; it prepares signed Windows artifacts before a
 public Windows launch.
 
+> For how these signed artifacts fit the end-to-end update signature chain
+> (manifest → installer → on-disk binary) and the release-time gates that
+> enforce it, see
+> [`RELEASE_SECURITY.md` § Signature chain](./RELEASE_SECURITY.md#signature-chain).
+
 ## Prerequisites
 
 - A Windows code-signing strategy for Authenticode signatures.

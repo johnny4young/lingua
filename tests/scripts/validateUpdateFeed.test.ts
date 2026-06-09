@@ -29,7 +29,7 @@ describe('validate-update-feed', () => {
     expect(
       validateDarwinPayload(
         {
-          url: 'https://signed.example/Lingua-0.2.5-darwin.zip',
+          url: 'https://signed.example/Lingua-darwin-arm64-0.2.5.zip',
           name: 'Lingua v0.2.5',
           pub_date: '2026-05-07T00:00:00Z',
         },
@@ -37,7 +37,7 @@ describe('validate-update-feed', () => {
       )
     ).toEqual({
       versionEvidence: 'Lingua v0.2.5',
-      assetEvidence: 'https://signed.example/Lingua-0.2.5-darwin.zip',
+      assetEvidence: 'https://signed.example/Lingua-darwin-arm64-0.2.5.zip',
     });
   });
 
@@ -45,13 +45,28 @@ describe('validate-update-feed', () => {
     expect(() =>
       validateDarwinPayload(
         {
-          url: 'https://signed.example/Lingua-0.2.4-darwin.zip',
+          url: 'https://signed.example/Lingua-darwin-arm64-0.2.4.zip',
           name: 'Lingua v0.2.4',
           pub_date: '2026-05-07T00:00:00Z',
         },
         '0.2.5'
       )
     ).toThrow(/does not reference 0\.2\.5/u);
+  });
+
+  it('rejects darwin payloads whose asset filename breaks the update-feed contract', () => {
+    expect(() =>
+      validateDarwinPayload(
+        {
+          // References 0.2.5 (passes the version check) but the filename has no
+          // arch token, so it cannot match the Forge asset contract.
+          url: 'https://signed.example/Lingua-0.2.5-darwin.zip',
+          name: 'Lingua v0.2.5',
+          pub_date: '2026-05-07T00:00:00Z',
+        },
+        '0.2.5'
+      )
+    ).toThrow(/does not match the update-feed filename contract/u);
   });
 
   it('validates rewritten Windows RELEASES payloads', () => {
@@ -111,7 +126,7 @@ describe('validate-update-feed', () => {
       if (url.includes('/darwin/')) {
         return createResponse(
           JSON.stringify({
-            url: 'https://signed.example/Lingua-0.2.5-darwin.zip',
+            url: 'https://signed.example/Lingua-darwin-arm64-0.2.5.zip',
             name: 'Lingua v0.2.5',
             pub_date: '2026-05-07T00:00:00Z',
           }),
@@ -167,7 +182,7 @@ describe('validate-update-feed', () => {
             status: 200,
             ok: true,
             versionEvidence: 'Lingua v0.2.5',
-            assetEvidence: 'https://signed.example/Lingua-0.2.5-darwin.zip',
+            assetEvidence: 'https://signed.example/Lingua-darwin-arm64-0.2.5.zip',
           },
         ],
       })

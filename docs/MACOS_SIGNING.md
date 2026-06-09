@@ -4,6 +4,11 @@ This guide covers direct-distribution macOS builds for Lingua. It does not
 change the repository license; it prepares the signed desktop artifacts that
 the release workflow needs before a public macOS launch.
 
+> For how these signed artifacts fit the end-to-end update signature chain
+> (manifest → installer → on-disk binary) and the release-time gates that
+> enforce it, see
+> [`RELEASE_SECURITY.md` § Signature chain](./RELEASE_SECURITY.md#signature-chain).
+
 ## Prerequisites
 
 - Apple Developer Program membership for the release owner.
