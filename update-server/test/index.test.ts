@@ -419,6 +419,38 @@ describe('GET /update/:platform/:version (RL-080 Slice 1)', () => {
     expect(assetCall![1]).toMatchObject({ redirect: 'manual' });
   });
 
+  it('resolves the electron-forge darwin asset name (Lingua-darwin-<arch>-<version>.zip)', async () => {
+    // Regression lock for the macOS auto-update break: electron-forge
+    // MakerZIP publishes `Lingua-darwin-<arch>-<version>.zip` (verified
+    // against the published v0.5.0 release), NOT the legacy
+    // `lingua-<version>-darwin-<arch>.zip` ordering. A version-first-only
+    // matcher returned 204 for every real release, silently stranding
+    // packaged macOS builds on the old version.
+    const { mockCache } = createMockCacheStorage();
+    vi.stubGlobal('caches', { default: mockCache });
+    vi.stubGlobal(
+      'fetch',
+      buildUpdateFetchMock({
+        release: {
+          tag: 'v0.6.0',
+          assets: [
+            {
+              id: 77,
+              name: 'Lingua-darwin-arm64-0.6.0.zip',
+              downloadUrl: 'https://signed.example/forge-zip',
+            },
+          ],
+        },
+      })
+    );
+
+    const response = await callUpdate('darwin', '0.5.0');
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { url: string };
+    expect(body.url).toBe('https://signed.example/forge-zip');
+  });
+
   it('ignores Darwin zip assets that do not match the release versioned artifact name', async () => {
     const { mockCache } = createMockCacheStorage();
     vi.stubGlobal('caches', { default: mockCache });

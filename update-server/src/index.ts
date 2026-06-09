@@ -41,9 +41,16 @@ function releaseVersion(release: Pick<Release, 'tag_name'>): string {
 }
 
 function findDarwinZipAsset(release: Release): ReleaseAsset | undefined {
-  const version = releaseVersion(release);
+  const version = escapeRegExp(releaseVersion(release));
+  const arch = '(?:x64|arm64|universal)';
+  // electron-forge MakerZIP emits `Lingua-darwin-<arch>-<version>.zip`
+  // (the actual name on the GitHub release — verified against published
+  // tags). The legacy `lingua-<version>-darwin-<arch>.zip` ordering is
+  // also accepted so a maker/name change cannot silently strand macOS
+  // auto-update: an unmatched asset returns 204, which Squirrel.Mac reads
+  // as "up to date". Case-insensitive because the product name is `Lingua`.
   const pattern = new RegExp(
-    `^lingua-${escapeRegExp(version)}-darwin-(?:x64|arm64|universal)\\.zip$`,
+    `^lingua-(?:darwin-${arch}-${version}|${version}-darwin-${arch})\\.zip$`,
     'iu'
   );
   return release.assets.find(asset => pattern.test(asset.name));
